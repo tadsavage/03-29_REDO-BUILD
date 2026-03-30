@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9d4a424ad20b004597e7763388f6aab, type: 3}
+  m_Name: SoundLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::SoundDefinition
+  sounds:
+  - name: ValidPlace
+    clip: {fileID: 8300000, guid: 967d21b8bf9b1a347a27eb0d2bd668ef, type: 3}
+    volume: 0.5
+    pitch: 1
+  - name: InvalidPlace
+    clip: {fileID: 8300000, guid: 3e5b6f7451b357f40a0c6827ad28c7ae, type: 3}
+    volume: 0.25
+    pitch: 0.5
+  - name: ButtonClick
+    clip: {fileID: 8300000, guid: 7372b8ef29ff2424ebcc6fdb0fc81c01, type: 3}
+    volume: 1
+    pitch: 1
+  - name: Delete
+    clip: {fileID: 8300000, guid: bf7f3276351da434e9a4bad72d0b56b2, type: 3}
+    volume: 0.5
+    pitch: 0.75
+  - name: Rotate
+    clip: {fileID: 8300000, guid: 4ed1bff1401f4e44ba14c777304d4088, type: 3}
+    volume: 0.5
+    pitch: 1
+  - name: Cancel
+    clip: {fileID: 8300000, guid: ce4b9e047f138014aaab2d62d95fd377, type: 3}
+    volume: 1
+    pitch: 1

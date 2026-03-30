@@ -41,7 +41,7 @@ public class PlacementGrid: MonoBehaviour
     {
         if (Width < 1) Width = 1;
         if (Height < 1) Height = 1;
-        if (CellSize <= 0f) CellSize = 1.0f;
+        if (CellSize <= 0f) CellSize = 1.33f;
         InitializeGrid();
     }
 

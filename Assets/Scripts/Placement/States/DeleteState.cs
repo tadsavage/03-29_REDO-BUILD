@@ -1,23 +1,28 @@
-public class DeleteState : IState
+public class DeleteState : IPlacementState
 {
     private readonly PlacementActions _actions;
     private readonly PlacementFinalizer _finalizer;
-    private readonly StateMachine _fsm;
+    private readonly PlacementStateMachine _fsm;
 
     public DeleteState(
         PlacementActions actions,
         PlacementFinalizer finalizer,
-        StateMachine fsm)
+        PlacementStateMachine fsm)
     {
         _actions = actions;
         _finalizer = finalizer;
         _fsm = fsm;
     }
 
-    public void Enter()
+    public bool IsPlacementState
+    {
+        get { return true; }
+    }
+
+    public void OnEnter()
     {
         // Highlight deletable objects
-        // Subscribe to delete click
+        // Subscribe to delete input
     }
 
     public void Tick()
@@ -26,7 +31,7 @@ public class DeleteState : IState
         // Show highlight
     }
 
-    public void Exit()
+    public void OnExit()
     {
         // Remove highlight
         // Unsubscribe input

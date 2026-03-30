@@ -1,14 +1,12 @@
-using UnityEngine;
-using UnityEngine.UIElements;
-
-public class BuildState : IState
+public class BuildState : IPlacementState
 {
+    private ObjDataSO _currentData;
     private readonly PlacementActions _actions;
     private readonly PreviewController _preview;
     private readonly PlacementValidator _validator;
     private readonly PlacementFinalizer _finalizer;
     private readonly PlacementGrid _grid;
-    private readonly StateMachine _fsm;
+    private readonly PlacementStateMachine _fsm;
 
     public BuildState(
         PlacementActions actions,
@@ -16,7 +14,7 @@ public class BuildState : IState
         PlacementValidator validator,
         PlacementFinalizer finalizer,
         PlacementGrid grid,
-        StateMachine fsm)
+        PlacementStateMachine fsm)
     {
         _actions = actions;
         _preview = preview;
@@ -25,8 +23,12 @@ public class BuildState : IState
         _grid = grid;
         _fsm = fsm;
     }
+    public bool IsPlacementState
+    {
+        get { return true; }
+    }
 
-    public void Enter()
+    public void OnEnter()
     {
         // Show ghost
         // Subscribe to place input
@@ -39,9 +41,14 @@ public class BuildState : IState
         // Detect drag start (optional later)
     }
 
-    public void Exit()
+    public void OnExit()
     {
         // Hide ghost
         // Unsubscribe input
     }
+    public void SetData(ObjDataSO data)
+    {   // Store the data for use in placement logic
+        _currentData = data;
+    }
+
 }

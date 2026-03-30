@@ -1,17 +1,12 @@
-public class IdleState : IState
+public class IdleState : IPlacementState
 {
-    public void Enter()
+    public bool IsPlacementState
     {
-        // Show nothing, wait for mode selection
+        get { return false; }
     }
 
-    public void Tick()
-    {
-        // Idle logic (rarely needed)
-    }
-
-    public void Exit()
-    {
-        // Cleanup if needed
-    }
+    public void OnEnter() { }
+    public void Tick() { }
+    public void OnExit() { }
 }
+
