@@ -108,7 +108,9 @@ public class RaycastController : MonoBehaviour
     private void UpdateGridCell()
     {
         if (!HasHit) return;
+
         HitCell = grid.WorldToCell(HitPoint);
+
     }
 }
 

@@ -871,27 +871,27 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1
+      value: 1.1
       objectReference: {fileID: 0}
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.01
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1
+      value: 1.1
       objectReference: {fileID: 0}
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 0.66
       objectReference: {fileID: 0}
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -1
       objectReference: {fileID: 0}
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 0.66
       objectReference: {fileID: 0}
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalRotation.w
@@ -923,7 +923,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6967227226641943453, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_Name
-      value: PlacementCursor
+      value: CellIndicator
       objectReference: {fileID: 0}
     - target: {fileID: 6967227226641943453, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_Layer
@@ -1462,8 +1462,8 @@ Transform:
   m_GameObject: {fileID: 2094211282}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 3, y: 1, z: 3}
+  m_LocalPosition: {x: 0, y: 0.02, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -1480,10 +1480,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cfb5ab7508bf01e478c2d8c4ae9e9222, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlacementGrid
-  CellSize: 1.33
+  CellSize: 1.325
   Width: 20
   Height: 20
-  Origin: {x: -11, y: 0.025, z: -11}
+  Origin: {x: -14.6, y: 0, z: -14.6}
   UseVisualizer: 1
   CellMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
   VisualParent: {fileID: 2094211283}

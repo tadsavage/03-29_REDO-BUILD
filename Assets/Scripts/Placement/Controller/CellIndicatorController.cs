@@ -8,8 +8,7 @@ public class CellIndicatorController : MonoBehaviour
     public void ShowAtCell(Vector2Int cell)
     {
         indicatorQuad.SetActive(true);
-        indicatorQuad.transform.position = grid.CellToWorld(cell);
-        Debug.Log($"Indicator world pos = {indicatorQuad.transform.position}");
+        indicatorQuad.transform.position = grid.GetCellCenter(cell);
     }
 
     public void Hide()
