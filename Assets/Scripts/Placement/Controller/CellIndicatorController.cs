@@ -10,8 +10,6 @@ public class CellIndicatorController : MonoBehaviour
         indicatorQuad.SetActive(true);
         indicatorQuad.transform.position = grid.CellToWorld(cell);
         Debug.Log($"Indicator world pos = {indicatorQuad.transform.position}");
-
-
     }
 
     public void Hide()
