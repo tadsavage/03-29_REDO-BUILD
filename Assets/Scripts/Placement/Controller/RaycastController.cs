@@ -37,8 +37,8 @@ public class RaycastController : MonoBehaviour
     {
         lineRenderer.enabled = false;
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        //Cursor.lockState = CursorLockMode.None;
+        //Cursor.visible = true;
 
         HasHit = false;
     }
@@ -80,9 +80,6 @@ public class RaycastController : MonoBehaviour
 
         if (Physics.Raycast(ray, out RaycastHit hit, rayLength, groundMask))
         {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-
             HasHit = true;
             HitPoint = hit.point;
         }
