@@ -26,12 +26,11 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8307673107677432733}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 6479991072020745905}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3869634203096315846
@@ -46,9 +45,9 @@ MonoBehaviour:
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
-  m_PanelSettings: {fileID: 11400000, guid: cedee93d39e6e1b45983aa4f741a5ee2, type: 2}
+  m_PanelSettings: {fileID: 11400000, guid: e2fc98d7cf486f240a17690f369c5cfd, type: 2}
   m_ParentUI: {fileID: 0}
-  sourceAsset: {fileID: 9197481963319205126, guid: bf19f0ed7a4937f48b4b703b542c1b18, type: 3}
+  sourceAsset: {fileID: 9197481963319205126, guid: b13a9c1114dca0b46a7da8963639dd6d, type: 3}
   m_SortingOrder: 0
   m_Position: 0
   m_WorldSpaceSizeMode: 1
@@ -69,44 +68,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94d2d13d53e719c47b5c69613595aa20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildBarEvents
-  pallet: {fileID: 0}
-  cases: {fileID: 0}
-  halfRack: {fileID: 0}
-  fullRack: {fileID: 0}
-  worker: {fileID: 0}
-  dS: {fileID: 0}
-  pJ: {fileID: 0}
-  rT: {fileID: 0}
-  singleCase: {fileID: 0}
-  erase: {fileID: 0}
---- !u!1 &8475788866658646948
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 6479991072020745905}
-  m_Layer: 2
-  m_Name: UI
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &6479991072020745905
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8475788866658646948}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2387541477956327113}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  fsm: {fileID: 0}
+  data: {fileID: 11400000, guid: 52e4add3f2755f04889e2bcfb0429428, type: 2}
