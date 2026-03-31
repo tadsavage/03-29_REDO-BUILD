@@ -78,7 +78,7 @@ public class PlacementGrid: MonoBehaviour
     public Vector3 GetCellCenter(Vector2Int cell)
     {
         Vector3 corner = CellToWorld(cell);
-        return corner + new Vector3(CellSize * 0.5f, 0.05f, CellSize * 0.5f);
+        return corner + new Vector3(CellSize * 0.5f, 0.0f, CellSize * 0.5f);
     }
 
     public bool IsInside(Vector2Int cell)

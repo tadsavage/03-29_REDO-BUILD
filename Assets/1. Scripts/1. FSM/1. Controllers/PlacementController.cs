@@ -15,7 +15,6 @@ public class PlacementController : MonoBehaviour
     private void Awake()
     {
         _actions = new PlacementActions();
-        Debug.Log("PlacementController using FSM instance: " + _fsm);
         // Listen for the UI being ready
         _buildBarBinder.OnBuildBarReady += HandleBuildBarReady;
         // Listen for button clicks on the Build Bar
@@ -44,8 +43,6 @@ public class PlacementController : MonoBehaviour
     }
     private void HandleBuildButtonClicked(ObjDataSO data)
     {
-        Debug.Log("CLICK HANDLER: Using FSM instance: " + _fsm);
-        Debug.Log("CLICK HANDLER: Calling SetState(BuildState)");
         AudioManager.Play("ButtonClick");
         // Set the build data in the FSM so that RaycastState can access it
         _fsm.BuildState.SetBuildData(data);

@@ -33,7 +33,6 @@ public class PlacementStateMachine : MonoBehaviour
 
     private void Awake()
     {
-        Debug.Log("FSM Awake: " + this);
         // Core systems
         RaycastController raycast = Object.FindFirstObjectByType<RaycastController>();
         CellIndicatorController indicator = Object.FindFirstObjectByType<CellIndicatorController>();
@@ -57,7 +56,6 @@ public class PlacementStateMachine : MonoBehaviour
 
     public void SetState(IPlacementState newState)
     {
-        Debug.Log("FSM switching from " + _currentState + " to " + newState);
         if (_currentState != null)
             _currentState.OnExit();
 

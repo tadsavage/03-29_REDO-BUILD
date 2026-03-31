@@ -7,6 +7,6 @@ public class IdleState : IPlacementState
 
     public void OnEnter() { }
     public void Tick() { }
-    public void OnExit() { UnityEngine.Debug.Log("IdleState.OnExit fired"); }
+    public void OnExit() { }
 }
 

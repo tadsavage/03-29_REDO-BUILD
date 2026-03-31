@@ -42,11 +42,8 @@ public class BuildState : IPlacementState
     {
         if (_currentData == null)
         {
-            Debug.LogError("BuildState entered with NO build data!");
             return;
-        }
-        Debug.Log($"Entered BuildState with: {_currentData.objName}");
-        
+        }        
         _raycast.EnableRay();
 
         // Show preview ghost
@@ -61,10 +58,12 @@ public class BuildState : IPlacementState
         {
             // Move Cell Indicator
             _indicator.ShowAtCell(_raycast.HitCell);
-
             // Move preview ghost
-            Vector3 worldPos = _grid.CellToWorld(_raycast.HitCell);
-            _preview.MoveTo(worldPos);
+            //_preview.MoveTo(_raycast.HitPoint);
+
+            //OLD WAY - Move preview ghost to cell center
+            //Vector3 worldPos = _grid.CellToWorld(_raycast.HitCell);
+            _preview.MoveTo(_grid.GetCellCenter(_raycast.HitCell));
         }
         else
         {
@@ -72,11 +71,8 @@ public class BuildState : IPlacementState
             _preview.Hide();
         }
     }
-
     public void OnExit()
     {
-        // Hide ghost
-        // Unsubscribe input
         _raycast.DisableRay();
         _indicator.Hide();
         _preview.Hide();
