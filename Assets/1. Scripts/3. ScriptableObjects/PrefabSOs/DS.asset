@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
+  m_Name: DS
+  m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
+  objName: Dockstocker
+  cost: 2000
+  hourlyCost: 25
+  footprint: {x: 1, y: 2}
+  cell: {x: 0, y: 0}
+  worldLocation: {x: 0, y: 0, z: 0}
+  height: 2
+  prefab: {fileID: 5466306526729341357, guid: 1c5103310fe850740a7f0a4af406839a, type: 3}
+  icon: {fileID: 2800000, guid: 538f1a25c503f644789758b11084ba4d, type: 3}
+  isStackable: 0

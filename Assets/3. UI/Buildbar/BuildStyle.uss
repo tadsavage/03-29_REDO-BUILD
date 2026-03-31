@@ -1,0 +1,116 @@
+:root {
+    align-self: auto;
+    width: auto;
+    height: auto;
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+}
+
+.header {
+    align-self: center;
+    width: 500px;
+    height: 200px;
+    -unity-background-image-tint-color: rgba(255, 38, 38, 0);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-top-width: 5px;
+    border-right-width: 5px;
+    border-bottom-width: 5px;
+    border-left-width: 5px;
+    font-size: 36px;
+    -unity-font-style: bold;
+    -unity-font-definition: url("project://database/Assets/3.%20UI/kenney_UI/Font/Kenney%20Future.ttf?fileID=12800000&guid=07c5af3b06bdb1042b46f6981eb55afb&type=3#Kenney Future");
+    color: rgb(94, 186, 250);
+    -unity-text-align: upper-center;
+    white-space: nowrap;
+    text-shadow: 0.25px 0.25px 1px rgba(0, 0, 0, 0);
+    transition-duration: 0.5s;
+    align-items: auto;
+    justify-content: flex-start;
+}
+
+.header:hover {
+    scale: 1.05 1.05;
+    -unity-background-image-tint-color: rgb(255, 0, 0);
+}
+
+.button {
+    transition-duration: 0.35s;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    scale: 1 1;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    width: 105px;
+    height: 110px;
+    font-size: 24px;
+    -unity-font-style: bold;
+    -unity-font-definition: url("project://database/Library/unity%20default%20resources?fileID=10102&guid=0000000000000000e000000000000000&type=0#LegacyRuntime");
+    color: rgb(66, 148, 69);
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1px;
+    letter-spacing: 7px;
+    -unity-background-image-tint-color: rgb(214, 228, 227);
+    background-image: url("project://database/Assets/3.%20UI/kenney_UI/PNG/Extra/Double/panel_glass_screws.png?fileID=2800000&guid=734d72063a4c4634691f91f815b624a1&type=3#panel_glass_screws");
+    background-color: rgb(255, 255, 255);
+    -unity-text-outline-color: rgb(114, 167, 101);
+    white-space: pre;
+    padding-top: 0;
+    margin-top: 0;
+    -unity-slice-left: 38;
+    -unity-slice-top: 38;
+    -unity-slice-right: 38;
+    -unity-slice-bottom: 38;
+    -unity-slice-scale: -2px;
+    -unity-slice-type: sliced;
+    border-left-color: rgb(26, 60, 122);
+    border-right-color: rgb(26, 60, 122);
+    border-top-color: rgb(26, 60, 122);
+    border-bottom-color: rgb(26, 60, 122);
+    border-top-width: 5px;
+    border-right-width: 5px;
+    border-bottom-width: 5px;
+    border-left-width: 5px;
+    transition-timing-function: ease-in-out;
+}
+
+.button:hover {
+    scale: 1.1 1.1;
+    -unity-background-image-tint-color: rgb(247, 218, 220);
+}
+
+.thumbnail {
+    top: 18px;
+    width: 75px;
+    height: 75px;
+    align-self: center;
+    background-image: url("project://database/Assets/11.%20Artwork/ChepThumbnail.png?fileID=2800000&guid=e30c9e59dd6a6834a8ce401323db4ab3&type=3#ChepThumbnail");
+    display: flex;
+    background-position-x: center;
+    -unity-slice-type: tiled;
+}
+
+.label {
+    flex-direction: column;
+    width: 100px;
+    margin-right: 7px;
+}
+
+.Image {
+    background-image: none;
+}
+
+.UtilityButtons {
+    -unity-font-definition: url("project://database/Library/unity%20default%20resources?fileID=10102&guid=0000000000000000e000000000000000&type=0#LegacyRuntime");
+    -unity-font-style: bold;
+    letter-spacing: -6px;
+    color: rgb(22, 63, 146);
+    -unity-text-align: middle-center;
+    background-color: rgb(0, 0, 0);
+    font-size: 27px;
+    text-shadow: 3px 3px 0 rgba(0, 0, 0, 0);
+}
