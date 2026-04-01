@@ -506,14 +506,14 @@ LineRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 598320929
   m_SortingLayer: 1
-  m_SortingOrder: 100
+  m_SortingOrder: 200
   m_MaskInteraction: 0
   m_Positions:
   - {x: 0, y: 0, z: 0}
   - {x: 0, y: 0, z: 1}
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.05
+    widthMultiplier: 0.02
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -701,7 +701,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CellIndicatorController
   indicatorQuad: {fileID: 1637072601}
   grid: {fileID: 2094211284}
-  yOffset: 0.1
+  yOffset: 0.05
 --- !u!1 &1160879794
 GameObject:
   m_ObjectHideFlags: 0
@@ -891,15 +891,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1.1
+      value: 1.2
       objectReference: {fileID: 0}
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1.1
+      value: 1.2
       objectReference: {fileID: 0}
     - target: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1380,6 +1380,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 8
   _grid: {fileID: 2094211284}
+  _line: {fileID: 959959391}
+  _visualizeRay: 1
 --- !u!1 &2040878056
 GameObject:
   m_ObjectHideFlags: 0
