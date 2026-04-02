@@ -1,24 +1,24 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <Style src="project://database/Assets/3.%20UI/Buildbar/BuildStyle.uss?fileID=7433441132597879392&amp;guid=568069554c49fef43bb3b5a0325b2963&amp;type=3#BuildStyle"/>
-    <ui:VisualElement name="Container" tooltip="" enabled="true" picking-mode="Position" usage-hints="None" style="flex-grow: 1; -unity-background-image-tint-color: rgba(255, 255, 255, 0); background-color: rgba(255, 255, 255, 0); top: auto; align-items: flex-end; justify-content: flex-end; align-self: stretch; flex-direction: row; background-image: none; align-content: auto; border-top-width: 5px; border-right-width: 5px; border-bottom-width: 5px; border-left-width: 5px; border-left-color: rgb(0, 0, 0); border-right-color: rgb(0, 0, 0); border-top-color: rgb(0, 0, 0); border-bottom-color: rgb(0, 0, 0); width: auto; height: auto;">
-        <ui:VisualElement name="BuildPanelBackGround" picking-mode="Position" style="flex-grow: 1; flex-direction: row; align-items: auto; justify-content: flex-end; width: auto; height: 124px; -unity-background-image-tint-color: rgba(255, 255, 255, 0); background-color: rgb(79, 115, 138); border-top-left-radius: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-bottom-left-radius: 0; background-image: url(&quot;project://database/Assets/3.%20UI/kenney_UI/PNG/Extra/Double/panel_rectangle_screws.png?fileID=2800000&amp;guid=c1fad662a20b971408eaf5cf0be56d21&amp;type=3#panel_rectangle_screws&quot;); border-left-color: rgb(15, 17, 18); border-right-color: rgb(15, 17, 18); border-top-color: rgb(15, 17, 18); border-bottom-color: rgb(15, 17, 18); border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;">
-            <ui:Button text="0" name="0" parse-escape-sequences="false" picking-mode="Position" data-source="" data-source-path="" class="button" style="-unity-font-definition: url(&quot;project://database/Library/unity%20default%20resources?fileID=10102&amp;guid=0000000000000000e000000000000000&amp;type=0#LegacyRuntime&quot;); -unity-font-style: bold;">
+    <ui:VisualElement name="Container" tooltip="" enabled="true" picking-mode="Ignore" usage-hints="None" style="flex-grow: 1; -unity-background-image-tint-color: rgba(255, 255, 255, 0); background-color: rgba(255, 255, 255, 0); top: auto; align-items: flex-end; justify-content: flex-end; align-self: stretch; flex-direction: row; background-image: none; align-content: auto; border-top-width: 5px; border-right-width: 5px; border-bottom-width: 5px; border-left-width: 5px; border-left-color: rgb(0, 0, 0); border-right-color: rgb(0, 0, 0); border-top-color: rgb(0, 0, 0); border-bottom-color: rgb(0, 0, 0); width: auto; height: auto;">
+        <ui:VisualElement name="BuildPanelBackGround" picking-mode="Ignore" style="flex-grow: 1; flex-direction: row; align-items: auto; justify-content: flex-end; width: auto; height: 124px; -unity-background-image-tint-color: rgba(255, 255, 255, 0); background-color: rgb(79, 115, 138); border-top-left-radius: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-bottom-left-radius: 0; background-image: url(&quot;project://database/Assets/3.%20UI/kenney_UI/PNG/Extra/Double/panel_rectangle_screws.png?fileID=2800000&amp;guid=c1fad662a20b971408eaf5cf0be56d21&amp;type=3#panel_rectangle_screws&quot;); border-left-color: rgb(15, 17, 18); border-right-color: rgb(15, 17, 18); border-top-color: rgb(15, 17, 18); border-bottom-color: rgb(15, 17, 18); border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;">
+            <ui:Button text="0" name="0" parse-escape-sequences="false" picking-mode="Ignore" data-source="" data-source-path="" class="button" style="-unity-font-definition: url(&quot;project://database/Library/unity%20default%20resources?fileID=10102&amp;guid=0000000000000000e000000000000000&amp;type=0#LegacyRuntime&quot;); -unity-font-style: bold;">
                 <ui:Image name="Pallet" data-source="" data-source-path="" class="thumbnail Image" style="background-image: none;"/>
             </ui:Button>
-            <ui:Button text="1" name="1" parse-escape-sequences="false" picking-mode="Position" data-source="" data-source-path="" class="button" style="-unity-font-definition: url(&quot;project://database/Library/unity%20default%20resources?fileID=10102&amp;guid=0000000000000000e000000000000000&amp;type=0#LegacyRuntime&quot;); -unity-font-style: bold;">
+            <ui:Button text="1" name="1" parse-escape-sequences="false" picking-mode="Ignore" data-source="" data-source-path="" class="button" style="-unity-font-definition: url(&quot;project://database/Library/unity%20default%20resources?fileID=10102&amp;guid=0000000000000000e000000000000000&amp;type=0#LegacyRuntime&quot;); -unity-font-style: bold;">
                 <ui:Image name="Pallet" data-source="" data-source-path="" class="thumbnail Image" style="background-image: none; -unity-font-style: bold;"/>
             </ui:Button>
             <ui:Button text="2" name="2" picking-mode="Position" class="button">
-                <ui:Image name="Cases" data-source="project://database/Assets/1.%20Scripts/3.%20ScriptableObjects/PrefabSOs/LoadedPallet.asset?fileID=11400000&amp;guid=7e72ebad78afd1248847261e2020f27c&amp;type=2#LoadedPallet" data-source-path="prefab" class="thumbnail Image" style="background-image: none;"/>
+                <ui:Image name="Cases" data-source="project://database/Assets/1.%20Scripts/3.%20ScriptableObjects/PrefabSOs/LoadedPallet.asset?fileID=11400000&amp;guid=7e72ebad78afd1248847261e2020f27c&amp;type=2#LoadedPallet" data-source-path="prefab" picking-mode="Position" class="thumbnail Image" style="background-image: none;"/>
             </ui:Button>
             <ui:Button text="3" name="3" picking-mode="Position" class="button" style="justify-content: flex-start; align-self: auto; flex-direction: column; align-items: auto; -unity-text-align: middle-center;">
-                <ui:Image name="HalfRack" class="thumbnail Image" style="background-image: none;"/>
+                <ui:Image name="HalfRack" picking-mode="Position" class="thumbnail Image" style="background-image: none;"/>
             </ui:Button>
             <ui:Button text="4" name="4" picking-mode="Position" class="button">
-                <ui:Image name="FullRack" class="thumbnail Image" style="background-image: none;"/>
+                <ui:Image name="FullRack" picking-mode="Position" class="thumbnail Image" style="background-image: none;"/>
             </ui:Button>
             <ui:Button text="5" name="5" picking-mode="Position" class="button">
-                <ui:Image name="Worker" class="thumbnail Image" style="background-image: none;"/>
+                <ui:Image name="Worker" picking-mode="Ignore" class="thumbnail Image" style="background-image: none;"/>
             </ui:Button>
             <ui:Button text="6" name="6" picking-mode="Position" class="button">
                 <ui:Image name="DS" class="thumbnail Image" style="background-image: none;"/>
@@ -32,7 +32,7 @@
             <ui:Button text="9" name="9" picking-mode="Position" class="button">
                 <ui:Image name="Case" class="thumbnail Image" style="background-image: none;"/>
             </ui:Button>
-            <ui:Button text="DELETE" name="ERASE" picking-mode="Ignore" class="button UtilityButtons" style="font-size: 24px;">
+            <ui:Button text="DELETE" name="ERASE" picking-mode="Position" class="button UtilityButtons" style="font-size: 24px;">
                 <ui:Image name="Pallet" picking-mode="Position" class="thumbnail" style="background-image: url(&quot;project://database/Assets/6.%20Art/Icons/Flat%20Icons%20[Free]/Free%20Flat%20Circle%20Dash%20Icon.png?fileID=2800000&amp;guid=e3f679f3dc498f148ace9c750cfd418b&amp;type=3#Free Flat Circle Dash Icon&quot;); -unity-background-image-tint-color: rgba(175, 82, 82, 0.56); opacity: 1; -unity-slice-type: sliced; font-size: 24px;"/>
             </ui:Button>
             <ui:Button text="UNDO" name="UNDO" picking-mode="Position" class="button UtilityButtons" style="font-size: 24px;">

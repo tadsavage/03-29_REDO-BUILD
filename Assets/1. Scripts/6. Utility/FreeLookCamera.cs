@@ -106,7 +106,7 @@ public class FreeLookCamera : MonoBehaviour
         {
 			transform.position = transform.position + (-transform.up * movementSpeed * Time.deltaTime);
 		}
-
+		/*
 		if (Keyboard.current[Key.R].isPressed || Keyboard.current[Key.PageUp].isPressed)
 		{
 			transform.position = transform.position + (Vector3.up * movementSpeed * Time.deltaTime);
@@ -116,7 +116,7 @@ public class FreeLookCamera : MonoBehaviour
         {
 			transform.position = transform.position + (-Vector3.up * movementSpeed * Time.deltaTime);
 		}
-
+		*/
 		if (transform.position.y < heightMin)
 		{
 			transform.position = new Vector3(transform.position.x, heightMin, transform.position.z);

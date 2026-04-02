@@ -8,6 +8,7 @@ public class PlacementStateMachine : MonoBehaviour
     private RaycastPlacementState _raycastState;
     private BuildState _buildState;
     private DeleteState _deleteState;
+    private PlacementActions _actions;
 
     public IPlacementState CurrentState
     {
@@ -42,18 +43,17 @@ public class PlacementStateMachine : MonoBehaviour
         PlacementGrid grid = Object.FindFirstObjectByType<PlacementGrid>();
 
         // Input actions
-        PlacementActions actions = new PlacementActions();
+        _actions = new PlacementActions();
 
         // States
         _idleState = new IdleState();
         _raycastState = new RaycastPlacementState(raycast, indicator);
-        _buildState = new BuildState(actions, preview, validator, finalizer, grid, this, raycast, indicator);
-        _deleteState = new DeleteState(actions, finalizer, this);
+        _buildState = new BuildState(_actions, preview, validator, finalizer, grid, this, raycast, indicator);
+        _deleteState = new DeleteState(_actions, finalizer, this);
 
         // Start in idle
         _currentState = _idleState;
     }
-
     public void SetState(IPlacementState newState)
     {
         if (_currentState != null)
@@ -64,10 +64,17 @@ public class PlacementStateMachine : MonoBehaviour
         if (_currentState != null)
             _currentState.OnEnter();
     }
-
     private void Update()
     {
         if (_currentState != null)
             _currentState.Tick();
+    }
+    private void OnEnable()
+    {
+        _actions?.Enable();
+    }
+    private void OnDisable()
+    {
+        _actions?.Disable();
     }
 }
