@@ -108,16 +108,22 @@ public class BuildState : IPlacementState
             _rotateRequested = false;
             return;
         }
-
         // ------------------------------
         // HANDLE ROTATION
         // ------------------------------
         if (_rotateRequested)
         {
             _rotateRequested = false;
-            Debug.Log("Object rotated");
-        }
 
+            _currentRotation += 90f;
+
+            if (_currentRotation >= 360f)
+                _currentRotation = 0f;
+
+            _preview.Rotate(_currentRotation);
+
+            Debug.Log($"Preview rotated to {_currentRotation} degrees");
+        }
         // ------------------------------
         // HANDLE PLACEMENT
         // ------------------------------
