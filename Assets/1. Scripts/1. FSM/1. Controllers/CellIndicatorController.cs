@@ -26,7 +26,6 @@ public class CellIndicatorController : MonoBehaviour
     }
     private void PlayCellChangeSoundEffect()
     {
-        Debug.Log("Playing cell change sound effect");
         AudioManager.Play("ValidPlace");
     }
 }

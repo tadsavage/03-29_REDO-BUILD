@@ -1,4 +1,6 @@
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 
 public class BuildState : IPlacementState
 {
@@ -14,6 +16,13 @@ public class BuildState : IPlacementState
 
     private ObjDataSO _currentData;
 
+    // 🔥 Input flags (set in callbacks, consumed in Tick)
+    private bool _placeRequested = false;
+    private bool _rotateRequested = false;
+
+    // 🔥 State data (e.g. current rotation)
+    private float _currentRotation = 0f;
+
     public BuildState(
         PlacementActions actions,
         PreviewController preview,
@@ -22,7 +31,7 @@ public class BuildState : IPlacementState
         PlacementGrid grid,
         PlacementStateMachine fsm,
         RaycastController raycast,
-        CellIndicatorController indicator )
+        CellIndicatorController indicator)
     {
         _actions = actions;
         _preview = preview;
@@ -32,37 +41,56 @@ public class BuildState : IPlacementState
         _fsm = fsm;
         _raycast = raycast;
         _indicator = indicator;
+
+        // Bind inputs
+        _actions.BuildPlacement.BindRotateTo_R();
+        _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
+
+        _actions.BuildPlacement.BindPlaceToMouseLeft();
+        _actions.BuildPlacement.Place.performed += OnPlacePerformed;
     }
-    public bool IsPlacementState
+
+    // ------------------------------
+    // INPUT CALLBACKS (flags only)
+    // ------------------------------
+
+    private void OnRotatePerformed(InputAction.CallbackContext ctx)
     {
-        get { return true; }
+        _rotateRequested = true;
     }
+
+    private void OnPlacePerformed(InputAction.CallbackContext ctx)
+    {
+        _placeRequested = true;
+    }
+
+    // ------------------------------
+    // STATE INTERFACE
+    // ------------------------------
+
+    public bool IsPlacementState => true;
 
     public void OnEnter()
     {
         if (_currentData == null)
-        {
             return;
-        }        
-        _raycast.EnableRay();
 
-        // Show preview ghost
+        _raycast.EnableRay();
         _preview.Show(_currentData);
+
+        // Reset flags
+        _placeRequested = false;
+        _rotateRequested = false;
     }
 
     public void Tick()
     {
+        // Update raycast every frame
         _raycast.Tick();
 
         if (_raycast.HasHit)
         {
-            // Move Cell Indicator
             _indicator.ShowAtCell(_raycast.HitCell);
-            // Move preview ghost
-            //_preview.MoveTo(_raycast.HitPoint);
-
-            //OLD WAY - Move preview ghost to cell center
-            //Vector3 worldPos = _grid.CellToWorld(_raycast.HitCell);
             _preview.MoveTo(_grid.GetCellCenter(_raycast.HitCell));
         }
         else
@@ -70,21 +98,60 @@ public class BuildState : IPlacementState
             _indicator.Hide();
             _preview.Hide();
         }
+
+        // ------------------------------
+        // UI BLOCKING (correct timing)
+        // ------------------------------
+        if (IsPointerOverUI())
+        {
+            _placeRequested = false;
+            _rotateRequested = false;
+            return;
+        }
+
+        // ------------------------------
+        // HANDLE ROTATION
+        // ------------------------------
+        if (_rotateRequested)
+        {
+            _rotateRequested = false;
+            Debug.Log("Object rotated");
+        }
+
+        // ------------------------------
+        // HANDLE PLACEMENT
+        // ------------------------------
+        if (_placeRequested)
+        {
+            _placeRequested = false;
+            Debug.Log("Object placed");
+        }
     }
+
     public void OnExit()
     {
         _raycast.DisableRay();
         _indicator.Hide();
         _preview.Hide();
     }
+
     public void SetBuildData(ObjDataSO data)
-    {        
-        // Additional setup if needed when entering BuildState
+    {
         SetData(data);
     }
+
     public void SetData(ObjDataSO data)
-    {   
-        // Store the data for use in placement logic
+    {
         _currentData = data;
+    }
+
+    // ------------------------------
+    // UI BLOCKER
+    // ------------------------------
+
+    private bool IsPointerOverUI()
+    {
+        return EventSystem.current != null &&
+               EventSystem.current.IsPointerOverGameObject();
     }
 }
