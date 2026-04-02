@@ -31,10 +31,4 @@ public class PreviewController : MonoBehaviour
         if (_currentPreview != null)
             _currentPreview.SetActive(false);
     }
-    public void Rotate(float angle)
-    {
-        if (_currentPreview != null)
-            _currentPreview.transform.rotation = Quaternion.Euler(0f, angle, 0f);
-        AudioManager.Play("Rotate");
-    }
 }

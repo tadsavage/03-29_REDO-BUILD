@@ -49,7 +49,7 @@ public class BuildPhaseChecklistWindow : EditorWindow
 
         RebuildSectionsUI();
     }
-    
+
     private void RebuildSectionsUI()
     {
         _scrollView.Clear();
