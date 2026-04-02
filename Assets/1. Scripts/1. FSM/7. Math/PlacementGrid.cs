@@ -26,6 +26,9 @@ public class PlacementGrid: MonoBehaviour
     // occupancy map: 0 = free, >0 = occupied (owner id)
     private int[,] _occupancy;
 
+    // Tracks which cells are occupied
+    private GameObject[,] _cells;
+
     // pooled visuals keyed by cell index (x + y * Width)
     private Dictionary<int, GameObject> _activeVisuals;
     private Stack<GameObject> _pool;
@@ -35,6 +38,7 @@ public class PlacementGrid: MonoBehaviour
     private void Awake()
     {
         InitializeGrid();
+        _cells = new GameObject[Width, Height];
     }
 
     private void OnValidate()
@@ -131,6 +135,14 @@ public class PlacementGrid: MonoBehaviour
         var copy = new int[Width, Height];
         Array.Copy(_occupancy, copy, _occupancy.Length);
         return copy;
+    }
+    public bool IsOccupied(Vector2Int cell)
+    {
+        return _cells[cell.x, cell.y] != null;
+    }
+    public void SetOccupied(Vector2Int cell, GameObject obj)
+    {
+        _cells[cell.x, cell.y] = obj;
     }
 
     #endregion

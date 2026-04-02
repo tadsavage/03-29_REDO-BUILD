@@ -3,6 +3,7 @@ using UnityEngine;
 public class PreviewController : MonoBehaviour
 {
     private GameObject _currentPreview;
+    private Vector2Int _currentFootprint = Vector2Int.one;
 
 
     //show the preview of the object being placed
@@ -37,4 +38,10 @@ public class PreviewController : MonoBehaviour
             _currentPreview.transform.rotation = Quaternion.Euler(0f, angle, 0f);
         AudioManager.Play("Rotate");
     }
+    public void SetFootprint(Vector2Int footprint)
+    {
+        _currentFootprint = footprint;
+    }
+
+
 }

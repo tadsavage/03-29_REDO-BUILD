@@ -2,13 +2,18 @@ using UnityEngine;
 
 public class PlacementFinalizer : MonoBehaviour
 {
-    public void Place(GameObject prefab, Vector2Int cell)
-    {
-        // Instantiate prefab at snapped position
-    }
+    [SerializeField] private PlacementGrid _grid;
 
-    public void Delete(Vector2Int cell)
+    public void FinalizePlacement(Vector2Int root, Vector2Int[] offsets, ObjDataSO data, float rotation)
     {
-        // Remove object at cell
+        GameObject placed = Instantiate(data.prefab);
+        placed.transform.position = _grid.GetCellCenter(root);
+        placed.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+
+        foreach (var offset in offsets)
+        {
+            Vector2Int cell = root + offset;
+            _grid.SetOccupied(cell, placed);
+        }
     }
 }
