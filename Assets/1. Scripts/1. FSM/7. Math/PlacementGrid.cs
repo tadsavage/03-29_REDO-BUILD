@@ -144,6 +144,13 @@ public class PlacementGrid: MonoBehaviour
     {
         _cells[cell.x, cell.y] = obj;
     }
+    public bool IsInsideGrid(Vector2Int cell)
+    {
+        return cell.x >= 0 &&
+               cell.y >= 0 &&
+               cell.x < Width &&
+               cell.y < Height;
+    }
 
     #endregion
 
