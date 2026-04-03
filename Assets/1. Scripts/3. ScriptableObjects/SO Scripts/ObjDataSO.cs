@@ -19,6 +19,10 @@ public class ObjDataSO : ScriptableObject
     {
         Vector2Int size = PlacementMath.GetRotatedFootprint(footprint, rotation);
         Vector2Int[] offsets = new Vector2Int[size.x * size.y];
+        if(size.x == 1 && size.y == 1)
+        {
+            return offsets; 
+        }
         int index = 0;
         for (int x = 0; x < size.x; x++)
         {

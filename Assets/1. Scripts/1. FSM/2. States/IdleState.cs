@@ -1,3 +1,5 @@
+using UnityEngine;
+
 public class IdleState : IPlacementState
 {
     public bool IsPlacementState
@@ -5,7 +7,11 @@ public class IdleState : IPlacementState
         get { return false; }
     }
 
-    public void OnEnter() { }
+    public void OnEnter() 
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
     public void Tick() { }
     public void OnExit() { }
 }
