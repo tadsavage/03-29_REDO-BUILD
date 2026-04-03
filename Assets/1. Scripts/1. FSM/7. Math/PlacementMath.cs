@@ -19,11 +19,9 @@ public static class PlacementMath
     {
         // Normalize rotation to 0, 90, 180, 270
         int r = Mathf.RoundToInt(rotation) % 360;
-
         // Odd rotations (90, 270) swap X and Y
-        if (r == 90 || r == 270)
+        if (r == 90 || r == 270 )
             return new Vector2Int(footprint.y, footprint.x);
-
         return footprint;
     }
 

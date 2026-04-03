@@ -16,12 +16,9 @@ public class BuildState : IPlacementState
 
     private ObjDataSO _currentData;
 
-    // 🔥 Input flags (set in callbacks, consumed in Tick)
-    private bool _placeRequested = false;
-    private bool _rotateRequested = false;
-
-    // 🔥 State data (e.g. current rotation)
-    private float _currentRotation = 0f;
+    private bool _placeRequested;
+    private bool _rotateRequested;
+    private float _currentRotation;
 
     public BuildState(
         PlacementActions actions,
@@ -42,31 +39,12 @@ public class BuildState : IPlacementState
         _raycast = raycast;
         _indicator = indicator;
 
-        // Bind inputs
         _actions.BuildPlacement.BindRotateTo_R();
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
 
         _actions.BuildPlacement.BindPlaceToMouseLeft();
         _actions.BuildPlacement.Place.performed += OnPlacePerformed;
     }
-
-    // ------------------------------
-    // INPUT CALLBACKS (flags only)
-    // ------------------------------
-
-    private void OnRotatePerformed(InputAction.CallbackContext ctx)
-    {
-        _rotateRequested = true;
-    }
-
-    private void OnPlacePerformed(InputAction.CallbackContext ctx)
-    {
-        _placeRequested = true;
-    }
-
-    // ------------------------------
-    // STATE INTERFACE
-    // ------------------------------
 
     public bool IsPlacementState => true;
 
@@ -78,86 +56,111 @@ public class BuildState : IPlacementState
         _raycast.EnableRay();
         _preview.Show(_currentData);
 
-        // Reset flags
         _placeRequested = false;
         _rotateRequested = false;
+        _currentRotation = 0f;
     }
 
     public void Tick()
     {
-        // Update raycast every frame
         _raycast.Tick();
 
-        if (_raycast.HasHit)
-        {
-            _indicator.ShowAtCell(_raycast.HitCell);
-            _preview.MoveTo(_grid.GetCellCenter(_raycast.HitCell));
-        }
-        else
+        if (!_raycast.HasHit)
         {
             _indicator.Hide();
             _preview.Hide();
+            return;
         }
 
-        // ------------------------------
-        // UI BLOCKING (correct timing)
-        // ------------------------------
-        if (IsPointerOverUI())
+        // Global cancel (Right-click or Escape)
+        if (Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            AudioManager.Play("Cancel");
+
+            _preview.RestoreMaterials();
+            _preview.Hide();
+            _indicator.ClearAll();
+            _raycast.DisableRay();
+
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+
+            _fsm.SetState(_fsm.IdleState);
+            return;
+        }
+
+        Vector2Int root = _raycast.HitCell;
+
+        // Compute rotated footprint offsets for this object
+        Vector2Int[] offsets = _currentData.GetFootprintOffsets(_currentRotation);
+
+        // Move preview to the root cell (grid‑aligned)
+        _preview.MoveTo(_grid.GetCellCenter(root));
+
+        // Show indicators for all occupied cells
+        bool isValid = _validator.IsValidPlacement(root, offsets);
+        _indicator.ShowCells(root, offsets, _grid, isValid);
+
+        if (isValid)
+            _preview.SetGhostValid();
+        else
+            _preview.SetGhostInvalid();
+
+        // Block world actions when pointer is over UI
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
             _placeRequested = false;
             _rotateRequested = false;
             return;
         }
-        // ------------------------------
-        // HANDLE ROTATION
-        // ------------------------------
+
+        // Handle rotation
         if (_rotateRequested)
         {
             _rotateRequested = false;
 
             _currentRotation += 90f;
-
             if (_currentRotation >= 360f)
                 _currentRotation = 0f;
 
             _preview.Rotate(_currentRotation);
-
-            Debug.Log($"Preview rotated to {_currentRotation} degrees");
         }
-        // ------------------------------
-        // HANDLE PLACEMENT
-        // ------------------------------
+
+        // Handle placement
         if (_placeRequested)
         {
             _placeRequested = false;
-            Debug.Log("Object placed");
+
+            if (_validator.IsValidPlacement(root, offsets))
+            {
+                _finalizer.FinalizePlacement(root, offsets, _currentData, _currentRotation);
+            }
         }
     }
 
     public void OnExit()
     {
+        Debug.Log("Exiting BuildState");
+        _preview.RestoreMaterials();
         _raycast.DisableRay();
         _indicator.Hide();
+        _indicator.ClearAll();
+        _preview.RestoreMaterials();
         _preview.Hide();
     }
 
     public void SetBuildData(ObjDataSO data)
     {
-        SetData(data);
-    }
-
-    public void SetData(ObjDataSO data)
-    {
         _currentData = data;
     }
 
-    // ------------------------------
-    // UI BLOCKER
-    // ------------------------------
-
-    private bool IsPointerOverUI()
+    private void OnRotatePerformed(InputAction.CallbackContext ctx)
     {
-        return EventSystem.current != null &&
-               EventSystem.current.IsPointerOverGameObject();
+        _rotateRequested = true;
+    }
+
+    private void OnPlacePerformed(InputAction.CallbackContext ctx)
+    {
+        _placeRequested = true;
     }
 }

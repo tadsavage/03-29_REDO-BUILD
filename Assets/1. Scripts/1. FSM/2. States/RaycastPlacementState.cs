@@ -27,7 +27,7 @@ public class RaycastPlacementState : IPlacementState
 
     public void Tick()
     {
-
+        
         _raycast.Tick();
 
         if (_raycast.HasHit)
