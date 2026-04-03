@@ -41,7 +41,7 @@ public class PlacementActions
 
             // Actions created without bindings so you can assign them in the Input System or in code later.
             Place = _map.AddAction("Place", InputActionType.Button);
-            Rotate = _map.AddAction("Rotate", InputActionType.Button); 
+            Rotate = _map.AddAction("Rotate", InputActionType.Value);
             Cancel = _map.AddAction("Cancel", InputActionType.Button);
             ModeBuild = _map.AddAction("ModeBuild", InputActionType.Button);
             ModeDelete = _map.AddAction("ModeDelete", InputActionType.Button);
@@ -52,15 +52,27 @@ public class PlacementActions
         public void Disable() => _map.Disable();
         public void Dispose() => _map.Dispose();
 
-        // Optional helper to set bindings in code
+        // Optional helper to set bindings in code (example)
         public void BindPlaceToMouseLeft()
         {
             Place.AddBinding("<Mouse>/leftButton");
         }
-        // Optional helper to set bindings in code
-        public void BindRotateTo_R()
+
+        // Optional helper to set bindings from an InputActionAsset
+        public void LoadBindingsFromAsset(InputActionAsset asset)
         {
-            Rotate.AddBinding("<Keyboard>/r");
+            if (asset == null) return;
+            var map = asset.FindActionMap("BuildPlacement");
+            if (map == null) return;
+
+            // Replace the internal map with the one from the asset.
+            // Note: this is a simple approach; if you want to keep existing references,
+            // copy bindings from `map` to the actions above instead.
+            Disable();
+            _map.Dispose();
+
+            // Recreate actions from the asset map
+            // (Simpler approach: keep a reference to the asset and use asset.FindAction(...) directly)
         }
     }
 }
