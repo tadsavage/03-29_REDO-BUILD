@@ -18,8 +18,17 @@ public class RaycastController : MonoBehaviour
     private bool _enabled;
 
     public void EnableRay() => _enabled = true;
-    public void DisableRay() => _enabled = false;
-    
+    public void DisableRay()
+    {
+        _enabled = false;
+
+        // Force-disable the line immediately
+        if (_line != null)
+            _line.enabled = false;
+
+        HasHit = false;
+    }
+
     private void Awake()
     {
         if (_camera == null)
@@ -31,13 +40,6 @@ public class RaycastController : MonoBehaviour
 
     public void Tick()
     {
-        if (!_enabled)
-        {
-            HasHit = false;
-            if (_line != null) _line.enabled = false;
-            return;
-        }
-
         Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
 
         if (Physics.Raycast(ray, out RaycastHit hit, 100f, _groundMask))

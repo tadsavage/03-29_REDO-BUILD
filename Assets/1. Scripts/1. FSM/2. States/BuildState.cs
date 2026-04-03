@@ -72,6 +72,23 @@ public class BuildState : IPlacementState
             return;
         }
 
+        // Global cancel (Right-click or Escape)
+        if (Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            AudioManager.Play("Cancel");
+
+            _preview.RestoreMaterials();
+            _preview.Hide();
+            _indicator.ClearAll();
+            _raycast.DisableRay();
+
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+
+            _fsm.SetState(_fsm.IdleState);
+            return;
+        }
+
         Vector2Int root = _raycast.HitCell;
 
         // Compute rotated footprint offsets for this object
@@ -81,7 +98,13 @@ public class BuildState : IPlacementState
         _preview.MoveTo(_grid.GetCellCenter(root));
 
         // Show indicators for all occupied cells
-        _indicator.ShowCells(root, offsets, _grid);
+        bool isValid = _validator.IsValidPlacement(root, offsets);
+        _indicator.ShowCells(root, offsets, _grid, isValid);
+
+        if (isValid)
+            _preview.SetGhostValid();
+        else
+            _preview.SetGhostInvalid();
 
         // Block world actions when pointer is over UI
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
@@ -117,8 +140,12 @@ public class BuildState : IPlacementState
 
     public void OnExit()
     {
+        Debug.Log("Exiting BuildState");
+        _preview.RestoreMaterials();
         _raycast.DisableRay();
         _indicator.Hide();
+        _indicator.ClearAll();
+        _preview.RestoreMaterials();
         _preview.Hide();
     }
 
