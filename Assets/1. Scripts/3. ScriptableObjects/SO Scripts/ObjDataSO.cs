@@ -14,6 +14,7 @@ public class ObjDataSO : ScriptableObject
     public GameObject prefab;
     public Texture2D icon;
     public bool isStackable;
+    public bool ClearsGridAfterPlacement; //For objects that move ie. MHE and Workers.
 
     public Vector2Int[] GetFootprintOffsets(float rotation)
     {

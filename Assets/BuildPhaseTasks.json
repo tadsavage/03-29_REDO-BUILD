@@ -55,9 +55,9 @@
                     "id": "rotation_system",
                     "title": "Setup Rotation System",
                     "priority": "High",
-                    "isCompleted": false,
+                    "isCompleted": true,
                     "projectedDate": "04/01/2026",
-                    "completedDate": "",
+                    "completedDate": "2026-04-03",
                     "isMilestone": false,
                     "subtasks": [
                         {
@@ -78,12 +78,12 @@
                         {
                             "id": "rot_4",
                             "title": "Rotate footprint grid",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "rot_5",
                             "title": "Validate rotated footprint",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "rot_6",
@@ -96,35 +96,35 @@
                     "id": "cancel_system",
                     "title": "Setup Cancel System",
                     "priority": "Medium",
-                    "isCompleted": false,
+                    "isCompleted": true,
                     "projectedDate": "04/01/2026",
-                    "completedDate": "",
+                    "completedDate": "2026-04-03",
                     "isMilestone": false,
                     "subtasks": [
                         {
                             "id": "cancel_1",
                             "title": "Add cancel input binding",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "cancel_2",
                             "title": "Hide preview on cancel",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "cancel_3",
                             "title": "Disable ray",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "cancel_4",
                             "title": "Reset FSM to Idle",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "cancel_5",
                             "title": "Add cancel sound",
-                            "isCompleted": false
+                            "isCompleted": true
                         }
                     ]
                 },
@@ -132,50 +132,50 @@
                     "id": "footprint_system",
                     "title": "Setup Footprint & Placement Validation",
                     "priority": "High",
-                    "isCompleted": false,
+                    "isCompleted": true,
                     "projectedDate": "04/01/2026",
-                    "completedDate": "",
+                    "completedDate": "2026-04-03",
                     "isMilestone": false,
                     "subtasks": [
                         {
                             "id": "fp_1",
                             "title": "Add footprint size to ObjectSO",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "fp_2",
                             "title": "Add stackable flag",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "fp_3",
                             "title": "Add height limit",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "fp_4",
                             "title": "Convert world hit to grid cell",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "fp_5",
                             "title": "Check footprint bounds",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "fp_6",
                             "title": "Check overlap with objects",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "fp_7",
                             "title": "Check stacking rules",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "fp_8",
                             "title": "Check rotation footprint",
-                            "isCompleted": false
+                            "isCompleted": true
                         }
                     ]
                 },
@@ -183,40 +183,40 @@
                     "id": "preview_system",
                     "title": "Setup Preview System",
                     "priority": "Medium",
-                    "isCompleted": false,
+                    "isCompleted": true,
                     "projectedDate": "04/02/2026",
-                    "completedDate": "",
+                    "completedDate": "2026-04-03",
                     "isMilestone": false,
                     "subtasks": [
                         {
                             "id": "prev_1",
                             "title": "Create preview prefab",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "prev_2",
                             "title": "Add transparent material",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "prev_3",
                             "title": "Add valid material",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "prev_4",
                             "title": "Add invalid material",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "prev_5",
                             "title": "Add color transitions",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "prev_6",
                             "title": "Add preview movement smoothing",
-                            "isCompleted": false
+                            "isCompleted": true
                         }
                     ]
                 },
@@ -224,40 +224,35 @@
                     "id": "instantiation_system",
                     "title": "Setup Prefab Instantiation",
                     "priority": "High",
-                    "isCompleted": false,
+                    "isCompleted": true,
                     "projectedDate": "04/02/2026",
-                    "completedDate": "",
+                    "completedDate": "2026-04-03",
                     "isMilestone": false,
                     "subtasks": [
                         {
                             "id": "inst_1",
                             "title": "Create placement finalizer",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "inst_2",
                             "title": "Instantiate prefab",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "inst_3",
                             "title": "Apply rotation",
-                            "isCompleted": false
-                        },
-                        {
-                            "id": "inst_4",
-                            "title": "Register object in world registry",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "inst_5",
                             "title": "Trigger placement sound",
-                            "isCompleted": false
+                            "isCompleted": true
                         },
                         {
                             "id": "inst_6",
                             "title": "Trigger placement particles",
-                            "isCompleted": false
+                            "isCompleted": true
                         }
                     ]
                 }
@@ -672,6 +667,11 @@
                         {
                             "id": "save_7",
                             "title": "Rebuild registry",
+                            "isCompleted": false
+                        },
+                        {
+                            "id": "d042bfcd-1d2e-43a1-b6f1-9bce932afab4",
+                            "title": "Register object in world registry",
                             "isCompleted": false
                         }
                     ]

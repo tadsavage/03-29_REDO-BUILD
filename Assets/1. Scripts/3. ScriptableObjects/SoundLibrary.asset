@@ -15,8 +15,8 @@ MonoBehaviour:
   sounds:
   - name: ValidPlace
     clip: {fileID: 8300000, guid: 967d21b8bf9b1a347a27eb0d2bd668ef, type: 3}
-    volume: 0.05
-    pitch: 1.5
+    volume: 0.75
+    pitch: 1
   - name: InvalidPlace
     clip: {fileID: 8300000, guid: 3e5b6f7451b357f40a0c6827ad28c7ae, type: 3}
     volume: 0.25
@@ -35,5 +35,9 @@ MonoBehaviour:
     pitch: 1
   - name: Cancel
     clip: {fileID: 8300000, guid: ce4b9e047f138014aaab2d62d95fd377, type: 3}
-    volume: 1
-    pitch: 1
+    volume: 0.5
+    pitch: 1.25
+  - name: NewCell
+    clip: {fileID: 8300000, guid: 676e3561d685a0d4d99c0ae53f679898, type: 3}
+    volume: 0.2
+    pitch: 2

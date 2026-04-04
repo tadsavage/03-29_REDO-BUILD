@@ -36,7 +36,7 @@ public class CellIndicatorController : MonoBehaviour
     }
     private void PlayCellChangeSoundEffect()
     {
-        AudioManager.Play("ValidPlace");
+        AudioManager.Play("NewCell");
     }
     public void ClearAll()
     {

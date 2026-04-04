@@ -8,10 +8,31 @@ public class PreviewController : MonoBehaviour
     private Renderer[] _renderers;
     private Material[] _originalMaterials;
 
+    // Ghost materials
     [Header("Ghost Materials")]
     [SerializeField] private Material ghostValidMaterial;
     [SerializeField] private Material ghostInvalidMaterial;
 
+    // Smoothing parameters
+    [SerializeField] private float moveSmoothTime = 08f;
+    private Vector3 _velocity;
+    private Vector3 _targetPos;
+    private bool _hasTarget;
+
+    // Smoothly move preview towards target position
+    private void Update()
+    {
+        if (_currentPreview == null || !_hasTarget)
+            return;
+
+        _currentPreview.transform.position =
+            Vector3.SmoothDamp(
+                _currentPreview.transform.position,
+                _targetPos,
+                ref _velocity,
+                moveSmoothTime
+            );
+    }
     // ---------------------------------------------------------
     // CREATE PREVIEW
     // ---------------------------------------------------------
@@ -39,8 +60,8 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     public void MoveTo(Vector3 worldPos)
     {
-        if (_currentPreview != null)
-            _currentPreview.transform.position = worldPos;
+        _targetPos = worldPos;
+        _hasTarget = true;
     }
 
     public void Rotate(float angle)

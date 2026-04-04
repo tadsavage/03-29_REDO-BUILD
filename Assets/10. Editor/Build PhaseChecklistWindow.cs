@@ -17,7 +17,7 @@ public class BuildPhaseChecklistWindow : EditorWindow
         Medium,
         High
     }
-
+    //
     [MenuItem("Window/Build Phase Checklist")]
     public static void ShowWindow()
     {

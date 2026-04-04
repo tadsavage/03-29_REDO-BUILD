@@ -20,6 +20,10 @@ public class BuildState : IPlacementState
     private bool _rotateRequested;
     private float _currentRotation;
 
+    // NEW — track the last placed cell and whether we're still hovering it
+    private Vector2Int _lastPlacedCell;
+    private bool _justPlaced;
+
     public BuildState(
         PlacementActions actions,
         PreviewController preview,
@@ -91,6 +95,26 @@ public class BuildState : IPlacementState
 
         Vector2Int root = _raycast.HitCell;
 
+        // NEW — if we're still hovering the cell we just placed on:
+        // hide preview, hide indicators, block placement/rotation
+        if (_justPlaced && root == _lastPlacedCell)
+        {
+            _preview.Hide();
+            _indicator.Hide();
+            _placeRequested = false;
+            _rotateRequested = false;
+            return;
+        }
+
+        // NEW — once we move off that cell, return to normal behavior
+        if (_justPlaced && root != _lastPlacedCell)
+        {
+            _justPlaced = false;
+
+            // REAPPEAR GHOST NOW THAT WE MOVED OFF THE PLACED CELL
+            _preview.Show(_currentData);
+        }
+
         // Compute rotated footprint offsets for this object
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(_currentRotation);
 
@@ -134,6 +158,10 @@ public class BuildState : IPlacementState
             if (_validator.IsValidPlacement(root, offsets))
             {
                 _finalizer.FinalizePlacement(root, offsets, _currentData, _currentRotation);
+
+                // NEW — mark this cell as "just placed"
+                _lastPlacedCell = root;
+                _justPlaced = true;
             }
         }
     }

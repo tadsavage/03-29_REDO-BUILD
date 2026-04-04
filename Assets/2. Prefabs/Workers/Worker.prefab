@@ -75,6 +75,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 658232550049568593}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8469946913915855468}
   m_SourcePrefab: {fileID: 100100000, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
 --- !u!1 &289692319690755998 stripped
 GameObject:
@@ -166,3 +169,16 @@ MonoBehaviour:
   invalidMaterial: {fileID: 0}
   deleteMaterial: {fileID: 0}
   originalMaterials: []
+--- !u!114 &8469946913915855468
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 289692319690755998}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb79d389d9fa74c4884e12fab0d26d3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AgentAnimation
+  turnThreshold: 0.75
