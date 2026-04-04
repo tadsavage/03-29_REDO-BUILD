@@ -14,6 +14,7 @@ public class RaycastController : MonoBehaviour
     public bool HasHit { get; private set; }
     public Vector3 HitPoint { get; private set; }
     public Vector2Int HitCell { get; private set; }
+    private Vector2Int _lastHitCell;
 
     private bool _enabled;
 
@@ -47,6 +48,11 @@ public class RaycastController : MonoBehaviour
             HasHit = true;
             HitPoint = hit.point;
             HitCell = _grid.WorldToCell(hit.point);
+
+            if (HitCell != _lastHitCell)    
+                AudioManager.Play("NewCell");
+
+            _lastHitCell = HitCell;
         }
         else
         {

@@ -1,77 +1,115 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [ExecuteAlways]
-public class PlacementGrid: MonoBehaviour
+public class PlacementGrid : MonoBehaviour
 {
     [Header("Grid Settings")]
-    public float CellSize = 1.33f;   // 5ft
+    public float CellSize = 1.33f;
     public int Width = 50;
     public int Height = 50;
     public Vector3 Origin = Vector3.zero;
 
     [Header("Visualizer Settings")]
     public bool UseVisualizer = true;
-    [Tooltip("Optional material for cell quads. If null, a default material will be created.")]
     public Material CellMaterial;
-    [Tooltip("Parent transform for pooled visuals (optional).")]
     public Transform VisualParent;
 
     [Header("Colors")]
-    public Color FreeColor = new Color(0f, 0f, 0f, 0f); // transparent by default
+    public Color FreeColor = new Color(0f, 0f, 0f, 0f);
     public Color OccupiedColor = new Color(1f, 0.4f, 0.4f, 0.6f);
     public Color SelectedColor = new Color(0.4f, 1f, 0.4f, 0.6f);
 
-    // occupancy map: 0 = free, >0 = occupied (owner id)
-    private int[,] _occupancy;
 
-    // Tracks which cells are occupied
+    // Unified occupancy system
     private GameObject[,] _cells;
 
-    // pooled visuals keyed by cell index (x + y * Width)
+    // Visualizer pooling
     private Dictionary<int, GameObject> _activeVisuals;
     private Stack<GameObject> _pool;
-
-    public event Action OnGridInitialized;
 
     private void Awake()
     {
         InitializeGrid();
-        _cells = new GameObject[Width, Height];
+    }
+
+    private void Update()
+    {
+        if (Keyboard.current.backquoteKey.wasPressedThisFrame)
+        {
+            ToggleVisualizer();
+        }
     }
 
     private void OnValidate()
     {
-        if (Width < 1) Width = 1;
-        if (Height < 1) Height = 1;
-        if (CellSize <= 0f) CellSize = 1.33f;
+        Width = Mathf.Max(1, Width);
+        Height = Mathf.Max(1, Height);
+        CellSize = Mathf.Max(0.01f, CellSize);
+
         InitializeGrid();
     }
 
     public void InitializeGrid()
     {
-        _occupancy = new int[Width, Height];
+        _cells = new GameObject[Width, Height];
 
         if (UseVisualizer)
         {
             if (_activeVisuals == null) _activeVisuals = new Dictionary<int, GameObject>();
             if (_pool == null) _pool = new Stack<GameObject>();
-            // Optionally clear visuals when grid reinitializes
             ClearAllVisuals();
         }
-
-        OnGridInitialized?.Invoke();
     }
 
-    #region Grid API
+    // -------------------------
+    // GRID API
+    // -------------------------
+
+    public bool IsInsideGrid(Vector2Int cell)
+    {
+        return cell.x >= 0 && cell.y >= 0 && cell.x < Width && cell.y < Height;
+    }
+
+    public bool IsOccupied(Vector2Int cell)
+    {
+        if (!IsInsideGrid(cell)) return true;
+        return _cells[cell.x, cell.y] != null;
+    }
+
+    public void SetOccupied(Vector2Int cell, GameObject obj, ObjDataSO data)
+    {
+        if (!IsInsideGrid(cell)) return;
+        _cells[cell.x, cell.y] = obj;
+
+        if (UseVisualizer)
+            SetCellVisual(cell, OccupiedColor);
+    }
+
+    public void ClearCell(Vector2Int cell)
+    {
+        // Bounds check
+        if (cell.x < 0 || cell.x >= _cells.GetLength(0)) return;
+        if (cell.y < 0 || cell.y >= _cells.GetLength(1)) return;
+
+        GameObject placed = _cells[cell.x, cell.y];
+
+        if (placed != null)
+            GameObject.Destroy(placed);
+
+        _cells[cell.x, cell.y] = null;
+
+        if (UseVisualizer)
+            SetCellVisual(cell, FreeColor);
+    }
 
     public Vector2Int WorldToCell(Vector3 worldPos)
     {
         Vector3 local = worldPos - Origin;
         int x = Mathf.FloorToInt(local.x / CellSize);
-        int z = Mathf.FloorToInt(local.z / CellSize);
-        return new Vector2Int(x, z);
+        int y = Mathf.FloorToInt(local.z / CellSize);
+        return new Vector2Int(x, y);
     }
 
     public Vector3 CellToWorld(Vector2Int cell)
@@ -81,106 +119,27 @@ public class PlacementGrid: MonoBehaviour
 
     public Vector3 GetCellCenter(Vector2Int cell)
     {
-        Vector3 corner = CellToWorld(cell);
-        return corner + new Vector3(CellSize * 0.5f, 0.0f, CellSize * 0.5f);
+        return CellToWorld(cell) + new Vector3(CellSize * 0.5f, 0f, CellSize * 0.5f);
     }
 
-    public bool IsInside(Vector2Int cell)
-    {
-        return cell.x >= 0 && cell.x < Width && cell.y >= 0 && cell.y < Height;
-    }
-
-    public bool IsOccupied(Vector2Int originCell, Vector2Int size)
-    {
-        for (int x = originCell.x; x < originCell.x + size.x; x++)
-        {
-            for (int y = originCell.y; y < originCell.y + size.y; y++)
-            {
-                if (!IsInside(new Vector2Int(x, y))) return true;
-                if (_occupancy[x, y] != 0) return true;
-            }
-        }
-        return false;
-    }
-
-    public bool TryOccupy(Vector2Int originCell, Vector2Int size, int ownerId)
-    {
-        if (IsOccupied(originCell, size)) return false;
-        for (int x = originCell.x; x < originCell.x + size.x; x++)
-            for (int y = originCell.y; y < originCell.y + size.y; y++)
-                _occupancy[x, y] = ownerId;
-
-        if (UseVisualizer)
-            MarkRegionVisual(originCell, size, OccupiedColor);
-
-        return true;
-    }
-
-    public int ReleaseByOwner(int ownerId)
-    {
-        int freed = 0;
-        for (int x = 0; x < Width; x++)
-            for (int y = 0; y < Height; y++)
-                if (_occupancy[x, y] == ownerId)
-                {
-                    _occupancy[x, y] = 0;
-                    freed++;
-                    if (UseVisualizer) SetCellVisual(new Vector2Int(x, y), FreeColor);
-                }
-        return freed;
-    }
-
-    public int[,] GetOccupancyCopy()
-    {
-        var copy = new int[Width, Height];
-        Array.Copy(_occupancy, copy, _occupancy.Length);
-        return copy;
-    }
-    public bool IsOccupied(Vector2Int cell)
-    {
-        return _cells[cell.x, cell.y] != null;
-    }
-    public void SetOccupied(Vector2Int cell, GameObject obj)
-    {
-        _cells[cell.x, cell.y] = obj;
-    }
-    public void Clear(Vector2Int cell)
-    {
-        if (!IsInsideGrid(cell))
-            return;
-
-        _cells[cell.x, cell.y] = null;
-
-        /* Optional: update visualizer
-        if (UseVisualizer)
-            SetCellVisual(cell, FreeColor); */
-    }
-    public bool IsInsideGrid(Vector2Int cell)
-    {
-        return cell.x >= 0 &&
-               cell.y >= 0 &&
-               cell.x < Width &&
-               cell.y < Height;
-    }
-
-    #endregion
-
-    #region Visualizer Pooling
+    // -------------------------
+    // VISUALIZER
+    // -------------------------
 
     private int CellIndex(Vector2Int cell) => cell.x + cell.y * Width;
 
     private void EnsureMaterial()
     {
         if (CellMaterial != null) return;
-        // create a simple transparent material if none assigned
+
         Shader shader = Shader.Find("Unlit/Color");
         if (shader == null) shader = Shader.Find("Standard");
+
         CellMaterial = new Material(shader);
     }
 
     private GameObject GetPooledVisual()
     {
-        if (_pool == null) _pool = new Stack<GameObject>();
         if (_pool.Count > 0)
         {
             var go = _pool.Pop();
@@ -188,18 +147,16 @@ public class PlacementGrid: MonoBehaviour
             return go;
         }
 
-        // create new quad
         var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
         quad.name = "CellVisual";
-        // rotate to lie flat on XZ plane
         quad.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         if (VisualParent != null) quad.transform.SetParent(VisualParent, true);
-        // remove collider to avoid physics overhead
-        var col = quad.GetComponent<Collider>();
-        if (col != null) DestroyImmediate(col);
+
+        DestroyImmediate(quad.GetComponent<Collider>());
+
         EnsureMaterial();
-        var rend = quad.GetComponent<MeshRenderer>();
-        if (rend != null) rend.sharedMaterial = CellMaterial;
+        quad.GetComponent<MeshRenderer>().sharedMaterial = CellMaterial;
+
         return quad;
     }
 
@@ -211,11 +168,9 @@ public class PlacementGrid: MonoBehaviour
 
     private void SetCellVisual(Vector2Int cell, Color color)
     {
-        if (!UseVisualizer) return;
-        if (!IsInside(cell)) return;
+        if (!UseVisualizer || !IsInsideGrid(cell)) return;
 
         int idx = CellIndex(cell);
-        if (_activeVisuals == null) _activeVisuals = new Dictionary<int, GameObject>();
 
         if (!_activeVisuals.TryGetValue(idx, out var go))
         {
@@ -223,191 +178,54 @@ public class PlacementGrid: MonoBehaviour
             _activeVisuals[idx] = go;
         }
 
-        go.transform.position = GetCellCenter(cell) + new Vector3(0f, 0.01f, 0f); // slight offset to avoid z-fighting
+        go.transform.position = GetCellCenter(cell) + new Vector3(0f, 0.01f, 0f);
         go.transform.localScale = new Vector3(CellSize, CellSize, 1f);
 
         var rend = go.GetComponent<MeshRenderer>();
-        if (rend != null)
-        {
-            if (rend.sharedMaterial == null) EnsureMaterial();
-            // set color on material instance to avoid tinting other quads if using sharedMaterial
-            rend.material.color = color;
-        }
+        rend.material.color = color;
     }
 
     private void ClearAllVisuals()
     {
         if (_activeVisuals == null) return;
+
         foreach (var kv in _activeVisuals)
-        {
-            if (kv.Value != null) DestroyImmediate(kv.Value);
-        }
+            if (kv.Value != null)
+                DestroyImmediate(kv.Value);
+
         _activeVisuals.Clear();
         _pool?.Clear();
     }
-
-    private void MarkRegionVisual(Vector2Int originCell, Vector2Int size, Color color)
+    public void ToggleVisualizer()
     {
-        for (int x = originCell.x; x < originCell.x + size.x; x++)
-            for (int y = originCell.y; y < originCell.y + size.y; y++)
-                SetCellVisual(new Vector2Int(x, y), color);
-    }
+        UseVisualizer = !UseVisualizer;
 
-    /// <summary>
-    /// Call to highlight a single cell as selected (e.g., during drag selection).
-    /// </summary>
-    public void HighlightCell(Vector2Int cell)
-    {
-        SetCellVisual(cell, SelectedColor);
-    }
-
-    /// <summary>
-    /// Clear visual for a single cell (returns it to pool).
-    /// </summary>
-    public void ClearCellVisual(Vector2Int cell)
-    {
-        if (_activeVisuals == null) return;
-        int idx = CellIndex(cell);
-        if (_activeVisuals.TryGetValue(idx, out var go))
+        if (!UseVisualizer)
         {
-            _activeVisuals.Remove(idx);
-            ReturnToPool(go);
+            ClearAllVisuals();
+        }
+        else
+        {
+            RedrawAllVisuals();
         }
     }
-
-    #endregion
-
-    #region Gizmos
-
-    private void OnDrawGizmosSelected()
-    {
-        if (_occupancy == null) InitializeGrid();
-
-        Gizmos.color = Color.gray;
-        for (int x = 0; x <= Width; x++)
-        {
-            Vector3 a = Origin + new Vector3(x * CellSize, 0f, 0f);
-            Vector3 b = Origin + new Vector3(x * CellSize, 0f, Height * CellSize);
-            Gizmos.DrawLine(a, b);
-        }
-        for (int y = 0; y <= Height; y++)
-        {
-            Vector3 a = Origin + new Vector3(0f, 0f, y * CellSize);
-            Vector3 b = Origin + new Vector3(Width * CellSize, 0f, y * CellSize);
-            Gizmos.DrawLine(a, b);
-        }
-    }// Selection state
-    private HashSet<int> _selectedCells = new HashSet<int>();
-    private Vector2Int _selectionStart;
-    private bool _isSelecting = false;
-    public Color SelectionPreviewColor = new Color(0.2f, 0.6f, 1f, 0.45f); // blue-ish
-
-    /// <summary>
-    /// Start a drag selection at startCell.
-    /// </summary>
-    public void BeginSelection(Vector2Int startCell)
+    public void RedrawAllVisuals()
     {
         if (!UseVisualizer) return;
-        _selectionStart = startCell;
-        _isSelecting = true;
-        ClearSelection(); // ensure clean start
-        UpdateSelection(startCell);
-    }
 
-    /// <summary>
-    /// Update the current selection rectangle to include start->current.
-    /// </summary>
-    public void UpdateSelection(Vector2Int currentCell)
-    {
-        if (!UseVisualizer || !_isSelecting) return;
+        ClearAllVisuals();
 
-        // compute rectangle bounds
-        int minX = Mathf.Min(_selectionStart.x, currentCell.x);
-        int maxX = Mathf.Max(_selectionStart.x, currentCell.x);
-        int minY = Mathf.Min(_selectionStart.y, currentCell.y);
-        int maxY = Mathf.Max(_selectionStart.y, currentCell.y);
-
-        // determine which cells should be selected now
-        var newSelected = new HashSet<int>();
-        for (int x = minX; x <= maxX; x++)
+        for (int x = 0; x < Width; x++)
         {
-            for (int y = minY; y <= maxY; y++)
+            for (int y = 0; y < Height; y++)
             {
-                var cell = new Vector2Int(x, y);
-                if (!IsInside(cell)) continue;
-                newSelected.Add(CellIndex(cell));
-            }
-        }
-
-        // remove visuals for cells no longer selected
-        var toRemove = new List<int>();
-        foreach (var idx in _selectedCells)
-            if (!newSelected.Contains(idx)) toRemove.Add(idx);
-        foreach (var idx in toRemove)
-        {
-            _selectedCells.Remove(idx);
-            if (_activeVisuals.TryGetValue(idx, out var go))
-            {
-                _activeVisuals.Remove(idx);
-                ReturnToPool(go);
-            }
-        }
-
-        // add visuals for newly selected cells
-        foreach (var idx in newSelected)
-        {
-            if (_selectedCells.Contains(idx)) continue;
-            _selectedCells.Add(idx);
-
-            // compute cell coords from index
-            int cx = idx % Width;
-            int cy = idx / Width;
-            var cell = new Vector2Int(cx, cy);
-
-            // reuse SetCellVisual but with selection color
-            if (!_activeVisuals.TryGetValue(idx, out var go))
-            {
-                go = GetPooledVisual();
-                _activeVisuals[idx] = go;
-            }
-            go.transform.position = GetCellCenter(cell) + new Vector3(0f, 0.01f, 0f);
-            go.transform.localScale = new Vector3(CellSize, CellSize, 1f);
-            var rend = go.GetComponent<MeshRenderer>();
-            if (rend != null)
-            {
-                if (rend.sharedMaterial == null) EnsureMaterial();
-                rend.material.color = SelectionPreviewColor;
+                // Only draw visuals for OCCUPIED cells
+                if (_cells[x, y] != null)
+                {
+                    Vector2Int cell = new Vector2Int(x, y);
+                    SetCellVisual(cell, OccupiedColor);
+                }
             }
         }
     }
-
-    /// <summary>
-    /// End the selection. Keeps visuals active until ClearSelection or TryOccupy is called.
-    /// </summary>
-    public void EndSelection()
-    {
-        _isSelecting = false;
-        // leave visuals in place; caller decides whether to occupy or clear
-    }
-
-    /// <summary>
-    /// Clear selection visuals without changing occupancy.
-    /// </summary>
-    public void ClearSelection()
-    {
-        if (_selectedCells == null || _selectedCells.Count == 0) return;
-        foreach (var idx in _selectedCells)
-        {
-            if (_activeVisuals.TryGetValue(idx, out var go))
-            {
-                _activeVisuals.Remove(idx);
-                ReturnToPool(go);
-            }
-        }
-        _selectedCells.Clear();
-    }
-
-
-    #endregion
 }
-

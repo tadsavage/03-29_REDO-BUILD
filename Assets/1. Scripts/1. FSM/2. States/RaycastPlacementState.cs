@@ -1,18 +1,19 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class RaycastPlacementState : IPlacementState
 {
-    private RaycastController _raycast;
-    private CellIndicatorController _indicator;
+    private readonly RaycastController _raycast;
+    private readonly CellIndicatorController _indicator;
+    private readonly PlacementGrid _grid;
 
-
-    public RaycastPlacementState(RaycastController raycast, CellIndicatorController indicator)
+    public RaycastPlacementState(RaycastController raycast, CellIndicatorController indicator, PlacementGrid grid)
     {
         _raycast = raycast;
         _indicator = indicator;
+        _grid = grid;
     }
 
-    public bool IsPlacementState { get { return true; } }
+    public bool IsPlacementState => true;
 
     public void OnEnter()
     {
@@ -27,12 +28,18 @@ public class RaycastPlacementState : IPlacementState
 
     public void Tick()
     {
-        
         _raycast.Tick();
 
         if (_raycast.HasHit)
         {
-            _indicator.ShowAtCell(_raycast.HitCell);
+            Vector2Int cell = _raycast.HitCell;
+
+            _indicator.ShowCells(
+                cell,
+                new Vector2Int[] { Vector2Int.zero },
+                _grid,
+                true
+            );
         }
         else
         {
@@ -40,5 +47,3 @@ public class RaycastPlacementState : IPlacementState
         }
     }
 }
-
-

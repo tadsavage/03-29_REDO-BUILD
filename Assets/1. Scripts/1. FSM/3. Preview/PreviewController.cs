@@ -1,114 +1,204 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class PreviewController : MonoBehaviour
 {
-    private GameObject _currentPreview;
+    private PlacementGrid _grid;
+    private readonly Stack<GameObject> _pool = new();
+    private readonly List<GameObject> _activeGhosts = new();
 
-    // Cached renderers + original materials
-    private Renderer[] _renderers;
-    private Material[] _originalMaterials;
+    private GameObject _singleGhost;
+    private ObjDataSO _currentData;
 
-    // Ghost materials
-    [Header("Ghost Materials")]
-    [SerializeField] private Material ghostValidMaterial;
-    [SerializeField] private Material ghostInvalidMaterial;
+    private MaterialPropertyBlock _mpb;
+    private Color _validColor = new Color(0f, 1f, 0f, 0.35f);
+    private Color _invalidColor = new Color(1f, 0f, 0f, 0.35f);
 
-    // Smoothing parameters
-    [SerializeField] private float moveSmoothTime = 08f;
-    private Vector3 _velocity;
-    private Vector3 _targetPos;
-    private bool _hasTarget;
+    private bool _multiMode;
 
-    // Smoothly move preview towards target position
-    private void Update()
+    private void Awake()
     {
-        if (_currentPreview == null || !_hasTarget)
-            return;
-
-        _currentPreview.transform.position =
-            Vector3.SmoothDamp(
-                _currentPreview.transform.position,
-                _targetPos,
-                ref _velocity,
-                moveSmoothTime
-            );
+        _mpb = new MaterialPropertyBlock();
+        _grid = Object.FindFirstObjectByType<PlacementGrid>();
     }
+
     // ---------------------------------------------------------
-    // CREATE PREVIEW
+    // PUBLIC API
     // ---------------------------------------------------------
+
     public void Show(ObjDataSO data)
     {
-        // Destroy old preview
-        if (_currentPreview != null)
-            Destroy(_currentPreview);
+        // If switching to a new prefab, destroy old ghosts and pool
+        if (_currentData != data)
+        {
+            if (_singleGhost != null)
+                Destroy(_singleGhost);
 
-        // Spawn new preview
-        _currentPreview = Instantiate(data.prefab);
-        _currentPreview.SetActive(true);
+            ClearGhostPool();
 
-        // Cache renderers
-        _renderers = _currentPreview.GetComponentsInChildren<Renderer>();
+            _singleGhost = CreateGhostFromPrefab(data.prefab);
+        }
 
-        // Cache original materials
-        _originalMaterials = new Material[_renderers.Length];
-        for (int i = 0; i < _renderers.Length; i++)
-            _originalMaterials[i] = _renderers[i].material;
+        _currentData = data;
+
+        _singleGhost.SetActive(true);
+        SetGhostValid(_singleGhost);
     }
 
-    // ---------------------------------------------------------
-    // POSITION + ROTATION
-    // ---------------------------------------------------------
-    public void MoveTo(Vector3 worldPos)
+
+
+    public void Hide()
     {
-        _targetPos = worldPos;
-        _hasTarget = true;
+        if (_singleGhost != null)
+            _singleGhost.SetActive(false);
+
+        ClearMultiGhosts();
+    }
+
+    public void MoveTo(Vector3 pos)
+    {
+        if (_singleGhost != null)
+            _singleGhost.transform.position = pos;
     }
 
     public void Rotate(float angle)
     {
-        if (_currentPreview != null)
-            _currentPreview.transform.rotation = Quaternion.Euler(0f, angle, 0f);
-
-        AudioManager.Play("Rotate");
+        if (_singleGhost != null)
+            _singleGhost.transform.rotation = Quaternion.Euler(0, angle, 0);
     }
 
-    // ---------------------------------------------------------
-    // GHOST MATERIALS
-    // ---------------------------------------------------------
     public void SetGhostValid()
     {
-        if (_renderers == null) return;
-
-        foreach (var r in _renderers)
-            r.material = ghostValidMaterial;
+        if (_singleGhost != null)
+            SetGhostValid(_singleGhost);
     }
 
     public void SetGhostInvalid()
     {
-        if (_renderers == null) return;
-
-        foreach (var r in _renderers)
-            r.material = ghostInvalidMaterial;
+        if (_singleGhost != null)
+            SetGhostInvalid(_singleGhost);
     }
 
     // ---------------------------------------------------------
-    // RESTORE ORIGINAL MATERIALS
+    // MULTI-GHOST MODE (DRAG PLACEMENT)
     // ---------------------------------------------------------
-    public void RestoreMaterials()
+
+    public void BeginSelectionCells()
     {
-        if (_renderers == null || _originalMaterials == null)
+        _multiMode = true;
+
+        if (_singleGhost != null)
+            _singleGhost.SetActive(false);
+        ClearMultiGhosts();
+    }
+
+    public void EndSelectionCells()
+    {
+        _multiMode = false;
+        ClearMultiGhosts();
+
+        if (_singleGhost != null)
+            _singleGhost.SetActive(true);
+    }
+
+    public void ShowGhost(Vector2Int cell, bool valid, float rotation)
+    {
+        if (!_multiMode)
             return;
 
-        for (int i = 0; i < _renderers.Length; i++)
-            _renderers[i].material = _originalMaterials[i];
+        GameObject ghost = GetGhost();
+        _activeGhosts.Add(ghost);
+
+        ghost.transform.position = _grid.GetCellCenter(cell);
+        ghost.transform.rotation = Quaternion.Euler(0, rotation, 0);
+
+        if (valid)
+            SetGhostValid(ghost);
+        else
+            SetGhostInvalid(ghost);
+    }
+
+
+    // ---------------------------------------------------------
+    // INTERNAL HELPERS
+    // ---------------------------------------------------------
+
+    private GameObject GetGhost()
+    {
+        if (_pool.Count > 0)
+        {
+            var go = _pool.Pop();
+            go.SetActive(true);
+            return go;
+        }
+
+        return CreateGhostFromPrefab(_currentData.prefab);
+    }
+
+    private void ClearMultiGhosts()
+    {
+        foreach (var g in _activeGhosts)
+        {
+            g.SetActive(false);
+            _pool.Push(g);
+        }
+        _activeGhosts.Clear();
     }
 
     // ---------------------------------------------------------
-    // HIDE PREVIEW
+    // AUTO-GHOST CREATION FROM OBJ PREFAB
     // ---------------------------------------------------------
-    public void Hide()
+
+    private GameObject CreateGhostFromPrefab(GameObject source)
     {
-        if (_currentPreview != null)
-            _currentPreview.SetActive(false);
+        GameObject ghost = Instantiate(source);
+        ghost.name = source.name + "_Ghost";
+
+        // Remove all scripts
+        foreach (var comp in ghost.GetComponentsInChildren<MonoBehaviour>())
+            DestroyImmediate(comp);
+
+        // Remove all colliders
+        foreach (var col in ghost.GetComponentsInChildren<Collider>())
+            DestroyImmediate(col);
+
+        // Apply ghost material behavior
+        foreach (var r in ghost.GetComponentsInChildren<Renderer>())
+        {
+            var mat = new Material(r.sharedMaterial);
+            mat.SetFloat("_Surface", 1); // URP Transparent
+            mat.renderQueue = 3000;
+            r.sharedMaterial = mat;
+        }
+
+        return ghost;
+    }
+
+    private void SetGhostValid(GameObject go)
+    {
+        var r = go.GetComponentInChildren<Renderer>();
+        r.GetPropertyBlock(_mpb);
+        _mpb.SetColor("_BaseColor", _validColor);
+        r.SetPropertyBlock(_mpb);
+    }
+
+    private void SetGhostInvalid(GameObject go)
+    {
+        var r = go.GetComponentInChildren<Renderer>();
+        r.GetPropertyBlock(_mpb);
+        _mpb.SetColor("_BaseColor", _invalidColor);
+        r.SetPropertyBlock(_mpb);
+    }
+
+    public void RestoreMaterials()
+    {
+        // Optional: if you ever swap materials, restore here.
+    }
+    private void ClearGhostPool()
+    {
+        foreach (var g in _pool)
+            Destroy(g);
+
+        _pool.Clear();
     }
 }

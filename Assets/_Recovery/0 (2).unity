@@ -808,6 +808,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d39436b62e6becf45ad63e64db1d05dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PreviewController
+  ghostValidMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
+  ghostInvalidMaterial: {fileID: 2100000, guid: 57c0190b8df978f47bb3ee755afa0434, type: 2}
+  smoothTime: 0.08
 --- !u!114 &1024109573
 MonoBehaviour:
   m_ObjectHideFlags: 0

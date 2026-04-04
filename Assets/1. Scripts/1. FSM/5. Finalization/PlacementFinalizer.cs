@@ -2,45 +2,94 @@ using UnityEngine;
 
 public class PlacementFinalizer : MonoBehaviour
 {
+    [Header("References")]
     [SerializeField] private PlacementGrid _grid;
-    public GameObject dustPoofPrefab;
+
+    [Header("FX")]
+    [SerializeField] private GameObject dustPoofPrefab;
     [SerializeField] private GameObject shockwaveRingPrefab;
 
-    public void FinalizePlacement(Vector2Int root, Vector2Int[] offsets, ObjDataSO data, float rotation)
-    {   
-        // Spawn ring poof effect
-        Vector3 ringPos = _grid.GetCellCenter(root);
-        ringPos.y += 0.05f;
+    /// <summary>
+    /// Finalizes placement of a single object at a root cell.
+    /// This is used by both single placement and drag placement.
+    /// </summary>
+    public GameObject FinalizePlacement(
+        Vector2Int root,
+        Vector2Int[] offsets,
+        ObjDataSO data,
+        float rotation)
+    {
+        // Spawn FX
+        PlayPlacementFX(root, data);
+
+        // Spawn object
+        GameObject placed = SpawnObject(root, data, rotation);
+
+        // Mark grid cells
+        MarkGridCells(root, offsets, placed, data);
+
+        return placed;
+    }
+
+    // ---------------------------------------------------------
+    // FX
+    // ---------------------------------------------------------
+    private void PlayPlacementFX(Vector2Int root, ObjDataSO data)
+    {
+        if (shockwaveRingPrefab == null)
+            return;
+
+        Vector3 pos = _grid.GetCellCenter(root);
+        pos.y += 0.05f;
+
         float scale = Mathf.Max(data.footprint.x, data.footprint.y);
-        var ring = Instantiate(shockwaveRingPrefab, ringPos, Quaternion.identity);
-        foreach (var ps in ring.GetComponentsInChildren<ParticleSystem>())
-            ps.Play(true);
+
+        GameObject ring = Instantiate(shockwaveRingPrefab, pos, Quaternion.identity);
         ring.transform.localScale *= scale * 0.8f;
 
-        // 1. Spawn the object
+        foreach (var ps in ring.GetComponentsInChildren<ParticleSystem>())
+            ps.Play(true);
+    }
+
+    // ---------------------------------------------------------
+    // Object Spawn
+    // ---------------------------------------------------------
+    private GameObject SpawnObject(Vector2Int root, ObjDataSO data, float rotation)
+    {
         GameObject placed = Instantiate(data.prefab);
         placed.transform.position = _grid.GetCellCenter(root);
         placed.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+        return placed;
+    }
 
-        // 2. Mark grid cells as occupied
+    // ---------------------------------------------------------
+    // Grid Occupancy
+    // ---------------------------------------------------------
+    private void MarkGridCells(Vector2Int root, Vector2Int[] offsets, GameObject placed, ObjDataSO data)
+    {
         foreach (var offset in offsets)
         {
             Vector2Int cell = root + offset;
-            _grid.SetOccupied(cell, placed);
+            _grid.SetOccupied(cell, placed, data);
         }
 
-        // 3. If this object moves after placement, clear the grid cells immediately
+        // Optional: if the object clears the grid after placement
         if (data.ClearsGridAfterPlacement)
         {
             foreach (var offset in offsets)
             {
                 Vector2Int cell = root + offset;
-                _grid.Clear(cell);
+                _grid.ClearCell(cell);
             }
         }
+    }
 
-        // 4. Play placement sound effect
-        // Play placement sound
-        AudioManager.Play("ValidPlace");
+    // ---------------------------------------------------------
+    // Public helper for drag placement FX
+    // ---------------------------------------------------------
+    public void SpawnDust(Vector3 pos)
+    {
+        if (dustPoofPrefab != null)
+            Instantiate(dustPoofPrefab, pos, Quaternion.identity);
     }
 }

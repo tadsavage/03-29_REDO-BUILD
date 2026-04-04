@@ -47,7 +47,7 @@ public class PlacementStateMachine : MonoBehaviour
 
         // States
         _idleState = new IdleState();
-        _raycastState = new RaycastPlacementState(raycast, indicator);
+        _raycastState = new RaycastPlacementState(raycast, indicator, grid);
         _buildState = new BuildState(_actions, preview, validator, finalizer, grid, this, raycast, indicator);
         _deleteState = new DeleteState(_actions, finalizer, this);
 

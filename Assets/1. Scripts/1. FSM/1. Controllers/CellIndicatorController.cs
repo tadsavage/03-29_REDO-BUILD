@@ -2,73 +2,123 @@ using UnityEngine;
 using System.Collections.Generic;
 
 public class CellIndicatorController : MonoBehaviour
-{   // Colors for valid and invalid placements
-    [SerializeField] private Color validColor = new Color(0f, 1f, 0f, 0.50f); // Green with 50% opacity
-    [SerializeField] private Color invalidColor = new Color(1f, 0f, 0f, 0.50f); // Red with 50% opacity
-    // MaterialPropertyBlock for efficient material property changes
-    private MaterialPropertyBlock _mpb;
+{
+    [Header("Colors")]
+    [SerializeField] private Color validColor = new Color(0f, 1f, 0f, 0.50f);
+    [SerializeField] private Color invalidColor = new Color(1f, 0f, 0f, 0.50f);
 
-    [SerializeField] private GameObject singleIndicator;   // scene object
-    [SerializeField] private GameObject indicatorPrefab;   // prefab for multi-cell
+    [Header("Indicator Prefab")]
+    [SerializeField] private GameObject indicatorPrefab;
+
     [SerializeField] private PlacementGrid grid;
     [SerializeField] private float yOffset = 0.1f;
-    Vector2 lastPos = Vector2.zero;
 
-    private readonly List<GameObject> _activeIndicators = new();
+    private readonly List<GameObject> _active = new();
+    private readonly Stack<GameObject> _pool = new();
+
+    private MaterialPropertyBlock _mpb;
+
+    // For single-cell mode
+    private Vector2Int _lastRoot = new Vector2Int(int.MinValue, int.MinValue);
 
     private void Awake()
     {
         _mpb = new MaterialPropertyBlock();
     }
 
-    public void ShowAtCell(Vector2Int cell)
-    {
-        Vector3 cellOffset = new Vector3(0, yOffset, 0);
-        singleIndicator.transform.position = grid.GetCellCenter(cell) + cellOffset;
-        singleIndicator.SetActive(true);
+    // ---------------------------------------------------------
+    // PUBLIC API
+    // ---------------------------------------------------------
 
-        lastPos = cell;
-    }
-
-    public void Hide()
-    {
-        singleIndicator.SetActive(false);
-    }
-    private void PlayCellChangeSoundEffect()
-    {
-        AudioManager.Play("NewCell");
-    }
-    public void ClearAll()
-    {
-        foreach (var ind in _activeIndicators)
-            Destroy(ind);
-
-        _activeIndicators.Clear();
-    }
-
+    /// <summary>
+    /// Multi-cell indicator for drag placement.
+    /// Each cell gets its own indicator tile.
+    /// </summary>
     public void ShowCells(Vector2Int root, Vector2Int[] offsets, PlacementGrid grid, bool isValid)
     {
-        ClearAll();
+        // This version is used for single-cell placement
+        // Drag placement uses ShowCell() below
+        if (root == _lastRoot)
+            return;
 
-        if (lastPos != root)
-        {
-            PlayCellChangeSoundEffect();
-        }
+        _lastRoot = root;
+
+        ClearActive();
+
+        Color color = isValid ? validColor : invalidColor;
 
         foreach (var offset in offsets)
         {
             Vector2Int cell = root + offset;
-            Vector3 pos = grid.GetCellCenter(cell);
+            Vector3 pos = grid.GetCellCenter(cell) + new Vector3(0, yOffset, 0);
 
-            GameObject ind = Instantiate(indicatorPrefab, pos, Quaternion.identity);
-            _activeIndicators.Add(ind);
+            GameObject ind = GetIndicator();
+            ind.transform.position = pos;
 
-            // Apply color
-            var renderer = ind.GetComponent<Renderer>();
-            renderer.GetPropertyBlock(_mpb);
-            _mpb.SetColor("_BaseColor", isValid ? validColor : invalidColor);
-            renderer.SetPropertyBlock(_mpb);
+            ApplyColor(ind, color);
+
+            _active.Add(ind);
         }
-        lastPos = root;
+    }
+
+    /// <summary>
+    /// Show a single indicator tile for a specific cell.
+    /// Used for drag rectangle placement.
+    /// </summary>
+    public void ShowCell(Vector2Int cell, bool isValid)
+    {
+        GameObject ind = GetIndicator();
+
+        ind.transform.position = grid.GetCellCenter(cell) + new Vector3(0, yOffset, 0);
+
+        ApplyColor(ind, isValid ? validColor : invalidColor);
+
+        _active.Add(ind);
+    }
+
+    public void Hide()
+    {
+        ClearActive();
+        _lastRoot = new Vector2Int(int.MinValue, int.MinValue);
+    }
+
+    public void ClearAll()
+    {
+        ClearActive();
+        _lastRoot = new Vector2Int(int.MinValue, int.MinValue);
+    }
+
+    // ---------------------------------------------------------
+    // INTERNAL HELPERS
+    // ---------------------------------------------------------
+
+    private GameObject GetIndicator()
+    {
+        if (_pool.Count > 0)
+        {
+            var go = _pool.Pop();
+            go.SetActive(true);
+            return go;
+        }
+
+        return Instantiate(indicatorPrefab);
+    }
+
+    private void ClearActive()
+    {
+        foreach (var ind in _active)
+        {
+            ind.SetActive(false);
+            _pool.Push(ind);
+        }
+        _active.Clear();
+    }
+
+    private void ApplyColor(GameObject ind, Color color)
+    {
+        var renderer = ind.GetComponent<Renderer>();
+        renderer.GetPropertyBlock(_mpb);
+        _mpb.SetColor("_BaseColor", color);
+        renderer.SetPropertyBlock(_mpb);
     }
 }
