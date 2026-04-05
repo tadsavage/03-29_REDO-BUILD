@@ -19,6 +19,7 @@ public class BuildState : IPlacementState
     private bool _placeRequested;
     private bool _rotateRequested;
     private float _currentRotation;
+    private float _lastPlacedRotation;
 
     // NEW — track the last placed cell and whether we're still hovering it
     private Vector2Int _lastPlacedCell;
@@ -113,14 +114,19 @@ public class BuildState : IPlacementState
 
             // REAPPEAR GHOST NOW THAT WE MOVED OFF THE PLACED CELL
             _preview.Show(_currentData);
+
+            // ⭐ Restore rotation of last placed object
+            _preview.Rotate(_lastPlacedRotation);
+            _currentRotation = _lastPlacedRotation;
         }
 
         // Compute rotated footprint offsets for this object
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(_currentRotation);
 
         // Move preview to the root cell (grid‑aligned)
+        _preview.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
         _preview.MoveTo(_grid.GetCellCenter(root));
-
+     
         // Show indicators for all occupied cells
         bool isValid = _validator.IsValidPlacement(root, offsets);
         _indicator.ShowCells(root, offsets, _grid, isValid);
@@ -161,6 +167,7 @@ public class BuildState : IPlacementState
 
                 // NEW — mark this cell as "just placed"
                 _lastPlacedCell = root;
+                _lastPlacedRotation = _currentRotation;   // ⭐ store rotation
                 _justPlaced = true;
             }
         }

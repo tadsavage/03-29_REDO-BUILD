@@ -71,7 +71,6 @@ public class PreviewController : MonoBehaviour
 
         AudioManager.Play("Rotate");
     }
-
     // ---------------------------------------------------------
     // GHOST MATERIALS
     // ---------------------------------------------------------
@@ -82,7 +81,6 @@ public class PreviewController : MonoBehaviour
         foreach (var r in _renderers)
             r.material = ghostValidMaterial;
     }
-
     public void SetGhostInvalid()
     {
         if (_renderers == null) return;
