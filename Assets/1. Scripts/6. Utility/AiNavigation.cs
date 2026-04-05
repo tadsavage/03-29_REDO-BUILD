@@ -22,6 +22,7 @@ public class AiNavigation : MonoBehaviour
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
+        agent.enabled = true;
 
 
         if (waypoints.Length > 0)

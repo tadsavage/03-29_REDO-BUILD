@@ -74,9 +74,6 @@ PrefabInstance:
       addedObject: {fileID: 7971922716347935267}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 658232550049568593}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 8469946913915855468}
   m_SourcePrefab: {fileID: 100100000, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
 --- !u!1 &289692319690755998 stripped
@@ -112,7 +109,7 @@ NavMeshAgent:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 289692319690755998}
-  m_Enabled: 1
+  m_Enabled: 0
   m_AgentTypeID: 0
   m_Radius: 0.5
   m_Speed: 2
@@ -120,9 +117,9 @@ NavMeshAgent:
   avoidancePriority: 50
   m_AngularSpeed: 120
   m_StoppingDistance: 0
-  m_AutoTraverseOffMeshLink: 1
+  m_AutoTraverseOffMeshLink: 0
   m_AutoBraking: 1
-  m_AutoRepath: 1
+  m_AutoRepath: 0
   m_Height: 2
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
@@ -153,22 +150,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingData
   objDataSO: {fileID: 11400000, guid: bf3848f4f32563140815fc574dd64ee9, type: 2}
---- !u!114 &658232550049568593
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 289692319690755998}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
-  validMaterial: {fileID: 0}
-  invalidMaterial: {fileID: 0}
-  deleteMaterial: {fileID: 0}
-  originalMaterials: []
 --- !u!114 &8469946913915855468
 MonoBehaviour:
   m_ObjectHideFlags: 0

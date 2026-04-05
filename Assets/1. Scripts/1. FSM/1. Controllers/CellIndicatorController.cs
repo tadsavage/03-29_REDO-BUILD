@@ -38,8 +38,6 @@ public class CellIndicatorController : MonoBehaviour
     {
         // This version is used for single-cell placement
         // Drag placement uses ShowCell() below
-        if (root == _lastRoot)
-            return;
 
         _lastRoot = root;
 

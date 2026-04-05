@@ -64,9 +64,6 @@ PrefabInstance:
       addedObject: {fileID: 4711667653918820540}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 8274257010660332686}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 6065245649054049433}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
       insertIndex: -1
@@ -84,7 +81,7 @@ NavMeshAgent:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4077015868802141654}
-  m_Enabled: 1
+  m_Enabled: 0
   m_AgentTypeID: 0
   m_Radius: 1
   m_Speed: 2
@@ -112,22 +109,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingData
   objDataSO: {fileID: 11400000, guid: f94b11ce10a004d4ca2aac43024ebcec, type: 2}
---- !u!114 &8274257010660332686
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4077015868802141654}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
-  validMaterial: {fileID: 0}
-  invalidMaterial: {fileID: 0}
-  deleteMaterial: {fileID: 0}
-  originalMaterials: []
 --- !u!65 &6065245649054049433
 BoxCollider:
   m_ObjectHideFlags: 0

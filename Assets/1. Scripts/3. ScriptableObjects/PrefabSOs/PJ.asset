@@ -15,11 +15,9 @@ MonoBehaviour:
   objName: PalletJack
   cost: 2500
   hourlyCost: 20
-  footprint: {x: 1, y: 2}
-  cell: {x: 0, y: 0}
-  worldLocation: {x: 0, y: 0, z: 0}
-  height: 1
   prefab: {fileID: 5947769828579903208, guid: 3fa53f8cd78a0ba45a0228b3d244342d, type: 3}
   icon: {fileID: 2800000, guid: b6ea350d55a3e9946b6c4a187311d6a6, type: 3}
-  isStackable: 0
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []
   ClearsGridAfterPlacement: 1
+  isStackable: 0

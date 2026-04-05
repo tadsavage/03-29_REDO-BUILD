@@ -26,6 +26,9 @@ public class BuildState : IPlacementState
     private bool _rotateRequested;
     private float _currentRotation;
 
+    private Vector2Int[] _currentOffsets;
+    private float _lastRotation;
+
     // ---------------------------------------------------------
     // Drag Placement
     // ---------------------------------------------------------
@@ -82,12 +85,22 @@ public class BuildState : IPlacementState
         _raycast.EnableRay();
         _preview.Show(_currentData);
 
+        // Optional fly-in effect from above
+        Vector3 firstTarget = _grid.GetCellCenter(_raycast.HitCell);
+        _preview.BeginFlyIn(firstTarget);
+
         _placeRequested = false;
         _rotateRequested = false;
-        _currentRotation = 0f;
+
+        // Restore last rotation from preview
+        _currentRotation = _preview.CurrentRotation;
 
         _isDragging = false;
         _dragCells.Clear();
+
+        // Compute correct offsets immediately
+        _currentOffsets = _currentData.GetFootprintOffsets(-_currentRotation);
+        _lastRotation = _currentRotation;
     }
 
     // ---------------------------------------------------------
@@ -148,11 +161,19 @@ public class BuildState : IPlacementState
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             // Hide single‑placement ghost immediately
-            _preview.Hide();
+            if (_isDragging)
+                _preview.Hide();
+            // Do NOT hide the ghost here for single placement
+            _isDragging = false;
+            _dragCells.Clear();
+            _dragStartCell = root;
 
             // Reset drag state
             _isDragging = false;
             _dragCells.Clear();
+
+            // ⭐ IMPORTANT: record the click cell here
+            _dragStartCell = root;
         }
 
         // ---------------------------------------------------------
@@ -160,15 +181,10 @@ public class BuildState : IPlacementState
         // ---------------------------------------------------------
         if (Mouse.current.leftButton.isPressed && !_isDragging)
         {
+            // Only enter drag if we've actually moved off the start cell
             if (root != _dragStartCell)
             {
                 _isDragging = true;
-
-                // ⭐ Set drag start cell NOW (correct timing)
-                _dragStartCell = root;
-
-                // ⭐ Treat the root cell as empty during drag
-                _grid.ClearCell(_dragStartCell);
 
                 // Reset visuals
                 _preview.Hide();
@@ -183,7 +199,6 @@ public class BuildState : IPlacementState
                 _preview.BeginSelectionCells();
             }
         }
-
         // ---------------------------------------------------------
         // DRAGGING MODE
         // ---------------------------------------------------------
@@ -210,8 +225,14 @@ public class BuildState : IPlacementState
         // ---------------------------------------------------------
         // SINGLE‑CELL PLACEMENT
         // ---------------------------------------------------------
-        Vector2Int[] offsets = _currentData.GetFootprintOffsets(_currentRotation);
+        // Only recompute when rotation changes
+        if (_currentRotation != _lastRotation)
+        {
+            _currentOffsets = _currentData.GetFootprintOffsets(-_currentRotation);
+            _lastRotation = _currentRotation;
+        }
 
+        Vector2Int[] offsets = _currentOffsets;
         _preview.MoveTo(_grid.GetCellCenter(root));
 
         bool isValid = _validator.IsValidPlacement(root, offsets);
@@ -235,16 +256,52 @@ public class BuildState : IPlacementState
         {
             _placeRequested = false;
 
-            if (_validator.IsValidPlacement(root, offsets))
-            {
-                _finalizer.FinalizePlacement(root, offsets, _currentData, _currentRotation);
+            bool isValidNow = _validator.IsValidPlacement(root, offsets);
 
-                _lastPlacedCell = root;
-                _justPlaced = true;
+            if (!isValidNow)
+            {
+                // ❌ INVALID PLACEMENT
+                AudioManager.Play("InvalidPlace");
+
+                // Keep ghost visible and red
+                _preview.SetGhostInvalid();
+                _indicator.ShowCells(root, offsets, _grid, false);
+                return; // ⭐ STOP HERE — do NOT place anything
             }
+            else
+            {
+                AudioManager.Play("ValidPlace");
+            }
+            // ✔ VALID PLACEMENT
+            _finalizer.FinalizePlacement(root, offsets, _currentData, _currentRotation);
+
+            Vector3 nextPos = _grid.GetCellCenter(root);
+            _preview.BeginFlyIn(nextPos);
+
+            _lastPlacedCell = root;
+            _justPlaced = true;
         }
     }
+    // ---------------------------------------------------------
+    // STRIDE CALCULATION (for drag placement of 2x1)
+    private Vector2Int GetStride(Vector2Int[] offsets)
+    {
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
 
+        foreach (var o in offsets)
+        {
+            if (o.x < minX) minX = o.x;
+            if (o.x > maxX) maxX = o.x;
+            if (o.y < minY) minY = o.y;
+            if (o.y > maxY) maxY = o.y;
+        }
+
+        int width = (maxX - minX) + 1;
+        int height = (maxY - minY) + 1;
+
+        return new Vector2Int(width, height);
+    }
     // ---------------------------------------------------------
     // DRAG LOGIC
     // ---------------------------------------------------------
@@ -257,12 +314,22 @@ public class BuildState : IPlacementState
         int minY = Mathf.Min(_dragStartCell.y, currentCell.y);
         int maxY = Mathf.Max(_dragStartCell.y, currentCell.y);
 
-        Vector2Int[] offsets = _currentData.GetFootprintOffsets(_currentRotation);
-
-        // Draw drag rectangle
-        for (int x = minX; x <= maxX; x++)
+        //Vector2Int[] offsets = _currentData.GetFootprintOffsets(_currentRotation);
+        // Only recompute when rotation changes
+        if (_currentRotation != _lastRotation)
         {
-            for (int y = minY; y <= maxY; y++)
+            _currentOffsets = _currentData.GetFootprintOffsets(-_currentRotation);
+            _lastRotation = _currentRotation;
+        }
+
+        Vector2Int[] offsets = _currentOffsets;
+
+        Vector2Int stride = GetStride(offsets);
+
+        // Draw drag rectangle using stride
+        for (int x = minX; x <= maxX; x += stride.x)
+        {
+            for (int y = minY; y <= maxY; y += stride.y)
             {
                 Vector2Int cell = new Vector2Int(x, y);
                 bool valid = _validator.IsCellValid(cell, offsets);
@@ -274,7 +341,6 @@ public class BuildState : IPlacementState
                 _preview.ShowGhost(cell, valid, _currentRotation);
             }
         }
-
         // Mouse up → finalize drag placement
         if (Mouse.current.leftButton.wasReleasedThisFrame)
             EndDragPlacement();
@@ -287,30 +353,31 @@ public class BuildState : IPlacementState
     {
         if (_dragCells.Count == 0)
         {
-            AudioManager.Play("Invalid");
+            AudioManager.Play("InvalidPlace");
             _preview.EndSelectionCells();
             _indicator.ClearAll();
             _isDragging = false;
             return;
         }
-
         foreach (var cell in _dragCells)
-        {
-            Vector2Int[] offsets = _currentData.GetFootprintOffsets(_currentRotation);
+            {
+                Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
-            GameObject placed = _finalizer.FinalizePlacement(cell, offsets, _currentData, _currentRotation);
+                GameObject placed = _finalizer.FinalizePlacement(cell, offsets, _currentData, _currentRotation);
 
-            _grid.SetOccupied(cell, placed, _currentData);
-            _finalizer.SpawnDust(_grid.GetCellCenter(cell));
-        }
+                // ⭐ Only occupy grid if this object should block
+                if (!_currentData.ClearsGridAfterPlacement)
+                    _grid.SetOccupied(cell, placed, _currentData);
 
-        AudioManager.Play("ValidPlace");
+                _finalizer.SpawnDust(_grid.GetCellCenter(cell));
+            }
+
+        //AudioManager.Play("ValidPlace");
 
         _preview.EndSelectionCells();
         _indicator.ClearAll();
         _isDragging = false;
     }
-
     // ---------------------------------------------------------
     // EXIT STATE
     // ---------------------------------------------------------
@@ -336,6 +403,7 @@ public class BuildState : IPlacementState
     // ---------------------------------------------------------
     private void OnRotatePerformed(InputAction.CallbackContext ctx)
     {
+        AudioManager.Play("Rotate");
         _rotateRequested = true;
     }
 

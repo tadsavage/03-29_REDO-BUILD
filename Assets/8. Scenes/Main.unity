@@ -381,7 +381,7 @@ MonoBehaviour:
   m_TrackedDeviceOrientationAction: {fileID: 7970375526676320489, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
   m_DeselectOnBackgroundClick: 1
   m_PointerBehavior: 0
-  m_CursorLockBehavior: 0
+  m_CursorLockBehavior: 1
   m_ScrollDeltaPerTick: 6
 --- !u!114 &703635028
 MonoBehaviour:
@@ -808,6 +808,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d39436b62e6becf45ad63e64db1d05dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PreviewController
+  _flyStartPos: {x: 0, y: 30, z: 0}
+  moveSmoothTime: 0.1
 --- !u!114 &1024109573
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1163,7 +1165,7 @@ MonoBehaviour:
     m_Bits: 1
   m_ShadowRenderingLayersMask:
     serializedVersion: 0
-    m_Bits: 1
+    m_Bits: 4294967295
   m_Version: 4
   m_LightLayerMask: 1
   m_ShadowLayerMask: 1
@@ -1192,7 +1194,7 @@ Light:
     m_Strength: 1
     m_Bias: 0.05
     m_NormalBias: 0.4
-    m_NearPlane: 0.2
+    m_NearPlane: 0.1
     m_CullingMatrixOverride:
       e00: 1
       e01: 0

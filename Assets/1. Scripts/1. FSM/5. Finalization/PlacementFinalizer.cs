@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class PlacementFinalizer : MonoBehaviour
 {
@@ -9,31 +9,21 @@ public class PlacementFinalizer : MonoBehaviour
     [SerializeField] private GameObject dustPoofPrefab;
     [SerializeField] private GameObject shockwaveRingPrefab;
 
-    /// <summary>
-    /// Finalizes placement of a single object at a root cell.
-    /// This is used by both single placement and drag placement.
-    /// </summary>
     public GameObject FinalizePlacement(
         Vector2Int root,
         Vector2Int[] offsets,
         ObjDataSO data,
         float rotation)
     {
-        // Spawn FX
         PlayPlacementFX(root, data);
 
-        // Spawn object
         GameObject placed = SpawnObject(root, data, rotation);
 
-        // Mark grid cells
         MarkGridCells(root, offsets, placed, data);
 
         return placed;
     }
 
-    // ---------------------------------------------------------
-    // FX
-    // ---------------------------------------------------------
     private void PlayPlacementFX(Vector2Int root, ObjDataSO data)
     {
         if (shockwaveRingPrefab == null)
@@ -51,9 +41,6 @@ public class PlacementFinalizer : MonoBehaviour
             ps.Play(true);
     }
 
-    // ---------------------------------------------------------
-    // Object Spawn
-    // ---------------------------------------------------------
     private GameObject SpawnObject(Vector2Int root, ObjDataSO data, float rotation)
     {
         GameObject placed = Instantiate(data.prefab);
@@ -62,31 +49,28 @@ public class PlacementFinalizer : MonoBehaviour
         return placed;
     }
 
-    // ---------------------------------------------------------
-    // Grid Occupancy
-    // ---------------------------------------------------------
+    // ⭐ Only occupy grid for non-clearing objects
     private void MarkGridCells(Vector2Int root, Vector2Int[] offsets, GameObject placed, ObjDataSO data)
     {
-        foreach (var offset in offsets)
-        {
-            Vector2Int cell = root + offset;
-            _grid.SetOccupied(cell, placed, data);
-        }
-
-        // Optional: if the object clears the grid after placement
-        if (data.ClearsGridAfterPlacement)
+        if (!data.ClearsGridAfterPlacement)
         {
             foreach (var offset in offsets)
             {
                 Vector2Int cell = root + offset;
-                _grid.ClearCell(cell);
+                _grid.SetOccupied(cell, placed, data);
+            }
+        }
+        else
+        {
+            // Object is visual-only in terms of grid occupancy
+            foreach (var offset in offsets)
+            {
+                Vector2Int cell = root + offset;
+                _grid.ClearCell(cell, destroyObject: false);
             }
         }
     }
 
-    // ---------------------------------------------------------
-    // Public helper for drag placement FX
-    // ---------------------------------------------------------
     public void SpawnDust(Vector3 pos)
     {
         if (dustPoofPrefab != null)

@@ -24,7 +24,6 @@ public class ObjDataSO : ScriptableObject
 
     [Tooltip("If true, object can be stacked on top of others.")]
     public bool isStackable = false;
-
     // ---------------------------------------------------------
     // FOOTPRINT API
     // ---------------------------------------------------------
@@ -96,7 +95,8 @@ public class ObjDataSO : ScriptableObject
                     break;
 
                 case 90:
-                    result[i] = new Vector2Int(o.y, -o.x);
+                    // 90° should go UP
+                    result[i] = new Vector2Int(-o.y, o.x);
                     break;
 
                 case 180:
@@ -104,7 +104,8 @@ public class ObjDataSO : ScriptableObject
                     break;
 
                 case 270:
-                    result[i] = new Vector2Int(-o.y, o.x);
+                    // 270° should go DOWN
+                    result[i] = new Vector2Int(o.y, -o.x);
                     break;
             }
         }

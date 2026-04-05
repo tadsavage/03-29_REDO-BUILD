@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -87,21 +87,24 @@ public class PlacementGrid : MonoBehaviour
             SetCellVisual(cell, OccupiedColor);
     }
 
-    public void ClearCell(Vector2Int cell)
+    public void ClearCell(Vector2Int cell, bool destroyObject)
     {
-        // Bounds check
         if (cell.x < 0 || cell.x >= _cells.GetLength(0)) return;
         if (cell.y < 0 || cell.y >= _cells.GetLength(1)) return;
 
         GameObject placed = _cells[cell.x, cell.y];
 
-        if (placed != null)
+        if (destroyObject && placed != null)
             GameObject.Destroy(placed);
 
         _cells[cell.x, cell.y] = null;
 
-        if (UseVisualizer)
+        if (UseVisualizer) 
+        {
             SetCellVisual(cell, FreeColor);
+            Debug.Log($"Cleared cell {cell} and set visual to FreeColor");
+        }
+            
     }
 
     public Vector2Int WorldToCell(Vector3 worldPos)
