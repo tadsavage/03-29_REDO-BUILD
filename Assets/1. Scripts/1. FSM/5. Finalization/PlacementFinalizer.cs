@@ -27,6 +27,7 @@ public class PlacementFinalizer : MonoBehaviour
 
         GameObject placed = Instantiate(data.prefab, pos, rot, _parent);
 
+        SpawnDust(pos);
         // ================================
         // STACKING: register object in grid
         // Each footprint cell gets the same placed instance
@@ -51,7 +52,7 @@ public class PlacementFinalizer : MonoBehaviour
     {
         if (dustPrefab == null)
             return;
-
+        Debug.Log("Spawning dust at " + position);
         Instantiate(dustPrefab, position, Quaternion.identity);
     }
 }
