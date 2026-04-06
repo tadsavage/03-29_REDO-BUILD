@@ -4,9 +4,9 @@ using UnityEngine.EventSystems;
 
 public class BuildState : IPlacementState
 {
-    // ---------------------------------------------------------
-    // Dependencies
-    // ---------------------------------------------------------
+    // =========================================================
+    //  DEPENDENCIES
+    // =========================================================
     private readonly RaycastController _raycast;
     private readonly CellIndicatorController _indicator;
 
@@ -17,9 +17,9 @@ public class BuildState : IPlacementState
     private readonly PlacementGrid _grid;
     private readonly PlacementStateMachine _fsm;
 
-    // ---------------------------------------------------------
-    // Build Data
-    // ---------------------------------------------------------
+    // =========================================================
+    //  BUILD DATA
+    // =========================================================
     private ObjDataSO _currentData;
 
     private bool _placeRequested;
@@ -29,22 +29,22 @@ public class BuildState : IPlacementState
     private Vector2Int[] _currentOffsets;
     private float _lastRotation;
 
-    // ---------------------------------------------------------
-    // Drag Placement
-    // ---------------------------------------------------------
+    // =========================================================
+    //  DRAG PLACEMENT
+    // =========================================================
     private bool _isDragging;
     private Vector2Int _dragStartCell;
     private readonly System.Collections.Generic.List<Vector2Int> _dragCells = new();
 
-    // ---------------------------------------------------------
-    // Anti‑flicker for single placement
-    // ---------------------------------------------------------
+    // =========================================================
+    //  ANTI-FLICKER (prevents ghost disappearing after placement)
+    // =========================================================
     private Vector2Int _lastPlacedCell;
     private bool _justPlaced;
 
-    // ---------------------------------------------------------
-    // Constructor
-    // ---------------------------------------------------------
+    // =========================================================
+    //  CONSTRUCTOR
+    // =========================================================
     public BuildState(
         PlacementActions actions,
         PreviewController preview,
@@ -69,15 +69,14 @@ public class BuildState : IPlacementState
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
 
         _actions.BuildPlacement.BindPlaceToMouseLeft();
-        //_actions.BuildPlacement.Place.performed += OnPlacePerformed;
-        _actions.BuildPlacement.Place.canceled += OnPlacePerformed; // AI Change to make first drag green on press, and place on release
+        _actions.BuildPlacement.Place.canceled += OnPlacePerformed; // place on release
     }
 
     public bool IsPlacementState => true;
 
-    // ---------------------------------------------------------
-    // ENTER STATE
-    // ---------------------------------------------------------
+    // =========================================================
+    //  ENTER STATE
+    // =========================================================
     public void OnEnter()
     {
         if (_currentData == null)
@@ -101,9 +100,9 @@ public class BuildState : IPlacementState
         _lastRotation = _currentRotation;
     }
 
-    // ---------------------------------------------------------
-    // MAIN UPDATE LOOP
-    // ---------------------------------------------------------
+    // =========================================================
+    //  MAIN UPDATE LOOP
+    // =========================================================
     public void Tick()
     {
         _raycast.Tick();
@@ -115,7 +114,9 @@ public class BuildState : IPlacementState
             return;
         }
 
-        // Right‑click cancel
+        // ---------------------------------------------------------
+        // RIGHT-CLICK CANCEL
+        // ---------------------------------------------------------
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
             AudioManager.Play("Cancel");
@@ -133,7 +134,9 @@ public class BuildState : IPlacementState
 
         Vector2Int root = _raycast.HitCell;
 
-        // Anti‑flicker
+        // ---------------------------------------------------------
+        // ANTI-FLICKER: prevent ghost from disappearing after placement
+        // ---------------------------------------------------------
         if (_justPlaced && root == _lastPlacedCell)
         {
             _preview.Hide();
@@ -202,7 +205,7 @@ public class BuildState : IPlacementState
         }
 
         // ---------------------------------------------------------
-        // SINGLE‑CELL PLACEMENT
+        // SINGLE-CELL PLACEMENT
         // ---------------------------------------------------------
         if (_currentRotation != _lastRotation)
         {
@@ -211,9 +214,30 @@ public class BuildState : IPlacementState
         }
 
         Vector2Int[] offsets = _currentOffsets;
-        _preview.MoveTo(_grid.GetCellCenter(root));
 
-        bool isValid = _validator.IsValidPlacement(root, offsets);
+        // ================================
+        // STACKING: auto-snap preview to stack height
+        // ================================
+        _preview.MoveTo(_grid.GetCellCenter(root), root, _currentData);
+        // ================================
+
+        bool isValid = _validator.IsValidPlacement(root, offsets, _currentData);
+
+        // ================================
+        // STACKING: validate stack height / occupancy
+        // ================================
+        if (_currentData.isStackable)
+        {
+            if (!_grid.CanStack(root, _currentData))
+                isValid = false;
+        }
+        else
+        {
+            if (_grid.IsOccupied(root))
+                isValid = false;
+        }
+        // ================================
+
         _indicator.ShowCells(root, offsets, _grid, isValid);
 
         if (isValid)
@@ -228,11 +252,29 @@ public class BuildState : IPlacementState
             return;
         }
 
+        // ---------------------------------------------------------
+        // PLACE OBJECT
+        // ---------------------------------------------------------
         if (_placeRequested && !_isDragging)
         {
             _placeRequested = false;
 
-            bool isValidNow = _validator.IsValidPlacement(root, offsets);
+            bool isValidNow = _validator.IsCellValid(root, offsets, _currentData);
+
+            // ================================
+            // STACKING: re-apply stack rules
+            // ================================
+            if (_currentData.isStackable)
+            {
+                if (!_grid.CanStack(root, _currentData))
+                    isValidNow = false;
+            }
+            else
+            {
+                if (_grid.IsOccupied(root))
+                    isValidNow = false;
+            }
+            // ================================
 
             if (!isValidNow)
             {
@@ -254,9 +296,9 @@ public class BuildState : IPlacementState
         }
     }
 
-    // ---------------------------------------------------------
-    // STRIDE CALCULATION
-    // ---------------------------------------------------------
+    // =========================================================
+    //  STRIDE CALCULATION (used for drag placement)
+    // =========================================================
     private Vector2Int GetStride(Vector2Int[] offsets)
     {
         int minX = int.MaxValue, maxX = int.MinValue;
@@ -276,9 +318,9 @@ public class BuildState : IPlacementState
         return new Vector2Int(width, height);
     }
 
-    // ---------------------------------------------------------
-    // DRAG LOGIC
-    // ---------------------------------------------------------
+    // =========================================================
+    //  DRAG LOGIC
+    // =========================================================
     private void HandleDragPlacement(Vector2Int currentCell)
     {
         _dragCells.Clear();
@@ -303,7 +345,22 @@ public class BuildState : IPlacementState
             {
                 Vector2Int cell = new Vector2Int(x, y);
 
-                bool valid = _validator.IsCellValid(cell, offsets);
+                bool valid = _validator.IsCellValid(cell, offsets, _currentData);
+
+                // ================================
+                // STACKING: validate per-cell stack height / occupancy
+                // ================================
+                if (_currentData.isStackable)
+                {
+                    if (!_grid.CanStack(cell, _currentData))
+                        valid = false;
+                }
+                else
+                {
+                    if (_grid.IsOccupied(cell))
+                        valid = false;
+                }
+                // ================================
 
                 if (!valid)
                     continue;
@@ -322,13 +379,17 @@ public class BuildState : IPlacementState
             }
         }
 
-        if (Mouse.current.leftButton.wasReleasedThisFrame)
+        if (Mouse.current.leftButton.wasReleasedThisFrame) 
+        {
             EndDragPlacement();
+            return;
+        }
+            
     }
 
-    // ---------------------------------------------------------
-    // FINALIZE DRAG PLACEMENT
-    // ---------------------------------------------------------
+    // =========================================================
+    //  FINALIZE DRAG PLACEMENT
+    // =========================================================
     private void EndDragPlacement()
     {
         if (_dragCells.Count == 0)
@@ -339,15 +400,16 @@ public class BuildState : IPlacementState
             _isDragging = false;
             return;
         }
-
+        // ================================
+        // PLAY VALID SOUND FOR DRAG PLACEMENT
+        // ================================
+        AudioManager.Play("ValidPlace");
         foreach (var cell in _dragCells)
         {
             Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
+            // Finalizer handles stack height + grid registration
             GameObject placed = _finalizer.FinalizePlacement(cell, offsets, _currentData, _currentRotation);
-
-            if (!_currentData.ClearsGridAfterPlacement)
-                _grid.SetOccupied(cell, placed, _currentData);
 
             _finalizer.SpawnDust(_grid.GetCellCenter(cell));
         }
@@ -355,11 +417,13 @@ public class BuildState : IPlacementState
         _preview.EndSelectionCells();
         _indicator.ClearAll();
         _isDragging = false;
+        _placeRequested = false;
+        _dragCells.Clear();
     }
 
-    // ---------------------------------------------------------
-    // EXIT STATE
-    // ---------------------------------------------------------
+    // =========================================================
+    //  EXIT STATE
+    // =========================================================
     public void OnExit()
     {
         _raycast.DisableRay();
@@ -368,17 +432,17 @@ public class BuildState : IPlacementState
         _preview.Hide();
     }
 
-    // ---------------------------------------------------------
-    // SET BUILD DATA
-    // ---------------------------------------------------------
+    // =========================================================
+    //  SET BUILD DATA
+    // =========================================================
     public void SetBuildData(ObjDataSO data)
     {
         _currentData = data;
     }
 
-    // ---------------------------------------------------------
-    // INPUT CALLBACKS
-    // ---------------------------------------------------------
+    // =========================================================
+    //  INPUT CALLBACKS
+    // =========================================================
     private void OnRotatePerformed(InputAction.CallbackContext ctx)
     {
         AudioManager.Play("Rotate");

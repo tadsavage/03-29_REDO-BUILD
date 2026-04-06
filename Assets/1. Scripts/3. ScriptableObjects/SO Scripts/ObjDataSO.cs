@@ -22,8 +22,17 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("If true, object does not occupy grid after placement.")]
     public bool ClearsGridAfterPlacement = false;
 
-    [Tooltip("If true, object can be stacked on top of others.")]
+    // ================================
+    // STACKING SETTINGS
+    // ================================
+    [Header("Stacking")]
+    [Tooltip("If true, this object can be stacked on top of others and contribute vertical height.")]
     public bool isStackable = false;
+
+    [Tooltip("Physical height of this object in meters. Used to compute total stack height in a cell.")]
+    public float objHeight = 1f;
+    // ================================
+
     // ---------------------------------------------------------
     // FOOTPRINT API
     // ---------------------------------------------------------

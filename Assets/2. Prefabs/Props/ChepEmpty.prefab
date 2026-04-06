@@ -61,9 +61,6 @@ PrefabInstance:
       addedObject: {fileID: 1697649054362723450}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: fca19e69a3bd1bd41bea8fb769196eb1, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 7395318688887625244}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: fca19e69a3bd1bd41bea8fb769196eb1, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 3891134691352188524}
   m_SourcePrefab: {fileID: 100100000, guid: fca19e69a3bd1bd41bea8fb769196eb1, type: 3}
 --- !u!1 &6533443037926444852 stripped
@@ -84,22 +81,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingData
   objDataSO: {fileID: 11400000, guid: 85eda180b1f73bf45a461edc1ca230b0, type: 2}
---- !u!114 &7395318688887625244
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6533443037926444852}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
-  validMaterial: {fileID: 0}
-  invalidMaterial: {fileID: 0}
-  deleteMaterial: {fileID: 0}
-  originalMaterials: []
 --- !u!65 &3891134691352188524
 BoxCollider:
   m_ObjectHideFlags: 0

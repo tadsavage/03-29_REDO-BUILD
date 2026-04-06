@@ -3,7 +3,6 @@ using System.Collections.Generic;
 
 public class PreviewController : MonoBehaviour
 {
-    // Dependencies
     private PlacementGrid _grid;
 
     // Pooling
@@ -30,7 +29,7 @@ public class PreviewController : MonoBehaviour
     // Active preview reference
     private GameObject _currentPreview;
 
-    // Colors (solid)
+    // Colors
     private Color _validColor = new Color(0.50f, 1.00f, 0.83f, 0.80f);
     private Color _invalidColor = new Color(1.00f, 0.42f, 0.42f, 0.80f);
 
@@ -45,7 +44,6 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     // PUBLIC API
     // ---------------------------------------------------------
-
     public void Show(ObjDataSO data)
     {
         if (_currentData != data)
@@ -74,10 +72,24 @@ public class PreviewController : MonoBehaviour
         ClearMultiGhosts();
     }
 
-    public void MoveTo(Vector3 pos)
+    // ---------------------------------------------------------
+    // MOVE GHOST (WITH STACK AUTO‑SNAP)
+    // ---------------------------------------------------------
+    public void MoveTo(Vector3 pos, Vector2Int cell, ObjDataSO data)
     {
         if (_isFlyingIn)
             return;
+
+        // ================================
+        // STACKING: Auto‑snap ghost height
+        // Raise ghost to top of stack in this cell
+        // ================================
+        float stackY = 0f;
+        if (data.isStackable)
+            stackY = _grid.GetStackHeight(cell);
+
+        pos.y += stackY;
+        // ================================
 
         _targetPos = pos;
         _hasTarget = true;
@@ -106,7 +118,6 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     // MULTI-GHOST MODE
     // ---------------------------------------------------------
-
     public void BeginSelectionCells()
     {
         _multiMode = true;
@@ -134,7 +145,18 @@ public class PreviewController : MonoBehaviour
         GameObject ghost = GetGhost();
         _activeGhosts.Add(ghost);
 
-        ghost.transform.position = _grid.GetCellCenter(cell);
+        // ================================
+        // STACKING: Auto‑snap ghost height for drag placement
+        // ================================
+        float stackY = 0f;
+        if (_currentData != null && _currentData.isStackable)
+            stackY = _grid.GetStackHeight(cell);
+
+        Vector3 pos = _grid.GetCellCenter(cell);
+        pos.y += stackY;
+        // ================================
+
+        ghost.transform.position = pos;
         ghost.transform.rotation = Quaternion.Euler(0, rotation, 0);
 
         if (valid)
@@ -146,7 +168,6 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     // INTERNAL HELPERS
     // ---------------------------------------------------------
-
     private GameObject GetGhost()
     {
         if (_pool.Count > 0)
@@ -173,7 +194,6 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     // GHOST CREATION
     // ---------------------------------------------------------
-
     private GameObject CreateGhostFromPrefab(GameObject source)
     {
         GameObject ghost = Instantiate(source);
@@ -187,42 +207,37 @@ public class PreviewController : MonoBehaviour
         foreach (var col in ghost.GetComponentsInChildren<Collider>())
             DestroyImmediate(col);
 
-        foreach(var r in ghost.GetComponentsInChildren<Renderer>())
-{
+        // Make transparent
+        foreach (var r in ghost.GetComponentsInChildren<Renderer>())
+        {
             var mat = new Material(r.sharedMaterial);
 
-            // Enable transparency
-            mat.SetFloat("_Surface", 1);      // Transparent
-            mat.SetFloat("_Blend", 0);        // Alpha blend
-            mat.SetFloat("_AlphaClip", 0);    // Disable alpha clipping
+            mat.SetFloat("_Surface", 1);
+            mat.SetFloat("_Blend", 0);
+            mat.SetFloat("_AlphaClip", 0);
 
-            // ⭐ REQUIRED for actual transparency
             mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
             mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
 
-            // Ensure alpha is respected
             mat.SetOverrideTag("RenderType", "Transparent");
             mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
 
             r.sharedMaterial = mat;
         }
+
         return ghost;
     }
 
     private void SetGhostValid(GameObject go)
     {
         foreach (var r in go.GetComponentsInChildren<Renderer>())
-        {
             r.sharedMaterial.SetColor("_BaseColor", _validColor);
-        }
     }
 
     private void SetGhostInvalid(GameObject go)
     {
         foreach (var r in go.GetComponentsInChildren<Renderer>())
-        {
             r.sharedMaterial.SetColor("_BaseColor", _invalidColor);
-        }
     }
 
     private void ClearGhostPool()
@@ -236,7 +251,6 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     // FLY-IN + SMOOTHING
     // ---------------------------------------------------------
-
     public void BeginFlyIn(Vector3 worldTarget)
     {
         _targetPos = worldTarget;
