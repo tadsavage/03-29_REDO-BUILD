@@ -18,7 +18,7 @@ public class PreviewController : MonoBehaviour
     private float _flyTime;
     [Header("Fly-In  Settings")]    // Smooth movement
     public Vector3 _flyStartPos;
-    [SerializeField]private const float FlyDuration = 1.5f; // tweakable - cant serialize const, but can be changed in code
+    [SerializeField]private const float FlyDuration = .5f; // tweakable - cant serialize const, but can be changed in code
     [SerializeField] private float moveSmoothTime = 0.08f;
     private Vector3 _velocity;
     private Vector3 _targetPos = Vector3.zero;
@@ -82,6 +82,8 @@ public class PreviewController : MonoBehaviour
 
     public void MoveTo(Vector3 pos)
     {
+        if (_isFlyingIn)
+            return;
         _targetPos = pos;
         _hasTarget = true;
     }
@@ -230,14 +232,18 @@ public class PreviewController : MonoBehaviour
     }
     public void BeginFlyIn(Vector3 worldTarget)
     {
-        if (_currentPreview != null)
-            _currentPreview.transform.position = _flyStartPos;
-
+        _targetPos = worldTarget;     // freeze target
         _isFlyingIn = true;
         _flyTime = 0f;
-        MoveTo(worldTarget);   
-    }
 
+        // randomize start
+        float randX = Random.Range(-5f, 5f);
+        float randZ = Random.Range(-3f, 3f);
+
+        _flyStartPos = worldTarget + new Vector3(randX, 8f, randZ);
+
+        _currentPreview.transform.position = _flyStartPos;
+    }
     private void Update()
     {
         if (_currentPreview == null)
@@ -245,18 +251,21 @@ public class PreviewController : MonoBehaviour
 
         // Fly‑in animation
         if (_isFlyingIn)
-        {
-            _flyTime += Time.deltaTime;
-            float t = Mathf.Clamp01(_flyTime / FlyDuration);
+{
+    _flyTime += Time.deltaTime;
+    float t = Mathf.Clamp01(_flyTime / FlyDuration);
 
-            _currentPreview.transform.position =
-                Vector3.Lerp(_flyStartPos, _targetPos, t);
+    // smooth curve (optional but recommended)
+    t = Mathf.SmoothStep(0f, 1f, t);
 
-            if (t >= 1f)
-                _isFlyingIn = false;
+    _currentPreview.transform.position =
+        Vector3.Lerp(_flyStartPos, _targetPos, t);
 
-            return;
-        }
+    if (t >= 1f)
+        _isFlyingIn = false;
+
+    return; // ⭐ IMPORTANT: do NOT update preview position while flying
+}
 
         // Normal smoothing
         if (_hasTarget)
