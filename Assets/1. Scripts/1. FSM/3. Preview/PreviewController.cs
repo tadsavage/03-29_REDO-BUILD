@@ -3,41 +3,42 @@ using System.Collections.Generic;
 
 public class PreviewController : MonoBehaviour
 {
-    // Dependency references
+    // Dependencies
     private PlacementGrid _grid;
+
+    // Pooling
     private readonly Stack<GameObject> _pool = new();
     private readonly List<GameObject> _activeGhosts = new();
 
-    // Single ghost for normal placement mode
+    // Single ghost
     private GameObject _singleGhost;
     private ObjDataSO _currentData;
     public float CurrentRotation { get; private set; }
 
-    // Smooth build placement fly-in effect (optional)
+    // Movement smoothing
+    private Vector3 _targetPos;
+    private Vector3 _velocity;
+    private bool _hasTarget;
+    [SerializeField] private float moveSmoothTime = 0.08f;
+
+    // Fly-in animation
     private bool _isFlyingIn;
     private float _flyTime;
-    [Header("Fly-In  Settings")]    // Smooth movement
-    public Vector3 _flyStartPos;
-    [SerializeField]private const float FlyDuration = .5f; // tweakable - cant serialize const, but can be changed in code
-    [SerializeField] private float moveSmoothTime = 0.08f;
-    private Vector3 _velocity;
-    private Vector3 _targetPos = Vector3.zero;
-    private bool _hasTarget;
+    private const float FlyDuration = 0.5f;
+    private Vector3 _flyStartPos;
 
-    // Reference to the active preview ghost
+    // Active preview reference
     private GameObject _currentPreview;
 
-    // MaterialPropertyBlock for efficient color changes
-    private MaterialPropertyBlock _mpb;
-    private Color _validColor = new Color(0f, 1f, 0f, 0.35f);
-    private Color _invalidColor = new Color(1f, 0f, 0f, 0.35f);
+    // Colors (solid)
+    private Color _validColor = new Color(0.50f, 1.00f, 0.83f, 0.80f);
+    private Color _invalidColor = new Color(1.00f, 0.42f, 0.42f, 0.80f);
 
-    // Multi-ghost mode for drag placement
+    // Multi-ghost mode
     private bool _multiMode;
 
     private void Awake()
     {
-        _mpb = new MaterialPropertyBlock();
         _grid = Object.FindFirstObjectByType<PlacementGrid>();
     }
 
@@ -47,7 +48,6 @@ public class PreviewController : MonoBehaviour
 
     public void Show(ObjDataSO data)
     {
-        // If switching to a new prefab, destroy old ghosts and pool
         if (_currentData != data)
         {
             if (_singleGhost != null)
@@ -59,16 +59,10 @@ public class PreviewController : MonoBehaviour
 
         _currentData = data;
 
-        // Always reactivate the ghost
         _singleGhost.SetActive(true);
+        _currentPreview = _singleGhost;
 
-        // Assign preview reference BEFORE fly-in or smoothing
-        _currentPreview = _singleGhost;// ⭐ Needed for smoothing + fly-in
-
-        // Restore rotation
         _singleGhost.transform.rotation = Quaternion.Euler(0, CurrentRotation, 0);
-
-        // Apply ghost tint
         SetGhostValid(_singleGhost);
     }
 
@@ -84,6 +78,7 @@ public class PreviewController : MonoBehaviour
     {
         if (_isFlyingIn)
             return;
+
         _targetPos = pos;
         _hasTarget = true;
     }
@@ -91,9 +86,9 @@ public class PreviewController : MonoBehaviour
     public void Rotate(float angle)
     {
         CurrentRotation = angle;
+
         if (_singleGhost != null)
             _singleGhost.transform.rotation = Quaternion.Euler(0, angle, 0);
-
     }
 
     public void SetGhostValid()
@@ -109,7 +104,7 @@ public class PreviewController : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // MULTI-GHOST MODE (DRAG PLACEMENT)
+    // MULTI-GHOST MODE
     // ---------------------------------------------------------
 
     public void BeginSelectionCells()
@@ -118,6 +113,7 @@ public class PreviewController : MonoBehaviour
 
         if (_singleGhost != null)
             _singleGhost.SetActive(false);
+
         ClearMultiGhosts();
     }
 
@@ -147,7 +143,6 @@ public class PreviewController : MonoBehaviour
             SetGhostInvalid(ghost);
     }
 
-
     // ---------------------------------------------------------
     // INTERNAL HELPERS
     // ---------------------------------------------------------
@@ -171,11 +166,12 @@ public class PreviewController : MonoBehaviour
             g.SetActive(false);
             _pool.Push(g);
         }
+
         _activeGhosts.Clear();
     }
 
     // ---------------------------------------------------------
-    // AUTO-GHOST CREATION FROM OBJ PREFAB
+    // GHOST CREATION
     // ---------------------------------------------------------
 
     private GameObject CreateGhostFromPrefab(GameObject source)
@@ -183,46 +179,52 @@ public class PreviewController : MonoBehaviour
         GameObject ghost = Instantiate(source);
         ghost.name = source.name + "_Ghost";
 
-        // Remove all scripts
+        // Remove scripts
         foreach (var comp in ghost.GetComponentsInChildren<MonoBehaviour>())
             DestroyImmediate(comp);
 
-        // Remove all colliders
+        // Remove colliders
         foreach (var col in ghost.GetComponentsInChildren<Collider>())
             DestroyImmediate(col);
 
-        // Apply ghost material behavior
-        foreach (var r in ghost.GetComponentsInChildren<Renderer>())
-        {
+        foreach(var r in ghost.GetComponentsInChildren<Renderer>())
+{
             var mat = new Material(r.sharedMaterial);
-            mat.SetFloat("_Surface", 1); // URP Transparent
-            mat.renderQueue = 3000;
+
+            // Enable transparency
+            mat.SetFloat("_Surface", 1);      // Transparent
+            mat.SetFloat("_Blend", 0);        // Alpha blend
+            mat.SetFloat("_AlphaClip", 0);    // Disable alpha clipping
+
+            // ⭐ REQUIRED for actual transparency
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+
+            // Ensure alpha is respected
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
             r.sharedMaterial = mat;
         }
-
         return ghost;
     }
 
     private void SetGhostValid(GameObject go)
     {
-        var r = go.GetComponentInChildren<Renderer>();
-        r.GetPropertyBlock(_mpb);
-        _mpb.SetColor("_BaseColor", _validColor);
-        r.SetPropertyBlock(_mpb);
+        foreach (var r in go.GetComponentsInChildren<Renderer>())
+        {
+            r.sharedMaterial.SetColor("_BaseColor", _validColor);
+        }
     }
 
     private void SetGhostInvalid(GameObject go)
     {
-        var r = go.GetComponentInChildren<Renderer>();
-        r.GetPropertyBlock(_mpb);
-        _mpb.SetColor("_BaseColor", _invalidColor);
-        r.SetPropertyBlock(_mpb);
+        foreach (var r in go.GetComponentsInChildren<Renderer>())
+        {
+            r.sharedMaterial.SetColor("_BaseColor", _invalidColor);
+        }
     }
 
-    public void RestoreMaterials()
-    {
-        // Optional: if you ever swap materials, restore here.
-    }
     private void ClearGhostPool()
     {
         foreach (var g in _pool)
@@ -230,42 +232,44 @@ public class PreviewController : MonoBehaviour
 
         _pool.Clear();
     }
+
+    // ---------------------------------------------------------
+    // FLY-IN + SMOOTHING
+    // ---------------------------------------------------------
+
     public void BeginFlyIn(Vector3 worldTarget)
     {
-        _targetPos = worldTarget;     // freeze target
+        _targetPos = worldTarget;
         _isFlyingIn = true;
         _flyTime = 0f;
 
-        // randomize start
         float randX = Random.Range(-5f, 5f);
         float randZ = Random.Range(-3f, 3f);
 
         _flyStartPos = worldTarget + new Vector3(randX, 8f, randZ);
-
         _currentPreview.transform.position = _flyStartPos;
     }
+
     private void Update()
     {
         if (_currentPreview == null)
             return;
 
-        // Fly‑in animation
+        // Fly-in animation
         if (_isFlyingIn)
-{
-    _flyTime += Time.deltaTime;
-    float t = Mathf.Clamp01(_flyTime / FlyDuration);
+        {
+            _flyTime += Time.deltaTime;
+            float t = Mathf.Clamp01(_flyTime / FlyDuration);
+            t = Mathf.SmoothStep(0f, 1f, t);
 
-    // smooth curve (optional but recommended)
-    t = Mathf.SmoothStep(0f, 1f, t);
+            _currentPreview.transform.position =
+                Vector3.Lerp(_flyStartPos, _targetPos, t);
 
-    _currentPreview.transform.position =
-        Vector3.Lerp(_flyStartPos, _targetPos, t);
+            if (t >= 1f)
+                _isFlyingIn = false;
 
-    if (t >= 1f)
-        _isFlyingIn = false;
-
-    return; // ⭐ IMPORTANT: do NOT update preview position while flying
-}
+            return;
+        }
 
         // Normal smoothing
         if (_hasTarget)

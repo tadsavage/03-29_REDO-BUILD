@@ -4,14 +4,14 @@ using System.Collections.Generic;
 public class CellIndicatorController : MonoBehaviour
 {
     [Header("Colors")]
-    [SerializeField] private Color validColor = new Color(0f, 1f, 0f, 0.50f);
-    [SerializeField] private Color invalidColor = new Color(1f, 0f, 0f, 0.50f);
+    private Color validColor = new Color(.25f,1f,.30f,.70f);
+    private Color invalidColor = new Color(1f,.22f,.22f,.85f);
 
     [Header("Indicator Prefab")]
     [SerializeField] private GameObject indicatorPrefab;
 
     [SerializeField] private PlacementGrid grid;
-    [SerializeField] private float yOffset = 0.1f;
+    [SerializeField] private float yOffset = 0.15f;
 
     private readonly List<GameObject> _active = new();
     private readonly Stack<GameObject> _pool = new();
