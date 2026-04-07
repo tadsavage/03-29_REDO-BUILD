@@ -451,6 +451,9 @@ public class BuildState : IPlacementState
 
     private void OnPlacePerformed(InputAction.CallbackContext ctx)
     {
+        if (_isDragging)
+            return; // <-- prevents single placement after drag
+
         _placeRequested = true;
     }
 }

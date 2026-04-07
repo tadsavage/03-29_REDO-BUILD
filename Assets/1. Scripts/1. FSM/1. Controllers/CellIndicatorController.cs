@@ -4,8 +4,8 @@ using System.Collections.Generic;
 public class CellIndicatorController : MonoBehaviour
 {
     [Header("Colors")]
-    private Color validColor = new Color(.25f, 1f, .30f, .70f);
-    private Color invalidColor = new Color(1f, .22f, .22f, .85f);
+    private Color validColor = new Color(.25f, 1f, .30f, .50f);
+    private Color invalidColor = new Color(1f, .22f, .22f, .75f);
 
     [Header("Indicator Prefab")]
     [SerializeField] private GameObject indicatorPrefab;
