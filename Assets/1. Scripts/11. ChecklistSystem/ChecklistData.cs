@@ -8,8 +8,7 @@ public class SubtaskData
     public string id;
     public string title;
     public bool isCompleted;
-}
-
+}// 
 [Serializable]
 public class TaskData
 {

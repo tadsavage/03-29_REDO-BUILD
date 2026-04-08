@@ -41,6 +41,11 @@ public class PlacementStateMachine : MonoBehaviour
         PlacementValidator validator = Object.FindFirstObjectByType<PlacementValidator>();
         PlacementFinalizer finalizer = Object.FindFirstObjectByType<PlacementFinalizer>();
         PlacementGrid grid = Object.FindFirstObjectByType<PlacementGrid>();
+        BuildBarBinder binder = Object.FindFirstObjectByType<BuildBarBinder>();
+        binder.OnDeleteClicked += () =>
+        {
+            SetState(_deleteState);
+        };
 
         // Input actions
         _actions = new PlacementActions();
@@ -49,7 +54,7 @@ public class PlacementStateMachine : MonoBehaviour
         _idleState = new IdleState();
         _raycastState = new RaycastPlacementState(raycast, indicator, grid);
         _buildState = new BuildState(_actions, preview, validator, finalizer, grid, this, raycast, indicator);
-        _deleteState = new DeleteState(_actions, finalizer, this);
+        _deleteState = new DeleteState(raycast, grid, finalizer, this);
 
         // Start in idle
         _currentState = _idleState;

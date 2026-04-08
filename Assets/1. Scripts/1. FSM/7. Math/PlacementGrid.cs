@@ -24,6 +24,7 @@ public class PlacementGrid : MonoBehaviour
     public Color FreeColor = new Color(0f, 0f, 0f, 0f);
     public Color OccupiedColor = new Color(1f, 0.4f, 0.4f, 0.6f);
     public Color SelectedColor = new Color(0.4f, 1f, 0.4f, 0.6f);
+    public Color DeleteColor = new Color(1f, 1f, 0.2f, 0.5f); // pale transparent yellow
 
     // ================================
     // STACKING DATA MODEL
@@ -85,12 +86,74 @@ public class PlacementGrid : MonoBehaviour
     // -------------------------
     // GRID API
     // -------------------------
+    public void RemoveCellVisual(Vector2Int cell)
+    {
+        if (!IsInsideGrid(cell))
+            return;
 
+        int idx = CellIndex(cell);
+
+        if (_activeVisuals.TryGetValue(idx, out var go))
+        {
+            ReturnToPool(go);
+            _activeVisuals.Remove(idx);
+        }
+    }
+    public void HighlightCellForDelete(Vector2Int cell)
+    {
+        if (!UseVisualizer || !IsInsideGrid(cell))
+            return;
+
+        int idx = CellIndex(cell);
+
+        if (_activeVisuals.TryGetValue(idx, out var go))
+        {
+            var rend = go.GetComponent<MeshRenderer>();
+            rend.material.color = DeleteColor;
+        }
+    }
+    public void RestoreCellVisual(Vector2Int cell)
+    {
+        if (!UseVisualizer || !IsInsideGrid(cell))
+            return;
+
+        int idx = CellIndex(cell);
+
+        if (_activeVisuals.TryGetValue(idx, out var go))
+        {
+            var rend = go.GetComponent<MeshRenderer>();
+
+            // If cell is occupied, show occupied color
+            if (_cells[cell.x, cell.y].Count > 0)
+                rend.material.color = OccupiedColor;
+            else
+                rend.material.color = FreeColor;
+        }
+    }
     public bool IsInsideGrid(Vector2Int cell)
     {
         return cell.x >= 0 && cell.y >= 0 && cell.x < Width && cell.y < Height;
     }
+    // =========================================================
+    public List<PlacedObject> GetObjectsInCell(Vector2Int cell)
+    {
+        if (!IsInsideGrid(cell))
+            return null;
 
+        return _cells[cell.x, cell.y];
+    }
+    // =========================================================
+    public GameObject GetTopObject(Vector2Int cell)
+    {
+        if (!IsInsideGrid(cell))
+            return null;
+
+        var list = _cells[cell.x, cell.y];
+        if (list == null || list.Count == 0)
+            return null;
+
+        return list[list.Count - 1].instance;
+    }
     public bool IsOccupied(Vector2Int cell)
     {
         if (!IsInsideGrid(cell)) return true;

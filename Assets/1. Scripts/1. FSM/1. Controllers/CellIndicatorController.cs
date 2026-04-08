@@ -174,7 +174,7 @@ public class CellIndicatorController : MonoBehaviour
 
         // REM: Set dashed line start/end
         Vector3 start = floorPos;
-        Vector3 end = floorPos + new Vector3(0, height + 1.5f, 0);
+        Vector3 end = floorPos + new Vector3(0, height + 2.5f, 0);
 
         lr.positionCount = 2;
         lr.SetPosition(0, start);
