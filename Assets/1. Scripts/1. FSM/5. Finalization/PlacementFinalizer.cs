@@ -52,6 +52,7 @@ public class PlacementFinalizer : MonoBehaviour
     {
         if (dustPrefab == null)
             return;
+        Debug.Log("Spawning dust at " + position);
         Instantiate(dustPrefab, position, Quaternion.identity);
     }
 }
