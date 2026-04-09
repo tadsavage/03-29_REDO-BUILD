@@ -1,5 +1,6 @@
-﻿using UnityEngine;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
 
 public class PreviewController : MonoBehaviour
 {
@@ -7,7 +8,7 @@ public class PreviewController : MonoBehaviour
     //  DEPENDENCIES
     // =========================================================
     private PlacementGrid _grid;
-
+    private GameObject _ghostInstance;
     // =========================================================
     //  POOLING
     //  - _pool: inactive ghost objects ready for reuse
@@ -57,7 +58,12 @@ public class PreviewController : MonoBehaviour
     {
         _grid = Object.FindFirstObjectByType<PlacementGrid>();
     }
+    private bool _deleteMode = false;
 
+    public void SetDeleteMode(bool on)
+    {
+        _deleteMode = on;
+    }
     // =========================================================
     //  PUBLIC API — SINGLE GHOST (HOVER PREVIEW)
     // =========================================================
@@ -100,7 +106,10 @@ public class PreviewController : MonoBehaviour
 
         // Auto-snap vertical position to top of stack
         float stackY = data.isStackable ? _grid.GetStackHeight(cell) : 0f;
-        pos.y += stackY;
+        if (!_deleteMode)
+        {
+            pos.y += stackY; // or whatever your offset is
+        }
 
         _targetPos = pos;
         _hasTarget = true;
@@ -287,7 +296,7 @@ public class PreviewController : MonoBehaviour
             return;
 
         // Fly-in animation
-        if (_isFlyingIn)
+        if (_isFlyingIn && !_deleteMode)
         {
             _flyTime += Time.deltaTime;
             float t = Mathf.Clamp01(_flyTime / FlyDuration);
@@ -303,7 +312,7 @@ public class PreviewController : MonoBehaviour
         }
 
         // Smooth movement
-        if (_hasTarget)
+        if (_hasTarget && !_deleteMode)
         {
             _currentPreview.transform.position =
                 Vector3.SmoothDamp(
@@ -313,6 +322,15 @@ public class PreviewController : MonoBehaviour
                     moveSmoothTime
                 );
         }
+    }
+    public void SetGhostDelete()
+    {
+        if (_ghostInstance == null)
+            return;
+
+        var highlighter = _ghostInstance.GetComponent<BuildingHighlighter>();
+        if (highlighter != null)
+            highlighter.HighlightDelete(true);
     }
 }
 

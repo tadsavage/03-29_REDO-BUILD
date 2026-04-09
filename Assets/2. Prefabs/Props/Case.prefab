@@ -50,7 +50,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: e433e57b3d82b654a955c36c9c69cd92, type: 3}
       propertyPath: m_Name
-      value: Proto Case 2026
+      value: Case
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -65,6 +65,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: e433e57b3d82b654a955c36c9c69cd92, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4089773776705235837}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: e433e57b3d82b654a955c36c9c69cd92, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1719350078841418690}
   m_SourcePrefab: {fileID: 100100000, guid: e433e57b3d82b654a955c36c9c69cd92, type: 3}
 --- !u!1 &4982046648412487193 stripped
 GameObject:
@@ -117,7 +120,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
+  validMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
+  invalidMaterial: {fileID: 2100000, guid: 57c0190b8df978f47bb3ee755afa0434, type: 2}
+  deleteMaterial: {fileID: 2100000, guid: 94c126aba04045c4cb26be0d346e7aff, type: 2}
+--- !u!114 &1719350078841418690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4982046648412487193}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
   validMaterial: {fileID: 0}
   invalidMaterial: {fileID: 0}
   deleteMaterial: {fileID: 0}
-  originalMaterials: []

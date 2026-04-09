@@ -21,9 +21,9 @@ Material:
   stringTagMap:
     RenderType: Transparent
   disabledShaderPasses:
+  - MOTIONVECTORS
   - DepthOnly
   - SHADOWCASTER
-  - MOTIONVECTORS
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -121,8 +121,8 @@ Material:
     - _XRMotionVectorsPass: 1
     - _ZWrite: 0
     m_Colors:
-    - _BaseColor: {r: 0.8666667, g: 0.78571224, b: 0, a: 0.29411766}
-    - _Color: {r: 0.8666667, g: 0.78571224, b: 0, a: 0.29411766}
+    - _BaseColor: {r: 0.64779866, g: 0.58501595, b: 0.09574375, a: 0.28235295}
+    - _Color: {r: 0.64779866, g: 0.58501595, b: 0.09574371, a: 0.28235295}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
   m_BuildTextureStacks: []

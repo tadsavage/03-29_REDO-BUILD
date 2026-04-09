@@ -321,6 +321,7 @@ GameObject:
   - component: {fileID: 6366919200495903941}
   - component: {fileID: 2150567686952262307}
   - component: {fileID: 5586181201416551042}
+  - component: {fileID: 257162180295630956}
   m_Layer: 0
   m_Name: DS_FULL
   m_TagString: Building
@@ -472,6 +473,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
   objDataSO: {fileID: 11400000, guid: 40172defa8e8f6f4291791dc70f1a081, type: 2}
+--- !u!114 &257162180295630956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3389889987695447165}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
+  validMaterial: {fileID: 0}
+  invalidMaterial: {fileID: 0}
+  deleteMaterial: {fileID: 0}
 --- !u!1 &6245394892165333976
 GameObject:
   m_ObjectHideFlags: 0
