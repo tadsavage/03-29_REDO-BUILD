@@ -87,6 +87,26 @@ public class PreviewController : MonoBehaviour
         _singleGhost.transform.rotation = Quaternion.Euler(0, CurrentRotation, 0);
         SetGhostValid(_singleGhost);
     }
+    public void ShowDeleteGhost(ObjDataSO data, Vector3 pos, Vector2Int cell)
+    {
+        // Create a ghost from the prefab (not the single ghost)
+        GameObject ghost = CreateGhostFromPrefab(data.prefab);
+
+        ghost.transform.position = pos;
+        ghost.transform.rotation = Quaternion.Euler(0, CurrentRotation, 0);
+
+        // Apply delete color
+        foreach (var r in ghost.GetComponentsInChildren<Renderer>())
+            r.sharedMaterial.SetColor("_BaseColor", Color.red); // or your delete color
+
+        // Store it so we can clear it later
+        _singleGhost = ghost;
+    }
+    public void ClearAllGhosts()
+    {
+        ClearMultiGhosts();
+        ClearGhostPool();
+    }
 
     public void Hide()
     {
@@ -266,7 +286,7 @@ public class PreviewController : MonoBehaviour
             r.sharedMaterial.SetColor("_BaseColor", _invalidColor);
     }
 
-    private void ClearGhostPool()
+    public void ClearGhostPool()
     {
         foreach (var g in _pool)
             Destroy(g);
