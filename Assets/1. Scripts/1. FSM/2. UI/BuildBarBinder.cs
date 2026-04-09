@@ -8,6 +8,8 @@ public class BuildBarBinder : MonoBehaviour
 {
     [SerializeField] private ObjDataRegistry registry;
 
+    // Callback for when the DELETE button is clicked
+    public System.Action OnDeleteClicked;
 
     // Callback for when the build bar is ready, allowing other systems to subscribe
     public System.Action OnBuildBarReady;
@@ -23,6 +25,17 @@ public class BuildBarBinder : MonoBehaviour
         var buttons = root.Query<Button>().ToList();
 
         int count = Mathf.Min(buttons.Count, registry.buttonSOs.Length);
+
+        // Handle the DELETE button separately
+        var deleteButton = root.Q<Button>("ERASE");
+        if (deleteButton != null)
+        {
+            deleteButton.clicked += () =>
+            {
+                Debug.Log("DELETE button clicked");
+                OnDeleteClicked?.Invoke();
+            };
+        }
 
         for (int i = 0; i < count; i++)
         {

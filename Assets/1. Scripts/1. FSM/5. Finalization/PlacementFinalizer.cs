@@ -1,19 +1,58 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class PlacementFinalizer : MonoBehaviour
 {
     [SerializeField] private PlacementGrid _grid;
+    [SerializeField] private Transform _parent;      // Optional parent for placed objects
+    [SerializeField] private GameObject dustPrefab;  // Optional dust FX
 
-    public void FinalizePlacement(Vector2Int root, Vector2Int[] offsets, ObjDataSO data, float rotation)
+    // ---------------------------------------------------------
+    // FINALIZE SINGLE OR DRAG PLACEMENT
+    // ---------------------------------------------------------
+    public GameObject FinalizePlacement(Vector2Int root, Vector2Int[] offsets, ObjDataSO data, float rotation)
     {
-        GameObject placed = Instantiate(data.prefab);
-        placed.transform.position = _grid.GetCellCenter(root);
-        placed.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+        // ================================
+        // STACKING: compute vertical offset
+        // If object is stackable, place it on top of existing stack height
+        // ================================
+        float stackY = 0f;
+        if (data.isStackable)
+            stackY = _grid.GetStackHeight(root);
+        // ================================
 
-        foreach (var offset in offsets)
+        Vector3 pos = _grid.GetCellCenter(root);
+        pos.y += stackY;
+
+        Quaternion rot = Quaternion.Euler(0f, rotation, 0f);
+
+        GameObject placed = Instantiate(data.prefab, pos, rot, _parent);
+
+        SpawnDust(pos);
+        // ================================
+        // STACKING: register object in grid
+        // Each footprint cell gets the same placed instance
+        // ================================
+        if (!data.ClearsGridAfterPlacement)
         {
-            Vector2Int cell = root + offset;
-            _grid.SetOccupied(cell, placed);
+            foreach (var o in offsets)
+            {
+                Vector2Int cell = root + o;
+                _grid.AddStackObject(cell, placed, data);
+            }
         }
+        // ================================
+
+        return placed;
+    }
+
+    // ---------------------------------------------------------
+    // OPTIONAL FX
+    // ---------------------------------------------------------
+    public void SpawnDust(Vector3 position)
+    {
+        if (dustPrefab == null)
+            return;
+        Debug.Log("Spawning dust at " + position);
+        Instantiate(dustPrefab, position, Quaternion.identity);
     }
 }

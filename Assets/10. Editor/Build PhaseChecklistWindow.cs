@@ -5,7 +5,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
-//
+//___
 public class BuildPhaseChecklistWindow : EditorWindow
 {
     private ChecklistRoot _root;
@@ -17,7 +17,7 @@ public class BuildPhaseChecklistWindow : EditorWindow
         Medium,
         High
     }
-
+    //
     [MenuItem("Window/Build Phase Checklist")]
     public static void ShowWindow()
     {
@@ -49,7 +49,7 @@ public class BuildPhaseChecklistWindow : EditorWindow
 
         RebuildSectionsUI();
     }
-
+    
     private void RebuildSectionsUI()
     {
         _scrollView.Clear();

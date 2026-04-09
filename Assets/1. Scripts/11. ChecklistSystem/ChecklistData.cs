@@ -8,8 +8,7 @@ public class SubtaskData
     public string id;
     public string title;
     public bool isCompleted;
-}
-// The main TaskData class, which includes a list of subtasks and other relevant information about the task.
+}// 
 [Serializable]
 public class TaskData
 {
