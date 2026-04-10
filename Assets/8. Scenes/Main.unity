@@ -972,11 +972,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e03d10d2de0103c43bbd2c47710e767b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CellIndicatorController
+  buildValidColor: {r: 0.25, g: 1, b: 0.3, a: 0.5}
+  buildInvalidColor: {r: 1, g: 0.22, b: 0.22, a: 0.75}
+  deleteColor: {r: 1, g: 1, b: 0.2, a: 0.45}
   indicatorPrefab: {fileID: 497207558}
   grid: {fileID: 2094211284}
   yOffset: 0.05
-  linePrefab: {fileID: 1380560073}
-  criticalHeightRatio: 0.9
 --- !u!1 &1160879794
 GameObject:
   m_ObjectHideFlags: 0
