@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 
 public class PreviewController : MonoBehaviour
@@ -8,11 +7,9 @@ public class PreviewController : MonoBehaviour
     //  DEPENDENCIES
     // =========================================================
     private PlacementGrid _grid;
-    private GameObject _ghostInstance;
+
     // =========================================================
     //  POOLING
-    //  - _pool: inactive ghost objects ready for reuse
-    //  - _multiGhosts: active ghosts keyed by cell position
     // =========================================================
     private readonly Stack<GameObject> _pool = new();
     private readonly Dictionary<Vector2Int, GameObject> _multiGhosts = new();
@@ -25,7 +22,7 @@ public class PreviewController : MonoBehaviour
     public float CurrentRotation { get; private set; }
 
     // =========================================================
-    //  MOVEMENT SMOOTHING (for single ghost)
+    //  MOVEMENT SMOOTHING
     // =========================================================
     private Vector3 _targetPos;
     private Vector3 _velocity;
@@ -40,36 +37,39 @@ public class PreviewController : MonoBehaviour
     private const float FlyDuration = 0.5f;
     private Vector3 _flyStartPos;
 
-    // The currently active preview object (single ghost)
     private GameObject _currentPreview;
 
     // =========================================================
-    //  COLORS
+    //  COLORS (MPB)
     // =========================================================
     private readonly Color _validColor = new(0.50f, 1.00f, 0.83f, 0.5f);
     private readonly Color _invalidColor = new(1.00f, 0.42f, 0.42f, 0.75f);
+    private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
+
+    private MaterialPropertyBlock _mpb;
 
     // =========================================================
     //  MODE FLAGS
     // =========================================================
-    private bool _multiMode; // true during drag placement
+    private bool _multiMode;
+    private bool _deleteMode;
 
     private void Awake()
     {
         _grid = Object.FindFirstObjectByType<PlacementGrid>();
+        _mpb = new MaterialPropertyBlock();
     }
-    private bool _deleteMode = false;
 
     public void SetDeleteMode(bool on)
     {
         _deleteMode = on;
     }
+
     // =========================================================
-    //  PUBLIC API — SINGLE GHOST (HOVER PREVIEW)
+    //  PUBLIC API — SINGLE GHOST
     // =========================================================
     public void Show(ObjDataSO data)
     {
-        // If switching to a new prefab, rebuild the single ghost
         if (_currentData != data)
         {
             if (_singleGhost != null)
@@ -87,26 +87,6 @@ public class PreviewController : MonoBehaviour
         _singleGhost.transform.rotation = Quaternion.Euler(0, CurrentRotation, 0);
         SetGhostValid(_singleGhost);
     }
-    public void ShowDeleteGhost(ObjDataSO data, Vector3 pos, Vector2Int cell)
-    {
-        // Create a ghost from the prefab (not the single ghost)
-        GameObject ghost = CreateGhostFromPrefab(data.prefab);
-
-        ghost.transform.position = pos;
-        ghost.transform.rotation = Quaternion.Euler(0, CurrentRotation, 0);
-
-        // Apply delete color
-        foreach (var r in ghost.GetComponentsInChildren<Renderer>())
-            r.sharedMaterial.SetColor("_BaseColor", Color.red); // or your delete color
-
-        // Store it so we can clear it later
-        _singleGhost = ghost;
-    }
-    public void ClearAllGhosts()
-    {
-        ClearMultiGhosts();
-        ClearGhostPool();
-    }
 
     public void Hide()
     {
@@ -117,19 +97,16 @@ public class PreviewController : MonoBehaviour
     }
 
     // =========================================================
-    //  MOVE SINGLE GHOST (WITH STACK AUTO-SNAP)
+    //  MOVE SINGLE GHOST
     // =========================================================
     public void MoveTo(Vector3 pos, Vector2Int cell, ObjDataSO data)
     {
         if (_isFlyingIn)
             return;
 
-        // Auto-snap vertical position to top of stack
         float stackY = data.isStackable ? _grid.GetStackHeight(cell) : 0f;
         if (!_deleteMode)
-        {
-            pos.y += stackY; // or whatever your offset is
-        }
+            pos.y += stackY;
 
         _targetPos = pos;
         _hasTarget = true;
@@ -156,13 +133,12 @@ public class PreviewController : MonoBehaviour
     }
 
     // =========================================================
-    //  MULTI-GHOST MODE (DRAG PREVIEW)
+    //  MULTI-GHOST MODE
     // =========================================================
     public void BeginSelectionCells()
     {
         _multiMode = true;
 
-        // Hide single ghost during drag
         if (_singleGhost != null)
             _singleGhost.SetActive(false);
 
@@ -175,13 +151,12 @@ public class PreviewController : MonoBehaviour
 
         ClearMultiGhosts();
 
-        // Restore single ghost after drag
         if (_singleGhost != null)
             _singleGhost.SetActive(true);
     }
 
     // =========================================================
-    //  SHOW MULTI-GHOST (ONE PER CELL)
+    //  SHOW MULTI-GHOST
     // =========================================================
     public void ShowGhost(Vector2Int cell, bool valid, float rotation)
     {
@@ -190,14 +165,12 @@ public class PreviewController : MonoBehaviour
 
         GameObject ghost;
 
-        // Reuse existing ghost for this cell
         if (_multiGhosts.TryGetValue(cell, out ghost))
         {
             ghost.SetActive(true);
         }
         else
         {
-            // Pull from pool or create new
             ghost = _pool.Count > 0
                 ? _pool.Pop()
                 : CreateGhostFromPrefab(_currentData.prefab);
@@ -206,7 +179,6 @@ public class PreviewController : MonoBehaviour
             _multiGhosts[cell] = ghost;
         }
 
-        // Auto-snap vertical position to stack height
         float stackY = (_currentData != null && _currentData.isStackable)
             ? _grid.GetStackHeight(cell)
             : 0f;
@@ -224,7 +196,7 @@ public class PreviewController : MonoBehaviour
     }
 
     // =========================================================
-    //  CLEAR MULTI-GHOSTS (CALLED EVERY DRAG FRAME)
+    //  CLEAR MULTI-GHOSTS
     // =========================================================
     public void ClearMultiGhosts()
     {
@@ -238,52 +210,61 @@ public class PreviewController : MonoBehaviour
     }
 
     // =========================================================
-    //  GHOST CREATION (TRANSPARENT, NO SCRIPTS, NO COLLIDERS)
+    //  GHOST CREATION (NO MATERIAL INSTANCING)
     // =========================================================
     private GameObject CreateGhostFromPrefab(GameObject source)
     {
         GameObject ghost = Instantiate(source);
         ghost.name = source.name + "_Ghost";
 
-        // Remove scripts
         foreach (var comp in ghost.GetComponentsInChildren<MonoBehaviour>())
-            DestroyImmediate(comp);
+            Destroy(comp);
 
-        // Remove colliders
         foreach (var col in ghost.GetComponentsInChildren<Collider>())
-            DestroyImmediate(col);
+            Destroy(col);
 
-        // Convert materials to transparent ghost materials
         foreach (var r in ghost.GetComponentsInChildren<Renderer>())
         {
-            var mat = new Material(r.sharedMaterial);
+            var mat = r.sharedMaterial;
 
-            mat.SetFloat("_Surface", 1);
-            mat.SetFloat("_Blend", 0);
-            mat.SetFloat("_AlphaClip", 0);
+            if (mat != null)
+            {
+                mat.SetFloat("_Surface", 1);
+                mat.SetFloat("_Blend", 0);
+                mat.SetFloat("_AlphaClip", 0);
 
-            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
 
-            mat.SetOverrideTag("RenderType", "Transparent");
-            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-
-            r.sharedMaterial = mat;
+                mat.SetOverrideTag("RenderType", "Transparent");
+                mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            }
         }
 
         return ghost;
     }
 
+    // =========================================================
+    //  GHOST COLORING (MPB)
+    // =========================================================
     private void SetGhostValid(GameObject go)
     {
         foreach (var r in go.GetComponentsInChildren<Renderer>())
-            r.sharedMaterial.SetColor("_BaseColor", _validColor);
+        {
+            _mpb.Clear();
+            _mpb.SetColor(BaseColorID, _validColor);
+            r.SetPropertyBlock(_mpb);
+        }
     }
 
     private void SetGhostInvalid(GameObject go)
     {
         foreach (var r in go.GetComponentsInChildren<Renderer>())
-            r.sharedMaterial.SetColor("_BaseColor", _invalidColor);
+        {
+            _mpb.Clear();
+            _mpb.SetColor(BaseColorID, _invalidColor);
+            r.SetPropertyBlock(_mpb);
+        }
     }
 
     public void ClearGhostPool()
@@ -295,7 +276,7 @@ public class PreviewController : MonoBehaviour
     }
 
     // =========================================================
-    //  FLY-IN + SMOOTHING (SINGLE GHOST ONLY)
+    //  FLY-IN + SMOOTHING
     // =========================================================
     public void BeginFlyIn(Vector3 worldTarget)
     {
@@ -315,7 +296,6 @@ public class PreviewController : MonoBehaviour
         if (_currentPreview == null)
             return;
 
-        // Fly-in animation
         if (_isFlyingIn && !_deleteMode)
         {
             _flyTime += Time.deltaTime;
@@ -331,7 +311,6 @@ public class PreviewController : MonoBehaviour
             return;
         }
 
-        // Smooth movement
         if (_hasTarget && !_deleteMode)
         {
             _currentPreview.transform.position =
@@ -343,14 +322,4 @@ public class PreviewController : MonoBehaviour
                 );
         }
     }
-    public void SetGhostDelete()
-    {
-        if (_ghostInstance == null)
-            return;
-
-        var highlighter = _ghostInstance.GetComponent<BuildingHighlighter>();
-        if (highlighter != null)
-            highlighter.HighlightDelete(true);
-    }
 }
-
