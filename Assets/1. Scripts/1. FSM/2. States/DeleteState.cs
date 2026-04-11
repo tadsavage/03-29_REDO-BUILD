@@ -16,11 +16,11 @@ public class DeleteState : IPlacementState
     // =========================================================
     //  HOVER + DRAG STATE
     // =========================================================
-    private BuildingHighlighter _hover;                 // REM: object currently highlighted under cursor
-    private readonly List<BuildingHighlighter> _dragTargets = new(); // REM: all objects highlighted during drag rectangle
+    private BuildingHighlighter _hover;
+    private readonly List<BuildingHighlighter> _dragTargets = new();
 
-    private bool _isDragging;                           // REM: true once drag threshold passed
-    private Vector3 _dragStartWorld;                    // REM: world position where drag began
+    private bool _isDragging;
+    private Vector3 _dragStartWorld;
 
     public bool IsPlacementState => true;
 
@@ -44,7 +44,7 @@ public class DeleteState : IPlacementState
     public void OnEnter()
     {
         _raycast.EnableRay();
-        _indicator.UseDeleteMode();     // REM: yellow tiles for delete mode
+        _indicator.UseDeleteMode();
 
         _isDragging = false;
         _dragTargets.Clear();
@@ -54,7 +54,7 @@ public class DeleteState : IPlacementState
     public void OnExit()
     {
         _raycast.DisableRay();
-        _indicator.UseBuildMode();      // REM: restore build colors
+        _indicator.UseBuildMode();
 
         ClearHover();
         ClearDragHighlights();
@@ -67,9 +67,6 @@ public class DeleteState : IPlacementState
     {
         _raycast.Tick();
 
-        // -----------------------------------------------------
-        // RIGHT‑CLICK = exit delete mode
-        // -----------------------------------------------------
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
             ClearHover();
@@ -88,9 +85,6 @@ public class DeleteState : IPlacementState
         Vector3 hitPoint = _raycast.HitPoint;
         Vector2Int cell = _raycast.HitCell;
 
-        // -----------------------------------------------------
-        // BEGIN DRAG
-        // -----------------------------------------------------
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             _isDragging = false;
@@ -98,9 +92,6 @@ public class DeleteState : IPlacementState
             _dragStartWorld = hitPoint;
         }
 
-        // -----------------------------------------------------
-        // CONFIRM DRAG (threshold)
-        // -----------------------------------------------------
         if (Mouse.current.leftButton.isPressed && !_isDragging)
         {
             if ((hitPoint - _dragStartWorld).sqrMagnitude > 0.05f)
@@ -111,34 +102,23 @@ public class DeleteState : IPlacementState
             }
         }
 
-        // -----------------------------------------------------
-        // DRAG DELETE MODE
-        // -----------------------------------------------------
         if (_isDragging)
         {
             UpdateDragDelete(hitPoint);
             return;
         }
 
-        // -----------------------------------------------------
-        // HOVER DELETE MODE
-        // -----------------------------------------------------
         UpdateHoverDelete(cell);
 
-        // -----------------------------------------------------
-        // SINGLE CLICK DELETE
-        // -----------------------------------------------------
         if (Mouse.current.leftButton.wasReleasedThisFrame && _hover != null)
         {
-            DeleteObject(_hover);
+            var bd = _hover.GetComponent<BuildingData>();
+            _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid));
             AudioManager.Play("Delete");
             _hover = null;
         }
     }
 
-    // =========================================================
-    //  HOVER DELETE
-    // =========================================================
     // =========================================================
     //  HOVER DELETE
     // =========================================================
@@ -148,7 +128,6 @@ public class DeleteState : IPlacementState
 
         _indicator.ShowCell(cell);
 
-        // 1. GRID OBJECTS
         var objs = _grid.GetObjectsInCell(cell);
         if (objs != null && objs.Count > 0)
         {
@@ -163,7 +142,6 @@ public class DeleteState : IPlacementState
             }
         }
 
-        // 2. FREE OBJECTS (via HitObject)
         GameObject hitObj = _raycast.HitObject;
         if (hitObj != null)
         {
@@ -178,7 +156,7 @@ public class DeleteState : IPlacementState
             }
         }
     }
-    // REM: clear hover highlight if we move to a new cell or exit delete mode
+
     private void ClearHover()
     {
         if (_hover)
@@ -187,7 +165,7 @@ public class DeleteState : IPlacementState
         _hover = null;
     }
 
-    /// =========================================================
+    // =========================================================
     //  DRAG DELETE
     // =========================================================
     private void UpdateDragDelete(Vector3 dragEndWorld)
@@ -201,7 +179,6 @@ public class DeleteState : IPlacementState
 
         foreach (var cell in footprint)
         {
-            // GRID OBJECTS
             var objs = _grid.GetObjectsInCell(cell);
             if (objs != null && objs.Count > 0)
             {
@@ -219,7 +196,6 @@ public class DeleteState : IPlacementState
                 }
             }
 
-            // FREE OBJECTS
             var hitObj = _raycast.RaycastCellCenter(cell);
             if (hitObj != null)
             {
@@ -243,7 +219,12 @@ public class DeleteState : IPlacementState
         if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
             foreach (var h in _dragTargets)
-                DeleteObject(h);
+            {
+                var bd = h.GetComponent<BuildingData>();
+                _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid));
+                // Play FX at the center of each cell in the footprint for better visual feedback
+                FXPool.Instance.Play("dust", h.gameObject.transform.position);
+            }
 
             AudioManager.Play("Delete");
 
@@ -252,6 +233,7 @@ public class DeleteState : IPlacementState
             _indicator.ClearAll();
         }
     }
+
     private void ClearDragHighlights()
     {
         foreach (var h in _dragTargets)
@@ -261,61 +243,5 @@ public class DeleteState : IPlacementState
         }
 
         _dragTargets.Clear();
-    }
-
-    // =========================================================
-    //  DELETE OBJECT (grid + free objects)
-    // =========================================================
-    private void DeleteObject(BuildingHighlighter h)
-    {
-        if (!h)
-            return;
-
-        var bd = h.GetComponent<BuildingData>();
-        if (bd == null || bd.Data == null)
-            return;
-
-        // =====================================================
-        // 1. FREE OBJECTS (ClearsGridAfterPlacement)
-        // =====================================================
-        if (bd.Data.ClearsGridAfterPlacement)
-        {
-            bd.Delete();
-            return;
-        }
-
-        // =====================================================
-        // 2. GRID OBJECTS (existing logic)
-        // =====================================================
-        Vector2Int root = _grid.WorldToCell(h.transform.position);
-        float rotation = h.transform.eulerAngles.y;
-
-        Vector2Int[] offsets = bd.Data.GetFootprintOffsets(-rotation);
-
-        foreach (var o in offsets)
-        {
-            Vector2Int cell = root + o;
-            var list = _grid.GetObjectsInCell(cell);
-            if (list == null)
-                continue;
-
-            for (int i = list.Count - 1; i >= 0; i--)
-            {
-                if (list[i].instance == bd.gameObject)
-                    list.RemoveAt(i);
-            }
-
-            if (list.Count == 0)
-                _grid.RemoveCellVisual(cell);
-        }
-
-        foreach (var o in offsets)
-        {
-            Vector2Int cell = root + o;
-            Vector3 pos = _grid.GetCellCenter(cell);
-            _finalizer.SpawnDust(pos);
-        }
-
-        bd.Delete();
     }
 }

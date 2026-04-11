@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: DustPoof2
+  m_Name: MoveObject
   m_Shader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -15,7 +15,7 @@ Material:
   - _SURFACE_TYPE_TRANSPARENT
   m_InvalidKeywords: []
   m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
+  m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: 3000
   stringTagMap:
@@ -121,13 +121,13 @@ Material:
     - _XRMotionVectorsPass: 1
     - _ZWrite: 0
     m_Colors:
-    - _BaseColor: {r: 0.5038566, g: 0.6847012, b: 0.8301887, a: 0.5019608}
-    - _Color: {r: 0.5038566, g: 0.6847012, b: 0.8301887, a: 0.5019608}
+    - _BaseColor: {r: 0, g: 0.7289963, b: 1, a: 0.7490196}
+    - _Color: {r: 0, g: 0.7289963, b: 1, a: 0.7490196}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
---- !u!114 &1379892387447326489
+--- !u!114 &1703911683901418203
 MonoBehaviour:
   m_ObjectHideFlags: 11
   m_CorrespondingSourceObject: {fileID: 0}

@@ -11,6 +11,15 @@ public class BuildBarBinder : MonoBehaviour
     // Callback for when the DELETE button is clicked
     public System.Action OnDeleteClicked;
 
+    // Callback for when the UNDO button is clicked
+    public System.Action OnUndoClicked;
+
+    // Callback for when the REDO button is clicked
+    public System.Action OnRedoClicked;
+
+    // Callback for when the MOVE button is clicked
+    public System.Action OnMoveClicked;
+
     // Callback for when the build bar is ready, allowing other systems to subscribe
     public System.Action OnBuildBarReady;
 
@@ -33,6 +42,35 @@ public class BuildBarBinder : MonoBehaviour
             deleteButton.clicked += () =>
             {
                 OnDeleteClicked?.Invoke();
+            };
+        }
+        // Handle the UNDO button separately
+        var undoButton = root.Q<Button>("UNDO");
+        if (undoButton != null)
+        {
+            undoButton.clicked += () =>
+            {
+                OnUndoClicked?.Invoke();
+            };
+        }
+
+        // Handle the REDO button separately
+        var redoButton = root.Q<Button>("REDO");
+        if (redoButton != null)
+        {
+            redoButton.clicked += () =>
+            {
+                OnRedoClicked?.Invoke();
+            };
+        }
+        
+        // Handle the MOVE button separately
+        var moveButton = root.Q<Button>("MOVE");
+        if (moveButton != null)
+        {
+            moveButton.clicked += () =>
+            {
+                OnMoveClicked?.Invoke();
             };
         }
 

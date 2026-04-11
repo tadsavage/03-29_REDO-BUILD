@@ -77,7 +77,7 @@ public class BuildPhaseChecklistWindow : EditorWindow
             foldout.style.flexGrow = 1;
 
             var milestoneToggle = new Toggle("Milestone");
-            milestoneToggle.value = section.isMilestone;
+            milestoneToggle.SetValueWithoutNotify(section.isMilestone);
             milestoneToggle.style.marginLeft = 4;
 
             var deleteButton = new Button(() =>
@@ -307,12 +307,11 @@ public class BuildPhaseChecklistWindow : EditorWindow
 
             var subToggle = new Toggle();
             subToggle.style.marginRight = 4;
-            subToggle.value = sub.isCompleted;
+            subToggle.SetValueWithoutNotify(sub.isCompleted);
 
             var subTitle = new TextField();
             subTitle.style.flexGrow = 1;
-            subTitle.value = sub.title;
-
+            subTitle.SetValueWithoutNotify(sub.title);
             var subDelete = new Button { text = "X" };
             subDelete.style.width = 24;
             subDelete.style.marginLeft = 4;

@@ -27,7 +27,16 @@ public class PlacementFinalizer : MonoBehaviour
 
         GameObject placed = Instantiate(data.prefab, pos, rot, _parent);
 
-        SpawnDust(pos);
+        var bd = placed.GetComponent<BuildingData>();
+        bd.Initialize(root, rotation, offsets);
+       
+        foreach (var o in offsets)
+        {
+            Vector3 pos2 = _grid.GetCellCenter(root + o);
+            pos2.y += stackY; // Align dust effect with stack height
+            FXPool.Instance.Play("dust", pos2);
+        }
+
         // ================================
         // STACKING: register object in grid
         // Each footprint cell gets the same placed instance
@@ -43,15 +52,5 @@ public class PlacementFinalizer : MonoBehaviour
         // ================================
 
         return placed;
-    }
-
-    // ---------------------------------------------------------
-    // OPTIONAL FX
-    // ---------------------------------------------------------
-    public void SpawnDust(Vector3 position)
-    {
-        if (dustPrefab == null)
-            return;
-        Instantiate(dustPrefab, position, Quaternion.identity);
     }
 }

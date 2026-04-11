@@ -45,6 +45,8 @@ public class PreviewController : MonoBehaviour
     private readonly Color _validColor = new(0.50f, 1.00f, 0.83f, 0.5f);
     private readonly Color _invalidColor = new(1.00f, 0.42f, 0.42f, 0.75f);
     private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
+    private readonly Dictionary<GameObject, Material[][]> _originalMats = new();
+    [SerializeField] private Material _highlightMat;
 
     private MaterialPropertyBlock _mpb;
 
@@ -131,7 +133,51 @@ public class PreviewController : MonoBehaviour
         if (_singleGhost != null)
             SetGhostInvalid(_singleGhost);
     }
+    public void ApplyHighlight(GameObject obj)
+    {
+        if (obj == null) return;
 
+        // Get ALL renderers on root + children
+        var renderers = obj.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0) return;
+
+        // Store original materials
+        if (!_originalMats.ContainsKey(obj))
+        {
+            Material[][] mats = new Material[renderers.Length][];
+            for (int i = 0; i < renderers.Length; i++)
+                mats[i] = renderers[i].sharedMaterials;
+
+            _originalMats[obj] = mats;
+        }
+
+        // Apply highlight material to ALL renderers
+        foreach (var r in renderers)
+        {
+            var mats = r.sharedMaterials;
+            for (int i = 0; i < mats.Length; i++)
+                mats[i] = _highlightMat;
+
+            r.sharedMaterials = mats;
+        }
+    }
+
+    public void RemoveHighlight(GameObject obj)
+    {
+        if (obj == null) return;
+
+        if (!_originalMats.TryGetValue(obj, out var mats))
+            return;
+
+        var renderers = obj.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0) return;
+
+        // Restore original materials
+        for (int i = 0; i < renderers.Length && i < mats.Length; i++)
+            renderers[i].sharedMaterials = mats[i];
+
+        _originalMats.Remove(obj);
+    }
     // =========================================================
     //  MULTI-GHOST MODE
     // =========================================================
@@ -243,6 +289,33 @@ public class PreviewController : MonoBehaviour
 
         return ghost;
     }
+    // =========================================================
+//  MOVE STATE GHOST API
+// =========================================================
+public void ShowGhost(GameObject source)
+{
+    // Create a ghost from the object being moved
+    if (_singleGhost != null)
+        Destroy(_singleGhost);
+
+    ClearGhostPool();
+    _singleGhost = CreateGhostFromPrefab(source);
+    _singleGhost.SetActive(true);
+
+    _currentPreview = _singleGhost;
+}
+
+public void HideGhost()
+{
+    if (_singleGhost != null)
+        _singleGhost.SetActive(false);
+}
+
+public void UpdateGhostPosition(Vector3 worldPos)
+{
+    _targetPos = worldPos;
+    _hasTarget = true;
+}
 
     // =========================================================
     //  GHOST COLORING (MPB)

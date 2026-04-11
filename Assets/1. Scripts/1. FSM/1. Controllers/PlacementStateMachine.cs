@@ -8,7 +8,9 @@ public class PlacementStateMachine : MonoBehaviour
     private RaycastPlacementState _raycastState;
     private BuildState _buildState;
     private DeleteState _deleteState;
+    private MoveState _moveState;
     private PlacementActions _actions;
+    public CommandHistory History { get; private set; } = new CommandHistory();
 
     public IPlacementState CurrentState
     {
@@ -31,6 +33,10 @@ public class PlacementStateMachine : MonoBehaviour
     {
         get { return _deleteState; }
     }
+    public MoveState MoveState
+    {
+        get { return _moveState; }
+    }
 
     private void Awake()
     {
@@ -46,6 +52,21 @@ public class PlacementStateMachine : MonoBehaviour
         {
             SetState(_deleteState);
         };
+        binder.OnUndoClicked += () =>
+        {
+            AudioManager.Play("ButtonClick");
+            History.Undo();
+        };
+        binder.OnRedoClicked += () =>
+        {
+            AudioManager.Play("ButtonClick");
+            History.Redo();
+        };
+        binder.OnMoveClicked += () =>
+        {
+            AudioManager.Play("ButtonClick");
+            SetState(_moveState);
+        };
 
         // Input actions
         _actions = new PlacementActions();
@@ -55,6 +76,8 @@ public class PlacementStateMachine : MonoBehaviour
         _raycastState = new RaycastPlacementState(raycast, indicator, grid);
         _buildState = new BuildState(_actions, preview, validator, finalizer, grid, this, raycast, indicator);
         _deleteState = new DeleteState(raycast, grid, finalizer, this, indicator);
+        _moveState = new MoveState(_actions, preview, validator, finalizer, grid, this, raycast);
+
 
         // Start in idle
         _currentState = _idleState;
