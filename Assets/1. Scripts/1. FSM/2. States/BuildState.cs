@@ -279,7 +279,7 @@ public class BuildState : IPlacementState
 
             if (obj2 != null)
             {
-                var bd = obj.GetComponent<BuildingData>();
+                var bd = obj2.GetComponent<BuildingData>();
                 if (bd != null && bd.Data != null && bd.Data.ClearsGridAfterPlacement)
                 {
                     AudioManager.Play("InvalidPlace");
@@ -319,7 +319,6 @@ public class BuildState : IPlacementState
             _justPlaced = true;
         }
     }
-
 
     // =========================================================
     //  STRIDE CALCULATION (used for drag placement)
@@ -371,14 +370,11 @@ public class BuildState : IPlacementState
         Vector2Int stride = GetStride(offsets);
 
         // =========================================================
-        //  REM: Determine stride direction based on drag direction
-        //       This is the KEY FIX that makes right→left behave
-        //       identically to left→right.
+        //  Determine stride direction based on drag direction
         // =========================================================
         int stepX = (_dragStartCell.x <= currentCell.x) ? stride.x : -stride.x;
         int stepY = (_dragStartCell.y <= currentCell.y) ? stride.y : -stride.y;
 
-        // REM: Normalize loop bounds
         int startX = _dragStartCell.x;
         int endX = currentCell.x;
 
@@ -386,17 +382,15 @@ public class BuildState : IPlacementState
         int endY = currentCell.y;
 
         // =========================================================
-        //  REM: Unified indicator list for the entire drag frame
+        //  Unified indicator list for the entire drag frame
         // =========================================================
         List<Vector2Int> allIndicatorCells = new();
 
-        // REM: reset ghost selection for this frame
         _preview.EndSelectionCells();
         _preview.BeginSelectionCells();
 
         // =========================================================
-        //  REM: Iterate the rectangle using directional stride
-        //       This ensures consistent spacing in ALL directions.
+        //  Iterate the rectangle using directional stride
         // =========================================================
         for (int x = startX;
              stepX > 0 ? x <= endX : x >= endX;
@@ -408,7 +402,6 @@ public class BuildState : IPlacementState
             {
                 Vector2Int cell = new Vector2Int(x, y);
 
-                // REM: validate placement
                 bool valid = _validator.IsCellValid(cell, offsets, _currentData);
 
                 // =========================================================
@@ -436,28 +429,30 @@ public class BuildState : IPlacementState
                         valid = false;
                 }
 
+                // =========================================================
+                //  AUTO‑SKIP BLOCKED CELLS
+                // =========================================================
                 if (!valid)
                     continue;
 
-                // REM: this is a valid root for placement
+                // =========================================================
+                //  VALID ROOT — add to drag list
+                // =========================================================
                 _dragCells.Add(cell);
 
-                // REM: add root + offsets to unified indicator list
                 allIndicatorCells.Add(cell);
                 foreach (var o in offsets)
                     allIndicatorCells.Add(cell + o);
 
-                // REM: show ghost for this root
                 _preview.ShowGhost(cell, true, _currentRotation);
             }
         }
 
         // =========================================================
-        //  REM: ONE CALL PER FRAME — identical to DeleteState
+        //  ONE CALL PER FRAME — identical to DeleteState
         // =========================================================
         _indicator.ShowCells(allIndicatorCells, true);
 
-        // REM: release = finalize drag placement
         if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
             EndDragPlacement();

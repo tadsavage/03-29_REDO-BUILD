@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class BuildingHighlighter : MonoBehaviour
 {
@@ -6,23 +7,20 @@ public class BuildingHighlighter : MonoBehaviour
     [SerializeField] private Material invalidMaterial;
     [SerializeField] private Material deleteMaterial;
 
-    private Material[] originalMaterials;
-    private Renderer[] renderers;
-    private SkinnedMeshRenderer[] skinnedMeshRenderers;
+    private readonly List<Renderer> _renderers = new();
+    private readonly List<Material> _originalMaterials = new();
 
     void Awake()
     {
-        renderers = GetComponentsInChildren<Renderer>();
-        skinnedMeshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
+        // Collect ALL renderers (MeshRenderer + SkinnedMeshRenderer)
+        foreach (var r in GetComponentsInChildren<Renderer>())
+        {
+            if (r == null || !r)
+                continue;
 
-        originalMaterials = new Material[renderers.Length + skinnedMeshRenderers.Length];
-
-        int index = 0;
-        foreach (Renderer r in renderers)
-            originalMaterials[index++] = r.material;
-
-        foreach (SkinnedMeshRenderer r in skinnedMeshRenderers)
-            originalMaterials[index++] = r.material;
+            _renderers.Add(r);
+            _originalMaterials.Add(r.material);
+        }
     }
 
     public void HighlightValid(bool on)
@@ -42,12 +40,25 @@ public class BuildingHighlighter : MonoBehaviour
 
     private void SetMaterial(Material overrideMat)
     {
-        int index = 0;
+        // Clean out destroyed renderers
+        for (int i = _renderers.Count - 1; i >= 0; i--)
+        {
+            if (_renderers[i] == null || !_renderers[i])
+            {
+                _renderers.RemoveAt(i);
+                _originalMaterials.RemoveAt(i);
+            }
+        }
 
-        foreach (Renderer r in renderers)
-            r.material = overrideMat ? overrideMat : originalMaterials[index++];
+        // Apply materials safely
+        for (int i = 0; i < _renderers.Count; i++)
+        {
+            var r = _renderers[i];
 
-        foreach (SkinnedMeshRenderer r in skinnedMeshRenderers)
-            r.material = overrideMat ? overrideMat : originalMaterials[index++];
+            if (r == null || !r)
+                continue;
+
+            r.material = overrideMat != null ? overrideMat : _originalMaterials[i];
+        }
     }
 }
