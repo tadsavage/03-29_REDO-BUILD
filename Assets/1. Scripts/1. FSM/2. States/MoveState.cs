@@ -42,7 +42,7 @@ public class MoveState : IPlacementState
     }
 
     // ---------------------------------------------------------
-    // SELECT OBJECT TO MOVE (NO GRID EDITS)
+    // SELECT OBJECT TO MOVE
     // ---------------------------------------------------------
     public void SetObjectToMove(GameObject obj)
     {
@@ -53,7 +53,6 @@ public class MoveState : IPlacementState
         _offsets = bd.Offsets;
         _rotation = bd.Rotation;
 
-        // Apply highlight BEFORE hiding
         _preview.ApplyHighlight(obj);
 
         obj.SetActive(false);
@@ -79,6 +78,8 @@ public class MoveState : IPlacementState
 
     public void Tick()
     {
+        Debug.Log($"MoveState Tick, moving? {_objectBeingMoved != null}");
+
         // 1. Select object
         if (_objectBeingMoved == null)
         {
@@ -89,7 +90,7 @@ public class MoveState : IPlacementState
                 var bd = _raycast.HitObject.GetComponent<BuildingData>();
                 if (bd != null && !bd.Data.ClearsGridAfterPlacement)
                 {
-                    // Check if anything is stacked on top
+                    // Check stacking
                     foreach (var o in bd.Offsets)
                     {
                         Vector2Int cell = bd.RootCell + o;
@@ -97,14 +98,14 @@ public class MoveState : IPlacementState
 
                         if (list != null && list.Count > 0)
                         {
-                            // If the top object is NOT this object, something is stacked on it
                             if (list[list.Count - 1].instance != _raycast.HitObject)
                             {
                                 AudioManager.Play("InvalidPlace");
-                                return; // cannot move
+                                return;
                             }
                         }
                     }
+
                     SetObjectToMove(_raycast.HitObject);
                 }
             }
@@ -122,18 +123,16 @@ public class MoveState : IPlacementState
 
         Vector2Int newRoot = _raycast.HitCell;
 
-        bool valid = _validator.IsValidPlacement(newRoot, _offsets, _objectBeingMoved.GetComponent<BuildingData>().Data);
+        var data = _objectBeingMoved.GetComponent<BuildingData>().Data;
+
+        bool valid = _validator.IsValidPlacement(newRoot, _offsets, data, _objectBeingMoved);
 
         if (valid)
             _preview.SetGhostValid();
         else
             _preview.SetGhostInvalid();
 
-        float stackY = 0f;
-        var data = _objectBeingMoved.GetComponent<BuildingData>().Data;
-
-        if (data.isStackable)
-            stackY = _grid.GetStackHeight(newRoot);
+        float stackY = data.isStackable ? _grid.GetStackHeight(newRoot, _objectBeingMoved) : 0f;
 
         Vector3 pos = _grid.GetCellCenter(newRoot);
         pos.y += stackY;
@@ -154,7 +153,7 @@ public class MoveState : IPlacementState
         var bd = _objectBeingMoved.GetComponent<BuildingData>();
         var data = bd.Data;
 
-        if (!_validator.IsValidPlacement(newRoot, _offsets, data))
+        if (!_validator.IsValidPlacement(newRoot, _offsets, data, _objectBeingMoved))
         {
             AudioManager.Play("InvalidPlace");
             return;
@@ -162,14 +161,14 @@ public class MoveState : IPlacementState
 
         AudioManager.Play("ValidPlace");
 
-        // Remove highlight from the object we're about to move
+        // Stop highlighting before we hand it off
         _preview.RemoveHighlight(_objectBeingMoved);
 
+        // Do the actual move (grid + finalizer)
         _fsm.History.Push(
             new MoveCommand(
                 _grid,
                 _finalizer,
-               
                 _objectBeingMoved,
                 data,
                 _originalRoot,
@@ -178,10 +177,32 @@ public class MoveState : IPlacementState
                 _rotation
             )
         );
+        // 1. Stop ghost mode
+        _preview.ResetMoveGhostState();
+
+        // 2. Reactivate the real object
+        _objectBeingMoved.SetActive(true);
+        _objectBeingMoved = null;
+        _offsets = null;
+        _rotation = 0f;
+        _originalRoot = default;
+
+        // ---------------------------------------------------------
+        // RESET MoveState for persistent mode
+        // ---------------------------------------------------------
+        _preview.ResetMoveGhostState();// must hide ghost + stop updating
+
+        // If your ghost uses the same instance, make sure it's visible again
+        _objectBeingMoved.SetActive(true);
 
         _objectBeingMoved = null;
-        _fsm.SetState(_fsm.IdleState);
+        _offsets = null;
+        _rotation = 0f;
+        _originalRoot = default;
+
+        // DO NOT change state — persistent move mode
     }
+
     // ---------------------------------------------------------
     // CANCEL MOVE
     // ---------------------------------------------------------

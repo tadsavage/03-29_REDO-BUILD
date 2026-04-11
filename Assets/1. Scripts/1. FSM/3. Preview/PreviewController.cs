@@ -61,7 +61,20 @@ public class PreviewController : MonoBehaviour
         _grid = Object.FindFirstObjectByType<PlacementGrid>();
         _mpb = new MaterialPropertyBlock();
     }
+    // ---------------------------------------------------------
+    // RESET FOR PERSISTENT MOVE MODE
+    // ---------------------------------------------------------
+    public void ResetMoveGhostState()
+    {
+        HideGhost();
+        ClearMultiGhosts();
+        ClearGhostPool();
 
+        _currentPreview = null;
+        _hasTarget = false;
+        _isFlyingIn = false;
+        _velocity = Vector3.zero;
+    }
     public void SetDeleteMode(bool on)
     {
         _deleteMode = on;
@@ -235,12 +248,22 @@ public class PreviewController : MonoBehaviour
         ghost.transform.position = pos;
         ghost.transform.rotation = Quaternion.Euler(0, rotation, 0);
 
+
+
         if (valid)
             SetGhostValid(ghost);
         else
             SetGhostInvalid(ghost);
     }
-
+    public void RestoreOriginalMaterials(GameObject obj)
+    {
+        var renderers = obj.GetComponentsInChildren<Renderer>();
+        foreach (var r in renderers)
+        {
+            if (_originalMaterials.TryGetValue(r, out var mats))
+                r.materials = mats;
+        }
+    }
     // =========================================================
     //  CLEAR MULTI-GHOSTS
     // =========================================================

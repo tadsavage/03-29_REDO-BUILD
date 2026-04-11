@@ -26,6 +26,26 @@ public class PlacementGrid : MonoBehaviour
     public Color SelectedColor = new Color(0.4f, 1f, 0.4f, 0.6f);
     public Color DeleteColor = new Color(1f, 1f, 0.2f, 0.5f);
 
+    public float GetStackHeight(Vector2Int cell, GameObject ignore = null)
+    {
+        var list = GetObjectsInCell(cell);
+        if (list == null || list.Count == 0)
+            return 0f;
+
+        float height = 0f;
+
+        foreach (var entry in list)
+        {
+            if (entry.instance == ignore)
+                continue;
+
+            var bd = entry.instance.GetComponent<BuildingData>();
+            if (bd != null)
+                height += bd.Data.objHeight;
+        }
+
+        return height;
+    }
     public struct PlacedObject
     {
         public GameObject instance;

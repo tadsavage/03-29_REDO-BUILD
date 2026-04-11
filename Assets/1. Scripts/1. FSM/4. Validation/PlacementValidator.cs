@@ -7,7 +7,11 @@ public class PlacementValidator : MonoBehaviour
     // ---------------------------------------------------------
     // VALIDATE FULL FOOTPRINT
     // ---------------------------------------------------------
-    public bool IsValidPlacement(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
+    public bool IsValidPlacement(
+        Vector2Int root,
+        Vector2Int[] offsets,
+        ObjDataSO data,
+        GameObject ignore = null)
     {
         foreach (var offset in offsets)
         {
@@ -17,13 +21,19 @@ public class PlacementValidator : MonoBehaviour
             if (!_grid.IsInsideGrid(cell))
                 return false;
 
-            // ================================
-            // STACKING RULE:
-            // If object is NOT stackable, occupied cells are invalid.
-            // If object IS stackable, occupied cells are allowed.
-            // ================================
-            if (!data.isStackable && _grid.IsOccupied(cell))
-                return false;
+            var list = _grid.GetObjectsInCell(cell);
+
+            if (list != null)
+            {
+                foreach (var entry in list)
+                {
+                    if (entry.instance == ignore)
+                        continue;
+
+                    if (!data.isStackable)
+                        return false;
+                }
+            }
         }
 
         return true;
@@ -32,7 +42,11 @@ public class PlacementValidator : MonoBehaviour
     // ---------------------------------------------------------
     // VALIDATE A SINGLE CELL (used for drag placement)
     // ---------------------------------------------------------
-    public bool IsCellValid(Vector2Int cell, Vector2Int[] offsets, ObjDataSO data)
+    public bool IsCellValid(
+        Vector2Int cell,
+        Vector2Int[] offsets,
+        ObjDataSO data,
+        GameObject ignore = null)
     {
         foreach (var offset in offsets)
         {
@@ -41,12 +55,19 @@ public class PlacementValidator : MonoBehaviour
             if (!_grid.IsInsideGrid(c))
                 return false;
 
-            // ================================
-            // STACKING RULE:
-            // Allow occupied cells only if object is stackable.
-            // ================================
-            if (!data.isStackable && _grid.IsOccupied(c))
-                return false;
+            var list = _grid.GetObjectsInCell(c);
+
+            if (list != null)
+            {
+                foreach (var entry in list)
+                {
+                    if (entry.instance == ignore)
+                        continue;
+
+                    if (!data.isStackable)
+                        return false;
+                }
+            }
         }
 
         return true;

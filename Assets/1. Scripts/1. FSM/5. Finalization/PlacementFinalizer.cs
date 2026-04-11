@@ -32,9 +32,9 @@ public class PlacementFinalizer : MonoBehaviour
        
         foreach (var o in offsets)
         {
-            Vector3 pos2 = _grid.GetCellCenter(root + o);
-            pos2.y += stackY; // Align dust effect with stack height
-            FXPool.Instance.Play("dust", pos2);
+            pos = _grid.GetCellCenter(root + o);
+            pos.y += stackY; // Align dust effect with stack height
+            FXPool.Instance.Play("dust", pos);
         }
 
         // ================================

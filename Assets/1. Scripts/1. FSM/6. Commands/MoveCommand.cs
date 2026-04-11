@@ -60,8 +60,16 @@ public class MoveCommand : ICommand
                 _grid.RemoveCellVisual(cell);
         }
 
-        // 2. Compute height BEFORE adding object
-        float stackY = _data.isStackable ? _grid.GetStackHeight(to) : 0f;
+        // 2. Compute height BEFORE adding object (long form)
+        float stackY;
+        if (_data.isStackable)
+        {
+            stackY = _grid.GetStackHeight(to);
+        }
+        else
+        {
+            stackY = 0f;
+        }
 
         // 3. Move object in world space
         Vector3 pos = _grid.GetCellCenter(to);
@@ -74,6 +82,7 @@ public class MoveCommand : ICommand
         {
             Vector2Int cell = to + o;
             _grid.AddStackObject(cell, _instance, _data);
+            Debug.Log($"Added object to pos {pos}");
         }
 
         // 5. Update BuildingData
