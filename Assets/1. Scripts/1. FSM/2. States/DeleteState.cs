@@ -4,19 +4,12 @@ using System.Collections.Generic;
 
 public class DeleteState : IPlacementState
 {
-    // =========================================================
-    //  DEPENDENCIES
-    // =========================================================
     private readonly RaycastController _raycast;
     private readonly PlacementGrid _grid;
     private readonly PlacementFinalizer _finalizer;
     private readonly PlacementStateMachine _fsm;
-    private readonly PreviewController _preview;
     private readonly CellIndicatorController _indicator;
 
-    // =========================================================
-    //  HOVER / DRAG STATE
-    // =========================================================
     private BuildingHighlighter _hover;
     private readonly List<BuildingHighlighter> _dragTargets = new();
 
@@ -25,22 +18,17 @@ public class DeleteState : IPlacementState
 
     public bool IsPlacementState => true;
 
-    // =========================================================
-    //  CONSTRUCTOR
-    // =========================================================
     public DeleteState(
         RaycastController raycast,
         PlacementGrid grid,
         PlacementFinalizer finalizer,
         PlacementStateMachine fsm,
-        PreviewController preview,
         CellIndicatorController indicator)
     {
         _raycast = raycast;
         _grid = grid;
         _finalizer = finalizer;
         _fsm = fsm;
-        _preview = preview;
         _indicator = indicator;
     }
 
@@ -49,15 +37,8 @@ public class DeleteState : IPlacementState
     // =========================================================
     public void OnEnter()
     {
-        // REM: kill any build ghosts before entering delete
-        _preview.Hide();
-        _preview.ClearAllGhosts();
-        _preview.SetDeleteMode(true);
-
         _raycast.EnableRay();
-
-        _indicator.SetDeleteMode(true);
-        _indicator.ClearAll();
+        _indicator.UseDeleteMode();
 
         _isDragging = false;
         _dragTargets.Clear();
@@ -66,28 +47,21 @@ public class DeleteState : IPlacementState
 
     public void OnExit()
     {
-        _preview.SetDeleteMode(false);
-        _preview.ClearAllGhosts();
-
         _raycast.DisableRay();
-
-        _indicator.SetDeleteMode(false);
-        _indicator.ClearAll();
+        _indicator.UseBuildMode();
 
         ClearHover();
         ClearDragHighlights();
     }
 
     // =========================================================
-    //  MAIN UPDATE LOOP
+    //  MAIN LOOP
     // =========================================================
     public void Tick()
     {
         _raycast.Tick();
 
-        // -----------------------------------------------------
-        // RIGHT‑CLICK: exit delete mode
-        // -----------------------------------------------------
+        // Right‑click = exit delete mode
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
             ClearHover();
@@ -106,16 +80,9 @@ public class DeleteState : IPlacementState
         Vector3 hitPoint = _raycast.HitPoint;
         Vector2Int cell = _raycast.HitCell;
 
-        // REM: always show a yellow cell indicator in delete mode
-        if (!_isDragging)
-        {
-            _indicator.ClearAll();
-            _indicator.ShowCell(cell, true);   // validity ignored in delete mode
-        }
-
-        // -----------------------------------------------------
-        // BEGIN DRAG
-        // -----------------------------------------------------
+        // =====================================================
+        //  BEGIN DRAG
+        // =====================================================
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             _isDragging = false;
@@ -123,9 +90,9 @@ public class DeleteState : IPlacementState
             _dragStartWorld = hitPoint;
         }
 
-        // -----------------------------------------------------
-        // CONFIRM DRAG
-        // -----------------------------------------------------
+        // =====================================================
+        //  CONFIRM DRAG
+        // =====================================================
         if (Mouse.current.leftButton.isPressed && !_isDragging)
         {
             if ((hitPoint - _dragStartWorld).sqrMagnitude > 0.05f)
@@ -136,40 +103,40 @@ public class DeleteState : IPlacementState
             }
         }
 
-        // -----------------------------------------------------
-        // DRAG DELETE MODE
-        // -----------------------------------------------------
+        // =====================================================
+        //  DRAG DELETE MODE
+        // =====================================================
         if (_isDragging)
         {
             UpdateDragDelete(hitPoint);
             return;
         }
 
-        // -----------------------------------------------------
-        // HOVER DELETE MODE
-        // -----------------------------------------------------
+        // =====================================================
+        //  HOVER DELETE MODE
+        // =====================================================
         UpdateHoverDelete(cell);
 
-        // -----------------------------------------------------
-        // SINGLE CLICK DELETE
-        // -----------------------------------------------------
+        // =====================================================
+        //  SINGLE CLICK DELETE
+        // =====================================================
         if (Mouse.current.leftButton.wasReleasedThisFrame && _hover != null)
         {
             DeleteObject(_hover);
-            AudioManager.Play("Delete");   // REM: single click delete sound
+            AudioManager.Play("Delete");
             _hover = null;
         }
     }
 
     // =========================================================
-    //  HOVER DELETE (top of stack)
+    //  HOVER DELETE
     // =========================================================
     private void UpdateHoverDelete(Vector2Int cell)
     {
         ClearHover();
 
-        // REM: show delete ghost + highlight top object if present
-        ShowDeleteGhost(cell);
+        // Always show 1×1 tile in hover mode
+        _indicator.ShowCell(cell);
 
         var objs = _grid.GetObjectsInCell(cell);
         if (objs == null || objs.Count == 0)
@@ -186,8 +153,6 @@ public class DeleteState : IPlacementState
 
     private void ClearHover()
     {
-        _preview.Hide();
-
         if (_hover)
             _hover.HighlightDelete(false);
 
@@ -195,32 +160,29 @@ public class DeleteState : IPlacementState
     }
 
     // =========================================================
-    //  DRAG DELETE (rectangle, top‑of‑stack per cell)
+    //  DRAG DELETE
     // =========================================================
     private void UpdateDragDelete(Vector3 dragEndWorld)
     {
-        _preview.Hide();
         ClearDragHighlights();
 
-        Bounds area = MakeBounds(_dragStartWorld, dragEndWorld);
+        // Build grid‑aligned rectangle
+        Vector2Int a = _grid.WorldToCell(_dragStartWorld);
+        Vector2Int b = _grid.WorldToCell(dragEndWorld);
 
-        Vector2Int min = _grid.WorldToCell(area.min);
-        Vector2Int max = _grid.WorldToCell(area.max);
+        int minX = Mathf.Min(a.x, b.x);
+        int maxX = Mathf.Max(a.x, b.x);
+        int minY = Mathf.Min(a.y, b.y);
+        int maxY = Mathf.Max(a.y, b.y);
 
-        min.x = Mathf.Clamp(min.x, 0, _grid.Width - 1);
-        min.y = Mathf.Clamp(min.y, 0, _grid.Height - 1);
-        max.x = Mathf.Clamp(max.x, 0, _grid.Width - 1);
-        max.y = Mathf.Clamp(max.y, 0, _grid.Height - 1);
+        List<Vector2Int> footprint = new();
 
-        for (int x = min.x; x <= max.x; x++)
+        for (int x = minX; x <= maxX; x++)
         {
-            for (int y = min.y; y <= max.y; y++)
+            for (int y = minY; y <= maxY; y++)
             {
                 Vector2Int cell = new(x, y);
-                Vector3 center = _grid.GetCellCenter(cell);
-
-                if (!area.Contains(center))
-                    continue;
+                footprint.Add(cell);
 
                 var objs = _grid.GetObjectsInCell(cell);
                 if (objs == null || objs.Count == 0)
@@ -238,9 +200,11 @@ public class DeleteState : IPlacementState
                     _dragTargets.Add(h);
 
                 h.HighlightDelete(true);
-                _grid.HighlightCellForDelete(cell);   // REM: grid overlay for drag area
             }
         }
+
+        // Show faint grid footprint
+        _indicator.ShowCells(footprint);
 
         // Release = delete all
         if (Mouse.current.leftButton.wasReleasedThisFrame)
@@ -248,7 +212,7 @@ public class DeleteState : IPlacementState
             foreach (var h in _dragTargets)
                 DeleteObject(h);
 
-            AudioManager.Play("Delete");   // REM: one sound for whole drag
+            AudioManager.Play("Delete");
 
             _dragTargets.Clear();
             _isDragging = false;
@@ -262,35 +226,13 @@ public class DeleteState : IPlacementState
         {
             if (h)
                 h.HighlightDelete(false);
-
-            var data = h ? h.GetComponent<BuildingData>() : null;
-            if (data && data.Data != null)
-            {
-                Vector2Int root = _grid.WorldToCell(h.transform.position);
-                float rot = h.transform.eulerAngles.y;
-                var offsets = data.Data.GetFootprintOffsets(-rot);
-
-                foreach (var o in offsets)
-                    _grid.RestoreCellVisual(root + o);
-            }
         }
 
         _dragTargets.Clear();
     }
 
-    private Bounds MakeBounds(Vector3 a, Vector3 b)
-    {
-        Vector3 center = (a + b) * 0.5f;
-        Vector3 size = new(
-            Mathf.Abs(a.x - b.x),
-            10f,
-            Mathf.Abs(a.z - b.z)
-        );
-        return new Bounds(center, size);
-    }
-
     // =========================================================
-    //  DELETE OBJECT (top of stack, multi‑cell footprint)
+    //  DELETE OBJECT
     // =========================================================
     private void DeleteObject(BuildingHighlighter h)
     {
@@ -331,38 +273,5 @@ public class DeleteState : IPlacementState
         }
 
         data.Delete();
-    }
-
-    // =========================================================
-    //  DELETE GHOST (visual preview of target)
-    // =========================================================
-    private void ShowDeleteGhost(Vector2Int cell)
-    {
-        var objs = _grid.GetObjectsInCell(cell);
-        if (objs == null || objs.Count == 0)
-        {
-            _preview.Hide();
-            return;
-        }
-
-        var obj = objs[^1].instance;
-        if (!obj)
-        {
-            _preview.Hide();
-            return;
-        }
-
-        var data = obj.GetComponent<BuildingData>();
-        if (!data || data.Data == null)
-        {
-            _preview.Hide();
-            return;
-        }
-
-        Vector3 pos = obj.transform.position;
-
-        // REM: reuse single ghost as delete ghost; deleteMode disables fly‑in / smoothing
-        _preview.Show(data.Data);
-        _preview.MoveTo(pos, cell, data.Data);
     }
 }

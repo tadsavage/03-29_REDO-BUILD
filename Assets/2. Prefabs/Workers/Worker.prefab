@@ -10,7 +10,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.122
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalPosition.y
@@ -18,23 +18,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.373
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.63334787
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.77386725
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -42,7 +42,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 101.405
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: bc4fc61ac8184d44fac7c19ddee14ac9, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
@@ -121,7 +121,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6af8aef5fddffe34890aa1b1aa086d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AiNavigation
-  waypointThreshold: 0.25
+  waypointThreshold: 0.2
 --- !u!114 &-798539098013796075
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -134,7 +134,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb79d389d9fa74c4884e12fab0d26d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AgentAnimation
-  turnThreshold: 0.8
+  turnThreshold: 8
 --- !u!195 &-8821963601008345065
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -144,12 +144,12 @@ NavMeshAgent:
   m_GameObject: {fileID: 289692319690755998}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 0.5
-  m_Speed: 2
-  m_Acceleration: 6
+  m_Radius: 0.25
+  m_Speed: 1.5
+  m_Acceleration: 5
   avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0
+  m_AngularSpeed: 75
+  m_StoppingDistance: 0.15
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1

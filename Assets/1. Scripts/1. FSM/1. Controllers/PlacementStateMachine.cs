@@ -54,7 +54,7 @@ public class PlacementStateMachine : MonoBehaviour
         _idleState = new IdleState();
         _raycastState = new RaycastPlacementState(raycast, indicator, grid);
         _buildState = new BuildState(_actions, preview, validator, finalizer, grid, this, raycast, indicator);
-        _deleteState = new DeleteState(raycast, grid, finalizer, this, preview, indicator);
+        _deleteState = new DeleteState(raycast, grid, finalizer, this, indicator);
 
         // Start in idle
         _currentState = _idleState;

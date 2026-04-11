@@ -1,4 +1,6 @@
 ﻿using UnityEngine;
+using System.Collections.Generic;
+
 
 public class RaycastPlacementState : IPlacementState
 {
@@ -23,7 +25,7 @@ public class RaycastPlacementState : IPlacementState
     public void OnExit()
     {
         _raycast.DisableRay();
-        _indicator.Hide();
+        _indicator.ClearAll();
     }
 
     public void Tick()
@@ -35,15 +37,13 @@ public class RaycastPlacementState : IPlacementState
             Vector2Int cell = _raycast.HitCell;
 
             _indicator.ShowCells(
-                cell,
-                new Vector2Int[] { Vector2Int.zero },
-                _grid,
-                true
+                new List<Vector2Int> { cell }
             );
         }
         else
         {
-            _indicator.Hide();
+            _indicator.ClearAll();
         }
     }
+
 }

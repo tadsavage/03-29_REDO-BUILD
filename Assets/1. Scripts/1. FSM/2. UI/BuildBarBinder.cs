@@ -32,7 +32,6 @@ public class BuildBarBinder : MonoBehaviour
         {
             deleteButton.clicked += () =>
             {
-                Debug.Log("DELETE button clicked");
                 OnDeleteClicked?.Invoke();
             };
         }
