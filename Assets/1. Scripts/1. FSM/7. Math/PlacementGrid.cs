@@ -53,6 +53,24 @@ public class PlacementGrid : MonoBehaviour
         if (Keyboard.current.backquoteKey.wasPressedThisFrame)
             ToggleVisualizer();
     }
+    // =========================================================
+    // UTILITY: Get all cells covered by a rectangle defined by two corners (inclusive) Used for drag‑select and drag‑delete as well as building footprints.
+    // =========================================================
+    public List<Vector2Int> GetRectangleCells(Vector2Int a, Vector2Int b)
+    {
+        List<Vector2Int> cells = new();
+
+        int minX = Mathf.Min(a.x, b.x);
+        int maxX = Mathf.Max(a.x, b.x);
+        int minY = Mathf.Min(a.y, b.y);
+        int maxY = Mathf.Max(a.y, b.y);
+
+        for (int x = minX; x <= maxX; x++)
+            for (int y = minY; y <= maxY; y++)
+                cells.Add(new Vector2Int(x, y));
+
+        return cells;
+    }
 
     private void OnValidate()
     {

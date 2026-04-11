@@ -226,6 +226,21 @@ public class BuildState : IPlacementState
         // VALIDITY CHECK
         bool isValid = _validator.IsValidPlacement(root, offsets, _currentData);
 
+        // =========================================================
+        //  OBSTACLE DETECTION (free-moving objects)
+        // =========================================================
+        GameObject obj = _raycast.HitObject;
+
+        if (obj != null)
+        {
+            var bd = obj.GetComponent<BuildingData>();
+            if (bd != null && bd.Data != null && bd.Data.ClearsGridAfterPlacement)
+            {
+                // A free-moving object is blocking placement
+                isValid = false;
+            }
+        }
+
         if (_currentData.isStackable)
         {
             if (!_grid.CanStack(root, _currentData))
@@ -256,6 +271,21 @@ public class BuildState : IPlacementState
         if (_placeRequested)
         {
             _placeRequested = false;
+
+            // =========================================================
+            //  FINAL OBSTACLE CHECK
+            // =========================================================
+            GameObject obj2 = _raycast.HitObject;
+
+            if (obj2 != null)
+            {
+                var bd = obj.GetComponent<BuildingData>();
+                if (bd != null && bd.Data != null && bd.Data.ClearsGridAfterPlacement)
+                {
+                    AudioManager.Play("InvalidPlace");
+                    return;
+                }
+            }
 
             bool isValidNow = _validator.IsCellValid(root, offsets, _currentData);
 
@@ -323,17 +353,14 @@ public class BuildState : IPlacementState
     }
 
     // =========================================================
-    //  DRAG LOGIC
+    //  DRAG LOGIC (FINAL, FIXED, UNIFIED)
     // =========================================================
     private void HandleDragPlacement(Vector2Int currentCell)
     {
+        // REM: clear previous drag roots
         _dragCells.Clear();
 
-        int minX = Mathf.Min(_dragStartCell.x, currentCell.x);
-        int maxX = Mathf.Max(_dragStartCell.x, currentCell.x);
-        int minY = Mathf.Min(_dragStartCell.y, currentCell.y);
-        int maxY = Mathf.Max(_dragStartCell.y, currentCell.y);
-
+        // REM: update offsets if rotation changed
         if (_currentRotation != _lastRotation)
         {
             _currentOffsets = _currentData.GetFootprintOffsets(-_currentRotation);
@@ -343,20 +370,60 @@ public class BuildState : IPlacementState
         Vector2Int[] offsets = _currentOffsets;
         Vector2Int stride = GetStride(offsets);
 
-        // This will hold ALL cells to show indicators on
+        // =========================================================
+        //  REM: Determine stride direction based on drag direction
+        //       This is the KEY FIX that makes right→left behave
+        //       identically to left→right.
+        // =========================================================
+        int stepX = (_dragStartCell.x <= currentCell.x) ? stride.x : -stride.x;
+        int stepY = (_dragStartCell.y <= currentCell.y) ? stride.y : -stride.y;
+
+        // REM: Normalize loop bounds
+        int startX = _dragStartCell.x;
+        int endX = currentCell.x;
+
+        int startY = _dragStartCell.y;
+        int endY = currentCell.y;
+
+        // =========================================================
+        //  REM: Unified indicator list for the entire drag frame
+        // =========================================================
         List<Vector2Int> allIndicatorCells = new();
 
-        // Clear ghosts for this frame; we’ll redraw them
+        // REM: reset ghost selection for this frame
         _preview.EndSelectionCells();
         _preview.BeginSelectionCells();
 
-        for (int x = minX; x <= maxX; x += stride.x)
+        // =========================================================
+        //  REM: Iterate the rectangle using directional stride
+        //       This ensures consistent spacing in ALL directions.
+        // =========================================================
+        for (int x = startX;
+             stepX > 0 ? x <= endX : x >= endX;
+             x += stepX)
         {
-            for (int y = minY; y <= maxY; y += stride.y)
+            for (int y = startY;
+                 stepY > 0 ? y <= endY : y >= endY;
+                 y += stepY)
             {
                 Vector2Int cell = new Vector2Int(x, y);
 
+                // REM: validate placement
                 bool valid = _validator.IsCellValid(cell, offsets, _currentData);
+
+                // =========================================================
+                //  OBSTACLE DETECTION (free-moving objects)
+                // =========================================================
+                GameObject objAtCell = _raycast.RaycastCellCenter(cell);
+
+                if (objAtCell != null)
+                {
+                    var bd = objAtCell.GetComponent<BuildingData>();
+                    if (bd != null && bd.Data != null && bd.Data.ClearsGridAfterPlacement)
+                    {
+                        valid = false;
+                    }
+                }
 
                 if (_currentData.isStackable)
                 {
@@ -372,29 +439,31 @@ public class BuildState : IPlacementState
                 if (!valid)
                     continue;
 
-                // This is a valid root for placement
+                // REM: this is a valid root for placement
                 _dragCells.Add(cell);
 
-                // Add root + footprint cells to indicator list
+                // REM: add root + offsets to unified indicator list
                 allIndicatorCells.Add(cell);
                 foreach (var o in offsets)
                     allIndicatorCells.Add(cell + o);
 
-                // Show ghost at this root
+                // REM: show ghost for this root
                 _preview.ShowGhost(cell, true, _currentRotation);
             }
         }
 
-        // 🔹 Single call per frame, like DeleteState
+        // =========================================================
+        //  REM: ONE CALL PER FRAME — identical to DeleteState
+        // =========================================================
         _indicator.ShowCells(allIndicatorCells, true);
 
+        // REM: release = finalize drag placement
         if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
             EndDragPlacement();
             return;
         }
     }
-
 
     // =========================================================
     //  FINALIZE DRAG PLACEMENT

@@ -21,10 +21,10 @@ public class RaycastController : MonoBehaviour
     public Vector3 HitPoint { get; private set; }
     public Vector2Int HitCell { get; private set; }
 
-    // Used to detect cell changes (for audio, events, etc.)
-    private Vector2Int _lastHitCell;
+    // NEW: Object hit by the mouse ray
+    public GameObject HitObject { get; private set; }
 
-    // Whether raycasting is active
+    private Vector2Int _lastHitCell;
     private bool _enabled;
 
     // =========================================================
@@ -36,11 +36,11 @@ public class RaycastController : MonoBehaviour
     {
         _enabled = false;
 
-        // Immediately hide line renderer
         if (_line != null)
             _line.enabled = false;
 
         HasHit = false;
+        HitObject = null;
     }
 
     // =========================================================
@@ -63,22 +63,17 @@ public class RaycastController : MonoBehaviour
         if (!_enabled)
             return;
 
-        // ---------------------------------------------------------
-        // RAYCAST FROM MOUSE POSITION
-        // ---------------------------------------------------------
         Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
 
+        // ---------------------------------------------------------
+        // 1. RAYCAST FOR GROUND (grid placement)
+        // ---------------------------------------------------------
         if (Physics.Raycast(ray, out RaycastHit hit, 100f, _groundMask))
         {
             HasHit = true;
             HitPoint = hit.point;
-
-            // Convert world hit to grid cell
             HitCell = _grid.WorldToCell(hit.point);
 
-            // ================================
-            // CELL CHANGE EVENT (audio, etc.)
-            // ================================
             if (HitCell != _lastHitCell)
                 AudioManager.Play("NewCell");
 
@@ -88,6 +83,14 @@ public class RaycastController : MonoBehaviour
         {
             HasHit = false;
         }
+
+        // ---------------------------------------------------------
+        // 2. RAYCAST FOR OBJECTS (free-moving, vehicles, etc.)
+        // ---------------------------------------------------------
+        if (Physics.Raycast(ray, out RaycastHit objHit, 100f))
+            HitObject = objHit.collider.gameObject;
+        else
+            HitObject = null;
 
         DrawRay();
     }
@@ -109,10 +112,31 @@ public class RaycastController : MonoBehaviour
         _line.enabled = true;
         _line.positionCount = 2;
 
-        // Slight offset to avoid z‑fighting with camera plane
         Vector3 start = _camera.transform.position - _camera.transform.up * 0.01f;
 
         _line.SetPosition(0, start);
         _line.SetPosition(1, HitPoint);
+    }
+
+    // =========================================================
+    //  PUBLIC: Raycast at a specific grid cell center
+    // =========================================================
+    public GameObject RaycastCellCenter(Vector2Int cell)
+    {
+        Vector3 world = _grid.GetCellCenter(cell) + Vector3.up * 5f;
+        Ray ray = new Ray(world, Vector3.down);
+
+        return RaycastFrom(ray, 10f);
+    }
+
+    // =========================================================
+    //  PRIVATE: Shared raycast logic
+    // =========================================================
+    private GameObject RaycastFrom(Ray ray, float distance)
+    {
+        if (Physics.Raycast(ray, out RaycastHit hit, distance))
+            return hit.collider.gameObject;
+
+        return null;
     }
 }
