@@ -1,6 +1,7 @@
-﻿using UnityEngine;
-using UnityEngine.InputSystem;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 public class BuildState : IPlacementState
 {
@@ -64,12 +65,13 @@ public class BuildState : IPlacementState
         _raycast = raycast;
         _indicator = indicator;
 
-        // Bind input
+        // Rotation Key Binding (R)
         _actions.BuildPlacement.BindRotateTo_R();
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
 
+        // Place Binding (Mouse Left Button)
         _actions.BuildPlacement.BindPlaceToMouseLeft();
-        _actions.BuildPlacement.Place.canceled += OnPlacePerformed; // place on release
+        _actions.BuildPlacement.Place.canceled += OnPlacePerformed; 
     }
 
     public bool IsPlacementState => true;
@@ -92,7 +94,6 @@ public class BuildState : IPlacementState
 
         _placeRequested = false;
         _rotateRequested = false;
-
 
         _currentRotation = _preview.CurrentRotation;
 
@@ -342,6 +343,13 @@ public class BuildState : IPlacementState
         Vector2Int[] offsets = _currentOffsets;
         Vector2Int stride = GetStride(offsets);
 
+        // This will hold ALL cells to show indicators on
+        List<Vector2Int> allIndicatorCells = new();
+
+        // Clear ghosts for this frame; we’ll redraw them
+        _preview.EndSelectionCells();
+        _preview.BeginSelectionCells();
+
         for (int x = minX; x <= maxX; x += stride.x)
         {
             for (int y = minY; y <= maxY; y += stride.y)
@@ -350,9 +358,6 @@ public class BuildState : IPlacementState
 
                 bool valid = _validator.IsCellValid(cell, offsets, _currentData);
 
-                // ================================
-                // STACKING: validate per-cell stack height / occupancy
-                // ================================
                 if (_currentData.isStackable)
                 {
                     if (!_grid.CanStack(cell, _currentData))
@@ -363,32 +368,33 @@ public class BuildState : IPlacementState
                     if (_grid.IsOccupied(cell))
                         valid = false;
                 }
-                // ================================
 
                 if (!valid)
                     continue;
 
+                // This is a valid root for placement
                 _dragCells.Add(cell);
 
-                _indicator.ShowCell(cell);
-
+                // Add root + footprint cells to indicator list
+                allIndicatorCells.Add(cell);
                 foreach (var o in offsets)
-                {
-                    Vector2Int subCell = cell + o;
-                    _indicator.ShowCell(subCell);
-                }
+                    allIndicatorCells.Add(cell + o);
 
+                // Show ghost at this root
                 _preview.ShowGhost(cell, true, _currentRotation);
             }
         }
 
-        if (Mouse.current.leftButton.wasReleasedThisFrame) 
+        // 🔹 Single call per frame, like DeleteState
+        _indicator.ShowCells(allIndicatorCells, true);
+
+        if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
             EndDragPlacement();
             return;
         }
-            
     }
+
 
     // =========================================================
     //  FINALIZE DRAG PLACEMENT
