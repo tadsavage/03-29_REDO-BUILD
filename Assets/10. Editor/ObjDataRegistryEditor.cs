@@ -31,7 +31,5 @@ public class ObjDataRegistryEditor : Editor
 
         EditorUtility.SetDirty(registry);
         AssetDatabase.SaveAssets();
-
-        Debug.Log($"ObjDataRegistry auto‑populated with {all.Length} ObjDataSO assets.");
     }
 }

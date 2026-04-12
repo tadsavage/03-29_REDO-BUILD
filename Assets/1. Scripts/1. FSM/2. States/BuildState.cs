@@ -350,6 +350,7 @@ public class BuildState : IPlacementState
     // =========================================================
     private void HandleDragPlacement(Vector2Int currentCell)
     {
+        Debug.Log($"Handling drag placement to {currentCell}");
         _dragCells.Clear();
 
         if (_currentRotation != _lastRotation)

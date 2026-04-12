@@ -153,7 +153,6 @@ public class PreviewController : MonoBehaviour
         // Get ALL renderers on root + children
         var renderers = obj.GetComponentsInChildren<Renderer>(true);
         if (renderers.Length == 0) return;
-
         // Store original materials
         if (!_originalMats.ContainsKey(obj))
         {
@@ -188,7 +187,6 @@ public class PreviewController : MonoBehaviour
         // Restore original materials
         for (int i = 0; i < renderers.Length && i < mats.Length; i++)
             renderers[i].sharedMaterials = mats[i];
-
         _originalMats.Remove(obj);
     }
     // =========================================================
@@ -223,7 +221,6 @@ public class PreviewController : MonoBehaviour
             return;
 
         GameObject ghost;
-
         if (_multiGhosts.TryGetValue(cell, out ghost))
         {
             ghost.SetActive(true);
@@ -308,16 +305,16 @@ public class PreviewController : MonoBehaviour
 // =========================================================
 public void ShowGhost(GameObject source)
 {
-    // Create a ghost from the object being moved
-    if (_singleGhost != null)
-        Destroy(_singleGhost);
-
+        // Create a ghost from the object being moved
+        if (_singleGhost != null) 
+        {
+            Destroy(_singleGhost);
+        }
     ClearGhostPool();
     _singleGhost = CreateGhostFromPrefab(source);
     _singleGhost.SetActive(true);
-
     _currentPreview = _singleGhost;
-}
+    }
 
 public void HideGhost()
 {

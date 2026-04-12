@@ -47,16 +47,14 @@ public class MoveState : IPlacementState
     public void SetObjectToMove(GameObject obj)
     {
         _objectBeingMoved = obj;
-
         var bd = obj.GetComponent<BuildingData>();
         _originalRoot = bd.RootCell;
         _offsets = bd.Offsets;
         _rotation = bd.Rotation;
-
         _preview.ApplyHighlight(obj);
 
-        obj.SetActive(false);
-        _preview.ShowGhost(obj);
+        obj.SetActive(true);
+        _preview.Show(bd.Data); // In case the ghost uses the same instance, hide it until we move it to the new position
     }
 
     public void OnEnter()
@@ -65,7 +63,7 @@ public class MoveState : IPlacementState
     }
 
     public void OnExit()
-    {
+    {      
         _preview.HideGhost();
         _raycast.DisableRay();
 
@@ -95,15 +93,14 @@ public class MoveState : IPlacementState
                         var list = _grid.GetObjectsInCell(cell);
 
                         if (list != null && list.Count > 0)
-                        {
+                        {   
                             if (list[list.Count - 1].instance != _raycast.HitObject)
-                            {
+                            {   // Not the top object in the stack, cannot move
                                 AudioManager.Play("InvalidPlace");
                                 return;
                             }
                         }
                     }
-
                     SetObjectToMove(_raycast.HitObject);
                 }
             }
@@ -114,7 +111,7 @@ public class MoveState : IPlacementState
         // 2. Move ghost
         _raycast.Tick();
         if (!_raycast.HasHit)
-        {
+        {   Debug.Log("No hit");
             _preview.HideGhost();
             return;
         }
@@ -143,6 +140,7 @@ public class MoveState : IPlacementState
     // ---------------------------------------------------------
     private void OnConfirmMove(InputAction.CallbackContext ctx)
     {
+
         if (_objectBeingMoved == null)
             return;
 
@@ -156,7 +154,6 @@ public class MoveState : IPlacementState
             AudioManager.Play("InvalidPlace");
             return;
         }
-
         AudioManager.Play("ValidPlace");
 
         // Stop highlighting before we hand it off
@@ -188,12 +185,13 @@ public class MoveState : IPlacementState
         // ---------------------------------------------------------
         // RESET MoveState for persistent mode
         // ---------------------------------------------------------
-        _preview.ResetMoveGhostState();// must hide ghost + stop updating
+        //_preview.ResetMoveGhostState();// must hide ghost + stop updating
 
         // If your ghost uses the same instance, make sure it's visible again
-        _objectBeingMoved.SetActive(true);
+        if (_objectBeingMoved != null)
+            _objectBeingMoved.SetActive(true);
 
-        _objectBeingMoved = null;
+        //_objectBeingMoved = null; I dont know wtf Im doing
         _offsets = null;
         _rotation = 0f;
         _originalRoot = default;

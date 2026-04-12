@@ -32,7 +32,6 @@ public class AgentAnimation : MonoBehaviour
             turningLeft = angle < -turnThreshold;
             turningRight = angle > turnThreshold;
             agent.velocity = Vector3.zero;
-            Debug.Log($"Turning {(turningLeft ? "Left" : "Right")} - Angle: {angle}");
         }
         else if(agent.velocity.sqrMagnitude > 0.1f)
         {
