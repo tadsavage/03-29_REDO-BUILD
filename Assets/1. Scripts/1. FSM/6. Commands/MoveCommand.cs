@@ -36,10 +36,12 @@ public class MoveCommand : ICommand
     }
 
     public void Execute() => Move(_oldRoot, _newRoot);
+
     public void Undo() => Move(_newRoot, _oldRoot);
 
     private void Move(Vector2Int from, Vector2Int to)
     {
+        Debug.Log($"Moving from {from} to {to}");
         // 1. Unregister from old cells
         foreach (var o in _offsets)
         {
@@ -51,25 +53,25 @@ public class MoveCommand : ICommand
         float stackY = _data.isStackable
             ? _grid.GetStackHeight(to)
             : 0f;
-
+        Debug.Log($"Stack Y: {stackY}");
         // 3. Move object in world space
         Vector3 pos = _grid.GetCellCenter(to);
         pos.y += stackY;
         _instance.transform.position = pos;
-
+        Debug.Log($"New position: {pos}");
         FXPool.Instance.Play("dust", pos);
-
+        Debug.Log($"Moved object to {pos}");
         // 4. Register in new cells
         foreach (var o in _offsets)
         {
             Vector2Int cell = to + o;
             _grid.AddStackObject(cell, _instance, _data);
         }
-
+        Debug.Log($"Registered object in new cells");
         // 5. Update BuildingData
         var bd = _instance.GetComponent<BuildingData>();
         bd.Initialize(to, _rotation, _offsets);
-
+                Debug.Log($"Updated BuildingData for object at {to} with rotation {_rotation} and offsets [{string.Join(", ", _offsets)}]");
         // 6. Ensure object is active
         _instance.SetActive(true);
     }
