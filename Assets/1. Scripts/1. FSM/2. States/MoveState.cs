@@ -11,10 +11,14 @@ public class MoveState : IPlacementState
     private readonly PlacementStateMachine _fsm;
     private readonly RaycastController _raycast;
 
-    private GameObject _objectBeingMoved;
+    private GameObject _obj;
+    private ObjDataSO _data;
+
     private Vector2Int _originalRoot;
     private Vector2Int[] _offsets;
     private float _rotation;
+
+    private bool _hasSelection;
 
     public bool IsPlacementState => true;
 
@@ -34,105 +38,135 @@ public class MoveState : IPlacementState
         _grid = grid;
         _fsm = fsm;
         _raycast = raycast;
-
-        _actions.BuildPlacement.BindPlaceToMouseLeft();
-        _actions.BuildPlacement.Place.performed += OnConfirmMove;
-        _actions.BuildPlacement.Cancel.AddBinding("<Mouse>/rightButton");
-        _actions.BuildPlacement.Cancel.performed += OnCancelMove;
     }
 
     // ---------------------------------------------------------
-    // SELECT OBJECT TO MOVE
+    // ENTER
     // ---------------------------------------------------------
-    public void SetObjectToMove(GameObject obj)
-    {
-        _objectBeingMoved = obj;
-        var bd = obj.GetComponent<BuildingData>();
-        _originalRoot = bd.RootCell;
-        _offsets = bd.Offsets;
-        _rotation = bd.Rotation;
-        _preview.ApplyHighlight(obj);
-
-        obj.SetActive(true);
-        _preview.Show(bd.Data); // In case the ghost uses the same instance, hide it until we move it to the new position
-    }
-
     public void OnEnter()
     {
+        _actions.BuildPlacement.BindPlaceToMouseLeft();
+        _actions.BuildPlacement.Place.performed += OnConfirmMove;
+
+        _actions.BuildPlacement.BindCancelTo_RMB();
+        _actions.BuildPlacement.Cancel.performed += OnCancelMove;
+
         _raycast.EnableRay();
+        _preview.ResetMoveGhostState();
+        _hasSelection = false;
+
+
     }
 
+    // ---------------------------------------------------------
+    // EXIT
+    // ---------------------------------------------------------
     public void OnExit()
-    {      
-        _preview.HideGhost();
+    {
         _raycast.DisableRay();
+        _preview.ResetMoveGhostState();
 
-        if (_objectBeingMoved != null)
-        {
-            _preview.RemoveHighlight(_objectBeingMoved);
-            _objectBeingMoved.SetActive(true);
-        }
+        if (_obj != null)
+            _preview.RemoveHighlight(_obj);
+
+        _obj = null;
+        _data = null;
+        _offsets = null;
+        _rotation = 0f;
+        _originalRoot = default;
+        _hasSelection = false;
+
+        _actions.BuildPlacement.BindPlaceToMouseLeft();
+        _actions.BuildPlacement.Place.performed -= OnConfirmMove;
+
+        _actions.BuildPlacement.BindCancelTo_RMB();
+        _actions.BuildPlacement.Cancel.performed -= OnCancelMove;
     }
 
-    public void Tick()
+    // ---------------------------------------------------------
+    // SELECT OBJECT
+    // ---------------------------------------------------------
+    private void TrySelectObject()
     {
-        // 1. Select object
-        if (_objectBeingMoved == null)
+        _raycast.Tick();
+
+        if (_raycast.HitObject == null)
+            return;
+
+        if (!Mouse.current.leftButton.wasPressedThisFrame)
+            return;
+
+        var bd = _raycast.HitObject.GetComponent<BuildingData>();
+        if (bd == null || bd.Data.ClearsGridAfterPlacement)
+            return;
+
+        // Must be top of stack
+        foreach (var o in bd.Offsets)
         {
-            _raycast.Tick();
-
-            if (_raycast.HitObject != null && Mouse.current.leftButton.wasPressedThisFrame)
+            var list = _grid.GetObjectsInCell(bd.RootCell + o);
+            if (list != null && list.Count > 0)
             {
-                var bd = _raycast.HitObject.GetComponent<BuildingData>();
-                if (bd != null && !bd.Data.ClearsGridAfterPlacement)
+                if (list[list.Count - 1].instance != _raycast.HitObject)
                 {
-                    // Check stacking
-                    foreach (var o in bd.Offsets)
-                    {
-                        Vector2Int cell = bd.RootCell + o;
-                        var list = _grid.GetObjectsInCell(cell);
-
-                        if (list != null && list.Count > 0)
-                        {   
-                            if (list[list.Count - 1].instance != _raycast.HitObject)
-                            {   // Not the top object in the stack, cannot move
-                                AudioManager.Play("InvalidPlace");
-                                return;
-                            }
-                        }
-                    }
-                    SetObjectToMove(_raycast.HitObject);
+                    AudioManager.Play("InvalidPlace");
+                    return;
                 }
             }
+        }
 
+        // Select
+        _obj = _raycast.HitObject;
+        _data = bd.Data;
+        _offsets = bd.Offsets;
+        _rotation = bd.Rotation;
+        _originalRoot = bd.RootCell;
+
+        _preview.ApplyHighlight(_obj);
+        _preview.ShowGhost(_obj);
+        _obj.SetActive(false);   // <<< REQUIRED
+
+        _hasSelection = true;
+    }
+
+    // ---------------------------------------------------------
+    // TICK
+    // ---------------------------------------------------------
+    public void Tick()
+    {
+        if (!_hasSelection)
+        {
+            TrySelectObject();
             return;
         }
 
-        // 2. Move ghost
         _raycast.Tick();
+
         if (!_raycast.HasHit)
-        {   Debug.Log("No hit");
+        {
             _preview.HideGhost();
             return;
         }
 
         Vector2Int newRoot = _raycast.HitCell;
 
-        var data = _objectBeingMoved.GetComponent<BuildingData>().Data;
-
-        bool valid = _validator.IsValidPlacement(newRoot, _offsets, data, _objectBeingMoved);
+        bool valid = _validator.IsValidPlacement(newRoot, _offsets, _data, _obj);
 
         if (valid)
             _preview.SetGhostValid();
         else
             _preview.SetGhostInvalid();
 
-        float stackY = data.isStackable ? _grid.GetStackHeight(newRoot, _objectBeingMoved) : 0f;
+        float stackY = _data.isStackable
+            ? _grid.GetStackHeight(newRoot, _obj)
+            : 0f;
 
         Vector3 pos = _grid.GetCellCenter(newRoot);
         pos.y += stackY;
 
         _preview.UpdateGhostPosition(pos);
+        // Keep ghost active even if smoothing is running
+        if (_preview != null && _obj != null)
+            _preview.ShowGhost(_obj);
     }
 
     // ---------------------------------------------------------
@@ -140,63 +174,50 @@ public class MoveState : IPlacementState
     // ---------------------------------------------------------
     private void OnConfirmMove(InputAction.CallbackContext ctx)
     {
-
-        if (_objectBeingMoved == null)
+        if (!_hasSelection)
             return;
 
         Vector2Int newRoot = _raycast.HitCell;
 
-        var bd = _objectBeingMoved.GetComponent<BuildingData>();
-        var data = bd.Data;
-
-        if (!_validator.IsValidPlacement(newRoot, _offsets, data, _objectBeingMoved))
+        if (!_validator.IsValidPlacement(newRoot, _offsets, _data, _obj))
         {
             AudioManager.Play("InvalidPlace");
             return;
         }
+
         AudioManager.Play("ValidPlace");
 
-        // Stop highlighting before we hand it off
-        _preview.RemoveHighlight(_objectBeingMoved);
+        _preview.RemoveHighlight(_obj);
 
-        // Do the actual move (grid + finalizer)
+        // Update grid immediately and push command to history for undo/redo and finalization
         _fsm.History.Push(
             new MoveCommand(
                 _grid,
                 _finalizer,
-                _objectBeingMoved,
-                data,
+                _obj,
+                _data,
                 _originalRoot,
                 newRoot,
                 _offsets,
                 _rotation
             )
         );
-        // 1. Stop ghost mode
+
+        // Finalize placement immediately (no need to wait for command execution since we're already in the correct state)
+        //_finalizer.FinalizePlacement(newRoot, _offsets, _data, _rotation);
+
+        // Reset ghost + keep persistent move mode
         _preview.ResetMoveGhostState();
 
-        // 2. Reactivate the real object
-        _objectBeingMoved.SetActive(true);
-        _objectBeingMoved = null;
+        _obj.SetActive(true);
+
+        // Clear selection but stay in MoveState
+        _obj = null;
+        _data = null;
         _offsets = null;
         _rotation = 0f;
         _originalRoot = default;
-
-        // ---------------------------------------------------------
-        // RESET MoveState for persistent mode
-        // ---------------------------------------------------------
-        //_preview.ResetMoveGhostState();// must hide ghost + stop updating
-
-        // If your ghost uses the same instance, make sure it's visible again
-        if (_objectBeingMoved != null)
-            _objectBeingMoved.SetActive(true);
-
-        //_objectBeingMoved = null; I dont know wtf Im doing
-        _offsets = null;
-        _rotation = 0f;
-        _originalRoot = default;
-
-        // DO NOT change state — persistent move mode
+        _hasSelection = false;
     }
 
     // ---------------------------------------------------------
@@ -204,11 +225,19 @@ public class MoveState : IPlacementState
     // ---------------------------------------------------------
     private void OnCancelMove(InputAction.CallbackContext ctx)
     {
-        if (_objectBeingMoved != null)
+        if (_obj != null)
         {
-            _preview.RemoveHighlight(_objectBeingMoved);
-            _objectBeingMoved.SetActive(true);
-            _objectBeingMoved = null;
+            // Restore original object state
+            _preview.RemoveHighlight(_obj);
+            // No need to update grid since object was never removed from it, just hidden
+
+            _obj.SetActive(true);
+
+            // Reset ghost + exit move mode
+            _preview.Hide();
+            //_raycast.DisableRay();
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         AudioManager.Play("Cancel");

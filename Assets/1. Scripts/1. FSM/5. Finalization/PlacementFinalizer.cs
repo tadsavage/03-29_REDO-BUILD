@@ -11,6 +11,7 @@ public class PlacementFinalizer : MonoBehaviour
     // ---------------------------------------------------------
     public GameObject FinalizePlacement(Vector2Int root, Vector2Int[] offsets, ObjDataSO data, float rotation)
     {
+        Debug.Log($"Finalizing placement at {root} with rotation {rotation} and offsets: {string.Join(", ", offsets)}");
         // ================================
         // STACKING: compute vertical offset
         // If object is stackable, place it on top of existing stack height

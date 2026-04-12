@@ -62,5 +62,10 @@ public class PlacementActions
         {
             Rotate.AddBinding("<Keyboard>/r");
         }
+        // Optional helper to set bindings in code
+        public void BindCancelTo_RMB()
+        {
+            Cancel.AddBinding("<Mouse>/rightButton");
+        }
     }
 }

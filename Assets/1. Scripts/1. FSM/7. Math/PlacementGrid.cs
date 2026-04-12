@@ -16,7 +16,7 @@ public class PlacementGrid : MonoBehaviour
     public float maxStackHeight = 9f;
 
     [Header("Visualizer Settings")]
-    public bool UseVisualizer = true;
+    public bool UseVisualizer = false;
     public Material CellMaterial;
     public Transform VisualParent;
 
@@ -121,20 +121,6 @@ public class PlacementGrid : MonoBehaviour
     // -------------------------
     // GRID API
     // -------------------------
-    public void RemoveCellVisual(Vector2Int cell)
-    {
-        if (!IsInsideGrid(cell))
-            return;
-
-        int idx = CellIndex(cell);
-
-        if (_activeVisuals.TryGetValue(idx, out var go))
-        {
-            ReturnToPool(go);
-            _activeVisuals.Remove(idx);
-        }
-    }
-
     public void HighlightCellForDelete(Vector2Int cell)
     {
         if (!UseVisualizer || !IsInsideGrid(cell))

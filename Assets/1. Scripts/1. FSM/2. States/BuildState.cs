@@ -69,12 +69,6 @@ public class BuildState : IPlacementState
         _fsm = fsm;
         _raycast = raycast;
         _indicator = indicator;
-
-        _actions.BuildPlacement.BindRotateTo_R();
-        _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
-
-        _actions.BuildPlacement.BindPlaceToMouseLeft();
-        _actions.BuildPlacement.Place.canceled += OnPlacePerformed;
     }
 
     public bool IsPlacementState => true;
@@ -84,6 +78,15 @@ public class BuildState : IPlacementState
     // =========================================================
     public void OnEnter()
     {
+        _actions.BuildPlacement.BindRotateTo_R();
+        _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
+
+        _actions.BuildPlacement.BindPlaceToMouseLeft();
+        _actions.BuildPlacement.Place.canceled += OnPlacePerformed;
+
+        _actions.BuildPlacement.BindCancelTo_RMB();
+        _actions.BuildPlacement.Cancel.performed += OnCancelBuild;
+
         if (_currentData == null)
             return;
 
@@ -120,23 +123,6 @@ public class BuildState : IPlacementState
             _preview.Hide();
             return;
         }
-
-        // RIGHT-CLICK CANCEL
-        if (Mouse.current.rightButton.wasPressedThisFrame)
-        {
-            AudioManager.Play("Cancel");
-
-            _preview.Hide();
-            _indicator.ClearAll();
-            _raycast.DisableRay();
-
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-
-            _fsm.SetState(_fsm.IdleState);
-            return;
-        }
-
         Vector2Int root = _raycast.HitCell;
 
         // ANTI-FLICKER
@@ -313,6 +299,21 @@ public class BuildState : IPlacementState
         }
     }
 
+    private void OnCancelBuild(InputAction.CallbackContext ctx)
+    {
+        _preview.Hide();
+        _indicator.ClearAll();
+        _raycast.DisableRay();
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        AudioManager.Play("Cancel");
+
+        _fsm.SetState(_fsm.IdleState);
+        return;
+    }
+
     // =========================================================
     //  STRIDE CALCULATION
     // =========================================================
@@ -350,7 +351,6 @@ public class BuildState : IPlacementState
     // =========================================================
     private void HandleDragPlacement(Vector2Int currentCell)
     {
-        Debug.Log($"Handling drag placement to {currentCell}");
         _dragCells.Clear();
 
         if (_currentRotation != _lastRotation)
@@ -476,6 +476,15 @@ public class BuildState : IPlacementState
         _raycast.DisableRay();
         _indicator.ClearAll();
         _preview.Hide();
+
+        _actions.BuildPlacement.BindPlaceToMouseLeft();
+        _actions.BuildPlacement.Place.canceled -= OnPlacePerformed;
+
+        _actions.BuildPlacement.BindCancelTo_RMB();
+        _actions.BuildPlacement.Cancel.performed -= OnCancelBuild;
+
+        _actions.BuildPlacement.BindRotateTo_R();
+        _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
     }
 
     // =========================================================

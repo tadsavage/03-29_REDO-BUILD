@@ -22,7 +22,7 @@ public class PreviewController : MonoBehaviour
     public float CurrentRotation { get; private set; }
 
     // =========================================================
-    //  MOVEMENT SMOOTHING
+    //  MOVE SMOOTHING
     // =========================================================
     private Vector3 _targetPos;
     private Vector3 _velocity;
@@ -51,6 +51,11 @@ public class PreviewController : MonoBehaviour
     private MaterialPropertyBlock _mpb;
 
     // =========================================================
+    //  GHOST MATERIAL (assign a transparent ghost material in inspector)
+    // =========================================================
+    [SerializeField] private Material _ghostMaterial; // optional: assign a dedicated ghost material
+
+    // =========================================================
     //  MODE FLAGS
     // =========================================================
     private bool _multiMode;
@@ -61,6 +66,7 @@ public class PreviewController : MonoBehaviour
         _grid = Object.FindFirstObjectByType<PlacementGrid>();
         _mpb = new MaterialPropertyBlock();
     }
+
     // ---------------------------------------------------------
     // RESET FOR PERSISTENT MOVE MODE
     // ---------------------------------------------------------
@@ -146,6 +152,7 @@ public class PreviewController : MonoBehaviour
         if (_singleGhost != null)
             SetGhostInvalid(_singleGhost);
     }
+
     public void ApplyHighlight(GameObject obj)
     {
         if (obj == null) return;
@@ -245,8 +252,6 @@ public class PreviewController : MonoBehaviour
         ghost.transform.position = pos;
         ghost.transform.rotation = Quaternion.Euler(0, rotation, 0);
 
-
-
         if (valid)
             SetGhostValid(ghost);
         else
@@ -280,75 +285,89 @@ public class PreviewController : MonoBehaviour
         foreach (var col in ghost.GetComponentsInChildren<Collider>())
             Destroy(col);
 
-        foreach (var r in ghost.GetComponentsInChildren<Renderer>())
+        // Ensure renderers are prepared for MPB coloring.
+        // If you prefer to force a dedicated ghost material, assign _ghostMaterial in inspector.
+        if (_ghostMaterial != null)
         {
-            var mat = r.sharedMaterial;
-
-            if (mat != null)
+            foreach (var r in ghost.GetComponentsInChildren<Renderer>())
             {
-                mat.SetFloat("_Surface", 1);
-                mat.SetFloat("_Blend", 0);
-                mat.SetFloat("_AlphaClip", 0);
-
-                mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-
-                mat.SetOverrideTag("RenderType", "Transparent");
-                mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                // assign the ghost material asset (shared) so shader settings are correct
+                // this avoids creating new material instances at runtime
+                r.sharedMaterial = _ghostMaterial;
             }
         }
+        else
+        {
+            // If no dedicated ghost material, ensure existing materials expose _BaseColor.
+            // We don't modify sharedMaterial here to avoid instancing.
+        }
+
+        // Default appearance (valid)
+        ApplyGhostAppearance(ghost, _validColor, _validColor.a);
 
         return ghost;
     }
+
     // =========================================================
-//  MOVE STATE GHOST API
-// =========================================================
-public void ShowGhost(GameObject source)
-{
+    //  MOVE STATE GHOST API
+    // =========================================================
+    public void ShowGhost(GameObject source)
+    {
         // Create a ghost from the object being moved
-        if (_singleGhost != null) 
+        if (_singleGhost != null)
         {
             Destroy(_singleGhost);
         }
-    ClearGhostPool();
-    _singleGhost = CreateGhostFromPrefab(source);
-    _singleGhost.SetActive(true);
-    _currentPreview = _singleGhost;
+        ClearGhostPool();
+        _singleGhost = CreateGhostFromPrefab(source);
+        _singleGhost.SetActive(true);
+        _currentPreview = _singleGhost;
+
+        // Match placement preview appearance
+        ApplyGhostAppearance(_singleGhost, _validColor, _validColor.a);
     }
 
-public void HideGhost()
-{
-    if (_singleGhost != null)
-        _singleGhost.SetActive(false);
-}
+    public void HideGhost()
+    {
+        if (_singleGhost != null)
+            _singleGhost.SetActive(false);
+    }
 
-public void UpdateGhostPosition(Vector3 worldPos)
-{
-    _targetPos = worldPos;
-    _hasTarget = true;
-}
+    public void UpdateGhostPosition(Vector3 worldPos)
+    {
+        _targetPos = worldPos;
+        _hasTarget = true;
+    }
 
     // =========================================================
     //  GHOST COLORING (MPB)
     // =========================================================
-    private void SetGhostValid(GameObject go)
+    private void ApplyGhostAppearance(GameObject ghost, Color color, float alpha)
     {
-        foreach (var r in go.GetComponentsInChildren<Renderer>())
+        if (ghost == null) return;
+
+        var renderers = ghost.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0) return;
+
+        _mpb.Clear();
+        Color c = color;
+        c.a = alpha;
+        _mpb.SetColor(BaseColorID, c);
+
+        foreach (var r in renderers)
         {
-            _mpb.Clear();
-            _mpb.SetColor(BaseColorID, _validColor);
             r.SetPropertyBlock(_mpb);
         }
     }
 
+    private void SetGhostValid(GameObject go)
+    {
+        ApplyGhostAppearance(go, _validColor, _validColor.a);
+    }
+
     private void SetGhostInvalid(GameObject go)
     {
-        foreach (var r in go.GetComponentsInChildren<Renderer>())
-        {
-            _mpb.Clear();
-            _mpb.SetColor(BaseColorID, _invalidColor);
-            r.SetPropertyBlock(_mpb);
-        }
+        ApplyGhostAppearance(go, _invalidColor, _invalidColor.a);
     }
 
     public void ClearGhostPool()
@@ -372,7 +391,8 @@ public void UpdateGhostPosition(Vector3 worldPos)
         float randZ = Random.Range(-3f, 8f);
 
         _flyStartPos = worldTarget + new Vector3(randX, 8f, randZ);
-        _currentPreview.transform.position = _flyStartPos;
+        if (_currentPreview != null)
+            _currentPreview.transform.position = _flyStartPos;
     }
 
     private void Update()

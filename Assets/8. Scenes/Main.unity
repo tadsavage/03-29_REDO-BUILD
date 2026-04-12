@@ -468,7 +468,7 @@ MonoBehaviour:
   entries:
   - key: dust
     prefab: {fileID: 6656116618551341391, guid: bdf277fe876c56f4591de572bf4f7ff9, type: 3}
-    preload: 50
+    preload: 200
 --- !u!4 &499553980
 Transform:
   m_ObjectHideFlags: 0
@@ -959,7 +959,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PreviewController
   moveSmoothTime: 0.15
-  _highlightMat: {fileID: 2100000, guid: bece47d35eefc3140b38a3180ee4bf24, type: 2}
+  _highlightMat: {fileID: 2100000, guid: c8cca804bcdf0e345a22591078c20b9a, type: 2}
+  _ghostMaterial: {fileID: 2100000, guid: c8cca804bcdf0e345a22591078c20b9a, type: 2}
 --- !u!114 &1024109573
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1636,7 +1637,6 @@ Transform:
   m_Children:
   - {fileID: 818959109}
   - {fileID: 1505288996}
-  - {fileID: 1873060297}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1637072604 stripped
@@ -1832,12 +1832,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1873060296}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1635529926}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1887452467
 GameObject:
@@ -1986,7 +1986,7 @@ MonoBehaviour:
   Height: 20
   Origin: {x: -14.6, y: 0, z: -14.6}
   maxStackHeight: 9
-  UseVisualizer: 1
+  UseVisualizer: 0
   CellMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
   VisualParent: {fileID: 2094211283}
   FreeColor: {r: 0.4, g: 1, b: 0.4, a: 0.4}
@@ -2045,3 +2045,4 @@ SceneRoots:
   - {fileID: 1160879797}
   - {fileID: 1635529926}
   - {fileID: 1550855240}
+  - {fileID: 1873060297}

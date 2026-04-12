@@ -12,6 +12,7 @@ public class DeleteState : IPlacementState
     private readonly PlacementFinalizer _finalizer;
     private readonly PlacementStateMachine _fsm;
     private readonly CellIndicatorController _indicator;
+    private readonly PlacementActions _actions;
 
     // =========================================================
     //  HOVER + DRAG STATE
@@ -29,13 +30,15 @@ public class DeleteState : IPlacementState
         PlacementGrid grid,
         PlacementFinalizer finalizer,
         PlacementStateMachine fsm,
-        CellIndicatorController indicator)
+        CellIndicatorController indicator,
+        PlacementActions actions)
     {
         _raycast = raycast;
         _grid = grid;
         _finalizer = finalizer;
         _fsm = fsm;
         _indicator = indicator;
+        _actions = actions;
     }
 
     // =========================================================
@@ -43,6 +46,8 @@ public class DeleteState : IPlacementState
     // =========================================================
     public void OnEnter()
     {
+        _actions.BuildPlacement.BindCancelTo_RMB();
+        _actions.BuildPlacement.Cancel.performed += OnCancelDelete;
         _raycast.EnableRay();
         _indicator.UseDeleteMode();
 
@@ -243,5 +248,18 @@ public class DeleteState : IPlacementState
         }
 
         _dragTargets.Clear();
+    }
+    private void OnCancelDelete(InputAction.CallbackContext ctx)
+    {
+        Debug.Log("Delete canceled.");
+        AudioManager.Play("Cancel");
+
+        _indicator.ClearAll();
+        _raycast.DisableRay();
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        _fsm.SetState(_fsm.IdleState);
     }
 }

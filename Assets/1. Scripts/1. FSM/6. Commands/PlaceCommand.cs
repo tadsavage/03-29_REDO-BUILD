@@ -54,9 +54,6 @@ public class PlaceCommand : ICommand
                     _grid.AdjustStackHeight(cell, -_data.objHeight);
                 }
             }
-
-            if (list.Count == 0)
-                _grid.RemoveCellVisual(cell);
         }
 
         bd.Delete();
