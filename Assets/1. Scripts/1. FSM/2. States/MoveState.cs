@@ -78,8 +78,6 @@ public class MoveState : IPlacementState
 
     public void Tick()
     {
-        Debug.Log($"MoveState Tick, moving? {_objectBeingMoved != null}");
-
         // 1. Select object
         if (_objectBeingMoved == null)
         {

@@ -397,4 +397,34 @@ public class PlacementGrid : MonoBehaviour
             }
         }
     }
+    public void RemoveStackObject(Vector2Int cell, GameObject obj, ObjDataSO data)
+    {
+        if (!IsInsideGrid(cell))
+            return;
+
+        var list = _cells[cell.x, cell.y];
+        if (list == null || list.Count == 0)
+            return;
+
+        // Remove the object from the cell
+        for (int i = list.Count - 1; i >= 0; i--)
+        {
+            if (list[i].instance == obj)
+            {
+                list.RemoveAt(i);
+                _stackHeights[cell.x, cell.y] -= data.objHeight;
+                if (_stackHeights[cell.x, cell.y] < 0f)
+                    _stackHeights[cell.x, cell.y] = 0f;
+            }
+        }
+
+        // Update visualizer
+        if (UseVisualizer)
+        {
+            if (list.Count == 0)
+                SetCellVisual(cell, FreeColor);
+            else
+                SetCellVisual(cell, OccupiedColor);
+        }
+    }
 }

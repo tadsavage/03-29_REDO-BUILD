@@ -255,15 +255,6 @@ public class PreviewController : MonoBehaviour
         else
             SetGhostInvalid(ghost);
     }
-    public void RestoreOriginalMaterials(GameObject obj)
-    {
-        var renderers = obj.GetComponentsInChildren<Renderer>();
-        foreach (var r in renderers)
-        {
-            if (_originalMaterials.TryGetValue(r, out var mats))
-                r.materials = mats;
-        }
-    }
     // =========================================================
     //  CLEAR MULTI-GHOSTS
     // =========================================================
