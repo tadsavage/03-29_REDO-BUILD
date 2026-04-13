@@ -31,7 +31,7 @@ public class PreviewController : MonoBehaviour
 
     private bool _isFlyingIn;
     private float _flyTime;
-    private const float FlyDuration = 0.5f;
+    [SerializeField] private float flyDuration = 0.25f;
     private Vector3 _flyStartPos;
 
     private GameObject _currentPreview;
@@ -388,7 +388,7 @@ public class PreviewController : MonoBehaviour
         if (_isFlyingIn && useFlyIn && !_deleteMode)
         {
             _flyTime += Time.deltaTime;
-            float t = Mathf.Clamp01(_flyTime / FlyDuration);
+            float t = Mathf.Clamp01(_flyTime / flyDuration);
             t = Mathf.SmoothStep(0f, 1f, t);
 
             _currentPreview.transform.position =
@@ -412,8 +412,8 @@ public class PreviewController : MonoBehaviour
                     ref _velocity,
                     adjustedSmooth
                 );
-
-            if ((_currentPreview.transform.position - _targetPos).sqrMagnitude < 0.04f)
+            // If we're very close to the target, snap to it and stop moving to prevent jitter
+            if ((_currentPreview.transform.position - _targetPos).sqrMagnitude < 0.01f)
             {
                 _hasTarget = false;
                 _velocity = Vector3.zero;

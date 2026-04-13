@@ -41,43 +41,44 @@
     flex-wrap: nowrap;
     align-items: auto;
     scale: 1 1;
-    border-top-left-radius: 3px;
-    border-top-right-radius: 3px;
-    border-bottom-right-radius: 3px;
-    border-bottom-left-radius: 3px;
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 2px;
+    border-bottom-left-radius: 2px;
     width: 100px;
     height: 90px;
     font-size: 24px;
-    -unity-font-style: bold;
-    -unity-font-definition: url("project://database/Library/unity%20default%20resources?fileID=10102&guid=0000000000000000e000000000000000&type=0#LegacyRuntime");
+    -unity-font-style: normal;
+    -unity-font-definition: url("project://database/Assets/3.%20UI/kenney_UI/Font/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
     color: rgb(66, 148, 69);
     -unity-text-align: middle-center;
     -unity-text-outline-width: 1px;
     letter-spacing: 7px;
-    -unity-background-image-tint-color: rgb(214, 228, 227);
+    -unity-background-image-tint-color: rgb(225, 234, 234);
     background-image: url("project://database/Assets/3.%20UI/kenney_UI/PNG/Extra/Double/panel_glass_screws.png?fileID=2800000&guid=734d72063a4c4634691f91f815b624a1&type=3#panel_glass_screws");
-    background-color: rgba(255, 255, 255, 0);
+    background-color: rgb(255, 255, 255);
     -unity-text-outline-color: rgb(114, 167, 101);
     white-space: pre;
     padding-top: 0;
     margin-top: auto;
-    -unity-slice-left: 38;
-    -unity-slice-top: 38;
-    -unity-slice-right: 38;
-    -unity-slice-bottom: 38;
+    -unity-slice-left: 0;
+    -unity-slice-top: 0;
+    -unity-slice-right: 0;
+    -unity-slice-bottom: 0;
     -unity-slice-scale: 1px;
     -unity-slice-type: tiled;
-    border-left-color: rgb(26, 60, 122);
-    border-right-color: rgb(26, 60, 122);
-    border-top-color: rgb(26, 60, 122);
-    border-bottom-color: rgb(26, 60, 122);
-    border-top-width: 3px;
-    border-right-width: 3px;
-    border-bottom-width: 3px;
-    border-left-width: 3px;
+    border-left-color: rgb(208, 239, 238);
+    border-right-color: rgb(208, 239, 238);
+    border-top-color: rgb(208, 239, 238);
+    border-bottom-color: rgb(208, 239, 238);
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
     transition-timing-function: ease-in-out;
     flex-shrink: 1;
     align-content: auto;
+    background-size: 105% 105%;
 }
 
 .button:hover {
@@ -87,16 +88,18 @@
 
 .thumbnail {
     top: auto;
-    width: 65px;
-    height: 65px;
+    width: 60px;
+    height: 60px;
     align-self: center;
-    background-image: url("project://database/Assets/11.%20Artwork/ChepThumbnail.png?fileID=2800000&guid=e30c9e59dd6a6834a8ce401323db4ab3&type=3#ChepThumbnail");
+    background-image: none;
     display: flex;
     background-position-x: center;
     -unity-slice-type: tiled;
     align-items: center;
-    align-content: flex-end;
-    justify-content: center;
+    align-content: auto;
+    justify-content: space-between;
+    background-color: rgba(255, 255, 255, 0);
+    -unity-background-image-tint-color: rgb(255, 255, 255);
 }
 
 .label {
