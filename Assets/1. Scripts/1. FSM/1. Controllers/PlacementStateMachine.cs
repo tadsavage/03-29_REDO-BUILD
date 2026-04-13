@@ -76,7 +76,7 @@ public class PlacementStateMachine : MonoBehaviour
         _raycastState = new RaycastPlacementState(raycast, indicator, grid);
         _buildState = new BuildState(_actions, preview, validator, finalizer, grid, this, raycast, indicator);
         _deleteState = new DeleteState(raycast, grid, finalizer, this, indicator, _actions  );
-        _moveState = new MoveState(_actions, preview, validator, finalizer, grid, this, raycast);
+        _moveState = new MoveState(_actions, preview, validator, finalizer, grid, this, raycast, indicator);
 
 
         // Start in idle
@@ -86,12 +86,12 @@ public class PlacementStateMachine : MonoBehaviour
     {
         if (newState == null)
         {
-            Debug.LogError("NO STATE PROVIDED. STATE IS NULL DUMMY!");
+            //Debug.LogError("NO STATE PROVIDED. STATE IS NULL DUMMY!");
             return;
         }
         else
         {
-            Debug.Log($"FROM:{_currentState.GetType().Name}   TO:{newState.GetType().Name} ");
+            //Debug.Log($"FROM:{_currentState.GetType().Name}   TO:{newState.GetType().Name} ");
         }
         _currentState = newState;
 

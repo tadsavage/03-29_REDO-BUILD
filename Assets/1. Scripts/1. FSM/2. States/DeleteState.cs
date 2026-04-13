@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 public class DeleteState : IPlacementState
 {
+    #region FIELDS ****************************************
     // =========================================================
     //  DEPENDENCIES
     // =========================================================
@@ -39,32 +40,30 @@ public class DeleteState : IPlacementState
         _fsm = fsm;
         _indicator = indicator;
         _actions = actions;
+        _actions.BuildPlacement.BindCancelTo_RMB();
     }
+#endregion
 
     // =========================================================
     //  ENTER / EXIT
     // =========================================================
     public void OnEnter()
     {
-        _actions.BuildPlacement.BindCancelTo_RMB();
         _actions.BuildPlacement.Cancel.performed += OnCancelDelete;
         _raycast.EnableRay();
         _indicator.UseDeleteMode();
-
         _isDragging = false;
         _dragTargets.Clear();
         ClearHover();
     }
-
     public void OnExit()
     {
         _raycast.DisableRay();
         _indicator.UseBuildMode();
-
         ClearHover();
         ClearDragHighlights();
+        _actions.BuildPlacement.Cancel.performed -= OnCancelDelete;
     }
-
     // =========================================================
     //  MAIN LOOP
     // =========================================================
@@ -120,6 +119,7 @@ public class DeleteState : IPlacementState
             var bd = _hover.GetComponent<BuildingData>();
             _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid));
             AudioManager.Play("Delete");
+            FXPool.Instance.Play("dust", bd.gameObject.transform.position); 
             _hover = null;
         }
     }
@@ -251,7 +251,6 @@ public class DeleteState : IPlacementState
     }
     private void OnCancelDelete(InputAction.CallbackContext ctx)
     {
-        Debug.Log("Delete canceled.");
         AudioManager.Play("Cancel");
 
         _indicator.ClearAll();

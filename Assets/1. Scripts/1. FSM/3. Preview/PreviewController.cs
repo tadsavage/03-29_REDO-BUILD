@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class PreviewController : MonoBehaviour
 {
+    #region FIELDS ***************************************
     // =========================================================
     //  DEPENDENCIES
     // =========================================================
@@ -60,6 +61,7 @@ public class PreviewController : MonoBehaviour
     // =========================================================
     private bool _multiMode;
     private bool _deleteMode;
+    #endregion
 
     private void Awake()
     {
@@ -85,7 +87,6 @@ public class PreviewController : MonoBehaviour
     {
         _deleteMode = on;
     }
-
     // =========================================================
     //  PUBLIC API — SINGLE GHOST
     // =========================================================
@@ -222,7 +223,7 @@ public class PreviewController : MonoBehaviour
     // =========================================================
     //  SHOW MULTI-GHOST
     // =========================================================
-    public void ShowGhost(Vector2Int cell, bool valid, float rotation)
+    public void ShowMultiGhost(Vector2Int cell, bool valid, float rotation)
     {
         if (!_multiMode)
             return;
@@ -317,28 +318,27 @@ public class PreviewController : MonoBehaviour
         if (_singleGhost != null)
         {
             Destroy(_singleGhost);
+            _singleGhost = null;
         }
+
         ClearGhostPool();
+
         _singleGhost = CreateGhostFromPrefab(source);
         _singleGhost.SetActive(true);
         _currentPreview = _singleGhost;
-
         // Match placement preview appearance
         ApplyGhostAppearance(_singleGhost, _validColor, _validColor.a);
     }
-
     public void HideGhost()
     {
         if (_singleGhost != null)
             _singleGhost.SetActive(false);
     }
-
     public void UpdateGhostPosition(Vector3 worldPos)
     {
         _targetPos = worldPos;
         _hasTarget = true;
     }
-
     // =========================================================
     //  GHOST COLORING (MPB)
     // =========================================================
@@ -359,17 +359,14 @@ public class PreviewController : MonoBehaviour
             r.SetPropertyBlock(_mpb);
         }
     }
-
     private void SetGhostValid(GameObject go)
     {
         ApplyGhostAppearance(go, _validColor, _validColor.a);
     }
-
     private void SetGhostInvalid(GameObject go)
     {
         ApplyGhostAppearance(go, _invalidColor, _invalidColor.a);
     }
-
     public void ClearGhostPool()
     {
         foreach (var g in _pool)
@@ -400,6 +397,9 @@ public class PreviewController : MonoBehaviour
         if (_currentPreview == null)
             return;
 
+        // ---------------------------------------------------------
+        // FLY-IN ANIMATION
+        // ---------------------------------------------------------
         if (_isFlyingIn && !_deleteMode)
         {
             _flyTime += Time.deltaTime;
@@ -409,12 +409,16 @@ public class PreviewController : MonoBehaviour
             _currentPreview.transform.position =
                 Vector3.Lerp(_flyStartPos, _targetPos, t);
 
-            if (t >= 1f)
+            // End fly-in early for smoother transition
+            if (t >= 0.75f)
                 _isFlyingIn = false;
 
             return;
         }
 
+        // ---------------------------------------------------------
+        // SMOOTH FOLLOW MOVEMENT
+        // ---------------------------------------------------------
         if (_hasTarget && !_deleteMode)
         {
             _currentPreview.transform.position =
@@ -424,6 +428,13 @@ public class PreviewController : MonoBehaviour
                     ref _velocity,
                     moveSmoothTime
                 );
+
+            // Stop smoothing once close enough
+            if ((_currentPreview.transform.position - _targetPos).sqrMagnitude < 0.04f)
+            {
+                _hasTarget = false;
+                _velocity = Vector3.zero;
+            }
         }
     }
 }

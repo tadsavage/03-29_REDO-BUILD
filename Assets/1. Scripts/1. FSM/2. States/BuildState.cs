@@ -6,6 +6,7 @@ using static UnityEditor.PlayerSettings;
 
 public class BuildState : IPlacementState
 {
+    #region FIELDS ****************************************
     // =========================================================
     //  DEPENDENCIES
     // =========================================================
@@ -69,22 +70,21 @@ public class BuildState : IPlacementState
         _fsm = fsm;
         _raycast = raycast;
         _indicator = indicator;
+        _actions.BuildPlacement.BindRotateTo_R();
+        _actions.BuildPlacement.BindPlaceToMouseLeft();
+        _actions.BuildPlacement.BindCancelTo_RMB();
     }
-
     public bool IsPlacementState => true;
+    #endregion *****************************************
 
     // =========================================================
     //  ENTER STATE
     // =========================================================
     public void OnEnter()
     {
-        _actions.BuildPlacement.BindRotateTo_R();
+
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
-
-        _actions.BuildPlacement.BindPlaceToMouseLeft();
         _actions.BuildPlacement.Place.canceled += OnPlacePerformed;
-
-        _actions.BuildPlacement.BindCancelTo_RMB();
         _actions.BuildPlacement.Cancel.performed += OnCancelBuild;
 
         if (_currentData == null)
@@ -109,7 +109,18 @@ public class BuildState : IPlacementState
         _currentOffsets = _currentData.GetFootprintOffsets(-_currentRotation);
         _lastRotation = _currentRotation;
     }
-
+    // =========================================================
+    //  EXIT STATE
+    // =========================================================
+    public void OnExit()
+    {
+        _raycast.DisableRay();
+        _indicator.ClearAll();
+        _preview.Hide();
+        _actions.BuildPlacement.Place.canceled -= OnPlacePerformed;
+        _actions.BuildPlacement.Cancel.performed -= OnCancelBuild;
+        _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
+    }
     // =========================================================
     //  MAIN UPDATE LOOP
     // =========================================================
@@ -419,7 +430,7 @@ public class BuildState : IPlacementState
                 foreach (var o in offsets)
                     _indicatorBuffer.Add(cell + o);
 
-                _preview.ShowGhost(cell, true, _currentRotation);
+                _preview.ShowMultiGhost(cell, true, _currentRotation);
             }
         }
 
@@ -467,26 +478,6 @@ public class BuildState : IPlacementState
         _placeRequested = false;
         _dragCells.Clear();
     }
-
-    // =========================================================
-    //  EXIT STATE
-    // =========================================================
-    public void OnExit()
-    {
-        _raycast.DisableRay();
-        _indicator.ClearAll();
-        _preview.Hide();
-
-        _actions.BuildPlacement.BindPlaceToMouseLeft();
-        _actions.BuildPlacement.Place.canceled -= OnPlacePerformed;
-
-        _actions.BuildPlacement.BindCancelTo_RMB();
-        _actions.BuildPlacement.Cancel.performed -= OnCancelBuild;
-
-        _actions.BuildPlacement.BindRotateTo_R();
-        _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
-    }
-
     // =========================================================
     //  SET BUILD DATA
     // =========================================================
@@ -494,7 +485,6 @@ public class BuildState : IPlacementState
     {
         _currentData = data;
     }
-
     // =========================================================
     //  INPUT CALLBACKS
     // =========================================================

@@ -46,6 +46,11 @@ public class PlacementGrid : MonoBehaviour
 
         return height;
     }
+    public float GetNextStackHeight(Vector2Int cell, ObjDataSO newObj, GameObject ignore = null)
+    {
+        float current = GetStackHeight(cell, ignore);
+        return current - newObj.objHeight;
+    }
     public struct PlacedObject
     {
         public GameObject instance;

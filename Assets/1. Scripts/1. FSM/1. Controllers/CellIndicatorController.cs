@@ -7,7 +7,7 @@ public class CellIndicatorController : MonoBehaviour
     //  COLORS
     // =========================================================
     [Header("Build Colors")]
-    [SerializeField] private Color buildValidColor = new Color(.25f, 1f, .30f, .50f);
+    [SerializeField] private Color buildValidColor = new Color(.1f, .25f, .65f, .50f);
     [SerializeField] private Color buildInvalidColor = new Color(1f, .22f, .22f, .75f);
 
     [Header("Delete Color")]
@@ -21,7 +21,7 @@ public class CellIndicatorController : MonoBehaviour
 
     [SerializeField] private PlacementGrid grid;
 
-    [SerializeField] private float yOffset = 0.15f;
+    private float yOffset = 0.0f;
 
     // =========================================================
     //  INTERNAL STATE
@@ -62,7 +62,7 @@ public class CellIndicatorController : MonoBehaviour
     // =========================================================
     //  PUBLIC API — SINGLE CELL
     // =========================================================
-    public void ShowCell(Vector2Int cell, bool   isValid = true)
+    public void ShowCell(Vector2Int cell, bool isValid = true)
     {
         ClearActive();
 
