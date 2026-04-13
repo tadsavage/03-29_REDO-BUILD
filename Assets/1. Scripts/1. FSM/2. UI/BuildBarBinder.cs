@@ -79,14 +79,18 @@ public class BuildBarBinder : MonoBehaviour
             Button b = buttons[i];
             ObjDataSO data = registry.buttonSOs[i];
 
-            // Optional: set icon if using VisualElement backgrounds
-            if (data.icon != null)
-                b.style.backgroundImage = new StyleBackground(data.icon);
+            // Remove USS background so our icon can show
+            b.style.backgroundImage = null;
 
-            // Tooltip
+            // Apply icon AFTER layout
+            root.schedule.Execute(() =>
+            {
+                if (data.icon != null)
+                    b.style.backgroundImage = new StyleBackground(data.icon);
+            });
+
             b.tooltip = $"{data.name}\nCost: {data.cost}";
 
-            // Click event
             int index = i;
             b.clicked += () => OnBuildButtonClicked(index);
         }

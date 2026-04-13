@@ -39,14 +39,14 @@
     transition-duration: 0.35s;
     flex-direction: column;
     flex-wrap: nowrap;
-    align-items: flex-start;
+    align-items: auto;
     scale: 1 1;
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;
     border-bottom-right-radius: 3px;
     border-bottom-left-radius: 3px;
-    width: 105px;
-    height: 110px;
+    width: 100px;
+    height: 90px;
     font-size: 24px;
     -unity-font-style: bold;
     -unity-font-definition: url("project://database/Library/unity%20default%20resources?fileID=10102&guid=0000000000000000e000000000000000&type=0#LegacyRuntime");
@@ -56,26 +56,28 @@
     letter-spacing: 7px;
     -unity-background-image-tint-color: rgb(214, 228, 227);
     background-image: url("project://database/Assets/3.%20UI/kenney_UI/PNG/Extra/Double/panel_glass_screws.png?fileID=2800000&guid=734d72063a4c4634691f91f815b624a1&type=3#panel_glass_screws");
-    background-color: rgb(255, 255, 255);
+    background-color: rgba(255, 255, 255, 0);
     -unity-text-outline-color: rgb(114, 167, 101);
     white-space: pre;
     padding-top: 0;
-    margin-top: 0;
+    margin-top: auto;
     -unity-slice-left: 38;
     -unity-slice-top: 38;
     -unity-slice-right: 38;
     -unity-slice-bottom: 38;
-    -unity-slice-scale: -2px;
-    -unity-slice-type: sliced;
+    -unity-slice-scale: 1px;
+    -unity-slice-type: tiled;
     border-left-color: rgb(26, 60, 122);
     border-right-color: rgb(26, 60, 122);
     border-top-color: rgb(26, 60, 122);
     border-bottom-color: rgb(26, 60, 122);
-    border-top-width: 5px;
-    border-right-width: 5px;
-    border-bottom-width: 5px;
-    border-left-width: 5px;
+    border-top-width: 3px;
+    border-right-width: 3px;
+    border-bottom-width: 3px;
+    border-left-width: 3px;
     transition-timing-function: ease-in-out;
+    flex-shrink: 1;
+    align-content: auto;
 }
 
 .button:hover {
@@ -84,14 +86,17 @@
 }
 
 .thumbnail {
-    top: 18px;
-    width: 75px;
-    height: 75px;
+    top: auto;
+    width: 65px;
+    height: 65px;
     align-self: center;
     background-image: url("project://database/Assets/11.%20Artwork/ChepThumbnail.png?fileID=2800000&guid=e30c9e59dd6a6834a8ce401323db4ab3&type=3#ChepThumbnail");
     display: flex;
     background-position-x: center;
     -unity-slice-type: tiled;
+    align-items: center;
+    align-content: flex-end;
+    justify-content: center;
 }
 
 .label {
@@ -102,6 +107,18 @@
 
 .Image {
     background-image: none;
+    align-items: auto;
+    align-content: auto;
+    margin-top: 20px;
+    margin-right: auto;
+    margin-bottom: auto;
+    margin-left: auto;
+    -unity-background-scale-mode: scale-to-fit;
+    -unity-slice-type: tiled;
+    background-color: rgba(255, 255, 255, 0);
+    background-size: contain;
+    -unity-slice-scale: 0.5px;
+    -unity-background-image-tint-color: rgb(255, 255, 255);
 }
 
 .UtilityButtons {
