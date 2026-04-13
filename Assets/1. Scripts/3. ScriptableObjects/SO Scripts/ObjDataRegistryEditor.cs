@@ -17,7 +17,7 @@ public class ObjDataRegistryEditor : Editor
             Populate(registry);
         }
     }
-
+    // This method finds all ObjDataSO assets in the project and assigns them to the registry's buttonSOs array.
     private void Populate(ObjDataRegistry registry)
     {
         string[] guids = AssetDatabase.FindAssets("t:ObjDataSO");
@@ -28,7 +28,7 @@ public class ObjDataRegistryEditor : Editor
             .ToArray();
 
         registry.buttonSOs = all;
-
+        //
         EditorUtility.SetDirty(registry);
         AssetDatabase.SaveAssets();
     }

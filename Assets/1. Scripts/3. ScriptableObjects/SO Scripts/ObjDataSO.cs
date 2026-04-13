@@ -22,7 +22,7 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("If true, object does not occupy grid after placement.")]
     public bool ClearsGridAfterPlacement = false;
 
-    // ================================
+    // ==============================
     // STACKING SETTINGS
     // ================================
     [Header("Stacking")]

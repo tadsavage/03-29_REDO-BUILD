@@ -1583,7 +1583,7 @@ PrefabInstance:
     - target: {fileID: 419408183705331880, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
       propertyPath: registry
       value: 
-      objectReference: {fileID: 11400000, guid: 255b445e3072a6c45b4378f22292d6a7, type: 2}
+      objectReference: {fileID: 0}
     - target: {fileID: 419408183705331880, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
       propertyPath: m_Enabled
       value: 0
@@ -1632,8 +1632,7 @@ PrefabInstance:
       propertyPath: m_Name
       value: UI
       objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 419408183705331880, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 2387541477956327113, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
