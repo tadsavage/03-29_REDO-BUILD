@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: Corner
+  m_Name: HalfBay
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: Corner
-  cost: 225
-  hourlyCost: 0.1
-  prefab: {fileID: 4957032590026532358, guid: 669686e44c27d5d4d8d54f0fe72682fb, type: 3}
-  icon: {fileID: 2800000, guid: ae5e84379dfbf7745b6ce07dff24b6af, type: 3}
+  objName: Half Bay
+  cost: 750
+  hourlyCost: 0.5
+  prefab: {fileID: 2727379782079053540, guid: 53f77d88a9551a84db35a1a18e148fa6, type: 3}
+  icon: {fileID: 2800000, guid: 28be85cee113a804db0c1311d4afc291, type: 3}
   footprint: {x: 1, y: 1}
   customShapeOffsets: []
   ClearsGridAfterPlacement: 0
-  isStackable: 0
-  objHeight: 9
+  isStackable: 1
+  objHeight: 2

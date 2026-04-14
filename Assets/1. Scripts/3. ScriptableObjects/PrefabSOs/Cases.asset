@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: Corner
+  m_Name: Cases
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: Corner
-  cost: 225
-  hourlyCost: 0.1
-  prefab: {fileID: 4957032590026532358, guid: 669686e44c27d5d4d8d54f0fe72682fb, type: 3}
-  icon: {fileID: 2800000, guid: ae5e84379dfbf7745b6ce07dff24b6af, type: 3}
+  objName: Cases
+  cost: 1250
+  hourlyCost: 1
+  prefab: {fileID: 8178270212256399326, guid: c9e261ced86632640995fa7d9216844d, type: 3}
+  icon: {fileID: 2800000, guid: 4b31aac34df5c5d448b3c2fd43af1cc3, type: 3}
   footprint: {x: 1, y: 1}
   customShapeOffsets: []
   ClearsGridAfterPlacement: 0
-  isStackable: 0
-  objHeight: 9
+  isStackable: 1
+  objHeight: 0.92

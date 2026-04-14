@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: LoadedPallet
+  m_Name: T-Wall
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: LoadedPallet
+  objName: T-Wall
   cost: 1250
-  hourlyCost: 1
-  prefab: {fileID: 8178270212256399326, guid: c9e261ced86632640995fa7d9216844d, type: 3}
-  icon: {fileID: 2800000, guid: 4b31aac34df5c5d448b3c2fd43af1cc3, type: 3}
+  hourlyCost: 5
+  prefab: {fileID: 7521947125358256196, guid: ff46f654922086a4598964c5563ce564, type: 3}
+  icon: {fileID: 2800000, guid: 8fe4b2762d6ad764aa011ee6696c193e, type: 3}
   footprint: {x: 1, y: 1}
   customShapeOffsets: []
   ClearsGridAfterPlacement: 0
-  isStackable: 1
-  objHeight: 0.92
+  isStackable: 0
+  objHeight: 9

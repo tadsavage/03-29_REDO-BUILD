@@ -16,14 +16,24 @@ public class BuildBarEvents : MonoBehaviour
 
     private void Awake()
     {
-        // UI Toolkit: get the button on this element
         var uiDoc = GetComponent<UIDocument>();
-        if (uiDoc != null)
+        if (uiDoc == null)
+            return;
+
+        var root = uiDoc.rootVisualElement;
+
+        // Find ALL labels under the build bar
+        var labels = root.Query<Label>().ToList();
+
+        int count = Mathf.Min(labels.Count, registry.buttonSOs.Length);
+
+        for (int i = 0; i < count; i++)
         {
-            var root = uiDoc.rootVisualElement;
-            _button = root.Q<Button>();
-            //test: set the button text to the cost of the first ObjDataSO in the registry
-            _button.text = registry.buttonSOs[0].cost.ToString();
+            Label label = labels[i];
+            ObjDataSO data = registry.buttonSOs[i];
+
+            // Update label text to the SO name
+            label.text = data.objName;
         }
     }
     private void OnEnable()

@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: Chep-Empty
+  m_Name: StackPlts
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: Chep-Empty
-  cost: 100
-  hourlyCost: 0.1
-  prefab: {fileID: 6533443037926444852, guid: 2b0e11584e4164345b36e2bd56b720b8, type: 3}
-  icon: {fileID: 2800000, guid: d21b735f21380cb49a61d90cc3c27df0, type: 3}
+  objName: StackPlts
+  cost: 450
+  hourlyCost: 0.75
+  prefab: {fileID: 625809847009389548, guid: 0038f14ea7722754bbe5e94cb02dbcf0, type: 3}
+  icon: {fileID: 2800000, guid: 0da8c74d5bbccd945a8b17c33569b69e, type: 3}
   footprint: {x: 1, y: 1}
   customShapeOffsets: []
   ClearsGridAfterPlacement: 0
   isStackable: 1
-  objHeight: 0.165
+  objHeight: 1.91
