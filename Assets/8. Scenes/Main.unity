@@ -1202,17 +1202,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47db00f1dd436c840943fd63cd730174, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FreeLookCamera
-  movementSpeed: 5
-  fastMovementSpeed: 10
+  movementSpeed: 6
+  fastMovementSpeed: 12
   freeLookSensitivity: 0.1
   zoomSensitivity: 0.5
   fastZoomSensitivity: 2
-  heightMax: 12
-  heightMin: 2
-  X_Min: -15
-  X_Max: 15
-  Z_Min: -15
-  Z_Max: 15
+  heightMax: 18
+  heightMin: 1
+  X_Min: -18
+  X_Max: 18
+  Z_Min: -18
+  Z_Max: 18
 --- !u!1 &1210783039 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8307673107677432733, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
@@ -1236,6 +1236,20 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2387541477956327113, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
   m_PrefabInstance: {fileID: 1748956685}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1210783047
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1210783039}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94d2d13d53e719c47b5c69613595aa20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BuildBarEvents
+  fsm: {fileID: 1024109575}
+  registry: {fileID: 11400000, guid: 255b445e3072a6c45b4378f22292d6a7, type: 2}
 --- !u!1001 &1280368160
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1642,6 +1656,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8307673107677432733, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1210783043}
+    - targetCorrespondingSourceObject: {fileID: 8307673107677432733, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1210783047}
   m_SourcePrefab: {fileID: 100100000, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
 --- !u!1 &1864991201
 GameObject:
