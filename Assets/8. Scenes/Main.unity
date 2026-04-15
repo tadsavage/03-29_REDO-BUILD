@@ -978,10 +978,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d39436b62e6becf45ad63e64db1d05dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PreviewController
-  moveSmoothTime: 0.15
-  moveSmoothSpeed: 0.75
+  moveSmoothTime: 0.1
+  moveSmoothSpeed: 0.9
   initialMoveLerp: 0.15
-  useFlyIn: 1
+  useFlyIn: 0
   flyDuration: 0.15
   _highlightMat: {fileID: 2100000, guid: c8cca804bcdf0e345a22591078c20b9a, type: 2}
   _ghostMaterial: {fileID: 2100000, guid: c8cca804bcdf0e345a22591078c20b9a, type: 2}
@@ -1089,7 +1089,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.49019608, g: 0.3764706, b: 0.40078205, a: 0}
+  m_BackGroundColor: {r: 0.5918476, g: 0.6603774, b: 0.64948696, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0

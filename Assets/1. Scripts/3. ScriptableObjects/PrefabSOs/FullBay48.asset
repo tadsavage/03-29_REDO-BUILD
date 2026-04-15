@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: StackPlts
+  m_Name: FullBay48
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: StackPlts
-  cost: 450
-  hourlyCost: 0.75
-  prefab: {fileID: 625809847009389548, guid: 0038f14ea7722754bbe5e94cb02dbcf0, type: 3}
-  icon: {fileID: 2800000, guid: 948013b437d7e5e4fa7e73e04d222d70, type: 3}
-  footprint: {x: 1, y: 1}
-  customShapeOffsets: []
+  objName: Full Bay 48"
+  cost: 800
+  hourlyCost: 1.2
+  prefab: {fileID: 1905936227632961228, guid: 815ff00479f5e5b4b9a4eca9a087da09, type: 3}
+  icon: {fileID: 2800000, guid: 9dccb09fd35cdec41b47b9be7fdae71b, type: 3}
+  footprint: {x: 2, y: 1}
+  customShapeOffsets:
+  - {x: 0, y: 0}
+  - {x: -1, y: 0}
   ClearsGridAfterPlacement: 0
   isStackable: 1
-  objHeight: 1.91
+  objHeight: 1.22
