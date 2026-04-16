@@ -736,7 +736,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 8, y: 1, z: 8}
+  m_LocalScale: {x: 3, y: 1, z: 3}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2040878057}
@@ -978,13 +978,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d39436b62e6becf45ad63e64db1d05dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PreviewController
-  moveSmoothTime: 0.01
-  moveSmoothSpeed: 0.1
+  moveSmoothTime: 0.1
+  moveSmoothSpeed: 0.9
   initialMoveLerp: 0.15
   useFlyIn: 0
-  flyDuration: 0.25
-  _flyStartPos: {x: 0, y: 0, z: 0}
-  _highlightMat: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
+  flyDuration: 0.15
+  _highlightMat: {fileID: 2100000, guid: c8cca804bcdf0e345a22591078c20b9a, type: 2}
   _ghostMaterial: {fileID: 2100000, guid: c8cca804bcdf0e345a22591078c20b9a, type: 2}
 --- !u!114 &1024109573
 MonoBehaviour:
@@ -1139,8 +1138,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1160879794}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.5478628, y: 0.002585266, z: -0.0017010557, w: -0.8365625}
-  m_LocalPosition: {x: 0.74967533, y: 27.698515, z: -18.564497}
+  m_LocalRotation: {x: -0.4392869, y: -0.00440953, z: 0.0021488671, w: -0.89833343}
+  m_LocalPosition: {x: -0.13567431, y: 10.415899, z: -12.817253}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1203,17 +1202,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47db00f1dd436c840943fd63cd730174, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FreeLookCamera
-  movementSpeed: 8
-  fastMovementSpeed: 15
+  movementSpeed: 6
+  fastMovementSpeed: 12
   freeLookSensitivity: 0.1
   zoomSensitivity: 0.5
   fastZoomSensitivity: 2
-  heightMax: 25
+  heightMax: 18
   heightMin: 1
-  X_Min: -24
-  X_Max: 24
-  Z_Min: -24
-  Z_Max: 24
+  X_Min: -18
+  X_Max: 18
+  Z_Min: -18
+  Z_Max: 18
 --- !u!1 &1210783039 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8307673107677432733, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
@@ -1879,10 +1878,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlacementGrid
   CellSize: 1.325
-  Width: 60
-  Height: 60
-  Origin: {x: -39.8, y: 0.005, z: -39.8}
-  maxStackHeight: 12
+  Width: 20
+  Height: 20
+  Origin: {x: -14.6, y: 0, z: -14.6}
+  maxStackHeight: 9
   UseVisualizer: 0
   CellMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
   VisualParent: {fileID: 2094211283}

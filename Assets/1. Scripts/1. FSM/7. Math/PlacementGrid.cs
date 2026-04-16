@@ -26,6 +26,25 @@ public class PlacementGrid : MonoBehaviour
     public Color SelectedColor = new Color(0.4f, 1f, 0.4f, 0.6f);
     public Color DeleteColor = new Color(1f, 1f, 0.2f, 0.5f);
 
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+
+        for (int x = 0; x <= Width; x++)
+        {
+            Vector3 start = Origin + new Vector3(x * CellSize, 0f, 0f);
+            Vector3 end = Origin + new Vector3(x * CellSize, 0f, Height * CellSize);
+            Gizmos.DrawLine(start, end);
+        }
+
+        for (int y = 0; y <= Height; y++)
+        {
+            Vector3 start = Origin + new Vector3(0f, 0f, y * CellSize);
+            Vector3 end = Origin + new Vector3(Width * CellSize, 0f, y * CellSize);
+            Gizmos.DrawLine(start, end);
+        }
+    }
+
     public float GetStackHeight(Vector2Int cell, GameObject ignore = null)
     {
         var list = GetObjectsInCell(cell);

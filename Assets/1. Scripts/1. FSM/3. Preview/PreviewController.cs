@@ -32,11 +32,11 @@ public class PreviewController : MonoBehaviour
     private bool _isFlyingIn;
     private float _flyTime;
     [SerializeField] private float flyDuration = 0.25f;
-    private Vector3 _flyStartPos;
+    [SerializeField]private Vector3 _flyStartPos;
 
     private GameObject _currentPreview;
 
-    private readonly Color _validColor = new(0.50f, 1.00f, 0.83f, 0.5f);
+    private readonly Color _validColor = new(0.50f, 1.00f, 0.83f, 0.85f);
     private readonly Color _invalidColor = new(1.00f, 0.42f, 0.42f, 0.75f);
     private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
     private readonly Dictionary<GameObject, Material[][]> _originalMats = new();
