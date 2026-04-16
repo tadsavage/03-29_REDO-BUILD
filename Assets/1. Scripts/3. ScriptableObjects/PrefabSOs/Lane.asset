@@ -10,20 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: ShippingDoor
+  m_Name: Lane
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: ShippingDoor
-  cost: 3000
-  hourlyCost: 50
-  prefab: {fileID: 4926578325478168106, guid: 8773ccd59130a264c927557d4a73031c, type: 3}
-  icon: {fileID: 2800000, guid: 3a0298954b1dd78428c16b5dbeb386b4, type: 3}
-  footprint: {x: 5, y: 1}
-  customShapeOffsets:
-  - {x: 2, y: 0}
-  - {x: 1, y: 0}
-  - {x: 0, y: 0}
-  - {x: -1, y: 0}
-  - {x: -2, y: 0}
+  objName: Lane
+  cost: 150
+  hourlyCost: 1
+  prefab: {fileID: 8885328403460530175, guid: 8cd3b91cdb0830448952a73da32d528e, type: 3}
+  icon: {fileID: 2800000, guid: 06215bf4ece78ba4594ed8c414bd3627, type: 3}
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []
   ClearsGridAfterPlacement: 0
   isStackable: 0
-  objHeight: 9
+  objHeight: 0.1

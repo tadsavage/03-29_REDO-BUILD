@@ -10,20 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: ShippingDoor
+  m_Name: FloorTile
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: ShippingDoor
-  cost: 3000
-  hourlyCost: 50
-  prefab: {fileID: 4926578325478168106, guid: 8773ccd59130a264c927557d4a73031c, type: 3}
-  icon: {fileID: 2800000, guid: 3a0298954b1dd78428c16b5dbeb386b4, type: 3}
-  footprint: {x: 5, y: 1}
-  customShapeOffsets:
-  - {x: 2, y: 0}
-  - {x: 1, y: 0}
-  - {x: 0, y: 0}
-  - {x: -1, y: 0}
-  - {x: -2, y: 0}
+  objName: Floor Tile
+  cost: 50
+  hourlyCost: 1
+  prefab: {fileID: 4580001689063070423, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+  icon: {fileID: 2800000, guid: 7f9d961faddfd4046b4c4d2ee603e8cd, type: 3}
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []
   ClearsGridAfterPlacement: 0
   isStackable: 0
-  objHeight: 9
+  objHeight: 1
