@@ -180,7 +180,7 @@ public class DeleteState : IPlacementState
         Vector2Int a = _grid.WorldToCell(_dragStartWorld);
         Vector2Int b = _grid.WorldToCell(dragEndWorld);
 
-        List<Vector2Int> footprint = _grid.GetRectangleCells(a, b);
+        List<Vector2Int> footprint = GetRectangleCells(a, b);
 
         foreach (var cell in footprint)
         {
@@ -260,5 +260,20 @@ public class DeleteState : IPlacementState
         Cursor.visible = true;
 
         _fsm.SetState(_fsm.IdleState);
+    }
+    private List<Vector2Int> GetRectangleCells(Vector2Int a, Vector2Int b)
+    {
+        List<Vector2Int> cells = new();
+
+        int minX = Mathf.Min(a.x, b.x);
+        int maxX = Mathf.Max(a.x, b.x);
+        int minY = Mathf.Min(a.y, b.y);
+        int maxY = Mathf.Max(a.y, b.y);
+
+        for (int x = minX; x <= maxX; x++)
+            for (int y = minY; y <= maxY; y++)
+                cells.Add(new Vector2Int(x, y));
+
+        return cells;
     }
 }

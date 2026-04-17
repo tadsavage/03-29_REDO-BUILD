@@ -12,7 +12,6 @@ public class PlacementGrid : MonoBehaviour
     public Vector3 Origin = Vector3.zero;
 
     [Header("Stacking Settings")]
-    [Tooltip("Maximum allowed vertical height (in meters) for stacked objects in a cell.")]
     public float maxStackHeight = 9f;
 
     [Header("Visualizer Settings")]
@@ -26,50 +25,9 @@ public class PlacementGrid : MonoBehaviour
     public Color SelectedColor = new Color(0.4f, 1f, 0.4f, 0.6f);
     public Color DeleteColor = new Color(1f, 1f, 0.2f, 0.5f);
 
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.red;
-
-        for (int x = 0; x <= Width; x++)
-        {
-            Vector3 start = Origin + new Vector3(x * CellSize, 0f, 0f);
-            Vector3 end = Origin + new Vector3(x * CellSize, 0f, Height * CellSize);
-            Gizmos.DrawLine(start, end);
-        }
-
-        for (int y = 0; y <= Height; y++)
-        {
-            Vector3 start = Origin + new Vector3(0f, 0f, y * CellSize);
-            Vector3 end = Origin + new Vector3(Width * CellSize, 0f, y * CellSize);
-            Gizmos.DrawLine(start, end);
-        }
-    }
-
-    public float GetStackHeight(Vector2Int cell, GameObject ignore = null)
-    {
-        var list = GetObjectsInCell(cell);
-        if (list == null || list.Count == 0)
-            return 0f;
-
-        float height = 0f;
-
-        foreach (var entry in list)
-        {
-            if (entry.instance == ignore)
-                continue;
-
-            var bd = entry.instance.GetComponent<BuildingData>();
-            if (bd != null)
-                height += bd.Data.objHeight;
-        }
-
-        return height;
-    }
-    public float GetNextStackHeight(Vector2Int cell, ObjDataSO newObj, GameObject ignore = null)
-    {
-        float current = GetStackHeight(cell, ignore);
-        return current - newObj.objHeight;
-    }
+    // ---------------------------------------------------------
+    // INTERNAL STORAGE
+    // ---------------------------------------------------------
     public struct PlacedObject
     {
         public GameObject instance;
@@ -77,38 +35,17 @@ public class PlacementGrid : MonoBehaviour
     }
 
     private List<PlacedObject>[,] _cells;
-
-    // Cached stack heights per cell
     private float[,] _stackHeights;
 
     private Dictionary<int, GameObject> _activeVisuals;
     private Stack<GameObject> _pool;
 
+    // ---------------------------------------------------------
+    // INITIALIZATION
+    // ---------------------------------------------------------
     private void Awake()
     {
         InitializeGrid();
-    }
-
-    private void Update()
-    {
-        if (Keyboard.current.backquoteKey.wasPressedThisFrame)
-            ToggleVisualizer();
-    }
-
-    public List<Vector2Int> GetRectangleCells(Vector2Int a, Vector2Int b)
-    {
-        List<Vector2Int> cells = new();
-
-        int minX = Mathf.Min(a.x, b.x);
-        int maxX = Mathf.Max(a.x, b.x);
-        int minY = Mathf.Min(a.y, b.y);
-        int maxY = Mathf.Max(a.y, b.y);
-
-        for (int x = minX; x <= maxX; x++)
-            for (int y = minY; y <= maxY; y++)
-                cells.Add(new Vector2Int(x, y));
-
-        return cells;
     }
 
     private void OnValidate()
@@ -136,47 +73,15 @@ public class PlacementGrid : MonoBehaviour
 
         if (UseVisualizer)
         {
-            if (_activeVisuals == null) _activeVisuals = new Dictionary<int, GameObject>();
-            if (_pool == null) _pool = new Stack<GameObject>();
+            _activeVisuals ??= new Dictionary<int, GameObject>();
+            _pool ??= new Stack<GameObject>();
             ClearAllVisuals();
         }
     }
 
-    // -------------------------
-    // GRID API
-    // -------------------------
-    public void HighlightCellForDelete(Vector2Int cell)
-    {
-        if (!UseVisualizer || !IsInsideGrid(cell))
-            return;
-
-        int idx = CellIndex(cell);
-
-        if (_activeVisuals.TryGetValue(idx, out var go))
-        {
-            var rend = go.GetComponent<MeshRenderer>();
-            rend.material.color = DeleteColor;
-        }
-    }
-
-    public void RestoreCellVisual(Vector2Int cell)
-    {
-        if (!UseVisualizer || !IsInsideGrid(cell))
-            return;
-
-        int idx = CellIndex(cell);
-
-        if (_activeVisuals.TryGetValue(idx, out var go))
-        {
-            var rend = go.GetComponent<MeshRenderer>();
-
-            if (_cells[cell.x, cell.y].Count > 0)
-                rend.material.color = OccupiedColor;
-            else
-                rend.material.color = FreeColor;
-        }
-    }
-
+    // ---------------------------------------------------------
+    // GRID QUERIES
+    // ---------------------------------------------------------
     public bool IsInsideGrid(Vector2Int cell)
     {
         return cell.x >= 0 && cell.y >= 0 && cell.x < Width && cell.y < Height;
@@ -190,6 +95,23 @@ public class PlacementGrid : MonoBehaviour
         return _cells[cell.x, cell.y];
     }
 
+    public bool IsOccupied(Vector2Int cell)
+    {
+        if (!IsInsideGrid(cell))
+            return true;
+
+        var list = _cells[cell.x, cell.y];
+        if (list == null || list.Count == 0)
+            return false;
+
+        // Floor tiles do NOT count as occupied
+        foreach (var entry in list)
+            if (!entry.data.ignorePlacementRules)
+                return true;
+
+        return false;
+    }
+
     public GameObject GetTopObject(Vector2Int cell)
     {
         if (!IsInsideGrid(cell))
@@ -199,34 +121,59 @@ public class PlacementGrid : MonoBehaviour
         if (list == null || list.Count == 0)
             return null;
 
-        return list[list.Count - 1].instance;
+        // Return the topmost NON-floor object
+        for (int i = list.Count - 1; i >= 0; i--)
+        {
+            if (!list[i].data.ignorePlacementRules)
+                return list[i].instance;
+        }
+
+        return null;
     }
 
-    public bool IsOccupied(Vector2Int cell)
-    {
-        if (!IsInsideGrid(cell)) return true;
-        return _cells[cell.x, cell.y].Count > 0;
-    }
-
-    // ================================
-    // STACKING LOGIC (CACHED HEIGHT)
-    // ================================
-    public float GetStackHeight(Vector2Int cell)
+    // ---------------------------------------------------------
+    // STACK HEIGHT
+    // ---------------------------------------------------------
+    public float GetStackHeight(Vector2Int cell, GameObject ignore = null)
     {
         if (!IsInsideGrid(cell))
             return 0f;
 
-        return _stackHeights[cell.x, cell.y];
+        float height = 0f;
+
+        var list = _cells[cell.x, cell.y];
+        if (list == null)
+            return 0f;
+
+        foreach (var entry in list)
+        {
+            if (entry.instance == ignore)
+                continue;
+
+            // Floor tiles do NOT add height
+            if (entry.data.ignorePlacementRules)
+                continue;
+
+            height += entry.data.objHeight;
+        }
+
+        return height;
     }
 
     public bool CanStack(Vector2Int cell, ObjDataSO data)
     {
+        if (!IsInsideGrid(cell))
+            return false;
+
         float current = GetStackHeight(cell);
         float newHeight = current + data.objHeight;
 
         return newHeight <= maxStackHeight;
     }
 
+    // ---------------------------------------------------------
+    // ADD / REMOVE OBJECTS
+    // ---------------------------------------------------------
     public void AddStackObject(Vector2Int cell, GameObject obj, ObjDataSO data)
     {
         if (!IsInsideGrid(cell))
@@ -238,28 +185,45 @@ public class PlacementGrid : MonoBehaviour
             data = data
         });
 
-        _stackHeights[cell.x, cell.y] += data.objHeight;
+        // Floor tiles do NOT contribute to stack height
+        if (!data.ignorePlacementRules)
+            _stackHeights[cell.x, cell.y] += data.objHeight;
 
         if (UseVisualizer)
             SetCellVisual(cell, OccupiedColor);
     }
 
-    public void AdjustStackHeight(Vector2Int cell, float delta)
+    public void RemoveStackObject(Vector2Int cell, GameObject obj, ObjDataSO data)
     {
         if (!IsInsideGrid(cell))
             return;
 
-        _stackHeights[cell.x, cell.y] += delta;
-        if (_stackHeights[cell.x, cell.y] < 0f)
-            _stackHeights[cell.x, cell.y] = 0f;
-    }
+        var list = _cells[cell.x, cell.y];
+        if (list == null || list.Count == 0)
+            return;
 
-    // -------------------------
-    // LEGACY API
-    // -------------------------
-    public void SetOccupied(Vector2Int cell, GameObject obj, ObjDataSO data)
-    {
-        AddStackObject(cell, obj, data);
+        for (int i = list.Count - 1; i >= 0; i--)
+        {
+            if (list[i].instance == obj)
+            {
+                list.RemoveAt(i);
+
+                if (!data.ignorePlacementRules)
+                {
+                    _stackHeights[cell.x, cell.y] -= data.objHeight;
+                    if (_stackHeights[cell.x, cell.y] < 0f)
+                        _stackHeights[cell.x, cell.y] = 0f;
+                }
+            }
+        }
+
+        if (UseVisualizer)
+        {
+            if (IsOccupied(cell))
+                SetCellVisual(cell, OccupiedColor);
+            else
+                SetCellVisual(cell, FreeColor);
+        }
     }
 
     public void ClearCell(Vector2Int cell, bool destroyObject)
@@ -280,9 +244,9 @@ public class PlacementGrid : MonoBehaviour
             SetCellVisual(cell, FreeColor);
     }
 
-    // -------------------------
+    // ---------------------------------------------------------
     // POSITION HELPERS
-    // -------------------------
+    // ---------------------------------------------------------
     public Vector2Int WorldToCell(Vector3 worldPos)
     {
         Vector3 local = worldPos - Origin;
@@ -301,9 +265,9 @@ public class PlacementGrid : MonoBehaviour
         return CellToWorld(cell) + new Vector3(CellSize * 0.5f, 0f, CellSize * 0.5f);
     }
 
-    // -------------------------
+    // ---------------------------------------------------------
     // VISUALIZER
-    // -------------------------
+    // ---------------------------------------------------------
     private int CellIndex(Vector2Int cell) => cell.x + cell.y * Width;
 
     private void EnsureMaterial()
@@ -380,13 +344,9 @@ public class PlacementGrid : MonoBehaviour
         UseVisualizer = !UseVisualizer;
 
         if (!UseVisualizer)
-        {
             ClearAllVisuals();
-        }
         else
-        {
             RedrawAllVisuals();
-        }
     }
 
     public void RedrawAllVisuals()
@@ -399,7 +359,7 @@ public class PlacementGrid : MonoBehaviour
         {
             for (int y = 0; y < Height; y++)
             {
-                if (_cells[x, y].Count > 0)
+                if (IsOccupied(new Vector2Int(x, y)))
                 {
                     Vector2Int cell = new Vector2Int(x, y);
                     SetCellVisual(cell, OccupiedColor);
@@ -407,34 +367,26 @@ public class PlacementGrid : MonoBehaviour
             }
         }
     }
-    public void RemoveStackObject(Vector2Int cell, GameObject obj, ObjDataSO data)
+
+    // ---------------------------------------------------------
+    // GIZMO GRID
+    // ---------------------------------------------------------
+    private void OnDrawGizmosSelected()
     {
-        if (!IsInsideGrid(cell))
-            return;
+        Gizmos.color = Color.red;
 
-        var list = _cells[cell.x, cell.y];
-        if (list == null || list.Count == 0)
-            return;
-
-        // Remove the object from the cell
-        for (int i = list.Count - 1; i >= 0; i--)
+        for (int x = 0; x <= Width; x++)
         {
-            if (list[i].instance == obj)
-            {
-                list.RemoveAt(i);
-                _stackHeights[cell.x, cell.y] -= data.objHeight;
-                if (_stackHeights[cell.x, cell.y] < 0f)
-                    _stackHeights[cell.x, cell.y] = 0f;
-            }
+            Vector3 start = Origin + new Vector3(x * CellSize, 0f, 0f);
+            Vector3 end = Origin + new Vector3(x * CellSize, 0f, Height * CellSize);
+            Gizmos.DrawLine(start, end);
         }
 
-        // Update visualizer
-        if (UseVisualizer)
+        for (int y = 0; y <= Height; y++)
         {
-            if (list.Count == 0)
-                SetCellVisual(cell, FreeColor);
-            else
-                SetCellVisual(cell, OccupiedColor);
+            Vector3 start = Origin + new Vector3(0f, 0f, y * CellSize);
+            Vector3 end = Origin + new Vector3(Width * CellSize, 0f, y * CellSize);
+            Gizmos.DrawLine(start, end);
         }
     }
 }

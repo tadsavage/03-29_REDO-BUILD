@@ -36,7 +36,7 @@ public class DeleteCommand : ICommand
                 if (list[i].instance == _instance)
                 {
                     list.RemoveAt(i);
-                    _grid.AdjustStackHeight(cell, -_data.objHeight);
+                    _grid.RemoveStackObject(cell, _instance, _data);
                 }
             }
         }

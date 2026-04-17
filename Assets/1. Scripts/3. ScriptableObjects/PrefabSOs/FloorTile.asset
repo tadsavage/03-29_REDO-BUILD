@@ -17,8 +17,9 @@ MonoBehaviour:
   hourlyCost: 1
   prefab: {fileID: 4580001689063070423, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
   icon: {fileID: 2800000, guid: 7f9d961faddfd4046b4c4d2ee603e8cd, type: 3}
-  footprint: {x: 1, y: 1}
-  customShapeOffsets: []
+  ignorePlacementRules: 1
   ClearsGridAfterPlacement: 0
   isStackable: 0
-  objHeight: 1
+  objHeight: 0.025
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []

@@ -226,15 +226,19 @@ public class BuildState : IPlacementState
             }
         }
 
-        if (_currentData.isStackable)
+        // Floor tiles ignore stack/occupied rules
+        if (!_currentData.ignorePlacementRules)
         {
-            if (!_grid.CanStack(root, _currentData))
-                isValid = false;
-        }
-        else
-        {
-            if (_grid.IsOccupied(root))
-                isValid = false;
+            if (_currentData.isStackable)
+            {
+                if (!_grid.CanStack(root, _currentData))
+                    isValid = false;
+            }
+            else
+            {
+                if (_grid.IsOccupied(root))
+                    isValid = false;
+            }
         }
 
         // SHOW FOOTPRINT (buffered)
@@ -272,15 +276,19 @@ public class BuildState : IPlacementState
 
             bool isValidNow = _validator.IsCellValid(root, offsets, _currentData);
 
-            if (_currentData.isStackable)
+            // Floor tiles ignore stack/occupied rules
+            if (!_currentData.ignorePlacementRules)
             {
-                if (!_grid.CanStack(root, _currentData))
-                    isValidNow = false;
-            }
-            else
-            {
-                if (_grid.IsOccupied(root))
-                    isValidNow = false;
+                if (_currentData.isStackable)
+                {
+                    if (!_grid.CanStack(root, _currentData))
+                        isValid = false;
+                }
+                else
+                {
+                    if (_grid.IsOccupied(root))
+                        isValid = false;
+                }
             }
 
             if (!isValidNow)
@@ -410,15 +418,18 @@ public class BuildState : IPlacementState
                     }
                 }
 
-                if (_currentData.isStackable)
+                if (!_currentData.ignorePlacementRules)
                 {
-                    if (!_grid.CanStack(cell, _currentData))
-                        valid = false;
-                }
-                else
-                {
-                    if (_grid.IsOccupied(cell))
-                        valid = false;
+                    if (_currentData.isStackable)
+                    {
+                        if (!_grid.CanStack(cell, _currentData))
+                            valid = false;
+                    }
+                    else
+                    {
+                        if (_grid.IsOccupied(cell))
+                            valid = false;
+                    }
                 }
 
                 if (!valid)

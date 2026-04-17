@@ -12,25 +12,27 @@ public class ObjDataSO : ScriptableObject
     public GameObject prefab;
     public Texture2D icon;
 
-    [Header("Footprint Settings")]
-    [Tooltip("Base footprint size BEFORE rotation (width x height).")]
-    public Vector2Int footprint = Vector2Int.one;
+    [Header("Special Rules")]
+    [Tooltip("If true, this object ignores all placement rules, always places at y=0, and never blocks anything.")]
+    public bool ignorePlacementRules = false;
 
-    [Tooltip("Optional custom footprint shape. If empty, rectangular footprint is used.")]
-    public Vector2Int[] customShapeOffsets;
-
-    [Tooltip("If true, object does not occupy grid after placement.")]
+    [Header("Behavior")]
+    [Tooltip("If true, placing this object will clear all existing objects in the footprint area (like a bulldozer).")]
     public bool ClearsGridAfterPlacement = false;
-
-    // ==============================
-    // STACKING SETTINGS
-    // ================================
+    
     [Header("Stacking")]
     [Tooltip("If true, this object can be stacked on top of others and contribute vertical height.")]
     public bool isStackable = false;
 
     [Tooltip("Physical height of this object in meters. Used to compute total stack height in a cell.")]
     public float objHeight = 1f;
+
+    [Header("Footprint Settings")]
+    [Tooltip("Base footprint size BEFORE rotation (width x height).")]
+    public Vector2Int footprint = Vector2Int.one;
+
+    [Tooltip("Optional custom footprint shape. If empty, rectangular footprint is used.")]
+    public Vector2Int[] customShapeOffsets;
     // ================================
 
     // ---------------------------------------------------------

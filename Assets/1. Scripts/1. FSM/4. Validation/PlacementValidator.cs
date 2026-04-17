@@ -4,72 +4,60 @@ public class PlacementValidator : MonoBehaviour
 {
     [SerializeField] private PlacementGrid _grid;
 
-    // ---------------------------------------------------------
-    // VALIDATE FULL FOOTPRINT
-    // ---------------------------------------------------------
     public bool IsValidPlacement(
         Vector2Int root,
         Vector2Int[] offsets,
         ObjDataSO data,
         GameObject ignore = null)
     {
+        // ---------------------------------------------------------
+        // FLOOR TILES / RECEIVING LANES IGNORE ALL RULES
+        // ---------------------------------------------------------
+        if (data.ignorePlacementRules)
+            return true;
+
+        // ---------------------------------------------------------
+        // NORMAL OBJECT VALIDATION
+        // ---------------------------------------------------------
         foreach (var offset in offsets)
         {
             Vector2Int cell = root + offset;
 
-            // Out of bounds = invalid
             if (!_grid.IsInsideGrid(cell))
                 return false;
 
             var list = _grid.GetObjectsInCell(cell);
+            if (list == null)
+                continue;
 
-            if (list != null)
+            foreach (var entry in list)
             {
-                foreach (var entry in list)
-                {
-                    if (entry.instance == ignore)
-                        continue;
+                if (entry.instance == ignore)
+                    continue;
 
-                    if (!data.isStackable)
-                        return false;
-                }
+                // Floor tiles do not block anything
+                if (entry.data.ignorePlacementRules)
+                    continue;
+
+                // Non-stackable objects cannot be placed on anything
+                if (!data.isStackable)
+                    return false;
+
+                // Stackable objects must obey stack height rules
+                if (!_grid.CanStack(cell, data))
+                    return false;
             }
         }
 
         return true;
     }
 
-    // ---------------------------------------------------------
-    // VALIDATE A SINGLE CELL (used for drag placement)
-    // ---------------------------------------------------------
     public bool IsCellValid(
         Vector2Int cell,
         Vector2Int[] offsets,
         ObjDataSO data,
         GameObject ignore = null)
     {
-        foreach (var offset in offsets)
-        {
-            Vector2Int c = cell + offset;
-
-            if (!_grid.IsInsideGrid(c))
-                return false;
-
-            var list = _grid.GetObjectsInCell(c);
-
-            if (list != null)
-            {
-                foreach (var entry in list)
-                {
-                    if (entry.instance == ignore)
-                        continue;
-
-                    if (!data.isStackable)
-                        return false;
-                }
-            }
-        }
-
-        return true;
+        return IsValidPlacement(cell, offsets, data, ignore);
     }
 }

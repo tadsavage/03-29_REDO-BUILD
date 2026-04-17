@@ -11,44 +11,34 @@ public class PlacementFinalizer : MonoBehaviour
     // ---------------------------------------------------------
     public GameObject FinalizePlacement(Vector2Int root, Vector2Int[] offsets, ObjDataSO data, float rotation)
     {
-        // ================================
-        // STACKING: compute vertical offset
-        // If object is stackable, place it on top of existing stack height
-        // ================================
         float stackY = 0f;
-        if (data.isStackable)
+
+        // Floor tiles always sit at ground level
+        if (!data.ignorePlacementRules && data.isStackable)
             stackY = _grid.GetStackHeight(root);
-        // ================================
 
         Vector3 pos = _grid.GetCellCenter(root);
-        pos.y += stackY;
+        pos.y = data.ignorePlacementRules ? 0f : pos.y + stackY;
+
         Quaternion rot = Quaternion.Euler(0f, rotation, 0f);
 
         GameObject placed = Instantiate(data.prefab, pos, rot, _parent);
 
         var bd = placed.GetComponent<BuildingData>();
         bd.Initialize(root, rotation, offsets);
-       
+
         foreach (var o in offsets)
         {
-            pos = _grid.GetCellCenter(root + o);
-            pos.y += stackY; // Align dust effect with stack height
-            FXPool.Instance.Play("dust", pos);
+            Vector3 dustPos = _grid.GetCellCenter(root + o);
+            dustPos.y = pos.y;
+            FXPool.Instance.Play("dust", dustPos);
         }
 
-        // ================================
-        // STACKING: register object in grid
-        // Each footprint cell gets the same placed instance
-        // ================================
         if (!data.ClearsGridAfterPlacement)
         {
             foreach (var o in offsets)
-            {
-                Vector2Int cell = root + o;
-                _grid.AddStackObject(cell, placed, data);
-            }
+                _grid.AddStackObject(root + o, placed, data);
         }
-        // ================================
 
         return placed;
     }

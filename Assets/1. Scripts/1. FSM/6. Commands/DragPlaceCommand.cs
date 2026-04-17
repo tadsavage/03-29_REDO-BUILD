@@ -55,8 +55,9 @@ public class DragPlaceCommand : ICommand
                 {
                     if (list[i].instance == instance)
                     {
+
                         list.RemoveAt(i);
-                        _grid.AdjustStackHeight(cell, -_data.objHeight);
+                        _grid.RemoveStackObject(cell, instance, bd.Data);
                     }
                 }
             }
