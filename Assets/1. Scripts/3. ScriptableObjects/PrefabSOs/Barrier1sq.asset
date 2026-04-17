@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: Corner
+  m_Name: Barrier1sq
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: Corner
-  cost: 225
-  hourlyCost: 0.1
-  prefab: {fileID: 7361181783871670787, guid: 4bb61102ee1a5e247a2191f0ed0eb640, type: 3}
-  icon: {fileID: 2800000, guid: ae5e84379dfbf7745b6ce07dff24b6af, type: 3}
+  objName: Barrier1sq
+  cost: 150
+  hourlyCost: 1
+  prefab: {fileID: 5347551581275707174, guid: 8c801d738bc1b3b4f89d137e2e0d565e, type: 3}
+  icon: {fileID: 2800000, guid: fb16e9c10150e044c84f3d388a293044, type: 3}
   ignorePlacementRules: 0
   ClearsGridAfterPlacement: 0
   isStackable: 0
-  objHeight: 9
+  objHeight: 1
   footprint: {x: 1, y: 1}
   customShapeOffsets: []
