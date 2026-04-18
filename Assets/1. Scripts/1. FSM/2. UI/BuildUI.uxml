@@ -132,6 +132,11 @@
                     <ui:Label text="Label" class="lblObjNames"/>
                 </ui:Image>
             </ui:Button>
+            <ui:Button text="Under Construction" name="26" picking-mode="Position" selectable="true" class="button">
+                <ui:Image name="26" class="thumbnail Image" style="background-image: none;">
+                    <ui:Label text="Label" class="lblObjNames"/>
+                </ui:Image>
+            </ui:Button>
             <ui:Button text="DELETE" name="ERASE" picking-mode="Position" enable-rich-text="false" emoji-fallback-support="false" class="button UtilityButtons" style="font-size: 25px; -unity-font-definition: url(&quot;project://database/Assets/1.%20Scripts/1.%20FSM/2.%20UI/UnityThemes/UnityDefaultRuntimeTheme.tss?fileID=2230732570650464555&amp;guid=f2783c05752af154092f8cf505477044&amp;type=3#NotInter-Regular&quot;); -unity-font-style: bold; color: rgb(85, 239, 234); flex-direction: row; -unity-text-align: middle-center;">
                 <ui:Image name="Pallet" picking-mode="Position" class="thumbnail" style="background-image: url(&quot;project://database/Assets/6.%20Art/Icons/Flat%20Icons%20[Free]/Free%20Flat%20Circle%20Dash%20Icon.png?fileID=2800000&amp;guid=e3f679f3dc498f148ace9c750cfd418b&amp;type=3#Free Flat Circle Dash Icon&quot;); -unity-background-image-tint-color: rgba(211, 71, 58, 0.75); opacity: 1; -unity-slice-type: sliced; font-size: 24px; top: auto; align-self: auto; margin-top: auto; margin-right: auto; margin-bottom: auto; margin-left: auto; -unity-font-style: normal;"/>
             </ui:Button>
