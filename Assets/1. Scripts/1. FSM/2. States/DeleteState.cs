@@ -75,7 +75,7 @@ public class DeleteState : IPlacementState
         {
             ClearHover();
             ClearDragHighlights();
-            _fsm.SetState(_fsm.IdleState);
+            _fsm.EnterIdle();
             return;
         }
 
@@ -259,7 +259,7 @@ public class DeleteState : IPlacementState
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        _fsm.SetState(_fsm.IdleState);
+        _fsm.EnterIdle();
     }
     private List<Vector2Int> GetRectangleCells(Vector2Int a, Vector2Int b)
     {

@@ -3,37 +3,55 @@
 public class PlacementController : MonoBehaviour
 {
     [SerializeField] private PlacementStateMachine _fsm;
+    [SerializeField] private BuildBarUIController _buildBarUIController;
 
-    [SerializeField] private PreviewController _preview;
-    [SerializeField] private PlacementValidator _validator;
-    [SerializeField] private PlacementFinalizer _finalizer;
-    [SerializeField] private PlacementGrid _grid;
-    [SerializeField] private BuildBarBinder _buildBarBinder;
     private void Awake()
     {
-        // Listen for the UI being ready
-        _buildBarBinder.OnBuildBarReady += HandleBuildBarReady;
-        // Listen for button clicks on the Build Bar
-        _buildBarBinder.OnBuildButtonClickedEvent += HandleBuildButtonClicked;
+        // UI → FSM transitions
+        _buildBarUIController.OnBuildBarReady += HandleBuildBarReady;
+        _buildBarUIController.OnBuildItemClicked += HandleBuildItemClicked;
+        _buildBarUIController.OnDeleteClicked += HandleDeleteClicked;
+        _buildBarUIController.OnMoveClicked += HandleMoveClicked;
+        _buildBarUIController.OnUndoClicked += HandleUndoClicked;
+        _buildBarUIController.OnRedoClicked += HandleRedoClicked;
     }
 
-    private void Start()
-    {
-        // No state creation here anymore.
-        // The FSM will own Idle, Build, Delete, Raycast, etc.
-    }
     private void HandleBuildBarReady()
     {
-        _fsm.SetState(_fsm.IdleState);
+        _fsm.EnterIdle();
     }
-    private void HandleBuildButtonClicked(ObjDataSO data)
+
+    private void HandleBuildItemClicked(ObjDataSO data)
     {
         AudioManager.Play("ButtonClick");
-        // Set the build data in the FSM so that RaycastState can access it
-        _fsm.BuildState.SetBuildData(data);
-        _fsm.SetState(_fsm.BuildState);
+        _fsm.EnterBuild(data);
+    }
+
+    private void HandleDeleteClicked()
+    {
+        AudioManager.Play("ButtonClick");
+        _fsm.EnterDelete();
+    }
+
+    private void HandleMoveClicked()
+    {
+        AudioManager.Play("ButtonClick");
+        _fsm.EnterMove();
+    }
+
+    private void HandleUndoClicked()
+    {
+        AudioManager.Play("ButtonClick");
+        _fsm.Undo();
+    }
+
+    private void HandleRedoClicked()
+    {
+        AudioManager.Play("ButtonClick");
+        _fsm.Redo();
     }
 }
+
 
 
 

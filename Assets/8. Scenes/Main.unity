@@ -999,11 +999,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlacementController
   _fsm: {fileID: 1024109575}
-  _preview: {fileID: 1024109572}
-  _validator: {fileID: 1024109571}
-  _finalizer: {fileID: 1024109570}
-  _grid: {fileID: 2094211284}
-  _buildBarBinder: {fileID: 1210783043}
+  _buildBarUIController: {fileID: 1210783051}
 --- !u!4 &1024109574
 Transform:
   m_ObjectHideFlags: 0
@@ -1139,8 +1135,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1160879794}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.5478628, y: 0.002585266, z: -0.0017010557, w: -0.8365625}
-  m_LocalPosition: {x: 0.74967533, y: 27.698515, z: -18.564497}
+  m_LocalRotation: {x: -0.20193562, y: 0.660417, z: -0.19120546, w: -0.697504}
+  m_LocalPosition: {x: 25.571213, y: 13.258202, z: -0.6321573}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1219,25 +1215,12 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 8307673107677432733, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
   m_PrefabInstance: {fileID: 1748956685}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1210783043
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1210783039}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 34ad589511e3236478a0aac0484b3e8c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BuildBarBinder
-  registry: {fileID: 11400000, guid: 255b445e3072a6c45b4378f22292d6a7, type: 2}
 --- !u!4 &1210783045 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2387541477956327113, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
   m_PrefabInstance: {fileID: 1748956685}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1210783047
+--- !u!114 &1210783051
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1246,11 +1229,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 1210783039}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 94d2d13d53e719c47b5c69613595aa20, type: 3}
+  m_Script: {fileID: 11500000, guid: f9a5ca60c0b4c934eb24875e42143c7f, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BuildBarEvents
+  m_EditorClassIdentifier: Assembly-CSharp::BuildBarUIController
+  registry: {fileID: 11400000, guid: 170486d4b75721b44885bf8a5052dd56, type: 2}
   fsm: {fileID: 1024109575}
-  registry: {fileID: 11400000, guid: 255b445e3072a6c45b4378f22292d6a7, type: 2}
 --- !u!1001 &1280368160
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1647,6 +1630,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: UI
       objectReference: {fileID: 0}
+    - target: {fileID: 8307673107677432733, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
@@ -1656,10 +1643,7 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 8307673107677432733, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1210783043}
-    - targetCorrespondingSourceObject: {fileID: 8307673107677432733, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1210783047}
+      addedObject: {fileID: 1210783051}
   m_SourcePrefab: {fileID: 100100000, guid: 47837ce9c28ce6f4e961348b2e5c01af, type: 3}
 --- !u!1 &1864991201
 GameObject:

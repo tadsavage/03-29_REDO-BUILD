@@ -1,0 +1,91 @@
+fileFormatVersion: 2
+guid: 986a56e3f5cc9dd4bb0ebd315300e219
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 12385, guid: 0000000000000000e000000000000000, type: 0}
+  disableValidation: 0
+  unsupportedSelectorAction: 0
+  .buildbar-root {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 6px;
+}
+
+.category-bar {
+    flex-direction: row;
+    height: 72px;
+    align-items: center;
+    gap: 6px;
+}
+
+.category-button {
+    width: 72px;
+    height: 72px;
+    background-color: #2a2a2a;
+    border-radius: 6px;
+    justify-content: center;
+    align-items: center;
+    border-width: 2px;
+    border-color: #444;
+}
+
+.category-button:hover {
+    background-color: #3a3a3a;
+}
+
+.category-label {
+    font-size: 12px;
+    unity-text-align: middle-center;
+    color: white;
+}
+
+.submenu-container {
+    position: absolute;
+    top: -300px; /* will be repositioned by C# */
+    left: 0;
+    flex-direction: column;
+    background-color: rgba(20,20,20,0.95);
+    padding: 6px;
+    border-radius: 6px;
+    display: none;
+    gap: 4px;
+}
+
+.submenu-button {
+    width: 200px;
+    height: 48px;
+    flex-direction: row;
+    align-items: center;
+    background-color: #2a2a2a;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: #444;
+    padding-left: 6px;
+}
+
+.submenu-button:hover {
+    background-color: #3a3a3a;
+}
+
+.submenu-icon {
+    width: 40px;
+    height: 40px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    margin-right: 8px;
+}
+
+.submenu-label {
+    font-size: 12px;
+    color: white;
+}

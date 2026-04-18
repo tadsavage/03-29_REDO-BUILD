@@ -226,21 +226,15 @@ public class MoveState : IPlacementState
     {
         if (_obj != null)
         {
-            // Restore original object state
             _preview.RemoveHighlight(_obj);
-            // No need to update grid since object was never removed from it, just hidden
-
             _obj.SetActive(true);
-
-            // Reset ghost + exit move mode
             _preview.Hide();
-            //_raycast.DisableRay();
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
         }
 
         AudioManager.Play("Cancel");
         _indicator.ClearAll();
-        _fsm.SetState(_fsm.IdleState);
+
+        _fsm.EnterIdle();   // NEW API
     }
+
 }

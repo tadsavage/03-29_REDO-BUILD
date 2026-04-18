@@ -329,7 +329,7 @@ public class BuildState : IPlacementState
 
         AudioManager.Play("Cancel");
 
-        _fsm.SetState(_fsm.IdleState);
+        _fsm.EnterIdle();
         return;
     }
 
