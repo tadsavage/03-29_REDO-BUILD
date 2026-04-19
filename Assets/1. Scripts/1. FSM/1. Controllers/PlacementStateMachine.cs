@@ -1,4 +1,6 @@
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 public class PlacementStateMachine : MonoBehaviour
 {
@@ -12,21 +14,27 @@ public class PlacementStateMachine : MonoBehaviour
 
     private PlacementActions _actions;
 
+    private readonly Stack<IPlacementState> _stateStack = new();
+
     public CommandHistory History { get; private set; } = new CommandHistory();
 
     public IPlacementState CurrentState => _currentState;
-    public IdleState IdleState => _idleState;
-    public RaycastPlacementState RaycastState => _raycastState;
-    public BuildState BuildState => _buildState;
-    public DeleteState DeleteState => _deleteState;
-    public MoveState MoveState => _moveState;
+
+    public System.Action OnHistoryChanged;
+
+    // Core refs for unified visual reset
+    private PreviewController _preview;
+    private CellIndicatorController _indicator;
+
+    // For debugging: how many states are on the stack (excluding current)
+    public int DebugStackDepth => _stateStack.Count;
 
     private void Awake()
     {
-        // Core systems (NO UI references)
+        // Core systems (UI‑agnostic)
         RaycastController raycast = Object.FindFirstObjectByType<RaycastController>();
-        CellIndicatorController indicator = Object.FindFirstObjectByType<CellIndicatorController>();
-        PreviewController preview = Object.FindFirstObjectByType<PreviewController>();
+        _indicator = Object.FindFirstObjectByType<CellIndicatorController>();
+        _preview = Object.FindFirstObjectByType<PreviewController>();
         PlacementValidator validator = Object.FindFirstObjectByType<PlacementValidator>();
         PlacementFinalizer finalizer = Object.FindFirstObjectByType<PlacementFinalizer>();
         PlacementGrid grid = Object.FindFirstObjectByType<PlacementGrid>();
@@ -36,10 +44,10 @@ public class PlacementStateMachine : MonoBehaviour
 
         // Construct states
         _idleState = new IdleState();
-        _raycastState = new RaycastPlacementState(raycast, indicator, grid);
-        _buildState = new BuildState(_actions, preview, validator, finalizer, grid, this, raycast, indicator);
-        _deleteState = new DeleteState(raycast, grid, finalizer, this, indicator, _actions);
-        _moveState = new MoveState(_actions, preview, validator, finalizer, grid, this, raycast, indicator);
+        _raycastState = new RaycastPlacementState(raycast, _indicator, grid);
+        _buildState = new BuildState(_actions, _preview, validator, finalizer, grid, this, raycast, _indicator);
+        _deleteState = new DeleteState(raycast, grid, finalizer, this, _indicator, _actions);
+        _moveState = new MoveState(_actions, _preview, validator, finalizer, grid, this, raycast, _indicator);
 
         // Start in idle
         _currentState = _idleState;
@@ -49,6 +57,16 @@ public class PlacementStateMachine : MonoBehaviour
     private void Update()
     {
         _currentState?.Tick();
+
+        // UNIVERSAL CANCEL (ESC or RMB)
+        if (_currentState != _idleState)
+        {
+            if (Keyboard.current.escapeKey.wasPressedThisFrame ||
+                Mouse.current.rightButton.wasPressedThisFrame)
+            {
+                ReturnToPrevious();
+            }
+        }
     }
 
     private void OnEnable()
@@ -62,17 +80,45 @@ public class PlacementStateMachine : MonoBehaviour
     }
 
     // ---------------------------------------------------------
+    // INTERNAL STATE SWITCHING (with stack)
+    // ---------------------------------------------------------
+    private void SetState(IPlacementState newState, bool push = true)
+    {
+        if (newState == null || newState == _currentState)
+            return;
+
+        if (push && _currentState != null)
+            _stateStack.Push(_currentState);
+
+        _currentState?.OnExit();
+        _currentState = newState;
+        _currentState?.OnEnter();
+    }
+
+    public void ReturnToPrevious()
+    {
+        if (_stateStack.Count > 0)
+        {
+            var previous = _stateStack.Pop();
+            SetState(previous, push: false);
+        }
+        else
+        {
+            EnterRaycast(); // fallback
+        }
+    }
+
+    // ---------------------------------------------------------
     // CLEAN PUBLIC TRANSITION API (called from PlacementController)
     // ---------------------------------------------------------
-
     public void EnterIdle()
     {
-        SetState(_idleState);
+        SetState(_idleState, push: false);
     }
 
     public void EnterRaycast()
     {
-        SetState(_raycastState);
+        SetState(_raycastState, push: false);
     }
 
     public void EnterBuild(ObjDataSO data)
@@ -91,26 +137,29 @@ public class PlacementStateMachine : MonoBehaviour
         SetState(_moveState);
     }
 
+    // ---------------------------------------------------------
+    // HISTORY + VISUAL RESET
+    // ---------------------------------------------------------
     public void Undo()
     {
         History.Undo();
+        ResetVisualsAfterHistoryChange();
+        OnHistoryChanged?.Invoke();
     }
 
     public void Redo()
     {
         History.Redo();
+        ResetVisualsAfterHistoryChange();
+        OnHistoryChanged?.Invoke();
     }
 
-    // ---------------------------------------------------------
-    // INTERNAL STATE SWITCHING
-    // ---------------------------------------------------------
-    private void SetState(IPlacementState newState)
+    private void ResetVisualsAfterHistoryChange()
     {
-        if (newState == null || newState == _currentState)
-            return;
+        if (_preview != null)
+            _preview.ResetAllVisuals();
 
-        _currentState?.OnExit();
-        _currentState = newState;
-        _currentState?.OnEnter();
+        if (_indicator != null)
+            _indicator.ClearAll();
     }
 }

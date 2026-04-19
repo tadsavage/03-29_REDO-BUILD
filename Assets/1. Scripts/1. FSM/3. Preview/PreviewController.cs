@@ -32,7 +32,7 @@ public class PreviewController : MonoBehaviour
     private bool _isFlyingIn;
     private float _flyTime;
     [SerializeField] private float flyDuration = 0.25f;
-    [SerializeField]private Vector3 _flyStartPos;
+    [SerializeField] private Vector3 _flyStartPos;
 
     private GameObject _currentPreview;
 
@@ -69,6 +69,15 @@ public class PreviewController : MonoBehaviour
         _hasTarget = false;
         _isFlyingIn = false;
         _velocity = Vector3.zero;
+    }
+
+    // Unified reset used after Undo/Redo
+    public void ResetAllVisuals()
+    {
+        ResetMoveGhostState();
+        Hide();              // hide build ghost
+        _multiMode = false;
+        _deleteMode = false;
     }
 
     public void SetDeleteMode(bool on)
@@ -412,7 +421,7 @@ public class PreviewController : MonoBehaviour
                     ref _velocity,
                     adjustedSmooth
                 );
-            // If we're very close to the target, snap to it and stop moving to prevent jitter
+
             if ((_currentPreview.transform.position - _targetPos).sqrMagnitude < 0.01f)
             {
                 _hasTarget = false;

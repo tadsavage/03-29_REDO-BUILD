@@ -81,7 +81,7 @@ public class CellIndicatorController : MonoBehaviour
     // =========================================================
     //  PUBLIC API — MULTI-CELL FOOTPRINT
     // =========================================================
-    public void ShowCells(List<Vector2Int> cells, bool isValid = true)
+    public void ShowCells(List<Vector2Int> cells, System.Func<Vector2Int, bool> isCellValid)
     {
         ClearActive();
 
@@ -94,7 +94,8 @@ public class CellIndicatorController : MonoBehaviour
             pos.y += stackY + yOffset;
             ind.transform.position = pos;
 
-            ApplyBuildOrDeleteColor(ind, isValid);
+            bool valid = isCellValid(cell);
+            ApplyBuildOrDeleteColor(ind, valid);
 
             _active.Add(ind);
         }

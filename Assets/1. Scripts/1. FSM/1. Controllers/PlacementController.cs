@@ -3,17 +3,16 @@
 public class PlacementController : MonoBehaviour
 {
     [SerializeField] private PlacementStateMachine _fsm;
-    [SerializeField] private BuildBarUIController _buildBarUIController;
+    [SerializeField] private BuildMenuUI _buildMenuUI;
 
     private void Awake()
     {
         // UI → FSM transitions
-        _buildBarUIController.OnBuildBarReady += HandleBuildBarReady;
-        _buildBarUIController.OnBuildItemClicked += HandleBuildItemClicked;
-        _buildBarUIController.OnDeleteClicked += HandleDeleteClicked;
-        _buildBarUIController.OnMoveClicked += HandleMoveClicked;
-        _buildBarUIController.OnUndoClicked += HandleUndoClicked;
-        _buildBarUIController.OnRedoClicked += HandleRedoClicked;
+        _buildMenuUI.OnBuildItemClicked += HandleBuildItemClicked;
+        _buildMenuUI.OnDeleteClicked += HandleDeleteClicked;
+        _buildMenuUI.OnMoveClicked += HandleMoveClicked;
+        _buildMenuUI.OnUndoClicked += HandleUndoClicked;
+        _buildMenuUI.OnRedoClicked += HandleRedoClicked;
     }
 
     private void HandleBuildBarReady()

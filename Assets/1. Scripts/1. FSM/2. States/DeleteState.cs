@@ -4,10 +4,6 @@ using System.Collections.Generic;
 
 public class DeleteState : IPlacementState
 {
-    #region FIELDS ****************************************
-    // =========================================================
-    //  DEPENDENCIES
-    // =========================================================
     private readonly RaycastController _raycast;
     private readonly PlacementGrid _grid;
     private readonly PlacementFinalizer _finalizer;
@@ -15,9 +11,6 @@ public class DeleteState : IPlacementState
     private readonly CellIndicatorController _indicator;
     private readonly PlacementActions _actions;
 
-    // =========================================================
-    //  HOVER + DRAG STATE
-    // =========================================================
     private BuildingHighlighter _hover;
     private readonly List<BuildingHighlighter> _dragTargets = new();
 
@@ -40,50 +33,48 @@ public class DeleteState : IPlacementState
         _fsm = fsm;
         _indicator = indicator;
         _actions = actions;
-        _actions.BuildPlacement.BindCancelTo_RMB();
     }
-#endregion
 
-    // =========================================================
-    //  ENTER / EXIT
-    // =========================================================
     public void OnEnter()
     {
-        _actions.BuildPlacement.Cancel.performed += OnCancelDelete;
         _raycast.EnableRay();
         _indicator.UseDeleteMode();
+
         _isDragging = false;
         _dragTargets.Clear();
         ClearHover();
+
+        _fsm.OnHistoryChanged += OnHistoryChanged;
     }
+
     public void OnExit()
     {
         _raycast.DisableRay();
         _indicator.UseBuildMode();
+
         ClearHover();
         ClearDragHighlights();
-        _actions.BuildPlacement.Cancel.performed -= OnCancelDelete;
+
+        _fsm.OnHistoryChanged -= OnHistoryChanged;
     }
-    // =========================================================
-    //  MAIN LOOP
-    // =========================================================
+
+    private void OnHistoryChanged()
+    {
+        // When Undo/Redo happens, forget any hover/drag state
+        ClearHover();
+        ClearDragHighlights();
+        _indicator.ClearAll();
+        _isDragging = false;
+    }
+
     public void Tick()
     {
         _raycast.Tick();
-
-        if (Mouse.current.rightButton.wasPressedThisFrame)
-        {
-            ClearHover();
-            ClearDragHighlights();
-            _fsm.EnterIdle();
-            return;
-        }
 
         if (!_raycast.HasHit)
         {
             ClearHover();
             _indicator.ClearAll();
-            return;
         }
 
         Vector3 hitPoint = _raycast.HitPoint;
@@ -117,16 +108,17 @@ public class DeleteState : IPlacementState
         if (Mouse.current.leftButton.wasReleasedThisFrame && _hover != null)
         {
             var bd = _hover.GetComponent<BuildingData>();
+
+            // Single delete = single command
             _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid));
+
             AudioManager.Play("Delete");
-            FXPool.Instance.Play("dust", bd.gameObject.transform.position); 
+            FXPool.Instance.Play("dust", bd.gameObject.transform.position);
+
             _hover = null;
         }
     }
 
-    // =========================================================
-    //  HOVER DELETE
-    // =========================================================
     private void UpdateHoverDelete(Vector2Int cell)
     {
         ClearHover();
@@ -170,9 +162,6 @@ public class DeleteState : IPlacementState
         _hover = null;
     }
 
-    // =========================================================
-    //  DRAG DELETE
-    // =========================================================
     private void UpdateDragDelete(Vector3 dragEndWorld)
     {
         ClearDragHighlights();
@@ -219,17 +208,34 @@ public class DeleteState : IPlacementState
             }
         }
 
-        _indicator.ShowCells(footprint);
+        _indicator.ShowCells(
+        footprint,
+        cell => true   // delete mode always shows yellow, no validity needed
+        );
 
         if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
+            // Begin batch
+            _fsm.History.BeginBatch();
+
             foreach (var h in _dragTargets)
             {
-                var bd = h.GetComponent<BuildingData>();
-                _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid));
-                // Play FX at the center of each cell in the footprint for better visual feedback
-                FXPool.Instance.Play("dust", h.gameObject.transform.position);
+                if (h != null)
+                {
+                    // IMPORTANT: remove delete highlight before disabling via command
+                    h.HighlightDelete(false);
+
+                    var bd = h.GetComponent<BuildingData>();
+                    if (bd != null)
+                    {
+                        _fsm.History.AddToBatch(new DeleteCommand(bd.gameObject, _grid));
+                        FXPool.Instance.Play("dust", h.gameObject.transform.position);
+                    }
+                }
             }
+
+            // End batch (creates one undo step)
+            _fsm.History.EndBatch();
 
             AudioManager.Play("Delete");
 
@@ -249,18 +255,7 @@ public class DeleteState : IPlacementState
 
         _dragTargets.Clear();
     }
-    private void OnCancelDelete(InputAction.CallbackContext ctx)
-    {
-        AudioManager.Play("Cancel");
 
-        _indicator.ClearAll();
-        _raycast.DisableRay();
-
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-
-        _fsm.EnterIdle();
-    }
     private List<Vector2Int> GetRectangleCells(Vector2Int a, Vector2Int b)
     {
         List<Vector2Int> cells = new();

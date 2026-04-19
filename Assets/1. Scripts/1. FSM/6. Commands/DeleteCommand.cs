@@ -3,65 +3,60 @@ using UnityEngine;
 public class DeleteCommand : ICommand
 {
     private readonly PlacementGrid _grid;
-    private readonly GameObject _instance;
     private readonly ObjDataSO _data;
-    private readonly Vector2Int _root;
     private readonly Vector2Int[] _offsets;
-    private readonly float _rotation;
+    private readonly Vector2Int _root;
 
-    public DeleteCommand(GameObject instance, PlacementGrid grid)
+    private GameObject _target;
+    private bool _wasActive;
+
+    public DeleteCommand(GameObject target, PlacementGrid grid)
     {
-        _instance = instance;
+        _target = target;
         _grid = grid;
 
-        var bd = instance.GetComponent<BuildingData>();
+        // Extract placement info from BuildingData
+        var bd = target.GetComponent<BuildingData>();
         _data = bd.Data;
         _root = bd.RootCell;
         _offsets = bd.Offsets;
-        _rotation = bd.Rotation;
     }
 
     public void Execute()
     {
-        var bd = _instance.GetComponent<BuildingData>();
+        if (_target == null)
+            return;
 
+        // Remove from grid
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
-            var list = _grid.GetObjectsInCell(cell);
-            if (list == null) continue;
-
-            for (int i = list.Count - 1; i >= 0; i--)
-            {
-                if (list[i].instance == _instance)
-                {
-                    list.RemoveAt(i);
-                    _grid.RemoveStackObject(cell, _instance, _data);
-                }
-            }
+            _grid.RemoveStackObject(cell, _target, _data);
         }
 
-        bd.Delete();
+        // Disable object
+        _wasActive = _target.activeSelf;
+        _target.SetActive(false);
     }
 
     public void Undo()
     {
-        float stackY = _data.isStackable ? _grid.GetStackHeight(_root) : 0f;
+        if (_target == null)
+            return;
 
-        Vector3 pos = _grid.GetCellCenter(_root);
-        pos.y += stackY;
-
-        Quaternion rot = Quaternion.Euler(0f, _rotation, 0f);
-
-        GameObject restored = Object.Instantiate(_data.prefab, pos, rot);
-
-        var bd = restored.GetComponent<BuildingData>();
-        bd.Initialize(_root, _rotation, _offsets);
-
+        // Re-add to grid
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
-            _grid.AddStackObject(cell, restored, _data);
+            _grid.AddStackObject(cell, _target, _data);
         }
+
+        // Re-enable object
+        _target.SetActive(_wasActive);
+    }
+
+    public void Redo()
+    {
+        Execute();
     }
 }

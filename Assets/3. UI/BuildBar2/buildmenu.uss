@@ -1,0 +1,288 @@
+﻿/* ===========================
+   ROOT LAYOUT
+   =========================== */
+
+.buildmenu-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+/* ===========================
+   BOTTOM BAR
+   =========================== */
+
+.buildmenu-bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 96px;
+
+    background-color: rgba(0, 0, 0, 0.6);
+
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: stretch;
+
+    padding-left: 16px;
+    padding-right: 16px;
+
+    pointer-events: auto;
+}
+
+.buildmenu-category-row,
+.buildmenu-utility-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ===========================
+   CATEGORY BUTTONS
+   =========================== */
+
+.buildmenu-category-button {
+    width: 72px;
+    height: 72px;
+
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    background-color: rgba(0,0,0,0.25);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(255,255,255,0.05);
+
+    padding: 4px;
+    margin: 4px;
+
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.buildmenu-category-button:hover {
+    background-color: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+}
+
+.buildmenu-category-button.selected {
+    background-color: rgba(0, 180, 255, 0.22);
+    border-color: rgba(0, 180, 255, 0.45);
+}
+
+.buildmenu-category-icon {
+    width: 36px;
+    height: 36px;
+
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    -unity-background-scale-mode: scale-to-fit;
+
+    margin-bottom: 4px;
+}
+
+.buildmenu-category-label {
+    font-size: 12px;
+    unity-font-style: bold;
+    color: #FFFFFF;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* ===========================
+   UTILITY BUTTONS (UPDATED)
+   =========================== */
+
+.buildmenu-utility-button {
+    width: 72px;
+    height: 72px;
+
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    background-color: rgba(0,0,0,0.25);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(255,255,255,0.05);
+
+    padding: 4px;
+    margin: 4px;
+
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.buildmenu-utility-button:hover {
+    background-color: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+}
+
+/* Icon */
+.buildmenu-utility-icon {
+    width: 36px;
+    height: 36px;
+
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    -unity-background-scale-mode: scale-to-fit;
+
+    margin-bottom: 4px;
+}
+
+/* Label */
+.buildmenu-utility-label {
+    font-size: 11px;
+    unity-font-style: bold;
+    color: #FFFFFF;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.buildmenu-utility-button:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ===========================
+   SUBMENU FLYOUT
+   =========================== */
+
+.buildmenu-submenu {
+    position: absolute;
+    bottom: 96px;
+    left: 16px;
+    width: 300px; /* wider so names never get cut off */
+
+    pointer-events: auto;
+
+    transition-property: transform, opacity;
+    transition-duration: 0.25s;
+    transition-timing-function: ease-out;
+
+    transform: translateY(100%);
+    opacity: 0;
+}
+
+.buildmenu-submenu-open {
+    transform: translateY(0%);
+    opacity: 1;
+}
+
+.buildmenu-submenu-closed {
+    transform: translateY(100%);
+    opacity: 0;
+}
+
+.buildmenu-submenu-root {
+    background-color: rgba(0, 0, 0, 0.8);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.15);
+
+    padding: 6px;
+    max-height: 320px;
+}
+
+.buildmenu-submenu-scroll {
+    flex-grow: 1;
+}
+
+/* ===========================
+   ITEM BUTTONS (HORIZONTAL)
+   =========================== */
+
+.buildmenu-item-button {
+    width: 260px;   /* wide enough for long names */
+    height: 64px;
+
+    flex-direction: row; /* horizontal layout */
+    align-items: center;
+    justify-content: flex-start;
+
+    padding: 6px;
+
+    background-color: rgba(0,0,0,0.25);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(255,255,255,0.05);
+
+    margin-bottom: 6px;
+}
+
+.buildmenu-item-button:hover {
+    background-color: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+}
+
+/* Icon on the left */
+.buildmenu-item-icon {
+    width: 56px;
+    height: 56px;
+
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    -unity-background-scale-mode: scale-to-fit;
+
+    margin-right: 10px;
+}
+
+/* Text container on the right */
+.buildmenu-item-text {
+    flex-direction: column;
+    justify-content: center;
+    flex-grow: 1;
+}
+
+/* Name label */
+.buildmenu-item-name {
+    font-size: 15px; /* larger */
+    unity-font-style: bold;
+    color: #FFFFFF;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Cost label */
+.buildmenu-item-cost {
+    font-size: 14px; /* larger */
+    color: #A0FFC8;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Selected category glow animation */
+@keyframes category-glow {
+    0% {
+        background-color: rgba(0, 180, 255, 0.10);
+        border-color: rgba(0, 180, 255, 0.20);
+    }
+    50% {
+        background-color: rgba(0, 180, 255, 0.28);
+        border-color: rgba(0, 180, 255, 0.55);
+    }
+    100% {
+        background-color: rgba(0, 180, 255, 0.22);
+        border-color: rgba(0, 180, 255, 0.45);
+    }
+}
+
+/* Apply animation when selected */
+.buildmenu-category-button.selected {
+    animation-name: category-glow;
+    animation-duration: 0.9s;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+

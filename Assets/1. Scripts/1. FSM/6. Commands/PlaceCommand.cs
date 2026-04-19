@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class PlaceCommand : ICommand
@@ -11,6 +12,9 @@ public class PlaceCommand : ICommand
     private readonly float _rotation;
 
     private GameObject _instance;
+
+    // Floors disabled when this object was placed
+    private readonly List<GameObject> _disabledFloors = new();
 
     public PlaceCommand(
         PlacementGrid grid,
@@ -30,7 +34,26 @@ public class PlaceCommand : ICommand
 
     public void Execute()
     {
-        _instance = _finalizer.FinalizePlacement(_root, _offsets, _data, _rotation);
+        if (_instance == null)
+        {
+            _instance = _finalizer.FinalizePlacement(
+                _root,
+                _offsets,
+                _data,
+                _rotation,
+                _disabledFloors);
+        }
+
+        if (_instance == null)
+            return;
+
+        _instance.SetActive(true);
+
+        foreach (var o in _offsets)
+        {
+            Vector2Int cell = _root + o;
+            _grid.AddStackObject(cell, _instance, _data);
+        }
     }
 
     public void Undo()
@@ -38,24 +61,24 @@ public class PlaceCommand : ICommand
         if (_instance == null)
             return;
 
-        var bd = _instance.GetComponent<BuildingData>();
-
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
-            var list = _grid.GetObjectsInCell(cell);
-            if (list == null) continue;
-
-            for (int i = list.Count - 1; i >= 0; i--)
-            {
-                if (list[i].instance == _instance)
-                {
-                    list.RemoveAt(i);
-                    _grid.RemoveStackObject(cell, _instance, _data);
-                }
-            }
+            _grid.RemoveStackObject(cell, _instance, _data);
         }
 
-        bd.Delete();
+        _instance.SetActive(false);
+
+        // Re-enable any floors we disabled
+        foreach (var floor in _disabledFloors)
+        {
+            if (floor != null)
+                floor.SetActive(true);
+        }
+    }
+
+    public void Redo()
+    {
+        Execute();
     }
 }

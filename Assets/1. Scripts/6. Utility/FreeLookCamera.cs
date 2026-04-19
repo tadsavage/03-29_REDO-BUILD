@@ -106,17 +106,7 @@ public class FreeLookCamera : MonoBehaviour
         {
 			transform.position = transform.position + (-transform.up * movementSpeed * Time.deltaTime);
 		}
-		/*
-		if (Keyboard.current[Key.R].isPressed || Keyboard.current[Key.PageUp].isPressed)
-		{
-			transform.position = transform.position + (Vector3.up * movementSpeed * Time.deltaTime);
-		}
 
-		if (Keyboard.current[Key.F].isPressed || Keyboard.current[Key.PageDown].isPressed)
-        {
-			transform.position = transform.position + (-Vector3.up * movementSpeed * Time.deltaTime);
-		}
-		*/
 		if (transform.position.y < heightMin)
 		{
 			transform.position = new Vector3(transform.position.x, heightMin, transform.position.z);
@@ -157,7 +147,10 @@ public class FreeLookCamera : MonoBehaviour
 		float axis = Mouse.current.scroll.ReadValue().y;//Input.GetAxis("Mouse ScrollWheel");
 		if (axis != 0)
 		{
-			var zoomSensitivity = fastMode ? this.fastZoomSensitivity : this.zoomSensitivity;
+            if (BuildMenuUI.IsPointerOverBuildMenu)
+                return; // block zoom
+
+            var zoomSensitivity = fastMode ? this.fastZoomSensitivity : this.zoomSensitivity;
 			GetComponentInChildren<Camera>().transform.position = transform.position + transform.forward * axis * zoomSensitivity;
 		}
 

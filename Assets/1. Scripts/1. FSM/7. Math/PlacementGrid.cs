@@ -25,9 +25,6 @@ public class PlacementGrid : MonoBehaviour
     public Color SelectedColor = new Color(0.4f, 1f, 0.4f, 0.6f);
     public Color DeleteColor = new Color(1f, 1f, 0.2f, 0.5f);
 
-    // ---------------------------------------------------------
-    // INTERNAL STORAGE
-    // ---------------------------------------------------------
     public struct PlacedObject
     {
         public GameObject instance;
@@ -40,9 +37,6 @@ public class PlacementGrid : MonoBehaviour
     private Dictionary<int, GameObject> _activeVisuals;
     private Stack<GameObject> _pool;
 
-    // ---------------------------------------------------------
-    // INITIALIZATION
-    // ---------------------------------------------------------
     private void Awake()
     {
         InitializeGrid();
@@ -104,10 +98,12 @@ public class PlacementGrid : MonoBehaviour
         if (list == null || list.Count == 0)
             return false;
 
-        // Floor tiles do NOT count as occupied
+        // Floors and ignorePlacementRules do NOT count as occupied
         foreach (var entry in list)
-            if (!entry.data.ignorePlacementRules)
+        {
+            if (!entry.data.isFloor && !entry.data.ignorePlacementRules)
                 return true;
+        }
 
         return false;
     }
@@ -124,7 +120,7 @@ public class PlacementGrid : MonoBehaviour
         // Return the topmost NON-floor object
         for (int i = list.Count - 1; i >= 0; i--)
         {
-            if (!list[i].data.ignorePlacementRules)
+            if (!list[i].data.isFloor && !list[i].data.ignorePlacementRules)
                 return list[i].instance;
         }
 
@@ -150,8 +146,8 @@ public class PlacementGrid : MonoBehaviour
             if (entry.instance == ignore)
                 continue;
 
-            // Floor tiles do NOT add height
-            if (entry.data.ignorePlacementRules)
+            // Floors and ignorePlacementRules do NOT add height
+            if (entry.data.isFloor || entry.data.ignorePlacementRules)
                 continue;
 
             height += entry.data.objHeight;
@@ -179,20 +175,29 @@ public class PlacementGrid : MonoBehaviour
         if (!IsInsideGrid(cell))
             return;
 
-        _cells[cell.x, cell.y].Add(new PlacedObject
+        // Floors ALWAYS go at the bottom
+        if (data.isFloor)
         {
-            instance = obj,
-            data = data
-        });
+            _cells[cell.x, cell.y].Insert(0, new PlacedObject
+            {
+                instance = obj,
+                data = data
+            });
+        }
+        else
+        {
+            // Normal objects go on top
+            _cells[cell.x, cell.y].Add(new PlacedObject
+            {
+                instance = obj,
+                data = data
+            });
+        }
 
-        // Floor tiles do NOT contribute to stack height
-        if (!data.ignorePlacementRules)
+        // Floors do NOT add height
+        if (!data.isFloor && !data.ignorePlacementRules)
             _stackHeights[cell.x, cell.y] += data.objHeight;
-
-        if (UseVisualizer)
-            SetCellVisual(cell, OccupiedColor);
     }
-
     public void RemoveStackObject(Vector2Int cell, GameObject obj, ObjDataSO data)
     {
         if (!IsInsideGrid(cell))
@@ -208,7 +213,7 @@ public class PlacementGrid : MonoBehaviour
             {
                 list.RemoveAt(i);
 
-                if (!data.ignorePlacementRules)
+                if (!data.isFloor && !data.ignorePlacementRules)
                 {
                     _stackHeights[cell.x, cell.y] -= data.objHeight;
                     if (_stackHeights[cell.x, cell.y] < 0f)
@@ -282,7 +287,7 @@ public class PlacementGrid : MonoBehaviour
 
     private GameObject GetPooledVisual()
     {
-        if (_pool.Count > 0)
+        if (_pool != null && _pool.Count > 0)
         {
             var go = _pool.Pop();
             go.SetActive(true);
@@ -305,12 +310,16 @@ public class PlacementGrid : MonoBehaviour
     private void ReturnToPool(GameObject go)
     {
         go.SetActive(false);
+        _pool ??= new Stack<GameObject>();
         _pool.Push(go);
     }
 
     private void SetCellVisual(Vector2Int cell, Color color)
     {
         if (!UseVisualizer || !IsInsideGrid(cell)) return;
+
+        _activeVisuals ??= new Dictionary<int, GameObject>();
+        _pool ??= new Stack<GameObject>();
 
         int idx = CellIndex(cell);
 
@@ -359,18 +368,13 @@ public class PlacementGrid : MonoBehaviour
         {
             for (int y = 0; y < Height; y++)
             {
-                if (IsOccupied(new Vector2Int(x, y)))
-                {
-                    Vector2Int cell = new Vector2Int(x, y);
+                Vector2Int cell = new Vector2Int(x, y);
+                if (IsOccupied(cell))
                     SetCellVisual(cell, OccupiedColor);
-                }
             }
         }
     }
 
-    // ---------------------------------------------------------
-    // GIZMO GRID
-    // ---------------------------------------------------------
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;

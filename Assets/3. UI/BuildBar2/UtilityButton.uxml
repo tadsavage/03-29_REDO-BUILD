@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Button name="UtilityButton" class="buildmenu-utility-button">
+
+        <ui:VisualElement 
+            name="Icon"
+            class="buildmenu-utility-icon" />
+
+        <ui:Label 
+            name="Label"
+            class="buildmenu-utility-label">
+            ACTION
+        </ui:Label>
+
+    </ui:Button>
+</ui:UXML>

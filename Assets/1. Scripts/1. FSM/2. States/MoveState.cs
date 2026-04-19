@@ -4,7 +4,6 @@ using UnityEngine.InputSystem;
 
 public class MoveState : IPlacementState
 {
-    #region FIELDS ***************************************
     private readonly PlacementActions _actions;
     private readonly PreviewController _preview;
     private readonly PlacementValidator _validator;
@@ -25,15 +24,18 @@ public class MoveState : IPlacementState
 
     public bool IsPlacementState => true;
 
+    // === Debug Overlay Accessor ===
+    public string ObjectName => _obj != null ? _obj.name : "None";
+
     public MoveState(
-    PlacementActions actions,
-    PreviewController preview,
-    PlacementValidator validator,
-    PlacementFinalizer finalizer,
-    PlacementGrid grid,
-    PlacementStateMachine fsm,
-    RaycastController raycast,
-    CellIndicatorController indicator)
+        PlacementActions actions,
+        PreviewController preview,
+        PlacementValidator validator,
+        PlacementFinalizer finalizer,
+        PlacementGrid grid,
+        PlacementStateMachine fsm,
+        RaycastController raycast,
+        CellIndicatorController indicator)
     {
         _actions = actions;
         _preview = preview;
@@ -45,9 +47,8 @@ public class MoveState : IPlacementState
         _indicator = indicator;
 
         _actions.BuildPlacement.BindPlaceToMouseLeft();
-        _actions.BuildPlacement.BindCancelTo_RMB();
+        _actions.BuildPlacement.BindRotateTo_R();
     }
-    #endregion ******************************************
 
     // ---------------------------------------------------------
     // ENTER
@@ -55,12 +56,13 @@ public class MoveState : IPlacementState
     public void OnEnter()
     {
         _actions.BuildPlacement.Place.performed += OnConfirmMove;
-        _actions.BuildPlacement.Cancel.performed += OnCancelMove;
+        _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
 
         _raycast.EnableRay();
         _preview.ResetMoveGhostState();
         _hasSelection = false;
     }
+
     // ---------------------------------------------------------
     // EXIT
     // ---------------------------------------------------------
@@ -79,30 +81,29 @@ public class MoveState : IPlacementState
         _rotation = 0f;
         _originalRoot = default;
         _hasSelection = false;
-
+        
+        _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
         _actions.BuildPlacement.Place.performed -= OnConfirmMove;
-        _actions.BuildPlacement.Cancel.performed -= OnCancelMove;
     }
+
     // ---------------------------------------------------------
     // SELECT OBJECT
     // ---------------------------------------------------------
-
-    // Raycast-select object if valid. Runs every frame until an object is selected, then transitions to move mode with that object.
     private void TrySelectObject()
     {
         _raycast.Tick();
 
-        if (_raycast.HitObject == null)                                 // No object hit - KEEP RAYCASTING UNTIL CLICK
+        if (_raycast.HitObject == null)
             return;
 
-        if (!Mouse.current.leftButton.wasPressedThisFrame)              // AND Left mouse button not pressed - KEEP RAYCASTING UNTIL CLICK
+        if (!Mouse.current.leftButton.wasPressedThisFrame)
             return;
 
-        var bd = _raycast.HitObject.GetComponent<BuildingData>();      // Object hit AND left mouse button was just pressed - BUT NO BUILDING-DATA so keep looking
+        var bd = _raycast.HitObject.GetComponent<BuildingData>();
         if (bd == null || bd.Data.ClearsGridAfterPlacement)
             return;
-        //-------------------------------------------------------------------------------------------------------------------
-        // Object hit AND left mouse button was just pressed AND building-data exists - CHECK IF TOP OF STACK
+
+        // Must be top of stack
         foreach (var o in bd.Offsets)
         {
             var list = _grid.GetObjectsInCell(bd.RootCell + o);
@@ -115,25 +116,35 @@ public class MoveState : IPlacementState
                 }
             }
         }
-        // Left click happened on valid object, select it for moving
-        //_obj = _raycast.HitObject;
-        _obj = bd.gameObject; //just testing this out
+
+        // Select object
+        _obj = bd.gameObject;
         _data = bd.Data;
         _offsets = bd.Offsets;
         _rotation = bd.Rotation;
         _originalRoot = bd.RootCell;
+
         _preview.ApplyHighlight(_obj);
         _preview.ShowGhost(_obj);
-        _obj.SetActive(false);   // <<< REQUIRED
+
+        // Remove from grid BEFORE disabling
+        foreach (var o in _offsets)
+        {
+            Vector2Int cell = _originalRoot + o;
+            _grid.RemoveStackObject(cell, _obj, _data);
+        }
+
+        _obj.SetActive(false);
         _hasSelection = true;
     }
+
     // ---------------------------------------------------------
     // TICK
     // ---------------------------------------------------------
     public void Tick()
     {
-        if (!_hasSelection){
-            // If no object selected yet, keep trying to select one
+        if (!_hasSelection)
+        {
             _indicator.ClearAll();
             TrySelectObject();
             return;
@@ -144,34 +155,36 @@ public class MoveState : IPlacementState
         if (!_raycast.HasHit)
         {
             _preview.HideGhost();
-            return;
+            //return;
         }
+
         Vector2Int newRoot = _raycast.HitCell;
 
         bool valid = _validator.IsValidPlacement(newRoot, _offsets, _data, _obj);
 
-
-        // Show CellIndicators
+        // Show footprint
         List<Vector2Int> footprint = new List<Vector2Int>();
         foreach (var o in _offsets)
             footprint.Add(newRoot + o);
 
-        _indicator.ShowCells(footprint, valid);
+        _indicator.ShowCells(
+        footprint,
+        cell => true   // delete mode always shows yellow
+);
 
+        // Compute stack height
         float stackY = 0f;
         if (_data.isStackable)
             stackY = _grid.GetStackHeight(newRoot, _obj);
-    
+
         Vector3 pos = _grid.GetCellCenter(newRoot);
         pos.y += stackY;
 
-        // Keep ghost active even if smoothing is running
-        if (_preview != null && _obj != null) 
-        {
-            //where is the ghost?
+        // Update ghost
+        if (_preview != null && _obj != null)
             _preview.UpdateGhostPosition(pos);
-        }
     }
+
     // ---------------------------------------------------------
     // CONFIRM MOVE
     // ---------------------------------------------------------
@@ -192,49 +205,46 @@ public class MoveState : IPlacementState
 
         _preview.RemoveHighlight(_obj);
 
-        // Update grid immediately and push command to history for undo/redo and finalization
+        // Push move command
         _fsm.History.Push(
-            new MoveCommand(
-                _grid,
-                _finalizer,
-                _obj,
-                _data,
-                _originalRoot,
-                newRoot,
-                _offsets,
-                _rotation
-            )
-        );
-        // Reset ghost + keep persistent move mode
+        new MoveCommand(
+        _grid,
+        _obj,
+        _data,
+        _originalRoot,
+        newRoot,
+        _offsets,
+        _rotation
+    )
+);
+
         _preview.ResetMoveGhostState();
+        //_obj.SetActive(true);
 
-        _obj.SetActive(true);
-
-        // Clear selection but stay in MoveState
+        // Reset selection but remain in MoveState
         _obj = null;
         _data = null;
         _offsets = null;
         _rotation = 0f;
         _originalRoot = default;
         _hasSelection = false;
+
         _indicator.ClearAll();
     }
-    // ---------------------------------------------------------
-    // CANCEL MOVE
-    // ---------------------------------------------------------
-    private void OnCancelMove(InputAction.CallbackContext ctx)
+    private void OnRotatePerformed(InputAction.CallbackContext ctx)
     {
-        if (_obj != null)
-        {
-            _preview.RemoveHighlight(_obj);
-            _obj.SetActive(true);
-            _preview.Hide();
-        }
+        if (!_hasSelection)
+            return;
 
-        AudioManager.Play("Cancel");
-        _indicator.ClearAll();
+        AudioManager.Play("Rotate");
 
-        _fsm.EnterIdle();   // NEW API
+        _rotation += 90f;
+        if (_rotation >= 360f)
+            _rotation = 0f;
+
+        _preview.Rotate(_rotation);
+
+        // Recompute offsets for rotated footprint
+        _offsets = _data.GetFootprintOffsets(-_rotation);
     }
-
 }

@@ -1,45 +1,93 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 public class PlacementFinalizer : MonoBehaviour
 {
     [SerializeField] private PlacementGrid _grid;
-    [SerializeField] private Transform _parent;      // Optional parent for placed objects
-    [SerializeField] private GameObject dustPrefab;  // Optional dust FX
 
-    // ---------------------------------------------------------
-    // FINALIZE SINGLE OR DRAG PLACEMENT
-    // ---------------------------------------------------------
-    public GameObject FinalizePlacement(Vector2Int root, Vector2Int[] offsets, ObjDataSO data, float rotation)
+    // Original entry point
+    public GameObject FinalizePlacement(
+        Vector2Int root,
+        Vector2Int[] offsets,
+        ObjDataSO data,
+        float rotation)
     {
-        float stackY = 0f;
+        return FinalizePlacement(root, offsets, data, rotation, null);
+    }
 
-        // Floor tiles always sit at ground level
-        if (!data.ignorePlacementRules && data.isStackable)
-            stackY = _grid.GetStackHeight(root);
+    // Extended: can track disabled floors for undo
+    public GameObject FinalizePlacement(
+        Vector2Int root,
+        Vector2Int[] offsets,
+        ObjDataSO data,
+        float rotation,
+        List<GameObject> disabledFloors)
+    {
+        if (data == null || data.prefab == null)
+            return null;
+
+        // If this is a floor, disable any existing floors in the footprint.
+        if (data.isFloor)
+            DisableExistingFloors(root, offsets, disabledFloors);
+
+        GameObject instance = Instantiate(data.prefab);
+        instance.name = data.objName;
 
         Vector3 pos = _grid.GetCellCenter(root);
-        pos.y = data.ignorePlacementRules ? 0f : pos.y + stackY;
 
-        Quaternion rot = Quaternion.Euler(0f, rotation, 0f);
+        // Apply stack height for non-floor objects
+        float stackY = 0f;
+        if (!data.isFloor)
+            stackY = _grid.GetStackHeight(root);
 
-        GameObject placed = Instantiate(data.prefab, pos, rot, _parent);
+        pos.y += stackY;
 
-        var bd = placed.GetComponent<BuildingData>();
-        bd.Initialize(root, rotation, offsets);
+        instance.transform.position = pos;
+        instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+
 
         foreach (var o in offsets)
         {
-            Vector3 dustPos = _grid.GetCellCenter(root + o);
-            dustPos.y = pos.y;
-            FXPool.Instance.Play("dust", dustPos);
+            Vector2Int cell = root + o;
+            _grid.AddStackObject(cell, instance, data);
         }
 
-        if (!data.ClearsGridAfterPlacement)
+        var bd = instance.GetComponent<BuildingData>();
+        if (bd != null)
+            bd.Initialize(root, rotation, offsets);
+
+        return instance;
+    }
+
+    private void DisableExistingFloors(
+        Vector2Int root,
+        Vector2Int[] offsets,
+        List<GameObject> disabledFloors)
+    {
+        foreach (var o in offsets)
         {
-            foreach (var o in offsets)
-                _grid.AddStackObject(root + o, placed, data);
-        }
+            Vector2Int cell = root + o;
+            var list = _grid.GetObjectsInCell(cell);
+            if (list == null) continue;
 
-        return placed;
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                var entry = list[i];
+
+                if (entry.data == null || !entry.data.isFloor)
+                    continue;
+
+                if (entry.instance == null)
+                    continue;
+
+                if (entry.instance.activeSelf)
+                {
+                    entry.instance.SetActive(false);
+
+                    if (disabledFloors != null)
+                        disabledFloors.Add(entry.instance);
+                }
+            }
+        }
     }
 }

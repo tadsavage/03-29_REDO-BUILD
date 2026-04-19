@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Button name="CategoryButton" class="buildmenu-category-button">
+
+        <!-- Icon -->
+        <ui:VisualElement 
+            name="Icon" 
+            class="buildmenu-category-icon" />
+
+        <!-- Label -->
+        <ui:Label 
+            name="Label" 
+            class="buildmenu-category-label">
+            Category
+        </ui:Label>
+
+    </ui:Button>
+</ui:UXML>

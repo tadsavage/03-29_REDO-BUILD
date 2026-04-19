@@ -13,6 +13,9 @@ public class DragPlaceCommand : ICommand
 
     private readonly List<GameObject> _instances = new();
 
+    // Floors disabled across all cells in this drag operation
+    private readonly List<GameObject> _disabledFloors = new();
+
     public DragPlaceCommand(
         PlacementGrid grid,
         PlacementFinalizer finalizer,
@@ -31,10 +34,20 @@ public class DragPlaceCommand : ICommand
 
     public void Execute()
     {
+        _instances.Clear();
+        _disabledFloors.Clear();
+
         foreach (var cell in _cells)
         {
-            GameObject placed = _finalizer.FinalizePlacement(cell, _offsets, _data, _rotation);
-            _instances.Add(placed);
+            GameObject placed = _finalizer.FinalizePlacement(
+                cell,
+                _offsets,
+                _data,
+                _rotation,
+                _disabledFloors);
+
+            if (placed != null)
+                _instances.Add(placed);
         }
     }
 
@@ -42,7 +55,16 @@ public class DragPlaceCommand : ICommand
     {
         foreach (var instance in _instances)
         {
+            if (instance == null)
+                continue;
+
             var bd = instance.GetComponent<BuildingData>();
+            if (bd == null)
+            {
+                Object.Destroy(instance);
+                continue;
+            }
+
             Vector2Int root = bd.RootCell;
 
             foreach (var o in _offsets)
@@ -55,7 +77,6 @@ public class DragPlaceCommand : ICommand
                 {
                     if (list[i].instance == instance)
                     {
-
                         list.RemoveAt(i);
                         _grid.RemoveStackObject(cell, instance, bd.Data);
                     }
@@ -66,5 +87,14 @@ public class DragPlaceCommand : ICommand
         }
 
         _instances.Clear();
+
+        // Re-enable any floors we disabled
+        foreach (var floor in _disabledFloors)
+        {
+            if (floor != null)
+                floor.SetActive(true);
+        }
+
+        _disabledFloors.Clear();
     }
 }
