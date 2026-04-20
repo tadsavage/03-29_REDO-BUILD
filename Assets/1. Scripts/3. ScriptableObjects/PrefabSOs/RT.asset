@@ -14,11 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
   objName: ReachTruck
   cost: 3000
-  hourlyCost: 27.5
+  hourlyCost: 27
+  category: Vehicles
   prefab: {fileID: 4077015868802141654, guid: 3ffa7220783ff9b458470a50fb26727f, type: 3}
   icon: {fileID: 2800000, guid: 61da3e525287cc0469ea41db6b2a74ae, type: 3}
-  footprint: {x: 1, y: 1}
-  customShapeOffsets: []
+  ignorePlacementRules: 0
+  isFloor: 0
   ClearsGridAfterPlacement: 1
   isStackable: 0
   objHeight: 2
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []

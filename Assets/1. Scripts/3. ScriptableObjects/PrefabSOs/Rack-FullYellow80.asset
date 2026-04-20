@@ -10,21 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: BarrierCorner
+  m_Name: Rack-FullYellow80
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: Barrier Corner
-  cost: 850
-  hourlyCost: 8
-  category: Barrier
-  prefab: {fileID: 4133299513866215651, guid: 72367eff2cb99df41bd8991479566aa7, type: 3}
-  icon: {fileID: 2800000, guid: 3f363fa583d707846b663cf46658f2a8, type: 3}
+  objName: Rack-Ylw-80
+  cost: 750
+  hourlyCost: 1
+  category: Racking
+  prefab: {fileID: 919132149155446097, guid: 00af90a2ed3222f4b86ce38f5eb805f3, type: 3}
+  icon: {fileID: 2800000, guid: 4de2e7a95d1481545939edc7e0fec649, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
   ClearsGridAfterPlacement: 0
-  isStackable: 0
-  objHeight: 1
-  footprint: {x: 2, y: 2}
+  isStackable: 1
+  objHeight: 2
+  footprint: {x: 2, y: 1}
   customShapeOffsets:
   - {x: 0, y: 0}
-  - {x: 0, y: -1}
-  - {x: 1, y: 0}
+  - {x: -1, y: 0}

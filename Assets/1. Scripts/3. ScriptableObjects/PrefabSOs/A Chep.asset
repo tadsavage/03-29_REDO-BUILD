@@ -14,11 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
   objName: A Chep
   cost: 100
-  hourlyCost: 0.1
+  hourlyCost: 0
+  category: Inventory
   prefab: {fileID: 6533443037926444852, guid: 2b0e11584e4164345b36e2bd56b720b8, type: 3}
   icon: {fileID: 2800000, guid: d21b735f21380cb49a61d90cc3c27df0, type: 3}
-  footprint: {x: 1, y: 1}
-  customShapeOffsets: []
-  ClearsGridAfterPlacement: 0
+  ignorePlacementRules: 0
+  isFloor: 0
+  ClearsGridAfterPlacement: 1
   isStackable: 1
   objHeight: 0.165
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []

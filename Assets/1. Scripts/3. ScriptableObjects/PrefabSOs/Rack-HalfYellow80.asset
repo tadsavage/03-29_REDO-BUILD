@@ -10,15 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: HalfBay80
+  m_Name: Rack-HalfYellow80
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  objName: Half Bay
+  objName: Rack-Ylw-80
   cost: 750
-  hourlyCost: 0.5
-  prefab: {fileID: 2727379782079053540, guid: 53f77d88a9551a84db35a1a18e148fa6, type: 3}
+  hourlyCost: 0
+  category: Racking
+  prefab: {fileID: 919132149155446097, guid: dfe6d069fe79b9440a1b03eb832662e1, type: 3}
   icon: {fileID: 2800000, guid: 28be85cee113a804db0c1311d4afc291, type: 3}
-  footprint: {x: 1, y: 1}
-  customShapeOffsets: []
+  ignorePlacementRules: 0
+  isFloor: 0
   ClearsGridAfterPlacement: 0
   isStackable: 1
   objHeight: 2
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []
