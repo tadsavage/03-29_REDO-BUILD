@@ -12,6 +12,7 @@ public class MoveState : IPlacementState
     private readonly PlacementStateMachine _fsm;
     private readonly RaycastController _raycast;
     private readonly CellIndicatorController _indicator;
+    private readonly MoneyService _money;
 
     private GameObject _obj;
     private ObjDataSO _data;
@@ -35,7 +36,7 @@ public class MoveState : IPlacementState
         PlacementGrid grid,
         PlacementStateMachine fsm,
         RaycastController raycast,
-        CellIndicatorController indicator)
+        CellIndicatorController indicator, MoneyService money)
     {
         _actions = actions;
         _preview = preview;
@@ -45,6 +46,7 @@ public class MoveState : IPlacementState
         _fsm = fsm;
         _raycast = raycast;
         _indicator = indicator;
+        _money = money;
 
         _actions.BuildPlacement.BindPlaceToMouseLeft();
         _actions.BuildPlacement.BindRotateTo_R();

@@ -10,6 +10,7 @@ public class DeleteState : IPlacementState
     private readonly PlacementStateMachine _fsm;
     private readonly CellIndicatorController _indicator;
     private readonly PlacementActions _actions;
+    private readonly MoneyService _money;
 
     private BuildingHighlighter _hover;
     private readonly List<BuildingHighlighter> _dragTargets = new();
@@ -25,7 +26,8 @@ public class DeleteState : IPlacementState
         PlacementFinalizer finalizer,
         PlacementStateMachine fsm,
         CellIndicatorController indicator,
-        PlacementActions actions)
+        PlacementActions actions,
+        MoneyService money)
     {
         _raycast = raycast;
         _grid = grid;
@@ -33,6 +35,7 @@ public class DeleteState : IPlacementState
         _fsm = fsm;
         _indicator = indicator;
         _actions = actions;
+        _money = money;
     }
 
     public void OnEnter()
@@ -110,7 +113,7 @@ public class DeleteState : IPlacementState
             var bd = _hover.GetComponent<BuildingData>();
 
             // Single delete = single command
-            _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid));
+            _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid, _money));
 
             AudioManager.Play("Delete");
             FXPool.Instance.Play("dust", bd.gameObject.transform.position);
@@ -228,7 +231,7 @@ public class DeleteState : IPlacementState
                     var bd = h.GetComponent<BuildingData>();
                     if (bd != null)
                     {
-                        _fsm.History.AddToBatch(new DeleteCommand(bd.gameObject, _grid));
+                        _fsm.History.AddToBatch(new DeleteCommand(bd.gameObject, _grid, _money));
                         FXPool.Instance.Play("dust", h.gameObject.transform.position);
                     }
                 }

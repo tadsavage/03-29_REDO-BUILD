@@ -197,7 +197,16 @@ public class PlacementGrid : MonoBehaviour
         // Floors do NOT add height
         if (!data.isFloor && !data.ignorePlacementRules)
             _stackHeights[cell.x, cell.y] += data.objHeight;
+
+        if (UseVisualizer)
+        {
+            if (IsOccupied(cell))
+                SetCellVisual(cell, OccupiedColor);
+            else
+                SetCellVisual(cell, FreeColor);
+        }
     }
+
     public void RemoveStackObject(Vector2Int cell, GameObject obj, ObjDataSO data)
     {
         if (!IsInsideGrid(cell))

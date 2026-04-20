@@ -1,12 +1,8 @@
-﻿using Unity.VisualScripting;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class RaycastController : MonoBehaviour
 {
-    // =========================================================
-    //  CONFIGURATION
-    // =========================================================
     [SerializeField] private Camera _camera;
     [SerializeField] private LayerMask _groundMask;
     [SerializeField] private PlacementGrid _grid;
@@ -25,22 +21,14 @@ public class RaycastController : MonoBehaviour
     [SerializeField] private Color _cellRayColor = Color.yellow;
     [SerializeField] private Color _cellHitColor = Color.green;
 
-    // =========================================================
-    //  PUBLIC HIT DATA
-    // =========================================================
     public bool HasHit { get; private set; }
     public Vector3 HitPoint { get; private set; }
     public Vector2Int HitCell { get; private set; }
-
-    // NEW: Object hit by the mouse ray (free-moving, vehicles, NPCs, etc.)
     public GameObject HitObject { get; private set; }
 
     private Vector2Int _lastHitCell;
     private bool _enabled;
 
-    // =========================================================
-    //  ENABLE / DISABLE
-    // =========================================================
     public void EnableRay() => _enabled = true;
 
     public void DisableRay()
@@ -54,9 +42,6 @@ public class RaycastController : MonoBehaviour
         HitObject = null;
     }
 
-    // =========================================================
-    //  INITIALIZATION
-    // =========================================================
     private void Awake()
     {
         if (_camera == null)
@@ -66,9 +51,6 @@ public class RaycastController : MonoBehaviour
             _line.enabled = false;
     }
 
-    // =========================================================
-    //  MAIN UPDATE (CALLED FROM FSM)
-    // =========================================================
     public void Tick()
     {
         if (!_enabled)
@@ -77,7 +59,7 @@ public class RaycastController : MonoBehaviour
         Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
 
         // ---------------------------------------------------------
-        // 1. RAYCAST FOR GROUND (grid placement)
+        // 1. Ground raycast (grid placement)
         // ---------------------------------------------------------
         if (Physics.Raycast(ray, out RaycastHit hit, 100f, _groundMask))
         {
@@ -96,22 +78,22 @@ public class RaycastController : MonoBehaviour
         }
 
         // ---------------------------------------------------------
-        // 2. RAYCAST FOR OBJECTS (free-moving, vehicles, etc.)
+        // 2. Object raycast (no mask)
         // ---------------------------------------------------------
         if (Physics.Raycast(ray, out RaycastHit objHit, 100f))
             HitObject = objHit.collider.gameObject;
         else
             HitObject = null;
 
-        DrawRay();
+        DrawRay(ray);
 
         // ---------------------------------------------------------
-        // DEBUG: visualize object raycast
+        // Debug object ray
         // ---------------------------------------------------------
         if (_debugObjectRay)
         {
             Vector3 start = ray.origin;
-            Vector3 end = ray.origin + ray.direction * 100f;
+            Vector3 end = start + ray.direction * 100f;
 
             Debug.DrawLine(start, end, _objectRayColor, 0f);
 
@@ -120,10 +102,7 @@ public class RaycastController : MonoBehaviour
         }
     }
 
-    // =========================================================
-    //  RAY VISUALIZATION
-    // =========================================================
-    private void DrawRay()
+    private void DrawRay(Ray ray)
     {
         if (!_visualizeRay || _line == null)
             return;
@@ -143,9 +122,6 @@ public class RaycastController : MonoBehaviour
         _line.SetPosition(1, HitPoint);
     }
 
-    // =========================================================
-    //  PUBLIC: Raycast at a specific grid cell center
-    // =========================================================
     public GameObject RaycastCellCenter(Vector2Int cell)
     {
         Vector3 world = _grid.GetCellCenter(cell) + Vector3.up * 5f;
@@ -153,11 +129,8 @@ public class RaycastController : MonoBehaviour
 
         const float distance = 10f;
 
-        // DEBUG: visualize the downward ray
         if (_debugCellRay)
-        {
             Debug.DrawLine(world, world + Vector3.down * distance, _cellRayColor, 0f);
-        }
 
         if (Physics.Raycast(ray, out RaycastHit hit, distance))
         {
@@ -173,20 +146,6 @@ public class RaycastController : MonoBehaviour
         return null;
     }
 
-    // =========================================================
-    //  PRIVATE: Shared raycast logic
-    // =========================================================
-    private GameObject RaycastFrom(Ray ray, float distance)
-    {
-        if (Physics.Raycast(ray, out RaycastHit hit, distance))
-            return hit.collider.gameObject;
-
-        return null;
-    }
-
-    // =========================================================
-    //  PRIVATE: Debug helper to draw a simple sphere at a hit point
-    // =========================================================
     private void DebugDrawSphere(Vector3 pos, float radius, Color color)
     {
         Debug.DrawLine(pos + Vector3.up * radius, pos - Vector3.up * radius, color, 0f);

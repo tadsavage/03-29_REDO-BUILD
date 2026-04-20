@@ -26,12 +26,31 @@ public class PlacementStateMachine : MonoBehaviour
     private PreviewController _preview;
     private CellIndicatorController _indicator;
 
-    // For debugging: how many states are on the stack (excluding current)
+    // Injected from PlacementController
+    public GameContext Context { get; private set; }
+
     public int DebugStackDepth => _stateStack.Count;
+
+    // ---------------------------------------------------------
+    // INITIALIZATION
+    // ---------------------------------------------------------
 
     private void Awake()
     {
-        // Core systems (UI‑agnostic)
+        // Internal-only setup
+        _actions = new PlacementActions();
+    }
+
+    public void Initialize(GameContext context)
+    {
+        Context = context;
+    }
+
+    private void Start()
+    {
+        // External dependencies (Context) are now valid
+
+        // Core systems
         RaycastController raycast = Object.FindFirstObjectByType<RaycastController>();
         _indicator = Object.FindFirstObjectByType<CellIndicatorController>();
         _preview = Object.FindFirstObjectByType<PreviewController>();
@@ -39,15 +58,40 @@ public class PlacementStateMachine : MonoBehaviour
         PlacementFinalizer finalizer = Object.FindFirstObjectByType<PlacementFinalizer>();
         PlacementGrid grid = Object.FindFirstObjectByType<PlacementGrid>();
 
-        // Input actions
-        _actions = new PlacementActions();
-
-        // Construct states
+        // Construct states (Context is now valid)
         _idleState = new IdleState();
         _raycastState = new RaycastPlacementState(raycast, _indicator, grid);
-        _buildState = new BuildState(_actions, _preview, validator, finalizer, grid, this, raycast, _indicator);
-        _deleteState = new DeleteState(raycast, grid, finalizer, this, _indicator, _actions);
-        _moveState = new MoveState(_actions, _preview, validator, finalizer, grid, this, raycast, _indicator);
+
+        _buildState = new BuildState(
+            _actions,
+            _preview,
+            validator,
+            finalizer,
+            grid,
+            this,
+            raycast,
+            _indicator,
+            Context.MoneyService);
+
+        _deleteState = new DeleteState(
+            raycast,
+            grid,
+            finalizer,
+            this,
+            _indicator,
+            _actions,
+            Context.MoneyService);
+
+        _moveState = new MoveState(
+            _actions,
+            _preview,
+            validator,
+            finalizer,
+            grid,
+            this,
+            raycast,
+            _indicator,
+            Context.MoneyService);
 
         // Start in idle
         _currentState = _idleState;
@@ -109,7 +153,7 @@ public class PlacementStateMachine : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // CLEAN PUBLIC TRANSITION API (called from PlacementController)
+    // CLEAN PUBLIC TRANSITION API
     // ---------------------------------------------------------
     public void EnterIdle()
     {
@@ -156,10 +200,7 @@ public class PlacementStateMachine : MonoBehaviour
 
     private void ResetVisualsAfterHistoryChange()
     {
-        if (_preview != null)
-            _preview.ResetAllVisuals();
-
-        if (_indicator != null)
-            _indicator.ClearAll();
+        _preview?.ResetAllVisuals();
+        _indicator?.ClearAll();
     }
 }

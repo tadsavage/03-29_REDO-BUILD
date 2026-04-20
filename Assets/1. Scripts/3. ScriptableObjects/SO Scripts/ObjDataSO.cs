@@ -6,7 +6,8 @@ public class ObjDataSO : ScriptableObject
     [Header("Basic Info")]
     public string objName;
     public int cost;
-    public float hourlyCost;
+    public int hourlyCost;
+    public string category;
 
     [Header("Prefab + Visuals")]
     public GameObject prefab;

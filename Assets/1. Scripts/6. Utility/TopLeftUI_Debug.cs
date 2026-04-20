@@ -2,7 +2,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PlacementDebugOverlay : MonoBehaviour
+public class TopLeftUI_Debug : MonoBehaviour
 {
     [SerializeField] private PlacementStateMachine fsm;
     [SerializeField] private RaycastController raycast;

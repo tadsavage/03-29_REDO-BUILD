@@ -33,18 +33,16 @@ public class PlacementFinalizer : MonoBehaviour
         GameObject instance = Instantiate(data.prefab);
         instance.name = data.objName;
 
-        Vector3 pos = _grid.GetCellCenter(root);
-
         // Apply stack height for non-floor objects
         float stackY = 0f;
         if (!data.isFloor)
             stackY = _grid.GetStackHeight(root);
 
+        Vector3 pos = _grid.GetCellCenter(root);
         pos.y += stackY;
 
         instance.transform.position = pos;
         instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
-
 
         foreach (var o in offsets)
         {

@@ -3,7 +3,6 @@ using UnityEngine;
 
 public class PreviewController : MonoBehaviour
 {
-    #region FIELDS ***************************************
     private PlacementGrid _grid;
 
     private readonly Stack<GameObject> _pool = new();
@@ -19,16 +18,11 @@ public class PreviewController : MonoBehaviour
 
     [Header("Move Smoothing")]
     [SerializeField] private float moveSmoothTime = 0.08f;
-
-    [Tooltip("Multiplier for how fast the ghost follows the ray during Move mode.")]
     [SerializeField] private float moveSmoothSpeed = 0.25f;
-
-    [Tooltip("How close the ghost stays to the original object on the first frame (0 = stays at original, 1 = snaps to ray).")]
     [SerializeField] private float initialMoveLerp = 0.25f;
 
     [Header("Fly-In Settings")]
     [SerializeField] private bool useFlyIn = false;
-
     private bool _isFlyingIn;
     private float _flyTime;
     [SerializeField] private float flyDuration = 0.25f;
@@ -39,6 +33,7 @@ public class PreviewController : MonoBehaviour
     private readonly Color _validColor = new(0.50f, 1.00f, 0.83f, 0.85f);
     private readonly Color _invalidColor = new(1.00f, 0.42f, 0.42f, 0.75f);
     private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
+
     private readonly Dictionary<GameObject, Material[][]> _originalMats = new();
     [SerializeField] private Material _highlightMat;
 
@@ -48,7 +43,6 @@ public class PreviewController : MonoBehaviour
 
     private bool _multiMode;
     private bool _deleteMode;
-    #endregion
 
     private void Awake()
     {
@@ -71,11 +65,10 @@ public class PreviewController : MonoBehaviour
         _velocity = Vector3.zero;
     }
 
-    // Unified reset used after Undo/Redo
     public void ResetAllVisuals()
     {
         ResetMoveGhostState();
-        Hide();              // hide build ghost
+        Hide();
         _multiMode = false;
         _deleteMode = false;
     }
@@ -153,51 +146,6 @@ public class PreviewController : MonoBehaviour
     }
 
     // =========================================================
-    //  HIGHLIGHTING
-    // =========================================================
-    public void ApplyHighlight(GameObject obj)
-    {
-        if (obj == null) return;
-
-        var renderers = obj.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0) return;
-
-        if (!_originalMats.ContainsKey(obj))
-        {
-            Material[][] mats = new Material[renderers.Length][];
-            for (int i = 0; i < renderers.Length; i++)
-                mats[i] = renderers[i].sharedMaterials;
-
-            _originalMats[obj] = mats;
-        }
-
-        foreach (var r in renderers)
-        {
-            var mats = r.sharedMaterials;
-            for (int i = 0; i < mats.Length; i++)
-                mats[i] = _highlightMat;
-
-            r.sharedMaterials = mats;
-        }
-    }
-
-    public void RemoveHighlight(GameObject obj)
-    {
-        if (obj == null) return;
-
-        if (!_originalMats.TryGetValue(obj, out var mats))
-            return;
-
-        var renderers = obj.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0) return;
-
-        for (int i = 0; i < renderers.Length && i < mats.Length; i++)
-            renderers[i].sharedMaterials = mats[i];
-
-        _originalMats.Remove(obj);
-    }
-
-    // =========================================================
     //  MULTI-GHOST MODE
     // =========================================================
     public void BeginSelectionCells()
@@ -225,20 +173,16 @@ public class PreviewController : MonoBehaviour
         if (!_multiMode)
             return;
 
-        GameObject ghost;
-        if (_multiGhosts.TryGetValue(cell, out ghost))
-        {
-            ghost.SetActive(true);
-        }
-        else
+        if (!_multiGhosts.TryGetValue(cell, out GameObject ghost))
         {
             ghost = _pool.Count > 0
                 ? _pool.Pop()
                 : CreateGhostFromPrefab(_currentData.prefab);
 
-            ghost.SetActive(true);
             _multiGhosts[cell] = ghost;
         }
+
+        ghost.SetActive(true);
 
         float stackY = (_currentData != null && _currentData.isStackable)
             ? _grid.GetStackHeight(cell)
@@ -290,45 +234,6 @@ public class PreviewController : MonoBehaviour
         ApplyGhostAppearance(ghost, _validColor, _validColor.a);
 
         return ghost;
-    }
-
-    // =========================================================
-    //  MOVE STATE GHOST API
-    // =========================================================
-    public void ShowGhost(GameObject source)
-    {
-        if (_singleGhost != null)
-        {
-            Destroy(_singleGhost);
-            _singleGhost = null;
-        }
-
-        ClearGhostPool();
-
-        _singleGhost = CreateGhostFromPrefab(source);
-        _singleGhost.SetActive(true);
-        _currentPreview = _singleGhost;
-
-        // Start ghost near the original object instead of snapping to ray end
-        _currentPreview.transform.position = Vector3.Lerp(
-            source.transform.position,
-            _targetPos,
-            initialMoveLerp
-        );
-
-        ApplyGhostAppearance(_singleGhost, _validColor, _validColor.a);
-    }
-
-    public void HideGhost()
-    {
-        if (_singleGhost != null)
-            _singleGhost.SetActive(false);
-    }
-
-    public void UpdateGhostPosition(Vector3 worldPos)
-    {
-        _targetPos = worldPos;
-        _hasTarget = true;
     }
 
     // =========================================================
@@ -393,7 +298,7 @@ public class PreviewController : MonoBehaviour
         if (_currentPreview == null)
             return;
 
-        // Fly-in (optional)
+        // Fly-in
         if (_isFlyingIn && useFlyIn && !_deleteMode)
         {
             _flyTime += Time.deltaTime;
@@ -429,4 +334,83 @@ public class PreviewController : MonoBehaviour
             }
         }
     }
+    public void HideGhost()
+    {   // Helper Since single ghost is still used as the main preview in multi-ghost mode, we just disable it instead of destroying
+        if (_singleGhost != null)
+            _singleGhost.SetActive(false);
+    }
+    public void RemoveHighlight(GameObject obj)
+    {
+        if (obj == null)
+            return;
+
+        if (!_originalMats.TryGetValue(obj, out var mats))
+            return;
+
+        var renderers = obj.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+            return;
+
+        for (int i = 0; i < renderers.Length && i < mats.Length; i++)
+            renderers[i].sharedMaterials = mats[i];
+
+        _originalMats.Remove(obj);
+    }
+    public void ApplyHighlight(GameObject obj)
+    {
+        if (obj == null)
+            return;
+
+        var renderers = obj.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+            return;
+
+        if (!_originalMats.ContainsKey(obj))
+        {
+            Material[][] mats = new Material[renderers.Length][];
+            for (int i = 0; i < renderers.Length; i++)
+                mats[i] = renderers[i].sharedMaterials;
+
+            _originalMats[obj] = mats;
+        }
+
+        foreach (var r in renderers)
+        {
+            var mats = r.sharedMaterials;
+            for (int i = 0; i < mats.Length; i++)
+                mats[i] = _highlightMat;
+
+            r.sharedMaterials = mats;
+        }
+    }
+    public void ShowGhost(GameObject source)
+    {
+        if (_singleGhost != null)
+        {
+            Destroy(_singleGhost);
+            _singleGhost = null;
+        }
+
+        ClearGhostPool();
+
+        _singleGhost = CreateGhostFromPrefab(source);
+        _singleGhost.SetActive(true);
+        _currentPreview = _singleGhost;
+
+        // Start ghost near the original object instead of snapping instantly
+        _currentPreview.transform.position = Vector3.Lerp(
+            source.transform.position,
+            _targetPos,
+            initialMoveLerp
+        );
+
+        ApplyGhostAppearance(_singleGhost, _validColor, _validColor.a);
+    }
+    public void UpdateGhostPosition(Vector3 worldPos)
+    {
+        _targetPos = worldPos;
+        _hasTarget = true;
+    }
+
+
 }

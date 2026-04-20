@@ -3,10 +3,14 @@
 public class PlacementController : MonoBehaviour
 {
     [SerializeField] private PlacementStateMachine _fsm;
+    [SerializeField] private GameContext _gameContext;
     [SerializeField] private BuildMenuUI _buildMenuUI;
 
     private void Awake()
     {
+        // DO NOT create GameContext with new
+        // Unity will assign it from the scene
+
         // UI → FSM transitions
         _buildMenuUI.OnBuildItemClicked += HandleBuildItemClicked;
         _buildMenuUI.OnDeleteClicked += HandleDeleteClicked;
@@ -15,9 +19,10 @@ public class PlacementController : MonoBehaviour
         _buildMenuUI.OnRedoClicked += HandleRedoClicked;
     }
 
-    private void HandleBuildBarReady()
+    private void Start()
     {
-        _fsm.EnterIdle();
+        // Inject the real scene GameContext
+        _fsm.Initialize(_gameContext);
     }
 
     private void HandleBuildItemClicked(ObjDataSO data)
@@ -50,7 +55,3 @@ public class PlacementController : MonoBehaviour
         _fsm.Redo();
     }
 }
-
-
-
-

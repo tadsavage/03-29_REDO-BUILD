@@ -47,7 +47,7 @@ public class PlacementValidator : MonoBehaviour
     // =========================================================
     private bool IsSingleCellValid(Vector2Int cell, ObjDataSO data, GameObject ignore)
     {
-        // Ignore rules? Always valid.
+        // Bulldozer-type objects ignore all rules
         if (data.ignorePlacementRules)
             return true;
 
@@ -56,30 +56,26 @@ public class PlacementValidator : MonoBehaviour
 
         var list = _grid.GetObjectsInCell(cell);
         if (list == null || list.Count == 0)
-            return true; // empty cell is always valid
+            return true;
 
         foreach (var entry in list)
         {
             if (entry.instance == ignore)
                 continue;
 
-            // Floors do not block placement, but they also should not make the cell auto-valid.
+            // Floors never block anything
             if (entry.data.isFloor)
                 continue;
 
-            // Bulldozer-type objects ignore all rules
+            // Objects that ignore rules never block anything
             if (entry.data.ignorePlacementRules)
                 continue;
 
-            // 🚫 If the existing object is non-stackable, nothing can go on top of it
-            if (!entry.data.isStackable)
+            // If either object is non-stackable → invalid
+            if (!entry.data.isStackable || !data.isStackable)
                 return false;
 
-            // 🚫 If the object we’re placing is non-stackable, it can’t go on anything
-            if (!data.isStackable)
-                return false;
-
-            // ✅ Both are stackable → obey stack rules
+            // Both stackable → obey stack height
             if (!_grid.CanStack(cell, data))
                 return false;
         }

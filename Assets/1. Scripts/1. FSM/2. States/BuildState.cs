@@ -14,6 +14,7 @@ public class BuildState : IPlacementState
     private readonly PlacementFinalizer _finalizer;
     private readonly PlacementGrid _grid;
     private readonly PlacementStateMachine _fsm;
+    private readonly MoneyService _money;
 
     private ObjDataSO _currentData;
 
@@ -21,7 +22,6 @@ public class BuildState : IPlacementState
     private bool _rotateRequested;
     private float _currentRotation;
 
-    private Vector2Int[] _currentOffsets;
     private float _lastRotation;
 
     private bool _isDragging;
@@ -36,7 +36,6 @@ public class BuildState : IPlacementState
 
     public bool IsPlacementState => true;
 
-    // === Debug Overlay Accessors ===
     public ObjDataSO CurrentData => _currentData;
     public bool IsDragging => _isDragging;
     public string ObjectName => _currentData != null ? _currentData.objName : "None";
@@ -49,7 +48,7 @@ public class BuildState : IPlacementState
         PlacementGrid grid,
         PlacementStateMachine fsm,
         RaycastController raycast,
-        CellIndicatorController indicator)
+        CellIndicatorController indicator, MoneyService money)
     {
         _actions = actions;
         _preview = preview;
@@ -59,6 +58,7 @@ public class BuildState : IPlacementState
         _fsm = fsm;
         _raycast = raycast;
         _indicator = indicator;
+        _money = money;
 
         _actions.BuildPlacement.BindRotateTo_R();
         _actions.BuildPlacement.BindPlaceToMouseLeft();
@@ -88,7 +88,6 @@ public class BuildState : IPlacementState
         _isDragging = false;
         _dragCells.Clear();
 
-        _currentOffsets = _currentData.GetFootprintOffsets(-_currentRotation);
         _lastRotation = _currentRotation;
     }
 
@@ -110,6 +109,7 @@ public class BuildState : IPlacementState
         {
             _indicator.ClearAll();
             _preview.Hide();
+            return;
         }
 
         Vector2Int root = _raycast.HitCell;
@@ -129,6 +129,7 @@ public class BuildState : IPlacementState
             _preview.Show(_currentData);
         }
 
+        // --- CLICK / DRAG START ---
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             _isDragging = false;
@@ -138,7 +139,7 @@ public class BuildState : IPlacementState
 
         if (Mouse.current.leftButton.isPressed && !_isDragging)
         {
-            if (root != _dragStartCell)
+            if (!Mouse.current.leftButton.wasPressedThisFrame && root != _dragStartCell)
             {
                 _isDragging = true;
 
@@ -159,6 +160,7 @@ public class BuildState : IPlacementState
             return;
         }
 
+        // --- ROTATION ---
         if (_rotateRequested)
         {
             _rotateRequested = false;
@@ -172,11 +174,11 @@ public class BuildState : IPlacementState
 
         if (_currentRotation != _lastRotation)
         {
-            _currentOffsets = _currentData.GetFootprintOffsets(-_currentRotation);
             _lastRotation = _currentRotation;
         }
 
-        Vector2Int[] offsets = _currentOffsets;
+        // --- GHOST + VALIDATION ---
+        Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
         _preview.MoveTo(_grid.GetCellCenter(root), root, _currentData);
 
@@ -200,6 +202,7 @@ public class BuildState : IPlacementState
         else
             _preview.SetGhostInvalid();
 
+        // --- UI BLOCKING ---
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
             _placeRequested = false;
@@ -207,6 +210,7 @@ public class BuildState : IPlacementState
             return;
         }
 
+        // --- PLACE ---
         if (_placeRequested)
         {
             _placeRequested = false;
@@ -243,7 +247,8 @@ public class BuildState : IPlacementState
                     root,
                     offsets,
                     _currentData,
-                    _currentRotation)
+                    _currentRotation,
+                    _money)
             );
 
             Vector3 nextPos = _grid.GetCellCenter(root);
@@ -282,13 +287,8 @@ public class BuildState : IPlacementState
     {
         _dragCells.Clear();
 
-        if (_currentRotation != _lastRotation)
-        {
-            _currentOffsets = _currentData.GetFootprintOffsets(-_currentRotation);
-            _lastRotation = _currentRotation;
-        }
+        Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
-        Vector2Int[] offsets = _currentOffsets;
         Vector2Int stride = GetStride(offsets);
 
         int stepX = (_dragStartCell.x <= currentCell.x) ? stride.x : -stride.x;
@@ -315,57 +315,48 @@ public class BuildState : IPlacementState
             {
                 Vector2Int cell = new Vector2Int(x, y);
 
-                bool valid = true;
+                bool valid = _validator.IsCellValid(cell, _currentData);
 
-                // FLOORS: always allowed to place under anything
-                if (_currentData.isFloor)
+                GameObject objAtCell = _raycast.RaycastCellCenter(cell);
+
+                if (objAtCell != null)
                 {
-                    // Check if another floor exists (we will replace it)
-                    var list = _grid.GetObjectsInCell(cell);
-                    bool hasOtherFloor = false;
+                    var bd = objAtCell.GetComponent<BuildingData>();
+                    if (bd != null && bd.Data != null && bd.Data.ClearsGridAfterPlacement)
+                        valid = false;
+                }
 
-                    if (list != null)
+                if (!_currentData.ignorePlacementRules)
+                {
+                    if (_currentData.isStackable)
                     {
-                        foreach (var entry in list)
-                        {
-                            if (entry.data != null && entry.data.isFloor)
-                            {
-                                hasOtherFloor = true;
-                                break;
-                            }
-                        }
+                        if (!_grid.CanStack(cell, _currentData))
+                            valid = false;
                     }
-
-                    valid = true; // floors always allowed
-                }
-                else
-                {
-                    // Normal object rules
-                    valid = _validator.IsCellValid(cell, _currentData);
-                }
-
-                // Floors ALWAYS get added to dragCells
-                if (_currentData.isFloor)
-                {
-                    _dragCells.Add(cell);
-                }
-                else
-                {
-                    if (!valid)
-                        continue;
-
-                    _dragCells.Add(cell);
+                    else
+                    {
+                        if (_grid.IsOccupied(cell))
+                            valid = false;
+                    }
                 }
 
                 _indicatorBuffer.Add(cell);
                 foreach (var o in offsets)
                     _indicatorBuffer.Add(cell + o);
 
-                _preview.ShowMultiGhost(cell, valid, _currentRotation);
+                if (valid)
+                {
+                    _dragCells.Add(cell);
+                    _preview.ShowMultiGhost(cell, true, _currentRotation);
+                }
+                else
+                {
+                    _preview.ShowMultiGhost(cell, false, _currentRotation);
+                }
             }
         }
 
-        _indicator.ShowCells(_indicatorBuffer, cell => _validator.IsCellValid(cell, _currentData));
+        _indicator.ShowCells(_indicatorBuffer, cell => IsFootprintValid(cell));
 
         if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
@@ -428,5 +419,18 @@ public class BuildState : IPlacementState
     public void SetBuildData(ObjDataSO data)
     {
         _currentData = data;
+    }
+
+    private bool IsFootprintValid(Vector2Int root)
+    {
+        Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
+
+        foreach (var o in offsets)
+        {
+            Vector2Int cell = root + o;
+            if (!_validator.IsCellValid(cell, _currentData))
+                return false;
+        }
+        return true;
     }
 }

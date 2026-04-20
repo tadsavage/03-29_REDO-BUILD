@@ -70,17 +70,7 @@ public class DragPlaceCommand : ICommand
             foreach (var o in _offsets)
             {
                 Vector2Int cell = root + o;
-                var list = _grid.GetObjectsInCell(cell);
-                if (list == null) continue;
-
-                for (int i = list.Count - 1; i >= 0; i--)
-                {
-                    if (list[i].instance == instance)
-                    {
-                        list.RemoveAt(i);
-                        _grid.RemoveStackObject(cell, instance, bd.Data);
-                    }
-                }
+                _grid.RemoveStackObject(cell, instance, bd.Data);
             }
 
             bd.Delete();
@@ -96,5 +86,11 @@ public class DragPlaceCommand : ICommand
         }
 
         _disabledFloors.Clear();
+    }
+
+    public void Redo()
+    {
+        // Recreate all instances using the same cells
+        Execute();
     }
 }

@@ -55,8 +55,10 @@ public class PlacementActions
         // Optional helper to set bindings in code
         public void BindPlaceToMouseLeft()
         {
-            Place.AddBinding("<Mouse>/leftButton");
+            Place.AddBinding("<Mouse>/leftButton")
+                 .WithInteraction("Press(behavior=2)");
         }
+
         // Optional helper to set bindings in code
         public void BindRotateTo_R()
         {
