@@ -20,7 +20,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 96px;
+    height: 120px;
 
     background-color: rgba(0, 0, 0, 0.6);
 
@@ -48,15 +48,15 @@
    =========================== */
 
 .buildmenu-category-button {
-    width: 72px;
-    height: 72px;
+    width: 120px;     /* was 96 */
+    height: 104px;    /* was 88 */
 
     flex-direction: column;
     align-items: center;
     justify-content: center;
 
     background-color: rgba(0,0,0,0.25);
-    border-radius: 6px;
+    border-radius: 4px;
     border-width: 1px;
     border-color: rgba(255,255,255,0.05);
 
@@ -77,21 +77,21 @@
 }
 
 .buildmenu-category-icon {
-    width: 36px;
-    height: 36px;
+    width: 96px;      /* 80% of 96 */
+    height: 88px;     /* 80% of 88 */
 
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
     -unity-background-scale-mode: scale-to-fit;
 
-    margin-bottom: 4px;
+    margin-bottom: 2px;  /* keeps label readable */
 }
 
 .buildmenu-category-label {
-    font-size: 12px;
+    font-size: 20px;
     unity-font-style: bold;
-    color: #FFFFFF;
+    color: #FAEBD7; /* Antique White */
     text-align: center;
     white-space: nowrap;
 }
@@ -101,8 +101,8 @@
    =========================== */
 
 .buildmenu-utility-button {
-    width: 72px;
-    height: 72px;
+    width: 84px;
+    height: 84px;
 
     flex-direction: column;
     align-items: center;
@@ -126,22 +126,22 @@
 
 /* Icon */
 .buildmenu-utility-icon {
-    width: 36px;
-    height: 36px;
+    width: 56px;
+    height: 56px;
 
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
     -unity-background-scale-mode: scale-to-fit;
 
-    margin-bottom: 4px;
+    margin-bottom: 4px;   /* more breathing room above label */
 }
 
 /* Label */
 .buildmenu-utility-label {
     font-size: 11px;
     unity-font-style: bold;
-    color: #FFFFFF;
+    color: #FAEBD7; /* Antique White */
     text-align: center;
     white-space: nowrap;
 }

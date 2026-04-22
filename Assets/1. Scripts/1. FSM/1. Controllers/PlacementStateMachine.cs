@@ -1,6 +1,6 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.InputSystem;
-using System.Collections.Generic;
 
 public class PlacementStateMachine : MonoBehaviour
 {
@@ -17,7 +17,6 @@ public class PlacementStateMachine : MonoBehaviour
     private readonly Stack<IPlacementState> _stateStack = new();
 
     public CommandHistory History { get; private set; } = new CommandHistory();
-
     public IPlacementState CurrentState => _currentState;
 
     public System.Action OnHistoryChanged;
@@ -29,6 +28,9 @@ public class PlacementStateMachine : MonoBehaviour
     // Injected from PlacementController
     public GameContext Context { get; private set; }
 
+    // UI reference (already initialized by UIBootstrapper)
+    [SerializeField] private PreviewCostUI _costUI;
+
     public int DebugStackDepth => _stateStack.Count;
 
     // ---------------------------------------------------------
@@ -37,20 +39,19 @@ public class PlacementStateMachine : MonoBehaviour
 
     private void Awake()
     {
-        // Internal-only setup
         _actions = new PlacementActions();
     }
 
     public void Initialize(GameContext context)
     {
         Context = context;
+        // No UI initialization here anymore — UIBootstrapper handles that
     }
 
     private void Start()
     {
         // External dependencies (Context) are now valid
 
-        // Core systems
         RaycastController raycast = Object.FindFirstObjectByType<RaycastController>();
         _indicator = Object.FindFirstObjectByType<CellIndicatorController>();
         _preview = Object.FindFirstObjectByType<PreviewController>();
@@ -58,7 +59,7 @@ public class PlacementStateMachine : MonoBehaviour
         PlacementFinalizer finalizer = Object.FindFirstObjectByType<PlacementFinalizer>();
         PlacementGrid grid = Object.FindFirstObjectByType<PlacementGrid>();
 
-        // Construct states (Context is now valid)
+        // Construct states
         _idleState = new IdleState();
         _raycastState = new RaycastPlacementState(raycast, _indicator, grid);
 
@@ -71,7 +72,8 @@ public class PlacementStateMachine : MonoBehaviour
             this,
             raycast,
             _indicator,
-            Context.MoneyService);
+            Context.MoneyService,
+            _costUI);
 
         _deleteState = new DeleteState(
             raycast,
@@ -155,15 +157,8 @@ public class PlacementStateMachine : MonoBehaviour
     // ---------------------------------------------------------
     // CLEAN PUBLIC TRANSITION API
     // ---------------------------------------------------------
-    public void EnterIdle()
-    {
-        SetState(_idleState, push: false);
-    }
-
-    public void EnterRaycast()
-    {
-        SetState(_raycastState, push: false);
-    }
+    public void EnterIdle() => SetState(_idleState, push: false);
+    public void EnterRaycast() => SetState(_raycastState, push: false);
 
     public void EnterBuild(ObjDataSO data)
     {
@@ -171,15 +166,8 @@ public class PlacementStateMachine : MonoBehaviour
         SetState(_buildState);
     }
 
-    public void EnterDelete()
-    {
-        SetState(_deleteState);
-    }
-
-    public void EnterMove()
-    {
-        SetState(_moveState);
-    }
+    public void EnterDelete() => SetState(_deleteState);
+    public void EnterMove() => SetState(_moveState);
 
     // ---------------------------------------------------------
     // HISTORY + VISUAL RESET

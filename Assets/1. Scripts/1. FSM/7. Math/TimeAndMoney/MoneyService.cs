@@ -5,6 +5,12 @@ public class MoneyService
 {
     public int CurrentCapital { get; private set; }
     public int TotalHourlyCost { get; private set; }
+    public bool CanAfford(int amount)
+    {
+        return CurrentCapital >= amount;
+    }
+
+    public int Current => CurrentCapital;
 
     public int SpentToday { get; private set; }
     public Dictionary<string, int> CategorySpendingToday { get; private set; }

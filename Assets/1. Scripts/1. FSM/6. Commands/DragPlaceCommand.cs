@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public class DragPlaceCommand : ICommand
@@ -10,6 +10,7 @@ public class DragPlaceCommand : ICommand
     private readonly Vector2Int[] _offsets;
     private readonly ObjDataSO _data;
     private readonly float _rotation;
+    private readonly MoneyService _money;
 
     private readonly List<GameObject> _instances = new();
 
@@ -22,7 +23,8 @@ public class DragPlaceCommand : ICommand
         List<Vector2Int> cells,
         Vector2Int[] offsets,
         ObjDataSO data,
-        float rotation)
+        float rotation,
+        MoneyService money)
     {
         _grid = grid;
         _finalizer = finalizer;
@@ -30,6 +32,7 @@ public class DragPlaceCommand : ICommand
         _offsets = offsets;
         _data = data;
         _rotation = rotation;
+        _money = money;
     }
 
     public void Execute()
@@ -47,9 +50,16 @@ public class DragPlaceCommand : ICommand
                 _disabledFloors);
 
             if (placed != null)
+            {
                 _instances.Add(placed);
+
+                // Deduct cost per placed object
+                _money.Deduct(_data.cost);
+                _money.AddHourlyCost(_data.hourlyCost);
+            }
         }
     }
+
 
     public void Undo()
     {
@@ -74,7 +84,11 @@ public class DragPlaceCommand : ICommand
             }
 
             bd.Delete();
+            // 💰 Refund money for each placed object
+            _money.Refund(_data.cost);
+            _money.RemoveHourlyCost(_data.hourlyCost);
         }
+
 
         _instances.Clear();
 

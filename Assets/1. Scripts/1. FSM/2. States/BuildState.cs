@@ -16,6 +16,8 @@ public class BuildState : IPlacementState
     private readonly PlacementStateMachine _fsm;
     private readonly MoneyService _money;
 
+    private readonly PreviewCostUI _costUI;   // NEW UI CONTROLLER
+
     private ObjDataSO _currentData;
 
     private bool _placeRequested;
@@ -48,7 +50,9 @@ public class BuildState : IPlacementState
         PlacementGrid grid,
         PlacementStateMachine fsm,
         RaycastController raycast,
-        CellIndicatorController indicator, MoneyService money)
+        CellIndicatorController indicator,
+        MoneyService money,
+        PreviewCostUI costUI)   // NEW
     {
         _actions = actions;
         _preview = preview;
@@ -59,6 +63,7 @@ public class BuildState : IPlacementState
         _raycast = raycast;
         _indicator = indicator;
         _money = money;
+        _costUI = costUI;
 
         _actions.BuildPlacement.BindRotateTo_R();
         _actions.BuildPlacement.BindPlaceToMouseLeft();
@@ -89,6 +94,8 @@ public class BuildState : IPlacementState
         _dragCells.Clear();
 
         _lastRotation = _currentRotation;
+
+        _costUI.Hide();   // NEW
     }
 
     public void OnExit()
@@ -96,6 +103,7 @@ public class BuildState : IPlacementState
         _raycast.DisableRay();
         _indicator.ClearAll();
         _preview.Hide();
+        _costUI.Hide();   // NEW
 
         _actions.BuildPlacement.Place.canceled -= OnPlacePerformed;
         _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
@@ -109,6 +117,7 @@ public class BuildState : IPlacementState
         {
             _indicator.ClearAll();
             _preview.Hide();
+            _costUI.Hide();   // NEW
             return;
         }
 
@@ -120,6 +129,7 @@ public class BuildState : IPlacementState
             _indicator.ClearAll();
             _placeRequested = false;
             _rotateRequested = false;
+            _costUI.Hide();   // NEW
             return;
         }
 
@@ -145,6 +155,7 @@ public class BuildState : IPlacementState
 
                 _preview.Hide();
                 _indicator.ClearAll();
+                _costUI.Hide();   // NEW
 
                 _justPlaced = false;
                 _lastPlacedCell = new Vector2Int(int.MinValue, int.MinValue);
@@ -202,6 +213,11 @@ public class BuildState : IPlacementState
         else
             _preview.SetGhostInvalid();
 
+        // --- COST PREVIEW (SINGLE) ---
+        int cost = _currentData.cost;
+        bool canAfford = _money.CanAfford(cost);
+        _costUI.ShowCost(cost, canAfford);   // NEW
+
         // --- UI BLOCKING ---
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
@@ -231,6 +247,19 @@ public class BuildState : IPlacementState
             if (!isValidNow)
             {
                 AudioManager.Play("InvalidPlace");
+                _preview.SetGhostInvalid();
+                _indicator.ShowCells(
+                    BuildFootprintBuffered(root, offsets),
+                    cell => false
+                );
+                return;
+            }
+
+            // --- MONEY CHECK (SINGLE) ---
+            if (!_money.CanAfford(cost))
+            {
+                AudioManager.Play("InvalidPlace");
+                Debug.Log($"[BuildState] Cannot afford single placement. Need {cost}, have {_money.Current}");
                 _preview.SetGhostInvalid();
                 _indicator.ShowCells(
                     BuildFootprintBuffered(root, offsets),
@@ -358,6 +387,11 @@ public class BuildState : IPlacementState
 
         _indicator.ShowCells(_indicatorBuffer, cell => IsFootprintValid(cell));
 
+        // --- COST PREVIEW (DRAG) ---
+        int totalCost = _dragCells.Count * _currentData.cost;
+        bool canAfford = _money.CanAfford(totalCost);
+        _costUI.ShowCost(totalCost, canAfford);   // NEW
+
         if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
             EndDragPlacement();
@@ -373,6 +407,25 @@ public class BuildState : IPlacementState
             _preview.EndSelectionCells();
             _indicator.ClearAll();
             _isDragging = false;
+            _costUI.Hide();   // NEW
+            return;
+        }
+
+        // --- MONEY CHECK (DRAG) ---
+        int totalCost = _dragCells.Count * _currentData.cost;
+        if (!_money.CanAfford(totalCost))
+        {
+            AudioManager.Play("InvalidPlace");
+            Debug.Log($"[BuildState] Cannot afford drag placement. Need {totalCost}, have {_money.Current}");
+
+            foreach (var cell in _dragCells)
+                _preview.ShowMultiGhost(cell, false, _currentRotation);
+
+            _preview.EndSelectionCells();
+            _indicator.ClearAll();
+            _isDragging = false;
+            _dragCells.Clear();
+            _costUI.Hide();   // NEW
             return;
         }
 
@@ -387,7 +440,8 @@ public class BuildState : IPlacementState
                 new List<Vector2Int>(_dragCells),
                 offsets,
                 _currentData,
-                _currentRotation)
+                _currentRotation,
+                _money)
         );
 
         _preview.EndSelectionCells();
@@ -395,6 +449,7 @@ public class BuildState : IPlacementState
         _isDragging = false;
         _placeRequested = false;
         _dragCells.Clear();
+        _costUI.Hide();   // NEW
     }
 
     private Vector2Int GetStride(Vector2Int[] offsets)

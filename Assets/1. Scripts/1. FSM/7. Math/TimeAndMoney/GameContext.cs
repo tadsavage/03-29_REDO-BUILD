@@ -3,11 +3,11 @@ using UnityEngine;
 
 public class GameContext : MonoBehaviour
 {
-    public TopRightUI_TimeMoney topRightUI;
+    //public TopRightUI_TimeMoney topRightUI; DONT NEED RIGHT NOW, JUST TESTING
 
     private void Start()
     {
-        topRightUI.Initialize(MoneyService, TimeService);
+        //topRightUI.Initialize(MoneyService, TimeService);
     }
     public MoneyService MoneyService { get; private set; }
 

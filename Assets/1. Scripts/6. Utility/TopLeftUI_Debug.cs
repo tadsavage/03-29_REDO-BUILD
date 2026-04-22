@@ -66,7 +66,7 @@ public class TopLeftUI_Debug : MonoBehaviour
         rt.anchorMax = new Vector2(0, 1);
         rt.pivot = new Vector2(0, 1);
         rt.sizeDelta = new Vector2(700, 500);
-        rt.anchoredPosition = new Vector2(10, -10);
+        rt.anchoredPosition = new Vector2(10, -50);
     }
 
     private void Update()
