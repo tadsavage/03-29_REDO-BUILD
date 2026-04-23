@@ -20,7 +20,7 @@ public class PlacementSystem : MonoBehaviour
         GameObject go = Instantiate(so.prefab, worldPos, Quaternion.identity);
 
         PlacedObject po = go.GetComponent<PlacedObject>();
-        po.Initialize(so, x, y, rot);
+        po.Initialize(so, cell.x, cell.y, rot);
 
         // Register in save system
         PlacedObjectRegistry.Register(po);
@@ -42,7 +42,7 @@ public class PlacementSystem : MonoBehaviour
         GameObject go = Instantiate(so.prefab, worldPos, Quaternion.identity);
 
         PlacedObject po = go.GetComponent<PlacedObject>();
-        po.Initialize(so, x, y, rot);
+        po.Initialize(so, cell.x, cell.y, rot);
 
         // Register loaded object
         PlacedObjectRegistry.Register(po);

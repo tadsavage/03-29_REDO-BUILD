@@ -261,7 +261,7 @@ public class BuildMenuUI : MonoBehaviour
     {
         Debug.Log("LoadGame() START");
 
-        var data = SaveSystem.Load("MyWarehouse");
+        var data = SaveSystem.Load("tad");
         Debug.Log(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK");
 
         if (data == null)

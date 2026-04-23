@@ -23,9 +23,13 @@ public class MoveState : IPlacementState
 
     private bool _hasSelection;
 
-    public bool IsPlacementState => true;
+    // NEW — track last hovered cell for "NewCell" sound
+    private Vector2Int _lastHoverCell = new Vector2Int(int.MinValue, int.MinValue);
 
-    // === Debug Overlay Accessor ===
+    // Reusable footprint buffer (no GC)
+    private readonly List<Vector2Int> _footprint = new();
+
+    public bool IsPlacementState => true;
     public string ObjectName => _obj != null ? _obj.name : "None";
 
     public MoveState(
@@ -36,7 +40,8 @@ public class MoveState : IPlacementState
         PlacementGrid grid,
         PlacementStateMachine fsm,
         RaycastController raycast,
-        CellIndicatorController indicator, MoneyService money)
+        CellIndicatorController indicator,
+        MoneyService money)
     {
         _actions = actions;
         _preview = preview;
@@ -62,7 +67,10 @@ public class MoveState : IPlacementState
 
         _raycast.EnableRay();
         _preview.ResetMoveGhostState();
+        _indicator.UseBuildMode(); // same visuals as BuildState
+
         _hasSelection = false;
+        _lastHoverCell = new Vector2Int(int.MinValue, int.MinValue);
     }
 
     // ---------------------------------------------------------
@@ -83,7 +91,7 @@ public class MoveState : IPlacementState
         _rotation = 0f;
         _originalRoot = default;
         _hasSelection = false;
-        
+
         _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
         _actions.BuildPlacement.Place.performed -= OnConfirmMove;
     }
@@ -141,7 +149,7 @@ public class MoveState : IPlacementState
     }
 
     // ---------------------------------------------------------
-    // TICK
+    // TICK — FULL BUILDSTATE‑QUALITY UX
     // ---------------------------------------------------------
     public void Tick()
     {
@@ -157,34 +165,47 @@ public class MoveState : IPlacementState
         if (!_raycast.HasHit)
         {
             _preview.HideGhost();
-            //return;
+            _indicator.ClearAll();
+            return;
         }
 
         Vector2Int newRoot = _raycast.HitCell;
 
+        // --- NEW CELL SOUND ---
+        if (newRoot != _lastHoverCell)
+        {
+            AudioManager.Play("NewCell");
+            _lastHoverCell = newRoot;
+        }
+
+        // --- VALIDATION ---
         bool valid = _validator.IsValidPlacement(newRoot, _offsets, _data, _obj);
 
-        // Show footprint
-        List<Vector2Int> footprint = new List<Vector2Int>();
+        // --- FOOTPRINT INDICATOR ---
+        _footprint.Clear();
         foreach (var o in _offsets)
-            footprint.Add(newRoot + o);
+            _footprint.Add(newRoot + o);
 
         _indicator.ShowCells(
-        footprint,
-        cell => true   // delete mode always shows yellow
-);
+            _footprint,
+            cell => valid // blue if valid, red if invalid
+        );
 
-        // Compute stack height
+        // --- STACK HEIGHT ---
         float stackY = 0f;
         if (_data.isStackable)
             stackY = _grid.GetStackHeight(newRoot, _obj);
 
+        // --- GHOST POSITION ---
         Vector3 pos = _grid.GetCellCenter(newRoot);
         pos.y += stackY;
+        _preview.UpdateGhostPosition(pos);
 
-        // Update ghost
-        if (_preview != null && _obj != null)
-            _preview.UpdateGhostPosition(pos);
+        // --- GHOST COLOR ---
+        if (valid)
+            _preview.SetGhostValid();
+        else
+            _preview.SetGhostInvalid();
     }
 
     // ---------------------------------------------------------
@@ -209,19 +230,18 @@ public class MoveState : IPlacementState
 
         // Push move command
         _fsm.History.Push(
-        new MoveCommand(
-        _grid,
-        _obj,
-        _data,
-        _originalRoot,
-        newRoot,
-        _offsets,
-        _rotation
-    )
-);
+            new MoveCommand(
+                _grid,
+                _obj,
+                _data,
+                _originalRoot,
+                newRoot,
+                _offsets,
+                _rotation
+            )
+        );
 
         _preview.ResetMoveGhostState();
-        //_obj.SetActive(true);
 
         // Reset selection but remain in MoveState
         _obj = null;
@@ -233,6 +253,10 @@ public class MoveState : IPlacementState
 
         _indicator.ClearAll();
     }
+
+    // ---------------------------------------------------------
+    // ROTATE
+    // ---------------------------------------------------------
     private void OnRotatePerformed(InputAction.CallbackContext ctx)
     {
         if (!_hasSelection)
