@@ -8,7 +8,8 @@
     left: 0;
     right: 0;
     bottom: 0;
-    pointer-events: none;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ===========================
@@ -156,9 +157,9 @@
 
 .buildmenu-submenu {
     position: absolute;
-    bottom: 96px;
-    left: 16px;
-    width: 300px; /* wider so names never get cut off */
+    left: 0px;
+    width: auto;
+    z-index: 50;
 
     pointer-events: auto;
 
@@ -168,17 +169,21 @@
 
     transform: translateY(100%);
     opacity: 0;
+    visibility: hidden;   /* keep in layout, but hidden */
 }
 
 .buildmenu-submenu-open {
     transform: translateY(0%);
     opacity: 1;
+    visibility: visible;
 }
 
 .buildmenu-submenu-closed {
     transform: translateY(100%);
     opacity: 0;
+    visibility: hidden;
 }
+
 
 .buildmenu-submenu-root {
     background-color: rgba(0, 0, 0, 0.8);

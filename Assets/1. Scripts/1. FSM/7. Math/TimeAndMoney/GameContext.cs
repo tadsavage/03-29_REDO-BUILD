@@ -27,6 +27,9 @@ public class GameContext : MonoBehaviour
 
         MoneyService = new MoneyService(startingCapital: 100000);
 
+        var ui = FindAnyObjectByType<BuildMenuUI>();
+        ui.Initialize(MoneyService);
+
         TimeService.OnHourChanged += () => MoneyService.ApplyHourlyCost();
         TimeService.OnDayChanged += () => MoneyService.ResetDailySpending();
     }

@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 public class BuildMenuUI : MonoBehaviour
 {
-    [Header("Data")]
-    [SerializeField] private ObjDataRegistry registry;
-
     [Header("Category Config")]
     [SerializeField] private List<CategoryConfig> categories = new();
 
@@ -17,19 +15,35 @@ public class BuildMenuUI : MonoBehaviour
     [SerializeField] private VisualTreeAsset itemButtonUxml;
     [SerializeField] private VisualTreeAsset submenuContainerUxml;
     [SerializeField] private VisualTreeAsset utilityButtonUxml;
+    [SerializeField] private VisualTreeAsset savePopupUxml;
 
     [Header("Styles")]
     [SerializeField] private StyleSheet buildMenuStyle;
 
-    // Utility Button setup stuff ***********************************
+    [Header("Save / Load")]
+    [SerializeField] private PlacementSystem placementSystem;
+    [SerializeField] private ObjDataRegistry registry;
+    private MoneyService moneyService;
+    public GameContext Context { get; private set; }
+
+    // Save popup UI
+    private VisualElement _savePopup;
+    private TextField _saveNameField;
+    private Button _confirmSaveButton;
+    private Button _cancelSaveButton;
+
+    // Last clicked category button (for submenu alignment)
+    private VisualElement _lastClickedCategoryButton;
+
+    // Utility Button setup ***********************************
     [Serializable]
     public class UtilityButtonConfig
     {
-        public string id;        // "DELETE", "MOVE", etc.
-        public Texture2D icon;   // your original icon
+        public string id;
+        public Texture2D icon;
     }
     [SerializeField] private List<UtilityButtonConfig> utilityButtons = new();
-    // ***************************************************************
+    // ********************************************************
 
     // Events for other systems
     public Action<ObjDataSO> OnBuildItemClicked;
@@ -40,6 +54,7 @@ public class BuildMenuUI : MonoBehaviour
     public Action OnCancelClicked;
     public Action OnRotateClicked;
 
+    // UI Toolkit references
     private UIDocument _uiDoc;
     private VisualElement _root;
     private VisualElement _bottomBar;
@@ -48,19 +63,19 @@ public class BuildMenuUI : MonoBehaviour
     private VisualElement _submenuContainer;
     private ScrollView _submenuScroll;
 
+    // State
     private CategoryConfig _activeCategory;
     private bool _submenuOpen;
 
     [Serializable]
     public class CategoryConfig
     {
-        public string id;              // "Walls", "Floors", etc.
-        public string displayName;     // label text
-        public Texture2D icon;         // category icon
-        public List<ObjDataSO> items;  // items in this category
+        public string id;
+        public string displayName;
+        public Texture2D icon;
+        public List<ObjDataSO> items;
     }
 
-    // Keeps camera from zooming when scrolling over the build menu
     public static bool IsPointerOverBuildMenu;
 
     private void Awake()
@@ -70,17 +85,11 @@ public class BuildMenuUI : MonoBehaviour
 
     private void OnEnable()
     {
+
         if (_uiDoc == null)
             _uiDoc = GetComponent<UIDocument>();
 
-        if (buildMenuUxml != null)
-        {
-            _root = _uiDoc.rootVisualElement;
-        }
-        else
-        {
-            _root = _uiDoc.rootVisualElement;
-        }
+        _root = _uiDoc.rootVisualElement;
 
         if (buildMenuStyle != null)
             _root.styleSheets.Add(buildMenuStyle);
@@ -89,9 +98,89 @@ public class BuildMenuUI : MonoBehaviour
         BuildCategoryButtons();
         BuildUtilityButtons();
         BuildSubmenuContainer();
+        BuildSavePopup();
         CloseSubmenu();
     }
+    public void Initialize(MoneyService money)
+    {
+        moneyService = money;
+    }
+    // ---------------------------------------------------------
+    // SAVE POPUP
+    // ---------------------------------------------------------
+    private void BuildSavePopup()
+    {
+        var popup = savePopupUxml.Instantiate();
+        _root.Add(popup);
 
+        // Query inside the template content container
+        _savePopup = popup.contentContainer.Q<VisualElement>("SavePopup");
+        _saveNameField = popup.contentContainer.Q<TextField>("SaveNameField");
+        _confirmSaveButton = popup.contentContainer.Q<Button>("ConfirmSaveButton");
+        _cancelSaveButton = popup.contentContainer.Q<Button>("CancelSaveButton");
+
+        _confirmSaveButton.clicked += ConfirmSave;
+        _cancelSaveButton.clicked += HideSavePopup;
+
+        HideSavePopup();
+    }
+
+    private void ShowSavePopup()
+    {
+        _savePopup.RemoveFromClassList("hidden");
+        _saveNameField.value = "";
+    }
+
+    private void HideSavePopup()
+    {
+        _savePopup.AddToClassList("hidden");
+    }
+
+    private void ConfirmSave()
+    {
+        
+
+
+        if (_savePopup == null)
+        {
+            Debug.LogError("❌ SavePopup is NULL — the popup UXML was not instantiated.");
+            return;
+        }
+
+        if (_saveNameField == null)
+        {
+            Debug.LogError("❌ SaveNameField is NULL — the TextField named 'SaveNameField' was NOT found in the instantiated popup.");
+            Debug.LogError("➡ This means your SavePopup.uxml does NOT contain a TextField with name='SaveNameField'.");
+            return;
+        }
+
+        string saveName = _saveNameField.value;
+
+        if (string.IsNullOrWhiteSpace(saveName))
+        {
+            Debug.LogWarning("⚠ Save name is empty.");
+            return;
+        }
+
+        SaveData data = new SaveData();
+        data.saveName = saveName;
+        Debug.Log("moneyService is null? " + (moneyService == null));
+        data.money = moneyService.CurrentCapital;
+
+        foreach (var obj in PlacedObjectRegistry.All)
+            data.placedObjects.Add(obj.ToSaveData());
+
+        Debug.Log("Saving objects count = " + data.placedObjects.Count);
+
+        SaveSystem.Save(data);
+
+        HideSavePopup();
+    }
+
+
+    // ---------------------------------------------------------
+    // CACHE ROOT ELEMENTS
+    // ---------------------------------------------------------
     private void CacheElements()
     {
         _bottomBar = _root.Q<VisualElement>("BottomBar");
@@ -100,6 +189,9 @@ public class BuildMenuUI : MonoBehaviour
         _submenuContainer = _root.Q<VisualElement>("SubmenuContainer");
     }
 
+    // ---------------------------------------------------------
+    // CATEGORY BUTTONS
+    // ---------------------------------------------------------
     private void BuildCategoryButtons()
     {
         _categoryRow.Clear();
@@ -126,6 +218,9 @@ public class BuildMenuUI : MonoBehaviour
         }
     }
 
+    // ---------------------------------------------------------
+    // UTILITY BUTTONS
+    // ---------------------------------------------------------
     private void BuildUtilityButtons()
     {
         _utilityRow.Clear();
@@ -151,21 +246,48 @@ public class BuildMenuUI : MonoBehaviour
                 case "REDO": button.clicked += () => OnRedoClicked?.Invoke(); break;
                 case "CANCEL": button.clicked += () => OnCancelClicked?.Invoke(); break;
                 case "ROTATE": button.clicked += () => OnRotateClicked?.Invoke(); break;
+                case "SAVE": button.clicked += ShowSavePopup; break;
+                case "LOAD": button.clicked += LoadGame; break;
             }
 
             _utilityRow.Add(ve);
         }
     }
 
-
-    private Button CreateUtilityButton(string text, Action onClick)
+    // ---------------------------------------------------------
+    // LOAD GAME
+    // ---------------------------------------------------------
+    private void LoadGame()
     {
-        var btn = new Button { text = text };
-        btn.AddToClassList("buildmenu-utility-button");
-        btn.clicked += () => onClick?.Invoke();
-        return btn;
+        Debug.Log("LoadGame() START");
+
+        var data = SaveSystem.Load("MyWarehouse");
+        Debug.Log(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK");
+
+        if (data == null)
+            return;
+
+        Debug.Log("LoadGame: setting money...");
+        moneyService.SetMoney(data.money);
+
+        Debug.Log("LoadGame: clearing placement...");
+        placementSystem.ClearAll();
+
+        Debug.Log("LoadGame: spawning objects, count = " + data.placedObjects.Count);
+
+        foreach (var p in data.placedObjects)
+        {
+            var so = registry.GetByID(p.id);
+            Debug.Log($"Spawning {p.id} at {p.x},{p.y} rot {p.rot}, so is null? {so == null}");
+            placementSystem.SpawnFromSave(so, p.x, p.y, p.rot);
+        }
+
+        Debug.Log("LoadGame() END");
     }
 
+    // ---------------------------------------------------------
+    // SUBMENU SYSTEM
+    // ---------------------------------------------------------
     private void BuildSubmenuContainer()
     {
         _submenuContainer.Clear();
@@ -176,26 +298,24 @@ public class BuildMenuUI : MonoBehaviour
         var root = ve.Q<VisualElement>("SubmenuRoot");
         _submenuScroll = ve.Q<ScrollView>("SubmenuScroll");
 
-        // Close when mouse leaves submenu
-        root.RegisterCallback<MouseLeaveEvent>(_ =>
-        {
-            CloseSubmenu();
-        });
+        root.RegisterCallback<MouseLeaveEvent>(_ => CloseSubmenu());
+        root.RegisterCallback<PointerEnterEvent>(_ => IsPointerOverBuildMenu = true);
+        root.RegisterCallback<PointerLeaveEvent>(_ => IsPointerOverBuildMenu = false);
 
-        root.RegisterCallback<PointerEnterEvent>(_ =>
+        _submenuScroll.RegisterCallback<GeometryChangedEvent>(evt =>
         {
-            IsPointerOverBuildMenu = true;
-        });
+            if (!_submenuOpen)
+                return;
 
-        root.RegisterCallback<PointerLeaveEvent>(_ =>
-        {
-            IsPointerOverBuildMenu = false;
+            if (evt.newRect.height <= 20f)
+                return;
+
+            PositionSubmenuNow();
         });
     }
 
     private void OnCategoryClicked(CategoryConfig cat)
     {
-        // If clicking the same category while open → close it
         if (_activeCategory == cat && _submenuOpen)
         {
             CloseSubmenu();
@@ -203,41 +323,25 @@ public class BuildMenuUI : MonoBehaviour
         }
 
         _activeCategory = cat;
+        _lastClickedCategoryButton = null;
 
-        //
-        // 1. Remove "selected" class from ALL category buttons
-        //
-        foreach (var child in _categoryRow.Children())
-        {
-            var btn = child.Q<Button>("CategoryButton");
-            if (btn != null)
-                btn.RemoveFromClassList("selected");
-        }
-
-        //
-        // 2. Add "selected" class to the clicked button
-        //
-        // We need to find the actual button instance that was clicked.
-        // The easiest way is to locate it by matching the category ID.
-        //
         foreach (var child in _categoryRow.Children())
         {
             var btn = child.Q<Button>("CategoryButton");
             var label = child.Q<Label>("Label");
 
+            if (btn != null)
+                btn.RemoveFromClassList("selected");
+
             if (btn != null && label != null && label.text == cat.displayName)
             {
                 btn.AddToClassList("selected");
-                break;
+                _lastClickedCategoryButton = btn;
             }
         }
 
-        //
-        // 3. Open submenu for this category
-        //
         OpenSubmenu(cat);
     }
-
 
     private void OpenSubmenu(CategoryConfig cat)
     {
@@ -260,16 +364,12 @@ public class BuildMenuUI : MonoBehaviour
                 var nameLabel = ve.Q<Label>("ItemName");
                 var costLabel = ve.Q<Label>("ItemCost");
 
-                // Set icon
                 if (item.icon != null)
                     icon.style.backgroundImage = new StyleBackground(item.icon);
 
-                // Set name + cost
                 nameLabel.text = item.objName;
                 costLabel.text = $"${item.cost}";
 
-                // Tooltip + click
-                button.tooltip = item.objName;
                 var capturedItem = item;
                 button.clicked += () => OnBuildItemClicked?.Invoke(capturedItem);
 
@@ -280,12 +380,50 @@ public class BuildMenuUI : MonoBehaviour
         _submenuContainer.RemoveFromClassList("buildmenu-submenu-closed");
         _submenuContainer.AddToClassList("buildmenu-submenu-open");
         _submenuOpen = true;
+
+        AudioManager.Play("UI_Open");
+
+        PositionSubmenuAfterLayout();
     }
 
     private void CloseSubmenu()
     {
+        if (_submenuOpen)
+            AudioManager.Play("UI_Close");
+
         _submenuContainer.RemoveFromClassList("buildmenu-submenu-open");
         _submenuContainer.AddToClassList("buildmenu-submenu-closed");
         _submenuOpen = false;
+    }
+
+    private void PositionSubmenuAfterLayout()
+    {
+        _submenuContainer.schedule.Execute(() =>
+        {
+            PositionSubmenuNow();
+        }).ExecuteLater(0);
+    }
+
+    private void PositionSubmenuNow()
+    {
+        if (_lastClickedCategoryButton == null)
+            return;
+
+        if (_bottomBar == null || _root == null || _submenuContainer == null)
+            return;
+
+        Vector2 rootPos = _root.worldBound.position;
+        Vector2 buttonPos = _lastClickedCategoryButton.worldBound.position;
+
+        float localX = buttonPos.x - rootPos.x;
+        _submenuContainer.style.left = localX;
+
+        float bottomY = _bottomBar.worldBound.position.y - rootPos.y;
+        float submenuHeight = _submenuContainer.resolvedStyle.height;
+
+        float gapOffset = 16;
+        float top = bottomY - submenuHeight - gapOffset;
+
+        _submenuContainer.style.top = top;
     }
 }

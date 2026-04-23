@@ -96,4 +96,9 @@ public class MoneyService
 
         OnMoneyChanged?.Invoke();
     }
+    public void SetMoney(int amount)
+    {
+        CurrentCapital = amount;
+        OnMoneyChanged?.Invoke();
+    }
 }

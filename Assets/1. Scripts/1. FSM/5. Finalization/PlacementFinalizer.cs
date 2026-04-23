@@ -49,6 +49,15 @@ public class PlacementFinalizer : MonoBehaviour
             Vector2Int cell = root + o;
             _grid.AddStackObject(cell, instance, data);
         }
+        // FIX: If the object moves away immediately, remove it from the grid
+        if (data.ClearsGridAfterPlacement)
+        {
+            foreach (var o in offsets)
+            {
+                Vector2Int cell = root + o;
+                _grid.RemoveStackObject(cell, instance, data);
+            }
+        }
 
         var bd = instance.GetComponent<BuildingData>();
         if (bd != null)

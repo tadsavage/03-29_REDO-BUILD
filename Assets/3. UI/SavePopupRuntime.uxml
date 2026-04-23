@@ -1,0 +1,16 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="SavePopup.uss" />
+
+    <ui:VisualElement name="SavePopup" class="save-popup hidden">
+        <ui:VisualElement class="save-window">
+
+            <ui:Label text="Save Game" class="save-title" />
+
+            <ui:TextField name="SaveNameField" label="Save Name:" />
+
+            <ui:Button name="ConfirmSaveButton" text="Save" />
+            <ui:Button name="CancelSaveButton" text="Cancel" />
+
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "ObjDataSO", menuName = "Scriptable Objects/ObjDataSO")]
@@ -108,5 +109,17 @@ public class ObjDataSO : ScriptableObject
         r %= 360f;
         if (r < 0) r += 360f;
         return Mathf.Round(r / 90f) * 90f;
+    }
+    public class ObjDataRegistry : ScriptableObject
+    {
+        public List<ObjDataSO> buttonSOs = new();
+
+        public ObjDataSO Get(int index)
+        {
+            if (index < 0 || index >= buttonSOs.Count)
+                return null;
+
+            return buttonSOs[index];
+        }
     }
 }

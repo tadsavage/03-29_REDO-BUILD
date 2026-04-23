@@ -13,4 +13,16 @@ public class ObjDataRegistry : ScriptableObject
 
         return buttonSOs[index];
     }
+    public ObjDataSO GetByID(string id)
+    {
+        foreach (var so in buttonSOs)
+        {
+            if (so != null && so.objName == id)
+                return so;
+        }
+
+        Debug.LogWarning($"ObjDataRegistry: No ObjDataSO found with id '{id}'");
+        return null;
+    }
+
 }

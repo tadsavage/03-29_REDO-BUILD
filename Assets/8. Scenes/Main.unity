@@ -161,20 +161,27 @@ MonoBehaviour:
   m_GameObject: {fileID: 93724066}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0e27556a129ccf34fa951a9e0714adb1, type: 3}
+  m_Script: {fileID: 11500000, guid: 3c865b181d1253a498fc367ed858bcab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildMenuUI
-  registry: {fileID: 11400000, guid: 170486d4b75721b44885bf8a5052dd56, type: 2}
   categories:
-  - id: Walls
-    displayName: Walls
-    icon: {fileID: 2800000, guid: 281d71de907a0764497cb3a077df7965, type: 3}
+  - id: Barriers
+    displayName: Barriers
+    icon: {fileID: 2800000, guid: fb16e9c10150e044c84f3d388a293044, type: 3}
     items:
-    - {fileID: 11400000, guid: 70b1b6a644a0b6649b1d3a9c296bcfc4, type: 2}
-    - {fileID: 11400000, guid: 3986c6317f4da474f8d7e9f36d558671, type: 2}
-    - {fileID: 11400000, guid: cdeb30d27ec490f45a09046120415001, type: 2}
-    - {fileID: 11400000, guid: 0cf9ce017d3dd2b4e9c46b45c1438b7a, type: 2}
-    - {fileID: 11400000, guid: ca133c9ee2af359489230c2f20bd6010, type: 2}
+    - {fileID: 11400000, guid: 2c66f8649b3019242b7eaa8a693f5a59, type: 2}
+    - {fileID: 11400000, guid: d11e3c0d66b394845a3db8908ce9ff3a, type: 2}
+    - {fileID: 11400000, guid: 56eea171a3b19654687c9af7d6874b5a, type: 2}
+    - {fileID: 11400000, guid: 4b20d02207a5fc04ab179abd7e36669c, type: 2}
+    - {fileID: 11400000, guid: e6fc91d368bc7f0459a48c99a1b36944, type: 2}
+    - {fileID: 11400000, guid: 647a4a4713d66c943b819d6f7fdae937, type: 2}
+    - {fileID: 11400000, guid: 4a222c5c9093070429cc19ba35c32c42, type: 2}
+  - id: Flavor
+    displayName: Flavor
+    icon: {fileID: 2800000, guid: c2ffbf945cdbf9744a8775ef9f28c220, type: 3}
+    items:
+    - {fileID: 11400000, guid: 71ebe5e6eacb84f46bd1e66a0e6b1c91, type: 2}
+    - {fileID: 11400000, guid: 4e827e481f3ccae46a38d34f05351ebc, type: 2}
   - id: Floors
     displayName: Floors
     icon: {fileID: 2800000, guid: 7f9d961faddfd4046b4c4d2ee603e8cd, type: 3}
@@ -191,15 +198,25 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 52e4add3f2755f04889e2bcfb0429428, type: 2}
   - id: Vehicles
     displayName: Vehicles
-    icon: {fileID: 2800000, guid: 538f1a25c503f644789758b11084ba4d, type: 3}
+    icon: {fileID: 2800000, guid: 61da3e525287cc0469ea41db6b2a74ae, type: 3}
     items:
     - {fileID: 11400000, guid: 40172defa8e8f6f4291791dc70f1a081, type: 2}
     - {fileID: 11400000, guid: df7cf6797c88db941862c0a885f9f451, type: 2}
     - {fileID: 11400000, guid: f94b11ce10a004d4ca2aac43024ebcec, type: 2}
+  - id: Walls
+    displayName: Walls
+    icon: {fileID: 2800000, guid: 281d71de907a0764497cb3a077df7965, type: 3}
+    items:
+    - {fileID: 11400000, guid: 70b1b6a644a0b6649b1d3a9c296bcfc4, type: 2}
+    - {fileID: 11400000, guid: 3986c6317f4da474f8d7e9f36d558671, type: 2}
+    - {fileID: 11400000, guid: cdeb30d27ec490f45a09046120415001, type: 2}
+    - {fileID: 11400000, guid: 0cf9ce017d3dd2b4e9c46b45c1438b7a, type: 2}
+    - {fileID: 11400000, guid: ca133c9ee2af359489230c2f20bd6010, type: 2}
   - id: Staff
     displayName: Staff
     icon: {fileID: 2800000, guid: 0f7426c18124df7439533dbfba473982, type: 3}
     items:
+    - {fileID: 11400000, guid: 057df3258dd844e499f1f39bcc2d6bad, type: 2}
     - {fileID: 11400000, guid: bf3848f4f32563140815fc574dd64ee9, type: 2}
   - id: Racking
     displayName: Racking
@@ -207,35 +224,21 @@ MonoBehaviour:
     items:
     - {fileID: 11400000, guid: e9f85734707240742a5185307e872d94, type: 2}
     - {fileID: 11400000, guid: a310aaf47e15b034f960c53f945736fb, type: 2}
+    - {fileID: 11400000, guid: 4dc639a002d22b845924fe92535216d1, type: 2}
+    - {fileID: 11400000, guid: a315c3f42e1678945ba346607b0f333a, type: 2}
     - {fileID: 11400000, guid: cf07b95a18fc9624789dad4fd3553d47, type: 2}
     - {fileID: 11400000, guid: bdeacb16192cd1842a13215dd0db77ff, type: 2}
-    - {fileID: 11400000, guid: a315c3f42e1678945ba346607b0f333a, type: 2}
-    - {fileID: 11400000, guid: 4dc639a002d22b845924fe92535216d1, type: 2}
-    - {fileID: 11400000, guid: 0c89c640d4c67ae48989efd04e95cb07, type: 2}
     - {fileID: 11400000, guid: fc7d6445f8ee39445a16b661839710b8, type: 2}
-  - id: Barriers
-    displayName: Barriers
-    icon: {fileID: 2800000, guid: fb16e9c10150e044c84f3d388a293044, type: 3}
-    items:
-    - {fileID: 11400000, guid: 2c66f8649b3019242b7eaa8a693f5a59, type: 2}
-    - {fileID: 11400000, guid: d11e3c0d66b394845a3db8908ce9ff3a, type: 2}
-    - {fileID: 11400000, guid: 56eea171a3b19654687c9af7d6874b5a, type: 2}
-    - {fileID: 11400000, guid: 4b20d02207a5fc04ab179abd7e36669c, type: 2}
-    - {fileID: 11400000, guid: e6fc91d368bc7f0459a48c99a1b36944, type: 2}
-    - {fileID: 11400000, guid: 647a4a4713d66c943b819d6f7fdae937, type: 2}
-    - {fileID: 11400000, guid: 4a222c5c9093070429cc19ba35c32c42, type: 2}
-  - id: Flavor
-    displayName: Flavor
-    icon: {fileID: 2800000, guid: 7f6a42f204bfb214db3219ab9a201994, type: 3}
-    items:
-    - {fileID: 11400000, guid: 4e827e481f3ccae46a38d34f05351ebc, type: 2}
-    - {fileID: 11400000, guid: 71ebe5e6eacb84f46bd1e66a0e6b1c91, type: 2}
+    - {fileID: 11400000, guid: 0c89c640d4c67ae48989efd04e95cb07, type: 2}
   buildMenuUxml: {fileID: 9197481963319205126, guid: 686ea9fa756428c419b13442a8632381, type: 3}
   categoryButtonUxml: {fileID: 9197481963319205126, guid: 448174ebc99b8c44db599f6be1882885, type: 3}
   itemButtonUxml: {fileID: 9197481963319205126, guid: 8aaf2238ac65b604f9cfe52691c5f437, type: 3}
   submenuContainerUxml: {fileID: 9197481963319205126, guid: 7c75ce12def418241abf8ce8498c1404, type: 3}
   utilityButtonUxml: {fileID: 9197481963319205126, guid: b112891bbb718f8449773b56aef85e1c, type: 3}
+  savePopupUxml: {fileID: 9197481963319205126, guid: 15ff439f4dc696747923423e6bb4dcc4, type: 3}
   buildMenuStyle: {fileID: 7433441132597879392, guid: d8bb7700faa145541bb653373c53d4ec, type: 3}
+  placementSystem: {fileID: 1024109579}
+  registry: {fileID: 11400000, guid: 170486d4b75721b44885bf8a5052dd56, type: 2}
   utilityButtons:
   - id: DELETE
     icon: {fileID: 2800000, guid: f8f54168230389943ac6a70f02585b60, type: 3}
@@ -245,6 +248,10 @@ MonoBehaviour:
     icon: {fileID: 2800000, guid: 70909013476b2534fbf84321dfadd5a6, type: 3}
   - id: REDO
     icon: {fileID: 2800000, guid: 3f29fa26fd84a8542b994d881155268c, type: 3}
+  - id: SAVE
+    icon: {fileID: 2800000, guid: 17d4b5b915269e2409d22864b5ded02b, type: 3}
+  - id: LOAD
+    icon: {fileID: 2800000, guid: c3904e30ce739194f802711fcd37ec4a, type: 3}
 --- !u!114 &93724069
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -960,6 +967,7 @@ GameObject:
   - component: {fileID: 1024109576}
   - component: {fileID: 1024109578}
   - component: {fileID: 1024109577}
+  - component: {fileID: 1024109579}
   m_Layer: 0
   m_Name: PlacementController
   m_TagString: Untagged
@@ -1102,6 +1110,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameContext
   timeDriver: {fileID: 1024109577}
+--- !u!114 &1024109579
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1024109569}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 965a4a8111028b649b88dfbececd6cfa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlacementSystem
+  registry: {fileID: 11400000, guid: 170486d4b75721b44885bf8a5052dd56, type: 2}
+  grid: {fileID: 2094211284}
 --- !u!1 &1160879794
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,0 +1,37 @@
+.save-popup {
+    position: fixed;   /* <-- THIS is the magic */
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background-color: rgba(0, 0, 0, 0.45);
+}
+
+
+.save-popup.hidden {
+    display: none;
+}
+
+.save-window {
+    width: 320px;
+    padding: 20px;
+    border-radius: 8px;
+
+    background-color: #1e1e1e;
+    border: 2px solid #444;
+
+    flex-direction: column;
+    row-gap: 12px;
+}
+
+.save-title {
+    font-size: 18px;
+    unity-font-style: bold;
+    margin-bottom: 8px;
+}
+

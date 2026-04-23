@@ -1,10 +1,17 @@
-<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+         xmlns:ui="UnityEngine.UIElements" 
+         xmlns:uie="UnityEditor.UIElements"
+         noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd"
+         editor-extension-mode="False">
+
     <Style src="project://database/Assets/3.%20UI/BuildBar2/buildmenu.uss?fileID=7433441132597879392&amp;guid=d8bb7700faa145541bb653373c53d4ec&amp;type=3#buildmenu"/>
+
     <ui:VisualElement name="Root" picking-mode="Ignore" class="buildmenu-root">
         <ui:VisualElement name="BottomBar" picking-mode="Ignore" class="buildmenu-bottom-bar">
             <ui:VisualElement name="CategoryRow" class="buildmenu-category-row"/>
             <ui:VisualElement name="UtilityRow" class="buildmenu-utility-row"/>
         </ui:VisualElement>
+
         <ui:VisualElement name="SubmenuContainer" class="buildmenu-submenu buildmenu-submenu-closed"/>
     </ui:VisualElement>
 </ui:UXML>
