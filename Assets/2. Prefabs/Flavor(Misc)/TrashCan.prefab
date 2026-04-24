@@ -65,6 +65,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4b346a5f8ed83f84ab20957c5ec8a8bd, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1388756150765681656}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4b346a5f8ed83f84ab20957c5ec8a8bd, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6185409317006089734}
   m_SourcePrefab: {fileID: 100100000, guid: 4b346a5f8ed83f84ab20957c5ec8a8bd, type: 3}
 --- !u!1 &1557647605868092640 stripped
 GameObject:
@@ -120,3 +123,19 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.8495674, y: 1.2143368, z: 0.92243654}
   m_Center: {x: -0.00024414062, y: 0.63524246, z: -0.00006434323}
+--- !u!114 &6185409317006089734
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1557647605868092640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1c2077a2a0a9844b8bb47797e554524, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlacedObject
+  data: {fileID: 11400000, guid: 4e827e481f3ccae46a38d34f05351ebc, type: 2}
+  gridX: 0
+  gridY: 0
+  rotation: 0

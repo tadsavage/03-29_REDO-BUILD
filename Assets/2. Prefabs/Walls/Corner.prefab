@@ -50,7 +50,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: c5222887b0bbff043b53366abdceaeca, type: 3}
       propertyPath: m_Name
-      value: Corner 1
+      value: Corner
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -62,6 +62,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: c5222887b0bbff043b53366abdceaeca, type: 3}
       insertIndex: -1
       addedObject: {fileID: 769067110790074687}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: c5222887b0bbff043b53366abdceaeca, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -7173640551152648747}
   m_SourcePrefab: {fileID: 100100000, guid: c5222887b0bbff043b53366abdceaeca, type: 3}
 --- !u!1 &7361181783871670787 stripped
 GameObject:
@@ -96,3 +99,19 @@ MonoBehaviour:
   validMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
   invalidMaterial: {fileID: 2100000, guid: 57c0190b8df978f47bb3ee755afa0434, type: 2}
   deleteMaterial: {fileID: 2100000, guid: 94c126aba04045c4cb26be0d346e7aff, type: 2}
+--- !u!114 &-7173640551152648747
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7361181783871670787}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1c2077a2a0a9844b8bb47797e554524, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlacedObject
+  data: {fileID: 11400000, guid: ca133c9ee2af359489230c2f20bd6010, type: 2}
+  gridX: 0
+  gridY: 0
+  rotation: 0
