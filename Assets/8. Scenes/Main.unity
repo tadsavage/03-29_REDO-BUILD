@@ -1013,8 +1013,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d39436b62e6becf45ad63e64db1d05dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PreviewController
-  moveSmoothTime: 0.005
-  moveSmoothSpeed: 0.5
+  moveSmoothTime: 0.01
+  moveSmoothSpeed: 0.1
   initialMoveLerp: 0.15
   useFlyIn: 0
   flyDuration: 0.25
@@ -1082,8 +1082,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CellIndicatorController
   buildValidColor: {r: 0.003144443, g: 0.88162285, b: 1, a: 0.75686276}
   buildInvalidColor: {r: 1, g: 0.22, b: 0.22, a: 0.75}
-  moveValidColor: {r: 0.1, g: 0.65, b: 0.2, a: 0.5}
-  moveInvalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
   deleteColor: {r: 1, g: 1, b: 0.2, a: 0.45}
   indicatorPrefab: {fileID: 497207558}
   grid: {fileID: 2094211284}

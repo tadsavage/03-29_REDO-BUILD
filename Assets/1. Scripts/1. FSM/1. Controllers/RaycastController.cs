@@ -53,13 +53,8 @@ public class RaycastController : MonoBehaviour
 
     public void Tick()
     {
-        if (!_enabled) {
-            return; }
-          
-        if(_enabled && _line != null)// && _line.enabled)
-        {
-            Debug.Log("RaycastController: Ray is enabled and line renderer is active.");
-        }
+        if (!_enabled)
+            return;
 
         Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
 
