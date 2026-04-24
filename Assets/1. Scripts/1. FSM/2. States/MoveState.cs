@@ -64,6 +64,11 @@ public class MoveState : IPlacementState
         _preview.ResetMoveGhostState();
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+        _indicator.UseBuildMode(); // same visuals as BuildState
+
+>>>>>>> parent of 367c7f8 (Working at work.)
 =======
         _indicator.UseBuildMode(); // same visuals as BuildState
 
@@ -169,11 +174,14 @@ public class MoveState : IPlacementState
             _preview.HideGhost();
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             //return;
         }
 
         Vector2Int newRoot = _raycast.HitCell;
 =======
+=======
+>>>>>>> parent of 367c7f8 (Working at work.)
 =======
 >>>>>>> parent of 367c7f8 (Working at work.)
             _indicator.ClearAll();
