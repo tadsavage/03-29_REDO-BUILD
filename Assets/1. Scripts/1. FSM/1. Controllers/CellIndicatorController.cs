@@ -8,7 +8,9 @@ public class CellIndicatorController : MonoBehaviour
     // =========================================================
     [Header("Build Colors")]
     [SerializeField] private Color buildValidColor = new Color(.1f, .25f, .65f, .50f);
-    [SerializeField] private Color buildInvalidColor = new Color(1f, .22f, .22f, .75f);
+    [SerializeField] private Color buildInvalidColor = new Color(1f, .2f, .2f, .75f);
+    [SerializeField] private Color moveValidColor = new Color(0f, .9f, .1f, .85f);
+    [SerializeField] private Color moveInvalidColor = new Color(1f, .2f, .2f, .75f);
 
     [Header("Delete Color")]
     [SerializeField] private Color deleteColor = new Color(1f, 1f, .20f, .45f);
@@ -34,7 +36,8 @@ public class CellIndicatorController : MonoBehaviour
     private enum IndicatorMode
     {
         Build,
-        Delete
+        Delete,
+        Move
     }
 
     private IndicatorMode _mode = IndicatorMode.Build;
@@ -56,6 +59,11 @@ public class CellIndicatorController : MonoBehaviour
     public void UseDeleteMode()
     {
         _mode = IndicatorMode.Delete;
+        ClearAll();
+    }
+    public void UseMoveMode()
+    {
+        _mode = IndicatorMode.Move;
         ClearAll();
     }
 
@@ -147,6 +155,10 @@ public class CellIndicatorController : MonoBehaviour
         {
             _mpb.SetColor("_BaseColor", deleteColor);
         }
+        else if (_mode == IndicatorMode.Move)
+        {
+            _mpb.SetColor("_BaseColor", isValid ? moveValidColor : moveInvalidColor);
+        }   
         else
         {
             _mpb.SetColor("_BaseColor", isValid ? buildValidColor : buildInvalidColor);

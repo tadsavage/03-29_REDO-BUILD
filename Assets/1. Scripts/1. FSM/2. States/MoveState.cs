@@ -67,8 +67,7 @@ public class MoveState : IPlacementState
 
         _raycast.EnableRay();
         _preview.ResetMoveGhostState();
-        _indicator.UseBuildMode(); // same visuals as BuildState
-
+        _indicator.UseMoveMode(); // same visuals as BuildState
         _hasSelection = false;
         _lastHoverCell = new Vector2Int(int.MinValue, int.MinValue);
     }
@@ -126,7 +125,6 @@ public class MoveState : IPlacementState
                 }
             }
         }
-
         // Select object
         _obj = bd.gameObject;
         _data = bd.Data;
@@ -152,10 +150,11 @@ public class MoveState : IPlacementState
     // TICK — FULL BUILDSTATE‑QUALITY UX
     // ---------------------------------------------------------
     public void Tick()
-    {
+    {        // -- Show Cell Indicator on hover (even if invalid) ---
+        Vector2Int newRoot = _raycast.HitCell;
+        _indicator.ShowCell(newRoot);
         if (!_hasSelection)
         {
-            _indicator.ClearAll();
             TrySelectObject();
             return;
         }
@@ -165,11 +164,8 @@ public class MoveState : IPlacementState
         if (!_raycast.HasHit)
         {
             _preview.HideGhost();
-            _indicator.ClearAll();
             return;
         }
-
-        Vector2Int newRoot = _raycast.HitCell;
 
         // --- NEW CELL SOUND ---
         if (newRoot != _lastHoverCell)
