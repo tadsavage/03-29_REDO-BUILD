@@ -5,15 +5,20 @@ public class GameContext : MonoBehaviour
 {
     //public TopRightUI_TimeMoney topRightUI; DONT NEED RIGHT NOW, JUST TESTING
 
+
+
+
     private void Start()
     {
         //topRightUI.Initialize(MoneyService, TimeService);
     }
     public MoneyService MoneyService { get; private set; }
-
     public SimulationTimeService TimeService { get; private set; }
-
     [SerializeField] private TimeDriver timeDriver;
+
+    [SerializeField] private PlacementGrid grid;
+    public PlacementGrid Grid => grid;
+
 
     private void Awake()
     {

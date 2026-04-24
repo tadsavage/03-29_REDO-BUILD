@@ -259,74 +259,7 @@ public class BuildMenuUI : MonoBehaviour
     // ---------------------------------------------------------
     public void LoadGame()
     {
-        Debug.Log("LoadGame() START");
-
-        SaveData save = SaveSystem.Load("tad");
-        if (save == null)
-        {
-            Debug.LogError("LoadGame: no save file found");
-            return;
-        }
-
-        Debug.Log("LoadGame: data loaded OK");
-
-        // 1. Restore money
-        Debug.Log("LoadGame: setting money...");
-        Context.MoneyService.SetMoney(save.money);
-
-        // 2. Clear existing placed objects
-        Debug.Log("LoadGame: clearing placement...");
-        Context.Grid.ClearAll();
-        Context.PlacedObjects.ClearAll();
-
-        // 3. Spawn saved objects
-        Debug.Log($"LoadGame: spawning objects, count = {save.objects.Count}");
-
-        foreach (var objSave in save.objects)
-        {
-            // A. Get the ScriptableObject data
-            BuildingDataSO data = Database.GetByID(objSave.id);
-            if (data == null)
-            {
-                Debug.LogError($"LoadGame: could not find SO for id {objSave.id}");
-                continue;
-            }
-
-            // B. Compute world position + rotation
-            Vector3 worldPos = Context.Grid.GridToWorld(objSave.x, objSave.y);
-            Quaternion worldRot = Quaternion.Euler(0f, objSave.rot * 90f, 0f);
-
-            // C. Instantiate
-            GameObject obj = GameObject.Instantiate(data.prefab, worldPos, worldRot);
-
-            // D. Reconnect PlacedObject
-            PlacedObject placed = obj.GetComponent<PlacedObject>();
-            if (placed == null)
-            {
-                Debug.LogError("LoadGame: spawned object missing PlacedObject component");
-                continue;
-            }
-
-            placed.Data = data;
-            placed.GridX = objSave.x;
-            placed.GridY = objSave.y;
-            placed.Rotation = objSave.rot;
-
-            // E. Reinitialize BuildingHighlighter
-            BuildingHighlighter highlighter = obj.GetComponent<BuildingHighlighter>();
-            if (highlighter != null)
-            {
-                highlighter.Initialize();   // ← REQUIRED for MoveState to work
-            }
-
-            // F. Register with grid + global list
-            Context.Grid.Register(placed);
-            Context.PlacedObjects.Add(placed);
-
-            Debug.Log($"Spawned {data.name} at {objSave.x},{objSave.y} rot {objSave.rot}");
-        }
-
-        Debug.Log("LoadGame() END");
+        placementSystem.LoadGame();
     }
 
     // ---------------------------------------------------------
