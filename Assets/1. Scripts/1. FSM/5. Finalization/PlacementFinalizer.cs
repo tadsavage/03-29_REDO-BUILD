@@ -43,12 +43,6 @@ public class PlacementFinalizer : MonoBehaviour
 
         instance.transform.position = pos;
         instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
-        FXPool.Instance.Play("dust", pos);
-
-        // ⭐ ADD THIS ⭐
-        var po = instance.GetComponent<PlacedObject>();
-        if (po != null)
-            po.Initialize(data, root.x, root.y, (int)(rotation / 90f));
 
         foreach (var o in offsets)
         {

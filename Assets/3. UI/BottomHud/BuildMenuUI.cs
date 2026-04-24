@@ -259,7 +259,34 @@ public class BuildMenuUI : MonoBehaviour
     // ---------------------------------------------------------
     public void LoadGame()
     {
+<<<<<<< HEAD
         placementSystem.LoadGame();
+=======
+        Debug.Log("LoadGame() START");
+
+        var data = SaveSystem.Load("MyWarehouse");
+        Debug.Log(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK");
+
+        if (data == null)
+            return;
+
+        Debug.Log("LoadGame: setting money...");
+        moneyService.SetMoney(data.money);
+
+        Debug.Log("LoadGame: clearing placement...");
+        placementSystem.ClearAll();
+
+        Debug.Log("LoadGame: spawning objects, count = " + data.placedObjects.Count);
+
+        foreach (var p in data.placedObjects)
+        {
+            var so = registry.GetByID(p.id);
+            Debug.Log($"Spawning {p.id} at {p.x},{p.y} rot {p.rot}, so is null? {so == null}");
+            placementSystem.SpawnFromSave(so, p.x, p.y, p.rot);
+        }
+
+        Debug.Log("LoadGame() END");
+>>>>>>> parent of 3f8c48f (Working on final setup for save load and smalll Quality of life improvements)
     }
 
     // ---------------------------------------------------------
