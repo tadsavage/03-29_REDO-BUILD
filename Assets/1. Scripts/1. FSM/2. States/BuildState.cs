@@ -111,6 +111,7 @@ public class BuildState : IPlacementState
 
     public void Tick()
     {
+        //Debug.Log($"[BuildState] Entered BuildState with object: {ObjectName}");
         _raycast.Tick();
 
         if (!_raycast.HasHit)
