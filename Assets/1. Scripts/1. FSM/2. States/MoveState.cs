@@ -62,6 +62,11 @@ public class MoveState : IPlacementState
 
         _raycast.EnableRay();
         _preview.ResetMoveGhostState();
+<<<<<<< HEAD
+=======
+        _indicator.UseBuildMode(); // same visuals as BuildState
+
+>>>>>>> parent of 367c7f8 (Working at work.)
         _hasSelection = false;
     }
 
@@ -157,10 +162,25 @@ public class MoveState : IPlacementState
         if (!_raycast.HasHit)
         {
             _preview.HideGhost();
+<<<<<<< HEAD
             //return;
         }
 
         Vector2Int newRoot = _raycast.HitCell;
+=======
+            _indicator.ClearAll();
+            return;
+        }
+
+        Vector2Int newRoot = _raycast.HitCell;
+
+        // --- NEW CELL SOUND ---
+        if (newRoot != _lastHoverCell)
+        {
+            AudioManager.Play("NewCell");
+            _lastHoverCell = newRoot;
+        }
+>>>>>>> parent of 367c7f8 (Working at work.)
 
         bool valid = _validator.IsValidPlacement(newRoot, _offsets, _data, _obj);
 
