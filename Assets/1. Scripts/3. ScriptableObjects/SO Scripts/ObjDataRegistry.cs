@@ -5,6 +5,7 @@ using UnityEngine;
 public class ObjDataRegistry : ScriptableObject
 {
     public List<ObjDataSO> buttonSOs = new();
+    private Dictionary<int, ObjDataSO> _lookup;
 
     public ObjDataSO Get(int index)
     {
@@ -13,15 +14,18 @@ public class ObjDataRegistry : ScriptableObject
 
         return buttonSOs[index];
     }
-    public ObjDataSO GetByID(string id)
+    private void OnEnable()
     {
-        foreach (var so in buttonSOs)
-        {
-            if (so != null && so.objName == id)
-                return so;
-        }
+        _lookup = new Dictionary<int, ObjDataSO>();
+        foreach (var data in buttonSOs)
+            _lookup[data.id] = data;
+    }
+    public ObjDataSO GetByID(int id)
+    {
+        if (_lookup.TryGetValue(id, out var result))
+            return result;
 
-        Debug.LogWarning($"ObjDataRegistry: No ObjDataSO found with id '{id}'");
+        Debug.LogError($"ObjDataRegistry: No ObjDataSO found with id {id}");
         return null;
     }
 

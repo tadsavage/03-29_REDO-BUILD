@@ -112,19 +112,41 @@ public class MoveState : IPlacementState
         if (bd == null || bd.Data.ClearsGridAfterPlacement)
             return;
 
-        // Must be top of stack
+        // Resolve the TRUE top object across the footprint
+        GameObject trueTop = null;
+
         foreach (var o in bd.Offsets)
         {
-            var list = _grid.GetObjectsInCell(bd.RootCell + o);
-            if (list != null && list.Count > 0)
+            Vector2Int cell = bd.RootCell + o;
+            GameObject top = _grid.GetTopObject(cell);
+
+            if (top == null)
+                continue;
+
+            // The top object must be the same across all footprint cells
+            if (trueTop == null)
+                trueTop = top;
+            else if (trueTop != top)
             {
-                if (list[list.Count - 1].instance != _raycast.HitObject)
-                {
-                    AudioManager.Play("InvalidPlace");
-                    return;
-                }
+                // Footprint cells disagree — cannot move this object
+                AudioManager.Play("InvalidPlace");
+                return;
             }
         }
+
+        // If nothing found, bail
+        if (trueTop == null)
+            return;
+
+        // If the hit object is NOT the top object, override selection
+        if (trueTop != _raycast.HitObject)
+        {
+            // Select the true top object instead
+            bd = trueTop.GetComponent<BuildingData>();
+            if (bd == null)
+                return;
+        }
+
         // Select object
         _obj = bd.gameObject;
         _data = bd.Data;

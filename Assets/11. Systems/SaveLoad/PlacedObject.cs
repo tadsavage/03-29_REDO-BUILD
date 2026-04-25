@@ -36,30 +36,4 @@ public class PlacedObject : MonoBehaviour
 
         transform.rotation = Quaternion.Euler(0, rot * 90f, 0);
     }
-
-    /// <summary>
-    /// Converts this object into serializable save data.
-    /// </summary>
-    public PlacedObjectData ToSaveData()
-    {
-        return new PlacedObjectData
-        {
-            id = data.objName,
-            x = gridX,
-            y = gridY,
-            rot = rotation
-        };
-    }
-}
-
-/// <summary>
-/// Serializable struct used for saving and loading placed objects.
-/// </summary>
-[System.Serializable]
-public struct PlacedObjectData
-{
-    public string id;
-    public int x;
-    public int y;
-    public int rot;
 }

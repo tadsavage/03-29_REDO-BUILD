@@ -17,12 +17,7 @@ public class GameContext : MonoBehaviour
 
     private void Awake()
     {
-        TimeService = new SimulationTimeService(
-            startDay: 1,
-            startHour: 8,
-            startMinute: 0
-        );
-
+        TimeService = new SimulationTimeService(1, 8, 0);
         timeDriver.Initialize(TimeService);
 
         MoneyService = new MoneyService(startingCapital: 100000);
@@ -30,7 +25,11 @@ public class GameContext : MonoBehaviour
         var ui = FindAnyObjectByType<BuildMenuUI>();
         ui.Initialize(MoneyService);
 
+        var placement = FindAnyObjectByType<PlacementSystem>();
+        placement.Initialize(MoneyService);
+
         TimeService.OnHourChanged += () => MoneyService.ApplyHourlyCost();
         TimeService.OnDayChanged += () => MoneyService.ResetDailySpending();
     }
+
 }

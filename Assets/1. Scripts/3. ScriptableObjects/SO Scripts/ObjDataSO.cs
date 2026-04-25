@@ -5,6 +5,7 @@ using UnityEngine;
 public class ObjDataSO : ScriptableObject
 {
     [Header("Basic Info")]
+    public int id;
     public string objName;
     public int cost;
     public int hourlyCost;

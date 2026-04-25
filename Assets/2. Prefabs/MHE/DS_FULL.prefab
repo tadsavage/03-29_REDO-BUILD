@@ -322,6 +322,7 @@ GameObject:
   - component: {fileID: 2150567686952262307}
   - component: {fileID: 5586181201416551042}
   - component: {fileID: 257162180295630956}
+  - component: {fileID: 8336777471080889589}
   m_Layer: 0
   m_Name: DS_FULL
   m_TagString: Building
@@ -488,6 +489,22 @@ MonoBehaviour:
   validMaterial: {fileID: 0}
   invalidMaterial: {fileID: 0}
   deleteMaterial: {fileID: 0}
+--- !u!114 &8336777471080889589
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3389889987695447165}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1c2077a2a0a9844b8bb47797e554524, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlacedObject
+  data: {fileID: 0}
+  gridX: 0
+  gridY: 0
+  rotation: 0
 --- !u!1 &6245394892165333976
 GameObject:
   m_ObjectHideFlags: 0

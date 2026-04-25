@@ -138,9 +138,6 @@ public class BuildMenuUI : MonoBehaviour
 
     private void ConfirmSave()
     {
-        
-
-
         if (_savePopup == null)
         {
             Debug.LogError("❌ SavePopup is NULL — the popup UXML was not instantiated.");
@@ -166,9 +163,6 @@ public class BuildMenuUI : MonoBehaviour
         data.saveName = saveName;
         Debug.Log("moneyService is null? " + (moneyService == null));
         data.money = moneyService.CurrentCapital;
-
-        foreach (var obj in PlacedObjectRegistry.All)
-            data.placedObjects.Add(obj.ToSaveData());
 
         Debug.Log("Saving objects count = " + data.placedObjects.Count);
 
