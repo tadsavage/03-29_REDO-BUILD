@@ -239,7 +239,6 @@ MonoBehaviour:
   buildMenuStyle: {fileID: 7433441132597879392, guid: d8bb7700faa145541bb653373c53d4ec, type: 3}
   placementSystem: {fileID: 1024109579}
   registry: {fileID: 11400000, guid: 170486d4b75721b44885bf8a5052dd56, type: 2}
-  grid: {fileID: 2094211284}
   utilityButtons:
   - id: DELETE
     icon: {fileID: 2800000, guid: f8f54168230389943ac6a70f02585b60, type: 3}
@@ -1016,8 +1015,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PreviewController
   moveSmoothTime: 0.005
   moveSmoothSpeed: 0.5
+  initialMoveLerp: 0.15
   useFlyIn: 1
   flyDuration: 0.25
+  _flyStartPos: {x: 0, y: 0, z: 0}
+  _highlightMat: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
   _ghostMaterial: {fileID: 2100000, guid: c8cca804bcdf0e345a22591078c20b9a, type: 2}
 --- !u!114 &1024109573
 MonoBehaviour:
@@ -2074,7 +2076,7 @@ MonoBehaviour:
   Width: 60
   Height: 60
   Origin: {x: -39.8, y: 0.005, z: -39.8}
-  maxStackHeight: 30
+  maxStackHeight: 12
   UseVisualizer: 1
   CellMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
   VisualParent: {fileID: 2094211283}

@@ -68,7 +68,11 @@ public class PlacementFinalizer : MonoBehaviour
         var bd = instance.GetComponent<BuildingData>();
         if (bd != null)
             bd.Initialize(root, rotation, offsets);
+<<<<<<< HEAD
         //Debug.Log($"Placed w/Finalizer {data.objName} at {root}");
+=======
+
+>>>>>>> parent of 3c2bc81 (Finally working Save load - good save window - everything working)
         return instance;
     }
 

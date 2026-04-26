@@ -76,17 +76,13 @@ public class MoveCommand : ICommand
             Vector2Int cell = to + o;
             _grid.AddStackObject(cell, _instance, _data);
         }
-        // 5. Update BuildingData
-        var bd = _instance.GetComponent<BuildingData>();
-        bd.Initialize(to, _rotation, _offsets);
-        //Debug.Log($"Placed w/Finalizer {_data.objName} at {to}");
 
         // ---------------------------------------------------------
-        // 5b. Update PlacedObject logical coordinates (CRITICAL)
+        // 5. Update BuildingData
         // ---------------------------------------------------------
-        var po = _instance.GetComponent<PlacedObject>();
-        po.gridX = to.x;
-        po.gridY = to.y;
+        var bd = _instance.GetComponent<BuildingData>();
+        bd.Initialize(to, _rotation, _offsets);
+
         // ---------------------------------------------------------
         // 6. FX (once, not per cell)
         // ---------------------------------------------------------

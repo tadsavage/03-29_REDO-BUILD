@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /// <summary>
 /// Handles placing objects into the world during gameplay
@@ -10,9 +10,6 @@ public class PlacementSystem : MonoBehaviour
     [SerializeField] private PlacementGrid grid;
 
     private MoneyService moneyService;
-
-    private string lastSaveName = "autosave";
-
 
     // Called by GameContext
     public void Initialize(MoneyService money)
@@ -44,47 +41,25 @@ public class PlacementSystem : MonoBehaviour
     // ---------------------------------------------------------
     public PlacedObject SpawnFromSave(ObjDataSO so, int x, int y, int rot)
     {
-        Vector2Int root = new Vector2Int(x, y);
-        float rotationDeg = rot * 90f;
+        Vector2Int cell = new Vector2Int(x, y);
+        Vector3 worldPos = grid.GetCellCenter(cell);
 
-        // 1. Ask grid what the current stack height is at this root
-        float stackY = 0f;
-        if (so.isStackable)
-            stackY = grid.GetStackHeight(root); // BEFORE adding this new one
+        GameObject go = Instantiate(so.prefab, worldPos, Quaternion.Euler(0f, rot * 90f, 0f));
 
-        // 2. Place at correct world position
-        Vector3 worldPos = grid.GetCellCenter(root);
-        worldPos.y += stackY;
-
-        GameObject go = Instantiate(so.prefab, worldPos, Quaternion.Euler(0f, rotationDeg, 0f));
-
-        // 3. PlacedObject init
         PlacedObject po = go.GetComponent<PlacedObject>();
         po.Initialize(so, x, y, rot);
 
-        // 4. BuildingData init
-        BuildingData bd = go.GetComponent<BuildingData>();
-        Vector2Int[] offsets = so.GetFootprintOffsets(rotationDeg);
-        bd.Initialize(root, rotationDeg, offsets);
-
-        // 5. Registry
         PlacedObjectRegistry.Register(po);
-
-        // 6. Register ALL footprint cells in grid
-        foreach (var o in offsets)
-        {
-            Vector2Int c = root + o;
-            grid.AddStackObject(c, go, so);
-        }
+        grid.AddStackObject(cell, go, so);
 
         return po;
     }
+
     // ---------------------------------------------------------
     // CLEAR ALL OBJECTS
     // ---------------------------------------------------------
     public void ClearAll()
     {
-        // Destroy all objects in the registry
         foreach (var obj in PlacedObjectRegistry.All)
         {
             if (obj != null)
@@ -95,10 +70,7 @@ public class PlacementSystem : MonoBehaviour
             }
         }
 
-        // Clear registry AFTER the loop
         PlacedObjectRegistry.Clear();
-
-        // Reset the grid
         grid.InitializeGrid();
     }
 
@@ -107,12 +79,15 @@ public class PlacementSystem : MonoBehaviour
     // ---------------------------------------------------------
     public void SaveGame(string saveName)
     {
-        lastSaveName = saveName;
+        Debug.Log("SaveGame() START");
 
         SaveData save = new SaveData();
         save.saveName = saveName;
+
+        // 1. Save money
         save.money = moneyService.CurrentCapital;
 
+        // 2. Save all placed objects
         foreach (var entry in PlacedObjectRegistry.All)
         {
             SavedObject obj = new SavedObject();
@@ -120,35 +95,50 @@ public class PlacementSystem : MonoBehaviour
             obj.x = entry.gridX;
             obj.y = entry.gridY;
             obj.rot = entry.rotation;
+
             save.placedObjects.Add(obj);
         }
 
-        SaveSystem.Save(save);
-    }
+        Debug.Log("SaveGame: saving " + save.placedObjects.Count + " objects");
 
+        SaveSystem.Save(save);
+
+        Debug.Log("SaveGame() END");
+    }
 
     // ---------------------------------------------------------
     // LOAD GAME
     // ---------------------------------------------------------
     public void LoadGame()
     {
-        SaveData save = SaveSystem.Load(lastSaveName);
+        Debug.Log("LoadGame() START");
+
+        SaveData save = SaveSystem.Load("tad");
         if (save == null)
         {
-            Debug.LogError($"LoadGame: no save file found for {lastSaveName}");
+            Debug.LogError("LoadGame: no save file found");
             return;
         }
 
+        // 1. Restore money
         moneyService.SetMoney(save.money);
+
+        // 2. Clear world
         ClearAll();
 
+        // 3. Spawn objects
         foreach (var objSave in save.placedObjects)
         {
             ObjDataSO so = registry.GetByID(objSave.id);
+            if (so == null)
+            {
+                Debug.LogError($"LoadGame: ObjDataSO not found for id {objSave.id}");
+                continue;
+            }
+
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot);
         }
 
-        grid.RebuildFromRegistry();
+        Debug.Log("LoadGame() END");
     }
-
 }
