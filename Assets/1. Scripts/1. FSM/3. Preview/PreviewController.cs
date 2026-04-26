@@ -5,6 +5,9 @@ public class PreviewController : MonoBehaviour
 {
     private PlacementGrid _grid;
 
+    // ---------------------------------------------------------
+    // GHOST POOLING
+    // ---------------------------------------------------------
     private readonly Stack<GameObject> _pool = new();
     private readonly Dictionary<Vector2Int, GameObject> _multiGhosts = new();
 
@@ -16,28 +19,32 @@ public class PreviewController : MonoBehaviour
     private Vector3 _velocity;
     private bool _hasTarget;
 
+    // ---------------------------------------------------------
+    // MOVEMENT / FLY-IN
+    // ---------------------------------------------------------
     [Header("Move Smoothing")]
     [SerializeField] private float moveSmoothTime = 0.08f;
     [SerializeField] private float moveSmoothSpeed = 0.25f;
-    [SerializeField] private float initialMoveLerp = 0.25f;
 
     [Header("Fly-In Settings")]
     [SerializeField] private bool useFlyIn = false;
+    [SerializeField] private float flyDuration = 0.25f;
+
     private bool _isFlyingIn;
     private float _flyTime;
-    [SerializeField] private float flyDuration = 0.25f;
-    [SerializeField] private Vector3 _flyStartPos;
+    private Vector3 _flyStartPos;
 
     private GameObject _currentPreview;
 
-    private readonly Color _validColor = new(0.50f, 1.00f, 0.83f, 0.85f);
-    private readonly Color _invalidColor = new(1.00f, 0.42f, 0.42f, 0.75f);
+    // ---------------------------------------------------------
+    // FLAT COLOR HIGHLIGHTS (SEMI-TRANSPARENT)
+    // ---------------------------------------------------------
+    private static readonly Color HighlightGreen = new(0.20f, 1.00f, 0.20f, 0.65f);
+    private static readonly Color HighlightRed = new(1.00f, 0.20f, 0.20f, 0.65f);
+
+    private MaterialPropertyBlock _highlightMPB;
+    private MaterialPropertyBlock _restoreMPB;
     private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
-
-    private readonly Dictionary<GameObject, Material[][]> _originalMats = new();
-    [SerializeField] private Material _highlightMat;
-
-    private MaterialPropertyBlock _mpb;
 
     [SerializeField] private Material _ghostMaterial;
 
@@ -47,11 +54,37 @@ public class PreviewController : MonoBehaviour
     private void Awake()
     {
         _grid = Object.FindFirstObjectByType<PlacementGrid>();
-        _mpb = new MaterialPropertyBlock();
+
+        _highlightMPB = new MaterialPropertyBlock();
+        _restoreMPB = new MaterialPropertyBlock();
     }
 
     // ---------------------------------------------------------
-    // RESET FOR MOVE MODE
+    // FLAT HIGHLIGHT API
+    // ---------------------------------------------------------
+    public void ApplyFlatHighlight(GameObject obj, Color color)
+    {
+        if (obj == null)
+            return;
+
+        _highlightMPB.Clear();
+        _highlightMPB.SetColor(BaseColorID, color);
+
+        foreach (var r in obj.GetComponentsInChildren<Renderer>(true))
+            r.SetPropertyBlock(_highlightMPB);
+    }
+
+    public void ClearFlatHighlight(GameObject obj)
+    {
+        if (obj == null)
+            return;
+
+        foreach (var r in obj.GetComponentsInChildren<Renderer>(true))
+            r.SetPropertyBlock(_restoreMPB); // clears override
+    }
+
+    // ---------------------------------------------------------
+    // RESET
     // ---------------------------------------------------------
     public void ResetMoveGhostState()
     {
@@ -78,9 +111,9 @@ public class PreviewController : MonoBehaviour
         _deleteMode = on;
     }
 
-    // =========================================================
-    //  PUBLIC API — SINGLE GHOST
-    // =========================================================
+    // ---------------------------------------------------------
+    // SINGLE GHOST
+    // ---------------------------------------------------------
     public void Show(ObjDataSO data)
     {
         if (_currentData != data)
@@ -98,7 +131,7 @@ public class PreviewController : MonoBehaviour
         _currentPreview = _singleGhost;
 
         _singleGhost.transform.rotation = Quaternion.Euler(0, CurrentRotation, 0);
-        SetGhostValid(_singleGhost);
+        SetGhostValid();
     }
 
     public void Hide()
@@ -109,9 +142,9 @@ public class PreviewController : MonoBehaviour
         ClearMultiGhosts();
     }
 
-    // =========================================================
-    //  MOVE SINGLE GHOST
-    // =========================================================
+    // ---------------------------------------------------------
+    // MOVE SINGLE GHOST
+    // ---------------------------------------------------------
     public void MoveTo(Vector3 pos, Vector2Int cell, ObjDataSO data)
     {
         if (_isFlyingIn)
@@ -136,18 +169,18 @@ public class PreviewController : MonoBehaviour
     public void SetGhostValid()
     {
         if (_singleGhost != null)
-            SetGhostValid(_singleGhost);
+            ApplyFlatHighlight(_singleGhost, HighlightGreen);
     }
 
     public void SetGhostInvalid()
     {
         if (_singleGhost != null)
-            SetGhostInvalid(_singleGhost);
+            ApplyFlatHighlight(_singleGhost, HighlightRed);
     }
 
-    // =========================================================
-    //  MULTI-GHOST MODE
-    // =========================================================
+    // ---------------------------------------------------------
+    // MULTI-GHOST MODE
+    // ---------------------------------------------------------
     public void BeginSelectionCells()
     {
         _multiMode = true;
@@ -194,10 +227,7 @@ public class PreviewController : MonoBehaviour
         ghost.transform.position = pos;
         ghost.transform.rotation = Quaternion.Euler(0, rotation, 0);
 
-        if (valid)
-            SetGhostValid(ghost);
-        else
-            SetGhostInvalid(ghost);
+        ApplyFlatHighlight(ghost, valid ? HighlightGreen : HighlightRed);
     }
 
     public void ClearMultiGhosts()
@@ -211,9 +241,9 @@ public class PreviewController : MonoBehaviour
         _multiGhosts.Clear();
     }
 
-    // =========================================================
-    //  GHOST CREATION
-    // =========================================================
+    // ---------------------------------------------------------
+    // GHOST CREATION
+    // ---------------------------------------------------------
     private GameObject CreateGhostFromPrefab(GameObject source)
     {
         GameObject ghost = Instantiate(source);
@@ -231,40 +261,13 @@ public class PreviewController : MonoBehaviour
                 r.sharedMaterial = _ghostMaterial;
         }
 
-        ApplyGhostAppearance(ghost, _validColor, _validColor.a);
-
+        ApplyFlatHighlight(ghost, HighlightGreen);
         return ghost;
     }
 
-    // =========================================================
-    //  GHOST COLORING
-    // =========================================================
-    private void ApplyGhostAppearance(GameObject ghost, Color color, float alpha)
-    {
-        if (ghost == null) return;
-
-        var renderers = ghost.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0) return;
-
-        _mpb.Clear();
-        Color c = color;
-        c.a = alpha;
-        _mpb.SetColor(BaseColorID, c);
-
-        foreach (var r in renderers)
-            r.SetPropertyBlock(_mpb);
-    }
-
-    private void SetGhostValid(GameObject go)
-    {
-        ApplyGhostAppearance(go, _validColor, _validColor.a);
-    }
-
-    private void SetGhostInvalid(GameObject go)
-    {
-        ApplyGhostAppearance(go, _invalidColor, _invalidColor.a);
-    }
-
+    // ---------------------------------------------------------
+    // GHOST POOL
+    // ---------------------------------------------------------
     public void ClearGhostPool()
     {
         foreach (var g in _pool)
@@ -273,9 +276,9 @@ public class PreviewController : MonoBehaviour
         _pool.Clear();
     }
 
-    // =========================================================
-    //  FLY-IN + SMOOTHING
-    // =========================================================
+    // ---------------------------------------------------------
+    // FLY-IN + SMOOTHING
+    // ---------------------------------------------------------
     public void BeginFlyIn(Vector3 worldTarget)
     {
         if (!useFlyIn)
@@ -334,83 +337,13 @@ public class PreviewController : MonoBehaviour
             }
         }
     }
+
+    // ---------------------------------------------------------
+    // HELPERS
+    // ---------------------------------------------------------
     public void HideGhost()
-    {   // Helper Since single ghost is still used as the main preview in multi-ghost mode, we just disable it instead of destroying
+    {
         if (_singleGhost != null)
             _singleGhost.SetActive(false);
     }
-    public void RemoveHighlight(GameObject obj)
-    {
-        if (obj == null)
-            return;
-
-        if (!_originalMats.TryGetValue(obj, out var mats))
-            return;
-
-        var renderers = obj.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
-            return;
-
-        for (int i = 0; i < renderers.Length && i < mats.Length; i++)
-            renderers[i].sharedMaterials = mats[i];
-
-        _originalMats.Remove(obj);
-    }
-    public void ApplyHighlight(GameObject obj)
-    {
-        if (obj == null)
-            return;
-
-        var renderers = obj.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
-            return;
-
-        if (!_originalMats.ContainsKey(obj))
-        {
-            Material[][] mats = new Material[renderers.Length][];
-            for (int i = 0; i < renderers.Length; i++)
-                mats[i] = renderers[i].sharedMaterials;
-
-            _originalMats[obj] = mats;
-        }
-
-        foreach (var r in renderers)
-        {
-            var mats = r.sharedMaterials;
-            for (int i = 0; i < mats.Length; i++)
-                mats[i] = _highlightMat;
-
-            r.sharedMaterials = mats;
-        }
-    }
-    public void ShowGhost(GameObject source)
-    {
-        if (_singleGhost != null)
-        {
-            Destroy(_singleGhost);
-            _singleGhost = null;
-        }
-
-        ClearGhostPool();
-
-        _singleGhost = CreateGhostFromPrefab(source);
-        _singleGhost.SetActive(true);
-        _currentPreview = _singleGhost;
-
-        // Start ghost near the original object instead of snapping instantly
-        _currentPreview.transform.position = Vector3.Lerp(
-            source.transform.position,
-            _targetPos,
-            initialMoveLerp
-        );
-
-        ApplyGhostAppearance(_singleGhost, _validColor, _validColor.a);
-    }
-    public void UpdateGhostPosition(Vector3 worldPos)
-    {
-        _targetPos = worldPos;
-        _hasTarget = true;
-    }
-
-
 }

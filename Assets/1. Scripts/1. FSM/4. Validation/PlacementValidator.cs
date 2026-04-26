@@ -17,13 +17,33 @@ public class PlacementValidator : MonoBehaviour
         if (data.ignorePlacementRules)
             return true;
 
+        // --- 1. Ensure all footprint cells are inside the grid ---
         foreach (var offset in offsets)
         {
             Vector2Int cell = root + offset;
-
             if (!_grid.IsInsideGrid(cell))
                 return false;
+        }
 
+        // --- 2. LEVEL SURFACE CHECK ---
+        // Determine the base height under the first footprint cell
+        Vector2Int firstCell = root + offsets[0];
+        float baseHeight = _grid.GetStackHeight(firstCell, ignore);
+
+        // All other footprint cells must match this height
+        for (int i = 1; i < offsets.Length; i++)
+        {
+            Vector2Int cell = root + offsets[i];
+            float h = _grid.GetStackHeight(cell, ignore);
+
+            if (!Mathf.Approximately(h, baseHeight))
+                return false;
+        }
+
+        // --- 3. PER-CELL VALIDATION ---
+        foreach (var offset in offsets)
+        {
+            Vector2Int cell = root + offset;
             if (!IsSingleCellValid(cell, data, ignore))
                 return false;
         }
@@ -47,7 +67,6 @@ public class PlacementValidator : MonoBehaviour
     // =========================================================
     private bool IsSingleCellValid(Vector2Int cell, ObjDataSO data, GameObject ignore)
     {
-        // Bulldozer-type objects ignore all rules
         if (data.ignorePlacementRules)
             return true;
 
@@ -57,6 +76,8 @@ public class PlacementValidator : MonoBehaviour
         var list = _grid.GetObjectsInCell(cell);
         if (list == null || list.Count == 0)
             return true;
+
+        float existingHeight = _grid.GetStackHeight(cell, ignore);
 
         foreach (var entry in list)
         {
@@ -71,11 +92,15 @@ public class PlacementValidator : MonoBehaviour
             if (entry.data.ignorePlacementRules)
                 continue;
 
-            // If either object is non-stackable → invalid
+            // --- HORIZONTAL OVERLAP CHECK ---
+            // If both objects would occupy the same height layer → BLOCK
+            if (existingHeight == 0f && !data.isStackable)
+                return false;
+
+            // --- VERTICAL STACK CHECK ---
             if (!entry.data.isStackable || !data.isStackable)
                 return false;
 
-            // Both stackable → obey stack height
             if (!_grid.CanStack(cell, data))
                 return false;
         }

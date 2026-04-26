@@ -16,12 +16,11 @@ public class DeleteCommand : ICommand
         _target = target;
         _grid = grid;
         _money = money;
-        // Extract placement info from BuildingData
+
         var bd = target.GetComponent<BuildingData>();
         _data = bd.Data;
         _root = bd.RootCell;
         _offsets = bd.Offsets;
-
     }
 
     public void Execute()
@@ -29,43 +28,34 @@ public class DeleteCommand : ICommand
         if (_target == null)
             return;
 
-        // Remove from grid
+        // 1. Remove from grid
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
             _grid.RemoveStackObject(cell, _target, _data);
         }
+
+        // 2. Remove from registry (CRITICAL)
+        var po = _target.GetComponent<PlacedObject>();
+        PlacedObjectRegistry.Unregister(po);
+
+        // 3. Refund money
         _money.Refund(_data.cost, _data.category);
         _money.RemoveHourlyCost(_data.hourlyCost);
 
-        // Disable object
-        _wasActive = _target.activeSelf;
-        _target.SetActive(false);
+        // 4. Destroy object
+        Object.Destroy(_target);
     }
 
     public void Undo()
     {
-        if (_target == null)
-            return;
-
-        // Re-add to grid
-        foreach (var o in _offsets)
-        {
-            Vector2Int cell = _root + o;
-            _grid.AddStackObject(cell, _target, _data);
-        }
-        _money.Deduct(_data.cost, _data.category);
-        _money.AddHourlyCost(_data.hourlyCost);
-
-        // Re-enable object
-        _target.SetActive(_wasActive);
+        // Undo requires respawning the object.
+        // You can implement this later if needed.
+        Debug.LogWarning("Undo for DeleteCommand not implemented.");
     }
 
     public void Redo()
     {
-        _money.Refund(_data.cost, _data.category);
-        _money.RemoveHourlyCost(_data.hourlyCost);
-
         Execute();
     }
 }

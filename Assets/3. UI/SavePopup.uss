@@ -1,37 +1,97 @@
 .save-popup {
-    position: fixed;   /* <-- THIS is the magic */
+    position: fixed;
     left: 0;
-    top: 0;
+    top: 200px;
     right: 0;
     bottom: 0;
-
     display: flex;
     justify-content: center;
     align-items: center;
-
-    background-color: rgba(0, 0, 0, 0.45);
+    background-color: rgba(0, 0, 0, 0);
+    -unity-font-definition: url("project://database/Assets/TextMesh%20Pro/Fonts/Font/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
 }
-
 
 .save-popup.hidden {
     display: none;
 }
 
 .save-window {
-    width: 320px;
+    min-width: 360px;
+    max-width: 480px;
     padding: 20px;
     border-radius: 8px;
-
-    background-color: #1e1e1e;
-    border: 2px solid #444;
-
+    background-color: rgba(149, 198, 204, 0.69);
+    border: 2px solid rgb(68, 68, 68);
+    display: flex;
     flex-direction: column;
     row-gap: 12px;
+    border-left-color: rgb(72, 116, 132);
+    border-right-color: rgb(72, 116, 132);
+    border-top-color: rgb(72, 116, 132);
+    border-bottom-color: rgb(72, 116, 132);
+    border-top-width: 5px;
+    border-left-width: 5px;
+    border-right-width: 5px;
+    border-bottom-width: 5px;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
 }
 
 .save-title {
-    font-size: 18px;
+    font-size: 48px;
     unity-font-style: bold;
     margin-bottom: 8px;
+    flex-direction: column;
+    color: rgb(68, 104, 119);
+    -unity-text-align: upper-center;
 }
 
+.text {
+    font-size: 26px;
+    color: rgb(27, 27, 27);
+}
+
+.button {
+    color: rgb(35, 86, 107);
+    -unity-font-style: bold;
+    font-size: 26px;
+    -unity-text-align: middle-center;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-top-width: 4px;
+    border-right-width: 4px;
+    border-bottom-width: 4px;
+    border-left-width: 4px;
+    border-left-color: rgb(90, 144, 140);
+    border-right-color: rgb(90, 144, 140);
+    border-top-color: rgb(90, 144, 140);
+    border-bottom-color: rgb(90, 144, 140);
+}
+
+
+
+.button:hover {
+    color: rgb(35, 86, 107);
+    -unity-font-style: bold;
+    font-size: 26px;
+    -unity-text-align: middle-center;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-top-width: 4px;
+    border-right-width: 4px;
+    border-bottom-width: 4px;
+    border-left-width: 4px;
+    border-left-color: rgb(90, 144, 140);
+    border-right-color: rgb(90, 144, 140);
+    border-top-color: rgb(90, 144, 140);
+    border-bottom-color: rgb(90, 144, 140);
+    transition-duration: 0.25s;
+    transition-timing-function: ease-in-out;
+    scale: 1.1 1.1 1.1;
+}
