@@ -69,7 +69,7 @@ public class TopBarUI : MonoBehaviour
 
     private void Refresh()
     {
-        _money.text = $"Current Capital: ${_moneyService.CurrentCapital:N0}";
+        _money.text = $"Capital: ${_moneyService.CurrentCapital:N0}";
         _hourly.text = $"Hourly: ${_moneyService.TotalHourlyCost:N0}";
         _spent.text = $"Spent Today: ${_moneyService.SpentToday:N0}";
         _time.text = $"Time: {_timeService.Hour:00}:{_timeService.Minute:00}  Day {_timeService.Day}";
