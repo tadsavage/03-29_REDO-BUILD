@@ -39,7 +39,7 @@ public class MoneyService
     public void Refund(int amount, string category = "General")
     {
         CurrentCapital += amount;
-
+        TrackSpending(-amount, category);
         // Refunds do NOT reduce category spending
         // (AAA sims track spending, not net)
         OnMoneyChanged?.Invoke();

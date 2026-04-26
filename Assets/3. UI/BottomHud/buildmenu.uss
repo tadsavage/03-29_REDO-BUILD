@@ -1,7 +1,3 @@
-﻿/* ===========================
-   ROOT LAYOUT
-   =========================== */
-
 .buildmenu-root {
     position: absolute;
     top: 0;
@@ -10,11 +6,8 @@
     bottom: 0;
     display: flex;
     flex-direction: column;
+    height: auto;
 }
-
-/* ===========================
-   BOTTOM BAR
-   =========================== */
 
 .buildmenu-bottom-bar {
     position: absolute;
@@ -22,18 +15,16 @@
     left: 0;
     right: 0;
     height: 120px;
-
     background-color: rgba(0, 0, 0, 0.6);
-
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
-    align-items: stretch;
-
+    justify-content: flex-start;
+    align-items: auto;
     padding-left: 16px;
     padding-right: 16px;
-
     pointer-events: auto;
+    align-content: flex-start;
+    background-size: 100px 100px;
 }
 
 .buildmenu-category-row,
@@ -42,34 +33,74 @@
     flex-direction: row;
     align-items: center;
     gap: 8px;
+    width: auto;
+    height: auto;
+    align-content: flex-end;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    align-self: center;
+    background-size: 100% 100%;
+    opacity: 1;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+    background-position-x: center;
+    border-left-color: rgb(213, 213, 199);
+    border-right-color: rgb(213, 213, 199);
+    border-top-color: rgb(213, 213, 199);
+    border-bottom-color: rgb(213, 213, 199);
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+    transform-origin: center;
+    scale: 1 1;
+    margin-left: 0;
+    margin-top: 16px;
 }
 
-/* ===========================
-   CATEGORY BUTTONS
-   =========================== */
-
 .buildmenu-category-button {
-    width: 120px;     /* was 96 */
-    height: 104px;    /* was 88 */
-
+    width: 90%;
+    height: 50%;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-
-    background-color: rgba(0,0,0,0.25);
+    background-color: rgba(73, 106, 125, 0.22);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255,255,255,0.05);
-
+    border-color: rgba(255, 255, 255, 0.05);
     padding: 4px;
     margin: 4px;
-
     transition: background-color 0.12s ease, border-color 0.12s ease;
+    border-left-color: rgba(213, 213, 199, 0.64);
+    border-right-color: rgba(213, 213, 199, 0.64);
+    border-top-color: rgba(213, 213, 199, 0.64);
+    border-bottom-color: rgba(213, 213, 199, 0.64);
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    -unity-text-align: middle-center;
+    padding-top: 5px;
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+    margin-top: 50px;
+    margin-bottom: 35px;
+    margin-left: 5px;
+    margin-right: 5px;
+    -unity-font-definition: url("project://database/Assets/TextMesh%20Pro/Fonts/Font/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
+    letter-spacing: -25px;
+    font-size: 12px;
+    aspect-ratio: auto;
 }
 
 .buildmenu-category-button:hover {
-    background-color: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.15);
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
 .buildmenu-category-button.selected {
@@ -78,119 +109,168 @@
 }
 
 .buildmenu-category-icon {
-    width: 96px;      /* 80% of 96 */
-    height: 88px;     /* 80% of 88 */
-
+    width: 115px;
+    height: 125px;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
     -unity-background-scale-mode: scale-to-fit;
-
-    margin-bottom: 2px;  /* keeps label readable */
+    margin-bottom: 2px;
+    background-image: none;
+    display: flex;
+    flex-direction: column;
+    border-left-color: rgb(213, 213, 199);
+    border-right-color: rgb(213, 213, 199);
+    border-top-color: rgb(213, 213, 199);
+    border-bottom-color: rgb(213, 213, 199);
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
 }
 
 .buildmenu-category-label {
-    font-size: 20px;
+    font-size: 22px;
     unity-font-style: bold;
-    color: #FAEBD7; /* Antique White */
+    color: rgb(213, 213, 199);
     text-align: center;
     white-space: nowrap;
+    border-left-color: rgb(213, 213, 199);
+    border-right-color: rgb(213, 213, 199);
+    border-top-color: rgb(213, 213, 199);
+    border-bottom-color: rgb(213, 213, 199);
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    -unity-text-align: middle-center;
+    -unity-font-definition: url("project://database/Assets/TextMesh%20Pro/Fonts/Font/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
+    display: flex;
+    position: absolute;
+    -unity-text-outline-color: rgba(166, 200, 213, 0.59);
+    -unity-text-outline-width: 2px;
+    -unity-font-style: normal;
 }
 
-/* ===========================
-   UTILITY BUTTONS (UPDATED)
-   =========================== */
-
 .buildmenu-utility-button {
-    width: 84px;
-    height: 84px;
-
-    flex-direction: column;
+    width: 110px;
+    height: 110px;
+    flex-direction: column-reverse;
     align-items: center;
-    justify-content: center;
-
-    background-color: rgba(0,0,0,0.25);
+    justify-content: space-around;
+    background-color: rgba(0, 0, 0, 0.25);
     border-radius: 6px;
     border-width: 1px;
-    border-color: rgba(255,255,255,0.05);
-
+    border-color: rgba(255, 255, 255, 0.05);
     padding: 4px;
     margin: 4px;
-
     transition: background-color 0.12s ease, border-color 0.12s ease;
+    flex-wrap: nowrap;
+    align-self: center;
+    align-content: center;
+    margin-top: 4px;
+    margin-left: 8px;
+    margin-right: 8px;
+    padding-right: 4px;
+    padding-left: 4px;
+    padding-top: 2px;
+    padding-bottom: 4px;
+    border-left-color: rgba(213, 213, 199, 0.51);
+    border-right-color: rgba(213, 213, 199, 0.51);
+    border-top-color: rgba(213, 213, 199, 0.51);
+    border-bottom-color: rgba(213, 213, 199, 0.51);
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    margin-bottom: 20px;
 }
 
 .buildmenu-utility-button:hover {
-    background-color: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.15);
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Icon */
 .buildmenu-utility-icon {
     width: 56px;
     height: 56px;
-
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
     -unity-background-scale-mode: scale-to-fit;
-
-    margin-bottom: 4px;   /* more breathing room above label */
+    margin-bottom: 4px;
+    -unity-background-image-tint-color: rgb(213, 213, 199);
 }
 
-/* Label */
 .buildmenu-utility-label {
-    font-size: 11px;
+    font-size: 18px;
     unity-font-style: bold;
-    color: #FAEBD7; /* Antique White */
+    color: rgb(213, 213, 199);
     text-align: center;
     white-space: nowrap;
+    -unity-font-definition: url("project://database/Assets/TextMesh%20Pro/Fonts/Font/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
+    -unity-text-align: middle-center;
+    align-items: stretch;
+    align-self: center;
+    -unity-text-outline-color: rgb(119, 159, 175);
+    -unity-text-outline-width: 1px;
+    text-overflow: clip;
+    position: relative;
+    flex-direction: column;
+    justify-content: center;
+    align-content: center;
+    left: auto;
+    bottom: auto;
+    right: auto;
 }
 
 .buildmenu-utility-button:hover {
     background-color: rgba(255, 255, 255, 0.08);
 }
 
-/* ===========================
-   SUBMENU FLYOUT
-   =========================== */
-
 .buildmenu-submenu {
     position: absolute;
-    left: 0px;
+    left: 0;
     width: auto;
     z-index: 50;
-
     pointer-events: auto;
-
     transition-property: transform, opacity;
     transition-duration: 0.25s;
     transition-timing-function: ease-out;
-
-    transform: translateY(100%);
+    transform: ;
     opacity: 0;
-    visibility: hidden;   /* keep in layout, but hidden */
+    visibility: hidden;
 }
 
 .buildmenu-submenu-open {
-    transform: translateY(0%);
+    transform: ;
     opacity: 1;
     visibility: visible;
 }
 
 .buildmenu-submenu-closed {
-    transform: translateY(100%);
+    transform: ;
     opacity: 0;
     visibility: hidden;
 }
-
 
 .buildmenu-submenu-root {
     background-color: rgba(0, 0, 0, 0.8);
     border-radius: 6px;
     border-width: 1px;
     border-color: rgba(255, 255, 255, 0.15);
-
     padding: 6px;
     max-height: 320px;
 }
@@ -199,95 +279,61 @@
     flex-grow: 1;
 }
 
-/* ===========================
-   ITEM BUTTONS (HORIZONTAL)
-   =========================== */
-
 .buildmenu-item-button {
-    width: 260px;   /* wide enough for long names */
+    width: 260px;
     height: 64px;
-
-    flex-direction: row; /* horizontal layout */
+    flex-direction: row;
     align-items: center;
     justify-content: flex-start;
-
     padding: 6px;
-
-    background-color: rgba(0,0,0,0.25);
+    background-color: rgba(0, 0, 0, 0.25);
     border-radius: 6px;
     border-width: 1px;
-    border-color: rgba(255,255,255,0.05);
-
+    border-color: rgba(255, 255, 255, 0.05);
     margin-bottom: 6px;
 }
 
 .buildmenu-item-button:hover {
-    background-color: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.15);
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Icon on the left */
 .buildmenu-item-icon {
     width: 56px;
     height: 56px;
-
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
     -unity-background-scale-mode: scale-to-fit;
-
     margin-right: 10px;
 }
 
-/* Text container on the right */
 .buildmenu-item-text {
     flex-direction: column;
     justify-content: center;
     flex-grow: 1;
 }
 
-/* Name label */
 .buildmenu-item-name {
-    font-size: 15px; /* larger */
+    font-size: 15px;
     unity-font-style: bold;
-    color: #FFFFFF;
-
+    color: rgb(255, 255, 255);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* Cost label */
 .buildmenu-item-cost {
-    font-size: 14px; /* larger */
-    color: #A0FFC8;
-
+    font-size: 14px;
+    color: rgb(160, 255, 200);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* Selected category glow animation */
-@keyframes category-glow {
-    0% {
-        background-color: rgba(0, 180, 255, 0.10);
-        border-color: rgba(0, 180, 255, 0.20);
-    }
-    50% {
-        background-color: rgba(0, 180, 255, 0.28);
-        border-color: rgba(0, 180, 255, 0.55);
-    }
-    100% {
-        background-color: rgba(0, 180, 255, 0.22);
-        border-color: rgba(0, 180, 255, 0.45);
-    }
-}
 
-/* Apply animation when selected */
 .buildmenu-category-button.selected {
     animation-name: category-glow;
     animation-duration: 0.9s;
     animation-iteration-count: infinite;
     animation-direction: alternate;
 }
-
-

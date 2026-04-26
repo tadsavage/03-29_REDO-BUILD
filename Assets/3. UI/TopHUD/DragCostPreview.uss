@@ -1,0 +1,23 @@
+.preview-cost-label {
+    display: flex;
+    position: absolute;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    align-self: center;
+    align-content: center;
+}
+
+.preview-cost-label:hover {
+    display: flex;
+    position: absolute;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    align-self: center;
+    align-content: center;
+    transition-property: position;
+    transition-duration: 1s;
+    transition-timing-function: ease-in;
+    transform-origin: center;
+}

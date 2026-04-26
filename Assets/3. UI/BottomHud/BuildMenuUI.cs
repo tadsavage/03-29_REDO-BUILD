@@ -239,7 +239,7 @@ public class BuildMenuUI : MonoBehaviour
 
         var data = SaveSystem.Load("autosave");
         //Debug.Log($"{(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK")}");
-        Debug.Log($"LoadName: {data?.saveName}, money: {data?.money}, placedObjects count: {data?.placedObjects.Count}");
+        //Debug.Log($"LoadName: {data?.saveName}, money: {data?.money}, placedObjects count: {data?.placedObjects.Count}");
         if (data == null)
             return;
 

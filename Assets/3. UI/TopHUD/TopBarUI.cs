@@ -39,8 +39,9 @@ public class TopBarUI : MonoBehaviour
         // Query labels inside TopBar
         _money = topBar.Q<Label>("MoneyLabel");
         _hourly = topBar.Q<Label>("HourlyLabel");
-        _spent = topBar.Q<Label>("SpentLabel");
         _time = topBar.Q<Label>("TimeLabel");
+        _spent = topBar.Q<Label>("SpentLabel");
+
 
         // Safety check
         if (_money == null || _hourly == null || _spent == null || _time == null)
@@ -69,9 +70,10 @@ public class TopBarUI : MonoBehaviour
 
     private void Refresh()
     {
-        _money.text = $"Current Capital: ${_moneyService.CurrentCapital:N0}";
+        _money.text = $"Capital: ${_moneyService.CurrentCapital:N0}";
         _hourly.text = $"Hourly: ${_moneyService.TotalHourlyCost:N0}";
-        _spent.text = $"Spent Today: ${_moneyService.SpentToday:N0}";
         _time.text = $"Time: {_timeService.Hour:00}:{_timeService.Minute:00}  Day {_timeService.Day}";
+        _spent.text = $"Spent Today: ${_moneyService.SpentToday:N0}";
+
     }
 }
