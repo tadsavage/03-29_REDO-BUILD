@@ -17,13 +17,12 @@ public class PreviewCostUI : MonoBehaviour
             return;
 
         _label.style.display = DisplayStyle.Flex;
-        _label.text = $"Drag Cost:${cost}";
+        _label.text = $"${cost}";
 
         _label.style.color = canAfford
-            ? new StyleColor(new Color(1f, 0.7f, 0.7f)) // soft red
-            : new StyleColor(Color.red);
+            ? new StyleColor(Color.white)
+            : new StyleColor(new Color(1f, 0.25f, 0.25f)); // soft red
     }
-    
 
     public void Hide()
     {

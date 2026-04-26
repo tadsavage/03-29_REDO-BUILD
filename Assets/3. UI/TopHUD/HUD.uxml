@@ -1,20 +1,40 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" editor-extension-mode="True">
-    <Style src="project://database/Assets/3.%20UI/TopHUD/HUD.uss?fileID=7433441132597879392&amp;guid=f34d0036cbe6d1343a7bb251134182cc&amp;type=3#HUD"/>
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns:ui="UnityEngine.UIElements"
+         xmlns:uxml="UnityEngine.UIElements"
+         xmlns:uie="UnityEditor.UIElements"
+         editor-extension-mode="False">
+
+    <Style src="HUD.uss" />
+    <Style src="TopBar.uss" />
+
     <ui:VisualElement name="Root" class="hud-root">
+
+        <!-- TOP BAR WITH SHADED BOXES -->
         <ui:VisualElement name="TopBar" class="topbar-root">
+
             <ui:VisualElement class="topbar-box">
-                <ui:Label name="MoneyLabel" text="$0" class="topbar-money"/>
+                <ui:Label name="MoneyLabel" class="topbar-money" />
             </ui:VisualElement>
+
             <ui:VisualElement class="topbar-box">
-                <ui:Label name="HourlyLabel" text="HOURLY: $0" class="topbar-hourly"/>
+                <ui:Label name="HourlyLabel" class="topbar-hourly" />
             </ui:VisualElement>
+
             <ui:VisualElement class="topbar-box">
-                <ui:Label name="TimeLabel" text="08:00" class="topbar-time"/>
+                <ui:Label name="SpentLabel" class="topbar-spent" />
             </ui:VisualElement>
+
             <ui:VisualElement class="topbar-box">
-                <ui:Label name="SpentLabel" text="$0" class="topbar-spent"/>
+                <ui:Label name="TimeLabel" class="topbar-time" />
             </ui:VisualElement>
+
         </ui:VisualElement>
-        <ui:Label name="PreviewCostLabel" text="$0" class="preview-cost-label" style="bottom: -345px; left: 735px;"/>
+
+        <!-- PREVIEW COST LABEL -->
+        <ui:Label name="PreviewCostLabel"
+                  text=""
+                  class="preview-cost-label" />
+
     </ui:VisualElement>
+
 </ui:UXML>

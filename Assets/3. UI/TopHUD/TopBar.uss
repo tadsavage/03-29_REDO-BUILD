@@ -1,0 +1,56 @@
+/* The whole top bar */
+.topbar-root {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+
+    height: 40px;
+    padding-left: 12px;
+    padding-right: 12px;
+
+    background-color: rgba(0, 0, 0, 0.35);   /* KEEP THIS */
+}
+
+/* Each shaded box */
+.topbar-box {
+    background-color: rgba(0, 0, 0, 0.45);  /* darker than bar */
+    border-radius: 4px;
+
+    padding-left: 10px;
+    padding-right: 10px;
+
+    flex-direction: row;
+    align-items: center;        /* vertical centering */
+    justify-content: center;    /* horizontal centering */
+
+    height: 32px;               /* fixed height */
+    min-height: 32px;           /* prevents collapse */
+    line-height: 32px;          /* forces vertical centering */
+    flex-shrink: 0;             /* prevents squeezing */
+}
+
+
+
+
+/* Label styles */
+.topbar-money {
+    color: #FAEBD7; /* Antique White */
+    unity-font-style: bold;
+    font-size: 20px;
+}
+
+.topbar-hourly {
+    color: #FAEBD7; /* Antique White */
+    font-size: 20px;
+}
+
+.topbar-spent {
+    color: #ffb0b0;
+    font-size: 20px;
+}
+
+.topbar-time {
+    color: #FAEBD7; /* Antique White */
+    unity-font-style: bold;
+    font-size: 20px;
+}

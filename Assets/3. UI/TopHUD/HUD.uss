@@ -1,76 +1,42 @@
 .hud-root {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+
     flex-direction: column;
     justify-content: flex-start;
     align-items: stretch;
-    padding: 0;
-    margin: 0;
-    background-color: rgba(0, 0, 0, 0);
+
+    padding: 0px;
+    margin: 0px;
+
+    /* Transparent container so child elements (TopBar + CostLabel) float cleanly */
+    background-color: rgba(0, 0, 0, 0.0);
 }
 
-.topbar-root {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    height: 40px;
-    padding-left: 12px;
-    padding-right: 12px;
-    background-color: rgba(0, 0, 0, 0.35);
-    -unity-text-align: middle-left;
-}
-
-.topbar-box {
-    background-color: rgba(0, 0, 0, 0.45);
-    border-radius: 4px;
-    padding-left: 10px;
-    padding-right: 10px;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    height: 32px;
-    min-height: 32px;
-    line-height: 32px;
-    flex-shrink: 0;
-    -unity-font-definition: url("project://database/Assets/TextMesh%20Pro/Fonts/Font/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
-}
-
-.topbar-money {
-    color: rgb(250, 235, 215);
-    unity-font-style: bold;
-    font-size: 22px;
-}
-
-.topbar-hourly {
-    color: rgb(250, 235, 215);
-    font-size: 22px;
-}
-
-.topbar-spent {
-    color: rgb(255, 178, 178);
-    font-size: 22px;
-}
-
-.topbar-time {
-    color: rgb(250, 235, 215);
-    unity-font-style: bold;
-    font-size: 22px;
-}
-
+/* Cost preview label */
 .preview-cost-label {
     position: absolute;
     bottom: 16px;
     left: 50%;
-    transform: ;
-    padding: 4px 10px;
+    transform: translateX(-50%);
+
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+
     background-color: rgba(0, 0, 0, 0.55);
     border-radius: 4px;
-    color: rgb(255, 176, 176);
+
+    color: white;
     unity-font-style: bold;
-    font-size: 22px;
-    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
-    display: flex;
-    -unity-font-definition: url("project://database/Assets/TextMesh%20Pro/Fonts/Font/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
+    font-size: 14px;
+
+    /* Subtle glow for clarity over grid */
+    text-shadow: 0px 0px 4px rgba(0, 0, 0, 0.8);
+
+    /* Hidden by default — your C# toggles visibility */
+    display: none;
 }
