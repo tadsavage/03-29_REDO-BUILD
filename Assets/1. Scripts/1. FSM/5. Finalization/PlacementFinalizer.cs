@@ -68,7 +68,7 @@ public class PlacementFinalizer : MonoBehaviour
         var bd = instance.GetComponent<BuildingData>();
         if (bd != null)
             bd.Initialize(root, rotation, offsets);
-
+        Debug.Log($"Placed w/Finalizer {data.objName} at {root}");
         return instance;
     }
 

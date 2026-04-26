@@ -1,16 +1,11 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <Style src="SavePopup.uss" />
-
-    <ui:VisualElement name="SavePopup" class="save-popup hidden">
-        <ui:VisualElement class="save-window">
-
-            <ui:Label text="Save Game" class="save-title" />
-
-            <ui:TextField name="SaveNameField" label="Save Name:" />
-
-            <ui:Button name="ConfirmSaveButton" text="Save" />
-            <ui:Button name="CancelSaveButton" text="Cancel" />
-
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
+    <Style src="project://database/Assets/3.%20UI/SavePopup.uss?fileID=7433441132597879392&amp;guid=85324b0daec660e49919fe333f74dccf&amp;type=3#SavePopup"/>
+    <ui:VisualElement name="SavePopup" picking-mode="Ignore" class="save-popup hidden">
+        <ui:VisualElement picking-mode="Ignore" class="save-window">
+            <ui:Label text="Save Game" class="save-title"/>
+            <ui:TextField name="SaveNameField" label="Filename:" readonly="false" class="text" style="color: rgb(68, 104, 119); -unity-text-align: middle-left; -unity-font-style: normal;"/>
+            <ui:Button name="ConfirmSaveButton" text="Save" class="button"/>
+            <ui:Button name="CancelSaveButton" text="Cancel" class="button"/>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
