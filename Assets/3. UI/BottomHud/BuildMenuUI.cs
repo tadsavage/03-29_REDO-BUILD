@@ -32,8 +32,6 @@ public class BuildMenuUI : MonoBehaviour
     private Button _confirmSaveButton;
     private Button _cancelSaveButton;
 
-    [SerializeField] private PlacementGrid grid;
-
     // Last clicked category button (for submenu alignment)
     private VisualElement _lastClickedCategoryButton;
 
@@ -140,19 +138,39 @@ public class BuildMenuUI : MonoBehaviour
 
     private void ConfirmSave()
     {
-        if (string.IsNullOrWhiteSpace(_saveNameField.value))
+        if (_savePopup == null)
         {
-            Debug.LogWarning("⚠ Save name is empty.");
+            Debug.LogError("❌ SavePopup is NULL — the popup UXML was not instantiated.");
+            return;
+        }
+
+        if (_saveNameField == null)
+        {
+            Debug.LogError("❌ SaveNameField is NULL — the TextField named 'SaveNameField' was NOT found in the instantiated popup.");
+            Debug.LogError("➡ This means your SavePopup.uxml does NOT contain a TextField with name='SaveNameField'.");
             return;
         }
 
         string saveName = _saveNameField.value;
 
-        // ⭐ Call the REAL save system
-        placementSystem.SaveGame("autosave");
+        if (string.IsNullOrWhiteSpace(saveName))
+        {
+            Debug.LogWarning("⚠ Save name is empty.");
+            return;
+        }
+
+        SaveData data = new SaveData();
+        data.saveName = saveName;
+        Debug.Log("moneyService is null? " + (moneyService == null));
+        data.money = moneyService.CurrentCapital;
+
+        Debug.Log("Saving objects count = " + data.placedObjects.Count);
+
+        SaveSystem.Save(data);
 
         HideSavePopup();
     }
+
 
     // ---------------------------------------------------------
     // CACHE ROOT ELEMENTS
@@ -235,33 +253,30 @@ public class BuildMenuUI : MonoBehaviour
     // ---------------------------------------------------------
     private void LoadGame()
     {
-        //Debug.Log("LoadGame() START");
+        Debug.Log("LoadGame() START");
 
-        var data = SaveSystem.Load("autosave");
-        //Debug.Log($"{(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK")}");
-        Debug.Log($"LoadName: {data?.saveName}, money: {data?.money}, placedObjects count: {data?.placedObjects.Count}");
+        var data = SaveSystem.Load("tad");
+        Debug.Log(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK");
+
         if (data == null)
             return;
 
-        //Debug.Log($"LoadGame: setting money...{data.money}");
+        Debug.Log("LoadGame: setting money...");
         moneyService.SetMoney(data.money);
 
-        //Debug.Log("LoadGame: clearing placement...");
+        Debug.Log("LoadGame: clearing placement...");
         placementSystem.ClearAll();
 
-       // Debug.Log("LoadGame: spawning objects, count = " + data.placedObjects.Count);
+        Debug.Log("LoadGame: spawning objects, count = " + data.placedObjects.Count);
 
         foreach (var p in data.placedObjects)
         {
             var so = registry.GetByID(p.id);
-            //Debug.Log($"Spawning {p.id} at {p.x},{p.y} rot {p.rot}, so is null? {so == null}");
+            Debug.Log($"Spawning {p.id} at {p.x},{p.y} rot {p.rot}, so is null? {so == null}");
             placementSystem.SpawnFromSave(so, p.x, p.y, p.rot);
         }
 
-        //grid.RebuildFromRegistry();
-        //grid.LogGridVsRegistryDiagnostics();
-        //Debug.Log($"After rebuild: total registry count = {PlacedObjectRegistry.All.Count}");
-        //Debug.Log("LoadGame() END");
+        Debug.Log("LoadGame() END");
     }
 
     // ---------------------------------------------------------

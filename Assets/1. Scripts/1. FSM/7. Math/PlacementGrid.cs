@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [ExecuteAlways]
 public class PlacementGrid : MonoBehaviour
@@ -23,40 +24,14 @@ public class PlacementGrid : MonoBehaviour
     public Color OccupiedColor = new Color(1f, 0.4f, 0.4f, 0.6f);
     public Color SelectedColor = new Color(0.4f, 1f, 0.4f, 0.6f);
     public Color DeleteColor = new Color(1f, 1f, 0.2f, 0.5f);
-    
-    [System.Serializable]
+
     public struct PlacedObject
     {
         public GameObject instance;
         public ObjDataSO data;
     }
-    [System.Serializable]
-    public class DebugCell
-    {
-        public Vector2Int cell;
-        public List<PlacedObject> items = new List<PlacedObject>();
-    }
-    // keep internal storage private
-    private List<PlacedObject>[,] _cells;
-    // inspector-friendly debug view
-    [Header("Debug")]
-    public List<DebugCell> DebugCells = new List<DebugCell>();
-    [ContextMenu("Populate DebugCells")]
-    public void PopulateDebugCells()
-    {
-        DebugCells.Clear();
-        for (int x = 0; x < Width; x++)
-            for (int y = 0; y < Height; y++)
-            {
-                var list = _cells[x, y];
-                if (list != null && list.Count > 0)
-                {
-                    var dc = new DebugCell { cell = new Vector2Int(x, y), items = new List<PlacedObject>(list) };
-                    DebugCells.Add(dc);
-                }
-            }
-    }
 
+    private List<PlacedObject>[,] _cells;
     private float[,] _stackHeights;
 
     private Dictionary<int, GameObject> _activeVisuals;
@@ -64,16 +39,16 @@ public class PlacementGrid : MonoBehaviour
 
     private void Awake()
     {
-        if (Application.isPlaying)
-            InitializeGrid();
+        InitializeGrid();
     }
-
 
     private void OnValidate()
     {
         Width = Mathf.Max(1, Width);
         Height = Mathf.Max(1, Height);
         CellSize = Mathf.Max(0.01f, CellSize);
+
+        InitializeGrid();
     }
 
     public void InitializeGrid()
@@ -427,134 +402,4 @@ public class PlacementGrid : MonoBehaviour
             Gizmos.DrawLine(start, end);
         }
     }
-    /// <summary>
-    /// Rebuild internal grid storage from the global PlacedObjectRegistry at runtime.
-    /// Call this after loading/spawning objects so _cells/_stackHeights match the scene.
-    /// </summary>
-    public void RebuildFromRegistry()
-    {
-        // Recreate storage (preserves Width/Height/CellSize clamps done elsewhere)
-        _cells = new List<PlacedObject>[Width, Height];
-        _stackHeights = new float[Width, Height];
-
-        for (int x = 0; x < Width; x++)
-        {
-            for (int y = 0; y < Height; y++)
-            {
-                _cells[x, y] = new List<PlacedObject>();
-                _stackHeights[x, y] = 0f;
-            }
-        }
-
-        // Populate from registry
-        foreach (var placed in PlacedObjectRegistry.All)
-        {
-            if (placed == null || placed.data == null)
-                continue;
-
-            Vector2Int cell = new Vector2Int(placed.gridX, placed.gridY);
-
-            if (!IsInsideGrid(cell))
-            {
-                Debug.LogWarning($"RebuildFromRegistry: {placed.name} at {cell} is outside grid bounds. Skipping.");
-                continue;
-            }
-
-            // Avoid duplicates
-            var list = _cells[cell.x, cell.y];
-            bool exists = false;
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (list[i].instance == placed.gameObject)
-                {
-                    exists = true;
-                    break;
-                }
-            }
-
-            if (exists)
-                continue;
-
-            // Insert floors at bottom, others on top (match AddStackObject behavior)
-            if (placed.data.isFloor)
-                list.Insert(0, new PlacedObject { instance = placed.gameObject, data = placed.data });
-            else
-                list.Add(new PlacedObject { instance = placed.gameObject, data = placed.data });
-
-            if (!placed.data.isFloor && !placed.data.ignorePlacementRules)
-                _stackHeights[cell.x, cell.y] += placed.data.objHeight;
-        }
-
-        // Refresh visualizer if enabled
-        if (UseVisualizer)
-            RedrawAllVisuals();
-
-        //Debug.Log("RebuildFromRegistry: grid rebuilt from PlacedObjectRegistry.");
-    }
-    public void LogGridVsRegistryDiagnostics()
-    {
-        int totalRegistry = PlacedObjectRegistry.All.Count;
-        int missingInGrid = 0;
-        int misplaced = 0;
-
-        foreach (var placed in PlacedObjectRegistry.All)
-        {
-            if (placed == null || placed.data == null) continue;
-
-            Vector2Int expected = new Vector2Int(placed.gridX, placed.gridY);
-
-            if (!IsInsideGrid(expected))
-            {
-                Debug.LogWarning($"Diagnostics: {placed.name} expected {expected} OUTSIDE grid bounds.");
-                continue;
-            }
-
-            bool found = false;
-            var list = _cells[expected.x, expected.y];
-            if (list != null)
-            {
-                for (int i = 0; i < list.Count; i++)
-                {
-                    if (list[i].instance == placed.gameObject)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!found)
-            {
-                // try to find it anywhere
-                bool foundElsewhere = false;
-                for (int x = 0; x < Width && !foundElsewhere; x++)
-                {
-                    for (int y = 0; y < Height && !foundElsewhere; y++)
-                    {
-                        var other = _cells[x, y];
-                        if (other == null) continue;
-                        for (int i = 0; i < other.Count; i++)
-                        {
-                            if (other[i].instance == placed.gameObject)
-                            {
-                                foundElsewhere = true;
-                                Debug.LogWarning($"Diagnostics: {placed.name} stored at {x},{y} but registry says {expected}.");
-                                misplaced++;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!foundElsewhere)
-                {
-                    Debug.LogWarning($"Diagnostics: {placed.name} missing from grid at {expected}.");
-                    missingInGrid++;
-                }
-            }
-        }
-
-        //Debug.Log($"Diagnostics complete. Registry={totalRegistry}, MissingInGrid={missingInGrid}, Misplaced={misplaced}.");
-    }
-
 }
