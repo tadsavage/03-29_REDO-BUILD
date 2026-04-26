@@ -69,11 +69,7 @@ public class PlacementFinalizer : MonoBehaviour
         if (bd != null)
             bd.Initialize(root, rotation, offsets);
 <<<<<<< HEAD
-<<<<<<< HEAD
         //Debug.Log($"Placed w/Finalizer {data.objName} at {root}");
-=======
-
->>>>>>> parent of 3c2bc81 (Finally working Save load - good save window - everything working)
 =======
 
 >>>>>>> parent of 3c2bc81 (Finally working Save load - good save window - everything working)

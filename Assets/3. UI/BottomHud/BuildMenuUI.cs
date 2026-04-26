@@ -254,7 +254,6 @@ public class BuildMenuUI : MonoBehaviour
     private void LoadGame()
     {
         Debug.Log("LoadGame() START");
-<<<<<<< HEAD
 
         var data = SaveSystem.Load("tad");
         Debug.Log(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK");
@@ -264,12 +263,6 @@ public class BuildMenuUI : MonoBehaviour
         //Debug.Log($"{(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK")}");
         //Debug.Log($"LoadName: {data?.saveName}, money: {data?.money}, placedObjects count: {data?.placedObjects.Count}");
 =======
->>>>>>> parent of 3c2bc81 (Finally working Save load - good save window - everything working)
-=======
-
-        var data = SaveSystem.Load("tad");
-        Debug.Log(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK");
-
 >>>>>>> parent of 3c2bc81 (Finally working Save load - good save window - everything working)
         if (data == null)
             return;
