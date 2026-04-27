@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+using SaveLoadSystem;
 
 public class BuildMenuUI : MonoBehaviour
 {
+    [Header("Save/Load UI")]
+    [SerializeField] private SaveLoadWindowController saveLoadWindowController;
+
     [Header("Category Config")]
     [SerializeField] private List<CategoryConfig> categories = new();
 
@@ -222,10 +225,9 @@ public class BuildMenuUI : MonoBehaviour
                 case "REDO": button.clicked += () => OnRedoClicked?.Invoke(); break;
                 case "CANCEL": button.clicked += () => OnCancelClicked?.Invoke(); break;
                 case "ROTATE": button.clicked += () => OnRotateClicked?.Invoke(); break;
-                case "SAVE": button.clicked += ShowSavePopup; break;
-                case "LOAD": button.clicked += () => placementSystem.LoadGame(); break;
+                case "SAVE": button.clicked += () => saveLoadWindowController.Open(SaveLoadMode.Save); break;
+                case "LOAD": button.clicked += () => saveLoadWindowController.Open(SaveLoadMode.Load); break;
             }
-
             _utilityRow.Add(ve);
         }
     }

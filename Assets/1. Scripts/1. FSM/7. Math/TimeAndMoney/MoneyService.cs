@@ -104,7 +104,7 @@ public class MoneyService
     }
     public void SetSpentToday(int amount)
     {
-        Debug.Log($"Setting SpentToday to: {amount}");
+        //Debug.Log($"Setting SpentToday to: {amount}");
         SpentToday = amount;
         OnMoneyChanged?.Invoke();
     }

@@ -1,5 +1,6 @@
-﻿using UnityEngine;
-using UnityEngine.WSA;
+﻿using SaveLoadSystem;
+using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
@@ -10,10 +11,11 @@ public class PlacementSystem : MonoBehaviour
 {
     [SerializeField] private ObjDataRegistry registry;
     [SerializeField] private PlacementGrid grid;
+    [SerializeField] private SaveLoadWindowController saveLoadWindowController;
 
     private MoneyService moneyService;
 
-    private float quicksaveCooldown = 1.0f;   // seconds
+    private float quicksaveCooldown = 1.0f;
     private float quicksaveTimer = 0f;
     private string lastSaveName = "autosave";
 
@@ -22,33 +24,47 @@ public class PlacementSystem : MonoBehaviour
     {
         moneyService = money;
     }
-
+    private void Start()
+    {
+        // Subscribe to slot save/load events for toast + SFX
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.OnSaveCompleted += OnSlotSaveCompleted;
+            SaveManager.Instance.OnLoadCompleted += OnSlotLoadCompleted;
+        }
+    }
     private void Update()
     {
-        // Tick cooldown
         if (quicksaveTimer > 0f)
             quicksaveTimer -= Time.deltaTime;
 
-        // Quicksave (F5)
+        // Quicksave (F5) — UNTOUCHED
         if (Keyboard.current.f5Key.isPressed && quicksaveTimer <= 0f)
         {
             SaveGame("autosave");
             quicksaveTimer = quicksaveCooldown;
-
-            AudioManager.Play("UI_Save");   // ⭐ your save SFX
-
-            UIToast.Show("Quick-save successful");  // ⭐ your toast system
+            AudioManager.Play("UI_Save");
+            UIToast.Show("Quick-save successful");
         }
 
-        // Quickload (F9)
+        // Quickload (F9) — UNTOUCHED
         if (Keyboard.current.f9Key.isPressed && quicksaveTimer <= 0f)
         {
             LoadGame();
-            AudioManager.Play("UI_Load");   // optional
+            AudioManager.Play("UI_Load");
+            UIToast.Show("Quick-load successful");
+        }
 
-            UIToast.Show("Quick-load successful");  // ⭐ your toast system
+        // Save/Load window (F6)
+        if (Keyboard.current.f6Key.wasPressedThisFrame)
+        {
+            if (saveLoadWindowController.IsOpen)
+                saveLoadWindowController.Close();
+            else
+                saveLoadWindowController.Open(SaveLoadMode.Save);
         }
     }
+
     // ---------------------------------------------------------
     // NORMAL GAMEPLAY PLACEMENT
     // ---------------------------------------------------------
@@ -57,7 +73,8 @@ public class PlacementSystem : MonoBehaviour
         Vector2Int cell = new Vector2Int(x, y);
         Vector3 worldPos = grid.GetCellCenter(cell);
 
-        GameObject go = Instantiate(so.prefab, worldPos, Quaternion.Euler(0f, rot * 90f, 0f));
+        GameObject go = Instantiate(so.prefab, worldPos,
+                                    Quaternion.Euler(0f, rot * 90f, 0f));
 
         PlacedObject po = go.GetComponent<PlacedObject>();
         po.Initialize(so, x, y, rot);
@@ -67,21 +84,74 @@ public class PlacementSystem : MonoBehaviour
 
         return po;
     }
+
     // ---------------------------------------------------------
-    // SAVE GAME
+    // QUICKSAVE (F5) — writes via your existing SaveSystem class
     // ---------------------------------------------------------
     public void SaveGame(string saveName)
     {
         lastSaveName = saveName;
+        SaveData save = BuildSaveData(saveName);
+        SaveSystem.Save(save);
+    }
 
+    // ---------------------------------------------------------
+    // QUICKLOAD (F9) — reads via your existing SaveSystem class
+    // ---------------------------------------------------------
+    public void LoadGame()
+    {
+        //Debug.Log($"Attempting to load save: {lastSaveName}");
+        SaveData save = SaveSystem.Load(lastSaveName);
+        if (save == null)
+        {
+            Debug.LogError($"LoadGame: no save file found for {lastSaveName}");
+            return;
+        }
+        ApplySaveData(save);
+    }
+
+    // ---------------------------------------------------------
+    // SLOT SAVE/LOAD — called by SaveManager for multi-slot UI.
+    // Same data format, different file path. Quicksave untouched.
+    // ---------------------------------------------------------
+
+    /// <summary>
+    /// Serializes the full game state to a JSON string.
+    /// SaveManager writes this to its own per-slot file.
+    /// </summary>
+    public string SerializeToJson()
+    {
+        SaveData save = BuildSaveData("slot_save");
+        return JsonUtility.ToJson(save, true);
+    }
+
+    /// <summary>
+    /// Deserializes a JSON string and applies it to the world.
+    /// SaveManager reads from its own per-slot file.
+    /// </summary>
+    public void DeserializeFromJson(string json)
+    {
+        if (string.IsNullOrEmpty(json)) return;
+
+        SaveData save = JsonUtility.FromJson<SaveData>(json);
+        if (save == null)
+        {
+            Debug.LogError("[PlacementSystem] DeserializeFromJson: bad JSON");
+            return;
+        }
+        ApplySaveData(save);
+    }
+
+    // ---------------------------------------------------------
+    // SHARED HELPERS — used by BOTH quicksave AND slot save
+    // ---------------------------------------------------------
+
+    private SaveData BuildSaveData(string saveName)
+    {
         SaveData save = new SaveData();
         save.saveName = saveName;
-        // 1. Save money
         save.money = moneyService.CurrentCapital;
-
-        // 1b. Save spent today
-        save.spentToday = moneyService.SpentToday; // ⭐ NEW
-
+        save.spentToday = moneyService.SpentToday;
 
         foreach (var entry in PlacedObjectRegistry.All)
         {
@@ -93,23 +163,15 @@ public class PlacementSystem : MonoBehaviour
             save.placedObjects.Add(obj);
         }
 
-        SaveSystem.Save(save);
+        return save;
     }
-    // ---------------------------------------------------------
-    // LOAD GAME
-    // ---------------------------------------------------------
-    public void LoadGame()
+
+    private void ApplySaveData(SaveData save)
     {
-        Debug.Log($"Attempting to load save: {lastSaveName}");
-        SaveData save = SaveSystem.Load(lastSaveName);
-        if (save == null)
-        {
-            Debug.LogError($"LoadGame: no save file found for {lastSaveName}");
-            return;
-        }
-        Debug.Log($"Loaded money: {save.money}, spent today: {save.spentToday}"); // ⭐ NEW
+        //Debug.Log($"Loaded money: {save.money}, spent today: {save.spentToday}");
         moneyService.SetMoney(save.money);
-        moneyService.SetSpentToday(save.spentToday);   // ⭐ NEW
+        moneyService.SetSpentToday(save.spentToday);
+
         ClearAll();
 
         foreach (var objSave in save.placedObjects)
@@ -117,8 +179,10 @@ public class PlacementSystem : MonoBehaviour
             ObjDataSO so = registry.GetByID(objSave.id);
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot);
         }
+
         grid.RebuildFromRegistry();
     }
+
     // ---------------------------------------------------------
     // LOAD GAME SPAWNING
     // ---------------------------------------------------------
@@ -127,30 +191,25 @@ public class PlacementSystem : MonoBehaviour
         Vector2Int root = new Vector2Int(x, y);
         float rotationDeg = rot * 90f;
 
-        // 1. Ask grid what the current stack height is at this root
         float stackY = 0f;
         if (so.isStackable)
-            stackY = grid.GetStackHeight(root); // BEFORE adding this new one
+            stackY = grid.GetStackHeight(root);
 
-        // 2. Place at correct world position
         Vector3 worldPos = grid.GetCellCenter(root);
         worldPos.y += stackY;
 
-        GameObject go = Instantiate(so.prefab, worldPos, Quaternion.Euler(0f, rotationDeg, 0f));
+        GameObject go = Instantiate(so.prefab, worldPos,
+                                    Quaternion.Euler(0f, rotationDeg, 0f));
 
-        // 3. PlacedObject init
         PlacedObject po = go.GetComponent<PlacedObject>();
         po.Initialize(so, x, y, rot);
 
-        // 4. BuildingData init
         BuildingData bd = go.GetComponent<BuildingData>();
         Vector2Int[] offsets = so.GetFootprintOffsets(rotationDeg);
         bd.Initialize(root, rotationDeg, offsets);
 
-        // 5. Registry
         PlacedObjectRegistry.Register(po);
 
-        // 6. Register ALL footprint cells in grid
         foreach (var o in offsets)
         {
             Vector2Int c = root + o;
@@ -159,12 +218,12 @@ public class PlacementSystem : MonoBehaviour
 
         return po;
     }
+
     // ---------------------------------------------------------
     // CLEAR ALL OBJECTS
     // ---------------------------------------------------------
     public void ClearAll()
     {
-        // Destroy all objects in the registry
         foreach (var obj in PlacedObjectRegistry.All)
         {
             if (obj != null)
@@ -175,10 +234,28 @@ public class PlacementSystem : MonoBehaviour
             }
         }
 
-        // Clear registry AFTER the loop
         PlacedObjectRegistry.Clear();
-
-        // Reset the grid
         grid.InitializeGrid();
+    }
+    private void OnSlotSaveCompleted(int slotIndex)
+    {
+        AudioManager.Play("UI_Save");
+        UIToast.Show($"Saved to Slot {slotIndex + 1}");
+    }
+
+    private void OnSlotLoadCompleted(int slotIndex)
+    {
+        AudioManager.Play("UI_Load");
+        UIToast.Show($"Loaded Slot {slotIndex + 1}");
+    }
+
+    private void OnDestroy()
+    {
+        // Unsubscribe to prevent leaks
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.OnSaveCompleted -= OnSlotSaveCompleted;
+            SaveManager.Instance.OnLoadCompleted -= OnSlotLoadCompleted;
+        }
     }
 }
