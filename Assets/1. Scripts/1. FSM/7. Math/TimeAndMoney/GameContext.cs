@@ -8,6 +8,8 @@ public class GameContext : MonoBehaviour
     private void Start()
     {
         //topRightUI.Initialize(MoneyService, TimeService);
+        var placement = FindAnyObjectByType<PlacementSystem>();
+        placement.LoadGame();
     }
     public MoneyService MoneyService { get; private set; }
 

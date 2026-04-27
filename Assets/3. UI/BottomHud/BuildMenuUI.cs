@@ -223,47 +223,12 @@ public class BuildMenuUI : MonoBehaviour
                 case "CANCEL": button.clicked += () => OnCancelClicked?.Invoke(); break;
                 case "ROTATE": button.clicked += () => OnRotateClicked?.Invoke(); break;
                 case "SAVE": button.clicked += ShowSavePopup; break;
-                case "LOAD": button.clicked += LoadGame; break;
+                case "LOAD": button.clicked += () => placementSystem.LoadGame(); break;
             }
 
             _utilityRow.Add(ve);
         }
     }
-
-    // ---------------------------------------------------------
-    // LOAD GAME
-    // ---------------------------------------------------------
-    private void LoadGame()
-    {
-        //Debug.Log("LoadGame() START");
-
-        var data = SaveSystem.Load("autosave");
-        //Debug.Log($"{(data == null ? "LoadGame: data is NULL" : "LoadGame: data loaded OK")}");
-        Debug.Log($"LoadName: {data?.saveName}, money: {data?.money}, placedObjects count: {data?.placedObjects.Count}");
-        if (data == null)
-            return;
-
-        //Debug.Log($"LoadGame: setting money...{data.money}");
-        moneyService.SetMoney(data.money);
-
-        //Debug.Log("LoadGame: clearing placement...");
-        placementSystem.ClearAll();
-
-       // Debug.Log("LoadGame: spawning objects, count = " + data.placedObjects.Count);
-
-        foreach (var p in data.placedObjects)
-        {
-            var so = registry.GetByID(p.id);
-            //Debug.Log($"Spawning {p.id} at {p.x},{p.y} rot {p.rot}, so is null? {so == null}");
-            placementSystem.SpawnFromSave(so, p.x, p.y, p.rot);
-        }
-
-        //grid.RebuildFromRegistry();
-        //grid.LogGridVsRegistryDiagnostics();
-        //Debug.Log($"After rebuild: total registry count = {PlacedObjectRegistry.All.Count}");
-        //Debug.Log("LoadGame() END");
-    }
-
     // ---------------------------------------------------------
     // SUBMENU SYSTEM
     // ---------------------------------------------------------

@@ -8,6 +8,7 @@ public class IdleState : IPlacementState
     {
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+        Object.FindAnyObjectByType<TopBarUI>().SetState(GetType().Name);
     }
 
     public void Tick()

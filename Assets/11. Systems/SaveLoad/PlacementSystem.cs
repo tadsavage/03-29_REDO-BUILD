@@ -111,7 +111,12 @@ public class PlacementSystem : MonoBehaviour
 
         SaveData save = new SaveData();
         save.saveName = saveName;
+        // 1. Save money
         save.money = moneyService.CurrentCapital;
+
+        // 1b. Save spent today
+        save.spentToday = moneyService.SpentToday; // ⭐ NEW
+
 
         foreach (var entry in PlacedObjectRegistry.All)
         {
@@ -132,14 +137,16 @@ public class PlacementSystem : MonoBehaviour
     // ---------------------------------------------------------
     public void LoadGame()
     {
+        Debug.Log($"Attempting to load save: {lastSaveName}");
         SaveData save = SaveSystem.Load(lastSaveName);
         if (save == null)
         {
             Debug.LogError($"LoadGame: no save file found for {lastSaveName}");
             return;
         }
-
+        Debug.Log($"Loaded money: {save.money}, spent today: {save.spentToday}"); // ⭐ NEW
         moneyService.SetMoney(save.money);
+        moneyService.SetSpentToday(save.spentToday);   // ⭐ NEW
         ClearAll();
 
         foreach (var objSave in save.placedObjects)
@@ -147,7 +154,6 @@ public class PlacementSystem : MonoBehaviour
             ObjDataSO so = registry.GetByID(objSave.id);
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot);
         }
-
         grid.RebuildFromRegistry();
     }
 

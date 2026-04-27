@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class MoneyService
 {
@@ -39,7 +40,7 @@ public class MoneyService
     public void Refund(int amount, string category = "General")
     {
         CurrentCapital += amount;
-
+        TrackSpending(-amount, category);
         // Refunds do NOT reduce category spending
         // (AAA sims track spending, not net)
         OnMoneyChanged?.Invoke();
@@ -99,6 +100,12 @@ public class MoneyService
     public void SetMoney(int amount)
     {
         CurrentCapital = amount;
+        OnMoneyChanged?.Invoke();
+    }
+    public void SetSpentToday(int amount)
+    {
+        Debug.Log($"Setting SpentToday to: {amount}");
+        SpentToday = amount;
         OnMoneyChanged?.Invoke();
     }
 }

@@ -1,40 +1,30 @@
-<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xmlns:ui="UnityEngine.UIElements"
-         xmlns:uxml="UnityEngine.UIElements"
-         xmlns:uie="UnityEditor.UIElements"
-         editor-extension-mode="False">
-
-    <Style src="HUD.uss" />
-    <Style src="TopBar.uss" />
-
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uxml="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/3.%20UI/TopHUD/HUD.uss?fileID=7433441132597879392&amp;guid=f34d0036cbe6d1343a7bb251134182cc&amp;type=3#HUD"/>
+    <Style src="project://database/Assets/3.%20UI/TopHUD/TopBar.uss?fileID=7433441132597879392&amp;guid=e177c4ab0f3cfdf4c87cdda0512c4745&amp;type=3#TopBar"/>
     <ui:VisualElement name="Root" class="hud-root">
-
-        <!-- TOP BAR WITH SHADED BOXES -->
         <ui:VisualElement name="TopBar" class="topbar-root">
-
             <ui:VisualElement class="topbar-box">
-                <ui:Label name="MoneyLabel" class="topbar-money" />
+                <ui:Label name="MoneyLabel" class="topbar-money"/>
             </ui:VisualElement>
-
             <ui:VisualElement class="topbar-box">
-                <ui:Label name="HourlyLabel" class="topbar-hourly" />
+                <ui:Label name="HourlyLabel" class="topbar-hourly"/>
             </ui:VisualElement>
-
             <ui:VisualElement class="topbar-box">
-                <ui:Label name="SpentLabel" class="topbar-spent" />
+                <ui:Label name="SpentLabel" class="topbar-spent"/>
             </ui:VisualElement>
-
             <ui:VisualElement class="topbar-box">
-                <ui:Label name="TimeLabel" class="topbar-time" />
+                <ui:Label name="TimeLabel" class="topbar-time"/>
             </ui:VisualElement>
-
+            <ui:VisualElement class="topbar-box">
+                <ui:Label name="FPSLabel" text="FPS: 0" class="topbar-time"/>
+            </ui:VisualElement>
+            <ui:VisualElement class="topbar-box">
+                <ui:Label name="StateLabel" text="State: Idle" class="topbar-time"/>
+            </ui:VisualElement>
+            <ui:VisualElement class="topbar-box">
+                <ui:Label name="CellLabel" text="Cell: (0,0)" class="topbar-time"/>
+            </ui:VisualElement>
         </ui:VisualElement>
-
-        <!-- PREVIEW COST LABEL -->
-        <ui:Label name="PreviewCostLabel"
-                  text=""
-                  class="preview-cost-label" />
-
     </ui:VisualElement>
-
+    <ui:Label name="PreviewCostLabel" text="$1250" picking-mode="Ignore" class="preview-cost-label" style="flex-direction: column; justify-content: center; align-self: center; align-content: auto; font-size: 20px; top: 401px; left: 642px; color: rgb(229, 89, 89); -unity-font-style: bold; -unity-text-outline-color: rgba(205, 203, 185, 0.5); -unity-text-outline-width: 0; background-color: rgba(0, 0, 0, 0.75); border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px; border-left-color: rgba(221, 204, 143, 0.5); border-right-color: rgba(221, 204, 143, 0.5); border-top-color: rgba(221, 204, 143, 0.5); border-bottom-color: rgba(221, 204, 143, 0.5);"/>
 </ui:UXML>

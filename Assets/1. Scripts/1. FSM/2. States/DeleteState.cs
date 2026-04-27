@@ -47,6 +47,8 @@ public class DeleteState : IPlacementState
         _dragTargets.Clear();
         ClearHover();
 
+        Object.FindAnyObjectByType<TopBarUI>().SetState(GetType().Name);
+
         _fsm.OnHistoryChanged += OnHistoryChanged;
     }
 
