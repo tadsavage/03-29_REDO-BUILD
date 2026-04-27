@@ -1,33 +1,40 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="SaveLoadWindow.uss" />
 
+    <!-- Full-screen semi-transparent overlay -->
     <ui:VisualElement name="save-load-overlay" class="overlay">
+
+        <!-- Centered modal panel (fixed size) -->
         <ui:VisualElement name="modal-panel" class="modal-panel">
 
+            <!-- Title bar -->
             <ui:VisualElement name="title-bar" class="title-bar">
                 <ui:Label name="title-label" text="SAVE GAME" class="title-label" />
                 <ui:Button name="close-button" text="&#x2715;" class="close-button" />
             </ui:VisualElement>
 
+            <!-- Tab bar -->
             <ui:VisualElement name="tab-bar" class="tab-bar">
                 <ui:Button name="tab-save" text="SAVE" class="tab-button tab-active" />
                 <ui:Button name="tab-load" text="LOAD" class="tab-button tab-inactive" />
             </ui:VisualElement>
 
+            <!-- Scrollable slot list -->
             <ui:ScrollView name="slot-scroll-view" class="slot-scroll-view" mode="Vertical">
                 <ui:VisualElement name="slot-container" class="slot-container" />
             </ui:ScrollView>
 
-        </ui:VisualElement>
-
-        <ui:VisualElement name="confirm-overlay" class="confirm-overlay">
-            <ui:VisualElement name="confirm-panel" class="confirm-panel">
-                <ui:Label name="confirm-label" text="Are you sure?" class="confirm-label" />
-                <ui:VisualElement class="confirm-buttons">
-                    <ui:Button name="confirm-yes" text="YES" class="confirm-button confirm-yes" />
-                    <ui:Button name="confirm-no"  text="NO"  class="confirm-button confirm-no" />
+            <!-- Confirmation overlay — NOW INSIDE modal-panel -->
+            <ui:VisualElement name="confirm-overlay" class="confirm-overlay">
+                <ui:VisualElement name="confirm-panel" class="confirm-panel">
+                    <ui:Label name="confirm-label" text="Are you sure?" class="confirm-label" />
+                    <ui:VisualElement class="confirm-buttons">
+                        <ui:Button name="confirm-yes" text="YES" class="confirm-button confirm-yes" />
+                        <ui:Button name="confirm-no"  text="NO"  class="confirm-button confirm-no" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
+
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
