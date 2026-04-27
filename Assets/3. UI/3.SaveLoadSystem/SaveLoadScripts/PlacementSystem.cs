@@ -58,7 +58,7 @@ public class PlacementSystem : MonoBehaviour
         // Save/Load window (F6)
         if (Keyboard.current.f6Key.wasPressedThisFrame)
         {
-            if (saveLoadWindowController.IsOpen)
+            if (saveLoadWindowController.IsOpen)        
                 saveLoadWindowController.Close();
             else
                 saveLoadWindowController.Open(SaveLoadMode.Save);

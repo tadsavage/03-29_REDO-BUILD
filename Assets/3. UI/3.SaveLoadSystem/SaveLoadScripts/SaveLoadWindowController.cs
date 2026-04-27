@@ -144,7 +144,7 @@ namespace SaveLoadSystem
 
             if (tabLoadButton.worldBound.Contains(pos))
             {
-                Debug.Log("[SaveLoadWindow] LOAD tab clicked (root capture)");
+                Debug.Log($"[SaveLoadWindow] LOAD tab clicked (root capture)  {pos}");
                 evt.StopImmediatePropagation();
                 SwitchMode(SaveLoadMode.Load);
                 return;
@@ -242,7 +242,7 @@ namespace SaveLoadSystem
             pendingActionSlot = -1;
             pendingOverwriteName = null;
 
-            SetConfirmVisible(false);
+            //SetConfirmVisible(false);     
             UpdateTabVisuals();
             RefreshSlotsSafe();
             EnsureTabsClickable();
