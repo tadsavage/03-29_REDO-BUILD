@@ -1724,6 +1724,7 @@ GameObject:
   - component: {fileID: 1746988601}
   - component: {fileID: 1746988603}
   - component: {fileID: 1746988604}
+  - component: {fileID: 1746988605}
   m_Layer: 0
   m_Name: TopBar
   m_TagString: Untagged
@@ -1793,6 +1794,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f78d8560f50805a47866a32a9ea2845e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopBarUI
+--- !u!114 &1746988605
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1746988600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75b3f4f9350203b418f25a1b11843f4a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIToast
 --- !u!1 &1864991201
 GameObject:
   m_ObjectHideFlags: 0
@@ -2082,6 +2095,7 @@ MonoBehaviour:
   OccupiedColor: {r: 1, g: 0.4, b: 0.4, a: 0.4}
   SelectedColor: {r: 1, g: 0.99215853, b: 0.39999998, a: 0.4}
   DeleteColor: {r: 1, g: 1, b: 0.2, a: 0.41960785}
+  DebugCells: []
 --- !u!1 &2120966095
 GameObject:
   m_ObjectHideFlags: 0

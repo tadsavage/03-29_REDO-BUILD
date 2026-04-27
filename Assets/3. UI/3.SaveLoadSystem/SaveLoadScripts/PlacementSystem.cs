@@ -1,4 +1,6 @@
 ﻿using UnityEngine;
+using UnityEngine.WSA;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// Handles placing objects into the world during gameplay
@@ -11,8 +13,9 @@ public class PlacementSystem : MonoBehaviour
 
     private MoneyService moneyService;
 
+    private float quicksaveCooldown = 1.0f;   // seconds
+    private float quicksaveTimer = 0f;
     private string lastSaveName = "autosave";
-
 
     // Called by GameContext
     public void Initialize(MoneyService money)
@@ -20,6 +23,32 @@ public class PlacementSystem : MonoBehaviour
         moneyService = money;
     }
 
+    private void Update()
+    {
+        // Tick cooldown
+        if (quicksaveTimer > 0f)
+            quicksaveTimer -= Time.deltaTime;
+
+        // Quicksave (F5)
+        if (Keyboard.current.f5Key.isPressed && quicksaveTimer <= 0f)
+        {
+            SaveGame("autosave");
+            quicksaveTimer = quicksaveCooldown;
+
+            AudioManager.Play("UI_Save");   // ⭐ your save SFX
+
+            UIToast.Show("Quick-save successful");  // ⭐ your toast system
+        }
+
+        // Quickload (F9)
+        if (Keyboard.current.f9Key.isPressed && quicksaveTimer <= 0f)
+        {
+            LoadGame();
+            AudioManager.Play("UI_Load");   // optional
+
+            UIToast.Show("Quick-load successful");  // ⭐ your toast system
+        }
+    }
     // ---------------------------------------------------------
     // NORMAL GAMEPLAY PLACEMENT
     // ---------------------------------------------------------
@@ -38,7 +67,58 @@ public class PlacementSystem : MonoBehaviour
 
         return po;
     }
+    // ---------------------------------------------------------
+    // SAVE GAME
+    // ---------------------------------------------------------
+    public void SaveGame(string saveName)
+    {
+        lastSaveName = saveName;
 
+        SaveData save = new SaveData();
+        save.saveName = saveName;
+        // 1. Save money
+        save.money = moneyService.CurrentCapital;
+
+        // 1b. Save spent today
+        save.spentToday = moneyService.SpentToday; // ⭐ NEW
+
+
+        foreach (var entry in PlacedObjectRegistry.All)
+        {
+            SavedObject obj = new SavedObject();
+            obj.id = entry.data.id;
+            obj.x = entry.gridX;
+            obj.y = entry.gridY;
+            obj.rot = entry.rotation;
+            save.placedObjects.Add(obj);
+        }
+
+        SaveSystem.Save(save);
+    }
+    // ---------------------------------------------------------
+    // LOAD GAME
+    // ---------------------------------------------------------
+    public void LoadGame()
+    {
+        Debug.Log($"Attempting to load save: {lastSaveName}");
+        SaveData save = SaveSystem.Load(lastSaveName);
+        if (save == null)
+        {
+            Debug.LogError($"LoadGame: no save file found for {lastSaveName}");
+            return;
+        }
+        Debug.Log($"Loaded money: {save.money}, spent today: {save.spentToday}"); // ⭐ NEW
+        moneyService.SetMoney(save.money);
+        moneyService.SetSpentToday(save.spentToday);   // ⭐ NEW
+        ClearAll();
+
+        foreach (var objSave in save.placedObjects)
+        {
+            ObjDataSO so = registry.GetByID(objSave.id);
+            SpawnFromSave(so, objSave.x, objSave.y, objSave.rot);
+        }
+        grid.RebuildFromRegistry();
+    }
     // ---------------------------------------------------------
     // LOAD GAME SPAWNING
     // ---------------------------------------------------------
@@ -101,60 +181,4 @@ public class PlacementSystem : MonoBehaviour
         // Reset the grid
         grid.InitializeGrid();
     }
-
-    // ---------------------------------------------------------
-    // SAVE GAME
-    // ---------------------------------------------------------
-    public void SaveGame(string saveName)
-    {
-        lastSaveName = saveName;
-
-        SaveData save = new SaveData();
-        save.saveName = saveName;
-        // 1. Save money
-        save.money = moneyService.CurrentCapital;
-
-        // 1b. Save spent today
-        save.spentToday = moneyService.SpentToday; // ⭐ NEW
-
-
-        foreach (var entry in PlacedObjectRegistry.All)
-        {
-            SavedObject obj = new SavedObject();
-            obj.id = entry.data.id;
-            obj.x = entry.gridX;
-            obj.y = entry.gridY;
-            obj.rot = entry.rotation;
-            save.placedObjects.Add(obj);
-        }
-
-        SaveSystem.Save(save);
-    }
-
-
-    // ---------------------------------------------------------
-    // LOAD GAME
-    // ---------------------------------------------------------
-    public void LoadGame()
-    {
-        Debug.Log($"Attempting to load save: {lastSaveName}");
-        SaveData save = SaveSystem.Load(lastSaveName);
-        if (save == null)
-        {
-            Debug.LogError($"LoadGame: no save file found for {lastSaveName}");
-            return;
-        }
-        Debug.Log($"Loaded money: {save.money}, spent today: {save.spentToday}"); // ⭐ NEW
-        moneyService.SetMoney(save.money);
-        moneyService.SetSpentToday(save.spentToday);   // ⭐ NEW
-        ClearAll();
-
-        foreach (var objSave in save.placedObjects)
-        {
-            ObjDataSO so = registry.GetByID(objSave.id);
-            SpawnFromSave(so, objSave.x, objSave.y, objSave.rot);
-        }
-        grid.RebuildFromRegistry();
-    }
-
 }
