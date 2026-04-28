@@ -73,7 +73,10 @@ public class FreeLookCamera : MonoBehaviour
 
 	void Update()
 	{
-		var fastMode = Keyboard.current[Key.LeftShift].isPressed;
+        //  Don't do anything if the user is currently typing in a text field.
+        if (UIInputGuard.IsTextFieldFocused) return;
+
+        var fastMode = Keyboard.current[Key.LeftShift].isPressed;
 		var movementSpeed = fastMode ? this.fastMovementSpeed : this.movementSpeed;
 
 		if (Keyboard.current[Key.A].isPressed || Keyboard.current[Key.LeftArrow].isPressed)

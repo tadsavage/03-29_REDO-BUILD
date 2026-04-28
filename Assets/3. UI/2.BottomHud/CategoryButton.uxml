@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <ui:Button name="CategoryButton" class="buildmenu-category-button">
+    <ui:Button name="CategoryButton" picking-mode="Position" class="buildmenu-category-button" style="display: flex; visibility: visible; overflow: visible; position: relative; flex-direction: column; justify-content: space-around; align-self: auto; align-content: auto; background-size: 100% 100%; background-position-x: center; background-position-y: center; flex-basis: auto; flex-wrap: nowrap; align-items: auto;">
         <ui:VisualElement name="Icon" class="buildmenu-category-icon"/>
-        <ui:Label name="Label" class="buildmenu-category-label"/>
+        <ui:Label name="Label" class="buildmenu-category-label" style="position: absolute; flex-direction: column; flex-wrap: nowrap;"/>
     </ui:Button>
 </ui:UXML>

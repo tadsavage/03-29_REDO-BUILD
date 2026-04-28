@@ -1,4 +1,4 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
     <Style src="project://database/Assets/3.%20UI/3.SaveLoadSystem/UI-Save_Load/SaveLoadWindow.uss?fileID=7433441132597879392&amp;guid=fa81db3973ac92049a846658905d4a8f&amp;type=3#SaveLoadWindow"/>
     <ui:VisualElement name="save-load-overlay" class="overlay">
         <ui:VisualElement name="modal-panel" class="modal-panel">
@@ -13,13 +13,13 @@
             <ui:ScrollView name="slot-scroll-view" mode="Vertical" class="slot-scroll-view">
                 <ui:VisualElement name="slot-container" class="slot-container"/>
             </ui:ScrollView>
-            <ui:VisualElement name="confirm-overlay" class="confirm-overlay">
-                <ui:VisualElement name="confirm-panel" class="confirm-panel">
-                    <ui:Label name="confirm-label" text="Are you sure?" class="confirm-label"/>
-                    <ui:VisualElement class="confirm-buttons">
-                        <ui:Button name="confirm-yes" text="YES" class="confirm-button confirm-yes"/>
-                        <ui:Button name="confirm-no" text="NO" class="confirm-button confirm-no"/>
-                    </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="confirm-overlay" class="confirm-overlay">
+            <ui:VisualElement name="confirm-panel" class="confirm-panel">
+                <ui:Label name="confirm-label" text="Are you sure?" class="confirm-label"/>
+                <ui:VisualElement class="confirm-buttons">
+                    <ui:Button name="confirm-yes" text="YES" class="confirm-button confirm-yes"/>
+                    <ui:Button name="confirm-no" text="NO" class="confirm-button confirm-no"/>
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>

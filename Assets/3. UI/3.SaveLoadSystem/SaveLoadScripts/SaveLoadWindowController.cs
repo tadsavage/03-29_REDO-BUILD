@@ -132,7 +132,7 @@ namespace SaveLoadSystem
             if (!isOpen) return;
 
             Vector2 pos = new Vector2(evt.position.x, evt.position.y);
-
+            Debug.Log($"[SaveLoadWindow] Root PointerDown at {pos}");
             // --- Tab buttons (coordinate-based, bypasses any blocker) ---
             if (tabSaveButton.worldBound.Contains(pos))
             {

@@ -23,8 +23,8 @@ public class PreviewCostUI : MonoBehaviour
             ? new StyleColor(new Color(.9f, 0.5f, 0.5f)) // soft red
             : new StyleColor(Color.red);
     }
-    new 
-
+    new
+    // Hides the cost label when not needed
     public void Hide()
     {
         if (_label != null)
