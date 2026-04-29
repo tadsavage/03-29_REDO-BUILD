@@ -1,9 +1,9 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uxml="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/3.%20UI/TopHUD/HUD.uss?fileID=7433441132597879392&amp;guid=f34d0036cbe6d1343a7bb251134182cc&amp;type=3#HUD"/>
-    <Style src="project://database/Assets/3.%20UI/TopHUD/TopBar.uss?fileID=7433441132597879392&amp;guid=e177c4ab0f3cfdf4c87cdda0512c4745&amp;type=3#TopBar"/>
-    <Style src="project://database/Assets/3.%20UI/TopHUD/Toast.uss?fileID=7433441132597879392&amp;guid=d60103934d9a3cd4598fe59ca2afd524&amp;type=3#Toast"/>
+    <Style src="project://database/Assets/3.%20UI/1.TopHUD/HUD.uss?fileID=7433441132597879392&amp;guid=f34d0036cbe6d1343a7bb251134182cc&amp;type=3#HUD"/>
+    <Style src="project://database/Assets/3.%20UI/1.TopHUD/TopBar.uss?fileID=7433441132597879392&amp;guid=e177c4ab0f3cfdf4c87cdda0512c4745&amp;type=3#TopBar"/>
+    <Style src="project://database/Assets/3.%20UI/1.TopHUD/Toast.uss?fileID=7433441132597879392&amp;guid=d60103934d9a3cd4598fe59ca2afd524&amp;type=3#Toast"/>
     <ui:VisualElement name="Root" class="hud-root">
-        <ui:VisualElement name="TopBar" class="topbar-root">
+        <ui:VisualElement name="TopBar" class="topbar-root" style="background-color: rgba(0, 0, 0, 0.7);">
             <ui:VisualElement class="topbar-box">
                 <ui:Label name="MoneyLabel" class="topbar-money"/>
             </ui:VisualElement>
@@ -28,5 +28,5 @@
         </ui:VisualElement>
     </ui:VisualElement>
     <ui:Label name="PreviewCostLabel" text="$1250" picking-mode="Ignore" class="preview-cost-label" style="flex-direction: column; justify-content: center; align-self: center; align-content: auto; font-size: 20px; top: 401px; left: 642px; color: rgb(229, 89, 89); -unity-font-style: bold; -unity-text-outline-color: rgba(205, 203, 185, 0.5); -unity-text-outline-width: 0; background-color: rgba(0, 0, 0, 0.75); border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px; border-left-color: rgba(221, 204, 143, 0.5); border-right-color: rgba(221, 204, 143, 0.5); border-top-color: rgba(221, 204, 143, 0.5); border-bottom-color: rgba(221, 204, 143, 0.5);"/>
-    <ui:Label name="ToastLabel" text="Toast" picking-mode="Ignore" class="toast-label" style="top: 855px; left: 1390px; font-size: 26px; -unity-text-outline-color: rgba(217, 214, 146, 0.64); -unity-text-align: upper-center;"/>
+    <ui:Label name="ToastLabel" text="Toast" picking-mode="Ignore" class="toast-label" style="top: 880px; left: 1474px; font-size: 32px; -unity-text-outline-color: rgba(217, 214, 146, 0.64); -unity-text-align: upper-left; width: 496px; height: 105px; position: absolute; white-space: normal; -unity-text-outline-width: 0;"/>
 </ui:UXML>

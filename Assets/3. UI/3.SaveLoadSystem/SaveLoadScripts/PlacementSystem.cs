@@ -58,7 +58,7 @@ public class PlacementSystem : MonoBehaviour
         // Save/Load window (F6)
         if (Keyboard.current.f6Key.wasPressedThisFrame)
         {
-            if (saveLoadWindowController.IsOpen)        
+            if (saveLoadWindowController.IsOpen)
                 saveLoadWindowController.Close();
             else
                 saveLoadWindowController.Open(SaveLoadMode.Save);
@@ -104,7 +104,7 @@ public class PlacementSystem : MonoBehaviour
         SaveData save = SaveSystem.Load(lastSaveName);
         if (save == null)
         {
-            Debug.LogError($"LoadGame: no save file found for {lastSaveName}");
+            Debug.LogWarning($"LoadGame: no save file found for {lastSaveName}");
             return;
         }
         ApplySaveData(save);
@@ -168,7 +168,7 @@ public class PlacementSystem : MonoBehaviour
 
     private void ApplySaveData(SaveData save)
     {
-        //Debug.Log($"Loaded money: {save.money}, spent today: {save.spentToday}");
+        //sDebug.Log($"Loaded money: {save.money}, spent today: {save.spentToday}");
         moneyService.SetMoney(save.money);
         moneyService.SetSpentToday(save.spentToday);
 
@@ -257,5 +257,6 @@ public class PlacementSystem : MonoBehaviour
             SaveManager.Instance.OnSaveCompleted -= OnSlotSaveCompleted;
             SaveManager.Instance.OnLoadCompleted -= OnSlotLoadCompleted;
         }
+
     }
 }

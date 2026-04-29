@@ -1,19 +1,18 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <Style src="SaveSlot.uss" />
-
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
+    <Style src="project://database/Assets/3.%20UI/3.SaveLoadSystem/UI-Save_Load/SaveSlot.uss?fileID=7433441132597879392&amp;guid=64e2db04fd6e4a54db676c0ab817b4d1&amp;type=3#SaveSlot"/>
     <ui:VisualElement name="slot-root" class="slot-root">
-        <ui:Label name="slot-index-label" text="SLOT 1" class="slot-index-label" />
-        <ui:VisualElement name="thumbnail-image" class="thumbnail-image" />
+        <ui:Label name="slot-index-label" text="SLOT 1" class="slot-index-label"/>
+        <ui:VisualElement name="thumbnail-image" class="thumbnail-image"/>
         <ui:VisualElement name="empty-slot-overlay" class="empty-slot-overlay">
-            <ui:Label text="&#x2014; EMPTY &#x2014;" class="empty-label" />
+            <ui:Label text="— EMPTY —" class="empty-label"/>
         </ui:VisualElement>
         <ui:VisualElement name="info-column" class="info-column">
-            <ui:TextField name="save-name-field" value="Save 1" class="save-name-field" />
-            <ui:Label name="timestamp-label" text="" class="timestamp-label" />
+            <ui:TextField name="save-name-field" value="Save 1" class="save-name-field"/>
+            <ui:Label name="timestamp-label" text="" class="timestamp-label"/>
         </ui:VisualElement>
         <ui:VisualElement name="button-column" class="button-column">
-            <ui:Button name="action-button" text="SAVE" class="action-button" />
-            <ui:Button name="delete-button" text="DEL"  class="delete-button" />
+            <ui:Button name="action-button" text="SAVE" class="action-button"/>
+            <ui:Button name="delete-button" text="DEL" class="delete-button"/>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

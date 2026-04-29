@@ -54,7 +54,7 @@ namespace SaveLoadSystem
         /// <summary>
         /// Saves game state + thumbnail to the given slot.
         /// Does NOT interfere with quicksave (F5/F9).
-        /// </summary>-----------SAVE GAME STATE + THUMBNAIL TO SLOT-----------
+        /// </summary>
         public void SaveToSlot(int slotIndex, string saveName)
         {
             if (slotIndex < 0 || slotIndex >= MAX_SLOTS)
@@ -63,37 +63,41 @@ namespace SaveLoadSystem
                 return;
             }
 
-            // 1. Serialize game data
+            // 1. Serialize game data (synchronous — fine to do now)
             string gameDataJson = SerializeGameState();
             string dataFileName = $"slot_{slotIndex}_data.json";
             File.WriteAllText(Path.Combine(saveFolderPath, dataFileName), gameDataJson);
 
-            // 2. Capture thumbnail (async coroutine, writes PNG to disk)
+            // 2. Capture thumbnail (async — writes PNG at end of frame)
             string thumbFileName = $"slot_{slotIndex}_thumb.png";
-            thumbnailCapture.CaptureThumbnail(saveFolderPath, thumbFileName,
-                (tex) => { if (tex != null) Destroy(tex); });
-
-            // 3. Write metadata
-            DateTime now = DateTime.Now;
-            SaveMetadata metadata = new SaveMetadata
+            thumbnailCapture.CaptureThumbnail(saveFolderPath, thumbFileName, (tex) =>
             {
-                slotIndex = slotIndex,
-                saveName = string.IsNullOrWhiteSpace(saveName)
-                                        ? $"Save {slotIndex + 1}" : saveName,
-                timestamp = now.ToString("MMM dd, yyyy  h:mm tt"),
-                timestampTicks = now.Ticks,
-                thumbnailFileName = thumbFileName,
-                gameDataFileName = dataFileName
-            };
+                if (tex != null) Destroy(tex);
 
-            metadataCollection.slots[slotIndex] = metadata;
-            WriteMetadataToDisk();
+                // 3. Write metadata AFTER thumbnail is on disk
+                DateTime now = DateTime.Now;
+                SaveMetadata metadata = new SaveMetadata
+                {
+                    slotIndex = slotIndex,
+                    saveName = string.IsNullOrWhiteSpace(saveName)
+                                           ? $"Save {slotIndex + 1}" : saveName,
+                    timestamp = now.ToString("MMM dd, yyyy  h:mm tt").ToUpper(),
+                    timestampTicks = now.Ticks,
+                    thumbnailFileName = thumbFileName,
+                    gameDataFileName = dataFileName
+                };
 
-            Debug.Log($"[SaveManager] Saved slot {slotIndex}: \"{metadata.saveName}\"");
-            OnSaveCompleted?.Invoke(slotIndex);
+                metadataCollection.slots[slotIndex] = metadata;
+                WriteMetadataToDisk();
+
+                // 4. NOW fire the event — thumbnail + metadata both ready
+                OnSaveCompleted?.Invoke(slotIndex);
+                // 5. Bonus: show a toast (hook your own toast to the event if you want)
+                UIToast.Show($"Saved to Slot {slotIndex + 1}");
+            });
         }
 
-        /// <summary> -----------LOAD GAME STATE FROM SLOT----------
+        /// <summary>
         /// Loads game state from slot. Returns false if empty/missing.
         /// Does NOT interfere with quicksave (F5/F9).
         /// </summary>
@@ -116,9 +120,10 @@ namespace SaveLoadSystem
 
             Debug.Log($"[SaveManager] Loaded slot {slotIndex}: \"{metadata.saveName}\"");
             OnLoadCompleted?.Invoke(slotIndex);
+            UIToast.Show($"Loaded Slot {slotIndex + 1}");
             return true;
         }
-        /// <summary> -----------DELETE SLOT------------------------------------------
+
         public void DeleteSlot(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= MAX_SLOTS) return;
@@ -135,75 +140,66 @@ namespace SaveLoadSystem
 
             Debug.Log($"[SaveManager] Deleted slot {slotIndex}");
             OnSlotDeleted?.Invoke(slotIndex);
+            UIToast.Show($"Slot {slotIndex + 1} deleted");
         }
-        //-----------GET THUMBNAIL PATH FOR SLOT (for UI display)----------
+
         public string GetThumbnailPath(int slotIndex)
         {
             if (slotIndex < 0 || slotIndex >= MAX_SLOTS) return null;
             SaveMetadata metadata = metadataCollection.slots[slotIndex];
             if (metadata == null) return null;
-            if (string.IsNullOrEmpty(metadata.thumbnailFileName)) return null;  // ← NEW
+            if (string.IsNullOrEmpty(metadata.thumbnailFileName)) return null;
             return Path.Combine(saveFolderPath, metadata.thumbnailFileName);
         }
+
         // ========== SERIALIZATION BRIDGE ==========
         // Wire these to your PlacementSystem. Quicksave uses the
         // same PlacementSystem methods independently.
 
         private string SerializeGameState()
         {
-            Debug.Log("[SaveManager] SerializeGameState — wire to PlacementSystem");
             return placementSystem.SerializeToJson();
         }
 
         private void DeserializeGameState(string json)
         {
             placementSystem.DeserializeFromJson(json);
-            Debug.Log("[SaveManager] DeserializeGameState — wire to PlacementSystem");
         }
 
         // ========== METADATA PERSISTENCE ==========
-        // Metadata is stored as a single JSON file with an array of slot metadata.
+
         private void LoadMetadataFromDisk()
         {
             if (File.Exists(metadataFilePath))
             {
                 string json = File.ReadAllText(metadataFilePath);
-                metadataCollection =
-                    JsonUtility.FromJson<SaveMetadataCollection>(json);
+                metadataCollection = JsonUtility.FromJson<SaveMetadataCollection>(json);
             }
 
-            if (metadataCollection == null ||
-                metadataCollection.slots == null)
+            if (metadataCollection == null || metadataCollection.slots == null)
             {
                 metadataCollection = new SaveMetadataCollection
-                {
-                    slots = new SaveMetadata[MAX_SLOTS]
-                };
+                { slots = new SaveMetadata[MAX_SLOTS] };
             }
 
             if (metadataCollection.slots.Length != MAX_SLOTS)
             {
                 SaveMetadata[] resized = new SaveMetadata[MAX_SLOTS];
-                int copyCount = Mathf.Min(metadataCollection.slots.Length,
-                                          MAX_SLOTS);
+                int copyCount = Mathf.Min(metadataCollection.slots.Length, MAX_SLOTS);
                 for (int i = 0; i < copyCount; i++)
                     resized[i] = metadataCollection.slots[i];
                 metadataCollection.slots = resized;
             }
-
-            // --- FIX: JsonUtility deserializes null array elements as
-            //     empty objects with all-null fields. Kill them. ---
+            // Kill ghost entries: JsonUtility deserializes null array
+             // elements as empty objects with all-null string fields.
             for (int i = 0; i < metadataCollection.slots.Length; i++)
             {
                 SaveMetadata slot = metadataCollection.slots[i];
                 if (slot != null && string.IsNullOrEmpty(slot.gameDataFileName))
-                {
                     metadataCollection.slots[i] = null;
-                }
             }
         }
 
-        // Writes the entire metadata collection to disk. Called after any change.
         private void WriteMetadataToDisk()
         {
             string json = JsonUtility.ToJson(metadataCollection, true);
