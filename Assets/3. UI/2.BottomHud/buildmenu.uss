@@ -29,21 +29,17 @@
 .buildmenu-category-row,
 .buildmenu-utility-row {
     display: flex;
-    flex-direction: row-reverse;
+    flex-direction: row;
     align-items: center;
     gap: 8px;
-    justify-content: space-between;
-    -unity-text-align: middle-left;
-    -unity-font-style: bold;
-    white-space: normal;
 }
 
 .buildmenu-category-button {
     width: 120px;
     height: 104px;
-    flex-direction: row;
-    align-items: stretch;
-    justify-content: flex-start;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     background-color: rgba(255, 255, 255, 0.03);
     border-radius: 4px;
     border-width: 1px;
@@ -51,9 +47,7 @@
     padding: 4px;
     margin: 4px;
     transition: background-color 0.12s ease, border-color 0.12s ease;
-    align-self: center;
-    -unity-text-align: upper-center;
-    white-space: normal;
+    top: auto;
 }
 
 .buildmenu-category-button:hover {
@@ -64,6 +58,7 @@
 .buildmenu-category-button.selected {
     background-color: rgba(212, 135, 77, 0.25);
     border-color: rgb(212, 135, 77);
+    padding-top: 0;
 }
 
 .buildmenu-category-icon {
@@ -74,25 +69,17 @@
     background-position: center;
     -unity-background-scale-mode: scale-to-fit;
     margin-bottom: 2px;
+    margin-top: 0;
 }
 
 .buildmenu-category-label {
     -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
-    font-size: 16px;
+    font-size: 20px;
     letter-spacing: -4px;
-    -unity-font-style: normal;
+    -unity-font-style: bold;
     color: rgb(240, 230, 211);
     -unity-text-align: middle-center;
     white-space: nowrap;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: center;
-    justify-content: space-between;
-    text-overflow: clip;
-    background-position-y: bottom 0;
-    -unity-text-auto-size: best-fit 4px 100px;
-    border-left-width: 25px;
-    border-top-width: 14px;
 }
 
 .buildmenu-utility-button {
@@ -108,6 +95,7 @@
     padding: 4px;
     margin: 4px;
     transition: background-color 0.12s ease, border-color 0.12s ease;
+    top: auto;
 }
 
 .buildmenu-utility-button:hover {
@@ -123,11 +111,6 @@
     background-position: center;
     -unity-background-scale-mode: scale-to-fit;
     margin-bottom: 4px;
-    -unity-text-align: upper-left;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    align-self: auto;
 }
 
 .buildmenu-utility-label {
@@ -192,6 +175,7 @@
     border-color: rgba(255, 255, 255, 0.08);
     margin-bottom: 6px;
     transition: background-color 0.12s ease, border-color 0.12s ease;
+    left: auto;
 }
 
 .buildmenu-item-button:hover {
@@ -219,7 +203,7 @@
     -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
     font-size: 15px;
     letter-spacing: -4px;
-    -unity-font-style: normal;
+    -unity-font-style: bold;
     color: rgb(240, 230, 211);
     white-space: nowrap;
     overflow: hidden;
@@ -234,7 +218,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    -unity-font-style: normal;
 }
 
 .buildmenu-category-button.selected {

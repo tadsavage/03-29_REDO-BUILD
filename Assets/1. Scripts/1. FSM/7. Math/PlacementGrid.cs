@@ -431,9 +431,13 @@ public class PlacementGrid : MonoBehaviour
     /// Rebuild internal grid storage from the global PlacedObjectRegistry at runtime.
     /// Call this after loading/spawning objects so _cells/_stackHeights match the scene.
     /// </summary>
+    /// <summary>
+    /// Rebuild internal grid storage from the global PlacedObjectRegistry at runtime.
+    /// Call this after loading/spawning objects so _cells/_stackHeights match the scene.
+    /// Now registers objects across their FULL footprint, not just the root cell.
+    /// </summary>
     public void RebuildFromRegistry()
     {
-        // Recreate storage (preserves Width/Height/CellSize clamps done elsewhere)
         _cells = new List<PlacedObject>[Width, Height];
         _stackHeights = new float[Width, Height];
 
@@ -446,51 +450,58 @@ public class PlacementGrid : MonoBehaviour
             }
         }
 
-        // Populate from registry
         foreach (var placed in PlacedObjectRegistry.All)
         {
             if (placed == null || placed.data == null)
                 continue;
 
-            Vector2Int cell = new Vector2Int(placed.gridX, placed.gridY);
+            Vector2Int root = new Vector2Int(placed.gridX, placed.gridY);
 
-            if (!IsInsideGrid(cell))
-            {
-                Debug.LogWarning($"RebuildFromRegistry: {placed.name} at {cell} is outside grid bounds. Skipping.");
-                continue;
-            }
+            // Compute full footprint from the SO + saved rotation
+            Vector2Int[] offsets = placed.data.GetFootprintOffsets(placed.rotation);
 
-            // Avoid duplicates
-            var list = _cells[cell.x, cell.y];
-            bool exists = false;
-            for (int i = 0; i < list.Count; i++)
+            // If SO returns nothing, fall back to root-only
+            if (offsets == null || offsets.Length == 0)
+                offsets = new[] { Vector2Int.zero };
+
+            foreach (var offset in offsets)
             {
-                if (list[i].instance == placed.gameObject)
+                Vector2Int cell = root + offset;
+
+                if (!IsInsideGrid(cell))
                 {
-                    exists = true;
-                    break;
+                    Debug.LogWarning($"RebuildFromRegistry: {placed.name} footprint cell {cell} is outside grid bounds. Skipping.");
+                    continue;
                 }
+
+                // Avoid duplicates (same instance already in this cell)
+                var list = _cells[cell.x, cell.y];
+                bool exists = false;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (list[i].instance == placed.gameObject)
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (exists)
+                    continue;
+
+                if (placed.data.isFloor)
+                    list.Insert(0, new PlacedObject { instance = placed.gameObject, data = placed.data });
+                else
+                    list.Add(new PlacedObject { instance = placed.gameObject, data = placed.data });
+
+                if (!placed.data.isFloor && !placed.data.ignorePlacementRules)
+                    _stackHeights[cell.x, cell.y] += placed.data.objHeight;
             }
-
-            if (exists)
-                continue;
-
-            // Insert floors at bottom, others on top (match AddStackObject behavior)
-            if (placed.data.isFloor)
-                list.Insert(0, new PlacedObject { instance = placed.gameObject, data = placed.data });
-            else
-                list.Add(new PlacedObject { instance = placed.gameObject, data = placed.data });
-
-            if (!placed.data.isFloor && !placed.data.ignorePlacementRules)
-                _stackHeights[cell.x, cell.y] += placed.data.objHeight;
         }
 
-        // Refresh visualizer if enabled
         if (UseVisualizer)
             RedrawAllVisuals();
-
-        //Debug.Log("RebuildFromRegistry: grid rebuilt from PlacedObjectRegistry.");
     }
+
     public void LogGridVsRegistryDiagnostics()
     {
         int totalRegistry = PlacedObjectRegistry.All.Count;
