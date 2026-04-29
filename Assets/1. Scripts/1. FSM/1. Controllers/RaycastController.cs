@@ -152,20 +152,4 @@ public class RaycastController : MonoBehaviour
         Debug.DrawLine(pos + Vector3.right * radius, pos - Vector3.right * radius, color, 0f);
         Debug.DrawLine(pos + Vector3.forward * radius, pos - Vector3.forward * radius, color, 0f);
     }
-    
-    /// <summary>
-     /// Passive cell check — always works, no visuals, no audio, no _enabled gate.
-     /// Used by PlacementStateMachine for always-on cell tracking.
-     /// </summary>
-    public bool TryGetCellUnderCursor(out Vector2Int cell)
-    {
-        Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (Physics.Raycast(ray, out RaycastHit hit, 100f, _groundMask))
-        {
-            cell = _grid.WorldToCell(hit.point);
-            return true;
-        }
-        cell = default;
-        return false;
-    }
 }

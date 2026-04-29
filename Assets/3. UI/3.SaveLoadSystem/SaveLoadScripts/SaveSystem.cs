@@ -14,7 +14,7 @@ public static class SaveSystem
         string json = JsonUtility.ToJson(data, true);
         string path = Path.Combine(SaveFolder, data.saveName + ".json");
         File.WriteAllText(path, json);
-        //Debug.Log($"[SaveSystem] Saved → {path}");
+        Debug.Log($"[SaveSystem] Saved → {path}");
     }
 
     public static SaveData Load(string saveName)

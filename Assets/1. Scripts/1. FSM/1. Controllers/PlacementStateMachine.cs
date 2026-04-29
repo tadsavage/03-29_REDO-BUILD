@@ -31,11 +31,6 @@ public class PlacementStateMachine : MonoBehaviour
     // UI reference (already initialized by UIBootstrapper)
     [SerializeField] private PreviewCostUI _costUI;
 
-    // Passive HitCell reference for states that need it (e.g. DeleteState) — set by RaycastPlacementState in TopBarUI
-    private RaycastController _raycast;
-    private TopBarUI _topBarUI;
-
-
     public int DebugStackDepth => _stateStack.Count;
 
     // ---------------------------------------------------------
@@ -57,10 +52,7 @@ public class PlacementStateMachine : MonoBehaviour
     {
         // External dependencies (Context) are now valid
 
-        // Change this:
         RaycastController raycast = Object.FindFirstObjectByType<RaycastController>();
-
-        _raycast = Object.FindFirstObjectByType<RaycastController>();
         _indicator = Object.FindFirstObjectByType<CellIndicatorController>();
         _preview = Object.FindFirstObjectByType<PreviewController>();
         PlacementValidator validator = Object.FindFirstObjectByType<PlacementValidator>();
@@ -106,17 +98,10 @@ public class PlacementStateMachine : MonoBehaviour
         // Start in idle
         _currentState = _idleState;
         _currentState.OnEnter();
-
-        // UI reference
-        _topBarUI = Object.FindFirstObjectByType<TopBarUI>();
     }
 
     private void Update()
     {
-        // Always-on cell tracking — runs in every state
-        if (_raycast.TryGetCellUnderCursor(out var cell))
-            _topBarUI?.SetCell(cell.x, cell.y);
-
         _currentState?.Tick();
 
         // UNIVERSAL CANCEL (ESC or RMB)

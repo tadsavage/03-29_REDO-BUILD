@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <ui:Button name="CategoryButton" picking-mode="Position" class="buildmenu-category-button" style="display: flex; visibility: visible; overflow: visible; position: relative; flex-direction: column; justify-content: space-around; align-self: auto; align-content: auto; background-size: 100% 100%; background-position-x: center; background-position-y: center; flex-basis: auto; flex-wrap: nowrap; align-items: auto;">
         <ui:VisualElement name="Icon" class="buildmenu-category-icon"/>
-        <ui:Label name="Label" class="buildmenu-category-label" style="position: absolute; flex-direction: column; flex-wrap: nowrap; margin-top: 24px; padding-left: 22px; font-size: 16px; align-self: center; align-content: center; align-items: center; -unity-font-definition: url(&quot;project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&amp;guid=c4bbc2b151f7a754082a4e6f6d8ed32e&amp;type=3#Kenney Future Narrow&quot;); -unity-font-style: normal; -unity-text-align: middle-center; -unity-text-outline-width: 0; -unity-text-outline-color: rgba(9, 11, 37, 0); text-overflow: clip; text-shadow: 0 0 0 rgba(0, 0, 0, 0.5); color: rgb(247, 247, 238);"/>
+        <ui:Label name="Label" class="buildmenu-category-label" style="position: absolute; flex-direction: column; flex-wrap: nowrap;"/>
     </ui:Button>
 </ui:UXML>

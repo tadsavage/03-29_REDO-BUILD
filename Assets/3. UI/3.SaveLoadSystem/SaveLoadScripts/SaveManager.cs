@@ -92,8 +92,6 @@ namespace SaveLoadSystem
 
                 // 4. NOW fire the event — thumbnail + metadata both ready
                 OnSaveCompleted?.Invoke(slotIndex);
-                // 5. Bonus: show a toast (hook your own toast to the event if you want)
-                UIToast.Show($"Saved to Slot {slotIndex + 1}");
             });
         }
 
@@ -120,7 +118,6 @@ namespace SaveLoadSystem
 
             Debug.Log($"[SaveManager] Loaded slot {slotIndex}: \"{metadata.saveName}\"");
             OnLoadCompleted?.Invoke(slotIndex);
-            UIToast.Show($"Loaded Slot {slotIndex + 1}");
             return true;
         }
 
@@ -140,7 +137,6 @@ namespace SaveLoadSystem
 
             Debug.Log($"[SaveManager] Deleted slot {slotIndex}");
             OnSlotDeleted?.Invoke(slotIndex);
-            UIToast.Show($"Slot {slotIndex + 1} deleted");
         }
 
         public string GetThumbnailPath(int slotIndex)

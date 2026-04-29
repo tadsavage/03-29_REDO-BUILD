@@ -27,7 +27,7 @@ public class UIToast : MonoBehaviour
     {
         if (toast == null)
             return;
-        Debug.Log($"[UIToast] {msg} SHOULD BE SEEN?");
+
         toast.text = msg;
         toast.style.opacity = 1;
         timer = duration;
