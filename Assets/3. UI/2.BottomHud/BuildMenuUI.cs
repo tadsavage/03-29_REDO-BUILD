@@ -265,8 +265,14 @@ public class BuildMenuUI : MonoBehaviour
         if (_activeCategory == cat && _submenuOpen)
         {
             CloseSubmenu();
+
+            // ⭐ Force fade-out of highlight
+            foreach (var child in _categoryRow.Children())
+                child.Q<Button>("CategoryButton")?.RemoveFromClassList("selected");
+
             return;
         }
+
 
         _activeCategory = cat;
         _lastClickedCategoryButton = null;
@@ -340,6 +346,10 @@ public class BuildMenuUI : MonoBehaviour
         _submenuContainer.RemoveFromClassList("buildmenu-submenu-open");
         _submenuContainer.AddToClassList("buildmenu-submenu-closed");
         _submenuOpen = false;
+
+        // ⭐ Fade out the orange highlight when submenu closes
+        foreach (var child in _categoryRow.Children())
+            child.Q<Button>("CategoryButton")?.RemoveFromClassList("selected");
     }
 
     private void PositionSubmenuAfterLayout()

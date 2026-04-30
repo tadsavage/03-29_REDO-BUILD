@@ -11,6 +11,8 @@ public class UIBootstrapper : MonoBehaviour
     [SerializeField] private PreviewCostUI _costUI;
     [SerializeField] private BuildMenuUI _buildMenuUI;
     [SerializeField] private TopBarUI _topBarUI;
+    [SerializeField] private WorldHoverPopupUI _hoverUI;
+
 
     [Header("Game Services")]
     [SerializeField] private GameContext _context;
@@ -36,6 +38,9 @@ public class UIBootstrapper : MonoBehaviour
         // Top bar UI
         if (_topBarUI != null)
             _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService);
+
+        if (_hoverUI != null)
+            _hoverUI.Init(_hudDocument);
     }
 
     private void InitializeBuildMenu()

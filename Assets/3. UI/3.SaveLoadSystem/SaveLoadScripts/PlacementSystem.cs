@@ -168,7 +168,6 @@ public class PlacementSystem : MonoBehaviour
 
     private void ApplySaveData(SaveData save)
     {
-        Debug.Log($"Loaded money: {save.money}, spent today: {save.spentToday}");
         moneyService.SetMoney(save.money);
         moneyService.SetSpentToday(save.spentToday);
 

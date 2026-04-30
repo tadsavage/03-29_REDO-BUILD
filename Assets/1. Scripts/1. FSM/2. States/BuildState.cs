@@ -15,6 +15,8 @@ public class BuildState : IPlacementState
     private readonly CellIndicatorController _indicator;
     private readonly MoneyService _money;
     private readonly PreviewCostUI _costUI;
+    private readonly WorldHoverPopupUI _hoverUI;
+
 
     private ObjDataSO _currentData;
 
@@ -38,6 +40,7 @@ public class BuildState : IPlacementState
     public bool IsDragging => _isDragging;
     public string ObjectName => _currentData != null ? _currentData.objName : "None";
 
+
     public BuildState(
         PlacementActions actions,
         PreviewController preview,
@@ -48,7 +51,8 @@ public class BuildState : IPlacementState
         RaycastController raycast,
         CellIndicatorController indicator,
         MoneyService money,
-        PreviewCostUI costUI)
+        PreviewCostUI costUI,
+        WorldHoverPopupUI hoverUI)
     {
         _actions = actions;
         _preview = preview;
@@ -60,6 +64,7 @@ public class BuildState : IPlacementState
         _indicator = indicator;
         _money = money;
         _costUI = costUI;
+        _hoverUI = hoverUI;  
 
         _actions.BuildPlacement.BindRotateTo_R();
         _actions.BuildPlacement.BindPlaceToMouseLeft();
@@ -145,6 +150,30 @@ public class BuildState : IPlacementState
             _justPlaced = false;
             _preview.Show(_currentData);
         }
+        if (_raycast.HitObject != null)
+        {
+            var bd = _raycast.HitObject.GetComponent<BuildingData>();
+            if (bd != null)
+            {
+                _hoverUI.TickHover(
+                    true,
+                    bd.Data.objName,
+                    bd.Data.cost,
+                    bd.Data.hourlyCost,
+                    _raycast.RawHitPoint,
+                    Camera.main
+                );
+                Debug.Log($"Hovering over {bd.Data.objName} at {_raycast.RawHitPoint}");
+            }
+            else
+            {
+                _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+            }
+        }
+        else
+        {
+            _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+        }
 
         // -----------------------------------------------------
         // DRAG START
@@ -220,8 +249,12 @@ public class BuildState : IPlacementState
         // -----------------------------------------------------
         int cost = _currentData.cost;
         bool canAfford = _money.CanAfford(cost);
-        _costUI.ShowCost(cost, canAfford);
-
+        if (_costUI != null) 
+        {
+            _costUI.ShowCost(cost, canAfford);
+            _costUI.SetScreenPosition(_raycast.RawHitPoint, Camera.main);
+            //_costUI.SetScreenPosition(_raycast.HitPoint, Camera.main);
+        }
         // -----------------------------------------------------
         // UI BLOCKING
         // -----------------------------------------------------

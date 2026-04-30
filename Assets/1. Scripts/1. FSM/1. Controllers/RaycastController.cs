@@ -3,6 +3,8 @@ using UnityEngine.InputSystem;
 
 public class RaycastController : MonoBehaviour
 {
+    public bool AllowPlacementEvents { get; set; } = false;
+
     [SerializeField] private Camera _camera;
     [SerializeField] private LayerMask _groundMask;
     [SerializeField] private PlacementGrid _grid;
@@ -25,6 +27,7 @@ public class RaycastController : MonoBehaviour
     public Vector3 HitPoint { get; private set; }
     public Vector2Int HitCell { get; private set; }
     public GameObject HitObject { get; private set; }
+    public Vector3 RawHitPoint { get; private set; }
 
     private Vector2Int _lastHitCell;
     private bool _enabled;
@@ -61,13 +64,16 @@ public class RaycastController : MonoBehaviour
         // ---------------------------------------------------------
         // 1. Ground raycast (grid placement)
         // ---------------------------------------------------------
-        if (Physics.Raycast(ray, out RaycastHit hit, 100f, _groundMask))
+        if (Physics.Raycast(ray, out RaycastHit hit, 999f, _groundMask))
         {
+            RawHitPoint = hit.point;   // ⭐ continuous world position
+            HitPoint = _grid.GetCellCenter(_grid.WorldToCell(hit.point)); // snapped
             HasHit = true;
             HitPoint = hit.point;
             HitCell = _grid.WorldToCell(hit.point);
+            HitObject = hit.collider.gameObject;
 
-            if (HitCell != _lastHitCell)
+            if (AllowPlacementEvents && HitCell != _lastHitCell)
                 AudioManager.Play("NewCell");
 
             _lastHitCell = HitCell;
@@ -80,11 +86,12 @@ public class RaycastController : MonoBehaviour
         // ---------------------------------------------------------
         // 2. Object raycast (no mask)
         // ---------------------------------------------------------
-        if (Physics.Raycast(ray, out RaycastHit objHit, 100f))
+        if (Physics.Raycast(ray, out RaycastHit objHit, 500f))
             HitObject = objHit.collider.gameObject;
         else
             HitObject = null;
 
+        if (AllowPlacementEvents)
         DrawRay(ray);
 
         // ---------------------------------------------------------
@@ -151,5 +158,13 @@ public class RaycastController : MonoBehaviour
         Debug.DrawLine(pos + Vector3.up * radius, pos - Vector3.up * radius, color, 0f);
         Debug.DrawLine(pos + Vector3.right * radius, pos - Vector3.right * radius, color, 0f);
         Debug.DrawLine(pos + Vector3.forward * radius, pos - Vector3.forward * radius, color, 0f);
+    }
+
+    public void ResetHitData()
+    {
+        HasHit = false;
+        HitObject = null;
+        HitCell = Vector2Int.zero;
+        _lastHitCell = new Vector2Int(999, 999); // force first hit to register
     }
 }

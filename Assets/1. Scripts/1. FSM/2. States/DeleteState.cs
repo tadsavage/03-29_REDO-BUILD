@@ -11,6 +11,7 @@ public class DeleteState : IPlacementState
     private readonly CellIndicatorController _indicator;
     private readonly PlacementActions _actions;
     private readonly MoneyService _money;
+    private readonly WorldHoverPopupUI _hoverUI = Object.FindAnyObjectByType<WorldHoverPopupUI>();
 
     private BuildingHighlighter _hover;
     private readonly List<BuildingHighlighter> _dragTargets = new();
@@ -84,6 +85,31 @@ public class DeleteState : IPlacementState
 
         Vector3 hitPoint = _raycast.HitPoint;
         Vector2Int cell = _raycast.HitCell;
+
+        if (_raycast.HitObject != null)
+        {
+            var bd = _raycast.HitObject.GetComponent<BuildingData>();
+            if (bd != null)
+            {
+                _hoverUI.TickHover(
+                    true,
+                    bd.Data.objName,
+                    bd.Data.cost,
+                    bd.Data.hourlyCost,
+                    _raycast.RawHitPoint,
+                    Camera.main
+                );
+                Debug.Log($"Hovering over {bd.Data.objName} at {_raycast.RawHitPoint}");
+            }
+            else
+            {
+                _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+            }
+        }
+        else
+        {
+            _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+        }
 
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {

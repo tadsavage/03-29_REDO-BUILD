@@ -1,4 +1,4 @@
-.buildmenu-root {
+buildmenu-root {
     position: absolute;
     top: 0;
     left: 0;
@@ -23,47 +23,52 @@
     align-items: stretch;
     padding-left: 16px;
     padding-right: 16px;
-    pointer-events: auto;
+    overflow: visible;
 }
 
 .buildmenu-category-row,
 .buildmenu-utility-row {
     display: flex;
-    flex-direction: row-reverse;
+    flex-direction: row;
     align-items: center;
-    gap: 8px;
-    justify-content: space-between;
-    -unity-text-align: middle-left;
-    -unity-font-style: bold;
-    white-space: normal;
+    overflow: visible;
 }
 
 .buildmenu-category-button {
     width: 120px;
     height: 104px;
-    flex-direction: row;
-    align-items: stretch;
-    justify-content: flex-start;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     background-color: rgba(255, 255, 255, 0.03);
     border-radius: 4px;
     border-width: 1px;
     border-color: rgba(255, 255, 255, 0.08);
     padding: 4px;
     margin: 4px;
-    transition: background-color 0.12s ease, border-color 0.12s ease;
-    align-self: center;
-    -unity-text-align: upper-center;
-    white-space: normal;
+    transform: ;
+    opacity: 1;
+    transition: transform 0.18s, background-color 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
 }
 
 .buildmenu-category-button:hover {
-    background-color: rgba(212, 135, 77, 0.15);
-    border-color: rgba(212, 135, 77, 0.4);
+    transform: ;
+    background-color: rgba(212, 135, 77, 0.12);
+    border-color: rgba(212, 135, 77, 0.45);
+    opacity: 0.95;
+    transition-duration: 0.5s;
+    scale: 1.05 1.05 1.05;
+    border-left-color: rgba(212, 86, 77, 0.45);
+    border-right-color: rgba(212, 86, 77, 0.45);
+    border-top-color: rgba(212, 86, 77, 0.45);
+    border-bottom-color: rgba(212, 86, 77, 0.45);
 }
 
 .buildmenu-category-button.selected {
     background-color: rgba(212, 135, 77, 0.25);
     border-color: rgb(212, 135, 77);
+    opacity: 1;
 }
 
 .buildmenu-category-icon {
@@ -72,32 +77,22 @@
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    -unity-background-scale-mode: scale-to-fit;
-    margin-bottom: 2px;
 }
 
 .buildmenu-category-label {
     -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
     font-size: 16px;
-    letter-spacing: -4px;
+    letter-spacing: -4;
     -unity-font-style: normal;
     color: rgb(240, 230, 211);
     -unity-text-align: middle-center;
     white-space: nowrap;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: center;
-    justify-content: space-between;
-    text-overflow: clip;
-    background-position-y: bottom 0;
-    -unity-text-auto-size: best-fit 4px 100px;
-    border-left-width: 25px;
-    border-top-width: 14px;
 }
 
 .buildmenu-utility-button {
     width: 84px;
     height: 84px;
+    display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -107,12 +102,22 @@
     border-color: rgba(255, 255, 255, 0.08);
     padding: 4px;
     margin: 4px;
-    transition: background-color 0.12s ease, border-color 0.12s ease;
+    transform: ;
+    opacity: 1;
+    transition: transform 0.18s, background-color 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
 }
 
 .buildmenu-utility-button:hover {
-    background-color: rgba(212, 135, 77, 0.15);
-    border-color: rgba(212, 135, 77, 0.4);
+    transform: ;
+    background-color: rgba(212, 135, 77, 0.12);
+    border-color: rgba(212, 135, 77, 0.45);
+    opacity: 0.95;
+    transition-duration: 0.5s;
+    scale: 1.05 1.05 1.05;
+    border-left-color: rgba(212, 85, 77, 0.45);
+    border-right-color: rgba(212, 85, 77, 0.45);
+    border-top-color: rgba(212, 85, 77, 0.45);
+    border-bottom-color: rgba(212, 85, 77, 0.45);
 }
 
 .buildmenu-utility-icon {
@@ -121,19 +126,13 @@
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    -unity-background-scale-mode: scale-to-fit;
     margin-bottom: 4px;
-    -unity-text-align: upper-left;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    align-self: auto;
 }
 
 .buildmenu-utility-label {
     -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
     font-size: 11px;
-    letter-spacing: -4px;
+    letter-spacing: -4;
     -unity-font-style: bold;
     color: rgb(240, 230, 211);
     -unity-text-align: middle-center;
@@ -143,27 +142,21 @@
 .buildmenu-submenu {
     position: absolute;
     left: 0;
-    width: auto;
-    z-index: 50;
-    pointer-events: auto;
-    transition-property: transform, opacity;
-    transition-duration: 0.25s;
-    transition-timing-function: ease-out;
-    transform: ;
     opacity: 0;
     visibility: hidden;
+    transition: opacity 0.25s ease-out, visibility 0.25s ease-out;
 }
 
 .buildmenu-submenu-open {
-    transform: ;
     opacity: 1;
     visibility: visible;
+    transition-delay: 0s;
 }
 
 .buildmenu-submenu-closed {
-    transform: ;
     opacity: 0;
     visibility: hidden;
+    transition-delay: 1s;
 }
 
 .buildmenu-submenu-root {
@@ -182,21 +175,32 @@
 .buildmenu-item-button {
     width: 260px;
     height: 64px;
+    display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
     padding: 6px;
+    margin-bottom: 6px;
     background-color: rgba(255, 255, 255, 0.03);
     border-radius: 6px;
     border-width: 1px;
     border-color: rgba(255, 255, 255, 0.08);
-    margin-bottom: 6px;
-    transition: background-color 0.12s ease, border-color 0.12s ease;
+    transform: ;
+    opacity: 1;
+    transition: transform 0.18s, background-color 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
 }
 
 .buildmenu-item-button:hover {
-    background-color: rgba(212, 135, 77, 0.15);
-    border-color: rgba(212, 135, 77, 0.4);
+    transform: ;
+    background-color: rgba(212, 135, 77, 0.12);
+    border-color: rgba(212, 135, 77, 0.45);
+    opacity: 0.95;
+    transition-duration: 0.5s;
+    scale: 1.025 1.025 1.025;
+    border-left-color: rgba(77, 165, 212, 0.45);
+    border-right-color: rgba(77, 165, 212, 0.45);
+    border-top-color: rgba(77, 165, 212, 0.45);
+    border-bottom-color: rgba(77, 165, 212, 0.45);
 }
 
 .buildmenu-item-icon {
@@ -205,7 +209,6 @@
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    -unity-background-scale-mode: scale-to-fit;
     margin-right: 10px;
 }
 
@@ -218,8 +221,7 @@
 .buildmenu-item-name {
     -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
     font-size: 15px;
-    letter-spacing: -4px;
-    -unity-font-style: normal;
+    letter-spacing: -4;
     color: rgb(240, 230, 211);
     white-space: nowrap;
     overflow: hidden;
@@ -229,17 +231,9 @@
 .buildmenu-item-cost {
     -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
     font-size: 14px;
-    letter-spacing: -4px;
+    letter-spacing: -4;
     color: rgb(160, 255, 200);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    -unity-font-style: normal;
-}
-
-.buildmenu-category-button.selected {
-    animation-name: category-glow;
-    animation-duration: 0.9s;
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
 }
