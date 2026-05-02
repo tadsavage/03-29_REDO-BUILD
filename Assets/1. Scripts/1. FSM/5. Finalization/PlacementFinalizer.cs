@@ -17,23 +17,21 @@ public class PlacementFinalizer : MonoBehaviour
 
     // Extended: can track disabled floors for undo
     public GameObject FinalizePlacement(
-        Vector2Int root,
-        Vector2Int[] offsets,
-        ObjDataSO data,
-        float rotation,
-        List<GameObject> disabledFloors)
+     Vector2Int root,
+     Vector2Int[] offsets,
+     ObjDataSO data,
+     float rotation,
+     List<GameObject> disabledFloors)
     {
         if (data == null || data.prefab == null)
             return null;
 
-        // If this is a floor, disable any existing floors in the footprint.
         if (data.isFloor)
             DisableExistingFloors(root, offsets, disabledFloors);
 
         GameObject instance = Instantiate(data.prefab);
         instance.name = data.objName;
 
-        // Apply stack height for non-floor objects
         float stackY = 0f;
         if (!data.isFloor)
             stackY = _grid.GetStackHeight(root);
@@ -45,33 +43,25 @@ public class PlacementFinalizer : MonoBehaviour
         instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
         FXPool.Instance.Play("dust", pos);
 
-        // ⭐ ADD THIS ⭐
+        // Initialize PlacedObject
         var po = instance.GetComponent<PlacedObject>();
         if (po != null)
             po.Initialize(data, root.x, root.y, (int)(rotation / 90f));
 
+        // Add to grid
         foreach (var o in offsets)
         {
             Vector2Int cell = root + o;
             _grid.AddStackObject(cell, instance, data);
         }
-        // FIX: If the object moves away immediately, remove it from the grid
-        if (data.ClearsGridAfterPlacement)
-        {
-            foreach (var o in offsets)
-            {
-                Vector2Int cell = root + o;
-                _grid.RemoveStackObject(cell, instance, data);
-            }
-        }
 
+        // Initialize BuildingData
         var bd = instance.GetComponent<BuildingData>();
         if (bd != null)
             bd.Initialize(root, rotation, offsets);
-        //Debug.Log($"Placed w/Finalizer {data.objName} at {root}");
+
         return instance;
     }
-
     private void DisableExistingFloors(
         Vector2Int root,
         Vector2Int[] offsets,

@@ -70,6 +70,7 @@ public class MoveState : IPlacementState
         _indicator.UseMoveMode();
         _hasSelection = false;
         _lastHoverCell = new Vector2Int(int.MinValue, int.MinValue);
+        Object.FindAnyObjectByType<TopBarUI>().SetState(GetType().Name);
     }
 
     public void OnExit()
@@ -124,37 +125,30 @@ public class MoveState : IPlacementState
         if (offsets == null || offsets.Length == 0)
         {
             Debug.LogWarning($"TrySelectObject: Offsets missing on {bd.gameObject.name}. Computing from SO as fallback.");
-            offsets = bd.Data.GetFootprintOffsets(bd.Rotation);
+            // IMPORTANT: use the same convention as placement (negative rotation)
+            offsets = bd.Data.GetFootprintOffsets(-bd.Rotation);
             if (offsets == null || offsets.Length == 0)
             {
                 Debug.LogError($"TrySelectObject: Could not compute offsets for {bd.gameObject.name}. Aborting selection.");
                 return;
             }
 
-            // Persist computed offsets back to BuildingData (requires SetOffsets on BuildingData)
+            // Persist computed offsets back to BuildingData
             bd.SetOffsets(offsets);
         }
-
-        //Debug.Log($"TrySelectObject: found BuildingData on {bd.gameObject.name}; root={bd.RootCell}, rotation={bd.Rotation}, offsets={string.Join(";", offsets)}");
 
         if (bd.Data.ClearsGridAfterPlacement)
             return;
 
-        // Resolve the TRUE top object across the footprint (robust normalization + diagnostics)
+        // Resolve the TRUE top object across the footprint
         GameObject trueTop = null;
 
         foreach (var o in offsets)
         {
             Vector2Int cell = bd.RootCell + o;
-            GameObject topGO = _grid.GetTopObject(cell); // returns GameObject
-            //Debug.Log($"TrySelectObject: footprint cell={cell}, topGO={(topGO != null ? topGO.name : "null")}");
+            GameObject topGO = _grid.GetTopObject(cell);
             if (topGO == null)
-            {
-                //Debug.Log($"TrySelectObject: footprint cell={cell}, top=null");
                 continue;
-            }
-
-            //Debug.Log($"TrySelectObject: footprint cell={cell}, topGO={topGO.name} (id {topGO.GetInstanceID()})");
 
             if (trueTop == null)
                 trueTop = topGO;
@@ -165,6 +159,7 @@ public class MoveState : IPlacementState
                 return;
             }
         }
+
         if (trueTop == null)
         {
             Debug.Log("TrySelectObject: trueTop is null after scanning footprint — aborting selection.");
@@ -180,16 +175,22 @@ public class MoveState : IPlacementState
                 Debug.LogWarning("TrySelectObject: trueTop has no BuildingData; aborting.");
                 return;
             }
+
+            // Use its offsets (already stored consistently)
+            offsets = bd.Offsets;
+            if (offsets == null || offsets.Length == 0)
+            {
+                offsets = bd.Data.GetFootprintOffsets(-bd.Rotation);
+                bd.SetOffsets(offsets);
+            }
         }
 
-        // Select object: assign fields before logging
+        // Select object
         _obj = bd.gameObject;
         _data = bd.Data;
         _offsets = offsets;
         _rotation = bd.Rotation;
         _originalRoot = bd.RootCell;
-
-        //Debug.Log($"TrySelectObject: SELECTED {_obj.name} originalRoot={_originalRoot} offsets={string.Join(";", _offsets)}");
 
         _preview.ApplyFlatHighlight(_obj, MoveHighlightBlue);
         _preview.Show(_data);
@@ -201,9 +202,7 @@ public class MoveState : IPlacementState
             _grid.RemoveStackObject(cell, _obj, _data);
         }
 
-        // Keep this behavior but if you want to debug selection issues, comment this line temporarily
         _obj.SetActive(false);
-
         _hasSelection = true;
     }
 
@@ -235,7 +234,6 @@ public class MoveState : IPlacementState
             _lastHoverCell = newRoot;
         }
 
-        // Defensive: ensure we have data before validating
         if (_data == null || _offsets == null)
         {
             Debug.LogWarning("Tick: missing _data or _offsets while in move mode; cancelling selection.");
@@ -265,12 +263,9 @@ public class MoveState : IPlacementState
     // ---------------------------------------------------------
     private void OnConfirmMove(InputAction.CallbackContext ctx)
     {
-        //Debug.Log($"OnConfirmMove: hasSelection={_hasSelection}, raycast.HitCell={_raycast.HitCell}, raycast.HasHit={_raycast.HasHit}");
-
         if (!_hasSelection)
             return;
 
-        // Defensive: ensure we still have the data needed for validation
         if (_data == null || _offsets == null)
         {
             Debug.LogWarning("OnConfirmMove: missing data or offsets; aborting.");
@@ -278,7 +273,6 @@ public class MoveState : IPlacementState
         }
 
         Vector2Int newRoot = _raycast.HitCell;
-        //Debug.Log($"OnConfirmMove: validator result={_validator.IsValidPlacement(newRoot, _offsets, _data, _obj)}");
 
         if (!_validator.IsValidPlacement(newRoot, _offsets, _data, _obj))
         {
@@ -288,7 +282,6 @@ public class MoveState : IPlacementState
 
         AudioManager.Play("ValidPlace");
 
-        // Clear highlight and push move command
         _preview.ClearFlatHighlight(_obj);
 
         _fsm.History.Push(
@@ -331,8 +324,8 @@ public class MoveState : IPlacementState
 
         _preview.Rotate(_rotation);
 
-        // Recompute offsets for the new rotation
+        // Recompute offsets for the new rotation using the SAME convention as placement
         if (_data != null)
-            _offsets = _data.GetFootprintOffsets(_rotation);
+            _offsets = _data.GetFootprintOffsets(-_rotation);
     }
 }

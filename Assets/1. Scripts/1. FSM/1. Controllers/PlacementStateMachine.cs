@@ -24,6 +24,10 @@ public class PlacementStateMachine : MonoBehaviour
     // Core refs for unified visual reset
     private PreviewController _preview;
     private CellIndicatorController _indicator;
+    // New: shared ray + hover UI
+    private RaycastController _raycast;
+    private WorldHoverPopupUI _hoverUI;
+    private BuildMenuUI _buildMenuUI;
 
     // Injected from PlacementController
     public GameContext Context { get; private set; }
@@ -52,16 +56,21 @@ public class PlacementStateMachine : MonoBehaviour
     {
         // External dependencies (Context) are now valid
 
-        RaycastController raycast = Object.FindFirstObjectByType<RaycastController>();
+        _raycast = Object.FindFirstObjectByType<RaycastController>();
         _indicator = Object.FindFirstObjectByType<CellIndicatorController>();
         _preview = Object.FindFirstObjectByType<PreviewController>();
         PlacementValidator validator = Object.FindFirstObjectByType<PlacementValidator>();
         PlacementFinalizer finalizer = Object.FindFirstObjectByType<PlacementFinalizer>();
         PlacementGrid grid = Object.FindFirstObjectByType<PlacementGrid>();
+        _hoverUI = Object.FindFirstObjectByType<WorldHoverPopupUI>();
+        _buildMenuUI = Object.FindFirstObjectByType<BuildMenuUI>();
+
+        _raycast.EnableRay();
+
 
         // Construct states
         _idleState = new IdleState();
-        _raycastState = new RaycastPlacementState(raycast, _indicator, grid);
+        _raycastState = new RaycastPlacementState(_raycast, _indicator, grid);
 
         _buildState = new BuildState(
             _actions,
@@ -70,13 +79,15 @@ public class PlacementStateMachine : MonoBehaviour
             finalizer,
             grid,
             this,
-            raycast,
+            _raycast,
             _indicator,
             Context.MoneyService,
-            _costUI);
+            _costUI,
+            _hoverUI,
+            _buildMenuUI);
 
         _deleteState = new DeleteState(
-            raycast,
+            _raycast,
             grid,
             finalizer,
             this,
@@ -91,7 +102,7 @@ public class PlacementStateMachine : MonoBehaviour
             finalizer,
             grid,
             this,
-            raycast,
+            _raycast,
             _indicator,
             Context.MoneyService);
 
@@ -104,6 +115,17 @@ public class PlacementStateMachine : MonoBehaviour
     {
         _currentState?.Tick();
 
+        if (_currentState == _idleState)
+        {
+            //Debug.Log("Ticking Idle Hover");
+            if (_raycast != null && _hoverUI != null)
+                HandleIdleHover();
+        }
+        else
+        {
+            _hoverUI?.ForceHide();
+        }
+
         // UNIVERSAL CANCEL (ESC or RMB)
         if (_currentState != _idleState)
         {
@@ -113,6 +135,29 @@ public class PlacementStateMachine : MonoBehaviour
                 ReturnToPrevious();
             }
         }
+    }
+    private void HandleIdleHover()
+    {
+        _raycast.Tick();
+
+        if (_raycast.HasHit && _raycast.HitObject != null)
+        {
+            var bd = _raycast.HitObject.GetComponent<BuildingData>();
+            if (bd != null)
+            {
+                _hoverUI.TickHover(
+                    true,
+                    bd.Data.objName,
+                    bd.Data.cost,
+                    bd.Data.hourlyCost,
+                    _raycast.RawHitPoint,
+                    Camera.main
+                );
+                return;
+            }
+        }
+
+        _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
     }
 
     private void OnEnable()
@@ -132,6 +177,10 @@ public class PlacementStateMachine : MonoBehaviour
     {
         if (newState == null || newState == _currentState)
             return;
+
+        // If leaving Idle, force-hide popup
+        if (_currentState == _idleState)
+            _hoverUI?.ForceHide(); 
 
         if (push && _currentState != null)
             _stateStack.Push(_currentState);

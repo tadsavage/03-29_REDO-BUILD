@@ -15,13 +15,14 @@ public class BuildState : IPlacementState
     private readonly CellIndicatorController _indicator;
     private readonly MoneyService _money;
     private readonly PreviewCostUI _costUI;
+    private readonly WorldHoverPopupUI _hoverUI;
+    private readonly BuildMenuUI _buildMenuUI;
 
     private ObjDataSO _currentData;
 
     private bool _placeRequested;
     private bool _rotateRequested;
     private float _currentRotation;
-    private float _lastRotation;
 
     private bool _isDragging;
     private Vector2Int _dragStartCell;
@@ -29,9 +30,6 @@ public class BuildState : IPlacementState
 
     private readonly List<Vector2Int> _indicatorBuffer = new();
     private readonly List<Vector2Int> _footprintBuffer = new();
-
-    private Vector2Int _lastPlacedCell;
-    private bool _justPlaced;
 
     public bool IsPlacementState => true;
     public ObjDataSO CurrentData => _currentData;
@@ -48,7 +46,9 @@ public class BuildState : IPlacementState
         RaycastController raycast,
         CellIndicatorController indicator,
         MoneyService money,
-        PreviewCostUI costUI)
+        PreviewCostUI costUI,
+        WorldHoverPopupUI hoverUI,
+        BuildMenuUI buildMenuUI)
     {
         _actions = actions;
         _preview = preview;
@@ -60,6 +60,8 @@ public class BuildState : IPlacementState
         _indicator = indicator;
         _money = money;
         _costUI = costUI;
+        _hoverUI = hoverUI;
+        _buildMenuUI = buildMenuUI;
 
         _actions.BuildPlacement.BindRotateTo_R();
         _actions.BuildPlacement.BindPlaceToMouseLeft();
@@ -70,8 +72,13 @@ public class BuildState : IPlacementState
     // ---------------------------------------------------------
     public void OnEnter()
     {
+        //No popups during BuildMode please (atleast for now)
+        _hoverUI.DisableForBuildMode();
+
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
         _actions.BuildPlacement.Place.canceled += OnPlacePerformed;
+
+        Object.FindAnyObjectByType<TopBarUI>().SetState(GetType().Name);
 
         if (_currentData == null)
             return;
@@ -81,14 +88,10 @@ public class BuildState : IPlacementState
 
         _preview.Show(_currentData);
 
-        Vector3 firstTarget = _grid.GetCellCenter(_raycast.HitCell);
-        _preview.BeginFlyIn(firstTarget);
-
         _placeRequested = false;
         _rotateRequested = false;
 
         _currentRotation = _preview.CurrentRotation;
-        _lastRotation = _currentRotation;
 
         _isDragging = false;
         _dragCells.Clear();
@@ -101,6 +104,9 @@ public class BuildState : IPlacementState
     // ---------------------------------------------------------
     public void OnExit()
     {
+        //Popups allowed again once we leave (atleast for now)
+        _hoverUI.EnableAfterBuildMode();
+
         _raycast.DisableRay();
         _indicator.ClearAll();
         _preview.Hide();
@@ -127,26 +133,38 @@ public class BuildState : IPlacementState
 
         Vector2Int root = _raycast.HitCell;
 
-        // Prevent double‑placement on same cell
-        if (_justPlaced && root == _lastPlacedCell)
+        // -----------------------------------------------------
+        // HOVER UI
+        // -----------------------------------------------------
+        if (_raycast.HitObject != null)
         {
-            _preview.Hide();
-            _indicator.ClearAll();
-            _placeRequested = false;
-            _rotateRequested = false;
-            _costUI.Hide();
-            return;
+            var bd = _raycast.HitObject.GetComponent<BuildingData>();
+            if (bd != null)
+            {
+                _hoverUI.TickHover(
+                    true,
+                    bd.Data.objName,
+                    bd.Data.cost,
+                    bd.Data.hourlyCost,
+                    _raycast.RawHitPoint,
+                    Camera.main
+                );
+            }
+            else
+            {
+                _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+            }
         }
-
-        if (_justPlaced && root != _lastPlacedCell)
+        else
         {
-            _justPlaced = false;
-            _preview.Show(_currentData);
+            _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
         }
 
         // -----------------------------------------------------
-        // DRAG START
+        // DRAG / CLICK DETECTION
         // -----------------------------------------------------
+
+        // 1. Mouse pressed → record starting cell
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             _isDragging = false;
@@ -154,9 +172,10 @@ public class BuildState : IPlacementState
             _dragStartCell = root;
         }
 
+        // 2. If mouse held AND cell changed → start drag
         if (Mouse.current.leftButton.isPressed && !_isDragging)
         {
-            if (!Mouse.current.leftButton.wasPressedThisFrame && root != _dragStartCell)
+            if (root != _dragStartCell)
             {
                 _isDragging = true;
 
@@ -164,14 +183,12 @@ public class BuildState : IPlacementState
                 _indicator.ClearAll();
                 _costUI.Hide();
 
-                _justPlaced = false;
-                _lastPlacedCell = new Vector2Int(int.MinValue, int.MinValue);
-
                 _preview.BeginSelectionCells();
                 return;
             }
         }
 
+        // 3. If dragging, handle drag placement
         if (_isDragging)
         {
             HandleDragPlacement(root);
@@ -191,12 +208,11 @@ public class BuildState : IPlacementState
 
             _preview.Rotate(_currentRotation);
         }
+        // Only showing FIXED sections — the rest of your file stays unchanged.
 
-        _lastRotation = _currentRotation;
-
-        // -----------------------------------------------------
+        // ---------------------------------------------------------
         // GHOST + VALIDATION
-        // -----------------------------------------------------
+        // ---------------------------------------------------------
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
         _preview.MoveTo(_grid.GetCellCenter(root), root, _currentData);
@@ -213,21 +229,16 @@ public class BuildState : IPlacementState
         else
             _preview.SetGhostInvalid();
 
-        // -----------------------------------------------------
+        // ---------------------------------------------------------
         // COST PREVIEW
-        // -----------------------------------------------------
+        // ---------------------------------------------------------
         int cost = _currentData.cost;
         bool canAfford = _money.CanAfford(cost);
-        _costUI.ShowCost(cost, canAfford);
 
-        // -----------------------------------------------------
-        // UI BLOCKING
-        // -----------------------------------------------------
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        if (_costUI != null)
         {
-            _placeRequested = false;
-            _rotateRequested = false;
-            return;
+            _costUI.ShowCost(cost, canAfford);
+            _costUI.SetScreenPosition(_raycast.RawHitPoint, Camera.main);
         }
 
         // -----------------------------------------------------
@@ -279,12 +290,6 @@ public class BuildState : IPlacementState
                     _currentRotation,
                     _money)
             );
-
-            Vector3 nextPos = _grid.GetCellCenter(root);
-            _preview.BeginFlyIn(nextPos);
-
-            _lastPlacedCell = root;
-            _justPlaced = true;
         }
     }
 

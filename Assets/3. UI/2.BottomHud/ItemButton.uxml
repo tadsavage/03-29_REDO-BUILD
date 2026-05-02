@@ -1,0 +1,16 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+
+    <ui:Button name="ItemButton" class="buildmenu-item-button">
+
+        <ui:VisualElement 
+            name="Icon" 
+            class="buildmenu-item-icon" />
+
+        <ui:VisualElement class="buildmenu-item-text">
+            <ui:Label name="ItemName" class="buildmenu-item-name" />
+            <ui:Label name="ItemCost" class="buildmenu-item-cost" />
+        </ui:VisualElement>
+
+    </ui:Button>
+
+</ui:UXML>

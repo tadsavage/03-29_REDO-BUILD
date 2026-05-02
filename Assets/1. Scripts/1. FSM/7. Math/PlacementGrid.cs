@@ -433,7 +433,7 @@ public class PlacementGrid : MonoBehaviour
     /// </summary>
     public void RebuildFromRegistry()
     {
-        // Recreate storage (preserves Width/Height/CellSize clamps done elsewhere)
+        // Recreate storage
         _cells = new List<PlacedObject>[Width, Height];
         _stackHeights = new float[Width, Height];
 
@@ -475,7 +475,7 @@ public class PlacementGrid : MonoBehaviour
             if (exists)
                 continue;
 
-            // Insert floors at bottom, others on top (match AddStackObject behavior)
+            // Insert floors at bottom, others on top
             if (placed.data.isFloor)
                 list.Insert(0, new PlacedObject { instance = placed.gameObject, data = placed.data });
             else
@@ -483,14 +483,25 @@ public class PlacementGrid : MonoBehaviour
 
             if (!placed.data.isFloor && !placed.data.ignorePlacementRules)
                 _stackHeights[cell.x, cell.y] += placed.data.objHeight;
+
+            // ⭐ CRITICAL FIX ⭐
+            // Restore BuildingData so MoveState has correct root/rotation/offsets
+            var bd = placed.GetComponent<BuildingData>();
+            if (bd != null)
+            {
+                float rot = placed.rotation * 90f;
+
+                // Offsets must match rotation — use SAME convention as placement
+                Vector2Int[] offsets = placed.data.GetFootprintOffsets(-rot);
+
+                bd.Initialize(cell, rot, offsets);
+            }
         }
 
-        // Refresh visualizer if enabled
         if (UseVisualizer)
             RedrawAllVisuals();
-
-        //Debug.Log("RebuildFromRegistry: grid rebuilt from PlacedObjectRegistry.");
     }
+
     public void LogGridVsRegistryDiagnostics()
     {
         int totalRegistry = PlacedObjectRegistry.All.Count;

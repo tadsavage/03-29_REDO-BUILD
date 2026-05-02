@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class MoneyService
 {
@@ -99,6 +100,12 @@ public class MoneyService
     public void SetMoney(int amount)
     {
         CurrentCapital = amount;
+        OnMoneyChanged?.Invoke();
+    }
+    public void SetSpentToday(int amount)
+    {
+        //Debug.Log($"Setting SpentToday to: {amount}");
+        SpentToday = amount;
         OnMoneyChanged?.Invoke();
     }
 }
