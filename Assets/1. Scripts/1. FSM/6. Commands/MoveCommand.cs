@@ -40,43 +40,50 @@ public class MoveCommand : ICommand
         if (_instance == null)
             return;
 
-        // Remove from old cells
+        // ---------------------------------------------------------
+        // 1. Remove from old grid cells
+        // ---------------------------------------------------------
         foreach (var o in _offsets)
-        {
-            Vector2Int cell = from + o;
-            _grid.RemoveStackObject(cell, _instance, _data);
-        }
+            _grid.RemoveStackObject(from + o, _instance, _data);
 
-        // Correct stack height logic
+        // ---------------------------------------------------------
+        // 2. Compute correct stack height
+        // ---------------------------------------------------------
         float stackY = 0f;
         if (!_data.isFloor)
             stackY = _grid.GetStackHeight(to);
 
+        // ---------------------------------------------------------
+        // 3. Move object in world space
+        // ---------------------------------------------------------
         Vector3 pos = _grid.GetCellCenter(to);
         pos.y += stackY;
 
-        Quaternion rot = Quaternion.Euler(0f, _rotation, 0f);
-
-        _instance.SetActive(true);
         _instance.transform.position = pos;
-        _instance.transform.rotation = rot;
+        _instance.transform.rotation = Quaternion.Euler(0f, _rotation, 0f);
 
-        // Add to new cells
+        // ---------------------------------------------------------
+        // 4. Add to new grid cells
+        // ---------------------------------------------------------
         foreach (var o in _offsets)
-        {
-            Vector2Int cell = to + o;
-            _grid.AddStackObject(cell, _instance, _data);
-        }
+            _grid.AddStackObject(to + o, _instance, _data);
 
-        // Update BuildingData
+        // ---------------------------------------------------------
+        // 5. Update BuildingData
+        // ---------------------------------------------------------
         var bd = _instance.GetComponent<BuildingData>();
         bd.Initialize(to, _rotation, _offsets);
 
-        // Update PlacedObject
+        // ---------------------------------------------------------
+        // 6. Update PlacedObject (save/load consistency)
+        // ---------------------------------------------------------
         var po = _instance.GetComponent<PlacedObject>();
         po.gridX = to.x;
         po.gridY = to.y;
 
+        // ---------------------------------------------------------
+        // 7. FX
+        // ---------------------------------------------------------
         FXPool.Instance.Play("dust", pos);
     }
 }

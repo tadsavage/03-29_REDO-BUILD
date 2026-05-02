@@ -21,18 +21,15 @@ public class PlacementStateMachine : MonoBehaviour
 
     public System.Action OnHistoryChanged;
 
-    // Core refs for unified visual reset
+    // Core refs
     private PreviewController _preview;
     private CellIndicatorController _indicator;
-    // New: shared ray + hover UI
     private RaycastController _raycast;
     private WorldHoverPopupUI _hoverUI;
     private BuildMenuUI _buildMenuUI;
 
-    // Injected from PlacementController
     public GameContext Context { get; private set; }
 
-    // UI reference (already initialized by UIBootstrapper)
     [SerializeField] private PreviewCostUI _costUI;
 
     public int DebugStackDepth => _stateStack.Count;
@@ -49,13 +46,11 @@ public class PlacementStateMachine : MonoBehaviour
     public void Initialize(GameContext context)
     {
         Context = context;
-        // No UI initialization here anymore — UIBootstrapper handles that
     }
 
     private void Start()
     {
-        // External dependencies (Context) are now valid
-
+        // External dependencies
         _raycast = Object.FindFirstObjectByType<RaycastController>();
         _indicator = Object.FindFirstObjectByType<CellIndicatorController>();
         _preview = Object.FindFirstObjectByType<PreviewController>();
@@ -66,7 +61,6 @@ public class PlacementStateMachine : MonoBehaviour
         _buildMenuUI = Object.FindFirstObjectByType<BuildMenuUI>();
 
         _raycast.EnableRay();
-
 
         // Construct states
         _idleState = new IdleState();
@@ -95,16 +89,14 @@ public class PlacementStateMachine : MonoBehaviour
             _actions,
             Context.MoneyService);
 
+        // ⭐ NEW MoveState constructor (unified pipeline)
         _moveState = new MoveState(
             _actions,
             _preview,
-            validator,
-            finalizer,
-            grid,
             this,
             _raycast,
-            _indicator,
-            Context.MoneyService);
+            grid,
+            _indicator);
 
         // Start in idle
         _currentState = _idleState;
@@ -117,7 +109,6 @@ public class PlacementStateMachine : MonoBehaviour
 
         if (_currentState == _idleState)
         {
-            //Debug.Log("Ticking Idle Hover");
             if (_raycast != null && _hoverUI != null)
                 HandleIdleHover();
         }
@@ -126,7 +117,7 @@ public class PlacementStateMachine : MonoBehaviour
             _hoverUI?.ForceHide();
         }
 
-        // UNIVERSAL CANCEL (ESC or RMB)
+        // UNIVERSAL CANCEL
         if (_currentState != _idleState)
         {
             if (Keyboard.current.escapeKey.wasPressedThisFrame ||
@@ -135,6 +126,22 @@ public class PlacementStateMachine : MonoBehaviour
                 ReturnToPrevious();
             }
         }
+    }
+    public void EnterBuildMoveMode(
+    GameObject obj,
+    ObjDataSO data,
+    Vector2Int root,
+    float rotation,
+    Vector2Int[] offsets)
+    {
+        // 1) Set data
+        _buildState.SetBuildData(data);
+
+        // 2) Put BuildState as current state (no stack push)
+        SetState(_buildState, push: false);
+
+        // 3) Now enter move mode on that BuildState
+        _buildState.EnterMoveMode(obj, root, rotation, offsets);
     }
     private void HandleIdleHover()
     {
@@ -171,16 +178,15 @@ public class PlacementStateMachine : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // INTERNAL STATE SWITCHING (with stack)
+    // INTERNAL STATE SWITCHING
     // ---------------------------------------------------------
     private void SetState(IPlacementState newState, bool push = true)
     {
         if (newState == null || newState == _currentState)
             return;
 
-        // If leaving Idle, force-hide popup
         if (_currentState == _idleState)
-            _hoverUI?.ForceHide(); 
+            _hoverUI?.ForceHide();
 
         if (push && _currentState != null)
             _stateStack.Push(_currentState);
@@ -199,12 +205,12 @@ public class PlacementStateMachine : MonoBehaviour
         }
         else
         {
-            EnterRaycast(); // fallback
+            EnterRaycast();
         }
     }
 
     // ---------------------------------------------------------
-    // CLEAN PUBLIC TRANSITION API
+    // PUBLIC TRANSITION API
     // ---------------------------------------------------------
     public void EnterIdle() => SetState(_idleState, push: false);
     public void EnterRaycast() => SetState(_raycastState, push: false);
@@ -212,14 +218,23 @@ public class PlacementStateMachine : MonoBehaviour
     public void EnterBuild(ObjDataSO data)
     {
         _buildState.SetBuildData(data);
-        SetState(_buildState);
+        SetState(_buildState, push: false);
     }
 
     public void EnterDelete() => SetState(_deleteState);
-    public void EnterMove() => SetState(_moveState);
+    public void EnterMove() => SetState(_moveState, push: false);
+
 
     // ---------------------------------------------------------
-    // HISTORY + VISUAL RESET
+    // MOVE MODE HANDOFF (called by MoveState)
+    // ---------------------------------------------------------
+    public void BuildState_EnterMoveMode(GameObject obj, Vector2Int root, float rotation, Vector2Int[] offsets)
+    {
+        _buildState.EnterMoveMode(obj, root, rotation, offsets);
+    }
+
+    // ---------------------------------------------------------
+    // HISTORY
     // ---------------------------------------------------------
     public void Undo()
     {

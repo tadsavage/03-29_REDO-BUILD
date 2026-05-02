@@ -19,7 +19,6 @@ public class WorldHoverPopupUI : MonoBehaviour
 
     private bool _isHovering = false;
     private bool _isVisible = false;
-    private bool _notMoving = false;
     private bool _dontRefreshYet = false;
     private bool _isFading = false;
 
@@ -95,7 +94,6 @@ public class WorldHoverPopupUI : MonoBehaviour
             _hoverTimer += Time.deltaTime;
 
             // Track "not moving"
-            _notMoving = true;
             _notMovingTimer += Time.deltaTime;
 
             // Fade out after X seconds of no movement
@@ -123,7 +121,6 @@ public class WorldHoverPopupUI : MonoBehaviour
         _isFading = true;
         _isVisible = false;
         _dontRefreshYet = true;
-        _notMoving = false;
 
         float duration = 0.05f;
         float t = 0f;
