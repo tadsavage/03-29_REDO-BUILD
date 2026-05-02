@@ -452,49 +452,42 @@ public class PlacementGrid : MonoBehaviour
             if (placed == null || placed.data == null)
                 continue;
 
-            Vector2Int cell = new Vector2Int(placed.gridX, placed.gridY);
+            Vector2Int root = new Vector2Int(placed.gridX, placed.gridY);
 
-            if (!IsInsideGrid(cell))
+            if (!IsInsideGrid(root))
             {
-                Debug.LogWarning($"RebuildFromRegistry: {placed.name} at {cell} is outside grid bounds. Skipping.");
+                Debug.LogWarning($"RebuildFromRegistry: {placed.name} at {root} is outside grid bounds. Skipping.");
                 continue;
             }
 
-            // Avoid duplicates
-            var list = _cells[cell.x, cell.y];
-            bool exists = false;
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (list[i].instance == placed.gameObject)
-                {
-                    exists = true;
-                    break;
-                }
-            }
+            // Restore rotation
+            float rot = placed.rotation * 90f;
 
-            if (exists)
-                continue;
+            // Restore offsets using SAME convention as placement
+            Vector2Int[] offsets = placed.data.GetFootprintOffsets(-rot);
 
-            // Insert floors at bottom, others on top
-            if (placed.data.isFloor)
-                list.Insert(0, new PlacedObject { instance = placed.gameObject, data = placed.data });
-            else
-                list.Add(new PlacedObject { instance = placed.gameObject, data = placed.data });
-
-            if (!placed.data.isFloor && !placed.data.ignorePlacementRules)
-                _stackHeights[cell.x, cell.y] += placed.data.objHeight;
-
-            // ⭐ CRITICAL FIX ⭐
-            // Restore BuildingData so MoveState has correct root/rotation/offsets
+            // Restore BuildingData BEFORE adding to grid
             var bd = placed.GetComponent<BuildingData>();
             if (bd != null)
+                bd.Initialize(root, rot, offsets);
+
+            // Add object to ALL footprint cells
+            foreach (var o in offsets)
             {
-                float rot = placed.rotation * 90f;
+                Vector2Int cell = root + o;
 
-                // Offsets must match rotation — use SAME convention as placement
-                Vector2Int[] offsets = placed.data.GetFootprintOffsets(-rot);
+                if (!IsInsideGrid(cell))
+                    continue;
 
-                bd.Initialize(cell, rot, offsets);
+                _cells[cell.x, cell.y].Add(new PlacedObject
+                {
+                    instance = placed.gameObject,
+                    data = placed.data
+                });
+
+                // Floors do NOT add height
+                if (!placed.data.isFloor && !placed.data.ignorePlacementRules)
+                    _stackHeights[cell.x, cell.y] += placed.data.objHeight;
             }
         }
 
