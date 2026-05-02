@@ -81,7 +81,12 @@ public class BuildMenuUI : MonoBehaviour
         public List<ObjDataSO> items;
     }
 
-    public static bool IsPointerOverBuildMenu;
+    // Stop the jank in the submenu
+    private bool _submenuClosePending = false;
+    private float _submenuCloseDelay = .50f; // tweak to taste
+    private IVisualElementScheduledItem _submenuCloseTask;
+
+    public bool IsPointerOverBuildMenu { get; private set; }
 
     private void Awake()
     {
@@ -244,10 +249,22 @@ public class BuildMenuUI : MonoBehaviour
         var root = ve.Q<VisualElement>("SubmenuRoot");
         _submenuScroll = ve.Q<ScrollView>("SubmenuScroll");
 
-        root.RegisterCallback<MouseLeaveEvent>(_ => CloseSubmenu());
-        root.RegisterCallback<PointerEnterEvent>(_ => IsPointerOverBuildMenu = true);
-        root.RegisterCallback<PointerLeaveEvent>(_ => IsPointerOverBuildMenu = false);
+        root.RegisterCallback<PointerEnterEvent>(_ =>
+        {
+            IsPointerOverBuildMenu = true;
 
+            // Cancel pending close if user re-enters
+            _submenuClosePending = false;
+            _submenuCloseTask?.Pause();
+        });
+
+        root.RegisterCallback<PointerLeaveEvent>(_ =>
+        {
+            IsPointerOverBuildMenu = false;
+
+            // Start delayed close
+            StartDelayedSubmenuClose();
+        });
         _submenuScroll.RegisterCallback<GeometryChangedEvent>(evt =>
         {
             if (!_submenuOpen)
@@ -258,6 +275,37 @@ public class BuildMenuUI : MonoBehaviour
 
             PositionSubmenuNow();
         });
+    }
+    private void StartDelayedSubmenuClose()
+    {
+        if (_submenuClosePending)
+            return;
+
+        _submenuClosePending = true;
+        float timer = 0f;
+
+        _submenuCloseTask = _submenuContainer.schedule.Execute(() =>
+        {
+            // If pointer re-entered, cancel
+            if (IsPointerOverBuildMenu)
+            {
+                _submenuClosePending = false;
+                _submenuCloseTask.Pause();
+                return;
+            }
+
+            timer += 0.016f; // ~60fps tick
+
+            if (timer >= _submenuCloseDelay)
+            {
+                if (_submenuClosePending)
+                    CloseSubmenu();
+
+                _submenuClosePending = false;
+                _submenuCloseTask.Pause();
+            }
+
+        }).Every(16); // run every 16ms (~60fps)
     }
 
     private void OnCategoryClicked(CategoryConfig cat)

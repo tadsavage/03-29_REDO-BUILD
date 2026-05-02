@@ -71,7 +71,14 @@ public class FreeLookCamera : MonoBehaviour
 	//bool _leftDown = false;
 	//bool _rightDown = false;
 
-	void Update()
+	private BuildMenuUI _buildMenuUI;
+
+    private void Start()
+    {
+        _buildMenuUI = UnityEngine.Object.FindFirstObjectByType<BuildMenuUI>();
+    }
+
+    void Update()
 	{
         //  Don't do anything if the user is currently typing in a text field.
         if (UIInputGuard.IsTextFieldFocused) return;
@@ -150,7 +157,7 @@ public class FreeLookCamera : MonoBehaviour
 		float axis = Mouse.current.scroll.ReadValue().y;//Input.GetAxis("Mouse ScrollWheel");
 		if (axis != 0)
 		{
-            if (BuildMenuUI.IsPointerOverBuildMenu)
+            if (_buildMenuUI.IsPointerOverBuildMenu)
                 return; // block zoom
 
             var zoomSensitivity = fastMode ? this.fastZoomSensitivity : this.zoomSensitivity;

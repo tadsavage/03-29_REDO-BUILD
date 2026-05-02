@@ -40,25 +40,18 @@ public class MoveCommand : ICommand
         if (_instance == null)
             return;
 
-        // ---------------------------------------------------------
-        // 1. Remove from old grid cells
-        // ---------------------------------------------------------
+        // Remove from old cells
         foreach (var o in _offsets)
         {
             Vector2Int cell = from + o;
             _grid.RemoveStackObject(cell, _instance, _data);
         }
 
-        // ---------------------------------------------------------
-        // 2. Compute stack height BEFORE placing
-        // ---------------------------------------------------------
+        // Correct stack height logic
         float stackY = 0f;
-        if (_data.isStackable)
+        if (!_data.isFloor)
             stackY = _grid.GetStackHeight(to);
 
-        // ---------------------------------------------------------
-        // 3. Move object in world space
-        // ---------------------------------------------------------
         Vector3 pos = _grid.GetCellCenter(to);
         pos.y += stackY;
 
@@ -68,28 +61,22 @@ public class MoveCommand : ICommand
         _instance.transform.position = pos;
         _instance.transform.rotation = rot;
 
-        // ---------------------------------------------------------
-        // 4. Add to new grid cells
-        // ---------------------------------------------------------
+        // Add to new cells
         foreach (var o in _offsets)
         {
             Vector2Int cell = to + o;
             _grid.AddStackObject(cell, _instance, _data);
         }
-        // 5. Update BuildingData
+
+        // Update BuildingData
         var bd = _instance.GetComponent<BuildingData>();
         bd.Initialize(to, _rotation, _offsets);
-        //Debug.Log($"Placed w/Finalizer {_data.objName} at {to}");
 
-        // ---------------------------------------------------------
-        // 5b. Update PlacedObject logical coordinates (CRITICAL)
-        // ---------------------------------------------------------
+        // Update PlacedObject
         var po = _instance.GetComponent<PlacedObject>();
         po.gridX = to.x;
         po.gridY = to.y;
-        // ---------------------------------------------------------
-        // 6. FX (once, not per cell)
-        // ---------------------------------------------------------
+
         FXPool.Instance.Play("dust", pos);
     }
 }

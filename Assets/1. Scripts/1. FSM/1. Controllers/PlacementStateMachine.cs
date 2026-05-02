@@ -27,6 +27,7 @@ public class PlacementStateMachine : MonoBehaviour
     // New: shared ray + hover UI
     private RaycastController _raycast;
     private WorldHoverPopupUI _hoverUI;
+    private BuildMenuUI _buildMenuUI;
 
     // Injected from PlacementController
     public GameContext Context { get; private set; }
@@ -62,6 +63,7 @@ public class PlacementStateMachine : MonoBehaviour
         PlacementFinalizer finalizer = Object.FindFirstObjectByType<PlacementFinalizer>();
         PlacementGrid grid = Object.FindFirstObjectByType<PlacementGrid>();
         _hoverUI = Object.FindFirstObjectByType<WorldHoverPopupUI>();
+        _buildMenuUI = Object.FindFirstObjectByType<BuildMenuUI>();
 
         _raycast.EnableRay();
 
@@ -81,7 +83,8 @@ public class PlacementStateMachine : MonoBehaviour
             _indicator,
             Context.MoneyService,
             _costUI,
-            _hoverUI);  
+            _hoverUI,
+            _buildMenuUI);
 
         _deleteState = new DeleteState(
             _raycast,
@@ -114,7 +117,7 @@ public class PlacementStateMachine : MonoBehaviour
 
         if (_currentState == _idleState)
         {
-            Debug.Log("Ticking Idle Hover");
+            //Debug.Log("Ticking Idle Hover");
             if (_raycast != null && _hoverUI != null)
                 HandleIdleHover();
         }

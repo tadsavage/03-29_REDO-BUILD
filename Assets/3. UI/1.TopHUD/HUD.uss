@@ -1,13 +1,18 @@
 .preview-cost-label {
+    background-color: rgba(35, 35, 40, 0.85);
+    border-radius: 10px;
+    border-width: 4px;
+    border-color: rgba(212, 135, 77, 0.85);
+    -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
+    font-size: 18px;
+    color: rgb(240, 230, 211);
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 4px;
+    padding-bottom: 4px;
     position: absolute;
-    color: rgb(255, 128, 128);
-    border-left-color: rgb(204, 153, 77);
-    border-right-color: rgb(204, 153, 77);
-    border-top-color: rgb(204, 153, 77);
-    border-bottom-color: rgb(204, 153, 77);
-    border-top-width: 2px;
-    border-right-width: 2px;
-    border-bottom-width: 2px;
-    border-left-width: 2px;
-    background-color: rgba(0, 0, 0, 0.75);
+    border-top-width: 10px;
+    border-right-width: 10px;
+    border-bottom-width: 10px;
+    border-left-width: 10px;
 }

@@ -22,10 +22,10 @@ public class PreviewCostUI : MonoBehaviour
             return;
 
         _label.style.display = DisplayStyle.Flex;
-        _label.text = $"Drag Cost: ${cost:N0}";
+        _label.text = $"Build Cost: ${cost:N0}";
 
         _label.style.color = canAfford
-            ? new StyleColor(new Color(.9f, 0.5f, 0.5f))
+            ? new StyleColor(new Color(.9f, 0.85f, 0.75f))
             : new StyleColor(Color.red);
     }
 
@@ -55,8 +55,8 @@ public class PreviewCostUI : MonoBehaviour
         _smoothPos = Vector2.Lerp(_smoothPos, target, Time.deltaTime * 20f);
 
         // Offset (tweak to taste)
-        float offsetX = -40f;
-        float offsetY = -40f;
+        float offsetX = 18f;
+        float offsetY = -95f;
 
         _label.style.left = _smoothPos.x + offsetX;
         _label.style.top = _smoothPos.y + offsetY;
