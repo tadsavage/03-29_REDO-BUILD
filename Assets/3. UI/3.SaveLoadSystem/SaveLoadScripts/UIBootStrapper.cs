@@ -13,9 +13,11 @@ public class UIBootstrapper : MonoBehaviour
     [SerializeField] private TopBarUI _topBarUI;
     [SerializeField] private WorldHoverPopupUI _hoverUI;
 
-
     [Header("Game Services")]
     [SerializeField] private GameContext _context;
+
+    [Header("State Machine")]
+    [SerializeField] private PlacementStateMachine _fsm;
 
     private void Awake()
     {
@@ -39,8 +41,14 @@ public class UIBootstrapper : MonoBehaviour
         if (_topBarUI != null)
             _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService);
 
+        // Hover popup UI
         if (_hoverUI != null)
+        {
             _hoverUI.Init(_hudDocument);
+            _hoverUI.SetFSM(_fsm);
+            _fsm.SetHoverUI(_hoverUI);   // <-- THIS LINE FIXES EVERYTHING
+        }
+
     }
 
     private void InitializeBuildMenu()

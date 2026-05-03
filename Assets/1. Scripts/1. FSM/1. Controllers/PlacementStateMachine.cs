@@ -2,8 +2,23 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+/// <summary>
+/// Central state machine controlling all placement-related states:
+/// - IdleState (hover + inspect)
+/// - RaycastPlacementState (grid hover only)
+/// - BuildState (placing new objects)
+/// - MoveState (moving existing objects)
+/// - DeleteState (deleting objects)
+///
+/// IMPORTANT:
+/// Only IdleState is allowed to drive the hover popup.
+/// All other states force-hide it.
+/// </summary>
 public class PlacementStateMachine : MonoBehaviour
 {
+    // ---------------------------------------------------------
+    // STATE FIELDS
+    // ---------------------------------------------------------
     private IPlacementState _currentState;
 
     private IdleState _idleState;
@@ -12,27 +27,28 @@ public class PlacementStateMachine : MonoBehaviour
     private DeleteState _deleteState;
     private MoveState _moveState;
 
-    private PlacementActions _actions;
-
     private readonly Stack<IPlacementState> _stateStack = new();
 
-    public CommandHistory History { get; private set; } = new CommandHistory();
     public IPlacementState CurrentState => _currentState;
-
+    public CommandHistory History { get; private set; } = new CommandHistory();
     public System.Action OnHistoryChanged;
 
-    // Core refs for unified visual reset
+    // ---------------------------------------------------------
+    // CORE SYSTEM REFERENCES
+    // ---------------------------------------------------------
+    private PlacementActions _actions;
+
     private PreviewController _preview;
     private CellIndicatorController _indicator;
-    // New: shared ray + hover UI
     private RaycastController _raycast;
-    private WorldHoverPopupUI _hoverUI;
     private BuildMenuUI _buildMenuUI;
 
-    // Injected from PlacementController
+    // Hover popup (assigned by UIBootstrapper)
+    private WorldHoverPopupUI _hoverUI;
+
+    // Injected externally
     public GameContext Context { get; private set; }
 
-    // UI reference (already initialized by UIBootstrapper)
     [SerializeField] private PreviewCostUI _costUI;
 
     public int DebugStackDepth => _stateStack.Count;
@@ -40,7 +56,6 @@ public class PlacementStateMachine : MonoBehaviour
     // ---------------------------------------------------------
     // INITIALIZATION
     // ---------------------------------------------------------
-
     private void Awake()
     {
         _actions = new PlacementActions();
@@ -49,24 +64,28 @@ public class PlacementStateMachine : MonoBehaviour
     public void Initialize(GameContext context)
     {
         Context = context;
-        // No UI initialization here anymore — UIBootstrapper handles that
+    }
+
+    /// <summary>
+    /// Called by UIBootstrapper to inject the hover popup reference.
+    /// </summary>
+    public void SetHoverUI(WorldHoverPopupUI ui)
+    {
+        _hoverUI = ui;
     }
 
     private void Start()
     {
-        // External dependencies (Context) are now valid
-
-        _raycast = Object.FindFirstObjectByType<RaycastController>();
-        _indicator = Object.FindFirstObjectByType<CellIndicatorController>();
-        _preview = Object.FindFirstObjectByType<PreviewController>();
-        PlacementValidator validator = Object.FindFirstObjectByType<PlacementValidator>();
-        PlacementFinalizer finalizer = Object.FindFirstObjectByType<PlacementFinalizer>();
-        PlacementGrid grid = Object.FindFirstObjectByType<PlacementGrid>();
-        _hoverUI = Object.FindFirstObjectByType<WorldHoverPopupUI>();
-        _buildMenuUI = Object.FindFirstObjectByType<BuildMenuUI>();
+        // Find shared systems
+        _raycast = FindFirstObjectByType<RaycastController>();
+        _indicator = FindFirstObjectByType<CellIndicatorController>();
+        _preview = FindFirstObjectByType<PreviewController>();
+        PlacementValidator validator = FindFirstObjectByType<PlacementValidator>();
+        PlacementFinalizer finalizer = FindFirstObjectByType<PlacementFinalizer>();
+        PlacementGrid grid = FindFirstObjectByType<PlacementGrid>();
+        _buildMenuUI = FindFirstObjectByType<BuildMenuUI>();
 
         _raycast.EnableRay();
-
 
         // Construct states
         _idleState = new IdleState();
@@ -83,7 +102,6 @@ public class PlacementStateMachine : MonoBehaviour
             _indicator,
             Context.MoneyService,
             _costUI,
-            _hoverUI,
             _buildMenuUI);
 
         _deleteState = new DeleteState(
@@ -106,27 +124,54 @@ public class PlacementStateMachine : MonoBehaviour
             _indicator,
             Context.MoneyService);
 
-        // Start in idle
+        // Start in Idle
         _currentState = _idleState;
         _currentState.OnEnter();
     }
 
+    // ---------------------------------------------------------
+    // UPDATE LOOP
+    // ---------------------------------------------------------
     private void Update()
     {
-        _currentState?.Tick();
+        // Debug: ensure popup reference is valid
+        if (_hoverUI == null)
+            Debug.LogError("FSM: _hoverUI is NULL");
 
+        // -----------------------------------------------------
+        // PREVENT LAST-FRAME POPUP FLASH
+        // -----------------------------------------------------
+        // If user clicks while in IdleState, hide popup BEFORE Idle Tick runs.
         if (_currentState == _idleState)
         {
-            //Debug.Log("Ticking Idle Hover");
+            if (Mouse.current.leftButton.wasPressedThisFrame)
+                _hoverUI?.HideImmediate();
+        }
+
+        // -----------------------------------------------------
+        // STATE TICK
+        // -----------------------------------------------------
+        _currentState?.Tick();
+
+        // -----------------------------------------------------
+        // IDLE HOVER LOGIC
+        // -----------------------------------------------------
+        if (_currentState == _idleState)
+        {
+            Debug.Log("Idle Hover Running");
+
             if (_raycast != null && _hoverUI != null)
                 HandleIdleHover();
         }
         else
         {
-            _hoverUI?.ForceHide();
+            // All non-idle states force-hide popup
+            _hoverUI?.HideImmediate();
         }
 
+        // -----------------------------------------------------
         // UNIVERSAL CANCEL (ESC or RMB)
+        // -----------------------------------------------------
         if (_currentState != _idleState)
         {
             if (Keyboard.current.escapeKey.wasPressedThisFrame ||
@@ -136,6 +181,10 @@ public class PlacementStateMachine : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// Handles hover popup behavior ONLY in IdleState.
+    /// </summary>
     private void HandleIdleHover()
     {
         _raycast.Tick();
@@ -157,30 +206,24 @@ public class PlacementStateMachine : MonoBehaviour
             }
         }
 
+        // No hit or no building → hide popup
         _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
     }
 
-    private void OnEnable()
-    {
-        _actions?.Enable();
-    }
-
-    private void OnDisable()
-    {
-        _actions?.Disable();
-    }
+    private void OnEnable() => _actions?.Enable();
+    private void OnDisable() => _actions?.Disable();
 
     // ---------------------------------------------------------
-    // INTERNAL STATE SWITCHING (with stack)
+    // STATE SWITCHING
     // ---------------------------------------------------------
     private void SetState(IPlacementState newState, bool push = true)
     {
         if (newState == null || newState == _currentState)
             return;
 
-        // If leaving Idle, force-hide popup
+        // Leaving Idle → hide popup immediately
         if (_currentState == _idleState)
-            _hoverUI?.ForceHide(); 
+            _hoverUI?.HideImmediate();
 
         if (push && _currentState != null)
             _stateStack.Push(_currentState);
@@ -204,7 +247,7 @@ public class PlacementStateMachine : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // CLEAN PUBLIC TRANSITION API
+    // PUBLIC TRANSITION API
     // ---------------------------------------------------------
     public void EnterIdle() => SetState(_idleState, push: false);
     public void EnterRaycast() => SetState(_raycastState, push: false);

@@ -42,11 +42,31 @@ public class ObjDataSO : ScriptableObject
 
     public Vector2Int[] GetFootprintOffsets(float rotation)
     {
-        if (customShapeOffsets != null && customShapeOffsets.Length > 0)
-            return RotateOffsets(customShapeOffsets, rotation);
+        Vector2Int[] baseOffsets;
 
-        return GenerateRectangularOffsets(rotation);
+        // If custom shape exists, use it
+        if (customShapeOffsets != null && customShapeOffsets.Length > 0)
+        {
+            baseOffsets = customShapeOffsets;
+        }
+        else
+        {
+            // Generate rectangular footprint in canonical orientation
+            baseOffsets = new Vector2Int[footprint.x * footprint.y];
+            int index = 0;
+            for (int x = 0; x < footprint.x; x++)
+            {
+                for (int y = 0; y < footprint.y; y++)
+                {
+                    baseOffsets[index++] = new Vector2Int(x, y);
+                }
+            }
+        }
+
+        // Rotate using the SAME logic as custom shapes
+        return RotateOffsets(baseOffsets, rotation);
     }
+
 
     private Vector2Int[] GenerateRectangularOffsets(float rotation)
     {

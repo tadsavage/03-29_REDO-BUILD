@@ -11,7 +11,9 @@ public class WorldHoverPopupUI : MonoBehaviour
 
     private Vector2 _smoothPos;
 
-    // Delay system
+    private PlacementStateMachine _fsm;
+
+    // Hover timing
     private float _hoverDelay = 0.1f;
     private float _hoverTimer = 0f;
     private float _notMovingTimer = 0f;
@@ -19,48 +21,72 @@ public class WorldHoverPopupUI : MonoBehaviour
 
     private bool _isHovering = false;
     private bool _isVisible = false;
-    private bool _notMoving = false;
-    private bool _dontRefreshYet = false;
     private bool _isFading = false;
 
-    // Data to show after delay
+    // Pending data
     private string _pendingName;
     private int _pendingCost;
     private int _pendingHourlyCost;
 
+    // ---------------------------------------------------------
+    // INITIALIZATION
+    // ---------------------------------------------------------
     public void Init(UIDocument doc)
     {
         _root = doc.rootVisualElement;
         _popup = _root.Q<VisualElement>("WorldHoverPopup");
         _title = _root.Q<Label>("HoverTitle");
         _cost = _root.Q<Label>("HoverCost");
-        _hourlyCost = _root.Q<Label>("HoverHourlyCost");
+        _hourlyCost = _root.Q<Label>("HoverHourlyCost"); 
+        
+        if (_popup == null)
+            Debug.LogError("Popup NOT FOUND in HUD document!");
 
         HideImmediate();
     }
 
+    public void SetFSM(PlacementStateMachine fsm)
+    {
+        _fsm = fsm;
+    }
+
+    // ---------------------------------------------------------
+    // MAIN UPDATE
+    // ---------------------------------------------------------
     public void TickHover(bool hovering, string name, int cost, int hourlyCost, Vector3 worldPos, Camera cam)
     {
-        // This is here to prevent BuildState from allowing it to run. Dont know if i trust this.
-        // TURNING THIS OFF - BECAUSE IT SHUTS THIS SHIT OFF COMPLETELY _ JUST BAD CODE FROM AI
-        //if (_dontRefreshYet && !_isVisible)
-        //    return;
+        Debug.Log("TickHover CALLED");
+        // Popup ONLY allowed in IdleState
+        if (_fsm != null && !(_fsm.CurrentState is IdleState))
+        {
+            Debug.Log("WTF");
+            HideImmediate();
+            return;
+        }
 
+        // 2. If object vanished (deleted/moved)
+        if (hovering && string.IsNullOrEmpty(name))
+        {
+            HideImmediate();
+            return;
+        }
+
+        // 3. If not hovering → fade out
         if (!hovering)
         {
             _isHovering = false;
             _hoverTimer = 0f;
             _notMovingTimer = 0f;
 
-            // If visible and not already fading, fade out
-            if (_isVisible && !_isFading)
-            {
+            if (_isVisible)
                 HideSlowlyFadeout();
-            }
 
             return;
         }
-        // Detect new target
+
+        // -----------------------------------------------------
+        // HOVERING LOGIC
+        // -----------------------------------------------------
         bool isNewTarget =
             !_isHovering ||
             name != _pendingName ||
@@ -71,16 +97,14 @@ public class WorldHoverPopupUI : MonoBehaviour
         _pendingCost = cost;
         _pendingHourlyCost = hourlyCost;
 
-        // ---------------------------------------------------------
-        // NEW TARGET → CANCEL FADE + SHOW IMMEDIATELY
-        // ---------------------------------------------------------
         if (isNewTarget)
         {
+            // Reset timers
             _isHovering = true;
             _hoverTimer = 0f;
             _notMovingTimer = 0f;
-            _dontRefreshYet = false;
 
+            // Cancel fade if needed
             if (_isFading)
             {
                 _isFading = false;
@@ -93,26 +117,37 @@ public class WorldHoverPopupUI : MonoBehaviour
         {
             // Same target → track hover time
             _hoverTimer += Time.deltaTime;
-
-            // Track "not moving"
-            _notMoving = true;
             _notMovingTimer += Time.deltaTime;
 
-            // Fade out after X seconds of no movement
+            // Fade out after resting too long
             if (_isVisible && !_isFading && _notMovingTimer > _allowedRestingTime)
-            {
                 HideSlowlyFadeout();
-            }
 
-            // Show after delay (only if allowed)
-            if (!_isVisible && _hoverTimer >= _hoverDelay && !_dontRefreshYet)
-            {
+            // Show after delay
+            if (!_isVisible && _hoverTimer >= _hoverDelay)
                 Show(_pendingName, _pendingCost, _pendingHourlyCost);
-            }
         }
 
         if (_isVisible)
             SetWorldPosition(worldPos, cam);
+    }
+
+    // ---------------------------------------------------------
+    // VISUALS
+    // ---------------------------------------------------------
+    private void Show(string name, int cost, int hourlyCost)
+    {
+        _title.text = name;
+        _cost.text = $"Cost: ${cost:N0}";
+        _hourlyCost.text = $"Hourly Cost: ${hourlyCost:N0}";
+
+        _popup.style.opacity = 1f;
+        _popup.AddToClassList("show");
+        Debug.Log("Popup opacity: " + _popup.resolvedStyle.opacity);
+
+        _isVisible = true;
+        _isFading = false;
+        _notMovingTimer = 0f;
     }
 
     private void HideSlowlyFadeout()
@@ -122,8 +157,6 @@ public class WorldHoverPopupUI : MonoBehaviour
 
         _isFading = true;
         _isVisible = false;
-        _dontRefreshYet = true;
-        _notMoving = false;
 
         float duration = 0.05f;
         float t = 0f;
@@ -147,27 +180,7 @@ public class WorldHoverPopupUI : MonoBehaviour
         }).Every(16).Until(() => t >= 1f);
     }
 
-    private void Show(string name, int cost, int hourlyCost)
-    {
-        _title.text = name;
-        _cost.text = $"Cost: ${cost:N0}";
-        _hourlyCost.text = $"Hourly Cost: ${hourlyCost:N0}";
-
-        _popup.style.opacity = 1f;
-        _popup.AddToClassList("show");
-
-        _isVisible = true;
-        _isFading = false;
-        _notMovingTimer = 0f;
-    }
-
-    private void Hide()
-    {
-        _popup.RemoveFromClassList("show");
-        _isVisible = false;
-    }
-
-    private void HideImmediate()
+    public void HideImmediate()
     {
         _popup.RemoveFromClassList("show");
         _popup.style.opacity = 1f;
@@ -178,7 +191,6 @@ public class WorldHoverPopupUI : MonoBehaviour
         _notMovingTimer = 0f;
         _isFading = false;
     }
-
     public void SetWorldPosition(Vector3 worldPos, Camera cam)
     {
         if (_popup == null || cam == null)
@@ -202,39 +214,5 @@ public class WorldHoverPopupUI : MonoBehaviour
 
         _popup.style.left = _smoothPos.x + offsetX;
         _popup.style.top = _smoothPos.y + offsetY;
-    }
-
-    public void ForceHide()
-    {
-        _popup.RemoveFromClassList("show");
-        _isVisible = false;
-        _isHovering = false;
-        _hoverTimer = 0f;
-        _notMovingTimer = 0f;
-        _isFading = false;
-        _dontRefreshYet = false;
-    }
-    public void DisableForBuildMode()
-    {
-        // Hard stop everything
-        _isHovering = false;
-        _isVisible = false;
-        _isFading = false;
-        _dontRefreshYet = true;
-        _hoverTimer = 0f;
-        _notMovingTimer = 0f;
-
-        _popup.style.opacity = 0f;
-        _popup.RemoveFromClassList("show");
-    }
-    public void EnableAfterBuildMode()
-    {
-        // Allows this to run after we leave BuildState or whatever is turning it off for that matter
-        _dontRefreshYet = false;
-        _isFading = false;
-        _isVisible = false;
-        _isHovering = false;
-        _hoverTimer = 0f;
-        _notMovingTimer = 0f;
     }
 }

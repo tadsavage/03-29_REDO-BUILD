@@ -3,6 +3,19 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
+/// <summary>
+/// BuildState handles placing new objects on the grid:
+/// - Hovering the grid
+/// - Drag placement (multi-place)
+/// - Rotation
+/// - Cost preview
+/// - Validity preview
+/// - Final placement
+///
+/// IMPORTANT:
+/// This state NO LONGER interacts with the hover popup UI.
+/// Only IdleState controls hover popups.
+/// </summary>
 public class BuildState : IPlacementState
 {
     private readonly PlacementActions _actions;
@@ -15,7 +28,6 @@ public class BuildState : IPlacementState
     private readonly CellIndicatorController _indicator;
     private readonly MoneyService _money;
     private readonly PreviewCostUI _costUI;
-    private readonly WorldHoverPopupUI _hoverUI;
     private readonly BuildMenuUI _buildMenuUI;
 
     private ObjDataSO _currentData;
@@ -47,7 +59,6 @@ public class BuildState : IPlacementState
         CellIndicatorController indicator,
         MoneyService money,
         PreviewCostUI costUI,
-        WorldHoverPopupUI hoverUI,
         BuildMenuUI buildMenuUI)
     {
         _actions = actions;
@@ -60,7 +71,6 @@ public class BuildState : IPlacementState
         _indicator = indicator;
         _money = money;
         _costUI = costUI;
-        _hoverUI = hoverUI;
         _buildMenuUI = buildMenuUI;
 
         _actions.BuildPlacement.BindRotateTo_R();
@@ -72,9 +82,6 @@ public class BuildState : IPlacementState
     // ---------------------------------------------------------
     public void OnEnter()
     {
-        //No popups during BuildMode please (atleast for now)
-        _hoverUI.DisableForBuildMode();
-
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
         _actions.BuildPlacement.Place.canceled += OnPlacePerformed;
 
@@ -104,9 +111,6 @@ public class BuildState : IPlacementState
     // ---------------------------------------------------------
     public void OnExit()
     {
-        //Popups allowed again once we leave (atleast for now)
-        _hoverUI.EnableAfterBuildMode();
-
         _raycast.DisableRay();
         _indicator.ClearAll();
         _preview.Hide();
@@ -132,33 +136,6 @@ public class BuildState : IPlacementState
         }
 
         Vector2Int root = _raycast.HitCell;
-
-        // -----------------------------------------------------
-        // HOVER UI
-        // -----------------------------------------------------
-        if (_raycast.HitObject != null)
-        {
-            var bd = _raycast.HitObject.GetComponent<BuildingData>();
-            if (bd != null)
-            {
-                _hoverUI.TickHover(
-                    true,
-                    bd.Data.objName,
-                    bd.Data.cost,
-                    bd.Data.hourlyCost,
-                    _raycast.RawHitPoint,
-                    Camera.main
-                );
-            }
-            else
-            {
-                _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
-            }
-        }
-        else
-        {
-            _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
-        }
 
         // -----------------------------------------------------
         // DRAG / CLICK DETECTION
@@ -195,9 +172,9 @@ public class BuildState : IPlacementState
             return;
         }
 
-        // -----------------------------------------------------
+        // ---------------------------------------------------------
         // ROTATION
-        // -----------------------------------------------------
+        // ---------------------------------------------------------
         if (_rotateRequested)
         {
             _rotateRequested = false;
@@ -208,7 +185,6 @@ public class BuildState : IPlacementState
 
             _preview.Rotate(_currentRotation);
         }
-        // Only showing FIXED sections — the rest of your file stays unchanged.
 
         // ---------------------------------------------------------
         // GHOST + VALIDATION
@@ -235,15 +211,12 @@ public class BuildState : IPlacementState
         int cost = _currentData.cost;
         bool canAfford = _money.CanAfford(cost);
 
-        if (_costUI != null)
-        {
-            _costUI.ShowCost(cost, canAfford);
-            _costUI.SetScreenPosition(_raycast.RawHitPoint, Camera.main);
-        }
+        _costUI.ShowCost(cost, canAfford);
+        _costUI.SetScreenPosition(_raycast.RawHitPoint, Camera.main);
 
-        // -----------------------------------------------------
+        // ---------------------------------------------------------
         // PLACE
-        // -----------------------------------------------------
+        // ---------------------------------------------------------
         if (_placeRequested)
         {
             _placeRequested = false;
@@ -262,15 +235,7 @@ public class BuildState : IPlacementState
 
             bool isValidNow = _validator.IsValidPlacement(root, offsets, _currentData);
 
-            if (!isValidNow)
-            {
-                AudioManager.Play("InvalidPlace");
-                _preview.SetGhostInvalid();
-                _indicator.ShowCells(BuildFootprintBuffered(root, offsets), cell => false);
-                return;
-            }
-
-            if (!_money.CanAfford(cost))
+            if (!isValidNow || !_money.CanAfford(cost))
             {
                 AudioManager.Play("InvalidPlace");
                 _preview.SetGhostInvalid();
@@ -294,7 +259,7 @@ public class BuildState : IPlacementState
     }
 
     // ---------------------------------------------------------
-    // ROTATE
+    // ROTATE INPUT
     // ---------------------------------------------------------
     private void OnRotatePerformed(InputAction.CallbackContext ctx)
     {

@@ -2,8 +2,22 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+/// <summary>
+/// Handles selecting an existing placed object, picking it up,
+/// moving it around the grid, rotating it, validating placement,
+/// and confirming the new position.
+/// 
+/// Key behavior:
+/// - Clicking ANY footprint cell selects the object.
+/// - If the user clicked an offset cell, movement preserves that offset.
+/// - Rotation only applies to the currently selected object.
+/// - No rotation leaks between objects.
+/// </summary>
 public class MoveState : IPlacementState
 {
+    // ---------------------------------------------------------
+    // DEPENDENCIES
+    // ---------------------------------------------------------
     private readonly PlacementActions _actions;
     private readonly PreviewController _preview;
     private readonly PlacementValidator _validator;
@@ -14,24 +28,39 @@ public class MoveState : IPlacementState
     private readonly CellIndicatorController _indicator;
     private readonly MoneyService _money;
 
-    private GameObject _obj;
-    private ObjDataSO _data;
-
-    private Vector2Int _originalRoot;
-    private Vector2Int[] _offsets;
-    private float _rotation;
+    // ---------------------------------------------------------
+    // SELECTED OBJECT DATA
+    // ---------------------------------------------------------
+    private GameObject _obj;          // The actual object being moved
+    private ObjDataSO _data;          // Its data (footprint, cost, etc.)
+    private Vector2Int[] _offsets;    // Footprint offsets (rotated)
+    private float _rotation;          // Current rotation (0/90/180/270)
+    private Vector2Int _originalRoot; // Where the object started
 
     private bool _hasSelection;
 
-    private Vector2Int _lastHoverCell = new Vector2Int(int.MinValue, int.MinValue);
+    // ---------------------------------------------------------
+    // OFFSET‑AWARE SELECTION
+    // ---------------------------------------------------------
+    private Vector2Int _clickedCell;      // Cell user clicked on
+    private Vector2Int _originAtSelect;   // Root at selection time
+    private Vector2Int _selectionDelta;   // clickedCell - originAtSelect
 
+    // ---------------------------------------------------------
+    // MOVEMENT + VISUALS
+    // ---------------------------------------------------------
+    private Vector2Int _lastHoverCell = new Vector2Int(int.MinValue, int.MinValue);
     private readonly List<Vector2Int> _footprint = new();
 
-    private static readonly Color MoveHighlightBlue = new Color(0.20f, 0.60f, 1.00f, 0.15f);
+    private static readonly Color MoveHighlightBlue =
+        new Color(0.20f, 0.60f, 1.00f, 0.15f);
 
     public bool IsPlacementState => true;
     public string ObjectName => _obj != null ? _obj.name : "None";
 
+    // ---------------------------------------------------------
+    // CONSTRUCTOR
+    // ---------------------------------------------------------
     public MoveState(
         PlacementActions actions,
         PreviewController preview,
@@ -53,6 +82,7 @@ public class MoveState : IPlacementState
         _indicator = indicator;
         _money = money;
 
+        // Bind controls
         _actions.BuildPlacement.BindPlaceToMouseLeft();
         _actions.BuildPlacement.BindRotateTo_R();
     }
@@ -68,8 +98,10 @@ public class MoveState : IPlacementState
         _raycast.EnableRay();
         _preview.ResetMoveGhostState();
         _indicator.UseMoveMode();
+
         _hasSelection = false;
         _lastHoverCell = new Vector2Int(int.MinValue, int.MinValue);
+
         Object.FindAnyObjectByType<TopBarUI>().SetState(GetType().Name);
     }
 
@@ -82,6 +114,7 @@ public class MoveState : IPlacementState
         if (_obj != null)
             _preview.ClearFlatHighlight(_obj);
 
+        // Clear selection state
         _obj = null;
         _data = null;
         _offsets = null;
@@ -99,103 +132,52 @@ public class MoveState : IPlacementState
     private void TrySelectObject()
     {
         _raycast.Tick();
-        _indicator.ShowCell(_raycast.HitCell);
 
+        // Must click something
         if (_raycast.HitObject == null)
             return;
 
         if (!Mouse.current.leftButton.wasPressedThisFrame)
             return;
 
-        // Prefer BuildingData on the hit object, but allow parent lookup (raycast may hit child meshes)
+        // Find BuildingData on hit object
         var bd = _raycast.HitObject.GetComponent<BuildingData>()
                  ?? _raycast.HitObject.GetComponentInParent<BuildingData>();
 
-        if (bd == null)
+        if (bd == null || bd.Data == null)
             return;
 
-        if (bd.Data == null)
-        {
-            Debug.LogWarning($"TrySelectObject: BuildingData on {bd.gameObject.name} has no Data (ObjDataSO).");
-            return;
-        }
-
-        // Ensure offsets exist; compute from SO + rotation if missing and persist via BuildingData API
-        Vector2Int[] offsets = bd.Offsets;
-        if (offsets == null || offsets.Length == 0)
-        {
-            Debug.LogWarning($"TrySelectObject: Offsets missing on {bd.gameObject.name}. Computing from SO as fallback.");
-            // IMPORTANT: use the same convention as placement (negative rotation)
-            offsets = bd.Data.GetFootprintOffsets(-bd.Rotation);
-            if (offsets == null || offsets.Length == 0)
-            {
-                Debug.LogError($"TrySelectObject: Could not compute offsets for {bd.gameObject.name}. Aborting selection.");
-                return;
-            }
-
-            // Persist computed offsets back to BuildingData
-            bd.SetOffsets(offsets);
-        }
-
+        // Cannot move bulldozer-type objects
         if (bd.Data.ClearsGridAfterPlacement)
             return;
 
-        // Resolve the TRUE top object across the footprint
-        GameObject trueTop = null;
-
-        foreach (var o in offsets)
-        {
-            Vector2Int cell = bd.RootCell + o;
-            GameObject topGO = _grid.GetTopObject(cell);
-            if (topGO == null)
-                continue;
-
-            if (trueTop == null)
-                trueTop = topGO;
-            else if (trueTop != topGO)
-            {
-                Debug.LogWarning($"TrySelectObject: conflicting top objects across footprint: {trueTop.name} vs {topGO.name}");
-                AudioManager.Play("InvalidPlace");
-                return;
-            }
-        }
-
-        if (trueTop == null)
-        {
-            Debug.Log("TrySelectObject: trueTop is null after scanning footprint — aborting selection.");
-            return;
-        }
-
-        // If the raycast hit a child mesh, prefer the canonical top object's BuildingData
-        if (trueTop != _raycast.HitObject)
-        {
-            bd = trueTop.GetComponent<BuildingData>() ?? trueTop.GetComponentInParent<BuildingData>();
-            if (bd == null)
-            {
-                Debug.LogWarning("TrySelectObject: trueTop has no BuildingData; aborting.");
-                return;
-            }
-
-            // Use its offsets (already stored consistently)
-            offsets = bd.Offsets;
-            if (offsets == null || offsets.Length == 0)
-            {
-                offsets = bd.Data.GetFootprintOffsets(-bd.Rotation);
-                bd.SetOffsets(offsets);
-            }
-        }
-
-        // Select object
+        // Capture object data
         _obj = bd.gameObject;
         _data = bd.Data;
-        _offsets = offsets;
+        _offsets = bd.Offsets;
         _rotation = bd.Rotation;
         _originalRoot = bd.RootCell;
 
+        // -----------------------------------------------------
+        // OFFSET‑AWARE SELECTION
+        // -----------------------------------------------------
+        _clickedCell = _raycast.HitCell;
+        _originAtSelect = _originalRoot;
+        _selectionDelta = _clickedCell - _originAtSelect;
+        // If clicked origin → (0,0)
+        // If clicked offset → e.g. (-1,0)
+
+        // Highlight + show ghost
         _preview.ApplyFlatHighlight(_obj, MoveHighlightBlue);
         _preview.Show(_data);
+        _preview.Rotate(_rotation); // IMPORTANT: match selected object's rotation
 
-        // Remove from grid BEFORE disabling so grid state is consistent
+        // Position ghost at original root
+        Vector3 startPos = _grid.GetCellCenter(_originalRoot);
+        _preview.MoveTo(startPos, _originalRoot, _data);
+        _lastHoverCell = _originalRoot;
+
+        // Remove object from grid while moving
         foreach (var o in _offsets)
         {
             Vector2Int cell = _originalRoot + o;
@@ -207,12 +189,14 @@ public class MoveState : IPlacementState
     }
 
     // ---------------------------------------------------------
-    // TICK
+    // TICK — MOVEMENT + VALIDATION
     // ---------------------------------------------------------
     public void Tick()
     {
-        Vector2Int newRoot = _raycast.HitCell;
-        _indicator.ShowCell(newRoot);
+        _raycast.Tick();
+
+        Vector2Int hitCell = _raycast.HitCell;
+        _indicator.ShowCell(hitCell);
 
         if (!_hasSelection)
         {
@@ -220,13 +204,17 @@ public class MoveState : IPlacementState
             return;
         }
 
-        _raycast.Tick();
-
         if (!_raycast.HasHit)
         {
             _preview.HideGhost();
             return;
         }
+
+        // -----------------------------------------------------
+        // OFFSET‑AWARE MOVEMENT
+        // newRoot = hitCell - (clickedCell - originAtSelect)
+        // -----------------------------------------------------
+        Vector2Int newRoot = hitCell - _selectionDelta;
 
         if (newRoot != _lastHoverCell)
         {
@@ -234,21 +222,16 @@ public class MoveState : IPlacementState
             _lastHoverCell = newRoot;
         }
 
-        if (_data == null || _offsets == null)
-        {
-            Debug.LogWarning("Tick: missing _data or _offsets while in move mode; cancelling selection.");
-            _hasSelection = false;
-            return;
-        }
-
         bool valid = _validator.IsValidPlacement(newRoot, _offsets, _data, _obj);
 
+        // Build footprint for indicator
         _footprint.Clear();
         foreach (var o in _offsets)
             _footprint.Add(newRoot + o);
 
         _indicator.ShowCells(_footprint, cell => valid);
 
+        // Move ghost
         Vector3 pos = _grid.GetCellCenter(newRoot);
         _preview.MoveTo(pos, newRoot, _data);
 
@@ -266,13 +249,8 @@ public class MoveState : IPlacementState
         if (!_hasSelection)
             return;
 
-        if (_data == null || _offsets == null)
-        {
-            Debug.LogWarning("OnConfirmMove: missing data or offsets; aborting.");
-            return;
-        }
-
-        Vector2Int newRoot = _raycast.HitCell;
+        Vector2Int hitCell = _raycast.HitCell;
+        Vector2Int newRoot = hitCell - _selectionDelta;
 
         if (!_validator.IsValidPlacement(newRoot, _offsets, _data, _obj))
         {
@@ -284,6 +262,7 @@ public class MoveState : IPlacementState
 
         _preview.ClearFlatHighlight(_obj);
 
+        // Push undo/redo command
         _fsm.History.Push(
             new MoveCommand(
                 _grid,
@@ -298,6 +277,7 @@ public class MoveState : IPlacementState
 
         _preview.ResetMoveGhostState();
 
+        // Clear selection
         _obj = null;
         _data = null;
         _offsets = null;
@@ -309,7 +289,7 @@ public class MoveState : IPlacementState
     }
 
     // ---------------------------------------------------------
-    // ROTATE
+    // ROTATE SELECTED OBJECT
     // ---------------------------------------------------------
     private void OnRotatePerformed(InputAction.CallbackContext ctx)
     {
@@ -324,7 +304,7 @@ public class MoveState : IPlacementState
 
         _preview.Rotate(_rotation);
 
-        // Recompute offsets for the new rotation using the SAME convention as placement
+        // Update footprint for new rotation
         if (_data != null)
             _offsets = _data.GetFootprintOffsets(-_rotation);
     }

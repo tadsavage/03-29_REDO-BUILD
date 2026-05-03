@@ -204,7 +204,7 @@ public class PlacementSystem : MonoBehaviour
         po.Initialize(so, x, y, rot);
 
         BuildingData bd = go.GetComponent<BuildingData>();
-        Vector2Int[] offsets = so.GetFootprintOffsets(rotationDeg);
+        Vector2Int[] offsets = so.GetFootprintOffsets(-rotationDeg);
         bd.Initialize(root, rotationDeg, offsets);
 
         PlacedObjectRegistry.Register(po);
