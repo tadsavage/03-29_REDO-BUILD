@@ -55,7 +55,6 @@ public class WorldHoverPopupUI : MonoBehaviour
     // ---------------------------------------------------------
     public void TickHover(bool hovering, string name, int cost, int hourlyCost, Vector3 worldPos, Camera cam)
     {
-        Debug.Log("TickHover CALLED");
         // Popup ONLY allowed in IdleState
         if (_fsm != null && !(_fsm.CurrentState is IdleState))
         {
@@ -143,7 +142,6 @@ public class WorldHoverPopupUI : MonoBehaviour
 
         _popup.style.opacity = 1f;
         _popup.AddToClassList("show");
-        Debug.Log("Popup opacity: " + _popup.resolvedStyle.opacity);
 
         _isVisible = true;
         _isFading = false;

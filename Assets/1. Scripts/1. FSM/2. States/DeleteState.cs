@@ -99,7 +99,6 @@ public class DeleteState : IPlacementState
                     _raycast.RawHitPoint,
                     Camera.main
                 );
-                Debug.Log($"Hovering over {bd.Data.objName} at {_raycast.RawHitPoint}");
             }
             else
             {

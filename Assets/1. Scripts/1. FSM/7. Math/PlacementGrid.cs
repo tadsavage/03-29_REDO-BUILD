@@ -582,7 +582,5 @@ public class PlacementGrid : MonoBehaviour
             }
         }
 
-        //Debug.Log($"Diagnostics complete. Registry={totalRegistry}, MissingInGrid={missingInGrid}, Misplaced={misplaced}.");
     }
-
 }

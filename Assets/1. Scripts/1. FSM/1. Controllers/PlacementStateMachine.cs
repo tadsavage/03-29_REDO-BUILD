@@ -136,7 +136,6 @@ public class PlacementStateMachine : MonoBehaviour
     {
         // Debug: ensure popup reference is valid
         if (_hoverUI == null)
-            Debug.LogError("FSM: _hoverUI is NULL");
 
         // -----------------------------------------------------
         // PREVENT LAST-FRAME POPUP FLASH
@@ -158,7 +157,6 @@ public class PlacementStateMachine : MonoBehaviour
         // -----------------------------------------------------
         if (_currentState == _idleState)
         {
-            Debug.Log("Idle Hover Running");
 
             if (_raycast != null && _hoverUI != null)
                 HandleIdleHover();
