@@ -58,7 +58,6 @@ public class WorldHoverPopupUI : MonoBehaviour
         // Popup ONLY allowed in IdleState
         if (_fsm != null && !(_fsm.CurrentState is IdleState))
         {
-            Debug.Log("WTF");
             HideImmediate();
             return;
         }
@@ -181,7 +180,7 @@ public class WorldHoverPopupUI : MonoBehaviour
     public void HideImmediate()
     {
         _popup.RemoveFromClassList("show");
-        _popup.style.opacity = 1f;
+        _popup.style.opacity = 0f;
 
         _isVisible = false;
         _isHovering = false;

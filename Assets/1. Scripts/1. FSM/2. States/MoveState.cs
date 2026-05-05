@@ -127,7 +127,7 @@ public class MoveState : IPlacementState
     }
 
     // ---------------------------------------------------------
-    // SELECT OBJECT
+    // SELECT OBJECT - Stack Aware
     // ---------------------------------------------------------
     private void TrySelectObject()
     {
@@ -140,14 +140,23 @@ public class MoveState : IPlacementState
         if (!Mouse.current.leftButton.wasPressedThisFrame)
             return;
 
-        // Find BuildingData on hit object
-        var bd = _raycast.HitObject.GetComponent<BuildingData>()
-                 ?? _raycast.HitObject.GetComponentInParent<BuildingData>();
+        // Determine which cell was clicked
+        Vector2Int clickedCell = _raycast.HitCell;
 
-        if (bd == null || bd.Data == null)
+        // Ask grid for the TRUE top object in that cell
+        GameObject trueTop = _grid.GetTopObject(clickedCell);
+
+        // If nothing is on this cell, bail
+        if (trueTop == null)
             return;
 
-        // Cannot move bulldozer-type objects
+        // Get BuildingData from the TRUE top object
+        var bd = trueTop.GetComponent<BuildingData>();
+        if (bd == null || bd.Data == null)
+            return;
+        if (bd == null || bd.Data == null)
+            return;
+        // Cannot move animated-type navmesh objects
         if (bd.Data.ClearsGridAfterPlacement)
             return;
 
