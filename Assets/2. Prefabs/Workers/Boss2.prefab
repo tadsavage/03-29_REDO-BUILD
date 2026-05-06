@@ -10,7 +10,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 3316949b972c7004c84a2eb6fdcd6096, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 3.4030445
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 3316949b972c7004c84a2eb6fdcd6096, type: 3}
       propertyPath: m_LocalPosition.y
@@ -159,7 +159,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb79d389d9fa74c4884e12fab0d26d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AgentAnimation
-  turnThreshold: 0.75
+  turnThreshold: 5
 --- !u!114 &1584903170143993887
 MonoBehaviour:
   m_ObjectHideFlags: 0
