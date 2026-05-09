@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
@@ -12,6 +12,9 @@ public class DeleteState : IPlacementState
     private readonly PlacementActions _actions;
     private readonly MoneyService _money;
     private readonly WorldHoverPopupUI _hoverUI = Object.FindAnyObjectByType<WorldHoverPopupUI>();
+    private TopBarUI _topBarUI;
+
+    private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
 
     private BuildingHighlighter _hover;
     private readonly List<BuildingHighlighter> _dragTargets = new();
@@ -85,6 +88,7 @@ public class DeleteState : IPlacementState
 
         Vector3 hitPoint = _raycast.HitPoint;
         Vector2Int cell = _raycast.HitCell;
+        topBarUI?.SetCell(cell.x, cell.y);
 
         if (_raycast.HitObject != null)
         {

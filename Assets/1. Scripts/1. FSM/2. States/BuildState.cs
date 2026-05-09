@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -29,6 +29,9 @@ public class BuildState : IPlacementState
     private readonly MoneyService _money;
     private readonly PreviewCostUI _costUI;
     private readonly BuildMenuUI _buildMenuUI;
+    private TopBarUI _topBarUI;
+
+    private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
 
     private ObjDataSO _currentData;
 
@@ -136,6 +139,7 @@ public class BuildState : IPlacementState
         }
 
         Vector2Int root = _raycast.HitCell;
+        topBarUI?.SetCell(root.x, root.y);
 
         // -----------------------------------------------------
         // DRAG / CLICK DETECTION

@@ -89,7 +89,6 @@ public class TopBarUI : MonoBehaviour
 
     public void SetCell(int x, int y)
     {
-        Debug.Log($"Setting cell label to ({x},{y})");
         _cell.text = $"Cell: ({x},{y})";
     }
 

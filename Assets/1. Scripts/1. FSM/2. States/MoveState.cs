@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -27,6 +27,9 @@ public class MoveState : IPlacementState
     private readonly RaycastController _raycast;
     private readonly CellIndicatorController _indicator;
     private readonly MoneyService _money;
+    private TopBarUI _topBarUI;
+
+    private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
 
     // ---------------------------------------------------------
     // SELECTED OBJECT DATA
@@ -206,6 +209,7 @@ public class MoveState : IPlacementState
 
         Vector2Int hitCell = _raycast.HitCell;
         _indicator.ShowCell(hitCell);
+        topBarUI?.SetCell(hitCell.x, hitCell.y);
 
         if (!_hasSelection)
         {

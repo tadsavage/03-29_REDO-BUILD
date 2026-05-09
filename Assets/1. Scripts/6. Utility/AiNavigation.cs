@@ -4,10 +4,9 @@ using UnityEngine.AI;
 public class AiNavigation : MonoBehaviour
 {
     private Transform[] waypoints;
-    [SerializeField] private float waypointThreshold = 0.5f;
 
     private NavMeshAgent agent;
-    private int currentIndex = 0;
+private int currentIndex = 0;
 
     private void Awake()
     {
@@ -35,17 +34,12 @@ public class AiNavigation : MonoBehaviour
 
     void Update()
     {
-        if (agent.pathPending) return;
-
-        if (agent.remainingDistance <= waypointThreshold)
-        {
-            GoToRandomWaypoint();
-        }
+        // Removed arrival check: Handled by AgentAnimation for stop-and-turn behavior
     }
 
-    void GoToRandomWaypoint()
+    public void GoToRandomWaypoint()
     {
-        if (waypoints.Length <= 1) return;
+        if (waypoints == null || waypoints.Length <= 1) return;
 
         // Keep picking a new index until it's different from the current one
         int nextIndex = currentIndex;
@@ -55,7 +49,8 @@ public class AiNavigation : MonoBehaviour
         }
 
         currentIndex = nextIndex;
-        agent.SetDestination(waypoints[currentIndex].position);
+        if (agent != null)
+            agent.SetDestination(waypoints[currentIndex].position);
     }
-}
+    }
 
