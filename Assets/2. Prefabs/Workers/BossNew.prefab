@@ -60,6 +60,10 @@ PrefabInstance:
       propertyPath: m_CullingMode
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 36eb9b75d0f74d44296bef5b402ce2a6, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -161,7 +165,7 @@ NavMeshAgent:
   m_Radius: 0.5
   m_Speed: 1.5
   m_Acceleration: 8
-  avoidancePriority: 50
+  avoidancePriority: 97
   m_AngularSpeed: 200
   m_StoppingDistance: 0.25
   m_AutoTraverseOffMeshLink: 1

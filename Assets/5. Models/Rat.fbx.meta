@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 5fa0892971d373b4fb735db5ebecd5ce
+guid: b9057d8ab211fc540ad2dcec16a27f5b
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -9,16 +9,6 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: LowPolyCommon
     second: {fileID: 2100000, guid: 0a3ff0c316ec2aa449c6de9cf2ee9f01, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: LowPolyCommon.001
-    second: {fileID: 2100000, guid: 0a3ff0c316ec2aa449c6de9cf2ee9f01, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: SafetyDoorLight
-    second: {fileID: 2100000, guid: d4ba672b6f702984c80e9fcea1fae7dd, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -37,7 +27,7 @@ ModelImporter:
     animationDoRetargetingWarnings: 0
     importAnimatedCustomProperties: 0
     importConstraints: 0
-    animationCompression: 1
+    animationCompression: 3
     animationRotationError: 0.5
     animationPositionError: 0.5
     animationScaleError: 0.5
@@ -94,7 +84,7 @@ ModelImporter:
     blendShapeNormalImportMode: 1
     normalSmoothingSource: 0
   referencedClips: []
-  importAnimation: 0
+  importAnimation: 1
   humanDescription:
     serializedVersion: 3
     human: []
@@ -107,15 +97,15 @@ ModelImporter:
     legStretch: 0.05
     feetSpacing: 0
     globalScale: 1
-    rootMotionBoneName: 
+    rootMotionBoneName: Hips
     hasTranslationDoF: 0
-    hasExtraRoot: 0
+    hasExtraRoot: 1
     skeletonHasParents: 1
   lastHumanDescriptionAvatarSource: {instanceID: 0}
   autoGenerateAvatarMappingIfUnspecified: 1
-  animationType: 0
+  animationType: 2
   humanoidOversampling: 1
-  avatarSetup: 0
+  avatarSetup: 1
   addHumanoidExtraRootOnlyWhenUsingAvatar: 1
   importBlendShapeDeformPercent: 1
   remapMaterialsIfMaterialImportModeIsNone: 0

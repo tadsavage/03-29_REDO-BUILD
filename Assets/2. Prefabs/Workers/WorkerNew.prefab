@@ -160,7 +160,7 @@ NavMeshAgent:
   m_Radius: 0.5
   m_Speed: 1.5
   m_Acceleration: 8
-  avoidancePriority: 50
+  avoidancePriority: 99
   m_AngularSpeed: 200
   m_StoppingDistance: 0.25
   m_AutoTraverseOffMeshLink: 1
@@ -183,7 +183,7 @@ Animator:
   m_Controller: {fileID: 9100000, guid: 115ee44c755217f40a3b5f313f810a44, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
-  m_ApplyRootMotion: 1
+  m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
