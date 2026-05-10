@@ -10,22 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: ObjDataSO
+  m_Name: Rat
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  id: 20
-  objName: Rollup Door
-  cost: 4500
-  hourlyCost: 45
-  category: Walls
-  prefab: {fileID: 0}
-  icon: {fileID: 2800000, guid: 96a88a3ad02b28a41ad922f098d6a7e2, type: 3}
-  ignorePlacementRules: 0
+  id: 36
+  objName: Rat
+  cost: 0
+  hourlyCost: 0
+  category: Flavor
+  prefab: {fileID: 489091309027568622, guid: bfb163343d5e80a419a8840921262af4, type: 3}
+  icon: {fileID: 2800000, guid: de0d77b282bfdaf498cf7691895582a6, type: 3}
+  ignorePlacementRules: 1
   isFloor: 0
-  ClearsGridAfterPlacement: 0
+  ClearsGridAfterPlacement: 1
   isStackable: 0
-  objHeight: 4.5
-  footprint: {x: 3, y: 1}
-  customShapeOffsets:
-  - {x: 1, y: 0}
-  - {x: 0, y: 0}
-  - {x: -1, y: 0}
+  objHeight: 0.15
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []
