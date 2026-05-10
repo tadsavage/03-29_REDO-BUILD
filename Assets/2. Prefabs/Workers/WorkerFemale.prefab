@@ -142,8 +142,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AgentAnimation
   walkSpeed: 2
   turnSpeed: 200
-  idleDelay: 0.5
-  waypointThreshold: 0.25
+  idleDelay: 0
+  waypointThreshold: 0.5
   animationTurnThreshold: 150
 --- !u!195 &4037360595172046700
 NavMeshAgent:
@@ -164,7 +164,7 @@ NavMeshAgent:
   m_AutoBraking: 1
   m_AutoRepath: 1
   m_Height: 2
-  m_BaseOffset: 0.05
+  m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
 --- !u!65 &5865930390470530412
@@ -182,7 +182,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
