@@ -4,7 +4,7 @@ using UnityEngine.AI;
 
 public class AiNavigation : MonoBehaviour
 {
-    [SerializeField]private Transform[] waypoints;
+    private Transform[] waypoints;
     private NavMeshAgent agent;
     private int currentIndex = 0;
     private bool initialized = false;
@@ -32,7 +32,7 @@ public class AiNavigation : MonoBehaviour
         // especially after instantiation during Quickload.
         yield return null;
 
-        //if (agent == null) yield break;
+        if (agent == null) yield break;
 
         // Ensure agent is active and on the NavMesh
         agent.enabled = true;
@@ -62,6 +62,7 @@ public class AiNavigation : MonoBehaviour
             {
                 if (agent.isOnNavMesh && agent.SetDestination(waypoints[currentIndex].position))
                 {
+                    Debug.Log($"[AiNavigation] Initialized with waypoint {currentIndex} at position {waypoints[currentIndex].position}");
                     initialized = true;
                     break;
                 }
