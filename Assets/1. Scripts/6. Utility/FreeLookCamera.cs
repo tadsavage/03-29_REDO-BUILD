@@ -154,15 +154,18 @@ public class FreeLookCamera : MonoBehaviour
 			transform.localEulerAngles = new Vector3(newRotationY, newRotationX, 0f);
 		}
 
+		// Zoom removed as per request
+		/*
 		float axis = Mouse.current.scroll.ReadValue().y;//Input.GetAxis("Mouse ScrollWheel");
 		if (axis != 0)
 		{
-            if (_buildMenuUI.IsPointerOverBuildMenu)
-                return; // block zoom
+		if (_buildMenuUI.IsPointerOverBuildMenu)
+		return; // block zoom
 
-            var zoomSensitivity = fastMode ? this.fastZoomSensitivity : this.zoomSensitivity;
+		var zoomSensitivity = fastMode ? this.fastZoomSensitivity : this.zoomSensitivity;
 			GetComponentInChildren<Camera>().transform.position = transform.position + transform.forward * axis * zoomSensitivity;
 		}
+		*/
 
 		if (Mouse.current.rightButton.wasPressedThisFrame)
 		{

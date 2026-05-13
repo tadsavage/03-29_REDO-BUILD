@@ -58,6 +58,9 @@ public class MoveState : IPlacementState
     private static readonly Color MoveHighlightBlue =
         new Color(0.20f, 0.60f, 1.00f, 0.15f);
 
+    private float _scrollCooldown = 0f;
+    private const float ScrollThreshold = 0.1f;
+
     public bool IsPlacementState => true;
     public string ObjectName => _obj != null ? _obj.name : "None";
 
@@ -246,6 +249,21 @@ _indicator.ShowCell(hitCell);
         }
 
         // -----------------------------------------------------
+        // SCROLL WHEEL ROTATION
+        // -----------------------------------------------------
+        if (_scrollCooldown > 0)
+        {
+            _scrollCooldown -= Time.deltaTime;
+        }
+
+        float scrollDelta = Mouse.current.scroll.ReadValue().y;
+        if (Mathf.Abs(scrollDelta) > ScrollThreshold && _scrollCooldown <= 0)
+        {
+            RotateObject();
+            _scrollCooldown = 0.2f;
+        }
+
+        // -----------------------------------------------------
         // OFFSET‑AWARE MOVEMENT
         // newRoot = hitCell - (clickedCell - originAtSelect)
         // -----------------------------------------------------
@@ -328,6 +346,11 @@ Vector2Int newRoot = hitCell - _selectionDelta;
     // ---------------------------------------------------------
     private void OnRotatePerformed(InputAction.CallbackContext ctx)
     {
+        RotateObject();
+    }
+
+    private void RotateObject()
+    {
         if (!_hasSelection)
             return;
 
@@ -343,4 +366,4 @@ Vector2Int newRoot = hitCell - _selectionDelta;
         if (_data != null)
             _offsets = _data.GetFootprintOffsets(-_rotation);
     }
-}
+    }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.InputSystem;
 
 public class PreviewCostUI : MonoBehaviour
 {
@@ -34,31 +35,22 @@ public class PreviewCostUI : MonoBehaviour
         if (_label == null || _doc == null || cam == null)
             return;
 
-        // World → Screen
-        Vector3 screenPos3 = cam.WorldToScreenPoint(worldPos);
-        Vector2 screenPos = new Vector2(screenPos3.x, screenPos3.y);
+        // Use the mouse position directly for following if desired, 
+        // or world space if pinned to the ghost. The user wants it to follow the cursor.
+        Vector2 mousePos = Mouse.current.position.ReadValue();
 
-        // Screen → Panel (bottom-left origin)
-        var panel = _doc.rootVisualElement.panel;
-        if (panel == null)
-            return;
+        var layout = _doc.rootVisualElement.panel.visualTree.layout;
+        if (layout.width <= 0 || layout.height <= 0) return;
 
-        Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(panel, screenPos);
+        // Manual ratio-based mapping
+        float uiX = mousePos.x * (layout.width / Screen.width);
+        float uiY = (Screen.height - mousePos.y) * (layout.height / Screen.height);
 
-        // Panel → UI Toolkit (top-left origin)
-        float uiX = panelPos.x;
-        float uiY = panel.visualTree.layout.height - panelPos.y;
-
-        // Smooth follow
         Vector2 target = new Vector2(uiX, uiY);
-_smoothPos = Vector2.Lerp(_smoothPos, target, Time.deltaTime * 20f);
+        _smoothPos = Vector2.Lerp(_smoothPos, target, 1.0f - Mathf.Exp(-60f * Time.deltaTime));
 
-        // Offset (tweak to taste)
-        float offsetX = 18f;
-        float offsetY = -95f;
-
-        _label.style.left = _smoothPos.x + offsetX;
-        _label.style.top = _smoothPos.y + offsetY;
+        _label.style.left = _smoothPos.x;
+        _label.style.top = _smoothPos.y;
     }
 
     public void Hide()

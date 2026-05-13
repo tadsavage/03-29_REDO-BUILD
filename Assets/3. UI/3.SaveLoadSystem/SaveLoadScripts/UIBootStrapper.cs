@@ -29,6 +29,20 @@ public class UIBootstrapper : MonoBehaviour
     {
         if (_hudDocument == null)
         {
+            // Try to find HUD in scene if not assigned
+            UIDocument[] docs = Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None);
+            foreach (var d in docs)
+            {
+                if (d.rootVisualElement != null && d.rootVisualElement.Q("WorldHoverPopup") != null)
+                {
+                    _hudDocument = d;
+                    break;
+                }
+            }
+        }
+
+        if (_hudDocument == null)
+        {
             Debug.LogError("[UIBootstrapper] HUD Document is missing!");
             return;
         }
@@ -46,19 +60,46 @@ public class UIBootstrapper : MonoBehaviour
         {
             _hoverUI.Init(_hudDocument);
             _hoverUI.SetFSM(_fsm);
-            _fsm.SetHoverUI(_hoverUI);   // <-- THIS LINE FIXES EVERYTHING
+            _fsm.SetHoverUI(_hoverUI);
         }
-
     }
 
     private void InitializeBuildMenu()
     {
         if (_buildMenuDocument == null)
         {
-            Debug.LogError("[UIBootstrapper] Build Menu Document is missing!");
+             // Try to find BottomBar in scene if not assigned
+            UIDocument[] docs = Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None);
+            foreach (var d in docs)
+            {
+                if (d.rootVisualElement != null && d.rootVisualElement.Q("BottomBar") != null)
+                {
+                    _buildMenuDocument = d;
+                    break;
+                }
+            }
+        }
+
+        if (_buildMenuDocument == null || _buildMenuUI == null)
+        {
+            Debug.LogError("[UIBootstrapper] Build Menu Document or UI is missing!");
             return;
         }
 
-        // BuildMenuUI initializes itself in OnEnable()
+        // 1. Initialize with money service
+        _buildMenuUI.Initialize(_context.MoneyService);
+
+        // 2. Wire up all UI events to the FSM
+        _buildMenuUI.OnBuildItemClicked += _fsm.EnterBuild;
+        _buildMenuUI.OnDeleteClicked += _fsm.EnterDelete;
+        _buildMenuUI.OnMoveClicked += _fsm.EnterMove;
+        _buildMenuUI.OnUndoClicked += _fsm.Undo;
+        _buildMenuUI.OnRedoClicked += _fsm.Redo;
+        _buildMenuUI.OnCancelClicked += _fsm.ReturnToPrevious;
+        _buildMenuUI.OnRotateClicked += () => {
+            // This event might need to be passed to current state if it supports rotation
+            // But Build/Move handle their own R key. This is for the UI button.
+            //if (_fsm.CurrentState is BuildState bs) bs.OnRotatePerformed(); 
+        };
     }
 }

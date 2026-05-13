@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.InputSystem;
 
 public class WorldHoverPopupUI : MonoBehaviour
 {
@@ -16,8 +17,8 @@ public class WorldHoverPopupUI : MonoBehaviour
     // Hover timing
     private float _hoverDelay = 0.1f;
     private float _hoverTimer = 0f;
-    private float _notMovingTimer = 0f;
-    private float _allowedRestingTime = 2f;
+    //private float _notMovingTimer = 0f;
+    //private float _allowedRestingTime = 2f;
 
     private bool _isHovering = false;
     private bool _isVisible = false;
@@ -50,6 +51,9 @@ public class WorldHoverPopupUI : MonoBehaviour
         _fsm = fsm;
     }
 
+    private float _disappearGraceTimer = 0f;
+    private float _disappearGraceTime = 0.15f; 
+
     // ---------------------------------------------------------
     // MAIN UPDATE
     // ---------------------------------------------------------
@@ -69,18 +73,26 @@ public class WorldHoverPopupUI : MonoBehaviour
             return;
         }
 
-        // 3. If not hovering → fade out
+        // 3. Grace period for disappearing
         if (!hovering)
         {
+            _disappearGraceTimer += Time.deltaTime;
+            if (_disappearGraceTimer < _disappearGraceTime && _isVisible)
+            {
+                SetWorldPosition(worldPos, cam);
+                return;
+            }
+
             _isHovering = false;
             _hoverTimer = 0f;
-            _notMovingTimer = 0f;
 
             if (_isVisible)
                 HideSlowlyFadeout();
 
             return;
         }
+
+        _disappearGraceTimer = 0f;
 
         // -----------------------------------------------------
         // HOVERING LOGIC
@@ -97,12 +109,9 @@ public class WorldHoverPopupUI : MonoBehaviour
 
         if (isNewTarget)
         {
-            // Reset timers
             _isHovering = true;
             _hoverTimer = 0f;
-            _notMovingTimer = 0f;
 
-            // Cancel fade if needed
             if (_isFading)
             {
                 _isFading = false;
@@ -113,15 +122,9 @@ public class WorldHoverPopupUI : MonoBehaviour
         }
         else
         {
-            // Same target → track hover time
             _hoverTimer += Time.deltaTime;
-            _notMovingTimer += Time.deltaTime;
 
-            // Fade out after resting too long
-            if (_isVisible && !_isFading && _notMovingTimer > _allowedRestingTime)
-                HideSlowlyFadeout();
-
-            // Show after delay
+            // If not visible, show after delay. If visible, STAY visible.
             if (!_isVisible && _hoverTimer >= _hoverDelay)
                 Show(_pendingName, _pendingCost, _pendingHourlyCost);
         }
@@ -139,12 +142,25 @@ public class WorldHoverPopupUI : MonoBehaviour
         _cost.text = $"Cost: ${cost:N0}";
         _hourlyCost.text = $"Hourly Cost: ${hourlyCost:N0}";
 
+            Vector2 mousePos = Mouse.current.position.ReadValue();
+            var layout = _root.panel.visualTree.layout;
+
+            if (layout.width > 0 && layout.height > 0)
+            {
+                float uiX = mousePos.x * (layout.width / Screen.width);
+                float uiY = (Screen.height - mousePos.y) * (layout.height / Screen.height);
+                _smoothPos = new Vector2(uiX, uiY);
+
+                // Snap the popup position instantly
+                _popup.style.left = _smoothPos.x;
+                _popup.style.top = _smoothPos.y;
+            }
+
         _popup.style.opacity = 1f;
         _popup.AddToClassList("show");
 
         _isVisible = true;
         _isFading = false;
-        _notMovingTimer = 0f;
     }
 
     private void HideSlowlyFadeout()
@@ -174,7 +190,7 @@ public class WorldHoverPopupUI : MonoBehaviour
                 _isFading = false;
             }
 
-        }).Every(16).Until(() => t >= 1f);
+        }).Every(16).Until(() => t >= 1f || !_isFading);
     }
 
     public void HideImmediate()
@@ -185,30 +201,31 @@ public class WorldHoverPopupUI : MonoBehaviour
         _isVisible = false;
         _isHovering = false;
         _hoverTimer = 0f;
-        _notMovingTimer = 0f;
         _isFading = false;
     }
+
     public void SetWorldPosition(Vector3 worldPos, Camera cam)
     {
-        if (_popup == null || cam == null)
+        if (_popup == null || _root == null)
             return;
 
-        Vector3 screenPos3 = cam.WorldToScreenPoint(worldPos);
-        Vector2 screenPos = new Vector2(screenPos3.x, screenPos3.y);
+        Vector2 mousePos = Mouse.current.position.ReadValue();
 
-        var panel = _root.panel;
-        Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(panel, screenPos);
+        var layout = _root.panel.visualTree.layout;
+        if (layout.width <= 0 || layout.height <= 0) return;
 
-        float uiX = panelPos.x;
-        float uiY = panel.visualTree.layout.height - panelPos.y;
+        // Manual ratio-based mapping to guarantee direction and scale
+        // Screen (0,0) is bottom-left. UITK (0,0) is top-left.
+        float uiX = mousePos.x * (layout.width / Screen.width);
+        float uiY = (Screen.height - mousePos.y) * (layout.height / Screen.height);
 
         Vector2 target = new Vector2(uiX, uiY);
-        _smoothPos = Vector2.Lerp(_smoothPos, target, Time.deltaTime * 20f);
+        
+        // High-responsiveness smoothing
+        _smoothPos = Vector2.Lerp(_smoothPos, target, 1.0f - Mathf.Exp(-60f * Time.deltaTime));
 
-        float offsetX = 15f;
-        float offsetY = -50f;
-
-        _popup.style.left = _smoothPos.x + offsetX;
-        _popup.style.top = _smoothPos.y + offsetY;
-    }
+        // Zero offsets as requested
+        _popup.style.left = _smoothPos.x;
+        _popup.style.top = _smoothPos.y;
+        }
 }

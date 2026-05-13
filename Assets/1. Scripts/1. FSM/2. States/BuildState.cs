@@ -46,6 +46,9 @@ public class BuildState : IPlacementState
     private readonly List<Vector2Int> _indicatorBuffer = new();
     private readonly List<Vector2Int> _footprintBuffer = new();
 
+    private float _scrollCooldown = 0f;
+    private const float ScrollThreshold = 0.1f;
+
     public bool IsPlacementState => true;
     public ObjDataSO CurrentData => _currentData;
     public bool IsDragging => _isDragging;
@@ -193,6 +196,18 @@ _indicator.ClearAll();
         // ---------------------------------------------------------
         // ROTATION
         // ---------------------------------------------------------
+        if (_scrollCooldown > 0)
+        {
+            _scrollCooldown -= Time.deltaTime;
+        }
+
+        float scrollDelta = Mouse.current.scroll.ReadValue().y;
+        if (Mathf.Abs(scrollDelta) > ScrollThreshold && _scrollCooldown <= 0)
+        {
+            RotateObject();
+            _scrollCooldown = 0.2f; // cooldown in seconds
+        }
+
         if (_rotateRequested)
         {
             _rotateRequested = false;
@@ -279,7 +294,12 @@ _indicator.ClearAll();
     // ---------------------------------------------------------
     // ROTATE INPUT
     // ---------------------------------------------------------
-    private void OnRotatePerformed(InputAction.CallbackContext ctx)
+    public void OnRotatePerformed(InputAction.CallbackContext ctx)
+    {
+        RotateObject();
+    }
+
+    private void RotateObject()
     {
         AudioManager.Play("Rotate");
         _rotateRequested = true;

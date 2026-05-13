@@ -3,7 +3,7 @@
     <Style src="project://database/Assets/3.%20UI/1.TopHUD/TopBar.uss?fileID=7433441132597879392&amp;guid=e177c4ab0f3cfdf4c87cdda0512c4745&amp;type=3#TopBar"/>
     <Style src="project://database/Assets/3.%20UI/1.TopHUD/Toast.uss?fileID=7433441132597879392&amp;guid=d60103934d9a3cd4598fe59ca2afd524&amp;type=3#Toast"/>
     <Style src="project://database/Assets/3.%20UI/4.PopupUIs/WorldHoverPopup.uss?fileID=7433441132597879392&amp;guid=e7f4862e76357b3469d9ad92258f0600&amp;type=3#WorldHoverPopup"/>
-    <ui:VisualElement name="Root" class="hud-root">
+    <ui:VisualElement name="Root" class="hud-root" picking-mode="Ignore">
         <ui:VisualElement name="TopBar" class="topbar-root" style="background-color: rgba(0, 0, 0, 0.7);">
             <ui:VisualElement class="topbar-box">
                 <ui:Label name="MoneyLabel" class="topbar-money"/>
