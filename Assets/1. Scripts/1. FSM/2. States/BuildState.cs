@@ -53,6 +53,8 @@ public class BuildState : IPlacementState
     public ObjDataSO CurrentData => _currentData;
     public bool IsDragging => _isDragging;
     public string ObjectName => _currentData != null ? _currentData.objName : "None";
+    
+    private Vector2Int _lastHitCell;
 
     public BuildState(
         PlacementActions actions,
@@ -110,6 +112,8 @@ public class BuildState : IPlacementState
         _dragCells.Clear();
 
         _costUI.Hide();
+
+        _lastHitCell = new Vector2Int(999, 999); // force first hit to register
     }
 
     // ---------------------------------------------------------
@@ -149,7 +153,7 @@ public class BuildState : IPlacementState
 
         if (!_raycast.HasHit)
         {
-_indicator.ClearAll();
+        _indicator.ClearAll();
             _preview.Hide();
             _costUI.Hide();
             return;
@@ -191,6 +195,14 @@ _indicator.ClearAll();
         {
             HandleDragPlacement(root);
             return;
+        }
+
+        //4. Play NewCell hover sound if we have moved to a new cell.
+        //
+        if (root != _lastHitCell)
+        {
+            AudioManager.Play("NewCell");
+            _lastHitCell = root;
         }
 
         // ---------------------------------------------------------

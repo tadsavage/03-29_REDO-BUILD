@@ -233,7 +233,7 @@ public class MoveState : IPlacementState
         }
 
         Vector2Int hitCell = _raycast.HitCell;
-_indicator.ShowCell(hitCell);
+        _indicator.ShowCell(hitCell);
         topBarUI?.SetCell(hitCell.x, hitCell.y);
 
         if (!_hasSelection)
