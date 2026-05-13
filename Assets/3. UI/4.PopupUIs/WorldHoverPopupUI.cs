@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 public class WorldHoverPopupUI : MonoBehaviour
@@ -199,9 +199,8 @@ public class WorldHoverPopupUI : MonoBehaviour
         var panel = _root.panel;
         Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(panel, screenPos);
 
-        float rootHeight = _root.resolvedStyle.height;
         float uiX = panelPos.x;
-        float uiY = rootHeight - panelPos.y;
+        float uiY = panel.visualTree.layout.height - panelPos.y;
 
         Vector2 target = new Vector2(uiX, uiY);
         _smoothPos = Vector2.Lerp(_smoothPos, target, Time.deltaTime * 20f);

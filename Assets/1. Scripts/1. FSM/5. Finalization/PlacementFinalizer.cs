@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class PlacementFinalizer : MonoBehaviour
 {
@@ -39,8 +40,33 @@ public class PlacementFinalizer : MonoBehaviour
         Vector3 pos = _grid.GetCellCenter(root);
         pos.y += stackY;
 
-        instance.transform.position = pos;
-        instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+        // Use Warp if it's a NavMeshAgent to prevent sliding/snapping issues
+        var agent = instance.GetComponent<NavMeshAgent>();
+        if (agent != null)
+        {
+            // Set rotation first
+            instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+            
+            // Try to find the nearest point on the NavMesh to the intended position
+            // This prevents Warp from failing if the grid cell center is slightly off the mesh.
+            if (NavMesh.SamplePosition(pos, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
+            {
+                agent.Warp(hit.position);
+            }
+            else
+            {
+                // Fallback: just set position if NavMesh not found, 
+                // but this might cause the agent to be 'unplaced' on the mesh.
+                instance.transform.position = pos;
+                Debug.LogWarning($"PlacementFinalizer: Could not find NavMesh at {pos} for {data.objName}. Warp failed.");
+            }
+        }
+        else
+        {
+            instance.transform.position = pos;
+            instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+        }
+
         FXPool.Instance.Play("dust", pos);
 
         // Initialize PlacedObject

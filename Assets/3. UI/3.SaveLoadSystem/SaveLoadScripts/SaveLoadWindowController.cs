@@ -132,7 +132,6 @@ namespace SaveLoadSystem
             if (!isOpen) return;
 
             Vector2 pos = new Vector2(evt.position.x, evt.position.y);
-            Debug.Log($"[SaveLoadWindow] Root PointerDown at {pos}");
             // --- Tab buttons (coordinate-based, bypasses any blocker) ---
             if (tabSaveButton.worldBound.Contains(pos))
             {
@@ -203,8 +202,6 @@ namespace SaveLoadSystem
 
         public void Open(SaveLoadMode mode)
         {
-            Debug.Log($"[SaveLoadWindow] Open → {mode}");
-
             currentMode = mode;
             isOpen = true;
             pendingActionSlot = -1;
@@ -221,8 +218,6 @@ namespace SaveLoadSystem
 
         public void Close()
         {
-            Debug.Log("[SaveLoadWindow] Close");
-
             isOpen = false;
             pendingActionSlot = -1;
             pendingOverwriteName = null;

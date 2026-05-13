@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -134,17 +134,14 @@ public class PlacementStateMachine : MonoBehaviour
     // ---------------------------------------------------------
     private void Update()
     {
-        // Debug: ensure popup reference is valid
-        if (_hoverUI == null)
-
         // -----------------------------------------------------
         // PREVENT LAST-FRAME POPUP FLASH
         // -----------------------------------------------------
         // If user clicks while in IdleState, hide popup BEFORE Idle Tick runs.
-        if (_currentState == _idleState)
+        if (_currentState == _idleState && _hoverUI != null)
         {
             if (Mouse.current.leftButton.wasPressedThisFrame)
-                _hoverUI?.HideImmediate();
+                _hoverUI.HideImmediate();
         }
 
         // -----------------------------------------------------
@@ -157,7 +154,6 @@ public class PlacementStateMachine : MonoBehaviour
         // -----------------------------------------------------
         if (_currentState == _idleState)
         {
-
             if (_raycast != null && _hoverUI != null)
                 HandleIdleHover();
         }

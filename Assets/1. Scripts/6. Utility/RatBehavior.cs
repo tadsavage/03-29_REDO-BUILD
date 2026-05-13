@@ -14,21 +14,30 @@ public class RatBehavior : MonoBehaviour
     [SerializeField] private float angularSpeed = 720f;
     [SerializeField] private float acceleration = 20f;
 
-    private enum RatState { Idle, Circling, ScurryingOff, Sniffing }
-    private RatState currentState;
+    //private enum RatState { Idle, Circling, ScurryingOff, Sniffing }
+    //private RatState currentState;
 
-    void Start()
+    private IEnumerator Start()
     {
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponent<Animator>();
-        
-        // Configure agent for responsive movement
+
         agent.speed = scurrySpeed;
         agent.acceleration = acceleration;
-        
-        // Disable automatic rotation so we can apply the 180-degree offset manually
         agent.updateRotation = false;
-        
+
+        // WAIT A FRAME to allow the agent to snap to the NavMesh
+        yield return null;
+
+        // Check if we are on the NavMesh; if not, try to warp to the nearest valid point
+        if (!agent.isOnNavMesh)
+        {
+            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
+            {
+                agent.Warp(hit.position);
+            }
+        }
+
         StartCoroutine(BehaviorRoutine());
     }
 
@@ -52,7 +61,7 @@ public class RatBehavior : MonoBehaviour
 
     private IEnumerator ScurryInCircles()
     {
-        currentState = RatState.Circling;
+        //currentState = RatState.Circling;
         Vector3 center = transform.position;
         float radius = circleDiameter / 2f;
 
@@ -66,14 +75,14 @@ public class RatBehavior : MonoBehaviour
                 Vector3 target = center + new Vector3(Mathf.Cos(angle) * radius, 0, Mathf.Sin(angle) * radius);
 
                 agent.SetDestination(target);
-                while (agent.pathPending || agent.remainingDistance > 0.2f) yield return null;
+                while (agent.isActiveAndEnabled && agent.isOnNavMesh && (agent.pathPending || agent.remainingDistance > 0.2f)) yield return null;
             }
         }
     }
 
     private IEnumerator ScurryOff()
     {
-        currentState = RatState.ScurryingOff;
+        //currentState = RatState.ScurryingOff;
         // Find a random point within 10 meters
         Vector3 randomDirection = Random.insideUnitSphere * 10f;
         randomDirection += transform.position;
@@ -81,19 +90,20 @@ public class RatBehavior : MonoBehaviour
         if (NavMesh.SamplePosition(randomDirection, out NavMeshHit hit, 10f, 1))
         {
             agent.SetDestination(hit.position);
-            while (agent.pathPending || agent.remainingDistance > 0.5f) yield return null;
+            // Change line 84 to:
+            while (agent.isActiveAndEnabled && agent.isOnNavMesh && (agent.pathPending || agent.remainingDistance > 0.5f)) yield return null;
         }
-        yield return new WaitForSeconds(Random.Range(1f, 2f));
+        yield return new WaitForSeconds(Random.Range(.10f, .5f));
     }
 
     private IEnumerator SniffRoutine()
     {
-        currentState = RatState.Sniffing;
+        //currentState = RatState.Sniffing;
         agent.isStopped = true;
         animator.SetTrigger("Sniff");
 
         // Wait for the animation to play (approx 2-3 seconds)
-        yield return new WaitForSeconds(2.5f);
+        yield return new WaitForSeconds(4f);
 
         agent.isStopped = false;
     }
@@ -108,7 +118,7 @@ public class RatBehavior : MonoBehaviour
         if (isMoving && agent.velocity.sqrMagnitude > 0.01f)
         {
             Vector3 moveDirection = agent.velocity.normalized;
-            moveDirection.y = 0; // Keep the rat level
+            //moveDirection.y = 0; // Keep the rat level
 
             if (moveDirection != Vector3.zero)
             {

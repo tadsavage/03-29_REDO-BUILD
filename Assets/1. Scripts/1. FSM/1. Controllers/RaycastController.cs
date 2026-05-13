@@ -1,5 +1,6 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 
 public class RaycastController : MonoBehaviour
 {
@@ -29,8 +30,11 @@ public class RaycastController : MonoBehaviour
     public GameObject HitObject { get; private set; }
     public Vector3 RawHitPoint { get; private set; }
 
+    private bool _isPointerOverUI;
+    public bool IsPointerOverUI => _isPointerOverUI;
+
     private Vector2Int _lastHitCell;
-    private bool _enabled;
+private bool _enabled;
 
     public void EnableRay() => _enabled = true;
 
@@ -56,8 +60,15 @@ public class RaycastController : MonoBehaviour
 
     public void Tick()
     {
-        if (!_enabled) {
-            return; }
+        _isPointerOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+
+        if (!_enabled || _isPointerOverUI) 
+        {
+            HasHit = false;
+            HitObject = null;
+            if (_line != null) _line.enabled = false;
+            return; 
+        }
 
         Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
 

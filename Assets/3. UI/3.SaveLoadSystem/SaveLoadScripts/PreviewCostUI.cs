@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 public class PreviewCostUI : MonoBehaviour
@@ -46,13 +46,12 @@ public class PreviewCostUI : MonoBehaviour
         Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(panel, screenPos);
 
         // Panel → UI Toolkit (top-left origin)
-        float rootHeight = _doc.rootVisualElement.resolvedStyle.height;
         float uiX = panelPos.x;
-        float uiY = rootHeight - panelPos.y;
+        float uiY = panel.visualTree.layout.height - panelPos.y;
 
         // Smooth follow
         Vector2 target = new Vector2(uiX, uiY);
-        _smoothPos = Vector2.Lerp(_smoothPos, target, Time.deltaTime * 20f);
+_smoothPos = Vector2.Lerp(_smoothPos, target, Time.deltaTime * 20f);
 
         // Offset (tweak to taste)
         float offsetX = 18f;

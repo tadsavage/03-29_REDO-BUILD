@@ -28,13 +28,12 @@ public class AiNavigation : MonoBehaviour
     {
         agent = GetComponent<NavMeshAgent>();
         
-        // Wait a frame to ensure the object is properly placed in the world, 
-        // especially after instantiation during Quickload.
-        yield return null;
+        // Wait a few frames to ensure the object is properly placed and warped in the world.
+        yield return new WaitForSeconds(0.1f);
 
         if (agent == null) yield break;
 
-        // Ensure agent is active and on the NavMesh
+        // Ensure agent is active
         agent.enabled = true;
 
         // Try to snap to NavMesh if not already on it
@@ -45,6 +44,10 @@ public class AiNavigation : MonoBehaviour
                 agent.Warp(hit.position);
             }
         }
+
+        // Delay starting movement so user can see where they placed the object
+        // and to prevent the 'sliding out' feeling immediately after placement.
+        yield return new WaitForSeconds(1.0f);
 
         if (waypoints == null || waypoints.Length == 0)
         {
@@ -57,21 +60,25 @@ public class AiNavigation : MonoBehaviour
             currentIndex = Random.Range(0, waypoints.Length);
             
             // Retry loop for initial destination
-            int retries = 15;
+            int retries = 5; // Reduced retries since placement is more robust now
             while (retries > 0)
             {
-                if (agent.isOnNavMesh && agent.SetDestination(waypoints[currentIndex].position))
+                if (agent != null && agent.enabled && agent.isOnNavMesh)
                 {
-                    Debug.Log($"[AiNavigation] Initialized with waypoint {currentIndex} at position {waypoints[currentIndex].position}");
-                    initialized = true;
-                    break;
+                    // Basic sanity check: is the waypoint somewhat reachable?
+                    Vector3 targetPos = waypoints[currentIndex].position;
+                    if (agent.SetDestination(targetPos))
+                    {
+                        initialized = true;
+                        break;
+                    }
                 }
                 
                 retries--;
                 yield return new WaitForSeconds(0.2f);
             }
         }
-    }
+}
 
     void Update()
     {

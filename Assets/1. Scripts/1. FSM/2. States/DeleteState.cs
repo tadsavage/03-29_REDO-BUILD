@@ -80,6 +80,14 @@ public class DeleteState : IPlacementState
     {
         _raycast.Tick();
 
+        if (_raycast.IsPointerOverUI)
+        {
+            ClearHover();
+            _indicator.ClearAll();
+            _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+            return;
+        }
+
         if (!_raycast.HasHit)
         {
             ClearHover();
@@ -143,15 +151,16 @@ public class DeleteState : IPlacementState
         {
             var bd = _hover.GetComponent<BuildingData>();
 
+            // IMPORTANT: Clear highlight before deleting/disabling
+            ClearHover();
+
             // Single delete = single command
             _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid, _money));
 
             AudioManager.Play("Delete");
             FXPool.Instance.Play("dust", bd.gameObject.transform.position);
-
-            _hover = null;
         }
-    }
+}
 
     private void UpdateHoverDelete(Vector2Int cell)
     {

@@ -18,6 +18,12 @@ public class PlacedObject : MonoBehaviour
         PlacedObjectRegistry.Register(this);
     }
 
+    private void OnDisable()
+    {
+        // Remove from registry when disabled (e.g. by Undo) to prevent saving inactive objects
+        PlacedObjectRegistry.Unregister(this);
+    }
+
     private void OnDestroy()
     {
         // Clean up registry when destroyed

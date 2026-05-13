@@ -1,10 +1,14 @@
+/*
+2026-05-13 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
 .world-hover-popup {
     position: absolute;
     background-color: rgba(35, 35, 40, 0.85);
-    border-radius: 10px;
-    border-width: 4px;
+    border-radius: 7px;
+    border-width: 3px;
     border-color: rgba(212, 135, 77, 0.85);
-    padding: 6px 10px;
+    padding: 4px 7px;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
@@ -20,19 +24,19 @@
 
 .world-hover-title {
     -unity-font-definition: url("project://database/Assets/Fonts/Kenney Future Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
-    font-size: 18px;
+    font-size: 12px;
     color: rgb(240, 230, 211);
-    margin-bottom: 2px;
+    margin-bottom: 1px;
 }
 
 .world-hover-cost {
     -unity-font-definition: url("project://database/Assets/Fonts/Kenney Future Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
-    font-size: 14px;
+    font-size: 10px;
     color: rgb(160, 255, 200);
 }
 
 .world-hover-hourlyCost {
     -unity-font-definition: url("project://database/Assets/Fonts/Kenney Future Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
-    font-size: 14px;
+    font-size: 10px;
     color: rgb(160, 255, 200);
 }

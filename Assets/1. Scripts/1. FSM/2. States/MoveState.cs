@@ -207,8 +207,30 @@ public class MoveState : IPlacementState
     {
         _raycast.Tick();
 
+        if (_raycast.IsPointerOverUI)
+        {
+            if (!_hasSelection)
+            {
+                _indicator.ClearAll();
+                return;
+            }
+            // If moving, we still want to show the ghost maybe? 
+            // Or hide it? Usually, if you move the mouse over UI while holding an object, 
+            // the object should stay at its last valid position or hide.
+            _preview.HideGhost();
+            _indicator.ClearAll();
+            return;
+        }
+
+        // Restore ghost if we have a selection and just left the UI
+        if (_hasSelection)
+        {
+            _preview.Show(_data);
+            _preview.Rotate(_rotation);
+        }
+
         Vector2Int hitCell = _raycast.HitCell;
-        _indicator.ShowCell(hitCell);
+_indicator.ShowCell(hitCell);
         topBarUI?.SetCell(hitCell.x, hitCell.y);
 
         if (!_hasSelection)
@@ -259,11 +281,11 @@ public class MoveState : IPlacementState
     // ---------------------------------------------------------
     private void OnConfirmMove(InputAction.CallbackContext ctx)
     {
-        if (!_hasSelection)
+        if (!_hasSelection || _raycast.IsPointerOverUI)
             return;
 
         Vector2Int hitCell = _raycast.HitCell;
-        Vector2Int newRoot = hitCell - _selectionDelta;
+Vector2Int newRoot = hitCell - _selectionDelta;
 
         if (!_validator.IsValidPlacement(newRoot, _offsets, _data, _obj))
         {

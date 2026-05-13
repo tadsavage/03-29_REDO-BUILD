@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class DeleteCommand : ICommand
@@ -8,8 +9,8 @@ public class DeleteCommand : ICommand
     private readonly Vector2Int _root;
     private readonly MoneyService _money;
 
-    private GameObject _target;
-    private bool _wasActive;
+    private readonly GameObject _target;
+    private readonly List<GameObject> _reEnabledFloors = new();
 
     public DeleteCommand(GameObject target, PlacementGrid grid, MoneyService money)
     {
@@ -28,31 +29,81 @@ public class DeleteCommand : ICommand
         if (_target == null)
             return;
 
-        // 1. Remove from grid
+        _reEnabledFloors.Clear();
+
+        // 1. Remove from grid and check for floors to re-enable
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
             _grid.RemoveStackObject(cell, _target, _data);
+
+            // If the cell is no longer occupied (by buildings), re-enable any floors there
+            if (!_grid.IsOccupied(cell))
+            {
+                var cellObjs = _grid.GetObjectsInCell(cell);
+                if (cellObjs != null)
+                {
+                    foreach (var entry in cellObjs)
+                    {
+                        if (entry.data != null && entry.data.isFloor && entry.instance != null && !entry.instance.activeSelf)
+                        {
+                            entry.instance.SetActive(true);
+                            if (!_reEnabledFloors.Contains(entry.instance))
+                                _reEnabledFloors.Add(entry.instance);
+                        }
+                    }
+                }
+            }
         }
 
-        // 2. Remove from registry (CRITICAL)
-        var po = _target.GetComponent<PlacedObject>();
-        PlacedObjectRegistry.Unregister(po);
+        // 2. Remove from registry is now handled automatically by _target.SetActive(false) -> PlacedObject.OnDisable()
 
         // 3. Refund money
         _money.Refund(_data.cost, _data.category);
         _money.RemoveHourlyCost(_data.hourlyCost);
 
-        // 4. Destroy object
-        Object.Destroy(_target);
-    }
+        // 4. Disable object instead of destroying it to allow Undo
+        var highlighter = _target.GetComponent<BuildingHighlighter>();
+        if (highlighter != null)
+            highlighter.HighlightDelete(false);
 
-    public void Undo()
-    {
-        // Undo requires respawning the object.
-        // You can implement this later if needed.
-        Debug.LogWarning("Undo for DeleteCommand not implemented.");
-    }
+        _target.SetActive(false);
+        }
+
+        public void Undo()
+        {
+            if (_target == null)
+                return;
+
+            // 1. Add back to grid
+            foreach (var o in _offsets)
+            {
+                Vector2Int cell = _root + o;
+                _grid.AddStackObject(cell, _target, _data);
+            }
+
+            // 2. Re-disable floors we re-enabled during deletion
+            foreach (var floor in _reEnabledFloors)
+            {
+                if (floor != null)
+                    floor.SetActive(false);
+            }
+            _reEnabledFloors.Clear();
+
+            // 3. Registration is now handled automatically by _target.SetActive(true) -> PlacedObject.OnEnable()
+
+            // 4. Deduct money (un-refund)
+            _money.Deduct(_data.cost, _data.category);
+            _money.AddHourlyCost(_data.hourlyCost);
+
+            // 5. Ensure any highlights are cleared before enabling
+            var highlighter = _target.GetComponent<BuildingHighlighter>();
+            if (highlighter != null)
+                highlighter.HighlightDelete(false);
+
+            // 6. Enable object
+            _target.SetActive(true);
+        }
 
     public void Redo()
     {

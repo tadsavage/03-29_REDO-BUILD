@@ -221,10 +221,15 @@ public class PlacementSystem : MonoBehaviour
     // ---------------------------------------------------------
     // CLEAR ALL OBJECTS
     // ---------------------------------------------------------
+    // Assets/3. UI/3.SaveLoadSystem/SaveLoadScripts/PlacementSystem.cs
+
     public void ClearAll()
     {
-        foreach (var obj in PlacedObjectRegistry.All)
+        // FIX: Iterate backwards because Destroy() now triggers OnDisable(),
+        // which modifies the PlacedObjectRegistry.All list we are looping through.
+        for (int i = PlacedObjectRegistry.All.Count - 1; i >= 0; i--)
         {
+            var obj = PlacedObjectRegistry.All[i];
             if (obj != null)
             {
                 Vector2Int cell = new Vector2Int(obj.gridX, obj.gridY);

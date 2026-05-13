@@ -130,9 +130,23 @@ public class BuildState : IPlacementState
     {
         _raycast.Tick();
 
-        if (!_raycast.HasHit)
+        if (_raycast.IsPointerOverUI)
         {
             _indicator.ClearAll();
+            _preview.Hide();
+            _costUI.Hide();
+            return;
+        }
+
+        // Ensure preview is shown if we just left the UI
+        if (_currentData != null)
+        {
+            _preview.Show(_currentData);
+        }
+
+        if (!_raycast.HasHit)
+        {
+_indicator.ClearAll();
             _preview.Hide();
             _costUI.Hide();
             return;
@@ -276,7 +290,7 @@ public class BuildState : IPlacementState
     // ---------------------------------------------------------
     private void OnPlacePerformed(InputAction.CallbackContext ctx)
     {
-        if (_isDragging)
+        if (_isDragging || _raycast.IsPointerOverUI)
             return;
 
         if (_currentData == null)

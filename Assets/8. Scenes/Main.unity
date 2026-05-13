@@ -184,6 +184,7 @@ MonoBehaviour:
     items:
     - {fileID: 11400000, guid: 71ebe5e6eacb84f46bd1e66a0e6b1c91, type: 2}
     - {fileID: 11400000, guid: 4e827e481f3ccae46a38d34f05351ebc, type: 2}
+    - {fileID: 11400000, guid: 36de903a4ec591c4c856b1db6a9b97f1, type: 2}
   - id: Floors
     displayName: Floors
     icon: {fileID: 2800000, guid: 7f9d961faddfd4046b4c4d2ee603e8cd, type: 3}
@@ -222,6 +223,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 057df3258dd844e499f1f39bcc2d6bad, type: 2}
     - {fileID: 11400000, guid: bf3848f4f32563140815fc574dd64ee9, type: 2}
     - {fileID: 11400000, guid: 846ed25232b20eb4da856d40f199f8b0, type: 2}
+    - {fileID: 11400000, guid: 0a213663d5410234c98b3520c869bf25, type: 2}
   - id: Racking
     displayName: Racking
     icon: {fileID: 2800000, guid: 4de2e7a95d1481545939edc7e0fec649, type: 3}
@@ -1211,7 +1213,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.5918476, g: 0.6603774, b: 0.64948696, a: 0}
+  m_BackGroundColor: {r: 0.5918476, g: 0.6603774, b: 0.64948696, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -1233,7 +1235,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.01
-  far clip plane: 200
+  far clip plane: 250
   field of view: 60
   orthographic: 0
   orthographic size: 5
@@ -1328,12 +1330,12 @@ MonoBehaviour:
   freeLookSensitivity: 0.1
   zoomSensitivity: 0.5
   fastZoomSensitivity: 2
-  heightMax: 25
+  heightMax: 15
   heightMin: 1
-  X_Min: -24
-  X_Max: 24
-  Z_Min: -24
-  Z_Max: 24
+  X_Min: -30
+  X_Max: 30
+  Z_Min: -30
+  Z_Max: 30
 --- !u!1001 &1280368160
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2161,7 +2163,7 @@ MonoBehaviour:
   Height: 60
   Origin: {x: -39.8, y: 0.005, z: -39.8}
   maxStackHeight: 30
-  UseVisualizer: 1
+  UseVisualizer: 0
   CellMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
   VisualParent: {fileID: 2094211283}
   FreeColor: {r: 0.4, g: 1, b: 0.4, a: 0.4}
@@ -2195,7 +2197,7 @@ Transform:
   m_GameObject: {fileID: 2120966095}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.12, y: -40.6, z: 0.13}
+  m_LocalPosition: {x: 0.12, y: 0.1, z: 0.13}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

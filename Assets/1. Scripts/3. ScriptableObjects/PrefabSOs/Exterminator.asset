@@ -10,23 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: Rat_Data
+  m_Name: Exterminator
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-<<<<<<< Updated upstream:Assets/1. Scripts/3. ScriptableObjects/Rat_Data.asset
-  id: 1001
-=======
-  id: 37
->>>>>>> Stashed changes:Assets/1. Scripts/3. ScriptableObjects/PrefabSOs/Rat.asset
-  objName: Rat
-  cost: 0
-  hourlyCost: 0
-  category: Animals
-  prefab: {fileID: 6532780896579203859, guid: 0be9115143683a24c8853df565be59df, type: 3}
-  icon: {fileID: 2800000, guid: be17370382d17974f8968eb4420bc330, type: 3}
+  id: 38
+  objName: Exterminator
+  cost: 250
+  hourlyCost: 150
+  category: Staff
+  prefab: {fileID: 4121492427302467827, guid: b3dc5757c8f7f06449a9cd53078a422a, type: 3}
+  icon: {fileID: 2800000, guid: 11272b9379a39a94ebd0ddf9c2c31a49, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
-  ClearsGridAfterPlacement: 0
+  ClearsGridAfterPlacement: 1
   isStackable: 0
-  objHeight: 0.3048
+  objHeight: 2
   footprint: {x: 1, y: 1}
   customShapeOffsets: []

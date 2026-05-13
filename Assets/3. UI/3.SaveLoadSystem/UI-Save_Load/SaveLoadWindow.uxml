@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
     <Style src="project://database/Assets/3.%20UI/3.SaveLoadSystem/UI-Save_Load/SaveLoadWindow.uss?fileID=7433441132597879392&amp;guid=fa81db3973ac92049a846658905d4a8f&amp;type=3#SaveLoadWindow"/>
-    <ui:VisualElement name="save-load-overlay" class="overlay">
+    <ui:VisualElement name="save-load-overlay" class="overlay" style="display: none;">
         <ui:VisualElement name="modal-panel" class="modal-panel">
             <ui:VisualElement name="title-bar" class="title-bar">
                 <ui:Label name="title-label" text="SAVE GAME" class="title-label"/>
