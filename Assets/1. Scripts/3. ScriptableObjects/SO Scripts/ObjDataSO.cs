@@ -26,6 +26,10 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("If true, placing this object will clear all existing objects in the footprint area (like a bulldozer).")]
     public bool ClearsGridAfterPlacement = false;
 
+    [Header("Pathfinding Clear (ie. Doors)")]
+    [Tooltip("If true, this object will not instantiate a NavMesh Obstacle on placement - allowing agents to pass-thru. Object will still need a custom script foor door animations - etc.")]
+    public bool pathfindingClear = false;
+
     [Header("Stacking")]
     [Tooltip("If true, this object can be stacked on top of others and contribute vertical height.")]
     public bool isStackable = false;

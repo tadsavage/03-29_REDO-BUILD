@@ -3,29 +3,18 @@
 public class MoveCommand : ICommand
 {
     private readonly PlacementGrid _grid;
-
     private readonly GameObject _instance;
     private readonly ObjDataSO _data;
-
     private readonly Vector2Int _oldRoot;
     private readonly Vector2Int _newRoot;
     private readonly Vector2Int[] _offsets;
     private readonly float _rotation;
 
-    public MoveCommand(
-        PlacementGrid grid,
-        GameObject obj,
-        ObjDataSO data,
-        Vector2Int oldRoot,
-        Vector2Int newRoot,
-        Vector2Int[] offsets,
-        float rotation)
+    public MoveCommand(PlacementGrid grid, GameObject obj, ObjDataSO data, Vector2Int oldRoot, Vector2Int newRoot, Vector2Int[] offsets, float rotation)
     {
         _grid = grid;
-
         _instance = obj;
         _data = data;
-
         _oldRoot = oldRoot;
         _newRoot = newRoot;
         _offsets = offsets;
@@ -37,46 +26,31 @@ public class MoveCommand : ICommand
 
     private void Move(Vector2Int from, Vector2Int to)
     {
-        if (_instance == null)
-            return;
+        if (_instance == null) return;
 
-        // Remove from old cells
         foreach (var o in _offsets)
-        {
-            Vector2Int cell = from + o;
-            _grid.RemoveStackObject(cell, _instance, _data);
-        }
+            _grid.RemoveStackObject(from + o, _instance, _data);
 
-        // Correct stack height logic
-        float stackY = 0f;
-        if (!_data.isFloor)
-            stackY = _grid.GetStackHeight(to);
-
+        float stackY = _data.isFloor ? 0f : _grid.GetStackHeight(to);
         Vector3 pos = _grid.GetCellCenter(to);
         pos.y += stackY;
 
-        Quaternion rot = Quaternion.Euler(0f, _rotation, 0f);
-
-        _instance.SetActive(true);
         _instance.transform.position = pos;
-        _instance.transform.rotation = rot;
+        _instance.transform.rotation = Quaternion.Euler(0f, _rotation, 0f);
 
-        // Add to new cells
         foreach (var o in _offsets)
-        {
-            Vector2Int cell = to + o;
-            _grid.AddStackObject(cell, _instance, _data);
-        }
+            _grid.AddStackObject(to + o, _instance, _data);
 
-        // Update BuildingData
         var bd = _instance.GetComponent<BuildingData>();
         bd.Initialize(to, _rotation, _offsets);
 
-        // Update PlacedObject
         var po = _instance.GetComponent<PlacedObject>();
         po.gridX = to.x;
         po.gridY = to.y;
 
         FXPool.Instance.Play("dust", pos);
+
+        // Tell NavMesh to update
+        NavMeshManager.Instance.MarkDirty();
     }
 }

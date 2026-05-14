@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
   m_Name: Rat
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  id: 29
+  id: 32
   objName: Rat
   cost: 0
   hourlyCost: 0
@@ -20,8 +20,9 @@ MonoBehaviour:
   prefab: {fileID: 680318250660865404, guid: b8ef94b4e12a6c64a869a63a821583bd, type: 3}
   icon: {fileID: 2800000, guid: eaa54802aeb133144b007894ac569283, type: 3}
   ignorePlacementRules: 1
-  isFloor: 0
+  isFloor: 1
   ClearsGridAfterPlacement: 1
+  pathfindingClear: 1
   isStackable: 0
   objHeight: 0.15
   footprint: {x: 1, y: 1}

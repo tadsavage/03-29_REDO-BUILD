@@ -36,15 +36,35 @@ public class AgentAnimation : MonoBehaviour
         agent.stoppingDistance = waypointThreshold;
     }
 
+    private float stuckTimer = 0f;
+    private const float STUCK_TIMEOUT = 5f;
+
     void Update()
     {
         // 1. Flow Control
-        if (!isWaiting && !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
+        bool isAtDestination = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
+        
+        if (isAtDestination)
         {
-            if (agent.velocity.sqrMagnitude > 0.1f || agent.hasPath)
+            if (!isWaiting && (agent.velocity.sqrMagnitude > 0.1f || agent.hasPath))
             {
                 StartCoroutine(WaitAndTurnRoutine());
             }
+        }
+        else if (agent.hasPath && agent.velocity.sqrMagnitude < 0.01f)
+        {
+            // Stuck detection: if we have a path but aren't moving
+            stuckTimer += Time.deltaTime;
+            if (stuckTimer > STUCK_TIMEOUT)
+            {
+                stuckTimer = 0;
+                Debug.Log($"{gameObject.name} detected as stuck. Re-routing...");
+                if (navigation != null) navigation.GoToRandomWaypoint();
+            }
+        }
+        else
+        {
+            stuckTimer = 0;
         }
 
         // 2. Animation Sync

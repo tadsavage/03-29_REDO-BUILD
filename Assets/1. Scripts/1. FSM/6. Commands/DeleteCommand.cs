@@ -68,10 +68,12 @@ public class DeleteCommand : ICommand
             highlighter.HighlightDelete(false);
 
         _target.SetActive(false);
-        }
 
-        public void Undo()
-        {
+        NavMeshManager.Instance.MarkDirty();
+
+    }
+    public void Undo()
+    {
             if (_target == null)
                 return;
 
@@ -103,8 +105,9 @@ public class DeleteCommand : ICommand
 
             // 6. Enable object
             _target.SetActive(true);
-        }
 
+             NavMeshManager.Instance.MarkDirty();
+    }
     public void Redo()
     {
         Execute();

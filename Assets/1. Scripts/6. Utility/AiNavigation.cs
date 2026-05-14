@@ -52,6 +52,7 @@ public class AiNavigation : MonoBehaviour
         if (waypoints == null || waypoints.Length == 0)
         {
             FindWaypoints();
+            Debug.LogWarning($"Found {waypoints.Length} waypoints on retry.");
         }
 
         if (waypoints.Length > 0)
@@ -75,6 +76,7 @@ public class AiNavigation : MonoBehaviour
                 }
                 
                 retries--;
+                Debug.Log($"Retrying NavMesh destination set... {5 - retries}/5");
                 yield return new WaitForSeconds(0.2f);
             }
         }
@@ -97,6 +99,12 @@ public class AiNavigation : MonoBehaviour
 
     public void GoToRandomWaypoint()
     {
+        // Refresh waypoints if we have none (important for runtime/save loading)
+        if (waypoints == null || waypoints.Length == 0)
+        {
+            FindWaypoints();
+        }
+
         if (waypoints == null || waypoints.Length <= 1) return;
 
         int nextIndex = currentIndex;
@@ -108,7 +116,7 @@ public class AiNavigation : MonoBehaviour
         }
 
         currentIndex = nextIndex;
-        if (agent != null && agent.isOnNavMesh)
+        if (agent != null && agent.enabled && agent.isOnNavMesh)
         {
             agent.SetDestination(waypoints[currentIndex].position);
         }

@@ -1,4 +1,4 @@
-﻿using SaveLoadSystem;
+using SaveLoadSystem;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -180,9 +180,15 @@ public class PlacementSystem : MonoBehaviour
         }
 
         grid.RebuildFromRegistry();
-    }
 
-    // ---------------------------------------------------------
+        // Perform an immediate bake after everything is loaded
+        if (NavMeshManager.Instance != null)
+        {
+            NavMeshManager.Instance.BakeImmediate();
+        }
+        }
+
+        // ---------------------------------------------------------
     // LOAD GAME SPAWNING
     // ---------------------------------------------------------
     public PlacedObject SpawnFromSave(ObjDataSO so, int x, int y, int rot)

@@ -13,20 +13,10 @@ public class PlaceCommand : ICommand
     private readonly float _rotation;
 
     private GameObject _instance;
-
-    // Floors disabled when this object was placed
     private readonly List<GameObject> _disabledFloors = new();
 
-    public PlaceCommand(
-        PlacementGrid grid,
-        PlacementFinalizer finalizer,
-        Vector2Int root,
-        Vector2Int[] offsets,
-        ObjDataSO data,
-        float rotation,
-        MoneyService money)
+    public PlaceCommand(PlacementGrid grid, PlacementFinalizer finalizer, Vector2Int root, Vector2Int[] offsets, ObjDataSO data, float rotation, MoneyService money)
     {
-
         _grid = grid;
         _finalizer = finalizer;
         _root = root;
@@ -40,58 +30,45 @@ public class PlaceCommand : ICommand
     {
         if (_instance == null)
         {
-            _instance = _finalizer.FinalizePlacement(
-                _root,
-                _offsets,
-                _data,
-                _rotation,
-                _disabledFloors);
+            _instance = _finalizer.FinalizePlacement(_root, _offsets, _data, _rotation, _disabledFloors);
         }
 
-        if (_instance == null)
-            return;
+        if (_instance == null) return;
 
-        // Finalizer already added this instance to the grid for all offsets.
-        // We only need to re-enable it on redo.
         _instance.SetActive(true);
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
+
+        // Tell NavMesh to update
+        NavMeshManager.Instance.MarkDirty();
     }
 
     public void Undo()
     {
-        if (_instance == null)
-            return;
+        if (_instance == null) return;
 
         foreach (var o in _offsets)
-        {
-            Vector2Int cell = _root + o;
-            _grid.RemoveStackObject(cell, _instance, _data);
-        }
+            _grid.RemoveStackObject(_root + o, _instance, _data);
 
         _instance.SetActive(false);
         _money.Refund(_data.cost, _data.category);
         _money.RemoveHourlyCost(_data.hourlyCost);
 
-        // Re-enable any floors we disabled
         foreach (var floor in _disabledFloors)
-        {
-            if (floor != null)
-                floor.SetActive(true);
-        }
+            if (floor != null) floor.SetActive(true);
+
+        NavMeshManager.Instance.MarkDirty();
     }
 
     public void Redo()
     {
-        // Re-add to grid and reactivate
         foreach (var o in _offsets)
-        {
-            Vector2Int cell = _root + o;
-            _grid.AddStackObject(cell, _instance, _data);
-        }
+            _grid.AddStackObject(_root + o, _instance, _data);
 
         _instance.SetActive(true);
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
+
+        NavMeshManager.Instance.MarkDirty();
     }
 }

@@ -20,7 +20,7 @@ public static class ObjDataIDAssigner
                 continue;
 
             // Assign new ID only if missing or duplicate
-            if (so.id <= 0)
+            if (so.id <= 100)
             {
                 so.id = nextID;
                 EditorUtility.SetDirty(so);
