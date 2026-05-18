@@ -2,8 +2,15 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
+/// <summary>
+/// Combined navigation script that handles agent configuration (costs/roles)
+/// and waypoint-based movement logic.
+/// </summary>
 public class AiNavigation : MonoBehaviour
 {
+    public enum AgentRole { Worker, Forklift }
+    public AgentRole role;
+
     private Transform[] waypoints;
     private NavMeshAgent agent;
     private int currentIndex = 0;
@@ -11,8 +18,28 @@ public class AiNavigation : MonoBehaviour
 
     private void Awake()
     {
-        // Gather all Waypoint components in the scene
-        FindWaypoints();
+        agent = GetComponent<NavMeshAgent>();
+        SetupAgentType();
+    }
+
+    private void SetupAgentType()
+    {
+        if (agent == null) return;
+
+        // Map AgentRole to the NavMesh Agent Type Name
+        string targetTypeName = role == AgentRole.Worker ? "Humanoid" : "MHE";
+
+        // Find the Agent Type ID by name
+        int count = NavMesh.GetSettingsCount();
+        for (int i = 0; i < count; i++)
+        {
+            var settings = NavMesh.GetSettingsByIndex(i);
+            if (NavMesh.GetSettingsNameFromID(settings.agentTypeID) == targetTypeName)
+            {
+                agent.agentTypeID = settings.agentTypeID;
+                break;
+            }
+        }
     }
 
     private void FindWaypoints()
@@ -26,81 +53,131 @@ public class AiNavigation : MonoBehaviour
 
     private IEnumerator Start()
     {
-        agent = GetComponent<NavMeshAgent>();
-        
-        // Wait a few frames to ensure the object is properly placed and warped in the world.
-        yield return new WaitForSeconds(0.1f);
-
         if (agent == null) yield break;
 
-        // Ensure agent is active
-        agent.enabled = true;
-
-        // Try to snap to NavMesh if not already on it
-        if (!agent.isOnNavMesh)
+        // 1. Wait for NavMesh connectivity and initialization
+        // This is critical when loading from a save, as the NavMesh is baked AFTER spawning.
+        int retryCount = 0;
+        while (!agent.isOnNavMesh && retryCount < 30)
         {
-            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
+            retryCount++;
+            
+            // Try to snap to NavMesh if not already on it
+            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
             {
                 agent.Warp(hit.position);
             }
+            
+            yield return new WaitForSeconds(0.5f);
         }
 
-        // Delay starting movement so user can see where they placed the object
-        // and to prevent the 'sliding out' feeling immediately after placement.
-        yield return new WaitForSeconds(1.0f);
+        if (!agent.isOnNavMesh)
+        {
+            // We don't yield break here, maybe it will find it later in Update retry
+        }
+
+        // 2. Apply Costs (Merged from NavAgentConfig)
+        ApplyAgentCosts();
+
+        // 3. Robust Waypoint Finding
+        // During load, waypoints might be instantiated after the agent.
+        retryCount = 0;
+        while ((waypoints == null || waypoints.Length == 0) && retryCount < 30)
+        {
+            FindWaypoints();
+            if (waypoints.Length == 0)
+            {
+                retryCount++;
+                yield return new WaitForSeconds(0.5f);
+            }
+        }
 
         if (waypoints == null || waypoints.Length == 0)
         {
-            FindWaypoints();
-            Debug.LogWarning($"Found {waypoints.Length} waypoints on retry.");
+            Debug.LogWarning($"[AiNavigation] {gameObject.name} could not find any waypoints after {retryCount} retries.");
         }
-
-        if (waypoints.Length > 0)
+        else
         {
+            // 4. Start Movement
             // Pick a random starting point
             currentIndex = Random.Range(0, waypoints.Length);
             
-            // Retry loop for initial destination
-            int retries = 5; // Reduced retries since placement is more robust now
-            while (retries > 0)
+            // Initial destination set
+            retryCount = 0;
+            while (!initialized && retryCount < 5)
             {
-                if (agent != null && agent.enabled && agent.isOnNavMesh)
+                if (agent.isActiveAndEnabled && agent.isOnNavMesh)
                 {
-                    // Basic sanity check: is the waypoint somewhat reachable?
-                    Vector3 targetPos = waypoints[currentIndex].position;
-                    if (agent.SetDestination(targetPos))
+                    if (agent.SetDestination(waypoints[currentIndex].position))
                     {
                         initialized = true;
                         break;
                     }
                 }
-                
-                retries--;
-                Debug.Log($"Retrying NavMesh destination set... {5 - retries}/5");
-                yield return new WaitForSeconds(0.2f);
-            }
-        }
-}
-
-    void Update()
-    {
-        // Safety: if we failed to initialize, try again occasionally
-        if (!initialized && Time.frameCount % 60 == 0)
-        {
-            if (waypoints.Length > 0 && agent != null && agent.isOnNavMesh)
-            {
-                if (agent.SetDestination(waypoints[currentIndex].position))
-                {
-                    initialized = true;
-                }
+                retryCount++;
+                yield return new WaitForSeconds(0.5f);
             }
         }
     }
 
+    private void ApplyAgentCosts()
+    {
+        if (role == AgentRole.Worker)
+        {
+            agent.SetAreaCost(0, 25.0f); // Expensive regular floor
+            agent.SetAreaCost(3, 80.0f); // Strongly avoid Forklift Lanes
+            agent.SetAreaCost(4, 1.0f);  // Strongly prefer Pedestrian Lanes
+        }
+        else if (role == AgentRole.Forklift)
+        {
+            agent.SetAreaCost(0, 25.0f); // Expensive regular floor
+            agent.SetAreaCost(3, 1.0f);  // Strongly prefer MHE Lanes
+            agent.SetAreaCost(4, 80.0f); // Strongly avoid Pedestrian Lanes
+            
+            // Forklifts need a bit more room to breathe
+            agent.stoppingDistance = 1.0f; 
+        }
+
+        // Force recalculation
+        if (agent.hasPath)
+        {
+            Vector3 target = agent.destination;
+            agent.ResetPath();
+            agent.SetDestination(target);
+        }
+    }
+
+    void Update()
+    {
+        // Safety: if we failed to initialize, try again occasionally
+        if (!initialized)
+        {
+            if (Time.frameCount % 60 == 0)
+            {
+                if (waypoints != null && waypoints.Length > 0 && agent != null && agent.isOnNavMesh)
+                {
+                    if (agent.SetDestination(waypoints[currentIndex].position))
+                    {
+                        initialized = true;
+                    }
+                }
+            }
+            return;
+        }
+
+        // Progression logic for agents without AgentAnimation
+        // AgentAnimation handles its own progression with delays and turns.
+        if (GetComponent<AgentAnimation>() == null)
+        {
+            if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
+            {
+                GoToRandomWaypoint();
+            }
+        }
+    }
     public void GoToRandomWaypoint()
     {
-        // Refresh waypoints if we have none (important for runtime/save loading)
-        if (waypoints == null || waypoints.Length == 0)
+        if (waypoints == null || waypoints.Length <= 1)
         {
             FindWaypoints();
         }

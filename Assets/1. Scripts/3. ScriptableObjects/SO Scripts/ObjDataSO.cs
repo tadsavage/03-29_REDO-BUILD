@@ -30,6 +30,9 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("If true, this object will not instantiate a NavMesh Obstacle on placement - allowing agents to pass-thru. Object will still need a custom script foor door animations - etc.")]
     public bool pathfindingClear = false;
 
+    [Tooltip("NavMesh Area index to assign to this object (if pathfindingClear is true). 0 = Walkable, 3 = MHE Lanes, 4 = Pedestrian Lanes.")]
+    public int navArea = 0;
+
     [Header("Stacking")]
     [Tooltip("If true, this object can be stacked on top of others and contribute vertical height.")]
     public bool isStackable = false;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -32,8 +32,14 @@ public class BuildPhaseChecklistWindow : EditorWindow
         CreateUI();
     }
 
-    private void CreateUI()
+    private void OnDisable()
     {
+        if (rootVisualElement != null)
+            rootVisualElement.Clear();
+    }
+
+    private void CreateUI()
+{
         rootVisualElement.Clear();
 
         var toolbar = new Toolbar();
@@ -284,11 +290,11 @@ public class BuildPhaseChecklistWindow : EditorWindow
             RefreshTaskBackground(element, task);
         });
 
-        deleteTaskButton.clicked += () =>
+        deleteTaskButton.clickable = new Clickable(() =>
         {
             section.tasks.RemoveAt(taskIndex);
             RebuildSectionsUI();
-        };
+        });
 
         RefreshTaskBackground(element, task);
 
@@ -369,7 +375,7 @@ public class BuildPhaseChecklistWindow : EditorWindow
             element.parent?.MarkDirtyRepaint();
         });
 
-        addSubtaskButton.clicked += () =>
+        addSubtaskButton.clickable = new Clickable(() =>
         {
             var sub = new SubtaskData
             {
@@ -379,7 +385,7 @@ public class BuildPhaseChecklistWindow : EditorWindow
             };
             task.subtasks.Add(sub);
             BindTaskItem(element, sectionIndex, taskIndex);
-        };
+        });
 
         // DATE PICKER POPUPS (mini calendar anchored under field)
         projectedField.RegisterCallback<MouseDownEvent>(evt =>
@@ -483,8 +489,13 @@ public class MiniCalendarPopup : EditorWindow
         window.ShowAsDropDown(anchorRect, new Vector2(180, 180));
     }
 
-    private void OnGUI()
+    private void OnDisable()
     {
+        _onPicked = null;
+    }
+
+    private void OnGUI()
+{
         var today = DateTime.Today;
         var firstOfMonth = new DateTime(_currentMonth.Year, _currentMonth.Month, 1);
         int daysInMonth = DateTime.DaysInMonth(_currentMonth.Year, _currentMonth.Month);

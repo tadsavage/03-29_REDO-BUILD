@@ -323,7 +323,6 @@ GameObject:
   - component: {fileID: 5586181201416551042}
   - component: {fileID: 257162180295630956}
   - component: {fileID: 8336777471080889589}
-  - component: {fileID: -4039220539627851027}
   m_Layer: 0
   m_Name: DS_FULL
   m_TagString: Untagged
@@ -415,7 +414,7 @@ NavMeshAgent:
   m_GameObject: {fileID: 3389889987695447165}
   m_Enabled: 1
   m_AgentTypeID: -1372625422
-  m_Radius: 1.25
+  m_Radius: 0.5
   m_Speed: 1.5
   m_Acceleration: 5
   avoidancePriority: 30
@@ -424,9 +423,9 @@ NavMeshAgent:
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
-  m_Height: 2
+  m_Height: 3
   m_BaseOffset: 0
-  m_WalkableMask: 13
+  m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
 --- !u!65 &6366919200495903941
 BoxCollider:
@@ -447,8 +446,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.1463712, y: 2.2531416, z: 1.4991703}
-  m_Center: {x: 0.005506575, y: 1.1322707, z: 0.036308974}
+  m_Size: {x: 1.2338526, y: 2.2531416, z: 1.7579058}
+  m_Center: {x: 0.0054610968, y: 1.1322707, z: -0.093058765}
 --- !u!114 &2150567686952262307
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -461,6 +460,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6af8aef5fddffe34890aa1b1aa086d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingManager
+  role: 1
 --- !u!114 &5586181201416551042
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -501,23 +501,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1c2077a2a0a9844b8bb47797e554524, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlacedObject
-  data: {fileID: 0}
+  data: {fileID: 11400000, guid: 40172defa8e8f6f4291791dc70f1a081, type: 2}
   gridX: 0
   gridY: 0
   rotation: 0
---- !u!114 &-4039220539627851027
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3389889987695447165}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 755561e4f76c75343a2fd59263dea722, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NavAgentConfig
-  role: 1
 --- !u!1 &6245394892165333976
 GameObject:
   m_ObjectHideFlags: 0
@@ -845,7 +832,7 @@ Light:
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 2
   m_ColorTemperature: 6570
-  m_UseColorTemperature: 0
+  m_UseColorTemperature: 1
   m_BoundingSphereOverride: {x: 9.271e-42, y: 0, z: 0, w: -1.26593574e+30}
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
@@ -918,7 +905,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6261589137132870513, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7464851632858873513, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
       propertyPath: m_Name
@@ -972,7 +959,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 6115040840999731844, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
+    - {fileID: 2729038613530810532, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
+    - {fileID: 1241970685178636514, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
+    - {fileID: 7482098828818994662, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
+    - {fileID: 4737448340635025031, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
+    - {fileID: 2613669029440479017, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
+    - {fileID: 332238526548194429, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []

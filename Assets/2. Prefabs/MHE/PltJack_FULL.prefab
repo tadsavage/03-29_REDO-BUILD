@@ -287,7 +287,6 @@ GameObject:
   - component: {fileID: 843681042130445759}
   - component: {fileID: -6775749474398028990}
   - component: {fileID: -7502611316616594839}
-  - component: {fileID: -8442215279861775521}
   m_Layer: 0
   m_Name: PltJack_FULL
   m_TagString: Untagged
@@ -389,9 +388,9 @@ NavMeshAgent:
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
-  m_Height: 2
+  m_Height: 3
   m_BaseOffset: 0
-  m_WalkableMask: 13
+  m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
 --- !u!65 &3655486325866655518
 BoxCollider:
@@ -412,8 +411,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.9749687, y: 1.7845631, z: 3.8005095}
-  m_Center: {x: -0.022495627, y: 0.8595141, z: -0.6403179}
+  m_Size: {x: 1.1586983, y: 1.7845631, z: 3.8005095}
+  m_Center: {x: -0.00933972, y: 0.8595141, z: -0.6403179}
 --- !u!114 &6434476673945087718
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -426,6 +425,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6af8aef5fddffe34890aa1b1aa086d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingManager
+  role: 1
 --- !u!114 &843681042130445759
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -470,19 +470,6 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
---- !u!114 &-8442215279861775521
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7153508595185007600}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 755561e4f76c75343a2fd59263dea722, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NavAgentConfig
-  role: 1
 --- !u!1001 &378573340676538193
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -517,7 +504,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6261589137132870513, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7387457806175114072, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
       propertyPath: m_LocalScale.y
@@ -579,7 +566,8 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 2729038613530810532, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []

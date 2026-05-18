@@ -1,203 +1,171 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using static UnityEngine.UIElements.UxmlAttributeDescription;
 
 /// <summary>
-/// A simple free camera to be added to a Unity game object.
+/// A Sims 4 style orbit camera.
 /// 
 /// Keys:
-///	wasd / arrows	- movement
-///	q/e 			- up/down (local space)
-///	r/f 			- up/down (world space)
-///	pageup/pagedown	- up/down (world space)
-///	hold shift		- enable fast movement mode
-///	right mouse  	- enable free look
-///	mouse			- free look / rotation
-///     
+///	wasd / arrows	- movement (shifts focus point)
+///	q/e 			- up/down (adjusts focus point height)
+///	right mouse  	- rotate around focus point
+///	scroll wheel	- zoom in/out
 /// </summary>
 public class FreeLookCamera : MonoBehaviour
 {
-	/// <summary>
-	/// Normal speed of camera movement.
-	/// </summary>
-	public float movementSpeed = 10f;
+    [Header("Movement Settings")]
+    public float movementSpeed = 15f;
+    public float fastMovementSpeed = 35f;
 
-	/// <summary>
-	/// Speed of camera movement when shift is held down,
-	/// </summary>
-	public float fastMovementSpeed = 25f;
+    [Header("Rotation Settings")]
+    public float freeLookSensitivity = 0.5f;
+    public float minPitch = 5f;
+    public float maxPitch = 85f;
 
-	/// <summary>
-	/// Sensitivity for free look.
-	/// </summary>
-	public float freeLookSensitivity = 3f;
+    [Header("Zoom Settings")]
+    public float zoomSensitivity = 25f;
+    public float minDistance = 1f;
+    public float maxDistance = 100f;
 
-	/// <summary>
-	/// Amount to zoom the camera when using the mouse wheel.
-	/// </summary>
-	public float zoomSensitivity = 10f;
+    [Header("Height Settings")]
+    public float heightMin = 0f;
+    public float heightMax = 100f;
 
-	/// <summary>
-	/// Amount to zoom the camera when using the mouse wheel (fast mode).
-	/// </summary>
-	public float fastZoomSensitivity = 50f;
+    [Header("Boundary Settings")]
+    public float X_Min = -100f;
+    public float X_Max = 100f;
+    public float Z_Min = -100f;
+    public float Z_Max = 100f;
 
-	/// <summary>
-	/// Normal speed of camera movement.
-	/// </summary>
-	public float heightMax = 6f;
-	
-	/// <summary>
-	/// Normal speed of camera movement.
-	/// </summary>
-	public float heightMin = 1f;
+    [Header("Current State (Debug)")]
+    [SerializeField] private Vector3 _focusPoint;
+    [SerializeField] private float _distance = 20f;
+    [SerializeField] private float _pitch = 45f;
+    [SerializeField] private float _yaw = 0f;
 
-    public float X_Min = -18f;
-    public float X_Max = 18f;
-
-    public float Z_Min = -8f;
-    public float Z_Max = 18f;
-
-    /// <summary>
-    /// Set to true when free looking (on right mouse button).
-    /// </summary>
-    private bool looking = false;
-
-	//bool _running = false;
-	//bool _leftDown = false;
-	//bool _rightDown = false;
-
-	private BuildMenuUI _buildMenuUI;
+    private bool _looking = false;
 
     private void Start()
     {
-        _buildMenuUI = UnityEngine.Object.FindFirstObjectByType<BuildMenuUI>();
+        // Try to find a focus point on the ground (Y=0)
+        Ray ray = new Ray(transform.position, transform.forward);
+        if (new Plane(Vector3.up, Vector3.zero).Raycast(ray, out float enter))
+        {
+            _focusPoint = ray.GetPoint(enter);
+        }
+        else
+        {
+            // Fallback: focus on a point 10 units ahead at Y=0
+            _focusPoint = transform.position + transform.forward * 10f;
+            _focusPoint.y = 0;
+        }
+
+        // Initialize rotation and distance from current transform
+        _distance = Vector3.Distance(transform.position, _focusPoint);
+        _yaw = transform.eulerAngles.y;
+        _pitch = transform.eulerAngles.x;
+
+        // Ensure pitch is in -180 to 180 range for clamping
+        if (_pitch > 180) _pitch -= 360;
+        _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
+
+        // Clamp initial distance
+        _distance = Mathf.Clamp(_distance, minDistance, maxDistance);
+        
+        // Initial sync
+        UpdateCameraTransform();
     }
 
-    void Update()
-	{
-        //  Don't do anything if the user is currently typing in a text field.
+    private void Update()
+    {
         if (UIInputGuard.IsTextFieldFocused) return;
 
+        HandleInput();
+        UpdateCameraTransform();
+    }
+
+    private void HandleInput()
+    {
         var fastMode = Keyboard.current[Key.LeftShift].isPressed;
-		var movementSpeed = fastMode ? this.fastMovementSpeed : this.movementSpeed;
+        var currentMoveSpeed = fastMode ? fastMovementSpeed : movementSpeed;
 
-		if (Keyboard.current[Key.A].isPressed || Keyboard.current[Key.LeftArrow].isPressed)
-		{
-			transform.position = transform.position + (-transform.right * movementSpeed * Time.deltaTime);
-		}
-        if (Keyboard.current[Key.D].isPressed || Keyboard.current[Key.RightArrow].isPressed)
-		{
-			transform.position = transform.position + (transform.right * movementSpeed * Time.deltaTime);
-		}
-		if (Mouse.current.leftButton.isPressed && Mouse.current.rightButton.isPressed)
-		{
-			transform.position = transform.position + (transform.forward * movementSpeed * Time.deltaTime);
-		}
-        if (Keyboard.current[Key.W].isPressed || Keyboard.current[Key.UpArrow].isPressed)
-		{
-			transform.position = transform.position + (transform.forward * movementSpeed * Time.deltaTime);
-		}
-        if (Keyboard.current[Key.S].isPressed || Keyboard.current[Key.DownArrow].isPressed)
+        // --- 1. Rotation (Right Mouse Button) ---
+        if (Mouse.current.rightButton.wasPressedThisFrame)
         {
-			transform.position = transform.position + (-transform.forward * movementSpeed * Time.deltaTime);
-		}
+            _looking = true;
+            Cursor.visible = false;
+        }
+        else if (Mouse.current.rightButton.wasReleasedThisFrame)
+        {
+            _looking = false;
+            Cursor.visible = true;
+        }
 
-		if (Keyboard.current[Key.Q].isPressed)
-		{
-			transform.position = transform.position + (transform.up * movementSpeed  * Time.deltaTime);
-		}
+        if (_looking)
+        {
+            Vector2 mouseDelta = Mouse.current.delta.ReadValue();
+            _yaw += mouseDelta.x * freeLookSensitivity;
+            _pitch -= mouseDelta.y * freeLookSensitivity;
+            _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
+        }
 
+        // --- 2. Zoom (Scroll Wheel) ---
+        float scroll = Mouse.current.scroll.ReadValue().y;
+        if (Mathf.Abs(scroll) > 0.01f)
+        {
+            float zoomSpeed = zoomSensitivity * (fastMode ? 3f : 1f);
+            _distance -= scroll * 0.001f * zoomSpeed * _distance; // Exponential zoom for better feel
+            _distance = Mathf.Clamp(_distance, minDistance, maxDistance);
+        }
+
+        // --- 3. Movement (WASD / Arrows) ---
+        Vector2 moveInput = Vector2.zero;
+        if (Keyboard.current[Key.W].isPressed || Keyboard.current[Key.UpArrow].isPressed) moveInput.y += 1;
+        if (Keyboard.current[Key.S].isPressed || Keyboard.current[Key.DownArrow].isPressed) moveInput.y -= 1;
+        if (Keyboard.current[Key.A].isPressed || Keyboard.current[Key.LeftArrow].isPressed) moveInput.x -= 1;
+        if (Keyboard.current[Key.D].isPressed || Keyboard.current[Key.RightArrow].isPressed) moveInput.x += 1;
+
+        if (moveInput.sqrMagnitude > 0.01f)
+        {
+            // Move relative to current yaw
+            Vector3 forward = Quaternion.Euler(0, _yaw, 0) * Vector3.forward;
+            Vector3 right = Quaternion.Euler(0, _yaw, 0) * Vector3.right;
+            Vector3 moveDir = (forward * moveInput.y + right * moveInput.x).normalized;
+
+            _focusPoint += moveDir * currentMoveSpeed * Time.deltaTime;
+        }
+
+        // --- 4. Vertical Movement (Q: Up, E: Down) ---
+        if (Keyboard.current[Key.Q].isPressed)
+        {
+            _focusPoint.y += currentMoveSpeed * Time.deltaTime;
+        }
         if (Keyboard.current[Key.E].isPressed)
         {
-			transform.position = transform.position + (-transform.up * movementSpeed * Time.deltaTime);
-		}
-
-		if (transform.position.y < heightMin)
-		{
-			transform.position = new Vector3(transform.position.x, heightMin, transform.position.z);
-		}
-		else if (transform.position.y > heightMax)
-		{
-			transform.position = new Vector3(transform.position.x, heightMax, transform.position.z);
-		}
-		//  X Clamps
-        if (transform.position.x < X_Min)
-        {
-            transform.position = new Vector3(X_Min, transform.position.y, transform.position.z);
-        }
-        else if (transform.position.x > X_Max)
-        {
-            transform.position = new Vector3(X_Max, transform.position.y, transform.position.z);
-        }
-        //  Z Clamps
-        if (transform.position.z < Z_Min)
-        {
-            transform.position = new Vector3(transform.position.x, transform.position.y, Z_Min);
-        }
-        else if (transform.position.z > Z_Max)
-        {
-            transform.position = new Vector3(transform.position.x, transform.position.y, Z_Max);
+            _focusPoint.y -= currentMoveSpeed * Time.deltaTime;
         }
 
-        if (looking)
-		{
-            
+        // --- 5. Clamping ---
+        _focusPoint.x = Mathf.Clamp(_focusPoint.x, X_Min, X_Max);
+        _focusPoint.y = Mathf.Clamp(_focusPoint.y, heightMin, heightMax);
+        _focusPoint.z = Mathf.Clamp(_focusPoint.z, Z_Min, Z_Max);
+    }
 
+    private void UpdateCameraTransform()
+    {
+        // Calculate new rotation
+        Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0);
 
-            float newRotationX = transform.localEulerAngles.y + Mouse.current.delta.x.ReadValue() * freeLookSensitivity;
-			float newRotationY = transform.localEulerAngles.x - Mouse.current.delta.y.ReadValue() * freeLookSensitivity;
-			transform.localEulerAngles = new Vector3(newRotationY, newRotationX, 0f);
-		}
+        // Calculate new position
+        Vector3 position = _focusPoint - (rotation * Vector3.forward * _distance);
 
-		// Zoom removed as per request
-		/*
-		float axis = Mouse.current.scroll.ReadValue().y;//Input.GetAxis("Mouse ScrollWheel");
-		if (axis != 0)
-		{
-		if (_buildMenuUI.IsPointerOverBuildMenu)
-		return; // block zoom
+        // Apply
+        transform.position = position;
+        transform.rotation = rotation;
+    }
 
-		var zoomSensitivity = fastMode ? this.fastZoomSensitivity : this.zoomSensitivity;
-			GetComponentInChildren<Camera>().transform.position = transform.position + transform.forward * axis * zoomSensitivity;
-		}
-		*/
-
-		if (Mouse.current.rightButton.wasPressedThisFrame)
-		{
-			StartLooking();
-		}
-		else if (Mouse.current.rightButton.wasReleasedThisFrame)
-
-        {
-			StopLooking();
-		}
-	}
-
-	void OnDisable()
-	{
-		StopLooking();
-	}
-
-	/// <summary>
-	/// Enable free looking.
-	/// </summary>
-	public void StartLooking()
-	{
-		looking = true;
-		Cursor.visible = false;
-	}
-
-	/// <summary>
-	/// Disable free looking.
-	/// </summary>
-	public void StopLooking()
-	{
-		looking = false;
-		Cursor.visible = true;
-	}
+    private void OnDisable()
+    {
+        Cursor.visible = true;
+    }
 }
+

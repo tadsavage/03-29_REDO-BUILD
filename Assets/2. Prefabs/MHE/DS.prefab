@@ -76,7 +76,7 @@ PrefabInstance:
       addedObject: {fileID: -7867294226823195410}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 1dd1f489a19cc20458ea05271f37c9f6, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2553240030293287320}
+      addedObject: {fileID: 1962699207427673376}
   m_SourcePrefab: {fileID: 100100000, guid: 1dd1f489a19cc20458ea05271f37c9f6, type: 3}
 --- !u!1 &5466306526729341357 stripped
 GameObject:
@@ -129,6 +129,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6af8aef5fddffe34890aa1b1aa086d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AiNavigation
+  role: 1
 --- !u!195 &7613242865170989894
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -138,7 +139,7 @@ NavMeshAgent:
   m_GameObject: {fileID: 5466306526729341357}
   m_Enabled: 1
   m_AgentTypeID: -1372625422
-  m_Radius: 0.5
+  m_Radius: 1
   m_Speed: 4
   m_Acceleration: 10
   avoidancePriority: 30
@@ -147,7 +148,7 @@ NavMeshAgent:
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
-  m_Height: 2
+  m_Height: 3
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
@@ -182,7 +183,7 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
---- !u!114 &2553240030293287320
+--- !u!114 &1962699207427673376
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -191,7 +192,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 5466306526729341357}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 755561e4f76c75343a2fd59263dea722, type: 3}
+  m_Script: {fileID: 11500000, guid: eb79d389d9fa74c4884e12fab0d26d3e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NavAgentConfig
-  role: 1
+  m_EditorClassIdentifier: Assembly-CSharp::AgentAnimation
+  walkSpeed: 2
+  turnSpeed: 200
+  idleDelay: 1.5
+  waypointThreshold: 1
+  animationTurnThreshold: 100

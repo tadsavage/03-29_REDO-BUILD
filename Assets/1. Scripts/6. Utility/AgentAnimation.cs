@@ -150,9 +150,12 @@ public class AgentAnimation : MonoBehaviour
         bool isWalking = agent.velocity.sqrMagnitude > 0.15f && !agent.isStopped;
 
         // Update Animator
-        animator.SetBool("IsTurningLeft", isTurningLeft);
-        animator.SetBool("IsTurningRight", isTurningRight);
-        animator.SetBool("IsWalking", isWalking);
+        if (animator != null)
+        {
+            animator.SetBool("IsTurningLeft", isTurningLeft);
+            animator.SetBool("IsTurningRight", isTurningRight);
+            animator.SetBool("IsWalking", isWalking);
+        }
 
         lastForward = currentForward;
     }

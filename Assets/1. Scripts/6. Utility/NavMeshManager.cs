@@ -20,7 +20,6 @@ public class NavMeshManager : MonoBehaviour
         
         // Clear and re-find all surfaces to ensure none are missed (especially if scene structure changed)
         _surfaces = new List<NavMeshSurface>(Object.FindObjectsByType<NavMeshSurface>(FindObjectsSortMode.None));
-        Debug.Log($"NavMeshManager: Found {_surfaces.Count} surfaces for Agent IDs: {GetAgentIDs()}");
     }
 
     private string GetAgentIDs()
@@ -51,7 +50,7 @@ public class NavMeshManager : MonoBehaviour
             }
         }
         _isDirty = false;
-        Debug.Log("NavMesh Rebuilt Immediately (Load Phase).");
+        //Debug.Log("NavMesh Rebuilt Immediately (Load Phase).");
     }
 
     private IEnumerator DebounceUpdate()

@@ -34,7 +34,7 @@ public class PlacementFinalizer : MonoBehaviour
         instance.name = data.objName;
 
         float stackY = 0f;
-        if (!data.isFloor)
+        if (data.isStackable)
             stackY = _grid.GetStackHeight(root);
 
         Vector3 pos = _grid.GetCellCenter(root);

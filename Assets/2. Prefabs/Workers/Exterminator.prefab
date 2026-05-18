@@ -61,6 +61,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 9100000, guid: 115ee44c755217f40a3b5f313f810a44, type: 2}
     - target: {fileID: 5866666021909216657, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
+      propertyPath: m_CullingMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
       propertyPath: m_ApplyRootMotion
       value: 0
       objectReference: {fileID: 0}
@@ -86,9 +90,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2975930881258074562}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: -3124495251896596269}
   m_SourcePrefab: {fileID: 100100000, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
 --- !u!1 &4121492427302467827 stripped
 GameObject:
@@ -136,6 +137,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6af8aef5fddffe34890aa1b1aa086d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AiNavigation
+  role: 0
 --- !u!114 &4287778642630683992
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -173,7 +175,7 @@ NavMeshAgent:
   m_AutoRepath: 1
   m_Height: 2
   m_BaseOffset: 0
-  m_WalkableMask: 13
+  m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
 --- !u!65 &2975930881258074562
 BoxCollider:
@@ -190,22 +192,9 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.5, y: 2, z: 0.5}
+  m_Size: {x: 0.25, y: 2, z: 0.25}
   m_Center: {x: 0, y: 1, z: 0}
---- !u!114 &-3124495251896596269
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4121492427302467827}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 755561e4f76c75343a2fd59263dea722, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NavAgentConfig
-  role: 0
