@@ -1,74 +1,153 @@
 using UnityEngine;
 using Unity.AI.Navigation;
+using UnityEngine.AI;
 using System.Collections;
-using System.Collections.Generic; // Added for List
+using System.Collections.Generic;
 
 public class NavMeshManager : MonoBehaviour
 {
     public static NavMeshManager Instance { get; private set; }
 
-    // Changed from singular "Surface" to a List of "Surfaces"
     [SerializeField] private List<NavMeshSurface> _surfaces = new List<NavMeshSurface>();
-    [SerializeField] private float _debounceTime = 0.5f;
+    [SerializeField] private float _debounceTime = 2.0f;
 
     private Coroutine _updateCoroutine;
     private bool _isDirty;
+    private bool _isUpdating;
 
     private void Awake()
     {
         Instance = this;
         
-        // Clear and re-find all surfaces to ensure none are missed (especially if scene structure changed)
+        // Clear and re-find all surfaces to ensure none are missed
         _surfaces = new List<NavMeshSurface>(Object.FindObjectsByType<NavMeshSurface>(FindObjectsSortMode.None));
     }
 
-    private string GetAgentIDs()
+    private void OnDestroy()
     {
-        if (_surfaces == null) return "None";
-        string ids = "";
-        foreach (var s in _surfaces) if (s != null) ids += s.agentTypeID + " ";
-        return ids;
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+
+        // Cancel any pending async builds to prevent crash when stopping play mode
+        foreach (var surface in _surfaces)
+        {
+            if (surface != null && surface.navMeshData != null)
+            {
+                NavMeshBuilder.Cancel(surface.navMeshData);
+            }
+        }
+
+        if (_updateCoroutine != null)
+        {
+            StopCoroutine(_updateCoroutine);
+            _updateCoroutine = null;
+        }
     }
 
-    public void MarkDirty()
+    public void MarkDirty(bool immediate = false)
     {
         _isDirty = true;
+        
+        // If already updating, it will loop in the coroutine if _isDirty remains true
+        if (_isUpdating) return;
+
         if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
-        _updateCoroutine = StartCoroutine(DebounceUpdate());
+        _updateCoroutine = StartCoroutine(UpdateRoutine(immediate));
     }
 
     public void BakeImmediate()
     {
-        if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
-        
-        foreach (var surface in _surfaces)
-        {
-            if (surface != null)
-            {
-                // Full rebuild is more reliable after a major scene load
-                surface.BuildNavMesh();
-            }
-        }
-        _isDirty = false;
-        //Debug.Log("NavMesh Rebuilt Immediately (Load Phase).");
+        // We no longer do actual "Immediate" (blocking) bakes because they freeze the UI.
+        // Instead, we trigger the async update without the debounce delay.
+        MarkDirty(true);
     }
 
-    private IEnumerator DebounceUpdate()
-    {
-        yield return new WaitForSeconds(_debounceTime);
+    private List<NavMeshModifier> _modifierCache = new List<NavMeshModifier>();
+    private float _lastModifierUpdate;
 
-        if (_isDirty)
+    private IEnumerator UpdateRoutine(bool immediate)
+    {
+        if (!immediate)
         {
-            // Loop through all surfaces and update each one
-            foreach (var surface in _surfaces)
+            yield return new WaitForSeconds(_debounceTime);
+        }
+
+        while (_isDirty)
+        {
+            _isDirty = false;
+            _isUpdating = true;
+
+            // Only refresh modifier cache if it's been more than a few seconds or if it's the first time
+            if (Time.realtimeSinceStartup - _lastModifierUpdate > 5f || _modifierCache.Count == 0)
             {
-                if (surface != null && surface.navMeshData != null)
+                _modifierCache = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>(FindObjectsSortMode.None));
+                _lastModifierUpdate = Time.realtimeSinceStartup;
+            }
+
+            var markups = new List<NavMeshBuildMarkup>();
+            foreach (var mod in _modifierCache)
+            {
+                if (mod != null && mod.isActiveAndEnabled)
                 {
-                    surface.UpdateNavMesh(surface.navMeshData);
+                    markups.Add(new NavMeshBuildMarkup
+                    {
+                        root = mod.transform,
+                        overrideArea = mod.overrideArea,
+                        area = mod.area,
+                        ignoreFromBuild = mod.ignoreFromBuild
+                    });
                 }
             }
-            _isDirty = false;
-            Debug.Log("All NavMeshes Updated!");
+
+            // Update each surface but yield between them to keep the game responsive
+            foreach (var surface in _surfaces)
+            {
+                if (surface != null)
+                {
+                    if (surface.navMeshData == null)
+                    {
+                        surface.navMeshData = new NavMeshData();
+                    }
+
+                    float startTime = Time.realtimeSinceStartup;
+                    var settings = surface.GetBuildSettings();
+                    var sources = new List<NavMeshBuildSource>();
+                    
+                    Bounds worldBounds;
+                    if (surface.collectObjects == CollectObjects.All)
+                    {
+                        worldBounds = new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f));
+                    }
+                    else
+                    {
+                        worldBounds = new Bounds(surface.transform.TransformPoint(surface.center), surface.size);
+                    }
+                    
+                    if (surface.collectObjects == CollectObjects.Children)
+                    {
+                        NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+                    }
+                    else
+                    {
+                        NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+                    }
+
+                    AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
+                    
+                    while (!op.isDone)
+                    {
+                        yield return null;
+                    }
+
+                    surface.UpdateNavMesh(surface.navMeshData);
+                    
+                    float duration = Time.realtimeSinceStartup - startTime;
+                    Debug.Log($"[NavMeshManager] Async Updated {surface.name} in {duration:F2}s");
+                }
+            }
+            _isUpdating = false;
         }
     }
 }

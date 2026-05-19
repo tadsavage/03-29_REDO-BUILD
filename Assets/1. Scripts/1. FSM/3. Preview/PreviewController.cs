@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class PreviewController : MonoBehaviour
@@ -59,6 +59,8 @@ public class PreviewController : MonoBehaviour
         _restoreMPB = new MaterialPropertyBlock();
     }
 
+    private readonly Dictionary<GameObject, Renderer[]> _ghostRendererCache = new();
+
     // ---------------------------------------------------------
     // FLAT HIGHLIGHT API
     // ---------------------------------------------------------
@@ -70,8 +72,17 @@ public class PreviewController : MonoBehaviour
         _highlightMPB.Clear();
         _highlightMPB.SetColor(BaseColorID, color);
 
-        foreach (var r in obj.GetComponentsInChildren<Renderer>(true))
-            r.SetPropertyBlock(_highlightMPB);
+        if (!_ghostRendererCache.TryGetValue(obj, out var renderers))
+        {
+            renderers = obj.GetComponentsInChildren<Renderer>(true);
+            _ghostRendererCache[obj] = renderers;
+        }
+
+        foreach (var r in renderers)
+        {
+            if (r != null)
+                r.SetPropertyBlock(_highlightMPB);
+        }
     }
 
     public void ClearFlatHighlight(GameObject obj)
@@ -79,8 +90,17 @@ public class PreviewController : MonoBehaviour
         if (obj == null)
             return;
 
-        foreach (var r in obj.GetComponentsInChildren<Renderer>(true))
-            r.SetPropertyBlock(_restoreMPB); // clears override
+        if (!_ghostRendererCache.TryGetValue(obj, out var renderers))
+        {
+            renderers = obj.GetComponentsInChildren<Renderer>(true);
+            _ghostRendererCache[obj] = renderers;
+        }
+
+        foreach (var r in renderers)
+        {
+            if (r != null)
+                r.SetPropertyBlock(_restoreMPB); // clears override
+        }
     }
 
     // ---------------------------------------------------------
@@ -119,7 +139,10 @@ public class PreviewController : MonoBehaviour
         if (_currentData != data)
         {
             if (_singleGhost != null)
+            {
+                _ghostRendererCache.Remove(_singleGhost);
                 Destroy(_singleGhost);
+            }
 
             ClearGhostPool();
             _singleGhost = CreateGhostFromPrefab(data.prefab);
@@ -249,11 +272,18 @@ public class PreviewController : MonoBehaviour
         GameObject ghost = Instantiate(source);
         ghost.name = source.name + "_Ghost";
 
-        foreach (var comp in ghost.GetComponentsInChildren<MonoBehaviour>())
-            Destroy(comp);
+        // Set to Ignore Raycast layer (2) so it doesn't block its own raycasts
+        ghost.layer = 2; 
 
-        foreach (var col in ghost.GetComponentsInChildren<Collider>())
-            Destroy(col);
+        // Use DestroyImmediate to ensure they are gone before the next line/frame
+        // and check for Component to catch everything (Obstacles, Modifiers, etc.)
+        foreach (var comp in ghost.GetComponentsInChildren<Component>())
+        {
+            if (comp is Transform || comp is Renderer || comp is MeshFilter)
+                continue;
+
+            DestroyImmediate(comp);
+        }
 
         if (_ghostMaterial != null)
         {
@@ -271,7 +301,13 @@ public class PreviewController : MonoBehaviour
     public void ClearGhostPool()
     {
         foreach (var g in _pool)
-            Destroy(g);
+        {
+            if (g != null)
+            {
+                _ghostRendererCache.Remove(g);
+                Destroy(g);
+            }
+        }
 
         _pool.Clear();
     }

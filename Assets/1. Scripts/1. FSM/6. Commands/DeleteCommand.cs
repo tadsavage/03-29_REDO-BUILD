@@ -69,11 +69,14 @@ public class DeleteCommand : ICommand
 
         _target.SetActive(false);
 
-        NavMeshManager.Instance.MarkDirty();
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _reEnabledFloors.Count > 0)
+        {
+            NavMeshManager.Instance.MarkDirty();
+        }
 
-    }
-    public void Undo()
-    {
+        }
+        public void Undo()
+        {
             if (_target == null)
                 return;
 
@@ -90,6 +93,8 @@ public class DeleteCommand : ICommand
                 if (floor != null)
                     floor.SetActive(false);
             }
+            
+            bool hiddenFloor = _reEnabledFloors.Count > 0;
             _reEnabledFloors.Clear();
 
             // 3. Registration is now handled automatically by _target.SetActive(true) -> PlacedObject.OnEnable()
@@ -106,8 +111,11 @@ public class DeleteCommand : ICommand
             // 6. Enable object
             _target.SetActive(true);
 
-             NavMeshManager.Instance.MarkDirty();
-    }
+            if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || hiddenFloor)
+            {
+                NavMeshManager.Instance.MarkDirty();
+            }
+        }
     public void Redo()
     {
         Execute();

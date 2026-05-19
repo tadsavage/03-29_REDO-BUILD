@@ -207,6 +207,11 @@ public class PlacementStateMachine : MonoBehaviour
     private void OnEnable() => _actions?.Enable();
     private void OnDisable() => _actions?.Disable();
 
+    private void OnDestroy()
+    {
+        _actions?.Dispose();
+    }
+
     // ---------------------------------------------------------
     // STATE SWITCHING
     // ---------------------------------------------------------

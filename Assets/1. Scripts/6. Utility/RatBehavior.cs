@@ -59,6 +59,34 @@ public class RatBehavior : MonoBehaviour
         }
     }
 
+    private IEnumerator WaitForPath(float stoppingDist)
+    {
+        // Give it a frame to start calculating
+        yield return null;
+
+        while (agent.isActiveAndEnabled)
+        {
+            // If we are off-navmesh, wait until we find it again
+            if (!agent.isOnNavMesh)
+            {
+                if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
+                {
+                    agent.Warp(hit.position);
+                }
+                yield return new WaitForSeconds(0.5f);
+                continue;
+            }
+
+            // Standard arrival check
+            if (!agent.pathPending && agent.remainingDistance <= stoppingDist)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+    }
+
     private IEnumerator ScurryInCircles()
     {
         //currentState = RatState.Circling;
@@ -74,8 +102,15 @@ public class RatBehavior : MonoBehaviour
                 float angle = i * Mathf.PI * 2 / circlePoints;
                 Vector3 target = center + new Vector3(Mathf.Cos(angle) * radius, 0, Mathf.Sin(angle) * radius);
 
-                agent.SetDestination(target);
-                while (agent.isActiveAndEnabled && agent.isOnNavMesh && (agent.pathPending || agent.remainingDistance > 0.2f)) yield return null;
+                if (agent.isOnNavMesh)
+                {
+                    agent.SetDestination(target);
+                    yield return StartCoroutine(WaitForPath(0.2f));
+                }
+                else
+                {
+                    yield return new WaitForSeconds(0.5f);
+                }
             }
         }
     }
@@ -89,9 +124,15 @@ public class RatBehavior : MonoBehaviour
 
         if (NavMesh.SamplePosition(randomDirection, out NavMeshHit hit, 10f, 1))
         {
-            agent.SetDestination(hit.position);
-            // Change line 84 to:
-            while (agent.isActiveAndEnabled && agent.isOnNavMesh && (agent.pathPending || agent.remainingDistance > 0.5f)) yield return null;
+            if (agent.isOnNavMesh)
+            {
+                agent.SetDestination(hit.position);
+                yield return StartCoroutine(WaitForPath(0.5f));
+            }
+            else
+            {
+                yield return new WaitForSeconds(0.5f);
+            }
         }
         yield return new WaitForSeconds(Random.Range(.10f, .5f));
     }

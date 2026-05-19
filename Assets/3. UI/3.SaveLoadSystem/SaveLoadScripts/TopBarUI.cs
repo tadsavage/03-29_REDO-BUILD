@@ -92,12 +92,44 @@ public class TopBarUI : MonoBehaviour
         _cell.text = $"Cell: ({x},{y})";
     }
 
+    private int _lastMoney = -1;
+    private int _lastHourly = -1;
+    private int _lastSpent = -1;
+    private int _lastMinute = -1;
+    private int _lastHour = -1;
+    private int _lastDay = -1;
+
     private void Refresh()
     {
-        _money.text = $"Capital: ${_moneyService.CurrentCapital:N0}";
-        _hourly.text = $"Hourly: ${_moneyService.TotalHourlyCost:N0}";
-        _spent.text = $"Spent Today: ${_moneyService.SpentToday:N0}";
-        _time.text = $"Time: {_timeService.Hour:00}:{_timeService.Minute:00}  Day {_timeService.Day}";
+        if (_moneyService == null || _timeService == null) return;
+
+        bool moneyChanged = _moneyService.CurrentCapital != _lastMoney || 
+                            _moneyService.TotalHourlyCost != _lastHourly || 
+                            _moneyService.SpentToday != _lastSpent;
+
+        bool timeChanged = _timeService.Minute != _lastMinute || 
+                           _timeService.Hour != _lastHour || 
+                           _timeService.Day != _lastDay;
+
+        if (moneyChanged)
+        {
+            _lastMoney = _moneyService.CurrentCapital;
+            _lastHourly = _moneyService.TotalHourlyCost;
+            _lastSpent = _moneyService.SpentToday;
+
+            _money.text = $"Capital: ${_lastMoney:N0}";
+            _hourly.text = $"Hourly: ${_lastHourly:N0}";
+            _spent.text = $"Spent Today: ${_lastSpent:N0}";
+        }
+
+        if (timeChanged)
+        {
+            _lastMinute = _timeService.Minute;
+            _lastHour = _timeService.Hour;
+            _lastDay = _timeService.Day;
+
+            _time.text = $"Time: {_lastHour:00}:{_lastMinute:00}  Day {_lastDay}";
+        }
     }
     private void OnDestroy()
     {

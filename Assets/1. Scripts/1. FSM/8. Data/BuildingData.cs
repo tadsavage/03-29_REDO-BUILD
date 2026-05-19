@@ -19,6 +19,8 @@ public class BuildingData : MonoBehaviour
         RootCell = root;
         Rotation = rotation;
         Offsets = offsets;
+        _obstacle = GetComponent<NavMeshObstacle>();
+        _modifier = GetComponent<NavMeshModifier>();
 
         // Auto-configure navigation
         SetupNavigation();
@@ -26,33 +28,31 @@ public class BuildingData : MonoBehaviour
 
     private void SetupNavigation()
     {
-        // 1. Floors and "Ignore Rules" objects shouldn't block AI at all
-        if (Data.isFloor || Data.ignorePlacementRules || Data.ClearsGridAfterPlacement)
+        // 1. Anything that moves through the building (Forklifts, Humans) should be able to pathfind through clearance objects (Racks, Doors) but NOT be blocked by them.
+        if (Data.ClearsGridAfterPlacement)
         {
             if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
-                Destroy(oldObstacle);
-
-            if (_modifier == null)
-                _modifier = GetComponent<NavMeshModifier>();
-            if (_modifier == null)
-                _modifier = gameObject.AddComponent<NavMeshModifier>();
-            
-            _modifier.ignoreFromBuild = true;
+                DestroyImmediate(oldObstacle);
+            if (TryGetComponent<NavMeshModifier>(out var oldModifier))
+                DestroyImmediate(oldModifier);
             return;
         }
-
         // 2. Clearance objects (Racks, Doors) should be BAKED but NOT have obstacles.
         // This allows different NavMesh surfaces (Humanoid vs MHE) to handle clearance height naturally.
-        if (Data.pathfindingClear)
+        if (Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules)
         {
+            // Set layer to Ground (3) to ensure collection by NavMeshSurface
+            gameObject.layer = LayerMask.NameToLayer("Ground");
+            
             if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
-                Destroy(oldObstacle);
+                DestroyImmediate(oldObstacle);
 
             if (_modifier == null)
                 _modifier = GetComponent<NavMeshModifier>();
             if (_modifier == null)
                 _modifier = gameObject.AddComponent<NavMeshModifier>();
 
+            _modifier.applyToChildren = true;
             // Do NOT ignore from build - we want the geometry (legs, headers) to be baked.
             _modifier.ignoreFromBuild = false; 
             
@@ -83,10 +83,14 @@ public class BuildingData : MonoBehaviour
         // Center it (assuming the pivot is at the corner/center based on your PlacementMath)
         // If your pivots are already centered, center is zero. 
         // If your pivots are at the corner, you'd offset the center by half the size.
-        _obstacle.size = new Vector3(gridSpaceX * .65f, Data.objHeight, gridSpaceZ * .65f);
-        _obstacle.center = new Vector3(0, Data.objHeight*.45f, 0);
-    }
+        _obstacle.size = new Vector3(gridSpaceX * 1f, Data.objHeight, gridSpaceZ * 1f);
 
+        //if the footprint.x is larger than 1 then we need to make the center of the obstacle half of the amount the footprint is over 1 times -1.33f to pull the center back towards the middle of the object. If the footprint is 1 then we want the center to be at 0. If the footprint is less than 1 then we want the center to be at 0 as well.
+        float centerX = (Data.footprint.x - 1) * -0.665f; // 0.665 is half of 1.33
+        float centerY = (Data.footprint.y - 1) * -0.665f; // 0.665 is half of 1.33
+        // Y is slightly below center of the object for better carving results
+        _obstacle.center = new Vector3(centerX, Data.objHeight * 0.45f, centerY); 
+    }
     public void Delete()
     {
         Destroy(gameObject);

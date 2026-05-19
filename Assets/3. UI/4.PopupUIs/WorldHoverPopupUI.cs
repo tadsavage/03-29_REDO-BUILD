@@ -151,12 +151,11 @@ public class WorldHoverPopupUI : MonoBehaviour
                 float uiY = (Screen.height - mousePos.y) * (layout.height / Screen.height);
                 _smoothPos = new Vector2(uiX, uiY);
 
-                // Snap the popup position instantly
-                _popup.style.left = _smoothPos.x;
-                _popup.style.top = _smoothPos.y;
-            }
+                // Set position using translate to avoid layout recalculations
+                _popup.style.translate = new Translate(_smoothPos.x, _smoothPos.y, 0);
+                }
 
-        _popup.style.opacity = 1f;
+                _popup.style.opacity = 1f;
         _popup.AddToClassList("show");
 
         _isVisible = true;
@@ -224,8 +223,7 @@ public class WorldHoverPopupUI : MonoBehaviour
         // High-responsiveness smoothing
         _smoothPos = Vector2.Lerp(_smoothPos, target, 1.0f - Mathf.Exp(-60f * Time.deltaTime));
 
-        // Zero offsets as requested
-        _popup.style.left = _smoothPos.x;
-        _popup.style.top = _smoothPos.y;
+        // Use translate to avoid layout passes
+        _popup.style.translate = new Translate(_smoothPos.x, _smoothPos.y, 0);
         }
-}
+        }

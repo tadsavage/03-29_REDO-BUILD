@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 [ExecuteAlways]
@@ -521,12 +521,12 @@ public class PlacementGrid : MonoBehaviour
 
     public void LogGridVsRegistryDiagnostics()
     {
-        int totalRegistry = PlacedObjectRegistry.All.Count;
+        int totalRegistry = PlacedObjectRegistry.Count;
         int missingInGrid = 0;
         int misplaced = 0;
 
         foreach (var placed in PlacedObjectRegistry.All)
-        {
+{
             if (placed == null || placed.data == null) continue;
 
             Vector2Int expected = new Vector2Int(placed.gridX, placed.gridY);

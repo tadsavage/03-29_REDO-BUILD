@@ -41,6 +41,18 @@ public class AgentAnimation : MonoBehaviour
 
     void Update()
     {
+        // Safety: if we lost NavMesh (e.g. during a bake), wait
+        if (!agent.isOnNavMesh)
+        {
+            if (animator != null)
+            {
+                animator.SetBool("IsWalking", false);
+                animator.SetBool("IsTurningLeft", false);
+                animator.SetBool("IsTurningRight", false);
+            }
+            return;
+        }
+
         // 1. Flow Control
         bool isAtDestination = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
         

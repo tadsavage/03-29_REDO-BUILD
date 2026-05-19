@@ -12,14 +12,23 @@ public class BuildingHighlighter : MonoBehaviour
 
     void Awake()
     {
+        CacheRenderers();
+    }
+
+    private void CacheRenderers()
+    {
+        _renderers.Clear();
+        _originalMaterials.Clear();
+
         // Collect ALL renderers (MeshRenderer + SkinnedMeshRenderer)
-        foreach (var r in GetComponentsInChildren<Renderer>())
+        foreach (var r in GetComponentsInChildren<Renderer>(true))
         {
-            if (r == null || !r)
-                continue;
+            if (r == null) continue;
 
             _renderers.Add(r);
-            _originalMaterials.Add(r.material);
+            // CRITICAL FIX: Use sharedMaterial instead of material to avoid creating 
+            // a unique material instance per renderer, which breaks batching.
+            _originalMaterials.Add(r.sharedMaterial);
         }
     }
 
@@ -40,25 +49,16 @@ public class BuildingHighlighter : MonoBehaviour
 
     private void SetMaterial(Material overrideMat)
     {
-        // Clean out destroyed renderers
-        for (int i = _renderers.Count - 1; i >= 0; i--)
-        {
-            if (_renderers[i] == null || !_renderers[i])
-            {
-                _renderers.RemoveAt(i);
-                _originalMaterials.RemoveAt(i);
-            }
-        }
+        // Safety: if renderers were destroyed or changed, re-cache
+        if (_renderers.Count == 0) CacheRenderers();
 
-        // Apply materials safely
         for (int i = 0; i < _renderers.Count; i++)
         {
             var r = _renderers[i];
+            if (r == null) continue;
 
-            if (r == null || !r)
-                continue;
-
-            r.material = overrideMat != null ? overrideMat : _originalMaterials[i];
+            // CRITICAL FIX: Use sharedMaterial to maintain batching performance
+            r.sharedMaterial = overrideMat != null ? overrideMat : _originalMaterials[i];
         }
     }
 }

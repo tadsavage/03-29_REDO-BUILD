@@ -27,8 +27,8 @@ public class FreeLookCamera : MonoBehaviour
     public float maxDistance = 100f;
 
     [Header("Height Settings")]
-    public float heightMin = 0f;
-    public float heightMax = 100f;
+    public float heightMin = 1f;
+    public float heightMax = 30f;
 
     [Header("Boundary Settings")]
     public float X_Min = -100f;
@@ -68,8 +68,8 @@ public class FreeLookCamera : MonoBehaviour
         if (_pitch > 180) _pitch -= 360;
         _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
 
-        // Clamp initial distance
-        _distance = Mathf.Clamp(_distance, minDistance, maxDistance);
+        // Initial height clamp
+        _focusPoint.y = Mathf.Clamp(_focusPoint.y, heightMin, heightMax);
         
         // Initial sync
         UpdateCameraTransform();
@@ -108,14 +108,7 @@ public class FreeLookCamera : MonoBehaviour
             _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
         }
 
-        // --- 2. Zoom (Scroll Wheel) ---
-        float scroll = Mouse.current.scroll.ReadValue().y;
-        if (Mathf.Abs(scroll) > 0.01f)
-        {
-            float zoomSpeed = zoomSensitivity * (fastMode ? 3f : 1f);
-            _distance -= scroll * 0.001f * zoomSpeed * _distance; // Exponential zoom for better feel
-            _distance = Mathf.Clamp(_distance, minDistance, maxDistance);
-        }
+        // --- 2. Zoom (Removed) ---
 
         // --- 3. Movement (WASD / Arrows) ---
         Vector2 moveInput = Vector2.zero;
@@ -135,11 +128,11 @@ public class FreeLookCamera : MonoBehaviour
         }
 
         // --- 4. Vertical Movement (Q: Up, E: Down) ---
-        if (Keyboard.current[Key.Q].isPressed)
+        if (Keyboard.current[Key.E].isPressed)
         {
             _focusPoint.y += currentMoveSpeed * Time.deltaTime;
         }
-        if (Keyboard.current[Key.E].isPressed)
+        if (Keyboard.current[Key.Q].isPressed)
         {
             _focusPoint.y -= currentMoveSpeed * Time.deltaTime;
         }

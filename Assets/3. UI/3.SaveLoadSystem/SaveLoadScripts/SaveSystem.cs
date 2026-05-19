@@ -1,10 +1,10 @@
-﻿using System.IO;
+using System.IO;
 using UnityEngine;
 
 public static class SaveSystem
 {
     private static string SaveFolder =>
-        Path.Combine(Application.persistentDataPath, "Saves");
+        Path.Combine(Application.dataPath, "_Saves");
 
     public static void Save(SaveData data)
     {

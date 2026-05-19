@@ -1,26 +1,38 @@
+using UnityEngine;
 using UnityEngine.UIElements;
+using System.Collections.Generic;
 
 public static class UIInputGuard
 {
+    private static List<UIDocument> _cachedDocs = new List<UIDocument>();
+    private static float _lastRefresh;
+
+    private static void RefreshDocs()
+    {
+        if (Time.realtimeSinceStartup - _lastRefresh < 2.0f && _cachedDocs.Count > 0) return;
+        
+        _cachedDocs = new List<UIDocument>(Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None));
+        _lastRefresh = Time.realtimeSinceStartup;
+    }
+
     /// <summary>
     /// Returns true if any UI Toolkit TextField currently has
-    /// keyboard focus — meaning the user is typing into a text field.
+    /// keyboard focus.
     /// </summary>
     public static bool IsTextFieldFocused
     {
         get
         {
-            var docs = UnityEngine.Object.FindObjectsByType<UIDocument>(
-                UnityEngine.FindObjectsSortMode.None);
-            foreach (var doc in docs)
+            RefreshDocs();
+
+            foreach (var doc in _cachedDocs)
             {
-                if (doc.rootVisualElement == null) continue;
+                if (doc == null || doc.rootVisualElement == null) continue;
                 var focused = doc.rootVisualElement.focusController?.focusedElement;
-                if (focused is TextField )
+                if (focused is TextField)
                     return true;
-                // TextField's inner input element
-                if (focused != null &&
-                    focused.GetType().Name.Contains("TextInput"))
+                
+                if (focused != null && focused.GetType().Name.Contains("TextInput"))
                     return true;
             }
             return false;

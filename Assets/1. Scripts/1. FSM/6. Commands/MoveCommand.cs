@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class MoveCommand : ICommand
 {
@@ -50,7 +50,10 @@ public class MoveCommand : ICommand
 
         FXPool.Instance.Play("dust", pos);
 
-        // Tell NavMesh to update
-        NavMeshManager.Instance.MarkDirty();
-    }
+        // Tell NavMesh to update if it's a modifier-based object
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
+        {
+            NavMeshManager.Instance.MarkDirty();
+        }
+        }
 }

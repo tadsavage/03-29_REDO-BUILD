@@ -147,26 +147,44 @@ public class AiNavigation : MonoBehaviour
         }
     }
 
-    void Update()
+    private void Update()
     {
         // Safety: if we failed to initialize, try again occasionally
         if (!initialized)
         {
             if (Time.frameCount % 60 == 0)
             {
-                if (waypoints != null && waypoints.Length > 0 && agent != null && agent.isOnNavMesh)
+                if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
                 {
-                    if (agent.SetDestination(waypoints[currentIndex].position))
+                    if (waypoints != null && waypoints.Length > 0)
                     {
-                        initialized = true;
+                        if (agent.SetDestination(waypoints[currentIndex].position))
+                        {
+                            initialized = true;
+                        }
                     }
                 }
             }
             return;
         }
 
+        // Recovery: if we lost NavMesh (e.g. during a bake), wait and try to re-snap
+        if (!agent.isOnNavMesh)
+        {
+            if (Time.frameCount % 30 == 0) // Check every half second-ish
+            {
+                if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
+                {
+                    agent.Warp(hit.position);
+                    // Force destination refresh
+                    if (waypoints != null && waypoints.Length > 0)
+                        agent.SetDestination(waypoints[currentIndex].position);
+                }
+            }
+            return;
+        }
+
         // Progression logic for agents without AgentAnimation
-        // AgentAnimation handles its own progression with delays and turns.
         if (GetComponent<AgentAnimation>() == null)
         {
             if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
@@ -175,6 +193,7 @@ public class AiNavigation : MonoBehaviour
             }
         }
     }
+
     public void GoToRandomWaypoint()
     {
         if (waypoints == null || waypoints.Length <= 1)
@@ -183,6 +202,8 @@ public class AiNavigation : MonoBehaviour
         }
 
         if (waypoints == null || waypoints.Length <= 1) return;
+
+        if (!agent.isOnNavMesh) return;
 
         int nextIndex = currentIndex;
         int safety = 0;

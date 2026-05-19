@@ -287,6 +287,7 @@ GameObject:
   - component: {fileID: 843681042130445759}
   - component: {fileID: -6775749474398028990}
   - component: {fileID: -7502611316616594839}
+  - component: {fileID: -6706777722881327581}
   m_Layer: 0
   m_Name: PltJack_FULL
   m_TagString: Untagged
@@ -380,7 +381,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: -1372625422
   m_Radius: 1
-  m_Speed: 1.5
+  m_Speed: 2.5
   m_Acceleration: 6
   avoidancePriority: 20
   m_AngularSpeed: 100
@@ -470,6 +471,33 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+--- !u!54 &-6706777722881327581
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7153508595185007600}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
 --- !u!1001 &378573340676538193
 PrefabInstance:
   m_ObjectHideFlags: 0

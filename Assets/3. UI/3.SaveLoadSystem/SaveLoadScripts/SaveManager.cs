@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using UnityEngine;
 
@@ -33,12 +33,20 @@ namespace SaveLoadSystem
             }
             Instance = this;
 
-            saveFolderPath = Path.Combine(Application.persistentDataPath, "Saves");
+            saveFolderPath = Path.Combine(Application.dataPath, "_Saves");
             if (!Directory.Exists(saveFolderPath))
                 Directory.CreateDirectory(saveFolderPath);
 
             metadataFilePath = Path.Combine(saveFolderPath, "metadata.json");
             LoadMetadataFromDisk();
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this)
+            {
+                Instance = null;
+            }
         }
 
         // ========== PUBLIC API ==========

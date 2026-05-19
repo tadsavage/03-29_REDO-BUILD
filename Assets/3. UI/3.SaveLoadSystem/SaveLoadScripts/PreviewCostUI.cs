@@ -49,9 +49,9 @@ public class PreviewCostUI : MonoBehaviour
         Vector2 target = new Vector2(uiX, uiY);
         _smoothPos = Vector2.Lerp(_smoothPos, target, 1.0f - Mathf.Exp(-60f * Time.deltaTime));
 
-        _label.style.left = _smoothPos.x;
-        _label.style.top = _smoothPos.y;
-    }
+        // Use translate to avoid layout passes
+        _label.style.translate = new Translate(_smoothPos.x, _smoothPos.y, 0);
+        }
 
     public void Hide()
     {

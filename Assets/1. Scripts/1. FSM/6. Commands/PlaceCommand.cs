@@ -39,12 +39,16 @@ public class PlaceCommand : ICommand
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
 
-        // Tell NavMesh to update
-        NavMeshManager.Instance.MarkDirty();
-    }
+        // Tell NavMesh to update ONLY if it's a modifier-based object (Floor, Door, etc.)
+        // Blocking objects use NavMeshObstacle carving which updates automatically.
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
+        {
+            NavMeshManager.Instance.MarkDirty();
+        }
+        }
 
-    public void Undo()
-    {
+        public void Undo()
+        {
         if (_instance == null) return;
 
         foreach (var o in _offsets)
@@ -54,14 +58,24 @@ public class PlaceCommand : ICommand
         _money.Refund(_data.cost, _data.category);
         _money.RemoveHourlyCost(_data.hourlyCost);
 
+        bool revealedFloor = false;
         foreach (var floor in _disabledFloors)
-            if (floor != null) floor.SetActive(true);
+        {
+            if (floor != null)
+            {
+                floor.SetActive(true);
+                revealedFloor = true;
+            }
+        }
 
-        NavMeshManager.Instance.MarkDirty();
-    }
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || revealedFloor)
+        {
+            NavMeshManager.Instance.MarkDirty();
+        }
+        }
 
-    public void Redo()
-    {
+        public void Redo()
+        {
         foreach (var o in _offsets)
             _grid.AddStackObject(_root + o, _instance, _data);
 
@@ -69,6 +83,9 @@ public class PlaceCommand : ICommand
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
 
-        NavMeshManager.Instance.MarkDirty();
-    }
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
+        {
+            NavMeshManager.Instance.MarkDirty();
+        }
+        }
 }

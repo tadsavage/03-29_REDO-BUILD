@@ -68,13 +68,32 @@ public class PlacementSystem : MonoBehaviour
     // ---------------------------------------------------------
     // NORMAL GAMEPLAY PLACEMENT
     // ---------------------------------------------------------
+    private Transform _objectsContainer;
+
+    private void EnsureContainer()
+    {
+        if (_objectsContainer == null)
+        {
+            var go = GameObject.Find("PlacedObjectsContainer");
+            if (go == null) 
+            {
+                go = new GameObject("PlacedObjectsContainer");
+                // Massive performance win for Editor: hide the container from hierarchy
+                // to prevent the Hierarchy window from trying to render/sort 3,000+ items.
+                go.hideFlags = HideFlags.HideInHierarchy;
+            }
+            _objectsContainer = go.transform;
+        }
+    }
+
     public PlacedObject PlaceObject(ObjDataSO so, int x, int y, int rot)
     {
+        EnsureContainer();
         Vector2Int cell = new Vector2Int(x, y);
         Vector3 worldPos = grid.GetCellCenter(cell);
 
         GameObject go = Instantiate(so.prefab, worldPos,
-                                    Quaternion.Euler(0f, rot * 90f, 0f));
+                                    Quaternion.Euler(0f, rot * 90f, 0f), _objectsContainer);
 
         PlacedObject po = go.GetComponent<PlacedObject>();
         po.Initialize(so, x, y, rot);
@@ -193,6 +212,7 @@ public class PlacementSystem : MonoBehaviour
     // ---------------------------------------------------------
     public PlacedObject SpawnFromSave(ObjDataSO so, int x, int y, int rot)
     {
+        EnsureContainer();
         Vector2Int root = new Vector2Int(x, y);
         float rotationDeg = rot * 90f;
 
@@ -204,7 +224,7 @@ public class PlacementSystem : MonoBehaviour
         worldPos.y += stackY;
 
         GameObject go = Instantiate(so.prefab, worldPos,
-                                    Quaternion.Euler(0f, rotationDeg, 0f));
+                                    Quaternion.Euler(0f, rotationDeg, 0f), _objectsContainer);
 
         PlacedObject po = go.GetComponent<PlacedObject>();
         po.Initialize(so, x, y, rot);
@@ -231,11 +251,12 @@ public class PlacementSystem : MonoBehaviour
 
     public void ClearAll()
     {
-        // FIX: Iterate backwards because Destroy() now triggers OnDisable(),
-        // which modifies the PlacedObjectRegistry.All list we are looping through.
-        for (int i = PlacedObjectRegistry.All.Count - 1; i >= 0; i--)
+        // Use a snapshot to avoid modification issues while iterating
+        var snapshot = PlacedObjectRegistry.GetSnapshot();
+        
+        for (int i = snapshot.Length - 1; i >= 0; i--)
         {
-            var obj = PlacedObjectRegistry.All[i];
+            var obj = snapshot[i];
             if (obj != null)
             {
                 Vector2Int cell = new Vector2Int(obj.gridX, obj.gridY);
@@ -247,7 +268,7 @@ public class PlacementSystem : MonoBehaviour
         PlacedObjectRegistry.Clear();
         grid.InitializeGrid();
     }
-    private void OnSlotSaveCompleted(int slotIndex)
+private void OnSlotSaveCompleted(int slotIndex)
     {
         AudioManager.Play("UI_Save");
         UIToast.Show($"Saved to Slot {slotIndex + 1}");

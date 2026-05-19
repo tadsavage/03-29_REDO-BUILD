@@ -59,7 +59,7 @@ public class MoveState : IPlacementState
         new Color(0.20f, 0.60f, 1.00f, 0.15f);
 
     private float _scrollCooldown = 0f;
-    private const float ScrollThreshold = 0.1f;
+    private const float ScrollThreshold = 0.01f;
 
     public bool IsPlacementState => true;
     public string ObjectName => _obj != null ? _obj.name : "None";

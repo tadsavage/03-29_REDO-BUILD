@@ -205,69 +205,70 @@ public class DeleteState : IPlacementState
         _hover = null;
     }
 
+    private readonly HashSet<BuildingHighlighter> _lastDragTargets = new();
+
     private void UpdateDragDelete(Vector3 dragEndWorld)
     {
-        ClearDragHighlights();
-
         Vector2Int a = _grid.WorldToCell(_dragStartWorld);
         Vector2Int b = _grid.WorldToCell(dragEndWorld);
 
         List<Vector2Int> footprint = GetRectangleCells(a, b);
+        
+        // 1. Collect new targets using Grid data instead of Physics Raycasts
+        HashSet<BuildingHighlighter> newTargets = new HashSet<BuildingHighlighter>();
 
         foreach (var cell in footprint)
         {
             var objs = _grid.GetObjectsInCell(cell);
-            if (objs != null && objs.Count > 0)
+            if (objs != null)
             {
-                var obj = objs[^1].instance;
-                if (obj)
+                foreach (var entry in objs)
                 {
-                    var h = obj.GetComponent<BuildingHighlighter>();
-                    if (h != null)
+                    if (entry.instance != null)
                     {
-                        if (!_dragTargets.Contains(h))
-                            _dragTargets.Add(h);
-
-                        h.HighlightDelete(true);
+                        var h = entry.instance.GetComponent<BuildingHighlighter>();
+                        if (h != null) newTargets.Add(h);
                     }
                 }
             }
+            
+            // Check for non-grid objects (like floors that clear grid) only if absolutely necessary
+            // or if they are on a specific layer. We skip raycasting every cell.
+        }
 
-            var hitObj = _raycast.RaycastCellCenter(cell);
-            if (hitObj != null)
+        // 2. Only update highlights if the selection changed
+        foreach (var h in _lastDragTargets)
+        {
+            if (!newTargets.Contains(h))
             {
-                var bd = hitObj.GetComponent<BuildingData>();
-                if (bd != null && bd.Data != null && bd.Data.ClearsGridAfterPlacement)
-                {
-                    var h = hitObj.GetComponent<BuildingHighlighter>();
-                    if (h != null)
-                    {
-                        if (!_dragTargets.Contains(h))
-                            _dragTargets.Add(h);
-
-                        h.HighlightDelete(true);
-                    }
-                }
+                if (h != null) h.HighlightDelete(false);
             }
         }
 
-        _indicator.ShowCells(
-        footprint,
-        cell => true   // delete mode always shows yellow, no validity needed
-        );
+        foreach (var h in newTargets)
+        {
+            if (!_lastDragTargets.Contains(h))
+            {
+                if (h != null) h.HighlightDelete(true);
+            }
+        }
+
+        _lastDragTargets.Clear();
+        foreach (var h in newTargets) _lastDragTargets.Add(h);
+        
+        _dragTargets.Clear();
+        _dragTargets.AddRange(newTargets);
+
+        _indicator.ShowCells(footprint, cell => true);
 
         if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
-            // Begin batch
             _fsm.History.BeginBatch();
-
             foreach (var h in _dragTargets)
             {
                 if (h != null)
                 {
-                    // IMPORTANT: remove delete highlight before disabling via command
                     h.HighlightDelete(false);
-
                     var bd = h.GetComponent<BuildingData>();
                     if (bd != null)
                     {
@@ -276,13 +277,11 @@ public class DeleteState : IPlacementState
                     }
                 }
             }
-
-            // End batch (creates one undo step)
             _fsm.History.EndBatch();
-
             AudioManager.Play("Delete");
 
             _dragTargets.Clear();
+            _lastDragTargets.Clear();
             _isDragging = false;
             _indicator.ClearAll();
         }
