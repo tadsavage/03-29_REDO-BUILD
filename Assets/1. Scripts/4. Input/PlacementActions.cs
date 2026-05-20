@@ -58,6 +58,11 @@ public class PlacementActions
             Place.AddBinding("<Mouse>/leftButton");
         }
 
+        public void BindRotateTo_R()
+        {
+            Rotate.AddBinding("<Keyboard>/r");
+        }
+
         // Optional helper to set bindings from an InputActionAsset
         public void LoadBindingsFromAsset(InputActionAsset asset)
         {

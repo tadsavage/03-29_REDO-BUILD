@@ -194,4 +194,22 @@ public class FreeLookCamera : MonoBehaviour
 		looking = false;
 		Cursor.visible = true;
 	}
-}
+
+	public CameraSaveData GetState()
+	{
+	return new CameraSaveData
+	{
+	focusPoint = transform.position,
+	pitch = transform.localEulerAngles.x,
+	yaw = transform.localEulerAngles.y,
+	distance = 0
+	};
+	}
+
+	public void SetState(CameraSaveData state)
+	{
+	if (state == null) return;
+	transform.position = state.focusPoint;
+	transform.localEulerAngles = new Vector3(state.pitch, state.yaw, 0);
+	}
+	}
