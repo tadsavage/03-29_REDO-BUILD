@@ -8,7 +8,6 @@ public class RaycastController : MonoBehaviour
 
     [SerializeField] private Camera _camera;
     [SerializeField] private LayerMask _groundMask;
-    [SerializeField] private LayerMask _objectMask;
     [SerializeField] private PlacementGrid _grid;
 
     [Header("Debug")]
@@ -98,7 +97,7 @@ private bool _enabled;
         // ---------------------------------------------------------
         // 2. Object raycast (no mask)
         // ---------------------------------------------------------
-        if (Physics.Raycast(ray, out RaycastHit objHit, 200f, _objectMask))
+        if (Physics.Raycast(ray, out RaycastHit objHit, 500f))
             HitObject = objHit.collider.gameObject;
         else
             HitObject = null;
