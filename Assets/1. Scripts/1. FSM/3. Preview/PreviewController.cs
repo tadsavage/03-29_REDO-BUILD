@@ -173,7 +173,8 @@ public class PreviewController : MonoBehaviour
         if (_isFlyingIn)
             return;
 
-        float stackY = data.isStackable ? _grid.GetStackHeight(cell) : 0f;
+        // Non-floor objects should sit on top of the stack (including floors)
+        float stackY = (!data.isFloor && !data.ignorePlacementRules) ? _grid.GetStackHeight(cell) : 0f;
         if (!_deleteMode)
             pos.y += stackY;
 
@@ -240,7 +241,7 @@ public class PreviewController : MonoBehaviour
 
         ghost.SetActive(true);
 
-        float stackY = (_currentData != null && _currentData.isStackable)
+        float stackY = (_currentData != null && !_currentData.isFloor && !_currentData.ignorePlacementRules)
             ? _grid.GetStackHeight(cell)
             : 0f;
 

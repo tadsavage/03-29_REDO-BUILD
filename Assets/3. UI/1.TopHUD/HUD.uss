@@ -4,23 +4,22 @@
     top: 0;
     width: 100%;
     height: 100%;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
 }
 
+/* WAREHOUSE THEME: Matches Category Buttons but with a 2px Caramel Trim Frame */
 .preview-cost-label {
-background-color: rgba(35, 35, 40, 0.85);
-    border-radius: 10px;
-    border-width: 4px;
-    border-color: rgba(212, 135, 77, 0.85);
-    -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
-    font-size: 18px;
-    color: rgb(240, 230, 211);
-    padding-left: 10px;
-    padding-right: 10px;
-    padding-top: 4px;
-    padding-bottom: 4px;
     position: absolute;
-    border-top-width: 10px;
-    border-right-width: 10px;
-    border-bottom-width: 10px;
-    border-left-width: 10px;
+    background-color: #2D2B3A;
+    border-radius: 4px; /* Exact Category Button Border Radius */
+    border-width: 2px; /* Updated to 2px thick border */
+    border-color: #ECC98A; /* Glow border lines */ /* Caramel-Brown Highlight Accent Outline */
+    font-size: 24px;
+    color: rgb(240, 230, 211); /* Soft theme color text */
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    -unity-font-style: bold;
 }
+

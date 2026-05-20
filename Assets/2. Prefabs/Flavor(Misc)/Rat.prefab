@@ -105,6 +105,13 @@ MonoBehaviour:
   scurrySpeed: 2
   angularSpeed: 180
   acceleration: 16
+  detectionRange: 6
+  exterminatorName: Exterminator
+  hidingChance: 0.5
+  palletNames:
+  - Chep
+  - StackPlts
+  palletCategory: Inventory
 --- !u!195 &7418927327734714326
 NavMeshAgent:
   m_ObjectHideFlags: 0

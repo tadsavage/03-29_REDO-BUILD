@@ -1,4 +1,3 @@
-/* ROOT */
 .buildmenu-root {
     position: absolute;
     top: 0;
@@ -9,7 +8,6 @@
     flex-direction: column;
 }
 
-/* BOTTOM BAR */
 .buildmenu-bottom-bar {
     position: absolute;
     bottom: 0;
@@ -28,7 +26,6 @@
     overflow: visible;
 }
 
-/* CATEGORY + UTILITY ROWS */
 .buildmenu-category-row,
 .buildmenu-utility-row {
     display: flex;
@@ -37,7 +34,6 @@
     overflow: visible;
 }
 
-/* CATEGORY BUTTON */
 .buildmenu-category-button {
     width: 120px;
     height: 104px;
@@ -59,7 +55,7 @@
     background-color: rgba(212, 135, 77, 0.12);
     border-color: rgba(212, 135, 77, 0.45);
     opacity: 0.95;
-    transform: scale(1.05);
+    transform: ;
     transition-duration: 0.5s;
 }
 
@@ -69,7 +65,6 @@
     opacity: 1;
 }
 
-/* CATEGORY ICON */
 .buildmenu-category-icon {
     width: 96px;
     height: 88px;
@@ -78,9 +73,8 @@
     background-position: center;
 }
 
-/* CATEGORY LABEL */
 .buildmenu-category-label {
-    -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
     font-size: 16px;
     letter-spacing: -4px;
     -unity-font-style: normal;
@@ -89,7 +83,6 @@
     -unity-text-wrap: nowrap;
 }
 
-/* UTILITY BUTTON */
 .buildmenu-utility-button {
     width: 84px;
     height: 84px;
@@ -111,11 +104,10 @@
     background-color: rgba(212, 135, 77, 0.12);
     border-color: rgba(212, 135, 77, 0.45);
     opacity: 0.95;
-    transform: scale(1.05);
+    transform: ;
     transition-duration: 0.5s;
 }
 
-/* UTILITY ICON */
 .buildmenu-utility-icon {
     width: 56px;
     height: 56px;
@@ -125,9 +117,8 @@
     margin-bottom: 4px;
 }
 
-/* UTILITY LABEL */
 .buildmenu-utility-label {
-    -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
     font-size: 11px;
     letter-spacing: -4px;
     -unity-font-style: bold;
@@ -136,7 +127,6 @@
     -unity-text-wrap: nowrap;
 }
 
-/* SUBMENU */
 .buildmenu-submenu {
     position: absolute;
     left: 0;
@@ -155,7 +145,6 @@
     display: none;
 }
 
-/* SUBMENU ROOT */
 .buildmenu-submenu-root {
     background-color: rgba(35, 35, 40, 0.95);
     border-radius: 6px;
@@ -165,12 +154,10 @@
     max-height: 320px;
 }
 
-/* SUBMENU SCROLL */
 .buildmenu-submenu-scroll {
     flex-grow: 1;
 }
 
-/* ITEM BUTTON */
 .buildmenu-item-button {
     width: 260px;
     height: 64px;
@@ -192,11 +179,10 @@
     background-color: rgba(212, 135, 77, 0.12);
     border-color: rgba(212, 135, 77, 0.45);
     opacity: 0.95;
-    transform: scale(1.025);
+    transform: ;
     transition-duration: 0.5s;
 }
 
-/* ITEM ICON */
 .buildmenu-item-icon {
     width: 56px;
     height: 56px;
@@ -206,16 +192,14 @@
     margin-right: 10px;
 }
 
-/* ITEM TEXT CONTAINER */
 .buildmenu-item-text {
     flex-direction: column;
     justify-content: center;
     flex-grow: 1;
 }
 
-/* ITEM NAME */
 .buildmenu-item-name {
-    -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
     font-size: 15px;
     letter-spacing: -4px;
     color: rgb(240, 230, 211);
@@ -224,9 +208,8 @@
     -unity-text-overflow: ellipsis;
 }
 
-/* ITEM COST */
 .buildmenu-item-cost {
-    -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
     font-size: 14px;
     letter-spacing: -4px;
     color: rgb(160, 255, 200);

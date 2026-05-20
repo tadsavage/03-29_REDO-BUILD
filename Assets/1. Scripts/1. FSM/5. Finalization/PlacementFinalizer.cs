@@ -27,44 +27,46 @@ public class PlacementFinalizer : MonoBehaviour
         if (data == null || data.prefab == null)
             return null;
 
+        // --- FLOOR REPLACEMENT LOGIC ---
         if (data.isFloor)
-            DisableExistingFloors(root, offsets, disabledFloors);
+        {
+            if (IsSameFloorAlreadyThere(root, offsets, data))
+            {
+                // "if we're just the same type of floor though then do nothing"
+                return null;
+            }
 
-        GameObject instance = Instantiate(data.prefab);
+            // Replace different floors
+            DisableExistingFloors(root, offsets, disabledFloors);
+            }
+
+            // --- BULLDOZER LOGIC ---
+            if (data.ClearsGridAfterPlacement)
+            {
+            foreach (var o in offsets)
+            {
+                _grid.ClearCell(root + o, true); // true to destroy objects
+            }
+            }
+
+            GameObject instance = Instantiate(data.prefab);
         instance.name = data.objName;
 
-        float stackY = 0f;
-        if (data.isStackable)
-            stackY = _grid.GetStackHeight(root);
-
+        // Position will be set by UpdateStackPositions called via AddStackObject
+        // but we still need a reasonable starting point for FX etc.
         Vector3 pos = _grid.GetCellCenter(root);
-        pos.y += stackY;
+        instance.transform.position = pos;
+        instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
 
-        // Use Warp if it's a NavMeshAgent to prevent sliding/snapping issues
+        // Handle NavMeshAgent warping safely
         var agent = instance.GetComponent<NavMeshAgent>();
-        if (agent != null)
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
-            // Set rotation first
-            instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
-            
-            // Try to find the nearest point on the NavMesh to the intended position
-            // This prevents Warp from failing if the grid cell center is slightly off the mesh.
-            if (NavMesh.SamplePosition(pos, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
-            {
-                agent.Warp(hit.position);
-            }
-            else
-            {
-                // Fallback: just set position if NavMesh not found, 
-                // but this might cause the agent to be 'unplaced' on the mesh.
-                instance.transform.position = pos;
-                Debug.LogWarning($"PlacementFinalizer: Could not find NavMesh at {pos} for {data.objName}. Warp failed.");
-            }
+            agent.Warp(pos);
         }
         else
         {
             instance.transform.position = pos;
-            instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
         }
 
         FXPool.Instance.Play("dust", pos);
@@ -74,6 +76,11 @@ public class PlacementFinalizer : MonoBehaviour
         if (po != null)
             po.Initialize(data, root.x, root.y, (int)(rotation / 90f));
 
+        // Initialize BuildingData BEFORE adding to grid so UpdateStackPositions works
+        var bd = instance.GetComponent<BuildingData>();
+        if (bd != null)
+            bd.Initialize(root, rotation, offsets);
+
         // Add to grid
         foreach (var o in offsets)
         {
@@ -81,15 +88,33 @@ public class PlacementFinalizer : MonoBehaviour
             _grid.AddStackObject(cell, instance, data);
         }
 
-        // Initialize BuildingData
-        var bd = instance.GetComponent<BuildingData>();
-        if (bd != null)
-            bd.Initialize(root, rotation, offsets);
-
         return instance;
     }
+    private bool IsSameFloorAlreadyThere(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
+    {
+        foreach (var o in offsets)
+        {
+            Vector2Int cell = root + o;
+            var list = _grid.GetObjectsInCell(cell);
+            if (list == null) continue;
+
+            foreach (var entry in list)
+            {
+                if (entry.data != null && entry.data.isFloor)
+                {
+                    // If any cell in footprint already has this EXACT floor type, 
+                    // we consider it "the same floor is already there".
+                    // You might want to check if ALL cells match, but checking root is usually enough for single-cell floors.
+                    if (entry.data.id == data.id) 
+                        return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private void DisableExistingFloors(
-        Vector2Int root,
+Vector2Int root,
         Vector2Int[] offsets,
         List<GameObject> disabledFloors)
     {

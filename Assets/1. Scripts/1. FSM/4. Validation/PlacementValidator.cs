@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class PlacementValidator : MonoBehaviour
 {
@@ -88,19 +88,21 @@ public class PlacementValidator : MonoBehaviour
             if (entry.data.isFloor)
                 continue;
 
-            // Objects that ignore rules never block anything
-            if (entry.data.ignorePlacementRules)
+            // Objects that ignore rules or clear grid never block anything
+            if (entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement)
                 continue;
 
-            // --- HORIZONTAL OVERLAP CHECK ---
-            // If both objects would occupy the same height layer → BLOCK
-            if (existingHeight == 0f && !data.isStackable)
+            // --- OVERLAP CHECK ---
+            // If there is any non-floor object here, and we aren't stacking, then we are overlapping.
+            if (!data.isStackable)
                 return false;
 
             // --- VERTICAL STACK CHECK ---
-            if (!entry.data.isStackable || !data.isStackable)
+            // If the existing object is not stackable, we cannot place anything on top of it.
+            if (!entry.data.isStackable)
                 return false;
 
+            // Finally check if we've reached the maximum stack height
             if (!_grid.CanStack(cell, data))
                 return false;
         }

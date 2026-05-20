@@ -220,15 +220,13 @@ public class DeleteState : IPlacementState
         foreach (var cell in footprint)
         {
             var objs = _grid.GetObjectsInCell(cell);
-            if (objs != null)
+            if (objs != null && objs.Count > 0)
             {
-                foreach (var entry in objs)
+                var topEntry = objs[^1];
+                if (topEntry.instance != null)
                 {
-                    if (entry.instance != null)
-                    {
-                        var h = entry.instance.GetComponent<BuildingHighlighter>();
-                        if (h != null) newTargets.Add(h);
-                    }
+                    var h = topEntry.instance.GetComponent<BuildingHighlighter>();
+                    if (h != null) newTargets.Add(h);
                 }
             }
             

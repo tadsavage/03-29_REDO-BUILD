@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using UnityEngine;
 
 [System.Serializable]
 public class SaveData
@@ -6,7 +7,17 @@ public class SaveData
     public string saveName;
     public int money;
     public int spentToday;   // ⭐ NEW
+    public CameraSaveData cameraData; // ⭐ NEW
     public List<SavedObject> placedObjects = new();
+}
+
+[System.Serializable]
+public class CameraSaveData
+{
+    public Vector3 focusPoint;
+    public float distance;
+    public float pitch;
+    public float yaw;
 }
 
 [System.Serializable]

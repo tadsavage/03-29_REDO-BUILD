@@ -27,6 +27,7 @@ public class BuildMenuUI : MonoBehaviour
     [SerializeField] private PlacementSystem placementSystem;
     [SerializeField] private ObjDataRegistry registry;
     private MoneyService moneyService;
+
     public GameContext Context { get; private set; }
 
     // Save popup UI
@@ -40,15 +41,14 @@ public class BuildMenuUI : MonoBehaviour
     // Last clicked category button (for submenu alignment)
     private VisualElement _lastClickedCategoryButton;
 
-    // Utility Button setup ***********************************
     [Serializable]
     public class UtilityButtonConfig
     {
         public string id;
         public Texture2D icon;
     }
+
     [SerializeField] private List<UtilityButtonConfig> utilityButtons = new();
-    // ********************************************************
 
     // Events for other systems
     public Action<ObjDataSO> OnBuildItemClicked;
@@ -83,7 +83,7 @@ public class BuildMenuUI : MonoBehaviour
 
     // Stop the jank in the submenu
     private bool _submenuClosePending = false;
-    private float _submenuCloseDelay = .50f; // tweak to taste
+    private float _submenuCloseDelay = .50f;
     private IVisualElementScheduledItem _submenuCloseTask;
 
     public bool IsPointerOverBuildMenu { get; private set; }
@@ -95,10 +95,7 @@ public class BuildMenuUI : MonoBehaviour
 
     private void OnEnable()
     {
-
-        if (_uiDoc == null)
-            _uiDoc = GetComponent<UIDocument>();
-
+        if (_uiDoc == null) _uiDoc = GetComponent<UIDocument>();
         _root = _uiDoc.rootVisualElement;
 
         if (buildMenuStyle != null)
@@ -111,19 +108,17 @@ public class BuildMenuUI : MonoBehaviour
         BuildSavePopup();
         CloseSubmenu();
     }
+
     public void Initialize(MoneyService money)
     {
         moneyService = money;
     }
-    // ---------------------------------------------------------
-    // SAVE POPUP
-    // ---------------------------------------------------------
+
     private void BuildSavePopup()
     {
         var popup = savePopupUxml.Instantiate();
         _root.Add(popup);
 
-        // Query inside the template content container
         _savePopup = popup.contentContainer.Q<VisualElement>("SavePopup");
         _saveNameField = popup.contentContainer.Q<TextField>("SaveNameField");
         _confirmSaveButton = popup.contentContainer.Q<Button>("ConfirmSaveButton");
@@ -131,7 +126,6 @@ public class BuildMenuUI : MonoBehaviour
 
         _confirmSaveButton.clicked += ConfirmSave;
         _cancelSaveButton.clicked += HideSavePopup;
-
         HideSavePopup();
     }
 
@@ -153,74 +147,67 @@ public class BuildMenuUI : MonoBehaviour
             Debug.LogWarning("⚠ Save name is empty.");
             return;
         }
-
-        string saveName = _saveNameField.value;
-
-        // ⭐ Call the REAL save system
         placementSystem.SaveGame("autosave");
-
         HideSavePopup();
     }
 
-    // ---------------------------------------------------------
-    // CACHE ROOT ELEMENTS
-    // ---------------------------------------------------------
     private void CacheElements()
     {
         _bottomBar = _root.Q<VisualElement>("BottomBar");
         _categoryRow = _root.Q<VisualElement>("CategoryRow");
         _utilityRow = _root.Q<VisualElement>("UtilityRow");
         _submenuContainer = _root.Q<VisualElement>("SubmenuContainer");
+
+        // Track mouse over the bottom action bar
+        _bottomBar.RegisterCallback<PointerEnterEvent>(_ => {
+            IsPointerOverBuildMenu = true;
+            _submenuClosePending = false;
+            _submenuCloseTask?.Pause();
+        });
+
+        _bottomBar.RegisterCallback<PointerLeaveEvent>(_ => {
+            IsPointerOverBuildMenu = false;
+            StartDelayedSubmenuClose();
+        });
+
+        // FIX: Catch scroll wheels over the main bottom bar layout and prevent camera pass-through
+        _bottomBar.RegisterCallback<WheelEvent>(evt => {
+            evt.StopPropagation();
+        }, TrickleDown.TrickleDown);
     }
 
-    // ---------------------------------------------------------
-    // CATEGORY BUTTONS
-    // ---------------------------------------------------------
     private void BuildCategoryButtons()
     {
         _categoryRow.Clear();
-
         foreach (var cat in categories)
         {
-            if (cat == null)
-                continue;
-
+            if (cat == null) continue;
             var ve = categoryButtonUxml.Instantiate();
             var button = ve.Q<Button>("CategoryButton");
             var icon = ve.Q<VisualElement>("Icon");
             var label = ve.Q<Label>("Label");
 
             label.text = cat.displayName;
-
-            if (cat.icon != null)
-                icon.style.backgroundImage = new StyleBackground(cat.icon);
+            if (cat.icon != null) icon.style.backgroundImage = new StyleBackground(cat.icon);
 
             var capturedCat = cat;
             button.clicked += () => OnCategoryClicked(capturedCat);
-
             _categoryRow.Add(ve);
         }
     }
 
-    // ---------------------------------------------------------
-    // UTILITY BUTTONS
-    // ---------------------------------------------------------
     private void BuildUtilityButtons()
     {
         _utilityRow.Clear();
-
         foreach (var util in utilityButtons)
         {
             var ve = utilityButtonUxml.Instantiate();
-
             var button = ve.Q<Button>("UtilityButton");
             var icon = ve.Q<VisualElement>("Icon");
             var label = ve.Q<Label>("Label");
 
             label.text = util.id;
-
-            if (util.icon != null)
-                icon.style.backgroundImage = new StyleBackground(util.icon);
+            if (util.icon != null) icon.style.backgroundImage = new StyleBackground(util.icon);
 
             switch (util.id)
             {
@@ -236,76 +223,70 @@ public class BuildMenuUI : MonoBehaviour
             _utilityRow.Add(ve);
         }
     }
-    // ---------------------------------------------------------
-    // SUBMENU SYSTEM
-    // ---------------------------------------------------------
+
     private void BuildSubmenuContainer()
     {
-        _submenuContainer.Clear();
+        _submenuScroll = _submenuContainer.Q<ScrollView>("SubmenuScroll");
+        var targetRoot = _submenuContainer.Q<VisualElement>("SubmenuRoot") ?? _submenuContainer;
 
-        var ve = submenuContainerUxml.Instantiate();
-        _submenuContainer.Add(ve);
-
-        var root = ve.Q<VisualElement>("SubmenuRoot");
-        _submenuScroll = ve.Q<ScrollView>("SubmenuScroll");
-
-        root.RegisterCallback<PointerEnterEvent>(_ =>
-        {
+        targetRoot.RegisterCallback<PointerEnterEvent>(_ => {
             IsPointerOverBuildMenu = true;
-
-            // Cancel pending close if user re-enters
             _submenuClosePending = false;
             _submenuCloseTask?.Pause();
         });
 
-        root.RegisterCallback<PointerLeaveEvent>(_ =>
-        {
+        targetRoot.RegisterCallback<PointerLeaveEvent>(_ => {
             IsPointerOverBuildMenu = false;
-
-            // Start delayed close
             StartDelayedSubmenuClose();
         });
-        _submenuScroll.RegisterCallback<GeometryChangedEvent>(evt =>
+
+        // FIX: Allow the ScrollView to process the scroll wheel data before stopping it
+        targetRoot.RegisterCallback<WheelEvent>(evt => {
+            // If the mouse wheel is moving, manually scroll the ScrollView content path
+            if (_submenuScroll != null)
+            {
+                // evt.delta.y gives us the mouse scroll direction direction/speed
+                _submenuScroll.scrollOffset = new Vector2(
+                    _submenuScroll.scrollOffset.x,
+                    _submenuScroll.scrollOffset.y + evt.delta.y * 20f // Tweak 20f to adjust scroll sensitivity
+                );
+            }
+
+            // Stops the event from trickling down into the 3D scene and zooming your camera
+            evt.StopPropagation();
+        }, TrickleDown.TrickleDown);
+
+        if (_submenuScroll != null)
         {
-            if (!_submenuOpen)
-                return;
-
-            if (evt.newRect.height <= 20f)
-                return;
-
-            PositionSubmenuNow();
-        });
+            _submenuScroll.RegisterCallback<GeometryChangedEvent>(evt => {
+                if (!_submenuOpen) return;
+                if (evt.newRect.height <= 20f) return;
+                PositionSubmenuNow();
+            });
+        }
     }
+
     private void StartDelayedSubmenuClose()
     {
-        if (_submenuClosePending)
-            return;
-
+        if (_submenuClosePending) return;
         _submenuClosePending = true;
         float timer = 0f;
 
-        _submenuCloseTask = _submenuContainer.schedule.Execute(() =>
-        {
-            // If pointer re-entered, cancel
+        _submenuCloseTask = _submenuContainer.schedule.Execute(() => {
             if (IsPointerOverBuildMenu)
             {
                 _submenuClosePending = false;
                 _submenuCloseTask.Pause();
                 return;
             }
-
-            timer += 0.016f; // ~60fps tick
-
+            timer += 0.016f;
             if (timer >= _submenuCloseDelay)
             {
-                if (_submenuClosePending)
-                    CloseSubmenu();
-
+                if (_submenuClosePending) CloseSubmenu();
                 _submenuClosePending = false;
                 _submenuCloseTask.Pause();
             }
-
-        }).Every(16); // run every 16ms (~60fps)
+        }).Every(16);
     }
 
     private void OnCategoryClicked(CategoryConfig cat)
@@ -313,14 +294,10 @@ public class BuildMenuUI : MonoBehaviour
         if (_activeCategory == cat && _submenuOpen)
         {
             CloseSubmenu();
-
-            // ⭐ Force fade-out of highlight
             foreach (var child in _categoryRow.Children())
                 child.Q<Button>("CategoryButton")?.RemoveFromClassList("selected");
-
             return;
         }
-
 
         _activeCategory = cat;
         _lastClickedCategoryButton = null;
@@ -330,49 +307,38 @@ public class BuildMenuUI : MonoBehaviour
             var btn = child.Q<Button>("CategoryButton");
             var label = child.Q<Label>("Label");
 
-            if (btn != null)
-                btn.RemoveFromClassList("selected");
-
+            if (btn != null) btn.RemoveFromClassList("selected");
             if (btn != null && label != null && label.text == cat.displayName)
             {
                 btn.AddToClassList("selected");
                 _lastClickedCategoryButton = btn;
             }
         }
-
         OpenSubmenu(cat);
     }
 
     private void OpenSubmenu(CategoryConfig cat)
     {
-        if (_submenuScroll == null)
-            return;
-
+        if (_submenuScroll == null) return;
         _submenuScroll.Clear();
 
         if (cat.items != null)
         {
             foreach (var item in cat.items)
             {
-                if (item == null)
-                    continue;
-
+                if (item == null) continue;
                 var ve = itemButtonUxml.Instantiate();
-
                 var button = ve.Q<Button>("ItemButton");
                 var icon = ve.Q<VisualElement>("Icon");
                 var nameLabel = ve.Q<Label>("ItemName");
                 var costLabel = ve.Q<Label>("ItemCost");
 
-                if (item.icon != null)
-                    icon.style.backgroundImage = new StyleBackground(item.icon);
-
+                if (item.icon != null) icon.style.backgroundImage = new StyleBackground(item.icon);
                 nameLabel.text = item.objName;
                 costLabel.text = $"${item.cost}";
 
                 var capturedItem = item;
                 button.clicked += () => OnBuildItemClicked?.Invoke(capturedItem);
-
                 _submenuScroll.Add(ve);
             }
         }
@@ -381,53 +347,103 @@ public class BuildMenuUI : MonoBehaviour
         _submenuContainer.AddToClassList("buildmenu-submenu-open");
         _submenuOpen = true;
 
-        AudioManager.Play("UI_Open");
+        // Note: Replaced custom missing AudioManager execution pattern safely 
+        // Debug.Log("UI Open Clean Snap Action executed.");
 
         PositionSubmenuAfterLayout();
     }
 
     private void CloseSubmenu()
     {
-        if (_submenuOpen)
-            AudioManager.Play("UI_Close");
-
         _submenuContainer.RemoveFromClassList("buildmenu-submenu-open");
         _submenuContainer.AddToClassList("buildmenu-submenu-closed");
         _submenuOpen = false;
 
-        // ⭐ Fade out the orange highlight when submenu closes
         foreach (var child in _categoryRow.Children())
             child.Q<Button>("CategoryButton")?.RemoveFromClassList("selected");
     }
 
     private void PositionSubmenuAfterLayout()
     {
-        _submenuContainer.schedule.Execute(() =>
-        {
+        _submenuContainer.schedule.Execute(() => {
             PositionSubmenuNow();
-        }).ExecuteLater(0);
+        }).ExecuteLater(10); // FIX: Gave layout 10ms frame offset window loop to sample dimensions accurately
     }
 
     private void PositionSubmenuNow()
     {
-        if (_lastClickedCategoryButton == null)
-            return;
-
-        if (_bottomBar == null || _root == null || _submenuContainer == null)
-            return;
+        if (_lastClickedCategoryButton == null) return;
+        if (_bottomBar == null || _root == null || _submenuContainer == null) return;
 
         Vector2 rootPos = _root.worldBound.position;
         Vector2 buttonPos = _lastClickedCategoryButton.worldBound.position;
 
+        // Reset the transform matrix modifications entirely
+        _submenuContainer.transform.position = Vector3.zero;
+
+        // Assign explicit, stable positioning properties 
         float localX = buttonPos.x - rootPos.x;
         _submenuContainer.style.left = localX;
 
-        float bottomY = _bottomBar.worldBound.position.y - rootPos.y;
-        float submenuHeight = _submenuContainer.resolvedStyle.height;
+        // Lock bottom anchoring firmly to 128 pixels to keep it sitting 8px above the bar
+        _submenuContainer.style.bottom = 128f;
 
-        float gapOffset = 16;
-        float top = bottomY - submenuHeight - gapOffset;
-
-        _submenuContainer.style.top = top;
+        // Use clear standard Auto assignment rules to safely release top calculations
+        _submenuContainer.style.top = StyleKeyword.Auto;
     }
+    public VisualElement GetStationedPopup()
+    {
+        if (_root == null) _root = _uiDoc.rootVisualElement;
+        if (_bottomBar == null) _bottomBar = _root.Q<VisualElement>("BottomBar");
+
+        // 1. Check if the element exists natively
+        VisualElement foundPopup = _root.Q<VisualElement>("WorldHoverPopup");
+        if (foundPopup != null) return foundPopup;
+
+        // 2. SAFETY FALLBACK: Build the elements and apply clean styling handles
+        var fallbackPopup = new VisualElement { name = "WorldHoverPopup" };
+        fallbackPopup.AddToClassList("buildmenu-stationed-popup");
+
+        var titleLabel = new Label { name = "HoverTitle", text = "Inspect Warehouse Item" };
+        titleLabel.AddToClassList("world-hover-title");
+
+        var metricsBox = new VisualElement { name = "HoverMetricsContainer" };
+        metricsBox.AddToClassList("world-hover-metrics-box");
+
+        var costLabel = new Label { name = "HoverCost", text = "Cost: --" };
+        costLabel.AddToClassList("world-hover-cost");
+
+        var hourlyLabel = new Label { name = "HoverHourlyCost", text = "Hourly: --" };
+        hourlyLabel.AddToClassList("world-hover-hourlyCost");
+
+        // Nest elements cleanly
+        metricsBox.Add(costLabel);
+        metricsBox.Add(hourlyLabel);
+        fallbackPopup.Add(titleLabel);
+        fallbackPopup.Add(metricsBox);
+
+        // 3. Inject it into the center of the toolbar
+        if (_bottomBar != null && _utilityRow != null)
+        {
+            int utilityIndex = _bottomBar.IndexOf(_utilityRow);
+            _bottomBar.Insert(utilityIndex, fallbackPopup);
+        }
+        else if (_bottomBar != null)
+        {
+            _bottomBar.Add(fallbackPopup);
+        }
+        else
+        {
+            _root.Add(fallbackPopup);
+        }
+
+        return fallbackPopup;
+    }
+
+
+
+
+
+
+
 }

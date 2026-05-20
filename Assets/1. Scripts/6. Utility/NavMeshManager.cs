@@ -23,19 +23,18 @@ public class NavMeshManager : MonoBehaviour
         _surfaces = new List<NavMeshSurface>(Object.FindObjectsByType<NavMeshSurface>(FindObjectsSortMode.None));
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
-        if (Instance == this)
+        // Cancel all pending async builds to prevent crash when stopping play mode.
+        // Doing this in OnDisable ensures it runs before surfaces are potentially destroyed.
+        if (_surfaces != null)
         {
-            Instance = null;
-        }
-
-        // Cancel any pending async builds to prevent crash when stopping play mode
-        foreach (var surface in _surfaces)
-        {
-            if (surface != null && surface.navMeshData != null)
+            foreach (var surface in _surfaces)
             {
-                NavMeshBuilder.Cancel(surface.navMeshData);
+                if (surface != null && surface.navMeshData != null)
+                {
+                    NavMeshBuilder.Cancel(surface.navMeshData);
+                }
             }
         }
 
@@ -43,6 +42,14 @@ public class NavMeshManager : MonoBehaviour
         {
             StopCoroutine(_updateCoroutine);
             _updateCoroutine = null;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 
@@ -144,7 +151,6 @@ public class NavMeshManager : MonoBehaviour
                     surface.UpdateNavMesh(surface.navMeshData);
                     
                     float duration = Time.realtimeSinceStartup - startTime;
-                    Debug.Log($"[NavMeshManager] Async Updated {surface.name} in {duration:F2}s");
                 }
             }
             _isUpdating = false;

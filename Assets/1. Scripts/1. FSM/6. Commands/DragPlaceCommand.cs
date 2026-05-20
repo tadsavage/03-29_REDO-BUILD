@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class DragPlaceCommand : ICommand
@@ -56,6 +56,10 @@ public class DragPlaceCommand : ICommand
                 // Deduct cost per placed object
                 _money.Deduct(_data.cost);
                 _money.AddHourlyCost(_data.hourlyCost);
+
+                // Force height recalculation for every cell in this object's footprint
+                foreach (var o in _offsets)
+                    _grid.UpdateStackPositions(cell + o);
             }
         }
     }
@@ -71,7 +75,7 @@ public class DragPlaceCommand : ICommand
             var bd = instance.GetComponent<BuildingData>();
             if (bd == null)
             {
-                Object.Destroy(instance);
+                Object.Destroy(instance); // fallback for non-building objects
                 continue;
             }
 
@@ -83,28 +87,88 @@ public class DragPlaceCommand : ICommand
                 _grid.RemoveStackObject(cell, instance, bd.Data);
             }
 
-            bd.Delete();
-            // 💰 Refund money for each placed object
+            instance.SetActive(false);
+            
+            // Refund money for each object
             _money.Refund(_data.cost);
             _money.RemoveHourlyCost(_data.hourlyCost);
         }
 
-
-        _instances.Clear();
-
-        // Re-enable any floors we disabled
+        // Re-enable any floors we disabled during execution
+        bool revealedFloor = false;
         foreach (var floor in _disabledFloors)
         {
             if (floor != null)
+            {
                 floor.SetActive(true);
+                revealedFloor = true;
+            }
         }
 
-        _disabledFloors.Clear();
+        // Update stack heights for all affected cells
+        foreach (var cell in _cells)
+        {
+            foreach (var o in _offsets)
+            {
+                _grid.UpdateStackPositions(cell + o);
+            }
+        }
+
+        if (revealedFloor || _data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
+        {
+            NavMeshManager.Instance.MarkDirty();
+        }
     }
 
     public void Redo()
     {
-        // Recreate all instances using the same cells
-        Execute();
+        // 1. Enable objects first
+        foreach (var instance in _instances)
+        {
+            if (instance != null)
+                instance.SetActive(true);
+        }
+
+        // 2. Add back to grid
+        foreach (var instance in _instances)
+        {
+            if (instance == null) continue;
+            var bd = instance.GetComponent<BuildingData>();
+            if (bd == null) continue;
+
+            Vector2Int root = bd.RootCell;
+            foreach (var o in _offsets)
+            {
+                _grid.AddStackObject(root + o, instance, bd.Data);
+            }
+        }
+
+        // 3. Re-disable floors
+        foreach (var floor in _disabledFloors)
+        {
+            if (floor != null)
+                floor.SetActive(false);
+        }
+
+        // 4. Update stack heights
+        foreach (var cell in _cells)
+        {
+            foreach (var o in _offsets)
+            {
+                _grid.UpdateStackPositions(cell + o);
+            }
+        }
+
+        // 5. Deduct money
+        foreach (var instance in _instances)
+        {
+            _money.Deduct(_data.cost);
+            _money.AddHourlyCost(_data.hourlyCost);
+        }
+
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
+        {
+            NavMeshManager.Instance.MarkDirty();
+        }
     }
 }

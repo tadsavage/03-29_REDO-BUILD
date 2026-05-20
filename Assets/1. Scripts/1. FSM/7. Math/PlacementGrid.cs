@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 [ExecuteAlways]
 public class PlacementGrid : MonoBehaviour
@@ -123,10 +124,10 @@ public class PlacementGrid : MonoBehaviour
         if (list == null || list.Count == 0)
             return false;
 
-        // Floors and ignorePlacementRules do NOT count as occupied
+        // Floors, ignorePlacementRules, and ClearsGridAfterPlacement do NOT count as occupied
         foreach (var entry in list)
         {
-            if (!entry.data.isFloor && !entry.data.ignorePlacementRules)
+            if (!entry.data.isFloor && !entry.data.ignorePlacementRules && !entry.data.ClearsGridAfterPlacement)
                 return true;
         }
 
@@ -142,10 +143,10 @@ public class PlacementGrid : MonoBehaviour
         if (list == null || list.Count == 0)
             return null;
 
-        // Return the topmost NON-floor object
+        // Return the topmost NON-floor object that isn't a clearer
         for (int i = list.Count - 1; i >= 0; i--)
         {
-            if (!list[i].data.isFloor && !list[i].data.ignorePlacementRules)
+            if (!list[i].data.isFloor && !list[i].data.ignorePlacementRules && !list[i].data.ClearsGridAfterPlacement)
                 return list[i].instance;
         }
 
@@ -153,10 +154,76 @@ public class PlacementGrid : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // STACK HEIGHT
+    // STACK HEIGHT & POSITIONING
     // ---------------------------------------------------------
-    public float GetStackHeight(Vector2Int cell, GameObject ignore = null)
+    public void UpdateStackPositions(Vector2Int cell)
     {
+        if (!IsInsideGrid(cell)) return;
+
+        var list = _cells[cell.x, cell.y];
+        if (list == null) return;
+
+        float currentY = 0f;
+        foreach (var entry in list)
+        {
+            if (entry.instance == null || !entry.instance.activeSelf) continue;
+
+            // Objects that ignore rules or clear grid stay at y=0, unless they are floors
+            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor)
+            {
+                Vector3 p = GetCellCenter(cell);
+                p.y = 0f;
+                entry.instance.transform.position = p;
+                continue;
+            }
+
+            // Set position - Only the Root cell of a building should drive its transform position
+            var bd = entry.instance.GetComponent<BuildingData>();
+            if (bd != null)
+            {
+                if (bd.RootCell == cell)
+                {
+                    Vector3 pos = GetCellCenter(cell);
+                    pos.y = currentY;
+
+                    var agent = entry.instance.GetComponent<NavMeshAgent>();
+                    if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                    {
+                        agent.Warp(pos);
+                    }
+                    else
+                    {
+                        entry.instance.transform.position = pos;
+                    }
+                }
+            }
+            else
+            {
+                // Fallback for items without building data
+                Vector3 pos = GetCellCenter(cell);
+                pos.y = currentY;
+
+                var agent = entry.instance.GetComponent<NavMeshAgent>();
+                if (agent != null && agent.isActiveAndEnabled)
+                {
+                    agent.Warp(pos);
+                }
+                else
+                {
+                    entry.instance.transform.position = pos;
+                }
+            }
+
+            // Increment height for next object
+            currentY += entry.data.objHeight;
+        }
+
+        // Cache the total height for queries
+        _stackHeights[cell.x, cell.y] = currentY;
+    }
+
+    public float GetStackHeight(Vector2Int cell, GameObject ignore = null)
+{
         if (!IsInsideGrid(cell))
             return 0f;
 
@@ -168,11 +235,11 @@ public class PlacementGrid : MonoBehaviour
 
         foreach (var entry in list)
         {
-            if (entry.instance == ignore)
+            if (entry.instance == ignore || (entry.instance != null && !entry.instance.activeSelf))
                 continue;
 
-            // Floors and ignorePlacementRules do NOT add height
-            if (entry.data.isFloor || entry.data.ignorePlacementRules)
+            // ignorePlacementRules and ClearsGridAfterPlacement do NOT add height, but floors always DO if they have a height.
+            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor)
                 continue;
 
             height += entry.data.objHeight;
@@ -200,28 +267,28 @@ public class PlacementGrid : MonoBehaviour
         if (!IsInsideGrid(cell))
             return;
 
-        // Floors ALWAYS go at the bottom
+        var list = _cells[cell.x, cell.y];
+
+        // Floors go after other floors but before everything else
         if (data.isFloor)
         {
-            _cells[cell.x, cell.y].Insert(0, new PlacedObject
+            int lastFloorIndex = -1;
+            for (int i = 0; i < list.Count; i++)
             {
-                instance = obj,
-                data = data
-            });
+                if (list[i].data.isFloor)
+                    lastFloorIndex = i;
+                else
+                    break;
+            }
+            list.Insert(lastFloorIndex + 1, new PlacedObject { instance = obj, data = data });
         }
         else
         {
             // Normal objects go on top
-            _cells[cell.x, cell.y].Add(new PlacedObject
-            {
-                instance = obj,
-                data = data
-            });
+            list.Add(new PlacedObject { instance = obj, data = data });
         }
 
-        // Floors do NOT add height
-        if (!data.isFloor && !data.ignorePlacementRules)
-            _stackHeights[cell.x, cell.y] += data.objHeight;
+        UpdateStackPositions(cell);
 
         if (UseVisualizer)
         {
@@ -246,15 +313,10 @@ public class PlacementGrid : MonoBehaviour
             if (list[i].instance == obj)
             {
                 list.RemoveAt(i);
-
-                if (!data.isFloor && !data.ignorePlacementRules)
-                {
-                    _stackHeights[cell.x, cell.y] -= data.objHeight;
-                    if (_stackHeights[cell.x, cell.y] < 0f)
-                        _stackHeights[cell.x, cell.y] = 0f;
-                }
             }
         }
+
+        UpdateStackPositions(cell);
 
         if (UseVisualizer)
         {
@@ -270,17 +332,30 @@ public class PlacementGrid : MonoBehaviour
         if (!IsInsideGrid(cell))
             return;
 
-        foreach (var entry in _cells[cell.x, cell.y])
+        var list = _cells[cell.x, cell.y];
+        for (int i = list.Count - 1; i >= 0; i--)
         {
+            var entry = list[i];
+            
+            // Do NOT clear floors here. Floor replacement is handled separately.
+            if (entry.data != null && entry.data.isFloor)
+                continue;
+
             if (destroyObject && entry.instance != null)
                 Destroy(entry.instance);
+
+            list.RemoveAt(i);
         }
 
-        _cells[cell.x, cell.y].Clear();
-        _stackHeights[cell.x, cell.y] = 0f;
+        UpdateStackPositions(cell);
 
         if (UseVisualizer)
-            SetCellVisual(cell, FreeColor);
+        {
+            if (IsOccupied(cell))
+                SetCellVisual(cell, OccupiedColor);
+            else
+                SetCellVisual(cell, FreeColor);
+        }
     }
 
     // ---------------------------------------------------------
@@ -508,12 +583,17 @@ public class PlacementGrid : MonoBehaviour
                     list.Insert(0, new PlacedObject { instance = placed.gameObject, data = placed.data });
                 else
                     list.Add(new PlacedObject { instance = placed.gameObject, data = placed.data });
+                }
+                }
 
-                // Stack height per footprint cell
-                if (!placed.data.isFloor && !placed.data.ignorePlacementRules)
-                    _stackHeights[cell.x, cell.y] += placed.data.objHeight;
-            }
-        }
+                // Second pass: Update all cell heights and positions
+                for (int x = 0; x < Width; x++)
+                {
+                for (int y = 0; y < Height; y++)
+                {
+                UpdateStackPositions(new Vector2Int(x, y));
+                }
+                }
 
         if (UseVisualizer)
             RedrawAllVisuals();

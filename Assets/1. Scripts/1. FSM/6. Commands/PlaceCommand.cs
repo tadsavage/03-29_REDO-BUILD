@@ -39,8 +39,10 @@ public class PlaceCommand : ICommand
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
 
-        // Tell NavMesh to update ONLY if it's a modifier-based object (Floor, Door, etc.)
-        // Blocking objects use NavMeshObstacle carving which updates automatically.
+        // Explicitly force height recalculation for all cells in footprint
+        foreach (var o in _offsets)
+            _grid.UpdateStackPositions(_root + o);
+
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
         {
             NavMeshManager.Instance.MarkDirty();
@@ -68,6 +70,10 @@ public class PlaceCommand : ICommand
             }
         }
 
+        // Explicitly force height recalculation for all cells in footprint
+        foreach (var o in _offsets)
+            _grid.UpdateStackPositions(_root + o);
+
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || revealedFloor)
         {
             NavMeshManager.Instance.MarkDirty();
@@ -76,10 +82,20 @@ public class PlaceCommand : ICommand
 
         public void Redo()
         {
-        foreach (var o in _offsets)
-            _grid.AddStackObject(_root + o, _instance, _data);
+        if (_instance == null) return;
 
+        // 1. Enable first so UpdateStackPositions sees it
         _instance.SetActive(true);
+
+        foreach (var o in _offsets)
+        {
+            _grid.AddStackObject(_root + o, _instance, _data);
+        }
+
+        // Explicitly force height recalculation for all cells in footprint
+        foreach (var o in _offsets)
+            _grid.UpdateStackPositions(_root + o);
+
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
 

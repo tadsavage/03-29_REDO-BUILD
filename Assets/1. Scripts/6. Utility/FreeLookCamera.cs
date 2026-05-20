@@ -1,17 +1,11 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>
-/// A Sims 4 style orbit camera.
-/// 
-/// Keys:
-///	wasd / arrows	- movement (shifts focus point)
-///	q/e 			- up/down (adjusts focus point height)
-///	right mouse  	- rotate around focus point
-///	scroll wheel	- zoom in/out
-/// </summary>
 public class FreeLookCamera : MonoBehaviour
 {
+    [Header("UI Protection Link")]
+    [SerializeField] private BuildMenuUI buildMenuUI; // Drag & drop your BuildMenu object here in inspector
+
     [Header("Movement Settings")]
     public float movementSpeed = 15f;
     public float fastMovementSpeed = 35f;
@@ -22,13 +16,13 @@ public class FreeLookCamera : MonoBehaviour
     public float maxPitch = 85f;
 
     [Header("Zoom Settings")]
-    public float zoomSensitivity = 25f;
+    public float zoomSensitivity = 5f;
     public float minDistance = 1f;
-    public float maxDistance = 100f;
+    public float maxDistance = 60f;
 
     [Header("Height Settings")]
-    public float heightMin = 1f;
-    public float heightMax = 30f;
+    public float heightMin = 0.5f;
+    public float heightMax = 40f;
 
     [Header("Boundary Settings")]
     public float X_Min = -100f;
@@ -46,7 +40,6 @@ public class FreeLookCamera : MonoBehaviour
 
     private void Start()
     {
-        // Try to find a focus point on the ground (Y=0)
         Ray ray = new Ray(transform.position, transform.forward);
         if (new Plane(Vector3.up, Vector3.zero).Raycast(ray, out float enter))
         {
@@ -54,31 +47,23 @@ public class FreeLookCamera : MonoBehaviour
         }
         else
         {
-            // Fallback: focus on a point 10 units ahead at Y=0
             _focusPoint = transform.position + transform.forward * 10f;
             _focusPoint.y = 0;
         }
 
-        // Initialize rotation and distance from current transform
         _distance = Vector3.Distance(transform.position, _focusPoint);
+        _distance = Mathf.Clamp(_distance, minDistance, maxDistance);
         _yaw = transform.eulerAngles.y;
         _pitch = transform.eulerAngles.x;
-
-        // Ensure pitch is in -180 to 180 range for clamping
         if (_pitch > 180) _pitch -= 360;
         _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
-
-        // Initial height clamp
         _focusPoint.y = Mathf.Clamp(_focusPoint.y, heightMin, heightMax);
-        
-        // Initial sync
         UpdateCameraTransform();
     }
 
     private void Update()
     {
         if (UIInputGuard.IsTextFieldFocused) return;
-
         HandleInput();
         UpdateCameraTransform();
     }
@@ -88,7 +73,7 @@ public class FreeLookCamera : MonoBehaviour
         var fastMode = Keyboard.current[Key.LeftShift].isPressed;
         var currentMoveSpeed = fastMode ? fastMovementSpeed : movementSpeed;
 
-        // --- 1. Rotation (Right Mouse Button) ---
+        // --- 1. Rotation (Right Mouse) ---
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
             _looking = true;
@@ -108,9 +93,21 @@ public class FreeLookCamera : MonoBehaviour
             _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
         }
 
-        // --- 2. Zoom (Removed) ---
+        // --- 2. Zoom (Scroll Wheel) - PROTECTED FROM UI BLOWBACK ---
+        // GUARD: If UI pointer tracker exists AND your mouse is hovering over the menu, block scroll processing
+        bool isMouseOverMenu = buildMenuUI != null && buildMenuUI.IsPointerOverBuildMenu;
 
-        // --- 3. Movement (WASD / Arrows) ---
+        if (!isMouseOverMenu)
+        {
+            float scroll = Mouse.current.scroll.ReadValue().y;
+            if (Mathf.Abs(scroll) > 0.1f)
+            {
+                _distance -= (scroll / 120f) * zoomSensitivity;
+                _distance = Mathf.Clamp(_distance, minDistance, maxDistance);
+            }
+        }
+
+        // --- 3. Panning (WASD) ---
         Vector2 moveInput = Vector2.zero;
         if (Keyboard.current[Key.W].isPressed || Keyboard.current[Key.UpArrow].isPressed) moveInput.y += 1;
         if (Keyboard.current[Key.S].isPressed || Keyboard.current[Key.DownArrow].isPressed) moveInput.y -= 1;
@@ -119,25 +116,17 @@ public class FreeLookCamera : MonoBehaviour
 
         if (moveInput.sqrMagnitude > 0.01f)
         {
-            // Move relative to current yaw
             Vector3 forward = Quaternion.Euler(0, _yaw, 0) * Vector3.forward;
             Vector3 right = Quaternion.Euler(0, _yaw, 0) * Vector3.right;
             Vector3 moveDir = (forward * moveInput.y + right * moveInput.x).normalized;
-
             _focusPoint += moveDir * currentMoveSpeed * Time.deltaTime;
         }
 
-        // --- 4. Vertical Movement (Q: Up, E: Down) ---
-        if (Keyboard.current[Key.E].isPressed)
-        {
-            _focusPoint.y += currentMoveSpeed * Time.deltaTime;
-        }
-        if (Keyboard.current[Key.Q].isPressed)
-        {
-            _focusPoint.y -= currentMoveSpeed * Time.deltaTime;
-        }
+        // --- 4. Vertical (Q: Up, E: Down) ---
+        if (Keyboard.current[Key.E].isPressed) _focusPoint.y -= currentMoveSpeed * Time.deltaTime;
+        if (Keyboard.current[Key.Q].isPressed) _focusPoint.y += currentMoveSpeed * Time.deltaTime;
 
-        // --- 5. Clamping ---
+        // --- 5. Final Clamping ---
         _focusPoint.x = Mathf.Clamp(_focusPoint.x, X_Min, X_Max);
         _focusPoint.y = Mathf.Clamp(_focusPoint.y, heightMin, heightMax);
         _focusPoint.z = Mathf.Clamp(_focusPoint.z, Z_Min, Z_Max);
@@ -145,20 +134,25 @@ public class FreeLookCamera : MonoBehaviour
 
     private void UpdateCameraTransform()
     {
-        // Calculate new rotation
         Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0);
-
-        // Calculate new position
-        Vector3 position = _focusPoint - (rotation * Vector3.forward * _distance);
-
-        // Apply
-        transform.position = position;
+        transform.position = _focusPoint - (rotation * Vector3.forward * _distance);
         transform.rotation = rotation;
     }
 
-    private void OnDisable()
+    private void OnDisable() => Cursor.visible = true;
+
+    public CameraSaveData GetState()
     {
-        Cursor.visible = true;
+        return new CameraSaveData { focusPoint = _focusPoint, distance = _distance, pitch = _pitch, yaw = _yaw };
+    }
+
+    public void SetState(CameraSaveData state)
+    {
+        if (state == null) return;
+        _focusPoint = state.focusPoint;
+        _distance = state.distance;
+        _pitch = state.pitch;
+        _yaw = state.yaw;
+        UpdateCameraTransform();
     }
 }
-

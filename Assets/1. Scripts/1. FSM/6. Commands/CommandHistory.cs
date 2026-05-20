@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 public class CommandHistory
 {
@@ -81,7 +81,7 @@ public class CommandHistory
             return;
 
         ICommand cmd = _redo.Pop();
-        cmd.Execute();
+        cmd.Redo();
         _undo.Push(cmd);
     }
 

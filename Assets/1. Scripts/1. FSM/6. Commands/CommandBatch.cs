@@ -22,6 +22,7 @@ public class CommandBatch : ICommand
 
     public void Redo()
     {
-        Execute();
+        foreach (var cmd in _commands)
+            cmd.Redo();
     }
 }

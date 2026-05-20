@@ -50,11 +50,12 @@ public class DeleteCommand : ICommand
                             entry.instance.SetActive(true);
                             if (!_reEnabledFloors.Contains(entry.instance))
                                 _reEnabledFloors.Add(entry.instance);
-                        }
-                    }
-                }
-            }
-        }
+                            }
+                            }
+                            }
+                            }
+                            _grid.UpdateStackPositions(cell);
+                            }
 
         // 2. Remove from registry is now handled automatically by _target.SetActive(false) -> PlacedObject.OnDisable()
 
@@ -80,44 +81,45 @@ public class DeleteCommand : ICommand
             if (_target == null)
                 return;
 
-            // 1. Add back to grid
+            // 1. Enable object first so UpdateStackPositions sees it as active
+            _target.SetActive(true);
+
+            // 2. Add back to grid
             foreach (var o in _offsets)
             {
                 Vector2Int cell = _root + o;
                 _grid.AddStackObject(cell, _target, _data);
+
+                // 3. Re-disable floors we re-enabled during deletion
+                foreach (var floor in _reEnabledFloors)
+                {
+                    if (floor != null)
+                        floor.SetActive(false);
+                }
+
+                // 4. Update again because we changed floor visibility
+                _grid.UpdateStackPositions(cell);
             }
 
-            // 2. Re-disable floors we re-enabled during deletion
-            foreach (var floor in _reEnabledFloors)
-            {
-                if (floor != null)
-                    floor.SetActive(false);
-            }
-            
-            bool hiddenFloor = _reEnabledFloors.Count > 0;
             _reEnabledFloors.Clear();
 
-            // 3. Registration is now handled automatically by _target.SetActive(true) -> PlacedObject.OnEnable()
-
-            // 4. Deduct money (un-refund)
+            // 5. Deduct money (un-refund)
             _money.Deduct(_data.cost, _data.category);
             _money.AddHourlyCost(_data.hourlyCost);
 
-            // 5. Ensure any highlights are cleared before enabling
+            // 6. Ensure any highlights are cleared
             var highlighter = _target.GetComponent<BuildingHighlighter>();
             if (highlighter != null)
                 highlighter.HighlightDelete(false);
 
-            // 6. Enable object
-            _target.SetActive(true);
-
-            if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || hiddenFloor)
+            if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
             {
                 NavMeshManager.Instance.MarkDirty();
             }
         }
-    public void Redo()
-    {
-        Execute();
-    }
-}
+
+        public void Redo()
+        {
+            Execute();
+        }
+        }

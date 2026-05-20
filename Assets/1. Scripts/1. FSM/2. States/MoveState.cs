@@ -39,6 +39,8 @@ public class MoveState : IPlacementState
     private Vector2Int[] _offsets;    // Footprint offsets (rotated)
     private float _rotation;          // Current rotation (0/90/180/270)
     private Vector2Int _originalRoot; // Where the object started
+    private Vector2Int[] _originalOffsets;
+    private float _originalRotation;
 
     private bool _hasSelection;
 
@@ -118,7 +120,20 @@ public class MoveState : IPlacementState
         _indicator.ClearAll();
 
         if (_obj != null)
+        {
             _preview.ClearFlatHighlight(_obj);
+            
+            // If we still have a selection, it means the move wasn't confirmed.
+            // We should put it back.
+            if (_hasSelection)
+            {
+                _obj.SetActive(true);
+                foreach (var o in _offsets)
+                {
+                    _grid.AddStackObject(_originalRoot + o, _obj, _data);
+                }
+            }
+        }
 
         // Clear selection state
         _obj = null;
@@ -172,6 +187,9 @@ public class MoveState : IPlacementState
         _offsets = bd.Offsets;
         _rotation = bd.Rotation;
         _originalRoot = bd.RootCell;
+
+        _originalOffsets = _offsets;
+        _originalRotation = _rotation;
 
         // -----------------------------------------------------
         // OFFSET‑AWARE SELECTION
@@ -323,7 +341,9 @@ Vector2Int newRoot = hitCell - _selectionDelta;
                 _data,
                 _originalRoot,
                 newRoot,
+                _originalOffsets,
                 _offsets,
+                _originalRotation,
                 _rotation
             )
         );

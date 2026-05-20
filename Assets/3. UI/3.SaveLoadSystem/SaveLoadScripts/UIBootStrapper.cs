@@ -29,11 +29,11 @@ public class UIBootstrapper : MonoBehaviour
     {
         if (_hudDocument == null)
         {
-            // Try to find HUD in scene if not assigned
+            // FIX: Changed "WorldHoverPopup" query to "TopBar" so it identifies the HUD document correctly
             UIDocument[] docs = Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None);
             foreach (var d in docs)
             {
-                if (d.rootVisualElement != null && d.rootVisualElement.Q("WorldHoverPopup") != null)
+                if (d.rootVisualElement != null && d.rootVisualElement.Q("TopBar") != null)
                 {
                     _hudDocument = d;
                     break;
@@ -48,27 +48,16 @@ public class UIBootstrapper : MonoBehaviour
         }
 
         // Preview cost UI
-        if (_costUI != null)
-            _costUI.Init(_hudDocument);
+        if (_costUI != null) _costUI.Init(_hudDocument);
 
         // Top bar UI
-        if (_topBarUI != null)
-            _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService);
-
-        // Hover popup UI
-        if (_hoverUI != null)
-        {
-            _hoverUI.Init(_hudDocument);
-            _hoverUI.SetFSM(_fsm);
-            _fsm.SetHoverUI(_hoverUI);
-        }
+        if (_topBarUI != null) _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService);
     }
 
     private void InitializeBuildMenu()
     {
         if (_buildMenuDocument == null)
         {
-             // Try to find BottomBar in scene if not assigned
             UIDocument[] docs = Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None);
             foreach (var d in docs)
             {
@@ -86,20 +75,26 @@ public class UIBootstrapper : MonoBehaviour
             return;
         }
 
-        // 1. Initialize with money service
+        // 1. Initialize the build menu layout engine
         _buildMenuUI.Initialize(_context.MoneyService);
 
-        // 2. Wire up all UI events to the FSM
-        _buildMenuUI.OnBuildItemClicked += _fsm.EnterBuild;
-        _buildMenuUI.OnDeleteClicked += _fsm.EnterDelete;
-        _buildMenuUI.OnMoveClicked += _fsm.EnterMove;
-        _buildMenuUI.OnUndoClicked += _fsm.Undo;
-        _buildMenuUI.OnRedoClicked += _fsm.Redo;
+        // 2. Fetch or dynamically generate the stationed panel container box
+        if (_hoverUI != null)
+        {
+            VisualElement stationedElement = _buildMenuUI.GetStationedPopup();
+
+            if (stationedElement != null)
+            {
+                _hoverUI.Init(stationedElement);
+                _hoverUI.SetFSM(_fsm);
+                _fsm.SetHoverUI(_hoverUI);
+            }
+            // CLEANED UP: Wiped out the restrictive old UXML error trap block that was throwing the false alarm
+        }
+
+        // 3. Wire up remaining UI events
         _buildMenuUI.OnCancelClicked += _fsm.ReturnToPrevious;
-        _buildMenuUI.OnRotateClicked += () => {
-            // This event might need to be passed to current state if it supports rotation
-            // But Build/Move handle their own R key. This is for the UI button.
-            //if (_fsm.CurrentState is BuildState bs) bs.OnRotatePerformed(); 
-        };
+        _buildMenuUI.OnRotateClicked += () => { };
     }
+
 }

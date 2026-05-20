@@ -1,59 +1,59 @@
 .topbar-root {
+    display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    height: 40px;
-    padding-left: 12px;
-    padding-right: 12px;
-    background-color: rgba(0, 0, 0, 0.5);
-    -unity-text-align: middle-left;
+    height: 50px;
+    background-color: rgba(35, 35, 40, 0.95);
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(236, 201, 138, 0.4);
+    padding-left: 16px;
+    padding-right: 16px;
+    width: 100%;
 }
 
 .topbar-box {
-    background-color: rgba(35, 37, 40, 0.45);
-    border-radius: 4px;
-    padding-left: 10px;
-    padding-right: 10px;
+    display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    height: 32px;
-    min-height: 32px;
-    line-height: 32px;
-    flex-shrink: 0;
-    -unity-text-align: middle-left;
-    font-size: 22px;
-    -unity-font-definition: url("project://database/Assets/TextMesh%20Pro/Fonts/Font/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
-    white-space: nowrap;
-    text-shadow: 0 0 2px rgba(0, 0, 0, 0);
-    border-left-color: rgba(204, 153, 77, 0.5);
-    border-right-color: rgba(204, 153, 77, 0.5);
-    border-top-color: rgba(204, 153, 77, 0.5);
-    border-bottom-color: rgba(204, 153, 77, 0.5);
-    border-top-width: 2px;
-    border-right-width: 2px;
-    border-bottom-width: 2px;
-    border-left-width: 2px;
+    flex-grow: 1;
+    height: 36px;
+    padding-left: 12px;
+    padding-right: 12px;
+    margin-left: 4px;
+    margin-right: 4px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.topbar-money,
+.topbar-hourly,
+.topbar-spent,
+.topbar-time {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 15px;
+    -unity-font-style: normal;
+    -unity-text-align: middle-center;
 }
 
 .topbar-money {
-    color: rgb(204, 153, 77);
-    unity-font-style: bold;
-    font-size: 18px;
+    color: rgb(160, 255, 200);
 }
 
 .topbar-hourly {
-    color: rgb(204, 153, 77);
-    font-size: 18px;
+    color: rgb(240, 230, 211);
 }
 
-.topbar-spent {
-    color: rgb(204, 115, 115);
-    font-size: 18px;
-}
-
+.topbar-spent,
 .topbar-time {
-    color: rgb(204, 153, 77);
-    unity-font-style: bold;
-    font-size: 18px;
+    color: rgb(240, 230, 211);
+}
+
+.topbar-box:hover {
+    background-color: rgba(212, 135, 77, 0.12);
+    border-color: rgba(212, 135, 77, 0.45);
+    transition-duration: 0.25s;
 }

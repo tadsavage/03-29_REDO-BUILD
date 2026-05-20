@@ -12,6 +12,7 @@ public class PlacementSystem : MonoBehaviour
     [SerializeField] private ObjDataRegistry registry;
     [SerializeField] private PlacementGrid grid;
     [SerializeField] private SaveLoadWindowController saveLoadWindowController;
+    [SerializeField] private FreeLookCamera freeLookCamera;
 
     private MoneyService moneyService;
 
@@ -26,6 +27,9 @@ public class PlacementSystem : MonoBehaviour
     }
     private void Start()
     {
+        if (freeLookCamera == null)
+            freeLookCamera = Camera.main.GetComponent<FreeLookCamera>();
+
         // Subscribe to slot save/load events for toast + SFX
         if (SaveManager.Instance != null)
         {
@@ -172,6 +176,9 @@ public class PlacementSystem : MonoBehaviour
         save.money = moneyService.CurrentCapital;
         save.spentToday = moneyService.SpentToday;
 
+        if (freeLookCamera != null)
+            save.cameraData = freeLookCamera.GetState();
+
         foreach (var entry in PlacedObjectRegistry.All)
         {
             SavedObject obj = new SavedObject();
@@ -189,6 +196,9 @@ public class PlacementSystem : MonoBehaviour
     {
         moneyService.SetMoney(save.money);
         moneyService.SetSpentToday(save.spentToday);
+
+        if (save.cameraData != null && freeLookCamera != null)
+            freeLookCamera.SetState(save.cameraData);
 
         ClearAll();
 

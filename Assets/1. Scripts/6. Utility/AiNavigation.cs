@@ -63,9 +63,15 @@ public class AiNavigation : MonoBehaviour
             retryCount++;
             
             // Try to snap to NavMesh if not already on it
+            // We search in a small radius and favor the current height to avoid floor-snapping.
             if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
             {
-                agent.Warp(hit.position);
+                // Only warp if truly necessary (off mesh) and the target is at a similar height,
+                // or if we've been off the mesh for a long time.
+                if (!agent.isOnNavMesh && (Mathf.Abs(hit.position.y - transform.position.y) < 2.0f || retryCount > 10))
+                {
+                    agent.Warp(hit.position);
+                }
             }
             
             yield return new WaitForSeconds(0.5f);
@@ -175,10 +181,14 @@ public class AiNavigation : MonoBehaviour
             {
                 if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
                 {
-                    agent.Warp(hit.position);
-                    // Force destination refresh
-                    if (waypoints != null && waypoints.Length > 0)
-                        agent.SetDestination(waypoints[currentIndex].position);
+                    // Only warp if it doesn't cause a massive vertical jump (which would be "not obeying height")
+                    if (Mathf.Abs(hit.position.y - transform.position.y) < 1.0f)
+                    {
+                        agent.Warp(hit.position);
+                        // Force destination refresh
+                        if (waypoints != null && waypoints.Length > 0)
+                            agent.SetDestination(waypoints[currentIndex].position);
+                    }
                 }
             }
             return;

@@ -37,9 +37,10 @@ public class BuildingData : MonoBehaviour
                 DestroyImmediate(oldModifier);
             return;
         }
-        // 2. Clearance objects (Racks, Doors) should be BAKED but NOT have obstacles.
-        // This allows different NavMesh surfaces (Humanoid vs MHE) to handle clearance height naturally.
-        if (Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules)
+        // 2. Clearance objects (Racks, Doors) or Stackable objects (Crates) should be BAKED but NOT have obstacles.
+        // This allows different NavMesh surfaces (Humanoid vs MHE) to handle clearance height naturally
+        // and enables multi-level navigation for agents on top of objects.
+        if (Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules || Data.isStackable)
         {
             // Set layer to Ground (3) to ensure collection by NavMeshSurface
             gameObject.layer = LayerMask.NameToLayer("Ground");
@@ -53,7 +54,7 @@ public class BuildingData : MonoBehaviour
                 _modifier = gameObject.AddComponent<NavMeshModifier>();
 
             _modifier.applyToChildren = true;
-            // Do NOT ignore from build - we want the geometry (legs, headers) to be baked.
+            // Do NOT ignore from build - we want the geometry (legs, headers, tops) to be baked.
             _modifier.ignoreFromBuild = false; 
             
             // Apply area override if specified
@@ -80,17 +81,16 @@ public class BuildingData : MonoBehaviour
         float gridSpaceX = Data.footprint.x * 1.33f; // 1.33 is your grid CellSize
         float gridSpaceZ = Data.footprint.y * 1.33f;
 
-        // Center it (assuming the pivot is at the corner/center based on your PlacementMath)
-        // If your pivots are already centered, center is zero. 
-        // If your pivots are at the corner, you'd offset the center by half the size.
-        _obstacle.size = new Vector3(gridSpaceX * 1f, Data.objHeight, gridSpaceZ * 1f);
-
-        //if the footprint.x is larger than 1 then we need to make the center of the obstacle half of the amount the footprint is over 1 times -1.33f to pull the center back towards the middle of the object. If the footprint is 1 then we want the center to be at 0. If the footprint is less than 1 then we want the center to be at 0 as well.
-        float centerX = (Data.footprint.x - 1) * -0.665f; // 0.665 is half of 1.33
-        float centerY = (Data.footprint.y - 1) * -0.665f; // 0.665 is half of 1.33
+        // Center it (assuming the pivot is at the center of the root cell)
+        // If the footprint is larger than 1x1, we need to shift the center to the middle of the footprint.
+        // Grid grows in +X and +Z, so shift should be positive.
+        float centerX = (Data.footprint.x - 1) * 0.665f; // 0.665 is half of 1.33
+        float centerZ = (Data.footprint.y - 1) * 0.665f; // 0.665 is half of 1.33
+        
         // Y is slightly below center of the object for better carving results
-        _obstacle.center = new Vector3(centerX, Data.objHeight * 0.45f, centerY); 
-    }
+        _obstacle.size = new Vector3(gridSpaceX, Data.objHeight, gridSpaceZ);
+        _obstacle.center = new Vector3(centerX, Data.objHeight * 0.45f, centerZ); 
+        }
     public void Delete()
     {
         Destroy(gameObject);

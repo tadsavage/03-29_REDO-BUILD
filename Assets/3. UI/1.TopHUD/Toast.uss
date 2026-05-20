@@ -1,16 +1,37 @@
+/* ==========================================
+   COZY TOAST NOTIFICATION WINDOW OVERRIDES
+   ========================================== */
 .toast-label {
     position: absolute;
-    color: rgb(236, 140, 21);
-    font-size: 36px;
-    -unity-font-definition: url("project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&guid=c4bbc2b151f7a754082a4e6f6d8ed32e&type=3#Kenney Future Narrow");
-    text-shadow: 10px 10px 0 rgb(0, 0, 0);
-    background-color: rgba(200, 205, 121, 0.61);
-    border-left-color: rgba(236, 140, 21, 0.54);
-    border-right-color: rgba(236, 140, 21, 0.54);
-    border-top-color: rgba(236, 140, 21, 0.54);
-    border-bottom-color: rgba(236, 140, 21, 0.54);
-    border-top-width: 4px;
-    border-right-width: 4px;
-    border-bottom-width: 4px;
-    border-left-width: 4px;
+    bottom: 150px;
+    align-self: center;
+
+    /* DEPTH FIX: Forces the toast to render on top of all other panels */
+    z-index: 999;    
+    
+    /* PALIA THEME: Crisp pale cream parchment text with adjusted readable font sizing */
+    color: #F5EEDB;
+    font-size: 24px;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    
+    /* TEXT CONTRAST: Clean text-shadow to make announcements readable against bright 3D worlds */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+    
+    /* PALIA THEME: Deep purple-charcoal base container background */
+    background-color: #2D2B3A;
+    
+    /* PALIA THEME: Uniform structural gold boundary frames */
+    border-color: #ECC98A;
+    border-width: 2px;
+    border-radius: 6px;
+    
+    /* SPACING CONFIG: Generous inside margins so text doesn't slam against the gold frames */
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    
+    /* ALIGNMENT SAFETIES: Ensures the notification handles auto-resizing smoothly if text grows long */
+    -unity-text-align: middle-center;
+    -unity-text-wrap: nowrap;
 }
