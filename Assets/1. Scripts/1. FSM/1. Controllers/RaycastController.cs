@@ -1,51 +1,55 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 
 public class RaycastController : MonoBehaviour
 {
-    // =========================================================
-    //  CONFIGURATION
-    // =========================================================
+    public bool AllowPlacementEvents { get; set; } = false;
+
     [SerializeField] private Camera _camera;
     [SerializeField] private LayerMask _groundMask;
+    [SerializeField] private LayerMask _objectMask;
     [SerializeField] private PlacementGrid _grid;
 
     [Header("Debug")]
     [SerializeField] private LineRenderer _line;
     [SerializeField] private bool _visualizeRay = true;
 
-    // =========================================================
-    //  PUBLIC HIT DATA
-    // =========================================================
+    [Header("Object Ray Debug")]
+    [SerializeField] private bool _debugObjectRay = true;
+    [SerializeField] private Color _objectRayColor = Color.cyan;
+    [SerializeField] private Color _objectHitColor = Color.magenta;
+
+    [Header("Cell Ray Debug")]
+    [SerializeField] private bool _debugCellRay = true;
+    [SerializeField] private Color _cellRayColor = Color.yellow;
+    [SerializeField] private Color _cellHitColor = Color.green;
+
     public bool HasHit { get; private set; }
     public Vector3 HitPoint { get; private set; }
     public Vector2Int HitCell { get; private set; }
+    public GameObject HitObject { get; private set; }
+    public Vector3 RawHitPoint { get; private set; }
 
-    // Used to detect cell changes (for audio, events, etc.)
+    private bool _isPointerOverUI;
+    public bool IsPointerOverUI => _isPointerOverUI;
+
     private Vector2Int _lastHitCell;
+private bool _enabled;
 
-    // Whether raycasting is active
-    private bool _enabled;
-
-    // =========================================================
-    //  ENABLE / DISABLE
-    // =========================================================
     public void EnableRay() => _enabled = true;
 
     public void DisableRay()
     {
         _enabled = false;
 
-        // Immediately hide line renderer
         if (_line != null)
             _line.enabled = false;
 
         HasHit = false;
+        HitObject = null;
     }
 
-    // =========================================================
-    //  INITIALIZATION
-    // =========================================================
     private void Awake()
     {
         if (_camera == null)
@@ -55,31 +59,33 @@ public class RaycastController : MonoBehaviour
             _line.enabled = false;
     }
 
-    // =========================================================
-    //  MAIN UPDATE (CALLED FROM FSM)
-    // =========================================================
     public void Tick()
     {
-        if (!_enabled)
-            return;
+        _isPointerOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
-        // ---------------------------------------------------------
-        // RAYCAST FROM MOUSE POSITION
-        // ---------------------------------------------------------
+        if (!_enabled || _isPointerOverUI) 
+        {
+            HasHit = false;
+            HitObject = null;
+            if (_line != null) _line.enabled = false;
+            return; 
+        }
+
         Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
 
-        if (Physics.Raycast(ray, out RaycastHit hit, 100f, _groundMask))
+        // ---------------------------------------------------------
+        // 1. Ground raycast (grid placement)
+        // ---------------------------------------------------------
+        if (Physics.Raycast(ray, out RaycastHit hit, 999f, _groundMask))
         {
+            RawHitPoint = hit.point;   // ⭐ continuous world position
+            HitPoint = _grid.GetCellCenter(_grid.WorldToCell(hit.point)); // snapped
             HasHit = true;
             HitPoint = hit.point;
-
-            // Convert world hit to grid cell
             HitCell = _grid.WorldToCell(hit.point);
+            HitObject = hit.collider.gameObject;
 
-            // ================================
-            // CELL CHANGE EVENT (audio, etc.)
-            // ================================
-            if (HitCell != _lastHitCell)
+            if (AllowPlacementEvents && HitCell != _lastHitCell)
                 AudioManager.Play("NewCell");
 
             _lastHitCell = HitCell;
@@ -89,13 +95,33 @@ public class RaycastController : MonoBehaviour
             HasHit = false;
         }
 
-        DrawRay();
+        // ---------------------------------------------------------
+        // 2. Object raycast (no mask)
+        // ---------------------------------------------------------
+        if (Physics.Raycast(ray, out RaycastHit objHit, 200f, _objectMask))
+            HitObject = objHit.collider.gameObject;
+        else
+            HitObject = null;
+
+        if (AllowPlacementEvents)
+        DrawRay(ray);
+
+        // ---------------------------------------------------------
+        // Debug object ray
+        // ---------------------------------------------------------
+        if (_debugObjectRay)
+        {
+            Vector3 start = ray.origin;
+            Vector3 end = start + ray.direction * 100f;
+
+            Debug.DrawLine(start, end, _objectRayColor, 0f);
+
+            if (HitObject != null)
+                Debug.DrawLine(start, HitObject.transform.position, _objectHitColor, 0f);
+        }
     }
 
-    // =========================================================
-    //  RAY VISUALIZATION
-    // =========================================================
-    private void DrawRay()
+    private void DrawRay(Ray ray)
     {
         if (!_visualizeRay || _line == null)
             return;
@@ -109,10 +135,48 @@ public class RaycastController : MonoBehaviour
         _line.enabled = true;
         _line.positionCount = 2;
 
-        // Slight offset to avoid z‑fighting with camera plane
         Vector3 start = _camera.transform.position - _camera.transform.up * 0.01f;
 
         _line.SetPosition(0, start);
         _line.SetPosition(1, HitPoint);
+    }
+
+    public GameObject RaycastCellCenter(Vector2Int cell)
+    {
+        Vector3 world = _grid.GetCellCenter(cell) + Vector3.up * 5f;
+        Ray ray = new Ray(world, Vector3.down);
+
+        const float distance = 10f;
+
+        if (_debugCellRay)
+            Debug.DrawLine(world, world + Vector3.down * distance, _cellRayColor, 0f);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, distance))
+        {
+            if (_debugCellRay)
+            {
+                Debug.DrawLine(world, hit.point, _cellHitColor, 0f);
+                DebugDrawSphere(hit.point, 0.1f, _cellHitColor);
+            }
+
+            return hit.collider.gameObject;
+        }
+
+        return null;
+    }
+
+    private void DebugDrawSphere(Vector3 pos, float radius, Color color)
+    {
+        Debug.DrawLine(pos + Vector3.up * radius, pos - Vector3.up * radius, color, 0f);
+        Debug.DrawLine(pos + Vector3.right * radius, pos - Vector3.right * radius, color, 0f);
+        Debug.DrawLine(pos + Vector3.forward * radius, pos - Vector3.forward * radius, color, 0f);
+    }
+
+    public void ResetHitData()
+    {
+        HasHit = false;
+        HitObject = null;
+        HitCell = Vector2Int.zero;
+        _lastHitCell = new Vector2Int(999, 999); // force first hit to register
     }
 }

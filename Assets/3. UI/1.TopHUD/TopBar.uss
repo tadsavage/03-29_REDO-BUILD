@@ -1,0 +1,59 @@
+.topbar-root {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 50px;
+    background-color: rgba(35, 35, 40, 0.95);
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(236, 201, 138, 0.4);
+    padding-left: 16px;
+    padding-right: 16px;
+    width: 100%;
+}
+
+.topbar-box {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    height: 36px;
+    padding-left: 12px;
+    padding-right: 12px;
+    margin-left: 4px;
+    margin-right: 4px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.topbar-money,
+.topbar-hourly,
+.topbar-spent,
+.topbar-time {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 15px;
+    -unity-font-style: normal;
+    -unity-text-align: middle-center;
+}
+
+.topbar-money {
+    color: rgb(160, 255, 200);
+}
+
+.topbar-hourly {
+    color: rgb(240, 230, 211);
+}
+
+.topbar-spent,
+.topbar-time {
+    color: rgb(240, 230, 211);
+}
+
+.topbar-box:hover {
+    background-color: rgba(212, 135, 77, 0.12);
+    border-color: rgba(212, 135, 77, 0.45);
+    transition-duration: 0.25s;
+}

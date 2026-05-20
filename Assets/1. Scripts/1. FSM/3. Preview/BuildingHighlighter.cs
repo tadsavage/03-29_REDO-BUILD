@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class BuildingHighlighter : MonoBehaviour
 {
@@ -6,23 +7,29 @@ public class BuildingHighlighter : MonoBehaviour
     [SerializeField] private Material invalidMaterial;
     [SerializeField] private Material deleteMaterial;
 
-    private Material[] originalMaterials;
-    private Renderer[] renderers;
-    private SkinnedMeshRenderer[] skinnedMeshRenderers;
+    private readonly List<Renderer> _renderers = new();
+    private readonly List<Material> _originalMaterials = new();
 
     void Awake()
     {
-        renderers = GetComponentsInChildren<Renderer>();
-        skinnedMeshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
+        CacheRenderers();
+    }
 
-        originalMaterials = new Material[renderers.Length + skinnedMeshRenderers.Length];
+    private void CacheRenderers()
+    {
+        _renderers.Clear();
+        _originalMaterials.Clear();
 
-        int index = 0;
-        foreach (Renderer r in renderers)
-            originalMaterials[index++] = r.material;
+        // Collect ALL renderers (MeshRenderer + SkinnedMeshRenderer)
+        foreach (var r in GetComponentsInChildren<Renderer>(true))
+        {
+            if (r == null) continue;
 
-        foreach (SkinnedMeshRenderer r in skinnedMeshRenderers)
-            originalMaterials[index++] = r.material;
+            _renderers.Add(r);
+            // CRITICAL FIX: Use sharedMaterial instead of material to avoid creating 
+            // a unique material instance per renderer, which breaks batching.
+            _originalMaterials.Add(r.sharedMaterial);
+        }
     }
 
     public void HighlightValid(bool on)
@@ -42,12 +49,16 @@ public class BuildingHighlighter : MonoBehaviour
 
     private void SetMaterial(Material overrideMat)
     {
-        int index = 0;
+        // Safety: if renderers were destroyed or changed, re-cache
+        if (_renderers.Count == 0) CacheRenderers();
 
-        foreach (Renderer r in renderers)
-            r.material = overrideMat ? overrideMat : originalMaterials[index++];
+        for (int i = 0; i < _renderers.Count; i++)
+        {
+            var r = _renderers[i];
+            if (r == null) continue;
 
-        foreach (SkinnedMeshRenderer r in skinnedMeshRenderers)
-            r.material = overrideMat ? overrideMat : originalMaterials[index++];
+            // CRITICAL FIX: Use sharedMaterial to maintain batching performance
+            r.sharedMaterial = overrideMat != null ? overrideMat : _originalMaterials[i];
+        }
     }
 }

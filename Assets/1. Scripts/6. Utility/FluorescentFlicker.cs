@@ -21,17 +21,17 @@ public class FluorescentFlicker : MonoBehaviour
     {
         while (true)
         {
+            /*
             // Random chance to flicker
-            if (Random.value < 0.05f)
+            if (UnityEngine.Random.value < 0.05f)
             {
                 // Quick dip
-                targetLight.intensity = Random.Range(minIntensity, maxIntensity);
-                yield return new WaitForSeconds(Random.Range(0.02f, 0.08f));
-
+                targetLight.intensity = UnityEngine.Random.Range(minIntensity, maxIntensity);
+                yield return new WaitForSeconds(UnityEngine.Random.Range(0.02f, 0.08f));        
                 // Pop back
                 targetLight.intensity = baseIntensity;
             }
-
+            */
             yield return new WaitForSeconds(Random.Range(0.1f, 0.5f));
         }
     }

@@ -1,0 +1,25 @@
+.hud-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
+}
+
+/* WAREHOUSE THEME: Matches Category Buttons but with a 2px Caramel Trim Frame */
+.preview-cost-label {
+    position: absolute;
+    background-color: #2D2B3A;
+    border-radius: 4px; /* Exact Category Button Border Radius */
+    border-width: 2px; /* Updated to 2px thick border */
+    border-color: #ECC98A; /* Glow border lines */ /* Caramel-Brown Highlight Accent Outline */
+    font-size: 24px;
+    color: rgb(240, 230, 211); /* Soft theme color text */
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    -unity-font-style: bold;
+}
+

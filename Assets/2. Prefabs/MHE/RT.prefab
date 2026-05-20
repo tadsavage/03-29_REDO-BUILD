@@ -32,7 +32,7 @@ Transform:
   m_LocalScale: {x: 0.07273, y: 0.06736, z: 0.07487399}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 6249520015605959271}
+  m_Father: {fileID: 3737892000744429420}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &2805266600176033595
 MeshFilter:
@@ -167,7 +167,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: 7129146338959899360, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
       insertIndex: -1
       addedObject: {fileID: 605035850995211034}
     m_AddedComponents:
@@ -186,7 +186,18 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
       insertIndex: -1
       addedObject: {fileID: -5421364251253366889}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2542412916262008879}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -3108431278599959504}
   m_SourcePrefab: {fileID: 100100000, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
+--- !u!4 &3737892000744429420 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
+  m_PrefabInstance: {fileID: 3770939526182613127}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &4077015868802141654 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
@@ -199,14 +210,14 @@ NavMeshAgent:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4077015868802141654}
-  m_Enabled: 0
-  m_AgentTypeID: 0
+  m_Enabled: 1
+  m_AgentTypeID: -1372625422
   m_Radius: 1
-  m_Speed: 2
-  m_Acceleration: 8
-  avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0
+  m_Speed: 4
+  m_Acceleration: 10
+  avoidancePriority: 30
+  m_AngularSpeed: 150
+  m_StoppingDistance: 1
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
@@ -260,7 +271,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6af8aef5fddffe34890aa1b1aa086d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AiNavigation
-  waypointThreshold: 0.5
+  role: 1
 --- !u!114 &-5421364251253366889
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -276,8 +287,36 @@ MonoBehaviour:
   validMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
   invalidMaterial: {fileID: 2100000, guid: 57c0190b8df978f47bb3ee755afa0434, type: 2}
   deleteMaterial: {fileID: 2100000, guid: 94c126aba04045c4cb26be0d346e7aff, type: 2}
---- !u!4 &6249520015605959271 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 7129146338959899360, guid: ac27f4a922ac21e4abec72821f0ba44d, type: 3}
-  m_PrefabInstance: {fileID: 3770939526182613127}
+--- !u!114 &2542412916262008879
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4077015868802141654}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1c2077a2a0a9844b8bb47797e554524, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlacedObject
+  data: {fileID: 11400000, guid: f94b11ce10a004d4ca2aac43024ebcec, type: 2}
+  gridX: 0
+  gridY: 0
+  rotation: 0
+--- !u!114 &-3108431278599959504
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4077015868802141654}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb79d389d9fa74c4884e12fab0d26d3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AgentAnimation
+  walkSpeed: 2
+  turnSpeed: 200
+  idleDelay: 1.5
+  waypointThreshold: 1
+  animationTurnThreshold: 100

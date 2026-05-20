@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2387541477956327113}
   - component: {fileID: 3869634203096315846}
-  - component: {fileID: 419408183705331880}
   m_Layer: 2
   m_Name: UI
   m_TagString: Untagged
@@ -56,17 +55,3 @@ MonoBehaviour:
   m_PivotReferenceSize: 0
   m_Pivot: 0
   m_WorldSpaceCollider: {fileID: 0}
---- !u!114 &419408183705331880
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8307673107677432733}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 94d2d13d53e719c47b5c69613595aa20, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BuildBarEvents
-  fsm: {fileID: 0}
-  data: {fileID: 11400000, guid: 52e4add3f2755f04889e2bcfb0429428, type: 2}

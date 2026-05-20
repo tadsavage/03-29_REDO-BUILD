@@ -1,0 +1,449 @@
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UIElements;
+using SaveLoadSystem;
+
+public class BuildMenuUI : MonoBehaviour
+{
+    [Header("Save/Load UI")]
+    [SerializeField] private SaveLoadWindowController saveLoadWindowController;
+
+    [Header("Category Config")]
+    [SerializeField] private List<CategoryConfig> categories = new();
+
+    [Header("UXML")]
+    [SerializeField] private VisualTreeAsset buildMenuUxml;
+    [SerializeField] private VisualTreeAsset categoryButtonUxml;
+    [SerializeField] private VisualTreeAsset itemButtonUxml;
+    [SerializeField] private VisualTreeAsset submenuContainerUxml;
+    [SerializeField] private VisualTreeAsset utilityButtonUxml;
+    [SerializeField] private VisualTreeAsset savePopupUxml;
+
+    [Header("Styles")]
+    [SerializeField] private StyleSheet buildMenuStyle;
+
+    [Header("Save / Load")]
+    [SerializeField] private PlacementSystem placementSystem;
+    [SerializeField] private ObjDataRegistry registry;
+    private MoneyService moneyService;
+
+    public GameContext Context { get; private set; }
+
+    // Save popup UI
+    private VisualElement _savePopup;
+    private TextField _saveNameField;
+    private Button _confirmSaveButton;
+    private Button _cancelSaveButton;
+
+    [SerializeField] private PlacementGrid grid;
+
+    // Last clicked category button (for submenu alignment)
+    private VisualElement _lastClickedCategoryButton;
+
+    [Serializable]
+    public class UtilityButtonConfig
+    {
+        public string id;
+        public Texture2D icon;
+    }
+
+    [SerializeField] private List<UtilityButtonConfig> utilityButtons = new();
+
+    // Events for other systems
+    public Action<ObjDataSO> OnBuildItemClicked;
+    public Action OnDeleteClicked;
+    public Action OnMoveClicked;
+    public Action OnUndoClicked;
+    public Action OnRedoClicked;
+    public Action OnCancelClicked;
+    public Action OnRotateClicked;
+
+    // UI Toolkit references
+    private UIDocument _uiDoc;
+    private VisualElement _root;
+    private VisualElement _bottomBar;
+    private VisualElement _categoryRow;
+    private VisualElement _utilityRow;
+    private VisualElement _submenuContainer;
+    private ScrollView _submenuScroll;
+
+    // State
+    private CategoryConfig _activeCategory;
+    private bool _submenuOpen;
+
+    [Serializable]
+    public class CategoryConfig
+    {
+        public string id;
+        public string displayName;
+        public Texture2D icon;
+        public List<ObjDataSO> items;
+    }
+
+    // Stop the jank in the submenu
+    private bool _submenuClosePending = false;
+    private float _submenuCloseDelay = .50f;
+    private IVisualElementScheduledItem _submenuCloseTask;
+
+    public bool IsPointerOverBuildMenu { get; private set; }
+
+    private void Awake()
+    {
+        _uiDoc = GetComponent<UIDocument>();
+    }
+
+    private void OnEnable()
+    {
+        if (_uiDoc == null) _uiDoc = GetComponent<UIDocument>();
+        _root = _uiDoc.rootVisualElement;
+
+        if (buildMenuStyle != null)
+            _root.styleSheets.Add(buildMenuStyle);
+
+        CacheElements();
+        BuildCategoryButtons();
+        BuildUtilityButtons();
+        BuildSubmenuContainer();
+        BuildSavePopup();
+        CloseSubmenu();
+    }
+
+    public void Initialize(MoneyService money)
+    {
+        moneyService = money;
+    }
+
+    private void BuildSavePopup()
+    {
+        var popup = savePopupUxml.Instantiate();
+        _root.Add(popup);
+
+        _savePopup = popup.contentContainer.Q<VisualElement>("SavePopup");
+        _saveNameField = popup.contentContainer.Q<TextField>("SaveNameField");
+        _confirmSaveButton = popup.contentContainer.Q<Button>("ConfirmSaveButton");
+        _cancelSaveButton = popup.contentContainer.Q<Button>("CancelSaveButton");
+
+        _confirmSaveButton.clicked += ConfirmSave;
+        _cancelSaveButton.clicked += HideSavePopup;
+        HideSavePopup();
+    }
+
+    private void ShowSavePopup()
+    {
+        _savePopup.RemoveFromClassList("hidden");
+        _saveNameField.value = "";
+    }
+
+    private void HideSavePopup()
+    {
+        _savePopup.AddToClassList("hidden");
+    }
+
+    private void ConfirmSave()
+    {
+        if (string.IsNullOrWhiteSpace(_saveNameField.value))
+        {
+            Debug.LogWarning("⚠ Save name is empty.");
+            return;
+        }
+        placementSystem.SaveGame("autosave");
+        HideSavePopup();
+    }
+
+    private void CacheElements()
+    {
+        _bottomBar = _root.Q<VisualElement>("BottomBar");
+        _categoryRow = _root.Q<VisualElement>("CategoryRow");
+        _utilityRow = _root.Q<VisualElement>("UtilityRow");
+        _submenuContainer = _root.Q<VisualElement>("SubmenuContainer");
+
+        // Track mouse over the bottom action bar
+        _bottomBar.RegisterCallback<PointerEnterEvent>(_ => {
+            IsPointerOverBuildMenu = true;
+            _submenuClosePending = false;
+            _submenuCloseTask?.Pause();
+        });
+
+        _bottomBar.RegisterCallback<PointerLeaveEvent>(_ => {
+            IsPointerOverBuildMenu = false;
+            StartDelayedSubmenuClose();
+        });
+
+        // FIX: Catch scroll wheels over the main bottom bar layout and prevent camera pass-through
+        _bottomBar.RegisterCallback<WheelEvent>(evt => {
+            evt.StopPropagation();
+        }, TrickleDown.TrickleDown);
+    }
+
+    private void BuildCategoryButtons()
+    {
+        _categoryRow.Clear();
+        foreach (var cat in categories)
+        {
+            if (cat == null) continue;
+            var ve = categoryButtonUxml.Instantiate();
+            var button = ve.Q<Button>("CategoryButton");
+            var icon = ve.Q<VisualElement>("Icon");
+            var label = ve.Q<Label>("Label");
+
+            label.text = cat.displayName;
+            if (cat.icon != null) icon.style.backgroundImage = new StyleBackground(cat.icon);
+
+            var capturedCat = cat;
+            button.clicked += () => OnCategoryClicked(capturedCat);
+            _categoryRow.Add(ve);
+        }
+    }
+
+    private void BuildUtilityButtons()
+    {
+        _utilityRow.Clear();
+        foreach (var util in utilityButtons)
+        {
+            var ve = utilityButtonUxml.Instantiate();
+            var button = ve.Q<Button>("UtilityButton");
+            var icon = ve.Q<VisualElement>("Icon");
+            var label = ve.Q<Label>("Label");
+
+            label.text = util.id;
+            if (util.icon != null) icon.style.backgroundImage = new StyleBackground(util.icon);
+
+            switch (util.id)
+            {
+                case "DELETE": button.clicked += () => OnDeleteClicked?.Invoke(); break;
+                case "MOVE": button.clicked += () => OnMoveClicked?.Invoke(); break;
+                case "UNDO": button.clicked += () => OnUndoClicked?.Invoke(); break;
+                case "REDO": button.clicked += () => OnRedoClicked?.Invoke(); break;
+                case "CANCEL": button.clicked += () => OnCancelClicked?.Invoke(); break;
+                case "ROTATE": button.clicked += () => OnRotateClicked?.Invoke(); break;
+                case "SAVE": button.clicked += () => saveLoadWindowController.Open(SaveLoadMode.Save); break;
+                case "LOAD": button.clicked += () => saveLoadWindowController.Open(SaveLoadMode.Load); break;
+            }
+            _utilityRow.Add(ve);
+        }
+    }
+
+    private void BuildSubmenuContainer()
+    {
+        _submenuScroll = _submenuContainer.Q<ScrollView>("SubmenuScroll");
+        var targetRoot = _submenuContainer.Q<VisualElement>("SubmenuRoot") ?? _submenuContainer;
+
+        targetRoot.RegisterCallback<PointerEnterEvent>(_ => {
+            IsPointerOverBuildMenu = true;
+            _submenuClosePending = false;
+            _submenuCloseTask?.Pause();
+        });
+
+        targetRoot.RegisterCallback<PointerLeaveEvent>(_ => {
+            IsPointerOverBuildMenu = false;
+            StartDelayedSubmenuClose();
+        });
+
+        // FIX: Allow the ScrollView to process the scroll wheel data before stopping it
+        targetRoot.RegisterCallback<WheelEvent>(evt => {
+            // If the mouse wheel is moving, manually scroll the ScrollView content path
+            if (_submenuScroll != null)
+            {
+                // evt.delta.y gives us the mouse scroll direction direction/speed
+                _submenuScroll.scrollOffset = new Vector2(
+                    _submenuScroll.scrollOffset.x,
+                    _submenuScroll.scrollOffset.y + evt.delta.y * 20f // Tweak 20f to adjust scroll sensitivity
+                );
+            }
+
+            // Stops the event from trickling down into the 3D scene and zooming your camera
+            evt.StopPropagation();
+        }, TrickleDown.TrickleDown);
+
+        if (_submenuScroll != null)
+        {
+            _submenuScroll.RegisterCallback<GeometryChangedEvent>(evt => {
+                if (!_submenuOpen) return;
+                if (evt.newRect.height <= 20f) return;
+                PositionSubmenuNow();
+            });
+        }
+    }
+
+    private void StartDelayedSubmenuClose()
+    {
+        if (_submenuClosePending) return;
+        _submenuClosePending = true;
+        float timer = 0f;
+
+        _submenuCloseTask = _submenuContainer.schedule.Execute(() => {
+            if (IsPointerOverBuildMenu)
+            {
+                _submenuClosePending = false;
+                _submenuCloseTask.Pause();
+                return;
+            }
+            timer += 0.016f;
+            if (timer >= _submenuCloseDelay)
+            {
+                if (_submenuClosePending) CloseSubmenu();
+                _submenuClosePending = false;
+                _submenuCloseTask.Pause();
+            }
+        }).Every(16);
+    }
+
+    private void OnCategoryClicked(CategoryConfig cat)
+    {
+        if (_activeCategory == cat && _submenuOpen)
+        {
+            CloseSubmenu();
+            foreach (var child in _categoryRow.Children())
+                child.Q<Button>("CategoryButton")?.RemoveFromClassList("selected");
+            return;
+        }
+
+        _activeCategory = cat;
+        _lastClickedCategoryButton = null;
+
+        foreach (var child in _categoryRow.Children())
+        {
+            var btn = child.Q<Button>("CategoryButton");
+            var label = child.Q<Label>("Label");
+
+            if (btn != null) btn.RemoveFromClassList("selected");
+            if (btn != null && label != null && label.text == cat.displayName)
+            {
+                btn.AddToClassList("selected");
+                _lastClickedCategoryButton = btn;
+            }
+        }
+        OpenSubmenu(cat);
+    }
+
+    private void OpenSubmenu(CategoryConfig cat)
+    {
+        if (_submenuScroll == null) return;
+        _submenuScroll.Clear();
+
+        if (cat.items != null)
+        {
+            foreach (var item in cat.items)
+            {
+                if (item == null) continue;
+                var ve = itemButtonUxml.Instantiate();
+                var button = ve.Q<Button>("ItemButton");
+                var icon = ve.Q<VisualElement>("Icon");
+                var nameLabel = ve.Q<Label>("ItemName");
+                var costLabel = ve.Q<Label>("ItemCost");
+
+                if (item.icon != null) icon.style.backgroundImage = new StyleBackground(item.icon);
+                nameLabel.text = item.objName;
+                costLabel.text = $"${item.cost}";
+
+                var capturedItem = item;
+                button.clicked += () => OnBuildItemClicked?.Invoke(capturedItem);
+                _submenuScroll.Add(ve);
+            }
+        }
+
+        _submenuContainer.RemoveFromClassList("buildmenu-submenu-closed");
+        _submenuContainer.AddToClassList("buildmenu-submenu-open");
+        _submenuOpen = true;
+
+        // Note: Replaced custom missing AudioManager execution pattern safely 
+        // Debug.Log("UI Open Clean Snap Action executed.");
+
+        PositionSubmenuAfterLayout();
+    }
+
+    private void CloseSubmenu()
+    {
+        _submenuContainer.RemoveFromClassList("buildmenu-submenu-open");
+        _submenuContainer.AddToClassList("buildmenu-submenu-closed");
+        _submenuOpen = false;
+
+        foreach (var child in _categoryRow.Children())
+            child.Q<Button>("CategoryButton")?.RemoveFromClassList("selected");
+    }
+
+    private void PositionSubmenuAfterLayout()
+    {
+        _submenuContainer.schedule.Execute(() => {
+            PositionSubmenuNow();
+        }).ExecuteLater(10); // FIX: Gave layout 10ms frame offset window loop to sample dimensions accurately
+    }
+
+    private void PositionSubmenuNow()
+    {
+        if (_lastClickedCategoryButton == null) return;
+        if (_bottomBar == null || _root == null || _submenuContainer == null) return;
+
+        Vector2 rootPos = _root.worldBound.position;
+        Vector2 buttonPos = _lastClickedCategoryButton.worldBound.position;
+
+        // Reset the transform matrix modifications entirely
+        _submenuContainer.transform.position = Vector3.zero;
+
+        // Assign explicit, stable positioning properties 
+        float localX = buttonPos.x - rootPos.x;
+        _submenuContainer.style.left = localX;
+
+        // Lock bottom anchoring firmly to 128 pixels to keep it sitting 8px above the bar
+        _submenuContainer.style.bottom = 128f;
+
+        // Use clear standard Auto assignment rules to safely release top calculations
+        _submenuContainer.style.top = StyleKeyword.Auto;
+    }
+    public VisualElement GetStationedPopup()
+    {
+        if (_root == null) _root = _uiDoc.rootVisualElement;
+        if (_bottomBar == null) _bottomBar = _root.Q<VisualElement>("BottomBar");
+
+        // 1. Check if the element exists natively
+        VisualElement foundPopup = _root.Q<VisualElement>("WorldHoverPopup");
+        if (foundPopup != null) return foundPopup;
+
+        // 2. SAFETY FALLBACK: Build the elements and apply clean styling handles
+        var fallbackPopup = new VisualElement { name = "WorldHoverPopup" };
+        fallbackPopup.AddToClassList("buildmenu-stationed-popup");
+
+        var titleLabel = new Label { name = "HoverTitle", text = "Inspect Warehouse Item" };
+        titleLabel.AddToClassList("world-hover-title");
+
+        var metricsBox = new VisualElement { name = "HoverMetricsContainer" };
+        metricsBox.AddToClassList("world-hover-metrics-box");
+
+        var costLabel = new Label { name = "HoverCost", text = "Cost: --" };
+        costLabel.AddToClassList("world-hover-cost");
+
+        var hourlyLabel = new Label { name = "HoverHourlyCost", text = "Hourly: --" };
+        hourlyLabel.AddToClassList("world-hover-hourlyCost");
+
+        // Nest elements cleanly
+        metricsBox.Add(costLabel);
+        metricsBox.Add(hourlyLabel);
+        fallbackPopup.Add(titleLabel);
+        fallbackPopup.Add(metricsBox);
+
+        // 3. Inject it into the center of the toolbar
+        if (_bottomBar != null && _utilityRow != null)
+        {
+            int utilityIndex = _bottomBar.IndexOf(_utilityRow);
+            _bottomBar.Insert(utilityIndex, fallbackPopup);
+        }
+        else if (_bottomBar != null)
+        {
+            _bottomBar.Add(fallbackPopup);
+        }
+        else
+        {
+            _root.Add(fallbackPopup);
+        }
+
+        return fallbackPopup;
+    }
+
+
+
+
+
+
+
+}

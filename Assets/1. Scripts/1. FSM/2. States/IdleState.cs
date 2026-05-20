@@ -2,17 +2,35 @@ using UnityEngine;
 
 public class IdleState : IPlacementState
 {
-    public bool IsPlacementState
-    {
-        get { return false; }
-    }
+    public bool IsPlacementState => false;
 
-    public void OnEnter() 
+    RaycastController _raycast = Object.FindFirstObjectByType<RaycastController>();
+    private TopBarUI _topBarUI;
+    private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
+
+    public void OnEnter()
     {
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-    }
-    public void Tick() { }
-    public void OnExit() { }
-}
 
+        topBarUI?.SetState(GetType().Name);
+
+        _raycast.EnableRay();
+        _raycast.ResetHitData();
+    }
+
+    public void Tick()
+    {
+        _raycast.Tick();
+        if (_raycast.HasHit)
+        {
+            Vector2Int cell = _raycast.HitCell;
+            topBarUI?.SetCell(cell.x, cell.y);
+        }
+    }
+
+    public void OnExit()
+    {
+        // Nothing to clean up
+    }
+}

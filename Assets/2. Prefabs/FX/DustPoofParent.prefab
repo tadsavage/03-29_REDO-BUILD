@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 7077159688039224008}
   - component: {fileID: 4525314729115635321}
   - component: {fileID: 5139719929883374267}
-  - component: {fileID: 3352177055831880938}
   m_Layer: 0
   m_Name: DustPoof
   m_TagString: Untagged
@@ -4895,18 +4894,6 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
---- !u!114 &3352177055831880938
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3516418160410547504}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 44634855a1fa9e9408401cc49f349366, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
 --- !u!1 &3640834876670680296
 GameObject:
   m_ObjectHideFlags: 0
@@ -4918,7 +4905,6 @@ GameObject:
   - component: {fileID: 2173586306996613555}
   - component: {fileID: 7020280525415277416}
   - component: {fileID: 1374928553303221188}
-  - component: {fileID: 186217494554952650}
   m_Layer: 0
   m_Name: DustPoof3
   m_TagString: Untagged
@@ -9802,18 +9788,6 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
---- !u!114 &186217494554952650
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3640834876670680296}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 44634855a1fa9e9408401cc49f349366, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
 --- !u!1 &6141145105272798873
 GameObject:
   m_ObjectHideFlags: 0
@@ -9825,7 +9799,6 @@ GameObject:
   - component: {fileID: 2698375919895944058}
   - component: {fileID: 2858572642508115958}
   - component: {fileID: 8714428003666005045}
-  - component: {fileID: 5903787202529490394}
   m_Layer: 0
   m_Name: DustPoof2
   m_TagString: Untagged
@@ -14709,18 +14682,6 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
---- !u!114 &5903787202529490394
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6141145105272798873}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 44634855a1fa9e9408401cc49f349366, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
 --- !u!1 &6656116618551341391
 GameObject:
   m_ObjectHideFlags: 0
@@ -14750,8 +14711,8 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7077159688039224008}
   - {fileID: 2698375919895944058}
   - {fileID: 2173586306996613555}
+  - {fileID: 7077159688039224008}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

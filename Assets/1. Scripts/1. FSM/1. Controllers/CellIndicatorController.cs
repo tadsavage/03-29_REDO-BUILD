@@ -7,8 +7,10 @@ public class CellIndicatorController : MonoBehaviour
     //  COLORS
     // =========================================================
     [Header("Build Colors")]
-    [SerializeField] private Color buildValidColor = new Color(.25f, 1f, .30f, .50f);
-    [SerializeField] private Color buildInvalidColor = new Color(1f, .22f, .22f, .75f);
+    [SerializeField] private Color buildValidColor = new Color(.1f, .25f, .65f, .50f);
+    [SerializeField] private Color buildInvalidColor = new Color(1f, .2f, .2f, .75f);
+    [SerializeField] private Color moveValidColor = new Color(0f, .9f, .1f, .85f);
+    [SerializeField] private Color moveInvalidColor = new Color(1f, .2f, .2f, .75f);
 
     [Header("Delete Color")]
     [SerializeField] private Color deleteColor = new Color(1f, 1f, .20f, .45f);
@@ -21,7 +23,7 @@ public class CellIndicatorController : MonoBehaviour
 
     [SerializeField] private PlacementGrid grid;
 
-    [SerializeField] private float yOffset = 0.15f;
+    private float yOffset = 0.0f;
 
     // =========================================================
     //  INTERNAL STATE
@@ -34,7 +36,8 @@ public class CellIndicatorController : MonoBehaviour
     private enum IndicatorMode
     {
         Build,
-        Delete
+        Delete,
+        Move
     }
 
     private IndicatorMode _mode = IndicatorMode.Build;
@@ -58,11 +61,16 @@ public class CellIndicatorController : MonoBehaviour
         _mode = IndicatorMode.Delete;
         ClearAll();
     }
+    public void UseMoveMode()
+    {
+        _mode = IndicatorMode.Move;
+        ClearAll();
+    }
 
     // =========================================================
     //  PUBLIC API — SINGLE CELL
     // =========================================================
-    public void ShowCell(Vector2Int cell, bool   isValid = true)
+    public void ShowCell(Vector2Int cell, bool isValid = true)
     {
         ClearActive();
 
@@ -81,7 +89,7 @@ public class CellIndicatorController : MonoBehaviour
     // =========================================================
     //  PUBLIC API — MULTI-CELL FOOTPRINT
     // =========================================================
-    public void ShowCells(List<Vector2Int> cells, bool isValid = true)
+    public void ShowCells(List<Vector2Int> cells, System.Func<Vector2Int, bool> isCellValid)
     {
         ClearActive();
 
@@ -94,7 +102,8 @@ public class CellIndicatorController : MonoBehaviour
             pos.y += stackY + yOffset;
             ind.transform.position = pos;
 
-            ApplyBuildOrDeleteColor(ind, isValid);
+            bool valid = isCellValid(cell);
+            ApplyBuildOrDeleteColor(ind, valid);
 
             _active.Add(ind);
         }
@@ -146,6 +155,10 @@ public class CellIndicatorController : MonoBehaviour
         {
             _mpb.SetColor("_BaseColor", deleteColor);
         }
+        else if (_mode == IndicatorMode.Move)
+        {
+            _mpb.SetColor("_BaseColor", isValid ? moveValidColor : moveInvalidColor);
+        }   
         else
         {
             _mpb.SetColor("_BaseColor", isValid ? buildValidColor : buildInvalidColor);

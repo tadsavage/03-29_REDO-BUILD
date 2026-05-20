@@ -1,0 +1,317 @@
+.buildmenu-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* PALIA THEME: Deep purple-charcoal base panel with clean gold top accent border */
+.buildmenu-bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 120px;
+    background-color: #2D2B3A;
+    border-top-width: 2px;
+    border-top-color: #ECC98A;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: stretch;
+    padding-left: 16px;
+    padding-right: 16px;
+    overflow: visible;
+}
+
+.buildmenu-category-row, .buildmenu-utility-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    overflow: visible;
+}
+
+/* PALIA THEME: Category buttons use a subtle dark container shade */
+.buildmenu-category-button {
+    width: 120px;
+    height: 104px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(90, 85, 110, 0.15);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(236, 201, 138, 0.2);
+    padding: 4px;
+    margin: 4px;
+    opacity: 1;
+}
+
+/* PALIA THEME: Hover glows with light gold borders */
+.buildmenu-category-button:hover {
+    background-color: rgba(236, 201, 138, 0.1);
+    border-color: #ECC98A;
+    opacity: 0.95;
+}
+
+/* PALIA THEME: Selected buttons highlight in solid gold with deep text contrast */
+.buildmenu-category-button.selected {
+    background-color: #ECC98A;
+    border-color: #F5EEDB;
+    opacity: 1;
+}
+
+.buildmenu-category-icon {
+    width: 96px;
+    height: 88px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+/* PALIA THEME: Text labels use soft off-white parchment tones */
+.buildmenu-category-label {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 16px;
+    -unity-text-letter-spacing: -1px;
+    -unity-font-style: normal;
+    color: #F5EEDB;
+    -unity-text-align: middle-center;
+    -unity-text-wrap: nowrap;
+}
+
+.buildmenu-utility-button {
+    width: 84px;
+    height: 84px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(90, 85, 110, 0.1);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(236, 201, 138, 0.15);
+    padding: 4px;
+    margin: 4px;
+    opacity: 1;
+}
+
+.buildmenu-utility-button:hover {
+    background-color: rgba(236, 201, 138, 0.1);
+    border-color: #ECC98A;
+    opacity: 0.95;
+}
+
+.buildmenu-utility-icon {
+    width: 56px;
+    height: 56px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    margin-bottom: 4px;
+}
+
+.buildmenu-utility-label {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 11px;
+    -unity-text-letter-spacing: -1px;
+    -unity-font-style: bold;
+    color: #F5EEDB;
+    -unity-text-align: middle-center;
+    -unity-text-wrap: nowrap;
+}
+
+.buildmenu-submenu {
+    position: absolute;
+    left: 16px;
+    bottom: 128px;
+    opacity: 0;
+    display: none;
+}
+
+.buildmenu-submenu-open {
+    opacity: 1;
+    display: flex;
+}
+
+.buildmenu-submenu-closed {
+    opacity: 0;
+    display: none;
+}
+
+/* FIXED MERGE: Submenu dropdown uses the same dark backdrop with an elegant gold border framing, right padding, and overflow hidden */
+.buildmenu-submenu-root {
+    background-color: #2D2B3A;
+    border-radius: 6px;
+    border-width: 2px;
+    border-color: #ECC98A;
+    padding: 6px;
+    padding-right: 8px; 
+    max-height: 320px;
+    overflow: hidden; 
+}
+
+.buildmenu-submenu-scroll {
+    flex-grow: 1;
+}
+
+/* PALIA THEME: Item buttons use a slightly lighter muted gray-purple panel tint */
+.buildmenu-item-button {
+    width: 260px;
+    height: 64px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 6px;
+    margin-bottom: 6px;
+    background-color: #3E3B4F;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(236, 201, 138, 0.2);
+    opacity: 1;
+}
+
+/* PALIA THEME: Item cards highlight cleanly on hover with gold borders */
+.buildmenu-item-button:hover {
+    background-color: rgba(236, 201, 138, 0.12); /* Subtle gold tint inside */
+    border-color: #ECC98A; /* Glow border lines */
+    opacity: 1;
+}
+
+.buildmenu-item-icon {
+    width: 56px;
+    height: 56px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    margin-right: 10px;
+}
+
+.buildmenu-item-text {
+    flex-direction: column;
+    justify-content: center;
+    flex-grow: 1;
+}
+
+.buildmenu-item-name {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    font-size: 15px;
+    -unity-text-letter-spacing: 0px;
+    color: #F5EEDB;
+    -unity-text-wrap: nowrap;
+    overflow: hidden;
+    -unity-text-overflow: ellipsis;
+}
+
+/* PALIA THEME: Item costs match the soft sand/gold utility elements */
+.buildmenu-item-cost {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
+    font-size: 14px;
+    -unity-text-letter-spacing: 0px;
+    color: #ECC98A;
+    -unity-text-wrap: nowrap;
+    overflow: hidden;
+    -unity-text-overflow: ellipsis;
+}
+
+/* ==========================================
+   PIXEL-PERFECT SCROLLBAR GAP OVERRIDES
+   ========================================== */
+
+/* Anchor the main scroller tracking zone cleanly inside the border */
+.buildmenu-submenu-scroll .unity-scroller {
+    width: 14px;
+    background-color: transparent;
+    margin-top: 4px;     
+    margin-bottom: 4px;  
+    margin-right: 6px;   
+}
+
+/* The vertical background track */
+.buildmenu-submenu-scroll .unity-scroller__slider {
+    background-color: #3E3B4F; 
+    border-radius: 4px; 
+    margin: 0;
+    border-width: 0;
+}
+
+/* The draggable handle bar */
+.buildmenu-submenu-scroll .unity-scroller__thumb {
+    background-color: #ECC98A; 
+    border-radius: 4px;
+    border-width: 0;
+}
+
+/* Hover thumb state mapping */
+.buildmenu-submenu-scroll .unity-scroller__thumb:hover {
+    background-color: #F5EEDB; 
+}
+
+/* Clean up default button layouts */
+.buildmenu-submenu-scroll .unity-scroller__low-button, 
+.buildmenu-submenu-scroll .unity-scroller__high-button {
+    display: none;
+    visibility: hidden;
+    height: 0;
+    width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+/* THE SELECTION DISPLAY BOX (Matches Category Button Background & Outline Exactly) */
+.buildmenu-stationed-popup {
+    flex-grow: 1;
+    max-width: 400px;
+    height: 100px;
+    margin: 8px 16px;
+    padding: 12px;
+    background-color: rgba(90, 85, 110, 0.15); /* Exact Category Button Base Color */
+    border-width: 1px;
+    border-color: rgba(236, 201, 138, 0.2); /* Exact Category Button Outline Color */
+    border-radius: 4px; /* Matches Category Button Rounding */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center; /* Centers all content inside the box horizontally */
+}
+
+/* THE ITEM TITLE TEXT (Centered) */
+.world-hover-title {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 26px;
+    color: #FFFFFF;
+    margin-bottom: 6px;
+    -unity-text-align: middle-center;
+}
+
+/* THE LOWER ROW HOLDING PRICES */
+.world-hover-metrics-box {
+    display: flex;
+    flex-direction: row;
+    justify-content: center; /* Pushes cost and hourly labels close to the center axis */
+    align-items: center;
+    width: 100%;
+}
+
+/* THE COST STAT BLOCK */
+.world-hover-cost {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
+    font-size: 18px;
+    color: rgb(160, 255, 200);
+    margin-right: 16px; /* Adds clean separation spacing from the hourly cost text */
+    -unity-text-align: middle-center;
+}
+
+/* THE MAINTENANCE COST STAT BLOCK */
+.world-hover-hourlyCost {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
+    font-size: 18px;
+    color: rgb(240, 230, 211);
+    -unity-text-align: middle-center;
+}
+

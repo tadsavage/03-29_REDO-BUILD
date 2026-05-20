@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
+  m_Name: Garbage Can
+  m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
+  id: 21
+  objName: Garbage Can
+  cost: 110
+  hourlyCost: 1
+  category: Flavor
+  prefab: {fileID: 1557647605868092640, guid: 80365fd6a53a2e24d91ca94299684735, type: 3}
+  icon: {fileID: 2800000, guid: 7f6a42f204bfb214db3219ab9a201994, type: 3}
+  ignorePlacementRules: 1
+  isFloor: 0
+  ClearsGridAfterPlacement: 0
+  pathfindingClear: 0
+  navArea: 1
+  isStackable: 0
+  objHeight: 1
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []

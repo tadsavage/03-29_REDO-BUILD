@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
+  m_Name: ShippingDoor
+  m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
+  id: 35
+  objName: ShippingDoor
+  cost: 3000
+  hourlyCost: 35
+  category: Walls
+  prefab: {fileID: 4926578325478168106, guid: 8773ccd59130a264c927557d4a73031c, type: 3}
+  icon: {fileID: 2800000, guid: 3a0298954b1dd78428c16b5dbeb386b4, type: 3}
+  ignorePlacementRules: 0
+  isFloor: 0
+  ClearsGridAfterPlacement: 0
+  pathfindingClear: 1
+  navArea: 3
+  isStackable: 0
+  objHeight: 9
+  footprint: {x: 5, y: 1}
+  customShapeOffsets:
+  - {x: 2, y: 0}
+  - {x: 1, y: 0}
+  - {x: 0, y: 0}
+  - {x: -1, y: 0}
+  - {x: -2, y: 0}

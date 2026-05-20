@@ -1,0 +1,36 @@
+﻿/* THE WORLD POPUP MAIN BOX CONTAINER */
+.world-hover-popup {
+    position: absolute;
+    background-color: rgba(30, 32, 34, 0.95); /* Solid Dark Charcoal Base */
+    border-width: 2px;
+    border-color: #FF6B00; /* Safety Orange Industrial Trim Frame */
+    border-radius: 6px;
+    padding: 10px;
+    min-width: 200px;
+    opacity: 0;
+    display: none;
+}
+
+/* Visibility hook class triggered via your script toggles */
+.world-hover-popup.show {
+    display: flex;
+}
+
+/* CONTAINER INNER DATA FONTS */
+.world-hover-title {
+    font-size: 16px;
+    color: #FFFFFF; /* High Visibility Title White */
+    -unity-font-style: bold;
+    margin-bottom: 4px;
+}
+
+.world-hover-cost {
+    font-size: 13px;
+    color: #2ECC71; /* Profits / Placement Asset Green */
+    margin-bottom: 2px;
+}
+
+.world-hover-hourlyCost {
+    font-size: 12px;
+    color: #FFC72C; /* Industrial Alert Caution Yellow for Maintenance Overhead Costs */
+}
