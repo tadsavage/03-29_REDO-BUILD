@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 268976666012454540}
   - component: {fileID: 8636406916788648093}
   - component: {fileID: 1570564751655163529}
-  m_Layer: 6
+  m_Layer: 2
   m_Name: SafetyLight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -124,7 +124,7 @@ GameObject:
   - component: {fileID: 2066895510549621094}
   - component: {fileID: 4799558245266543131}
   - component: {fileID: 1988322005327628697}
-  m_Layer: 6
+  m_Layer: 2
   m_Name: SafetyLight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -294,7 +294,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -916231596712828137, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
-      value: 6
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 493668982786726070, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_LocalRotation.w
@@ -318,7 +318,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
-      value: 6
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_StaticEditorFlags
@@ -330,7 +330,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2216303931598527189, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
-      value: 6
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 2216303931598527189, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_StaticEditorFlags
@@ -338,7 +338,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2881084792559502241, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
-      value: 6
+      value: 2
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -601,13 +601,13 @@ BoxCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 4.014723, y: 9.0153, z: 6}
+  m_Size: {x: 4.014723, y: 9.0153, z: 2}
   m_Center: {x: 0, y: 4.493995, z: -0.018785}
 --- !u!208 &838683423195589200
 NavMeshObstacle:
@@ -640,7 +640,7 @@ MonoBehaviour:
   doorPanel: {fileID: 2897782655639932341}
   startY: 0
   endY: 3.8
-  speed: 2
+  speed: 4
 --- !u!1 &6002053026919147327 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -916231596712828137, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}

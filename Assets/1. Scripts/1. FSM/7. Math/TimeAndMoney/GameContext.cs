@@ -24,6 +24,13 @@ public class GameContext : MonoBehaviour
 
         MoneyService = new MoneyService(startingCapital: 100000);
 
+        // FIX: Initialize the State Machine
+        var fsm = FindAnyObjectByType<PlacementStateMachine>();
+        if (fsm != null)
+        {
+            fsm.Initialize(this);
+        }
+
         var ui = FindAnyObjectByType<BuildMenuUI>();
         ui.Initialize(MoneyService);
 
