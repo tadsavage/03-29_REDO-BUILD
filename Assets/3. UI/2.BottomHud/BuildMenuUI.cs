@@ -158,7 +158,7 @@ public class BuildMenuUI : MonoBehaviour
         _utilityRow = _root.Q<VisualElement>("UtilityRow");
         _submenuContainer = _root.Q<VisualElement>("SubmenuContainer");
 
-        // Track mouse over the bottom action bar
+        // Track mouse over the bottom action bar 
         _bottomBar.RegisterCallback<PointerEnterEvent>(_ => {
             IsPointerOverBuildMenu = true;
             _submenuClosePending = false;
@@ -170,10 +170,7 @@ public class BuildMenuUI : MonoBehaviour
             StartDelayedSubmenuClose();
         });
 
-        // FIX: Catch scroll wheels over the main bottom bar layout and prevent camera pass-through
-        _bottomBar.RegisterCallback<WheelEvent>(evt => {
-            evt.StopPropagation();
-        }, TrickleDown.TrickleDown);
+        // DELETED: Wiped out the restrictive .RegisterCallback<WheelEvent> from here!
     }
 
     private void BuildCategoryButtons()
@@ -240,21 +237,7 @@ public class BuildMenuUI : MonoBehaviour
             StartDelayedSubmenuClose();
         });
 
-        // FIX: Allow the ScrollView to process the scroll wheel data before stopping it
-        targetRoot.RegisterCallback<WheelEvent>(evt => {
-            // If the mouse wheel is moving, manually scroll the ScrollView content path
-            if (_submenuScroll != null)
-            {
-                // evt.delta.y gives us the mouse scroll direction direction/speed
-                _submenuScroll.scrollOffset = new Vector2(
-                    _submenuScroll.scrollOffset.x,
-                    _submenuScroll.scrollOffset.y + evt.delta.y * 20f // Tweak 20f to adjust scroll sensitivity
-                );
-            }
-
-            // Stops the event from trickling down into the 3D scene and zooming your camera
-            evt.StopPropagation();
-        }, TrickleDown.TrickleDown);
+        // DELETED: Wiped out the restrictive .RegisterCallback<WheelEvent> from here too!
 
         if (_submenuScroll != null)
         {
@@ -439,11 +422,4 @@ public class BuildMenuUI : MonoBehaviour
 
         return fallbackPopup;
     }
-
-
-
-
-
-
-
 }

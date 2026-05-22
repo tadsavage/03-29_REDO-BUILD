@@ -4,212 +4,149 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using static UnityEngine.UIElements.UxmlAttributeDescription;
+using UnityEngine.EventSystems; // REQUIRED: Adds native access to Unity's core Event System tracking loops
 
-/// <summary>
-/// A simple free camera to be added to a Unity game object.
-/// 
-/// Keys:
-///	wasd / arrows	- movement
-///	q/e 			- up/down (local space)
-///	r/f 			- up/down (world space)
-///	pageup/pagedown	- up/down (world space)
-///	hold shift		- enable fast movement mode
-///	right mouse  	- enable free look
-///	mouse			- free look / rotation
-///     
-/// </summary>
 public class FreeLookCamera : MonoBehaviour
 {
-	/// <summary>
-	/// Normal speed of camera movement.
-	/// </summary>
-	public float movementSpeed = 10f;
+    [SerializeField] private BuildMenuUI buildMenuUI;
 
-	/// <summary>
-	/// Speed of camera movement when shift is held down,
-	/// </summary>
-	public float fastMovementSpeed = 25f;
-
-	/// <summary>
-	/// Sensitivity for free look.
-	/// </summary>
-	public float freeLookSensitivity = 3f;
-
-	/// <summary>
-	/// Amount to zoom the camera when using the mouse wheel.
-	/// </summary>
-	public float zoomSensitivity = 10f;
-
-	/// <summary>
-	/// Amount to zoom the camera when using the mouse wheel (fast mode).
-	/// </summary>
-	public float fastZoomSensitivity = 50f;
-
-	/// <summary>
-	/// Normal speed of camera movement.
-	/// </summary>
-	public float heightMax = 6f;
-	
-	/// <summary>
-	/// Normal speed of camera movement.
-	/// </summary>
-	public float heightMin = 1f;
-
+    public float movementSpeed = 10f;
+    public float fastMovementSpeed = 25f;
+    public float freeLookSensitivity = 3f;
+    public float zoomSensitivity = 10f;
+    public float fastZoomSensitivity = 50f;
+    public float heightMax = 6f;
+    public float heightMin = 1f;
     public float X_Min = -18f;
     public float X_Max = 18f;
-
     public float Z_Min = -8f;
     public float Z_Max = 18f;
 
-    /// <summary>
-    /// Set to true when free looking (on right mouse button).
-    /// </summary>
     private bool looking = false;
 
-	//bool _running = false;
-	//bool _leftDown = false;
-	//bool _rightDown = false;
+    void Update()
+    {
+        var fastMode = Keyboard.current[Key.LeftShift].isPressed;
+        var currentMovementSpeed = fastMode ? this.fastMovementSpeed : this.movementSpeed;
 
-	void Update()
-	{
-		var fastMode = Keyboard.current[Key.LeftShift].isPressed;
-		var movementSpeed = fastMode ? this.fastMovementSpeed : this.movementSpeed;
+        // FIXED: Combines your script check with Unity's global event system to capture button and list hover layouts perfectly
+        bool isMouseOverUI = (buildMenuUI != null && buildMenuUI.IsPointerOverBuildMenu) ||
+                             (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject());
 
-		if (Keyboard.current[Key.A].isPressed || Keyboard.current[Key.LeftArrow].isPressed)
-		{
-			transform.position = transform.position + (-transform.right * movementSpeed * Time.deltaTime);
-		}
+        // -----------------------------------------------------------------
+        // KEYBOARD TRANSLATION MOVEMENT (Always allowed, never locked by UI)
+        // -----------------------------------------------------------------
+        if (Keyboard.current[Key.A].isPressed || Keyboard.current[Key.LeftArrow].isPressed)
+        {
+            transform.position = transform.position + (-transform.right * currentMovementSpeed * Time.deltaTime);
+        }
         if (Keyboard.current[Key.D].isPressed || Keyboard.current[Key.RightArrow].isPressed)
-		{
-			transform.position = transform.position + (transform.right * movementSpeed * Time.deltaTime);
-		}
-		if (Mouse.current.leftButton.isPressed && Mouse.current.rightButton.isPressed)
-		{
-			transform.position = transform.position + (transform.forward * movementSpeed * Time.deltaTime);
-		}
+        {
+            transform.position = transform.position + (transform.right * currentMovementSpeed * Time.deltaTime);
+        }
+        if (Mouse.current.leftButton.isPressed && Mouse.current.rightButton.isPressed && !isMouseOverUI)
+        {
+            transform.position = transform.position + (transform.forward * currentMovementSpeed * Time.deltaTime);
+        }
         if (Keyboard.current[Key.W].isPressed || Keyboard.current[Key.UpArrow].isPressed)
-		{
-			transform.position = transform.position + (transform.forward * movementSpeed * Time.deltaTime);
-		}
+        {
+            transform.position = transform.position + (transform.forward * currentMovementSpeed * Time.deltaTime);
+        }
         if (Keyboard.current[Key.S].isPressed || Keyboard.current[Key.DownArrow].isPressed)
         {
-			transform.position = transform.position + (-transform.forward * movementSpeed * Time.deltaTime);
-		}
-
-		if (Keyboard.current[Key.Q].isPressed)
-		{
-			transform.position = transform.position + (transform.up * movementSpeed  * Time.deltaTime);
-		}
-
+            transform.position = transform.position + (-transform.forward * currentMovementSpeed * Time.deltaTime);
+        }
+        if (Keyboard.current[Key.Q].isPressed)
+        {
+            transform.position = transform.position + (transform.up * currentMovementSpeed * Time.deltaTime);
+        }
         if (Keyboard.current[Key.E].isPressed)
         {
-			transform.position = transform.position + (-transform.up * movementSpeed * Time.deltaTime);
-		}
-
-		if (Keyboard.current[Key.R].isPressed || Keyboard.current[Key.PageUp].isPressed)
-		{
-			transform.position = transform.position + (Vector3.up * movementSpeed * Time.deltaTime);
-		}
-
-		if (Keyboard.current[Key.F].isPressed || Keyboard.current[Key.PageDown].isPressed)
-        {
-			transform.position = transform.position + (-Vector3.up * movementSpeed * Time.deltaTime);
-		}
-
-		if (transform.position.y < heightMin)
-		{
-			transform.position = new Vector3(transform.position.x, heightMin, transform.position.z);
-		}
-		else if (transform.position.y > heightMax)
-		{
-			transform.position = new Vector3(transform.position.x, heightMax, transform.position.z);
-		}
-		//  X Clamps
-        if (transform.position.x < X_Min)
-        {
-            transform.position = new Vector3(X_Min, transform.position.y, transform.position.z);
+            transform.position = transform.position + (-transform.up * currentMovementSpeed * Time.deltaTime);
         }
-        else if (transform.position.x > X_Max)
+        if (Keyboard.current[Key.R].isPressed || Keyboard.current[Key.PageUp].isPressed)
         {
-            transform.position = new Vector3(X_Max, transform.position.y, transform.position.z);
+            transform.position = transform.position + (Vector3.up * currentMovementSpeed * Time.deltaTime);
         }
-        //  Z Clamps
-        if (transform.position.z < Z_Min)
+        if (Keyboard.current[Key.F].isPressed || Keyboard.current[Key.PageDown].isPressed)
         {
-            transform.position = new Vector3(transform.position.x, transform.position.y, Z_Min);
-        }
-        else if (transform.position.z > Z_Max)
-        {
-            transform.position = new Vector3(transform.position.x, transform.position.y, Z_Max);
+            transform.position = transform.position + (-Vector3.up * currentMovementSpeed * Time.deltaTime);
         }
 
+        // Height Clamps
+        if (transform.position.y < heightMin) transform.position = new Vector3(transform.position.x, heightMin, transform.position.z);
+        else if (transform.position.y > heightMax) transform.position = new Vector3(transform.position.x, heightMax, transform.position.z);
+
+        // X Clamps
+        if (transform.position.x < X_Min) transform.position = new Vector3(X_Min, transform.position.y, transform.position.z);
+        else if (transform.position.x > X_Max) transform.position = new Vector3(X_Max, transform.position.y, transform.position.z);
+
+        // Z Clamps
+        if (transform.position.z < Z_Min) transform.position = new Vector3(transform.position.x, transform.position.y, Z_Min);
+        else if (transform.position.z > Z_Max) transform.position = new Vector3(transform.position.x, transform.position.y, Z_Max);
+
+        // -----------------------------------------------------------------
+        // MOUSE LOOK ROTATION (Rotation processing ignores UI limits while active)
+        // -----------------------------------------------------------------
         if (looking)
-		{
-            
-
-
-            float newRotationX = transform.localEulerAngles.y + Mouse.current.delta.x.ReadValue() * freeLookSensitivity;
-			float newRotationY = transform.localEulerAngles.x - Mouse.current.delta.y.ReadValue() * freeLookSensitivity;
-			transform.localEulerAngles = new Vector3(newRotationY, newRotationX, 0f);
-		}
-
-		float axis = Mouse.current.scroll.ReadValue().y;//Input.GetAxis("Mouse ScrollWheel");
-		if (axis != 0)
-		{
-			var zoomSensitivity = fastMode ? this.fastZoomSensitivity : this.zoomSensitivity;
-			GetComponentInChildren<Camera>().transform.position = transform.position + transform.forward * axis * zoomSensitivity;
-		}
-
-		if (Mouse.current.rightButton.wasPressedThisFrame)
-		{
-			StartLooking();
-		}
-		else if (Mouse.current.rightButton.wasReleasedThisFrame)
-
         {
-			StopLooking();
-		}
-	}
+            float newRotationX = transform.localEulerAngles.y + Mouse.current.delta.x.ReadValue() * freeLookSensitivity;
+            float newRotationY = transform.localEulerAngles.x - Mouse.current.delta.y.ReadValue() * freeLookSensitivity;
+            transform.localEulerAngles = new Vector3(newRotationY, newRotationX, 0f);
+        }
 
-	void OnDisable()
-	{
-		StopLooking();
-	}
+        // -----------------------------------------------------------------
+        // SCROLL WHEEL ZOOM MECHANIC (Blocked explicitly if mouse is over UI)
+        // -----------------------------------------------------------------
+        if (!isMouseOverUI)
+        {
+            float axis = Mouse.current.scroll.ReadValue().y;
+            if (axis != 0)
+            {
+                var currentZoomSensitivity = fastMode ? this.fastZoomSensitivity : this.zoomSensitivity;
+                GetComponentInChildren<Camera>().transform.position = transform.position + transform.forward * (axis * 0.01f) * currentZoomSensitivity;
+            }
+        }
 
-	/// <summary>
-	/// Enable free looking.
-	/// </summary>
-	public void StartLooking()
-	{
-		looking = true;
-		Cursor.visible = false;
-	}
+        // -----------------------------------------------------------------
+        // INTERACTION CLICK ACTIONS (Cannot activate free look if hovering UI)
+        // -----------------------------------------------------------------
+        if (Mouse.current.rightButton.wasPressedThisFrame && !isMouseOverUI)
+        {
+            StartLooking();
+        }
+        else if (Mouse.current.rightButton.wasReleasedThisFrame)
+        {
+            StopLooking();
+        }
+    }
 
-	/// <summary>
-	/// Disable free looking.
-	/// </summary>
-	public void StopLooking()
-	{
-		looking = false;
-		Cursor.visible = true;
-	}
+    void OnDisable()
+    {
+        StopLooking();
+    }
 
-	public CameraSaveData GetState()
-	{
-	return new CameraSaveData
-	{
-	focusPoint = transform.position,
-	pitch = transform.localEulerAngles.x,
-	yaw = transform.localEulerAngles.y,
-	distance = 0
-	};
-	}
+    public void StartLooking()
+    {
+        looking = true;
+        Cursor.visible = false;
+    }
 
-	public void SetState(CameraSaveData state)
-	{
-	if (state == null) return;
-	transform.position = state.focusPoint;
-	transform.localEulerAngles = new Vector3(state.pitch, state.yaw, 0);
-	}
-	}
+    public void StopLooking()
+    {
+        looking = false;
+        Cursor.visible = true;
+    }
+
+    public CameraSaveData GetState()
+    {
+        return new CameraSaveData { focusPoint = transform.position, pitch = transform.localEulerAngles.x, yaw = transform.localEulerAngles.y, distance = 0 };
+    }
+
+    public void SetState(CameraSaveData state)
+    {
+        if (state == null) return;
+        transform.position = state.focusPoint;
+        transform.localEulerAngles = new Vector3(state.pitch, state.yaw, 0);
+    }
+}
