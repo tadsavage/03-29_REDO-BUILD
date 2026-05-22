@@ -208,18 +208,20 @@ public class BuildState : IPlacementState
         // ---------------------------------------------------------
         // ROTATION
         // ---------------------------------------------------------
+
+        /*
         if (_scrollCooldown > 0)
         {
             _scrollCooldown -= Time.deltaTime;
         }
-
+        
         float scrollDelta = Mouse.current.scroll.ReadValue().y;
         if (Mathf.Abs(scrollDelta) > ScrollThreshold && _scrollCooldown <= 0)
         {
             RotateObject();
             _scrollCooldown = 0.2f; // cooldown in seconds
         }
-
+        */
         if (_rotateRequested)
         {
             _rotateRequested = false;
@@ -230,7 +232,7 @@ public class BuildState : IPlacementState
 
             _preview.Rotate(_currentRotation);
         }
-
+        
         // ---------------------------------------------------------
         // GHOST + VALIDATION
         // ---------------------------------------------------------

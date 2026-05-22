@@ -64,6 +64,7 @@ public class FreeLookCamera : MonoBehaviour
         {
             transform.position = transform.position + (-transform.up * currentMovementSpeed * Time.deltaTime);
         }
+        /*
         if (Keyboard.current[Key.R].isPressed || Keyboard.current[Key.PageUp].isPressed)
         {
             transform.position = transform.position + (Vector3.up * currentMovementSpeed * Time.deltaTime);
@@ -72,7 +73,7 @@ public class FreeLookCamera : MonoBehaviour
         {
             transform.position = transform.position + (-Vector3.up * currentMovementSpeed * Time.deltaTime);
         }
-
+        */
         // Height Clamps
         if (transform.position.y < heightMin) transform.position = new Vector3(transform.position.x, heightMin, transform.position.z);
         else if (transform.position.y > heightMax) transform.position = new Vector3(transform.position.x, heightMax, transform.position.z);
