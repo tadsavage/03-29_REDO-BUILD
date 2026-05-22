@@ -16,16 +16,31 @@ public class PlacementFinalizer : MonoBehaviour
         return FinalizePlacement(root, offsets, data, rotation, null);
     }
 
-    // Extended: can track disabled floors for undo
+    private bool IsGround(ObjDataSO data)
+    {
+        if (data == null) return false;
+        return data.category == "Foundation" || data.category == "Grounds";
+    }
+
+    // Extended: can track disabled objects for undo
     public GameObject FinalizePlacement(
      Vector2Int root,
      Vector2Int[] offsets,
      ObjDataSO data,
      float rotation,
-     List<GameObject> disabledFloors)
+     List<GameObject> disabledObjects)
     {
         if (data == null || data.prefab == null)
             return null;
+
+        // --- GROUND REPLACEMENT LOGIC ---
+        if (IsGround(data))
+        {
+            if (IsSameGroundAlreadyThere(root, offsets, data))
+                return null;
+
+            DisableExistingGrounds(root, offsets, disabledObjects);
+        }
 
         // --- FLOOR REPLACEMENT LOGIC ---
         if (data.isFloor)
@@ -35,21 +50,18 @@ public class PlacementFinalizer : MonoBehaviour
                 // "if we're just the same type of floor though then do nothing"
                 return null;
             }
-
             // Replace different floors
-            DisableExistingFloors(root, offsets, disabledFloors);
-            }
-
-            // --- BULLDOZER LOGIC ---
-            if (data.ClearsGridAfterPlacement)
-            {
+            DisableExistingFloors(root, offsets, disabledObjects);
+        }
+        // --- BULLDOZER LOGIC ---
+        if (data.ClearsGridAfterPlacement)
+        {
             foreach (var o in offsets)
             {
                 _grid.ClearCell(root + o, true); // true to destroy objects
             }
-            }
-
-            GameObject instance = Instantiate(data.prefab);
+        }
+        GameObject instance = Instantiate(data.prefab);
         instance.name = data.objName;
 
         // Position will be set by UpdateStackPositions called via AddStackObject
@@ -90,6 +102,42 @@ public class PlacementFinalizer : MonoBehaviour
 
         return instance;
     }
+    private bool IsSameGroundAlreadyThere(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
+    {
+        foreach (var o in offsets)
+        {
+            Vector2Int cell = root + o;
+            var list = _grid.GetObjectsInCell(cell);
+            if (list == null) continue;
+
+            foreach (var entry in list)
+            {
+                if (IsGround(entry.data) && entry.data.id == data.id)
+                    return true;
+            }
+        }
+        return false;
+    }
+    private void DisableExistingGrounds(Vector2Int root, Vector2Int[] offsets, List<GameObject> disabledObjects)
+    {
+        foreach (var o in offsets)
+        {
+            Vector2Int cell = root + o;
+            var list = _grid.GetObjectsInCell(cell);
+            if (list == null) continue;
+
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                var entry = list[i];
+                if (IsGround(entry.data) && entry.instance != null && entry.instance.activeSelf)
+                {
+                    entry.instance.SetActive(false);
+                    if (disabledObjects != null)
+                        disabledObjects.Add(entry.instance);
+                }
+            }
+        }
+    }
     private bool IsSameFloorAlreadyThere(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
     {
         foreach (var o in offsets)
@@ -102,9 +150,6 @@ public class PlacementFinalizer : MonoBehaviour
             {
                 if (entry.data != null && entry.data.isFloor)
                 {
-                    // If any cell in footprint already has this EXACT floor type, 
-                    // we consider it "the same floor is already there".
-                    // You might want to check if ALL cells match, but checking root is usually enough for single-cell floors.
                     if (entry.data.id == data.id) 
                         return true;
                 }
@@ -112,11 +157,7 @@ public class PlacementFinalizer : MonoBehaviour
         }
         return false;
     }
-
-    private void DisableExistingFloors(
-Vector2Int root,
-        Vector2Int[] offsets,
-        List<GameObject> disabledFloors)
+    private void DisableExistingFloors(Vector2Int root, Vector2Int[] offsets, List<GameObject> disabledObjects)
     {
         foreach (var o in offsets)
         {
@@ -138,8 +179,8 @@ Vector2Int root,
                 {
                     entry.instance.SetActive(false);
 
-                    if (disabledFloors != null)
-                        disabledFloors.Add(entry.instance);
+                    if (disabledObjects != null)
+                        disabledObjects.Add(entry.instance);
                 }
             }
         }

@@ -124,13 +124,12 @@ public class PlacementGrid : MonoBehaviour
         if (list == null || list.Count == 0)
             return false;
 
-        // Floors, ignorePlacementRules, and ClearsGridAfterPlacement do NOT count as occupied
+        // Foundations, Floors, ignorePlacementRules, and ClearsGridAfterPlacement do NOT count as occupied
         foreach (var entry in list)
         {
-            if (!entry.data.isFloor && !entry.data.ignorePlacementRules && !entry.data.ClearsGridAfterPlacement)
+            if (!IsGround(entry.data) && !entry.data.isFloor && !entry.data.ignorePlacementRules && !entry.data.ClearsGridAfterPlacement)
                 return true;
         }
-
         return false;
     }
 
@@ -143,14 +142,20 @@ public class PlacementGrid : MonoBehaviour
         if (list == null || list.Count == 0)
             return null;
 
-        // Return the topmost NON-floor object that isn't a clearer
+        // Return the topmost NON-foundation NON-floor object that isn't a clearer
         for (int i = list.Count - 1; i >= 0; i--)
         {
-            if (!list[i].data.isFloor && !list[i].data.ignorePlacementRules && !list[i].data.ClearsGridAfterPlacement)
+            if (!IsGround(list[i].data) && !list[i].data.isFloor && !list[i].data.ignorePlacementRules && !list[i].data.ClearsGridAfterPlacement)
                 return list[i].instance;
         }
 
         return null;
+    }
+
+    private bool IsGround(ObjDataSO data)
+    {
+        if (data == null) return false;
+        return data.category == "Foundation" || data.category == "Grounds";
     }
 
     // ---------------------------------------------------------
@@ -168,8 +173,11 @@ public class PlacementGrid : MonoBehaviour
         {
             if (entry.instance == null || !entry.instance.activeSelf) continue;
 
-            // Objects that ignore rules or clear grid stay at y=0, unless they are floors
-            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor)
+            // Foundations always stay at y=0, but they contribute height for the next object
+            bool isGround = IsGround(entry.data);
+
+            // Objects that ignore rules or clear grid stay at y=0, unless they are floors or grounds
+            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
             {
                 Vector3 p = GetCellCenter(cell);
                 p.y = 0f;
@@ -184,7 +192,7 @@ public class PlacementGrid : MonoBehaviour
                 if (bd.RootCell == cell)
                 {
                     Vector3 pos = GetCellCenter(cell);
-                    pos.y = currentY;
+                    pos.y = isGround ? 0f : currentY;
 
                     var agent = entry.instance.GetComponent<NavMeshAgent>();
                     if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
@@ -201,7 +209,7 @@ public class PlacementGrid : MonoBehaviour
             {
                 // Fallback for items without building data
                 Vector3 pos = GetCellCenter(cell);
-                pos.y = currentY;
+                pos.y = isGround ? 0f : currentY;
 
                 var agent = entry.instance.GetComponent<NavMeshAgent>();
                 if (agent != null && agent.isActiveAndEnabled)
@@ -223,7 +231,7 @@ public class PlacementGrid : MonoBehaviour
     }
 
     public float GetStackHeight(Vector2Int cell, GameObject ignore = null)
-{
+    {
         if (!IsInsideGrid(cell))
             return 0f;
 
@@ -238,8 +246,8 @@ public class PlacementGrid : MonoBehaviour
             if (entry.instance == ignore || (entry.instance != null && !entry.instance.activeSelf))
                 continue;
 
-            // ignorePlacementRules and ClearsGridAfterPlacement do NOT add height, but floors always DO if they have a height.
-            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor)
+            // ignorePlacementRules and ClearsGridAfterPlacement do NOT add height, but floors and grounds always DO if they have a height.
+            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !IsGround(entry.data))
                 continue;
 
             height += entry.data.objHeight;
@@ -269,18 +277,23 @@ public class PlacementGrid : MonoBehaviour
 
         var list = _cells[cell.x, cell.y];
 
-        // Floors go after other floors but before everything else
-        if (data.isFloor)
+        if (IsGround(data))
         {
-            int lastFloorIndex = -1;
+            // Grounds go at the very bottom
+            list.Insert(0, new PlacedObject { instance = obj, data = data });
+        }
+        else if (data.isFloor)
+        {
+            // Floors go after grounds but before everything else
+            int insertIdx = 0;
             for (int i = 0; i < list.Count; i++)
             {
-                if (list[i].data.isFloor)
-                    lastFloorIndex = i;
+                if (IsGround(list[i].data) || list[i].data.isFloor)
+                    insertIdx = i + 1;
                 else
                     break;
             }
-            list.Insert(lastFloorIndex + 1, new PlacedObject { instance = obj, data = data });
+            list.Insert(insertIdx, new PlacedObject { instance = obj, data = data });
         }
         else
         {
@@ -337,8 +350,8 @@ public class PlacementGrid : MonoBehaviour
         {
             var entry = list[i];
             
-            // Do NOT clear floors here. Floor replacement is handled separately.
-            if (entry.data != null && entry.data.isFloor)
+            // Do NOT clear floors or foundations here. Replacement is handled separately.
+            if (entry.data != null && (entry.data.isFloor || IsGround(entry.data)))
                 continue;
 
             if (destroyObject && entry.instance != null)
@@ -578,11 +591,27 @@ public class PlacementGrid : MonoBehaviour
                 if (exists)
                     continue;
 
-                // Floors at bottom, others on top
-                if (placed.data.isFloor)
+                // Foundations at bottom, Floors after, others on top
+                if (IsGround(placed.data))
+                {
                     list.Insert(0, new PlacedObject { instance = placed.gameObject, data = placed.data });
+                }
+                else if (placed.data.isFloor)
+                {
+                    int insertIdx = 0;
+                    for (int j = 0; j < list.Count; j++)
+                    {
+                        if (IsGround(list[j].data) || list[j].data.isFloor)
+                            insertIdx = j + 1;
+                        else
+                            break;
+                    }
+                    list.Insert(insertIdx, new PlacedObject { instance = placed.gameObject, data = placed.data });
+                }
                 else
+                {
                     list.Add(new PlacedObject { instance = placed.gameObject, data = placed.data });
+                }
                 }
                 }
 

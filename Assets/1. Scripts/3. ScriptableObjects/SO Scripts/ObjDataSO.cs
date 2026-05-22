@@ -131,7 +131,6 @@ public class ObjDataSO : ScriptableObject
 
         return result;
     }
-
     private float NormalizeRotation(float r)
     {
         r %= 360f;

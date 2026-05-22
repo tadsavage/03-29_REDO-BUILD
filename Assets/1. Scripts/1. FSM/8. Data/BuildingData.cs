@@ -40,7 +40,7 @@ public class BuildingData : MonoBehaviour
         // 2. Clearance objects (Racks, Doors) or Stackable objects (Crates) should be BAKED but NOT have obstacles.
         // This allows different NavMesh surfaces (Humanoid vs MHE) to handle clearance height naturally
         // and enables multi-level navigation for agents on top of objects.
-        if (Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules || Data.isStackable)
+        if (Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules || Data.isStackable || Data.category == "Foundation" || Data.category == "Grounds")
         {
             // Set layer to Ground (3) to ensure collection by NavMeshSurface
             gameObject.layer = LayerMask.NameToLayer("Ground");
