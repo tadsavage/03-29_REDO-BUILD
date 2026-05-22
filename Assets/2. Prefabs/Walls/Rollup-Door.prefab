@@ -587,12 +587,12 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 4.014723, y: 9.0153, z: 8}
-  m_Center: {x: 0, y: 4.493995, z: -0.018785}
+  m_Size: {x: 1.7635677, y: 0.13815448, z: 4.136915}
+  m_Center: {x: 0.084104896, y: 0.05542253, z: 0.0688529}
 --- !u!208 &838683423195589200
 NavMeshObstacle:
   m_ObjectHideFlags: 0
@@ -624,7 +624,7 @@ MonoBehaviour:
   doorPanel: {fileID: 2897782655639932341}
   startY: 0
   endY: 3.8
-  speed: 2
+  speed: 3
 --- !u!1 &6002053026919147327 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -916231596712828137, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
