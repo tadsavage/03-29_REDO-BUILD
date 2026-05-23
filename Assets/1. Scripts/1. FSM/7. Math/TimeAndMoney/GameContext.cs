@@ -10,8 +10,16 @@ public class GameContext : MonoBehaviour
         //topRightUI.Initialize(MoneyService, TimeService);
         var placement = FindAnyObjectByType<PlacementSystem>();
         placement.LoadGame();
+
+        // CRITICAL FIX: Ensure the grid is synchronized with any existing scene objects
+        // (like those placed manually in the Editor) even if no save was loaded.
+        var grid = FindAnyObjectByType<PlacementGrid>();
+        if (grid != null)
+        {
+            grid.RebuildFromRegistry();
+        }
     }
-    public MoneyService MoneyService { get; private set; }
+public MoneyService MoneyService { get; private set; }
 
     public SimulationTimeService TimeService { get; private set; }
 

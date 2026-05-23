@@ -78,8 +78,8 @@ public class BuildingData : MonoBehaviour
 
         // 4. Calculate Size based on the footprint
         // We use the grid dimensions from ObjDataSO to ensure the "hole" matches the grid
-        float gridSpaceX = Data.footprint.x * 1.33f; // 1.33 is your grid CellSize
-        float gridSpaceZ = Data.footprint.y * 1.33f;
+        float gridSpaceX = Data.footprint.x * .33f; // 1.33 is your grid CellSize
+        float gridSpaceZ = Data.footprint.y * .33f;
 
         // Center it (assuming the pivot is at the center of the root cell)
         // If the footprint is larger than 1x1, we need to shift the center to the middle of the footprint.

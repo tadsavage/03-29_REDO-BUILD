@@ -568,7 +568,13 @@ public class PlacementGrid : MonoBehaviour
             if (placed == null || placed.data == null)
                 continue;
 
-            Vector2Int root = new Vector2Int(placed.gridX, placed.gridY);
+            // CRITICAL FIX: Use world position to determine the root cell for scene objects
+            // This ensures manually placed Editor objects are correctly registered.
+            Vector2Int root = WorldToCell(placed.transform.position);
+            
+            // Sync the PlacedObject data so saving/moving works correctly
+            placed.gridX = root.x;
+            placed.gridY = root.y;
 
             if (!IsInsideGrid(root))
             {
