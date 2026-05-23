@@ -134,8 +134,14 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     // SINGLE GHOST
     // ---------------------------------------------------------
-    public void Show(ObjDataSO data)
+    private bool IsGround(ObjDataSO data)
     {
+        if (data == null) return false;
+        return data.category == "Foundation" || data.category == "Grounds";
+    }
+
+    public void Show(ObjDataSO data)
+{
         if (_currentData != data)
         {
             if (_singleGhost != null)
@@ -173,8 +179,9 @@ public class PreviewController : MonoBehaviour
         if (_isFlyingIn)
             return;
 
-        // Non-floor objects should sit on top of the stack (including floors)
-        float stackY = (!data.isFloor && !data.ignorePlacementRules) ? _grid.GetStackHeight(cell) : 0f;
+        // Foundations are always at y=0. Everything else (Floors, Objects) sits on the stack.
+        float stackY = IsGround(data) ? 0f : _grid.GetStackHeight(cell);
+
         if (!_deleteMode)
             pos.y += stackY;
 
@@ -241,9 +248,8 @@ public class PreviewController : MonoBehaviour
 
         ghost.SetActive(true);
 
-        float stackY = (_currentData != null && !_currentData.isFloor && !_currentData.ignorePlacementRules)
-            ? _grid.GetStackHeight(cell)
-            : 0f;
+        // Foundations are always at y=0. Everything else (Floors, Objects) sits on the stack.
+        float stackY = IsGround(_currentData) ? 0f : _grid.GetStackHeight(cell);
 
         Vector3 pos = _grid.GetCellCenter(cell);
         pos.y += stackY;

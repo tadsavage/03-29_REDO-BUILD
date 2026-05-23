@@ -169,13 +169,15 @@ public class PlacementGrid : MonoBehaviour
         if (list == null) return;
 
         float currentY = 0f;
+        bool groundHeightAdded = false;
+
         foreach (var entry in list)
         {
             if (entry.instance == null || !entry.instance.activeSelf) continue;
 
-            // Foundations always stay at y=0, but they contribute height for the next object
             bool isGround = IsGround(entry.data);
 
+            // Foundations always stay at y=0
             // Objects that ignore rules or clear grid stay at y=0, unless they are floors or grounds
             if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
             {
@@ -223,7 +225,19 @@ public class PlacementGrid : MonoBehaviour
             }
 
             // Increment height for next object
-            currentY += entry.data.objHeight;
+            // If multiple grounds exist, only add the height of the first one to avoid stacking foundations
+            if (isGround)
+            {
+                if (!groundHeightAdded)
+                {
+                    currentY += entry.data.objHeight;
+                    groundHeightAdded = true;
+                }
+            }
+            else
+            {
+                currentY += entry.data.objHeight;
+            }
         }
 
         // Cache the total height for queries
@@ -236,6 +250,7 @@ public class PlacementGrid : MonoBehaviour
             return 0f;
 
         float height = 0f;
+        bool groundHeightAdded = false;
 
         var list = _cells[cell.x, cell.y];
         if (list == null)
@@ -246,11 +261,24 @@ public class PlacementGrid : MonoBehaviour
             if (entry.instance == ignore || (entry.instance != null && !entry.instance.activeSelf))
                 continue;
 
+            bool isGround = IsGround(entry.data);
+
             // ignorePlacementRules and ClearsGridAfterPlacement do NOT add height, but floors and grounds always DO if they have a height.
-            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !IsGround(entry.data))
+            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
                 continue;
 
-            height += entry.data.objHeight;
+            if (isGround)
+            {
+                if (!groundHeightAdded)
+                {
+                    height += entry.data.objHeight;
+                    groundHeightAdded = true;
+                }
+            }
+            else
+            {
+                height += entry.data.objHeight;
+            }
         }
 
         return height;
