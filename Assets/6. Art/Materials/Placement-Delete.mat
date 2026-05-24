@@ -8,18 +8,17 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Placement-Delete
-  m_Shader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
+  m_Shader: {fileID: 4800000, guid: 7b8993a2b0a2e7f439279ac217730278, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
+  m_ValidKeywords: []
+  m_InvalidKeywords:
   - _SURFACE_TYPE_TRANSPARENT
-  m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 3000
-  stringTagMap:
-    RenderType: Transparent
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
   - DepthOnly
@@ -105,6 +104,7 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
+    - _LineWidth: 0.005
     - _Metallic: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.005
@@ -121,9 +121,10 @@ Material:
     - _XRMotionVectorsPass: 1
     - _ZWrite: 0
     m_Colors:
-    - _BaseColor: {r: 0.64779866, g: 0.58501595, b: 0.09574375, a: 0.28235295}
+    - _BaseColor: {r: 1, g: 0.5, b: 0.1, a: 0.5}
     - _Color: {r: 0.64779866, g: 0.58501595, b: 0.09574371, a: 0.28235295}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _LineColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

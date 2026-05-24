@@ -3,62 +3,67 @@ using System.Collections.Generic;
 
 public class BuildingHighlighter : MonoBehaviour
 {
-    [SerializeField] private Material validMaterial;
-    [SerializeField] private Material invalidMaterial;
-    [SerializeField] private Material deleteMaterial;
+    [Header("Highlights")]
+    [SerializeField] private Color validColor = new Color(0.2f, 1.0f, 0.2f, 0.5f);
+    [SerializeField] private Color invalidColor = new Color(1.0f, 0.2f, 0.2f, 0.5f);
+    [SerializeField] private Color deleteColor = new Color(1.0f, 0.5f, 0.2f, 0.5f);
 
     private readonly List<Renderer> _renderers = new();
-    private readonly List<Material> _originalMaterials = new();
+    private MaterialPropertyBlock _mpb;
+    private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 
-    void Awake()
+    private void Awake()
     {
         CacheRenderers();
+        _mpb = new MaterialPropertyBlock();
     }
 
     private void CacheRenderers()
     {
         _renderers.Clear();
-        _originalMaterials.Clear();
-
-        // Collect ALL renderers (MeshRenderer + SkinnedMeshRenderer)
         foreach (var r in GetComponentsInChildren<Renderer>(true))
         {
-            if (r == null) continue;
-
-            _renderers.Add(r);
-            // CRITICAL FIX: Use sharedMaterial instead of material to avoid creating 
-            // a unique material instance per renderer, which breaks batching.
-            _originalMaterials.Add(r.sharedMaterial);
+            if (r != null) _renderers.Add(r);
         }
     }
 
     public void HighlightValid(bool on)
     {
-        SetMaterial(on ? validMaterial : null);
+        ApplyHighlight(on ? validColor : (Color?)null);
     }
 
     public void HighlightInvalid(bool on)
     {
-        SetMaterial(on ? invalidMaterial : null);
+        ApplyHighlight(on ? invalidColor : (Color?)null);
     }
 
     public void HighlightDelete(bool on)
     {
-        SetMaterial(on ? deleteMaterial : null);
+        ApplyHighlight(on ? deleteColor : (Color?)null);
     }
 
-    private void SetMaterial(Material overrideMat)
+    public void ClearHighlight()
     {
-        // Safety: if renderers were destroyed or changed, re-cache
+        ApplyHighlight(null);
+    }
+
+    private void ApplyHighlight(Color? color)
+    {
         if (_renderers.Count == 0) CacheRenderers();
 
-        for (int i = 0; i < _renderers.Count; i++)
+        if (color.HasValue)
         {
-            var r = _renderers[i];
-            if (r == null) continue;
+            _mpb.SetColor(BaseColorID, color.Value);
+        }
 
-            // CRITICAL FIX: Use sharedMaterial to maintain batching performance
-            r.sharedMaterial = overrideMat != null ? overrideMat : _originalMaterials[i];
+        foreach (var r in _renderers)
+        {
+            if (r == null) continue;
+            
+            if (color.HasValue)
+                r.SetPropertyBlock(_mpb);
+            else
+                r.SetPropertyBlock(null);
         }
     }
 }

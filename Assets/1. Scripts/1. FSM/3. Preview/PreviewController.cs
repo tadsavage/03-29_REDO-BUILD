@@ -36,10 +36,10 @@ public class PreviewController : MonoBehaviour
     private GameObject _currentPreview;
 
     // ---------------------------------------------------------
-    // FLAT COLOR HIGHLIGHTS (SEMI-TRANSPARENT)
+    // FACTORIO-STYLE HIGHLIGHTS (SUBTLE TINTS)
     // ---------------------------------------------------------
-    private static readonly Color HighlightGreen = new(0.20f, 1.00f, 0.20f, 0.65f);
-    private static readonly Color HighlightRed = new(1.00f, 0.20f, 0.20f, 0.65f);
+    private static readonly Color HighlightGreen = new(0.9f, 1.0f, 0.9f, 0.4f);
+    private static readonly Color HighlightRed = new(1.0f, 0.9f, 0.9f, 0.4f);
 
     private MaterialPropertyBlock _highlightMPB;
     private MaterialPropertyBlock _restoreMPB;
