@@ -84,7 +84,7 @@ public class PlacementFinalizer : MonoBehaviour
         FXPool.Instance.Play("dust", pos);
 
         // Initialize PlacedObject
-        var po = instance.GetComponent<PlacedObject>();
+var po = instance.GetComponent<PlacedObject>();
         if (po != null)
             po.Initialize(data, root.x, root.y, (int)(rotation / 90f));
 

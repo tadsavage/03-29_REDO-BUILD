@@ -284,8 +284,32 @@ public class PlacementGrid : MonoBehaviour
         return height;
     }
 
-    public bool CanStack(Vector2Int cell, ObjDataSO data)
+    /// <summary>
+    /// Returns the height of Ground/Foundation objects only. 
+    /// Used for floor placement to ensure floors sit directly on the ground.
+    /// </summary>
+    public float GetGroundHeight(Vector2Int cell)
     {
+        if (!IsInsideGrid(cell))
+            return 0f;
+
+        var list = _cells[cell.x, cell.y];
+        if (list == null) return 0f;
+
+        float height = 0f;
+        foreach (var entry in list)
+        {
+            if (IsGround(entry.data))
+            {
+                height += entry.data.objHeight;
+                break; // Only first foundation contributes
+            }
+        }
+        return height;
+    }
+
+    public bool CanStack(Vector2Int cell, ObjDataSO data)
+{
         if (!IsInsideGrid(cell))
             return false;
 

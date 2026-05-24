@@ -643,6 +643,7 @@ GameObject:
   - component: {fileID: 818959108}
   - component: {fileID: 818959107}
   - component: {fileID: 818959106}
+  - component: {fileID: 818959110}
   m_Layer: 3
   m_Name: Ground
   m_TagString: Untagged
@@ -747,6 +748,26 @@ Transform:
   - {fileID: 2141331241}
   m_Father: {fileID: 1635529926}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &818959110
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 818959105}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifier
+  m_SerializedVersion: 0
+  m_OverrideArea: 1
+  m_Area: 1
+  m_OverrideGenerateLinks: 0
+  m_GenerateLinks: 0
+  m_IgnoreFromBuild: 0
+  m_ApplyToChildren: 1
+  m_AffectedAgents: ffffffff
 --- !u!1 &949787151
 GameObject:
   m_ObjectHideFlags: 0
@@ -1031,8 +1052,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PreviewController
   moveSmoothTime: 0.05
   moveSmoothSpeed: 0.65
-  useFlyIn: 1
-  flyDuration: 0.25
+  offsetMovePreview: 0.25
   _ghostMaterial: {fileID: 2100000, guid: c8cca804bcdf0e345a22591078c20b9a, type: 2}
 --- !u!114 &1024109573
 MonoBehaviour:

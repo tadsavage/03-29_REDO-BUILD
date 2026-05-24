@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class PreviewController : MonoBehaviour
 {
+    public static PreviewController Instance { get; private set; }
     private PlacementGrid _grid;
 
     // ---------------------------------------------------------
@@ -20,19 +21,17 @@ public class PreviewController : MonoBehaviour
     private bool _hasTarget;
 
     // ---------------------------------------------------------
-    // MOVEMENT / FLY-IN
+    // MOVEMENT / HOVER
     // ---------------------------------------------------------
     [Header("Move Smoothing")]
     [SerializeField] private float moveSmoothTime = 0.08f;
     [SerializeField] private float moveSmoothSpeed = 0.25f;
 
-    [Header("Fly-In Settings")]
-    [SerializeField] private bool useFlyIn = false;
-    [SerializeField] private float flyDuration = 0.25f;
+    [Header("Hover Settings")]
+    [SerializeField] private float offsetMovePreview = .5f;
 
-    private bool _isFlyingIn;
-    private float _flyTime;
-    private Vector3 _flyStartPos;
+    public float OffsetMovePreview => offsetMovePreview;
+    public float MoveSmoothTime => moveSmoothTime;
 
     private GameObject _currentPreview;
 
@@ -50,9 +49,11 @@ public class PreviewController : MonoBehaviour
 
     private bool _multiMode;
     private bool _deleteMode;
+    private bool _isMovePreviewMode;
 
     private void Awake()
     {
+        Instance = this;
         _grid = Object.FindFirstObjectByType<PlacementGrid>();
 
         _highlightMPB = new MaterialPropertyBlock();
@@ -114,7 +115,6 @@ public class PreviewController : MonoBehaviour
 
         _currentPreview = null;
         _hasTarget = false;
-        _isFlyingIn = false;
         _velocity = Vector3.zero;
     }
 
@@ -129,6 +129,11 @@ public class PreviewController : MonoBehaviour
     public void SetDeleteMode(bool on)
     {
         _deleteMode = on;
+    }
+
+    public void SetMovePreviewMode(bool on)
+    {
+        _isMovePreviewMode = on;
     }
 
     // ---------------------------------------------------------
@@ -176,17 +181,74 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     public void MoveTo(Vector3 pos, Vector2Int cell, ObjDataSO data)
     {
-        if (_isFlyingIn)
-            return;
+        _targetPos = CalculateTargetPos(pos, cell, data);
+        _hasTarget = true;
+    }
 
-        // Foundations are always at y=0. Everything else (Floors, Objects) sits on the stack.
-        float stackY = IsGround(data) ? 0f : _grid.GetStackHeight(cell);
+    public void SnapTo(Vector3 baselinePos, Vector2Int cell, ObjDataSO data)
+    {
+        _targetPos = CalculateTargetPos(_grid.GetCellCenter(cell), cell, data);
+        _hasTarget = true; // We want it to start moving towards the target goal (lifting)
+        _velocity = Vector3.zero;
+
+        if (_currentPreview != null)
+        {
+            // Snap the visual exactly where the object was (the baseline).
+            // The lift offset will be applied in the Update loop starting this frame.
+            _currentPreview.transform.position = baselinePos;
+        }
+    }
+
+    private Vector3 CalculateTargetPos(Vector3 pos, Vector2Int cell, ObjDataSO data)
+    {
+        float stackY = 0f;
+
+        // Logic for preview height calculation:
+        // 1. If we are placing a Ground/Foundation, it stays at y=0.
+        // 2. Otherwise, we calculate the cumulative height of valid surfaces.
+        // 3. Grounds and Floors always contribute to the base height.
+        // 4. Other objects ONLY contribute height if BOTH the ghost and the existing object are stackable.
+        if (data != null && !IsGround(data))
+        {
+            var list = _grid.GetObjectsInCell(cell);
+            if (list != null)
+            {
+                bool groundHeightAdded = false;
+                foreach (var entry in list)
+                {
+                    if (entry.instance == null || !entry.instance.activeSelf) continue;
+
+                    bool entryIsGround = IsGround(entry.data);
+
+                    if (entryIsGround)
+                    {
+                        if (!groundHeightAdded)
+                        {
+                            stackY += entry.data.objHeight;
+                            groundHeightAdded = true;
+                        }
+                    }
+                    else if (entry.data.isFloor)
+                    {
+                        stackY += entry.data.objHeight;
+                    }
+                    else if (data.isStackable && entry.data.isStackable)
+                    {
+                        // Objects that ignore rules or clear grid don't add height 
+                        // unless they are specifically floors/grounds (handled above)
+                        if (entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement)
+                            continue;
+
+                        stackY += entry.data.objHeight;
+                    }
+                }
+            }
+        }
 
         if (!_deleteMode)
             pos.y += stackY;
 
-        _targetPos = pos;
-        _hasTarget = true;
+        return pos;
     }
 
     public void Rotate(float angle)
@@ -320,60 +382,33 @@ public class PreviewController : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // FLY-IN + SMOOTHING
+    // SMOOTH FOLLOW + LIFT
     // ---------------------------------------------------------
-    public void BeginFlyIn(Vector3 worldTarget)
-    {
-        if (!useFlyIn)
-            return;
-
-        _targetPos = worldTarget;
-        _isFlyingIn = true;
-        _flyTime = 0f;
-
-        float randX = Random.Range(-5f, 5f);
-        float randZ = Random.Range(-3f, 8f);
-
-        _flyStartPos = worldTarget + new Vector3(randX, 8f, randZ);
-        if (_currentPreview != null)
-            _currentPreview.transform.position = _flyStartPos;
-    }
-
     private void Update()
     {
         if (_currentPreview == null)
             return;
 
-        // Fly-in
-        if (_isFlyingIn && useFlyIn && !_deleteMode)
-        {
-            _flyTime += Time.deltaTime;
-            float t = Mathf.Clamp01(_flyTime / flyDuration);
-            t = Mathf.SmoothStep(0f, 1f, t);
-
-            _currentPreview.transform.position =
-                Vector3.Lerp(_flyStartPos, _targetPos, t);
-
-            if (t >= 0.75f)
-                _isFlyingIn = false;
-
-            return;
-        }
-
-        // Smooth follow
+        // Smooth follow with vertical offset (Lift) - only in Move Mode
         if (_hasTarget && !_deleteMode)
         {
             float adjustedSmooth = moveSmoothTime / Mathf.Max(0.01f, moveSmoothSpeed);
 
+            Vector3 finalTarget = _targetPos;
+            if (_isMovePreviewMode)
+            {
+                finalTarget.y += offsetMovePreview;
+            }
+
             _currentPreview.transform.position =
                 Vector3.SmoothDamp(
                     _currentPreview.transform.position,
-                    _targetPos,
+                    finalTarget,
                     ref _velocity,
                     adjustedSmooth
                 );
 
-            if ((_currentPreview.transform.position - _targetPos).sqrMagnitude < 0.01f)
+            if ((_currentPreview.transform.position - finalTarget).sqrMagnitude < 0.01f)
             {
                 _hasTarget = false;
                 _velocity = Vector3.zero;

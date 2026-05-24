@@ -30,65 +30,61 @@ public class NavMeshManager : MonoBehaviour
     {
         if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
         
-        _modifierCache = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>(FindObjectsSortMode.None));
-        
-        var markups = new List<NavMeshBuildMarkup>();
-        foreach (var mod in _modifierCache)
-        {
-            if (mod != null && mod.isActiveAndEnabled)
-            {
-                markups.Add(new NavMeshBuildMarkup
-                {
-                    root = mod.transform,
-                    overrideArea = mod.overrideArea,
-                    area = mod.area,
-                    ignoreFromBuild = mod.ignoreFromBuild
-                });
-            }
-        }
-
         foreach (var surface in _surfaces)
         {
             if (surface != null)
             {
-                if (surface.navMeshData == null)
+                // Cancel any pending async builds to avoid "g_pVertMem == NULL" assertion
+                if (surface.navMeshData != null)
                 {
-                    surface.navMeshData = new NavMeshData();
+                    NavMeshBuilder.Cancel(surface.navMeshData);
                 }
 
-                var settings = surface.GetBuildSettings();
-                var sources = new List<NavMeshBuildSource>();
+                // Use the high-level BuildNavMesh for synchronous initialization.
+                // This is more robust than manual UpdateNavMeshData calls.
+                surface.BuildNavMesh();
                 
-                Bounds worldBounds;
-                if (surface.collectObjects == CollectObjects.All)
-                {
-                    worldBounds = new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f));
-                }
-                else
-                {
-                    worldBounds = new Bounds(surface.transform.TransformPoint(surface.center), surface.size);
-                }
-                
-                if (surface.collectObjects == CollectObjects.Children)
-                {
-                    NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
-                }
-                else
-                {
-                    NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
-                }
-
-                // Synchronous update
-                NavMeshBuilder.UpdateNavMeshData(surface.navMeshData, settings, sources, worldBounds);
-                surface.UpdateNavMesh(surface.navMeshData);
-                
-                // Automate the manual toggle fix
+                // Automate the manual toggle fix if required by the project's specific setup
                 surface.enabled = false;
                 surface.enabled = true;
             }
         }
         _isDirty = false;
         _isUpdating = false;
+    }
+
+    private Bounds GetWorldBounds(NavMeshSurface surface)
+    {
+        if (surface.collectObjects != CollectObjects.All)
+        {
+            return new Bounds(surface.transform.TransformPoint(surface.center), surface.size);
+        }
+
+        // Calculate actual scene bounds for objects on the layer to avoid massive voxel grids
+        var renderers = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+        Bounds b = new Bounds();
+        bool hasBounds = false;
+        
+        foreach (var r in renderers)
+        {
+            if (r != null && ((1 << r.gameObject.layer) & surface.layerMask) != 0)
+            {
+                if (!hasBounds)
+                {
+                    b = r.bounds;
+                    hasBounds = true;
+                }
+                else
+                {
+                    b.Encapsulate(r.bounds);
+                }
+            }
+        }
+        
+        if (!hasBounds) return new Bounds(surface.transform.position, Vector3.one * 10f);
+        
+        b.Expand(5f); // Add a small margin
+        return b;
     }
 
     private void OnDisable()
@@ -190,15 +186,7 @@ public class NavMeshManager : MonoBehaviour
                     var settings = surface.GetBuildSettings();
                     var sources = new List<NavMeshBuildSource>();
                     
-                    Bounds worldBounds;
-                    if (surface.collectObjects == CollectObjects.All)
-                    {
-                        worldBounds = new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f));
-                    }
-                    else
-                    {
-                        worldBounds = new Bounds(surface.transform.TransformPoint(surface.center), surface.size);
-                    }
+                    Bounds worldBounds = GetWorldBounds(surface);
                     
                     if (surface.collectObjects == CollectObjects.Children)
                     {

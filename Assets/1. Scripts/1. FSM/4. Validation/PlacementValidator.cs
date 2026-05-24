@@ -105,8 +105,12 @@ public class PlacementValidator : MonoBehaviour
             if (entryIsGround || entry.data.isFloor)
                 continue;
 
+            // SPECIAL CASE: Floors are allowed to overlap with anything (they shuffle to the bottom)
+            if (data.isFloor)
+                continue;
+
             // Objects that ignore rules or clear grid never block anything
-            if (entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement)
+if (entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement)
                 continue;
 
             // --- OVERLAP CHECK ---
