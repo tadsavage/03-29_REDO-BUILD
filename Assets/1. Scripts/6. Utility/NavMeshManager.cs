@@ -9,7 +9,7 @@ public class NavMeshManager : MonoBehaviour
     public static NavMeshManager Instance { get; private set; }
 
     [SerializeField] private List<NavMeshSurface> _surfaces = new List<NavMeshSurface>();
-    [SerializeField] private float _debounceTime = 2.0f;
+    [SerializeField] private float _debounceTime = .50f;
 
     private Coroutine _updateCoroutine;
     private bool _isDirty;
@@ -21,6 +21,74 @@ public class NavMeshManager : MonoBehaviour
         
         // Clear and re-find all surfaces to ensure none are missed
         _surfaces = new List<NavMeshSurface>(Object.FindObjectsByType<NavMeshSurface>(FindObjectsSortMode.None));
+        
+        // IMPORTANT: Perform a synchronous bake on Awake so the NavMesh is ready for Start()
+        BakeSynchronous();
+    }
+
+    public void BakeSynchronous()
+    {
+        if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
+        
+        _modifierCache = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>(FindObjectsSortMode.None));
+        
+        var markups = new List<NavMeshBuildMarkup>();
+        foreach (var mod in _modifierCache)
+        {
+            if (mod != null && mod.isActiveAndEnabled)
+            {
+                markups.Add(new NavMeshBuildMarkup
+                {
+                    root = mod.transform,
+                    overrideArea = mod.overrideArea,
+                    area = mod.area,
+                    ignoreFromBuild = mod.ignoreFromBuild
+                });
+            }
+        }
+
+        foreach (var surface in _surfaces)
+        {
+            if (surface != null)
+            {
+                if (surface.navMeshData == null)
+                {
+                    surface.navMeshData = new NavMeshData();
+                }
+
+                var settings = surface.GetBuildSettings();
+                var sources = new List<NavMeshBuildSource>();
+                
+                Bounds worldBounds;
+                if (surface.collectObjects == CollectObjects.All)
+                {
+                    worldBounds = new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f));
+                }
+                else
+                {
+                    worldBounds = new Bounds(surface.transform.TransformPoint(surface.center), surface.size);
+                }
+                
+                if (surface.collectObjects == CollectObjects.Children)
+                {
+                    NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+                }
+                else
+                {
+                    NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+                }
+
+                // Synchronous update
+                NavMeshBuilder.UpdateNavMeshData(surface.navMeshData, settings, sources, worldBounds);
+                surface.UpdateNavMesh(surface.navMeshData);
+                
+                // Automate the manual toggle fix
+                surface.enabled = false;
+                surface.enabled = true;
+            }
+        }
+        _isDirty = false;
+        _isUpdating = false;
     }
 
     private void OnDisable()
@@ -149,6 +217,10 @@ public class NavMeshManager : MonoBehaviour
                     }
 
                     surface.UpdateNavMesh(surface.navMeshData);
+                    
+                    // Automate the manual toggle fix to ensure the system registers the update
+                    surface.enabled = false;
+                    surface.enabled = true;
                     
                     float duration = Time.realtimeSinceStartup - startTime;
                 }

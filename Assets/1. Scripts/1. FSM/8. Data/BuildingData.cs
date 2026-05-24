@@ -44,7 +44,7 @@ public class BuildingData : MonoBehaviour
         {
             // Set layer to Ground (3) to ensure collection by NavMeshSurface
             gameObject.layer = LayerMask.NameToLayer("Ground");
-            
+
             if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
                 DestroyImmediate(oldObstacle);
 
@@ -55,8 +55,8 @@ public class BuildingData : MonoBehaviour
 
             _modifier.applyToChildren = true;
             // Do NOT ignore from build - we want the geometry (legs, headers, tops) to be baked.
-            _modifier.ignoreFromBuild = false; 
-            
+            _modifier.ignoreFromBuild = false;
+
             // Apply area override if specified
             _modifier.overrideArea = true;
             _modifier.area = Data.navArea;
@@ -64,33 +64,31 @@ public class BuildingData : MonoBehaviour
             return;
         }
 
-        // 3. Normal blocking objects get a NavMeshObstacle
+        // 1. Make sure all objects that should block pathfinding have a NavMeshObstacle. This includes all non-clearance, non-stackable, non-floor objects.
         if (_obstacle == null)
             _obstacle = gameObject.GetComponent<NavMeshObstacle>();
-
+        // 2. If it doesn't have one, add it and configure it for carving. This allows dynamic updates to the NavMesh when objects are placed or removed.
         if (_obstacle == null)
+        {
             _obstacle = gameObject.AddComponent<NavMeshObstacle>();
-
-        // 3. Configure for "Carving" (The "Option 1" approach)
-        _obstacle.shape = NavMeshObstacleShape.Box;
-        _obstacle.carving = true;
-        _obstacle.carveOnlyStationary = true; // Best for performance in a building game
-
-        // 4. Calculate Size based on the footprint
-        // We use the grid dimensions from ObjDataSO to ensure the "hole" matches the grid
-        float gridSpaceX = Data.footprint.x * .33f; // 1.33 is your grid CellSize
-        float gridSpaceZ = Data.footprint.y * .33f;
-
-        // Center it (assuming the pivot is at the center of the root cell)
-        // If the footprint is larger than 1x1, we need to shift the center to the middle of the footprint.
-        // Grid grows in +X and +Z, so shift should be positive.
-        float centerX = (Data.footprint.x - 1) * 0.665f; // 0.665 is half of 1.33
-        float centerZ = (Data.footprint.y - 1) * 0.665f; // 0.665 is half of 1.33
-        
-        // Y is slightly below center of the object for better carving results
-        _obstacle.size = new Vector3(gridSpaceX, Data.objHeight, gridSpaceZ);
-        _obstacle.center = new Vector3(centerX, Data.objHeight * 0.45f, centerZ); 
+            // 3. Configure for "Carving" (The "Option 1" approach)
+            _obstacle.shape = NavMeshObstacleShape.Box;
+            _obstacle.carving = true;
+            _obstacle.carveOnlyStationary = true; // Best for performance in a building game
+            // 4. Calculate Size based on the footprint
+            // We use the grid dimensions from ObjDataSO to ensure the "hole" matches the grid
+            float gridSpaceX = Data.footprint.x * 1f; // 1.33 is your grid CellSize
+            float gridSpaceZ = Data.footprint.y * 1f;
+            // Center it (assuming the pivot is at the center of the root cell)
+            // If the footprint is larger than 1x1, we need to shift the center to the middle of the footprint.
+            // Grid grows in +X and +Z, so shift should be positive.
+            float centerX = (Data.footprint.x - 1) * 0.665f; // 0.665 is half of 1.33
+            float centerZ = (Data.footprint.y - 1) * 0.665f; // 0.665 is half of 1.33
+            // Y is slightly below center of the object for better carving results
+            _obstacle.size = new Vector3(gridSpaceX, Data.objHeight, gridSpaceZ);
+            _obstacle.center = new Vector3(centerX, Data.objHeight * 0.45f, centerZ);
         }
+    }
     public void Delete()
     {
         Destroy(gameObject);

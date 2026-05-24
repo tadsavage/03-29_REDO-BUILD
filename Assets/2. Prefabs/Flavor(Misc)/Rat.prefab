@@ -48,6 +48,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -4128383740851021839, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -4128383740851021839, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
       propertyPath: m_Name
       value: Rat
@@ -58,6 +66,18 @@ PrefabInstance:
       objectReference: {fileID: 9100000, guid: 140b3e7aa0393a440aaa749724da265a, type: 2}
     - target: {fileID: 5866666021909216657, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
       propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8697658199696305303, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_AABB.m_Center.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8697658199696305303, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_AABB.m_Center.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8697658199696305303, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_AABB.m_Center.z
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
@@ -82,6 +102,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6192815432049082832}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2898590306160391240}
   m_SourcePrefab: {fileID: 100100000, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
 --- !u!1 &680318250660865404 stripped
 GameObject:
@@ -108,6 +131,7 @@ MonoBehaviour:
   detectionRange: 6
   exterminatorName: Exterminator
   hidingChance: 0.5
+  panicDuration: 8
   palletNames:
   - Chep
   - StackPlts
@@ -121,8 +145,8 @@ NavMeshAgent:
   m_GameObject: {fileID: 680318250660865404}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 0.05
-  m_Speed: 3.5
+  m_Radius: 0.01
+  m_Speed: 5
   m_Acceleration: 8
   avoidancePriority: 90
   m_AngularSpeed: 120
@@ -197,5 +221,32 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.15, y: 0.15, z: 0.15}
-  m_Center: {x: 0, y: 0.075, z: 0}
+  m_Size: {x: 0.17651491, y: 0.15, z: 0.21836177}
+  m_Center: {x: 0.0025971904, y: 0.075, z: -0.03418088}
+--- !u!54 &2898590306160391240
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 680318250660865404}
+  serializedVersion: 5
+  m_Mass: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 80
+  m_CollisionDetection: 0
