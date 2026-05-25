@@ -206,13 +206,20 @@ public class NavMeshManager : MonoBehaviour
 
                     surface.UpdateNavMesh(surface.navMeshData);
                     
-                    // Automate the manual toggle fix to ensure the system registers the update
-                    surface.enabled = false;
-                    surface.enabled = true;
-                    
                     float duration = Time.realtimeSinceStartup - startTime;
                 }
             }
+
+            // Only nudge once after all surfaces are updated
+            foreach (var surface in _surfaces)
+            {
+                if (surface != null)
+                {
+                    surface.enabled = false;
+                    surface.enabled = true;
+                }
+            }
+
             _isUpdating = false;
         }
     }

@@ -49,13 +49,19 @@ public class RatBehavior : MonoBehaviour
     private IEnumerator WaitUntilOnNavMesh()
     {
         int retryCount = 0;
-        while (!agent.isOnNavMesh && retryCount < 60) // Wait up to 30 seconds (if 2Hz check)
+        while (agent != null && !agent.isOnNavMesh && retryCount < 60) 
         {
             if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5.0f, NavMesh.AllAreas))
             {
-                if (Mathf.Abs(hit.position.y - transform.position.y) < 2.0f || retryCount > 10)
+                // Only warp if we aren't already on the mesh (to avoid spam)
+                // and check if the agent is actually enabled
+                if (agent.isActiveAndEnabled && !agent.isOnNavMesh)
                 {
-                    agent.Warp(hit.position);
+                    if (Mathf.Abs(hit.position.y - transform.position.y) < 2.0f || retryCount > 10)
+                    {
+                        // Final safety check to avoid console spam if the mesh is still "pending"
+                        try { agent.Warp(hit.position); } catch { }
+                    }
                 }
             }
             

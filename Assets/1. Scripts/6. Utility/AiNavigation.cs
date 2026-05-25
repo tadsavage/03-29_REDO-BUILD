@@ -58,19 +58,15 @@ public class AiNavigation : MonoBehaviour
         // 1. Wait for NavMesh connectivity and initialization
         // This is critical when loading from a save, as the NavMesh is baked AFTER spawning.
         int retryCount = 0;
-        while (!agent.isOnNavMesh && retryCount < 30)
+        while (agent != null && !agent.isOnNavMesh && retryCount < 30)
         {
             retryCount++;
             
-            // Try to snap to NavMesh if not already on it
-            // We search in a small radius and favor the current height to avoid floor-snapping.
             if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
             {
-                // Only warp if truly necessary (off mesh) and the target is at a similar height,
-                // or if we've been off the mesh for a long time.
-                if (!agent.isOnNavMesh && (Mathf.Abs(hit.position.y - transform.position.y) < 2.0f || retryCount > 10))
+                if (agent.isActiveAndEnabled && !agent.isOnNavMesh && (Mathf.Abs(hit.position.y - transform.position.y) < 2.0f || retryCount > 10))
                 {
-                    agent.Warp(hit.position);
+                    try { agent.Warp(hit.position); } catch { }
                 }
             }
             

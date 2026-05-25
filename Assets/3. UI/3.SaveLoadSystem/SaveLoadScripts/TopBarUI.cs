@@ -76,7 +76,7 @@ public class TopBarUI : MonoBehaviour
         if (_fpsTimer >= 0.5f)
         {
             int fps = Mathf.RoundToInt(_frames / _fpsTimer);
-            _fps.text = $"FPS: {fps}";
+            if (_fps != null) _fps.text = $"FPS: {fps}";
             _frames = 0;
             _fpsTimer = 0f;
         }
@@ -84,12 +84,12 @@ public class TopBarUI : MonoBehaviour
 
     public void SetState(string stateName)
     {
-        _state.text = $"State: {stateName}";
+        if (_state != null) _state.text = $"State: {stateName}";
     }
 
     public void SetCell(int x, int y)
     {
-        _cell.text = $"Cell: ({x},{y})";
+        if (_cell != null) _cell.text = $"Cell: ({x},{y})";
     }
 
     private int _lastMoney = -1;
