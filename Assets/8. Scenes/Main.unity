@@ -207,6 +207,7 @@ GameObject:
   - component: {fileID: 93724067}
   - component: {fileID: 93724069}
   - component: {fileID: 93724068}
+  - component: {fileID: 93724070}
   m_Layer: 0
   m_Name: BottomBar
   m_TagString: Untagged
@@ -245,7 +246,7 @@ MonoBehaviour:
   categories:
   - id: Barriers
     displayName: Barriers
-    icon: {fileID: 2800000, guid: fb16e9c10150e044c84f3d388a293044, type: 3}
+    icon: {fileID: 2800000, guid: 6170b02f5485ee440a98c80d23893cd9, type: 3}
     items:
     - {fileID: 11400000, guid: 2c66f8649b3019242b7eaa8a693f5a59, type: 2}
     - {fileID: 11400000, guid: d11e3c0d66b394845a3db8908ce9ff3a, type: 2}
@@ -257,15 +258,25 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 3d9b937516d133146a7c0c3d7007dad7, type: 2}
   - id: Flavor
     displayName: Flavor
-    icon: {fileID: 2800000, guid: c2ffbf945cdbf9744a8775ef9f28c220, type: 3}
+    icon: {fileID: 2800000, guid: 5739556e5ed62be498b34b0e631cd3ff, type: 3}
     items:
     - {fileID: 11400000, guid: 71ebe5e6eacb84f46bd1e66a0e6b1c91, type: 2}
     - {fileID: 11400000, guid: 4e827e481f3ccae46a38d34f05351ebc, type: 2}
     - {fileID: 11400000, guid: 36de903a4ec591c4c856b1db6a9b97f1, type: 2}
     - {fileID: 11400000, guid: 4764a0d913d960245993c6ca00bbdfc7, type: 2}
+    - {fileID: 11400000, guid: 6efed02a813751043a1317b0c8e404e4, type: 2}
+    - {fileID: 11400000, guid: 7805ebf046b229f4abc14b1d71e81854, type: 2}
+    - {fileID: 11400000, guid: d85755ad665768c4881df8151fb891ce, type: 2}
+    - {fileID: 11400000, guid: f8175f3c91d60cf4c986983d26c29ace, type: 2}
+    - {fileID: 11400000, guid: 14124944af21400438cdc094c37bb2e2, type: 2}
+    - {fileID: 11400000, guid: c843e694e220b964e891e7675b89899a, type: 2}
+    - {fileID: 11400000, guid: e527394ce1ad3bf428e7fd0062bffc54, type: 2}
+    - {fileID: 11400000, guid: 1e17f6996590eb346adabac8eae39031, type: 2}
+    - {fileID: 11400000, guid: 78787893c89f5b34dbfda3128293d84b, type: 2}
+    - {fileID: 11400000, guid: d463864cdde9f834db19d70e854b39a8, type: 2}
   - id: Floors
     displayName: Floors
-    icon: {fileID: 2800000, guid: 7f9d961faddfd4046b4c4d2ee603e8cd, type: 3}
+    icon: {fileID: 2800000, guid: c5115ad79fe5fae4f9920426f82e6864, type: 3}
     items:
     - {fileID: 11400000, guid: 76a165aafe95d134387cb2eef58db951, type: 2}
     - {fileID: 11400000, guid: 81a9053ef3ddf184d919c6c680cb03e0, type: 2}
@@ -273,22 +284,27 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 75ab177c11f8f1343bdc43ba8bb23f3b, type: 2}
   - id: Inventory
     displayName: Inventory
-    icon: {fileID: 2800000, guid: 4b31aac34df5c5d448b3c2fd43af1cc3, type: 3}
+    icon: {fileID: 2800000, guid: 7b76825db32e86e4e960d2a14f5f28bc, type: 3}
     items:
-    - {fileID: 11400000, guid: f6b4965d2c935944996f1ee26cfd368e, type: 2}
     - {fileID: 11400000, guid: 85eda180b1f73bf45a461edc1ca230b0, type: 2}
     - {fileID: 11400000, guid: 7e72ebad78afd1248847261e2020f27c, type: 2}
     - {fileID: 11400000, guid: 52e4add3f2755f04889e2bcfb0429428, type: 2}
+    - {fileID: 11400000, guid: f6b4965d2c935944996f1ee26cfd368e, type: 2}
+    - {fileID: 11400000, guid: f1c3c7fd8c120d543af8a7ab01769415, type: 2}
+    - {fileID: 11400000, guid: 860fd03069c3fa644864d91cf1a5c300, type: 2}
+    - {fileID: 11400000, guid: 312569b2dd902a64caf6792335779fec, type: 2}
+    - {fileID: 11400000, guid: e266dd3bf61491949897f7fefae4d8be, type: 2}
+    - {fileID: 11400000, guid: 579b9213189be1040bef4feaf0617394, type: 2}
   - id: Vehicles
     displayName: Vehicles
-    icon: {fileID: 2800000, guid: 61da3e525287cc0469ea41db6b2a74ae, type: 3}
+    icon: {fileID: 2800000, guid: bb39ee71e709d79438e6243d5e18a1c0, type: 3}
     items:
     - {fileID: 11400000, guid: 40172defa8e8f6f4291791dc70f1a081, type: 2}
     - {fileID: 11400000, guid: df7cf6797c88db941862c0a885f9f451, type: 2}
     - {fileID: 11400000, guid: f94b11ce10a004d4ca2aac43024ebcec, type: 2}
   - id: Walls
     displayName: Walls
-    icon: {fileID: 2800000, guid: 281d71de907a0764497cb3a077df7965, type: 3}
+    icon: {fileID: 2800000, guid: fa57bfbed552d07478809fc1778425db, type: 3}
     items:
     - {fileID: 11400000, guid: 3986c6317f4da474f8d7e9f36d558671, type: 2}
     - {fileID: 11400000, guid: cdeb30d27ec490f45a09046120415001, type: 2}
@@ -298,7 +314,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 70b1b6a644a0b6649b1d3a9c296bcfc4, type: 2}
   - id: Staff
     displayName: Staff
-    icon: {fileID: 2800000, guid: 0f7426c18124df7439533dbfba473982, type: 3}
+    icon: {fileID: 2800000, guid: 96e5c488505ab64438d15d8a9db4ccff, type: 3}
     items:
     - {fileID: 11400000, guid: 057df3258dd844e499f1f39bcc2d6bad, type: 2}
     - {fileID: 11400000, guid: bf3848f4f32563140815fc574dd64ee9, type: 2}
@@ -306,7 +322,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 0a213663d5410234c98b3520c869bf25, type: 2}
   - id: Racking
     displayName: Racking
-    icon: {fileID: 2800000, guid: 4de2e7a95d1481545939edc7e0fec649, type: 3}
+    icon: {fileID: 2800000, guid: f9943425df89d9f4ea6a7e303fb443dc, type: 3}
     items:
     - {fileID: 11400000, guid: e9f85734707240742a5185307e872d94, type: 2}
     - {fileID: 11400000, guid: a310aaf47e15b034f960c53f945736fb, type: 2}
@@ -318,9 +334,9 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 0c89c640d4c67ae48989efd04e95cb07, type: 2}
   - id: Grounds
     displayName: Grounds
-    icon: {fileID: 2800000, guid: ee30f4d8944e06d4ea8ce50d14d32b0f, type: 3}
+    icon: {fileID: 2800000, guid: 3b451bc8d5df6284fbeed74469579d7b, type: 3}
     items:
-    - {fileID: 11400000, guid: 543a824dc342c18448cd0a41e7ba925f, type: 2}
+    - {fileID: 11400000, guid: 099e33f371b5a244ba4cd96f25644f51, type: 2}
     - {fileID: 11400000, guid: d0c4f1dc9f7c17140b738f9fc91cd1ca, type: 2}
     - {fileID: 11400000, guid: e2f192f862287194fbb53e62da7e4b06, type: 2}
     - {fileID: 11400000, guid: 452a7b759ca536949bc42f70132ec61d, type: 2}
@@ -372,6 +388,18 @@ MonoBehaviour:
   m_PivotReferenceSize: 0
   m_Pivot: 0
   m_WorldSpaceCollider: {fileID: 0}
+--- !u!114 &93724070
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 93724066}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a79c4e23d4d4b64bfa5fa9e6671a460, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UIElements.PanelRaycaster
 --- !u!1001 &161998650
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -456,7 +484,7 @@ GameObject:
   - component: {fileID: 290579223}
   - component: {fileID: 290579224}
   m_Layer: 0
-  m_Name: NavMeshManager_Found
+  m_Name: NavMeshManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -643,6 +671,7 @@ GameObject:
   - component: {fileID: 818959108}
   - component: {fileID: 818959107}
   - component: {fileID: 818959106}
+  - component: {fileID: 818959110}
   m_Layer: 3
   m_Name: Ground
   m_TagString: Untagged
@@ -747,6 +776,26 @@ Transform:
   - {fileID: 2141331241}
   m_Father: {fileID: 1635529926}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &818959110
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 818959105}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifier
+  m_SerializedVersion: 0
+  m_OverrideArea: 1
+  m_Area: 1
+  m_OverrideGenerateLinks: 0
+  m_GenerateLinks: 0
+  m_IgnoreFromBuild: 0
+  m_ApplyToChildren: 0
+  m_AffectedAgents: ffffffff
 --- !u!1 &949787151
 GameObject:
   m_ObjectHideFlags: 0
@@ -849,7 +898,7 @@ LineRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 959959390}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 0
   m_ReceiveShadows: 1
   m_DynamicOccludee: 0
@@ -1031,8 +1080,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PreviewController
   moveSmoothTime: 0.05
   moveSmoothSpeed: 0.65
-  useFlyIn: 1
-  flyDuration: 0.25
+  offsetMovePreview: 0.5
   _ghostMaterial: {fileID: 2100000, guid: c8cca804bcdf0e345a22591078c20b9a, type: 2}
 --- !u!114 &1024109573
 MonoBehaviour:
@@ -1082,6 +1130,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlacementStateMachine
   _costUI: {fileID: 1746988603}
+  destructionDuration: 1
+  destructionSinkAmount: 1.5
+  destructionVibrationAmount: 0.05
+  destructionVibrationSpeed: 50
 --- !u!114 &1024109576
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1199,6 +1251,9 @@ GameObject:
   - component: {fileID: 1160879795}
   - component: {fileID: 1160879798}
   - component: {fileID: 1160879799}
+  - component: {fileID: 1160879800}
+  - component: {fileID: 1160879801}
+  - component: {fileID: 1160879802}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1223,7 +1278,7 @@ Camera:
   m_GameObject: {fileID: 1160879794}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 2
+  m_ClearFlags: 1
   m_BackGroundColor: {r: 0.5918476, g: 0.6603774, b: 0.64948696, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
@@ -1355,6 +1410,45 @@ MonoBehaviour:
   _distance: 0
   _pitch: 45
   _yaw: 0
+--- !u!45 &1160879800
+Skybox:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1160879794}
+  m_Enabled: 1
+  m_CustomSkybox: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+--- !u!114 &1160879801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1160879794}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3972c7121b12ca74fbff5d4dcad313de, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RackLabelOptimizer
+  highDetailDistance: 25
+  updateInterval: 0.2
+--- !u!114 &1160879802
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1160879794}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c49b4cc203aa6414fae5c798d1d0e7d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.PhysicsRaycaster
+  m_EventMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_MaxRayIntersections: 0
 --- !u!1001 &1280368160
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1777,6 +1871,7 @@ GameObject:
   - component: {fileID: 1746988603}
   - component: {fileID: 1746988604}
   - component: {fileID: 1746988605}
+  - component: {fileID: 1746988606}
   m_Layer: 0
   m_Name: TopBar
   m_TagString: Untagged
@@ -1858,6 +1953,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 75b3f4f9350203b418f25a1b11843f4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UIToast
+--- !u!114 &1746988606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1746988600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a79c4e23d4d4b64bfa5fa9e6671a460, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UIElements.PanelRaycaster
 --- !u!1 &1791913164
 GameObject:
   m_ObjectHideFlags: 0
@@ -1869,6 +1976,7 @@ GameObject:
   - component: {fileID: 1791913167}
   - component: {fileID: 1791913166}
   - component: {fileID: 1791913165}
+  - component: {fileID: 1791913168}
   m_Layer: 0
   m_Name: 'SaveLoadUI '
   m_TagString: Untagged
@@ -1928,6 +2036,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1791913168
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1791913164}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a79c4e23d4d4b64bfa5fa9e6671a460, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UIElements.PanelRaycaster
 --- !u!1 &1873060296
 GameObject:
   m_ObjectHideFlags: 0

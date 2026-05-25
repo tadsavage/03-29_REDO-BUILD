@@ -113,7 +113,7 @@ public string ObjectName => _obj != null ? _obj.name : "None";
         _hasSelection = false;
         _lastHoverCell = new Vector2Int(int.MinValue, int.MinValue);
 
-        Object.FindAnyObjectByType<TopBarUI>().SetState(GetType().Name);
+        topBarUI?.SetState(GetType().Name);
     }
 
     public void OnExit()

@@ -50,6 +50,12 @@ public class PlacementStateMachine : MonoBehaviour
     public GameContext Context { get; private set; }
 
     [SerializeField] private PreviewCostUI _costUI;
+    
+    [Header("Destruction Settings")]
+    [SerializeField] private float destructionDuration = 1.0f;
+    [SerializeField] private float destructionSinkAmount = 1.5f;
+    [SerializeField] private float destructionVibrationAmount = 0.05f;
+    [SerializeField] private float destructionVibrationSpeed = 50.0f;
 
     public int DebugStackDepth => _stateStack.Count;
 
@@ -85,7 +91,22 @@ public class PlacementStateMachine : MonoBehaviour
         PlacementGrid grid = FindFirstObjectByType<PlacementGrid>();
         _buildMenuUI = FindFirstObjectByType<BuildMenuUI>();
 
-        _raycast.EnableRay();
+        if (_raycast != null) _raycast.EnableRay();
+
+        // ---------------------------------------------------------
+        // SAFETY: Fallback initialization if Context wasn't set yet
+        // ---------------------------------------------------------
+        if (Context == null)
+        {
+            var ctx = FindFirstObjectByType<GameContext>();
+            if (ctx != null) Initialize(ctx);
+        }
+
+        if (Context == null)
+        {
+            Debug.LogError("[PlacementStateMachine] FSM failed to find GameContext! Many states will fail.");
+            return;
+        }
 
         // Construct states
         _idleState = new IdleState();
@@ -111,7 +132,11 @@ public class PlacementStateMachine : MonoBehaviour
             this,
             _indicator,
             _actions,
-            Context.MoneyService);
+            Context.MoneyService,
+            destructionDuration,
+            destructionSinkAmount,
+            destructionVibrationAmount,
+            destructionVibrationSpeed);
 
         _moveState = new MoveState(
             _actions,
@@ -126,7 +151,7 @@ public class PlacementStateMachine : MonoBehaviour
 
         // Start in Idle
         _currentState = _idleState;
-        _currentState.OnEnter();
+        if (_currentState != null) _currentState.OnEnter();
     }
 
     // ---------------------------------------------------------
@@ -157,11 +182,8 @@ public class PlacementStateMachine : MonoBehaviour
             if (_raycast != null && _hoverUI != null)
                 HandleIdleHover();
         }
-        else
-        {
-            // All non-idle states force-hide popup
-            _hoverUI?.HideImmediate();
-        }
+        // Removed forced hide here as it conflicts with states that want to show hover info (like Delete/Move)
+
 
         // -----------------------------------------------------
         // UNIVERSAL CANCEL (ESC or RMB)

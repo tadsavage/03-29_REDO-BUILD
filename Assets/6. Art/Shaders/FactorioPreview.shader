@@ -3,8 +3,9 @@ Shader "Custom/FactorioPreview"
     Properties
     {
         [MainColor] _BaseColor ("Base Color", Color) = (1,1,1,0.5)
-        _LineColor ("Line Color", Color) = (0.5,0.5,0.5,1)
-        _LineWidth ("Line Width", Range(0, 0.05)) = 0.01
+        _LineColor ("Line Color", Color) = (0.4,0.4,0.4,1)
+        _LineWidth ("Line Width", Range(0, 0.1)) = 0.02
+        _Chalkiness ("Chalkiness", Range(0, 1)) = 0.5
     }
     SubShader
     {
@@ -42,18 +43,21 @@ Shader "Custom/FactorioPreview"
             {
                 float4 positionCS : SV_POSITION;
                 float3 barycentric : TEXCOORD0;
+                float3 localPos : TEXCOORD1;
             };
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
                 float4 _LineColor;
                 float _LineWidth;
+                float _Chalkiness;
             CBUFFER_END
 
             Varyings vert (Attributes v)
             {
                 Varyings o;
                 o.positionCS = TransformObjectToHClip(v.positionOS.xyz);
+                o.localPos = v.positionOS.xyz;
                 o.barycentric = float3(0, 0, 0);
                 return o;
             }
@@ -76,20 +80,42 @@ Shader "Custom/FactorioPreview"
                 stream.RestartStrip();
             }
 
+            float hash(float3 p)
+            {
+                p = frac(p * 0.3183099 + .1);
+                p *= 17.0;
+                return frac(p.x * p.y * p.z * (p.x + p.y + p.z));
+            }
+
             float4 frag (Varyings i) : SV_Target
             {
+                // Use local position for the noise to keep it static relative to the object
+                float noise = hash(i.localPos * 20.0 + i.barycentric * 10.0);
+                
+                // Modulate line width with noise
+                float jitteredWidth = _LineWidth * (1.0 + (noise - 0.5) * _Chalkiness * 2.0);
+                
                 // Simple edge detection based on barycentric coordinates
                 float3 d = fwidth(i.barycentric);
-                float3 a3 = smoothstep(float3(0,0,0), d * _LineWidth * 100.0, i.barycentric);
+                
+                // Sharper transition but influenced by jitter
+                float3 a3 = smoothstep(float3(0,0,0), d * jitteredWidth * 50.0, i.barycentric);
                 float minBary = min(a3.x, min(a3.y, a3.z));
                 
                 // Inverse for line
                 float lineFactor = 1.0 - minBary;
+                
+                // Add "breakup" to the line alpha based on chalkiness
+                float breakup = saturate(1.0 - (noise * _Chalkiness * 0.8));
+                lineFactor *= breakup;
+
+                // Boost for visibility
+                lineFactor = pow(lineFactor, 0.8);
 
                 float4 finalColor = lerp(_BaseColor, _LineColor, lineFactor);
                 
-                // Ensure we respect alpha
-                finalColor.a = _BaseColor.a + (lineFactor * _LineColor.a);
+                // Final alpha calculation
+                finalColor.a = _BaseColor.a + (lineFactor * _LineColor.a * 0.7);
                 finalColor.a = saturate(finalColor.a);
 
                 return finalColor;

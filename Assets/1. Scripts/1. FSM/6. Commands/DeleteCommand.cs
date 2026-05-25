@@ -9,14 +9,24 @@ public class DeleteCommand : ICommand
     private readonly Vector2Int _root;
     private readonly MoneyService _money;
 
+    private readonly float _duration;
+    private readonly float _sinkAmount;
+    private readonly float _vibrationAmount;
+    private readonly float _vibrationSpeed;
+
     private readonly GameObject _target;
     private readonly List<GameObject> _reEnabledFloors = new();
 
-    public DeleteCommand(GameObject target, PlacementGrid grid, MoneyService money)
+    public DeleteCommand(GameObject target, PlacementGrid grid, MoneyService money, 
+        float duration, float sinkAmount, float vibrationAmount, float vibrationSpeed)
     {
         _target = target;
         _grid = grid;
         _money = money;
+        _duration = duration;
+        _sinkAmount = sinkAmount;
+        _vibrationAmount = vibrationAmount;
+        _vibrationSpeed = vibrationSpeed;
 
         var bd = target.GetComponent<BuildingData>();
         _data = bd.Data;
@@ -63,12 +73,14 @@ public class DeleteCommand : ICommand
         _money.Refund(_data.cost, _data.category);
         _money.RemoveHourlyCost(_data.hourlyCost);
 
-        // 4. Disable object instead of destroying it to allow Undo
+        // 4. Start Destruction Animation instead of just deactivating
         var highlighter = _target.GetComponent<BuildingHighlighter>();
         if (highlighter != null)
             highlighter.HighlightDelete(false);
 
-        _target.SetActive(false);
+        var effect = _target.GetComponent<BuildingDestructionEffect>();
+        if (effect == null) effect = _target.AddComponent<BuildingDestructionEffect>();
+        effect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed);
 
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _reEnabledFloors.Count > 0)
         {
@@ -80,6 +92,10 @@ public class DeleteCommand : ICommand
         {
             if (_target == null)
                 return;
+
+            // 0. Abort any ongoing destruction animation
+            var effect = _target.GetComponent<BuildingDestructionEffect>();
+            if (effect != null) effect.Abort();
 
             // 1. Enable object first so UpdateStackPositions sees it as active
             _target.SetActive(true);

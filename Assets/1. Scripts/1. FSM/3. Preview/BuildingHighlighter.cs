@@ -6,64 +6,95 @@ public class BuildingHighlighter : MonoBehaviour
     [Header("Highlights")]
     [SerializeField] private Color validColor = new Color(0.2f, 1.0f, 0.2f, 0.5f);
     [SerializeField] private Color invalidColor = new Color(1.0f, 0.2f, 0.2f, 0.5f);
-    [SerializeField] private Color deleteColor = new Color(1.0f, 0.5f, 0.2f, 0.5f);
+    [SerializeField] private Color deleteColor = new Color(1.0f, 0.9f, 0.0f, 0.5f); // Updated to Yellow
 
-    private readonly List<Renderer> _renderers = new();
+    private readonly List<RendererData> _rendererData = new();
     private MaterialPropertyBlock _mpb;
     private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
+
+    private static Material _validMat;
+    private static Material _invalidMat;
+    private static Material _deleteMat;
+
+    private struct RendererData
+    {
+        public Renderer renderer;
+        public Material[] originalMaterials;
+    }
 
     private void Awake()
     {
         CacheRenderers();
         _mpb = new MaterialPropertyBlock();
+
+        if (_validMat == null) _validMat = Resources.Load<Material>("Materials/Placement-Valid");
+        if (_invalidMat == null) _invalidMat = Resources.Load<Material>("Materials/Placement-Invalid");
+        if (_deleteMat == null) _deleteMat = Resources.Load<Material>("Materials/Placement-Delete");
     }
 
     private void CacheRenderers()
     {
-        _renderers.Clear();
+        _rendererData.Clear();
         foreach (var r in GetComponentsInChildren<Renderer>(true))
         {
-            if (r != null) _renderers.Add(r);
+            if (r != null)
+            {
+                _rendererData.Add(new RendererData
+                {
+                    renderer = r,
+                    originalMaterials = r.sharedMaterials
+                });
+            }
         }
     }
 
     public void HighlightValid(bool on)
     {
-        ApplyHighlight(on ? validColor : (Color?)null);
+        ApplyHighlight(on ? _validMat : null, on ? validColor : (Color?)null);
     }
 
     public void HighlightInvalid(bool on)
     {
-        ApplyHighlight(on ? invalidColor : (Color?)null);
+        ApplyHighlight(on ? _invalidMat : null, on ? invalidColor : (Color?)null);
     }
 
     public void HighlightDelete(bool on)
     {
-        ApplyHighlight(on ? deleteColor : (Color?)null);
+        ApplyHighlight(on ? _deleteMat : null, on ? deleteColor : (Color?)null);
     }
 
     public void ClearHighlight()
     {
-        ApplyHighlight(null);
+        ApplyHighlight(null, null);
     }
 
-    private void ApplyHighlight(Color? color)
+    private void ApplyHighlight(Material highlightMat, Color? color)
     {
-        if (_renderers.Count == 0) CacheRenderers();
+        if (_rendererData.Count == 0) CacheRenderers();
 
         if (color.HasValue)
         {
             _mpb.SetColor(BaseColorID, color.Value);
         }
 
-        foreach (var r in _renderers)
+        foreach (var data in _rendererData)
         {
-            if (r == null) continue;
+            if (data.renderer == null) continue;
             
-            if (color.HasValue)
-                r.SetPropertyBlock(_mpb);
+            if (highlightMat != null)
+            {
+                // Create a temporary array of the highlight material for each submesh
+                Material[] mats = new Material[data.originalMaterials.Length];
+                for (int i = 0; i < mats.Length; i++) mats[i] = highlightMat;
+                
+                data.renderer.sharedMaterials = mats;
+                data.renderer.SetPropertyBlock(_mpb);
+            }
             else
-                r.SetPropertyBlock(null);
+            {
+                data.renderer.sharedMaterials = data.originalMaterials;
+                data.renderer.SetPropertyBlock(null);
+            }
         }
     }
 }

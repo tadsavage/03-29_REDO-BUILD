@@ -34,6 +34,10 @@ public class AgentAnimation : MonoBehaviour
         agent.angularSpeed = turnSpeed;
         agent.acceleration = 12f;
         agent.stoppingDistance = waypointThreshold;
+
+        // CRITICAL: Disable auto-rotation to prevent the agent from 'fighting' our manual rotation
+        // and getting stuck facing the wrong way.
+        agent.updateRotation = false;
     }
 
     private float stuckTimer = 0f;
@@ -65,12 +69,11 @@ public class AgentAnimation : MonoBehaviour
         }
         else if (agent.hasPath && agent.velocity.sqrMagnitude < 0.01f)
         {
-            // Stuck detection: if we have a path but aren't moving
+            // Stuck detection
             stuckTimer += Time.deltaTime;
             if (stuckTimer > STUCK_TIMEOUT)
             {
                 stuckTimer = 0;
-                Debug.Log($"{gameObject.name} detected as stuck. Re-routing...");
                 if (navigation != null) navigation.GoToRandomWaypoint();
             }
         }
@@ -79,7 +82,18 @@ public class AgentAnimation : MonoBehaviour
             stuckTimer = 0;
         }
 
-        // 2. Animation Sync
+        // 2. Manual Rotation (Always face movement direction)
+        if (!isWaiting && agent.velocity.sqrMagnitude > 0.01f)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(agent.velocity.normalized);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRot,
+                turnSpeed * Time.deltaTime
+            );
+        }
+
+        // 3. Animation Sync
         UpdateAnimations();
     }
 

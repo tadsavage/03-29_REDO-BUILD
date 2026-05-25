@@ -1,0 +1,69 @@
+/*
+2026-05-25 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+.pallet-builder-root {
+    width: 350px;
+    background-color: #2D2B3A;
+    border-width: 2px;
+    border-color: #ECC98A;
+    border-radius: 8px;
+    padding: 16px;
+    color: #F5EEDB;
+}
+
+.header {
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-bottom: 12px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(236, 201, 138, 0.3);
+    padding-bottom: 8px;
+}
+
+.input-row {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.input-label {
+    flex: 1;
+    font-size: 14px;
+}
+
+.input-field {
+    flex: 1;
+    height: 24px;
+}
+
+.input-field .unity-base-text-field__input {
+    background-color: rgba(90, 85, 110, 0.2);
+    border-color: rgba(236, 201, 138, 0.4);
+    color: #FFFFFF;
+    border-radius: 4px;
+}
+
+.build-button {
+    margin-top: 16px;
+    height: 40px;
+    background-color: #ECC98A;
+    border-color: #F5EEDB;
+    border-radius: 6px;
+    color: #2D2B3A;
+    font-size: 16px;
+    -unity-font-style: bold;
+    transition: background-color 0.1s, scale 0.1s;
+}
+
+.build-button:hover {
+    background-color: #F5EEDB;
+    scale: 1.05;
+}
+
+.build-button:active {
+    background-color: #D4B475;
+    scale: 0.95;
+}

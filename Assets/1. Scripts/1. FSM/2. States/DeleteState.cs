@@ -11,10 +11,16 @@ public class DeleteState : IPlacementState
     private readonly CellIndicatorController _indicator;
     private readonly PlacementActions _actions;
     private readonly MoneyService _money;
-    private readonly WorldHoverPopupUI _hoverUI = Object.FindAnyObjectByType<WorldHoverPopupUI>();
+    private WorldHoverPopupUI _hoverUI;
     private TopBarUI _topBarUI;
 
+    private readonly float _destructionDuration;
+    private readonly float _destructionSinkAmount;
+    private readonly float _destructionVibrationAmount;
+    private readonly float _destructionVibrationSpeed;
+
     private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
+    private WorldHoverPopupUI hoverUI => _hoverUI != null ? _hoverUI : _hoverUI = Object.FindAnyObjectByType<WorldHoverPopupUI>();
 
     private BuildingHighlighter _hover;
     private readonly List<BuildingHighlighter> _dragTargets = new();
@@ -31,7 +37,11 @@ public class DeleteState : IPlacementState
         PlacementStateMachine fsm,
         CellIndicatorController indicator,
         PlacementActions actions,
-        MoneyService money)
+        MoneyService money,
+        float destructionDuration,
+        float destructionSinkAmount,
+        float destructionVibrationAmount,
+        float destructionVibrationSpeed)
     {
         _raycast = raycast;
         _grid = grid;
@@ -40,6 +50,10 @@ public class DeleteState : IPlacementState
         _indicator = indicator;
         _actions = actions;
         _money = money;
+        _destructionDuration = destructionDuration;
+        _destructionSinkAmount = destructionSinkAmount;
+        _destructionVibrationAmount = destructionVibrationAmount;
+        _destructionVibrationSpeed = destructionVibrationSpeed;
     }
 
     public void OnEnter()
@@ -51,7 +65,7 @@ public class DeleteState : IPlacementState
         _dragTargets.Clear();
         ClearHover();
 
-        Object.FindAnyObjectByType<TopBarUI>().SetState(GetType().Name);
+        topBarUI?.SetState(GetType().Name);
 
         _fsm.OnHistoryChanged += OnHistoryChanged;
     }
@@ -84,7 +98,7 @@ public class DeleteState : IPlacementState
         {
             ClearHover();
             _indicator.ClearAll();
-            _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+            hoverUI?.TickHover(false, null, 0, 0, Vector3.zero, null);
             return;
         }
 
@@ -103,7 +117,7 @@ public class DeleteState : IPlacementState
             var bd = _raycast.HitObject.GetComponent<BuildingData>();
             if (bd != null)
             {
-                _hoverUI.TickHover(
+                hoverUI?.TickHover(
                     true,
                     bd.Data.objName,
                     bd.Data.cost,
@@ -114,12 +128,12 @@ public class DeleteState : IPlacementState
             }
             else
             {
-                _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+                hoverUI?.TickHover(false, null, 0, 0, Vector3.zero, null);
             }
         }
         else
         {
-            _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+            hoverUI?.TickHover(false, null, 0, 0, Vector3.zero, null);
         }
 
         if (Mouse.current.leftButton.wasPressedThisFrame)
@@ -155,45 +169,48 @@ public class DeleteState : IPlacementState
             ClearHover();
 
             // Single delete = single command
-            _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid, _money));
+            _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid, _money, _destructionDuration, _destructionSinkAmount, _destructionVibrationAmount, _destructionVibrationSpeed));
 
             AudioManager.Play("Delete");
-            FXPool.Instance.Play("dust", bd.gameObject.transform.position);
         }
 }
 
     private void UpdateHoverDelete(Vector2Int cell)
     {
-        ClearHover();
-
         _indicator.ShowCell(cell);
 
-        var objs = _grid.GetObjectsInCell(cell);
-        if (objs != null && objs.Count > 0)
-        {
-            var obj = objs[^1].instance;
-            if (obj)
-            {
-                _hover = obj.GetComponent<BuildingHighlighter>();
-                if (_hover)
-                    _hover.HighlightDelete(true);
+        BuildingHighlighter newHover = null;
 
-                return;
+        // RESPONSIVENESS FIX: Check HitObject directly first (like MoveState)
+        if (_raycast.HitObject != null)
+        {
+            var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
+            if (bd != null && bd.Data != null)
+            {
+                newHover = bd.GetComponent<BuildingHighlighter>();
             }
         }
 
-        GameObject hitObj = _raycast.HitObject;
-        if (hitObj != null)
+        // Fallback to grid lookup for safety
+        if (newHover == null)
         {
-            var bd = hitObj.GetComponent<BuildingData>();
-            if (bd != null && bd.Data != null && bd.Data.ClearsGridAfterPlacement)
+            var objs = _grid.GetObjectsInCell(cell);
+            if (objs != null && objs.Count > 0)
             {
-                _hover = hitObj.GetComponent<BuildingHighlighter>();
-                if (_hover)
-                    _hover.HighlightDelete(true);
-
-                return;
+                var obj = objs[^1].instance;
+                if (obj)
+                {
+                    newHover = obj.GetComponent<BuildingHighlighter>();
+                }
             }
+        }
+
+        if (newHover != _hover)
+        {
+            ClearHover();
+            _hover = newHover;
+            if (_hover)
+                _hover.HighlightDelete(true);
         }
     }
 
@@ -270,8 +287,7 @@ public class DeleteState : IPlacementState
                     var bd = h.GetComponent<BuildingData>();
                     if (bd != null)
                     {
-                        _fsm.History.AddToBatch(new DeleteCommand(bd.gameObject, _grid, _money));
-                        FXPool.Instance.Play("dust", h.gameObject.transform.position);
+                        _fsm.History.AddToBatch(new DeleteCommand(bd.gameObject, _grid, _money, _destructionDuration, _destructionSinkAmount, _destructionVibrationAmount, _destructionVibrationSpeed));
                     }
                 }
             }

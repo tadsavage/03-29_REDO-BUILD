@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
-using WebSocketSharp;
 
 public class WorldHoverPopupUI : MonoBehaviour
 {
@@ -34,7 +33,6 @@ public class WorldHoverPopupUI : MonoBehaviour
     // ---------------------------------------------------------
     // INITIALIZATION
     // ---------------------------------------------------------
-    // Replace your old public void Init(UIDocument doc) method with this exact version:
     public void Init(VisualElement populationTarget)
     {
         if (populationTarget == null)
@@ -44,9 +42,16 @@ public class WorldHoverPopupUI : MonoBehaviour
         }
 
         _popup = populationTarget;
+        _root = _popup.panel?.visualTree;
         _title = _popup.Q<Label>("HoverTitle");
         _cost = _popup.Q<Label>("HoverCost");
         _hourlyCost = _popup.Q<Label>("HoverHourlyCost");
+
+        // Ensure the popup itself and its children don't block raycasts/picking
+        _popup.pickingMode = PickingMode.Ignore;
+        if (_title != null) _title.pickingMode = PickingMode.Ignore;
+        if (_cost != null) _cost.pickingMode = PickingMode.Ignore;
+        if (_hourlyCost != null) _hourlyCost.pickingMode = PickingMode.Ignore;
 
         HideImmediate();
     }
@@ -128,7 +133,6 @@ public class WorldHoverPopupUI : MonoBehaviour
     // ---------------------------------------------------------
     private void Show(string name, int cost, int hourlyCost)
     {
-        // Null safety gate to stop performance errors if UI assembly fails
         if (_popup == null || _title == null || _cost == null || _hourlyCost == null) return;
 
         _title.text = name;
@@ -136,6 +140,7 @@ public class WorldHoverPopupUI : MonoBehaviour
         _hourlyCost.text = $"Hourly: ${hourlyCost:N0}/hr";
 
         _popup.style.opacity = 1f;
+        _popup.style.display = DisplayStyle.Flex;
         _popup.AddToClassList("show");
         _isVisible = true;
         _isFading = false;
@@ -144,37 +149,35 @@ public class WorldHoverPopupUI : MonoBehaviour
     private void HideSlowlyFadeout()
     {
         if (!_isVisible) return;
-        _isFading = true;
         _isVisible = false;
-        float duration = 0.05f;
-        float t = 0f;
-
-        _popup.schedule.Execute(() => {
-            if (!_isFading) return;
-            t += Time.deltaTime / duration;
-            float opacity = Mathf.Lerp(1f, 0f, t);
-            _popup.style.opacity = opacity;
-
-            if (t >= 1f)
-            {
-                _popup.style.opacity = 0f;
-                _popup.RemoveFromClassList("show");
-                _isFading = false;
-            }
-        }).Every(16).Until(() => t >= 1f || !_isFading);
+        
+        HideImmediate();
     }
 
     public void HideImmediate()
     {
-        // Prevents Awake initialization crash if _popup hasn't bound yet
         if (_popup == null) return;
 
-        _popup.RemoveFromClassList("show");
-        _popup.style.opacity = 0f;
         _isVisible = false;
         _isHovering = false;
         _hoverTimer = 0f;
         _isFading = false;
+        
+        _popup.style.display = DisplayStyle.None;
+        _popup.RemoveFromClassList("show");
+    }
+
+    private void ResetToPlaceholder()
+    {
+        if (_popup == null || _title == null || _cost == null || _hourlyCost == null) return;
+
+        _title.text = "Inspect Warehouse Item";
+        _cost.text = "Cost: --";
+        _hourlyCost.text = "Hourly: --";
+        
+        _popup.style.opacity = 1f;
+        _popup.style.display = DisplayStyle.None;
+        _popup.RemoveFromClassList("show");
     }
 
     public void SetWorldPosition(Vector3 worldPos, Camera cam)
@@ -182,7 +185,7 @@ public class WorldHoverPopupUI : MonoBehaviour
         if (_popup == null || _root == null) return;
 
         Vector2 mousePos = Mouse.current.position.ReadValue();
-        var layout = _root.panel.visualTree.layout;
+        var layout = _root.layout;
         if (layout.width <= 0 || layout.height <= 0) return;
 
         float uiX = mousePos.x * (layout.width / Screen.width);

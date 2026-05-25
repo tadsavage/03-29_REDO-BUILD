@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
+[DefaultExecutionOrder(-100)]
 public class GameContext : MonoBehaviour
 {
     //public TopRightUI_TimeMoney topRightUI; DONT NEED RIGHT NOW, JUST TESTING

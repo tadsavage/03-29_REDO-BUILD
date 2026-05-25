@@ -32,6 +32,8 @@
     flex-direction: row;
     align-items: center;
     overflow: visible;
+    flex-grow: 1;
+    min-width: 200px;
 }
 
 /* PALIA THEME: Category buttons use a subtle dark container shade */

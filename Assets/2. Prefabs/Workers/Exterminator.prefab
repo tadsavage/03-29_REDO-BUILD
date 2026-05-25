@@ -93,6 +93,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4652045024478113605}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6947511502857551844}
   m_SourcePrefab: {fileID: 100100000, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
 --- !u!1 &4121492427302467827 stripped
 GameObject:
@@ -228,3 +231,21 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &6947511502857551844
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4121492427302467827}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9b3b9e29f9727440abb52245c9fc723, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavAgentGuidance
+  showGuidanceLine: 1
+  colorType: 1
+  lineWidth: 0.1
+  pointsPerSegment: 10
+  verticalOffset: 0.05
+  guidanceMaterial: {fileID: 2100000, guid: d4ad64ebc615eaf48a32b5c4c9d5eeaa, type: 2}

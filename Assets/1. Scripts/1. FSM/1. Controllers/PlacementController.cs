@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class PlacementController : MonoBehaviour
 {
@@ -8,21 +8,19 @@ public class PlacementController : MonoBehaviour
 
     private void Awake()
     {
-        // DO NOT create GameContext with new
-        // Unity will assign it from the scene
-
         // UI → FSM transitions
         _buildMenuUI.OnBuildItemClicked += HandleBuildItemClicked;
         _buildMenuUI.OnDeleteClicked += HandleDeleteClicked;
         _buildMenuUI.OnMoveClicked += HandleMoveClicked;
         _buildMenuUI.OnUndoClicked += HandleUndoClicked;
         _buildMenuUI.OnRedoClicked += HandleRedoClicked;
+
+        // Inject the real scene GameContext in Awake to ensure it's ready for FSM.Start()
+        _fsm.Initialize(_gameContext);
     }
 
     private void Start()
     {
-        // Inject the real scene GameContext
-        _fsm.Initialize(_gameContext);
     }
 
     private void HandleBuildItemClicked(ObjDataSO data)

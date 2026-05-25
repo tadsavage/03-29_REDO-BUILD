@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -98,6 +98,12 @@ public class BuildMenuUI : MonoBehaviour
         if (_uiDoc == null) _uiDoc = GetComponent<UIDocument>();
         _root = _uiDoc.rootVisualElement;
 
+        if (_root == null)
+        {
+            Debug.LogError("[BuildMenuUI] Root VisualElement is null in OnEnable!");
+            return;
+        }
+
         if (buildMenuStyle != null)
             _root.styleSheets.Add(buildMenuStyle);
 
@@ -112,20 +118,34 @@ public class BuildMenuUI : MonoBehaviour
     public void Initialize(MoneyService money)
     {
         moneyService = money;
+        if (_uiDoc == null) _uiDoc = GetComponent<UIDocument>();
+        if (_uiDoc != null) _root = _uiDoc.rootVisualElement;
+
+        // Re-build if we were initialized after OnEnable or during Awake
+        if (_root != null)
+        {
+            CacheElements();
+            BuildCategoryButtons();
+            BuildUtilityButtons();
+        }
     }
 
     private void BuildSavePopup()
     {
+        if (_root.Q<VisualElement>("SavePopupContainer") != null) return;
+
         var popup = savePopupUxml.Instantiate();
+        popup.name = "SavePopupContainer";
+        popup.pickingMode = PickingMode.Ignore; 
         _root.Add(popup);
 
-        _savePopup = popup.contentContainer.Q<VisualElement>("SavePopup");
-        _saveNameField = popup.contentContainer.Q<TextField>("SaveNameField");
-        _confirmSaveButton = popup.contentContainer.Q<Button>("ConfirmSaveButton");
-        _cancelSaveButton = popup.contentContainer.Q<Button>("CancelSaveButton");
+        _savePopup = popup.Q<VisualElement>("SavePopup");
+        _saveNameField = popup.Q<TextField>("SaveNameField");
+        _confirmSaveButton = popup.Q<Button>("ConfirmSaveButton");
+        _cancelSaveButton = popup.Q<Button>("CancelSaveButton");
 
-        _confirmSaveButton.clicked += ConfirmSave;
-        _cancelSaveButton.clicked += HideSavePopup;
+        if (_confirmSaveButton != null) _confirmSaveButton.clicked += ConfirmSave;
+        if (_cancelSaveButton != null) _cancelSaveButton.clicked += HideSavePopup;
         HideSavePopup();
     }
 
@@ -170,22 +190,40 @@ public class BuildMenuUI : MonoBehaviour
             StartDelayedSubmenuClose();
         });
 
-        // FIX: Catch scroll wheels over the main bottom bar layout and prevent camera pass-through
-        _bottomBar.RegisterCallback<WheelEvent>(evt => {
-            evt.StopPropagation();
-        }, TrickleDown.TrickleDown);
+        // Prevent wheel events from zooming the camera when over the UI
+        _bottomBar.RegisterCallback<WheelEvent>(evt => evt.StopPropagation());
     }
 
     private void BuildCategoryButtons()
     {
+        if (_categoryRow == null)
+        {
+            Debug.LogError("[BuildMenuUI] CategoryRow is null!");
+            return;
+        }
+
+        Debug.Log($"[BuildMenuUI] Building {categories.Count} category buttons into {_categoryRow.name}. Attached to panel: {_categoryRow.panel != null}");
         _categoryRow.Clear();
         foreach (var cat in categories)
         {
             if (cat == null) continue;
+            
+            if (categoryButtonUxml == null)
+            {
+                Debug.LogError("[BuildMenuUI] categoryButtonUxml is NULL!");
+                continue;
+            }
+
             var ve = categoryButtonUxml.Instantiate();
             var button = ve.Q<Button>("CategoryButton");
             var icon = ve.Q<VisualElement>("Icon");
             var label = ve.Q<Label>("Label");
+
+            if (button == null)
+            {
+                Debug.LogError("[BuildMenuUI] CategoryButton not found in template!");
+                continue;
+            }
 
             label.text = cat.displayName;
             if (cat.icon != null) icon.style.backgroundImage = new StyleBackground(cat.icon);
@@ -193,11 +231,20 @@ public class BuildMenuUI : MonoBehaviour
             var capturedCat = cat;
             button.clicked += () => OnCategoryClicked(capturedCat);
             _categoryRow.Add(ve);
+            Debug.Log($"[BuildMenuUI] Added category button: {cat.displayName}");
         }
+        Debug.Log($"[BuildMenuUI] Final CategoryRow child count: {_categoryRow.childCount}");
     }
 
     private void BuildUtilityButtons()
     {
+        if (_utilityRow == null)
+        {
+            Debug.LogError("[BuildMenuUI] UtilityRow is null!");
+            return;
+        }
+
+        Debug.Log($"[BuildMenuUI] Building {utilityButtons.Count} utility buttons.");
         _utilityRow.Clear();
         foreach (var util in utilityButtons)
         {
@@ -205,6 +252,12 @@ public class BuildMenuUI : MonoBehaviour
             var button = ve.Q<Button>("UtilityButton");
             var icon = ve.Q<VisualElement>("Icon");
             var label = ve.Q<Label>("Label");
+
+            if (button == null)
+            {
+                Debug.LogError("[BuildMenuUI] UtilityButton not found in template!");
+                continue;
+            }
 
             label.text = util.id;
             if (util.icon != null) icon.style.backgroundImage = new StyleBackground(util.icon);
@@ -240,21 +293,8 @@ public class BuildMenuUI : MonoBehaviour
             StartDelayedSubmenuClose();
         });
 
-        // FIX: Allow the ScrollView to process the scroll wheel data before stopping it
-        targetRoot.RegisterCallback<WheelEvent>(evt => {
-            // If the mouse wheel is moving, manually scroll the ScrollView content path
-            if (_submenuScroll != null)
-            {
-                // evt.delta.y gives us the mouse scroll direction direction/speed
-                _submenuScroll.scrollOffset = new Vector2(
-                    _submenuScroll.scrollOffset.x,
-                    _submenuScroll.scrollOffset.y + evt.delta.y * 20f // Tweak 20f to adjust scroll sensitivity
-                );
-            }
-
-            // Stops the event from trickling down into the 3D scene and zooming your camera
-            evt.StopPropagation();
-        }, TrickleDown.TrickleDown);
+        // Prevent wheel events from zooming the camera when over the submenu
+        targetRoot.RegisterCallback<WheelEvent>(evt => evt.StopPropagation());
 
         if (_submenuScroll != null)
         {
@@ -378,7 +418,7 @@ public class BuildMenuUI : MonoBehaviour
         Vector2 rootPos = _root.worldBound.position;
         Vector2 buttonPos = _lastClickedCategoryButton.worldBound.position;
 
-        // Reset the transform matrix modifications entirely
+        // Reset the transform matrix modifications entirely to ensure pick-logic matches visual position
         _submenuContainer.transform.position = Vector3.zero;
 
         // Assign explicit, stable positioning properties 
@@ -403,18 +443,23 @@ public class BuildMenuUI : MonoBehaviour
         // 2. SAFETY FALLBACK: Build the elements and apply clean styling handles
         var fallbackPopup = new VisualElement { name = "WorldHoverPopup" };
         fallbackPopup.AddToClassList("buildmenu-stationed-popup");
+        fallbackPopup.pickingMode = PickingMode.Ignore; // Ensure it doesn't block bar interactions
 
-        var titleLabel = new Label { name = "HoverTitle", text = "Inspect Warehouse Item" };
+        var titleLabel = new Label { name = "HoverTitle", text = "No Data - Item" };
         titleLabel.AddToClassList("world-hover-title");
+        titleLabel.pickingMode = PickingMode.Ignore;
 
         var metricsBox = new VisualElement { name = "HoverMetricsContainer" };
         metricsBox.AddToClassList("world-hover-metrics-box");
+        metricsBox.pickingMode = PickingMode.Ignore;
 
         var costLabel = new Label { name = "HoverCost", text = "Cost: --" };
         costLabel.AddToClassList("world-hover-cost");
+        costLabel.pickingMode = PickingMode.Ignore;
 
         var hourlyLabel = new Label { name = "HoverHourlyCost", text = "Hourly: --" };
         hourlyLabel.AddToClassList("world-hover-hourlyCost");
+        hourlyLabel.pickingMode = PickingMode.Ignore;
 
         // Nest elements cleanly
         metricsBox.Add(costLabel);

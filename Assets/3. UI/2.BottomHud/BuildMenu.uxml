@@ -9,8 +9,8 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
-    <ui:VisualElement name="BottomBar" picking-mode="Position" class="buildmenu-bottom-bar">
-        <ui:VisualElement name="CategoryRow" picking-mode="Ignore" class="buildmenu-category-row"/>
-        <ui:VisualElement name="UtilityRow" picking-mode="Ignore" class="buildmenu-utility-row"/>
+    <ui:VisualElement name="BottomBar" picking-mode="Ignore" class="buildmenu-bottom-bar">
+        <ui:VisualElement name="CategoryRow" picking-mode="Position" class="buildmenu-category-row"/>
+        <ui:VisualElement name="UtilityRow" picking-mode="Position" class="buildmenu-utility-row"/>
     </ui:VisualElement>
 </ui:UXML>

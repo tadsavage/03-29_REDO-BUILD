@@ -93,7 +93,7 @@ public class BuildState : IPlacementState
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
         _actions.BuildPlacement.Place.canceled += OnPlacePerformed;
 
-        Object.FindAnyObjectByType<TopBarUI>().SetState(GetType().Name);
+        topBarUI?.SetState(GetType().Name);
 
         if (_currentData == null)
             return;
