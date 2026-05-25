@@ -292,7 +292,7 @@ public class PalletBuilder : MonoBehaviour
 
         SaveBuildState();
 
-        Debug.Log($"Pallet Built: {casesPerLayer} Ti x {layers} Hi = {totalCases} total cases. State Saved.");
+        //Debug.Log($"Pallet Built: {casesPerLayer} Ti x {layers} Hi = {totalCases} total cases. State Saved.");
     }
 
     // Static reference to track the currently open builder across all instances

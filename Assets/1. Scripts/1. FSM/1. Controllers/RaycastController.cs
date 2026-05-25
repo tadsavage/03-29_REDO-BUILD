@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
@@ -9,6 +11,10 @@ public class RaycastController : MonoBehaviour
     [SerializeField] private Camera _camera;
     [SerializeField] private LayerMask _groundMask;
     [SerializeField] private PlacementGrid _grid;
+
+    [Header("Walls Bypass Configuration")]
+    [Tooltip("Select the exact same Walls layer you created here so the raycaster can safely ignore it.")]
+    [SerializeField] private LayerMask _wallLayer;
 
     [Header("Debug")]
     [SerializeField] private LineRenderer _line;
@@ -34,7 +40,7 @@ public class RaycastController : MonoBehaviour
     public bool IsPointerOverUI => _isPointerOverUI;
 
     private Vector2Int _lastHitCell;
-private bool _enabled;
+    private bool _enabled;
 
     public void EnableRay() => _enabled = true;
 
@@ -74,20 +80,36 @@ private bool _enabled;
             }
         }
 
-        if (!_enabled || _isPointerOverUI) 
+        if (!_enabled || _isPointerOverUI)
         {
             HasHit = false;
             HitObject = null;
             if (_line != null) _line.enabled = false;
-            return; 
+            return;
         }
 
         Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
 
+        // DYNAMIC FILTER: Get dynamic layer mask filters based on current wall visibility state
+        LayerMask dynamicGroundMask = _groundMask;
+        LayerMask dynamicObjectMask = Physics.DefaultRaycastLayers; // Standard default layout mask matches everything
+
+        if (WallVisibilityManager.Instance != null)
+        {
+            dynamicGroundMask = WallVisibilityManager.Instance.GetDynamicPlacementMask(_groundMask);
+            dynamicObjectMask = WallVisibilityManager.Instance.GetDynamicPlacementMask(Physics.DefaultRaycastLayers);
+        }
+        else
+        {
+            // Manual fallback if your scene manager instance hasn't loaded yet
+            dynamicGroundMask = _groundMask & ~_wallLayer;
+            dynamicObjectMask = Physics.DefaultRaycastLayers & ~_wallLayer;
+        }
+
         // ---------------------------------------------------------
-        // 1. Ground raycast (grid placement)
+        // 1. Ground raycast (grid placement) using dynamic filter mask
         // ---------------------------------------------------------
-        if (Physics.Raycast(ray, out RaycastHit hit, 999f, _groundMask))
+        if (Physics.Raycast(ray, out RaycastHit hit, 999f, dynamicGroundMask))
         {
             RawHitPoint = hit.point;   // ⭐ continuous world position
             HitPoint = _grid.GetCellCenter(_grid.WorldToCell(hit.point)); // snapped
@@ -107,9 +129,9 @@ private bool _enabled;
         }
 
         // ---------------------------------------------------------
-        // 2. Object raycast (no mask)
+        // 2. Object raycast (now uses dynamic filter mask to ignore lowered walls!)
         // ---------------------------------------------------------
-        if (Physics.Raycast(ray, out RaycastHit objHit, 500f))
+        if (Physics.Raycast(ray, out RaycastHit objHit, 500f, dynamicObjectMask))
             HitObject = objHit.collider.gameObject;
         else
             HitObject = null;
@@ -143,12 +165,8 @@ private bool _enabled;
 
         if (results.Count == 0) return false;
 
-        // The results list is sorted by the EventSystem (sorting order, depth, distance).
-        // The first hit is the one the user is actually pointing at.
         var topHit = results[0];
 
-        // Only block if the top-most object hit is a UI element.
-        // Ignore hits from PhysicsRaycaster which represent world objects.
         if (topHit.module is UnityEngine.UIElements.PanelRaycaster || topHit.module is UnityEngine.UI.GraphicRaycaster)
         {
             return true;
@@ -158,7 +176,7 @@ private bool _enabled;
     }
 
     private void DrawRay(Ray ray)
-{
+    {
         if (!_visualizeRay || _line == null)
             return;
 
@@ -187,7 +205,14 @@ private bool _enabled;
         if (_debugCellRay)
             Debug.DrawLine(world, world + Vector3.down * distance, _cellRayColor, 0f);
 
-        if (Physics.Raycast(ray, out RaycastHit hit, distance))
+        // Optional layer filter matching for down-facing tile sweeps
+        LayerMask dynamicCellMask = Physics.DefaultRaycastLayers;
+        if (WallVisibilityManager.Instance != null)
+        {
+            dynamicCellMask = WallVisibilityManager.Instance.GetDynamicPlacementMask(Physics.DefaultRaycastLayers);
+        }
+
+        if (Physics.Raycast(ray, out RaycastHit hit, distance, dynamicCellMask))
         {
             if (_debugCellRay)
             {
@@ -213,6 +238,6 @@ private bool _enabled;
         HasHit = false;
         HitObject = null;
         HitCell = Vector2Int.zero;
-        _lastHitCell = new Vector2Int(999, 999); // force first hit to register
+        _lastHitCell = new Vector2Int(999, 999);
     }
 }

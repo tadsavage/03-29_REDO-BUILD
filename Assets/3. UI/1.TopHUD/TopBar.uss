@@ -86,12 +86,21 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 .topbar-icon-button {
     background-color: transparent;
     border-width: 0;
-    width: 28px;
     height: 28px;
-    padding: 0;
-    margin: 0 6px;
+    padding-left: 6px;
+    padding-right: 6px;
+    margin: 0 4px;
     align-items: center;
     justify-content: center;
+    flex-direction: row;
+}
+
+.topbar-button-label {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 14px;
+    color: rgb(240, 230, 211);
+    margin-left: 6px;
+    -unity-text-align: middle-left;
 }
 
 .topbar-icon-button:hover {

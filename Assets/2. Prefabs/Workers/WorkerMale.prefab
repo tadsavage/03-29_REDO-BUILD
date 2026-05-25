@@ -125,6 +125,7 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
 --- !u!114 &4737448340635025031
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -274,9 +275,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9b3b9e29f9727440abb52245c9fc723, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavAgentGuidance
-  showGuidanceLine: 1
+  showGuidanceLine: 0
   colorType: 2
   lineWidth: 0.1
+  isDashed: 0
   pointsPerSegment: 10
   verticalOffset: 0.05
   guidanceMaterial: {fileID: 2100000, guid: d4ad64ebc615eaf48a32b5c4c9d5eeaa, type: 2}

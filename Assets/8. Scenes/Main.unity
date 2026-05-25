@@ -348,7 +348,7 @@ MonoBehaviour:
   submenuContainerUxml: {fileID: 9197481963319205126, guid: 7c75ce12def418241abf8ce8498c1404, type: 3}
   utilityButtonUxml: {fileID: 9197481963319205126, guid: b112891bbb718f8449773b56aef85e1c, type: 3}
   savePopupUxml: {fileID: 9197481963319205126, guid: 15ff439f4dc696747923423e6bb4dcc4, type: 3}
-  buildMenuStyle: {fileID: 7433441132597879392, guid: d8bb7700faa145541bb653373c53d4ec, type: 3}
+  buildMenuStyle: {fileID: 7433441132597879392, guid: 6451556a33fb0be46aa059d66682505f, type: 3}
   placementSystem: {fileID: 1024109579}
   registry: {fileID: 11400000, guid: 170486d4b75721b44885bf8a5052dd56, type: 2}
   grid: {fileID: 2094211284}
@@ -361,10 +361,10 @@ MonoBehaviour:
     icon: {fileID: 2800000, guid: 70909013476b2534fbf84321dfadd5a6, type: 3}
   - id: REDO
     icon: {fileID: 2800000, guid: 3f29fa26fd84a8542b994d881155268c, type: 3}
-  - id: EMPTY_SAVE
-    icon: {fileID: 2800000, guid: 17d4b5b915269e2409d22864b5ded02b, type: 3}
-  - id: EMPTY_LOAD
-    icon: {fileID: 2800000, guid: c3904e30ce739194f802711fcd37ec4a, type: 3}
+  - id: lower
+    icon: {fileID: 2800000, guid: 98e76b516e3f81141820faff1e4e18a9, type: 3}
+  - id: raise
+    icon: {fileID: 2800000, guid: 93ad5ac4eed12884a992227ea9bff87d, type: 3}
 --- !u!114 &93724069
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1381,6 +1381,7 @@ GameObject:
   - component: {fileID: 1024109578}
   - component: {fileID: 1024109577}
   - component: {fileID: 1024109579}
+  - component: {fileID: 1024109580}
   m_Layer: 0
   m_Name: PlacementController
   m_TagString: Untagged
@@ -1541,7 +1542,25 @@ MonoBehaviour:
   registry: {fileID: 11400000, guid: 170486d4b75721b44885bf8a5052dd56, type: 2}
   grid: {fileID: 2094211284}
   saveLoadWindowController: {fileID: 1791913165}
-  freeLookCamera: {fileID: 0}
+  freeLookCamera: {fileID: 614450596}
+--- !u!114 &1024109580
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1024109569}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 522f02fbbed32bc4194b9cf23db0f1e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WallVisibilityManager
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  overlappingDecorLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &1114972858
 GameObject:
   m_ObjectHideFlags: 0
@@ -2008,7 +2027,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc5706137ed8c0c448cabe2da68280eb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SplashScreenController
-  PlaySplashScreen: 1
+  PlaySplashScreen: 0
   LogoSprite: {fileID: 21300000, guid: cffdd8c1e5037884c9e112c4b64d627b, type: 3}
   SplashMusic: {fileID: 8300000, guid: 98426967acc4c4d4a82c93b4a7241e1a, type: 3}
   splashVolume: 0
@@ -2169,7 +2188,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1791913164}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: 
@@ -2293,6 +2312,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 8
   _grid: {fileID: 2094211284}
+  _wallLayer:
+    serializedVersion: 2
+    m_Bits: 64
   _line: {fileID: 959959391}
   _visualizeRay: 1
   _debugObjectRay: 0

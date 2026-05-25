@@ -1,90 +1,77 @@
-# Project Overview: Warehouse Simulation & Placement System
+# Project Overview: Warehouse Simulation & Building System
+
+This Unity project is a sophisticated warehouse simulation and layout planning tool. It features a robust grid-based building system with stacking mechanics, economy simulation (capital and hourly costs), and an undo/redo command architecture. The project is designed for users to design, optimize, and simulate warehouse operations, featuring specialized assets like pallet jacks, racking, and AI-driven workers/rats.
 
 ## 1. Project Description
-This project is a 3D warehouse planning and management simulation built in Unity 6. It allows users to design warehouse layouts by placing racking, barriers, floors, and machinery on a grid-based system. The core experience focuses on spatial optimization, financial management (capital and hourly costs), and operational flow (AI navigation). It is designed for logistics planners or simulation enthusiasts to test warehouse configurations and operational efficiency.
-
-**Core Pillars:**
-- **Precise Grid Placement:** A robust FSM-driven system for placing, moving, and deleting warehouse assets.
-- **Economic Simulation:** Tracking of placement costs and hourly operational expenses.
-- **Spatial Logic:** Complex footprint validation including stacking, floor-layering, and "bulldozer" mechanics.
-- **Operational Testing:** AI NavMesh integration to simulate worker and vehicle movement within the designed layout.
+The project is a professional-grade warehouse simulator focused on logistics, spatial planning, and financial management. It allows users to construct complex warehouse layouts using a variety of structural (walls, floors, foundations) and operational (racks, MHE - Material Handling Equipment) components.
+- **Core Pillars:** Precision grid-based placement, vertical stacking, economic sustainability, and dynamic environment simulation (AI navigation, lighting flickers, and soundscapes).
+- **Target Audience:** Logistical planners, warehouse managers, or simulation enthusiasts.
 
 ## 2. Gameplay Flow / User Loop
-1.  **Boot & Setup:** The game initializes via a `UIBootstrapper`, setting up the `GameContext` and linking UI to the `PlacementStateMachine`.
-2.  **Design Phase:** The user selects objects from the `BuildMenuUI`. They transition from `IdleState` to `BuildState`, using a 3D preview to position assets on the grid.
-3.  **Validation & Placement:** The system validates the footprint (checking for level surfaces and stacking rules). Placing an object subtracts funds and updates the `PlacementGrid`.
-4.  **Refinement:** Users use `MoveState` or `DeleteState` to optimize the layout. Actions can be undone/redone via the `CommandHistory`.
-5.  **Simulation/Management:** The game tracks time and money via `GameContext`. NavMesh updates allow AI agents to navigate the new layout.
-6.  **Persistence:** Users save their layouts to one of 8 slots, which includes a generated thumbnail for easy identification.
+1. **Boot:** The game initializes via `UIBootstrapper`, setting up the `GameContext` and injecting dependencies into the UI and FSM.
+2. **Construction:** Users select objects from the `BuildMenuUI`. The `PlacementStateMachine` transitions into `BuildState`, allowing for single-click or drag-placement.
+3. **Management:** Placed objects incur an `hourlyCost`. Users must balance their `CurrentCapital` against operational expenses driven by the `TimeDriver` and `MoneyService`.
+4. **Optimization:** Users can use `MoveState` to reorganize or `DeleteState` to remove inefficient structures. The Command pattern allows for frequent experimentation with Ctrl+Z/Ctrl+Y.
+5. **Simulation:** AI entities (workers and rats) navigate the environment using a dynamically updated NavMesh managed by `NavMeshManager`.
 
 ## 3. Architecture
-The project follows a decoupled, state-driven architecture with a clear separation between data (ScriptableObjects), logic (FSM), and visuals.
+The project follows a decoupled, service-oriented architecture centered around a `GameContext` and a State Machine.
 
-### Placement FSM
-The heart of the interaction logic, managing user input and state transitions.
-- `PlacementStateMachine`: The central hub that switches between build, move, and delete modes.
-- `IPlacementState`: Interface defining `OnEnter`, `Tick`, and `OnExit` for all states.
-- `BuildState`, `MoveState`, `DeleteState`: Concrete implementations handling specific interaction logic.
-- `CommandHistory`: Implements the Command pattern to support Undo/Redo for all placement actions.
-- `PlacementActions`: C# wrapper for the New Input System.
-`Location: Assets/1. Scripts/1. FSM`
+### Placement & State Management
+* `PlacementStateMachine`: Central hub managing transitions between interaction states (Idle, Build, Move, Delete).
+* `PlacementController`: Bridges the UI layer (`BuildMenuUI`) to the FSM logic.
+* `GameContext`: A Service Locator/Dependency Injection hub providing access to `MoneyService`, `TimeService`, and other global logic.
+* `CommandHistory`: Implements the Command Pattern, storing `ICommand` objects (e.g., `PlaceCommand`, `DeleteCommand`) to support multi-level undo/redo.
+`Location: Assets/1. Scripts/1. FSM/`
 
-### Execution & Validation
-Separates the "intent" to place from the "rules" of placement.
-- `PlacementValidator`: Logic for checking footprint overlaps, stack heights, and surface leveling.
-- `PlacementFinalizer`: Handles the actual instantiation, parenting, and registration of objects.
-- `PlacementGrid`: Data structure tracking what occupies every (x, y) cell, including stack heights.
-`Location: Assets/1. Scripts/1. FSM/4. Validation & 5. Finalization`
-
-### Global Context
-Provides shared services to all systems without strict singletons where possible.
-- `GameContext`: Holds references to `MoneyService`, `TimeService`, and other global simulation data.
-`Location: Assets/1. Scripts/1. FSM/7. Math/TimeAndMoney`
+### Data Flow & Registry
+* `ObjDataRegistry`: A ScriptableObject-based database containing all buildable items.
+* `ObjDataSO`: Defines the physical properties (footprint, height), economic costs, and prefabs for objects.
+* `BuildingData`: A component attached to all placed objects in the scene, storing its runtime grid position, rotation, and original SO data.
+`Location: Assets/1. Scripts/3. ScriptableObjects/SO Scripts/`
 
 ## 4. Game Systems & Domain Concepts
 
 ### Grid & Stacking System
-A multi-layered grid system that supports complex spatial rules.
-- `ObjDataSO`: Defines the footprint (rectangular or custom), height, and stacking capabilities of an object.
-- **Stacking Logic:** Objects marked as `isStackable` can be placed on top of each other, with the system calculating the cumulative `objHeight`.
-- **Floor Logic:** Objects marked as `isFloor` (like lanes) can exist under other objects and do not block placement.
-`Location: Assets/1. Scripts/3. ScriptableObjects/SO Scripts`
+* `PlacementGrid`: Manages a 2D array of cells. Each cell can hold a stack of objects (`List<PlacedObject>`).
+* `PlacementValidator`: Enforces placement rules (inside grid, level surface, stack height limits).
+* `PlacementMath`: Provides utility functions for world-to-grid conversions and footprint rotations.
+* **Domain Concept - Stacking:** Objects have an `objHeight`. The grid tracks `currentStackHeight` to allow objects like boxes to be placed on top of racking or foundations.
+`Location: Assets/1. Scripts/1. FSM/7. Math/`
+
+### Economy & Time
+* `MoneyService`: Handles capital, spending categories, and hourly cost deductions.
+* `TimeDriver`: Drives the simulation clock, triggering "Hour Changed" events that invoke the `MoneyService` to deduct operating costs.
+`Location: Assets/1. Scripts/1. FSM/7. Math/TimeAndMoney/`
 
 ### AI & Navigation
-Simulates warehouse operations using Unity's AI Navigation.
-- `NavMeshManager`: Handles runtime NavMesh baking when the layout changes.
-- `AiNavigation`: Controls agent behavior and pathfinding.
-- `pathfindingClear`: A property in `ObjDataSO` that allows objects (like doors) to be ignored by NavMesh obstacles.
-`Location: Assets/1. Scripts/6. Utility`
-
-### Checklist System
-A task-tracking system for guiding users through build phases or objectives.
-- `ChecklistData`: Serialized structure for sections, tasks, and subtasks.
-- `ChecklistTaskManager`: Handles the logic of task completion and progress tracking.
-`Location: Assets/1. Scripts/11. ChecklistSystem`
+* `NavMeshManager`: Manages dynamic NavMesh baking. It debounces updates to ensure performance when many objects are placed rapidly.
+* `AiNavigation`: Custom logic for agent movement and guidance.
+* `RatBehavior`: Ambient AI that adds life (or pests) to the warehouse environment.
+`Location: Assets/1. Scripts/6. Utility/`
 
 ## 5. Scene Overview
-- **Main Scene:** The primary environment containing the `PlacementGrid`, `GameContext`, and UI Canvas. It serves as the sandbox for all gameplay.
-- **ExampleScene (GuidanceLine):** A demonstration scene for the line rendering/guidance system used for AI or path visualization.
-- **Scene Flow:** Currently, the project operates in a single-scene sandbox mode. Layouts are loaded into the `Main` scene via the Save/Load system rather than scene switching.
+* **Main Scene (`Main.unity`):** The primary workspace. It contains the `PlacementController` and the main UI canvas. It relies on `UIBootstrapper` to connect scene-level managers to the UI.
+* **Example Scenes:** Scenes like `ExampleScene.unity` under `GuidanceLine` are used for testing specific utility features.
+* **Scene Rules:** Most systems are persistent or initialized via the `GameContext` found in the root of the Main scene.
 
 ## 6. UI System
-The project uses UGUI with a controller-based architecture.
-- `UIBootstrapper`: Injects dependencies (like the `PlacementStateMachine`) into UI components at runtime.
-- `BuildMenuUI`: A dynamic menu populated by the `ObjDataRegistry` to show available warehouse assets.
-- `WorldHoverPopupUI`: A world-space/screen-space hybrid popup that displays object info (name, cost) when hovering in `IdleState`.
-- `SaveLoadWindowController`: Manages the 8-slot save system, including thumbnail display and slot metadata.
-`Location: Assets/3. UI`
+The project uses UGUI with a custom "Bootstrapper" pattern.
+* `BuildMenuUI`: The primary interface for selecting objects, categories, and triggering Delete/Move modes.
+* `WorldHoverPopupUI`: A world-space UI that displays object details (cost, name) when hovering in `IdleState`.
+* `TopBarUI`: Displays current money, time, and active tool information.
+* `PreviewCostUI`: Floats near the cursor during placement to show the cost of the current operation.
+* **Binding:** UI buttons call methods on the `PlacementController`, which then triggers the FSM.
+`Location: Assets/3. UI/`
 
 ## 7. Asset & Data Model
-- **ObjDataSO:** The primary data definition for all placeable items. It contains cost, footprint, prefab references, and simulation rules.
-- **ObjDataRegistry:** A ScriptableObject collection used to catalog all available `ObjDataSO` assets for the UI.
-- **SaveData:** JSON-based persistence. It stores the ID, position, rotation, and stack level of every placed object.
-- **SaveMetadata:** Stores high-level info about a save (timestamp, custom name, thumbnail path) to populate the Load menu without loading the full game state.
-`Location: Assets/1. Scripts/3. ScriptableObjects`
+* **ScriptableObjects:** Used for configuration (`ObjDataSO`), audio libraries (`SoundLibrary`), and data registries (`ObjDataRegistry`).
+* **Prefabs:** Organized by category (Barriers, MHE, Racking, Workers). Each buildable prefab requires a `BuildingData` and `PlacedObject` component to interface with the grid.
+* **Save Data:** Uses JSON serialization. Files like `slot_0_data.json` store the state of the warehouse, which is reconstructed using `PlacementGrid.RebuildFromRegistry()`.
+`Location: Assets/2. Prefabs/` and `Assets/_Saves/`
 
 ## 8. Notes, Caveats & Gotchas
-- **Rotational Logic:** The `ObjDataSO.GetFootprintOffsets` method handles 90-degree rotations. When adding custom shapes, ensure the `customShapeOffsets` are defined relative to a (0,0) root.
-- **Layering:** "Ground" (foundations) and "Floors" (markings) are handled differently. Ground replaces existing ground, while Floors can coexist with any object.
-- **NavMesh Baking:** High-frequency placement/deletion may cause performance spikes if the NavMesh re-bakes too often. The `NavMeshManager` should ideally batch these updates.
-- **Save Folder:** Saves are stored in `Assets/_Saves`. This folder must exist or be created at runtime for the `SaveManager` to function correctly.
+* **Grid Origin:** The grid uses an `Origin` Vector3. Ensure all scene foundations are aligned to this origin or placement will be offset.
+* **NavMesh Updating:** The `NavMeshManager` uses a debounce timer. Frequent placement might feel like the NavMesh is "lagging" behind, but this is intentional to prevent frame drops.
+* **Foundations vs. Floors:** Foundations have physical height and contribute to the stack; Floors are treated as zero-height overlaps that sit at the bottom of the stack.
+* **Undo/Redo & Disabled Objects:** The `PlacementFinalizer` often disables objects (like replaced floors) instead of destroying them immediately to allow for `Undo` operations to restore them.

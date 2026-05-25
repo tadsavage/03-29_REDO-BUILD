@@ -22,9 +22,11 @@
         <ui:VisualElement class="topbar-box topbar-button-container">
             <ui:Button name="SaveButton" class="topbar-icon-button">
                 <ui:VisualElement name="SaveIcon" class="topbar-icon save-icon" />
+                <ui:Label text="Save" class="topbar-button-label" />
             </ui:Button>
             <ui:Button name="LoadButton" class="topbar-icon-button">
                 <ui:VisualElement name="LoadIcon" class="topbar-icon load-icon" />
+                <ui:Label text="Load" class="topbar-button-label" />
             </ui:Button>
         </ui:VisualElement>
     </ui:VisualElement>

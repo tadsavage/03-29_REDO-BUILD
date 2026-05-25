@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 268976666012454540}
   - component: {fileID: 8636406916788648093}
   - component: {fileID: 1570564751655163529}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: SafetyLight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -124,7 +124,7 @@ GameObject:
   - component: {fileID: 2066895510549621094}
   - component: {fileID: 4799558245266543131}
   - component: {fileID: 1988322005327628697}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: SafetyLight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -292,6 +292,10 @@ PrefabInstance:
       propertyPath: m_LocalRotation.x
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -916231596712828137, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
     - target: {fileID: 493668982786726070, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_LocalRotation.w
       value: 1
@@ -313,6 +317,10 @@ PrefabInstance:
       value: Rollup-Door
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 0
       objectReference: {fileID: 0}
@@ -321,8 +329,16 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2216303931598527189, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2216303931598527189, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2881084792559502241, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+      propertyPath: m_Layer
+      value: 6
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -553,9 +569,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
-  validMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
-  invalidMaterial: {fileID: 2100000, guid: 57c0190b8df978f47bb3ee755afa0434, type: 2}
-  deleteMaterial: {fileID: 2100000, guid: 94c126aba04045c4cb26be0d346e7aff, type: 2}
+  validColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
+  invalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
+  deleteColor: {r: 1, g: 0.9, b: 0, a: 0.5}
 --- !u!114 &1029788102910912407
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -572,6 +588,7 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
 --- !u!65 &5344421176333260333
 BoxCollider:
   m_ObjectHideFlags: 0
