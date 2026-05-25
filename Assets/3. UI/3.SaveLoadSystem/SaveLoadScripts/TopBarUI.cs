@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UIElements;
+using SaveLoadSystem;
 
 public class TopBarUI : MonoBehaviour
 {
@@ -9,19 +10,23 @@ public class TopBarUI : MonoBehaviour
     private Label _time;
 
     private Label _fps;
-    private Label _state;
     private Label _cell;
+
+    private Button _saveButton;
+    private Button _loadButton;
 
     private float _fpsTimer;
     private int _frames;
 
     private MoneyService _moneyService;
     private SimulationTimeService _timeService;
+    private SaveLoadWindowController _saveLoadController;
 
-    public void Init(UIDocument doc, MoneyService money, SimulationTimeService time)
+    public void Init(UIDocument doc, MoneyService money, SimulationTimeService time, SaveLoadWindowController saveLoad)
     {
         _moneyService = money;
         _timeService = time;
+        _saveLoadController = saveLoad;
 
         var root = doc.rootVisualElement;
 
@@ -47,15 +52,20 @@ public class TopBarUI : MonoBehaviour
         _time = topBar.Q<Label>("TimeLabel");
 
         _fps = topBar.Q<Label>("FPSLabel");
-        _state = topBar.Q<Label>("StateLabel");
         _cell = topBar.Q<Label>("CellLabel");
 
+        _saveButton = topBar.Q<Button>("SaveButton");
+        _loadButton = topBar.Q<Button>("LoadButton");
+
         // Safety check
-        if (_money == null || _hourly == null || _spent == null || _time == null || _fps == null || _state == null || _cell == null)
+        if (_money == null || _hourly == null || _spent == null || _time == null || _fps == null || _cell == null)
         {
             Debug.LogError("One or more TopBar labels are missing.");
             return;
         }
+
+        if (_saveButton != null) _saveButton.clicked += () => _saveLoadController?.Open(SaveLoadMode.Save);
+        if (_loadButton != null) _loadButton.clicked += () => _saveLoadController?.Open(SaveLoadMode.Load);
 
         // Hook events
         _moneyService.OnMoneyChanged += Refresh;
@@ -84,7 +94,7 @@ public class TopBarUI : MonoBehaviour
 
     public void SetState(string stateName)
     {
-        if (_state != null) _state.text = $"State: {stateName}";
+        // State label removed from UI
     }
 
     public void SetCell(int x, int y)

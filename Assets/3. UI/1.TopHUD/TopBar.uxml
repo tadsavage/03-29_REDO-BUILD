@@ -14,13 +14,18 @@
             <ui:Label name="TimeLabel" class="topbar-time"/>
         </ui:VisualElement>
         <ui:VisualElement name="VisualElement" class="topbar-box">
-            <ui:Label name="FPSLabel" class="topbar-fps"/>
+            <ui:Label name="FPSLabel" class="topbar-fps" text="FPS: 60" />
         </ui:VisualElement>
         <ui:VisualElement class="topbar-box">
-            <ui:Label name="StateLabel" class="topbar-state"/>
+            <ui:Label name="CellLabel" class="topbar-cell" text="Cell: (0,0)" />
         </ui:VisualElement>
-        <ui:VisualElement class="topbar-box">
-            <ui:Label name="CellLabel" class="topbar-cell"/>
+        <ui:VisualElement class="topbar-box topbar-button-container">
+            <ui:Button name="SaveButton" class="topbar-icon-button">
+                <ui:VisualElement name="SaveIcon" class="topbar-icon save-icon" />
+            </ui:Button>
+            <ui:Button name="LoadButton" class="topbar-icon-button">
+                <ui:VisualElement name="LoadIcon" class="topbar-icon load-icon" />
+            </ui:Button>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

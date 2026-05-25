@@ -12,6 +12,7 @@ public class UIBootstrapper : MonoBehaviour
     [SerializeField] private BuildMenuUI _buildMenuUI;
     [SerializeField] private TopBarUI _topBarUI;
     [SerializeField] private WorldHoverPopupUI _hoverUI;
+    [SerializeField] private SaveLoadSystem.SaveLoadWindowController _saveLoadController;
 
     [Header("Game Services")]
     [SerializeField] private GameContext _context;
@@ -65,7 +66,7 @@ public class UIBootstrapper : MonoBehaviour
         if (_costUI != null) _costUI.Init(_hudDocument);
 
         // Top bar UI
-        if (_topBarUI != null) _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService);
+        if (_topBarUI != null) _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService, _saveLoadController);
     }
 
     private void InitializeBuildMenu()

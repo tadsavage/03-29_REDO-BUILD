@@ -1,3 +1,7 @@
+/*
+2026-05-25 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
 .topbar-root {
     display: flex;
     flex-direction: row;
@@ -34,7 +38,6 @@
 .topbar-spent,
 .topbar-time,
 .topbar-fps,
-.topbar-state,
 .topbar-cell {
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
     font-size: 15px;
@@ -43,7 +46,6 @@
 }
 
 .topbar-fps,
-.topbar-state,
 .topbar-cell {
     color: rgb(240, 230, 211);
 }
@@ -65,4 +67,51 @@
     background-color: rgba(212, 135, 77, 0.12);
     border-color: rgba(212, 135, 77, 0.45);
     transition-duration: 0.25s;
+}
+
+.topbar-cell-box {
+    min-width: 100px;
+    flex-grow: 0.5;
+}
+
+.topbar-button-container {
+    flex-direction: row;
+    justify-content: center;
+    min-width: 90px;
+    flex-grow: 0.5;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+.topbar-icon-button {
+    background-color: transparent;
+    border-width: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin: 0 6px;
+    align-items: center;
+    justify-content: center;
+}
+
+.topbar-icon-button:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+.topbar-icon {
+    width: 20px;
+    height: 20px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    -unity-background-image-tint-color: white;
+}
+
+.save-icon {
+    background-image: url("project://database/Assets/3.%20UI/2.BottomHud/BuildBarIcons/Save.png");
+}
+
+.load-icon {
+    background-image: url("project://database/Assets/3.%20UI/2.BottomHud/BuildBarIcons/Load.png");
 }

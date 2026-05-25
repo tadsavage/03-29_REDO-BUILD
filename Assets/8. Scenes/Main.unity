@@ -15,14 +15,14 @@ RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
   m_Fog: 0
-  m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  m_FogColor: {r: 0.84025544, g: 0.9011955, b: 0.91194963, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.01
+  m_FogDensity: 0.0025
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
-  m_AmbientEquatorColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  m_AmbientGroundColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
+  m_AmbientSkyColor: {r: 0.34929392, g: 0.43532693, b: 0.5471698, a: 1}
+  m_AmbientEquatorColor: {r: 0.3301887, g: 0.2857639, b: 0.26477394, a: 1}
+  m_AmbientGroundColor: {r: 0.2264151, g: 0.20719115, b: 0.20719115, a: 1}
   m_AmbientIntensity: 1
   m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.3281119, g: 0.35984948, b: 0.44025147, a: 1}
@@ -33,8 +33,8 @@ RenderSettings:
   m_HaloTexture: {fileID: 0}
   m_SpotCookie: {fileID: 10001, guid: 0000000000000000e000000000000000, type: 0}
   m_DefaultReflectionMode: 0
-  m_DefaultReflectionResolution: 128
-  m_ReflectionBounces: 1
+  m_DefaultReflectionResolution: 256
+  m_ReflectionBounces: 2
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 1505288995}
@@ -43,7 +43,7 @@ RenderSettings:
 LightmapSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 13
-  m_BakeOnSceneLoad: 0
+  m_BakeOnSceneLoad: 1
   m_GISettings:
     serializedVersion: 2
     m_BounceScale: 1
@@ -361,9 +361,9 @@ MonoBehaviour:
     icon: {fileID: 2800000, guid: 70909013476b2534fbf84321dfadd5a6, type: 3}
   - id: REDO
     icon: {fileID: 2800000, guid: 3f29fa26fd84a8542b994d881155268c, type: 3}
-  - id: SAVE
+  - id: EMPTY_SAVE
     icon: {fileID: 2800000, guid: 17d4b5b915269e2409d22864b5ded02b, type: 3}
-  - id: LOAD
+  - id: EMPTY_LOAD
     icon: {fileID: 2800000, guid: c3904e30ce739194f802711fcd37ec4a, type: 3}
 --- !u!114 &93724069
 MonoBehaviour:
@@ -468,11 +468,65 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6967227226641943453, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
+--- !u!1 &186277397
+GameObject:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 186277399}
+  - component: {fileID: 186277398}
+  m_Layer: 0
+  m_Name: ProbeVolumePerSceneData
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &186277398
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 186277397}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a83d2f7ae04ab6f4f99b0d85377be998, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolumePerSceneData
+  serializedBakingSet: {fileID: 11400000, guid: 39b0d5d9d6c327e47944c7158cde4d33, type: 2}
+  sceneGUID: d69d2cf5ec1ae2e4284d84195eeb8e01
+  obsoleteAsset: {fileID: 0}
+  obsoleteCellSharedDataAsset: {fileID: 0}
+  obsoleteCellSupportDataAsset: {fileID: 0}
+  obsoleteSerializedScenarios: []
+--- !u!4 &186277399
+Transform:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 186277397}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &290579222
 GameObject:
   m_ObjectHideFlags: 0
@@ -617,7 +671,7 @@ MonoBehaviour:
   m_RequiresOpaqueTextureOption: 2
   m_CameraType: 0
   m_Cameras: []
-  m_RendererIndex: 0
+  m_RendererIndex: -1
   m_VolumeLayerMask:
     serializedVersion: 2
     m_Bits: 1
@@ -675,8 +729,8 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
-  far clip plane: 1000
+  near clip plane: 1
+  far clip plane: 500
   field of view: 60
   orthographic: 0
   orthographic size: 5
@@ -731,24 +785,100 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FreeLookCamera
   buildMenuUI: {fileID: 93724068}
-  movementSpeed: 15
-  fastMovementSpeed: 35
-  freeLookSensitivity: 0.5
+  movementSpeed: 10
+  fastMovementSpeed: 25
+  freeLookSensitivity: 0.15
   minPitch: 5
-  maxPitch: 85
-  zoomSensitivity: 5
-  minDistance: 1
+  maxPitch: 90
+  zoomSensitivity: 100
+  minDistance: 0.5
   maxDistance: 60
   heightMin: 0.5
-  heightMax: 40
+  heightMax: 50
   X_Min: -100
   X_Max: 100
   Z_Min: -100
   Z_Max: 100
   _focusPoint: {x: 0, y: 0, z: 0}
-  _distance: 38.9
+  _distance: 50
   _pitch: 44.54
   _yaw: 27.27
+--- !u!1 &690527660
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 690527662}
+  - component: {fileID: 690527661}
+  m_Layer: 0
+  m_Name: Adaptive Probe Volume
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &690527661
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 690527660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cded085d155cde949b60f67a11dbc3bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolume
+  mode: 1
+  size: {x: 83, y: 4.05, z: 83}
+  overrideRendererFilters: 0
+  minRendererVolumeSize: 0.1
+  objectLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  lowestSubdivLevelOverride: 0
+  highestSubdivLevelOverride: 7
+  overridesSubdivLevels: 0
+  mightNeedRebaking: 0
+  cachedTransform:
+    e00: 1
+    e01: 0
+    e02: 0
+    e03: 0
+    e10: 0
+    e11: 1
+    e12: 0
+    e13: 0.525
+    e20: 0
+    e21: 0
+    e22: 1
+    e23: 0
+    e30: 0
+    e31: 0
+    e32: 0
+    e33: 1
+  cachedHashCode: 1486757188
+  fillEmptySpaces: 0
+  version: 2
+  globalVolume: 0
+--- !u!4 &690527662
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 690527660}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.525, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &703635026
 GameObject:
   m_ObjectHideFlags: 0
@@ -846,7 +976,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!64 &818959106
 MeshCollider:
@@ -1524,6 +1654,10 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6967227226641943453, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1586,8 +1720,8 @@ Light:
   m_Enabled: 1
   serializedVersion: 12
   m_Type: 1
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 2
+  m_Color: {r: 0.8565721, g: 0.8866048, b: 0.8930817, a: 1}
+  m_Intensity: 1.5
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -1629,8 +1763,8 @@ Light:
   m_Lightmapping: 4
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
-  m_BounceIntensity: 1
-  m_ColorTemperature: 7302
+  m_BounceIntensity: 2
+  m_ColorTemperature: 8000
   m_UseColorTemperature: 1
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
@@ -1841,6 +1975,7 @@ MonoBehaviour:
   _buildMenuUI: {fileID: 93724068}
   _topBarUI: {fileID: 1746988604}
   _hoverUI: {fileID: 1114972859}
+  _saveLoadController: {fileID: 1791913165}
   _context: {fileID: 1024109578}
   _fsm: {fileID: 1024109575}
 --- !u!4 &1636985265
@@ -1873,15 +2008,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc5706137ed8c0c448cabe2da68280eb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SplashScreenController
-  PlaySplashScreen: 0
+  PlaySplashScreen: 1
   LogoSprite: {fileID: 21300000, guid: cffdd8c1e5037884c9e112c4b64d627b, type: 3}
   SplashMusic: {fileID: 8300000, guid: 98426967acc4c4d4a82c93b4a7241e1a, type: 3}
   splashVolume: 0
-  backgroundColor: {r: 0.1, g: 0.15, b: 0.2, a: 1}
-  fadeDuration: 3
-  displayDuration: 3
-  _startLogoSize: 0.1
-  _maxLogoSize: 0.75
+  backgroundColor: {r: 0.27044016, g: 0.2319961, b: 0.15392976, a: 1}
+  fadeDuration: 1.5
+  displayDuration: 4
+  _startLogoSize: 0.05
+  _maxLogoSize: 1
 --- !u!4 &1637072604 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 291744013566231263, guid: c63360fb7bcbd404a9e4977a18bc7d51, type: 3}
@@ -2315,3 +2450,5 @@ SceneRoots:
   - {fileID: 1791913167}
   - {fileID: 614450594}
   - {fileID: 872983593}
+  - {fileID: 690527662}
+  - {fileID: 186277399}

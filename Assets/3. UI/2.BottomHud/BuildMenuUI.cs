@@ -231,9 +231,9 @@ private MoneyService moneyService;
             var capturedCat = cat;
             button.clicked += () => OnCategoryClicked(capturedCat);
             _categoryRow.Add(ve);
-            Debug.Log($"[BuildMenuUI] Added category button: {cat.displayName}");
+            //Debug.Log($"[BuildMenuUI] Added category button: {cat.displayName}");
         }
-        Debug.Log($"[BuildMenuUI] Final CategoryRow child count: {_categoryRow.childCount}");
+        //Debug.Log($"[BuildMenuUI] Final CategoryRow child count: {_categoryRow.childCount}");
     }
 
     private void BuildUtilityButtons()
@@ -259,8 +259,19 @@ private MoneyService moneyService;
                 continue;
             }
 
-            label.text = util.id;
-            if (util.icon != null) icon.style.backgroundImage = new StyleBackground(util.icon);
+            label.text = util.id.StartsWith("EMPTY") ? "" : util.id;
+            if (util.icon != null && !util.id.StartsWith("EMPTY")) 
+                icon.style.backgroundImage = new StyleBackground(util.icon);
+            else
+                icon.style.backgroundImage = null;
+
+            if (util.id.StartsWith("EMPTY"))
+            {
+                button.SetEnabled(false);
+                button.pickingMode = PickingMode.Ignore;
+                _utilityRow.Add(ve);
+                continue;
+            }
 
             switch (util.id)
             {
