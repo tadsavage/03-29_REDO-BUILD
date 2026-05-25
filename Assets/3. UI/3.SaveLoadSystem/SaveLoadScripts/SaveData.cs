@@ -27,4 +27,5 @@ public class SavedObject
     public int x;    // Grid X
     public int y;    // Grid Y
     public int rot;  // Rotation index (0–3)
+    public string customData;
 }

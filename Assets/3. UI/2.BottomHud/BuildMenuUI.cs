@@ -25,8 +25,8 @@ public class BuildMenuUI : MonoBehaviour
 
     [Header("Save / Load")]
     [SerializeField] private PlacementSystem placementSystem;
-    [SerializeField] private ObjDataRegistry registry;
-    private MoneyService moneyService;
+    [SerializeField] public ObjDataRegistry registry;
+private MoneyService moneyService;
 
     public GameContext Context { get; private set; }
 

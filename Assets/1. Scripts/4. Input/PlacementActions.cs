@@ -34,6 +34,8 @@ public class PlacementActions
         public InputAction ModeBuild { get; }
         public InputAction ModeDelete { get; }
         public InputAction ModeMove { get; }
+        public InputAction Undo { get; }
+        public InputAction Redo { get; }
 
         public BuildPlacementActions()
         {
@@ -46,6 +48,8 @@ public class PlacementActions
             ModeBuild = _map.AddAction("ModeBuild", InputActionType.Button);
             ModeDelete = _map.AddAction("ModeDelete", InputActionType.Button);
             ModeMove = _map.AddAction("ModeMove", InputActionType.Button);
+            Undo = _map.AddAction("Undo", InputActionType.Button);
+            Redo = _map.AddAction("Redo", InputActionType.Button);
         }
 
         public void Enable() => _map.Enable();
@@ -54,7 +58,7 @@ public class PlacementActions
 
         // Optional helper to set bindings in code
         public void BindPlaceToMouseLeft()
-        {
+{
             Place.AddBinding("<Mouse>/leftButton")
                  .WithInteraction("Press(behavior=2)");
         }

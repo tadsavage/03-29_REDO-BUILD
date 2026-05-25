@@ -73,8 +73,15 @@ public class DeleteCommand : ICommand
         _money.Refund(_data.cost, _data.category);
         _money.RemoveHourlyCost(_data.hourlyCost);
 
-        // 4. Start Destruction Animation instead of just deactivating
-        var highlighter = _target.GetComponent<BuildingHighlighter>();
+        // Refund pallet load if applicable
+        var pb = _target.GetComponent<PalletBuilder>();
+        if (pb != null && pb.CurrentLoadCost > 0)
+        {
+            _money.Refund(pb.CurrentLoadCost, "Inventory");
+        }
+
+        // 4. Start Destruction Animation
+var highlighter = _target.GetComponent<BuildingHighlighter>();
         if (highlighter != null)
             highlighter.HighlightDelete(false);
 
@@ -123,8 +130,14 @@ public class DeleteCommand : ICommand
             _money.Deduct(_data.cost, _data.category);
             _money.AddHourlyCost(_data.hourlyCost);
 
+            var pb = _target.GetComponent<PalletBuilder>();
+            if (pb != null && pb.CurrentLoadCost > 0)
+            {
+                _money.Deduct(pb.CurrentLoadCost, "Inventory");
+            }
+
             // 6. Ensure any highlights are cleared
-            var highlighter = _target.GetComponent<BuildingHighlighter>();
+var highlighter = _target.GetComponent<BuildingHighlighter>();
             if (highlighter != null)
                 highlighter.HighlightDelete(false);
 

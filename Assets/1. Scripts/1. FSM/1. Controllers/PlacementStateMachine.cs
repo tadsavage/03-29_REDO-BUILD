@@ -160,16 +160,6 @@ public class PlacementStateMachine : MonoBehaviour
     private void Update()
     {
         // -----------------------------------------------------
-        // PREVENT LAST-FRAME POPUP FLASH
-        // -----------------------------------------------------
-        // If user clicks while in IdleState, hide popup BEFORE Idle Tick runs.
-        if (_currentState == _idleState && _hoverUI != null)
-        {
-            if (Mouse.current.leftButton.wasPressedThisFrame)
-                _hoverUI.HideImmediate();
-        }
-
-        // -----------------------------------------------------
         // STATE TICK
         // -----------------------------------------------------
         _currentState?.Tick();
@@ -180,15 +170,47 @@ public class PlacementStateMachine : MonoBehaviour
         if (_currentState == _idleState)
         {
             if (_raycast != null && _hoverUI != null)
-                HandleIdleHover();
+            {
+                // We don't call raycast.Tick() again here because IdleState already did it.
+                HandleIdleHover(tickRaycast: false);
+
+                // If user clicks while in IdleState and not over UI, check for interactables like PalletBuilder
+                if (Mouse.current.leftButton.wasPressedThisFrame && !_raycast.IsPointerOverUI)
+                {
+                    if (_raycast.HitObject != null)
+                    {
+                        var pb = _raycast.HitObject.GetComponentInParent<PalletBuilder>();
+                        if (pb != null)
+                        {
+                            _hoverUI.HideImmediate();
+                            pb.ToggleUI();
+                        }
+                    }
+                }
+            }
         }
         // Removed forced hide here as it conflicts with states that want to show hover info (like Delete/Move)
 
 
         // -----------------------------------------------------
+        // UNDO / REDO (Global Shortcuts)
+        // -----------------------------------------------------
+        if (Keyboard.current.ctrlKey.isPressed)
+        {
+            if (Keyboard.current.zKey.wasPressedThisFrame)
+            {
+                Undo();
+            }
+            else if (Keyboard.current.yKey.wasPressedThisFrame)
+            {
+                Redo();
+            }
+        }
+
+        // -----------------------------------------------------
         // UNIVERSAL CANCEL (ESC or RMB)
         // -----------------------------------------------------
-        if (_currentState != _idleState)
+if (_currentState != _idleState)
         {
             if (Keyboard.current.escapeKey.wasPressedThisFrame ||
                 Mouse.current.rightButton.wasPressedThisFrame)
@@ -201,13 +223,13 @@ public class PlacementStateMachine : MonoBehaviour
     /// <summary>
     /// Handles hover popup behavior ONLY in IdleState.
     /// </summary>
-    private void HandleIdleHover()
+    private void HandleIdleHover(bool tickRaycast = true)
     {
-        _raycast.Tick();
+        if (tickRaycast) _raycast.Tick();
 
-        if (_raycast.HasHit && _raycast.HitObject != null)
+        if (_raycast.HitObject != null)
         {
-            var bd = _raycast.HitObject.GetComponent<BuildingData>();
+            var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
             if (bd != null)
             {
                 _hoverUI.TickHover(

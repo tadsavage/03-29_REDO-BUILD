@@ -24,10 +24,33 @@ public class PalletBuilder : MonoBehaviour
     [Tooltip("Random Y rotation variation for a realistic look.")]
     public float crookedCase = 2.0f;
 
+    [Header("Overrides (Manual Ti-Hi)")]
+    public bool useTiHiOverride = false;
+    public int manualTi = 6;
+    public int manualHi = 3;
+
     [Header("Results (Read Only)")]
     [SerializeField] private int casesPerLayer;
     [SerializeField] private int layers;
     [SerializeField] private int totalCases;
+    public int CurrentLoadCost { get; private set; }
+
+    [System.Serializable]
+    public struct BuildSettings
+    {
+        public int caseDataID;
+        public float maxHeight;
+        public float spaceBetween;
+        public float vertGap;
+        public float crooked;
+        public bool useOverride;
+        public int manualTi;
+        public int manualHi;
+        public int totalLoadCost;
+    }
+
+    private MoneyService _moneyService;
+    private PlacedObject _placedObject;
 
     private struct CasePlacement
     {
@@ -41,8 +64,114 @@ public class PalletBuilder : MonoBehaviour
     public GameObject uiPrefab;
     private GameObject _activeUI;
 
+    private void Start()
+    {
+        _moneyService = FindAnyObjectByType<GameContext>()?.MoneyService;
+        _placedObject = GetComponent<PlacedObject>();
+
+        // Load state if not already loaded by external system
+        if (_placedObject != null && !string.IsNullOrEmpty(_placedObject.customData) && transform.Find("PalletLoad") == null)
+        {
+            LoadBuildState();
+        }
+    }
+
+    public void SaveBuildState()
+    {
+        if (_placedObject == null) return;
+
+        BuildSettings settings = new BuildSettings
+        {
+            caseDataID = (casePrefab != null) ? GetCaseID(casePrefab) : -1,
+            maxHeight = maxTotalHeight,
+            spaceBetween = spaceBetweenCases,
+            vertGap = verticalGap,
+            crooked = crookedCase,
+            useOverride = useTiHiOverride,
+            manualTi = manualTi,
+            manualHi = manualHi,
+            totalLoadCost = CurrentLoadCost
+        };
+
+        _placedObject.customData = JsonUtility.ToJson(settings);
+    }
+
+    private int GetCaseID(GameObject prefab)
+    {
+        var registry = FindRegistry();
+        if (registry == null) return -1;
+        foreach (var so in registry.buttonSOs)
+        {
+            if (so != null && so.prefab == prefab) return so.id;
+        }
+        return -1;
+    }
+
+    private ObjDataRegistry FindRegistry()
+    {
+        var buildMenu = FindAnyObjectByType<BuildMenuUI>();
+        if (buildMenu != null && buildMenu.registry != null) return buildMenu.registry;
+
+        // Fallback: Search Assets/Resources or just Find any registry in scene
+        var allRegistries = Resources.FindObjectsOfTypeAll<ObjDataRegistry>();
+        if (allRegistries.Length > 0) return allRegistries[0];
+
+        return null;
+    }
+
+    public void LoadBuildState()
+    {
+        if (_placedObject == null) 
+        {
+            Debug.LogWarning("PalletBuilder: Cannot load state, _placedObject is null.");
+            return;
+        }
+        
+        if (string.IsNullOrEmpty(_placedObject.customData))
+        {
+            Debug.Log($"PalletBuilder: No custom build data on {_placedObject.name}");
+            return;
+        }
+
+        try
+        {
+            BuildSettings settings = JsonUtility.FromJson<BuildSettings>(_placedObject.customData);
+            
+            maxTotalHeight = settings.maxHeight;
+            spaceBetweenCases = settings.spaceBetween;
+            verticalGap = settings.vertGap;
+            crookedCase = settings.crooked;
+            useTiHiOverride = settings.useOverride;
+            manualTi = settings.manualTi;
+            manualHi = settings.manualHi;
+            CurrentLoadCost = settings.totalLoadCost;
+
+            if (settings.caseDataID != -1)
+            {
+                var registry = FindRegistry();
+                if (registry != null)
+                {
+                    var so = registry.GetByID(settings.caseDataID);
+                    if (so != null) 
+                    {
+                        casePrefab = so.prefab;
+                    }
+                }
+            }
+
+            Build(deductMoney: false);
+            Debug.Log($"PalletBuilder: Restored built state for {_placedObject.name}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"PalletBuilder: Failed to load build state: {e.Message}");
+        }
+    }
+
     [ContextMenu("Build Pallet")]
-    public void Build()
+    public void Build() => Build(true);
+
+    public void Build(bool deductMoney)
     {
         if (casePrefab == null)
         {
@@ -58,28 +187,70 @@ public class PalletBuilder : MonoBehaviour
         // 2. Calculate Best Layer Pattern
         CalculateBestLayer(palletDim.x, palletDim.z, caseDim.x, caseDim.z);
 
-        // 3. Calculate Layers (Hi)
-        float availableHeight = maxTotalHeight - palletDim.y;
-        layers = Mathf.FloorToInt((availableHeight + verticalGap) / (caseDim.y + verticalGap));
-
-        if (layers <= 0 || _bestLayerPattern.Count == 0)
+        // 3. Determine Ti (Cases Per Layer) and Hi (Layers)
+        if (useTiHiOverride)
         {
-            Debug.LogWarning("PalletBuilder: Load does not fit under the max total height or on the pallet!");
+            layers = manualHi;
+            casesPerLayer = manualTi;
+        }
+        else
+        {
+            float availableHeight = maxTotalHeight - palletDim.y;
+            layers = Mathf.FloorToInt((availableHeight + verticalGap) / (caseDim.y + verticalGap));
+            casesPerLayer = _bestLayerPattern.Count;
+        }
+
+        if (layers <= 0 || (useTiHiOverride ? false : _bestLayerPattern.Count == 0))
+        {
+            Debug.LogWarning("PalletBuilder: Invalid dimensions or overrides. Cannot build pallet.");
             return;
         }
 
-        casesPerLayer = _bestLayerPattern.Count;
         totalCases = casesPerLayer * layers;
 
+        // Money Deduction
+        if (deductMoney && _moneyService != null)
+        {
+            var registry = FindAnyObjectByType<BuildMenuUI>()?.registry;
+            int caseCost = 0;
+            if (registry != null)
+            {
+                int id = GetCaseID(casePrefab);
+                var so = registry.GetByID(id);
+                if (so != null) caseCost = so.cost;
+            }
+
+            int totalCost = caseCost * totalCases;
+            if (!_moneyService.CanAfford(totalCost))
+            {
+                UIToast.Show("Not enough capital to build this pallet!");
+                return;
+            }
+
+            _moneyService.Deduct(totalCost, "Inventory");
+            CurrentLoadCost += totalCost;
+            AudioManager.Play("UI_Buy");
+        }
+
         // 4. Instantiate
-        Transform container = transform.Find("PalletLoad");
-        if (container != null)
+        // Clear ALL existing loads to prevent overlapping if multiple exist
+        List<GameObject> toDestroy = new List<GameObject>();
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            if (child.name == "PalletLoad")
+            {
+                toDestroy.Add(child.gameObject);
+            }
+        }
+
+        foreach (var obj in toDestroy)
         {
 #if UNITY_EDITOR
-            if (!Application.isPlaying) DestroyImmediate(container.gameObject);
-            else Destroy(container.gameObject);
+            if (!Application.isPlaying) DestroyImmediate(obj);
+            else Destroy(obj);
 #else
-            Destroy(container.gameObject);
+            Destroy(obj);
 #endif
         }
         
@@ -91,8 +262,11 @@ public class PalletBuilder : MonoBehaviour
         {
             float yPos = palletDim.y + (h * (caseDim.y + verticalGap));
             
+            int count = 0;
             foreach (var placement in _bestLayerPattern)
             {
+                if (useTiHiOverride && count >= manualTi) break;
+
                 Vector3 pos = placement.position;
                 pos.y = yPos;
 
@@ -111,26 +285,41 @@ public class PalletBuilder : MonoBehaviour
                 // Add "Crooked" rotation
                 float randomRot = Random.Range(-crookedCase, crookedCase);
                 instance.transform.localRotation = Quaternion.Euler(0, placement.rotation + randomRot, 0);
+
+                count++;
             }
         }
 
-        Debug.Log($"Pallet Built: {casesPerLayer} Ti x {layers} Hi = {totalCases} total cases.");
+        SaveBuildState();
+
+        Debug.Log($"Pallet Built: {casesPerLayer} Ti x {layers} Hi = {totalCases} total cases. State Saved.");
     }
 
-    private void OnMouseDown()
+    // Static reference to track the currently open builder across all instances
+    private static PalletBuilder _currentActiveBuilder;
+
+    public void ToggleUI()
     {
         if (!Application.isPlaying) return;
 
+        // If we already have the UI open for THIS builder, close it
         if (_activeUI != null)
         {
-            Destroy(_activeUI);
-            _activeUI = null;
+            CloseUI();
         }
         else
         {
+            // If another builder has its UI open, close that one first
+            if (_currentActiveBuilder != null && _currentActiveBuilder != this)
+            {
+                _currentActiveBuilder.CloseUI();
+            }
+
             if (uiPrefab != null)
             {
                 _activeUI = Instantiate(uiPrefab);
+                _currentActiveBuilder = this;
+
                 var controller = _activeUI.GetComponentInChildren<PalletBuilderUI>();
                 if (controller != null)
                 {
@@ -138,6 +327,25 @@ public class PalletBuilder : MonoBehaviour
                 }
             }
         }
+    }
+
+    public void CloseUI()
+    {
+        if (_activeUI != null)
+        {
+            Destroy(_activeUI);
+            _activeUI = null;
+        }
+
+        if (_currentActiveBuilder == this)
+        {
+            _currentActiveBuilder = null;
+        }
+    }
+
+    private void OnMouseDown()
+    {
+        ToggleUI();
     }
 
     private void CalculateBestLayer(float pW, float pL, float cW, float cL)

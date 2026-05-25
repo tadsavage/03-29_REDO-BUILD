@@ -186,8 +186,9 @@ public class PlacementSystem : MonoBehaviour
             obj.x = entry.gridX;
             obj.y = entry.gridY;
             obj.rot = entry.rotation;
+            obj.customData = entry.customData;
             save.placedObjects.Add(obj);
-        }
+}
 
         return save;
     }
@@ -205,7 +206,7 @@ public class PlacementSystem : MonoBehaviour
         foreach (var objSave in save.placedObjects)
         {
             ObjDataSO so = registry.GetByID(objSave.id);
-            SpawnFromSave(so, objSave.x, objSave.y, objSave.rot);
+            SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData);
         }
 
         grid.RebuildFromRegistry();
@@ -220,7 +221,7 @@ public class PlacementSystem : MonoBehaviour
         // ---------------------------------------------------------
     // LOAD GAME SPAWNING
     // ---------------------------------------------------------
-    public PlacedObject SpawnFromSave(ObjDataSO so, int x, int y, int rot)
+    public PlacedObject SpawnFromSave(ObjDataSO so, int x, int y, int rot, string customData = "")
     {
         EnsureContainer();
         Vector2Int root = new Vector2Int(x, y);
@@ -238,9 +239,14 @@ public class PlacementSystem : MonoBehaviour
 
         PlacedObject po = go.GetComponent<PlacedObject>();
         po.Initialize(so, x, y, rot);
+        po.customData = customData;
+
+        // Ensure PalletBuilder loads its state if it exists
+        var pb = go.GetComponent<PalletBuilder>();
+        if (pb != null) pb.LoadBuildState();
 
         BuildingData bd = go.GetComponent<BuildingData>();
-        Vector2Int[] offsets = so.GetFootprintOffsets(-rotationDeg);
+Vector2Int[] offsets = so.GetFootprintOffsets(-rotationDeg);
         bd.Initialize(root, rotationDeg, offsets);
 
         PlacedObjectRegistry.Register(po);

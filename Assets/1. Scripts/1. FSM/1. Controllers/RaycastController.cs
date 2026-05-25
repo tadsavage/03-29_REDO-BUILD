@@ -60,7 +60,7 @@ private bool _enabled;
 
     public void Tick()
     {
-        _isPointerOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        _isPointerOverUI = CheckIfPointerOverUI();
 
         if (_isPointerOverUI && _enabled && Mouse.current.leftButton.wasPressedThisFrame)
         {
@@ -70,12 +70,12 @@ private bool _enabled;
             EventSystem.current.RaycastAll(eventData, results);
             foreach (var res in results)
             {
-                Debug.Log($"[RaycastController] Blocked by UI: {res.gameObject.name} (Module: {res.module.GetType().Name})", res.gameObject);
+                //Debug.Log($"[RaycastController] Blocked by UI: {res.gameObject.name} (Module: {res.module.GetType().Name})", res.gameObject);
             }
         }
 
         if (!_enabled || _isPointerOverUI) 
-{
+        {
             HasHit = false;
             HitObject = null;
             if (_line != null) _line.enabled = false;
@@ -115,7 +115,7 @@ private bool _enabled;
             HitObject = null;
 
         if (AllowPlacementEvents)
-        DrawRay(ray);
+            DrawRay(ray);
 
         // ---------------------------------------------------------
         // Debug object ray
@@ -132,8 +132,33 @@ private bool _enabled;
         }
     }
 
-    private void DrawRay(Ray ray)
+    private bool CheckIfPointerOverUI()
     {
+        if (EventSystem.current == null) return false;
+
+        var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+        var eventData = new UnityEngine.EventSystems.PointerEventData(EventSystem.current);
+        eventData.position = Mouse.current.position.ReadValue();
+        EventSystem.current.RaycastAll(eventData, results);
+
+        if (results.Count == 0) return false;
+
+        // The results list is sorted by the EventSystem (sorting order, depth, distance).
+        // The first hit is the one the user is actually pointing at.
+        var topHit = results[0];
+
+        // Only block if the top-most object hit is a UI element.
+        // Ignore hits from PhysicsRaycaster which represent world objects.
+        if (topHit.module is UnityEngine.UIElements.PanelRaycaster || topHit.module is UnityEngine.UI.GraphicRaycaster)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private void DrawRay(Ray ray)
+{
         if (!_visualizeRay || _line == null)
             return;
 

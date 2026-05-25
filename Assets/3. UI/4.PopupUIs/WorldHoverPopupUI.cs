@@ -73,25 +73,12 @@ public class WorldHoverPopupUI : MonoBehaviour
             return;
         }
 
-        // 2. If object vanished (deleted/moved)
-        if (hovering && string.IsNullOrEmpty(name))
+        // 2. Handle non-hovering state: Show placeholder instead of hiding to maintain layout
+        if (!hovering || string.IsNullOrEmpty(name))
         {
-            HideImmediate();
-            return;
-        }
-
-        // 3. Grace period for disappearing
-        if (!hovering)
-        {
-            _disappearGraceTimer += Time.deltaTime;
-            if (_disappearGraceTimer < _disappearGraceTime && _isVisible)
-            {
-                SetWorldPosition(worldPos, cam);
-                return;
-            }
             _isHovering = false;
             _hoverTimer = 0f;
-            if (_isVisible) HideSlowlyFadeout();
+            ShowEmpty();
             return;
         }
 
@@ -146,6 +133,20 @@ public class WorldHoverPopupUI : MonoBehaviour
         _isFading = false;
     }
 
+    private void ShowEmpty()
+    {
+        if (_popup == null || _title == null || _cost == null || _hourlyCost == null) return;
+
+        _title.text = "No Data to Show";
+        _cost.text = "Cost: --";
+        _hourlyCost.text = "Hourly: --";
+
+        _popup.style.opacity = 1f;
+        _popup.style.display = DisplayStyle.Flex;
+        _isVisible = true;
+        _isFading = false;
+    }
+
     private void HideSlowlyFadeout()
     {
         if (!_isVisible) return;
@@ -184,8 +185,15 @@ public class WorldHoverPopupUI : MonoBehaviour
     {
         if (_popup == null || _root == null) return;
 
+        // If the popup is stationed in the BottomBar (BuildMenuUI style), don't move it
+        if (_popup.ClassListContains("buildmenu-stationed-popup"))
+        {
+            _popup.style.translate = StyleKeyword.Initial;
+            return;
+        }
+
         Vector2 mousePos = Mouse.current.position.ReadValue();
-        var layout = _root.layout;
+var layout = _root.layout;
         if (layout.width <= 0 || layout.height <= 0) return;
 
         float uiX = mousePos.x * (layout.width / Screen.width);

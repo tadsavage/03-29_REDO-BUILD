@@ -11,9 +11,10 @@ public class PlacedObject : MonoBehaviour
     public int gridX;
     public int gridY;
     public int rotation;
+    public string customData;
 
     private void OnEnable()
-    {
+{
         // Ensure registration even if spawned manually or from a save
         PlacedObjectRegistry.Register(this);
     }
