@@ -90,7 +90,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ae3a00e8e2be44489bf49a02cd29a2b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingData
-  objDataSO: {fileID: 11400000, guid: 099e33f371b5a244ba4cd96f25644f51, type: 2}
+  objDataSO: {fileID: 11400000, guid: 543a824dc342c18448cd0a41e7ba925f, type: 2}
 --- !u!114 &9023879960952075251
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -118,10 +118,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1c2077a2a0a9844b8bb47797e554524, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlacedObject
-  data: {fileID: 11400000, guid: 099e33f371b5a244ba4cd96f25644f51, type: 2}
+  data: {fileID: 11400000, guid: 543a824dc342c18448cd0a41e7ba925f, type: 2}
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
 --- !u!65 &5361604447679850971
 BoxCollider:
   m_ObjectHideFlags: 0
