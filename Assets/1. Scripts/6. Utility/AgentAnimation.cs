@@ -14,12 +14,7 @@ public class AgentAnimation : MonoBehaviour
     [SerializeField] private float idleDelay = 1.5f;     // delay at waypoint
     [SerializeField] private float waypointThreshold = 0.5f;
 
-    [Header("Animation Settings")]
-    [SerializeField] private float animationTurnThreshold = 100f; // Lower threshold for responsive turn animations
-
-    private Vector3 lastForward;
     private bool isWaiting;
-    private float smoothedTurnRate;
 
     void Start()
     {
@@ -27,16 +22,13 @@ public class AgentAnimation : MonoBehaviour
         animator = GetComponent<Animator>();
         navigation = GetComponent<AiNavigation>();
 
-        lastForward = transform.forward;
-        
         // Setup agent
         agent.speed = walkSpeed;
         agent.angularSpeed = turnSpeed;
         agent.acceleration = 12f;
         agent.stoppingDistance = waypointThreshold;
 
-        // CRITICAL: Disable auto-rotation to prevent the agent from 'fighting' our manual rotation
-        // and getting stuck facing the wrong way.
+        // CRITICAL: Disable auto-rotation to ensure we have full control over the heading.
         agent.updateRotation = false;
     }
 
@@ -45,15 +37,9 @@ public class AgentAnimation : MonoBehaviour
 
     void Update()
     {
-        // Safety: if we lost NavMesh (e.g. during a bake), wait
         if (!agent.isOnNavMesh)
         {
-            if (animator != null)
-            {
-                animator.SetBool("IsWalking", false);
-                animator.SetBool("IsTurningLeft", false);
-                animator.SetBool("IsTurningRight", false);
-            }
+            if (animator != null) animator.SetBool("IsWalking", false);
             return;
         }
 
@@ -69,7 +55,6 @@ public class AgentAnimation : MonoBehaviour
         }
         else if (agent.hasPath && agent.velocity.sqrMagnitude < 0.01f)
         {
-            // Stuck detection
             stuckTimer += Time.deltaTime;
             if (stuckTimer > STUCK_TIMEOUT)
             {
@@ -82,10 +67,10 @@ public class AgentAnimation : MonoBehaviour
             stuckTimer = 0;
         }
 
-        // 2. Manual Rotation (Always face movement direction)
-        if (!isWaiting && agent.velocity.sqrMagnitude > 0.01f)
+        // 2. Manual Rotation: Always face intended movement direction
+        if (!isWaiting && agent.desiredVelocity.sqrMagnitude > 0.01f)
         {
-            Quaternion targetRot = Quaternion.LookRotation(agent.velocity.normalized);
+            Quaternion targetRot = Quaternion.LookRotation(agent.desiredVelocity.normalized);
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
                 targetRot,
@@ -94,17 +79,29 @@ public class AgentAnimation : MonoBehaviour
         }
 
         // 3. Animation Sync
-        UpdateAnimations();
+        if (animator != null)
+        {
+            // Only walk if moving forward relative to our heading
+            float moveHeadingDot = 0f;
+            if (agent.velocity.sqrMagnitude > 0.001f)
+                moveHeadingDot = Vector3.Dot(transform.forward, agent.velocity.normalized);
+
+            bool isWalking = agent.velocity.sqrMagnitude > 0.15f && !agent.isStopped && moveHeadingDot > 0.5f;
+            animator.SetBool("IsWalking", isWalking);
+        }
     }
 
     private IEnumerator WaitAndTurnRoutine()
     {
         isWaiting = true;
-        
+
         // Stop movement
-        agent.isStopped = true;
+        if (agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            agent.isStopped = true;
+        }
         
-        // Decelerate velocity manually for smoothness
+        // Decelerate
         float decelTime = 0.2f;
         while (decelTime > 0)
         {
@@ -114,24 +111,23 @@ public class AgentAnimation : MonoBehaviour
         }
         agent.velocity = Vector3.zero;
 
-        // Pause at waypoint
         yield return new WaitForSeconds(idleDelay);
 
-        // Get new destination
-        if (navigation != null)
-        {
-            navigation.GoToRandomWaypoint();
-        }
+        if (navigation != null) navigation.GoToRandomWaypoint();
+
+        if (agent == null || navigation == null) yield break; 
 
         // Wait for path
         float timeout = 1.0f;
-        while (agent.pathPending && timeout > 0)
+        while (agent.isActiveAndEnabled && agent.isOnNavMesh && agent.pathPending && timeout > 0)
         {
             timeout -= Time.deltaTime;
             yield return null;
         }
 
-        // Turn to target
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) yield break;
+
+        // Turn to target before resuming
         if (agent.hasPath)
         {
             Vector3 targetDir = (agent.steeringTarget - transform.position);
@@ -140,49 +136,20 @@ public class AgentAnimation : MonoBehaviour
             if (targetDir.sqrMagnitude > 0.01f)
             {
                 Quaternion targetRot = Quaternion.LookRotation(targetDir.normalized);
-                
-                // Rotate smoothly
-                while (Quaternion.Angle(transform.rotation, targetRot) > 2f)
+                while (Quaternion.Angle(transform.rotation, targetRot) > 5f)
                 {
-                    transform.rotation = Quaternion.RotateTowards(
-                        transform.rotation, 
-                        targetRot, 
-                        turnSpeed * Time.deltaTime
-                    );
+                    transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
                     yield return null;
                 }
                 transform.rotation = targetRot;
             }
         }
 
-        // Resume
-        agent.isStopped = false;
+        if (agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            agent.isStopped = false;
+        }
         isWaiting = false;
     }
-
-    private void UpdateAnimations()
-    {
-        Vector3 currentForward = transform.forward;
-
-        // Turn rate calculation
-        float angleDiff = Vector3.SignedAngle(lastForward, currentForward, Vector3.up);
-        float rawTurnRate = angleDiff / Time.deltaTime;
-        
-        // Smooth turn rate to avoid flickering
-        smoothedTurnRate = Mathf.Lerp(smoothedTurnRate, rawTurnRate, Time.deltaTime * 8f);
-
-        bool isTurningLeft = rawTurnRate < -animationTurnThreshold;
-        bool isTurningRight = rawTurnRate > animationTurnThreshold;
-        bool isWalking = agent.velocity.sqrMagnitude > 0.15f && !agent.isStopped;
-
-        // Update Animator
-        if (animator != null)
-        {
-            animator.SetBool("IsTurningLeft", isTurningLeft);
-            animator.SetBool("IsTurningRight", isTurningRight);
-            animator.SetBool("IsWalking", isWalking);
-        }
-
-        lastForward = currentForward;
-    }
 }
+

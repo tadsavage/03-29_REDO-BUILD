@@ -214,7 +214,7 @@ public class BuildMenuUI : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[BuildMenuUI] Building {categories.Count} category buttons into {_categoryRow.name}. Attached to panel: {_categoryRow.panel != null}");
+        //Debug.Log($"[BuildMenuUI] Building {categories.Count} category buttons into {_categoryRow.name}. Attached to panel: {_categoryRow.panel != null}");
         _categoryRow.Clear();
         foreach (var cat in categories)
         {
@@ -254,7 +254,7 @@ public class BuildMenuUI : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[BuildMenuUI] Building {utilityButtons.Count} utility buttons.");
+        //Debug.Log($"[BuildMenuUI] Building {utilityButtons.Count} utility buttons.");
         _utilityRow.Clear();
 
         foreach (var util in utilityButtons)

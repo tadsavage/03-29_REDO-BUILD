@@ -14,7 +14,15 @@ public class PlacedObject : MonoBehaviour
     public string customData;
 
     private void OnEnable()
-{
+    {
+        // Prevent registration if this object is a child of another PlacedObject.
+        // This avoids nested components (like cases on a pallet) from being saved 
+        // as independent objects at (0,0).
+        if (transform.parent != null && transform.parent.GetComponentInParent<PlacedObject>() != null)
+        {
+            return;
+        }
+
         // Ensure registration even if spawned manually or from a save
         PlacedObjectRegistry.Register(this);
     }

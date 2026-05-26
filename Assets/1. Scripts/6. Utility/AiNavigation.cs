@@ -15,10 +15,15 @@ public class AiNavigation : MonoBehaviour
     private NavMeshAgent agent;
     private int currentIndex = 0;
     private bool initialized = false;
+    private VehicleThrottleAudio throttleAudio;
+    private AmbientMumble mumbleAudio;
+    private bool hasHonkedThisArrival = false;
 
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
+        throttleAudio = GetComponent<VehicleThrottleAudio>();
+        mumbleAudio = GetComponent<AmbientMumble>();
         SetupAgentType();
     }
 
@@ -190,6 +195,23 @@ public class AiNavigation : MonoBehaviour
             return;
         }
 
+        // Arrival Honk & Mumble Logic
+        if (throttleAudio != null || mumbleAudio != null)
+        {
+            bool arrived = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
+            if (arrived && !hasHonkedThisArrival)
+            {
+                hasHonkedThisArrival = true;
+                if (throttleAudio != null) throttleAudio.TriggerArrivalHonk();
+                if (mumbleAudio != null) mumbleAudio.TryMumble();
+            }
+            else if (!arrived && agent.remainingDistance > agent.stoppingDistance + 0.5f)
+{
+                // Reset when we move significantly away from the point
+                hasHonkedThisArrival = false;
+            }
+        }
+
         // Progression logic for agents without AgentAnimation
         if (GetComponent<AgentAnimation>() == null)
         {
@@ -202,25 +224,36 @@ public class AiNavigation : MonoBehaviour
 
     public void GoToRandomWaypoint()
     {
-        if (waypoints == null || waypoints.Length <= 1)
+        // Re-find waypoints if the array is missing, empty, or contains destroyed references (common after quick-load)
+        if (waypoints == null || waypoints.Length == 0 || (waypoints.Length > 0 && waypoints[0] == null))
         {
             FindWaypoints();
         }
 
-        if (waypoints == null || waypoints.Length <= 1) return;
+        if (waypoints == null || waypoints.Length == 0) return;
 
         if (!agent.isOnNavMesh) return;
 
         int nextIndex = currentIndex;
         int safety = 0;
-        while (nextIndex == currentIndex && safety < 10)
+        // Only try to find a different index if we have more than one waypoint
+        while (nextIndex == currentIndex && safety < 10 && waypoints.Length > 1)
         {
             nextIndex = Random.Range(0, waypoints.Length);
             safety++;
         }
 
         currentIndex = nextIndex;
-        if (agent != null && agent.enabled && agent.isOnNavMesh)
+
+        // Final safety check for the selected transform reference
+        if (waypoints[currentIndex] == null)
+        {
+            FindWaypoints();
+            if (waypoints == null || waypoints.Length == 0) return;
+            currentIndex = Random.Range(0, waypoints.Length);
+        }
+
+        if (agent != null && agent.enabled && agent.isOnNavMesh && waypoints[currentIndex] != null)
         {
             agent.SetDestination(waypoints[currentIndex].position);
         }

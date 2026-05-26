@@ -95,6 +95,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 36eb9b75d0f74d44296bef5b402ce2a6, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4370775142023876401}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 36eb9b75d0f74d44296bef5b402ce2a6, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1818170869861619719}
   m_SourcePrefab: {fileID: 100100000, guid: 36eb9b75d0f74d44296bef5b402ce2a6, type: 3}
 --- !u!1 &4160228961936110459 stripped
 GameObject:
@@ -160,7 +163,6 @@ MonoBehaviour:
   turnSpeed: 200
   idleDelay: 0.5
   waypointThreshold: 0.75
-  animationTurnThreshold: 100
 --- !u!195 &176967979440578746
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -265,3 +267,28 @@ MonoBehaviour:
   pointsPerSegment: 10
   verticalOffset: 0.05
   guidanceMaterial: {fileID: 2100000, guid: d4ad64ebc615eaf48a32b5c4c9d5eeaa, type: 2}
+--- !u!114 &1818170869861619719
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4160228961936110459}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3d698b0375cff545979f23eca0c6d06, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AmbientMumble
+  mumbleClips:
+  - {fileID: 8300000, guid: 0ec3cf64da5476e4eb638ed98f41dffd, type: 3}
+  - {fileID: 8300000, guid: 74b68d881465f0c4284b785d308d58da, type: 3}
+  - {fileID: 8300000, guid: daa539699d4192241b263de99852be22, type: 3}
+  - {fileID: 8300000, guid: abf42a7cd4964f741a2a886bf6bfdb74, type: 3}
+  - {fileID: 8300000, guid: 5776e102968b81142bd9a9a9a7186b44, type: 3}
+  - {fileID: 8300000, guid: 1ec5bf7db85493247b4b54dfe06c7fa3, type: 3}
+  - {fileID: 8300000, guid: ae3534748f66fe04fb60e9ae7f09125c, type: 3}
+  - {fileID: 8300000, guid: 7278f07ff0c818a4c901c299f3e1e8ac, type: 3}
+  volume: 0.4
+  minPitch: 0.5
+  maxPitch: 2
+  chanceToMumble: 75

@@ -1,21 +1,36 @@
-/* ==========================================
-   COZY TOAST NOTIFICATION WINDOW OVERRIDES
-   ========================================== */
-.toast-label {
+/* ========================================================
+   ROOT PANEL ANCHOR: Invisible wrapper spanning full width
+   ======================================================== */
+.toast-root-container {
     position: absolute;
-    bottom: 150px;
-    align-self: center;
+    left: 0;
+    right: 0;
+    bottom: 135px; /* Safely clears the 120px tall bottom toolbar with a 15px gap */
+    display: flex;
+    flex-direction: row;
+    justify-content: center; /* Forces the child elements to group exactly at horizontal center */
+    align-items: center;
+    pointer-events: none;
+    overflow: visible;
+}
 
-    /* DEPTH FIX: Forces the toast to render on top of all other panels */
-    z-index: 999;    
+/* ========================================================
+   COZY TOAST NOTIFICATION WINDOW OVERRIDES
+   ======================================================== */
+.toast-label {
+    /* No manual left/translate shifting required anymore due to flexbox container rule above */
+    position: relative;
+    width: auto; /* Scales automatically to fit content length dynamically */
+    max-width: 600px;
     
-    /* PALIA THEME: Crisp pale cream parchment text with adjusted readable font sizing */
+    /* PALIA THEME: Crisp pale cream parchment text with readable font sizing */
     color: #F5EEDB;
     font-size: 24px;
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-style: bold;
     
-    /* TEXT CONTRAST: Clean text-shadow to make announcements readable against bright 3D worlds */
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+    /* TEXT CONTRAST: Sharp shadows to read clearly over bright gameplay graphics */
+    text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.9);
     
     /* PALIA THEME: Deep purple-charcoal base container background */
     background-color: #2D2B3A;
@@ -25,13 +40,13 @@
     border-width: 2px;
     border-radius: 6px;
     
-    /* SPACING CONFIG: Generous inside margins so text doesn't slam against the gold frames */
-    padding-left: 20px;
-    padding-right: 20px;
-    padding-top: 8px;
-    padding-bottom: 8px;
+    /* SPACING CONFIG: Generous inside margins so text doesn't slam into borders */
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-top: 10px;
+    padding-bottom: 10px;
     
-    /* ALIGNMENT SAFETIES: Ensures the notification handles auto-resizing smoothly if text grows long */
+    /* ALIGNMENT SAFETIES */
     -unity-text-align: middle-center;
     -unity-text-wrap: nowrap;
 }

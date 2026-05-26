@@ -160,7 +160,7 @@ public class PalletBuilder : MonoBehaviour
             }
 
             Build(deductMoney: false);
-            Debug.Log($"PalletBuilder: Restored built state for {_placedObject.name}");
+            //Debug.Log($"PalletBuilder: Restored built state for {_placedObject.name}");
         }
         catch (System.Exception e)
         {
@@ -282,6 +282,26 @@ public class PalletBuilder : MonoBehaviour
                 instance.transform.SetParent(loadObj.transform);
                 instance.transform.localPosition = pos;
                 
+                // CRITICAL FIX: The case prefabs have PlacedObject/BuildingData components.
+                // When instantiated as part of a pallet, they must NOT register themselves
+                // in the global registry or they will appear at (0,0) in the save file.
+                var po = instance.GetComponent<PlacedObject>();
+                if (po != null) 
+                {
+                    po.enabled = false; // Immediately unregisters
+                    if (Application.isPlaying) Destroy(po); else DestroyImmediate(po);
+                }
+                var bd = instance.GetComponent<BuildingData>();
+                if (bd != null) 
+                {
+                    if (Application.isPlaying) Destroy(bd); else DestroyImmediate(bd);
+                }
+                var bh = instance.GetComponent<BuildingHighlighter>();
+                if (bh != null)
+                {
+                    if (Application.isPlaying) Destroy(bh); else DestroyImmediate(bh);
+                }
+
                 // Add "Crooked" rotation
                 float randomRot = Random.Range(-crookedCase, crookedCase);
                 instance.transform.localRotation = Quaternion.Euler(0, placement.rotation + randomRot, 0);

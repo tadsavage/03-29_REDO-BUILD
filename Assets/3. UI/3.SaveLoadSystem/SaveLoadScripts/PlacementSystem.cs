@@ -234,8 +234,7 @@ public class PlacementSystem : MonoBehaviour
         Vector3 worldPos = grid.GetCellCenter(root);
         worldPos.y += stackY;
 
-        GameObject go = Instantiate(so.prefab, worldPos,
-                                    Quaternion.Euler(0f, rotationDeg, 0f), _objectsContainer);
+        GameObject go = Instantiate(so.prefab, worldPos,Quaternion.Euler(0f, rotationDeg, 0f), _objectsContainer);
 
         PlacedObject po = go.GetComponent<PlacedObject>();
         po.Initialize(so, x, y, rot);

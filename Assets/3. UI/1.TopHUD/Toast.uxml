@@ -1,4 +1,8 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
     <Style src="project://database/Assets/3.%20UI/1.TopHUD/Toast.uss?fileID=7433441132597879392&amp;guid=d60103934d9a3cd4598fe59ca2afd524&amp;type=3#Toast"/>
-    <ui:Label name="ToastLabel" text="Toast" picking-mode="Ignore" class="toast-label" style="top: 864px; left: 1402px; -unity-text-outline-color: rgb(236, 140, 21); color: rgb(236, 140, 21); font-size: 32px; -unity-font-definition: url(&quot;project://database/Assets/Fonts/Kenney%20Future%20Narrow.ttf?fileID=12800000&amp;guid=c4bbc2b151f7a754082a4e6f6d8ed32e&amp;type=3#Kenney Future Narrow&quot;); -unity-font-style: bold; letter-spacing: -15px; text-shadow: 10px 10px 0 rgb(0, 0, 0); flex-direction: row; background-color: rgba(192, 170, 85, 0.49); border-left-color: rgba(236, 140, 21, 0.58); border-right-color: rgba(236, 140, 21, 0.58); border-top-color: rgba(236, 140, 21, 0.58); border-bottom-color: rgba(236, 140, 21, 0.58); border-top-width: 4px; border-right-width: 4px; border-bottom-width: 4px; border-left-width: 4px; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px; bottom: 1219px; width: 165px;"/>
+    
+    <!-- Clean root layout panel container to ensure absolute centering rules scale accurately -->
+    <ui:VisualElement name="ToastRoot" picking-mode="Ignore" class="toast-root-container">
+        <ui:Label name="ToastLabel" text="Toast Notification" picking-mode="Ignore" class="toast-label"/>
+    </ui:VisualElement>
 </ui:UXML>

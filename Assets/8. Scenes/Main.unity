@@ -729,8 +729,8 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 1
-  far clip plane: 500
+  near clip plane: 0.01
+  far clip plane: 150
   field of view: 60
   orthographic: 0
   orthographic size: 5
@@ -786,13 +786,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FreeLookCamera
   buildMenuUI: {fileID: 93724068}
   movementSpeed: 10
-  fastMovementSpeed: 25
-  freeLookSensitivity: 0.15
-  minPitch: 5
-  maxPitch: 90
-  zoomSensitivity: 100
+  fastMovementSpeed: 20
+  freeLookSensitivity: 0.125
+  minPitch: 10
+  maxPitch: 70
+  zoomSensitivity: 130
   minDistance: 0.5
-  maxDistance: 60
+  maxDistance: 40
   heightMin: 0.5
   heightMax: 50
   X_Min: -100
@@ -1372,6 +1372,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1024109574}
+  - component: {fileID: 1024109580}
   - component: {fileID: 1024109573}
   - component: {fileID: 1024109572}
   - component: {fileID: 1024109571}
@@ -1381,7 +1382,6 @@ GameObject:
   - component: {fileID: 1024109578}
   - component: {fileID: 1024109577}
   - component: {fileID: 1024109579}
-  - component: {fileID: 1024109580}
   m_Layer: 0
   m_Name: PlacementController
   m_TagString: Untagged
@@ -1555,6 +1555,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 522f02fbbed32bc4194b9cf23db0f1e3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WallVisibilityManager
+  foundationHeight: 1.11
+  cutHeight: 2
+  slideDuration: 2
+  slideSound: {fileID: 8300000, guid: 178d230e54635a3428c669515671b5d2, type: 3}
   wallLayer:
     serializedVersion: 2
     m_Bits: 64
@@ -1907,9 +1911,19 @@ MonoBehaviour:
   - {fileID: 8300000, guid: d9236004c9dcc024da0c2bc92326a6fa, type: 3}
   - {fileID: 8300000, guid: 74f3d0a026702a240a6e9cc92d675361, type: 3}
   - {fileID: 8300000, guid: 76c24db68eada8249aae6f85919c5fc5, type: 3}
-  fadeDuration: 3
-  musicVolume: 0.5
+  - {fileID: 8300000, guid: e304e8f8ed9ff3445bce70af4e8440b3, type: 3}
+  - {fileID: 8300000, guid: 9d75cdf46a2edfd4191c66658bbb34d1, type: 3}
+  - {fileID: 8300000, guid: 9550609651ebb894eafcfaca343239af, type: 3}
+  - {fileID: 8300000, guid: 7065bdf7a15c2f848be6e08ec46ae1e3, type: 3}
+  - {fileID: 8300000, guid: 18f5b57a12a4dc1419b6018799b13c9c, type: 3}
+  - {fileID: 8300000, guid: cd170e12cbd60e04890395b187f21e5d, type: 3}
+  - {fileID: 8300000, guid: fbc44c088b783e2488455f83855ef5d4, type: 3}
+  fadeDuration: 5
+  musicVolume: 0.25
+  sfxVolume: 1
   shuffle: 1
+  freqCheckIntervalTime: 2
+  likelihoodOfSongPlaying: 85
 --- !u!4 &1550855240
 Transform:
   m_ObjectHideFlags: 0
