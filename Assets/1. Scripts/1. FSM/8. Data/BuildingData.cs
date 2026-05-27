@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.AI; // Required for NavMeshObstacle
 using Unity.AI.Navigation;
 
@@ -14,8 +14,10 @@ public class BuildingData : MonoBehaviour
     private NavMeshObstacle _obstacle;
     private NavMeshModifier _modifier;
 
-    public void Initialize(Vector2Int root, float rotation, Vector2Int[] offsets)
+    public void Initialize(Vector2Int root, float rotation, Vector2Int[] offsets, ObjDataSO data = null)
     {
+        if (data != null) objDataSO = data;
+
         RootCell = root;
         Rotation = rotation;
         Offsets = offsets;
@@ -23,7 +25,14 @@ public class BuildingData : MonoBehaviour
         _modifier = GetComponent<NavMeshModifier>();
 
         // Auto-configure navigation
-        SetupNavigation();
+        if (objDataSO != null)
+        {
+            SetupNavigation();
+        }
+        else
+        {
+            Debug.LogWarning($"[BuildingData] Initialized on {gameObject.name} without ObjDataSO!");
+        }
     }
 
     private void SetupNavigation()
@@ -37,60 +46,85 @@ public class BuildingData : MonoBehaviour
                 DestroyImmediate(oldModifier);
             return;
         }
-        // 2. Clearance objects (Racks, Doors) or Stackable objects (Crates) should be BAKED but NOT have obstacles.
-        // This allows different NavMesh surfaces (Humanoid vs MHE) to handle clearance height naturally
-        // and enables multi-level navigation for agents on top of objects.
 
-        // MODIFIED LINE: Added an explicit check to make sure the item category isn't "Walls"
-        if ((Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules || Data.isStackable || Data.category == "Foundation" || Data.category == "Grounds")
-            && Data.category != "Walls") // 🌟 Add this catch right here!
+        // 2. Identify objects that contribute to walkable surfaces (Floors, Foundations, etc.)
+        bool isWalkableSurface = (Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules || Data.isStackable || Data.category == "Foundation" || Data.category == "Grounds");
+        
+        // Walls should only be walkable surfaces if they are explicitly marked as pathfindingClear (like Doors)
+        if (Data.category == "Walls" && !Data.pathfindingClear)
         {
-            // Set layer to Ground (3) to ensure collection by NavMeshSurface
-            gameObject.layer = LayerMask.NameToLayer("Ground");
+            isWalkableSurface = false;
+        }
 
-            if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
-                DestroyImmediate(oldObstacle);
-
+        if (isWalkableSurface)
+        {
             if (_modifier == null)
                 _modifier = GetComponent<NavMeshModifier>();
             if (_modifier == null)
                 _modifier = gameObject.AddComponent<NavMeshModifier>();
 
             _modifier.applyToChildren = true;
-            // Do NOT ignore from build - we want the geometry (legs, headers, tops) to be baked.
-            _modifier.ignoreFromBuild = false;
-
-            // Apply area override if specified
             _modifier.overrideArea = true;
             _modifier.area = Data.navArea;
+
+            // 🌟 DOOR/FLOOR FIX: 
+            // - Foundations and Stackable volumes (Crates) MUST be baked (ignoreFromBuild = false) 
+            //   so agents can walk ON top of them. They also carve the ground to prevent sinking.
+            // - Doors and Clearance objects MUST NOT be baked (ignoreFromBuild = true)
+            //   so agents can walk THROUGH them on the underlying ground NavMesh.
+            if (Data.category == "Foundation" || Data.isStackable)
+            {
+                ConfigureObstacle();
+                _modifier.ignoreFromBuild = false; 
+            }
+            else
+            {
+                if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
+                    DestroyImmediate(oldObstacle);
+                
+                _modifier.ignoreFromBuild = true;
+            }
 
             return;
         }
 
-        // 1. Make sure all objects that should block pathfinding have a NavMeshObstacle. This includes all non-clearance, non-stackable, non-floor objects.
+        // 3. Standard blocking objects (Walls, Barriers, MHE)
+        ConfigureObstacle();
+        
+        // 🌟 WALL FIX: Standard walls must be ignored from the geometry build (ignoreFromBuild = true)
+        // because we are now including the 'Walls' layer in the NavMeshSurface mask.
+        // This ensures they block via Carving only and don't create messy vertical geometry.
+        if (_modifier == null) _modifier = GetComponent<NavMeshModifier>();
+        if (_modifier == null) _modifier = gameObject.AddComponent<NavMeshModifier>();
+        _modifier.ignoreFromBuild = true;
+    }
+
+    private void ConfigureObstacle()
+    {
         if (_obstacle == null)
             _obstacle = gameObject.GetComponent<NavMeshObstacle>();
-        // 2. If it doesn't have one, add it and configure it for carving. This allows dynamic updates to the NavMesh when objects are placed or removed.
+
         if (_obstacle == null)
         {
             _obstacle = gameObject.AddComponent<NavMeshObstacle>();
-            // 3. Configure for "Carving" (The "Option 1" approach)
-            _obstacle.shape = NavMeshObstacleShape.Box;
-            _obstacle.carving = true;
-            _obstacle.carveOnlyStationary = true; // Best for performance in a building game
-            // 4. Calculate Size based on the footprint
-            // We use the grid dimensions from ObjDataSO to ensure the "hole" matches the grid
-            float gridSpaceX = Data.footprint.x * 1f; // 1.33 is your grid CellSize
-            float gridSpaceZ = Data.footprint.y * 1f;
-            // Center it (assuming the pivot is at the center of the root cell)
-            // If the footprint is larger than 1x1, we need to shift the center to the middle of the footprint.
-            // Grid grows in +X and +Z, so shift should be positive.
-            float centerX = (Data.footprint.x - 1) * 0.665f; // 0.665 is half of 1.33
-            float centerZ = (Data.footprint.y - 1) * 0.665f; // 0.665 is half of 1.33
-            // Y is slightly below center of the object for better carving results
-            _obstacle.size = new Vector3(gridSpaceX, Data.objHeight, gridSpaceZ);
-            _obstacle.center = new Vector3(centerX, Data.objHeight * 0.45f, centerZ);
         }
+
+        // Always configure the obstacle settings even if it already existed
+        _obstacle.shape = NavMeshObstacleShape.Box;
+        _obstacle.carving = true;
+        _obstacle.carveOnlyStationary = true;
+
+        // Calculate Size based on the footprint.
+        // We use a factor of 0.75f to ensure there is a gap between obstacles 
+        // at cell boundaries that is wide enough for agents to pass (at least 2x AgentRadius).
+        float gridSpaceX = Data.footprint.x * 0.75f; 
+        float gridSpaceZ = Data.footprint.y * 0.75f;
+        
+        float centerX = (Data.footprint.x - 1) * 0.665f; 
+        float centerZ = (Data.footprint.y - 1) * 0.665f;
+
+        _obstacle.size = new Vector3(gridSpaceX, Data.objHeight, gridSpaceZ);
+        _obstacle.center = new Vector3(centerX, Data.objHeight * 0.45f, centerZ);
     }
     public void Delete()
     {

@@ -230,7 +230,7 @@ if (_currentState != _idleState)
         if (_raycast.HitObject != null)
         {
             var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
-            if (bd != null)
+            if (bd != null && bd.Data != null)
             {
                 _hoverUI.TickHover(
                     true,

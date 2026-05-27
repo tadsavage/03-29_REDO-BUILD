@@ -620,7 +620,7 @@ public class PlacementGrid : MonoBehaviour
             var bd = placed.GetComponent<BuildingData>();
             if (bd != null)
             {
-                bd.Initialize(root, rotDeg, offsets);
+                bd.Initialize(root, rotDeg, offsets, placed.data);
             }
 
             // Register this object in EVERY footprint cell

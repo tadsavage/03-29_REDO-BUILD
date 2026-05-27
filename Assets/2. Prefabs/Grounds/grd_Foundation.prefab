@@ -72,6 +72,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5c81e098fb773d44eb3d02f1dc604887, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5361604447679850971}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5c81e098fb773d44eb3d02f1dc604887, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5101795602356513232}
   m_SourcePrefab: {fileID: 100100000, guid: 5c81e098fb773d44eb3d02f1dc604887, type: 3}
 --- !u!1 &6269753735943479528 stripped
 GameObject:
@@ -90,7 +93,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ae3a00e8e2be44489bf49a02cd29a2b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingData
-  objDataSO: {fileID: 11400000, guid: 543a824dc342c18448cd0a41e7ba925f, type: 2}
+  objDataSO: {fileID: 11400000, guid: 099e33f371b5a244ba4cd96f25644f51, type: 2}
 --- !u!114 &9023879960952075251
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -118,7 +121,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1c2077a2a0a9844b8bb47797e554524, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlacedObject
-  data: {fileID: 11400000, guid: 543a824dc342c18448cd0a41e7ba925f, type: 2}
+  data: {fileID: 11400000, guid: 099e33f371b5a244ba4cd96f25644f51, type: 2}
   gridX: 0
   gridY: 0
   rotation: 0
@@ -144,3 +147,23 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 2.6499996, y: 2.65, z: 2.65}
   m_Center: {x: 0.66499996, y: -0.27500004, z: 0.66499996}
+--- !u!114 &5101795602356513232
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6269753735943479528}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifier
+  m_SerializedVersion: 0
+  m_OverrideArea: 1
+  m_Area: 5
+  m_OverrideGenerateLinks: 0
+  m_GenerateLinks: 0
+  m_IgnoreFromBuild: 0
+  m_ApplyToChildren: 1
+  m_AffectedAgents: ffffffff

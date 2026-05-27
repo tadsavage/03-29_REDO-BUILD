@@ -21,6 +21,13 @@ public class WallVisibilityManager : MonoBehaviour
     [SerializeField] private AudioClip slideSound;
     private AudioSource _audioSource;
 
+    [Header("Material Settings")]
+    [Tooltip("The transparent material used when walls are lowered.")]
+    [SerializeField] private Material loweredMaterial;
+
+    [Tooltip("The normal material used when walls are raised.")]
+    [SerializeField] private Material raisedMaterial;
+
     [Header("Layer Configuration")]
     [Tooltip("The layer assigned to your main wall objects.")]
     [SerializeField] private LayerMask wallLayer;
@@ -39,6 +46,7 @@ public class WallVisibilityManager : MonoBehaviour
     {
         public Transform transform;
         public List<Renderer> renderers;
+        public List<Material[]> originalMaterials; 
         public Vector3 originalPosition;
         public float originalWorldTopY;
         public Collider mainCollider;
@@ -104,12 +112,16 @@ public class WallVisibilityManager : MonoBehaviour
     {
         if (wall.isInitialized) return;
         wall.originalPosition = wall.transform.position;
+        wall.originalMaterials = new List<Material[]>();
 
         Bounds b = new Bounds();
         bool set = false;
         foreach (var r in wall.renderers)
         {
             if (r == null) continue;
+
+            wall.originalMaterials.Add(r.sharedMaterials);
+
             if (!set) { b = r.bounds; set = true; }
             else b.Encapsulate(r.bounds);
         }
@@ -157,6 +169,7 @@ public class WallVisibilityManager : MonoBehaviour
             if (_currentMode == WallVisibilityMode.Full)
             {
                 SetRenderersEnabled(wall.renderers, true);
+                SetWallMaterials(wall, false);
                 foreach (var decor in _dynamicallyFoundDecor) if (decor != null) decor.enabled = true;
             }
         }
@@ -180,17 +193,51 @@ public class WallVisibilityManager : MonoBehaviour
             if (wall.transform == null) continue;
             wall.transform.position = endPositions[wall];
 
+            if (_currentMode == WallVisibilityMode.Cut)
+                SetWallMaterials(wall, true);
+            // I REM'd all thos out because the foundation was deleting itself.
             // Do not disable renderers for persistent walls (Corners, ManDoors)
-            if (_currentMode == WallVisibilityMode.Hidden && !wall.isPersistent) 
-                SetRenderersEnabled(wall.renderers, false);
+            //if (_currentMode == WallVisibilityMode.Hidden && !wall.isPersistent) 
+                //SetRenderersEnabled(wall.renderers, false);
             
-            if (_currentMode == WallVisibilityMode.Cut && wall.mainCollider != null) 
-                HideFloatingObjectsAbove(wall.mainCollider);
+            //if (_currentMode == WallVisibilityMode.Cut && wall.mainCollider != null) 
+               // HideFloatingObjectsAbove(wall.mainCollider);
         }
 
         if (_currentMode == WallVisibilityMode.Full) _dynamicallyFoundDecor.Clear();
         if (_audioSource != null) _audioSource.Stop();
         _activeSlideCoroutine = null;
+    }
+
+    private void SetWallMaterials(WallData wall, bool useLowered)
+    {
+        if (wall == null || wall.renderers == null) return;
+
+        for (int i = 0; i < wall.renderers.Count; i++)
+        {
+            Renderer r = wall.renderers[i];
+            if (r == null) continue;
+
+            if (useLowered && loweredMaterial != null)
+            {
+                Material[] mats = new Material[r.sharedMaterials.Length];
+                for (int j = 0; j < mats.Length; j++) mats[j] = loweredMaterial;
+                r.sharedMaterials = mats;
+            }
+            else
+            {
+                if (i < wall.originalMaterials.Count)
+                {
+                    r.sharedMaterials = wall.originalMaterials[i];
+                }
+                else if (raisedMaterial != null)
+                {
+                    Material[] mats = new Material[r.sharedMaterials.Length];
+                    for (int j = 0; j < mats.Length; j++) mats[j] = raisedMaterial;
+                    r.sharedMaterials = mats;
+                }
+            }
+        }
     }
 
     private void SetRenderersEnabled(List<Renderer> rends, bool state)

@@ -129,6 +129,8 @@ public class AiNavigation : MonoBehaviour
 
     private void ApplyAgentCosts()
     {
+        if (agent == null || !agent.isOnNavMesh) return;
+
         if (role == AgentRole.Worker)
         {
             agent.SetAreaCost(0, 25.0f); // Expensive regular floor

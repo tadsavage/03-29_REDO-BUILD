@@ -123,8 +123,8 @@ public class FreeLookCamera : MonoBehaviour
         }
 
         // --- 4. Vertical (Q: Up, E: Down) ---
-        if (Keyboard.current[Key.E].isPressed) _focusPoint.y -= currentMoveSpeed * Time.deltaTime;
-        if (Keyboard.current[Key.Q].isPressed) _focusPoint.y += currentMoveSpeed * Time.deltaTime;
+        //if (Keyboard.current[Key.E].isPressed) _focusPoint.y -= currentMoveSpeed * Time.deltaTime;
+        //if (Keyboard.current[Key.Q].isPressed) _focusPoint.y += currentMoveSpeed * Time.deltaTime;
 
         // --- 5. Final Clamping ---
         _focusPoint.x = Mathf.Clamp(_focusPoint.x, X_Min, X_Max);

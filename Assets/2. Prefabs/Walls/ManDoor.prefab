@@ -197,6 +197,10 @@ PrefabInstance:
       value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 267327213984096573, guid: 9255e5c03b648904ebb0e71279213a32, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 267327213984096573, guid: 9255e5c03b648904ebb0e71279213a32, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 0
       objectReference: {fileID: 0}
@@ -389,7 +393,7 @@ MonoBehaviour:
   m_OverrideArea: 1
   m_Area: 4
   m_OverrideGenerateLinks: 0
-  m_GenerateLinks: 0
+  m_GenerateLinks: 1
   m_IgnoreFromBuild: 0
   m_ApplyToChildren: 1
   m_AffectedAgents: ffffffff

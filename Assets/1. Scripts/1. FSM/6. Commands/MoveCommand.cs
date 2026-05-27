@@ -169,7 +169,7 @@ public class MoveCommand : ICommand
         var bd = _instance.GetComponent<BuildingData>();
         if (bd != null)
         {
-            bd.Initialize(to, toRotation, toOffsets);
+            bd.Initialize(to, toRotation, toOffsets, _data);
         }
 
         foreach (var o in toOffsets)

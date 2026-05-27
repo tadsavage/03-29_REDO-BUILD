@@ -211,10 +211,10 @@ public class PlacementSystem : MonoBehaviour
 
         grid.RebuildFromRegistry();
 
-        // Perform an immediate bake after everything is loaded
+        // Perform a synchronous bake after everything is loaded so agents find the NavMesh immediately
         if (NavMeshManager.Instance != null)
         {
-            NavMeshManager.Instance.BakeImmediate();
+            NavMeshManager.Instance.BakeSynchronous();
         }
         }
 
@@ -245,8 +245,8 @@ public class PlacementSystem : MonoBehaviour
         if (pb != null) pb.LoadBuildState();
 
         BuildingData bd = go.GetComponent<BuildingData>();
-Vector2Int[] offsets = so.GetFootprintOffsets(-rotationDeg);
-        bd.Initialize(root, rotationDeg, offsets);
+        Vector2Int[] offsets = so.GetFootprintOffsets(-rotationDeg);
+        bd.Initialize(root, rotationDeg, offsets, so);
 
         PlacedObjectRegistry.Register(po);
 

@@ -91,7 +91,7 @@ var po = instance.GetComponent<PlacedObject>();
         // Initialize BuildingData BEFORE adding to grid so UpdateStackPositions works
         var bd = instance.GetComponent<BuildingData>();
         if (bd != null)
-            bd.Initialize(root, rotation, offsets);
+            bd.Initialize(root, rotation, offsets, data);
 
         // Add to grid
         foreach (var o in offsets)
