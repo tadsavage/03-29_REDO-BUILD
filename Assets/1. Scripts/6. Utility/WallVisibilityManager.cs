@@ -51,7 +51,6 @@ public class WallVisibilityManager : MonoBehaviour
         public float originalWorldTopY;
         public Collider mainCollider;
         public bool isInitialized = false;
-        public bool isPersistent = false;
     }
 
     private void Awake()
@@ -91,16 +90,7 @@ public class WallVisibilityManager : MonoBehaviour
                     if (rends.Length == 0) continue;
 
                     Collider col = obj.GetComponent<Collider>() ?? obj.GetComponentInChildren<Collider>();
-                    
-                    bool isPersistent = obj.name.ToLower().Contains("corner") || obj.name.ToLower().Contains("mandoor");
-                    
-                    WallData data = new WallData 
-                    { 
-                        transform = obj.transform, 
-                        renderers = new List<Renderer>(rends), 
-                        mainCollider = col,
-                        isPersistent = isPersistent
-                    };
+                    WallData data = new WallData { transform = obj.transform, renderers = new List<Renderer>(rends), mainCollider = col };
                     InitializeOriginalState(data);
                     _trackedWalls.Add(data);
                 }
@@ -159,8 +149,6 @@ public class WallVisibilityManager : MonoBehaviour
             Vector3 targetPos = wall.originalPosition;
             if (_currentMode == WallVisibilityMode.Cut && wall.originalWorldTopY > targetTopY)
             {
-                // Optionally: Keep persistent objects at full height even in Cut mode?
-                // The user only complained about renderers being disabled, so we'll keep the slide for now.
                 float delta = targetTopY - wall.originalWorldTopY;
                 targetPos = new Vector3(wall.originalPosition.x, wall.originalPosition.y + delta, wall.originalPosition.z);
             }
@@ -193,6 +181,7 @@ public class WallVisibilityManager : MonoBehaviour
             if (wall.transform == null) continue;
             wall.transform.position = endPositions[wall];
 
+<<<<<<< HEAD
             if (_currentMode == WallVisibilityMode.Cut)
                 SetWallMaterials(wall, true);
             // I REM'd all thos out because the foundation was deleting itself.
@@ -202,6 +191,10 @@ public class WallVisibilityManager : MonoBehaviour
             
             //if (_currentMode == WallVisibilityMode.Cut && wall.mainCollider != null) 
                // HideFloatingObjectsAbove(wall.mainCollider);
+=======
+            if (_currentMode == WallVisibilityMode.Hidden) SetRenderersEnabled(wall.renderers, false);
+            if (_currentMode == WallVisibilityMode.Cut && wall.mainCollider != null) HideFloatingObjectsAbove(wall.mainCollider);
+>>>>>>> parent of 5caf2c4 (fixed the lower wall bug)
         }
 
         if (_currentMode == WallVisibilityMode.Full) _dynamicallyFoundDecor.Clear();
@@ -255,10 +248,6 @@ public class WallVisibilityManager : MonoBehaviour
         foreach (var hit in hits)
         {
             if (hit.gameObject == wallCollider.gameObject || hit.transform.IsChildOf(wallCollider.transform)) continue;
-
-            // Do not hide objects that are on the wall layer (they are handled by the wall sliding logic)
-            if (((1 << hit.gameObject.layer) & wallLayer.value) != 0) continue;
-
             Renderer r = hit.GetComponent<Renderer>() ?? hit.GetComponentInChildren<Renderer>();
             if (r != null && r.enabled) { r.enabled = false; _dynamicallyFoundDecor.Add(r); }
         }
