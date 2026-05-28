@@ -8,6 +8,12 @@ public class NavMeshManager : MonoBehaviour
 {
     public static NavMeshManager Instance { get; private set; }
 
+    // ── Startup Signal ──────────────────────────────────────────────────────────
+    // Fired once after every bake (sync or async) completes.
+    // AiNavigation subscribes to this instead of polling agent.isOnNavMesh.
+    public static event System.Action OnNavMeshReady;
+    public static bool IsReady { get; private set; }
+
     [SerializeField] private List<NavMeshSurface> _surfaces = new List<NavMeshSurface>();
     [SerializeField] private float _debounceTime = .50f;
 
@@ -18,120 +24,89 @@ public class NavMeshManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        
-        // Clear and re-find all surfaces to ensure none are missed
         _surfaces = new List<NavMeshSurface>(Object.FindObjectsByType<NavMeshSurface>(FindObjectsSortMode.None));
-        
-        // IMPORTANT: Perform a synchronous bake on Awake so the NavMesh is ready for Start()
-        BakeSynchronous();
+        // NOTE: We do NOT bake here. GameContext.Start() triggers BakeImmediate()
+        // after LoadGame() so the bake includes all placed objects.
     }
 
+    // Called by GameContext.Start() after the save is fully loaded.
     public void BakeSynchronous()
     {
         if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
-        
+
+        IsReady = false;
+
         foreach (var surface in _surfaces)
         {
             if (surface != null)
             {
-                // Cancel any pending async builds to avoid "g_pVertMem == NULL" assertion
                 if (surface.navMeshData != null)
-                {
                     NavMeshBuilder.Cancel(surface.navMeshData);
-                }
 
-                // Use the high-level BuildNavMesh for synchronous initialization.
-                // This is more robust than manual UpdateNavMeshData calls.
                 surface.BuildNavMesh();
-                
-                // Automate the manual toggle fix if required by the project's specific setup
                 surface.enabled = false;
                 surface.enabled = true;
             }
         }
+
         _isDirty = false;
         _isUpdating = false;
+
+        // Signal agents
+        IsReady = true;
+        OnNavMeshReady?.Invoke();
     }
 
     private Bounds GetWorldBounds(NavMeshSurface surface)
     {
         if (surface.collectObjects != CollectObjects.All)
-        {
             return new Bounds(surface.transform.TransformPoint(surface.center), surface.size);
-        }
 
-        // Calculate actual scene bounds for objects on the layer to avoid massive voxel grids
         var renderers = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
         Bounds b = new Bounds();
         bool hasBounds = false;
-        
+
         foreach (var r in renderers)
         {
             if (r != null && ((1 << r.gameObject.layer) & surface.layerMask) != 0)
             {
-                if (!hasBounds)
-                {
-                    b = r.bounds;
-                    hasBounds = true;
-                }
-                else
-                {
-                    b.Encapsulate(r.bounds);
-                }
+                if (!hasBounds) { b = r.bounds; hasBounds = true; }
+                else b.Encapsulate(r.bounds);
             }
         }
-        
+
         if (!hasBounds) return new Bounds(surface.transform.position, Vector3.one * 10f);
-        
-        b.Expand(5f); // Add a small margin
+        b.Expand(5f);
         return b;
     }
 
     private void OnDisable()
     {
-        // Cancel all pending async builds to prevent crash when stopping play mode.
-        // Doing this in OnDisable ensures it runs before surfaces are potentially destroyed.
         if (_surfaces != null)
-        {
             foreach (var surface in _surfaces)
-            {
                 if (surface != null && surface.navMeshData != null)
-                {
                     NavMeshBuilder.Cancel(surface.navMeshData);
-                }
-            }
-        }
 
-        if (_updateCoroutine != null)
-        {
-            StopCoroutine(_updateCoroutine);
-            _updateCoroutine = null;
-        }
+        if (_updateCoroutine != null) { StopCoroutine(_updateCoroutine); _updateCoroutine = null; }
     }
 
     private void OnDestroy()
     {
-        if (Instance == this)
-        {
-            Instance = null;
-        }
+        if (Instance == this) Instance = null;
     }
 
     public void MarkDirty(bool immediate = false)
     {
         _isDirty = true;
-        
-        // If already updating, it will loop in the coroutine if _isDirty remains true
-        if (_isUpdating) return;
+        IsReady = false; // agents should pause during a re-bake
 
+        if (_isUpdating) return;
         if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
         _updateCoroutine = StartCoroutine(UpdateRoutine(immediate));
     }
 
     public void BakeImmediate()
     {
-        // We no longer do actual "Immediate" (blocking) bakes because they freeze the UI.
-        // Instead, we trigger the async update without the debounce delay.
         MarkDirty(true);
     }
 
@@ -141,16 +116,13 @@ public class NavMeshManager : MonoBehaviour
     private IEnumerator UpdateRoutine(bool immediate)
     {
         if (!immediate)
-        {
             yield return new WaitForSeconds(_debounceTime);
-        }
 
         while (_isDirty)
         {
             _isDirty = false;
             _isUpdating = true;
 
-            // Only refresh modifier cache if it's been more than a few seconds or if it's the first time
             if (Time.realtimeSinceStartup - _lastModifierUpdate > 5f || _modifierCache.Count == 0)
             {
                 _modifierCache = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>(FindObjectsSortMode.None));
@@ -172,55 +144,39 @@ public class NavMeshManager : MonoBehaviour
                 }
             }
 
-            // Update each surface but yield between them to keep the game responsive
             foreach (var surface in _surfaces)
             {
-                if (surface != null)
-                {
-                    if (surface.navMeshData == null)
-                    {
-                        surface.navMeshData = new NavMeshData();
-                    }
+                if (surface == null) continue;
 
-                    float startTime = Time.realtimeSinceStartup;
-                    var settings = surface.GetBuildSettings();
-                    var sources = new List<NavMeshBuildSource>();
-                    
-                    Bounds worldBounds = GetWorldBounds(surface);
-                    
-                    if (surface.collectObjects == CollectObjects.Children)
-                    {
-                        NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
-                    }
-                    else
-                    {
-                        NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
-                    }
+                if (surface.navMeshData == null)
+                    surface.navMeshData = new NavMeshData();
 
-                    AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
-                    
-                    while (!op.isDone)
-                    {
-                        yield return null;
-                    }
+                var settings = surface.GetBuildSettings();
+                var sources = new List<NavMeshBuildSource>();
+                Bounds worldBounds = GetWorldBounds(surface);
 
-                    surface.UpdateNavMesh(surface.navMeshData);
-                    
-                    float duration = Time.realtimeSinceStartup - startTime;
-                }
+                if (surface.collectObjects == CollectObjects.Children)
+                    NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+                else
+                    NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+
+                AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
+                while (!op.isDone) yield return null;
+
+                surface.UpdateNavMesh(surface.navMeshData);
             }
 
-            // Only nudge once after all surfaces are updated
+            // Nudge all surfaces to register updated data
             foreach (var surface in _surfaces)
             {
-                if (surface != null)
-                {
-                    surface.enabled = false;
-                    surface.enabled = true;
-                }
+                if (surface != null) { surface.enabled = false; surface.enabled = true; }
             }
 
             _isUpdating = false;
         }
+
+        // Bake is fully complete — signal all waiting agents
+        IsReady = true;
+        OnNavMeshReady?.Invoke();
     }
 }
