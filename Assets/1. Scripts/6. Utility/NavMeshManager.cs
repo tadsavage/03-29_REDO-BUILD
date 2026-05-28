@@ -17,6 +17,9 @@ public class NavMeshManager : MonoBehaviour
     [SerializeField] private List<NavMeshSurface> _surfaces = new List<NavMeshSurface>();
     [SerializeField] private float _debounceTime = .50f;
 
+    [Tooltip("Objects always excluded from NavMesh baking (e.g. the ground plane). Assign once in the Inspector — survives crashes and play mode.")]
+    [SerializeField] private List<GameObject> _alwaysExclude = new List<GameObject>();
+
     private Coroutine _updateCoroutine;
     private bool _isDirty;
     private bool _isUpdating;
@@ -25,36 +28,140 @@ public class NavMeshManager : MonoBehaviour
     {
         Instance = this;
         _surfaces = new List<NavMeshSurface>(Object.FindObjectsByType<NavMeshSurface>(FindObjectsSortMode.None));
-        // NOTE: We do NOT bake here. GameContext.Start() triggers BakeImmediate()
-        // after LoadGame() so the bake includes all placed objects.
+
+        // Enforce exclusions at runtime regardless of saved NavMeshModifier state.
+        foreach (var go in _alwaysExclude)
+        {
+            if (go == null) continue;
+            var mod = go.GetComponent<NavMeshModifier>();
+            if (mod == null) mod = go.AddComponent<NavMeshModifier>();
+            mod.ignoreFromBuild = true;
+            mod.applyToChildren = true;
+        }
     }
 
     // Called by GameContext.Start() after the save is fully loaded.
     public void BakeSynchronous()
     {
         if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
-
         IsReady = false;
+
+        var modifiers = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>(FindObjectsSortMode.None));
+        var markups = BuildMarkups(modifiers);
 
         foreach (var surface in _surfaces)
         {
-            if (surface != null)
-            {
-                if (surface.navMeshData != null)
-                    NavMeshBuilder.Cancel(surface.navMeshData);
+            if (surface == null) continue;
+            if (surface.navMeshData != null) NavMeshBuilder.Cancel(surface.navMeshData);
 
-                surface.BuildNavMesh();
-                surface.enabled = false;
-                surface.enabled = true;
-            }
+            var sources = new List<NavMeshBuildSource>();
+            Bounds worldBounds = GetWorldBounds(surface);
+
+            if (surface.collectObjects == CollectObjects.Children)
+                NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+            else
+                NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+
+            AddFloorNavMeshSources(sources, surface.defaultArea);
+            AddStairRampSources(sources);
+
+            var settings = surface.GetBuildSettings();
+            var newData = NavMeshBuilder.BuildNavMeshData(settings, sources, worldBounds, surface.transform.position, surface.transform.rotation);
+            surface.navMeshData = newData;
+            surface.UpdateNavMesh(newData);
+            surface.enabled = false;
+            surface.enabled = true;
         }
 
         _isDirty = false;
         _isUpdating = false;
-
-        // Signal agents
         IsReady = true;
         OnNavMeshReady?.Invoke();
+    }
+
+    private List<NavMeshBuildMarkup> BuildMarkups(List<NavMeshModifier> modifiers)
+    {
+        var markups = new List<NavMeshBuildMarkup>();
+
+        // Hard-coded exclusions — survives crashes and play mode exits.
+        foreach (var go in _alwaysExclude)
+        {
+            if (go != null)
+                markups.Add(new NavMeshBuildMarkup { root = go.transform, ignoreFromBuild = true });
+        }
+
+        foreach (var mod in modifiers)
+        {
+            if (mod != null && mod.isActiveAndEnabled)
+                markups.Add(new NavMeshBuildMarkup
+                {
+                    root = mod.transform,
+                    overrideArea = mod.overrideArea,
+                    area = mod.area,
+                    ignoreFromBuild = mod.ignoreFromBuild
+                });
+        }
+        return markups;
+    }
+
+    // Injects the nav_Plane_Transparent ramp mesh from each stairwell as a walkable source.
+    // This makes the NavMesh visibly bake on the stair surface rather than using invisible links alone.
+    private void AddStairRampSources(List<NavMeshBuildSource> sources)
+    {
+        var stairObjects = Object.FindObjectsByType<BuildingData>(FindObjectsSortMode.None);
+        foreach (var bd in stairObjects)
+        {
+            if (bd.Data == null || !bd.Data.CanUseStairs) continue;
+
+            foreach (Transform child in bd.transform)
+            {
+                if (!child.name.Contains("nav_Plane")) continue;
+
+                var mf = child.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) break;
+
+                sources.Add(new NavMeshBuildSource
+                {
+                    transform    = child.localToWorldMatrix,
+                    shape        = NavMeshBuildSourceShape.Mesh,
+                    sourceObject = mf.sharedMesh,
+                    area         = bd.Data.navArea
+                });
+                break;
+            }
+        }
+    }
+
+    // Injects explicit Box NavMesh sources at each floor tile's top surface.
+    // This bypasses the NavMesh voxel resolution limit for thin floor geometry.
+    private void AddFloorNavMeshSources(List<NavMeshBuildSource> sources, int defaultArea)
+    {
+        foreach (var placed in PlacedObjectRegistry.All)
+        {
+            if (placed == null || placed.data == null || !placed.data.isFloor) continue;
+            if (placed.gameObject == null || !placed.gameObject.activeSelf) continue;
+
+            var renderers = placed.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) continue;
+
+            Bounds b = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                b.Encapsulate(renderers[i].bounds);
+
+            const float sourceThickness = 0.05f;
+            float topY = b.max.y;
+
+            sources.Add(new NavMeshBuildSource
+            {
+                transform = Matrix4x4.TRS(
+                    new Vector3(b.center.x, topY - sourceThickness * 0.5f, b.center.z),
+                    placed.transform.rotation,
+                    Vector3.one),
+                shape = NavMeshBuildSourceShape.Box,
+                area = placed.data.navArea != 0 ? placed.data.navArea : defaultArea,
+                size = new Vector3(b.size.x, sourceThickness, b.size.z)
+            });
+        }
     }
 
     private Bounds GetWorldBounds(NavMeshSurface surface)
@@ -159,6 +266,9 @@ public class NavMeshManager : MonoBehaviour
                     NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
                 else
                     NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+
+                AddFloorNavMeshSources(sources, surface.defaultArea);
+                AddStairRampSources(sources);
 
                 AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
                 while (!op.isDone) yield return null;

@@ -13,6 +13,8 @@ public class BuildingData : MonoBehaviour
 
     private NavMeshObstacle _obstacle;
     private NavMeshModifier _modifier;
+    private NavMeshLink _stairLinkHuman;
+    private NavMeshLink _stairLinkRat;
 
     public void Initialize(Vector2Int root, float rotation, Vector2Int[] offsets, ObjDataSO data = null)
     {
@@ -67,36 +69,145 @@ public class BuildingData : MonoBehaviour
             _modifier.overrideArea = true;
             _modifier.area = Data.navArea;
 
-            // 🌟 DOOR/FLOOR FIX: 
-            // - Foundations and Stackable volumes (Crates) MUST be baked (ignoreFromBuild = false) 
-            //   so agents can walk ON top of them. They also carve the ground to prevent sinking.
-            // - Doors and Clearance objects MUST NOT be baked (ignoreFromBuild = true)
-            //   so agents can walk THROUGH them on the underlying ground NavMesh.
+            // Foundations and Stackable volumes are baked (ignoreFromBuild = false) and get a
+            // carving obstacle so agents walk ON TOP of them without sinking to y=0.
+            // Floors are also baked (ignoreFromBuild = false) but do NOT get an obstacle —
+            // they are the walkable surface itself; a carving obstacle would punch through
+            // the NavMesh that was just baked on them.
+            // Doors / pathfindingClear objects are excluded (ignoreFromBuild = true) so
+            // agents walk through them on the underlying NavMesh.
             if (Data.category == "Foundation" || Data.isStackable)
             {
                 ConfigureObstacle();
-                _modifier.ignoreFromBuild = false; 
+                _modifier.ignoreFromBuild = false;
+            }
+            else if (Data.isFloor)
+            {
+                if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
+                    DestroyImmediate(oldObstacle);
+
+                _modifier.ignoreFromBuild = false;
             }
             else
             {
                 if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
                     DestroyImmediate(oldObstacle);
-                
+
                 _modifier.ignoreFromBuild = true;
             }
 
+            if (Data.CanUseStairs) SetupStairLink();
             return;
         }
 
         // 3. Standard blocking objects (Walls, Barriers, MHE)
         ConfigureObstacle();
-        
-        // 🌟 WALL FIX: Standard walls must be ignored from the geometry build (ignoreFromBuild = true)
+
+        // Standard walls must be ignored from the geometry build (ignoreFromBuild = true)
         // because we are now including the 'Walls' layer in the NavMeshSurface mask.
         // This ensures they block via Carving only and don't create messy vertical geometry.
         if (_modifier == null) _modifier = GetComponent<NavMeshModifier>();
         if (_modifier == null) _modifier = gameObject.AddComponent<NavMeshModifier>();
         _modifier.ignoreFromBuild = true;
+
+        if (Data.CanUseStairs) SetupStairLink();
+    }
+
+    private void SetupStairLink()
+    {
+        // Get all existing NavMeshLink components and assign them by index,
+        // adding new ones if needed.
+        var links = GetComponents<NavMeshLink>();
+        _stairLinkHuman = links.Length > 0 ? links[0] : gameObject.AddComponent<NavMeshLink>();
+        _stairLinkRat   = links.Length > 1 ? links[1] : gameObject.AddComponent<NavMeshLink>();
+
+        ConfigureLink(_stairLinkHuman, "Human", Data.navArea);
+        ConfigureLink(_stairLinkRat,   "Rat",   0); // Rat uses Walkable area
+
+        NavMeshManager.OnNavMeshReady -= UpdateStairLink;
+        NavMeshManager.OnNavMeshReady += UpdateStairLink;
+
+        if (NavMeshManager.IsReady)
+            UpdateStairLink();
+    }
+
+    private void ConfigureLink(NavMeshLink link, string agentTypeName, int area)
+    {
+        link.agentTypeID   = GetAgentTypeID(agentTypeName);
+        link.area          = area;
+        link.width         = 1.2f;
+        link.bidirectional = true;
+        link.autoUpdate    = false;
+    }
+
+    private void UpdateStairLink()
+    {
+        if (_stairLinkHuman == null && _stairLinkRat == null) return;
+
+        // Ground-floor endpoint: snap to NavMesh at the stair's base
+        NavMeshHit groundHit;
+        Vector3 startWorld = transform.position;
+        if (NavMesh.SamplePosition(transform.position, out groundHit, 2f, NavMesh.AllAreas))
+            startWorld = groundHit.position;
+
+        // Upper-floor endpoint: walk forward (stair's local +Z = "inside") to find elevated NavMesh.
+        // Require the hit to be meaningfully above the stair base (>1m) to avoid false hits
+        // from entrance structures or low geometry near the stair foot.
+        float minUpperY = transform.position.y + 1.0f;
+        Vector3 endWorld = Vector3.zero;
+        bool foundUpper = false;
+        for (float dist = 1.0f; dist <= 8f; dist += 0.25f)
+        {
+            Vector3 probe = transform.position + transform.forward * dist + Vector3.up * 1.2f;
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(probe, out hit, 0.25f, NavMesh.AllAreas) && hit.position.y > minUpperY)
+            {
+                endWorld = hit.position;
+                foundUpper = true;
+                break;
+            }
+        }
+
+        if (!foundUpper)
+        {
+            Debug.LogWarning($"[BuildingData] {gameObject.name}: no upper-floor NavMesh found for stair link.");
+            return;
+        }
+
+        Vector3 startLocal = transform.InverseTransformPoint(startWorld);
+        Vector3 endLocal   = transform.InverseTransformPoint(endWorld);
+
+        if (_stairLinkHuman != null)
+        {
+            _stairLinkHuman.startPoint = startLocal;
+            _stairLinkHuman.endPoint   = endLocal;
+            _stairLinkHuman.UpdateLink();
+        }
+
+        if (_stairLinkRat != null)
+        {
+            _stairLinkRat.startPoint = startLocal;
+            _stairLinkRat.endPoint   = endLocal;
+            _stairLinkRat.UpdateLink();
+        }
+    }
+
+    private static int GetAgentTypeID(string agentTypeName)
+    {
+        int count = NavMesh.GetSettingsCount();
+        for (int i = 0; i < count; i++)
+        {
+            var s = NavMesh.GetSettingsByIndex(i);
+            if (NavMesh.GetSettingsNameFromID(s.agentTypeID) == agentTypeName)
+                return s.agentTypeID;
+        }
+        Debug.LogWarning($"[BuildingData] Agent type '{agentTypeName}' not found in NavMesh settings.");
+        return 0;
+    }
+
+    private void OnDestroy()
+    {
+        NavMeshManager.OnNavMeshReady -= UpdateStairLink;
     }
 
     private void ConfigureObstacle()

@@ -38,7 +38,7 @@ public class GameContext : MonoBehaviour
         // NOW bake the NavMesh — all placed objects (obstacles, floors, walls) are live.
         // NavMeshManager will fire OnNavMeshReady when done, which unblocks all AiNavigation agents.
         if (NavMeshManager.Instance != null)
-            NavMeshManager.Instance.BakeImmediate();
+            NavMeshManager.Instance.BakeSynchronous();
         else
             Debug.LogWarning("[GameContext] NavMeshManager not found — agents may not navigate.");
     }

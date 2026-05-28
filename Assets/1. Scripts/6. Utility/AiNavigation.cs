@@ -31,7 +31,7 @@ public class AiNavigation : MonoBehaviour
     private void SetupAgentType()
     {
         if (agent == null) return;
-        string targetTypeName = role == AgentRole.Worker ? "Humanoid" : "MHE";
+        string targetTypeName = role == AgentRole.Worker ? "Human" : "MHE";
         int count = NavMesh.GetSettingsCount();
         for (int i = 0; i < count; i++)
         {
