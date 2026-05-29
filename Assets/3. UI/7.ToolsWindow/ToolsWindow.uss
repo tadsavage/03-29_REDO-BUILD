@@ -1,0 +1,389 @@
+/* ═══════════════════════════════════════════════════════
+   TOOLS WINDOW  —  Pallet Builder & Dev Console
+   Toggle: backtick (`) for Dev tab  |  click pallet to open
+   ═══════════════════════════════════════════════════════ */
+
+/* ── FONT ALIASES ────────────────────────────────────── */
+.tools-window Label,
+.tools-window Button {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
+}
+
+/* ── OVERLAY ROOT ────────────────────────────────────── */
+.tools-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    picking-mode: ignore;
+}
+
+/* ── WINDOW PANEL ────────────────────────────────────── */
+.tools-window {
+    position: absolute;
+    top: 50px;
+    left: 12px;
+    width: 360px;
+    background-color: #2D2B3A;
+    border-width: 2px;
+    border-color: #ECC98A;
+    border-radius: 12px;
+    overflow: hidden;
+    /* Subtle drop shadow via a fake element isn't possible in UITK;
+       the gold border gives enough presence */
+}
+
+/* ── TITLE BAR ───────────────────────────────────────── */
+.tools-titlebar {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #231F32;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 14px;
+    padding-right: 10px;
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(236, 201, 138, 0.45);
+}
+
+.tools-title {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 12px;
+    -unity-text-letter-spacing: 3px;
+    color: #ECC98A;
+}
+
+.tools-close {
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    border-width: 1px;
+    border-color: rgba(255, 100, 100, 0.4);
+    background-color: rgba(255, 100, 100, 0.12);
+    color: #F5EEDB;
+    font-size: 12px;
+    -unity-text-align: middle-center;
+    padding: 0;
+}
+.tools-close:hover  { background-color: rgba(255, 100, 100, 0.38); }
+.tools-close:active { background-color: rgba(180, 40, 40, 0.55); translate: 0 1px; border-bottom-width: 0; }
+
+/* ── TAB STRIP ───────────────────────────────────────── */
+.tools-tabstrip {
+    flex-direction: row;
+    background-color: rgba(0, 0, 0, 0.18);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(236, 201, 138, 0.2);
+}
+
+.tools-tab {
+    flex: 1;
+    height: 32px;
+    border-width: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: transparent;
+    border-radius: 0;
+    background-color: transparent;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 10px;
+    -unity-text-letter-spacing: 2px;
+    -unity-text-align: middle-center;
+    padding: 0;
+    transition: color 0.1s, background-color 0.1s;
+}
+
+.tools-tab--active {
+    color: #ECC98A;
+    border-bottom-color: #ECC98A;
+    background-color: rgba(236, 201, 138, 0.07);
+}
+
+.tools-tab--inactive {
+    color: rgba(245, 238, 219, 0.38);
+}
+.tools-tab--inactive:hover {
+    color: rgba(245, 238, 219, 0.7);
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* ── SCROLL AREA ─────────────────────────────────────── */
+.tools-scroll {
+    max-height: 510px;
+}
+
+.tools-scroll > .unity-scroll-view__content-and-vertical-scroll-container > .unity-scroller--vertical {
+    width: 4px;
+    background-color: transparent;
+    margin: 4px 2px;
+}
+.tools-scroll .unity-base-slider__dragger {
+    background-color: rgba(236, 201, 138, 0.3);
+    border-radius: 2px;
+    border-width: 0;
+}
+.tools-scroll .unity-scroller__low-button,
+.tools-scroll .unity-scroller__high-button {
+    display: none;
+    height: 0;
+    width: 0;
+}
+
+/* ── TAB CONTENT WRAPPER ─────────────────────────────── */
+.tab-content {
+    padding-top: 4px;
+    padding-bottom: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   PALLET BUILDER
+   ═══════════════════════════════════════════════════════ */
+
+.plt-section {
+    margin-top: 6px;
+    margin-left: 8px;
+    margin-right: 8px;
+    margin-bottom: 0;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-radius: 8px;
+    border-left-width: 3px;
+    border-left-color: #ECC98A;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.plt-s-heading {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 8px;
+    -unity-text-letter-spacing: 3px;
+    color: rgba(236, 201, 138, 0.55);
+    margin-bottom: 7px;
+}
+
+.plt-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+.plt-row:last-child { margin-bottom: 0; }
+
+.plt-label {
+    flex: 1;
+    font-size: 12px;
+    color: #F5EEDB;
+}
+
+.plt-field {
+    flex: 1.2;
+    height: 28px;
+    min-width: 0;
+}
+.plt-field .unity-base-text-field__input {
+    background-color: rgba(90, 85, 110, 0.3);
+    border-width: 1px;
+    border-color: rgba(236, 201, 138, 0.35);
+    color: #FFFFFF;
+    border-radius: 5px;
+    font-size: 12px;
+    padding-left: 8px;
+    -unity-text-align: middle-left;
+}
+.plt-field:focus .unity-base-text-field__input,
+.plt-field .unity-text-field--focused .unity-base-text-field__input {
+    border-color: #ECC98A;
+    background-color: rgba(90, 85, 110, 0.5);
+}
+
+.plt-toggle {
+    height: 20px;
+    width: 36px;
+}
+
+/* Dropdown */
+.plt-dropdown {
+    margin-top: 4px;
+    height: 30px;
+}
+.plt-dropdown .unity-base-field__label {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
+    font-size: 12px;
+    color: #F5EEDB;
+    min-width: 80px;
+    flex-grow: 0;
+}
+.plt-dropdown .unity-base-popup-field__input {
+    flex: 1;
+    background-color: rgba(90, 85, 110, 0.3);
+    border-width: 1px;
+    border-color: rgba(236, 201, 138, 0.35);
+    color: #FFFFFF;
+    font-size: 12px;
+    height: 100%;
+    border-radius: 5px;
+    padding-left: 8px;
+}
+.plt-dropdown .unity-base-popup-field__input:hover {
+    border-color: rgba(236, 201, 138, 0.65);
+}
+.plt-dropdown .unity-base-popup-field__arrow {
+    -unity-background-image-tint-color: #ECC98A;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+}
+
+/* Dropdown popup list */
+.unity-base-dropdown__container-inner {
+    background-color: #2D2B3A;
+    border-width: 2px;
+    border-color: #ECC98A;
+    border-radius: 6px;
+}
+.unity-base-dropdown__item {
+    background-color: transparent;
+    color: #F5EEDB;
+    font-size: 12px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 10px;
+}
+.unity-base-dropdown__item:hover {
+    background-color: rgba(236, 201, 138, 0.18);
+    color: #ECC98A;
+}
+.unity-base-dropdown__label { color: #F5EEDB; }
+
+/* BUILD button */
+.plt-build-btn {
+    margin-top: 8px;
+    margin-left: 8px;
+    margin-right: 8px;
+    height: 38px;
+    background-color: #ECC98A;
+    border-width: 0;
+    border-bottom-width: 3px;
+    border-bottom-color: #B89440;
+    border-radius: 8px;
+    color: #2D2B3A;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 12px;
+    -unity-text-letter-spacing: 2px;
+    transition: background-color 0.1s;
+}
+.plt-build-btn:hover  { background-color: #F5DFA0; }
+.plt-build-btn:active { background-color: #D4B465; border-bottom-width: 1px; translate: 0 1px; }
+
+/* ═══════════════════════════════════════════════════════
+   DEV CONSOLE
+   ═══════════════════════════════════════════════════════ */
+
+.dev-section {
+    margin-top: 6px;
+    margin-left: 8px;
+    margin-right: 8px;
+    margin-bottom: 0;
+    border-radius: 8px;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-left-width: 3px;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.dev-s-gold  { border-left-color: #ECC98A; }
+.dev-s-amber { border-left-color: #E8A850; }
+.dev-s-teal  { border-left-color: #5ECFAA; }
+.dev-s-rose  { border-left-color: #E86080; }
+
+.dev-s-heading {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 8px;
+    -unity-text-letter-spacing: 3px;
+    margin-bottom: 8px;
+}
+.dev-s-gold  > .dev-s-heading { color: rgba(236, 201, 138, 0.6); }
+.dev-s-amber > .dev-s-heading { color: rgba(232, 168, 80,  0.6); }
+.dev-s-teal  > .dev-s-heading { color: rgba(94,  207, 170, 0.6); }
+.dev-s-rose  > .dev-s-heading { color: rgba(232, 96,  128, 0.6); }
+
+/* Stat pills */
+.dev-pills {
+    flex-direction: row;
+    margin-bottom: 8px;
+}
+.dev-pill {
+    flex: 1;
+    background-color: rgba(0, 0, 0, 0.28);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(245, 238, 219, 0.07);
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-right: 5px;
+    min-width: 0;
+}
+.dev-pill:last-child { margin-right: 0; }
+.dev-pill-wide { flex: 1.6; }
+
+.dev-pill-key {
+    font-size: 8px;
+    -unity-text-letter-spacing: 1px;
+    color: rgba(245, 238, 219, 0.4);
+    margin-bottom: 2px;
+}
+.dev-pill-val {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 14px;
+    color: #F5EEDB;
+    overflow: hidden;
+    white-space: nowrap;
+    -unity-text-overflow: ellipsis;
+}
+
+/* Action buttons */
+.dev-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 1px;
+}
+.dev-btn {
+    height: 26px;
+    border-radius: 6px;
+    border-width: 0;
+    border-bottom-width: 2px;
+    margin-right: 5px;
+    margin-bottom: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 10px;
+    -unity-text-letter-spacing: 1px;
+    -unity-text-align: middle-center;
+    color: rgba(10, 8, 25, 0.92);
+}
+.dev-btn:last-child { margin-right: 0; }
+
+.dev-btn-gold   { background-color: #ECC98A; border-bottom-color: #A88830; }
+.dev-btn-amber  { background-color: #E8A850; border-bottom-color: #A06010; }
+.dev-btn-teal   { background-color: #5ECFAA; border-bottom-color: #2A8060; }
+.dev-btn-danger { background-color: #E05252; border-bottom-color: #981010; color: #FFFFFF; }
+
+.dev-btn-gold:hover   { background-color: #F5DFA0; }
+.dev-btn-amber:hover  { background-color: #F0B860; }
+.dev-btn-teal:hover   { background-color: #7EDFC0; }
+.dev-btn-danger:hover { background-color: #EE6868; }
+
+.dev-btn-gold:active   { background-color: #D4B465; border-bottom-width: 1px; translate: 0 1px; }
+.dev-btn-amber:active  { background-color: #C08030; border-bottom-width: 1px; translate: 0 1px; }
+.dev-btn-teal:active   { background-color: #3EAF8A; border-bottom-width: 1px; translate: 0 1px; }
+.dev-btn-danger:active { background-color: #B03030; border-bottom-width: 1px; translate: 0 1px; }

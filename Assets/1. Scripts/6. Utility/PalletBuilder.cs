@@ -60,9 +60,6 @@ public class PalletBuilder : MonoBehaviour
 
     private List<CasePlacement> _bestLayerPattern = new List<CasePlacement>();
 
-    [Header("UI (Play Mode)")]
-    public GameObject uiPrefab;
-    private GameObject _activeUI;
 
     private void Start()
     {
@@ -315,52 +312,15 @@ public class PalletBuilder : MonoBehaviour
         //Debug.Log($"Pallet Built: {casesPerLayer} Ti x {layers} Hi = {totalCases} total cases. State Saved.");
     }
 
-    // Static reference to track the currently open builder across all instances
-    private static PalletBuilder _currentActiveBuilder;
-
     public void ToggleUI()
     {
         if (!Application.isPlaying) return;
-
-        // If we already have the UI open for THIS builder, close it
-        if (_activeUI != null)
-        {
-            CloseUI();
-        }
-        else
-        {
-            // If another builder has its UI open, close that one first
-            if (_currentActiveBuilder != null && _currentActiveBuilder != this)
-            {
-                _currentActiveBuilder.CloseUI();
-            }
-
-            if (uiPrefab != null)
-            {
-                _activeUI = Instantiate(uiPrefab);
-                _currentActiveBuilder = this;
-
-                var controller = _activeUI.GetComponentInChildren<PalletBuilderUI>();
-                if (controller != null)
-                {
-                    controller.Initialize(this);
-                }
-            }
-        }
+        ToolsWindowController.Instance?.OpenForPallet(this);
     }
 
     public void CloseUI()
     {
-        if (_activeUI != null)
-        {
-            Destroy(_activeUI);
-            _activeUI = null;
-        }
-
-        if (_currentActiveBuilder == this)
-        {
-            _currentActiveBuilder = null;
-        }
+        ToolsWindowController.Instance?.Hide();
     }
 
     private void OnMouseDown()
