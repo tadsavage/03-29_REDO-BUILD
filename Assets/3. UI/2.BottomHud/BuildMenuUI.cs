@@ -18,8 +18,6 @@ public class BuildMenuUI : MonoBehaviour
     [SerializeField] private VisualTreeAsset itemButtonUxml;
     [SerializeField] private VisualTreeAsset submenuContainerUxml;
     [SerializeField] private VisualTreeAsset utilityButtonUxml;
-    [SerializeField] private VisualTreeAsset savePopupUxml;
-
     [Header("Styles")]
     [SerializeField] private StyleSheet buildMenuStyle;
 
@@ -29,12 +27,6 @@ public class BuildMenuUI : MonoBehaviour
     private MoneyService moneyService;
 
     public GameContext Context { get; private set; }
-
-    // Save popup UI
-    private VisualElement _savePopup;
-    private TextField _saveNameField;
-    private Button _confirmSaveButton;
-    private Button _cancelSaveButton;
 
     [SerializeField] private PlacementGrid grid;
 
@@ -111,7 +103,6 @@ public class BuildMenuUI : MonoBehaviour
         BuildCategoryButtons();
         BuildUtilityButtons();
         BuildSubmenuContainer();
-        BuildSavePopup();
 
         // Automatically initialize your stationed item popup info card 
         VisualElement stationaryPopup = GetStationedPopup();
@@ -138,47 +129,6 @@ public class BuildMenuUI : MonoBehaviour
             BuildCategoryButtons();
             BuildUtilityButtons();
         }
-    }
-
-    private void BuildSavePopup()
-    {
-        if (_root.Q<VisualElement>("SavePopupContainer") != null) return;
-
-        var popup = savePopupUxml.Instantiate();
-        popup.name = "SavePopupContainer";
-        popup.pickingMode = PickingMode.Ignore;
-        _root.Add(popup);
-
-        _savePopup = popup.Q<VisualElement>("SavePopup");
-        _saveNameField = popup.Q<TextField>("SaveNameField");
-        _confirmSaveButton = popup.Q<Button>("ConfirmSaveButton");
-        _cancelSaveButton = popup.Q<Button>("CancelSaveButton");
-
-        if (_confirmSaveButton != null) _confirmSaveButton.clicked += ConfirmSave;
-        if (_cancelSaveButton != null) _cancelSaveButton.clicked += HideSavePopup;
-        HideSavePopup();
-    }
-
-    private void ShowSavePopup()
-    {
-        _savePopup.RemoveFromClassList("hidden");
-        _saveNameField.value = "";
-    }
-
-    private void HideSavePopup()
-    {
-        _savePopup.AddToClassList("hidden");
-    }
-
-    private void ConfirmSave()
-    {
-        if (string.IsNullOrWhiteSpace(_saveNameField.value))
-        {
-            Debug.LogWarning("⚠ Save name is empty.");
-            return;
-        }
-        placementSystem.SaveGame("autosave");
-        HideSavePopup();
     }
 
     private void CacheElements()
