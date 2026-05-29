@@ -59,7 +59,7 @@ public class AmbientMumble : MonoBehaviour
 
             _audioSource.pitch = Random.Range(minPitch, maxPitch);
             _audioSource.PlayOneShot(_shuffledClips[_currentIndex], volume);
-_currentIndex++;
+            _currentIndex++;
         }
     }
 }

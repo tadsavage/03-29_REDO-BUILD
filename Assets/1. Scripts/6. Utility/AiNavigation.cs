@@ -20,12 +20,14 @@ public class AiNavigation : MonoBehaviour
     private AmbientMumble mumbleAudio;
     private bool hasHonkedThisArrival = false;
     private bool _traversingLink = false;
+    private AgentAnimation _agentAnimation;
 
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         throttleAudio = GetComponent<VehicleThrottleAudio>();
         mumbleAudio = GetComponent<AmbientMumble>();
+        _agentAnimation = GetComponent<AgentAnimation>();
         SetupAgentType();
     }
 
@@ -205,7 +207,7 @@ public class AiNavigation : MonoBehaviour
         }
 
         // ── Waypoint progression (for agents without AgentAnimation) ─────────────
-        if (GetComponent<AgentAnimation>() == null)
+        if (_agentAnimation == null)
         {
             if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
                 GoToRandomWaypoint();
