@@ -1,6 +1,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[System.Flags]
+public enum AgentType
+{
+    None  = 0,
+    Human = 1 << 0,
+    MHE   = 1 << 1,
+    Rat   = 1 << 2,
+}
+
 [CreateAssetMenu(fileName = "ObjDataSO", menuName = "Scriptable Objects/ObjDataSO")]
 public class ObjDataSO : ScriptableObject
 {
@@ -32,6 +41,9 @@ public class ObjDataSO : ScriptableObject
 
     [Tooltip("NavMesh Area index to assign to this object (if pathfindingClear is true). 0 = Walkable, 3 = MHE Lanes, 4 = Pedestrian Lanes.")]
     public int navArea = 0;
+
+    [Tooltip("Which agent types are permitted to open/trigger this object (e.g. ManDoor). MHE excluded by default.")]
+    public AgentType allowedAgents = AgentType.Human | AgentType.Rat;
 
     [Tooltip("If true, this object is a stairwell. A NavMeshLink is added for Human (Pedestrian) agents only — forklifts cannot use it.")]
     public bool CanUseStairs = false;

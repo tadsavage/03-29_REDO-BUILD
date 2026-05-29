@@ -24,10 +24,7 @@ public class WorldHoverPopupUI : MonoBehaviour
     private int _pendingCost;
     private int _pendingHourlyCost;
 
-    private float _disappearGraceTimer = 0f;
-    private float _disappearGraceTime = 0.15f;
-
-    // OPTIMIZATION: Reuse a single style allocation to prevent Garbage Collection allocation spikes in Tick/Update loops
+// OPTIMIZATION: Reuse a single style allocation to prevent Garbage Collection allocation spikes in Tick/Update loops
     private StyleTranslate _cachedTranslateStyle = new StyleTranslate();
 
     // ---------------------------------------------------------
@@ -81,8 +78,6 @@ public class WorldHoverPopupUI : MonoBehaviour
             ShowEmpty();
             return;
         }
-
-        _disappearGraceTimer = 0f;
 
         // -----------------------------------------------------
         // HOVERING LOGIC

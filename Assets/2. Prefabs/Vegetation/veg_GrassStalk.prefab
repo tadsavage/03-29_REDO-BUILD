@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 5191395382950768638}
   - component: {fileID: 3276528698077553883}
   - component: {fileID: -1593630761933609827}
+  - component: {fileID: 9010680578109493292}
   m_Layer: 0
   m_Name: veg_GrassStalk
   m_TagString: Untagged
@@ -159,3 +160,20 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
+--- !u!114 &9010680578109493292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 114378}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52b252b5d1220fa41a1d7895542370fc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TreeWindSway
+  swayAngle: 4
+  swaySpeed: 0.25
+  wobbleAngle: 1.2
+  wobbleSpeed: 0.75

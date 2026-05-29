@@ -67,10 +67,12 @@ public class NavMeshManager : MonoBehaviour
 
             var settings = surface.GetBuildSettings();
             var newData = NavMeshBuilder.BuildNavMeshData(settings, sources, worldBounds, surface.transform.position, surface.transform.rotation);
+
+            // Mirrors NavMeshSurface.BuildNavMesh(): remove old instance, swap data, register new instance.
+            // UpdateNavMesh() is async-only and never calls AddData(), so we must do this manually.
+            surface.RemoveData();
             surface.navMeshData = newData;
-            surface.UpdateNavMesh(newData);
-            surface.enabled = false;
-            surface.enabled = true;
+            surface.AddData();
         }
 
         _isDirty = false;

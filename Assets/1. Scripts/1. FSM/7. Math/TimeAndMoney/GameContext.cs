@@ -42,11 +42,11 @@ public class GameContext : MonoBehaviour
         if (grid != null)
             grid.RebuildFromRegistry();
 
-        // NOW bake the NavMesh — all placed objects (obstacles, floors, walls) are live.
-        // NavMeshManager will fire OnNavMeshReady when done, which unblocks all AiNavigation agents.
-        if (NavMeshManager.Instance != null)
+        // Bake the NavMesh if LoadGame didn't already do it (no save file, or manually-placed Editor objects).
+        // ApplySaveData calls BakeSynchronous itself, which sets IsReady = true — skip the second bake.
+        if (NavMeshManager.Instance != null && !NavMeshManager.IsReady)
             NavMeshManager.Instance.BakeSynchronous();
-        else
+        else if (NavMeshManager.Instance == null)
             Debug.LogWarning("[GameContext] NavMeshManager not found — agents may not navigate.");
     }
 }

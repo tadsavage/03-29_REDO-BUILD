@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 7307478593357162862}
   - component: {fileID: 1706811072436144603}
   - component: {fileID: -5171925633486066199}
+  - component: {fileID: 5286738251010597609}
   m_Layer: 0
   m_Name: veg_GrassReed
   m_TagString: Untagged
@@ -159,3 +160,20 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
+--- !u!114 &5286738251010597609
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 190654}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52b252b5d1220fa41a1d7895542370fc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TreeWindSway
+  swayAngle: 4
+  swaySpeed: 0.25
+  wobbleAngle: 1.2
+  wobbleSpeed: 0.75

@@ -12,32 +12,40 @@ public class ManDoorController : MonoBehaviour
     [SerializeField] private float speed = 150f; // Degrees per second
 
     private Coroutine _moveCoroutine;
+    private AgentType _allowedAgents = AgentType.Human | AgentType.Rat;
 
     private void Awake()
     {
-        // Automatically find the Door child if not assigned
         if (doorTransform == null)
-        {
             doorTransform = transform.Find("DoorFrame/Door");
-        }
 
-        // Initialize to closed position
         if (doorTransform != null)
-        {
             doorTransform.localRotation = Quaternion.Euler(0, startRotY, 0);
-        }
+    }
+
+    private void Start()
+    {
+        var bd = GetComponentInParent<BuildingData>();
+        if (bd != null && bd.Data != null)
+            _allowedAgents = bd.Data.allowedAgents;
+    }
+
+    private bool IsAllowed(Collider other)
+    {
+        var tag = other.GetComponentInParent<AgentTypeTag>();
+        return tag != null && (_allowedAgents & tag.agentType) != 0;
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        // Starts opening the door
+        if (!IsAllowed(other)) return;
         StopMoving();
         _moveCoroutine = StartCoroutine(RotateDoor(endRotY));
     }
 
     private void OnTriggerExit(Collider other)
     {
-        // Starts closing the door
+        if (!IsAllowed(other)) return;
         StopMoving();
         _moveCoroutine = StartCoroutine(RotateDoor(startRotY));
     }

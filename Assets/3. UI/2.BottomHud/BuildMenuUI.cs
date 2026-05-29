@@ -472,8 +472,6 @@ public class BuildMenuUI : MonoBehaviour
         Vector2 rootPos = _root.worldBound.position;
         Vector2 buttonPos = _lastClickedCategoryButton.worldBound.position;
 
-        _submenuContainer.transform.position = Vector3.zero;
-
         float localX = buttonPos.x - rootPos.x;
         _submenuContainer.style.left = localX;
         _submenuContainer.style.bottom = 128f;

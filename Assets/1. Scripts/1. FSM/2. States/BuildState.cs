@@ -46,10 +46,7 @@ public class BuildState : IPlacementState
     private readonly List<Vector2Int> _indicatorBuffer = new();
     private readonly List<Vector2Int> _footprintBuffer = new();
 
-    private float _scrollCooldown = 0f;
-    private const float ScrollThreshold = 0.01f;
-
-    public bool IsPlacementState => true;
+public bool IsPlacementState => true;
     public ObjDataSO CurrentData => _currentData;
     public bool IsDragging => _isDragging;
     public string ObjectName => _currentData != null ? _currentData.objName : "None";

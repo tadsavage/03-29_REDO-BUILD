@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: -3441189629468303556}
   - component: {fileID: -7453374931302303503}
   - component: {fileID: -2881912512449041181}
+  - component: {fileID: 1415303727356989416}
   m_Layer: 0
   m_Name: veg_Vine
   m_TagString: Untagged
@@ -159,3 +160,20 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
+--- !u!114 &1415303727356989416
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 193358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52b252b5d1220fa41a1d7895542370fc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TreeWindSway
+  swayAngle: 3
+  swaySpeed: 0.225
+  wobbleAngle: 0.8
+  wobbleSpeed: 0.65
