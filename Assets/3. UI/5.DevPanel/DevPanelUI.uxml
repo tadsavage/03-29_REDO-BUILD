@@ -1,0 +1,102 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="dev-overlay" class="dev-overlay">
+
+        <!-- Always-visible toggle pill (backtick or click) -->
+        <ui:Button name="toggle-btn" class="dev-toggle" text="⚙ DEV" />
+
+        <!-- Main panel, hidden by default -->
+        <ui:VisualElement name="dev-panel" class="dev-panel">
+
+            <!-- Draggable header -->
+            <ui:VisualElement name="dev-header" class="dev-header">
+                <ui:Label class="dev-title" text="DEV CONSOLE" />
+                <ui:Button name="close-btn" class="dev-close" text="✕" />
+            </ui:VisualElement>
+
+            <!-- Scrollable sections -->
+            <ui:ScrollView name="dev-body" class="dev-body" horizontal-scroller-visibility="Hidden">
+
+                <!-- ── ECONOMY ───────────────────────────────── -->
+                <ui:VisualElement class="dev-section dev-s-cyan">
+                    <ui:Label class="dev-s-heading" text="ECONOMY" />
+                    <ui:VisualElement class="dev-pills">
+                        <ui:VisualElement class="dev-pill">
+                            <ui:Label class="dev-pill-key" text="Balance" />
+                            <ui:Label name="stat-balance" class="dev-pill-val dev-cyan" text="$0" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="dev-pill">
+                            <ui:Label class="dev-pill-key" text="Hourly" />
+                            <ui:Label name="stat-hourly" class="dev-pill-val dev-cyan" text="$0/hr" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="dev-pill">
+                            <ui:Label class="dev-pill-key" text="Today" />
+                            <ui:Label name="stat-spent" class="dev-pill-val dev-cyan" text="$0" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="dev-actions">
+                        <ui:Button name="btn-add-1k"   class="dev-btn dev-btn-cyan"   text="+$1K" />
+                        <ui:Button name="btn-add-10k"  class="dev-btn dev-btn-cyan"   text="+$10K" />
+                        <ui:Button name="btn-add-100k" class="dev-btn dev-btn-cyan"   text="+$100K" />
+                        <ui:Button name="btn-zero"     class="dev-btn dev-btn-danger" text="ZERO" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- ── TIME ─────────────────────────────────── -->
+                <ui:VisualElement class="dev-section dev-s-amber">
+                    <ui:Label class="dev-s-heading" text="TIME" />
+                    <ui:VisualElement class="dev-pills">
+                        <ui:VisualElement class="dev-pill dev-pill-wide">
+                            <ui:Label class="dev-pill-key" text="Sim Time" />
+                            <ui:Label name="stat-time" class="dev-pill-val dev-amber" text="Day 1 — 08:00" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="dev-pill">
+                            <ui:Label class="dev-pill-key" text="Speed" />
+                            <ui:Label name="stat-speed" class="dev-pill-val dev-amber" text="1×" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="dev-actions">
+                        <ui:Button name="btn-pause" class="dev-btn dev-btn-amber" text="⏸ PAUSE" />
+                        <ui:Button name="btn-1x"    class="dev-btn dev-btn-amber" text="1×" />
+                        <ui:Button name="btn-2x"    class="dev-btn dev-btn-amber" text="2×" />
+                        <ui:Button name="btn-5x"    class="dev-btn dev-btn-amber" text="5×" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- ── WORLD ─────────────────────────────────── -->
+                <ui:VisualElement class="dev-section dev-s-green">
+                    <ui:Label class="dev-s-heading" text="WORLD" />
+                    <ui:VisualElement class="dev-pills">
+                        <ui:VisualElement class="dev-pill">
+                            <ui:Label class="dev-pill-key" text="Objects" />
+                            <ui:Label name="stat-objects" class="dev-pill-val dev-green" text="0" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="dev-pill dev-pill-wide">
+                            <ui:Label class="dev-pill-key" text="Undo / Redo" />
+                            <ui:Label name="stat-undo" class="dev-pill-val dev-green" text="0 / 0" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="dev-actions">
+                        <ui:Button name="btn-rebuild" class="dev-btn dev-btn-green"  text="REBUILD GRID" />
+                        <ui:Button name="btn-clear"   class="dev-btn dev-btn-danger" text="CLEAR ALL" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- ── FSM ───────────────────────────────────── -->
+                <ui:VisualElement class="dev-section dev-s-pink">
+                    <ui:Label class="dev-s-heading" text="FSM" />
+                    <ui:VisualElement class="dev-pills">
+                        <ui:VisualElement class="dev-pill dev-pill-wide">
+                            <ui:Label class="dev-pill-key" text="State" />
+                            <ui:Label name="stat-state" class="dev-pill-val dev-pink" text="—" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="dev-pill">
+                            <ui:Label class="dev-pill-key" text="Stack" />
+                            <ui:Label name="stat-stack" class="dev-pill-val dev-pink" text="0" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+            </ui:ScrollView>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

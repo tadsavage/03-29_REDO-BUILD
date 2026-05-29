@@ -85,6 +85,9 @@ public class CommandHistory
         _undo.Push(cmd);
     }
 
+    public int UndoCount => _undo.Count;
+    public int RedoCount => _redo.Count;
+
     public void Clear()
     {
         _undo.Clear();
