@@ -113,12 +113,13 @@ public class NavMeshManager : MonoBehaviour
         {
             if (bd.Data == null || !bd.Data.CanUseStairs) continue;
 
-            foreach (Transform child in bd.transform)
+            // Search all descendants, not just direct children
+            foreach (Transform child in bd.GetComponentsInChildren<Transform>(includeInactive: false))
             {
                 if (!child.name.Contains("nav_Plane")) continue;
 
                 var mf = child.GetComponent<MeshFilter>();
-                if (mf == null || mf.sharedMesh == null) break;
+                if (mf == null || mf.sharedMesh == null) continue;
 
                 sources.Add(new NavMeshBuildSource
                 {

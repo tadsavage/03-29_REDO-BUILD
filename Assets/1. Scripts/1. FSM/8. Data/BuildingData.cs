@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI; // Required for NavMeshObstacle
 using Unity.AI.Navigation;
+using System.Collections;
 
 public class BuildingData : MonoBehaviour
 {
@@ -50,7 +51,7 @@ public class BuildingData : MonoBehaviour
         }
 
         // 2. Identify objects that contribute to walkable surfaces (Floors, Foundations, etc.)
-        bool isWalkableSurface = (Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules || Data.isStackable || Data.category == "Foundation" || Data.category == "Grounds");
+        bool isWalkableSurface = (Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules || Data.isStackable || Data.CanUseStairs || Data.category == "Foundation" || Data.category == "Grounds");
         
         // Walls should only be walkable surfaces if they are explicitly marked as pathfindingClear (like Doors)
         if (Data.category == "Walls" && !Data.pathfindingClear)
@@ -88,6 +89,28 @@ public class BuildingData : MonoBehaviour
 
                 _modifier.ignoreFromBuild = false;
             }
+            else if (Data.CanUseStairs)
+            {
+                if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
+                    DestroyImmediate(oldObstacle);
+
+                // Root stairwell body excluded from baking — children are the walkable surfaces.
+                // Don't cascade to children; each child floor tile must be baked independently.
+                _modifier.applyToChildren = false;
+                _modifier.ignoreFromBuild = true;
+
+                // Mark direct child floor tiles as walkable NavMesh area 4
+                foreach (Transform child in transform)
+                {
+                    var childMod = child.GetComponent<NavMeshModifier>();
+                    if (childMod == null) childMod = child.gameObject.AddComponent<NavMeshModifier>();
+                    childMod.applyToChildren = false;
+                    childMod.overrideArea    = true;
+                    childMod.area            = Data.navArea;
+                    childMod.ignoreFromBuild = false;
+                }
+                // NavMeshLinks are placed manually in the prefab — no code generation needed.
+            }
             else
             {
                 if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
@@ -96,7 +119,6 @@ public class BuildingData : MonoBehaviour
                 _modifier.ignoreFromBuild = true;
             }
 
-            if (Data.CanUseStairs) SetupStairLink();
             return;
         }
 
@@ -115,20 +137,31 @@ public class BuildingData : MonoBehaviour
 
     private void SetupStairLink()
     {
-        // Get all existing NavMeshLink components and assign them by index,
-        // adding new ones if needed.
         var links = GetComponents<NavMeshLink>();
         _stairLinkHuman = links.Length > 0 ? links[0] : gameObject.AddComponent<NavMeshLink>();
         _stairLinkRat   = links.Length > 1 ? links[1] : gameObject.AddComponent<NavMeshLink>();
 
         ConfigureLink(_stairLinkHuman, "Human", Data.navArea);
-        ConfigureLink(_stairLinkRat,   "Rat",   0); // Rat uses Walkable area
+        ConfigureLink(_stairLinkRat,   "Rat",   0);
 
-        NavMeshManager.OnNavMeshReady -= UpdateStairLink;
-        NavMeshManager.OnNavMeshReady += UpdateStairLink;
+        NavMeshManager.OnNavMeshReady -= OnNavMeshReadyForStair;
+        NavMeshManager.OnNavMeshReady += OnNavMeshReadyForStair;
 
         if (NavMeshManager.IsReady)
-            UpdateStairLink();
+            StartCoroutine(DelayedUpdateStairLink());
+    }
+
+    private void OnNavMeshReadyForStair()
+    {
+        StartCoroutine(DelayedUpdateStairLink());
+    }
+
+    // Waits for NavMeshObstacle carving to settle before placing link endpoints.
+    // carveOnlyStationary default settling time is 0.5s — we wait a bit longer.
+    private IEnumerator DelayedUpdateStairLink()
+    {
+        yield return new WaitForSeconds(0.8f);
+        UpdateStairLink();
     }
 
     private void ConfigureLink(NavMeshLink link, string agentTypeName, int area)
@@ -141,38 +174,61 @@ public class BuildingData : MonoBehaviour
     }
 
     private void UpdateStairLink()
-    {
+    {        /*
         if (_stairLinkHuman == null && _stairLinkRat == null) return;
 
-        // Ground-floor endpoint: snap to NavMesh at the stair's base
-        NavMeshHit groundHit;
+        // Ground endpoint: search in all directions for NavMesh at y < 0.5 (truck yard level).
+        // The stairwell transform is at the base of the stairs — search outward until we find ground.
         Vector3 startWorld = transform.position;
-        if (NavMesh.SamplePosition(transform.position, out groundHit, 2f, NavMesh.AllAreas))
-            startWorld = groundHit.position;
+        bool foundGround = false;
+        for (float r = 0.5f; r <= 6f && !foundGround; r += 0.5f)
+        {
+            for (int a = 0; a < 8 && !foundGround; a++)
+            {
+                float rad = a * 45f * Mathf.Deg2Rad;
+                Vector3 probe = transform.position + new Vector3(Mathf.Cos(rad) * r, 0f, Mathf.Sin(rad) * r);
+                NavMeshHit hit;
+                if (NavMesh.SamplePosition(probe, out hit, 0.6f, NavMesh.AllAreas) && hit.position.y < 0.5f)
+                {
+                    startWorld = hit.position;
+                    foundGround = true;
+                }
+            }
+        }
 
-        // Upper-floor endpoint: walk forward (stair's local +Z = "inside") to find elevated NavMesh.
-        // Require the hit to be meaningfully above the stair base (>1m) to avoid false hits
-        // from entrance structures or low geometry near the stair foot.
+        if (!foundGround)
+        {
+            Debug.LogWarning($"[BuildingData] {gameObject.name}: no ground-level NavMesh found for stair link start.");
+            return;
+        }
+
+        // Floor endpoint: search all directions at elevated height, starting well away from
+        // the entrance to avoid the wall-carving zone right at the door threshold.
         float minUpperY = transform.position.y + 1.0f;
         Vector3 endWorld = Vector3.zero;
         bool foundUpper = false;
-        for (float dist = 1.0f; dist <= 8f; dist += 0.25f)
+        for (float r = 2.5f; r <= 12f && !foundUpper; r += 0.75f)
         {
-            Vector3 probe = transform.position + transform.forward * dist + Vector3.up * 1.2f;
-            NavMeshHit hit;
-            if (NavMesh.SamplePosition(probe, out hit, 0.25f, NavMesh.AllAreas) && hit.position.y > minUpperY)
+            for (int a = 0; a < 8 && !foundUpper; a++)
             {
-                endWorld = hit.position;
-                foundUpper = true;
-                break;
+                float rad = a * 45f * Mathf.Deg2Rad;
+                Vector3 probe = transform.position + new Vector3(Mathf.Cos(rad) * r, 1.2f, Mathf.Sin(rad) * r);
+                NavMeshHit hit;
+                if (NavMesh.SamplePosition(probe, out hit, 1.0f, NavMesh.AllAreas) && hit.position.y > minUpperY)
+                {
+                    endWorld = hit.position;
+                    foundUpper = true;
+                }
             }
         }
 
         if (!foundUpper)
         {
-            Debug.LogWarning($"[BuildingData] {gameObject.name}: no upper-floor NavMesh found for stair link.");
+            Debug.LogWarning($"[BuildingData] {gameObject.name}: no upper-floor NavMesh found for stair link end.");
             return;
         }
+
+        Debug.Log($"[BuildingData] {gameObject.name}: stair link start={startWorld} end={endWorld}");
 
         Vector3 startLocal = transform.InverseTransformPoint(startWorld);
         Vector3 endLocal   = transform.InverseTransformPoint(endWorld);
@@ -190,8 +246,10 @@ public class BuildingData : MonoBehaviour
             _stairLinkRat.endPoint   = endLocal;
             _stairLinkRat.UpdateLink();
         }
-    }
 
+            */
+    }
+    
     private static int GetAgentTypeID(string agentTypeName)
     {
         int count = NavMesh.GetSettingsCount();
@@ -207,7 +265,7 @@ public class BuildingData : MonoBehaviour
 
     private void OnDestroy()
     {
-        NavMeshManager.OnNavMeshReady -= UpdateStairLink;
+        NavMeshManager.OnNavMeshReady -= OnNavMeshReadyForStair;
     }
 
     private void ConfigureObstacle()

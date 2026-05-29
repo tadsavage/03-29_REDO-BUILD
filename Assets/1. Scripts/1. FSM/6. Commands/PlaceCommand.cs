@@ -43,7 +43,7 @@ public class PlaceCommand : ICommand
         foreach (var o in _offsets)
             _grid.UpdateStackPositions(_root + o);
 
-        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs)
         {
             NavMeshManager.Instance.MarkDirty();
         }
@@ -74,7 +74,7 @@ public class PlaceCommand : ICommand
         foreach (var o in _offsets)
             _grid.UpdateStackPositions(_root + o);
 
-        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || revealedFloor)
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs || revealedFloor)
         {
             NavMeshManager.Instance.MarkDirty();
         }
@@ -99,7 +99,7 @@ public class PlaceCommand : ICommand
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
 
-        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs)
         {
             NavMeshManager.Instance.MarkDirty();
         }

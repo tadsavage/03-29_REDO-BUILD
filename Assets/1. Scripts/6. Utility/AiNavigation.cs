@@ -19,6 +19,7 @@ public class AiNavigation : MonoBehaviour
     private VehicleThrottleAudio throttleAudio;
     private AmbientMumble mumbleAudio;
     private bool hasHonkedThisArrival = false;
+    private bool _traversingLink = false;
 
     private void Awake()
     {
@@ -144,6 +145,15 @@ public class AiNavigation : MonoBehaviour
 
     private void Update()
     {
+        // ── Stair / off-mesh link traversal ─────────────────────────────────────
+        if (!_traversingLink && agent != null && agent.isOnOffMeshLink)
+        {
+            StartCoroutine(TraverseLink());
+            return;
+        }
+
+        if (_traversingLink) return;
+
         // ── Recovery: re-initialize if Start() gave up ──────────────────────────
         if (!initialized)
         {
@@ -200,6 +210,78 @@ public class AiNavigation : MonoBehaviour
             if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
                 GoToRandomWaypoint();
         }
+    }
+
+    // Local-space positions of the bottom and top of the stair walkway on the stairwell prefab
+    private static readonly Vector3 StairLocalBottom = new Vector3(0.63f, 0f,    0f);
+    private static readonly Vector3 StairLocalTop    = new Vector3(0.63f, 1.06f, 1.34f);
+
+    private IEnumerator TraverseLink()
+    {
+        _traversingLink = true;
+        agent.updatePosition = false;
+        agent.updateRotation = false;
+
+        // Find the stairwell this agent is crossing
+        BuildingData stair = FindNearestStair();
+
+        Vector3 worldBottom, worldTop;
+        if (stair != null)
+        {
+            worldBottom = stair.transform.TransformPoint(StairLocalBottom);
+            worldTop    = stair.transform.TransformPoint(StairLocalTop);
+        }
+        else
+        {
+            // Fallback: use the raw link endpoints
+            OffMeshLinkData fallback = agent.currentOffMeshLinkData;
+            worldBottom = fallback.startPos;
+            worldTop    = fallback.endPos;
+        }
+
+        // Determine direction: whichever end is closer to the agent is the FROM end
+        bool goingUp = Vector3.Distance(agent.transform.position, worldBottom)
+                     < Vector3.Distance(agent.transform.position, worldTop);
+        Vector3 from = goingUp ? worldBottom : worldTop;
+        Vector3 to   = goingUp ? worldTop    : worldBottom;
+
+        // Rotate to face horizontal direction of travel
+        Vector3 dir = to - from;
+        dir.y = 0f;
+        if (dir.sqrMagnitude > 0.001f)
+            agent.transform.rotation = Quaternion.LookRotation(dir.normalized);
+
+        float dist     = Vector3.Distance(from, to);
+        float duration = dist / Mathf.Max(agent.speed, 0.1f);
+        float elapsed  = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            agent.transform.position = Vector3.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
+            yield return null;
+        }
+
+        agent.transform.position = to;
+        agent.CompleteOffMeshLink();
+        agent.updatePosition = true;
+        agent.updateRotation = true;
+        _traversingLink = false;
+    }
+
+    private BuildingData FindNearestStair()
+    {
+        var allBD = FindObjectsByType<BuildingData>(FindObjectsSortMode.None);
+        BuildingData nearest = null;
+        float nearestDist = 8f; // only consider stairs within 8 units
+
+        foreach (var bd in allBD)
+        {
+            if (bd.Data == null || !bd.Data.CanUseStairs) continue;
+            float d = Vector3.Distance(agent.transform.position, bd.transform.position);
+            if (d < nearestDist) { nearestDist = d; nearest = bd; }
+        }
+        return nearest;
     }
 
     public void GoToRandomWaypoint()
