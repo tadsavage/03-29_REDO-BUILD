@@ -21,17 +21,29 @@
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    align-items: stretch;
+    align-items: center;
     padding-left: 16px;
     padding-right: 16px;
-    overflow: visible;
+    overflow: visible; /* ALLOWS HOVER TOOLTIPS TO DISPLAY OUTSIDE THE BAR BOUNDS */
 }
 
-.buildmenu-category-row, .buildmenu-utility-row {
+.buildmenu-category-row {
     display: flex;
     flex-direction: row;
     align-items: center;
-    overflow: visible;
+    flex-grow: 0;
+    flex-shrink: 1;
+}
+
+.buildmenu-utility-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    flex-grow: 0;
+    flex-shrink: 0;
+    /* Explicitly prevent your utilities row from over-expanding */
+    max-width: 520px !important; 
 }
 
 /* PALIA THEME: Category buttons use a subtle dark container shade */
@@ -91,10 +103,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: rgba(90, 85, 110, 0.1);
+    background-color: #3E3B4F;
     border-radius: 6px;
     border-width: 1px;
-    border-color: rgba(236, 201, 138, 0.15);
+    border-color: rgba(236, 201, 138, 0.4);
     padding: 4px;
     margin: 4px;
     opacity: 1;
@@ -178,8 +190,8 @@
 
 /* PALIA THEME: Item cards highlight cleanly on hover with gold borders */
 .buildmenu-item-button:hover {
-    background-color: rgba(236, 201, 138, 0.12); /* Subtle gold tint inside */
-    border-color: #ECC98A; /* Glow border lines */
+    background-color: rgba(236, 201, 138, 0.12);
+    border-color: #ECC98A;
     opacity: 1;
 }
 
@@ -223,7 +235,6 @@
    PIXEL-PERFECT SCROLLBAR GAP OVERRIDES
    ========================================== */
 
-/* Anchor the main scroller tracking zone cleanly inside the border */
 .buildmenu-submenu-scroll .unity-scroller {
     width: 14px;
     background-color: transparent;
@@ -232,7 +243,6 @@
     margin-right: 6px;   
 }
 
-/* The vertical background track */
 .buildmenu-submenu-scroll .unity-scroller__slider {
     background-color: #3E3B4F; 
     border-radius: 4px; 
@@ -240,19 +250,16 @@
     border-width: 0;
 }
 
-/* The draggable handle bar */
 .buildmenu-submenu-scroll .unity-scroller__thumb {
     background-color: #ECC98A; 
     border-radius: 4px;
     border-width: 0;
 }
 
-/* Hover thumb state mapping */
 .buildmenu-submenu-scroll .unity-scroller__thumb:hover {
     background-color: #F5EEDB; 
 }
 
-/* Clean up default button layouts */
 .buildmenu-submenu-scroll .unity-scroller__low-button, 
 .buildmenu-submenu-scroll .unity-scroller__high-button {
     display: none;
@@ -263,55 +270,65 @@
     padding: 0;
 }
 
-/* THE SELECTION DISPLAY BOX (Matches Category Button Background & Outline Exactly) */
+/* THE SELECTION DISPLAY BOX CONTAINER */
 .buildmenu-stationed-popup {
     flex-grow: 1;
     max-width: 400px;
-    height: 100px;
+    height: auto !important;     
+    min-height: 104px !important; 
     margin: 8px 16px;
-    padding: 12px;
-    background-color: rgba(90, 85, 110, 0.15); /* Exact Category Button Base Color */
+    padding: 6px 12px !important; 
+    background-color: rgba(90, 85, 110, 0.15);
     border-width: 1px;
-    border-color: rgba(236, 201, 138, 0.2); /* Exact Category Button Outline Color */
-    border-radius: 4px; /* Matches Category Button Rounding */
+    border-color: rgba(236, 201, 138, 0.2);
+    border-radius: 4px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: center; /* Centers all content inside the box horizontally */
-}
-
-/* THE ITEM TITLE TEXT (Centered) */
-.world-hover-title {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 26px;
-    color: #FFFFFF;
-    margin-bottom: 6px;
-    -unity-text-align: middle-center;
-}
-
-/* THE LOWER ROW HOLDING PRICES */
-.world-hover-metrics-box {
-    display: flex;
-    flex-direction: row;
-    justify-content: center; /* Pushes cost and hourly labels close to the center axis */
     align-items: center;
-    width: 100%;
 }
 
-/* THE COST STAT BLOCK */
-.world-hover-cost {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
-    font-size: 18px;
-    color: rgb(160, 255, 200);
-    margin-right: 16px; /* Adds clean separation spacing from the hourly cost text */
-    -unity-text-align: middle-center;
+
+/* THE ITEM TITLE TEXT (Added explicit target handling for #HoverTitle) */
+.world-hover-title, #HoverTitle, .buildmenu-stationed-popup #HoverTitle {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold") !important;
+    font-size: 22px !important; /* Forces text up to large display metric */
+    height: auto !important;       
+    max-height: none !important;   
+    color: #FFFFFF !important;
+    margin-top: 0 !important;
+    margin-bottom: 2px !important;
+    -unity-text-align: middle-center !important;
 }
 
-/* THE MAINTENANCE COST STAT BLOCK */
-.world-hover-hourlyCost {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
-    font-size: 18px;
-    color: rgb(240, 230, 211);
-    -unity-text-align: middle-center;
+/* FORCE THE LOWER ROW LABELS TO MATCH THE COST FORMAT EXACTLY */
+.buildmenu-stationed-popup Label, #HoverCost, #HoverHourlyCost {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium") !important;
+    font-size: 12px !important;
+    height: auto !important;       
+    max-height: none !important;
+    color: #ECC98A !important;
+    margin-top: 1px !important;
+    margin-bottom: 1px !important;
+    -unity-text-align: middle-center !important;
 }
 
+/* EXCLUDE THE TITLE REGARDLESS OF SELECTOR TYPE SO IT ALWAYS REMAINS WHITE */
+.buildmenu-stationed-popup #HoverTitle, .buildmenu-stationed-popup .world-hover-title {
+    color: #FFFFFF !important;
+}
+/* ==========================================
+   DYNAMIC CUSTOM WALL ICON STYLE OVERRIDES
+   ========================================== */
+
+.wall-lower-icon {
+    width: 90px !important;
+    height: 90px !important;
+    align-self: center;
+}
+
+.wall-raise-icon {
+    width: 90px !important;
+    height: 90px !important;
+    align-self: center;
+}

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
   m_Name: grd_Grass1
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  id: 23
+  id: 24
   objName: Grass1
   cost: 50
   hourlyCost: 1
@@ -20,12 +20,12 @@ MonoBehaviour:
   prefab: {fileID: 7049629352825235430, guid: 7fac0a6aec7f9274faf2c98185e32a17, type: 3}
   icon: {fileID: 2800000, guid: 65ac4ff8420a0b640b387119f9f02487, type: 3}
   ignorePlacementRules: 0
-  isFloor: 1
+  isFloor: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 0
   isStackable: 0
-  objHeight: 0.25
+  objHeight: 1.06
   footprint: {x: 2, y: 2}
   customShapeOffsets:
   - {x: 0, y: 0}

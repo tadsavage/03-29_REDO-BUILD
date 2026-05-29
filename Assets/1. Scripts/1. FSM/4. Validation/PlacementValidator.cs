@@ -62,6 +62,12 @@ public class PlacementValidator : MonoBehaviour
         return IsSingleCellValid(cell, data, ignore);
     }
 
+    private bool IsGround(ObjDataSO data)
+    {
+        if (data == null) return false;
+        return data.category == "Foundation" || data.category == "Grounds";
+    }
+
     // =========================================================
     //  INTERNAL: VALIDATE ONE CELL ONLY
     // =========================================================
@@ -77,23 +83,38 @@ public class PlacementValidator : MonoBehaviour
         if (list == null || list.Count == 0)
             return true;
 
-        float existingHeight = _grid.GetStackHeight(cell, ignore);
+        bool isPlacingGround = IsGround(data);
 
         foreach (var entry in list)
         {
             if (entry.instance == ignore)
                 continue;
 
-            // Floors never block anything
-            if (entry.data.isFloor)
+            bool entryIsGround = IsGround(entry.data);
+
+            // 1. Placing Ground: Cannot place on top of anything that isn't Ground.
+            // Replacing existing ground is allowed.
+            if (isPlacingGround)
+            {
+                if (!entryIsGround) return false;
+                continue; // Allowed to replace ground
+            }
+
+            // 2. Placing something else:
+            // Allowed to overlap with Ground or Floor.
+            if (entryIsGround || entry.data.isFloor)
+                continue;
+
+            // SPECIAL CASE: Floors are allowed to overlap with anything (they shuffle to the bottom)
+            if (data.isFloor)
                 continue;
 
             // Objects that ignore rules or clear grid never block anything
-            if (entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement)
+if (entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement)
                 continue;
 
             // --- OVERLAP CHECK ---
-            // If there is any non-floor object here, and we aren't stacking, then we are overlapping.
+            // If there is any non-floor/non-ground object here, and we aren't stacking, then we are overlapping.
             if (!data.isStackable)
                 return false;
 

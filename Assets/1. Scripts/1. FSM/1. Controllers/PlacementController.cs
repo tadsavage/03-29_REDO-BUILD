@@ -3,35 +3,27 @@ using UnityEngine;
 public class PlacementController : MonoBehaviour
 {
     [SerializeField] private PlacementStateMachine _fsm;
+    [SerializeField] private GameContext _gameContext;
     [SerializeField] private BuildMenuUI _buildMenuUI;
-
-    private PlacementActions _actions;
 
     private void Awake()
     {
-        _actions = new PlacementActions();
-        
-        if (_buildMenuUI != null)
-        {
-            _buildMenuUI.OnBuildItemClicked += HandleBuildButtonClicked;
-            _buildMenuUI.OnDeleteClicked += HandleDeleteClicked;
-            _buildMenuUI.OnMoveClicked += HandleMoveClicked;
-            _buildMenuUI.OnUndoClicked += HandleUndoClicked;
-            _buildMenuUI.OnRedoClicked += HandleRedoClicked;
-        }
+        // UI → FSM transitions
+        _buildMenuUI.OnBuildItemClicked += HandleBuildItemClicked;
+        _buildMenuUI.OnDeleteClicked += HandleDeleteClicked;
+        _buildMenuUI.OnMoveClicked += HandleMoveClicked;
+        _buildMenuUI.OnUndoClicked += HandleUndoClicked;
+        _buildMenuUI.OnRedoClicked += HandleRedoClicked;
+
+        // Inject the real scene GameContext in Awake to ensure it's ready for FSM.Start()
+        _fsm.Initialize(_gameContext);
     }
 
-    private void OnEnable()
+    private void Start()
     {
-        _actions?.Enable();
     }
 
-    private void OnDisable()
-    {
-        _actions?.Disable();
-    }
-
-    private void HandleBuildButtonClicked(ObjDataSO data)
+    private void HandleBuildItemClicked(ObjDataSO data)
     {
         AudioManager.Play("ButtonClick");
         _fsm.EnterBuild(data);
@@ -39,24 +31,25 @@ public class PlacementController : MonoBehaviour
 
     private void HandleDeleteClicked()
     {
+        AudioManager.Play("ButtonClick");
         _fsm.EnterDelete();
     }
 
     private void HandleMoveClicked()
     {
+        AudioManager.Play("ButtonClick");
         _fsm.EnterMove();
     }
 
     private void HandleUndoClicked()
     {
+        AudioManager.Play("ButtonClick");
         _fsm.Undo();
     }
 
     private void HandleRedoClicked()
     {
+        AudioManager.Play("ButtonClick");
         _fsm.Redo();
     }
 }
-
-
-

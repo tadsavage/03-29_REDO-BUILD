@@ -4,8 +4,10 @@ public class IdleState : IPlacementState
 {
     public bool IsPlacementState => false;
 
-    RaycastController _raycast = Object.FindFirstObjectByType<RaycastController>();
+    private RaycastController _raycast;
     private TopBarUI _topBarUI;
+    
+    private RaycastController raycast => _raycast != null ? _raycast : _raycast = Object.FindAnyObjectByType<RaycastController>();
     private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
 
     public void OnEnter()
@@ -15,16 +17,19 @@ public class IdleState : IPlacementState
 
         topBarUI?.SetState(GetType().Name);
 
-        _raycast.EnableRay();
-        _raycast.ResetHitData();
+        raycast?.EnableRay();
+        raycast?.ResetHitData();
     }
 
     public void Tick()
     {
-        _raycast.Tick();
-        if (_raycast.HasHit)
+        var ray = raycast;
+        if (ray == null) return;
+
+        ray.Tick();
+        if (ray.HasHit)
         {
-            Vector2Int cell = _raycast.HitCell;
+            Vector2Int cell = ray.HitCell;
             topBarUI?.SetCell(cell.x, cell.y);
         }
     }

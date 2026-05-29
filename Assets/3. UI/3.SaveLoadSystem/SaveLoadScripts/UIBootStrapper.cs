@@ -12,6 +12,7 @@ public class UIBootstrapper : MonoBehaviour
     [SerializeField] private BuildMenuUI _buildMenuUI;
     [SerializeField] private TopBarUI _topBarUI;
     [SerializeField] private WorldHoverPopupUI _hoverUI;
+    [SerializeField] private SaveLoadSystem.SaveLoadWindowController _saveLoadController;
 
     [Header("Game Services")]
     [SerializeField] private GameContext _context;
@@ -21,8 +22,22 @@ public class UIBootstrapper : MonoBehaviour
 
     private void Awake()
     {
+        // Delay initialization if splash screen is active
+        SplashScreenController splash = GetComponent<SplashScreenController>();
+        if (splash != null && splash.ShouldPlaySplash)
+        {
+            if (_fsm != null) _fsm.enabled = false;
+            return;
+        }
+
+        InitializeAll();
+    }
+
+    public void InitializeAll()
+    {
         InitializeHUD();
         InitializeBuildMenu();
+        if (_fsm != null) _fsm.enabled = true;
     }
 
     private void InitializeHUD()
@@ -51,7 +66,7 @@ public class UIBootstrapper : MonoBehaviour
         if (_costUI != null) _costUI.Init(_hudDocument);
 
         // Top bar UI
-        if (_topBarUI != null) _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService);
+        if (_topBarUI != null) _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService, _saveLoadController);
     }
 
     private void InitializeBuildMenu()

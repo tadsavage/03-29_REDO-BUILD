@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:appui="Unity.AppUI.UI">
+    <appui:Panel name="main-panel" style="flex-grow: 1; padding: 20px; justify-content: center; align-items: center;">
+        <appui:Heading text="App UI Basic Screen" size="L" />
+        <appui:Text text="Welcome to your first App UI screen setup!" size="M" style="margin-top: 10px; margin-bottom: 20px;" />
+        
+        <appui:ActionGroup justified="true">
+            <appui:ActionButton label="Click Me" name="exampleButton" />
+            <appui:ActionButton label="Settings" name="settingsButton" variant="Secondary" />
+        </appui:ActionGroup>
+        
+        <appui:InputLabel label="Username" style="margin-top: 20px;">
+            <appui:TextField name="usernameInput" placeholder="Enter your name" />
+        </appui:InputLabel>
+    </appui:Panel>
+</ui:UXML>

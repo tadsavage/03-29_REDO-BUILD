@@ -10,9 +10,16 @@ public class AudioManager : MonoBehaviour
 
     [Header("Music Settings")]
     [SerializeField] private List<AudioClip> musicPlaylist = new List<AudioClip>();
-    [SerializeField] private float fadeDuration = 2.0f;
-    [SerializeField] private float musicVolume = 0.5f;
+    [SerializeField] private float fadeDuration = 5.0f;
+    [SerializeField, Range(0f, 1f)] private float musicVolume = 0.5f;
+    [SerializeField, Range(0f, 1f)] private float sfxVolume = 1.0f;
     [SerializeField] private bool shuffle = true;
+
+    [Header("Music Trigger Settings")]
+    [SerializeField, Tooltip("Time between checks in minutes")] 
+    private float freqCheckIntervalTime = 5f;
+    [SerializeField, Range(0, 100)] 
+    private float likelihoodOfSongPlaying = 50f;
 
     private Dictionary<string, SoundDefinition.SoundEntry> soundMap;
     private AudioSource sfxSource;
@@ -20,6 +27,7 @@ public class AudioManager : MonoBehaviour
     
     private List<AudioClip> playOrder = new List<AudioClip>();
     private int currentTrackIndex = -1;
+    private bool isMusicPlaying = false;
 
     private void Awake()
     {
@@ -52,7 +60,7 @@ public class AudioManager : MonoBehaviour
     {
         if (musicPlaylist.Count > 0)
         {
-            StartCoroutine(MusicLoop());
+            StartCoroutine(MusicFrequencyCheck());
         }
     }
 
@@ -71,72 +79,97 @@ public class AudioManager : MonoBehaviour
         if (instance.soundMap.TryGetValue(soundName, out var s))
         {
             instance.sfxSource.pitch = s.pitch;
-            instance.sfxSource.PlayOneShot(s.clip, s.volume);
+            instance.sfxSource.PlayOneShot(s.clip, s.volume * instance.sfxVolume);
         }
-        else
+else
         {
             Debug.LogWarning($"AudioManager: Sound '{soundName}' not found.");
         }
     }
 
-    private IEnumerator MusicLoop()
+    private IEnumerator MusicFrequencyCheck()
     {
         while (true)
         {
-            if (musicPlaylist.Count == 0) yield return new WaitForSeconds(1f);
-
-            // Prepare play order if empty or finished
-            if (playOrder.Count == 0 || currentTrackIndex >= playOrder.Count - 1)
+            // If music is already playing, wait until it finishes
+            if (isMusicPlaying)
             {
-                playOrder = new List<AudioClip>(musicPlaylist);
-                if (shuffle)
-                {
-                    for (int i = 0; i < playOrder.Count; i++)
-                    {
-                        AudioClip temp = playOrder[i];
-                        int randomIndex = Random.Range(i, playOrder.Count);
-                        playOrder[i] = playOrder[randomIndex];
-                        playOrder[randomIndex] = temp;
-                    }
-                }
-                currentTrackIndex = -1;
+                yield return new WaitForSeconds(10f); // Check less frequently while playing
+                continue;
             }
 
-            currentTrackIndex++;
-            AudioClip clip = playOrder[currentTrackIndex];
-            
-            musicSource.clip = clip;
-            musicSource.Play();
+            // Wait for the interval
+            yield return new WaitForSeconds(freqCheckIntervalTime * 60f);
 
-            // Fade In
-            float timer = 0;
-            while (timer < fadeDuration)
+            // Roll for chance
+            if (Random.Range(0f, 100f) <= likelihoodOfSongPlaying)
             {
-                timer += Time.deltaTime;
-                musicSource.volume = Mathf.Lerp(0, musicVolume, timer / fadeDuration);
-                yield return null;
+                StartCoroutine(PlayNextTrack());
             }
-            musicSource.volume = musicVolume;
-
-            // Wait for track to near end
-            float waitTime = clip.length - (fadeDuration * 2);
-            if (waitTime > 0)
-            {
-                yield return new WaitForSeconds(waitTime);
-            }
-
-            // Fade Out
-            timer = 0;
-            while (timer < fadeDuration)
-            {
-                timer += Time.deltaTime;
-                musicSource.volume = Mathf.Lerp(musicVolume, 0, timer / fadeDuration);
-                yield return null;
-            }
-            musicSource.volume = 0;
-            musicSource.Stop();
-            
-            yield return new WaitForSeconds(0.5f); // Short gap between tracks
         }
+    }
+
+    private IEnumerator PlayNextTrack()
+    {
+        if (musicPlaylist.Count == 0) yield break;
+        isMusicPlaying = true;
+
+        // Prepare play order if empty or finished
+        if (playOrder.Count == 0 || currentTrackIndex >= playOrder.Count - 1)
+        {
+            playOrder = new List<AudioClip>(musicPlaylist);
+            if (shuffle)
+            {
+                for (int i = 0; i < playOrder.Count; i++)
+                {
+                    AudioClip temp = playOrder[i];
+                    int randomIndex = Random.Range(i, playOrder.Count);
+                    playOrder[i] = playOrder[randomIndex];
+                    playOrder[randomIndex] = temp;
+                }
+            }
+            currentTrackIndex = -1;
+        }
+
+        currentTrackIndex++;
+        AudioClip clip = playOrder[currentTrackIndex];
+        
+        musicSource.clip = clip;
+        musicSource.Play();
+
+        // Fade In
+        float timer = 0;
+        while (timer < fadeDuration)
+        {
+            timer += Time.deltaTime;
+            musicSource.volume = Mathf.Lerp(0, 1f, timer / fadeDuration) * musicVolume;
+            yield return null;
+        }
+
+        // Main Playback Loop (keeps volume in sync)
+        float waitTime = clip.length - (fadeDuration * 2);
+        if (waitTime > 0)
+        {
+            float elapsed = 0;
+            while (elapsed < waitTime)
+            {
+                elapsed += Time.deltaTime;
+                musicSource.volume = musicVolume;
+                yield return null;
+            }
+        }
+
+        // Fade Out
+        timer = 0;
+        while (timer < fadeDuration)
+        {
+            timer += Time.deltaTime;
+            musicSource.volume = Mathf.Lerp(1f, 0f, timer / fadeDuration) * musicVolume;
+            yield return null;
+        }
+musicSource.volume = 0;
+        musicSource.Stop();
+        
+        isMusicPlaying = false;
     }
 }

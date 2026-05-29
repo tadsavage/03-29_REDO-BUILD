@@ -33,6 +33,9 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("NavMesh Area index to assign to this object (if pathfindingClear is true). 0 = Walkable, 3 = MHE Lanes, 4 = Pedestrian Lanes.")]
     public int navArea = 0;
 
+    [Tooltip("If true, this object is a stairwell. A NavMeshLink is added for Human (Pedestrian) agents only — forklifts cannot use it.")]
+    public bool CanUseStairs = false;
+
     [Header("Stacking")]
     [Tooltip("If true, this object can be stacked on top of others and contribute vertical height.")]
     public bool isStackable = false;
@@ -131,7 +134,6 @@ public class ObjDataSO : ScriptableObject
 
         return result;
     }
-
     private float NormalizeRotation(float r)
     {
         r %= 360f;

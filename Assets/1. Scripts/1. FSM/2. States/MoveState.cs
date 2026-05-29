@@ -63,8 +63,10 @@ public class MoveState : IPlacementState
     private float _scrollCooldown = 0f;
     private const float ScrollThreshold = 0.01f;
 
+    private BuildingHighlighter _hoveredHighlighter;
+
     public bool IsPlacementState => true;
-    public string ObjectName => _obj != null ? _obj.name : "None";
+public string ObjectName => _obj != null ? _obj.name : "None";
 
     // ---------------------------------------------------------
     // CONSTRUCTOR
@@ -105,22 +107,25 @@ public class MoveState : IPlacementState
 
         _raycast.EnableRay();
         _preview.ResetMoveGhostState();
+        _preview.SetMovePreviewMode(true);
         _indicator.UseMoveMode();
 
         _hasSelection = false;
         _lastHoverCell = new Vector2Int(int.MinValue, int.MinValue);
 
-        Object.FindAnyObjectByType<TopBarUI>().SetState(GetType().Name);
+        topBarUI?.SetState(GetType().Name);
     }
 
     public void OnExit()
     {
         _raycast.DisableRay();
         _preview.ResetMoveGhostState();
+        _preview.SetMovePreviewMode(false);
         _indicator.ClearAll();
+        ClearHoverHighlight();
 
         if (_obj != null)
-        {
+{
             _preview.ClearFlatHighlight(_obj);
             
             // If we still have a selection, it means the move wasn't confirmed.
@@ -154,32 +159,28 @@ public class MoveState : IPlacementState
     {
         _raycast.Tick();
 
-        // Must click something
-        if (_raycast.HitObject == null)
+        // Must hit an object and not be over UI
+        if (_raycast.HitObject == null || _raycast.IsPointerOverUI)
             return;
 
         if (!Mouse.current.leftButton.wasPressedThisFrame)
             return;
 
-        // Determine which cell was clicked
-        Vector2Int clickedCell = _raycast.HitCell;
+        // Try to get BuildingData directly from the hit object (mesh)
+        var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
 
-        // Ask grid for the TRUE top object in that cell
-        GameObject trueTop = _grid.GetTopObject(clickedCell);
+        // Fallback to the top object in the hit cell (grid data)
+        if (bd == null)
+        {
+            GameObject trueTop = _grid.GetTopObject(_raycast.HitCell);
+            if (trueTop != null) bd = trueTop.GetComponent<BuildingData>();
+        }
 
-        // If nothing is on this cell, bail
-        if (trueTop == null)
+        // Validate we found a movable object
+        if (bd == null || bd.Data == null || bd.Data.ClearsGridAfterPlacement)
             return;
 
-        // Get BuildingData from the TRUE top object
-        var bd = trueTop.GetComponent<BuildingData>();
-        if (bd == null || bd.Data == null)
-            return;
-        if (bd == null || bd.Data == null)
-            return;
-        // Cannot move animated-type navmesh objects
-        if (bd.Data.ClearsGridAfterPlacement)
-            return;
+        ClearHoverHighlight();
 
         // Capture object data
         _obj = bd.gameObject;
@@ -192,30 +193,31 @@ public class MoveState : IPlacementState
         _originalRotation = _rotation;
 
         // -----------------------------------------------------
-        // OFFSET‑AWARE SELECTION
+        // OFFSET-AWARE SELECTION
         // -----------------------------------------------------
         _clickedCell = _raycast.HitCell;
         _originAtSelect = _originalRoot;
         _selectionDelta = _clickedCell - _originAtSelect;
-        // If clicked origin → (0,0)
-        // If clicked offset → e.g. (-1,0)
+
+        Vector3 lastWorldPos = _obj.transform.position;
+
+        // REMOVE from grid FIRST so SnapTo calculates the correct baseline height 
+        // (now that the slot it was occupying is 'empty')
+        foreach (var o in _offsets)
+        {
+            Vector2Int cell = _originalRoot + o;
+            _grid.RemoveStackObject(cell, _obj, _data);
+        }
 
         // Highlight + show ghost
         _preview.ApplyFlatHighlight(_obj, MoveHighlightBlue);
         _preview.Show(_data);
         _preview.Rotate(_rotation); // IMPORTANT: match selected object's rotation
 
-        // Position ghost at original root
-        Vector3 startPos = _grid.GetCellCenter(_originalRoot);
-        _preview.MoveTo(startPos, _originalRoot, _data);
+        // Snap ghost to the object's last position.
+        // It will then smooth-lift to the offset in the next frame.
+        _preview.SnapTo(lastWorldPos, _originalRoot, _data);
         _lastHoverCell = _originalRoot;
-
-        // Remove object from grid while moving
-        foreach (var o in _offsets)
-        {
-            Vector2Int cell = _originalRoot + o;
-            _grid.RemoveStackObject(cell, _obj, _data);
-        }
 
         _obj.SetActive(false);
         _hasSelection = true;
@@ -230,6 +232,7 @@ public class MoveState : IPlacementState
 
         if (_raycast.IsPointerOverUI)
         {
+            ClearHoverHighlight();
             if (!_hasSelection)
             {
                 _indicator.ClearAll();
@@ -256,6 +259,7 @@ public class MoveState : IPlacementState
 
         if (!_hasSelection)
         {
+            UpdateHoverHighlight();
             TrySelectObject();
             return;
         }
@@ -344,7 +348,8 @@ Vector2Int newRoot = hitCell - _selectionDelta;
                 _originalOffsets,
                 _offsets,
                 _originalRotation,
-                _rotation
+                _rotation,
+                _money
             )
         );
 
@@ -386,4 +391,56 @@ Vector2Int newRoot = hitCell - _selectionDelta;
         if (_data != null)
             _offsets = _data.GetFootprintOffsets(-_rotation);
     }
+
+    private void UpdateHoverHighlight()
+    {
+        if (_hasSelection) return;
+
+        BuildingHighlighter newHighlighter = null;
+        bool isValid = true;
+
+        if (_raycast.HitObject != null && !_raycast.IsPointerOverUI)
+        {
+            // Try to get BuildingData directly from the hit mesh
+            var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
+
+            // Fallback to top object in cell
+            if (bd == null)
+            {
+                GameObject topObj = _grid.GetTopObject(_raycast.HitCell);
+                if (topObj != null) bd = topObj.GetComponent<BuildingData>();
+            }
+
+            if (bd != null && bd.Data != null && !bd.Data.ClearsGridAfterPlacement)
+            {
+                newHighlighter = bd.GetComponent<BuildingHighlighter>();
+                
+                // Check if the object is currently in a valid position
+                isValid = _validator.IsValidPlacement(bd.RootCell, bd.Offsets, bd.Data, bd.gameObject);
+            }
+        }
+
+        if (newHighlighter != _hoveredHighlighter)
+        {
+            ClearHoverHighlight();
+            _hoveredHighlighter = newHighlighter;
+            if (_hoveredHighlighter != null)
+            {
+                if (isValid)
+                    _hoveredHighlighter.HighlightValid(true);
+                else
+                    _hoveredHighlighter.HighlightInvalid(true);
+            }
+        }
     }
+
+    private void ClearHoverHighlight()
+    {
+        if (_hoveredHighlighter != null)
+        {
+            _hoveredHighlighter.HighlightValid(false);
+            _hoveredHighlighter.HighlightInvalid(false);
+            _hoveredHighlighter = null;
+        }
+    }
+}

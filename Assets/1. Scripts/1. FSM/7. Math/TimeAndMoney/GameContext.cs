@@ -1,18 +1,9 @@
-using UnityEditor;
 using UnityEngine;
 
+[DefaultExecutionOrder(-100)]
 public class GameContext : MonoBehaviour
 {
-    //public TopRightUI_TimeMoney topRightUI; DONT NEED RIGHT NOW, JUST TESTING
-
-    private void Start()
-    {
-        //topRightUI.Initialize(MoneyService, TimeService);
-        var placement = FindAnyObjectByType<PlacementSystem>();
-        placement.LoadGame();
-    }
     public MoneyService MoneyService { get; private set; }
-
     public SimulationTimeService TimeService { get; private set; }
 
     [SerializeField] private TimeDriver timeDriver;
@@ -41,4 +32,21 @@ public class GameContext : MonoBehaviour
         TimeService.OnDayChanged += () => MoneyService.ResetDailySpending();
     }
 
+    private void Start()
+    {
+        var placement = FindAnyObjectByType<PlacementSystem>();
+        placement.LoadGame();
+
+        // Sync the grid with any objects already in the scene (e.g. manually placed in Editor)
+        var grid = FindAnyObjectByType<PlacementGrid>();
+        if (grid != null)
+            grid.RebuildFromRegistry();
+
+        // NOW bake the NavMesh — all placed objects (obstacles, floors, walls) are live.
+        // NavMeshManager will fire OnNavMeshReady when done, which unblocks all AiNavigation agents.
+        if (NavMeshManager.Instance != null)
+            NavMeshManager.Instance.BakeSynchronous();
+        else
+            Debug.LogWarning("[GameContext] NavMeshManager not found — agents may not navigate.");
+    }
 }

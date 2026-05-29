@@ -50,6 +50,12 @@ public class PlacementStateMachine : MonoBehaviour
     public GameContext Context { get; private set; }
 
     [SerializeField] private PreviewCostUI _costUI;
+    
+    [Header("Destruction Settings")]
+    [SerializeField] private float destructionDuration = 1.0f;
+    [SerializeField] private float destructionSinkAmount = 1.5f;
+    [SerializeField] private float destructionVibrationAmount = 0.05f;
+    [SerializeField] private float destructionVibrationSpeed = 50.0f;
 
     public int DebugStackDepth => _stateStack.Count;
 
@@ -85,7 +91,22 @@ public class PlacementStateMachine : MonoBehaviour
         PlacementGrid grid = FindFirstObjectByType<PlacementGrid>();
         _buildMenuUI = FindFirstObjectByType<BuildMenuUI>();
 
-        _raycast.EnableRay();
+        if (_raycast != null) _raycast.EnableRay();
+
+        // ---------------------------------------------------------
+        // SAFETY: Fallback initialization if Context wasn't set yet
+        // ---------------------------------------------------------
+        if (Context == null)
+        {
+            var ctx = FindFirstObjectByType<GameContext>();
+            if (ctx != null) Initialize(ctx);
+        }
+
+        if (Context == null)
+        {
+            Debug.LogError("[PlacementStateMachine] FSM failed to find GameContext! Many states will fail.");
+            return;
+        }
 
         // Construct states
         _idleState = new IdleState();
@@ -111,7 +132,11 @@ public class PlacementStateMachine : MonoBehaviour
             this,
             _indicator,
             _actions,
-            Context.MoneyService);
+            Context.MoneyService,
+            destructionDuration,
+            destructionSinkAmount,
+            destructionVibrationAmount,
+            destructionVibrationSpeed);
 
         _moveState = new MoveState(
             _actions,
@@ -126,7 +151,7 @@ public class PlacementStateMachine : MonoBehaviour
 
         // Start in Idle
         _currentState = _idleState;
-        _currentState.OnEnter();
+        if (_currentState != null) _currentState.OnEnter();
     }
 
     // ---------------------------------------------------------
@@ -134,16 +159,6 @@ public class PlacementStateMachine : MonoBehaviour
     // ---------------------------------------------------------
     private void Update()
     {
-        // -----------------------------------------------------
-        // PREVENT LAST-FRAME POPUP FLASH
-        // -----------------------------------------------------
-        // If user clicks while in IdleState, hide popup BEFORE Idle Tick runs.
-        if (_currentState == _idleState && _hoverUI != null)
-        {
-            if (Mouse.current.leftButton.wasPressedThisFrame)
-                _hoverUI.HideImmediate();
-        }
-
         // -----------------------------------------------------
         // STATE TICK
         // -----------------------------------------------------
@@ -155,18 +170,47 @@ public class PlacementStateMachine : MonoBehaviour
         if (_currentState == _idleState)
         {
             if (_raycast != null && _hoverUI != null)
-                HandleIdleHover();
+            {
+                // We don't call raycast.Tick() again here because IdleState already did it.
+                HandleIdleHover(tickRaycast: false);
+
+                // If user clicks while in IdleState and not over UI, check for interactables like PalletBuilder
+                if (Mouse.current.leftButton.wasPressedThisFrame && !_raycast.IsPointerOverUI)
+                {
+                    if (_raycast.HitObject != null)
+                    {
+                        var pb = _raycast.HitObject.GetComponentInParent<PalletBuilder>();
+                        if (pb != null)
+                        {
+                            _hoverUI.HideImmediate();
+                            pb.ToggleUI();
+                        }
+                    }
+                }
+            }
         }
-        else
+        // Removed forced hide here as it conflicts with states that want to show hover info (like Delete/Move)
+
+
+        // -----------------------------------------------------
+        // UNDO / REDO (Global Shortcuts)
+        // -----------------------------------------------------
+        if (Keyboard.current.ctrlKey.isPressed)
         {
-            // All non-idle states force-hide popup
-            _hoverUI?.HideImmediate();
+            if (Keyboard.current.zKey.wasPressedThisFrame)
+            {
+                Undo();
+            }
+            else if (Keyboard.current.yKey.wasPressedThisFrame)
+            {
+                Redo();
+            }
         }
 
         // -----------------------------------------------------
         // UNIVERSAL CANCEL (ESC or RMB)
         // -----------------------------------------------------
-        if (_currentState != _idleState)
+if (_currentState != _idleState)
         {
             if (Keyboard.current.escapeKey.wasPressedThisFrame ||
                 Mouse.current.rightButton.wasPressedThisFrame)
@@ -179,14 +223,14 @@ public class PlacementStateMachine : MonoBehaviour
     /// <summary>
     /// Handles hover popup behavior ONLY in IdleState.
     /// </summary>
-    private void HandleIdleHover()
+    private void HandleIdleHover(bool tickRaycast = true)
     {
-        _raycast.Tick();
+        if (tickRaycast) _raycast.Tick();
 
-        if (_raycast.HasHit && _raycast.HitObject != null)
+        if (_raycast.HitObject != null)
         {
-            var bd = _raycast.HitObject.GetComponent<BuildingData>();
-            if (bd != null)
+            var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
+            if (bd != null && bd.Data != null)
             {
                 _hoverUI.TickHover(
                     true,

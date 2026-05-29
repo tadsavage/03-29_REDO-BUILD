@@ -5,23 +5,28 @@
     <Style src="project://database/Assets/3.%20UI/4.PopupUIs/WorldHoverPopup.uss?fileID=7433441132597879392&amp;guid=e7f4862e76357b3469d9ad92258f0600&amp;type=3#WorldHoverPopup"/>
     
     <ui:VisualElement name="Root" picking-mode="Ignore" class="hud-root">
-        <!-- TOP STATUS READOUT ROW -->
-        <ui:VisualElement name="TopBar" picking-mode="Ignore" class="topbar-root" style="background-color: rgba(0, 0, 0, 0.7);">
+        <ui:VisualElement name="TopBar" picking-mode="Position" class="topbar-root">
             <ui:VisualElement class="topbar-box"><ui:Label name="MoneyLabel" class="topbar-money"/></ui:VisualElement>
             <ui:VisualElement class="topbar-box"><ui:Label name="HourlyLabel" class="topbar-hourly"/></ui:VisualElement>
             <ui:VisualElement class="topbar-box"><ui:Label name="SpentLabel" class="topbar-spent"/></ui:VisualElement>
             <ui:VisualElement class="topbar-box"><ui:Label name="TimeLabel" class="topbar-time"/></ui:VisualElement>
-            <ui:VisualElement class="topbar-box"><ui:Label name="FPSLabel" text="FPS: 0" class="topbar-time"/></ui:VisualElement>
-            <ui:VisualElement class="topbar-box"><ui:Label name="StateLabel" text="State: Idle" class="topbar-time"/></ui:VisualElement>
-            <ui:VisualElement class="topbar-box"><ui:Label name="CellLabel" text="Cell: (0,0)" class="topbar-time"/></ui:VisualElement>
+            <ui:VisualElement class="topbar-box"><ui:Label name="FPSLabel" class="topbar-time"/></ui:VisualElement>
+            <ui:VisualElement class="topbar-box topbar-cell-box"><ui:Label name="CellLabel" class="topbar-time"/></ui:VisualElement>
+            
+            <!-- Cleaned System Button Wrapper Panel Box -->
+            <ui:VisualElement class="topbar-box topbar-button-container" picking-mode="Position">
+                <ui:Button name="SaveButton" class="topbar-utility-btn">
+                    <ui:VisualElement name="SaveIcon" class="topbar-utility-icon save-icon" picking-mode="Ignore"/>
+                    <ui:Label text="Save" name="SaveLbl" class="topbar-utility-lbl" picking-mode="Ignore"/>
+                </ui:Button>
+                <ui:Button name="LoadButton" class="topbar-utility-btn">
+                    <ui:VisualElement name="LoadIcon" class="topbar-utility-icon load-icon" picking-mode="Ignore"/>
+                    <ui:Label text="Load" name="LoadLbl" class="topbar-utility-lbl" picking-mode="Ignore"/>
+                </ui:Button>
+            </ui:VisualElement>
         </ui:VisualElement>
-
-        <!-- CRITICAL FIX: The old floating WorldHoverPopup block has been deleted from here -->
-
-        <!-- TOAST PANEL NOTIFICATIONS -->
-        <ui:Label name="ToastLabel" text="Toast" picking-mode="Ignore" class="toast-label" />
         
-        <!-- PREVIEW SELECTION COST -->
-        <ui:Label name="PreviewCostLabel" text="$1,250" picking-mode="Ignore" class="preview-cost-label" />
+        <ui:Label name="ToastLabel" text="Toast" picking-mode="Ignore" class="toast-label"/>
+        <ui:Label name="PreviewCostLabel" text="$1,250" picking-mode="Ignore" class="preview-cost-label"/>
     </ui:VisualElement>
 </ui:UXML>

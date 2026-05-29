@@ -1,75 +1,81 @@
-# Project Technical Documentation: Redo-Build Simulation
+This technical overview provides a comprehensive analysis of the Unity project, focusing on its architecture, gameplay systems, and data structures.
 
-## 1. Project Description
-This project is a high-fidelity warehouse management and construction simulation. It targets users interested in facility logistics, allowing them to design, build, and manage warehouse environments. The core pillars of the experience are precision grid-based placement, real-time economic management (capital and hourly operating costs), and a robust undo/redo system for design iteration.
+# 1. Project Description
+This project is a grid-based warehouse/industrial simulation and construction toolkit. It is designed for users to plan, build, and manage warehouse layouts. The core pillars of the experience are precision grid-based placement, financial management (capital and hourly costs), and persistent state management. Key features include a multi-state construction system (FSM), a robust undo/redo history, and a specialized stacking system for vertical storage simulation.
 
-## 2. Gameplay Flow / User Loop
-1.  **Boot & Initialization**: The game starts in the `Main` scene where `GameContext` initializes services (Money, Time) and `UIBootstrapper` connects the UI Toolkit documents to the game logic.
-2.  **Exploration**: The user navigates the environment using a `FreeLookCamera`, hovering over existing structures to see status popups (name, cost, hourly maintenance).
-3.  **Construction/Management**:
-    *   **Build Mode**: Users select assets (Racking, Barriers, MHE) from the `BuildMenuUI`. They place objects on a grid, with real-time cost previews.
-    *   **Modification**: Users can move existing objects or delete them to optimize the layout.
-    *   **Simulation**: Time progresses (`SimulationTimeService`), triggering hourly deductions from the `MoneyService` based on the facility's cumulative `hourlyCost`.
-4.  **Persistence**: Users save their progress via the `SaveSystem`, which captures object registries and financial states into JSON metadata and thumbnails.
+# 2. Gameplay Flow / User Loop
+1.  **Boot & Initialization**: The game starts in the `Main` scene. `UIBootStrapper` initializes the core services and UI components.
+2.  **Construction Loop**:
+    *   **Selection**: User selects an industrial object (Racking, MHE, Floors) from the `BuildMenuUI`.
+    *   **Preview & Validation**: A ghost object tracks the mouse on the grid. `PlacementValidator` checks for collisions and affordability.
+    *   **Execution**: User places objects individually or via "Drag Placement" for bulk construction.
+3.  **Management Loop**:
+    *   **Time Progression**: `SimulationTimeService` drives the in-game clock.
+    *   **Financial Impact**: Hourly costs are deducted from `CurrentCapital` every in-game hour.
+    *   **Modification**: User can move or delete existing structures, utilizing `MoveState` and `DeleteState`.
+4.  **Persistence**: User saves progress into slots, capturing both the grid state and a visual thumbnail via `SaveManager`.
 
-## 3. Architecture
-The project follows a decoupled, service-oriented architecture with a heavy emphasis on the Command and State patterns for the construction systems.
+# 3. Architecture
+The project follows a decoupled, service-oriented architecture with a Finite State Machine (FSM) governing the primary interaction mode.
+*   **GameContext**: Acting as a Service Locator, it holds references to `MoneyService` and `SimulationTimeService`, injecting them into the FSM.
+*   **Placement FSM**: The `PlacementStateMachine` manages transitions between `IdleState`, `BuildState`, `MoveState`, and `DeleteState`.
+*   **Command Pattern**: Every grid modification is encapsulated in a command (e.g., `PlaceCommand`, `MoveCommand`). This enables a robust Undo/Redo system managed by `CommandHistory`.
+*   **UI Binding**: The UI (managed via `UIBootStrapper`) communicates with the FSM and Services through events, ensuring the logic remains independent of the presentation.
 
-*   **Service Layer**: `GameContext` acts as the service locator/provider for `MoneyService` and `SimulationTimeService`.
-*   **State Machine**: `PlacementStateMachine` manages user interaction modes (Idle, Build, Move, Delete).
-*   **Command Pattern**: Every modification to the game world (Place, Move, Delete) is encapsulated in a class implementing `ICommand`, stored in `CommandHistory` for undo/redo functionality.
-*   **UI Binding**: `UIBootstrapper` links the UI Toolkit (UITK) documents to the underlying C# services, ensuring a clean separation between view and logic.
+`Location: Assets/1. Scripts/1. FSM`
 
-## 4. Game Systems & Domain Concepts
+# 4. Game Systems & Domain Concepts
 
-### Placement & Construction System
-A state-driven system for grid-based object manipulation.
-*   `PlacementStateMachine`: Manages transitions between build, move, delete, and idle states.
-*   `PlacementGrid`: Handles the underlying spatial data and object stacking.
-*   `PlacementValidator`: Checks for collisions or invalid placement rules before finalizing.
-*   `PreviewController`: Manages the visual "ghost" of objects before they are placed.
-*   `CommandHistory`: Stores `ICommand` objects for undo/redo.
-`Location: Assets/1. Scripts/1. FSM/`
+### Grid & Stacking System
+Manages the physical world representation. It uses a 2D array of lists to support multiple objects in a single cell (Stacking).
+*   `PlacementGrid`: Core data structure managing cell occupancy and height calculations.
+*   `PlacementMath`: Utility for coordinate conversion and footprint rotation.
+*   `BuildingData`: Component attached to prefabs storing their root cell, rotation, and current offsets.
+`Location: Assets/1. Scripts/1. FSM/7. Math`
 
-### Economics & Time System
-Handles the simulation's progression and financial constraints.
-*   `MoneyService`: Tracks capital, daily spending, and hourly maintenance costs.
-*   `SimulationTimeService`: Drives the in-game clock (Minute, Hour, Day) and triggers economic events.
-*   `TimeDriver`: Bridges Unity's `Update` loop to the `SimulationTimeService`.
-`Location: Assets/1. Scripts/1. FSM/7. Math/TimeAndMoney/`
+### Financial & Time Simulation
+Simulates the economic constraints of warehouse management.
+*   `MoneyService`: Tracks capital, hourly operational costs, and daily spending categories.
+*   `SimulationTimeService`: Drives the game clock and triggers hourly/daily financial events.
+*   `TimeDriver`: MonoBehavior that ticks the simulation services.
+`Location: Assets/1. Scripts/1. FSM/7. Math/TimeAndMoney`
 
-### Checklist & Task System
-A data-driven system for tracking project milestones.
-*   `ChecklistRoot`: Root container for sections, tasks, and subtasks.
-*   `ChecklistTaskManager`: (Editor) Manages the JSON-based task lists.
-`Location: Assets/1. Scripts/11. ChecklistSystem/`
+### Construction & Validation
+Handles the logic of placing objects according to warehouse rules.
+*   `PlacementValidator`: Evaluates if a footprint is valid based on stacking rules, ground requirements, and "bulldozer" clears.
+*   `PlacementFinalizer`: Handles the actual instantiation, NavMesh warping, and grid registration.
+*   `PreviewController`: Manages the "Ghost" objects and cell indicators during placement.
+`Location: Assets/1. Scripts/1. FSM/4. Validation` | `5. Finalization`
 
-## 5. Scene Overview
-*   **Main**: The primary simulation scene. Contains the `GameContext`, the grid-based environment, and the UI root.
-*   **_Recovery/**: Contains multiple backup scenes (`0.unity` through `0 (12).unity`) likely used for version recovery or iterative testing.
-*   **SampleScene**: Default Unity scene, likely unused in the final build.
+# 5. Scene Overview
+*   **Main Scene**: The primary workspace where all construction and simulation occur. It contains the `PlacementGrid`, `GameContext`, and UI hierarchies.
+*   **ExampleScene (GuidanceLine)**: A specialized scene for testing the Guidance Line utility.
+*   **Scene Flow**: The project is primarily single-scene focused. Transitions are handled via UI overlays (Save/Load/Splash) rather than scene loading, with the exception of the `SaveManager` which re-deserializes the grid state into the active scene.
 
-## 6. UI System
-The project uses **UI Toolkit (UITK)** for its interface.
-*   **UIBootstrapper**: The central injection point that finds `UIDocument` components and initializes UI controllers.
-*   **BuildMenuUI**: A dynamic menu populated from `ObjDataRegistry` allowing users to select items for placement.
-*   **TopBarUI**: Displays real-time money and time data, bound to their respective services.
-*   **WorldHoverPopupUI**: A world-space/screen-space hybrid that follows the mouse to show object metadata using `RaycastController` data.
-*   **PreviewCostUI**: Specifically shows the cost/refund impact of the current placement action.
-`Location: Assets/3. UI/`
+`Location: Assets/8. Scenes`
 
-## 7. Asset & Data Model
-*   **ScriptableObjects**:
-    *   `ObjDataSO`: Defines individual object properties (name, mesh, cost, hourly cost, grid footprint).
-    *   `ObjDataRegistry`: A collection of all placeable `ObjDataSO` items, used to populate build menus.
-    *   `SoundDefinition`: Maps audio clips to specific game events.
-*   **Persistence**:
-    *   `SaveData`: JSON structure containing the state of the `PlacedObjectRegistry`, money, and time.
-    *   `PlacedObject`: Stores the position, rotation, and data reference for every object in the grid.
-`Location: Assets/1. Scripts/3. ScriptableObjects/`
+# 6. UI System
+The project uses UGUI with a controller-based pattern for complex windows.
+*   `BuildMenuUI`: The primary interaction hub for selecting objects to build.
+*   `TopBarUI`: Displays current money, time, and active tool state.
+*   `WorldHoverPopupUI`: A world-to-screen UI that shows object details when hovering in `IdleState`.
+*   `SaveLoadWindowController`: Manages the save slot interface, thumbnails, and metadata display.
+*   `UIBootStrapper`: Orchestrates the initialization and dependency injection for all UI components.
 
-## 8. Notes, Caveats & Gotchas
-*   **Undo/Redo Lifecycle**: When adding a new placement command, ensure the `CommandHistory` is updated, or the financial state (`MoneyService`) will desync from the visual state.
-*   **UI Injection**: `UIBootstrapper` must have references to both the `UIDocument` and the `GameContext` services. If the UI doesn't update, check the `Awake` initialization order in `UIBootstrapper`.
-*   **Grid Footprint**: Objects with complex footprints (defined by `Vector2Int[] offsets` in `PlaceCommand`) must have their pivots correctly aligned in Blender to ensure `PlacementMath` calculates grid cells accurately.
-*   **Floor Disabling**: The `PlaceCommand` automatically disables floor tiles underneath large objects to prevent Z-fighting and improves performance. These are re-enabled during `Undo`.
+`Location: Assets/3. UI`
+
+# 7. Asset & Data Model
+*   **ObjDataSO**: ScriptableObject defining an object's cost, prefab, footprint shape, and special rules (e.g., `isFloor`, `isStackable`).
+*   **ObjDataRegistry**: A registry asset that maps IDs to `ObjDataSO` for serialization.
+*   **SaveData**: A JSON-based model that stores `PlacedObject` arrays (ID, Position, Rotation) and `MoneyService` states.
+*   **ChecklistData**: A data model for the internal development task tracker.
+*   **Organization**: Assets are strictly categorized by type (Prefabs, Scripts, Models) with a numerical prefix for core system scripts.
+
+`Location: Assets/1. Scripts/3. ScriptableObjects` | `Assets/_Saves`
+
+# 8. Notes, Caveats & Gotchas
+*   **Coordinate Convention**: The grid uses `Vector2Int` for logic, but the world uses Y-up. `PlacementGrid` handles the conversion. Always use `GetCellCenter()` to avoid z-fighting.
+*   **Ground vs. Floor**: "Ground" (Foundations) objects are always at Y=0. "Floors" sit on top of Grounds. Normal objects stack on top of both.
+*   **NavMesh Warping**: When moving or placing objects with `NavMeshAgent`, you must use `agent.Warp()` instead of `transform.position` to ensure the agent doesn't "snap" back to a previous valid position.
+*   **Undo/Redo Stability**: Commands must store sufficient state (like `disabledObjects` list) to restore the grid exactly, especially when using the "Bulldozer" (clear) feature.
+*   **ID Persistence**: Never change the `id` field in an `ObjDataSO` once it has been used in a save file, as the `SaveManager` relies on these IDs to reconstruct the scene.

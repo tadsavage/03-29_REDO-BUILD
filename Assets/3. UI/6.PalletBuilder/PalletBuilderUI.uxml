@@ -1,0 +1,52 @@
+<!--
+2026-05-25 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+-->
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="project://database/Assets/3.%20UI/6.PalletBuilder/PalletBuilderUI.uss" />
+    <ui:VisualElement name="Root" picking-mode="Position" class="pallet-builder-root">
+        <ui:VisualElement class="header-row">
+            <ui:Label text="Pallet Configuration" picking-mode="Ignore" class="header" />
+            <ui:Button name="CloseButton" text="✕" class="close-button" />
+        </ui:VisualElement>
+        
+        <ui:VisualElement picking-mode="Ignore" class="input-row">
+            <ui:Label text="Max Total Height" picking-mode="Ignore" class="input-label" />
+            <ui:TextField name="MaxHeightField" class="input-field" />
+        </ui:VisualElement>
+        
+        <ui:VisualElement picking-mode="Ignore" class="input-row">
+            <ui:Label text="Space Between" picking-mode="Ignore" class="input-label" />
+            <ui:TextField name="SpaceField" class="input-field" />
+        </ui:VisualElement>
+        
+        <ui:VisualElement picking-mode="Ignore" class="input-row">
+            <ui:Label text="Vertical Gap" picking-mode="Ignore" class="input-label" />
+            <ui:TextField name="GapField" class="input-field" />
+        </ui:VisualElement>
+        
+        <ui:VisualElement picking-mode="Ignore" class="input-row">
+            <ui:Label text="Crooked Amount" picking-mode="Ignore" class="input-label" />
+            <ui:TextField name="CrookedField" class="input-field" />
+        </ui:VisualElement>
+        
+        <ui:VisualElement picking-mode="Ignore" class="input-row">
+            <ui:Label text="Override Ti-Hi" picking-mode="Ignore" class="input-label" />
+            <ui:Toggle name="OverrideToggle" class="override-toggle" />
+        </ui:VisualElement>
+        
+        <ui:VisualElement picking-mode="Ignore" class="input-row">
+            <ui:Label text="Manual Ti (Cases)" picking-mode="Ignore" class="input-label" />
+            <ui:TextField name="ManualTiField" class="input-field" />
+        </ui:VisualElement>
+        
+        <ui:VisualElement picking-mode="Ignore" class="input-row">
+            <ui:Label text="Manual Hi (Layers)" picking-mode="Ignore" class="input-label" />
+            <ui:TextField name="ManualHiField" class="input-field" />
+        </ui:VisualElement>
+
+        <ui:DropdownField name="PrefabDropdown" label="Case Prefab" class="prefab-dropdown" />
+        
+        <ui:Button name="BuildButton" text="BUILD PALLET" class="build-button" />
+    </ui:VisualElement>
+</ui:UXML>

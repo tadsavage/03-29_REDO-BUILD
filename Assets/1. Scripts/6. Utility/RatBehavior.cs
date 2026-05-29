@@ -40,27 +40,48 @@ public class RatBehavior : MonoBehaviour
         agent.acceleration = acceleration;
         agent.updateRotation = false;
 
-        // ... existing start logic ...
-        yield return null;
-
-        if (!agent.isOnNavMesh)
-        {
-            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
-            {
-                if (Mathf.Abs(hit.position.y - transform.position.y) < 1.0f)
-                {
-                    agent.Warp(hit.position);
-                }
-            }
-        }
+        // Wait for the NavMesh to be ready
+        yield return StartCoroutine(WaitUntilOnNavMesh());
 
         StartCoroutine(BehaviorRoutine());
+    }
+
+    private IEnumerator WaitUntilOnNavMesh()
+    {
+        int retryCount = 0;
+        while (agent != null && !agent.isOnNavMesh && retryCount < 60) 
+        {
+            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5.0f, NavMesh.AllAreas))
+            {
+                // Only warp if we aren't already on the mesh (to avoid spam)
+                // and check if the agent is actually enabled
+                if (agent.isActiveAndEnabled && !agent.isOnNavMesh)
+                {
+                    if (Mathf.Abs(hit.position.y - transform.position.y) < 2.0f || retryCount > 10)
+                    {
+                        // Final safety check to avoid console spam if the mesh is still "pending"
+                        try { agent.Warp(hit.position); } catch { }
+                    }
+                }
+            }
+            
+            if (agent.isOnNavMesh) break;
+            
+            retryCount++;
+            yield return new WaitForSeconds(0.5f);
+        }
     }
 
     private IEnumerator BehaviorRoutine()
     {
         while (true)
         {
+            if (!agent.isOnNavMesh)
+            {
+                yield return StartCoroutine(WaitUntilOnNavMesh());
+                continue;
+            }
+
             if (isHiding)
             {
                 yield return new WaitForSeconds(0.5f);
@@ -97,12 +118,12 @@ public class RatBehavior : MonoBehaviour
     private IEnumerator GoToHidingSpot()
     {
         Transform spot = FindNearestHidingSpot();
-        if (spot != null)
+        if (spot != null && agent.isOnNavMesh)
         {
             agent.SetDestination(spot.position);
             yield return StartCoroutine(WaitForPath(0.1f));
             
-            if (!agent.pathPending && agent.remainingDistance < 0.5f)
+            if (agent.isOnNavMesh && !agent.pathPending && agent.remainingDistance < 0.5f)
             {
                 isHiding = true;
                 agent.isStopped = true;
@@ -153,34 +174,41 @@ public class RatBehavior : MonoBehaviour
         agent.enabled = true;
         yield return null; // Wait for agent to enable
         
-        agent.isStopped = false;
-        agent.speed = scurrySpeed * 1.5f; // Extra speed when panicking
+        yield return StartCoroutine(WaitUntilOnNavMesh());
 
-        float panicEndTime = Time.time + panicDuration;
-        
-        while (Time.time < panicEndTime)
+        if (agent.isOnNavMesh)
         {
-            Vector3 randomDirection = Random.insideUnitSphere * 12f;
-            randomDirection.y = 0;
-            Vector3 target = transform.position + randomDirection;
+            agent.isStopped = false;
+            agent.speed = scurrySpeed * 1.5f; // Extra speed when panicking
 
-            if (NavMesh.SamplePosition(target, out NavMeshHit hit, 3.0f, agent.areaMask))
+            float panicEndTime = Time.time + panicDuration;
+            
+            while (Time.time < panicEndTime && agent.isOnNavMesh)
             {
-                agent.SetDestination(hit.position);
-                
-                // Wait until we reach the point or panic duration ends
-                float pointTimeout = Time.time + 3.0f;
-                while (Time.time < pointTimeout && Time.time < panicEndTime)
+                Vector3 randomDirection = Random.insideUnitSphere * 12f;
+                randomDirection.y = 0;
+                Vector3 target = transform.position + randomDirection;
+
+                if (NavMesh.SamplePosition(target, out NavMeshHit hit, 3.0f, agent.areaMask))
                 {
-                    if (!agent.pathPending && agent.remainingDistance <= 0.5f)
-                        break;
-                    yield return null;
+                    agent.SetDestination(hit.position);
+                    
+                    // Wait until we reach the point or panic duration ends
+                    float pointTimeout = Time.time + 3.0f;
+                    while (Time.time < pointTimeout && Time.time < panicEndTime && agent.isOnNavMesh)
+                    {
+                        if (!agent.pathPending && agent.remainingDistance <= 0.5f)
+                            break;
+                        yield return null;
+                    }
                 }
+                yield return null;
             }
-            yield return null;
+
+            if (agent.isOnNavMesh)
+                agent.speed = scurrySpeed;
         }
 
-        agent.speed = scurrySpeed;
         isScurryingAway = false;
         StartCoroutine(BehaviorRoutine());
     }
@@ -216,13 +244,8 @@ public class RatBehavior : MonoBehaviour
             // If we are off-navmesh, wait until we find it again
             if (!agent.isOnNavMesh)
             {
-                if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
-                {
-                    if (Mathf.Abs(hit.position.y - transform.position.y) < 1.0f)
-                        agent.Warp(hit.position);
-                }
-                yield return new WaitForSeconds(0.5f);
-                continue;
+                yield return StartCoroutine(WaitUntilOnNavMesh());
+                if (!agent.isOnNavMesh) break;
             }
 
             // Standard arrival check
@@ -237,6 +260,8 @@ public class RatBehavior : MonoBehaviour
 
     private IEnumerator ScurryInCircles()
     {
+        if (!agent.isOnNavMesh) yield break;
+
         Vector3 center = transform.position;
         float radius = circleDiameter / 2f;
 
@@ -246,24 +271,21 @@ public class RatBehavior : MonoBehaviour
         {
             for (int i = 0; i < circlePoints; i++)
             {
+                if (!agent.isOnNavMesh) yield break;
+
                 float angle = i * Mathf.PI * 2 / circlePoints;
                 Vector3 target = center + new Vector3(Mathf.Cos(angle) * radius, 0, Mathf.Sin(angle) * radius);
 
-                if (agent.isOnNavMesh)
-                {
-                    agent.SetDestination(target);
-                    yield return StartCoroutine(WaitForPath(0.2f));
-                }
-                else
-                {
-                    yield return new WaitForSeconds(0.5f);
-                }
+                agent.SetDestination(target);
+                yield return StartCoroutine(WaitForPath(0.2f));
             }
         }
     }
 
     private IEnumerator ScurryOff()
     {
+        if (!agent.isOnNavMesh) yield break;
+
         // Find a random point within 10 meters
         Vector3 randomDirection = Random.insideUnitSphere * 10f;
         Vector3 target = transform.position + randomDirection;
@@ -276,23 +298,22 @@ public class RatBehavior : MonoBehaviour
                 agent.SetDestination(hit.position);
                 yield return StartCoroutine(WaitForPath(0.5f));
             }
-            else
-            {
-                yield return new WaitForSeconds(0.5f);
-            }
         }
         yield return new WaitForSeconds(Random.Range(.10f, .5f));
     }
 
     private IEnumerator SniffRoutine()
     {
-        agent.isStopped = true;
+        if (agent.isOnNavMesh)
+            agent.isStopped = true;
+
         animator.SetTrigger("Sniff");
 
         // Wait for the animation to play
         yield return new WaitForSeconds(4f);
 
-        agent.isStopped = false;
+        if (agent.isOnNavMesh)
+            agent.isStopped = false;
     }
 
     void Update()
@@ -305,33 +326,31 @@ public class RatBehavior : MonoBehaviour
             return;
         }
 
-        if (!agent.isActiveAndEnabled)
+        if (!agent.isActiveAndEnabled || !agent.isOnNavMesh)
         {
             animator.SetBool("IsWalking", false);
             return;
         }
 
         // Keep the animator in sync with movement
-        bool isMoving = agent.velocity.magnitude > 0.1f && !agent.isStopped;
+        float currentSpeed = agent.velocity.magnitude;
+        bool isMoving = currentSpeed > 0.1f && !agent.isStopped;
         animator.SetBool("IsWalking", isMoving);
 
         // Manually rotate to face movement direction with a 180-degree offset
-        if (isMoving && agent.velocity.sqrMagnitude > 0.01f)
+        if (isMoving && agent.velocity.sqrMagnitude > 0.05f)
         {
             Vector3 moveDirection = agent.velocity.normalized;
-
-            if (moveDirection != Vector3.zero)
-            {
-                Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
-                // Apply the 180-degree flip
-                Quaternion correctedRotation = targetRotation * Quaternion.Euler(0, 180, 0);
-                
-                transform.rotation = Quaternion.Slerp(
-                    transform.rotation, 
-                    correctedRotation, 
-                    Time.deltaTime * (angularSpeed / 10f)
-                );
-            }
+            Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
+            
+            // Apply the 180-degree flip (Model is backward)
+            Quaternion correctedRotation = targetRotation * Quaternion.Euler(0, 180, 0);
+            
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation, 
+                correctedRotation, 
+                angularSpeed * Time.deltaTime
+            );
         }
     }
 }

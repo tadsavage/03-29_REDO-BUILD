@@ -3,8 +3,9 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// Combined navigation script that handles agent configuration (costs/roles)
-/// and waypoint-based movement logic.
+/// Handles agent role configuration and waypoint-based movement.
+/// Startup is driven by NavMeshManager.OnNavMeshReady instead of blind polling,
+/// so all agents begin moving the moment the bake finishes.
 /// </summary>
 public class AiNavigation : MonoBehaviour
 {
@@ -15,21 +16,25 @@ public class AiNavigation : MonoBehaviour
     private NavMeshAgent agent;
     private int currentIndex = 0;
     private bool initialized = false;
+    private VehicleThrottleAudio throttleAudio;
+    private AmbientMumble mumbleAudio;
+    private bool hasHonkedThisArrival = false;
+    private bool _traversingLink = false;
+    private AgentAnimation _agentAnimation;
 
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
+        throttleAudio = GetComponent<VehicleThrottleAudio>();
+        mumbleAudio = GetComponent<AmbientMumble>();
+        _agentAnimation = GetComponent<AgentAnimation>();
         SetupAgentType();
     }
 
     private void SetupAgentType()
     {
         if (agent == null) return;
-
-        // Map AgentRole to the NavMesh Agent Type Name
-        string targetTypeName = role == AgentRole.Worker ? "Humanoid" : "MHE";
-
-        // Find the Agent Type ID by name
+        string targetTypeName = role == AgentRole.Worker ? "Human" : "MHE";
         int count = NavMesh.GetSettingsCount();
         for (int i = 0; i < count; i++)
         {
@@ -46,7 +51,6 @@ public class AiNavigation : MonoBehaviour
     {
         Waypoint[] found = Object.FindObjectsByType<Waypoint>(FindObjectsSortMode.None);
         waypoints = new Transform[found.Length];
-
         for (int i = 0; i < found.Length; i++)
             waypoints[i] = found[i].transform;
     }
@@ -55,96 +59,84 @@ public class AiNavigation : MonoBehaviour
     {
         if (agent == null) yield break;
 
-        // 1. Wait for NavMesh connectivity and initialization
-        // This is critical when loading from a save, as the NavMesh is baked AFTER spawning.
-        int retryCount = 0;
-        while (!agent.isOnNavMesh && retryCount < 30)
+        // ── Wait for NavMesh ────────────────────────────────────────────────────
+        // Subscribe to NavMeshManager's ready event instead of polling every 0.5s.
+        // This means ALL agents snap to the mesh and start moving at the same frame.
+        if (!NavMeshManager.IsReady)
         {
-            retryCount++;
-            
-            // Try to snap to NavMesh if not already on it
-            // We search in a small radius and favor the current height to avoid floor-snapping.
+            bool navReady = false;
+            System.Action onReady = () => navReady = true;
+            NavMeshManager.OnNavMeshReady += onReady;
+
+            float timeout = 20f; // hard safety cap
+            while (!navReady && timeout > 0f)
+            {
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            NavMeshManager.OnNavMeshReady -= onReady;
+
+            if (timeout <= 0f)
+                Debug.LogWarning($"[AiNavigation] {gameObject.name}: timed out waiting for NavMesh.");
+        }
+
+        // ── Snap to surface ─────────────────────────────────────────────────────
+        if (!agent.isOnNavMesh)
+        {
             if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
             {
-                // Only warp if truly necessary (off mesh) and the target is at a similar height,
-                // or if we've been off the mesh for a long time.
-                if (!agent.isOnNavMesh && (Mathf.Abs(hit.position.y - transform.position.y) < 2.0f || retryCount > 10))
-                {
-                    agent.Warp(hit.position);
-                }
+                try { agent.Warp(hit.position); } catch { }
             }
-            
-            yield return new WaitForSeconds(0.5f);
         }
 
         if (!agent.isOnNavMesh)
         {
-            // We don't yield break here, maybe it will find it later in Update retry
+            Debug.LogWarning($"[AiNavigation] {gameObject.name}: still not on NavMesh after bake. Update() recovery will retry.");
+            yield break;
         }
 
-        // 2. Apply Costs (Merged from NavAgentConfig)
+        // ── Apply lane costs ────────────────────────────────────────────────────
         ApplyAgentCosts();
 
-        // 3. Robust Waypoint Finding
-        // During load, waypoints might be instantiated after the agent.
-        retryCount = 0;
-        while ((waypoints == null || waypoints.Length == 0) && retryCount < 30)
+        // ── Find waypoints ──────────────────────────────────────────────────────
+        FindWaypoints();
+        if (waypoints == null || waypoints.Length == 0)
         {
+            yield return null; // give one frame for late-spawned waypoints
             FindWaypoints();
-            if (waypoints.Length == 0)
-            {
-                retryCount++;
-                yield return new WaitForSeconds(0.5f);
-            }
         }
 
         if (waypoints == null || waypoints.Length == 0)
         {
-            Debug.LogWarning($"[AiNavigation] {gameObject.name} could not find any waypoints after {retryCount} retries.");
+            Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints found.");
+            yield break;
         }
-        else
-        {
-            // 4. Start Movement
-            // Pick a random starting point
-            currentIndex = Random.Range(0, waypoints.Length);
-            
-            // Initial destination set
-            retryCount = 0;
-            while (!initialized && retryCount < 5)
-            {
-                if (agent.isActiveAndEnabled && agent.isOnNavMesh)
-                {
-                    if (agent.SetDestination(waypoints[currentIndex].position))
-                    {
-                        initialized = true;
-                        break;
-                    }
-                }
-                retryCount++;
-                yield return new WaitForSeconds(0.5f);
-            }
-        }
+
+        // ── Go ──────────────────────────────────────────────────────────────────
+        currentIndex = Random.Range(0, waypoints.Length);
+        if (agent.SetDestination(waypoints[currentIndex].position))
+            initialized = true;
     }
 
     private void ApplyAgentCosts()
     {
+        if (agent == null || !agent.isOnNavMesh) return;
+
         if (role == AgentRole.Worker)
         {
-            agent.SetAreaCost(0, 25.0f); // Expensive regular floor
-            agent.SetAreaCost(3, 80.0f); // Strongly avoid Forklift Lanes
-            agent.SetAreaCost(4, 1.0f);  // Strongly prefer Pedestrian Lanes
+            agent.SetAreaCost(0, 25.0f); // Walkable (generic) — expensive
+            agent.SetAreaCost(3, 80.0f); // MHE lane   — strongly avoid
+            agent.SetAreaCost(4, 1.0f);  // Ped lane   — strongly prefer
         }
         else if (role == AgentRole.Forklift)
         {
-            agent.SetAreaCost(0, 25.0f); // Expensive regular floor
-            agent.SetAreaCost(3, 1.0f);  // Strongly prefer MHE Lanes
-            agent.SetAreaCost(4, 80.0f); // Strongly avoid Pedestrian Lanes
-            
-            // Forklifts need a bit more room to breathe
-            agent.stoppingDistance = 1.0f; 
+            agent.SetAreaCost(0, 25.0f); // Walkable (generic) — expensive
+            agent.SetAreaCost(3, 1.0f);  // MHE lane   — strongly prefer
+            agent.SetAreaCost(4, 80.0f); // Ped lane   — strongly avoid
+            agent.stoppingDistance = 1.0f;
         }
 
-        // Force recalculation
         if (agent.hasPath)
         {
             Vector3 target = agent.destination;
@@ -155,37 +147,41 @@ public class AiNavigation : MonoBehaviour
 
     private void Update()
     {
-        // Safety: if we failed to initialize, try again occasionally
+        // ── Stair / off-mesh link traversal ─────────────────────────────────────
+        if (!_traversingLink && agent != null && agent.isOnOffMeshLink)
+        {
+            StartCoroutine(TraverseLink());
+            return;
+        }
+
+        if (_traversingLink) return;
+
+        // ── Recovery: re-initialize if Start() gave up ──────────────────────────
         if (!initialized)
         {
-            if (Time.frameCount % 60 == 0)
+            if (Time.frameCount % 60 == 0 && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
             {
-                if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                if (waypoints == null || waypoints.Length == 0) FindWaypoints();
+                if (waypoints != null && waypoints.Length > 0)
                 {
-                    if (waypoints != null && waypoints.Length > 0)
-                    {
-                        if (agent.SetDestination(waypoints[currentIndex].position))
-                        {
-                            initialized = true;
-                        }
-                    }
+                    ApplyAgentCosts();
+                    if (agent.SetDestination(waypoints[currentIndex].position))
+                        initialized = true;
                 }
             }
             return;
         }
 
-        // Recovery: if we lost NavMesh (e.g. during a bake), wait and try to re-snap
+        // ── Recovery: re-snap if a runtime bake knocked us off the mesh ─────────
         if (!agent.isOnNavMesh)
         {
-            if (Time.frameCount % 30 == 0) // Check every half second-ish
+            if (Time.frameCount % 30 == 0)
             {
                 if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
                 {
-                    // Only warp if it doesn't cause a massive vertical jump (which would be "not obeying height")
                     if (Mathf.Abs(hit.position.y - transform.position.y) < 1.0f)
                     {
                         agent.Warp(hit.position);
-                        // Force destination refresh
                         if (waypoints != null && waypoints.Length > 0)
                             agent.SetDestination(waypoints[currentIndex].position);
                     }
@@ -194,40 +190,127 @@ public class AiNavigation : MonoBehaviour
             return;
         }
 
-        // Progression logic for agents without AgentAnimation
-        if (GetComponent<AgentAnimation>() == null)
+        // ── Arrival audio ────────────────────────────────────────────────────────
+        if (throttleAudio != null || mumbleAudio != null)
         {
-            if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
+            bool arrived = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
+            if (arrived && !hasHonkedThisArrival)
             {
-                GoToRandomWaypoint();
+                hasHonkedThisArrival = true;
+                if (throttleAudio != null) throttleAudio.TriggerArrivalHonk();
+                if (mumbleAudio != null) mumbleAudio.TryMumble();
+            }
+            else if (!arrived && agent.remainingDistance > agent.stoppingDistance + 0.5f)
+            {
+                hasHonkedThisArrival = false;
             }
         }
+
+        // ── Waypoint progression (for agents without AgentAnimation) ─────────────
+        if (_agentAnimation == null)
+        {
+            if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
+                GoToRandomWaypoint();
+        }
+    }
+
+    // Local-space positions of the bottom and top of the stair walkway on the stairwell prefab
+    private static readonly Vector3 StairLocalBottom = new Vector3(0.63f, 0f,    0f);
+    private static readonly Vector3 StairLocalTop    = new Vector3(0.63f, 1.06f, 1.34f);
+
+    private IEnumerator TraverseLink()
+    {
+        _traversingLink = true;
+        agent.updatePosition = false;
+        agent.updateRotation = false;
+
+        // Find the stairwell this agent is crossing
+        BuildingData stair = FindNearestStair();
+
+        Vector3 worldBottom, worldTop;
+        if (stair != null)
+        {
+            worldBottom = stair.transform.TransformPoint(StairLocalBottom);
+            worldTop    = stair.transform.TransformPoint(StairLocalTop);
+        }
+        else
+        {
+            // Fallback: use the raw link endpoints
+            OffMeshLinkData fallback = agent.currentOffMeshLinkData;
+            worldBottom = fallback.startPos;
+            worldTop    = fallback.endPos;
+        }
+
+        // Determine direction: whichever end is closer to the agent is the FROM end
+        bool goingUp = Vector3.Distance(agent.transform.position, worldBottom)
+                     < Vector3.Distance(agent.transform.position, worldTop);
+        Vector3 from = goingUp ? worldBottom : worldTop;
+        Vector3 to   = goingUp ? worldTop    : worldBottom;
+
+        // Rotate to face horizontal direction of travel
+        Vector3 dir = to - from;
+        dir.y = 0f;
+        if (dir.sqrMagnitude > 0.001f)
+            agent.transform.rotation = Quaternion.LookRotation(dir.normalized);
+
+        float dist     = Vector3.Distance(from, to);
+        float duration = dist / Mathf.Max(agent.speed, 0.1f);
+        float elapsed  = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            agent.transform.position = Vector3.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
+            yield return null;
+        }
+
+        agent.transform.position = to;
+        agent.CompleteOffMeshLink();
+        agent.updatePosition = true;
+        agent.updateRotation = true;
+        _traversingLink = false;
+    }
+
+    private BuildingData FindNearestStair()
+    {
+        var allBD = FindObjectsByType<BuildingData>(FindObjectsSortMode.None);
+        BuildingData nearest = null;
+        float nearestDist = 8f; // only consider stairs within 8 units
+
+        foreach (var bd in allBD)
+        {
+            if (bd.Data == null || !bd.Data.CanUseStairs) continue;
+            float d = Vector3.Distance(agent.transform.position, bd.transform.position);
+            if (d < nearestDist) { nearestDist = d; nearest = bd; }
+        }
+        return nearest;
     }
 
     public void GoToRandomWaypoint()
     {
-        if (waypoints == null || waypoints.Length <= 1)
-        {
+        if (waypoints == null || waypoints.Length == 0 || (waypoints.Length > 0 && waypoints[0] == null))
             FindWaypoints();
-        }
 
-        if (waypoints == null || waypoints.Length <= 1) return;
-
+        if (waypoints == null || waypoints.Length == 0) return;
         if (!agent.isOnNavMesh) return;
 
         int nextIndex = currentIndex;
         int safety = 0;
-        while (nextIndex == currentIndex && safety < 10)
+        while (nextIndex == currentIndex && safety < 10 && waypoints.Length > 1)
         {
             nextIndex = Random.Range(0, waypoints.Length);
             safety++;
         }
-
         currentIndex = nextIndex;
-        if (agent != null && agent.enabled && agent.isOnNavMesh)
+
+        if (waypoints[currentIndex] == null)
         {
-            agent.SetDestination(waypoints[currentIndex].position);
+            FindWaypoints();
+            if (waypoints == null || waypoints.Length == 0) return;
+            currentIndex = Random.Range(0, waypoints.Length);
         }
+
+        if (agent != null && agent.enabled && agent.isOnNavMesh && waypoints[currentIndex] != null)
+            agent.SetDestination(waypoints[currentIndex].position);
     }
 }
-

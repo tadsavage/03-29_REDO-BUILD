@@ -69,6 +69,10 @@ PrefabInstance:
       value: Wall
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 3a5ca25b639ef02489228691d4f715b4, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 3a5ca25b639ef02489228691d4f715b4, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 0
       objectReference: {fileID: 0}
@@ -88,6 +92,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 3a5ca25b639ef02489228691d4f715b4, type: 3}
       insertIndex: -1
       addedObject: {fileID: -5642530993974989865}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 3a5ca25b639ef02489228691d4f715b4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6879050213195397487}
   m_SourcePrefab: {fileID: 100100000, guid: 3a5ca25b639ef02489228691d4f715b4, type: 3}
 --- !u!1 &6228064335166904636 stripped
 GameObject:
@@ -140,9 +147,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
-  validMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
-  invalidMaterial: {fileID: 2100000, guid: 57c0190b8df978f47bb3ee755afa0434, type: 2}
-  deleteMaterial: {fileID: 2100000, guid: 94c126aba04045c4cb26be0d346e7aff, type: 2}
+  validColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
+  invalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
+  deleteColor: {r: 1, g: 0.9, b: 0, a: 0.5}
 --- !u!114 &-5642530993974989865
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -159,3 +166,20 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
+--- !u!208 &6879050213195397487
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6228064335166904636}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 0.375, y: 4.5, z: 0.375}
+  m_MoveThreshold: 0.1
+  m_Carve: 1
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0, y: 4, z: 0}
+  m_TimeToStationary: 0.5

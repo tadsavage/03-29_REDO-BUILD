@@ -48,6 +48,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -4128383740851021839, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -4128383740851021839, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
       propertyPath: m_Name
       value: Rat
@@ -58,6 +66,18 @@ PrefabInstance:
       objectReference: {fileID: 9100000, guid: 140b3e7aa0393a440aaa749724da265a, type: 2}
     - target: {fileID: 5866666021909216657, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
       propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8697658199696305303, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_AABB.m_Center.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8697658199696305303, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_AABB.m_Center.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8697658199696305303, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      propertyPath: m_AABB.m_Center.z
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
@@ -82,6 +102,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6192815432049082832}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2898590306160391240}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3662334179236367995}
   m_SourcePrefab: {fileID: 100100000, guid: b9057d8ab211fc540ad2dcec16a27f5b, type: 3}
 --- !u!1 &680318250660865404 stripped
 GameObject:
@@ -108,6 +134,7 @@ MonoBehaviour:
   detectionRange: 6
   exterminatorName: Exterminator
   hidingChance: 0.5
+  panicDuration: 8
   palletNames:
   - Chep
   - StackPlts
@@ -121,12 +148,12 @@ NavMeshAgent:
   m_GameObject: {fileID: 680318250660865404}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 0.05
-  m_Speed: 3.5
+  m_Radius: 0.01
+  m_Speed: 5
   m_Acceleration: 8
   avoidancePriority: 90
   m_AngularSpeed: 120
-  m_StoppingDistance: 0
+  m_StoppingDistance: 0.25
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
@@ -150,6 +177,7 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
 --- !u!114 &2921493533646077531
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -175,9 +203,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
-  validMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
-  invalidMaterial: {fileID: 2100000, guid: 57c0190b8df978f47bb3ee755afa0434, type: 2}
-  deleteMaterial: {fileID: 2100000, guid: 94c126aba04045c4cb26be0d346e7aff, type: 2}
+  validColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
+  invalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
+  deleteColor: {r: 1, g: 0.9, b: 0, a: 0.5}
 --- !u!65 &6192815432049082832
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -197,5 +225,51 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.15, y: 0.15, z: 0.15}
-  m_Center: {x: 0, y: 0.075, z: 0}
+  m_Size: {x: 0.17651491, y: 0.15, z: 0.21836177}
+  m_Center: {x: 0.0025971904, y: 0.075, z: -0.03418088}
+--- !u!54 &2898590306160391240
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 680318250660865404}
+  serializedVersion: 5
+  m_Mass: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 80
+  m_CollisionDetection: 0
+--- !u!114 &3662334179236367995
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 680318250660865404}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9b3b9e29f9727440abb52245c9fc723, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NavAgentGuidance
+  showGuidanceLine: 0
+  colorType: 6
+  lineWidth: 0.1
+  isDashed: 0
+  pointsPerSegment: 10
+  verticalOffset: 0.05
+  guidanceMaterial: {fileID: 2100000, guid: d4ad64ebc615eaf48a32b5c4c9d5eeaa, type: 2}

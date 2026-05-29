@@ -1,5 +1,53 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &540148511415485280
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4358767286755653366}
+  - component: {fileID: 1825702361977035177}
+  m_Layer: 6
+  m_Name: GameObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4358767286755653366
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 540148511415485280}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2849034907930256323}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!208 &1825702361977035177
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 540148511415485280}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 0.25, y: 0.5, z: 0.25}
+  m_MoveThreshold: 0.1
+  m_Carve: 1
+  m_CarveOnlyStationary: 1
+  m_Center: {x: -1.72, y: 0, z: 0}
+  m_TimeToStationary: 0.5
 --- !u!1 &2308859793548405459
 GameObject:
   m_ObjectHideFlags: 0
@@ -12,7 +60,7 @@ GameObject:
   - component: {fileID: 268976666012454540}
   - component: {fileID: 8636406916788648093}
   - component: {fileID: 1570564751655163529}
-  m_Layer: 2
+  m_Layer: 6
   m_Name: SafetyLight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -124,7 +172,7 @@ GameObject:
   - component: {fileID: 2066895510549621094}
   - component: {fileID: 4799558245266543131}
   - component: {fileID: 1988322005327628697}
-  m_Layer: 2
+  m_Layer: 6
   m_Name: SafetyLight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -294,7 +342,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -916231596712828137, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
-      value: 2
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 493668982786726070, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_LocalRotation.w
@@ -318,7 +366,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
-      value: 2
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_StaticEditorFlags
@@ -330,7 +378,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2216303931598527189, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
-      value: 2
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 2216303931598527189, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_StaticEditorFlags
@@ -338,11 +386,14 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2881084792559502241, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
-      value: 2
+      value: 6
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4358767286755653366}
     - targetCorrespondingSourceObject: {fileID: -4970778101846787804, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5760035485099060981}
@@ -368,6 +419,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1264214977941768670}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5353741103534723898}
     - targetCorrespondingSourceObject: {fileID: 2881084792559502241, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5105316639144806957}
@@ -534,6 +588,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 493668982786726070, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
   m_PrefabInstance: {fileID: 2306818663000540200}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &2849034907930256323 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+  m_PrefabInstance: {fileID: 2306818663000540200}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &2897782655639932341 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 591531358633281949, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
@@ -569,9 +628,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb4640683c4f37940ae8937e05d445e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingHighlighter
-  validMaterial: {fileID: 2100000, guid: 19ff984583c783d4ab941e9d2f211031, type: 2}
-  invalidMaterial: {fileID: 2100000, guid: 57c0190b8df978f47bb3ee755afa0434, type: 2}
-  deleteMaterial: {fileID: 2100000, guid: 94c126aba04045c4cb26be0d346e7aff, type: 2}
+  validColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
+  invalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
+  deleteColor: {r: 1, g: 0.9, b: 0, a: 0.5}
 --- !u!114 &1029788102910912407
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -588,6 +647,7 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
 --- !u!65 &5344421176333260333
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -601,14 +661,14 @@ BoxCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 0
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 4.014723, y: 9.0153, z: 2}
-  m_Center: {x: 0, y: 4.493995, z: -0.018785}
+  m_Size: {x: 1.7635677, y: 0.13815448, z: 4.136915}
+  m_Center: {x: 0.084104896, y: 0.05542253, z: 0.0688529}
 --- !u!208 &838683423195589200
 NavMeshObstacle:
   m_ObjectHideFlags: 0
@@ -640,7 +700,27 @@ MonoBehaviour:
   doorPanel: {fileID: 2897782655639932341}
   startY: 0
   endY: 3.8
-  speed: 4
+  speed: 3
+--- !u!114 &5353741103534723898
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3225173869751875961}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifier
+  m_SerializedVersion: 0
+  m_OverrideArea: 1
+  m_Area: 3
+  m_OverrideGenerateLinks: 0
+  m_GenerateLinks: 0
+  m_IgnoreFromBuild: 0
+  m_ApplyToChildren: 0
+  m_AffectedAgents: ffffffff
 --- !u!1 &6002053026919147327 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -916231596712828137, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}

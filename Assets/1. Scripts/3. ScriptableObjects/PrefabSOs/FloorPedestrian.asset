@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
   m_Name: FloorPedestrian
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  id: 18
+  id: 19
   objName: Pedestrian Lane
   cost: 65
   hourlyCost: 1
@@ -22,7 +22,7 @@ MonoBehaviour:
   ignorePlacementRules: 1
   isFloor: 1
   ClearsGridAfterPlacement: 0
-  pathfindingClear: 0
+  pathfindingClear: 1
   navArea: 4
   isStackable: 0
   objHeight: 0.05

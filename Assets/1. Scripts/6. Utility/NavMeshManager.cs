@@ -8,8 +8,17 @@ public class NavMeshManager : MonoBehaviour
 {
     public static NavMeshManager Instance { get; private set; }
 
+    // ── Startup Signal ──────────────────────────────────────────────────────────
+    // Fired once after every bake (sync or async) completes.
+    // AiNavigation subscribes to this instead of polling agent.isOnNavMesh.
+    public static event System.Action OnNavMeshReady;
+    public static bool IsReady { get; private set; }
+
     [SerializeField] private List<NavMeshSurface> _surfaces = new List<NavMeshSurface>();
-    [SerializeField] private float _debounceTime = 2.0f;
+    [SerializeField] private float _debounceTime = .50f;
+
+    [Tooltip("Objects always excluded from NavMesh baking (e.g. the ground plane). Assign once in the Inspector — survives crashes and play mode.")]
+    [SerializeField] private List<GameObject> _alwaysExclude = new List<GameObject>();
 
     private Coroutine _updateCoroutine;
     private bool _isDirty;
@@ -18,56 +27,194 @@ public class NavMeshManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        
-        // Clear and re-find all surfaces to ensure none are missed
         _surfaces = new List<NavMeshSurface>(Object.FindObjectsByType<NavMeshSurface>(FindObjectsSortMode.None));
+
+        // Enforce exclusions at runtime regardless of saved NavMeshModifier state.
+        foreach (var go in _alwaysExclude)
+        {
+            if (go == null) continue;
+            var mod = go.GetComponent<NavMeshModifier>();
+            if (mod == null) mod = go.AddComponent<NavMeshModifier>();
+            mod.ignoreFromBuild = true;
+            mod.applyToChildren = true;
+        }
+    }
+
+    // Called by GameContext.Start() after the save is fully loaded.
+    public void BakeSynchronous()
+    {
+        if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
+        IsReady = false;
+
+        var modifiers = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>(FindObjectsSortMode.None));
+        var markups = BuildMarkups(modifiers);
+
+        foreach (var surface in _surfaces)
+        {
+            if (surface == null) continue;
+            if (surface.navMeshData != null) NavMeshBuilder.Cancel(surface.navMeshData);
+
+            var sources = new List<NavMeshBuildSource>();
+            Bounds worldBounds = GetWorldBounds(surface);
+
+            if (surface.collectObjects == CollectObjects.Children)
+                NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+            else
+                NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+
+            AddFloorNavMeshSources(sources, surface.defaultArea);
+            AddStairRampSources(sources);
+
+            var settings = surface.GetBuildSettings();
+            var newData = NavMeshBuilder.BuildNavMeshData(settings, sources, worldBounds, surface.transform.position, surface.transform.rotation);
+            surface.navMeshData = newData;
+            surface.UpdateNavMesh(newData);
+            surface.enabled = false;
+            surface.enabled = true;
+        }
+
+        _isDirty = false;
+        _isUpdating = false;
+        IsReady = true;
+        OnNavMeshReady?.Invoke();
+    }
+
+    private List<NavMeshBuildMarkup> BuildMarkups(List<NavMeshModifier> modifiers)
+    {
+        var markups = new List<NavMeshBuildMarkup>();
+
+        // Hard-coded exclusions — survives crashes and play mode exits.
+        foreach (var go in _alwaysExclude)
+        {
+            if (go != null)
+                markups.Add(new NavMeshBuildMarkup { root = go.transform, ignoreFromBuild = true });
+        }
+
+        foreach (var mod in modifiers)
+        {
+            if (mod != null && mod.isActiveAndEnabled)
+                markups.Add(new NavMeshBuildMarkup
+                {
+                    root = mod.transform,
+                    overrideArea = mod.overrideArea,
+                    area = mod.area,
+                    ignoreFromBuild = mod.ignoreFromBuild
+                });
+        }
+        return markups;
+    }
+
+    // Injects the nav_Plane_Transparent ramp mesh from each stairwell as a walkable source.
+    // This makes the NavMesh visibly bake on the stair surface rather than using invisible links alone.
+    private void AddStairRampSources(List<NavMeshBuildSource> sources)
+    {
+        var stairObjects = Object.FindObjectsByType<BuildingData>(FindObjectsSortMode.None);
+        foreach (var bd in stairObjects)
+        {
+            if (bd.Data == null || !bd.Data.CanUseStairs) continue;
+
+            // Search all descendants, not just direct children
+            foreach (Transform child in bd.GetComponentsInChildren<Transform>(includeInactive: false))
+            {
+                if (!child.name.Contains("nav_Plane")) continue;
+
+                var mf = child.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) continue;
+
+                sources.Add(new NavMeshBuildSource
+                {
+                    transform    = child.localToWorldMatrix,
+                    shape        = NavMeshBuildSourceShape.Mesh,
+                    sourceObject = mf.sharedMesh,
+                    area         = bd.Data.navArea
+                });
+                break;
+            }
+        }
+    }
+
+    // Injects explicit Box NavMesh sources at each floor tile's top surface.
+    // This bypasses the NavMesh voxel resolution limit for thin floor geometry.
+    private void AddFloorNavMeshSources(List<NavMeshBuildSource> sources, int defaultArea)
+    {
+        foreach (var placed in PlacedObjectRegistry.All)
+        {
+            if (placed == null || placed.data == null || !placed.data.isFloor) continue;
+            if (placed.gameObject == null || !placed.gameObject.activeSelf) continue;
+
+            var renderers = placed.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) continue;
+
+            Bounds b = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                b.Encapsulate(renderers[i].bounds);
+
+            const float sourceThickness = 0.05f;
+            float topY = b.max.y;
+
+            sources.Add(new NavMeshBuildSource
+            {
+                transform = Matrix4x4.TRS(
+                    new Vector3(b.center.x, topY - sourceThickness * 0.5f, b.center.z),
+                    placed.transform.rotation,
+                    Vector3.one),
+                shape = NavMeshBuildSourceShape.Box,
+                area = placed.data.navArea != 0 ? placed.data.navArea : defaultArea,
+                size = new Vector3(b.size.x, sourceThickness, b.size.z)
+            });
+        }
+    }
+
+    private Bounds GetWorldBounds(NavMeshSurface surface)
+    {
+        if (surface.collectObjects != CollectObjects.All)
+            return new Bounds(surface.transform.TransformPoint(surface.center), surface.size);
+
+        var renderers = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+        Bounds b = new Bounds();
+        bool hasBounds = false;
+
+        foreach (var r in renderers)
+        {
+            if (r != null && ((1 << r.gameObject.layer) & surface.layerMask) != 0)
+            {
+                if (!hasBounds) { b = r.bounds; hasBounds = true; }
+                else b.Encapsulate(r.bounds);
+            }
+        }
+
+        if (!hasBounds) return new Bounds(surface.transform.position, Vector3.one * 10f);
+        b.Expand(5f);
+        return b;
     }
 
     private void OnDisable()
     {
-        // Cancel all pending async builds to prevent crash when stopping play mode.
-        // Doing this in OnDisable ensures it runs before surfaces are potentially destroyed.
         if (_surfaces != null)
-        {
             foreach (var surface in _surfaces)
-            {
                 if (surface != null && surface.navMeshData != null)
-                {
                     NavMeshBuilder.Cancel(surface.navMeshData);
-                }
-            }
-        }
 
-        if (_updateCoroutine != null)
-        {
-            StopCoroutine(_updateCoroutine);
-            _updateCoroutine = null;
-        }
+        if (_updateCoroutine != null) { StopCoroutine(_updateCoroutine); _updateCoroutine = null; }
     }
 
     private void OnDestroy()
     {
-        if (Instance == this)
-        {
-            Instance = null;
-        }
+        if (Instance == this) Instance = null;
     }
 
     public void MarkDirty(bool immediate = false)
     {
         _isDirty = true;
-        
-        // If already updating, it will loop in the coroutine if _isDirty remains true
-        if (_isUpdating) return;
+        IsReady = false; // agents should pause during a re-bake
 
+        if (_isUpdating) return;
         if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
         _updateCoroutine = StartCoroutine(UpdateRoutine(immediate));
     }
 
     public void BakeImmediate()
     {
-        // We no longer do actual "Immediate" (blocking) bakes because they freeze the UI.
-        // Instead, we trigger the async update without the debounce delay.
         MarkDirty(true);
     }
 
@@ -77,16 +224,13 @@ public class NavMeshManager : MonoBehaviour
     private IEnumerator UpdateRoutine(bool immediate)
     {
         if (!immediate)
-        {
             yield return new WaitForSeconds(_debounceTime);
-        }
 
         while (_isDirty)
         {
             _isDirty = false;
             _isUpdating = true;
 
-            // Only refresh modifier cache if it's been more than a few seconds or if it's the first time
             if (Time.realtimeSinceStartup - _lastModifierUpdate > 5f || _modifierCache.Count == 0)
             {
                 _modifierCache = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>(FindObjectsSortMode.None));
@@ -108,52 +252,42 @@ public class NavMeshManager : MonoBehaviour
                 }
             }
 
-            // Update each surface but yield between them to keep the game responsive
             foreach (var surface in _surfaces)
             {
-                if (surface != null)
-                {
-                    if (surface.navMeshData == null)
-                    {
-                        surface.navMeshData = new NavMeshData();
-                    }
+                if (surface == null) continue;
 
-                    float startTime = Time.realtimeSinceStartup;
-                    var settings = surface.GetBuildSettings();
-                    var sources = new List<NavMeshBuildSource>();
-                    
-                    Bounds worldBounds;
-                    if (surface.collectObjects == CollectObjects.All)
-                    {
-                        worldBounds = new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f));
-                    }
-                    else
-                    {
-                        worldBounds = new Bounds(surface.transform.TransformPoint(surface.center), surface.size);
-                    }
-                    
-                    if (surface.collectObjects == CollectObjects.Children)
-                    {
-                        NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
-                    }
-                    else
-                    {
-                        NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
-                    }
+                if (surface.navMeshData == null)
+                    surface.navMeshData = new NavMeshData();
 
-                    AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
-                    
-                    while (!op.isDone)
-                    {
-                        yield return null;
-                    }
+                var settings = surface.GetBuildSettings();
+                var sources = new List<NavMeshBuildSource>();
+                Bounds worldBounds = GetWorldBounds(surface);
 
-                    surface.UpdateNavMesh(surface.navMeshData);
-                    
-                    float duration = Time.realtimeSinceStartup - startTime;
-                }
+                if (surface.collectObjects == CollectObjects.Children)
+                    NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+                else
+                    NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+
+                AddFloorNavMeshSources(sources, surface.defaultArea);
+                AddStairRampSources(sources);
+
+                AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
+                while (!op.isDone) yield return null;
+
+                surface.UpdateNavMesh(surface.navMeshData);
             }
+
+            // Nudge all surfaces to register updated data
+            foreach (var surface in _surfaces)
+            {
+                if (surface != null) { surface.enabled = false; surface.enabled = true; }
+            }
+
             _isUpdating = false;
         }
+
+        // Bake is fully complete — signal all waiting agents
+        IsReady = true;
+        OnNavMeshReady?.Invoke();
     }
 }
