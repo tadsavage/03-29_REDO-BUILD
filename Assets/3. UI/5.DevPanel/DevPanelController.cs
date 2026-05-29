@@ -45,9 +45,8 @@ public class DevPanelController : MonoBehaviour
         _panel = root.Q("dev-panel");
         _panel.style.display = DisplayStyle.None;
 
-        // Toggle wiring
-        root.Q<Button>("toggle-btn").clicked += Toggle;
-        root.Q<Button>("close-btn").clicked  += Toggle;
+        // Toggle: backtick (`) — close button inside the panel
+        root.Q<Button>("close-btn").clicked += Toggle;
 
         // Draggable header — moves the entire panel
         var header = root.Q("dev-header");

@@ -1,10 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="dev-overlay" class="dev-overlay">
 
-        <!-- Always-visible toggle pill (backtick or click) -->
-        <ui:Button name="toggle-btn" class="dev-toggle" text="⚙ DEV" />
-
-        <!-- Main panel, hidden by default -->
+        <!-- Main panel, hidden by default — open with backtick (`) -->
         <ui:VisualElement name="dev-panel" class="dev-panel">
 
             <!-- Draggable header -->
@@ -13,10 +10,10 @@
                 <ui:Button name="close-btn" class="dev-close" text="✕" />
             </ui:VisualElement>
 
-            <!-- Scrollable sections -->
+            <!-- Scrollable body -->
             <ui:ScrollView name="dev-body" class="dev-body" horizontal-scroller-visibility="Hidden">
 
-                <!-- ── ECONOMY ───────────────────────────────── -->
+                <!-- ECONOMY -->
                 <ui:VisualElement class="dev-section dev-s-cyan">
                     <ui:Label class="dev-s-heading" text="ECONOMY" />
                     <ui:VisualElement class="dev-pills">
@@ -29,7 +26,7 @@
                             <ui:Label name="stat-hourly" class="dev-pill-val dev-cyan" text="$0/hr" />
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-pill">
-                            <ui:Label class="dev-pill-key" text="Today" />
+                            <ui:Label class="dev-pill-key" text="Spent Today" />
                             <ui:Label name="stat-spent" class="dev-pill-val dev-cyan" text="$0" />
                         </ui:VisualElement>
                     </ui:VisualElement>
@@ -41,7 +38,7 @@
                     </ui:VisualElement>
                 </ui:VisualElement>
 
-                <!-- ── TIME ─────────────────────────────────── -->
+                <!-- TIME -->
                 <ui:VisualElement class="dev-section dev-s-amber">
                     <ui:Label class="dev-s-heading" text="TIME" />
                     <ui:VisualElement class="dev-pills">
@@ -55,14 +52,14 @@
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement class="dev-actions">
-                        <ui:Button name="btn-pause" class="dev-btn dev-btn-amber" text="⏸ PAUSE" />
+                        <ui:Button name="btn-pause" class="dev-btn dev-btn-amber" text="⏸" />
                         <ui:Button name="btn-1x"    class="dev-btn dev-btn-amber" text="1×" />
                         <ui:Button name="btn-2x"    class="dev-btn dev-btn-amber" text="2×" />
                         <ui:Button name="btn-5x"    class="dev-btn dev-btn-amber" text="5×" />
                     </ui:VisualElement>
                 </ui:VisualElement>
 
-                <!-- ── WORLD ─────────────────────────────────── -->
+                <!-- WORLD -->
                 <ui:VisualElement class="dev-section dev-s-green">
                     <ui:Label class="dev-s-heading" text="WORLD" />
                     <ui:VisualElement class="dev-pills">
@@ -81,16 +78,16 @@
                     </ui:VisualElement>
                 </ui:VisualElement>
 
-                <!-- ── FSM ───────────────────────────────────── -->
+                <!-- FSM -->
                 <ui:VisualElement class="dev-section dev-s-pink">
                     <ui:Label class="dev-s-heading" text="FSM" />
                     <ui:VisualElement class="dev-pills">
                         <ui:VisualElement class="dev-pill dev-pill-wide">
-                            <ui:Label class="dev-pill-key" text="State" />
+                            <ui:Label class="dev-pill-key" text="Current State" />
                             <ui:Label name="stat-state" class="dev-pill-val dev-pink" text="—" />
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-pill">
-                            <ui:Label class="dev-pill-key" text="Stack" />
+                            <ui:Label class="dev-pill-key" text="Stack Depth" />
                             <ui:Label name="stat-stack" class="dev-pill-val dev-pink" text="0" />
                         </ui:VisualElement>
                     </ui:VisualElement>
