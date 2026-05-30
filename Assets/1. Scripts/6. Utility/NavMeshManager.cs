@@ -77,6 +77,17 @@ public class NavMeshManager : MonoBehaviour
 
         _isDirty = false;
         _isUpdating = false;
+
+        // Carving obstacles (walls, barriers) settle ~0.15–0.5s after creation.
+        // Firing OnNavMeshReady immediately lets agents start navigating before
+        // carving has cut the mesh, so their paths get invalidated as each obstacle
+        // settles. Wait 1.5s to let all carving stabilise first.
+        StartCoroutine(ReadyAfterCarvingSettles());
+    }
+
+    private IEnumerator ReadyAfterCarvingSettles()
+    {
+        yield return new WaitForSeconds(1.5f);
         IsReady = true;
         OnNavMeshReady?.Invoke();
     }

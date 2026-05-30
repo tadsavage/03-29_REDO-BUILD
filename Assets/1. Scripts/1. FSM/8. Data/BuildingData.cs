@@ -32,6 +32,9 @@ public class BuildingData : MonoBehaviour
 
     private void SetupNavigation()
     {
+        // Objects with a NavMeshAgent are dynamic agents — never add an obstacle to them.
+        if (GetComponent<NavMeshAgent>() != null) return;
+
         // 1. ClearsGridAfterPlacement objects (Racks, Doors) — agents pass through freely.
         if (Data.ClearsGridAfterPlacement)
         {

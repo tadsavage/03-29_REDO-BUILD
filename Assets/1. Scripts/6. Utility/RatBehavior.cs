@@ -36,6 +36,9 @@ public class RatBehavior : MonoBehaviour
         animator = GetComponent<Animator>();
         visuals = GetComponentsInChildren<Renderer>();
 
+        if (GetComponent<AgentTypeTag>() == null)
+            gameObject.AddComponent<AgentTypeTag>().agentType = AgentType.Rat;
+
         agent.speed = scurrySpeed;
         agent.acceleration = acceleration;
         agent.updateRotation = false;

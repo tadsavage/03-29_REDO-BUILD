@@ -30,7 +30,9 @@ public static class UIInputGuard
         {
             if (doc == null || doc.rootVisualElement?.panel == null) continue;
             var panelPos = RuntimePanelUtils.ScreenToPanel(doc.rootVisualElement.panel, screenPos);
-            if (doc.rootVisualElement.panel.Pick(panelPos) != null) return true;
+            var picked = doc.rootVisualElement.panel.Pick(panelPos);
+            // Skip if nothing picked, or if only the root itself was hit (full-screen container)
+            if (picked != null && picked != doc.rootVisualElement) return true;
         }
         return false;
     }

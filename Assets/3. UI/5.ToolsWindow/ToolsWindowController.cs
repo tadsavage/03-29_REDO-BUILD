@@ -65,6 +65,11 @@ public class ToolsWindowController : MonoBehaviour
         _grid = FindFirstObjectByType<PlacementGrid>();
 
         var root = _doc.rootVisualElement;
+        root.pickingMode = PickingMode.Ignore;
+
+        // USS picking-mode isn't reliably applied at runtime — set overlay to Ignore in C# too
+        var overlay = root.Q("tools-overlay");
+        if (overlay != null) overlay.pickingMode = PickingMode.Ignore;
 
         _window = root.Q("tools-window");
         if (_window == null)

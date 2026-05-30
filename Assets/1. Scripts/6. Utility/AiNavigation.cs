@@ -29,6 +29,13 @@ public class AiNavigation : MonoBehaviour
         mumbleAudio = GetComponent<AmbientMumble>();
         _agentAnimation = GetComponent<AgentAnimation>();
         SetupAgentType();
+
+        // Auto-register agent type for door access — won't override a manually set tag
+        if (GetComponent<AgentTypeTag>() == null)
+        {
+            var tag = gameObject.AddComponent<AgentTypeTag>();
+            tag.agentType = role == AgentRole.Worker ? AgentType.Human : AgentType.MHE;
+        }
     }
 
     private void SetupAgentType()
@@ -136,13 +143,8 @@ public class AiNavigation : MonoBehaviour
             agent.SetAreaCost(4, 80.0f); // Ped lane   — strongly avoid
             agent.stoppingDistance = 1.0f;
         }
-
-        if (agent.hasPath)
-        {
-            Vector3 target = agent.destination;
-            agent.ResetPath();
-            agent.SetDestination(target);
-        }
+        // Note: area costs take effect on the next SetDestination call — no need to reset
+        // the current path here, which would cause visible path flicker every recovery tick.
     }
 
     private void Update()
@@ -271,15 +273,25 @@ public class AiNavigation : MonoBehaviour
         _traversingLink = false;
     }
 
+    // Per-instance cache — static would survive Play Mode restarts with stale destroyed refs
+    private BuildingData[] _cachedStairs;
+
     private BuildingData FindNearestStair()
     {
-        var allBD = FindObjectsByType<BuildingData>(FindObjectsSortMode.None);
-        BuildingData nearest = null;
-        float nearestDist = 8f; // only consider stairs within 8 units
-
-        foreach (var bd in allBD)
+        if (_cachedStairs == null)
         {
-            if (bd.Data == null || !bd.Data.CanUseStairs) continue;
+            var all = FindObjectsByType<BuildingData>(FindObjectsSortMode.None);
+            var stairs = new System.Collections.Generic.List<BuildingData>();
+            foreach (var bd in all)
+                if (bd.Data != null && bd.Data.CanUseStairs) stairs.Add(bd);
+            _cachedStairs = stairs.ToArray();
+        }
+
+        BuildingData nearest = null;
+        float nearestDist = 8f;
+        foreach (var bd in _cachedStairs)
+        {
+            if (bd == null) continue;
             float d = Vector3.Distance(agent.transform.position, bd.transform.position);
             if (d < nearestDist) { nearestDist = d; nearest = bd; }
         }
