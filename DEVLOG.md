@@ -43,3 +43,31 @@ Built a polished runtime dev/cheat console panel using UI Toolkit (UXML/USS), st
 3. Assign a PanelSettings asset with sort order ~50 (renders on top of game UI)
 
 ---
+
+## 2026-05-29 (continued)
+
+**Session: Tools Window — unified Pallet Builder + Dev Console**
+
+Discovered the user had already built a nicer combined window (`Assets/3. UI/7.ToolsWindow/`) in the UI Builder — a tabbed panel with Pallet Builder and Dev Console tabs, styled to match the existing Palia/gold game aesthetic. Replaced the standalone `DevPanelController` approach with a new unified `ToolsWindowController`.
+
+**Files created:**
+- `Assets/3. UI/7.ToolsWindow/ToolsWindowController.cs` — unified controller; replaces both `DevPanelController` and the old `PalletBuilderUI`
+
+**Files removed:**
+- `Assets/1. Scripts/6. Utility/ToolsWindowController.cs` — duplicate causing `CS0111` compile error
+
+**Files fixed:**
+- `DevPanelController.cs` — null guards in `Start()` and `Update()` to silence `NullReferenceException` from stale scene reference
+- `DevPanelUI.uss` — removed unsupported `:last-child` pseudo-class selectors
+
+**ToolsWindowController features:**
+- Singleton (`Instance`) — `PalletBuilder.ToggleUI()` was already pre-wired to call it
+- Backtick (`` ` ``) opens/closes the Dev Console tab
+- Clicking any pallet opens the Pallet Builder tab for that pallet
+- Full dev console: Economy / Time / World / FSM stats + cheat buttons
+- Full pallet builder: prefab dropdown, dimensions, Ti-Hi override, BUILD
+- Draggable by the title bar; tabbed strip switches between panels
+
+**Setup:** GameObject → `UIDocument` (Source: `ToolsWindow.uxml`) + `ToolsWindowController` + PanelSettings (Sort Order 50).
+
+---
