@@ -61,12 +61,16 @@ public class PalletBuilder : MonoBehaviour
     private List<CasePlacement> _bestLayerPattern = new List<CasePlacement>();
 
 
+    private void Awake()
+    {
+        _placedObject = GetComponent<PlacedObject>();
+    }
+
     private void Start()
     {
         _moneyService = FindAnyObjectByType<GameContext>()?.MoneyService;
-        _placedObject = GetComponent<PlacedObject>();
 
-        // Load state if not already loaded by external system
+        // Load state if not already loaded by external system (e.g. PlacementSystem.SpawnFromSave)
         if (_placedObject != null && !string.IsNullOrEmpty(_placedObject.customData) && transform.Find("PalletLoad") == null)
         {
             LoadBuildState();
@@ -126,7 +130,7 @@ public class PalletBuilder : MonoBehaviour
         
         if (string.IsNullOrEmpty(_placedObject.customData))
         {
-            Debug.Log($"PalletBuilder: No custom build data on {_placedObject.name}");
+            //Debug.Log($"PalletBuilder: No custom build data on {_placedObject.name}");
             return;
         }
 

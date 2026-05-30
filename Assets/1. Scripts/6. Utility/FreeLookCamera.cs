@@ -31,7 +31,8 @@ public class FreeLookCamera : MonoBehaviour
 
         // FIXED: Combines your script check with Unity's global event system to capture button and list hover layouts perfectly
         bool isMouseOverUI = (buildMenuUI != null && buildMenuUI.IsPointerOverBuildMenu) ||
-                             (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject());
+                             (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) ||
+                             UIInputGuard.IsPointerOverUIToolkit();
 
         // -----------------------------------------------------------------
         // KEYBOARD TRANSLATION MOVEMENT (Always allowed, never locked by UI)

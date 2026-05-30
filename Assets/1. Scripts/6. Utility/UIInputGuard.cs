@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
 
@@ -13,6 +14,25 @@ public static class UIInputGuard
         
         _cachedDocs = new List<UIDocument>(Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None));
         _lastRefresh = Time.realtimeSinceStartup;
+    }
+
+    /// <summary>
+    /// Returns true if the mouse pointer is currently over any pickable
+    /// UI Toolkit element across all active UIDocuments.
+    /// Handles what EventSystem.IsPointerOverGameObject() misses for UI Toolkit.
+    /// </summary>
+    public static bool IsPointerOverUIToolkit()
+    {
+        if (Mouse.current == null) return false;
+        RefreshDocs();
+        var screenPos = Mouse.current.position.ReadValue();
+        foreach (var doc in _cachedDocs)
+        {
+            if (doc == null || doc.rootVisualElement?.panel == null) continue;
+            var panelPos = RuntimePanelUtils.ScreenToPanel(doc.rootVisualElement.panel, screenPos);
+            if (doc.rootVisualElement.panel.Pick(panelPos) != null) return true;
+        }
+        return false;
     }
 
     /// <summary>
