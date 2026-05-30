@@ -43,6 +43,7 @@ public class DevPanelController : MonoBehaviour
 
         var root = _doc.rootVisualElement;
         _panel = root.Q("dev-panel");
+        if (_panel == null) return;
         _panel.style.display = DisplayStyle.None;
 
         // Toggle: backtick (`) — close button inside the panel
@@ -90,6 +91,8 @@ public class DevPanelController : MonoBehaviour
 
     private void Update()
     {
+        if (_panel == null) return;
+
         if (Keyboard.current.backquoteKey.wasPressedThisFrame)
             Toggle();
 

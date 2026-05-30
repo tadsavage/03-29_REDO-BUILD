@@ -1,99 +1,85 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
+    <Style src="project://database/Assets/3.%20UI/5.DevPanel/DevPanelUI.uss?fileID=7433441132597879392&amp;guid=832bf69342d329245b63c31a4e8fcb09&amp;type=3#DevPanelUI"/>
     <ui:VisualElement name="dev-overlay" class="dev-overlay">
-
-        <!-- Main panel, hidden by default — open with backtick (`) -->
         <ui:VisualElement name="dev-panel" class="dev-panel">
-
-            <!-- Draggable header -->
-            <ui:VisualElement name="dev-header" class="dev-header">
-                <ui:Label class="dev-title" text="DEV CONSOLE" />
-                <ui:Button name="close-btn" class="dev-close" text="✕" />
-            </ui:VisualElement>
-
-            <!-- Scrollable body -->
-            <ui:ScrollView name="dev-body" class="dev-body" horizontal-scroller-visibility="Hidden">
-
-                <!-- ECONOMY -->
+            <ui:ScrollView name="dev-body" horizontal-scroller-visibility="Hidden" class="dev-body">
                 <ui:VisualElement class="dev-section dev-s-cyan">
-                    <ui:Label class="dev-s-heading" text="ECONOMY" />
+                    <ui:Label text="ECONOMY" class="dev-s-heading"/>
                     <ui:VisualElement class="dev-pills">
                         <ui:VisualElement class="dev-pill">
-                            <ui:Label class="dev-pill-key" text="Balance" />
-                            <ui:Label name="stat-balance" class="dev-pill-val dev-cyan" text="$0" />
+                            <ui:Label text="Balance" class="dev-pill-key"/>
+                            <ui:Label name="stat-balance" text="$0" class="dev-pill-val dev-cyan"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-pill">
-                            <ui:Label class="dev-pill-key" text="Hourly" />
-                            <ui:Label name="stat-hourly" class="dev-pill-val dev-cyan" text="$0/hr" />
+                            <ui:Label text="Hourly" class="dev-pill-key"/>
+                            <ui:Label name="stat-hourly" text="$0/hr" class="dev-pill-val dev-cyan"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-pill">
-                            <ui:Label class="dev-pill-key" text="Spent Today" />
-                            <ui:Label name="stat-spent" class="dev-pill-val dev-cyan" text="$0" />
+                            <ui:Label text="Spent Today" class="dev-pill-key"/>
+                            <ui:Label name="stat-spent" text="$0" class="dev-pill-val dev-cyan"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement class="dev-actions">
-                        <ui:Button name="btn-add-1k"   class="dev-btn dev-btn-cyan"   text="+$1K" />
-                        <ui:Button name="btn-add-10k"  class="dev-btn dev-btn-cyan"   text="+$10K" />
-                        <ui:Button name="btn-add-100k" class="dev-btn dev-btn-cyan"   text="+$100K" />
-                        <ui:Button name="btn-zero"     class="dev-btn dev-btn-danger" text="ZERO" />
+                        <ui:Button name="btn-add-1k" text="+$1K" class="dev-btn dev-btn-cyan"/>
+                        <ui:Button name="btn-add-10k" text="+$10K" class="dev-btn dev-btn-cyan"/>
+                        <ui:Button name="btn-add-100k" text="+$100K" class="dev-btn dev-btn-cyan"/>
+                        <ui:Button name="btn-zero" text="ZERO" class="dev-btn dev-btn-danger"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
-
-                <!-- TIME -->
                 <ui:VisualElement class="dev-section dev-s-amber">
-                    <ui:Label class="dev-s-heading" text="TIME" />
+                    <ui:Label text="TIME" class="dev-s-heading"/>
                     <ui:VisualElement class="dev-pills">
                         <ui:VisualElement class="dev-pill dev-pill-wide">
-                            <ui:Label class="dev-pill-key" text="Sim Time" />
-                            <ui:Label name="stat-time" class="dev-pill-val dev-amber" text="Day 1 — 08:00" />
+                            <ui:Label text="Sim Time" class="dev-pill-key"/>
+                            <ui:Label name="stat-time" text="Day 1 — 08:00" class="dev-pill-val dev-amber"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-pill">
-                            <ui:Label class="dev-pill-key" text="Speed" />
-                            <ui:Label name="stat-speed" class="dev-pill-val dev-amber" text="1×" />
+                            <ui:Label text="Speed" class="dev-pill-key"/>
+                            <ui:Label name="stat-speed" text="1×" class="dev-pill-val dev-amber"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement class="dev-actions">
-                        <ui:Button name="btn-pause" class="dev-btn dev-btn-amber" text="⏸" />
-                        <ui:Button name="btn-1x"    class="dev-btn dev-btn-amber" text="1×" />
-                        <ui:Button name="btn-2x"    class="dev-btn dev-btn-amber" text="2×" />
-                        <ui:Button name="btn-5x"    class="dev-btn dev-btn-amber" text="5×" />
+                        <ui:Button name="btn-pause" text="⏸" class="dev-btn dev-btn-amber"/>
+                        <ui:Button name="btn-1x" text="1×" class="dev-btn dev-btn-amber"/>
+                        <ui:Button name="btn-2x" text="2×" class="dev-btn dev-btn-amber"/>
+                        <ui:Button name="btn-5x" text="5×" class="dev-btn dev-btn-amber"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
-
-                <!-- WORLD -->
                 <ui:VisualElement class="dev-section dev-s-green">
-                    <ui:Label class="dev-s-heading" text="WORLD" />
+                    <ui:Label text="WORLD" class="dev-s-heading"/>
                     <ui:VisualElement class="dev-pills">
                         <ui:VisualElement class="dev-pill">
-                            <ui:Label class="dev-pill-key" text="Objects" />
-                            <ui:Label name="stat-objects" class="dev-pill-val dev-green" text="0" />
+                            <ui:Label text="Objects" class="dev-pill-key"/>
+                            <ui:Label name="stat-objects" text="0" class="dev-pill-val dev-green"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-pill dev-pill-wide">
-                            <ui:Label class="dev-pill-key" text="Undo / Redo" />
-                            <ui:Label name="stat-undo" class="dev-pill-val dev-green" text="0 / 0" />
+                            <ui:Label text="Undo / Redo" class="dev-pill-key"/>
+                            <ui:Label name="stat-undo" text="0 / 0" class="dev-pill-val dev-green"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement class="dev-actions">
-                        <ui:Button name="btn-rebuild" class="dev-btn dev-btn-green"  text="REBUILD GRID" />
-                        <ui:Button name="btn-clear"   class="dev-btn dev-btn-danger" text="CLEAR ALL" />
+                        <ui:Button name="btn-rebuild" text="REBUILD GRID" class="dev-btn dev-btn-green"/>
+                        <ui:Button name="btn-clear" text="CLEAR ALL" class="dev-btn dev-btn-danger"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
-
-                <!-- FSM -->
                 <ui:VisualElement class="dev-section dev-s-pink">
-                    <ui:Label class="dev-s-heading" text="FSM" />
+                    <ui:Label text="FSM" class="dev-s-heading"/>
                     <ui:VisualElement class="dev-pills">
                         <ui:VisualElement class="dev-pill dev-pill-wide">
-                            <ui:Label class="dev-pill-key" text="Current State" />
-                            <ui:Label name="stat-state" class="dev-pill-val dev-pink" text="—" />
+                            <ui:Label text="Current State" class="dev-pill-key"/>
+                            <ui:Label name="stat-state" text="—" class="dev-pill-val dev-pink"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-pill">
-                            <ui:Label class="dev-pill-key" text="Stack Depth" />
-                            <ui:Label name="stat-stack" class="dev-pill-val dev-pink" text="0" />
+                            <ui:Label text="Stack Depth" class="dev-pill-key"/>
+                            <ui:Label name="stat-stack" text="0" class="dev-pill-val dev-pink"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
-
             </ui:ScrollView>
+            <ui:VisualElement name="dev-header" class="dev-header">
+                <ui:Label text="DEV CONSOLE" class="dev-title"/>
+                <ui:Button name="close-btn" text="✕" class="dev-close"/>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

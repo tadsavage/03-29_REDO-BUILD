@@ -1,169 +1,132 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:Style src="project://database/Assets/3.%20UI/7.ToolsWindow/ToolsWindow.uss" />
-
-    <!-- Full-screen transparent overlay. The window itself blocks input; the overlay does not. -->
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
+    <Style src="project://database/Assets/3.%20UI/7.ToolsWindow/ToolsWindow.uss?fileID=7433441132597879392&amp;guid=e4e26c3ac8490264d827fefa64523580&amp;type=3#ToolsWindow"/>
     <ui:VisualElement name="tools-overlay" class="tools-overlay">
-
         <ui:VisualElement name="tools-window" class="tools-window">
-
-            <!-- ── Title bar (drag handle) ─────────────────── -->
-            <ui:VisualElement name="tools-titlebar" class="tools-titlebar">
-                <ui:Label class="tools-title" text="⚙  TOOLS" />
-                <ui:Button name="tools-close" class="tools-close" text="✕" />
-            </ui:VisualElement>
-
-            <!-- ── Tab strip ───────────────────────────────── -->
             <ui:VisualElement class="tools-tabstrip">
-                <ui:Button name="tab-btn-pallet" class="tools-tab tools-tab--active"   text="PLT BUILDER" />
-                <ui:Button name="tab-btn-dev"    class="tools-tab tools-tab--inactive" text="DEV CONSOLE" />
+                <ui:Button name="tab-btn-pallet" text="PLT BUILDER" class="tools-tab tools-tab--active"/>
+                <ui:Button name="tab-btn-dev" text="DEV CONSOLE" class="tools-tab tools-tab--inactive"/>
             </ui:VisualElement>
-
-            <!-- ── Scrollable content ──────────────────────── -->
-            <ui:ScrollView name="tools-scroll" class="tools-scroll"
-                           horizontal-scroller-visibility="Hidden"
-                           vertical-scroller-visibility="Auto">
-
-                <!-- ════════════════════════════════════════════
-                     PALLET BUILDER TAB
-                     ════════════════════════════════════════════ -->
+            <ui:ScrollView name="tools-scroll" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto" class="tools-scroll">
                 <ui:VisualElement name="tab-content-pallet" class="tab-content">
-
-                    <!-- Product -->
                     <ui:VisualElement class="plt-section">
-                        <ui:Label class="plt-s-heading" text="PRODUCT" />
-                        <ui:DropdownField name="plt-prefab" label="Case Prefab" class="plt-dropdown" />
+                        <ui:Label text="PRODUCT" class="plt-s-heading"/>
+                        <ui:DropdownField name="plt-prefab" label="Case Prefab" class="plt-dropdown"/>
                     </ui:VisualElement>
-
-                    <!-- Dimensions -->
                     <ui:VisualElement class="plt-section">
-                        <ui:Label class="plt-s-heading" text="DIMENSIONS" />
+                        <ui:Label text="DIMENSIONS" class="plt-s-heading"/>
                         <ui:VisualElement class="plt-row">
-                            <ui:Label text="Max Height" class="plt-label" picking-mode="Ignore" />
-                            <ui:TextField name="plt-maxheight" class="plt-field" />
+                            <ui:Label text="Max Height" picking-mode="Ignore" class="plt-label"/>
+                            <ui:TextField name="plt-maxheight" class="plt-field"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="plt-row">
-                            <ui:Label text="Space Between" class="plt-label" picking-mode="Ignore" />
-                            <ui:TextField name="plt-space" class="plt-field" />
+                            <ui:Label text="Space Between" picking-mode="Ignore" class="plt-label"/>
+                            <ui:TextField name="plt-space" class="plt-field"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="plt-row">
-                            <ui:Label text="Vertical Gap" class="plt-label" picking-mode="Ignore" />
-                            <ui:TextField name="plt-gap" class="plt-field" />
+                            <ui:Label text="Vertical Gap" picking-mode="Ignore" class="plt-label"/>
+                            <ui:TextField name="plt-gap" class="plt-field"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="plt-row">
-                            <ui:Label text="Crooked Amount" class="plt-label" picking-mode="Ignore" />
-                            <ui:TextField name="plt-crooked" class="plt-field" />
+                            <ui:Label text="Crooked Amount" picking-mode="Ignore" class="plt-label"/>
+                            <ui:TextField name="plt-crooked" class="plt-field"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
-
-                    <!-- Ti-Hi Override -->
                     <ui:VisualElement class="plt-section">
-                        <ui:Label class="plt-s-heading" text="TI-HI OVERRIDE" />
+                        <ui:Label text="TI-HI OVERRIDE" class="plt-s-heading"/>
                         <ui:VisualElement class="plt-row">
-                            <ui:Label text="Enable Override" class="plt-label" picking-mode="Ignore" />
-                            <ui:Toggle name="plt-override" class="plt-toggle" />
+                            <ui:Label text="Enable Override" picking-mode="Ignore" class="plt-label"/>
+                            <ui:Toggle name="plt-override" class="plt-toggle"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="plt-row">
-                            <ui:Label text="Ti  (cases / layer)" class="plt-label" picking-mode="Ignore" />
-                            <ui:TextField name="plt-manualt" class="plt-field" />
+                            <ui:Label text="Ti  (cases / layer)" picking-mode="Ignore" class="plt-label"/>
+                            <ui:TextField name="plt-manualt" class="plt-field"/>
                         </ui:VisualElement>
                         <ui:VisualElement class="plt-row">
-                            <ui:Label text="Hi  (layers)" class="plt-label" picking-mode="Ignore" />
-                            <ui:TextField name="plt-manualh" class="plt-field" />
+                            <ui:Label text="Hi  (layers)" picking-mode="Ignore" class="plt-label"/>
+                            <ui:TextField name="plt-manualh" class="plt-field"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
-
-                    <ui:Button name="plt-build" class="plt-build-btn" text="BUILD PALLET" />
-
+                    <ui:Button name="plt-build" text="BUILD PALLET" class="plt-build-btn"/>
                 </ui:VisualElement>
-
-                <!-- ════════════════════════════════════════════
-                     DEV CONSOLE TAB
-                     ════════════════════════════════════════════ -->
                 <ui:VisualElement name="tab-content-dev" class="tab-content">
-
-                    <!-- Economy -->
                     <ui:VisualElement class="dev-section dev-s-gold">
-                        <ui:Label class="dev-s-heading" text="ECONOMY" />
+                        <ui:Label text="ECONOMY" class="dev-s-heading"/>
                         <ui:VisualElement class="dev-pills">
                             <ui:VisualElement class="dev-pill">
-                                <ui:Label class="dev-pill-key" text="Balance" />
-                                <ui:Label name="stat-balance" class="dev-pill-val" text="$0" />
+                                <ui:Label text="Balance" class="dev-pill-key"/>
+                                <ui:Label name="stat-balance" text="$0" class="dev-pill-val"/>
                             </ui:VisualElement>
                             <ui:VisualElement class="dev-pill">
-                                <ui:Label class="dev-pill-key" text="Hourly" />
-                                <ui:Label name="stat-hourly" class="dev-pill-val" text="$0/hr" />
+                                <ui:Label text="Hourly" class="dev-pill-key"/>
+                                <ui:Label name="stat-hourly" text="$0/hr" class="dev-pill-val"/>
                             </ui:VisualElement>
                             <ui:VisualElement class="dev-pill">
-                                <ui:Label class="dev-pill-key" text="Today" />
-                                <ui:Label name="stat-spent" class="dev-pill-val" text="$0" />
+                                <ui:Label text="Today" class="dev-pill-key"/>
+                                <ui:Label name="stat-spent" text="$0" class="dev-pill-val"/>
                             </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-actions">
-                            <ui:Button name="btn-add-1k"   class="dev-btn dev-btn-gold"   text="+$1K" />
-                            <ui:Button name="btn-add-10k"  class="dev-btn dev-btn-gold"   text="+$10K" />
-                            <ui:Button name="btn-add-100k" class="dev-btn dev-btn-gold"   text="+$100K" />
-                            <ui:Button name="btn-zero"     class="dev-btn dev-btn-danger" text="ZERO" />
+                            <ui:Button name="btn-add-1k" text="+$1K" class="dev-btn dev-btn-gold"/>
+                            <ui:Button name="btn-add-10k" text="+$10K" class="dev-btn dev-btn-gold"/>
+                            <ui:Button name="btn-add-100k" text="+$100K" class="dev-btn dev-btn-gold"/>
+                            <ui:Button name="btn-zero" text="ZERO" class="dev-btn dev-btn-danger"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
-
-                    <!-- Time -->
                     <ui:VisualElement class="dev-section dev-s-amber">
-                        <ui:Label class="dev-s-heading" text="TIME" />
+                        <ui:Label text="TIME" class="dev-s-heading"/>
                         <ui:VisualElement class="dev-pills">
                             <ui:VisualElement class="dev-pill dev-pill-wide">
-                                <ui:Label class="dev-pill-key" text="Sim Time" />
-                                <ui:Label name="stat-time" class="dev-pill-val" text="Day 1  08:00" />
+                                <ui:Label text="Sim Time" class="dev-pill-key"/>
+                                <ui:Label name="stat-time" text="Day 1  08:00" class="dev-pill-val"/>
                             </ui:VisualElement>
                             <ui:VisualElement class="dev-pill">
-                                <ui:Label class="dev-pill-key" text="Speed" />
-                                <ui:Label name="stat-speed" class="dev-pill-val" text="1×" />
+                                <ui:Label text="Speed" class="dev-pill-key"/>
+                                <ui:Label name="stat-speed" text="1×" class="dev-pill-val"/>
                             </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-actions">
-                            <ui:Button name="btn-pause" class="dev-btn dev-btn-amber" text="⏸" />
-                            <ui:Button name="btn-1x"    class="dev-btn dev-btn-amber" text="1×" />
-                            <ui:Button name="btn-2x"    class="dev-btn dev-btn-amber" text="2×" />
-                            <ui:Button name="btn-5x"    class="dev-btn dev-btn-amber" text="5×" />
+                            <ui:Button name="btn-pause" text="⏸" class="dev-btn dev-btn-amber"/>
+                            <ui:Button name="btn-1x" text="1×" class="dev-btn dev-btn-amber"/>
+                            <ui:Button name="btn-2x" text="2×" class="dev-btn dev-btn-amber"/>
+                            <ui:Button name="btn-5x" text="5×" class="dev-btn dev-btn-amber"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
-
-                    <!-- World -->
                     <ui:VisualElement class="dev-section dev-s-teal">
-                        <ui:Label class="dev-s-heading" text="WORLD" />
+                        <ui:Label text="WORLD" class="dev-s-heading"/>
                         <ui:VisualElement class="dev-pills">
                             <ui:VisualElement class="dev-pill">
-                                <ui:Label class="dev-pill-key" text="Objects" />
-                                <ui:Label name="stat-objects" class="dev-pill-val" text="0" />
+                                <ui:Label text="Objects" class="dev-pill-key"/>
+                                <ui:Label name="stat-objects" text="0" class="dev-pill-val"/>
                             </ui:VisualElement>
                             <ui:VisualElement class="dev-pill dev-pill-wide">
-                                <ui:Label class="dev-pill-key" text="Undo / Redo" />
-                                <ui:Label name="stat-undo" class="dev-pill-val" text="0 / 0" />
+                                <ui:Label text="Undo / Redo" class="dev-pill-key"/>
+                                <ui:Label name="stat-undo" text="0 / 0" class="dev-pill-val"/>
                             </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:VisualElement class="dev-actions">
-                            <ui:Button name="btn-rebuild" class="dev-btn dev-btn-teal"   text="REBUILD GRID" />
-                            <ui:Button name="btn-clear"   class="dev-btn dev-btn-danger" text="CLEAR ALL" />
+                            <ui:Button name="btn-rebuild" text="REBUILD GRID" class="dev-btn dev-btn-teal"/>
+                            <ui:Button name="btn-clear" text="CLEAR ALL" class="dev-btn dev-btn-danger"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
-
-                    <!-- FSM -->
                     <ui:VisualElement class="dev-section dev-s-rose">
-                        <ui:Label class="dev-s-heading" text="FSM" />
+                        <ui:Label text="FSM" class="dev-s-heading"/>
                         <ui:VisualElement class="dev-pills">
                             <ui:VisualElement class="dev-pill dev-pill-wide">
-                                <ui:Label class="dev-pill-key" text="Current State" />
-                                <ui:Label name="stat-state" class="dev-pill-val" text="—" />
+                                <ui:Label text="Current State" class="dev-pill-key"/>
+                                <ui:Label name="stat-state" text="—" class="dev-pill-val"/>
                             </ui:VisualElement>
                             <ui:VisualElement class="dev-pill">
-                                <ui:Label class="dev-pill-key" text="Stack" />
-                                <ui:Label name="stat-stack" class="dev-pill-val" text="0" />
+                                <ui:Label text="Stack" class="dev-pill-key"/>
+                                <ui:Label name="stat-stack" text="0" class="dev-pill-val"/>
                             </ui:VisualElement>
                         </ui:VisualElement>
                     </ui:VisualElement>
-
                 </ui:VisualElement>
-
             </ui:ScrollView>
+            <ui:VisualElement name="tools-titlebar" class="tools-titlebar">
+                <ui:Label text="⚙  TOOLS" class="tools-title"/>
+                <ui:Button name="tools-close" text="✕" class="tools-close"/>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
