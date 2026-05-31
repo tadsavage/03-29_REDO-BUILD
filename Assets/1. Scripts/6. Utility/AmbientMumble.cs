@@ -10,6 +10,9 @@ public class AmbientMumble : MonoBehaviour
     [SerializeField, Range(0.5f, 2f)] private float maxPitch = 1.2f;
     [SerializeField, Range(0f, 100f)] private float chanceToMumble = 50f;
 
+    [Header("Spatial Audio")]
+    [SerializeField] private float hearingDistance = 20f;
+
     private AudioSource _audioSource;
     private List<AudioClip> _shuffledClips = new List<AudioClip>();
     private int _currentIndex = 0;
@@ -20,7 +23,7 @@ public class AmbientMumble : MonoBehaviour
         _audioSource.spatialBlend = 1.0f; // 3D sound
         _audioSource.rolloffMode = AudioRolloffMode.Logarithmic;
         _audioSource.minDistance = 2f;
-        _audioSource.maxDistance = 20f;
+        _audioSource.maxDistance = hearingDistance;
         _audioSource.playOnAwake = false;
         
         if (mumbleClips != null && mumbleClips.Length > 0)

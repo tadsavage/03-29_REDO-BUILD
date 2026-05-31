@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
+using UnityEngine.UIElements;
 
 public class RaycastController : MonoBehaviour
 {
@@ -62,6 +63,21 @@ public class RaycastController : MonoBehaviour
 
         if (_line != null)
             _line.enabled = false;
+    }
+
+    private void Start()
+    {
+        // Unity wraps UXML in a TemplateContainer child of rootVisualElement.
+        // Both root and TemplateContainer must be Ignore — otherwise PanelRaycaster
+        // hits the full-screen TemplateContainer and blocks all game-world raycasts.
+        // Interactive UXML elements (buttons etc.) retain their own PickingMode.Position.
+        foreach (var doc in FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+        {
+            if (doc.rootVisualElement == null) continue;
+            doc.rootVisualElement.pickingMode = PickingMode.Ignore;
+            foreach (var child in doc.rootVisualElement.Children())
+                child.pickingMode = PickingMode.Ignore;
+        }
     }
 
     public void Tick()
@@ -156,23 +172,15 @@ public class RaycastController : MonoBehaviour
 
     private bool CheckIfPointerOverUI()
     {
-        if (EventSystem.current == null) return false;
+        if (UIInputGuard.IsPointerOverUIToolkit()) return true;
 
+        if (EventSystem.current == null) return false;
         var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
         var eventData = new UnityEngine.EventSystems.PointerEventData(EventSystem.current);
         eventData.position = Mouse.current.position.ReadValue();
         EventSystem.current.RaycastAll(eventData, results);
-
         if (results.Count == 0) return false;
-
-        var topHit = results[0];
-
-        if (topHit.module is UnityEngine.UIElements.PanelRaycaster || topHit.module is UnityEngine.UI.GraphicRaycaster)
-        {
-            return true;
-        }
-
-        return false;
+        return results[0].module is UnityEngine.UI.GraphicRaycaster;
     }
 
     private void DrawRay(Ray ray)

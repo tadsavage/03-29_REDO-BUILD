@@ -62,6 +62,9 @@ public class UIBootstrapper : MonoBehaviour
             return;
         }
 
+        // Root fills the screen — must be Ignore so it doesn't block game-world raycasts.
+        _hudDocument.rootVisualElement.pickingMode = PickingMode.Ignore;
+
         // Preview cost UI
         if (_costUI != null) _costUI.Init(_hudDocument);
 
@@ -89,6 +92,10 @@ public class UIBootstrapper : MonoBehaviour
             Debug.LogError("[UIBootstrapper] Build Menu Document or UI is missing!");
             return;
         }
+
+        // Root fills the screen — must be Ignore so PanelRaycaster doesn't block
+        // game-world raycasts outside the actual build bar elements.
+        _buildMenuDocument.rootVisualElement.pickingMode = PickingMode.Ignore;
 
         // 1. Initialize the build menu layout engine
         _buildMenuUI.Initialize(_context.MoneyService);

@@ -96,6 +96,10 @@ public class BuildMenuUI : MonoBehaviour
             return;
         }
 
+        // Root fills the entire screen — must be Ignore so PanelRaycaster doesn't
+        // block game-world physics raycasts when the cursor is over empty space.
+        _root.pickingMode = PickingMode.Ignore;
+
         if (buildMenuStyle != null)
             _root.styleSheets.Add(buildMenuStyle);
 

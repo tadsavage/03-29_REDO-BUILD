@@ -150,7 +150,7 @@ public bool IsPlacementState => true;
 
         if (!_raycast.HasHit)
         {
-        _indicator.ClearAll();
+            _indicator.ClearAll();
             _preview.Hide();
             _costUI.Hide();
             return;

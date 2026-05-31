@@ -29,6 +29,7 @@ public class TopBarUI : MonoBehaviour
         _saveLoadController = saveLoad;
 
         var root = doc.rootVisualElement;
+        root.pickingMode = PickingMode.Ignore;  // full-screen root must not block game raycasts
 
         // HUD root (the container you created in HUD.uxml)
         var hudRoot = root.Q<VisualElement>("Root");

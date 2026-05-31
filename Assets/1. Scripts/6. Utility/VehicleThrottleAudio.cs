@@ -4,6 +4,9 @@ using UnityEngine.AI;
 
 public class VehicleThrottleAudio : MonoBehaviour
 {
+    [Header("Spatial Audio")]
+    [SerializeField] private float hearingDistance = 25f;
+
     [Header("Engine Audio Settings")]
     [SerializeField] private AudioClip runningClip;
     [SerializeField] private float minPitch = 0.75f;
@@ -37,7 +40,7 @@ public class VehicleThrottleAudio : MonoBehaviour
         _engineSource.spatialBlend = 1.0f; 
         _engineSource.rolloffMode = AudioRolloffMode.Logarithmic;
         _engineSource.minDistance = 2f;
-        _engineSource.maxDistance = 25f;
+        _engineSource.maxDistance = hearingDistance;
         _engineSource.volume = 0;
 
         // Create Honk Source (Fixed Pitch)
@@ -47,7 +50,7 @@ public class VehicleThrottleAudio : MonoBehaviour
         _honkSource.spatialBlend = 1.0f;
         _honkSource.rolloffMode = AudioRolloffMode.Logarithmic;
         _honkSource.minDistance = 5f;
-        _honkSource.maxDistance = 30f;
+        _honkSource.maxDistance = hearingDistance * 1.2f;
         _honkSource.pitch = honkPitch;
     }
 

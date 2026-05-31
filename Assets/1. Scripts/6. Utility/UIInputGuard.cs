@@ -31,8 +31,12 @@ public static class UIInputGuard
             if (doc == null || doc.rootVisualElement?.panel == null) continue;
             var panelPos = RuntimePanelUtils.ScreenToPanel(doc.rootVisualElement.panel, screenPos);
             var picked = doc.rootVisualElement.panel.Pick(panelPos);
-            // Skip if nothing picked, or if only the root itself was hit (full-screen container)
-            if (picked != null && picked != doc.rootVisualElement) return true;
+            // Skip root, Ignore-mode elements, and TemplateContainer wrappers
+            if (picked == null) continue;
+            if (picked == doc.rootVisualElement) continue;
+            if (picked.pickingMode == PickingMode.Ignore) continue;
+            if (picked.GetType().Name.Contains("TemplateContainer")) continue;
+            return true;
         }
         return false;
     }

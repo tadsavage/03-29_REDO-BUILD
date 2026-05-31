@@ -71,3 +71,37 @@ Discovered the user had already built a nicer combined window (`Assets/3. UI/7.T
 **Setup:** GameObject → `UIDocument` (Source: `ToolsWindow.uxml`) + `ToolsWindowController` + PanelSettings (Sort Order 50).
 
 ---
+
+## 2026-05-30 / 2026-05-31
+
+**Session: Build bar restoration, rat life, guard shack lights & gate**
+
+Long session covering several systems.
+
+### Build bar / placement fully restored
+- Root cause found via Unity MCP live inspection: `_groundMask` on `RaycastController` was zeroed out by a domain reload, so all ground raycasts returned no hit.
+- Fixed `CheckIfPointerOverUI()` — replaced `EventSystem.RaycastAll` (which caused false positives from UIDocument TemplateContainers) with `UIInputGuard.IsPointerOverUIToolkit()` using `RuntimePanelUtils.ScreenToPanel` + `panel.Pick()` with proper filtering (skips root, Ignore-mode elements, TemplateContainers).
+- Fixed `BuildMenuUI.OnEnable()` and `RaycastController.Start()` to set UIDocument roots and TemplateContainers to `PickingMode.Ignore` so PanelRaycaster doesn't block game-world raycasts.
+- User needs to reassign Ground layer mask in Inspector if it ever resets again.
+
+### Nav agent fixes
+- `PalletBuilder.Awake()`: moved `_placedObject` init from `Start()` to `Awake()` so `SpawnFromSave` can call `LoadBuildState()` before `Start()` runs.
+- `NavMeshManager.BakeSynchronous()`: added 1.5s post-bake delay before firing `OnNavMeshReady` so 1422 carving obstacles can settle — this was the root cause of agents replanning every second and stuttering.
+- `BuildingData.SetupNavigation()`: skip obstacle/modifier setup entirely for objects that already have a `NavMeshAgent` (rats, workers) — was adding a conflicting `NavMeshObstacle` to them.
+- `RatBehavior.ScurryAwayRoutine()`: snap to NavMesh before re-enabling agent to fix "Failed to create agent" error.
+- `AiNavigation`: `AgentTypeTag` auto-registration, per-instance stair cache, removed redundant `ResetPath()` from `ApplyAgentCosts`.
+
+### Rat life system (RatBehavior.cs)
+Full rewrite adding: age/growth (`RatFromScale`→`RatToScale`), breeding (two rats near each other → baby rat), time-of-day boldness (work hours = hide more), wall-hugging movement, scavenging from inventory items, investigation curiosity (approaches new placed objects), spatial 3D audio with `hearingDistance`, `LightPulse` script for pulsing emission lights.
+
+### Guard shack lights & gate
+- `GS_ArmLights` material: pure red `_BaseColor`, `_EmissionColor` cranked to R=500. Fixed yellow bleed at low intensity by forcing `_BaseColor` to `EmissionColor` every frame in `LightPulse`.
+- `LightPulse.cs`: pulses between `MinIntensity` and `MaxIntensity` using sine wave at `PulseSpeed`. Added to both `Arm_Lights` and `Arm_Lights.001`.
+- `Gate_Open_Close.cs`: trigger-based gate arm animation. Rotates pivot's local Z from `rot_down` to `rot_up` at `arm_speed` deg/s. Opens when any nav agent enters trigger, closes when all have exited. Assign `Gate_Arm_Animatable` to **Arm Pivot** in Inspector.
+
+### Security guard
+- `Security.fbx` avatar was set to `CopyFromOther` (wrong) causing no avatar to be generated → T-pose. Fixed to `CreateFromThisModel` with forced reimport → `SecurityAvatar` now generates correctly.
+- Added `Animator` component to `Security.prefab` root (was missing from prefab, only existed on scene instance).
+- Note: delete and re-place Security(Clone) from Build Menu to pick up the updated prefab.
+
+---
