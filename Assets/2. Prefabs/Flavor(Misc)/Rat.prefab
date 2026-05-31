@@ -139,6 +139,20 @@ MonoBehaviour:
   - Chep
   - StackPlts
   palletCategory: Inventory
+  maxAge: 300
+  RatFromScale: 0.4
+  RatToScale: 1.4
+  ratPrefab: {fileID: 680318250660865404}
+  breedingRadius: 2.5
+  breedingDuration: 12
+  breedingCooldown: 90
+  maxRatPopulation: 15
+  scavengeChance: 0.25
+  gnawDuration: 3
+  investigationRadius: 6
+  soundSqueak: Rat_Squeak
+  soundScurry: Rat_Scurry
+  soundGnaw: Rat_Gnaw
 --- !u!195 &7418927327734714326
 NavMeshAgent:
   m_ObjectHideFlags: 0
