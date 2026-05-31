@@ -56,10 +56,49 @@ public class AiNavigation : MonoBehaviour
 
     private void FindWaypoints()
     {
-        Waypoint[] found = Object.FindObjectsByType<Waypoint>(FindObjectsSortMode.None);
-        waypoints = new Transform[found.Length];
-        for (int i = 0; i < found.Length; i++)
-            waypoints[i] = found[i].transform;
+        Waypoint.WaypointGroup myGroup = RoleToWaypointGroup();
+
+        Waypoint[] all = Object.FindObjectsByType<Waypoint>(FindObjectsSortMode.None);
+
+        var matching = new System.Collections.Generic.List<Transform>();
+        foreach (var wp in all)
+        {
+            // Rats roam everywhere — handled in RatBehavior, not here.
+            // All other agents only visit waypoints that include their group.
+            if (wp.AllowsGroup(myGroup))
+                matching.Add(wp.transform);
+        }
+
+        // Fallback: if no typed waypoints exist yet, use all of them so agents
+        // don't stand idle in scenes that predate the waypoint rework.
+        if (matching.Count == 0)
+        {
+            foreach (var wp in all) matching.Add(wp.transform);
+        }
+
+        waypoints = matching.ToArray();
+    }
+
+    private Waypoint.WaypointGroup RoleToWaypointGroup()
+    {
+        // Map AiNavigation role → WaypointGroup flag
+        // Security and Boss use their own roles; Workers and Forklifts map directly.
+        // Check the AgentTypeTag for more specific types.
+        var tag = GetComponent<AgentTypeTag>();
+        if (tag != null)
+        {
+            if (tag.agentType == AgentType.MHE) return Waypoint.WaypointGroup.MHE;
+        }
+
+        // Check object name for specific staff types until dedicated AiNavigation roles exist
+        string n = gameObject.name.ToLower();
+        if (n.Contains("boss"))         return Waypoint.WaypointGroup.Boss;
+        if (n.Contains("security"))     return Waypoint.WaypointGroup.Security;
+        if (n.Contains("exterminator")) return Waypoint.WaypointGroup.Exterminator;
+
+        return role == AgentRole.Forklift
+            ? Waypoint.WaypointGroup.MHE
+            : Waypoint.WaypointGroup.Worker;
     }
 
     private IEnumerator Start()
