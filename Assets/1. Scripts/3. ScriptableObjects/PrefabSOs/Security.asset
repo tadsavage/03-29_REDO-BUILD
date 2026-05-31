@@ -10,23 +10,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
-  m_Name: Barrier2sq
+  m_Name: Security
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  id: 6
-  objName: Barrier2sq
-  cost: 350
-  hourlyCost: 0
-  category: Barrier
-  prefab: {fileID: 1491425356555844063, guid: 00988924e5e3acc4991a5510bd685cad, type: 3}
-  icon: {fileID: 2800000, guid: 5d919e340440b91499cecee49ac9be7b, type: 3}
+  id: 68
+  objName: Security
+  cost: 4000
+  hourlyCost: 20
+  category: Staff
+  prefab: {fileID: 9061875168509457057, guid: 434bd3f65e99f214ba9e47eee70b3ed6, type: 3}
+  icon: {fileID: 2800000, guid: 71c92233284ec8745b0dd3eebb940a78, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
-  ClearsGridAfterPlacement: 0
+  ClearsGridAfterPlacement: 1
   pathfindingClear: 0
-  navArea: 1
+  navArea: 0
+  allowedAgents: 1
+  CanUseStairs: 0
   isStackable: 0
-  objHeight: 1
-  footprint: {x: 2, y: 1}
-  customShapeOffsets:
-  - {x: 0, y: 0}
-  - {x: 1, y: 0}
+  objHeight: 2
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []
