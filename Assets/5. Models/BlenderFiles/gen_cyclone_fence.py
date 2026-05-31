@@ -22,13 +22,13 @@ import math
 
 # ─── PARAMETERS ───────────────────────────────────────────────────────────────
 
-SEGMENT_WIDTH       = 1.0      # metres wide  (matches your grid cell)
+SEGMENT_WIDTH       = 1.325    # metres wide  (matches your grid cell)
 FENCE_HEIGHT        = 2.0      # metres tall (body only, barbed wire adds ~0.25m)
 POST_RADIUS         = 0.025    # post thickness
 RAIL_RADIUS         = 0.015    # top/bottom rail thickness
 WIRE_RADIUS         = 0.006    # fence wire strand thickness
-DIAMOND_COLS        = 6        # number of diamond columns across the segment
-DIAMOND_ROWS        = 4        # number of diamond rows up the segment
+DIAMOND_COLS        = 8        # 8 columns per 1.325m segment
+DIAMOND_ROWS        = 8        # 8 rows per 2.0m height
 BARB_ARM_ANGLE_DEG  = 45       # outward angle of barbed wire arm
 BARB_ARM_LENGTH     = 0.18     # length of the barbed wire arm
 BARB_COUNT          = 5        # number of barbs along the arm
@@ -99,34 +99,38 @@ for z in (0.02, FENCE_HEIGHT):
 # Each diamond is formed by two crossing diagonal wire strands.
 # We create a grid of short diagonal cylinders that together read as chain-link.
 
-cell_w = SEGMENT_WIDTH / DIAMOND_COLS
-cell_h = FENCE_HEIGHT  / DIAMOND_ROWS
-diag   = math.sqrt(cell_w**2 + cell_h**2) * 0.5  # half-diagonal length
+cell_w   = SEGMENT_WIDTH / DIAMOND_COLS
+cell_h   = FENCE_HEIGHT  / DIAMOND_ROWS
+diag_len = math.sqrt(cell_w**2 + cell_h**2)  # exact corner-to-corner length
 
-angle_fwd = math.atan2(cell_h, cell_w)   #  / direction
-angle_bck = math.atan2(cell_h, -cell_w)  #  \ direction
+# ── Correct rotation: orient cylinder along actual diagonal direction ──────
+# Blender cylinder default axis = Z.  Positive Y rotation turns Z toward X.
+# Forward (/) : direction (cell_w, 0, cell_h)  →  Y-rotate by +atan2(cell_w, cell_h)
+# Backward (\): direction (-cell_w, 0, cell_h) →  Y-rotate by -atan2(cell_w, cell_h)
+rot_fwd = (0,  math.atan2(cell_w, cell_h), 0)
+rot_bck = (0, -math.atan2(cell_w, cell_h), 0)
 
 for col in range(DIAMOND_COLS):
     for row in range(DIAMOND_ROWS):
         cx = col * cell_w + cell_w * 0.5
         cz = row * cell_h + cell_h * 0.5
 
-        # forward diagonal ( / )
+        # forward diagonal ( / )  — bottom-left to top-right
         w1 = add_cylinder(
             radius=WIRE_RADIUS,
-            depth=diag * 2,
+            depth=diag_len,
             location=(cx, 0, cz),
-            rotation=(angle_fwd, 0, math.radians(90)),
+            rotation=rot_fwd,
             sides=WIRE_SIDES,
             name="Wire")
         parts.append(w1)
 
-        # backward diagonal ( \ )
+        # backward diagonal ( \ )  — bottom-right to top-left
         w2 = add_cylinder(
             radius=WIRE_RADIUS,
-            depth=diag * 2,
+            depth=diag_len,
             location=(cx, 0, cz),
-            rotation=(angle_bck, 0, math.radians(90)),
+            rotation=rot_bck,
             sides=WIRE_SIDES,
             name="Wire")
         parts.append(w2)

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// Marks a navigation destination. Each waypoint has a bitmask of which agent
@@ -27,6 +28,50 @@ public class Waypoint : MonoBehaviour
 
     /// <summary>Returns true if the given group is allowed to use this waypoint.</summary>
     public bool AllowsGroup(WaypointGroup group) => (allowedGroups & group) != 0;
+
+    // ── Surface snapping ──────────────────────────────────────────────────────
+
+    private void Start()
+    {
+        // Snap to the walkable NavMesh surface so agents can always reach us.
+        // Waypoints bypass the stacking system (ignorePlacementRules=true) and
+        // land at raw grid height (Y=0). The floor tiles sit ~1.06m above that,
+        // so without snapping agents cluster on top trying to reach underground points.
+        if (NavMeshManager.IsReady)
+            SnapToSurface();
+        else
+            NavMeshManager.OnNavMeshReady += OnNavMeshReady;
+    }
+
+    private void OnNavMeshReady()
+    {
+        NavMeshManager.OnNavMeshReady -= OnNavMeshReady;
+        SnapToSurface();
+    }
+
+    private void OnDestroy()
+    {
+        NavMeshManager.OnNavMeshReady -= OnNavMeshReady;
+    }
+
+    private void SnapToSurface()
+    {
+        Vector3 pos = transform.position;
+
+        // Search upward first (waypoint may be below the floor), then at current
+        // height, then slightly below — whichever finds the walkable mesh first.
+        float[] yOffsets = { 2f, 0.5f, 0f, -0.5f };
+        foreach (float offset in yOffsets)
+        {
+            Vector3 sample = new Vector3(pos.x, pos.y + offset, pos.z);
+            if (NavMesh.SamplePosition(sample, out NavMeshHit hit, 3f, NavMesh.AllAreas))
+            {
+                transform.position = new Vector3(pos.x, hit.position.y, pos.z);
+                return;
+            }
+        }
+        // No NavMesh found nearby — leave position unchanged
+    }
 
     // ── Editor visualisation ──────────────────────────────────────────────────
     private void OnDrawGizmos()

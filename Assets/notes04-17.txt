@@ -42,13 +42,14 @@ DONE >> Case size Variety - currently all cases are the same size, but in realit
 DONW>> Fix disappearing wall sections when we lower walls
 DONE >> Finish Guard Shack and Gate Arm and Implement with animation and functionality for opening and closing when a player or any moving agent is near them.
 DONE >> money audited and balanced. (e.g. cost of buildings, maintenance costs, etc.) Object cost review in Excel.
+DONE >> Create a Security Guard employee type and add them to the game. They should be able to patrol the yard and keep an eye out for any suspicious activity.
 
 
 
 TODO
 Rats hide inside pallets and boxes and come out when a worker is nearby and run to another location in the warehouse. They can also damage inventory and cause other problems for the player, so they need to be added to the game as a pest control challenge for the player to deal with.
-<<<<<<< HEAD
-rats not fun yet - just need them to hide in boxes and pallets and come out when a worker is nearby and run to another location in the warehouse. They can also damage inventory and cause other problems for the player, so they need to be added to the game as a pest control challenge for the player to deal with. Also - a green cloud can hang around
+Rats not fun yet - just need them to hide in boxes and pallets and come out when a worker is nearby and run to another location in the warehouse. They can also damage inventory and cause other problems for the player, so they need to be added to the game as a pest control challenge for the player to deal with. Also - a green cloud can hang around
+Testing on Rats- make sure they are hiding in boxes and pallets and coming out when a worker is nearby and running to another location in the warehouse. Also make sure they are damaging inventory and causing other problems for the player to deal with.
 
 Left to do:
 switchboard for all settings (e.g. music setting, sound effects setting, splash screen, speeds of things, etc.) Just go through all the empty objects in scene with serialized fields on them.
@@ -57,9 +58,9 @@ Setup a Graphics Settings menu with options for things like resolution, quality,
 
 TODAY 05-31-2026
 Create a low poly truck model and add it to the game. It should be able to drive around the yard and back into the shipping doors when a delivery is scheduled.
-Create a Security Guard employee type and add them to the game. They should be able to patrol the yard and keep an eye out for any suspicious activity.
+
 Create a Fenceobject and add it to the game. It should be able to be placed around the outside areas of the warehouse to keep out intruders and keep the yard secure.
-Testing on Rats- make sure they are hiding in boxes and pallets and coming out when a worker is nearby and running to another location in the warehouse. Also make sure they are damaging inventory and causing other problems for the player to deal with.
+
 Beef Up UIs with the Kits I downloaded and make them look more visually appealing and consistent with the overall art style of the game. This includes things like the save/load windows, the build menu, the employee stats display, etc.
 
 
