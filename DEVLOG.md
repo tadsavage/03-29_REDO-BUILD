@@ -105,3 +105,38 @@ Full rewrite adding: age/growth (`RatFromScale`→`RatToScale`), breeding (two r
 - Note: delete and re-place Security(Clone) from Build Menu to pick up the updated prefab.
 
 ---
+
+## 2026-05-31
+
+**Session: Cost rebalance, GPU instancing audit, cyclone fence generator**
+
+### ObjDataSO cost rebalance (all 68 assets)
+- Researched real-world 2024 market values for every item using BLS occupational wage data, Grainger/Uline industrial pricing, and commercial construction estimates.
+- Updated all 68 ObjDataSO assets with new `cost` and `hourlyCost` values:
+  - **Staff wages** aligned to BLS 2024 medians: workers $19/hr, female workers $18/hr (player decision), boss $44/hr, security $20/hr, exterminator $65/hr
+  - **Vehicles** corrected to realistic prices: ReachTruck $22,000, Dockstocker $5,500, PalletJack $900, Truck $85,000
+  - **All decor/flavor/floor/racking hourly costs set to $0** — these items have no ongoing per-hour operational cost
+  - **Guard Shack hourly dropped from $350 → $5** (the guard's wage is billed separately via the Security staff SO)
+  - Racking, barriers, walls, doors repriced to current commercial averages
+- Update applied directly to YAML asset files and confirmed in Unity via SerializedObject inspection.
+
+### GPU Instancing audit & fix
+- Audited all materials project-wide for GPU instancing status.
+- All 28 materials in `Assets/6. Art/Materials/` were already correct (instancing ON).
+- Found **37 materials** embedded in model FBX files (`Assets/5. Models/`) with instancing OFF.
+- Enabled GPU instancing on all 37 — this means all repeated meshes (racks, walls, barriers, vehicles) now batch into single draw calls at runtime instead of generating individual draw calls per object.
+- Note: dynamic batching was not relevant here — fence/rack meshes exceed the 300-vertex limit. GPU instancing is the correct approach and is now active everywhere.
+
+### Cyclone fence Blender generator (`gen_cyclone_fence.py`)
+- Wrote a fully parametric Blender Python script saved to `Assets/5. Models/BlenderFiles/`.
+- Generates a **2m tall low-poly stylized cyclone fence segment** (1m wide):
+  - Diamond wire pattern (crossing diagonal cylinders)
+  - Top and bottom galvanized rails
+  - Left and right posts
+  - Three 45° barbed wire arms flush with the top rail, each with barbs
+- All parameters at the top of the file: `FENCE_HEIGHT`, `DIAMOND_COLS/ROWS`, `WIRE_SIDES`, `BARB_COUNT`, `BARB_ARM_ANGLE_DEG`, etc.
+- `WIRE_SIDES=4` recommended — visually equivalent to round wire at game distance, saves significant tris vs WIRE_SIDES=6 across 150 segments.
+- Pricing research: $45 purchase / $0 hourly (commercial chain-link, installed per metre, 2024 rates).
+- ObjDataSO and prefab to be created once FBX is exported from Blender.
+
+---
