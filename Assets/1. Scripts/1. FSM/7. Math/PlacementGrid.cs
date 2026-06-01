@@ -197,7 +197,7 @@ public class PlacementGrid : MonoBehaviour
                     pos.y = isGround ? 0f : currentY;
 
                     var agent = entry.instance.GetComponent<NavMeshAgent>();
-                    if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+                    if (agent != null && agent.isActiveAndEnabled)
                     {
                         agent.Warp(pos);
                     }

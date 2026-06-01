@@ -3,7 +3,27 @@ guid: dd708d09bd74f8348a2998a5e8cb8cbc
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Rat_Body
+    second: {fileID: 2100000, guid: 93caf2b1daa556f47a1f27996b98d976, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Rat_Pink
+    second: {fileID: 2100000, guid: 98c6d241baf122447a79f71ffbfe7408, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Rat_PinkDeep
+    second: {fileID: 2100000, guid: aa6327bad06a26b4da028aeadf04e50b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Rat_White
+    second: {fileID: 2100000, guid: 95edf91b212a97a45ab30548b5878897, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

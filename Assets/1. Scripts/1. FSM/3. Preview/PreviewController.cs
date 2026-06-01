@@ -344,14 +344,25 @@ public class PreviewController : MonoBehaviour
         // Set to Ignore Raycast layer (2) so it doesn't block its own raycasts
         ghost.layer = 2; 
 
-        // Use DestroyImmediate to ensure they are gone before the next line/frame
-        // and check for Component to catch everything (Obstacles, Modifiers, etc.)
-        foreach (var comp in ghost.GetComponentsInChildren<Component>())
+        // Destroy non-visual components. Components must be removed in dependency order
+        // (dependents before their dependencies) to avoid "can't remove X because Y depends on it".
+        // We retry the loop until no more components can be removed.
+        bool removed = true;
+        while (removed)
         {
-            if (comp is Transform || comp is Renderer || comp is MeshFilter)
-                continue;
+            removed = false;
+            foreach (var comp in ghost.GetComponentsInChildren<Component>())
+            {
+                if (comp is Transform || comp is Renderer || comp is MeshFilter)
+                    continue;
 
-            DestroyImmediate(comp);
+                try
+                {
+                    DestroyImmediate(comp);
+                    removed = true;
+                }
+                catch { }
+            }
         }
 
         if (_ghostMaterial != null)

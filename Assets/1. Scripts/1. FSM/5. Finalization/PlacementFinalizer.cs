@@ -72,7 +72,7 @@ public class PlacementFinalizer : MonoBehaviour
 
         // Handle NavMeshAgent warping safely
         var agent = instance.GetComponent<NavMeshAgent>();
-        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        if (agent != null && agent.isActiveAndEnabled)
         {
             agent.Warp(pos);
         }
