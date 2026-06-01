@@ -51,6 +51,9 @@ public class GraphicsPresetManager : MonoBehaviour
             case Preset.Good:    ApplyGood();    break;
             case Preset.Toaster: ApplyToaster(); break;
         }
+
+        string[] labels = { "Ultra Graphics Profile", "Good Graphics Profile", "Toaster Graphics Profile" };
+        UIToast.Show($"Switched to {labels[(int)preset]}", 2.5f);
     }
 
     // ── Preset Definitions ────────────────────────────────────────────────────
@@ -65,7 +68,7 @@ public class GraphicsPresetManager : MonoBehaviour
         _urp.shadowCascadeCount              = 4;
         _urp.shadowDistance                  = 100f;
         _urp.mainLightShadowmapResolution    = 4096;
-        _urp.supportsSoftShadows             = true;
+        // supportsSoftShadows is read-only on URP asset (controlled by shadow cascade settings)
         _urp.maxAdditionalLightsCount        = 8;
         _urp.supportsHDR                     = true;
         QualitySettings.lodBias              = 2.0f;
@@ -84,7 +87,7 @@ public class GraphicsPresetManager : MonoBehaviour
         _urp.shadowCascadeCount              = 2;
         _urp.shadowDistance                  = 60f;
         _urp.mainLightShadowmapResolution    = 2048;
-        _urp.supportsSoftShadows             = true;
+        // supportsSoftShadows is read-only on URP asset (controlled by shadow cascade settings)
         _urp.maxAdditionalLightsCount        = 4;
         _urp.supportsHDR                     = true;
         QualitySettings.lodBias              = 1.5f;
@@ -103,7 +106,7 @@ public class GraphicsPresetManager : MonoBehaviour
         _urp.shadowCascadeCount              = 1;
         _urp.shadowDistance                  = 35f;
         _urp.mainLightShadowmapResolution    = 1024;
-        _urp.supportsSoftShadows             = false;
+        // supportsSoftShadows is read-only on URP asset
         _urp.maxAdditionalLightsCount        = 2;
         _urp.supportsHDR                     = false;
         QualitySettings.lodBias              = 0.7f;
@@ -119,7 +122,7 @@ public class GraphicsPresetManager : MonoBehaviour
         if (profile == null) return;
 
         if (globalVolume == null)
-            globalVolume = FindFirstObjectOfType<Volume>();
+            globalVolume = FindAnyObjectByType<Volume>();
 
         if (globalVolume != null)
             globalVolume.sharedProfile = profile;
@@ -128,6 +131,7 @@ public class GraphicsPresetManager : MonoBehaviour
     private static void SetCameraAA(AntialiasingMode mode)
     {
         var cam = Camera.main;
+        if (cam == null) cam = FindAnyObjectByType<Camera>();
         if (cam == null) return;
         var data = cam.GetUniversalAdditionalCameraData();
         if (data != null) data.antialiasing = mode;

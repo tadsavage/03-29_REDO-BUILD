@@ -354,7 +354,7 @@ public class ToolsWindowController : MonoBehaviour
             string p = preset;
             btn.clicked += () =>
             {
-                var mgr = FindFirstObjectOfType<GraphicsPresetManager>();
+                var mgr = FindAnyObjectByType<GraphicsPresetManager>();
                 if (mgr != null) mgr.ApplyPreset((GraphicsPresetManager.Preset)System.Enum.Parse(
                     typeof(GraphicsPresetManager.Preset), p));
                 else Debug.LogWarning("[DevSettings] GraphicsPresetManager not found in scene.");
