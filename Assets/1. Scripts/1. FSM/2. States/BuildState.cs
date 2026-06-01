@@ -87,6 +87,8 @@ public bool IsPlacementState => true;
     // ---------------------------------------------------------
     public void OnEnter()
     {
+        BuildModeOverride.Instance?.Activate();
+
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
         _actions.BuildPlacement.Place.canceled += OnPlacePerformed;
 
@@ -118,6 +120,8 @@ public bool IsPlacementState => true;
     // ---------------------------------------------------------
     public void OnExit()
     {
+        BuildModeOverride.Instance?.Deactivate();
+
         _raycast.DisableRay();
         _indicator.ClearAll();
         _preview.Hide();

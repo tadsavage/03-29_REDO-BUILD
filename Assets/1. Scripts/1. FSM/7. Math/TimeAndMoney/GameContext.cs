@@ -35,7 +35,25 @@ public class GameContext : MonoBehaviour
     private void Start()
     {
         var placement = FindAnyObjectByType<PlacementSystem>();
-        placement.LoadGame();
+
+        bool isNewGame = PlayerPrefs.GetInt("IsNewGame", 0) == 1;
+        if (isNewGame)
+        {
+            PlayerPrefs.SetInt("IsNewGame", 0);
+            PlayerPrefs.Save();
+
+            string playerName = PlayerPrefs.GetString("PlayerName", "Boss");
+            var welcomeOverlay = FindAnyObjectByType<WelcomeOverlayManager>(FindObjectsInactive.Include);
+            if (welcomeOverlay != null)
+            {
+                welcomeOverlay.gameObject.SetActive(true);
+                welcomeOverlay.Show(playerName);
+            }
+        }
+        else
+        {
+            placement.LoadGame();
+        }
 
         // Sync the grid with any objects already in the scene (e.g. manually placed in Editor)
         var grid = FindAnyObjectByType<PlacementGrid>();

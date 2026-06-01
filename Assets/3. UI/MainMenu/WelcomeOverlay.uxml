@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/3.%20UI/MainMenu/MainMenu.uss?fileID=7433441132597879392&amp;guid=ce5e780b1ce92844eaa156c6246ff9c5&amp;type=3#MainMenu"/>
+    <ui:VisualElement name="welcome-backdrop" class="modal-backdrop" style="display: none;">
+        <ui:VisualElement name="welcome-popup" class="popup-welcome">
+            <ui:VisualElement name="boss-avatar" style="width: 320px; height: 320px; border-radius: 16px; background-color: #3A2D1A; border-width: 4px; border-color: #ECC98A; margin-bottom: 24px; -unity-background-scale-mode: scale-to-fit;"/>
+            <ui:Label name="welcome-title" text="👷 YOUR BOSS 👷" class="welcome-boss-title"/>
+            <ui:Label name="welcome-text" text="" class="welcome-text"/>
+            <ui:Button name="btn-dismiss" text="GET TO WORK!" class="popup-btn popup-btn-green" style="height: 80px; font-size: 28px;"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

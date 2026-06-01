@@ -102,6 +102,8 @@ public string ObjectName => _obj != null ? _obj.name : "None";
     // ---------------------------------------------------------
     public void OnEnter()
     {
+        BuildModeOverride.Instance?.Activate();
+
         _actions.BuildPlacement.Place.performed += OnConfirmMove;
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
 
@@ -118,6 +120,8 @@ public string ObjectName => _obj != null ? _obj.name : "None";
 
     public void OnExit()
     {
+        BuildModeOverride.Instance?.Deactivate();
+
         _raycast.DisableRay();
         _preview.ResetMoveGhostState();
         _preview.SetMovePreviewMode(false);

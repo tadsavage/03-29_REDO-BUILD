@@ -1,0 +1,68 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/3.%20UI/MainMenu/MainMenu.uss?fileID=7433441132597879392&amp;guid=ce5e780b1ce92844eaa156c6246ff9c5&amp;type=3#MainMenu"/>
+    <ui:VisualElement name="root-overlay" class="root-overlay">
+        <ui:VisualElement name="main-panel" class="main-panel">
+            <ui:Label name="title-label" text="FORK IT!" class="title-label"/>
+            <ui:Label name="tagline-label" text="In case you ever wanted to work in a warehouse but went to college instead..." selectable="true" focusable="true" class="tagline-label"/>
+            <ui:VisualElement name="logo-container" class="logo-container">
+                <ui:VisualElement name="logo-image" class="logo-image"/>
+            </ui:VisualElement>
+            <ui:VisualElement name="button-column" class="button-column">
+                <ui:Button name="btn-clock-in" text="CLOCK IN" class="menu-btn menu-btn-green"/>
+                <ui:Button name="btn-resume" text="RESUME SHIFT" class="menu-btn menu-btn-blue"/>
+                <ui:Button name="btn-settings" text="SETTINGS" class="menu-btn menu-btn-grey"/>
+                <ui:Button name="btn-punch-out" text="PUNCH OUT" class="menu-btn menu-btn-red"/>
+            </ui:VisualElement>
+            <ui:Label name="version-label" text="v0.1 — PROTO" class="version-label"/>
+        </ui:VisualElement>
+        <ui:Label name="tooltip-label" text="" class="tooltip-label" style="display: none;"/>
+        <ui:VisualElement name="name-popup" class="popup-panel" style="display: none;">
+            <ui:Label name="popup-question" text="Hey! What&apos;s your name?" class="popup-title"/>
+            <ui:TextField name="name-field" placeholder-text="Enter your name..." class="popup-field"/>
+            <ui:Button name="btn-name-confirm" text="CONTINUE" class="popup-btn popup-btn-green"/>
+        </ui:VisualElement>
+        <ui:VisualElement name="welcome-backdrop" class="modal-backdrop" style="display: none;">
+            <ui:VisualElement name="welcome-popup" class="popup-welcome">
+                <ui:VisualElement name="VisualElement" class="boss-avatar" style="border-top-width: 3px; border-right-width: 3px; border-bottom-width: 3px; border-left-width: 3px; background-size: 100% 100%;">
+                    <ui:Label text="" selectable="true" focusable="true" class="boss-emoji" style="background-image: none; background-size: 100% 100%; -unity-background-image-tint-color: rgba(255, 255, 255, 0);"/>
+                </ui:VisualElement>
+                <ui:Label name="welcome-title" text="👷YOUR BOSS👷" class="welcome-boss-title"/>
+                <ui:Label name="welcome-text" text="" class="welcome-text"/>
+                <ui:Button name="btn-build" text="GET BUILDING!" class="popup-btn popup-btn-green"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="load-popup" class="popup-panel" style="display: none;">
+            <ui:Label text="RESUME SHIFT" class="popup-title"/>
+            <ui:Label name="load-hint" text="💡  Remember — hit F9 to quick-load your last autosave." class="popup-hint"/>
+            <ui:VisualElement name="save-slot-list" class="save-slot-list"/>
+            <ui:Button name="btn-load-close" text="BACK" class="popup-btn popup-btn-grey"/>
+        </ui:VisualElement>
+        <ui:VisualElement name="settings-popup" class="popup-panel" style="display: none;">
+            <ui:Label text="SETTINGS" class="popup-title"/>
+            <ui:Label text="WHAT&apos;S YOUR HORSEPOWER?" class="settings-section-header"/>
+            <ui:VisualElement class="settings-row">
+                <ui:Button name="btn-ultra" text="DEEP BLUE" class="gfx-btn gfx-btn-blue"/>
+                <ui:Button name="btn-good" text="GOOD ENOUGH" class="gfx-btn gfx-btn-green"/>
+                <ui:Button name="btn-toaster" text="TOASTER" class="gfx-btn gfx-btn-red"/>
+            </ui:VisualElement>
+            <ui:Label text="DIFFICULTY" class="settings-section-header"/>
+            <ui:VisualElement class="settings-row">
+                <ui:Button name="btn-diff-clerk" text="CLERK" class="gfx-btn gfx-btn-green"/>
+                <ui:Button name="btn-diff-supervisor" text="SUPERVISOR" class="gfx-btn gfx-btn-blue"/>
+                <ui:Button name="btn-diff-manager" text="MANAGER" class="gfx-btn gfx-btn-red"/>
+            </ui:VisualElement>
+            <ui:Label text="RESOLUTION" class="settings-section-header"/>
+            <ui:DropdownField name="resolution-dropdown" class="settings-dropdown"/>
+            <ui:Label text="VOLUME" class="settings-section-header"/>
+            <ui:VisualElement class="settings-slider-row">
+                <ui:Label text="Game" class="settings-slider-label"/>
+                <ui:Slider name="slider-game-volume" low-value="0" high-value="1" value="1" class="settings-slider"/>
+            </ui:VisualElement>
+            <ui:VisualElement class="settings-slider-row">
+                <ui:Label text="Music" class="settings-slider-label"/>
+                <ui:Slider name="slider-music-volume" low-value="0" high-value="1" value="0.7" class="settings-slider"/>
+            </ui:VisualElement>
+            <ui:Button name="btn-settings-close" text="DONE" class="popup-btn popup-btn-green"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

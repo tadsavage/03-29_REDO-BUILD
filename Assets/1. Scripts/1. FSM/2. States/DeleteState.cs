@@ -58,6 +58,8 @@ public class DeleteState : IPlacementState
 
     public void OnEnter()
     {
+        BuildModeOverride.Instance?.Activate();
+
         _raycast.EnableRay();
         _indicator.UseDeleteMode();
 
@@ -72,6 +74,8 @@ public class DeleteState : IPlacementState
 
     public void OnExit()
     {
+        BuildModeOverride.Instance?.Deactivate();
+
         _raycast.DisableRay();
         _indicator.UseBuildMode();
 
