@@ -6,9 +6,23 @@ public class SaveData
 {
     public string saveName;
     public int money;
-    public int spentToday;   // ⭐ NEW
-    public CameraSaveData cameraData; // ⭐ NEW
+    public int spentToday;
+    public CameraSaveData cameraData;
     public List<SavedObject> placedObjects = new();
+    public List<DevSettingEntry> devSettings = new();
+    public float toolsWindowX = 12f;   // panel-space position of the Tools Window
+    public float toolsWindowY = 50f;
+    public bool  guidanceLinesVisible = true;
+    public bool  waypointsVisible     = true;
+    public bool  hoverPopupEnabled    = true;
+}
+
+/// <summary>Key = "TypeName.fieldName", Val = serialized value string.</summary>
+[System.Serializable]
+public class DevSettingEntry
+{
+    public string key;
+    public string val;
 }
 
 [System.Serializable]

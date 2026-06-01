@@ -181,20 +181,8 @@ public class WallVisibilityManager : MonoBehaviour
             if (wall.transform == null) continue;
             wall.transform.position = endPositions[wall];
 
-//<<<<<< HEAD
             if (_currentMode == WallVisibilityMode.Cut)
                 SetWallMaterials(wall, true);
-            // I REM'd all thos out because the foundation was deleting itself.
-            // Do not disable renderers for persistent walls (Corners, ManDoors)
-            //if (_currentMode == WallVisibilityMode.Hidden && !wall.isPersistent) 
-                //SetRenderersEnabled(wall.renderers, false);
-            
-            //if (_currentMode == WallVisibilityMode.Cut && wall.mainCollider != null) 
-               // HideFloatingObjectsAbove(wall.mainCollider);
-//=======
-            if (_currentMode == WallVisibilityMode.Hidden) SetRenderersEnabled(wall.renderers, false);
-            if (_currentMode == WallVisibilityMode.Cut && wall.mainCollider != null) HideFloatingObjectsAbove(wall.mainCollider);
-//>>>>>>> parent of 5caf2c4 (fixed the lower wall bug)
         }
 
         if (_currentMode == WallVisibilityMode.Full) _dynamicallyFoundDecor.Clear();

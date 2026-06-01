@@ -48,6 +48,22 @@
     background-position: center;
 }
 
+/* ── Preview cost label (follows cursor while dragging a build item) ─── */
+.preview-cost-label {
+    position: absolute;
+    top: 0; left: 0;
+    background-color: #2D2B3A;
+    border-width: 4px;
+    border-color: #ECC98A;
+    border-radius: 12px;
+    padding: 12px 24px;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 32px;
+    color: #ECC98A;
+    picking-mode: ignore;
+    display: none;
+}
+
 /* Label element styling layout rules */
 .topbar-utility-lbl {
     color: rgb(240, 230, 211);

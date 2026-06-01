@@ -142,6 +142,13 @@ public class BuildMenuUI : MonoBehaviour
         _utilityRow = _root.Q<VisualElement>("UtilityRow");
         _submenuContainer = _root.Q<VisualElement>("SubmenuContainer");
 
+        // BottomBar is Ignore in UXML (legacy reason) — override to Position so
+        // any click inside the bar area is caught and doesn't pass through to the
+        // game world. The full-screen root stays Ignore so it doesn't block clicks
+        // in open space above the bar.
+        if (_bottomBar != null)        _bottomBar.pickingMode        = PickingMode.Position;
+        if (_submenuContainer != null) _submenuContainer.pickingMode = PickingMode.Position;
+
         // Track mouse over the bottom action bar
         _bottomBar.RegisterCallback<PointerEnterEvent>(_ =>
         {
@@ -440,44 +447,30 @@ public class BuildMenuUI : MonoBehaviour
         VisualElement foundPopup = _root.Q<VisualElement>("WorldHoverPopup");
         if (foundPopup != null) return foundPopup;
 
+        // Build the floating popup — lives in the full-screen root so it doesn't
+        // take space in the BottomBar's flex layout.
         var fallbackPopup = new VisualElement { name = "WorldHoverPopup" };
-        fallbackPopup.AddToClassList("buildmenu-stationed-popup");
+        fallbackPopup.AddToClassList("world-hover-popup");
         fallbackPopup.pickingMode = PickingMode.Ignore;
 
-        var titleLabel = new Label { name = "HoverTitle", text = "No Data - Item" };
+        var titleLabel = new Label { name = "HoverTitle", text = "" };
         titleLabel.AddToClassList("world-hover-title");
         titleLabel.pickingMode = PickingMode.Ignore;
 
-        var metricsBox = new VisualElement { name = "HoverMetricsContainer" };
-        metricsBox.AddToClassList("world-hover-metrics-box");
-        metricsBox.pickingMode = PickingMode.Ignore;
-
-        var costLabel = new Label { name = "HoverCost", text = "Cost: --" };
+        var costLabel = new Label { name = "HoverCost", text = "" };
         costLabel.AddToClassList("world-hover-cost");
         costLabel.pickingMode = PickingMode.Ignore;
 
-        var hourlyLabel = new Label { name = "HoverHourlyCost", text = "Hourly: --" };
+        var hourlyLabel = new Label { name = "HoverHourlyCost", text = "" };
         hourlyLabel.AddToClassList("world-hover-hourlyCost");
         hourlyLabel.pickingMode = PickingMode.Ignore;
 
-        metricsBox.Add(costLabel);
-        metricsBox.Add(hourlyLabel);
         fallbackPopup.Add(titleLabel);
-        fallbackPopup.Add(metricsBox);
+        fallbackPopup.Add(costLabel);
+        fallbackPopup.Add(hourlyLabel);
 
-        if (_bottomBar != null && _utilityRow != null)
-        {
-            int utilityIndex = _bottomBar.IndexOf(_utilityRow);
-            _bottomBar.Insert(utilityIndex, fallbackPopup);
-        }
-        else if (_bottomBar != null)
-        {
-            _bottomBar.Add(fallbackPopup);
-        }
-        else
-        {
-            _root.Add(fallbackPopup);
-        }
+        // Add to the root (full-screen overlay) so it floats freely over everything
+        _root.Add(fallbackPopup);
 
         return fallbackPopup;
     }

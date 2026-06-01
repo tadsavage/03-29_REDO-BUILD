@@ -65,12 +65,17 @@ public class RaycastController : MonoBehaviour
             _line.enabled = false;
     }
 
+    // Cached for the IsPointerOverBuildMenu check — the most reliable way to know
+    // if the cursor is anywhere over the bottom bar (including empty space between buttons).
+    private BuildMenuUI _buildMenuUI;
+
     private void Start()
     {
+        _buildMenuUI = FindFirstObjectByType<BuildMenuUI>();
+
         // Unity wraps UXML in a TemplateContainer child of rootVisualElement.
         // Both root and TemplateContainer must be Ignore — otherwise PanelRaycaster
         // hits the full-screen TemplateContainer and blocks all game-world raycasts.
-        // Interactive UXML elements (buttons etc.) retain their own PickingMode.Position.
         foreach (var doc in FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
         {
             if (doc.rootVisualElement == null) continue;
@@ -172,8 +177,18 @@ public class RaycastController : MonoBehaviour
 
     private bool CheckIfPointerOverUI()
     {
+        // Most reliable: the build menu tracks PointerEnter/Leave on the bar element itself.
+        if (_buildMenuUI != null && _buildMenuUI.IsPointerOverBuildMenu) return true;
+
+        // Direct bounds check for the Tools Window — more reliable than panel.Pick()
+        // for dynamically-built scroll content (dev settings toggles etc.)
+        if (ToolsWindowController.Instance != null &&
+            ToolsWindowController.Instance.IsPointerOverWindow()) return true;
+
+        // UI Toolkit panel.Pick() for other floating panels
         if (UIInputGuard.IsPointerOverUIToolkit()) return true;
 
+        // Legacy UGUI fallback
         if (EventSystem.current == null) return false;
         var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
         var eventData = new UnityEngine.EventSystems.PointerEventData(EventSystem.current);

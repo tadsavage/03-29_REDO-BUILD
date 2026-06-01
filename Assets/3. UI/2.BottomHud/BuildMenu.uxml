@@ -1,5 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
     <Style src="project://database/Assets/3.%20UI/2.BottomHud/buildmenuNEW.uss?fileID=7433441132597879392&amp;guid=6451556a33fb0be46aa059d66682505f&amp;type=3#buildmenuNEW"/>
+    <Style src="project://database/Assets/3.%20UI/4.PopupUIs/WorldHoverPopup.uss?fileID=7433441132597879392&amp;guid=e7f4862e76357b3469d9ad92258f0600&amp;type=3#WorldHoverPopup"/>
     
     <ui:VisualElement name="BuildMenuRoot" picking-mode="Ignore" class="buildmenu-root">
         <ui:VisualElement name="SubmenuContainer" picking-mode="Position" class="buildmenu-submenu buildmenu-submenu-closed">

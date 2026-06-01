@@ -1,36 +1,43 @@
-﻿/* THE WORLD POPUP MAIN BOX CONTAINER */
+/* ── FLOATING OBJECT HOVER POPUP ─────────────────────────
+   Follows the cursor (+50px right, +50px down).
+   Styled to match the game's Palia/gold aesthetic.
+   ───────────────────────────────────────────────────────── */
+
 .world-hover-popup {
     position: absolute;
-    background-color: rgba(30, 32, 34, 0.95); /* Solid Dark Charcoal Base */
+    background-color: #2D2B3A;
     border-width: 2px;
-    border-color: #FF6B00; /* Safety Orange Industrial Trim Frame */
-    border-radius: 6px;
-    padding: 10px;
-    min-width: 200px;
-    opacity: 0;
+    border-color: #ECC98A;
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 180px;
     display: none;
+    flex-direction: column;
+    picking-mode: ignore;
+    top: 0;
+    left: 0;
 }
 
-/* Visibility hook class triggered via your script toggles */
 .world-hover-popup.show {
     display: flex;
 }
 
-/* CONTAINER INNER DATA FONTS */
 .world-hover-title {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
     font-size: 16px;
-    color: #FFFFFF; /* High Visibility Title White */
-    -unity-font-style: bold;
-    margin-bottom: 4px;
+    color: #F5EEDB;
+    margin-bottom: 5px;
 }
 
 .world-hover-cost {
-    font-size: 13px;
-    color: #2ECC71; /* Profits / Placement Asset Green */
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    font-size: 14px;
+    color: #ECC98A;
     margin-bottom: 2px;
 }
 
 .world-hover-hourlyCost {
-    font-size: 12px;
-    color: #FFC72C; /* Industrial Alert Caution Yellow for Maintenance Overhead Costs */
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
+    font-size: 13px;
+    color: rgba(236, 201, 138, 0.55);
 }

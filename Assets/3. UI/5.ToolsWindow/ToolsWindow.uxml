@@ -2,52 +2,15 @@
     <Style src="project://database/Assets/3.%20UI/7.ToolsWindow/ToolsWindow.uss?fileID=7433441132597879392&amp;guid=e4e26c3ac8490264d827fefa64523580&amp;type=3#ToolsWindow"/>
     <ui:VisualElement name="tools-overlay" class="tools-overlay">
         <ui:VisualElement name="tools-window" class="tools-window">
+            <ui:VisualElement name="tools-titlebar" class="tools-titlebar">
+                <ui:Label text="⚙  TOOLS" class="tools-title"/>
+                <ui:Button name="tools-close" text="✕" class="tools-close"/>
+            </ui:VisualElement>
             <ui:VisualElement class="tools-tabstrip">
-                <ui:Button name="tab-btn-pallet" text="PLT BUILDER" class="tools-tab tools-tab--active"/>
-                <ui:Button name="tab-btn-dev" text="DEV CONSOLE" class="tools-tab tools-tab--inactive"/>
+                <ui:Button name="tab-btn-dev"      text="DEV CONSOLE"  class="tools-tab tools-tab--active"/>
+                <ui:Button name="tab-btn-settings" text="DEV SETTINGS" class="tools-tab tools-tab--inactive"/>
             </ui:VisualElement>
             <ui:ScrollView name="tools-scroll" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto" class="tools-scroll">
-                <ui:VisualElement name="tab-content-pallet" class="tab-content">
-                    <ui:VisualElement class="plt-section">
-                        <ui:Label text="PRODUCT" class="plt-s-heading"/>
-                        <ui:DropdownField name="plt-prefab" label="Case Prefab" class="plt-dropdown"/>
-                    </ui:VisualElement>
-                    <ui:VisualElement class="plt-section">
-                        <ui:Label text="DIMENSIONS" class="plt-s-heading"/>
-                        <ui:VisualElement class="plt-row">
-                            <ui:Label text="Max Height" picking-mode="Ignore" class="plt-label"/>
-                            <ui:TextField name="plt-maxheight" class="plt-field"/>
-                        </ui:VisualElement>
-                        <ui:VisualElement class="plt-row">
-                            <ui:Label text="Space Between" picking-mode="Ignore" class="plt-label"/>
-                            <ui:TextField name="plt-space" class="plt-field"/>
-                        </ui:VisualElement>
-                        <ui:VisualElement class="plt-row">
-                            <ui:Label text="Vertical Gap" picking-mode="Ignore" class="plt-label"/>
-                            <ui:TextField name="plt-gap" class="plt-field"/>
-                        </ui:VisualElement>
-                        <ui:VisualElement class="plt-row">
-                            <ui:Label text="Crooked Amount" picking-mode="Ignore" class="plt-label"/>
-                            <ui:TextField name="plt-crooked" class="plt-field"/>
-                        </ui:VisualElement>
-                    </ui:VisualElement>
-                    <ui:VisualElement class="plt-section">
-                        <ui:Label text="TI-HI OVERRIDE" class="plt-s-heading"/>
-                        <ui:VisualElement class="plt-row">
-                            <ui:Label text="Enable Override" picking-mode="Ignore" class="plt-label"/>
-                            <ui:Toggle name="plt-override" class="plt-toggle"/>
-                        </ui:VisualElement>
-                        <ui:VisualElement class="plt-row">
-                            <ui:Label text="Ti  (cases / layer)" picking-mode="Ignore" class="plt-label"/>
-                            <ui:TextField name="plt-manualt" class="plt-field"/>
-                        </ui:VisualElement>
-                        <ui:VisualElement class="plt-row">
-                            <ui:Label text="Hi  (layers)" picking-mode="Ignore" class="plt-label"/>
-                            <ui:TextField name="plt-manualh" class="plt-field"/>
-                        </ui:VisualElement>
-                    </ui:VisualElement>
-                    <ui:Button name="plt-build" text="BUILD PALLET" class="plt-build-btn"/>
-                </ui:VisualElement>
                 <ui:VisualElement name="tab-content-dev" class="tab-content">
                     <ui:VisualElement class="dev-section dev-s-gold">
                         <ui:Label text="ECONOMY" class="dev-s-heading"/>
@@ -122,11 +85,10 @@
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
+                <!-- ── DEV SETTINGS tab (populated dynamically at runtime) ── -->
+                <ui:VisualElement name="tab-content-settings" class="tab-content">
+                </ui:VisualElement>
             </ui:ScrollView>
-            <ui:VisualElement name="tools-titlebar" class="tools-titlebar">
-                <ui:Label text="⚙  TOOLS" class="tools-title"/>
-                <ui:Button name="tools-close" text="✕" class="tools-close"/>
-            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
+  m_Name: Vending_machine_red
+  m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
+  id: 91
+  objName: Vending Machine (Red)
+  cost: 2500
+  hourlyCost: 0
+  category: Flavor
+  prefab: {fileID: 5552178356927274852, guid: 520bf86f8407aae41b6923fe6da8edca, type: 3}
+  icon: {fileID: 2800000, guid: 4d3dad8082a196e488fbe4cc752e4b50, type: 3}
+  ignorePlacementRules: 0
+  isFloor: 0
+  ClearsGridAfterPlacement: 0
+  pathfindingClear: 0
+  navArea: 0
+  allowedAgents: 5
+  CanUseStairs: 0
+  isStackable: 0
+  objHeight: 2
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []

@@ -1,5 +1,6 @@
 using SaveLoadSystem;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -179,6 +180,31 @@ public class PlacementSystem : MonoBehaviour
         if (freeLookCamera != null)
             save.cameraData = freeLookCamera.GetState();
 
+        save.devSettings = CollectDevSettings();
+
+        if (ToolsWindowController.Instance != null)
+        {
+            var pos = ToolsWindowController.Instance.GetWindowPosition();
+            save.toolsWindowX = pos.x;
+            save.toolsWindowY = pos.y;
+        }
+
+        // Guidance lines
+        var guid = Object.FindFirstObjectByType<NavAgentGuidance>();
+        if (guid != null) save.guidanceLinesVisible = guid.showGuidanceLine;
+
+        // Hover popup
+        var hoverUI = Object.FindFirstObjectByType<WorldHoverPopupUI>();
+        if (hoverUI != null) save.hoverPopupEnabled = hoverUI.IsEnabled;
+
+        // Waypoint visibility — read from first Waypoint's mesh renderer
+        var wp = Object.FindFirstObjectByType<Waypoint>();
+        if (wp != null)
+        {
+            var mr = wp.GetComponentInChildren<MeshRenderer>();
+            if (mr != null) save.waypointsVisible = mr.enabled;
+        }
+
         foreach (var entry in PlacedObjectRegistry.All)
         {
             SavedObject obj = new SavedObject();
@@ -210,6 +236,26 @@ public class PlacementSystem : MonoBehaviour
         }
 
         grid.RebuildFromRegistry();
+
+        // Apply saved dev-settings to all matching scene components
+        if (save.devSettings != null && save.devSettings.Count > 0)
+            ApplyDevSettings(save.devSettings);
+
+        // Restore Tools Window position
+        ToolsWindowController.Instance?.SetWindowPosition(save.toolsWindowX, save.toolsWindowY);
+
+        // Restore guidance lines
+        foreach (var g in Object.FindObjectsByType<NavAgentGuidance>(FindObjectsSortMode.None))
+            g.showGuidanceLine = save.guidanceLinesVisible;
+
+        // Restore hover popup state
+        var hoverUI = Object.FindFirstObjectByType<WorldHoverPopupUI>();
+        if (hoverUI != null) hoverUI.SetEnabled(save.hoverPopupEnabled);
+
+        // Restore waypoints visibility
+        foreach (var w in Object.FindObjectsByType<Waypoint>(FindObjectsSortMode.None))
+            foreach (var r in w.GetComponentsInChildren<MeshRenderer>())
+                r.enabled = save.waypointsVisible;
 
         // Perform a synchronous bake after everything is loaded so agents find the NavMesh immediately
         if (NavMeshManager.Instance != null)
@@ -297,12 +343,99 @@ private void OnSlotSaveCompleted(int slotIndex)
 
     private void OnDestroy()
     {
-        // Unsubscribe to prevent leaks
         if (SaveManager.Instance != null)
         {
             SaveManager.Instance.OnSaveCompleted -= OnSlotSaveCompleted;
             SaveManager.Instance.OnLoadCompleted -= OnSlotLoadCompleted;
         }
+    }
 
+    // ---------------------------------------------------------
+    // DEV SETTINGS PERSISTENCE
+    // Scans the same script types as ToolsWindowController and
+    // serialises every tunable (float/int/bool) serialized field.
+    // On load, applies values to ALL instances of each type so
+    // balance changes affect every agent / object in the scene.
+    // ---------------------------------------------------------
+
+    private static readonly HashSet<string> DevScanTypes = new()
+    {
+        "FreeLookCamera", "AiNavigation", "AgentAnimation", "RatBehavior",
+        "WallVisibilityManager", "LightPulse", "Gate_Open_Close",
+        "NavMeshManager", "VehicleThrottleAudio", "AmbientMumble", "PalletBuilder",
+    };
+
+    private static readonly BindingFlags DevFieldFlags =
+        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+    private static List<DevSettingEntry> CollectDevSettings()
+    {
+        var result = new List<DevSettingEntry>();
+        var seen   = new HashSet<string>();
+
+        foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+        {
+            if (mb == null) continue;
+            string typeName = mb.GetType().Name;
+            if (!DevScanTypes.Contains(typeName) || seen.Contains(typeName)) continue;
+            seen.Add(typeName);
+
+            foreach (var field in mb.GetType().GetFields(DevFieldFlags))
+            {
+                if (!IsTunableField(field)) continue;
+                var val = field.GetValue(mb);
+                if (val == null) continue;
+                result.Add(new DevSettingEntry
+                {
+                    key = $"{typeName}.{field.Name}",
+                    val = val.ToString()
+                });
+            }
+        }
+        return result;
+    }
+
+    private static void ApplyDevSettings(List<DevSettingEntry> settings)
+    {
+        // Group all matching scene components by type name
+        var byType = new Dictionary<string, List<MonoBehaviour>>();
+        foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+        {
+            if (mb == null) continue;
+            string tn = mb.GetType().Name;
+            if (!DevScanTypes.Contains(tn)) continue;
+            if (!byType.ContainsKey(tn)) byType[tn] = new List<MonoBehaviour>();
+            byType[tn].Add(mb);
+        }
+
+        foreach (var entry in settings)
+        {
+            int dot = entry.key.IndexOf('.');
+            if (dot < 0) continue;
+            string typeName  = entry.key.Substring(0, dot);
+            string fieldName = entry.key.Substring(dot + 1);
+            if (!byType.TryGetValue(typeName, out var instances) || instances.Count == 0) continue;
+
+            var field = instances[0].GetType().GetField(fieldName, DevFieldFlags);
+            if (field == null) continue;
+
+            object parsed = null;
+            if      (field.FieldType == typeof(float) && float.TryParse(entry.val, out float f)) parsed = f;
+            else if (field.FieldType == typeof(int)   && int.TryParse(entry.val,   out int   i)) parsed = i;
+            else if (field.FieldType == typeof(bool)  && bool.TryParse(entry.val,  out bool  b)) parsed = b;
+            if (parsed == null) continue;
+
+            // Apply to every instance of this type — balance settings should be universal
+            foreach (var mb in instances)
+                field.SetValue(mb, parsed);
+        }
+    }
+
+    private static bool IsTunableField(FieldInfo f)
+    {
+        if (f.FieldType != typeof(float) && f.FieldType != typeof(int) && f.FieldType != typeof(bool))
+            return false;
+        return (f.IsPublic && f.GetCustomAttribute<HideInInspector>() == null)
+            || (!f.IsPublic && f.GetCustomAttribute<SerializeField>() != null);
     }
 }

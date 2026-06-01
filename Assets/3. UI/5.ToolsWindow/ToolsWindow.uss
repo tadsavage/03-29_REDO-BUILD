@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════
    TOOLS WINDOW  —  Pallet Builder & Dev Console
    Toggle: backtick (`) for Dev tab  |  click pallet to open
+   Fonts & buttons scaled ×1.35 from original
    ═══════════════════════════════════════════════════════ */
 
 /* ── FONT ALIASES ────────────────────────────────────── */
@@ -21,46 +22,47 @@
     position: absolute;
     top: 50px;
     left: 12px;
-    width: 360px;
+    width: 420px;
     background-color: #2D2B3A;
     border-width: 2px;
     border-color: #ECC98A;
     border-radius: 12px;
     overflow: hidden;
-    /* Subtle drop shadow via a fake element isn't possible in UITK;
-       the gold border gives enough presence */
 }
 
-/* ── TITLE BAR ───────────────────────────────────────── */
+/* ── TITLE BAR (top drag strip, Windows-style) ───────── */
 .tools-titlebar {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    background-color: #231F32;
+    background-color: #1A1828;
     padding-top: 8px;
     padding-bottom: 8px;
     padding-left: 14px;
     padding-right: 10px;
-    border-bottom-width: 2px;
-    border-bottom-color: rgba(236, 201, 138, 0.45);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(236, 201, 138, 0.35);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    cursor: move;
 }
 
 .tools-title {
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 12px;
+    font-size: 16px;
     -unity-text-letter-spacing: 3px;
     color: #ECC98A;
 }
 
 .tools-close {
-    width: 24px;
-    height: 24px;
-    border-radius: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
     border-width: 1px;
     border-color: rgba(255, 100, 100, 0.4);
     background-color: rgba(255, 100, 100, 0.12);
     color: #F5EEDB;
-    font-size: 12px;
+    font-size: 16px;
     -unity-text-align: middle-center;
     padding: 0;
 }
@@ -77,14 +79,14 @@
 
 .tools-tab {
     flex: 1;
-    height: 32px;
+    height: 43px;
     border-width: 0;
     border-bottom-width: 2px;
     border-bottom-color: transparent;
     border-radius: 0;
     background-color: transparent;
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 10px;
+    font-size: 14px;
     -unity-text-letter-spacing: 2px;
     -unity-text-align: middle-center;
     padding: 0;
@@ -107,18 +109,20 @@
 
 /* ── SCROLL AREA ─────────────────────────────────────── */
 .tools-scroll {
-    max-height: 510px;
+    max-height: 560px;
 }
 
 .tools-scroll > .unity-scroll-view__content-and-vertical-scroll-container > .unity-scroller--vertical {
-    width: 4px;
-    background-color: transparent;
-    margin: 4px 2px;
+    width: 12px;
+    background-color: rgba(0, 0, 0, 0.55);
+    border-radius: 6px;
+    margin: 4px 3px;
 }
 .tools-scroll .unity-base-slider__dragger {
-    background-color: rgba(236, 201, 138, 0.3);
-    border-radius: 2px;
+    background-color: #231F32;
+    border-radius: 6px;
     border-width: 0;
+    min-height: 24px;
 }
 .tools-scroll .unity-scroller__low-button,
 .tools-scroll .unity-scroller__high-button {
@@ -149,36 +153,36 @@
     border-top-width: 0;
     border-right-width: 0;
     border-bottom-width: 0;
-    padding-top: 8px;
-    padding-bottom: 10px;
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-top: 10px;
+    padding-bottom: 12px;
+    padding-left: 12px;
+    padding-right: 12px;
 }
 
 .plt-s-heading {
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 8px;
+    font-size: 11px;
     -unity-text-letter-spacing: 3px;
     color: rgba(236, 201, 138, 0.55);
-    margin-bottom: 7px;
+    margin-bottom: 9px;
 }
 
 .plt-row {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
 }
 
 .plt-label {
     flex: 1;
-    font-size: 12px;
+    font-size: 16px;
     color: #F5EEDB;
 }
 
 .plt-field {
     flex: 1.2;
-    height: 28px;
+    height: 38px;
     min-width: 0;
 }
 .plt-field .unity-base-text-field__input {
@@ -187,8 +191,8 @@
     border-color: rgba(236, 201, 138, 0.35);
     color: #FFFFFF;
     border-radius: 5px;
-    font-size: 12px;
-    padding-left: 8px;
+    font-size: 16px;
+    padding-left: 10px;
     -unity-text-align: middle-left;
 }
 .plt-field:focus .unity-base-text-field__input,
@@ -198,20 +202,20 @@
 }
 
 .plt-toggle {
-    height: 20px;
-    width: 36px;
+    height: 27px;
+    width: 49px;
 }
 
 /* Dropdown */
 .plt-dropdown {
     margin-top: 4px;
-    height: 30px;
+    height: 41px;
 }
 .plt-dropdown .unity-base-field__label {
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
-    font-size: 12px;
+    font-size: 16px;
     color: #F5EEDB;
-    min-width: 80px;
+    min-width: 100px;
     flex-grow: 0;
 }
 .plt-dropdown .unity-base-popup-field__input {
@@ -220,18 +224,18 @@
     border-width: 1px;
     border-color: rgba(236, 201, 138, 0.35);
     color: #FFFFFF;
-    font-size: 12px;
+    font-size: 16px;
     height: 100%;
     border-radius: 5px;
-    padding-left: 8px;
+    padding-left: 10px;
 }
 .plt-dropdown .unity-base-popup-field__input:hover {
     border-color: rgba(236, 201, 138, 0.65);
 }
 .plt-dropdown .unity-base-popup-field__arrow {
     -unity-background-image-tint-color: #ECC98A;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     margin-right: 6px;
 }
 
@@ -245,10 +249,10 @@
 .unity-base-dropdown__item {
     background-color: transparent;
     color: #F5EEDB;
-    font-size: 12px;
-    padding-top: 5px;
-    padding-bottom: 5px;
-    padding-left: 10px;
+    font-size: 16px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+    padding-left: 12px;
 }
 .unity-base-dropdown__item:hover {
     background-color: rgba(236, 201, 138, 0.18);
@@ -258,10 +262,10 @@
 
 /* BUILD button */
 .plt-build-btn {
-    margin-top: 8px;
+    margin-top: 10px;
     margin-left: 8px;
     margin-right: 8px;
-    height: 38px;
+    height: 51px;
     background-color: #ECC98A;
     border-width: 0;
     border-bottom-width: 3px;
@@ -269,7 +273,7 @@
     border-radius: 8px;
     color: #2D2B3A;
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 12px;
+    font-size: 16px;
     -unity-text-letter-spacing: 2px;
     transition: background-color 0.1s;
 }
@@ -291,10 +295,10 @@
     border-top-width: 0;
     border-right-width: 0;
     border-bottom-width: 0;
-    padding-top: 8px;
-    padding-bottom: 10px;
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-top: 10px;
+    padding-bottom: 12px;
+    padding-left: 12px;
+    padding-right: 12px;
 }
 
 .dev-s-gold  { border-left-color: #ECC98A; }
@@ -304,9 +308,9 @@
 
 .dev-s-heading {
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 8px;
+    font-size: 11px;
     -unity-text-letter-spacing: 3px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 .dev-s-gold  > .dev-s-heading { color: rgba(236, 201, 138, 0.6); }
 .dev-s-amber > .dev-s-heading { color: rgba(232, 168, 80,  0.6); }
@@ -316,7 +320,7 @@
 /* Stat pills */
 .dev-pills {
     flex-direction: row;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 .dev-pill {
     flex: 1;
@@ -324,24 +328,24 @@
     border-radius: 6px;
     border-width: 1px;
     border-color: rgba(245, 238, 219, 0.07);
-    padding-top: 5px;
-    padding-bottom: 5px;
-    padding-left: 8px;
-    padding-right: 8px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+    padding-left: 10px;
+    padding-right: 10px;
     margin-right: 5px;
     min-width: 0;
 }
 .dev-pill-wide { flex: 1.6; }
 
 .dev-pill-key {
-    font-size: 8px;
+    font-size: 11px;
     -unity-text-letter-spacing: 1px;
     color: rgba(245, 238, 219, 0.4);
-    margin-bottom: 2px;
+    margin-bottom: 3px;
 }
 .dev-pill-val {
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 14px;
+    font-size: 19px;
     color: #F5EEDB;
     overflow: hidden;
     white-space: nowrap;
@@ -352,19 +356,19 @@
 .dev-actions {
     flex-direction: row;
     flex-wrap: wrap;
-    margin-top: 1px;
+    margin-top: 2px;
 }
 .dev-btn {
-    height: 26px;
+    height: 35px;
     border-radius: 6px;
     border-width: 0;
     border-bottom-width: 2px;
     margin-right: 5px;
     margin-bottom: 0;
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-left: 13px;
+    padding-right: 13px;
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 10px;
+    font-size: 14px;
     -unity-text-letter-spacing: 1px;
     -unity-text-align: middle-center;
     color: rgba(10, 8, 25, 0.92);
@@ -384,3 +388,206 @@
 .dev-btn-amber:active  { background-color: #C08030; border-bottom-width: 1px; translate: 0 1px; }
 .dev-btn-teal:active   { background-color: #3EAF8A; border-bottom-width: 1px; translate: 0 1px; }
 .dev-btn-danger:active { background-color: #B03030; border-bottom-width: 1px; translate: 0 1px; }
+
+/* ═══════════════════════════════════════════════════════
+   DEV SETTINGS TAB
+   ═══════════════════════════════════════════════════════ */
+
+.ds-group {
+    margin-top: 6px;
+    margin-left: 8px;
+    margin-right: 8px;
+    margin-bottom: 0;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-radius: 8px;
+    border-left-width: 3px;
+    border-left-color: #5ECFAA;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(236, 201, 138, 0.22);
+    padding-top: 10px;
+    padding-bottom: 12px;
+    padding-left: 12px;
+    padding-right: 12px;
+    transition: opacity 0.2s;
+}
+
+/* Grayed out when no relevant object is selected */
+.ds-group--inactive {
+    opacity: 0.32;
+}
+
+.ds-group-title {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 16px;
+    -unity-text-letter-spacing: 3px;
+    color: rgba(245, 238, 219, 0.9);
+    margin-bottom: 9px;
+    -unity-text-align: middle-center;
+}
+
+/* Hint shown under inactive group titles */
+.ds-hint {
+    font-size: 11px;
+    color: rgba(245, 238, 219, 0.35);
+    -unity-text-align: middle-center;
+    margin-bottom: 4px;
+    -unity-text-letter-spacing: 1px;
+}
+
+/* Global toggles section at the top */
+.ds-global-section {
+    margin: 6px 8px 0 8px;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-radius: 8px;
+    border-left-width: 3px;
+    border-left-color: #ECC98A;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(236, 201, 138, 0.22);
+    padding: 10px 12px;
+}
+
+.ds-global-title {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 16px;
+    -unity-text-letter-spacing: 3px;
+    color: rgba(245, 238, 219, 0.9);
+    margin-bottom: 9px;
+    -unity-text-align: middle-center;
+}
+
+.ds-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.ds-label {
+    flex: 1;
+    font-size: 14px;
+    color: #F5EEDB;
+    margin-right: 8px;
+}
+
+.ds-control {
+    flex: 1.4;
+    min-width: 0;
+}
+
+/* ── Custom slider: track + fill + thumb ─────────────── */
+
+.ds-slider-row {
+    flex-direction: column;
+    flex: 1.4;
+    min-width: 0;
+}
+
+.ds-slider-value {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
+    font-size: 12px;
+    color: #ECC98A;
+    -unity-text-align: middle-right;
+    margin-bottom: 3px;
+}
+
+/* Wrapper that holds track + fill + thumb + invisible slider */
+.ds-slider-wrap {
+    position: relative;
+    height: 34px;
+    flex-direction: row;
+    align-items: center;
+}
+
+/* Full-width empty track behind the fill */
+.ds-track-bg {
+    position: absolute;
+    left: 11px;
+    right: 11px;
+    height: 8px;
+    border-radius: 4px;
+    background-color: rgba(245, 238, 219, 0.1);
+    border-width: 1px;
+    border-color: rgba(245, 238, 219, 0.15);
+    top: 50%;
+    translate: 0 -4px;
+}
+
+/* Gold fill — width set in C# as percentage */
+.ds-track-fill {
+    position: absolute;
+    left: 11px;
+    height: 8px;
+    border-radius: 4px;
+    background-color: #ECC98A;
+    top: 50%;
+    translate: 0 -4px;
+    min-width: 0;
+}
+
+/* Circular thumb — left position set in C# */
+.ds-thumb {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background-color: #ECC98A;
+    border-width: 3px;
+    border-color: #2D2B3A;
+    top: 50%;
+    translate: -11px -11px;
+}
+.ds-thumb:hover {
+    background-color: #F5DFA0;
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    translate: -12px -12px;
+}
+
+/* Invisible Unity Slider laid on top — handles all mouse interaction */
+.ds-slider-overlay {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+.ds-slider-overlay .unity-base-slider__tracker {
+    background-color: transparent;
+    border-width: 0;
+}
+.ds-slider-overlay .unity-base-slider__dragger {
+    background-color: transparent;
+    border-width: 0;
+    width: 22px;
+    height: 34px;
+    top: 0;
+    border-radius: 0;
+}
+.ds-slider-overlay:focus { border-width: 0; }
+
+/* Toggle in settings */
+.ds-toggle {
+    height: 27px;
+    width: 49px;
+}
+
+/* Int / float text fields */
+.ds-field {
+    flex: 1.4;
+    height: 38px;
+}
+.ds-field .unity-base-text-field__input {
+    background-color: rgba(90, 85, 110, 0.3);
+    border-width: 1px;
+    border-color: rgba(236, 201, 138, 0.35);
+    color: #FFFFFF;
+    border-radius: 5px;
+    font-size: 14px;
+    padding-left: 10px;
+    -unity-text-align: middle-left;
+}
+.ds-field:focus .unity-base-text-field__input {
+    border-color: #ECC98A;
+}
