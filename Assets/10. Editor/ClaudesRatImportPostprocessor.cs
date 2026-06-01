@@ -12,8 +12,8 @@ using UnityEngine;
 /// Clips produced:
 ///   RatIdle  - looping breathing/idle           (take: RatIdle)
 ///   RatSniff - one-shot sit-up-and-sniff         (take: RatSniff)
-///   RunStart - one-shot opening bound            (take: RatScurry, frames 1..20)
-///   RunLoop  - looping moderate scurry           (take: RatScurry, frames 20..44)
+///   RunStart - one-shot opening bound            (take: RatScurry, frames 0..19)
+///   RunLoop  - looping moderate scurry           (take: RatScurry, frames 19..43)
 ///
 /// Clip definitions are only written when the importer has no custom clips yet,
 /// so any later manual edits in the Inspector are preserved across reimports.
@@ -46,7 +46,13 @@ public class ClaudesRatImportPostprocessor : AssetPostprocessor
 
         foreach (var def in defaults)
         {
-            switch (def.takeName)
+            // FBX take names carry the armature prefix (e.g. "Rat_Rig|RatIdle"),
+            // so match on the part after the last '|'.
+            string take = def.takeName;
+            int bar = take.LastIndexOf('|');
+            string shortTake = bar >= 0 ? take.Substring(bar + 1) : take;
+
+            switch (shortTake)
             {
                 case "RatIdle":
                 {
