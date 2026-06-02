@@ -23,8 +23,9 @@ public class Waypoint : MonoBehaviour
     }
 
     [Tooltip("Which agent groups may navigate to this waypoint. " +
-             "Tick multiple for shared waypoints. Rats roam freely without waypoints.")]
-    public WaypointGroup allowedGroups = WaypointGroup.Worker | WaypointGroup.Boss;
+             "Tick multiple boxes to share a waypoint between types. " +
+             "Rats roam freely and never use waypoints.")]
+    public WaypointGroup allowedGroups = WaypointGroup.Worker;
 
     /// <summary>Returns true if the given group is allowed to use this waypoint.</summary>
     public bool AllowsGroup(WaypointGroup group) => (allowedGroups & group) != 0;

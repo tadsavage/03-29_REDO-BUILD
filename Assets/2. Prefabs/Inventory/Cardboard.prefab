@@ -9,6 +9,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 1083943777, guid: 21f48b2a2acda2740b07ff1650ceb6db, type: 3}
+      propertyPath: m_Size.y
+      value: 0.52
+      objectReference: {fileID: 0}
+    - target: {fileID: 1083943777, guid: 21f48b2a2acda2740b07ff1650ceb6db, type: 3}
       propertyPath: m_Center.z
       value: 0.0000020861626
       objectReference: {fileID: 0}
@@ -87,7 +91,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1c2077a2a0a9844b8bb47797e554524, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlacedObject
-  data: {fileID: 0}
+  data: {fileID: 11400000, guid: b862f44e12a7efd44b9e174e9e656786, type: 2}
   gridX: 0
   gridY: 0
   rotation: 0
@@ -104,7 +108,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ae3a00e8e2be44489bf49a02cd29a2b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingData
-  objDataSO: {fileID: 0}
+  objDataSO: {fileID: 11400000, guid: b862f44e12a7efd44b9e174e9e656786, type: 2}
 --- !u!114 &2073523609574472842
 MonoBehaviour:
   m_ObjectHideFlags: 0

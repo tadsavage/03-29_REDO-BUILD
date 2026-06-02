@@ -1,5 +1,6 @@
-using UnityEngine;
 using System.Collections;
+using Unity.AppUI.UI;
+using UnityEngine;
 
 public class ManDoorController : MonoBehaviour
 {
@@ -14,6 +15,22 @@ public class ManDoorController : MonoBehaviour
     private Coroutine _moveCoroutine;
     private AgentType _allowedAgents = AgentType.Human | AgentType.Rat;
 
+    [Header("Audio")]
+    [Tooltip("DoorOpen.wav — plays when an agent enters and the door opens.")]
+    [SerializeField] private AudioClip openClip;
+    [Tooltip("DoorClose.wav — plays when an agent exits and the door closes.")]
+    [SerializeField] private AudioClip closeClip;
+    [SerializeField, Range(0f, 1f)] private float doorVolume = 1f;
+
+    [Header("Spatial Audio (3D)")]
+    [Tooltip("Distance (meters) at which the door sound is at full volume. " +
+             "Inside this radius it does not get any louder.")]
+    [SerializeField] private float fullVolumeDistance = 2f;
+    [Tooltip("Distance (meters) beyond which the door sound is silent. " +
+             "Volume scales up as the camera moves closer than this.")]
+    [SerializeField] private float maxHearingDistance = 10f;
+    [SerializeField] private AudioSource audioSource;
+
     private void Awake()
     {
         if (doorTransform == null)
@@ -21,6 +38,28 @@ public class ManDoorController : MonoBehaviour
 
         if (doorTransform != null)
             doorTransform.localRotation = Quaternion.Euler(0, startRotY, 0);
+        // Make sure we have an AudioSource to play door sounds through.
+        if (audioSource == null)
+            audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+            audioSource = gameObject.AddComponent<AudioSource>();
+
+        ConfigureSpatialAudio();
+    }
+    /// <summary>
+    /// Sets the door's AudioSource to emit a 3D positional sound: full volume up
+    /// close, fading to silence at <see cref="maxHearingDistance"/> meters away.
+    /// </summary>
+    private void ConfigureSpatialAudio()
+    {
+        if (audioSource == null) return;
+
+        audioSource.playOnAwake = false;
+        audioSource.spatialBlend = 1f;                       // fully 3D — comes from the door
+        audioSource.rolloffMode = AudioRolloffMode.Linear;  // clean fade to silence at max distance
+        audioSource.minDistance = fullVolumeDistance;
+        audioSource.maxDistance = maxHearingDistance;
+        audioSource.dopplerLevel = 0f;                       // no pitch shift from movement
     }
 
     private void Start()
@@ -41,6 +80,8 @@ public class ManDoorController : MonoBehaviour
         if (!IsAllowed(other)) return;
         StopMoving();
         _moveCoroutine = StartCoroutine(RotateDoor(endRotY));
+        Debug.Log($"Door opening for {other.name}");
+        PlayClip(openClip);
     }
 
     private void OnTriggerExit(Collider other)
@@ -48,6 +89,18 @@ public class ManDoorController : MonoBehaviour
         if (!IsAllowed(other)) return;
         StopMoving();
         _moveCoroutine = StartCoroutine(RotateDoor(startRotY));
+        Debug.Log($"Door closing for {other.name}");
+        PlayClip(closeClip);
+    }
+    private void PlayClip(AudioClip clip)
+    {
+        if (clip == null || audioSource == null) 
+        {
+                Debug.LogWarning("AudioClip or AudioSource is missing. Cannot play door sound.");
+                return;
+        }
+        Debug.Log($"Playing clip: {clip.name} at volume: {doorVolume}");
+        audioSource.PlayOneShot(clip, doorVolume);
     }
 
     private void StopMoving()

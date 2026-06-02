@@ -62,9 +62,9 @@ public class WelcomeOverlayManager : MonoBehaviour
     private static string BuildMessage(string name)
     {
         return $"Listen up, {name}! You're already late on your FIRST day.\n\n" +
-               "Get building — start with the foundation. " +
+               "Get building — start with the Foundations. " +
                "Check your money. This stuff ain't cheap.\n\n" +
-               "Run dry? You can sell things back, but you lose 10% every time. " +
+               "If ya' run dry? You can sell things back, but you lose 10% every time. " +
                "So every screw-up costs you.\n\n" +
                "Now stop standing around and GET TO WORK!";
     }

@@ -12,23 +12,39 @@ public class AiNavigation : MonoBehaviour
     public enum AgentRole { Worker, Forklift }
     public AgentRole role;
 
+    [Header("Footsteps")]
+    [SerializeField] private AudioClip footstepClip;
+    [SerializeField, Range(0f, 1f)] private float footstepVolume = 0.6f;
+
     private Transform[] waypoints;
     private NavMeshAgent agent;
     private int currentIndex = 0;
     private bool initialized = false;
     private VehicleThrottleAudio throttleAudio;
-    private AmbientMumble mumbleAudio;
     private bool hasHonkedThisArrival = false;
     private bool _traversingLink = false;
     private AgentAnimation _agentAnimation;
+    private AudioSource _footstepSource;
 
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         throttleAudio = GetComponent<VehicleThrottleAudio>();
-        mumbleAudio = GetComponent<AmbientMumble>();
         _agentAnimation = GetComponent<AgentAnimation>();
         SetupAgentType();
+
+        if (footstepClip != null)
+        {
+            _footstepSource = gameObject.AddComponent<AudioSource>();
+            _footstepSource.clip = footstepClip;
+            _footstepSource.loop = true;
+            _footstepSource.volume = footstepVolume;
+            _footstepSource.spatialBlend = 1f;
+            _footstepSource.rolloffMode = AudioRolloffMode.Logarithmic;
+            _footstepSource.minDistance = 2f;
+            _footstepSource.maxDistance = 20f;
+            _footstepSource.playOnAwake = false;
+        }
 
         // Auto-register agent type for door access — won't override a manually set tag
         if (GetComponent<AgentTypeTag>() == null)
@@ -69,12 +85,8 @@ public class AiNavigation : MonoBehaviour
                 matching.Add(wp.transform);
         }
 
-        // Fallback: if no typed waypoints exist yet, use all of them so agents
-        // don't stand idle in scenes that predate the waypoint rework.
         if (matching.Count == 0)
-        {
-            foreach (var wp in all) matching.Add(wp.transform);
-        }
+            Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints found for group '{myGroup}'. Place the correct waypoint type or tick additional groups on existing waypoints.");
 
         waypoints = matching.ToArray();
     }
@@ -232,19 +244,28 @@ public class AiNavigation : MonoBehaviour
         }
 
         // ── Arrival audio ────────────────────────────────────────────────────────
-        if (throttleAudio != null || mumbleAudio != null)
         {
             bool arrived = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
             if (arrived && !hasHonkedThisArrival)
             {
                 hasHonkedThisArrival = true;
                 if (throttleAudio != null) throttleAudio.TriggerArrivalHonk();
-                if (mumbleAudio != null) mumbleAudio.TryMumble();
+                AudioManager.Mumble(transform.position);
             }
             else if (!arrived && agent.remainingDistance > agent.stoppingDistance + 0.5f)
             {
                 hasHonkedThisArrival = false;
             }
+        }
+
+        // ── Footsteps ─────────────────────────────────────────────────────────────
+        if (_footstepSource != null)
+        {
+            bool moving = agent.velocity.sqrMagnitude > 0.01f;
+            if (moving && !_footstepSource.isPlaying)
+                _footstepSource.Play();
+            else if (!moving && _footstepSource.isPlaying)
+                _footstepSource.Stop();
         }
 
         // ── Waypoint progression (for agents without AgentAnimation) ─────────────

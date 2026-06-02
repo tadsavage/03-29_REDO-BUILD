@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
   id: 96
   objName: Cardboard Box Alt
-  cost: 15
+  cost: 30
   hourlyCost: 0
   category: Inventory
   prefab: {fileID: 3167172616506102092, guid: 6c7fe23305cc8524e8687f3a622abe0d, type: 3}
@@ -24,9 +24,9 @@ MonoBehaviour:
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 0
-  allowedAgents: 5
+  allowedAgents: 4
   CanUseStairs: 0
-  isStackable: 0
-  objHeight: 0.5
+  isStackable: 1
+  objHeight: 0.71
   footprint: {x: 1, y: 1}
   customShapeOffsets: []

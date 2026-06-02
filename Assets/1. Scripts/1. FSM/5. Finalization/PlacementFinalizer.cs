@@ -61,25 +61,13 @@ public class PlacementFinalizer : MonoBehaviour
                 _grid.ClearCell(root + o, true); // true to destroy objects
             }
         }
-        GameObject instance = Instantiate(data.prefab);
+        Vector3 pos = _grid.GetCellCenter(root);
+        GameObject instance = Instantiate(data.prefab, pos, Quaternion.Euler(0f, rotation, 0f));
         instance.name = data.objName;
 
-        // Position will be set by UpdateStackPositions called via AddStackObject
-        // but we still need a reasonable starting point for FX etc.
-        Vector3 pos = _grid.GetCellCenter(root);
-        instance.transform.position = pos;
-        instance.transform.rotation = Quaternion.Euler(0f, rotation, 0f);
-
-        // Handle NavMeshAgent warping safely
         var agent = instance.GetComponent<NavMeshAgent>();
         if (agent != null && agent.isActiveAndEnabled)
-        {
             agent.Warp(pos);
-        }
-        else
-        {
-            instance.transform.position = pos;
-        }
 
         FXPool.Instance.Play("dust", pos);
 

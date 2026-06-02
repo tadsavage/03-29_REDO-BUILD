@@ -308,8 +308,10 @@
 
 .dev-s-heading {
     -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 11px;
+    font-size: 28px;
+    -unity-font-style: bold;
     -unity-text-letter-spacing: 3px;
+    -unity-text-align: middle-center;
     margin-bottom: 10px;
 }
 .dev-s-gold  > .dev-s-heading { color: rgba(236, 201, 138, 0.6); }
@@ -338,8 +340,9 @@
 .dev-pill-wide { flex: 1.6; }
 
 .dev-pill-key {
-    font-size: 11px;
+    font-size: 23px;
     -unity-text-letter-spacing: 1px;
+    -unity-text-align: middle-center;
     color: rgba(245, 238, 219, 0.4);
     margin-bottom: 3px;
 }

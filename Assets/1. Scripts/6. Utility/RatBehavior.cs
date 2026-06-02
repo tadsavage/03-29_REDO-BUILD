@@ -4,12 +4,23 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// Rat AI — scurries, hides, breeds, scavenges, investigates new objects.
+/// Rat AI — scurries, hides, breeds, scavenges, investigates new objects, and (the new
+/// mini-game layer) reacts to humans and the exterminator.
 ///
-/// Sound names to add to SoundLibrary:
-///   "Rat_Squeak"  — short squeak when startled
-///   "Rat_Scurry"  — soft scuttling loop while moving
-///   "Rat_Gnaw"    — gnawing sound during scavenge
+/// Hiding no longer disables the renderers — instead the rat's own materials are tinted
+/// to a SEE-THROUGH GRAY ghost (hiding in shadows). When a worker gets close it snaps
+/// back to fully opaque, squeaks, and flees. Only the EXTERMINATOR can actually catch a
+/// rat: walking near flushes it out, and a serialized %-chance roll decides whether it is
+/// caught (it dies: stop → sink + fade → destroy) or escapes.
+///
+/// While scavenging, the rat adds <see cref="ContaminationState"/> to the product it
+/// gnaws on; left unattended long enough, that product spoils.
+///
+/// Sound names / clips:
+///   clipSqueak — short squeak when startled
+///   clipScurry — soft scuttling while moving
+///   clipGnaw   — gnawing during scavenge
+/// (Only the squeak currently exists in the project — other mechanics surface as Debug.Log.)
 /// </summary>
 public class RatBehavior : MonoBehaviour
 {
@@ -21,14 +32,24 @@ public class RatBehavior : MonoBehaviour
     [SerializeField] private float angularSpeed   = 720f;
     [SerializeField] private float acceleration   = 20f;
 
-    // ── Hiding & Exterminator ─────────────────────────────────────────────────
-    [Header("Hiding & Exterminator")]
+    // ── Hiding, Humans & Exterminator ─────────────────────────────────────────
+    [Header("Hiding, Humans & Exterminator")]
+    [Tooltip("How close a human/exterminator must be (m) before the rat reacts.")]
     [SerializeField] private float   detectionRange   = 4.0f;
+    [Tooltip("Name of the exterminator ObjDataSO — only this agent can catch rats.")]
     [SerializeField] private string  exterminatorName = "Exterminator";
+    [Tooltip("Chance (0–1) that the exterminator actually catches & kills a flushed rat.")]
+    [SerializeField, Range(0f, 1f)] private float catchChance = 0.3f;
     [SerializeField] private float   hidingChance     = 0.6f;
+    [Tooltip("Seconds a rat stays put in a hiding spot before peeking out (if coast is clear).")]
+    [SerializeField] private float   hideStayDuration = 12f;
     [SerializeField] private float   panicDuration    = 8.0f;
     [SerializeField] private string[] palletNames     = { "A Chep", "StackPlts", "Cases" };
     [SerializeField] private string   palletCategory  = "Inventory";
+
+    [Header("Ghosting (hiding look)")]
+    [Tooltip("Semi-transparent gray the rat fades to while hidden in shadow.")]
+    [SerializeField] private Color ghostColor = new Color(0.5f, 0.5f, 0.5f, 0.4f);
 
     // ── Age & Growth ──────────────────────────────────────────────────────────
     [Header("Age & Growth")]
@@ -60,15 +81,32 @@ public class RatBehavior : MonoBehaviour
     [SerializeField] private AudioClip clipScurry;
     [SerializeField] private AudioClip clipGnaw;
 
+    // ── Death ─────────────────────────────────────────────────────────────────
+    [Header("Death")]
+    [Tooltip("Seconds for the simple sink + fade death (placeholder for the fancy animation).")]
+    [SerializeField] private float deathDuration = 1.5f;
+    [SerializeField] private float deathSinkDepth = 1.2f;
+
     // ── Runtime state ─────────────────────────────────────────────────────────
     private NavMeshAgent agent;
     private Animator     animator;
     private Renderer[]   visuals;
 
+    // Material-tint ghosting: per-renderer original + ghost material sets.
+    private Material[][] _originalMats;
+    private Material[][] _ghostMats;
+    private bool         _ghosted;
+
+    private float _spawnTime;
     private bool  isHiding              = false;
     private bool  isScurryingAway       = false;
-    private float lastDetectionTime;
-    private bool  exterminatorNearCached = false;
+    private bool  _dying                = false;
+    private float _hideTimer            = 0f;
+
+    // Threat scan cache (throttled)
+    private float     _lastThreatScan      = -1f;
+    private Transform _cachedHuman          = null;
+    private Transform _cachedExterminator   = null;
 
     // Age
     private float _age;
@@ -93,6 +131,7 @@ public class RatBehavior : MonoBehaviour
 
     private void Awake()
     {
+        _spawnTime = Time.time;
         _globalRatCount++;
     }
 
@@ -105,7 +144,8 @@ public class RatBehavior : MonoBehaviour
     {
         agent    = GetComponent<NavMeshAgent>();
         animator = GetComponent<Animator>();
-        visuals  = GetComponentsInChildren<Renderer>();
+
+        CacheMaterials();
 
         if (GetComponent<AgentTypeTag>() == null)
             gameObject.AddComponent<AgentTypeTag>().agentType = AgentType.Rat;
@@ -152,12 +192,31 @@ public class RatBehavior : MonoBehaviour
 
     private void Update()
     {
-        // Immediate exterminator panic
-        if (!isScurryingAway && IsExterminatorNear())
+        if (_dying) return;
+
+        RefreshThreats();
+
+        // 1. Exterminator: flushes the rat out and may catch it.
+        if (!isScurryingAway && _cachedExterminator != null)
         {
+            HandleExterminator();
+            return;
+        }
+
+        // 2. Any human nearby → expose (snap opaque), squeak, flee the opposite way.
+        if (!isScurryingAway && _cachedHuman != null)
+        {
+            if (isHiding)
+            {
+                Debug.Log("[Rat] A worker strayed near my hiding spot — exposing and bolting!");
+                // Employee reaction. No "!" emote asset yet, so log it for now.
+                Debug.Log("[Employee] (!) noticed a rat!");
+            }
+
             StopAllCoroutines();
+            ExposeNow();
             TryPlaySound(clipSqueak);
-            StartCoroutine(ScurryAwayRoutine());
+            StartCoroutine(FleeFromRoutine(_cachedHuman.position));
             return;
         }
 
@@ -184,6 +243,44 @@ public class RatBehavior : MonoBehaviour
                               * Quaternion.Euler(0, 180, 0);
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation, target, angularSpeed * Time.deltaTime);
+        }
+    }
+
+    // ── Threat scanning (throttled) ─────────────────────────────────────────────
+
+    /// <summary>Re-scans for the nearest human and the exterminator at most ~5×/sec,
+    /// caching the results so per-frame logic stays cheap.</summary>
+    private void RefreshThreats()
+    {
+        if (Time.time - _lastThreatScan < 0.2f) return;
+        _lastThreatScan = Time.time;
+
+        _cachedHuman        = null;
+        _cachedExterminator = null;
+        float nearestHuman  = detectionRange;
+
+        foreach (var po in PlacedObjectRegistry.All)
+        {
+            if (po == null || po.data == null) continue;
+
+            float d = Vector3.Distance(transform.position, po.transform.position);
+            if (d >= detectionRange) continue;
+
+            // Exterminator identified by ObjDataSO name (it is the only thing that catches rats).
+            if (po.data.objName == exterminatorName)
+            {
+                _cachedExterminator = po.transform;
+                continue;
+            }
+
+            // Otherwise: is this a human worker?
+            var tag = po.GetComponent<AgentTypeTag>();
+            bool isHuman = tag != null && (tag.agentType & AgentType.Human) != 0;
+            if (isHuman && d < nearestHuman)
+            {
+                nearestHuman = d;
+                _cachedHuman = po.transform;
+            }
         }
     }
 
@@ -347,12 +444,31 @@ public class RatBehavior : MonoBehaviour
         return Vector3.Lerp(random.normalized, toWall.normalized, 0.6f).normalized;
     }
 
+    /// <summary>A flee heading: mostly directly away from <paramref name="threat"/>,
+    /// blended toward the nearest wall so rats run for cover rather than into the open.</summary>
+    private Vector3 GetFleeDirection(Vector3 threat)
+    {
+        Vector3 away = transform.position - threat;
+        away.y = 0f;
+        if (away.sqrMagnitude < 0.01f)
+        {
+            away = Random.insideUnitSphere;
+            away.y = 0f;
+        }
+        away.Normalize();
+
+        Vector3 wall = GetWallHuggingDirection();
+        return Vector3.Lerp(away, wall, 0.4f).normalized;
+    }
+
     // ── Core behaviour loop ───────────────────────────────────────────────────
 
     private IEnumerator BehaviorRoutine()
     {
         while (true)
         {
+            if (_dying) yield break;
+
             if (!agent.isOnNavMesh)
             {
                 yield return StartCoroutine(WaitUntilOnNavMesh());
@@ -361,6 +477,11 @@ public class RatBehavior : MonoBehaviour
 
             if (isHiding)
             {
+                // Stay hidden for a while, then peek out if no humans/exterminator are near.
+                _hideTimer += 0.5f;
+                if (_hideTimer >= hideStayDuration && _cachedHuman == null && _cachedExterminator == null)
+                    Unhide();
+
                 yield return new WaitForSeconds(0.5f);
                 continue;
             }
@@ -383,9 +504,9 @@ public class RatBehavior : MonoBehaviour
                 if (isHiding) continue;
             }
 
-            // Scavenge occasionally (more often after hours)
+            // Scavenge occasionally (more often after hours) — only when no one's watching.
             float scavengeRoll = scavengeChance * (IsWorkHours() ? 0.3f : 1.5f);
-            if (Random.value < scavengeRoll)
+            if (_cachedHuman == null && Random.value < scavengeRoll)
                 yield return StartCoroutine(ScavengeRoutine());
 
             yield return StartCoroutine(ScurryInCircles());
@@ -430,8 +551,21 @@ public class RatBehavior : MonoBehaviour
         {
             agent.isStopped = true;
             TryPlaySound(clipGnaw);
-            yield return new WaitForSeconds(gnawDuration + Random.Range(0f, 2f));
-            agent.isStopped = false;
+
+            float gnaw = gnawDuration + Random.Range(0f, 2f);
+            yield return new WaitForSeconds(gnaw);
+
+            // Gnawing on this product pushes it toward contamination. The component is
+            // added on demand and accumulates infestation time across visits/rats.
+            if (target != null)
+            {
+                var contam = target.GetComponent<ContaminationState>();
+                if (contam == null) contam = target.gameObject.AddComponent<ContaminationState>();
+                contam.AddInfestation(gnaw);
+            }
+
+            if (agent.isOnNavMesh)
+                agent.isStopped = false;
         }
     }
 
@@ -519,6 +653,8 @@ public class RatBehavior : MonoBehaviour
 
     private IEnumerator GoToHidingSpot()
     {
+        if (Time.time - _spawnTime < 10f) yield break;
+
         Transform spot = FindNearestHidingSpot();
         if (spot == null || !agent.isOnNavMesh) yield break;
 
@@ -527,11 +663,23 @@ public class RatBehavior : MonoBehaviour
 
         if (agent.isOnNavMesh && !agent.pathPending && agent.remainingDistance < 0.5f)
         {
+            // Keep the agent ENABLED (just stopped) so the rat can instantly bolt when a
+            // human/exterminator gets close — no NavMesh re-warp dance needed.
             isHiding        = true;
+            _hideTimer      = 0f;
             agent.isStopped = true;
-            agent.enabled   = false;
-            SetVisuals(false);
+            SetGhosted(true);
+            Debug.Log($"[Rat] Reached hiding spot '{spot.name}' — ghosting to see-through gray.");
         }
+    }
+
+    /// <summary>Leave a hiding spot voluntarily (coast is clear) — un-tint and resume.</summary>
+    private void Unhide()
+    {
+        isHiding   = false;
+        _hideTimer = 0f;
+        SetGhosted(false);
+        if (agent != null && agent.isOnNavMesh) agent.isStopped = false;
     }
 
     private Transform FindNearestHidingSpot()
@@ -553,22 +701,38 @@ public class RatBehavior : MonoBehaviour
         return nearest;
     }
 
-    // ── Panic / exterminator ──────────────────────────────────────────────────
+    // ── Exterminator / panic ──────────────────────────────────────────────────
 
-    private IEnumerator ScurryAwayRoutine()
+    /// <summary>The exterminator is within range. The rat is flushed out, squeaks, and a
+    /// %-chance roll decides whether it is caught (dies) or escapes (panic-flees).</summary>
+    private void HandleExterminator()
+    {
+        StopAllCoroutines();
+        ExposeNow();
+        TryPlaySound(clipSqueak);
+
+        float roll = Random.value;
+        Debug.Log($"[Rat] Exterminator flushed a rat — catch roll {roll:F2} vs chance {catchChance:F2}.");
+
+        if (roll < catchChance)
+        {
+            Debug.Log("[Rat] Caught by the exterminator! It's done for.");
+            Die();
+        }
+        else
+        {
+            Debug.Log("[Rat] Slipped away from the exterminator!");
+            StartCoroutine(ScurryAwayRoutine());
+        }
+    }
+
+    /// <summary>Flee directly away from a threat position for the panic duration.</summary>
+    private IEnumerator FleeFromRoutine(Vector3 threatPos)
     {
         isScurryingAway = true;
-        isHiding        = false;
 
-        SetVisuals(true);
-
-        // Snap to nearest NavMesh point before re-enabling — otherwise Unity throws
-        // "Failed to create agent because it is not close enough to the NavMesh"
         if (NavMesh.SamplePosition(transform.position, out NavMeshHit snapHit, 5f, NavMesh.AllAreas))
             transform.position = snapHit.position;
-
-        agent.enabled = true;
-        yield return null;
 
         yield return StartCoroutine(WaitUntilOnNavMesh());
 
@@ -578,7 +742,53 @@ public class RatBehavior : MonoBehaviour
             agent.speed     = scurrySpeed * 1.5f;
 
             float endTime = Time.time + panicDuration;
-            while (Time.time < endTime && agent.isOnNavMesh)
+            while (Time.time < endTime && agent.isOnNavMesh && !_dying)
+            {
+                Vector3 dir    = GetFleeDirection(threatPos) * Random.Range(6f, 12f);
+                Vector3 target = transform.position + dir;
+                target.y       = transform.position.y;
+
+                if (NavMesh.SamplePosition(target, out NavMeshHit hit, 3f, agent.areaMask))
+                {
+                    agent.SetDestination(hit.position);
+                    float timeout = Time.time + 2.5f;
+                    while (Time.time < timeout && Time.time < endTime && agent.isOnNavMesh && !_dying)
+                    {
+                        if (!agent.pathPending && agent.remainingDistance <= 0.5f) break;
+                        yield return null;
+                    }
+                }
+                yield return null;
+            }
+
+            if (agent.isOnNavMesh) agent.speed = scurrySpeed;
+        }
+
+        isScurryingAway = false;
+        if (!_dying) StartCoroutine(BehaviorRoutine());
+    }
+
+    private IEnumerator ScurryAwayRoutine()
+    {
+        isScurryingAway = true;
+        isHiding        = false;
+
+        ExposeNow();
+
+        // Snap to nearest NavMesh point before moving — otherwise Unity may throw
+        // "Failed to create agent because it is not close enough to the NavMesh"
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit snapHit, 5f, NavMesh.AllAreas))
+            transform.position = snapHit.position;
+
+        yield return StartCoroutine(WaitUntilOnNavMesh());
+
+        if (agent.isOnNavMesh)
+        {
+            agent.isStopped = false;
+            agent.speed     = scurrySpeed * 1.5f;
+
+            float endTime = Time.time + panicDuration;
+            while (Time.time < endTime && agent.isOnNavMesh && !_dying)
             {
                 Vector3 dir    = Random.insideUnitSphere * 12f;
                 dir.y          = 0;
@@ -588,7 +798,7 @@ public class RatBehavior : MonoBehaviour
                 {
                     agent.SetDestination(hit.position);
                     float timeout = Time.time + 3f;
-                    while (Time.time < timeout && Time.time < endTime && agent.isOnNavMesh)
+                    while (Time.time < timeout && Time.time < endTime && agent.isOnNavMesh && !_dying)
                     {
                         if (!agent.pathPending && agent.remainingDistance <= 0.5f) break;
                         yield return null;
@@ -602,25 +812,142 @@ public class RatBehavior : MonoBehaviour
         }
 
         isScurryingAway = false;
-        StartCoroutine(BehaviorRoutine());
+        if (!_dying) StartCoroutine(BehaviorRoutine());
     }
 
-    private bool IsExterminatorNear()
+    // ── Death (placeholder: stop → sink + fade → destroy) ──────────────────────
+
+    /// <summary>Kill this rat. For now this is the simple placeholder death the user
+    /// approved (no flip/land animation yet): stop moving, sink into the ground while
+    /// fading out, then delete.</summary>
+    public void Die()
     {
-        if (Time.time - lastDetectionTime < 0.2f) return exterminatorNearCached;
-        lastDetectionTime       = Time.time;
-        exterminatorNearCached  = false;
-        foreach (var po in PlacedObjectRegistry.All)
+        if (_dying) return;
+        _dying = true;
+        StopAllCoroutines();
+        StartCoroutine(DeathRoutine());
+    }
+
+    private IEnumerator DeathRoutine()
+    {
+        SetAnimWalking(false);
+        if (agent != null && agent.isActiveAndEnabled)
         {
-            if (po == null || po.data == null) continue;
-            if (po.data.objName == exterminatorName &&
-                Vector3.Distance(transform.position, po.transform.position) < detectionRange)
+            if (agent.isOnNavMesh) agent.isStopped = true;
+            agent.enabled = false;
+        }
+
+        // Start from the ghost material set so we can fade alpha smoothly to 0.
+        SetGhosted(true);
+
+        Vector3 start = transform.position;
+        Vector3 end   = start + Vector3.down * deathSinkDepth;
+
+        float t = 0f;
+        while (t < deathDuration)
+        {
+            t += Time.deltaTime;
+            float f = Mathf.Clamp01(t / deathDuration);
+            transform.position = Vector3.Lerp(start, end, f);
+            SetGhostAlpha(1f - f);
+            yield return null;
+        }
+
+        Destroy(gameObject);
+    }
+
+    // ── Material-tint ghosting ──────────────────────────────────────────────────
+
+    /// <summary>Caches each renderer's original materials and builds a parallel set of
+    /// transparent-gray "ghost" instances we can swap in while hiding / dying.</summary>
+    private void CacheMaterials()
+    {
+        visuals       = GetComponentsInChildren<Renderer>();
+        _originalMats = new Material[visuals.Length][];
+        _ghostMats    = new Material[visuals.Length][];
+
+        for (int i = 0; i < visuals.Length; i++)
+        {
+            var src = visuals[i].sharedMaterials;
+            _originalMats[i] = src;
+
+            var ghosts = new Material[src.Length];
+            for (int j = 0; j < src.Length; j++)
             {
-                exterminatorNearCached = true;
-                return true;
+                if (src[j] == null) continue;
+                var g = new Material(src[j]);
+                MakeTransparent(g, ghostColor);
+                ghosts[j] = g;
+            }
+            _ghostMats[i] = ghosts;
+        }
+    }
+
+    /// <summary>Swap the rat between its opaque originals and the see-through ghost set.</summary>
+    private void SetGhosted(bool on)
+    {
+        if (visuals == null) return;
+
+        _ghosted = on;
+        for (int i = 0; i < visuals.Length; i++)
+        {
+            if (visuals[i] == null) continue;
+            visuals[i].sharedMaterials = on ? _ghostMats[i] : _originalMats[i];
+        }
+    }
+
+    /// <summary>Snap fully opaque (back to original materials) — used when exposed/fleeing.</summary>
+    private void ExposeNow()
+    {
+        if (_ghosted) SetGhosted(false);
+        isHiding = false;
+    }
+
+    /// <summary>Fade the currently-shown ghost materials' alpha (used by the death dissolve).</summary>
+    private void SetGhostAlpha(float a)
+    {
+        if (_ghostMats == null) return;
+        for (int i = 0; i < _ghostMats.Length; i++)
+        {
+            if (_ghostMats[i] == null) continue;
+            foreach (var m in _ghostMats[i])
+            {
+                if (m == null) continue;
+                Color c = ghostColor; c.a *= a;
+                if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+                if (m.HasProperty("_Color"))     m.SetColor("_Color", c);
             }
         }
-        return false;
+    }
+
+    /// <summary>Reconfigure a URP/Lit (or fallback) material instance to render
+    /// transparent at runtime, tinted to <paramref name="color"/>.</summary>
+    private static void MakeTransparent(Material m, Color color)
+    {
+        if (m == null) return;
+
+        // URP/Lit runtime opaque → transparent switch. The fragment outputs alpha when
+        // _Surface == 1; the blend states + render queue do the actual see-through.
+        m.SetOverrideTag("RenderType", "Transparent");
+        if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f);  // 0 = opaque, 1 = transparent
+        if (m.HasProperty("_Blend"))   m.SetFloat("_Blend", 0f);    // 0 = alpha blend
+        if (m.HasProperty("_SrcBlend")) m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        if (m.HasProperty("_DstBlend")) m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        if (m.HasProperty("_ZWrite"))  m.SetFloat("_ZWrite", 0f);
+
+        // Straight alpha blending — premultiply must stay OFF or the blend math fights us.
+        m.DisableKeyword("_ALPHATEST_ON");
+        m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+
+        // A ghost shouldn't write depth or cast shadows, or it reads as solid.
+        m.SetShaderPassEnabled("ShadowCaster", false);
+        m.SetShaderPassEnabled("DepthOnly", false);
+
+        m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+        if (m.HasProperty("_Color"))     m.SetColor("_Color", color);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -633,7 +960,7 @@ public class RatBehavior : MonoBehaviour
             if (agent.isActiveAndEnabled &&
                 NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, NavMesh.AllAreas))
             {
-                if (Mathf.Abs(hit.position.y - transform.position.y) < 2f || retries > 10)
+                if (Mathf.Abs(hit.position.y - transform.position.y) < 0.5f || retries > 10)
                     try { agent.Warp(hit.position); } catch { }
             }
             if (agent.isOnNavMesh) break;
@@ -655,12 +982,6 @@ public class RatBehavior : MonoBehaviour
             if (!agent.pathPending && agent.remainingDistance <= stoppingDist) break;
             yield return null;
         }
-    }
-
-    private void SetVisuals(bool visible)
-    {
-        if (visuals == null) return;
-        foreach (var r in visuals) r.enabled = visible;
     }
 
     private void SetAnimWalking(bool walking)

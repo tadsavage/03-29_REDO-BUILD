@@ -31,6 +31,28 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] private string gameMixerParam  = "GameVolume";
     [SerializeField] private string musicMixerParam = "MusicVolume";
 
+    [Header("Menu Audio")]
+    [Tooltip("MainMenuCartoonMusic.mp3 — starts the moment the menu appears and " +
+             "plays through in full, surviving the transition into build mode.")]
+    [SerializeField] private AudioClip menuMusic;
+    [Tooltip("MainMenuBoom!.wav — fires the instant the logo lands on the menu.")]
+    [SerializeField] private AudioClip logoImpactSfx;
+    [SerializeField, Range(0f, 1f)] private float menuMusicVolume = 0.5f;
+    [SerializeField, Range(0f, 1f)] private float impactSfxVolume = 1f;
+
+    // Persistent music source: lives across the MainMenu -> Main scene load so the
+    // cartoon track is never cut off. Static so re-entering the menu won't restart it.
+    private static AudioSource _persistentMenuMusic;
+
+    // Local 2D source for menu one-shots (the logo boom). Lives with this scene.
+    private AudioSource _menuSfxSource;
+
+    // Title intro animation timing (see PlayTitleIntro): the intro class is released
+    // 120ms after Start, then the USS scale/rotate transition (~1s, per UXML inline
+    // transition-duration) runs. The logo "lands" when that transition completes.
+    private const long TitleIntroReleaseMs = 1000;
+    private const long TitleTransitionMs   = 1000;
+
     // ── UI References ─────────────────────────────────────────────────────────
     private VisualElement _root;
     private VisualElement _mainPanel;
@@ -85,14 +107,73 @@ public class MainMenuManager : MonoBehaviour
         _root = doc.rootVisualElement;
         _root.pickingMode = PickingMode.Ignore;
 
+        // Local 2D source for menu one-shots (logo boom).
+        _menuSfxSource = gameObject.AddComponent<AudioSource>();
+        _menuSfxSource.playOnAwake = false;
+        _menuSfxSource.spatialBlend = 0f;
+
         CacheElements();
         WireButtons();
         ApplyStoredSettings();
         HideAllPopups();
         ApplyLogoImage();
+        StartMenuMusic();
+        PlayTitleIntro();
 
         // Restore player name if it exists
         _playerName = PlayerPrefs.GetString("PlayerName", "");
+    }
+
+    /// <summary>
+    /// Starts the cartoon menu music immediately on a DontDestroyOnLoad source so it
+    /// plays in its entirety and keeps going across the load into the build scene.
+    /// Guarded by a static reference so coming back to the menu won't restart it.
+    /// </summary>
+    private void StartMenuMusic()
+    {
+        if (menuMusic == null) return;
+        if (_persistentMenuMusic != null && _persistentMenuMusic.isPlaying) return;
+
+        var go = new GameObject("MenuMusicPlayer");
+        Object.DontDestroyOnLoad(go);
+
+        var src = go.AddComponent<AudioSource>();
+        src.clip = menuMusic;
+        src.loop = false;          // play through once, in full
+        src.spatialBlend = 0f;     // 2D
+        src.playOnAwake = false;
+        src.volume = menuMusicVolume;
+        src.Play();
+
+        _persistentMenuMusic = src;
+    }
+
+    /// <summary>Boom the instant the title finishes landing on the menu.</summary>
+    private void PlayLogoImpact()
+    {
+        if (logoImpactSfx == null || _menuSfxSource == null) return;
+        _menuSfxSource.PlayOneShot(logoImpactSfx, impactSfxVolume);
+    }
+
+    /// <summary>
+    /// Title flies in big &amp; straight (the .title-label--intro USS state set in
+    /// UXML), then we strip that class so the USS transition shrinks it down and
+    /// rotates it onto its landed angle over the top of the rats image.
+    /// </summary>
+    private void PlayTitleIntro()
+    {
+        var title = _root.Q<Label>("title-label");
+        if (title == null) return;
+
+        // Make sure the intro (start) state is applied, then release it a beat
+        // later so the transition animates from big/straight -> landed/angled.
+        title.AddToClassList("title-label--intro");
+        _root.schedule.Execute(() => title.RemoveFromClassList("title-label--intro"))
+             .StartingIn(TitleIntroReleaseMs);
+
+        // BOOM the moment the logo lands (intro released + transition complete).
+        _root.schedule.Execute(PlayLogoImpact)
+             .StartingIn(TitleIntroReleaseMs + TitleTransitionMs);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

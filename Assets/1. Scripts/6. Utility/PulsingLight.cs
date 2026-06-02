@@ -21,7 +21,12 @@ public class EmissionPulse : MonoBehaviour
 
     void Update()
     {
-        float t = (Mathf.Sin(Time.time * pulseSpeed) + 1f) * 0.5f; // 0–1
+        // Re-acquire if a play-mode domain reload reset these private fields (Awake is
+        // not re-run after a recompile in Play mode), which otherwise NREs on GetPropertyBlock.
+        if (_renderer == null) _renderer = GetComponent<Renderer>();
+        if (_mpb == null) _mpb = new MaterialPropertyBlock();
+
+        float t = (Mathf.Sin(Time.time * pulseSpeed) + 1f) * 0.5f; // 0-1
         float intensity = Mathf.Lerp(minIntensity, maxIntensity, t);
 
         _renderer.GetPropertyBlock(_mpb);

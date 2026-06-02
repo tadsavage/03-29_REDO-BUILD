@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
+  m_Name: Bench1
+  m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
+  id: 98
+  objName: Bench1
+  cost: 500
+  hourlyCost: 0
+  category: Flavor
+  prefab: {fileID: 3146055818350295883, guid: 90c1f18ae6c7b68408fdeaf5ef67665c, type: 3}
+  icon: {fileID: 2800000, guid: 3b8cb546b151bf240a6e98e3b8ca35b8, type: 3}
+  ignorePlacementRules: 0
+  isFloor: 0
+  ClearsGridAfterPlacement: 0
+  pathfindingClear: 0
+  navArea: 0
+  allowedAgents: 5
+  CanUseStairs: 0
+  isStackable: 0
+  objHeight: 0.9
+  footprint: {x: 2, y: 1}
+  customShapeOffsets:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}

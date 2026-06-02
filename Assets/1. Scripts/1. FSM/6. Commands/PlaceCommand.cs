@@ -39,6 +39,10 @@ public class PlaceCommand : ICommand
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
 
+        // Floating "$" UX — red number rising out as money leaves capital.
+        if (_data.cost != 0)
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
+
         // Explicitly force height recalculation for all cells in footprint
         foreach (var o in _offsets)
             _grid.UpdateStackPositions(_root + o);
@@ -59,6 +63,10 @@ public class PlaceCommand : ICommand
         _instance.SetActive(false);
         _money.Refund(_data.cost, _data.category);
         _money.RemoveHourlyCost(_data.hourlyCost);
+
+        // Floating "$" UX — green number as the purchase is refunded on undo.
+        if (_data.cost != 0)
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, _data.cost);
 
         bool revealedFloor = false;
         foreach (var floor in _disabledFloors)
@@ -98,6 +106,10 @@ public class PlaceCommand : ICommand
 
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
+
+        // Floating "$" UX — red number again as money leaves capital on redo.
+        if (_data.cost != 0)
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
 
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs)
         {

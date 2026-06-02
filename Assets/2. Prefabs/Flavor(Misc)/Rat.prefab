@@ -149,15 +149,15 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 680318250660865404}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d9b3b9e29f9727440abb52245c9fc723, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavAgentGuidance
   showGuidanceLine: 0
-  colorType: 6
+  colorType: 4
   lineWidth: 0.1
-  isDashed: 0
+  isDashed: 1
   pointsPerSegment: 10
   verticalOffset: 0.05
   guidanceMaterial: {fileID: 2100000, guid: d4ad64ebc615eaf48a32b5c4c9d5eeaa, type: 2}
@@ -373,8 +373,8 @@ MonoBehaviour:
   - StackPlts
   palletCategory: Inventory
   maxAge: 300
-  RatFromScale: 0.4
-  RatToScale: 1.4
+  RatFromScale: 1
+  RatToScale: 3
   ratPrefab: {fileID: 680318250660865404}
   breedingRadius: 2.5
   breedingDuration: 12
@@ -384,6 +384,6 @@ MonoBehaviour:
   gnawDuration: 3
   investigationRadius: 6
   hearingDistance: 6
-  clipSqueak: {fileID: 0}
-  clipScurry: {fileID: 0}
-  clipGnaw: {fileID: 0}
+  clipSqueak: {fileID: 8300000, guid: 1b9c01ee603822a4b9a7a8cbd08eb999, type: 3}
+  clipScurry: {fileID: 8300000, guid: 68cefb4fd1aac1744ac83933fd94a718, type: 3}
+  clipGnaw: {fileID: 8300000, guid: c1a05b1df3e1274439f0fa5caef7faae, type: 3}

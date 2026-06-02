@@ -15,6 +15,13 @@ public class AudioManager : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float sfxVolume = 1.0f;
     [SerializeField] private bool shuffle = true;
 
+    [Header("Worker Mumble")]
+    [SerializeField] private AudioClip[] mumbleClips;
+    [SerializeField, Range(0f, 1f)] private float mumbleVolume = 0.5f;
+    [SerializeField, Range(0.5f, 2f)] private float mumbleMinPitch = 0.85f;
+    [SerializeField, Range(0.5f, 2f)] private float mumbleMaxPitch = 1.15f;
+    [SerializeField, Range(0f, 100f)] private float mumbleChance = 50f;
+
     [Header("Music Trigger Settings")]
     [SerializeField, Tooltip("Time between checks in minutes")] 
     private float freqCheckIntervalTime = 5f;
@@ -24,10 +31,13 @@ public class AudioManager : MonoBehaviour
     private Dictionary<string, SoundDefinition.SoundEntry> soundMap;
     private AudioSource sfxSource;
     private AudioSource musicSource;
-    
+
     private List<AudioClip> playOrder = new List<AudioClip>();
     private int currentTrackIndex = -1;
     private bool isMusicPlaying = false;
+
+    private List<AudioClip> _mumbleShuffle = new List<AudioClip>();
+    private int _mumbleIndex = 0;
 
     private void Awake()
     {
@@ -85,6 +95,33 @@ else
         {
             Debug.LogWarning($"AudioManager: Sound '{soundName}' not found.");
         }
+    }
+
+    /// <summary>
+    /// Plays a random worker mumble clip as 3D spatial audio at the given world position.
+    /// Called by AiNavigation on waypoint arrival.
+    /// </summary>
+    public static void Mumble(Vector3 worldPosition)
+    {
+        if (instance == null || instance.mumbleClips == null || instance.mumbleClips.Length == 0) return;
+        if (Random.Range(0f, 100f) > instance.mumbleChance) return;
+
+        // Shuffle-based playback so the same clip doesn't repeat back-to-back
+        if (instance._mumbleShuffle.Count == 0 || instance._mumbleIndex >= instance._mumbleShuffle.Count)
+        {
+            instance._mumbleShuffle.Clear();
+            instance._mumbleShuffle.AddRange(instance.mumbleClips);
+            for (int i = instance._mumbleShuffle.Count - 1; i > 0; i--)
+            {
+                int k = Random.Range(0, i + 1);
+                (instance._mumbleShuffle[k], instance._mumbleShuffle[i]) =
+                    (instance._mumbleShuffle[i], instance._mumbleShuffle[k]);
+            }
+            instance._mumbleIndex = 0;
+        }
+
+        var clip = instance._mumbleShuffle[instance._mumbleIndex++];
+        AudioSource.PlayClipAtPoint(clip, worldPosition, instance.mumbleVolume);
     }
 
     private IEnumerator MusicFrequencyCheck()

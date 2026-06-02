@@ -81,9 +81,6 @@ PrefabInstance:
       addedObject: {fileID: 4428752178213665630}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 5977584818345532152}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 5552436285648144086}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
       insertIndex: -1
@@ -267,24 +264,6 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &5977584818345532152
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8526373013839797475}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f3d698b0375cff545979f23eca0c6d06, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AmbientMumble
-  mumbleClips: []
-  volume: 0.5
-  minPitch: 0.8
-  maxPitch: 1.2
-  chanceToMumble: 50
-  hearingDistance: 20
 --- !u!114 &5552436285648144086
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -353,7 +332,7 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 0
-  m_IsKinematic: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0

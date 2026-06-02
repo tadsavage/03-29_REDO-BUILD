@@ -665,6 +665,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 922c9e5d6cbc5474bb6e4e21f171d381, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VehicleThrottleAudio
+  hearingDistance: 25
   runningClip: {fileID: 8300000, guid: 82bea0cc43e8ca24c88016bd23c2e237, type: 3}
   minPitch: 0.85
   maxPitch: 1
@@ -829,7 +830,7 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6897361452196641161}
   m_Enabled: 1
-  serializedVersion: 12
+  serializedVersion: 13
   m_Type: 0
   m_Color: {r: 0.9622642, g: 0.9267088, b: 0.748932, a: 1}
   m_Intensity: 10
@@ -881,7 +882,7 @@ Light:
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
   m_ForceVisible: 0
-  m_ShadowRadius: 0
+  m_ShapeRadius: 0
   m_ShadowAngle: 0
   m_LightUnit: 1
   m_LuxAtDistance: 1
@@ -956,7 +957,7 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7901682680561183666}
   m_Enabled: 1
-  serializedVersion: 12
+  serializedVersion: 13
   m_Type: 0
   m_Color: {r: 0.9622642, g: 0.9267088, b: 0.748932, a: 1}
   m_Intensity: 10
@@ -1008,7 +1009,7 @@ Light:
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
   m_ForceVisible: 0
-  m_ShadowRadius: 0
+  m_ShapeRadius: 0
   m_ShadowAngle: 0
   m_LightUnit: 1
   m_LuxAtDistance: 1

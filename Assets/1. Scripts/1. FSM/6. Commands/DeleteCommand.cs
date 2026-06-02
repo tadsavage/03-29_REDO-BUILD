@@ -17,6 +17,10 @@ public class DeleteCommand : ICommand
     private readonly GameObject _target;
     private readonly List<GameObject> _reEnabledFloors = new();
 
+    // Remember whether the product was spoiled at delete time, so Undo mirrors the
+    // money path exactly (spoiled = no refund on delete, so no re-deduct on undo).
+    private bool _wasContaminated;
+
     public DeleteCommand(GameObject target, PlacementGrid grid, MoneyService money, 
         float duration, float sinkAmount, float vibrationAmount, float vibrationSpeed)
     {
@@ -69,15 +73,34 @@ public class DeleteCommand : ICommand
 
         // 2. Remove from registry is now handled automatically by _target.SetActive(false) -> PlacedObject.OnDisable()
 
-        // 3. Refund money
-        _money.Refund(_data.cost, _data.category);
+        // 3. Refund money — UNLESS the product spoiled. Spoiled product is a total
+        //    loss: refund $0 and float a green "$0" instead of the normal refund.
+        var contam = _target.GetComponent<ContaminationState>();
+        _wasContaminated = contam != null && contam.IsContaminated;
+
         _money.RemoveHourlyCost(_data.hourlyCost);
 
-        // Refund pallet load if applicable
         var pb = _target.GetComponent<PalletBuilder>();
-        if (pb != null && pb.CurrentLoadCost > 0)
+
+        if (_wasContaminated)
         {
-            _money.Refund(pb.CurrentLoadCost, "Inventory");
+            // No money back. Green "$0" floats up ~1m from inside the cases (Mario-coin style).
+            FloatingMoneyText.Show(_target.transform.position + Vector3.up * 1f, 0);
+        }
+        else
+        {
+            _money.Refund(_data.cost, _data.category);
+
+            int totalRefund = _data.cost;
+            if (pb != null && pb.CurrentLoadCost > 0)
+            {
+                _money.Refund(pb.CurrentLoadCost, "Inventory");
+                totalRefund += pb.CurrentLoadCost;
+            }
+
+            // Floating "$" UX — green positive number as money returns to capital.
+            if (totalRefund != 0)
+                FloatingMoneyText.Show(_target.transform.position + Vector3.up * 1.5f, totalRefund);
         }
 
         // 4. Start Destruction Animation
@@ -126,14 +149,19 @@ var highlighter = _target.GetComponent<BuildingHighlighter>();
 
             _reEnabledFloors.Clear();
 
-            // 5. Deduct money (un-refund)
-            _money.Deduct(_data.cost, _data.category);
+            // 5. Deduct money (un-refund) — but only mirror what Execute actually
+            //    refunded. Spoiled product was refunded $0, so don't re-charge it.
             _money.AddHourlyCost(_data.hourlyCost);
 
-            var pb = _target.GetComponent<PalletBuilder>();
-            if (pb != null && pb.CurrentLoadCost > 0)
+            if (!_wasContaminated)
             {
-                _money.Deduct(pb.CurrentLoadCost, "Inventory");
+                _money.Deduct(_data.cost, _data.category);
+
+                var pb = _target.GetComponent<PalletBuilder>();
+                if (pb != null && pb.CurrentLoadCost > 0)
+                {
+                    _money.Deduct(pb.CurrentLoadCost, "Inventory");
+                }
             }
 
             // 6. Ensure any highlights are cleared

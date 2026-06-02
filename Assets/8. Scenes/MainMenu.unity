@@ -154,6 +154,10 @@ MonoBehaviour:
   audioMixer: {fileID: 0}
   gameMixerParam: GameVolume
   musicMixerParam: MusicVolume
+  menuMusic: {fileID: 8300000, guid: e304e8f8ed9ff3445bce70af4e8440b3, type: 3}
+  logoImpactSfx: {fileID: 8300000, guid: d2ddbf85d03fc67488e7a064a384658c, type: 3}
+  menuMusicVolume: 0.362
+  impactSfxVolume: 0.65
 --- !u!114 &161181774
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -203,6 +207,7 @@ GameObject:
   - component: {fileID: 1270217927}
   - component: {fileID: 1270217926}
   - component: {fileID: 1270217928}
+  - component: {fileID: 1270217929}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -320,6 +325,14 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!81 &1270217929
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1270217925}
+  m_Enabled: 1
 --- !u!1 &1654171004
 GameObject:
   m_ObjectHideFlags: 0

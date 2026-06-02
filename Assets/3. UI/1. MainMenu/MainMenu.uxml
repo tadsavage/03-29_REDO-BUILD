@@ -1,17 +1,17 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/3.%20UI/MainMenu/MainMenu.uss?fileID=7433441132597879392&amp;guid=ce5e780b1ce92844eaa156c6246ff9c5&amp;type=3#MainMenu"/>
+    <Style src="project://database/Assets/3.%20UI/1.%20MainMenu/MainMenu.uss?fileID=7433441132597879392&amp;guid=ce5e780b1ce92844eaa156c6246ff9c5&amp;type=3#MainMenu"/>
     <ui:VisualElement name="root-overlay" class="root-overlay">
         <ui:VisualElement name="main-panel" class="main-panel">
-            <ui:Label name="title-label" text="FORK IT!" class="title-label"/>
-            <ui:Label name="tagline-label" text="In case you ever wanted to work in a warehouse but went to college instead..." selectable="true" focusable="true" class="tagline-label"/>
             <ui:VisualElement name="logo-container" class="logo-container">
                 <ui:VisualElement name="logo-image" class="logo-image"/>
+                <ui:Label name="title-label" text="FORK IT!" class="title-label title-label--intro" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;); color: rgb(251, 118, 11); font-size: 255px; transition-duration: 1s, 1s, 0.45s; -unity-text-outline-color: rgb(86, 101, 114); -unity-text-outline-width: 6px;"/>
             </ui:VisualElement>
-            <ui:VisualElement name="button-column" class="button-column">
+            <ui:Label name="tagline-label" text="In case you ever wanted to work in a warehouse but went to college instead..." class="tagline-label" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;); font-size: 18px; -unity-font-style: italic; color: rgba(208, 215, 220, 0.78);"/>
+            <ui:VisualElement name="button-column" class="button-column" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);">
                 <ui:Button name="btn-clock-in" text="CLOCK IN" class="menu-btn menu-btn-green"/>
                 <ui:Button name="btn-resume" text="RESUME SHIFT" class="menu-btn menu-btn-blue"/>
                 <ui:Button name="btn-settings" text="SETTINGS" class="menu-btn menu-btn-grey"/>
-                <ui:Button name="btn-punch-out" text="PUNCH OUT" class="menu-btn menu-btn-red"/>
+                <ui:Button name="btn-punch-out" text="PUNCH OUT" class="menu-btn menu-btn-red" style="color: rgb(255, 255, 255);"/>
             </ui:VisualElement>
             <ui:Label name="version-label" text="v0.1 — PROTO" class="version-label"/>
         </ui:VisualElement>

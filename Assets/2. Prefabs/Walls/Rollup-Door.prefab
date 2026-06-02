@@ -65,7 +65,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!4 &5760035485099060981
 Transform:
@@ -77,7 +77,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0.000000022963144, y: 0.30415627, z: 0.9526222, w: 0.000000071921164}
   m_LocalPosition: {x: 0.01, y: 5.145, z: -0.839}
-  m_LocalScale: {x: 0.17044234, y: 0.0989, z: 0.3497782}
+  m_LocalScale: {x: 0.048485734, y: 0.05080295, z: 0.4222872}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1947605615580953868}
@@ -115,7 +115,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 4a97808460465fa4c9c7915590f8e91e, type: 2}
+  - {fileID: 2100000, guid: fa2ab52a79aefaf43b27e6efec8145e8, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -132,7 +132,7 @@ MeshRenderer:
   m_MinimumChartSize: 4
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
+  m_LightmapParameters: {fileID: 15200, guid: 0000000000000000f000000000000000, type: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
@@ -177,7 +177,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!4 &7721412835138205795
 Transform:
@@ -188,8 +188,8 @@ Transform:
   m_GameObject: {fileID: 2714958358603186438}
   serializedVersion: 2
   m_LocalRotation: {x: 0.95262164, y: 0, z: 0, w: -0.3041578}
-  m_LocalPosition: {x: -0.002, y: 5.13, z: 0.84}
-  m_LocalScale: {x: 0.17717724, y: 0.0989, z: 0.3038049}
+  m_LocalPosition: {x: 0.0075, y: 5.13, z: 0.84}
+  m_LocalScale: {x: 0.04117615, y: 0.040040653, z: 0.3787232}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2799737074444541086}
@@ -227,7 +227,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 4a97808460465fa4c9c7915590f8e91e, type: 2}
+  - {fileID: 2100000, guid: fa2ab52a79aefaf43b27e6efec8145e8, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -238,13 +238,13 @@ MeshRenderer:
   m_ReceiveGI: 1
   m_PreserveUVs: 0
   m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
+  m_ImportantGI: 1
   m_StitchLightmapSeams: 1
   m_SelectedEditorRenderState: 3
   m_MinimumChartSize: 4
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
+  m_LightmapParameters: {fileID: 15200, guid: 0000000000000000f000000000000000, type: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
@@ -491,7 +491,7 @@ LineRenderer:
   m_MaskInteraction: 0
   m_Positions:
   - {x: 0, y: 5.0473433, z: 0.9878377}
-  - {x: 0, y: -2.2748997e-17, z: 8.19619}
+  - {x: 0, y: -6.4241858, z: 17.370876}
   m_Parameters:
     serializedVersion: 3
     widthMultiplier: 1
@@ -663,7 +663,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -701,6 +701,12 @@ MonoBehaviour:
   startY: 0
   endY: 3.8
   speed: 3
+  openClip: {fileID: 8300000, guid: 131fee9be2b6a2144a151543f776d6d6, type: 3}
+  closeClip: {fileID: 8300000, guid: 3c988ce6e8f57f540bf39b5d61e992e4, type: 3}
+  doorVolume: 1
+  fullVolumeDistance: 2
+  maxHearingDistance: 15
+  audioSource: {fileID: 0}
 --- !u!114 &5353741103534723898
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -777,7 +783,7 @@ LineRenderer:
   m_MaskInteraction: 0
   m_Positions:
   - {x: 0, y: 5.0473433, z: -0.9888954}
-  - {x: 0, y: 2.2751934e-17, z: -8.197248}
+  - {x: 0, y: -6.4241858, z: -17.371935}
   m_Parameters:
     serializedVersion: 3
     widthMultiplier: 1
