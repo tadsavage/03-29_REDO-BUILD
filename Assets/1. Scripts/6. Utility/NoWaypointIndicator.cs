@@ -10,7 +10,7 @@ using TMPro;
 public class NoWaypointIndicator : MonoBehaviour
 {
     [Tooltip("Height above the agent's local origin (should clear the model's head).")]
-    [SerializeField] private float headHeight = 2.25f;
+    [SerializeField] private float headHeight = 2.75f;
     [Tooltip("How many units the '?' bobs up and down each cycle.")]
     [SerializeField] private float bobAmplitude = 0.07f;
     [Tooltip("Bob cycles per second.")]
