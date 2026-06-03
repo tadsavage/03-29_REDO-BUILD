@@ -290,6 +290,7 @@ GameObject:
   - component: {fileID: -6706777722881327581}
   - component: {fileID: 2123529118253443945}
   - component: {fileID: 8480314748774525627}
+  - component: {fileID: 6985417195857716167}
   m_Layer: 0
   m_Name: PltJack_FULL
   m_TagString: Untagged
@@ -429,6 +430,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingManager
   role: 1
+  footstepClip: {fileID: 0}
+  footstepVolume: 0.6
 --- !u!114 &843681042130445759
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -610,6 +613,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 922c9e5d6cbc5474bb6e4e21f171d381, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VehicleThrottleAudio
+  hearingDistance: 25
   runningClip: {fileID: 8300000, guid: 82bea0cc43e8ca24c88016bd23c2e237, type: 3}
   minPitch: 0.85
   maxPitch: 1
@@ -621,6 +625,24 @@ MonoBehaviour:
   honkVolume: 1.5
   honkPitch: 1.1
   honkProbability: 0.1
+--- !u!114 &6985417195857716167
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7153508595185007600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13474f5c7c29e4d4f97a49ff0d7c4888, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
+  headHeight: 5
+  bobAmplitude: 0.15
+  bobSpeed: 0.9
+  driftAmplitude: 0.25
+  fontSize: 10
+  fadeDuration: 1.5
 --- !u!1001 &378573340676538193
 PrefabInstance:
   m_ObjectHideFlags: 0

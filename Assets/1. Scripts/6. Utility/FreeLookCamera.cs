@@ -15,11 +15,11 @@ public class FreeLookCamera : MonoBehaviour
     public float freeLookSensitivity = 3f;
     public float zoomSensitivity = 10f;
     public float fastZoomSensitivity = 50f;
-    public float heightMax = 6f;
+    public float heightMax = 20f;   // raised from 6 — allows overview height
     public float heightMin = 1f;
     public float X_Min = -18f;
     public float X_Max = 18f;
-    public float Z_Min = -8f;
+    public float Z_Min = -15f;      // extended back from -8 — allows overview position
     public float Z_Max = 18f;
 
     private bool looking = false;
