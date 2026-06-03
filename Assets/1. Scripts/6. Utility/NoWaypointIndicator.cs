@@ -3,8 +3,8 @@ using TMPro;
 
 /// <summary>
 /// Shows a softly-bobbing red "?" above an agent when they have no navigation waypoints.
-/// Call Show() when AiNavigation detects no waypoints; Hide() when they're resolved.
-/// Eventually replace the TMP label with a 3D question mark mesh.
+/// Initialized in Start() so ghosts (which never reach Start) never build the pivot child.
+/// Call Show()/Hide() from AiNavigation after FindWaypoints() runs.
 /// </summary>
 [DisallowMultipleComponent]
 public class NoWaypointIndicator : MonoBehaviour
@@ -24,14 +24,15 @@ public class NoWaypointIndicator : MonoBehaviour
     private TMP_Text _label;
     private float _t;
     private Camera _cam;
-
     private bool _visible;
+    private bool _pendingShow; // buffered if Show() is called before Start()
 
-    private void Awake()
+    // Start() is NOT called on ghost preview objects (they are destroyed before Start runs),
+    // so moving creation here ensures ghosts never build the pivot child.
+    private void Start()
     {
         _cam = Camera.main;
 
-        // Build the pivot and label at runtime so no prefab setup is needed
         var go = new GameObject("NoWaypoint_?");
         go.transform.SetParent(transform, false);
         go.transform.localPosition = new Vector3(0f, headHeight, 0f);
@@ -47,21 +48,31 @@ public class NoWaypointIndicator : MonoBehaviour
         _label.outlineColor = new Color32(20, 0, 0, 220);
         _label.enableWordWrapping = false;
 
-        go.SetActive(false);
+        go.SetActive(_pendingShow);
+        _visible = _pendingShow;
     }
 
     public void Show()
     {
-        if (_visible) return;
-        _visible = true;
-        _pivot?.gameObject.SetActive(true);
+        if (_pivot != null) // Unity == catches destroyed objects
+        {
+            if (_visible) return;
+            _visible = true;
+            _pivot.gameObject.SetActive(true);
+        }
+        else
+        {
+            _pendingShow = true; // Start() hasn't run yet; activate when it does
+        }
     }
 
     public void Hide()
     {
+        _pendingShow = false;
         if (!_visible) return;
         _visible = false;
-        _pivot?.gameObject.SetActive(false);
+        if (_pivot != null)
+            _pivot.gameObject.SetActive(false);
     }
 
     private void LateUpdate()
@@ -70,12 +81,11 @@ public class NoWaypointIndicator : MonoBehaviour
 
         _t += Time.deltaTime;
 
-        float yBob = Mathf.Sin(_t * bobSpeed * Mathf.PI * 2f) * bobAmplitude;
+        float yBob   = Mathf.Sin(_t * bobSpeed * Mathf.PI * 2f) * bobAmplitude;
         float xDrift = Mathf.Sin(_t * bobSpeed * Mathf.PI * 2f * 0.37f) * driftAmplitude;
 
         _pivot.localPosition = new Vector3(xDrift, headHeight + yBob, 0f);
 
-        // Billboard: always face the camera
         if (_cam == null) _cam = Camera.main;
         if (_cam != null)
             _pivot.forward = _cam.transform.forward;

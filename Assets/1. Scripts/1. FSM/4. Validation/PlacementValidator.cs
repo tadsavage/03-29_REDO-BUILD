@@ -90,6 +90,10 @@ public class PlacementValidator : MonoBehaviour
             if (entry.instance == ignore)
                 continue;
 
+            // Skip destroyed or inactive entries (e.g. objects disabled by Undo)
+            if (entry.instance == null || !entry.instance.activeSelf)
+                continue;
+
             bool entryIsGround = IsGround(entry.data);
 
             // 1. Placing Ground: can replace other Grounds or sit on top of Floor tiles.
