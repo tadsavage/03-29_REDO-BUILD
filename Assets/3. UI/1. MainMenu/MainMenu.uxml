@@ -1,4 +1,4 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+﻿<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/3.%20UI/1.%20MainMenu/MainMenu.uss?fileID=7433441132597879392&amp;guid=ce5e780b1ce92844eaa156c6246ff9c5&amp;type=3#MainMenu"/>
     <ui:VisualElement name="root-overlay" class="root-overlay">
         <ui:VisualElement name="main-panel" class="main-panel">
@@ -13,7 +13,7 @@
                 <ui:Button name="btn-settings" text="SETTINGS" class="menu-btn menu-btn-grey"/>
                 <ui:Button name="btn-punch-out" text="PUNCH OUT" class="menu-btn menu-btn-red" style="color: rgb(255, 255, 255);"/>
             </ui:VisualElement>
-            <ui:Label name="version-label" text="v0.1 — PROTO" class="version-label"/>
+            <ui:Label name="version-label" text="v0.1 â€” PROTO" class="version-label"/>
         </ui:VisualElement>
         <ui:Label name="tooltip-label" text="" class="tooltip-label" style="display: none;"/>
         <ui:VisualElement name="name-popup" class="popup-panel" style="display: none;">
@@ -22,19 +22,9 @@
             <ui:Button name="btn-name-confirm" text="START NEW GAME" class="popup-btn popup-btn-green"/>
             <ui:Button name="btn-name-back" text="BACK" class="popup-btn popup-btn-grey"/>
         </ui:VisualElement>
-        <ui:VisualElement name="welcome-backdrop" class="modal-backdrop" style="display: none;">
-            <ui:VisualElement name="welcome-popup" class="popup-welcome">
-                <ui:VisualElement name="VisualElement" class="boss-avatar" style="border-top-width: 3px; border-right-width: 3px; border-bottom-width: 3px; border-left-width: 3px; background-size: 100% 100%;">
-                    <ui:Label text="" selectable="true" focusable="true" class="boss-emoji" style="background-image: none; background-size: 100% 100%; -unity-background-image-tint-color: rgba(255, 255, 255, 0);"/>
-                </ui:VisualElement>
-                <ui:Label name="welcome-title" text="👷YOUR BOSS👷" class="welcome-boss-title"/>
-                <ui:Label name="welcome-text" text="" class="welcome-text"/>
-                <ui:Button name="btn-build" text="GET BUILDING!" class="popup-btn popup-btn-green"/>
-            </ui:VisualElement>
-        </ui:VisualElement>
         <ui:VisualElement name="load-popup" class="popup-panel" style="display: none;">
             <ui:Label text="RESUME SHIFT" class="popup-title"/>
-            <ui:Label name="load-hint" text="💡  Hit F9 anytime to quick-load your last autosave." class="popup-hint"/>
+            <ui:Label name="load-hint" text="ðŸ’¡  Hit F9 anytime to quick-load your last autosave." class="popup-hint"/>
             <ui:ScrollView name="save-slot-list" class="save-slot-list" style="max-height: 450px;">
                 <ui:VisualElement name="save-slot-container" class="save-slot-container"/>
             </ui:ScrollView>

@@ -61,15 +61,11 @@ public class MainMenuManager : MonoBehaviour
 
     // Popups
     private VisualElement _namePopup;
-    private VisualElement _welcomeBackdrop;  // full-screen dim layer
     private VisualElement _loadPopup;
     private VisualElement _settingsPopup;
 
     // Name popup
     private TextField _nameField;
-
-    // Welcome
-    private Label _welcomeText;
 
     // Load
     private VisualElement _saveSlotContainer;
@@ -186,12 +182,10 @@ public class MainMenuManager : MonoBehaviour
     {
         _mainPanel     = _root.Q("main-panel");
         _namePopup       = _root.Q("name-popup");
-        _welcomeBackdrop = _root.Q("welcome-backdrop");
         _loadPopup       = _root.Q("load-popup");
         _settingsPopup   = _root.Q("settings-popup");
 
         _nameField    = _root.Q<TextField>("name-field");
-        _welcomeText  = _root.Q<Label>("welcome-text");
         _saveSlotContainer = _root.Q("save-slot-container");
 
         _gameVolumeSlider  = _root.Q<Slider>("slider-game-volume");
@@ -239,9 +233,6 @@ public class MainMenuManager : MonoBehaviour
                     OnNameConfirmed();
             });
         _root.Q<Button>("btn-name-back")?.RegisterCallback<ClickEvent>(_ => HideAllPopups());
-
-        // Welcome popup (kept in UXML for Resume path, unused for now)
-        _root.Q<Button>("btn-build")?.RegisterCallback<ClickEvent>(_ => LoadGameScene());
 
         // Load popup
         _root.Q<Button>("btn-load-close")?.RegisterCallback<ClickEvent>(_ => HideAllPopups());
@@ -291,26 +282,8 @@ public class MainMenuManager : MonoBehaviour
         PlayerPrefs.SetInt("IsNewGame", 1);
         PlayerPrefs.Save();
 
-        // Go straight to the game — the welcome overlay shows there
+        // Welcome screen is now handled by WelcomeOverlayManager in the game scene
         LoadGameScene();
-    }
-
-    private void ShowWelcome(string name)
-    {
-        string msg =
-            $"Well, {name}! Time to get to it.\n\n" +
-            $"You're already late on your first day.\n\n" +
-            $"Get building! I suggest starting with the foundation first, " +
-            $"but make sure you check your money — this shit ain't cheap.\n\n" +
-            $"And once you run out, you'll need to sell stuff back... but you lose 10% each time. " +
-            $"So every time you screw up, you have less to work with.\n\n" +
-            $"Good luck!!";
-
-        var welcomeText = _root.Q<Label>("welcome-text");
-        if (welcomeText != null) welcomeText.text = msg;
-
-        HideAllPopups();
-        SetVisible(_welcomeBackdrop, true);
     }
 
     private void OnResumeShift()
@@ -334,44 +307,128 @@ public class MainMenuManager : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Save Slot List (simple version for proto)
+    // Save Slot List (with thumbnails + metadata)
     // ─────────────────────────────────────────────────────────────────────────
 
     private void BuildSaveSlotList()
     {
-        if (_saveSlotList == null) return;
-        _saveSlotList.Clear();
+        if (_saveSlotContainer == null) return;
+        _saveSlotContainer.Clear();
 
-        // Check autosave
-        AddSlotButton("autosave", "Autosave", -1);
+        // Autosave card
+        AddSlotCard(-1, "Autosave", "Quick-save (F5)", System.DateTime.Now.Ticks);
 
-        // Check slots 0-7 — SaveManager writes slot_{i}_data.json
-        for (int i = 0; i < 8; i++)
+        // Numbered slots from metadata
+        if (SaveManager.Instance != null)
         {
-            string slotName = $"slot_{i}";
-            string path = System.IO.Path.Combine(Application.dataPath, "_Saves", slotName + "_data.json");
-            if (System.IO.File.Exists(path))
-                AddSlotButton(slotName, $"Slot {i + 1}", i);
+            var allMetadata = SaveManager.Instance.GetAllMetadata();
+            for (int i = 0; i < allMetadata.Length; i++)
+            {
+                var md = allMetadata[i];
+                if (md == null || string.IsNullOrEmpty(md.gameDataFileName)) continue;
+
+                string dataPath = System.IO.Path.Combine(Application.dataPath, "_Saves", md.gameDataFileName);
+                if (!System.IO.File.Exists(dataPath)) continue;
+
+                AddSlotCard(i, md.saveName, md.timestamp, md.timestampTicks);
+            }
+        }
+        else
+        {
+            // Fallback: scan disk directly if SaveManager not available
+            string saveDir = System.IO.Path.Combine(Application.dataPath, "_Saves");
+            if (!System.IO.Directory.Exists(saveDir)) return;
+
+            for (int i = 0; i < 8; i++)
+            {
+                string dataPath = System.IO.Path.Combine(saveDir, $"slot_{i}_data.json");
+                if (System.IO.File.Exists(dataPath))
+                    AddSlotCard(i, $"Slot {i + 1}", "", 0);
+            }
         }
     }
 
-    private void AddSlotButton(string saveName, string displayName, int slotIndex)
+    private void AddSlotCard(int slotIndex, string saveName, string timestamp, long timestampTicks)
     {
-        var btn = new Button();
-        btn.text = displayName;
-        btn.AddToClassList("popup-btn");
-        btn.AddToClassList("popup-btn-grey");
-        btn.style.marginBottom = 6;
+        // -- Card root --
+        var card = new VisualElement();
+        card.AddToClassList("save-slot-card");
 
-        string sn = saveName;
-        int si = slotIndex;
-        btn.clicked += () =>
+        // -- Thumbnail --
+        var thumb = new VisualElement();
+        thumb.AddToClassList("slot-thumb");
+
+        bool hasThumb = false;
+        if (SaveManager.Instance != null)
         {
-            PlayerPrefs.SetString("LastSaveName", sn);
-            PlayerPrefs.SetInt("LoadSlotIndex", si);
+            string thumbPath = SaveManager.Instance.GetThumbnailPath(slotIndex);
+            if (!string.IsNullOrEmpty(thumbPath))
+            {
+                var tex = SaveThumbnailCapture.LoadThumbnailFromDisk(thumbPath);
+                if (tex != null)
+                {
+                    thumb.style.backgroundImage = new StyleBackground(tex);
+                    hasThumb = true;
+                }
+            }
+        }
+
+        if (!hasThumb)
+        {
+            thumb.AddToClassList("slot-thumb--empty");
+            var thumbLabel = new Label(slotIndex < 0 ? "F5/F9" : $"SLOT {slotIndex + 1}");
+            thumbLabel.AddToClassList("slot-thumb-label");
+            thumb.Add(thumbLabel);
+        }
+
+        card.Add(thumb);
+
+        // -- Info column --
+        var info = new VisualElement();
+        info.AddToClassList("slot-info");
+
+        var nameLabel = new Label(saveName);
+        nameLabel.AddToClassList("slot-name");
+        info.Add(nameLabel);
+
+        if (!string.IsNullOrEmpty(timestamp))
+        {
+            var tsLabel = new Label(timestamp);
+            tsLabel.AddToClassList("slot-timestamp");
+            info.Add(tsLabel);
+        }
+
+        card.Add(info);
+
+        // -- LOAD button with cycling color --
+        var loadBtn = new Button();
+        loadBtn.text = "LOAD";
+        loadBtn.AddToClassList("slot-load-btn");
+
+        // Cycle through green/blue/orange/purple based on slot index
+        string[] colorVariants = { "slot-load-btn-green", "slot-load-btn-blue", "slot-load-btn-orange", "slot-load-btn-purple" };
+        int colorIdx = (slotIndex < 0) ? 0 : (slotIndex % colorVariants.Length);
+        loadBtn.AddToClassList(colorVariants[colorIdx]);
+
+        int capturedIndex = slotIndex;
+        loadBtn.clicked += () =>
+        {
+            if (capturedIndex < 0)
+            {
+                // Autosave: use quicksave load path
+                PlayerPrefs.SetInt("LoadSlotIndex", -1);
+                PlayerPrefs.SetString("LastSaveName", "autosave");
+            }
+            else
+            {
+                PlayerPrefs.SetInt("LoadSlotIndex", capturedIndex);
+                PlayerPrefs.SetString("LastSaveName", $"slot_{capturedIndex}");
+            }
             LoadGameScene();
         };
-        _saveSlotList?.Add(btn);
+
+        card.Add(loadBtn);
+        _saveSlotContainer?.Add(card);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -501,7 +558,6 @@ public class MainMenuManager : MonoBehaviour
     private void HideAllPopups()
     {
         SetVisible(_namePopup,       false);
-        SetVisible(_welcomeBackdrop, false);
         SetVisible(_loadPopup,       false);
         SetVisible(_settingsPopup,   false);
     }
