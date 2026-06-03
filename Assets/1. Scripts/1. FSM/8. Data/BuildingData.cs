@@ -62,9 +62,19 @@ public class BuildingData : MonoBehaviour
             _modifier.overrideArea = true;
             _modifier.area = Data.navArea;
 
-            if (Data.category == "Foundation" || Data.isStackable)
+            if (Data.category == "Foundation" || Data.category == "Grounds")
             {
-                // Baked + carving obstacle so agents walk ON TOP, not through.
+                // Ground surfaces must never have a carving obstacle — it punches a
+                // hole through the NavMesh across the whole XZ footprint, destroying
+                // the walkable surface that floor tiles bake on top of the slab.
+                if (TryGetComponent<NavMeshObstacle>(out var oldObstacle))
+                    DestroyImmediate(oldObstacle);
+                _modifier.ignoreFromBuild = false;
+            }
+            else if (Data.isStackable)
+            {
+                // Stackable objects (racks, shelving): carving obstacle blocks agent
+                // access under/through them while keeping the floor surface walkable.
                 ConfigureObstacle();
                 _modifier.ignoreFromBuild = false;
             }
