@@ -238,6 +238,11 @@ public class PlacementSystem : MonoBehaviour
         foreach (var objSave in save.placedObjects)
         {
             ObjDataSO so = registry.GetByID(objSave.id);
+            if (so == null)
+            {
+                Debug.LogWarning($"[PlacementSystem] Skipping saved object with unknown id={objSave.id} at ({objSave.x},{objSave.y}) — not in ObjDataRegistry.");
+                continue;
+            }
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData);
         }
 
