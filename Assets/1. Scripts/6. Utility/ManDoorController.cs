@@ -1,5 +1,4 @@
 using System.Collections;
-using Unity.AppUI.UI;
 using UnityEngine;
 
 public class ManDoorController : MonoBehaviour
@@ -16,9 +15,9 @@ public class ManDoorController : MonoBehaviour
     private AgentType _allowedAgents = AgentType.Human | AgentType.Rat;
 
     [Header("Audio")]
-    [Tooltip("DoorOpen.wav — plays when an agent enters and the door opens.")]
+    [Tooltip("DoorOpen.wav ï¿½ plays when an agent enters and the door opens.")]
     [SerializeField] private AudioClip openClip;
-    [Tooltip("DoorClose.wav — plays when an agent exits and the door closes.")]
+    [Tooltip("DoorClose.wav ï¿½ plays when an agent exits and the door closes.")]
     [SerializeField] private AudioClip closeClip;
     [SerializeField, Range(0f, 1f)] private float doorVolume = 1f;
 
@@ -55,7 +54,7 @@ public class ManDoorController : MonoBehaviour
         if (audioSource == null) return;
 
         audioSource.playOnAwake = false;
-        audioSource.spatialBlend = 1f;                       // fully 3D — comes from the door
+        audioSource.spatialBlend = 1f;                       // fully 3D ï¿½ comes from the door
         audioSource.rolloffMode = AudioRolloffMode.Linear;  // clean fade to silence at max distance
         audioSource.minDistance = fullVolumeDistance;
         audioSource.maxDistance = maxHearingDistance;
@@ -80,7 +79,6 @@ public class ManDoorController : MonoBehaviour
         if (!IsAllowed(other)) return;
         StopMoving();
         _moveCoroutine = StartCoroutine(RotateDoor(endRotY));
-        Debug.Log($"Door opening for {other.name}");
         PlayClip(openClip);
     }
 
@@ -89,7 +87,6 @@ public class ManDoorController : MonoBehaviour
         if (!IsAllowed(other)) return;
         StopMoving();
         _moveCoroutine = StartCoroutine(RotateDoor(startRotY));
-        Debug.Log($"Door closing for {other.name}");
         PlayClip(closeClip);
     }
     private void PlayClip(AudioClip clip)
@@ -99,7 +96,6 @@ public class ManDoorController : MonoBehaviour
                 Debug.LogWarning("AudioClip or AudioSource is missing. Cannot play door sound.");
                 return;
         }
-        Debug.Log($"Playing clip: {clip.name} at volume: {doorVolume}");
         audioSource.PlayOneShot(clip, doorVolume);
     }
 

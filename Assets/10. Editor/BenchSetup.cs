@@ -199,7 +199,7 @@ public static class BenchSetup
         if (importer != null)
         {
             importer.textureType = TextureImporterType.Default;
-            importer.spriteImportMode  = (int)SpriteImportMode.None;
+            importer.spriteImportMode  = SpriteImportMode.None;
             importer.mipmapEnabled = true;
             importer.maxTextureSize = 512;
             importer.SaveAndReimport();
