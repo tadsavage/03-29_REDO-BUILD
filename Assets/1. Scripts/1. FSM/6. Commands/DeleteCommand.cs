@@ -15,13 +15,18 @@ public class DeleteCommand : ICommand
     private readonly float _vibrationSpeed;
 
     private readonly GameObject _target;
+
+    // Floors that were hidden under the foundation and get revealed when it's deleted
     private readonly List<GameObject> _reEnabledFloors = new();
 
-    // Remember whether the product was spoiled at delete time, so Undo mirrors the
-    // money path exactly (spoiled = no refund on delete, so no re-deduct on undo).
+    // Active floor tiles (foundation's auto-floor or any upgrade tile) deleted along with the foundation
+    private readonly List<GameObject> _linkedFloors = new();
+
     private bool _wasContaminated;
 
-    public DeleteCommand(GameObject target, PlacementGrid grid, MoneyService money, 
+    private static bool IsFoundation(ObjDataSO d) => d != null && d.category == "Foundation";
+
+    public DeleteCommand(GameObject target, PlacementGrid grid, MoneyService money,
         float duration, float sinkAmount, float vibrationAmount, float vibrationSpeed)
     {
         _target = target;
@@ -44,14 +49,39 @@ public class DeleteCommand : ICommand
             return;
 
         _reEnabledFloors.Clear();
+        _linkedFloors.Clear();
 
-        // 1. Remove from grid and check for floors to re-enable
+        // 1. For foundations: remove the active floor tile(s) in the same cells first.
+        //    This covers both the auto-placed default floor and any upgrade tiles.
+        if (IsFoundation(_data))
+        {
+            foreach (var o in _offsets)
+            {
+                Vector2Int cell = _root + o;
+                var cellObjs = _grid.GetObjectsInCell(cell);
+                if (cellObjs == null) continue;
+
+                for (int i = cellObjs.Count - 1; i >= 0; i--)
+                {
+                    var entry = cellObjs[i];
+                    if (entry.data?.isFloor != true) continue;
+                    if (entry.instance == null || !entry.instance.activeSelf) continue;
+
+                    _linkedFloors.Add(entry.instance);
+                    _grid.RemoveStackObject(cell, entry.instance, entry.data);
+                    _money.Refund(entry.data.cost, entry.data.category);
+                    _money.RemoveHourlyCost(entry.data.hourlyCost);
+                    entry.instance.SetActive(false);
+                }
+            }
+        }
+
+        // 2. Remove foundation from grid; re-enable yard floor tiles that were hidden beneath it
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
             _grid.RemoveStackObject(cell, _target, _data);
 
-            // If the cell is no longer occupied (by buildings), re-enable any floors there
             if (!_grid.IsOccupied(cell))
             {
                 var cellObjs = _grid.GetObjectsInCell(cell);
@@ -59,22 +89,19 @@ public class DeleteCommand : ICommand
                 {
                     foreach (var entry in cellObjs)
                     {
-                        if (entry.data != null && entry.data.isFloor && entry.instance != null && !entry.instance.activeSelf)
-                        {
-                            entry.instance.SetActive(true);
-                            if (!_reEnabledFloors.Contains(entry.instance))
-                                _reEnabledFloors.Add(entry.instance);
-                            }
-                            }
-                            }
-                            }
-                            _grid.UpdateStackPositions(cell);
-                            }
+                        if (entry.data?.isFloor != true) continue;
+                        if (entry.instance == null || entry.instance.activeSelf) continue;
+                        entry.instance.SetActive(true);
+                        if (!_reEnabledFloors.Contains(entry.instance))
+                            _reEnabledFloors.Add(entry.instance);
+                    }
+                }
+            }
 
-        // 2. Remove from registry is now handled automatically by _target.SetActive(false) -> PlacedObject.OnDisable()
+            _grid.UpdateStackPositions(cell);
+        }
 
-        // 3. Refund money — UNLESS the product spoiled. Spoiled product is a total
-        //    loss: refund $0 and float a green "$0" instead of the normal refund.
+        // 3. Money: refund foundation; skip if contaminated
         var contam = _target.GetComponent<ContaminationState>();
         _wasContaminated = contam != null && contam.IsContaminated;
 
@@ -84,27 +111,28 @@ public class DeleteCommand : ICommand
 
         if (_wasContaminated)
         {
-            // No money back. Green "$0" floats up ~1m from inside the cases (Mario-coin style).
             FloatingMoneyText.Show(_target.transform.position + Vector3.up * 1f, 0);
         }
         else
         {
-            _money.Refund(_data.cost, _data.category);
+            int adjustedCost = Mathf.RoundToInt(_data.cost * _money.SellBackRate);
+            int adjustedLoad = pb != null ? Mathf.RoundToInt(pb.CurrentLoadCost * _money.SellBackRate) : 0;
 
-            int totalRefund = _data.cost;
+            _money.Refund(adjustedCost, _data.category);
+
+            int totalRefund = adjustedCost;
             if (pb != null && pb.CurrentLoadCost > 0)
             {
-                _money.Refund(pb.CurrentLoadCost, "Inventory");
-                totalRefund += pb.CurrentLoadCost;
+                _money.Refund(adjustedLoad, "Inventory");
+                totalRefund += adjustedLoad;
             }
 
-            // Floating "$" UX — green positive number as money returns to capital.
             if (totalRefund != 0)
                 FloatingMoneyText.Show(_target.transform.position + Vector3.up * 1.5f, totalRefund);
         }
 
-        // 4. Start Destruction Animation
-var highlighter = _target.GetComponent<BuildingHighlighter>();
+        // 4. Destruction animation
+        var highlighter = _target.GetComponent<BuildingHighlighter>();
         if (highlighter != null)
             highlighter.HighlightDelete(false);
 
@@ -112,71 +140,78 @@ var highlighter = _target.GetComponent<BuildingHighlighter>();
         if (effect == null) effect = _target.AddComponent<BuildingDestructionEffect>();
         effect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed);
 
-        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _reEnabledFloors.Count > 0)
+        // 5. NavMesh: always rebake when a foundation is deleted (floor surface changes)
+        NavMeshManager.Instance?.MarkDirty();
+    }
+
+    public void Undo()
+    {
+        if (_target == null)
+            return;
+
+        // 0. Abort any ongoing destruction animation
+        var effect = _target.GetComponent<BuildingDestructionEffect>();
+        if (effect != null) effect.Abort();
+
+        // 1. Re-enable foundation
+        _target.SetActive(true);
+
+        // 2. Add foundation back to grid; re-disable the yard tiles we had revealed
+        foreach (var o in _offsets)
         {
-            NavMeshManager.Instance.MarkDirty();
-        }
+            Vector2Int cell = _root + o;
+            _grid.AddStackObject(cell, _target, _data);
 
+            foreach (var floor in _reEnabledFloors)
+                if (floor != null) floor.SetActive(false);
+
+            _grid.UpdateStackPositions(cell);
         }
-        public void Undo()
+        _reEnabledFloors.Clear();
+
+        // 3. Restore linked floor tiles (foundation's auto-floor / upgrade tiles)
+        foreach (var floor in _linkedFloors)
         {
-            if (_target == null)
-                return;
+            if (floor == null) continue;
+            var bd = floor.GetComponent<BuildingData>();
+            if (bd == null) continue;
 
-            // 0. Abort any ongoing destruction animation
-            var effect = _target.GetComponent<BuildingDestructionEffect>();
-            if (effect != null) effect.Abort();
+            floor.SetActive(true);
+            foreach (var o in bd.Offsets)
+                _grid.AddStackObject(bd.RootCell + o, floor, bd.Data);
 
-            // 1. Enable object first so UpdateStackPositions sees it as active
-            _target.SetActive(true);
+            _grid.UpdateStackPositions(bd.RootCell);
 
-            // 2. Add back to grid
-            foreach (var o in _offsets)
-            {
-                Vector2Int cell = _root + o;
-                _grid.AddStackObject(cell, _target, _data);
-
-                // 3. Re-disable floors we re-enabled during deletion
-                foreach (var floor in _reEnabledFloors)
-                {
-                    if (floor != null)
-                        floor.SetActive(false);
-                }
-
-                // 4. Update again because we changed floor visibility
-                _grid.UpdateStackPositions(cell);
-            }
-
-            _reEnabledFloors.Clear();
-
-            // 5. Deduct money (un-refund) — but only mirror what Execute actually
-            //    refunded. Spoiled product was refunded $0, so don't re-charge it.
-            _money.AddHourlyCost(_data.hourlyCost);
-
-            if (!_wasContaminated)
-            {
-                _money.Deduct(_data.cost, _data.category);
-
-                var pb = _target.GetComponent<PalletBuilder>();
-                if (pb != null && pb.CurrentLoadCost > 0)
-                {
-                    _money.Deduct(pb.CurrentLoadCost, "Inventory");
-                }
-            }
-
-            // 6. Ensure any highlights are cleared
-var highlighter = _target.GetComponent<BuildingHighlighter>();
-            if (highlighter != null)
-                highlighter.HighlightDelete(false);
-
-            if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
-            {
-                NavMeshManager.Instance.MarkDirty();
-            }
+            // Reverse the refund we issued in Execute()
+            _money.Deduct(bd.Data.cost, bd.Data.category);
+            _money.AddHourlyCost(bd.Data.hourlyCost);
         }
 
-        public void Redo()
+        // 4. Reverse foundation money
+        _money.AddHourlyCost(_data.hourlyCost);
+
+        if (!_wasContaminated)
         {
-            Execute();
+            var pb = _target.GetComponent<PalletBuilder>();
+            int adjustedCost = Mathf.RoundToInt(_data.cost * _money.SellBackRate);
+            int adjustedLoad = pb != null ? Mathf.RoundToInt(pb.CurrentLoadCost * _money.SellBackRate) : 0;
+
+            _money.Deduct(adjustedCost, _data.category);
+
+            if (pb != null && pb.CurrentLoadCost > 0)
+                _money.Deduct(adjustedLoad, "Inventory");
         }
-        }
+
+        // 5. Clear highlights
+        var highlighter = _target.GetComponent<BuildingHighlighter>();
+        if (highlighter != null)
+            highlighter.HighlightDelete(false);
+
+        NavMeshManager.Instance?.MarkDirty();
+    }
+
+    public void Redo()
+    {
+        Execute();
+    }
+}

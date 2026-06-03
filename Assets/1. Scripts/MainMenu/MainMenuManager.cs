@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.SceneManagement;
 using UnityEngine.Audio;
+using SaveLoadSystem;
+using System.IO;
 
 /// <summary>
 /// FORK IT! — Main Menu Manager
@@ -70,7 +72,7 @@ public class MainMenuManager : MonoBehaviour
     private Label _welcomeText;
 
     // Load
-    private VisualElement _saveSlotList;
+    private VisualElement _saveSlotContainer;
 
     // Settings
     private Slider _gameVolumeSlider;
@@ -190,7 +192,7 @@ public class MainMenuManager : MonoBehaviour
 
         _nameField    = _root.Q<TextField>("name-field");
         _welcomeText  = _root.Q<Label>("welcome-text");
-        _saveSlotList = _root.Q("save-slot-list");
+        _saveSlotContainer = _root.Q("save-slot-container");
 
         _gameVolumeSlider  = _root.Q<Slider>("slider-game-volume");
         _musicVolumeSlider = _root.Q<Slider>("slider-music-volume");
@@ -236,6 +238,7 @@ public class MainMenuManager : MonoBehaviour
                 if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
                     OnNameConfirmed();
             });
+        _root.Q<Button>("btn-name-back")?.RegisterCallback<ClickEvent>(_ => HideAllPopups());
 
         // Welcome popup (kept in UXML for Resume path, unused for now)
         _root.Q<Button>("btn-build")?.RegisterCallback<ClickEvent>(_ => LoadGameScene());
@@ -340,19 +343,19 @@ public class MainMenuManager : MonoBehaviour
         _saveSlotList.Clear();
 
         // Check autosave
-        AddSlotButton("autosave", "Autosave");
+        AddSlotButton("autosave", "Autosave", -1);
 
-        // Check slots 0-7
+        // Check slots 0-7 — SaveManager writes slot_{i}_data.json
         for (int i = 0; i < 8; i++)
         {
             string slotName = $"slot_{i}";
-            string path = System.IO.Path.Combine(Application.dataPath, "_Saves", slotName + ".json");
+            string path = System.IO.Path.Combine(Application.dataPath, "_Saves", slotName + "_data.json");
             if (System.IO.File.Exists(path))
-                AddSlotButton(slotName, $"Slot {i + 1}");
+                AddSlotButton(slotName, $"Slot {i + 1}", i);
         }
     }
 
-    private void AddSlotButton(string saveName, string displayName)
+    private void AddSlotButton(string saveName, string displayName, int slotIndex)
     {
         var btn = new Button();
         btn.text = displayName;
@@ -361,9 +364,11 @@ public class MainMenuManager : MonoBehaviour
         btn.style.marginBottom = 6;
 
         string sn = saveName;
+        int si = slotIndex;
         btn.clicked += () =>
         {
             PlayerPrefs.SetString("LastSaveName", sn);
+            PlayerPrefs.SetInt("LoadSlotIndex", si);
             LoadGameScene();
         };
         _saveSlotList?.Add(btn);

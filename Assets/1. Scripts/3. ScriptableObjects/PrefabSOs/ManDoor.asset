@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
   m_Name: ManDoor
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  id: 29
+  id: 49
   objName: ManDoor
   cost: 650
   hourlyCost: 1
@@ -28,5 +28,6 @@ MonoBehaviour:
   CanUseStairs: 0
   isStackable: 0
   objHeight: 9
+  defaultFloorTile: {fileID: 0}
   footprint: {x: 1, y: 1}
   customShapeOffsets: []

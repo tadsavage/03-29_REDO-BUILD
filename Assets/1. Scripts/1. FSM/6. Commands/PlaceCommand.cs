@@ -12,10 +12,28 @@ public class PlaceCommand : ICommand
     private readonly ObjDataSO _data;
     private readonly float _rotation;
 
+    // The primary placed object
     private GameObject _instance;
+    // Floors (yard tiles, old floor upgrades) displaced by the primary object
     private readonly List<GameObject> _disabledFloors = new();
 
-    public PlaceCommand(PlacementGrid grid, PlacementFinalizer finalizer, Vector2Int root, Vector2Int[] offsets, ObjDataSO data, float rotation, MoneyService money)
+    // Auto-placed floor tiles that accompany a Foundation (one per footprint cell)
+    private readonly List<GameObject> _autoFloors = new();
+    private ObjDataSO _autoFloorData;
+    private readonly List<GameObject> _autoFloorDisabled = new();
+
+    // Total cost paid for auto-floors (all cells combined)
+    private int _autoFloorTotalCost;
+
+    // Net cost of replaced floors — used so we charge only the diff for tile upgrades
+    private int _replacedFloorsCost;
+
+    private static bool IsGround(ObjDataSO d) =>
+        d != null && (d.category == "Foundation" || d.category == "Grounds");
+
+    public PlaceCommand(PlacementGrid grid, PlacementFinalizer finalizer,
+        Vector2Int root, Vector2Int[] offsets, ObjDataSO data,
+        float rotation, MoneyService money)
     {
         _grid = grid;
         _finalizer = finalizer;
@@ -36,84 +54,191 @@ public class PlaceCommand : ICommand
         if (_instance == null) return;
 
         _instance.SetActive(true);
-        _money.Deduct(_data.cost, _data.category);
-        _money.AddHourlyCost(_data.hourlyCost);
 
-        // Floating "$" UX — red number rising out as money leaves capital.
-        if (_data.cost != 0)
-            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
-
-        // Explicitly force height recalculation for all cells in footprint
-        foreach (var o in _offsets)
-            _grid.UpdateStackPositions(_root + o);
-
-        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs)
+        // --- Cost handling ---
+        // For floor-tile placements: charge only the difference over the old tile.
+        _replacedFloorsCost = 0;
+        if (_data.isFloor)
         {
-            NavMeshManager.Instance.MarkDirty();
-        }
-        }
-
-        public void Undo()
-        {
-        if (_instance == null) return;
-
-        foreach (var o in _offsets)
-            _grid.RemoveStackObject(_root + o, _instance, _data);
-
-        _instance.SetActive(false);
-        _money.Refund(_data.cost, _data.category);
-        _money.RemoveHourlyCost(_data.hourlyCost);
-
-        // Floating "$" UX — green number as the purchase is refunded on undo.
-        if (_data.cost != 0)
-            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, _data.cost);
-
-        bool revealedFloor = false;
-        foreach (var floor in _disabledFloors)
-        {
-            if (floor != null)
+            foreach (var floor in _disabledFloors)
             {
-                floor.SetActive(true);
-                revealedFloor = true;
+                if (floor == null) continue;
+                var po = floor.GetComponent<PlacedObject>();
+                if (po?.data?.isFloor != true) continue;
+                _replacedFloorsCost += po.data.cost;
+                _money.Refund(po.data.cost, po.data.category);
+                _money.RemoveHourlyCost(po.data.hourlyCost);
             }
         }
 
-        // Explicitly force height recalculation for all cells in footprint
-        foreach (var o in _offsets)
-            _grid.UpdateStackPositions(_root + o);
-
-        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs || revealedFloor)
-        {
-            NavMeshManager.Instance.MarkDirty();
-        }
-        }
-
-        public void Redo()
-        {
-        if (_instance == null) return;
-
-        // 1. Enable first so UpdateStackPositions sees it
-        _instance.SetActive(true);
-
-        foreach (var o in _offsets)
-        {
-            _grid.AddStackObject(_root + o, _instance, _data);
-        }
-
-        // Explicitly force height recalculation for all cells in footprint
-        foreach (var o in _offsets)
-            _grid.UpdateStackPositions(_root + o);
-
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
 
-        // Floating "$" UX — red number again as money leaves capital on redo.
-        if (_data.cost != 0)
+        // Floating money: net cost difference for floor upgrades; full cost otherwise
+        if (_data.isFloor)
+        {
+            int netCost = _data.cost - _replacedFloorsCost;
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -netCost);
+        }
+        else if (_data.cost != 0)
+        {
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
+        }
+
+        // --- Auto-floor for foundations ---
+        // Place one floor tile per footprint cell so the entire slab is covered.
+        if (_data.defaultFloorTile != null && _autoFloors.Count == 0)
+        {
+            _autoFloorData = _data.defaultFloorTile;
+            Vector2Int[] tileOffsets = _autoFloorData.GetFootprintOffsets(0f); // always 1×1
+
+            _autoFloorTotalCost = 0;
+            foreach (var o in _offsets)
+            {
+                Vector2Int cellRoot = _root + o;
+                var tile = _finalizer.FinalizePlacement(cellRoot, tileOffsets, _autoFloorData, 0f, _autoFloorDisabled);
+                if (tile == null) continue;
+                tile.SetActive(true);
+                _autoFloors.Add(tile);
+                _autoFloorTotalCost += _autoFloorData.cost;
+                _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
+                _money.AddHourlyCost(_autoFloorData.hourlyCost);
+            }
+        }
+
+        // Force height recalculation for all footprint cells
+        foreach (var o in _offsets)
+            _grid.UpdateStackPositions(_root + o);
+
+        // NavMesh: foundations, grounds, floors, pathfinding-clear, stairs all need a bake
+        if (NeedsNavMesh(_data) || _disabledFloors.Count > 0)
+            NavMeshManager.Instance.MarkDirty();
+    }
+
+    public void Undo()
+    {
+        if (_instance == null) return;
+
+        // 1. Remove auto-floor tiles (one per foundation cell)
+        if (_autoFloors.Count > 0 && _autoFloorData != null)
+        {
+            Vector2Int[] tileOffsets = _autoFloorData.GetFootprintOffsets(0f);
+            foreach (var tile in _autoFloors)
+            {
+                if (tile == null) continue;
+                var bd = tile.GetComponent<BuildingData>();
+                Vector2Int tileRoot = bd != null ? bd.RootCell : _grid.WorldToCell(tile.transform.position);
+                foreach (var o in tileOffsets)
+                    _grid.RemoveStackObject(tileRoot + o, tile, _autoFloorData);
+                tile.SetActive(false);
+                _money.Refund(_autoFloorData.cost, _autoFloorData.category);
+                _money.RemoveHourlyCost(_autoFloorData.hourlyCost);
+            }
+            foreach (var floor in _autoFloorDisabled)
+                if (floor != null) floor.SetActive(true);
+        }
+
+        // 2. Remove primary object
+        foreach (var o in _offsets)
+            _grid.RemoveStackObject(_root + o, _instance, _data);
+        _instance.SetActive(false);
+
+        // 3. Reverse floor cost diff (re-charge old tiles we refunded)
+        if (_data.isFloor && _replacedFloorsCost > 0)
+        {
+            foreach (var floor in _disabledFloors)
+            {
+                if (floor == null) continue;
+                var po = floor.GetComponent<PlacedObject>();
+                if (po?.data?.isFloor != true) continue;
+                _money.Deduct(po.data.cost, po.data.category);
+                _money.AddHourlyCost(po.data.hourlyCost);
+            }
+        }
+
+        _money.Refund(_data.cost, _data.category);
+        _money.RemoveHourlyCost(_data.hourlyCost);
+
+        // Re-enable displaced floors
+        bool revealedFloor = false;
+        foreach (var floor in _disabledFloors)
+            if (floor != null) { floor.SetActive(true); revealedFloor = true; }
+
+        foreach (var o in _offsets)
+            _grid.UpdateStackPositions(_root + o);
+
+        if (NeedsNavMesh(_data) || revealedFloor)
+            NavMeshManager.Instance.MarkDirty();
+    }
+
+    public void Redo()
+    {
+        if (_instance == null) return;
+
+        // 1. Re-disable floors replaced by primary object
+        foreach (var floor in _disabledFloors)
+            if (floor != null) floor.SetActive(false);
+
+        // 2. Re-enable primary + add to grid
+        _instance.SetActive(true);
+        foreach (var o in _offsets)
+            _grid.AddStackObject(_root + o, _instance, _data);
+
+        // 3. Re-enable and re-add auto-floor tiles
+        if (_autoFloors.Count > 0 && _autoFloorData != null)
+        {
+            Vector2Int[] tileOffsets = _autoFloorData.GetFootprintOffsets(0f);
+            foreach (var floor in _autoFloorDisabled)
+                if (floor != null) floor.SetActive(false);
+
+            foreach (var tile in _autoFloors)
+            {
+                if (tile == null) continue;
+                tile.SetActive(true);
+                var bd = tile.GetComponent<BuildingData>();
+                Vector2Int tileRoot = bd != null ? bd.RootCell : _grid.WorldToCell(tile.transform.position);
+                foreach (var o in tileOffsets)
+                    _grid.AddStackObject(tileRoot + o, tile, _autoFloorData);
+            }
+        }
+
+        foreach (var o in _offsets)
+            _grid.UpdateStackPositions(_root + o);
+
+        // Mirror Execute() money
+        if (_data.isFloor && _replacedFloorsCost > 0)
+        {
+            foreach (var floor in _disabledFloors)
+            {
+                if (floor == null) continue;
+                var po = floor.GetComponent<PlacedObject>();
+                if (po?.data?.isFloor != true) continue;
+                _money.Refund(po.data.cost, po.data.category);
+                _money.RemoveHourlyCost(po.data.hourlyCost);
+            }
+        }
+        _money.Deduct(_data.cost, _data.category);
+        _money.AddHourlyCost(_data.hourlyCost);
+
+        if (_data.isFloor)
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -(_data.cost - _replacedFloorsCost));
+        else if (_data.cost != 0)
             FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
 
-        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs)
+        if (_autoFloors.Count > 0 && _autoFloorData != null)
         {
+            foreach (var tile in _autoFloors)
+            {
+                if (tile == null) continue;
+                _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
+                _money.AddHourlyCost(_autoFloorData.hourlyCost);
+            }
+        }
+
+        if (NeedsNavMesh(_data))
             NavMeshManager.Instance.MarkDirty();
-        }
-        }
+    }
+
+    private static bool NeedsNavMesh(ObjDataSO d) =>
+        d.isFloor || d.pathfindingClear || d.ignorePlacementRules || d.CanUseStairs || IsGround(d);
 }

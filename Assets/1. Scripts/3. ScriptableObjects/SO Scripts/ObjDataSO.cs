@@ -55,6 +55,10 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("Physical height of this object in meters. Used to compute total stack height in a cell.")]
     public float objHeight = 1f;
 
+    [Header("Auto-Floor")]
+    [Tooltip("For Foundation objects: floor tile automatically placed on top when this foundation is placed. Leave null for non-foundation objects.")]
+    public ObjDataSO defaultFloorTile;
+
     [Header("Footprint Settings")]
     [Tooltip("Base footprint size BEFORE rotation (width x height).")]
     public Vector2Int footprint = Vector2Int.one;

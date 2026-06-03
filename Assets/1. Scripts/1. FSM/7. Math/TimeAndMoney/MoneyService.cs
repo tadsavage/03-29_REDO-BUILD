@@ -18,9 +18,12 @@ public class MoneyService
 
     public event Action OnMoneyChanged;
 
-    public MoneyService(int startingCapital)
+    public float SellBackRate { get; private set; }
+
+    public MoneyService(int startingCapital, float sellBackRate = 0.5f)
     {
         CurrentCapital = startingCapital;
+        SellBackRate = sellBackRate;
         CategorySpendingToday = new Dictionary<string, int>();
     }
 

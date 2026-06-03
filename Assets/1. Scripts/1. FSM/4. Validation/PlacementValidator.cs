@@ -92,12 +92,12 @@ public class PlacementValidator : MonoBehaviour
 
             bool entryIsGround = IsGround(entry.data);
 
-            // 1. Placing Ground: Cannot place on top of anything that isn't Ground.
-            // Replacing existing ground is allowed.
+            // 1. Placing Ground: can replace other Grounds or sit on top of Floor tiles.
+            // Anything else (normal objects, etc.) blocks ground placement.
             if (isPlacingGround)
             {
-                if (!entryIsGround) return false;
-                continue; // Allowed to replace ground
+                if (!entryIsGround && !entry.data.isFloor) return false;
+                continue;
             }
 
             // 2. Placing something else:

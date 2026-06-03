@@ -191,7 +191,12 @@ public class DeleteState : IPlacementState
             var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
             if (bd != null && bd.Data != null)
             {
-                newHover = bd.GetComponent<BuildingHighlighter>();
+                // Floor tiles cannot be deleted — redirect to the Foundation in the same cell
+                if (bd.Data.isFloor)
+                    bd = FindFoundationInCell(cell);
+
+                if (bd != null)
+                    newHover = bd.GetComponent<BuildingHighlighter>();
             }
         }
 
@@ -201,10 +206,16 @@ public class DeleteState : IPlacementState
             var objs = _grid.GetObjectsInCell(cell);
             if (objs != null && objs.Count > 0)
             {
-                var obj = objs[^1].instance;
-                if (obj)
+                // Walk from top down; skip floor tiles
+                for (int i = objs.Count - 1; i >= 0; i--)
                 {
-                    newHover = obj.GetComponent<BuildingHighlighter>();
+                    var entry = objs[i];
+                    if (entry.data != null && entry.data.isFloor) continue;
+                    if (entry.instance != null)
+                    {
+                        newHover = entry.instance.GetComponent<BuildingHighlighter>();
+                        break;
+                    }
                 }
             }
         }
@@ -216,6 +227,19 @@ public class DeleteState : IPlacementState
             if (_hover)
                 _hover.HighlightDelete(true);
         }
+    }
+
+    // Returns the BuildingData for the Foundation in the given cell, or null if none.
+    private BuildingData FindFoundationInCell(Vector2Int cell)
+    {
+        var objs = _grid.GetObjectsInCell(cell);
+        if (objs == null) return null;
+        foreach (var entry in objs)
+        {
+            if (entry.data?.category == "Foundation" && entry.instance != null)
+                return entry.instance.GetComponent<BuildingData>();
+        }
+        return null;
     }
 
     private void ClearHover()
@@ -243,16 +267,18 @@ public class DeleteState : IPlacementState
             var objs = _grid.GetObjectsInCell(cell);
             if (objs != null && objs.Count > 0)
             {
-                var topEntry = objs[^1];
-                if (topEntry.instance != null)
+                // Walk from top down; floor tiles cannot be deleted so skip them
+                for (int i = objs.Count - 1; i >= 0; i--)
                 {
-                    var h = topEntry.instance.GetComponent<BuildingHighlighter>();
-                    if (h != null) newTargets.Add(h);
+                    var entry = objs[i];
+                    if (entry.data != null && entry.data.isFloor) continue;
+                    if (entry.instance != null)
+                    {
+                        var h = entry.instance.GetComponent<BuildingHighlighter>();
+                        if (h != null) { newTargets.Add(h); break; }
+                    }
                 }
             }
-            
-            // Check for non-grid objects (like floors that clear grid) only if absolutely necessary
-            // or if they are on a specific layer. We skip raycasting every cell.
         }
 
         // 2. Only update highlights if the selection changed

@@ -61,11 +61,19 @@ public class WelcomeOverlayManager : MonoBehaviour
 
     private static string BuildMessage(string name)
     {
+        int difficulty = PlayerPrefs.GetInt("Difficulty", 0);
+        string sellBackInfo = difficulty switch
+        {
+            0 => "You can sell things back and get ALL your money back — no penalty!",
+            1 => "You can sell things back, but you only get 75% of your money back. So think before you buy.",
+            2 => "You can sell things back, but you only get 50% of your money back. So every screw-up costs you big time.",
+            _ => "You can sell things back, but you only get 50% of your money back. So every screw-up costs you big time."
+        };
+
         return $"Listen up, {name}! You're already late on your FIRST day.\n\n" +
                "Get building — start with the Foundations. " +
                "Check your money. This stuff ain't cheap.\n\n" +
-               "If ya' run dry? You can sell things back, but you lose 10% every time. " +
-               "So every screw-up costs you.\n\n" +
+               sellBackInfo + "\n\n" +
                "Now stop standing around and GET TO WORK!";
     }
 }

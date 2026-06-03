@@ -62,6 +62,10 @@ public class DragPlaceCommand : ICommand
                     _grid.UpdateStackPositions(cell + o);
             }
         }
+
+        bool isGround = _data.category == "Foundation" || _data.category == "Grounds";
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs || isGround)
+            NavMeshManager.Instance.MarkDirty();
     }
 
 
@@ -114,7 +118,8 @@ public class DragPlaceCommand : ICommand
             }
         }
 
-        if (revealedFloor || _data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
+        bool isGround = _data.category == "Foundation" || _data.category == "Grounds";
+        if (revealedFloor || _data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround)
         {
             NavMeshManager.Instance.MarkDirty();
         }
@@ -166,7 +171,8 @@ public class DragPlaceCommand : ICommand
             _money.AddHourlyCost(_data.hourlyCost);
         }
 
-        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules)
+        bool isGround2 = _data.category == "Foundation" || _data.category == "Grounds";
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround2)
         {
             NavMeshManager.Instance.MarkDirty();
         }

@@ -199,7 +199,10 @@ public class PlacementGrid : MonoBehaviour
                     var agent = entry.instance.GetComponent<NavMeshAgent>();
                     if (agent != null && agent.isActiveAndEnabled)
                     {
-                        agent.Warp(pos);
+                        if (agent.isOnNavMesh)
+                            agent.Warp(pos);
+                        else
+                            entry.instance.transform.position = pos;
                     }
                     else
                     {
@@ -216,7 +219,10 @@ public class PlacementGrid : MonoBehaviour
                 var agent = entry.instance.GetComponent<NavMeshAgent>();
                 if (agent != null && agent.isActiveAndEnabled)
                 {
-                    agent.Warp(pos);
+                    if (agent.isOnNavMesh)
+                        agent.Warp(pos);
+                    else
+                        entry.instance.transform.position = pos;
                 }
                 else
                 {

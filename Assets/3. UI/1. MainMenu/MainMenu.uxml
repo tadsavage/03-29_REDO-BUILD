@@ -19,7 +19,8 @@
         <ui:VisualElement name="name-popup" class="popup-panel" style="display: none;">
             <ui:Label name="popup-question" text="Hey! What&apos;s your name?" class="popup-title"/>
             <ui:TextField name="name-field" placeholder-text="Enter your name..." class="popup-field"/>
-            <ui:Button name="btn-name-confirm" text="CONTINUE" class="popup-btn popup-btn-green"/>
+            <ui:Button name="btn-name-confirm" text="START NEW GAME" class="popup-btn popup-btn-green"/>
+            <ui:Button name="btn-name-back" text="BACK" class="popup-btn popup-btn-grey"/>
         </ui:VisualElement>
         <ui:VisualElement name="welcome-backdrop" class="modal-backdrop" style="display: none;">
             <ui:VisualElement name="welcome-popup" class="popup-welcome">
@@ -33,8 +34,10 @@
         </ui:VisualElement>
         <ui:VisualElement name="load-popup" class="popup-panel" style="display: none;">
             <ui:Label text="RESUME SHIFT" class="popup-title"/>
-            <ui:Label name="load-hint" text="💡  Remember — hit F9 to quick-load your last autosave." class="popup-hint"/>
-            <ui:VisualElement name="save-slot-list" class="save-slot-list"/>
+            <ui:Label name="load-hint" text="💡  Hit F9 anytime to quick-load your last autosave." class="popup-hint"/>
+            <ui:ScrollView name="save-slot-list" class="save-slot-list" style="max-height: 450px;">
+                <ui:VisualElement name="save-slot-container" class="save-slot-container"/>
+            </ui:ScrollView>
             <ui:Button name="btn-load-close" text="BACK" class="popup-btn popup-btn-grey"/>
         </ui:VisualElement>
         <ui:VisualElement name="settings-popup" class="popup-panel" style="display: none;">

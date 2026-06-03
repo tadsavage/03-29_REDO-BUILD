@@ -134,6 +134,12 @@ public class PlacementSystem : MonoBehaviour
         ApplySaveData(save);
     }
 
+    public void LoadGame(string saveName)
+    {
+        lastSaveName = saveName;
+        LoadGame();
+    }
+
     // ---------------------------------------------------------
     // SLOT SAVE/LOAD — called by SaveManager for multi-slot UI.
     // Same data format, different file path. Quicksave untouched.

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
   m_Name: CycloneFence3m
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  id: 72
+  id: 26
   objName: Cyclone Fence 3 mtr
   cost: 50
   hourlyCost: 1
@@ -28,6 +28,7 @@ MonoBehaviour:
   CanUseStairs: 0
   isStackable: 0
   objHeight: 2.7
+  defaultFloorTile: {fileID: 0}
   footprint: {x: 1, y: 1}
   customShapeOffsets:
   - {x: 0, y: 0}

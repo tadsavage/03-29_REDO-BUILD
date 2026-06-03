@@ -6,29 +6,35 @@ public class PlacementFinalizer : MonoBehaviour
 {
     [SerializeField] private PlacementGrid _grid;
 
-    // Original entry point
+    // Original no-arg entry point
     public GameObject FinalizePlacement(
         Vector2Int root,
         Vector2Int[] offsets,
         ObjDataSO data,
         float rotation)
     {
-        return FinalizePlacement(root, offsets, data, rotation, null);
+        return FinalizePlacement(root, offsets, data, rotation, null, false);
     }
 
-    private bool IsGround(ObjDataSO data)
-    {
-        if (data == null) return false;
-        return data.category == "Foundation" || data.category == "Grounds";
-    }
-
-    // Extended: can track disabled objects for undo
+    // Entry point with disabled-object tracking (for undo)
     public GameObject FinalizePlacement(
-     Vector2Int root,
-     Vector2Int[] offsets,
-     ObjDataSO data,
-     float rotation,
-     List<GameObject> disabledObjects)
+        Vector2Int root,
+        Vector2Int[] offsets,
+        ObjDataSO data,
+        float rotation,
+        List<GameObject> disabledObjects)
+    {
+        return FinalizePlacement(root, offsets, data, rotation, disabledObjects, false);
+    }
+
+    // Full implementation — silent=true suppresses FX (used for bulk yard-tile spawn)
+    public GameObject FinalizePlacement(
+        Vector2Int root,
+        Vector2Int[] offsets,
+        ObjDataSO data,
+        float rotation,
+        List<GameObject> disabledObjects,
+        bool silent)
     {
         if (data == null || data.prefab == null)
             return null;
@@ -40,39 +46,49 @@ public class PlacementFinalizer : MonoBehaviour
                 return null;
 
             DisableExistingGrounds(root, offsets, disabledObjects);
+            // Foundations also displace yard floor tiles sitting in the same cells
+            DisableExistingFloors(root, offsets, disabledObjects);
         }
 
         // --- FLOOR REPLACEMENT LOGIC ---
         if (data.isFloor)
         {
             if (IsSameFloorAlreadyThere(root, offsets, data))
-            {
-                // "if we're just the same type of floor though then do nothing"
                 return null;
-            }
+
             // Replace different floors
             DisableExistingFloors(root, offsets, disabledObjects);
         }
+
         // --- BULLDOZER LOGIC ---
         if (data.ClearsGridAfterPlacement)
         {
             foreach (var o in offsets)
             {
-                _grid.ClearCell(root + o, true); // true to destroy objects
+                _grid.ClearCell(root + o, true);
             }
         }
+
         Vector3 pos = _grid.GetCellCenter(root);
         GameObject instance = Instantiate(data.prefab, pos, Quaternion.Euler(0f, rotation, 0f));
         instance.name = data.objName;
 
+        // For freshly placed NavMesh agents: set transform position directly — don't
+        // call Warp because the NavMesh may not be baked yet at this moment.
         var agent = instance.GetComponent<NavMeshAgent>();
         if (agent != null && agent.isActiveAndEnabled)
-            agent.Warp(pos);
+        {
+            if (agent.isOnNavMesh)
+                agent.Warp(pos);
+            else
+                instance.transform.position = pos;
+        }
 
-        FXPool.Instance.Play("dust", pos);
+        if (!silent)
+            FXPool.Instance.Play("dust", pos);
 
         // Initialize PlacedObject
-var po = instance.GetComponent<PlacedObject>();
+        var po = instance.GetComponent<PlacedObject>();
         if (po != null)
             po.Initialize(data, root.x, root.y, (int)(rotation / 90f));
 
@@ -90,6 +106,13 @@ var po = instance.GetComponent<PlacedObject>();
 
         return instance;
     }
+
+    private bool IsGround(ObjDataSO data)
+    {
+        if (data == null) return false;
+        return data.category == "Foundation" || data.category == "Grounds";
+    }
+
     private bool IsSameGroundAlreadyThere(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
     {
         foreach (var o in offsets)
@@ -106,6 +129,7 @@ var po = instance.GetComponent<PlacedObject>();
         }
         return false;
     }
+
     private void DisableExistingGrounds(Vector2Int root, Vector2Int[] offsets, List<GameObject> disabledObjects)
     {
         foreach (var o in offsets)
@@ -120,12 +144,12 @@ var po = instance.GetComponent<PlacedObject>();
                 if (IsGround(entry.data) && entry.instance != null && entry.instance.activeSelf)
                 {
                     entry.instance.SetActive(false);
-                    if (disabledObjects != null)
-                        disabledObjects.Add(entry.instance);
+                    disabledObjects?.Add(entry.instance);
                 }
             }
         }
     }
+
     private bool IsSameFloorAlreadyThere(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
     {
         foreach (var o in offsets)
@@ -138,13 +162,14 @@ var po = instance.GetComponent<PlacedObject>();
             {
                 if (entry.data != null && entry.data.isFloor)
                 {
-                    if (entry.data.id == data.id) 
+                    if (entry.data.id == data.id)
                         return true;
                 }
             }
         }
         return false;
     }
+
     private void DisableExistingFloors(Vector2Int root, Vector2Int[] offsets, List<GameObject> disabledObjects)
     {
         foreach (var o in offsets)
@@ -166,9 +191,7 @@ var po = instance.GetComponent<PlacedObject>();
                 if (entry.instance.activeSelf)
                 {
                     entry.instance.SetActive(false);
-
-                    if (disabledObjects != null)
-                        disabledObjects.Add(entry.instance);
+                    disabledObjects?.Add(entry.instance);
                 }
             }
         }

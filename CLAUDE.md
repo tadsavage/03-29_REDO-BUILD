@@ -56,11 +56,18 @@ Every placement/delete/move action is wrapped in an `ICommand` and pushed to `Co
 
 **GameContext** (`Assets/1. Scripts/1. FSM/7. Math/TimeAndMoney/GameContext.cs`)
 
-Scene singleton (`[DefaultExecutionOrder(-100)]`) that owns and initializes `MoneyService` and `SimulationTimeService`. Wires hourly cost deduction and daily spending resets. Calls `PlacementSystem.LoadGame()` and `grid.RebuildFromRegistry()` in `Start()`, then bakes the NavMesh synchronously.
+Scene singleton (`[DefaultExecutionOrder(-100)]`) that owns and initializes `MoneyService` and `SimulationTimeService`. Wires hourly cost deduction and daily spending resets. Reads `PlayerPrefs` for difficulty and save-slot routing in `Start()`, then bakes the NavMesh synchronously.
+
+Difficulty levels (set via Main Menu, stored in `PlayerPrefs("Difficulty")`):
+- `0` — Clerk (easy): $120k starting capital, 100% sell-back
+- `1` — Supervisor (normal): $100k starting capital, 75% sell-back
+- `2` — Manager (hard): $80k starting capital, 50% sell-back
+
+**⚠️ Difficulty balance needs review** — numbers are placeholder, not playtested.
 
 **MoneyService / SimulationTimeService**
 
-Plain C# classes (not MonoBehaviours) held by `GameContext`. `SimulationTimeService` runs at 1 real-second = 1 in-game-minute. `MoneyService` fires `OnMoneyChanged` on any balance change; hourly costs are applied via event subscription.
+Plain C# classes (not MonoBehaviours) held by `GameContext`. `SimulationTimeService` runs at 1 real-second = 1 in-game-minute. `MoneyService` fires `OnMoneyChanged` on any balance change; hourly costs are applied via event subscription. `MoneyService` now takes a `sellBackRate` (0–1 float) that scales all deletion refunds — `DeleteCommand` uses `_money.SellBackRate` to compute the adjusted refund.
 
 ### Data Model
 
@@ -121,6 +128,8 @@ This is a warehouse simulation game with a serious logistics core and a whimsica
 
 **Current phase:** Build mode only. The placement system, grid, economy, and save/load are the foundation. The actual gameplay loop comes next.
 
+**Player character:** The player is **Tug Dudley**, the warehouse manager / "The Boss." This name appears in the welcome overlay and is stored via `PlayerPrefs("PlayerName")`.
+
 **Design principle:** The chaos should *emerge from* the simulation, not be bolted on. Serious systems create the conditions for absurd outcomes.
 
 ---
@@ -162,6 +171,7 @@ Things that need to be built, in rough priority order. Move items here as they c
 - [ ] Ordering system — suppliers, lead times, restock triggers
 - [ ] Move save files out of `Assets/_Saves/` to `Application.persistentDataPath` (required before any real build/release)
 - [ ] Replace `FindFirstObjectByType` calls in `PlacementStateMachine.Start()` with proper scene references
+- [ ] Review and playtest difficulty balance (starting capital + sell-back rate per level)
 
 ---
 

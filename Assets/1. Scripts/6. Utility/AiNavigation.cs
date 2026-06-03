@@ -85,10 +85,26 @@ public class AiNavigation : MonoBehaviour
                 matching.Add(wp.transform);
         }
 
-        if (matching.Count == 0)
-            Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints found for group '{myGroup}'. Place the correct waypoint type or tick additional groups on existing waypoints.");
-
         waypoints = matching.ToArray();
+
+        // Show/hide the no-waypoint indicator
+        var indicator = GetComponent<NoWaypointIndicator>();
+        if (indicator != null)
+        {
+            if (waypoints.Length == 0)
+            {
+                indicator.Show();
+                Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints found for group '{myGroup}'. Showing indicator.");
+            }
+            else
+            {
+                indicator.Hide();
+            }
+        }
+        else if (waypoints.Length == 0)
+        {
+            Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints found for group '{myGroup}'.");
+        }
     }
 
     private Waypoint.WaypointGroup RoleToWaypointGroup()
@@ -219,7 +235,10 @@ public class AiNavigation : MonoBehaviour
                 {
                     ApplyAgentCosts();
                     if (agent.SetDestination(waypoints[currentIndex].position))
+                    {
                         initialized = true;
+                        GetComponent<NoWaypointIndicator>()?.Hide();
+                    }
                 }
             }
             return;

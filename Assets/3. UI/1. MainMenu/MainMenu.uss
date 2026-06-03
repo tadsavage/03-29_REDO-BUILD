@@ -156,7 +156,7 @@
     position: absolute;
     top: 32px;
     right: 32px;
-    width: 360px;
+    width: 500px;
     background-color: rgba(30, 38, 46, 0.97);
     border-width: 2px;
     border-color: #CFE2F0;
@@ -195,7 +195,7 @@
 .modal-backdrop {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(0, 0, 0, 0.55);
+    background-color: rgb(0, 0, 0);
     align-items: center;
     justify-content: center;
 }
@@ -263,6 +263,8 @@
 .save-slot-list {
     flex-direction: column;
     margin-bottom: 12px;
+    max-height: 420px;
+    overflow: hidden;
 }
 
 /* ── POPUP BUTTONS ───────────────────────────────────────────── */
@@ -371,3 +373,91 @@
     height: 20px;
     top: -7px;
 }
+
+/* ── SAVE SLOT CARD (resume popup) ───────────────────────────── */
+.save-slot-card {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(60, 75, 90, 0.35);
+    border-width: 1px;
+    border-color: rgba(207, 226, 240, 0.2);
+    border-radius: 8px;
+    padding: 8px;
+    margin-bottom: 8px;
+}
+.save-slot-card:hover {
+    background-color: rgba(76, 144, 192, 0.18);
+    border-color: rgba(207, 226, 240, 0.5);
+}
+
+/* ── THUMBNAIL ───────────────────────────────────────────────── */
+.slot-thumb {
+    width: 160px;
+    height: 90px;
+    border-radius: 4px;
+    background-color: rgb(30, 38, 46);
+    border-width: 1px;
+    border-color: rgba(207, 226, 240, 0.3);
+    -unity-background-scale-mode: scale-and-crop;
+    flex-shrink: 0;
+}
+.slot-thumb--empty {
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(30, 38, 46, 0.5);
+    border-color: rgba(207, 226, 240, 0.12);
+}
+.slot-thumb-label {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    font-size: 12px;
+    color: rgba(207, 226, 240, 0.35);
+    -unity-text-align: middle-center;
+}
+
+/* ── SLOT INFO (name + timestamp) ─────────────────────────────── */
+.slot-info {
+    flex: 1;
+    flex-direction: column;
+    margin-left: 12px;
+    margin-right: 8px;
+    min-width: 0;
+}
+.slot-name {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    font-size: 16px;
+    color: #EAF2F8;
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.slot-timestamp {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    font-size: 11px;
+    color: rgba(207, 226, 240, 0.55);
+    -unity-text-align: middle-left;
+    margin-top: 2px;
+}
+
+/* ── LOAD BUTTON ──────────────────────────────────────────────── */
+.slot-load-btn {
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
+    font-size: 13px;
+    height: 36px;
+    min-width: 64px;
+    border-radius: 4px;
+    border-width: 0;
+    border-bottom-width: 2px;
+    padding-left: 14px;
+    padding-right: 14px;
+    -unity-text-align: middle-center;
+    -unity-text-letter-spacing: 1px;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+.slot-load-btn:active { translate: 0 2px; border-bottom-width: 1px; }
+.slot-load-btn:hover { opacity: 0.9; }
+
+.slot-load-btn-green  { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }
+.slot-load-btn-blue   { background-color: #5A7184; border-bottom-color: #36444F; color: #FFFFFF; }
+.slot-load-btn-orange { background-color: #C07830; border-bottom-color: #7A4E20; color: #FFFFFF; }
+.slot-load-btn-purple { background-color: #6B4C8A; border-bottom-color: #3E2C50; color: #FFFFFF; }
