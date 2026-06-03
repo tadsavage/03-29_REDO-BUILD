@@ -98,60 +98,23 @@ public class AgentAnimation : MonoBehaviour
     {
         isWaiting = true;
 
-        // Stop movement
         if (agent.isActiveAndEnabled && agent.isOnNavMesh)
-        {
             agent.isStopped = true;
-        }
-        
-        // Decelerate
-        float decelTime = 0.2f;
-        while (decelTime > 0)
-        {
-            agent.velocity = Vector3.Lerp(agent.velocity, Vector3.zero, Time.deltaTime * 10f);
-            decelTime -= Time.deltaTime;
-            yield return null;
-        }
-        agent.velocity = Vector3.zero;
 
         yield return new WaitForSeconds(idleDelay);
 
-        if (navigation != null) navigation.GoToRandomWaypoint();
+        // Pick the next waypoint — always re-scans so newly placed ones are found.
+        if (navigation != null)
+            navigation.GoToRandomWaypoint();
 
-        if (agent == null || navigation == null) yield break; 
+        // One frame for the path request to register before resuming.
+        yield return null;
 
-        // Wait for path
-        float timeout = 1.0f;
-        while (agent.isActiveAndEnabled && agent.isOnNavMesh && agent.pathPending && timeout > 0)
-        {
-            timeout -= Time.deltaTime;
-            yield return null;
-        }
-
-        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) yield break;
-
-        // Turn to target before resuming
-        if (agent.hasPath)
-        {
-            Vector3 targetDir = (agent.steeringTarget - transform.position);
-            targetDir.y = 0;
-
-            if (targetDir.sqrMagnitude > 0.01f)
-            {
-                Quaternion targetRot = Quaternion.LookRotation(targetDir.normalized);
-                while (Quaternion.Angle(transform.rotation, targetRot) > 5f)
-                {
-                    transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
-                    yield return null;
-                }
-                transform.rotation = targetRot;
-            }
-        }
-
-        if (agent.isActiveAndEnabled && agent.isOnNavMesh)
-        {
+        // Always resume — cleanup runs regardless of NavMesh state so the agent
+        // is never left permanently stopped.
+        if (agent != null && agent.isActiveAndEnabled)
             agent.isStopped = false;
-        }
+
         isWaiting = false;
     }
 }

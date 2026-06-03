@@ -379,8 +379,8 @@ public class AiNavigation : MonoBehaviour
 
     public void GoToRandomWaypoint()
     {
-        if (waypoints == null || waypoints.Length == 0 || (waypoints.Length > 0 && waypoints[0] == null))
-            FindWaypoints();
+        // Always re-scan so newly placed waypoints are picked up immediately.
+        FindWaypoints();
 
         if (waypoints == null || waypoints.Length == 0) return;
         if (!agent.isOnNavMesh) return;
