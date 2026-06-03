@@ -359,17 +359,28 @@ public class MainMenuManager : MonoBehaviour
         thumb.AddToClassList("slot-thumb");
 
         bool hasThumb = false;
+
+        // Build thumbnail path — use SaveManager if available, else fall back to disk
+        string thumbPath = null;
         if (SaveManager.Instance != null)
         {
-            string thumbPath = SaveManager.Instance.GetThumbnailPath(slotIndex);
-            if (!string.IsNullOrEmpty(thumbPath))
+            thumbPath = SaveManager.Instance.GetThumbnailPath(slotIndex);
+        }
+        else
+        {
+            // Fallback: construct path directly (MainMenu scene has no SaveManager)
+            string saveDir = System.IO.Path.Combine(Application.dataPath, "_Saves");
+            thumbPath = System.IO.Path.Combine(saveDir,
+                slotIndex < 0 ? "autosave_thumb.png" : $"slot_{slotIndex}_thumb.png");
+        }
+
+        if (!string.IsNullOrEmpty(thumbPath))
+        {
+            var tex = SaveThumbnailCapture.LoadThumbnailFromDisk(thumbPath);
+            if (tex != null)
             {
-                var tex = SaveThumbnailCapture.LoadThumbnailFromDisk(thumbPath);
-                if (tex != null)
-                {
-                    thumb.style.backgroundImage = new StyleBackground(tex);
-                    hasThumb = true;
-                }
+                thumb.style.backgroundImage = tex;
+                hasThumb = true;
             }
         }
 
