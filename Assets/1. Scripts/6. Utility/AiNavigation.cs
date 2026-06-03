@@ -25,12 +25,49 @@ public class AiNavigation : MonoBehaviour
     private bool _traversingLink = false;
     private AgentAnimation _agentAnimation;
     private AudioSource _footstepSource;
+    private NoWaypointIndicator _indicator;
+
+    private void OnEnable()
+    {
+        NavMeshManager.OnNavMeshReady += OnNavMeshBaked;
+    }
+
+    private void OnDisable()
+    {
+        NavMeshManager.OnNavMeshReady -= OnNavMeshBaked;
+    }
+
+    // Called every time the NavMesh finishes a bake (e.g. a waypoint or tile was placed).
+    // Refreshes the waypoint list and drives the indicator; if the agent is idle it kicks
+    // off navigation immediately rather than waiting for the 60-frame polling cycle.
+    private void OnNavMeshBaked()
+    {
+        if (agent == null || !agent.isActiveAndEnabled) return;
+
+        FindWaypoints();
+
+        if (!agent.isOnNavMesh) return;
+
+        if (!initialized && waypoints != null && waypoints.Length > 0)
+        {
+            ApplyAgentCosts();
+            currentIndex = Random.Range(0, waypoints.Length);
+            if (agent.SetDestination(waypoints[currentIndex].position))
+                initialized = true;
+        }
+        else if (initialized && !agent.hasPath && !agent.pathPending
+                 && waypoints != null && waypoints.Length > 0)
+        {
+            GoToRandomWaypoint();
+        }
+    }
 
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         throttleAudio = GetComponent<VehicleThrottleAudio>();
         _agentAnimation = GetComponent<AgentAnimation>();
+        _indicator = GetComponent<NoWaypointIndicator>();
         SetupAgentType();
 
         if (footstepClip != null)
@@ -87,23 +124,14 @@ public class AiNavigation : MonoBehaviour
 
         waypoints = matching.ToArray();
 
-        // Show/hide the no-waypoint indicator
-        var indicator = GetComponent<NoWaypointIndicator>();
-        if (indicator != null)
+        if (waypoints.Length == 0)
         {
-            if (waypoints.Length == 0)
-            {
-                indicator.Show();
-                Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints found for group '{myGroup}'. Showing indicator.");
-            }
-            else
-            {
-                indicator.Hide();
-            }
+            _indicator?.Show();
+            Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints for group '{myGroup}'.");
         }
-        else if (waypoints.Length == 0)
+        else
         {
-            Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints found for group '{myGroup}'.");
+            _indicator?.Hide();
         }
     }
 
@@ -237,7 +265,7 @@ public class AiNavigation : MonoBehaviour
                     if (agent.SetDestination(waypoints[currentIndex].position))
                     {
                         initialized = true;
-                        GetComponent<NoWaypointIndicator>()?.Hide();
+                        _indicator?.Hide();
                     }
                 }
             }
