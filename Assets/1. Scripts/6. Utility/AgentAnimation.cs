@@ -15,6 +15,9 @@ public class AgentAnimation : MonoBehaviour
     [SerializeField] private float waypointThreshold = 0.5f;
 
     private bool isWaiting;
+    // Latches true once the agent has ever had a path, preventing spurious
+    // WaitAndTurnRoutine triggers before the first destination is assigned.
+    private bool _everHadPath;
 
     void Start()
     {
@@ -43,15 +46,15 @@ public class AgentAnimation : MonoBehaviour
             return;
         }
 
+        // Latch: once we've ever had a path or velocity, we've been navigating.
+        if (agent.hasPath || agent.velocity.sqrMagnitude > 0.01f) _everHadPath = true;
+
         // 1. Flow Control
         bool isAtDestination = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
-        
-        if (isAtDestination)
+
+        if (isAtDestination && !isWaiting && _everHadPath)
         {
-            if (!isWaiting && (agent.velocity.sqrMagnitude > 0.1f || agent.hasPath))
-            {
-                StartCoroutine(WaitAndTurnRoutine());
-            }
+            StartCoroutine(WaitAndTurnRoutine());
         }
         else if (agent.hasPath && agent.velocity.sqrMagnitude < 0.01f)
         {
