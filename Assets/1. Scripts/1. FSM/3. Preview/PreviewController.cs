@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class PreviewController : MonoBehaviour
 {
@@ -354,7 +355,7 @@ public class PreviewController : MonoBehaviour
             
             foreach (var comp in ghost.GetComponentsInChildren<Component>())
             {
-                if (comp is Transform || comp is Renderer || comp is MeshFilter || comp is Light || comp is Animator)
+                if (comp is Transform || comp is Renderer || comp is MeshFilter || comp is Light || comp is Animator || comp is NavMeshAgent)
                     continue;
 
                 try

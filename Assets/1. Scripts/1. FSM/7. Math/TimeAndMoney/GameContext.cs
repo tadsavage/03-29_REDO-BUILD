@@ -61,20 +61,6 @@ public class GameContext : MonoBehaviour
             PlayerPrefs.SetInt("IsNewGame", 0);
             PlayerPrefs.Save();
 
-            // ── Starting camera: full-playfield overview at ~40° downward angle ──
-            // Field spans X:-18→+18, Z:-8→+18. At pitch=40° and Y=15, the look-at
-            // ground point is 15/tan(40°)≈17.9 units forward, so Z=-13 centres the
-            // field in view. We also update the clamp values in case the scene still
-            // stores the old Inspector-serialised defaults (6 / -8).
-            var cam = FindAnyObjectByType<FreeLookCamera>();
-            if (cam != null)
-            {
-                cam.heightMax = 20f;
-                cam.Z_Min     = -15f;
-                cam.transform.position    = new Vector3(0f, 15f, -13f);
-                cam.transform.eulerAngles = new Vector3(40f, 0f, 0f);
-            }
-
             string playerName = PlayerPrefs.GetString("PlayerName", "Boss");
             var welcomeOverlay = FindAnyObjectByType<WelcomeOverlayManager>(FindObjectsInactive.Include);
             if (welcomeOverlay != null)

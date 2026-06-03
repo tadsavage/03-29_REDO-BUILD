@@ -20,10 +20,6 @@ public class AiNavigation : MonoBehaviour
     private NavMeshAgent agent;
     private int currentIndex = 0;
     private bool initialized = false;
-    // How long the agent has been without a valid path — used to debounce
-    // the '?' so it doesn't flash during the brief gap between waypoints.
-    private float _noPathTimer = 0f;
-    private const float NoPathShowDelay = 0.5f;
     private VehicleThrottleAudio throttleAudio;
     private bool hasHonkedThisArrival = false;
     private bool _traversingLink = false;
@@ -135,8 +131,7 @@ public class AiNavigation : MonoBehaviour
         }
         else
         {
-            // Waypoints just became available — fade the '?' out instead of snapping it off.
-            _indicator?.FadeOut();
+            _indicator?.Hide();
         }
     }
 
@@ -189,16 +184,9 @@ public class AiNavigation : MonoBehaviour
         }
 
         // ── Snap to surface ─────────────────────────────────────────────────────
-        // Use a query filter so we only snap to the mesh that this agent type
-        // can actually navigate (Human vs MHE surfaces are baked separately).
         if (!agent.isOnNavMesh)
         {
-            var snapFilter = new NavMeshQueryFilter
-            {
-                areaMask    = NavMesh.AllAreas,
-                agentTypeID = agent.agentTypeID
-            };
-            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5.0f, snapFilter))
+            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
             {
                 try { agent.Warp(hit.position); } catch { }
             }
@@ -256,36 +244,13 @@ public class AiNavigation : MonoBehaviour
 
     private void Update()
     {
-        // ── Indicator: show '?' when stuck/unreachable; fade out when path is found ──
+        // ── Indicator: show ? when idle with no destinations; hide when navigating ──
         if (_indicator != null)
         {
-            bool noWaypoints  = waypoints == null || waypoints.Length == 0;
-            bool pathComplete = !agent.pathPending && agent.hasPath
-                                && agent.pathStatus == NavMeshPathStatus.PathComplete;
-            bool pathBlocked  = !agent.pathPending && agent.hasPath
-                                && agent.pathStatus != NavMeshPathStatus.PathComplete;
-            // "Stranded" = initialized but no path and not waiting for one to compute.
-            bool stranded     = initialized && !agent.pathPending && !agent.hasPath;
-
-            bool needsIndicator = noWaypoints || pathBlocked || stranded;
-
-            if (needsIndicator)
-            {
-                // Debounce: only show after the agent has been stuck for a moment
-                // so the '?' doesn't flash during normal between-waypoint gaps.
-                _noPathTimer += Time.deltaTime;
-                if (_noPathTimer >= (noWaypoints ? 0f : NoPathShowDelay))
-                    _indicator.Show();
-            }
-            else
-            {
-                _noPathTimer = 0f;
-                // FadeOut() is a no-op when nothing is visible or already fading,
-                // so safe to call every frame — this covers the case where the '?'
-                // was shown before _noPathTimer ever incremented (e.g. via pendingShow).
-                if (pathComplete)
-                    _indicator.FadeOut();
-            }
+            bool hasDestination = agent.hasPath || agent.pathPending
+                                  || (waypoints != null && waypoints.Length > 0);
+            if (hasDestination) _indicator.Hide();
+            else                _indicator.Show();
         }
 
         // ── Stair / off-mesh link traversal ─────────────────────────────────────
@@ -321,12 +286,7 @@ public class AiNavigation : MonoBehaviour
         {
             if (Time.frameCount % 30 == 0)
             {
-                var recoveryFilter = new NavMeshQueryFilter
-                {
-                    areaMask    = NavMesh.AllAreas,
-                    agentTypeID = agent.agentTypeID
-                };
-                if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, recoveryFilter))
+                if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
                 {
                     if (Mathf.Abs(hit.position.y - transform.position.y) < 1.0f)
                     {
