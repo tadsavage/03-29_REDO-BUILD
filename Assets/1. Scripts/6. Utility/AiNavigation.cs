@@ -244,6 +244,15 @@ public class AiNavigation : MonoBehaviour
 
     private void Update()
     {
+        // ── Indicator: show ? when idle with no destinations; hide when navigating ──
+        if (_indicator != null)
+        {
+            bool hasDestination = agent.hasPath || agent.pathPending
+                                  || (waypoints != null && waypoints.Length > 0);
+            if (hasDestination) _indicator.Hide();
+            else                _indicator.Show();
+        }
+
         // ── Stair / off-mesh link traversal ─────────────────────────────────────
         if (!_traversingLink && agent != null && agent.isOnOffMeshLink)
         {
