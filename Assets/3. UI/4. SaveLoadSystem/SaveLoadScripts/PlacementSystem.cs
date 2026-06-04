@@ -278,12 +278,19 @@ public class PlacementSystem : MonoBehaviour
             foreach (var r in w.GetComponentsInChildren<MeshRenderer>())
                 r.enabled = save.waypointsVisible;
 
-        // Perform a synchronous bake after everything is loaded so agents find the NavMesh immediately
+        // Bake must be deferred one frame so Unity's deferred Destroy() calls flush first.
+        // BakeSynchronous() called in the same frame as Destroy() feeds stale geometry to
+        // CollectSources() (old + new objects both alive), producing a doubled NavMesh that
+        // blocks door passages. Yielding one frame lets the old objects disappear first.
+        StartCoroutine(BakeAfterDestroyFlush());
+    }
+
+    private IEnumerator BakeAfterDestroyFlush()
+    {
+        yield return null; // wait one frame for Destroy() to flush
         if (NavMeshManager.Instance != null)
-        {
             NavMeshManager.Instance.BakeSynchronous();
-        }
-        }
+    }
 
         // ---------------------------------------------------------
     // LOAD GAME SPAWNING
