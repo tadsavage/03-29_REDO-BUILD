@@ -68,7 +68,7 @@ public class FloatingMoneyText : MonoBehaviour
         _startPos = transform.position;
 
         _label = gameObject.AddComponent<TextMeshPro>();
-        if (font != null) _label.font = font;
+        _label.font = font ?? Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
         _label.text      = FormatAmount(signedAmount);
         _label.color     = signedAmount < 0 ? SpendColor : GainColor;
         _label.fontSize  = FontSize;

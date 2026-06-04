@@ -14,6 +14,7 @@ public class PlacementSystem : MonoBehaviour
     [SerializeField] private PlacementGrid grid;
     [SerializeField] private SaveLoadWindowController saveLoadWindowController;
     [SerializeField] private FreeLookCamera freeLookCamera;
+    [SerializeField] private SaveLoadSystem.SaveThumbnailCapture thumbnailCapture;
 
     private MoneyService moneyService;
 
@@ -43,13 +44,22 @@ public class PlacementSystem : MonoBehaviour
         if (quicksaveTimer > 0f)
             quicksaveTimer -= Time.deltaTime;
 
-        // Quicksave (F5) — UNTOUCHED
+        // Quicksave (F5)
         if (Keyboard.current.f5Key.isPressed && quicksaveTimer <= 0f)
         {
             SaveGame("autosave");
             quicksaveTimer = quicksaveCooldown;
             AudioManager.Play("UI_Save");
             UIToast.Show("Quick-save successful");
+
+            if (thumbnailCapture != null)
+            {
+                string saveDir = System.IO.Path.Combine(Application.dataPath, "_Saves");
+                thumbnailCapture.CaptureThumbnail(saveDir, "autosave_thumb.png", tex =>
+                {
+                    if (tex != null) Destroy(tex);
+                });
+            }
         }
 
         // Quickload (F9) — UNTOUCHED

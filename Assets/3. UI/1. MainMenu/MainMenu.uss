@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════════════════════════
    FORK IT!  —  Main Menu  (proto)
    FarmSim warmth meets Two Point Hospital personality
    ═══════════════════════════════════════════════════════════════ */
@@ -9,7 +9,7 @@
    ─────────────────────────────────────────────────────────────── */
 @font-face {
     font-family: "LilitaOne";
-    src: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
+    src: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
 }
 
 /* ── FLOATING TOOLTIP ───────────────────────────────────────── */
@@ -60,7 +60,7 @@
     top: -46px;
     left: 0;
     right: 0;
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
     font-size: 168px;
     color: #EAF4FF;
     -unity-text-align: middle-center;
@@ -81,7 +81,7 @@
 
 /* ── TAGLINE (caption — sits at the bottom of the image, one line) ── */
 .tagline-label {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
     font-size: 19px;
     color: rgba(207, 226, 240, 0.78);
     -unity-text-align: middle-center;
@@ -117,7 +117,7 @@
 }
 
 .menu-btn {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
     font-size: 24px;
     height: 64px;
     border-radius: 4px;
@@ -154,7 +154,7 @@
 /* ── POPUP PANEL (shared base, top-right) ────────────────────── */
 .popup-panel {
     position: absolute;
-    top: 32px;
+    top: 380px;
     right: 32px;
     width: 500px;
     background-color: rgba(30, 38, 46, 0.97);
@@ -166,8 +166,8 @@
 }
 
 .popup-title {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
-    font-size: 22px;
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
+    font-size: 34px;
     color: #CFE2F0;
     margin-bottom: 14px;
     -unity-text-align: middle-center;
@@ -179,8 +179,8 @@
     margin-bottom: 14px;
 }
 .popup-field .unity-base-text-field__input {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-SemiBold.ttf?fileID=12800000&guid=3a2aea0e0a0a3bd4a864ce106055c4c2&type=3#Fredoka-SemiBold");
-    font-size: 18px;
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
+    font-size: 24px;
     color: #EAF2F8;
     background-color: rgba(60, 75, 90, 0.4);
     border-width: 2px;
@@ -231,7 +231,7 @@
 }
 
 .welcome-boss-title {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
     font-size: 26px;
     color: rgba(92, 155, 196, 0.8);
     -unity-text-align: middle-center;
@@ -270,7 +270,7 @@
 
 /* ── POPUP BUTTONS ───────────────────────────────────────────── */
 .popup-btn {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
     font-size: 18px;
     height: 50px;
     border-radius: 4px;
@@ -290,10 +290,11 @@
 
 /* ── SETTINGS ────────────────────────────────────────────────── */
 .settings-section-header {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
     font-size: 14px;
     color: #5C9BC4;
     -unity-text-letter-spacing: 2px;
+    -unity-text-align: middle-center;
     margin-top: 14px;
     margin-bottom: 8px;
 }
@@ -305,7 +306,7 @@
 }
 
 .gfx-btn {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
     font-size: 13px;
     flex: 1;
     height: 44px;
@@ -358,7 +359,12 @@
 }
 .settings-slider {
     flex: 1;
-    height: 32px;
+    height: 24px;
+}
+.settings-slider > .unity-base-slider__input {
+    flex-grow: 1;
+    height: 24px;
+    align-items: center;
 }
 .settings-slider .unity-base-slider__tracker {
     background-color: rgba(60, 75, 90, 0.5);
@@ -370,9 +376,9 @@
     border-radius: 10px;
     border-width: 2px;
     border-color: #1A2128;
-    width: 20px;
-    height: 20px;
-    top: -7px;
+    width: 18px;
+    height: 18px;
+    top: -6px;
 }
 
 /* ── SAVE SLOT CARD (resume popup) ───────────────────────────── */
@@ -441,24 +447,28 @@
 
 /* ── LOAD BUTTON ──────────────────────────────────────────────── */
 .slot-load-btn {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/LilitaOne-Regular.ttf");
-    font-size: 13px;
-    height: 36px;
-    min-width: 64px;
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
+    font-size: 17px;
+    height: 50px;
+    min-width: 90px;
     border-radius: 4px;
     border-width: 0;
-    border-bottom-width: 2px;
+    border-bottom-width: 3px;
     padding-left: 14px;
     padding-right: 14px;
     -unity-text-align: middle-center;
     -unity-text-letter-spacing: 1px;
     flex-shrink: 0;
-    margin-left: 4px;
+    margin-left: 8px;
+    background-color: #4C90C0;
+    border-bottom-color: #2C5E82;
+    color: #FFFFFF;
 }
 .slot-load-btn:active { translate: 0 2px; border-bottom-width: 1px; }
-.slot-load-btn:hover { opacity: 0.9; }
+.slot-load-btn:hover { background-color: #5BA6D8; }
 
+/* kept for backwards compat but all render the same blue now */
 .slot-load-btn-green  { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }
-.slot-load-btn-blue   { background-color: #5A7184; border-bottom-color: #36444F; color: #FFFFFF; }
-.slot-load-btn-orange { background-color: #C07830; border-bottom-color: #7A4E20; color: #FFFFFF; }
-.slot-load-btn-purple { background-color: #6B4C8A; border-bottom-color: #3E2C50; color: #FFFFFF; }
+.slot-load-btn-blue   { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }
+.slot-load-btn-orange { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }
+.slot-load-btn-purple { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }

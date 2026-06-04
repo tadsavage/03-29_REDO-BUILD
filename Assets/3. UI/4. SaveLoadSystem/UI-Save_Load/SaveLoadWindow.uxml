@@ -17,6 +17,7 @@
         <ui:VisualElement name="confirm-overlay" picking-mode="Ignore" class="confirm-overlay">
             <ui:VisualElement name="confirm-panel" class="confirm-panel">
                 <ui:Label name="confirm-label" text="Are you sure?" class="confirm-label"/>
+                <ui:TextField name="confirm-name-field" placeholder-text="Enter save name..." max-length="50" class="confirm-name-field" style="display: none;"/>
                 <ui:VisualElement class="confirm-buttons">
                     <ui:Button name="confirm-yes" text="YES" class="confirm-button confirm-yes"/>
                     <ui:Button name="confirm-no" text="NO" class="confirm-button confirm-no"/>

@@ -102,7 +102,10 @@ PrefabInstance:
       addedObject: {fileID: -4542155788421991356}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 719237314804903496}
+      addedObject: {fileID: 7123400000000000004}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8437513544527111884}
   m_SourcePrefab: {fileID: 100100000, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
 --- !u!1 &4121492427302467827 stripped
 GameObject:
@@ -152,7 +155,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AiNavigation
   role: 0
-  footstepClip: {fileID: 0}
+  footstepClip: {fileID: 8300000, guid: 5eecd934368cd634a81e82f913d009c2, type: 3}
   footstepVolume: 0.6
 --- !u!114 &4287778642630683992
 MonoBehaviour:
@@ -259,7 +262,26 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &719237314804903496
+--- !u!114 &7123400000000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4121492427302467827}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3d698b0375cff545979f23eca0c6d06, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AmbientMumble
+  mumbleClips: []
+  volume: 0.5
+  minPitch: 0.85
+  maxPitch: 1.15
+  chanceToMumble: 50
+  fullVolumeDistance: 2
+  maxHearingDistance: 15
+--- !u!114 &8437513544527111884
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -271,9 +293,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13474f5c7c29e4d4f97a49ff0d7c4888, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
-  headHeight: 2.25
-  bobAmplitude: 10
-  bobSpeed: 1
-  driftAmplitude: 10
+  heightAboveHead: 2.4
+  markColor: {r: 1, g: 0.1, b: 0.08, a: 1}
   fontSize: 6
-  fadeOutDuration: 2
+  hoverAmplitude: 0.18
+  hoverSpeed: 1.1
+  yRotateDeg: 30
+  yRotateSpeed: 0.7
+  fadeInDuration: 0.25
+  fadeOutDuration: 1.5

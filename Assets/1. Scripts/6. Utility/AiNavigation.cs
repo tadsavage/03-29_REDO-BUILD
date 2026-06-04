@@ -26,6 +26,7 @@ public class AiNavigation : MonoBehaviour
     private AgentAnimation _agentAnimation;
     private AudioSource _footstepSource;
     private NoWaypointIndicator _indicator;
+    private AmbientMumble _mumble;
 
     public bool HasWaypoints => waypoints != null && waypoints.Length > 0;
 
@@ -63,13 +64,13 @@ public class AiNavigation : MonoBehaviour
             GoToRandomWaypoint();
         }
     }
-
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         throttleAudio = GetComponent<VehicleThrottleAudio>();
         _agentAnimation = GetComponent<AgentAnimation>();
         _indicator = GetComponent<NoWaypointIndicator>();
+        _mumble    = GetComponent<AmbientMumble>();
         SetupAgentType();
 
         if (footstepClip != null)
@@ -91,6 +92,10 @@ public class AiNavigation : MonoBehaviour
             var tag = gameObject.AddComponent<AgentTypeTag>();
             tag.agentType = role == AgentRole.Worker ? AgentType.Human : AgentType.MHE;
         }
+
+        // Ensure we scan for waypoints immediately so the indicator can show up 
+        // even if the agent starts off-mesh or is waiting for a bake.
+        FindWaypoints();
     }
 
     private void SetupAgentType()
@@ -126,15 +131,10 @@ public class AiNavigation : MonoBehaviour
 
         waypoints = matching.ToArray();
 
+        // _indicator polls HasWaypoints itself — no callback needed
+
         if (waypoints.Length == 0)
-        {
-            _indicator?.Show();
             Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints for group '{myGroup}'.");
-        }
-        else
-        {
-            _indicator?.Hide();
-        }
     }
 
     private Waypoint.WaypointGroup RoleToWaypointGroup()
@@ -214,6 +214,7 @@ public class AiNavigation : MonoBehaviour
         if (waypoints == null || waypoints.Length == 0)
         {
             Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints found.");
+            // _indicator polls HasWaypoints itself — no callback needed
             yield break;
         }
 
@@ -246,15 +247,6 @@ public class AiNavigation : MonoBehaviour
 
     private void Update()
     {
-        // ── Indicator: show ? when idle with no destinations; hide when navigating ──
-        if (_indicator != null)
-        {
-            bool hasDestination = agent.hasPath || agent.pathPending
-                                  || (waypoints != null && waypoints.Length > 0);
-            if (hasDestination) _indicator.Hide();
-            else                _indicator.Show();
-        }
-
         // ── Stair / off-mesh link traversal ─────────────────────────────────────
         if (!_traversingLink && agent != null && agent.isOnOffMeshLink)
         {
@@ -274,10 +266,7 @@ public class AiNavigation : MonoBehaviour
                 {
                     ApplyAgentCosts();
                     if (agent.SetDestination(waypoints[currentIndex].position))
-                    {
                         initialized = true;
-                        _indicator?.Hide();
-                    }
                 }
             }
             return;
@@ -308,7 +297,7 @@ public class AiNavigation : MonoBehaviour
             {
                 hasHonkedThisArrival = true;
                 if (throttleAudio != null) throttleAudio.TriggerArrivalHonk();
-                AudioManager.Mumble(transform.position);
+                _mumble?.TryMumble();
             }
             else if (!arrived && agent.remainingDistance > agent.stoppingDistance + 0.5f)
             {

@@ -5,8 +5,69 @@
     justify-content: space-around;
     padding-left: 8px;
     padding-right: 8px;
-    min-width: 140px; /* Gives the text and icons room to sit flat */
+    min-width: 210px;
 }
+
+/* ── HUD ROOT — fills the full panel so absolute-positioned overlays work ── */
+.hud-root {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+}
+
+/* ── MENU POPUP ──────────────────────────────────────────────── */
+.menu-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+
+.menu-panel {
+    width: 380px;
+    background-color: rgba(30, 38, 46, 0.97);
+    border-width: 2px;
+    border-color: #CFE2F0;
+    border-radius: 16px;
+    padding: 28px 26px 20px 26px;
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.menu-panel-title {
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
+    font-size: 28px;
+    color: #CFE2F0;
+    -unity-text-align: middle-center;
+    margin-bottom: 20px;
+}
+
+.menu-panel-btn {
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
+    font-size: 18px;
+    height: 52px;
+    border-radius: 4px;
+    border-width: 0;
+    border-bottom-width: 3px;
+    margin-bottom: 10px;
+    -unity-text-align: middle-center;
+    -unity-text-letter-spacing: 1px;
+}
+.menu-panel-btn:active { translate: 0 2px; border-bottom-width: 1px; }
+
+.menu-panel-btn-save {
+    background-color: #4C90C0;
+    border-bottom-color: #2C5E82;
+    color: #FFFFFF;
+}
+.menu-panel-btn-save:hover { background-color: #5BA6D8; }
+
+.menu-panel-btn-resume {
+    background-color: #566573;
+    border-bottom-color: #333E47;
+    color: #ECEFF1;
+}
+.menu-panel-btn-resume:hover { background-color: #657686; }
 
 /* Base button properties with transitions for hover micro-interactions */
 .topbar-utility-btn {

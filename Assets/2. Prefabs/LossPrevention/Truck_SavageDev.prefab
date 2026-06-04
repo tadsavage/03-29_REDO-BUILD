@@ -149,6 +149,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4171565023153221712}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2907001384155674544}
   m_SourcePrefab: {fileID: 100100000, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
 --- !u!1 &5600343475338616855 stripped
 GameObject:
@@ -234,6 +237,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AiNavigation
   role: 0
+  footstepClip: {fileID: 0}
+  footstepVolume: 0.6
 --- !u!195 &5772971941250231083
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -423,3 +428,21 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &2907001384155674544
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5600343475338616855}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13474f5c7c29e4d4f97a49ff0d7c4888, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
+  headHeight: 2.75
+  bobAmplitude: 0.07
+  bobSpeed: 0.9
+  driftAmplitude: 0.025
+  fontSize: 8
+  fadeDuration: 1.5

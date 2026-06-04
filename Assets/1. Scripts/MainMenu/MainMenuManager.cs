@@ -46,6 +46,10 @@ public class MainMenuManager : MonoBehaviour
     // cartoon track is never cut off. Static so re-entering the menu won't restart it.
     private static AudioSource _persistentMenuMusic;
 
+    // Set to true before loading this scene from in-game so the logo fly-in
+    // and boom sound are suppressed; music continues uninterrupted.
+    public static bool SkipIntro = false;
+
     // Local 2D source for menu one-shots (the logo boom). Lives with this scene.
     private AudioSource _menuSfxSource;
 
@@ -130,6 +134,7 @@ public class MainMenuManager : MonoBehaviour
     private void StartMenuMusic()
     {
         if (menuMusic == null) return;
+        if (SkipIntro) return;
         if (_persistentMenuMusic != null && _persistentMenuMusic.isPlaying) return;
 
         var go = new GameObject("MenuMusicPlayer");
@@ -157,19 +162,25 @@ public class MainMenuManager : MonoBehaviour
     /// Title flies in big &amp; straight (the .title-label--intro USS state set in
     /// UXML), then we strip that class so the USS transition shrinks it down and
     /// rotates it onto its landed angle over the top of the rats image.
+    /// Skipped silently when returning from gameplay (SkipIntro = true).
     /// </summary>
     private void PlayTitleIntro()
     {
         var title = _root.Q<Label>("title-label");
         if (title == null) return;
 
-        // Make sure the intro (start) state is applied, then release it a beat
-        // later so the transition animates from big/straight -> landed/angled.
+        if (SkipIntro)
+        {
+            SkipIntro = false;
+            // Land the title immediately with no animation or sound.
+            title.RemoveFromClassList("title-label--intro");
+            return;
+        }
+
         title.AddToClassList("title-label--intro");
         _root.schedule.Execute(() => title.RemoveFromClassList("title-label--intro"))
              .StartingIn(TitleIntroReleaseMs);
 
-        // BOOM the moment the logo lands (intro released + transition complete).
         _root.schedule.Execute(PlayLogoImpact)
              .StartingIn(TitleIntroReleaseMs + TitleTransitionMs);
     }
@@ -315,8 +326,19 @@ public class MainMenuManager : MonoBehaviour
         if (_saveSlotContainer == null) return;
         _saveSlotContainer.Clear();
 
-        // Autosave card
-        AddSlotCard(-1, "Autosave", "Quick-save (F5)", System.DateTime.Now.Ticks);
+        // Autosave card — timestamp from file if it exists, otherwise empty
+        {
+            string autoPath = System.IO.Path.Combine(Application.dataPath, "_Saves", "autosave.json");
+            string autoTs = "";
+            long autoTicks = 0;
+            if (System.IO.File.Exists(autoPath))
+            {
+                var t = System.IO.File.GetLastWriteTime(autoPath);
+                autoTs = t.ToString("MMM dd, yyyy  h:mm tt").ToUpper();
+                autoTicks = t.Ticks;
+            }
+            AddSlotCard(-1, "Autosave", autoTs, autoTicks);
+        }
 
         // Numbered slots from metadata
         if (SaveManager.Instance != null)

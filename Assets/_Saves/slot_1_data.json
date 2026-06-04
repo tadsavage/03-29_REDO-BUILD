@@ -4,13 +4,13 @@
     "spentToday": 81462,
     "cameraData": {
         "focusPoint": {
-            "x": -14.755345344543457,
-            "y": 7.307204246520996,
-            "z": 2.739274501800537
+            "x": -21.671510696411134,
+            "y": 8.730815887451172,
+            "z": 5.634377956390381
         },
         "distance": 0.0,
-        "pitch": 24.90045166015625,
-        "yaw": 311.0707702636719
+        "pitch": 21.805397033691408,
+        "yaw": 35.47101974487305
     },
     "placedObjects": [
         {
@@ -11293,13 +11293,6 @@
         {
             "id": 59,
             "x": 30,
-            "y": 34,
-            "rot": 2,
-            "customData": ""
-        },
-        {
-            "id": 59,
-            "x": 30,
             "y": 35,
             "rot": 2,
             "customData": ""
@@ -11308,13 +11301,6 @@
             "id": 59,
             "x": 29,
             "y": 34,
-            "rot": 2,
-            "customData": ""
-        },
-        {
-            "id": 59,
-            "x": 29,
-            "y": 35,
             "rot": 2,
             "customData": ""
         },
@@ -16680,5 +16666,268 @@
             "rot": 3,
             "customData": ""
         }
-    ]
+    ],
+    "devSettings": [
+        {
+            "key": "AgentAnimation.walkSpeed",
+            "val": "3"
+        },
+        {
+            "key": "AgentAnimation.turnSpeed",
+            "val": "200"
+        },
+        {
+            "key": "AgentAnimation.idleDelay",
+            "val": "0.5"
+        },
+        {
+            "key": "AgentAnimation.waypointThreshold",
+            "val": "0.75"
+        },
+        {
+            "key": "PalletBuilder.maxTotalHeight",
+            "val": "1"
+        },
+        {
+            "key": "PalletBuilder.spaceBetweenCases",
+            "val": "0.05"
+        },
+        {
+            "key": "PalletBuilder.verticalGap",
+            "val": "0.025"
+        },
+        {
+            "key": "PalletBuilder.usePrefabBounds",
+            "val": "True"
+        },
+        {
+            "key": "PalletBuilder.crookedCase",
+            "val": "2"
+        },
+        {
+            "key": "PalletBuilder.useTiHiOverride",
+            "val": "False"
+        },
+        {
+            "key": "PalletBuilder.manualTi",
+            "val": "6"
+        },
+        {
+            "key": "PalletBuilder.manualHi",
+            "val": "3"
+        },
+        {
+            "key": "PalletBuilder.casesPerLayer",
+            "val": "0"
+        },
+        {
+            "key": "PalletBuilder.layers",
+            "val": "0"
+        },
+        {
+            "key": "PalletBuilder.totalCases",
+            "val": "0"
+        },
+        {
+            "key": "RatBehavior.circleDiameter",
+            "val": "3.5"
+        },
+        {
+            "key": "RatBehavior.circlePoints",
+            "val": "8"
+        },
+        {
+            "key": "RatBehavior.scurrySpeed",
+            "val": "2"
+        },
+        {
+            "key": "RatBehavior.angularSpeed",
+            "val": "180"
+        },
+        {
+            "key": "RatBehavior.acceleration",
+            "val": "16"
+        },
+        {
+            "key": "RatBehavior.detectionRange",
+            "val": "6"
+        },
+        {
+            "key": "RatBehavior.catchChance",
+            "val": "0.3"
+        },
+        {
+            "key": "RatBehavior.hidingChance",
+            "val": "0.5"
+        },
+        {
+            "key": "RatBehavior.hideStayDuration",
+            "val": "12"
+        },
+        {
+            "key": "RatBehavior.panicDuration",
+            "val": "8"
+        },
+        {
+            "key": "RatBehavior.maxAge",
+            "val": "300"
+        },
+        {
+            "key": "RatBehavior.RatFromScale",
+            "val": "1"
+        },
+        {
+            "key": "RatBehavior.RatToScale",
+            "val": "3"
+        },
+        {
+            "key": "RatBehavior.breedingRadius",
+            "val": "2.5"
+        },
+        {
+            "key": "RatBehavior.breedingDuration",
+            "val": "12"
+        },
+        {
+            "key": "RatBehavior.breedingCooldown",
+            "val": "90"
+        },
+        {
+            "key": "RatBehavior.maxRatPopulation",
+            "val": "15"
+        },
+        {
+            "key": "RatBehavior.scavengeChance",
+            "val": "0.25"
+        },
+        {
+            "key": "RatBehavior.gnawDuration",
+            "val": "3"
+        },
+        {
+            "key": "RatBehavior.investigationRadius",
+            "val": "6"
+        },
+        {
+            "key": "RatBehavior.hearingDistance",
+            "val": "6"
+        },
+        {
+            "key": "RatBehavior.deathDuration",
+            "val": "1.5"
+        },
+        {
+            "key": "RatBehavior.deathSinkDepth",
+            "val": "1.2"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "0.6"
+        },
+        {
+            "key": "VehicleThrottleAudio.hearingDistance",
+            "val": "25"
+        },
+        {
+            "key": "VehicleThrottleAudio.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "VehicleThrottleAudio.maxPitch",
+            "val": "1"
+        },
+        {
+            "key": "VehicleThrottleAudio.engineVolume",
+            "val": "0.25"
+        },
+        {
+            "key": "VehicleThrottleAudio.pitchOffset",
+            "val": "0"
+        },
+        {
+            "key": "VehicleThrottleAudio.fadeSpeed",
+            "val": "3"
+        },
+        {
+            "key": "VehicleThrottleAudio._honker",
+            "val": "True"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkVolume",
+            "val": "1"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkPitch",
+            "val": "1.2"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkProbability",
+            "val": "0.085"
+        },
+        {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
+        },
+        {
+            "key": "FreeLookCamera.movementSpeed",
+            "val": "10"
+        },
+        {
+            "key": "FreeLookCamera.fastMovementSpeed",
+            "val": "20"
+        },
+        {
+            "key": "FreeLookCamera.freeLookSensitivity",
+            "val": "0.1"
+        },
+        {
+            "key": "FreeLookCamera.zoomSensitivity",
+            "val": "350"
+        },
+        {
+            "key": "FreeLookCamera.fastZoomSensitivity",
+            "val": "50"
+        },
+        {
+            "key": "FreeLookCamera.heightMax",
+            "val": "35"
+        },
+        {
+            "key": "FreeLookCamera.heightMin",
+            "val": "2"
+        },
+        {
+            "key": "FreeLookCamera.X_Min",
+            "val": "-100"
+        },
+        {
+            "key": "FreeLookCamera.X_Max",
+            "val": "100"
+        },
+        {
+            "key": "FreeLookCamera.Z_Min",
+            "val": "-100"
+        },
+        {
+            "key": "FreeLookCamera.Z_Max",
+            "val": "100"
+        }
+    ],
+    "toolsWindowX": 12.0,
+    "toolsWindowY": 50.0,
+    "guidanceLinesVisible": true,
+    "waypointsVisible": true,
+    "hoverPopupEnabled": false
 }

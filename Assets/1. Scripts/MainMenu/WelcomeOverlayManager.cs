@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-[RequireComponent(typeof(UIDocument))]
 public class WelcomeOverlayManager : MonoBehaviour
 {
     [Tooltip("Assign MyBoss.png here")]
@@ -14,27 +13,39 @@ public class WelcomeOverlayManager : MonoBehaviour
 
     public void Show(string playerName)
     {
-        var root = GetComponent<UIDocument>().rootVisualElement;
-        var backdrop = root.Q("welcome-backdrop");
+        // Always look in the HUD UIDocument specifically — the backdrop lives there and
+        // TopBarUI is always on the same GameObject as the HUD UIDocument.
+        VisualElement backdrop = null;
 
-        var bossAvatar = root.Q("boss-avatar");
+        var topBarUI = FindAnyObjectByType<TopBarUI>(FindObjectsInactive.Include);
+        if (topBarUI != null)
+        {
+            var hudDoc = topBarUI.GetComponent<UIDocument>();
+            backdrop = hudDoc?.rootVisualElement?.Q("welcome-backdrop");
+        }
+
+        if (backdrop == null)
+        {
+            Debug.LogWarning("[WelcomeOverlayManager] welcome-backdrop not found in HUD UIDocument.");
+            return;
+        }
+
+        var bossAvatar = backdrop.Q("boss-avatar");
         if (bossAvatar != null && bossImage != null)
             bossAvatar.style.backgroundImage = new StyleBackground(bossImage);
 
-        var welcomeText = root.Q<Label>("welcome-text");
+        var welcomeText = backdrop.Q<Label>("welcome-text");
         if (welcomeText != null)
             welcomeText.text = BuildMessage(playerName);
 
-        if (backdrop != null)
-            backdrop.style.display = DisplayStyle.Flex;
+        backdrop.style.display = DisplayStyle.Flex;
 
         PlayBossAudio();
 
-        root.Q<Button>("btn-dismiss")?.RegisterCallback<ClickEvent>(_ =>
+        backdrop.Q<Button>("btn-dismiss")?.RegisterCallback<ClickEvent>(_ =>
         {
             StopBossAudio();
-            if (backdrop != null)
-                backdrop.style.display = DisplayStyle.None;
+            backdrop.style.display = DisplayStyle.None;
         });
     }
 

@@ -135,8 +135,8 @@ public class BuildingData : MonoBehaviour
         _obstacle.carveOnlyStationary = true;
 
         // 0.75f factor leaves a gap at cell boundaries wide enough for agents (>= 2× AgentRadius).
-        float gridSpaceX = Data.footprint.x * 0.75f;
-        float gridSpaceZ = Data.footprint.y * 0.75f;
+        float gridSpaceX = Data.footprint.x * 0.95f;
+        float gridSpaceZ = Data.footprint.y * 0.95f;
         float centerX    = (Data.footprint.x - 1) * 0.665f;
         float centerZ    = (Data.footprint.y - 1) * 0.665f;
 

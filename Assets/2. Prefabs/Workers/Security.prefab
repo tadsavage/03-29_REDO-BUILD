@@ -97,7 +97,10 @@ PrefabInstance:
       addedObject: {fileID: 3678489185152625352}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 3243799901357583647}
+      addedObject: {fileID: 7123400000000000005}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 115610132560882541}
   m_SourcePrefab: {fileID: 100100000, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
 --- !u!1 &8526373013839797475 stripped
 GameObject:
@@ -133,7 +136,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AiNavigation
   role: 0
-  footstepClip: {fileID: 0}
+  footstepClip: {fileID: 8300000, guid: 5eecd934368cd634a81e82f913d009c2, type: 3}
   footstepVolume: 0.6
 --- !u!195 &4330861136464278560
 NavMeshAgent:
@@ -345,7 +348,26 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &3243799901357583647
+--- !u!114 &7123400000000000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8526373013839797475}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3d698b0375cff545979f23eca0c6d06, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AmbientMumble
+  mumbleClips: []
+  volume: 0.5
+  minPitch: 0.85
+  maxPitch: 1.15
+  chanceToMumble: 50
+  fullVolumeDistance: 2
+  maxHearingDistance: 15
+--- !u!114 &115610132560882541
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -357,9 +379,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13474f5c7c29e4d4f97a49ff0d7c4888, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
-  headHeight: 2.25
-  bobAmplitude: 10
-  bobSpeed: 1
-  driftAmplitude: 10
+  heightAboveHead: 2.4
+  markColor: {r: 1, g: 0.1, b: 0.08, a: 1}
   fontSize: 6
-  fadeOutDuration: 2
+  hoverAmplitude: 0.18
+  hoverSpeed: 1.1
+  yRotateDeg: 30
+  yRotateSpeed: 0.7
+  fadeInDuration: 0.25
+  fadeOutDuration: 1.5

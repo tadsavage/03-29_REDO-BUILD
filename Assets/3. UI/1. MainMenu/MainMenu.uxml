@@ -17,7 +17,7 @@
         </ui:VisualElement>
         <ui:Label name="tooltip-label" text="" class="tooltip-label" style="display: none;"/>
         <ui:VisualElement name="name-popup" class="popup-panel" style="display: none;">
-            <ui:Label name="popup-question" text="Hey! What&apos;s your name?" class="popup-title"/>
+            <ui:Label name="popup-question" text="What&apos;s your name, Boss?" class="popup-title"/>
             <ui:TextField name="name-field" placeholder-text="Enter your name..." class="popup-field"/>
             <ui:Button name="btn-name-confirm" text="START NEW GAME" class="popup-btn popup-btn-green"/>
             <ui:Button name="btn-name-back" text="BACK" class="popup-btn popup-btn-grey"/>

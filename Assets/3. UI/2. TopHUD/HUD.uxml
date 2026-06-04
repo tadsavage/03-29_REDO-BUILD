@@ -23,10 +23,32 @@
                     <ui:VisualElement name="LoadIcon" class="topbar-utility-icon load-icon" picking-mode="Ignore"/>
                     <ui:Label text="Load" name="LoadLbl" class="topbar-utility-lbl" picking-mode="Ignore"/>
                 </ui:Button>
+                <ui:Button name="MainMenuButton" text="MENU (ESC)" class="topbar-utility-btn topbar-mainmenu-btn" picking-mode="Position"/>
             </ui:VisualElement>
         </ui:VisualElement>
-        
+
         <ui:Label name="ToastLabel" text="Toast" picking-mode="Ignore" class="toast-label"/>
         <ui:Label name="PreviewCostLabel" text="$1,250" picking-mode="Ignore" class="preview-cost-label"/>
+
+        <ui:VisualElement name="menu-overlay" picking-mode="Ignore" class="menu-overlay" style="display: none;">
+            <ui:VisualElement name="menu-panel" class="menu-panel" picking-mode="Position">
+                <ui:Label text="Going home already?" class="menu-panel-title"/>
+                <ui:Button name="MenuMainMenuButton" text="MAIN MENU"  class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
+                <ui:Button name="MenuSaveButton"     text="SAVE GAME"  class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
+                <ui:Button name="MenuResumeButton"   text="RESUME"     class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
+                <ui:Button name="MenuExitButton"     text="EXIT GAME"  class="menu-panel-btn menu-panel-btn-resume" picking-mode="Position"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Welcome Overlay — inside Root so it inherits the full-screen hud-root bounds -->
+        <ui:VisualElement name="welcome-backdrop" picking-mode="Position" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.88); align-items: center; justify-content: center;">
+            <ui:VisualElement name="welcome-popup" style="width: 900px; background-color: rgba(30, 38, 46, 0.98); border-top-width: 4px; border-right-width: 4px; border-bottom-width: 4px; border-left-width: 4px; border-top-color: rgb(92, 155, 196); border-right-color: rgb(92, 155, 196); border-bottom-color: rgb(92, 155, 196); border-left-color: rgb(92, 155, 196); border-radius: 32px; padding: 56px 64px; align-items: center; flex-direction: column;">
+                <ui:VisualElement name="boss-avatar" style="width: 280px; height: 280px; border-radius: 16px; background-color: rgb(22, 28, 36); -unity-background-scale-mode: scale-to-fit; border-top-width: 6px; border-right-width: 6px; border-bottom-width: 6px; border-left-width: 6px; border-top-color: rgb(92, 155, 196); border-right-color: rgb(92, 155, 196); border-bottom-color: rgb(92, 155, 196); border-left-color: rgb(92, 155, 196); margin-bottom: 20px;"/>
+                <ui:Label name="welcome-title" text="MISTER Tug Dudley" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;); font-size: 52px; color: rgb(92, 155, 196); -unity-text-align: middle-center; margin-bottom: 24px;"/>
+                <ui:Label name="welcome-text" text="" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&amp;guid=189cc47193d14cf48980be934208aa1c&amp;type=3#Fredoka-Medium&quot;); font-size: 26px; color: rgb(220, 235, 245); white-space: normal; margin-bottom: 36px; width: 100%;"/>
+                <ui:Button name="btn-dismiss" text="GET TO WORK!" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;); font-size: 30px; height: 72px; width: 100%; background-color: rgb(76, 144, 192); border-bottom-color: rgb(44, 94, 130); border-bottom-width: 5px; border-top-width: 0; border-left-width: 0; border-right-width: 0; border-radius: 6px; color: rgb(255, 255, 255); -unity-text-align: middle-center;"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
     </ui:VisualElement>
 </ui:UXML>

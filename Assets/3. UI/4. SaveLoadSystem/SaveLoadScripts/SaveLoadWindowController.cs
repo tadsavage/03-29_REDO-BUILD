@@ -24,6 +24,7 @@ namespace SaveLoadSystem
 
         private VisualElement confirmOverlay;
         private Label confirmLabel;
+        private TextField confirmNameField;
         private Button confirmYesButton;
         private Button confirmNoButton;
 
@@ -69,6 +70,7 @@ namespace SaveLoadSystem
             slotContainer = root.Q<VisualElement>("slot-container");
             confirmOverlay = root.Q<VisualElement>("confirm-overlay");
             confirmLabel = root.Q<Label>("confirm-label");
+            confirmNameField = root.Q<TextField>("confirm-name-field");
             confirmYesButton = root.Q<Button>("confirm-yes");
             confirmNoButton = root.Q<Button>("confirm-no");
         }
@@ -272,14 +274,12 @@ namespace SaveLoadSystem
 
         // ========== CONFIRMATION VISIBILITY ==========
 
-        private void SetConfirmVisible(bool visible)
+        private void SetConfirmVisible(bool visible, bool showNameField = false)
         {
             confirmOverlay.style.display = visible
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
 
-            // Propagate pickingMode to ALL children so nothing
-            // silently swallows clicks when hidden.
             var mode = visible
                 ? PickingMode.Position
                 : PickingMode.Ignore;
@@ -288,7 +288,13 @@ namespace SaveLoadSystem
             confirmYesButton.pickingMode = mode;
             confirmNoButton.pickingMode = mode;
 
-            // Re-enable confirm buttons when showing
+            confirmNameField.style.display = (visible && showNameField)
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
+            confirmNameField.pickingMode = (visible && showNameField)
+                ? PickingMode.Position
+                : PickingMode.Ignore;
+
             if (visible)
             {
                 confirmYesButton.SetEnabled(true);
@@ -358,7 +364,14 @@ namespace SaveLoadSystem
                     actionBtn.SetEnabled(true);
                     int idx = slotIndex;
                     actionBtn.clicked += () =>
-                        SaveManager.Instance.SaveToSlot(idx, $"Save {idx + 1}");
+                    {
+                        pendingActionSlot = idx;
+                        pendingOverwriteName = $"Save {idx + 1}";
+                        confirmLabel.text = "Name your save:";
+                        confirmNameField.value = pendingOverwriteName;
+                        confirmNameField.maxLength = 50;
+                        SetConfirmVisible(true, showNameField: true);
+                    };
                 }
                 else
                 {
@@ -402,7 +415,9 @@ namespace SaveLoadSystem
                         pendingActionSlot = idx;
                         pendingOverwriteName = nameField.value;
                         confirmLabel.text = $"Overwrite Slot {idx + 1}?";
-                        SetConfirmVisible(true);
+                        confirmNameField.value = nameField.value;
+                        confirmNameField.maxLength = 50;
+                        SetConfirmVisible(true, showNameField: true);
                     };
                 }
                 else
@@ -423,7 +438,7 @@ namespace SaveLoadSystem
                     pendingActionSlot = delIdx;
                     pendingOverwriteName = null;
                     confirmLabel.text = $"Delete Slot {delIdx + 1}?";
-                    SetConfirmVisible(true);
+                    SetConfirmVisible(true, showNameField: false);
                 };
             }
         }
@@ -435,10 +450,16 @@ namespace SaveLoadSystem
             if (pendingActionSlot < 0) return;
 
             if (pendingOverwriteName != null)
-                SaveManager.Instance.SaveToSlot(pendingActionSlot,
-                                                pendingOverwriteName);
+            {
+                string name = confirmNameField.value.Trim();
+                if (string.IsNullOrEmpty(name))
+                    name = $"Save {pendingActionSlot + 1}";
+                SaveManager.Instance.SaveToSlot(pendingActionSlot, name);
+            }
             else
+            {
                 SaveManager.Instance.DeleteSlot(pendingActionSlot);
+            }
 
             SetConfirmVisible(false);
             pendingActionSlot = -1;
