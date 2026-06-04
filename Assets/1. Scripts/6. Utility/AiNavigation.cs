@@ -27,6 +27,8 @@ public class AiNavigation : MonoBehaviour
     private AudioSource _footstepSource;
     private NoWaypointIndicator _indicator;
 
+    public bool HasWaypoints => waypoints != null && waypoints.Length > 0;
+
     private void OnEnable()
     {
         NavMeshManager.OnNavMeshReady += OnNavMeshBaked;

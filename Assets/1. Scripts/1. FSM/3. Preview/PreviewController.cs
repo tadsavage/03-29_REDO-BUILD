@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AI;
 
 public class PreviewController : MonoBehaviour
 {
@@ -202,52 +201,8 @@ public class PreviewController : MonoBehaviour
 
     private Vector3 CalculateTargetPos(Vector3 pos, Vector2Int cell, ObjDataSO data)
     {
-        float stackY = 0f;
-
-        // Logic for preview height calculation:
-        // 1. If we are placing a Ground/Foundation, it stays at y=0.
-        // 2. Otherwise, we calculate the cumulative height of valid surfaces.
-        // 3. Grounds and Floors always contribute to the base height.
-        // 4. Other objects ONLY contribute height if BOTH the ghost and the existing object are stackable.
-        if (data != null && !IsGround(data))
-        {
-            var list = _grid.GetObjectsInCell(cell);
-            if (list != null)
-            {
-                bool groundHeightAdded = false;
-                foreach (var entry in list)
-                {
-                    if (entry.instance == null || !entry.instance.activeSelf) continue;
-
-                    bool entryIsGround = IsGround(entry.data);
-
-                    if (entryIsGround)
-                    {
-                        if (!groundHeightAdded)
-                        {
-                            stackY += entry.data.objHeight;
-                            groundHeightAdded = true;
-                        }
-                    }
-                    else if (entry.data.isFloor)
-                    {
-                        stackY += entry.data.objHeight;
-                    }
-                    else if (data.isStackable && entry.data.isStackable)
-                    {
-                        // Objects that ignore rules or clear grid don't add height 
-                        // unless they are specifically floors/grounds (handled above)
-                        if (entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement)
-                            continue;
-
-                        stackY += entry.data.objHeight;
-                    }
-                }
-            }
-        }
-
-        if (!_deleteMode)
-            pos.y += stackY;
+        if (data != null && !IsGround(data) && !_deleteMode)
+            pos.y += _grid.GetStackHeight(cell);
 
         return pos;
     }
@@ -355,7 +310,7 @@ public class PreviewController : MonoBehaviour
             
             foreach (var comp in ghost.GetComponentsInChildren<Component>())
             {
-                if (comp is Transform || comp is Renderer || comp is MeshFilter || comp is Light || comp is Animator || comp is NavMeshAgent)
+                if (comp is Transform || comp is Renderer || comp is MeshFilter || comp is Light || comp is Animator)
                     continue;
 
                 try

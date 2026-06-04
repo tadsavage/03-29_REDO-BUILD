@@ -103,6 +103,7 @@ GameObject:
   - component: {fileID: 8234733554339640212}
   - component: {fileID: 5091341009880073865}
   - component: {fileID: 3133194064963140174}
+  - component: {fileID: 1678953688858373609}
   m_Layer: 0
   m_Name: WaypointWorker
   m_TagString: Untagged
@@ -152,7 +153,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1c2077a2a0a9844b8bb47797e554524, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlacedObject
-  data: {fileID: 0}
+  data: {fileID: 11400000, guid: 5c5fd0ea1ee61e448bccfcf8d7d94961, type: 2}
   gridX: 0
   gridY: 0
   rotation: 0
@@ -169,7 +170,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ae3a00e8e2be44489bf49a02cd29a2b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildingData
-  objDataSO: {fileID: 0}
+  objDataSO: {fileID: 11400000, guid: 5c5fd0ea1ee61e448bccfcf8d7d94961, type: 2}
 --- !u!114 &3133194064963140174
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -185,6 +186,27 @@ MonoBehaviour:
   validColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
   invalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
   deleteColor: {r: 1, g: 0.9, b: 0, a: 0.5}
+--- !u!65 &1678953688858373609
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6664548528632372520}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &8297241397092133866
 GameObject:
   m_ObjectHideFlags: 0

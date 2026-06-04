@@ -61,6 +61,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: 01877a246f0ac2845a89ade97e9a9ddd, type: 3}
+      propertyPath: m_StabilizeFeet
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 01877a246f0ac2845a89ade97e9a9ddd, type: 3}
       propertyPath: m_ApplyRootMotion
       value: 0
       objectReference: {fileID: 0}
@@ -281,8 +285,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13474f5c7c29e4d4f97a49ff0d7c4888, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
-  headHeight: 2.5
-  bobAmplitude: 0.1
-  bobSpeed: 0.9
-  driftAmplitude: 0.03
-  fontSize: 10
+  headHeight: 2.25
+  bobAmplitude: 10
+  bobSpeed: 1
+  driftAmplitude: 10
+  fontSize: 6
+  fadeOutDuration: 2
