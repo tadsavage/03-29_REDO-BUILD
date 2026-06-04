@@ -16,10 +16,12 @@ public class DeleteCommand : ICommand
 
     private readonly GameObject _target;
 
-    // Floors that were hidden under the foundation and get revealed when it's deleted
+    // Pre-existing yard floor tiles that were hidden under the Foundation and get
+    // restored when it is deleted.
     private readonly List<GameObject> _reEnabledFloors = new();
 
-    // Active floor tiles (foundation's auto-floor or any upgrade tile) deleted along with the foundation
+    // Active floor tiles (auto-floor defaults AND any upgrade tiles like Pedestrian / MHE)
+    // that live on top of the Foundation and are deleted along with it.
     private readonly List<GameObject> _linkedFloors = new();
 
     private bool _wasContaminated;
@@ -51,8 +53,12 @@ public class DeleteCommand : ICommand
         _reEnabledFloors.Clear();
         _linkedFloors.Clear();
 
-        // 1. For foundations: remove the active floor tile(s) in the same cells first.
-        //    This covers both the auto-placed default floor and any upgrade tiles.
+        // 1. For foundations: remove every active floor tile in the footprint first.
+        //    This covers both the auto-placed default floor tile AND any upgrade tile
+        //    (Pedestrian, MHE, etc.) the player dropped on the Foundation.
+        //    Pre-existing yard tiles that were placed BEFORE the Foundation are inactive
+        //    in the grid (they were hidden when the Foundation was placed) — those are
+        //    handled in step 2 and are NEVER deleted here.
         if (IsFoundation(_data))
         {
             foreach (var o in _offsets)
@@ -76,13 +82,14 @@ public class DeleteCommand : ICommand
             }
         }
 
-        // 2. Remove foundation from grid; re-enable yard floor tiles that were hidden beneath it
+        // 2. Remove Foundation from grid. For foundations, also restore any pre-existing
+        //    yard floor tiles that were hidden (inactive) when the Foundation was placed.
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
             _grid.RemoveStackObject(cell, _target, _data);
 
-            if (!_grid.IsOccupied(cell))
+            if (IsFoundation(_data) && !_grid.IsOccupied(cell))
             {
                 var cellObjs = _grid.GetObjectsInCell(cell);
                 if (cellObjs != null)
@@ -156,7 +163,7 @@ public class DeleteCommand : ICommand
         // 1. Re-enable foundation
         _target.SetActive(true);
 
-        // 2. Add foundation back to grid; re-disable the yard tiles we had revealed
+        // 2. Add foundation back to grid; re-hide the yard tiles we had revealed
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
@@ -169,7 +176,8 @@ public class DeleteCommand : ICommand
         }
         _reEnabledFloors.Clear();
 
-        // 3. Restore linked floor tiles (foundation's auto-floor / upgrade tiles)
+        // 3. Restore the floor tiles that were deleted with the Foundation
+        //    (auto-floor defaults and any upgrade tiles like Pedestrian / MHE)
         foreach (var floor in _linkedFloors)
         {
             if (floor == null) continue;
