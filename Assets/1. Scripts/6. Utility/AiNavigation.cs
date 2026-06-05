@@ -61,7 +61,15 @@ public class AiNavigation : MonoBehaviour
         else if (initialized && !agent.hasPath && !agent.pathPending
                  && waypoints != null && waypoints.Length > 0)
         {
-            GoToRandomWaypoint();
+            // Retry the SAME waypoint rather than picking a random one.
+            // If a wall or obstacle was just placed and blocks the path, the agent
+            // should stay put (NoWaypointIndicator will show "!" and AgentAnimation
+            // will trigger the wave). If the obstacle is later removed and the NavMesh
+            // rebakes clear, this retry will succeed and navigation resumes automatically.
+            if (waypoints[currentIndex] != null)
+                agent.SetDestination(waypoints[currentIndex].position);
+            else
+                GoToRandomWaypoint(); // only if the cached waypoint was destroyed
         }
     }
     private void Awake()
