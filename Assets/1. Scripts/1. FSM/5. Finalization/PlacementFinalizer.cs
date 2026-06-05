@@ -171,8 +171,7 @@ public class PlacementFinalizer : MonoBehaviour
 
             foreach (var entry in list)
             {
-                if (entry.data != null && entry.data.isFloor
-                    && entry.instance != null && entry.instance.activeSelf)
+                if (entry.data != null && entry.data.isFloor)
                 {
                     if (entry.data.id == data.id)
                         return true;

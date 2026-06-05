@@ -117,13 +117,6 @@ public class PlaceCommand : ICommand
                 _replacedFloorsCost += po.data.cost;
                 _money.Refund(po.data.cost, po.data.category);
                 _money.RemoveHourlyCost(po.data.hourlyCost);
-
-                // Remove from grid so DeleteCommand doesn't wrongly restore this tile
-                // if the parent Foundation is deleted while this floor is displaced.
-                var bd = floor.GetComponent<BuildingData>();
-                if (bd != null)
-                    foreach (var o in bd.Offsets)
-                        _grid.RemoveStackObject(bd.RootCell + o, floor, po.data);
             }
         }
 
@@ -148,8 +141,6 @@ public class PlaceCommand : ICommand
 
         // --- Auto-floor for foundations ---
         // Place one floor tile per footprint cell so the entire slab is covered.
-        if (_data.defaultFloorTile != null)
-            Debug.Log($"[PlaceCommand] defaultFloorTile={_data.defaultFloorTile.objName}, autoFloors.Count={_autoFloors.Count}, offsets={_offsets.Length}");
         if (_data.defaultFloorTile != null && _autoFloors.Count == 0)
         {
             _autoFloorData = _data.defaultFloorTile;
@@ -160,7 +151,6 @@ public class PlaceCommand : ICommand
             {
                 Vector2Int cellRoot = _root + o;
                 var tile = _finalizer.FinalizePlacement(cellRoot, tileOffsets, _autoFloorData, 0f, _autoFloorDisabled);
-                Debug.Log($"[PlaceCommand] Auto-floor at {cellRoot}: {(tile != null ? "spawned" : "NULL (blocked)")}");
                 if (tile == null) continue;
                 tile.SetActive(true);
                 _autoFloors.Add(tile);
@@ -249,22 +239,7 @@ public class PlaceCommand : ICommand
         // Re-enable displaced floors
         bool revealedFloor = false;
         foreach (var floor in _disabledFloors)
-        {
-            if (floor == null) continue;
-            floor.SetActive(true);
-            revealedFloor = true;
-
-            // For floor-on-floor replacements Execute removed the tile from the grid;
-            // add it back so grid state is consistent after undo.
-            if (_data.isFloor)
-            {
-                var po = floor.GetComponent<PlacedObject>();
-                var bd = floor.GetComponent<BuildingData>();
-                if (po?.data?.isFloor == true && bd != null)
-                    foreach (var o in bd.Offsets)
-                        _grid.AddStackObject(bd.RootCell + o, floor, po.data);
-            }
-        }
+            if (floor != null) { floor.SetActive(true); revealedFloor = true; }
 
         foreach (var o in _offsets)
             _grid.UpdateStackPositions(_root + o);
@@ -301,20 +276,7 @@ public class PlaceCommand : ICommand
 
         // 1. Re-disable floors replaced by primary object
         foreach (var floor in _disabledFloors)
-        {
-            if (floor == null) continue;
-            floor.SetActive(false);
-
-            // Mirror Execute: remove from grid for floor-on-floor replacements.
-            if (_data.isFloor)
-            {
-                var po = floor.GetComponent<PlacedObject>();
-                var bd = floor.GetComponent<BuildingData>();
-                if (po?.data?.isFloor == true && bd != null)
-                    foreach (var o in bd.Offsets)
-                        _grid.RemoveStackObject(bd.RootCell + o, floor, po.data);
-            }
-        }
+            if (floor != null) floor.SetActive(false);
 
         // 2. Re-enable primary + add to grid
         _instance.SetActive(true);
