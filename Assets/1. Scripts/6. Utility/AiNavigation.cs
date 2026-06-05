@@ -54,6 +54,13 @@ public class AiNavigation : MonoBehaviour
 
         FindWaypoints();
 
+        // Re-snap every uninitialized agent to the correct surface after each bake.
+        // This corrects agents that were placed on a Foundation (target y≈1.06) before
+        // the foundation floor NavMesh was baked: they settled on the yard mesh at y=0
+        // and need to be lifted to the newly-baked floor surface.
+        if (!initialized)
+            SnapToCorrectSurface();
+
         if (!agent.isOnNavMesh) return;
 
         if (!initialized && waypoints != null && waypoints.Length > 0)
@@ -67,6 +74,38 @@ public class AiNavigation : MonoBehaviour
                  && waypoints != null && waypoints.Length > 0)
         {
             GoToRandomWaypoint();
+        }
+    }
+
+    /// <summary>
+    /// Snaps the agent to the NavMesh surface it should be standing on.
+    ///
+    /// Uses a two-step search strategy:
+    ///   1. Sample from 1.5 m ABOVE the agent's current transform position, radius 1.0 m.
+    ///      • Foundation floor at y≈1.06 is only ~0.44 m from the sample point → found first.
+    ///      • Yard floor at y=0 is 1.5 m away            → outside the radius, ignored.
+    ///      • Adjacent Foundation cells are ~1.40 m away  → outside the radius, ignored.
+    ///      This means a Foundation floor directly above takes priority over the yard floor
+    ///      without accidentally teleporting agents to a Foundation in a neighbouring cell.
+    ///   2. Fall back to a standard SamplePosition from the current transform position
+    ///      (covers agents already at the correct height and plain yard-tile agents).
+    /// </summary>
+    private void SnapToCorrectSurface()
+    {
+        Vector3 sampleAbove = transform.position + Vector3.up * 1.5f;
+
+        if (NavMesh.SamplePosition(sampleAbove, out NavMeshHit aboveHit, 1.0f, NavMesh.AllAreas)
+            && aboveHit.position.y > transform.position.y + 0.3f)
+        {
+            // An elevated NavMesh surface sits directly above — snap up to it.
+            try { agent.Warp(aboveHit.position); } catch { }
+        }
+        else
+        {
+            // No elevated surface nearby: snap from current position.
+            // Handles agents already at the correct height and plain yard-level agents.
+            if (NavMesh.SamplePosition(transform.position, out NavMeshHit flatHit, 3f, NavMesh.AllAreas))
+                try { agent.Warp(flatHit.position); } catch { }
         }
     }
     private void Awake()
@@ -196,13 +235,12 @@ public class AiNavigation : MonoBehaviour
         }
 
         // ── Snap to surface ─────────────────────────────────────────────────────
+        // Only snap if not already on the NavMesh. OnNavMeshBaked() handles the
+        // Foundation-floor height correction for newly placed agents; calling Warp
+        // unconditionally here would clear an active path and could leave the agent
+        // off-mesh if the snap lands outside the NavMesh boundary.
         if (!agent.isOnNavMesh)
-        {
-            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
-            {
-                try { agent.Warp(hit.position); } catch { }
-            }
-        }
+            SnapToCorrectSurface();
 
         if (!agent.isOnNavMesh)
         {
@@ -240,13 +278,18 @@ public class AiNavigation : MonoBehaviour
 
         if (role == AgentRole.Worker)
         {
-            agent.SetAreaCost(0, 25.0f); // Walkable (generic) — expensive
+            // Area 0 (Walkable / Foundation floor) cost is kept close to 1.0 so that
+            // walking directly across a Foundation is always cheaper than the stair
+            // detour (down stairs + yard + up stairs adds ~2.3 units of overhead).
+            // With the old cost of 25.0, a path as short as 3 tiles was routed through
+            // the stairs, causing agents to "walk in place" while stuck on off-mesh links.
+            agent.SetAreaCost(0, 1.1f);  // Walkable — slight premium over dedicated lanes
             agent.SetAreaCost(3, 80.0f); // MHE lane   — strongly avoid
             agent.SetAreaCost(4, 1.0f);  // Ped lane   — strongly prefer
         }
         else if (role == AgentRole.Forklift)
         {
-            agent.SetAreaCost(0, 25.0f); // Walkable (generic) — expensive
+            agent.SetAreaCost(0, 1.1f);  // Walkable — slight premium over dedicated lanes
             agent.SetAreaCost(3, 1.0f);  // MHE lane   — strongly prefer
             agent.SetAreaCost(4, 80.0f); // Ped lane   — strongly avoid
             agent.stoppingDistance = 1.0f;
@@ -258,6 +301,16 @@ public class AiNavigation : MonoBehaviour
     private void Update()
     {
         // ── Stair / off-mesh link traversal ─────────────────────────────────────
+
+        // Safety: if TraverseLink() was interrupted while _traversingLink=true
+        // (e.g. by a rebake event or an exception), updatePosition stays false and
+        // the agent "walks in place" forever. Reset flags when the link is gone.
+        if (_traversingLink && !agent.isOnOffMeshLink)
+        {
+            _traversingLink      = false;
+            agent.updatePosition = true;
+        }
+
         if (!_traversingLink && agent != null && agent.isOnOffMeshLink)
         {
             StartCoroutine(TraverseLink());
@@ -283,21 +336,31 @@ public class AiNavigation : MonoBehaviour
         }
 
         // ── Recovery: re-snap if a runtime bake knocked us off the mesh ─────────
+        // Use SnapToCorrectSurface() so Foundation-height agents (y≈1.06) are
+        // found correctly. The old SamplePosition + "< 1.0f delta" check failed
+        // for Foundation floors because the delta is exactly 1.06 (≥ threshold).
         if (!agent.isOnNavMesh)
         {
             if (Time.frameCount % 30 == 0)
             {
-                if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
-                {
-                    if (Mathf.Abs(hit.position.y - transform.position.y) < 1.0f)
-                    {
-                        agent.Warp(hit.position);
-                        if (waypoints != null && waypoints.Length > 0)
-                            agent.SetDestination(waypoints[currentIndex].position);
-                    }
-                }
+                SnapToCorrectSurface();
+                if (agent.isOnNavMesh && waypoints != null && waypoints.Length > 0)
+                    agent.SetDestination(waypoints[currentIndex].position);
             }
             return;
+        }
+
+        // ── Dead-path recovery (animated agents only) ────────────────────────────
+        // AgentAnimation.Update() only calls GoToRandomWaypoint() on genuine arrival
+        // (PathComplete). If the path is cleared by any other means — a Warp, an
+        // interrupted coroutine — the agent has no recovery mechanism.
+        // Poll every ~2 s to restart navigation without causing visible jitter.
+        if (_agentAnimation != null
+            && !agent.hasPath && !agent.pathPending
+            && waypoints != null && waypoints.Length > 0)
+        {
+            if (Time.frameCount % 120 == 0)
+                GoToRandomWaypoint();
         }
 
         // ── Arrival audio ────────────────────────────────────────────────────────
