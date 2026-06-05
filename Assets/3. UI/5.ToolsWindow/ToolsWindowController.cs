@@ -97,9 +97,9 @@ public class ToolsWindowController : MonoBehaviour
 
     private void Start()
     {
-        _ctx  = FindFirstObjectByType<GameContext>();
-        _fsm  = FindFirstObjectByType<PlacementStateMachine>();
-        _grid = FindFirstObjectByType<PlacementGrid>();
+        _ctx  = FindAnyObjectByType<GameContext>();
+        _fsm  = FindAnyObjectByType<PlacementStateMachine>();
+        _grid = FindAnyObjectByType<PlacementGrid>();
 
         var root = _doc.rootVisualElement;
         root.pickingMode = PickingMode.Ignore;
@@ -367,28 +367,28 @@ public class ToolsWindowController : MonoBehaviour
         globalSection.Add(BuildGlobalToggleRow(
             "Show Guidance Lines",
             "Show/hide path guidance lines on all NavMesh agents.",
-            () => FindObjectsByType<NavAgentGuidance>(FindObjectsSortMode.None),
+            () => FindObjectsByType<NavAgentGuidance>(),
             (c, v) => ((NavAgentGuidance)c).showGuidanceLine = v,
             c => ((NavAgentGuidance)c).showGuidanceLine));
 
         globalSection.Add(BuildGlobalToggleRow(
             "Show Waypoints",
             "Show/hide the visual waypoint markers in the scene.",
-            () => FindObjectsByType<Waypoint>(FindObjectsSortMode.None),
+            () => FindObjectsByType<Waypoint>(),
             (c, v) => { foreach (var r in ((Waypoint)c).GetComponentsInChildren<MeshRenderer>()) r.enabled = v; },
             c => { var r = ((Waypoint)c).GetComponentInChildren<MeshRenderer>(); return r != null && r.enabled; }));
 
         globalSection.Add(BuildGlobalToggleRow(
             "Object Hover Popup",
             "Disables the object hover pop up window.",
-            () => FindObjectsByType<WorldHoverPopupUI>(FindObjectsSortMode.None),
+            () => FindObjectsByType<WorldHoverPopupUI>(),
             (c, v) => ((WorldHoverPopupUI)c).SetEnabled(v),
             c => ((WorldHoverPopupUI)c).IsEnabled));
 
         _contentSettings.Add(globalSection);
 
         // ── Script sections ─────────────────────────────────────────────────
-        var allBehaviours = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        var allBehaviours = FindObjectsByType<MonoBehaviour>();
         // Collect (type, target) pairs then sort — WallVisibilityManager goes last
         var groups = new List<(System.Type type, MonoBehaviour target)>();
         var seen   = new HashSet<System.Type>();

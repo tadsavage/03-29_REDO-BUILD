@@ -27,7 +27,7 @@ public class NavMeshManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        _surfaces = new List<NavMeshSurface>(Object.FindObjectsByType<NavMeshSurface>(FindObjectsSortMode.None));
+        _surfaces = new List<NavMeshSurface>(Object.FindObjectsByType<NavMeshSurface>());
 
         // Enforce exclusions at runtime regardless of saved NavMeshModifier state.
         foreach (var go in _alwaysExclude)
@@ -46,7 +46,7 @@ public class NavMeshManager : MonoBehaviour
         if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
         IsReady = false;
 
-        var modifiers = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>(FindObjectsSortMode.None));
+        var modifiers = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>());
         var markups = BuildMarkups(modifiers);
 
         foreach (var surface in _surfaces)
@@ -88,8 +88,26 @@ public class NavMeshManager : MonoBehaviour
     private IEnumerator ReadyAfterCarvingSettles()
     {
         yield return new WaitForSeconds(1.5f);
+
+        // BakeSynchronous() replaces the NavMeshData object entirely (RemoveData/AddData),
+        // so any NavMeshLink that was registered against the old data loses its connection.
+        // Toggle each link to force re-registration with the freshly installed data.
+        // (The async UpdateRoutine path uses UpdateNavMeshDataAsync which updates in-place
+        //  and keeps link registrations intact — this toggle is only needed here.)
+        RefreshNavMeshLinks();
+
         IsReady = true;
         OnNavMeshReady?.Invoke();
+    }
+
+    private void RefreshNavMeshLinks()
+    {
+        foreach (var link in Object.FindObjectsByType<Unity.AI.Navigation.NavMeshLink>(FindObjectsSortMode.None))
+        {
+            if (link == null || !link.isActiveAndEnabled) continue;
+            link.enabled = false;
+            link.enabled = true;
+        }
     }
 
     private List<NavMeshBuildMarkup> BuildMarkups(List<NavMeshModifier> modifiers)
@@ -121,7 +139,7 @@ public class NavMeshManager : MonoBehaviour
     // This makes the NavMesh visibly bake on the stair surface rather than using invisible links alone.
     private void AddStairRampSources(List<NavMeshBuildSource> sources)
     {
-        var stairObjects = Object.FindObjectsByType<BuildingData>(FindObjectsSortMode.None);
+        var stairObjects = Object.FindObjectsByType<BuildingData>();
         foreach (var bd in stairObjects)
         {
             if (bd.Data == null || !bd.Data.CanUseStairs) continue;
@@ -183,7 +201,7 @@ public class NavMeshManager : MonoBehaviour
         if (surface.collectObjects != CollectObjects.All)
             return new Bounds(surface.transform.TransformPoint(surface.center), surface.size);
 
-        var renderers = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+        var renderers = Object.FindObjectsByType<Renderer>();
         Bounds b = new Bounds();
         bool hasBounds = false;
 
@@ -246,7 +264,7 @@ public class NavMeshManager : MonoBehaviour
 
             if (Time.realtimeSinceStartup - _lastModifierUpdate > 5f || _modifierCache.Count == 0)
             {
-                _modifierCache = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>(FindObjectsSortMode.None));
+                _modifierCache = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>());
                 _lastModifierUpdate = Time.realtimeSinceStartup;
             }
 

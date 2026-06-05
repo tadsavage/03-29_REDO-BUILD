@@ -303,7 +303,7 @@ public class RatBehavior : MonoBehaviour
         if (isHiding || isScurryingAway) return;
 
         bool nearMate = false;
-        foreach (var other in FindObjectsByType<RatBehavior>(FindObjectsSortMode.None))
+        foreach (var other in FindObjectsByType<RatBehavior>())
         {
             if (other == this) continue;
             if (Vector3.Distance(transform.position, other.transform.position) < breedingRadius)

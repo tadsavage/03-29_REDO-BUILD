@@ -74,7 +74,7 @@ public class GraphicsPresetManager : MonoBehaviour
         QualitySettings.lodBias              = 2.0f;
         QualitySettings.anisotropicFiltering = AnisotropicFiltering.ForceEnable;
         SetCameraAA(AntialiasingMode.SubpixelMorphologicalAntiAliasing);
-        Debug.Log("[Graphics] Ultra applied.");
+        //Debug.Log("[Graphics] Ultra applied.");
     }
 
     private void ApplyGood()
@@ -93,7 +93,7 @@ public class GraphicsPresetManager : MonoBehaviour
         QualitySettings.lodBias              = 1.5f;
         QualitySettings.anisotropicFiltering = AnisotropicFiltering.Enable;
         SetCameraAA(AntialiasingMode.FastApproximateAntialiasing);
-        Debug.Log("[Graphics] Good applied.");
+        //Debug.Log("[Graphics] Good applied.");
     }
 
     private void ApplyToaster()
@@ -108,11 +108,11 @@ public class GraphicsPresetManager : MonoBehaviour
         _urp.mainLightShadowmapResolution    = 1024;
         // supportsSoftShadows is read-only on URP asset
         _urp.maxAdditionalLightsCount        = 2;
-        _urp.supportsHDR                     = false;
+        _urp.supportsHDR                     = false; 
         QualitySettings.lodBias              = 0.7f;
         QualitySettings.anisotropicFiltering = AnisotropicFiltering.Disable;
         SetCameraAA(AntialiasingMode.FastApproximateAntialiasing);
-        Debug.Log("[Graphics] Toaster applied.");
+        //Debug.Log("[Graphics] Toaster applied.");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

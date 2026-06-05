@@ -39,6 +39,9 @@ public class NoWaypointIndicator : MonoBehaviour
     [Tooltip("Seconds without a meaningful destination before the ? appears. "  +
              "Keeps it from flickering during the brief gap between waypoints.")]
     [SerializeField] private float stuckGraceSeconds = 2f;
+    [Tooltip("Seconds the agent can have a complete path but zero velocity before " +
+             "being considered physically blocked (wall, door, equipment, congestion).")]
+    [SerializeField] private float physicallyBlockedGrace = 3f;
 
     // ── Runtime ───────────────────────────────────────────────────────────────
     private AiNavigation _aiNav;
@@ -47,8 +50,12 @@ public class NoWaypointIndicator : MonoBehaviour
     private TextMeshPro  _tmp;
 
     private float _alpha;
-    private float _hoverPhase;    // randomised so agents don't all bob in sync
-    private float _stuckTimer;    // seconds agent has had no meaningful destination
+    private float _hoverPhase;         // randomised so agents don't all bob in sync
+    private float _stuckTimer;         // seconds agent has had no meaningful destination
+    private float _velocityStuckTimer; // seconds agent has been stationary despite a complete path
+
+    /// <summary>True while the "?" is fading in or fully visible — used by AgentAnimation to trigger the waving clip.</summary>
+    public bool IsShowingIndicator => _alpha > 0.05f;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -90,14 +97,35 @@ public class NoWaypointIndicator : MonoBehaviour
 
     private void Update()
     {
+        // ── Physically-blocked detection ──────────────────────────────────────
+        // An agent with a fully-complete NavMesh path, a distant destination, but
+        // no movement is blocked by a physical obstacle (door, wall, equipment,
+        // congestion) that the NavMesh doesn't know about.
+        bool hasCompletePath = _agent.isActiveAndEnabled && _agent.isOnNavMesh
+            && !_agent.pathPending && _agent.hasPath
+            && _agent.path.status == NavMeshPathStatus.PathComplete
+            && _agent.remainingDistance > _agent.stoppingDistance + 0.3f;
+
+        // Never count as stuck while traversing an off-mesh link (stairwell, bridge, etc.).
+        // The agent's velocity is 0 during manual link traversal, which would be a false positive.
+        bool onOffMeshLink = _agent.isOnOffMeshLink;
+
+        if (hasCompletePath && !onOffMeshLink && _agent.velocity.sqrMagnitude < 0.01f)
+            _velocityStuckTimer += Time.deltaTime;
+        else
+            _velocityStuckTimer = 0f;
+
+        bool physicallyBlocked = _velocityStuckTimer >= physicallyBlockedGrace;
+
+        // ── No-destination detection ──────────────────────────────────────────
         // Accumulate time without a meaningful destination; reset the moment one exists.
         if (HasMeaningfulDestination())
             _stuckTimer = 0f;
         else
             _stuckTimer += Time.deltaTime;
 
-        // Only show after the grace window to avoid flickering during normal waypoint hops.
-        bool wantsVisible = _stuckTimer >= stuckGraceSeconds;
+        // Show when either: no reachable destination, OR physically blocked by an obstacle.
+        bool wantsVisible = (_stuckTimer >= stuckGraceSeconds) || physicallyBlocked;
 
         float targetAlpha = wantsVisible ? 1f : 0f;
         float fadeSpeed   = wantsVisible

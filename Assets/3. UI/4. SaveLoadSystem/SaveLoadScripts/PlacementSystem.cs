@@ -206,15 +206,15 @@ public class PlacementSystem : MonoBehaviour
         }
 
         // Guidance lines
-        var guid = Object.FindFirstObjectByType<NavAgentGuidance>();
+        var guid = Object.FindAnyObjectByType<NavAgentGuidance>();
         if (guid != null) save.guidanceLinesVisible = guid.showGuidanceLine;
 
         // Hover popup
-        var hoverUI = Object.FindFirstObjectByType<WorldHoverPopupUI>();
+        var hoverUI = Object.FindAnyObjectByType<WorldHoverPopupUI>();
         if (hoverUI != null) save.hoverPopupEnabled = hoverUI.IsEnabled;
 
         // Waypoint visibility — read from first Waypoint's mesh renderer
-        var wp = Object.FindFirstObjectByType<Waypoint>();
+        var wp = Object.FindAnyObjectByType<Waypoint>();
         if (wp != null)
         {
             var mr = wp.GetComponentInChildren<MeshRenderer>();
@@ -266,15 +266,15 @@ public class PlacementSystem : MonoBehaviour
         ToolsWindowController.Instance?.SetWindowPosition(save.toolsWindowX, save.toolsWindowY);
 
         // Restore guidance lines
-        foreach (var g in Object.FindObjectsByType<NavAgentGuidance>(FindObjectsSortMode.None))
+        foreach (var g in Object.FindObjectsByType<NavAgentGuidance>())
             g.showGuidanceLine = save.guidanceLinesVisible;
 
         // Restore hover popup state
-        var hoverUI = Object.FindFirstObjectByType<WorldHoverPopupUI>();
+        var hoverUI = Object.FindAnyObjectByType<WorldHoverPopupUI>();
         if (hoverUI != null) hoverUI.SetEnabled(save.hoverPopupEnabled);
 
         // Restore waypoints visibility
-        foreach (var w in Object.FindObjectsByType<Waypoint>(FindObjectsSortMode.None))
+        foreach (var w in Object.FindObjectsByType<Waypoint>())
             foreach (var r in w.GetComponentsInChildren<MeshRenderer>())
                 r.enabled = save.waypointsVisible;
 
@@ -401,7 +401,7 @@ private void OnSlotSaveCompleted(int slotIndex)
         var result = new List<DevSettingEntry>();
         var seen   = new HashSet<string>();
 
-        foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+        foreach (var mb in FindObjectsByType<MonoBehaviour>())
         {
             if (mb == null) continue;
             string typeName = mb.GetType().Name;
@@ -427,7 +427,7 @@ private void OnSlotSaveCompleted(int slotIndex)
     {
         // Group all matching scene components by type name
         var byType = new Dictionary<string, List<MonoBehaviour>>();
-        foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+        foreach (var mb in FindObjectsByType<MonoBehaviour>())
         {
             if (mb == null) continue;
             string tn = mb.GetType().Name;

@@ -230,7 +230,7 @@ public static class BenchSetup
     // -------------------------------------------------------------------------
     static void AddToFlavorCategory(ObjDataSO so1, ObjDataSO so2)
     {
-        var buildMenuUI = Object.FindFirstObjectByType<BuildMenuUI>();
+        var buildMenuUI = Object.FindAnyObjectByType<BuildMenuUI>();
         if (!buildMenuUI)
         {
             Debug.LogWarning("[BenchSetup] BuildMenuUI not found. Open the Main scene and re-run.");

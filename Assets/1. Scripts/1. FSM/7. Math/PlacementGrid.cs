@@ -314,6 +314,46 @@ public class PlacementGrid : MonoBehaviour
         return height;
     }
 
+    /// <summary>
+    /// Same as GetStackHeight but skips entries whose data has canBeReplacedByDoor == true.
+    /// Used by the validator when placing a door so walls don't inflate per-cell heights
+    /// and cause the level-surface check to fail across a multi-cell door footprint.
+    /// </summary>
+    public float GetStackHeightIgnoringWalls(Vector2Int cell, GameObject ignore = null)
+    {
+        if (!IsInsideGrid(cell)) return 0f;
+
+        var list = _cells[cell.x, cell.y];
+        if (list == null) return 0f;
+
+        float height = 0f;
+        bool groundHeightAdded = false;
+
+        foreach (var entry in list)
+        {
+            if (entry.instance == ignore || (entry.instance != null && !entry.instance.activeSelf))
+                continue;
+            if (entry.data != null && (entry.data.canBeReplacedByDoor || entry.data.replacesWalls))
+                continue;
+
+            bool isGround = IsGround(entry.data);
+
+            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
+                continue;
+
+            if (isGround)
+            {
+                if (!groundHeightAdded) { height += entry.data.objHeight; groundHeightAdded = true; }
+            }
+            else
+            {
+                height += entry.data.objHeight;
+            }
+        }
+
+        return height;
+    }
+
     public bool CanStack(Vector2Int cell, ObjDataSO data)
 {
         if (!IsInsideGrid(cell))

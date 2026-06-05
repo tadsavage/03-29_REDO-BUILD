@@ -83,13 +83,13 @@ public class PlacementStateMachine : MonoBehaviour
     private void Start()
     {
         // Find shared systems
-        _raycast = FindFirstObjectByType<RaycastController>();
-        _indicator = FindFirstObjectByType<CellIndicatorController>();
-        _preview = FindFirstObjectByType<PreviewController>();
-        PlacementValidator validator = FindFirstObjectByType<PlacementValidator>();
-        PlacementFinalizer finalizer = FindFirstObjectByType<PlacementFinalizer>();
-        PlacementGrid grid = FindFirstObjectByType<PlacementGrid>();
-        _buildMenuUI = FindFirstObjectByType<BuildMenuUI>();
+        _raycast = FindAnyObjectByType<RaycastController>();
+        _indicator = FindAnyObjectByType<CellIndicatorController>();
+        _preview = FindAnyObjectByType<PreviewController>();
+        PlacementValidator validator = FindAnyObjectByType<PlacementValidator>();
+        PlacementFinalizer finalizer = FindAnyObjectByType<PlacementFinalizer>();
+        PlacementGrid grid = FindAnyObjectByType<PlacementGrid>();
+        _buildMenuUI = FindAnyObjectByType<BuildMenuUI>();
 
         if (_raycast != null) _raycast.EnableRay();
 
@@ -98,7 +98,7 @@ public class PlacementStateMachine : MonoBehaviour
         // ---------------------------------------------------------
         if (Context == null)
         {
-            var ctx = FindFirstObjectByType<GameContext>();
+            var ctx = FindAnyObjectByType<GameContext>();
             if (ctx != null) Initialize(ctx);
         }
 

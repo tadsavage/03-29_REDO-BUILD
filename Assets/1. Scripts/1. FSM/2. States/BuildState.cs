@@ -46,6 +46,10 @@ public class BuildState : IPlacementState
     private readonly List<Vector2Int> _indicatorBuffer = new();
     private readonly List<Vector2Int> _footprintBuffer = new();
 
+    // Objects ghosted with the orange-line shader during hover to show they will be replaced
+    private readonly Dictionary<Renderer, Material[]> _replacementOriginalMaterials = new();
+    private Material _ghostReplaceOrangeMat;
+
 public bool IsPlacementState => true;
     public ObjDataSO CurrentData => _currentData;
     public bool IsDragging => _isDragging;
@@ -126,6 +130,7 @@ public bool IsPlacementState => true;
         _indicator.ClearAll();
         _preview.Hide();
         _costUI.Hide();
+        ClearReplacementHighlights();
 
         _actions.BuildPlacement.Place.canceled -= OnPlacePerformed;
         _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
@@ -239,9 +244,19 @@ public bool IsPlacementState => true;
         // ---------------------------------------------------------
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
+        // Snap to nearest replaceable target so door/wall previews land on the
+        // correct cell even when the raycast hits an adjacent face.
+        if (_currentData.replacesWalls || _currentData.canBeReplacedByDoor)
+            root = SnapToReplaceTarget(root, offsets, _currentData);
+
         _preview.MoveTo(_grid.GetCellCenter(root), root, _currentData);
 
         bool isValid = _validator.IsValidPlacement(root, offsets, _currentData);
+
+        // Orange-tint objects that will be replaced so the player sees what disappears.
+        ClearReplacementHighlights();
+        if (isValid)
+            HighlightReplacementTargets(root, offsets, _currentData);
 
         _indicator.ShowCells(
             BuildFootprintBuffered(root, offsets),
@@ -336,6 +351,9 @@ public bool IsPlacementState => true;
 
         Vector2Int root = _raycast.HitCell;
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
+
+        if (_currentData.replacesWalls || _currentData.canBeReplacedByDoor)
+            root = SnapToReplaceTarget(root, offsets, _currentData);
 
         bool isValid = _validator.IsValidPlacement(root, offsets, _currentData);
 
@@ -533,6 +551,92 @@ public bool IsPlacementState => true;
                 return false;
         }
         return true;
+    }
+
+    // ---------------------------------------------------------
+    // DOOR / WALL REPLACEMENT HELPERS
+    // ---------------------------------------------------------
+
+    /// <summary>
+    /// Returns true if any cell in the given footprint contains an object
+    /// that this data item would replace (wall↔door mutual replacement).
+    /// </summary>
+    private bool HasReplaceableTarget(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
+    {
+        foreach (var o in offsets)
+        {
+            var objs = _grid.GetObjectsInCell(root + o);
+            if (objs == null) continue;
+            foreach (var entry in objs)
+            {
+                if (entry.instance == null || !entry.instance.activeSelf || entry.data == null) continue;
+                if (data.replacesWalls       && entry.data.canBeReplacedByDoor) return true;
+                if (data.canBeReplacedByDoor && entry.data.replacesWalls)       return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// If the current hover cell has no replaceable target, try the four
+    /// cardinal neighbours and return the first one that does. This fixes
+    /// the common case where the raycast lands on the face-adjacent cell
+    /// instead of the wall/door cell itself.
+    /// </summary>
+    private Vector2Int SnapToReplaceTarget(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
+    {
+        if (HasReplaceableTarget(root, offsets, data)) return root;
+
+        Vector2Int[] dirs = { new(0,1), new(0,-1), new(1,0), new(-1,0) };
+        foreach (var d in dirs)
+        {
+            Vector2Int candidate = root + d;
+            if (HasReplaceableTarget(candidate, offsets, data))
+                return candidate;
+        }
+        return root;
+    }
+
+    /// <summary>
+    /// Swaps every renderer on objects being replaced to the GhostReplacerOrange
+    /// material, storing originals so ClearReplacementHighlights can restore them.
+    /// </summary>
+    private void HighlightReplacementTargets(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
+    {
+        if (_ghostReplaceOrangeMat == null)
+            _ghostReplaceOrangeMat = Resources.Load<Material>("Materials/GhostReplacerOrange");
+        if (_ghostReplaceOrangeMat == null) return;
+
+        var seen = new HashSet<GameObject>();
+        foreach (var o in offsets)
+        {
+            var objs = _grid.GetObjectsInCell(root + o);
+            if (objs == null) continue;
+            foreach (var entry in objs)
+            {
+                if (entry.instance == null || !entry.instance.activeSelf || entry.data == null) continue;
+                bool isTarget = (data.replacesWalls       && entry.data.canBeReplacedByDoor)
+                             || (data.canBeReplacedByDoor && entry.data.replacesWalls);
+                if (!isTarget || !seen.Add(entry.instance)) continue;
+
+                foreach (var r in entry.instance.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r == null || _replacementOriginalMaterials.ContainsKey(r)) continue;
+                    _replacementOriginalMaterials[r] = r.sharedMaterials;
+
+                    var ghost = new Material[r.sharedMaterials.Length];
+                    for (int i = 0; i < ghost.Length; i++) ghost[i] = _ghostReplaceOrangeMat;
+                    r.sharedMaterials = ghost;
+                }
+            }
+        }
+    }
+
+    private void ClearReplacementHighlights()
+    {
+        foreach (var kvp in _replacementOriginalMaterials)
+            if (kvp.Key != null) kvp.Key.sharedMaterials = kvp.Value;
+        _replacementOriginalMaterials.Clear();
     }
 
     public void SetBuildData(ObjDataSO data)

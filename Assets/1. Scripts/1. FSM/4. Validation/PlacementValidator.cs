@@ -26,15 +26,21 @@ public class PlacementValidator : MonoBehaviour
         }
 
         // --- 2. LEVEL SURFACE CHECK ---
-        // Determine the base height under the first footprint cell
-        Vector2Int firstCell = root + offsets[0];
-        float baseHeight = _grid.GetStackHeight(firstCell, ignore);
+        // When placing a door that replaces walls, exclude replaceable-wall heights from
+        // the comparison so that partial-wall coverage doesn't fail the check.
+        bool doorReplacingWalls = data.replacesWalls;
 
-        // All other footprint cells must match this height
+        Vector2Int firstCell = root + offsets[0];
+        float baseHeight = doorReplacingWalls
+            ? _grid.GetStackHeightIgnoringWalls(firstCell, ignore)
+            : _grid.GetStackHeight(firstCell, ignore);
+
         for (int i = 1; i < offsets.Length; i++)
         {
             Vector2Int cell = root + offsets[i];
-            float h = _grid.GetStackHeight(cell, ignore);
+            float h = doorReplacingWalls
+                ? _grid.GetStackHeightIgnoringWalls(cell, ignore)
+                : _grid.GetStackHeight(cell, ignore);
 
             if (!Mathf.Approximately(h, baseHeight))
                 return false;
@@ -114,8 +120,14 @@ public class PlacementValidator : MonoBehaviour
                 continue;
 
             // Objects that ignore rules or clear grid never block anything
-if (entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement)
+            if (entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement)
                 continue;
+
+            // Door ↔ wall mutual ghosting:
+            //   • A door (replacesWalls) ghosts through replaceable walls
+            //   • A wall (canBeReplacedByDoor) ghosts through doors
+            if (data.replacesWalls && entry.data.canBeReplacedByDoor) continue;
+            if (data.canBeReplacedByDoor && entry.data.replacesWalls) continue;
 
             // --- OVERLAP CHECK ---
             // If there is any non-floor/non-ground object here, and we aren't stacking, then we are overlapping.

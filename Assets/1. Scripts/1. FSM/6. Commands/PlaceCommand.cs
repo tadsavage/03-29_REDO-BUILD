@@ -28,6 +28,10 @@ public class PlaceCommand : ICommand
     // Net cost of replaced floors — used so we charge only the diff for tile upgrades
     private int _replacedFloorsCost;
 
+    // Walls removed when a door is placed over them (straight walls with canBeReplacedByDoor)
+    private readonly List<GameObject> _replacedWalls = new();
+    private int _wallRefundTotal; // total sell-back-adjusted refund credited for those walls
+
     private static bool IsGround(ObjDataSO d) =>
         d != null && (d.category == "Foundation" || d.category == "Grounds");
 
@@ -55,6 +59,51 @@ public class PlaceCommand : ICommand
 
         _instance.SetActive(true);
 
+        // --- Door↔Wall mutual replacement ---
+        // Doors (replacesWalls) remove overlapping walls (canBeReplacedByDoor).
+        // Walls (canBeReplacedByDoor) remove overlapping doors (replacesWalls) — entire
+        // door footprint is removed even if only one cell of the wall overlaps the door.
+        // First Execute only; Redo re-uses the cached _replacedWalls list.
+        if ((_data.replacesWalls || _data.canBeReplacedByDoor) && _replacedWalls.Count == 0)
+        {
+            var seen = new HashSet<GameObject>();
+            _wallRefundTotal = 0;
+
+            foreach (var o in _offsets)
+            {
+                var cellObjects = _grid.GetObjectsInCell(_root + o);
+                if (cellObjects == null) continue;
+
+                foreach (var placed in cellObjects.ToArray())
+                {
+                    if (placed.instance == null || placed.data == null) continue;
+
+                    bool shouldReplace = (_data.replacesWalls  && placed.data.canBeReplacedByDoor)
+                                     || (_data.canBeReplacedByDoor && placed.data.replacesWalls);
+                    if (!shouldReplace) continue;
+                    if (!seen.Add(placed.instance)) continue;
+
+                    // Remove from EVERY cell of the replaced object's footprint.
+                    // Critical for the wall→door case: a 1×1 wall must remove the
+                    // entire 3×1 or 5×1 door, not just the one overlapping cell.
+                    var bd = placed.instance.GetComponent<BuildingData>();
+                    if (bd != null)
+                        foreach (var wo in bd.Offsets)
+                            _grid.RemoveStackObject(bd.RootCell + wo, placed.instance, placed.data);
+                    else
+                        _grid.RemoveStackObject(_root + o, placed.instance, placed.data);
+
+                    placed.instance.SetActive(false);
+                    _replacedWalls.Add(placed.instance);
+
+                    int refund = Mathf.RoundToInt(placed.data.cost * _money.SellBackRate);
+                    _money.Refund(refund, placed.data.category);
+                    _money.RemoveHourlyCost(placed.data.hourlyCost);
+                    _wallRefundTotal += refund;
+                }
+            }
+        }
+
         // --- Cost handling ---
         // For floor-tile placements: charge only the difference over the old tile.
         _replacedFloorsCost = 0;
@@ -81,10 +130,15 @@ public class PlaceCommand : ICommand
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
 
-        // Floating money: net cost difference for floor upgrades; full cost otherwise
+        // Floating money: net cost (floors show diff; doors over walls show net; others show full)
         if (_data.isFloor)
         {
             int netCost = _data.cost - _replacedFloorsCost;
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -netCost);
+        }
+        else if ((_data.replacesWalls || _data.canBeReplacedByDoor) && _wallRefundTotal > 0)
+        {
+            int netCost = _data.cost - _wallRefundTotal;
             FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -netCost);
         }
         else if (_data.cost != 0)
@@ -169,6 +223,29 @@ public class PlaceCommand : ICommand
         _money.Refund(_data.cost, _data.category);
         _money.RemoveHourlyCost(_data.hourlyCost);
 
+        // Restore walls that were replaced by this door
+        if (_replacedWalls.Count > 0)
+        {
+            foreach (var wall in _replacedWalls)
+            {
+                if (wall == null) continue;
+                var po = wall.GetComponent<PlacedObject>();
+                if (po == null) continue;
+
+                wall.SetActive(true);
+
+                var bd = wall.GetComponent<BuildingData>();
+                if (bd != null)
+                    foreach (var wo in bd.Offsets)
+                        _grid.AddStackObject(bd.RootCell + wo, wall, po.data);
+
+                // Reverse the sell-back refund we gave for this wall
+                int refund = Mathf.RoundToInt(po.data.cost * _money.SellBackRate);
+                _money.Deduct(refund, po.data.category);
+                _money.AddHourlyCost(po.data.hourlyCost);
+            }
+        }
+
         // Re-enable displaced floors
         bool revealedFloor = false;
         foreach (var floor in _disabledFloors)
@@ -199,6 +276,28 @@ public class PlaceCommand : ICommand
     public void Redo()
     {
         if (_instance == null) return;
+
+        // 0. Re-disable walls replaced by this door and re-credit their sell-back value
+        if (_replacedWalls.Count > 0)
+        {
+            foreach (var wall in _replacedWalls)
+            {
+                if (wall == null) continue;
+                var po = wall.GetComponent<PlacedObject>();
+                if (po == null) continue;
+
+                var bd = wall.GetComponent<BuildingData>();
+                if (bd != null)
+                    foreach (var wo in bd.Offsets)
+                        _grid.RemoveStackObject(bd.RootCell + wo, wall, po.data);
+
+                wall.SetActive(false);
+
+                int refund = Mathf.RoundToInt(po.data.cost * _money.SellBackRate);
+                _money.Refund(refund, po.data.category);
+                _money.RemoveHourlyCost(po.data.hourlyCost);
+            }
+        }
 
         // 1. Re-disable floors replaced by primary object
         foreach (var floor in _disabledFloors)
@@ -260,6 +359,8 @@ public class PlaceCommand : ICommand
 
         if (_data.isFloor)
             FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -(_data.cost - _replacedFloorsCost));
+        else if ((_data.replacesWalls || _data.canBeReplacedByDoor) && _wallRefundTotal > 0)
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -(_data.cost - _wallRefundTotal));
         else if (_data.cost != 0)
             FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
 

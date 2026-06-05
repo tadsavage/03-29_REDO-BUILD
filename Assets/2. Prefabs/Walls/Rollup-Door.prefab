@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4358767286755653366}
   - component: {fileID: 1825702361977035177}
   m_Layer: 6
-  m_Name: GameObject
+  m_Name: NavBlocker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -42,11 +42,11 @@ NavMeshObstacle:
   m_Enabled: 1
   serializedVersion: 3
   m_Shape: 1
-  m_Extents: {x: 0.25, y: 0.5, z: 0.25}
+  m_Extents: {x: 0.365, y: 0.5, z: 0.25}
   m_MoveThreshold: 0.1
   m_Carve: 1
   m_CarveOnlyStationary: 1
-  m_Center: {x: -1.72, y: 0, z: 0}
+  m_Center: {x: -1.65, y: 0, z: 0}
   m_TimeToStationary: 0.5
 --- !u!1 &2308859793548405459
 GameObject:
@@ -59,7 +59,6 @@ GameObject:
   - component: {fileID: 5760035485099060981}
   - component: {fileID: 268976666012454540}
   - component: {fileID: 8636406916788648093}
-  - component: {fileID: 1570564751655163529}
   m_Layer: 6
   m_Name: SafetyLight
   m_TagString: Untagged
@@ -139,27 +138,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1570564751655163529
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2308859793548405459}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &2714958358603186438
 GameObject:
   m_ObjectHideFlags: 0
@@ -171,7 +149,6 @@ GameObject:
   - component: {fileID: 7721412835138205795}
   - component: {fileID: 2066895510549621094}
   - component: {fileID: 4799558245266543131}
-  - component: {fileID: 1988322005327628697}
   m_Layer: 6
   m_Name: SafetyLight
   m_TagString: Untagged
@@ -251,27 +228,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1988322005327628697
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2714958358603186438}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &2306818663000540200
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -332,6 +288,10 @@ PrefabInstance:
       propertyPath: m_StaticShadowCaster
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -6751112597110137952, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+      propertyPath: m_ReceiveGI
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: -4970778101846787804, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_LocalRotation.w
       value: 1
@@ -343,6 +303,10 @@ PrefabInstance:
     - target: {fileID: -916231596712828137, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
       value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -916231596712828137, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 493668982786726070, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_LocalRotation.w
@@ -387,6 +351,10 @@ PrefabInstance:
     - target: {fileID: 2881084792559502241, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
       propertyPath: m_Layer
       value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2881084792559502241, guid: 1e2404303cdc14c459a67e3f45279219, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -491,7 +459,7 @@ LineRenderer:
   m_MaskInteraction: 0
   m_Positions:
   - {x: 0, y: 5.0473433, z: 0.9878377}
-  - {x: 0, y: -6.4241858, z: 17.370876}
+  - {x: 0, y: -2.2748997e-17, z: 8.19619}
   m_Parameters:
     serializedVersion: 3
     widthMultiplier: 1
@@ -679,11 +647,11 @@ NavMeshObstacle:
   m_Enabled: 1
   serializedVersion: 3
   m_Shape: 1
-  m_Extents: {x: 0.25, y: 0.5, z: 0.25}
+  m_Extents: {x: 0.34, y: 0.5, z: 0.25}
   m_MoveThreshold: 0.1
   m_Carve: 1
   m_CarveOnlyStationary: 1
-  m_Center: {x: 1.75, y: 0, z: 0}
+  m_Center: {x: 1.64, y: 0, z: 0}
   m_TimeToStationary: 0.5
 --- !u!114 &1264214977941768670
 MonoBehaviour:
@@ -725,7 +693,7 @@ MonoBehaviour:
   m_OverrideGenerateLinks: 0
   m_GenerateLinks: 0
   m_IgnoreFromBuild: 0
-  m_ApplyToChildren: 0
+  m_ApplyToChildren: 1
   m_AffectedAgents: ffffffff
 --- !u!1 &6002053026919147327 stripped
 GameObject:
@@ -783,7 +751,7 @@ LineRenderer:
   m_MaskInteraction: 0
   m_Positions:
   - {x: 0, y: 5.0473433, z: -0.9888954}
-  - {x: 0, y: -6.4241858, z: -17.371935}
+  - {x: 0, y: 2.2751934e-17, z: -8.197248}
   m_Parameters:
     serializedVersion: 3
     widthMultiplier: 1

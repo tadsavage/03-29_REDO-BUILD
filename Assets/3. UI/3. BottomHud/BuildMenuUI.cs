@@ -111,7 +111,7 @@ public class BuildMenuUI : MonoBehaviour
         // Automatically initialize your stationed item popup info card 
         VisualElement stationaryPopup = GetStationedPopup();
 
-        WorldHoverPopupUI hoverSystem = FindFirstObjectByType<WorldHoverPopupUI>();
+        WorldHoverPopupUI hoverSystem = FindAnyObjectByType<WorldHoverPopupUI>();
         if (hoverSystem != null && stationaryPopup != null)
         {
             hoverSystem.Init(stationaryPopup);

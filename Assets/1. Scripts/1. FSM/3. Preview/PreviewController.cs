@@ -54,7 +54,7 @@ public class PreviewController : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        _grid = Object.FindFirstObjectByType<PlacementGrid>();
+        _grid = Object.FindAnyObjectByType<PlacementGrid>();
 
         _highlightMPB = new MaterialPropertyBlock();
         _restoreMPB = new MaterialPropertyBlock();
@@ -202,8 +202,14 @@ public class PreviewController : MonoBehaviour
     private Vector3 CalculateTargetPos(Vector3 pos, Vector2Int cell, ObjDataSO data)
     {
         if (data != null && !IsGround(data) && !_deleteMode)
-            pos.y += _grid.GetStackHeight(cell);
-
+        {
+            // Doors/walls that replace each other sit at the foundation+floor level,
+            // not on top of the existing wall/door. Skip replaced-object heights.
+            float height = (data.replacesWalls || data.canBeReplacedByDoor)
+                ? _grid.GetStackHeightIgnoringWalls(cell)
+                : _grid.GetStackHeight(cell);
+            pos.y += height;
+        }
         return pos;
     }
 

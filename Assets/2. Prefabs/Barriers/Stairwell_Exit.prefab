@@ -72,6 +72,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Stairwell_Exit
       objectReference: {fileID: 0}
+    - target: {fileID: 1126390696231621230, guid: df3c7f425b86b5a4db0130c0336d606d, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.32432994
+      objectReference: {fileID: 0}
     - target: {fileID: 1251063625506379995, guid: df3c7f425b86b5a4db0130c0336d606d, type: 3}
       propertyPath: m_Layer
       value: 3
@@ -128,6 +132,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: df3c7f425b86b5a4db0130c0336d606d, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6651196995415298353}
+    - targetCorrespondingSourceObject: {fileID: 1251063625506379995, guid: df3c7f425b86b5a4db0130c0336d606d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1565488455450314663}
   m_SourcePrefab: {fileID: 100100000, guid: df3c7f425b86b5a4db0130c0336d606d, type: 3}
 --- !u!1 &7259702005513462986 stripped
 GameObject:
@@ -217,6 +224,31 @@ MonoBehaviour:
   m_Area: 4
   m_OverrideGenerateLinks: 1
   m_GenerateLinks: 0
+  m_IgnoreFromBuild: 0
+  m_ApplyToChildren: 1
+  m_AffectedAgents: ffffffff
+--- !u!1 &8728652201870180672 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1251063625506379995, guid: df3c7f425b86b5a4db0130c0336d606d, type: 3}
+  m_PrefabInstance: {fileID: 7529681384615385499}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1565488455450314663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8728652201870180672}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifier
+  m_SerializedVersion: 0
+  m_OverrideArea: 1
+  m_Area: 4
+  m_OverrideGenerateLinks: 0
+  m_GenerateLinks: 1
   m_IgnoreFromBuild: 0
   m_ApplyToChildren: 1
   m_AffectedAgents: ffffffff

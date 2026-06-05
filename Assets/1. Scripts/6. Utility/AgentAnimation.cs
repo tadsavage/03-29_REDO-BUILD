@@ -15,15 +15,17 @@ public class AgentAnimation : MonoBehaviour
     [SerializeField] private float waypointThreshold = 0.5f;
 
     private bool isWaiting;
-    // Latches true once the agent has ever had a path, preventing spurious
-    // WaitAndTurnRoutine triggers before the first destination is assigned.
     private bool _everHadPath;
+    private NoWaypointIndicator _indicator;
+    private float _waveDelayTimer;
+    [SerializeField] private float waveDelay = 2f;
 
     void Start()
     {
-        agent = GetComponent<NavMeshAgent>();
-        animator = GetComponent<Animator>();
+        agent      = GetComponent<NavMeshAgent>();
+        animator   = GetComponent<Animator>();
         navigation = GetComponent<AiNavigation>();
+        _indicator = GetComponent<NoWaypointIndicator>();
 
         // Setup agent
         agent.speed = walkSpeed;
@@ -34,9 +36,6 @@ public class AgentAnimation : MonoBehaviour
         // CRITICAL: Disable auto-rotation to ensure we have full control over the heading.
         agent.updateRotation = false;
     }
-
-    private float stuckTimer = 0f;
-    private const float STUCK_TIMEOUT = 5f;
 
     void Update()
     {
@@ -50,29 +49,25 @@ public class AgentAnimation : MonoBehaviour
         if (agent.hasPath || agent.velocity.sqrMagnitude > 0.01f) _everHadPath = true;
 
         // 1. Flow Control
-        bool isAtDestination = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
+        // PathComplete guard: a PathPartial agent reaches remainingDistance≈0 at the
+        // nearest reachable point (edge of the blockage) — that is NOT a real arrival.
+        // Without this check WaitAndTurnRoutine fires and the agent loops endlessly.
+        bool isAtDestination = !agent.pathPending
+            && agent.remainingDistance <= agent.stoppingDistance + 0.1f
+            && agent.pathStatus == NavMeshPathStatus.PathComplete;
 
+        // Only advance to the next waypoint on genuine arrival.
+        // When blocked by an obstacle the agent stays on its current destination —
+        // NoWaypointIndicator shows the "?" and the player resolves the blockage.
         if (isAtDestination && !isWaiting && _everHadPath)
         {
             StartCoroutine(WaitAndTurnRoutine());
         }
-        else if (agent.hasPath && agent.velocity.sqrMagnitude < 0.01f)
-        {
-            stuckTimer += Time.deltaTime;
-            if (stuckTimer > STUCK_TIMEOUT)
-            {
-                stuckTimer = 0;
-                if (navigation != null) navigation.GoToRandomWaypoint();
-            }
-        }
-        else
-        {
-            stuckTimer = 0;
-        }
 
-        // 2. Manual Rotation: Always face intended movement direction
+        // 2. Manual Rotation
         if (!isWaiting && agent.desiredVelocity.sqrMagnitude > 0.01f)
         {
+            // Moving — face the direction of travel.
             Quaternion targetRot = Quaternion.LookRotation(agent.desiredVelocity.normalized);
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
@@ -80,17 +75,61 @@ public class AgentAnimation : MonoBehaviour
                 turnSpeed * Time.deltaTime
             );
         }
+        else if (!isWaiting && !isAtDestination && agent.hasPath && !agent.pathPending)
+        {
+            // Physically blocked — face the next path corner so the agent looks
+            // toward the obstacle rather than staring into space.
+            Vector3 dir = agent.steeringTarget - transform.position;
+            dir.y = 0f;
+            if (dir.sqrMagnitude > 0.01f)
+            {
+                Quaternion destRot = Quaternion.LookRotation(dir.normalized);
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, destRot, turnSpeed * Time.deltaTime);
+            }
+        }
 
         // 3. Animation Sync
         if (animator != null)
         {
-            // Only walk if moving forward relative to our heading
-            float moveHeadingDot = 0f;
-            if (agent.velocity.sqrMagnitude > 0.001f)
-                moveHeadingDot = Vector3.Dot(transform.forward, agent.velocity.normalized);
+            // Ledge traversal takes highest priority
+            bool isClimbing    = navigation != null && navigation.IsTraversingLedgeUp;
+            bool isJumpingDown = navigation != null && navigation.IsTraversingLedgeDown;
 
-            bool isWalking = agent.velocity.sqrMagnitude > 0.15f && !agent.isStopped && moveHeadingDot > 0.5f;
-            animator.SetBool("IsWalking", isWalking);
+            if (isClimbing || isJumpingDown)
+            {
+                animator.SetBool("IsClimbing",    isClimbing);
+                animator.SetBool("IsJumpingDown", isJumpingDown);
+                animator.SetBool("IsWalking",     false);
+                animator.SetBool("IsWaving",      false);
+            }
+            else
+            {
+                animator.SetBool("IsClimbing",    false);
+                animator.SetBool("IsJumpingDown", false);
+
+                bool indicatorVisible = _indicator != null && _indicator.IsShowingIndicator;
+                if (indicatorVisible)
+                    _waveDelayTimer += Time.deltaTime;
+                else
+                    _waveDelayTimer = 0f;
+
+                bool isWaving = indicatorVisible && _waveDelayTimer >= waveDelay;
+                animator.SetBool("IsWaving", isWaving);
+
+                if (isWaving)
+                {
+                    animator.SetBool("IsWalking", false);
+                }
+                else
+                {
+                    float moveHeadingDot = 0f;
+                    if (agent.velocity.sqrMagnitude > 0.001f)
+                        moveHeadingDot = Vector3.Dot(transform.forward, agent.velocity.normalized);
+
+                    bool isWalking = agent.velocity.sqrMagnitude > 0.15f && !agent.isStopped && moveHeadingDot > 0.5f;
+                    animator.SetBool("IsWalking", isWalking);
+                }
+            }
         }
     }
 

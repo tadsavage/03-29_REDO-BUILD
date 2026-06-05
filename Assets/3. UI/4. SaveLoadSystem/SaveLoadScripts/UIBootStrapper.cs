@@ -45,7 +45,7 @@ public class UIBootstrapper : MonoBehaviour
         if (_hudDocument == null)
         {
             // FIX: Changed "WorldHoverPopup" query to "TopBar" so it identifies the HUD document correctly
-            UIDocument[] docs = Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None);
+            UIDocument[] docs = Object.FindObjectsByType<UIDocument>();
             foreach (var d in docs)
             {
                 if (d.rootVisualElement != null && d.rootVisualElement.Q("TopBar") != null)
@@ -76,7 +76,7 @@ public class UIBootstrapper : MonoBehaviour
     {
         if (_buildMenuDocument == null)
         {
-            UIDocument[] docs = Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None);
+            UIDocument[] docs = Object.FindObjectsByType<UIDocument>();
             foreach (var d in docs)
             {
                 if (d.rootVisualElement != null && d.rootVisualElement.Q("BottomBar") != null)

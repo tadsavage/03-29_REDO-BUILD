@@ -12,7 +12,7 @@ public static class UIInputGuard
     {
         if (Time.realtimeSinceStartup - _lastRefresh < 2.0f && _cachedDocs.Count > 0) return;
         
-        _cachedDocs = new List<UIDocument>(Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None));
+        _cachedDocs = new List<UIDocument>(Object.FindObjectsByType<UIDocument>());
         _lastRefresh = Time.realtimeSinceStartup;
     }
 

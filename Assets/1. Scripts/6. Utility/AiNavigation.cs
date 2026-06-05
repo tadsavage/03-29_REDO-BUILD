@@ -30,6 +30,11 @@ public class AiNavigation : MonoBehaviour
 
     public bool HasWaypoints => waypoints != null && waypoints.Length > 0;
 
+    /// <summary>True while the agent is playing the Climbing animation at a ledge.</summary>
+    public bool IsTraversingLedgeUp   { get; private set; }
+    /// <summary>True while the agent is playing the JumpingDown animation at a ledge.</summary>
+    public bool IsTraversingLedgeDown { get; private set; }
+
     private void OnEnable()
     {
         NavMeshManager.OnNavMeshReady += OnNavMeshBaked;
@@ -101,6 +106,11 @@ public class AiNavigation : MonoBehaviour
     private void SetupAgentType()
     {
         if (agent == null) return;
+
+        // Must be false so TraverseLink owns the stair animation.
+        // Default true makes Unity teleport the agent through links, often landing off-mesh.
+        agent.autoTraverseOffMeshLink = false;
+
         string targetTypeName = role == AgentRole.Worker ? "Human" : "MHE";
         int count = NavMesh.GetSettingsCount();
         for (int i = 0; i < count; i++)
@@ -118,7 +128,7 @@ public class AiNavigation : MonoBehaviour
     {
         Waypoint.WaypointGroup myGroup = RoleToWaypointGroup();
 
-        Waypoint[] all = Object.FindObjectsByType<Waypoint>(FindObjectsSortMode.None);
+        Waypoint[] all = Object.FindObjectsByType<Waypoint>();
 
         var matching = new System.Collections.Generic.List<Transform>();
         foreach (var wp in all)
@@ -133,8 +143,8 @@ public class AiNavigation : MonoBehaviour
 
         // _indicator polls HasWaypoints itself — no callback needed
 
-        if (waypoints.Length == 0)
-            Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints for group '{myGroup}'.");
+        //if (waypoints.Length <= 1)
+           // Debug.LogWarning($"[AiNavigation] {gameObject.name}: no waypoints for group '{myGroup}'.");
     }
 
     private Waypoint.WaypointGroup RoleToWaypointGroup()
@@ -316,9 +326,13 @@ public class AiNavigation : MonoBehaviour
         }
 
         // ── Waypoint progression (for agents without AgentAnimation) ─────────────
+        // Only advance on a fully-complete path so a blocked agent at a partial-path
+        // endpoint is not mistakenly declared "arrived" and given a new destination.
         if (_agentAnimation == null)
         {
-            if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
+            if (!agent.pathPending
+                && agent.remainingDistance <= agent.stoppingDistance + 0.1f
+                && agent.pathStatus == NavMeshPathStatus.PathComplete)
                 GoToRandomWaypoint();
         }
     }
@@ -333,47 +347,95 @@ public class AiNavigation : MonoBehaviour
         agent.updatePosition = false;
         agent.updateRotation = false;
 
-        // Find the stairwell this agent is crossing
-        BuildingData stair = FindNearestStair();
+        OffMeshLinkData linkData = agent.currentOffMeshLinkData;
 
-        Vector3 worldBottom, worldTop;
-        if (stair != null)
+        // ── Ledge check (climb up / jump down) ──────────────────────────────────
+        LedgeLinkMarker ledge = FindNearestLedgeLink(agent.transform.position);
+        if (ledge != null)
         {
-            worldBottom = stair.transform.TransformPoint(StairLocalBottom);
-            worldTop    = stair.transform.TransformPoint(StairLocalTop);
+            // Determine which link endpoint is the destination (the one we're moving TO)
+            bool startIsClose = Vector3.Distance(agent.transform.position, linkData.startPos)
+                              < Vector3.Distance(agent.transform.position, linkData.endPos);
+            Vector3 from = agent.transform.position;
+            Vector3 to   = startIsClose ? linkData.endPos : linkData.startPos;
+            bool goingUp = to.y > from.y + 0.1f;
+
+            // Face horizontal direction of travel
+            Vector3 hDir = to - from; hDir.y = 0f;
+            if (hDir.sqrMagnitude > 0.001f)
+                agent.transform.rotation = Quaternion.LookRotation(hDir.normalized);
+
+            float duration = goingUp ? ledge.climbDuration : ledge.jumpDuration;
+
+            if (goingUp) IsTraversingLedgeUp   = true;
+            else         IsTraversingLedgeDown  = true;
+
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+
+                if (goingUp)
+                {
+                    // Smooth-step: slow start as the agent grabs the ledge, faster pull-up
+                    agent.transform.position = Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t));
+                }
+                else
+                {
+                    // Gravity feel: horizontal movement linear, vertical accelerates downward
+                    agent.transform.position = new Vector3(
+                        Mathf.Lerp(from.x, to.x, t),
+                        Mathf.Lerp(from.y, to.y, Mathf.Pow(t, 1.6f)),
+                        Mathf.Lerp(from.z, to.z, t));
+                }
+                yield return null;
+            }
+
+            agent.transform.position = to;
+            IsTraversingLedgeUp   = false;
+            IsTraversingLedgeDown = false;
         }
         else
         {
-            // Fallback: use the raw link endpoints
-            OffMeshLinkData fallback = agent.currentOffMeshLinkData;
-            worldBottom = fallback.startPos;
-            worldTop    = fallback.endPos;
+            // ── Stair traversal (existing logic) ────────────────────────────────
+            BuildingData stair = FindNearestStair();
+
+            Vector3 worldBottom, worldTop;
+            if (stair != null)
+            {
+                worldBottom = stair.transform.TransformPoint(StairLocalBottom);
+                worldTop    = stair.transform.TransformPoint(StairLocalTop);
+            }
+            else
+            {
+                worldBottom = linkData.startPos;
+                worldTop    = linkData.endPos;
+            }
+
+            bool goingUp = Vector3.Distance(agent.transform.position, worldBottom)
+                         < Vector3.Distance(agent.transform.position, worldTop);
+            Vector3 from = goingUp ? worldBottom : worldTop;
+            Vector3 to   = goingUp ? worldTop    : worldBottom;
+
+            Vector3 dir = to - from; dir.y = 0f;
+            if (dir.sqrMagnitude > 0.001f)
+                agent.transform.rotation = Quaternion.LookRotation(dir.normalized);
+
+            float dist     = Vector3.Distance(from, to);
+            float duration = dist / Mathf.Max(agent.speed, 0.1f);
+            float elapsed  = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                agent.transform.position = Vector3.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
+                yield return null;
+            }
+
+            agent.transform.position = to;
         }
 
-        // Determine direction: whichever end is closer to the agent is the FROM end
-        bool goingUp = Vector3.Distance(agent.transform.position, worldBottom)
-                     < Vector3.Distance(agent.transform.position, worldTop);
-        Vector3 from = goingUp ? worldBottom : worldTop;
-        Vector3 to   = goingUp ? worldTop    : worldBottom;
-
-        // Rotate to face horizontal direction of travel
-        Vector3 dir = to - from;
-        dir.y = 0f;
-        if (dir.sqrMagnitude > 0.001f)
-            agent.transform.rotation = Quaternion.LookRotation(dir.normalized);
-
-        float dist     = Vector3.Distance(from, to);
-        float duration = dist / Mathf.Max(agent.speed, 0.1f);
-        float elapsed  = 0f;
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            agent.transform.position = Vector3.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
-            yield return null;
-        }
-
-        agent.transform.position = to;
         agent.CompleteOffMeshLink();
         agent.updatePosition = true;
         agent.updateRotation = true;
@@ -387,7 +449,7 @@ public class AiNavigation : MonoBehaviour
     {
         if (_cachedStairs == null)
         {
-            var all = FindObjectsByType<BuildingData>(FindObjectsSortMode.None);
+            var all = FindObjectsByType<BuildingData>();
             var stairs = new System.Collections.Generic.List<BuildingData>();
             foreach (var bd in all)
                 if (bd.Data != null && bd.Data.CanUseStairs) stairs.Add(bd);
@@ -401,6 +463,22 @@ public class AiNavigation : MonoBehaviour
             if (bd == null) continue;
             float d = Vector3.Distance(agent.transform.position, bd.transform.position);
             if (d < nearestDist) { nearestDist = d; nearest = bd; }
+        }
+        return nearest;
+    }
+
+    // Ledge links are not cached — they can be placed/removed at runtime and are only
+    // queried when an agent is already on an off-mesh link (rare, not per-frame).
+    private LedgeLinkMarker FindNearestLedgeLink(Vector3 searchPos)
+    {
+        LedgeLinkMarker nearest = null;
+        float nearestDist = 6f; // wide enough to catch links on all 4 sides of a multi-cell foundation
+
+        foreach (var marker in FindObjectsByType<LedgeLinkMarker>(FindObjectsSortMode.None))
+        {
+            if (marker == null) continue;
+            float d = Vector3.Distance(searchPos, marker.transform.position);
+            if (d < nearestDist) { nearestDist = d; nearest = marker; }
         }
         return nearest;
     }

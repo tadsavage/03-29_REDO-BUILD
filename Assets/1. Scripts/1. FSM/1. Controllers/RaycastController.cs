@@ -71,12 +71,12 @@ public class RaycastController : MonoBehaviour
 
     private void Start()
     {
-        _buildMenuUI = FindFirstObjectByType<BuildMenuUI>();
+        _buildMenuUI = FindAnyObjectByType<BuildMenuUI>();
 
         // Unity wraps UXML in a TemplateContainer child of rootVisualElement.
         // Both root and TemplateContainer must be Ignore — otherwise PanelRaycaster
         // hits the full-screen TemplateContainer and blocks all game-world raycasts.
-        foreach (var doc in FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+        foreach (var doc in FindObjectsByType<UIDocument>())
         {
             if (doc.rootVisualElement == null) continue;
             doc.rootVisualElement.pickingMode = PickingMode.Ignore;

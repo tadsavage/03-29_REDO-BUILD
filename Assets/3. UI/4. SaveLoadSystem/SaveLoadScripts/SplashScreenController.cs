@@ -28,7 +28,7 @@ public class SplashScreenController : MonoBehaviour
     private IEnumerator PlaySplashSequence()
     {
         // 1. Store original visibility and hide UI Documents
-        UIDocument[] allDocs = Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None);
+        UIDocument[] allDocs = Object.FindObjectsByType<UIDocument>();
         System.Collections.Generic.Dictionary<UIDocument, DisplayStyle> originalVis = new();
 
         foreach (var doc in allDocs)

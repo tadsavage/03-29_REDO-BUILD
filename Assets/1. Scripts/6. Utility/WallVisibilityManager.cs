@@ -75,7 +75,7 @@ public class WallVisibilityManager : MonoBehaviour
     {
         _trackedWalls.RemoveAll(w => w.transform == null);
 
-        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>();
         foreach (GameObject obj in allObjects)
         {
             if (((1 << obj.layer) & wallLayer.value) != 0)

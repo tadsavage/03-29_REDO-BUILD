@@ -19,8 +19,10 @@ MonoBehaviour:
   category: Waypoints
   prefab: {fileID: 2797596930371792303, guid: 2e184948d9a185649b811af752906764, type: 3}
   icon: {fileID: 2800000, guid: 961d892a7cebea84d86b0e63ed6854bd, type: 3}
-  ignorePlacementRules: 1
+  ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 1
   navArea: 0
@@ -28,5 +30,6 @@ MonoBehaviour:
   CanUseStairs: 0
   isStackable: 0
   objHeight: 1
+  defaultFloorTile: {fileID: 0}
   footprint: {x: 1, y: 1}
   customShapeOffsets: []

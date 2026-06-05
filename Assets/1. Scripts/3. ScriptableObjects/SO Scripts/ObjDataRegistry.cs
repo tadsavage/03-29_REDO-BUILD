@@ -18,7 +18,14 @@ public class ObjDataRegistry : ScriptableObject
     {
         _lookup = new Dictionary<int, ObjDataSO>();
         foreach (var data in buttonSOs)
+        {
+            if (data == null)
+            {
+                Debug.LogWarning("[ObjDataRegistry] Null entry in buttonSOs — remove it in the Inspector.");
+                continue;
+            }
             _lookup[data.id] = data;
+        }
     }
     public ObjDataSO GetByID(int id)
     {

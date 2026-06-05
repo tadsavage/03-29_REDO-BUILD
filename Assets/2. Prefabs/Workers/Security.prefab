@@ -55,7 +55,7 @@ PrefabInstance:
     - target: {fileID: 5866666021909216657, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
       propertyPath: m_Controller
       value: 
-      objectReference: {fileID: 9100000, guid: 5fa82ae88c358f6488739c62121b57f8, type: 2}
+      objectReference: {fileID: 9100000, guid: 115ee44c755217f40a3b5f313f810a44, type: 2}
     - target: {fileID: 5866666021909216657, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
       propertyPath: m_StabilizeFeet
       value: 1
@@ -394,6 +394,8 @@ MonoBehaviour:
   yRotateSpeed: 0.7
   fadeInDuration: 1
   fadeOutDuration: 1.5
+  stuckGraceSeconds: 2
+  physicallyBlockedGrace: 3
 --- !u!65 &-4459329637524697523
 BoxCollider:
   m_ObjectHideFlags: 0

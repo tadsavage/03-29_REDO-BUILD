@@ -34,6 +34,14 @@ public class ObjDataSO : ScriptableObject
              "Floor tiles CAN be replaced by placing a different floor tile on the same cell.")]
     public bool isFloor = false;
 
+    [Tooltip("Enable on STRAIGHT wall segments only (not corners). When a door with 'replacesWalls' is placed " +
+             "over this object, it will be removed and its sell-back value credited toward the door cost.")]
+    public bool canBeReplacedByDoor = false;
+
+    [Tooltip("Enable on door-type objects (ManDoor, RollupDoor, ShippingDoor). When placed, any overlapping " +
+             "objects with 'canBeReplacedByDoor' are removed and their sell-back value offsets this door's cost.")]
+    public bool replacesWalls = false;
+
     [Header("Behavior")]
     [Tooltip("If true, placing this object will clear all existing objects in the footprint area (like a bulldozer).")]
     public bool ClearsGridAfterPlacement = false;

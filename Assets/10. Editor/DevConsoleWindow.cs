@@ -199,7 +199,7 @@ public class DevConsoleWindow : EditorWindow
     private void CmdBake()
     {
         if (!NeedPlay()) return;
-        var nm = Object.FindFirstObjectByType<NavMeshManager>();
+        var nm = Object.FindAnyObjectByType<NavMeshManager>();
         if (nm == null) { Error("NavMeshManager not found."); return; }
         nm.BakeSynchronous();
         Print("NavMesh bake complete.");
@@ -210,7 +210,7 @@ public class DevConsoleWindow : EditorWindow
         if (!NeedPlay()) return;
         if (args.Length == 0 || !int.TryParse(args[0], out int amount))
         { Error("Usage: money <amount>"); return; }
-        var ctx = Object.FindFirstObjectByType<GameContext>();
+        var ctx = Object.FindAnyObjectByType<GameContext>();
         if (ctx == null) { Error("GameContext not found."); return; }
         ctx.MoneyService.SetMoney(amount);
         Print($"Money → ${amount:N0}");
@@ -221,7 +221,7 @@ public class DevConsoleWindow : EditorWindow
         if (!NeedPlay()) return;
         if (args.Length == 0 || !int.TryParse(args[0], out int delta))
         { Error("Usage: addmoney <amount>"); return; }
-        var ctx = Object.FindFirstObjectByType<GameContext>();
+        var ctx = Object.FindAnyObjectByType<GameContext>();
         if (ctx == null) { Error("GameContext not found."); return; }
         if (delta >= 0) ctx.MoneyService.Refund(delta, "Dev Console");
         else            ctx.MoneyService.Deduct(-delta, "Dev Console");
@@ -244,7 +244,7 @@ public class DevConsoleWindow : EditorWindow
         var so = reg.GetByID(id);
         if (so == null) { Error($"No object with id {id}. Use  objects  to list ids."); return; }
 
-        var ps = Object.FindFirstObjectByType<PlacementSystem>();
+        var ps = Object.FindAnyObjectByType<PlacementSystem>();
         if (ps == null) { Error("PlacementSystem not found."); return; }
 
         ps.SpawnFromSave(so, x, y, rot);
@@ -263,7 +263,7 @@ public class DevConsoleWindow : EditorWindow
     private void CmdSave()
     {
         if (!NeedPlay()) return;
-        var ps = Object.FindFirstObjectByType<PlacementSystem>();
+        var ps = Object.FindAnyObjectByType<PlacementSystem>();
         if (ps == null) { Error("PlacementSystem not found."); return; }
         ps.SaveGame("autosave");
         Print("Saved to autosave.");
@@ -272,7 +272,7 @@ public class DevConsoleWindow : EditorWindow
     private void CmdLoad()
     {
         if (!NeedPlay()) return;
-        var ps = Object.FindFirstObjectByType<PlacementSystem>();
+        var ps = Object.FindAnyObjectByType<PlacementSystem>();
         if (ps == null) { Error("PlacementSystem not found."); return; }
         ps.LoadGame();
         Print("Autosave loaded.");
@@ -281,7 +281,7 @@ public class DevConsoleWindow : EditorWindow
     private void CmdAgents()
     {
         if (!NeedPlay()) return;
-        var agents = Object.FindObjectsByType<AiNavigation>(FindObjectsSortMode.None);
+        var agents = Object.FindObjectsByType<AiNavigation>();
         Print($"{agents.Length} agent(s):");
         foreach (var a in agents)
             Print($"  {a.gameObject.name,-28} role={a.role}");
@@ -292,7 +292,7 @@ public class DevConsoleWindow : EditorWindow
         if (!NeedPlay()) return;
         if (args.Length == 0 || !float.TryParse(args[0], out float scale))
         { Error("Usage: timescale <multiplier>  (e.g. 0.5  1  10)"); return; }
-        var ctx = Object.FindFirstObjectByType<GameContext>();
+        var ctx = Object.FindAnyObjectByType<GameContext>();
         if (ctx == null) { Error("GameContext not found."); return; }
         ctx.TimeService.SetTimeScale(scale);
         Print($"Sim time scale → {scale}×");
