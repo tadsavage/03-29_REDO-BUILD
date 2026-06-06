@@ -28,10 +28,7 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("If true, this object ignores all placement rules, always places at y=0, and never blocks anything.")]
     public bool ignorePlacementRules = false;
 
-    [Tooltip("If true, this object is a floor tile: non-blocking, zero height, placed under other objects. " +
-             "DELETION RULES: floor tiles cannot be deleted directly via the delete tool. " +
-             "Clicking a floor tile in delete mode targets the foundation beneath it. " +
-             "Floor tiles CAN be replaced by placing a different floor tile on the same cell.")]
+    [Tooltip("If true, this object behaves like a floor/lane: non-blocking, no height, can be under other objects.")]
     public bool isFloor = false;
 
     [Tooltip("Enable on STRAIGHT wall segments only (not corners). When a door with 'replacesWalls' is placed " +

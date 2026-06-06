@@ -293,7 +293,7 @@ public class PlacementSystem : MonoBehaviour
         StartCoroutine(BakeAfterDestroyFlush());
     }
 
-    private System.Collections.IEnumerator BakeAfterDestroyFlush()
+    private IEnumerator BakeAfterDestroyFlush()
     {
         yield return null; // wait one frame for Destroy() to flush
         if (NavMeshManager.Instance != null)

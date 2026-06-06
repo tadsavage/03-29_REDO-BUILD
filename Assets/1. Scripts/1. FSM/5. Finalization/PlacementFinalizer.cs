@@ -70,6 +70,17 @@ public class PlacementFinalizer : MonoBehaviour
         }
 
         Vector3 pos = _grid.GetCellCenter(root);
+
+        // For prefabs that carry a NavMeshAgent (humanoid workers, forklifts, etc.):
+        // spawn at the ACTUAL stack height of this cell rather than y=0.
+        // GetCellCenter always returns y=0, but the agent needs to start at the
+        // walkable surface height (e.g. ~1.06 on a Foundation floor) so the
+        // NavMeshAgent finds the correct NavMesh surface on its first frame.
+        // If the floor NavMesh hasn't been baked yet AiNavigation.OnNavMeshBaked()
+        // will re-snap once the bake completes.
+        if (data.prefab != null && data.prefab.GetComponent<NavMeshAgent>() != null)
+            pos.y = _grid.GetStackHeight(root);
+
         GameObject instance = Instantiate(data.prefab, pos, Quaternion.Euler(0f, rotation, 0f));
         instance.name = data.objName;
 
@@ -190,8 +201,7 @@ public class PlacementFinalizer : MonoBehaviour
 
             foreach (var entry in list)
             {
-                if (entry.data != null && entry.data.isFloor
-                    && entry.instance != null && entry.instance.activeSelf)
+                if (entry.data != null && entry.data.isFloor)
                 {
                     if (entry.data.id == data.id)
                         return true;

@@ -3,14 +3,9 @@ using TMPro;
 using UnityEngine.AI;
 
 /// <summary>
-/// Displays a red "?" above the agent's head whenever it has no meaningful destination:
-///   • No waypoints exist for its group.
-///   • Only one waypoint exists and the agent is already there (nowhere further to go).
-///   • Every waypoint is unreachable — e.g. a sealed room with no door produces a
-///     PathPartial or PathInvalid result, so the agent is effectively stuck.
-///
-/// A short grace timer prevents the ? from flickering during the normal
-/// between-waypoint moment when the agent briefly has no active path.
+/// Displays a red "?" above the agent's head when it has no waypoints to travel to.
+/// Fades out over 1.5 s once the agent has a destination and is moving.
+/// Reads directly from AiNavigation.HasWaypoints and NavMeshAgent — no callbacks needed.
 /// </summary>
 [RequireComponent(typeof(AiNavigation))]
 [RequireComponent(typeof(NavMeshAgent))]
@@ -35,6 +30,7 @@ public class NoWaypointIndicator : MonoBehaviour
     [SerializeField] private float fadeInDuration  = 0.25f;
     [SerializeField] private float fadeOutDuration = 1.5f;
 
+<<<<<<< HEAD
     [Header("Stuck Detection")]
     [Tooltip("Seconds without a meaningful destination before the ? appears. "  +
              "Keeps it from flickering during the brief gap between waypoints.")]
@@ -43,19 +39,25 @@ public class NoWaypointIndicator : MonoBehaviour
              "being considered physically blocked (wall, door, equipment, congestion).")]
     [SerializeField] private float physicallyBlockedGrace = 3f;
 
+=======
+>>>>>>> parent of f8a23768 (working on foundations and nav)
     // ── Runtime ───────────────────────────────────────────────────────────────
-    private AiNavigation _aiNav;
-    private NavMeshAgent _agent;
-    private Transform    _pivot;   // child that bobs + rotates
-    private TextMeshPro  _tmp;
+    private AiNavigation  _aiNav;
+    private NavMeshAgent  _agent;
+    private Transform     _pivot;   // child that bobs + rotates
+    private TextMeshPro   _tmp;
 
     private float _alpha;
+<<<<<<< HEAD
     private float _hoverPhase;         // randomised so agents don't all bob in sync
     private float _stuckTimer;         // seconds agent has had no meaningful destination
     private float _velocityStuckTimer; // seconds agent has been stationary despite a complete path
 
     /// <summary>True while the "?" is fading in or fully visible — used by AgentAnimation to trigger the waving clip.</summary>
     public bool IsShowingIndicator => _alpha > 0.05f;
+=======
+    private float _hoverPhase;   // randomised per agent so they don't all bob in sync
+>>>>>>> parent of f8a23768 (working on foundations and nav)
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -66,6 +68,7 @@ public class NoWaypointIndicator : MonoBehaviour
 
         BuildIndicator();
 
+        // Stagger the hover and wobble so a crowd of agents looks natural
         _hoverPhase = Random.Range(0f, Mathf.PI * 2f);
     }
 
@@ -82,6 +85,7 @@ public class NoWaypointIndicator : MonoBehaviour
         _tmp.alignment = TextAlignmentOptions.Center;
         _tmp.color     = new Color(markColor.r, markColor.g, markColor.b, 0f);
 
+        // Disable shadows on the question mark mesh so it doesn't cast weird blobs
         var mr = go.GetComponent<MeshRenderer>();
         if (mr != null)
         {
@@ -97,6 +101,7 @@ public class NoWaypointIndicator : MonoBehaviour
 
     private void Update()
     {
+<<<<<<< HEAD
         // ── Physically-blocked detection ──────────────────────────────────────
         // An agent with a fully-complete NavMesh path, a distant destination, but
         // no movement is blocked by a physical obstacle (door, wall, equipment,
@@ -126,7 +131,18 @@ public class NoWaypointIndicator : MonoBehaviour
 
         // Show when either: no reachable destination, OR physically blocked by an obstacle.
         bool wantsVisible = (_stuckTimer >= stuckGraceSeconds) || physicallyBlocked;
+=======
+        // Show whenever there are no waypoints OR the agent has no active path.
+        // We intentionally use HasWaypoints as the primary gate so the indicator
+        // does NOT flicker during the normal between-waypoint gap.
+        bool agentMoving = _agent.isActiveAndEnabled
+                        && (_agent.hasPath || _agent.pathPending)
+                        && _agent.velocity.sqrMagnitude > 0.01f;
 
+        bool wantsVisible = !_aiNav.HasWaypoints || (_aiNav.HasWaypoints && !agentMoving && !_agent.hasPath && !_agent.pathPending);
+>>>>>>> parent of f8a23768 (working on foundations and nav)
+
+        // Fade alpha toward target
         float targetAlpha = wantsVisible ? 1f : 0f;
         float fadeSpeed   = wantsVisible
             ? 1f / Mathf.Max(fadeInDuration,  0.001f)
@@ -134,7 +150,7 @@ public class NoWaypointIndicator : MonoBehaviour
 
         _alpha = Mathf.MoveTowards(_alpha, targetAlpha, fadeSpeed * Time.deltaTime);
 
-        // Toggle the GameObject so it costs nothing when fully invisible.
+        // Toggle the GameObject so it costs nothing when fully invisible
         if (_alpha <= 0f)
         {
             if (_pivot.gameObject.activeSelf) _pivot.gameObject.SetActive(false);
@@ -143,7 +159,7 @@ public class NoWaypointIndicator : MonoBehaviour
 
         if (!_pivot.gameObject.activeSelf) _pivot.gameObject.SetActive(true);
 
-        // Apply alpha.
+        // Apply alpha
         Color c = _tmp.color;
         c.a        = _alpha;
         _tmp.color = c;
@@ -153,6 +169,8 @@ public class NoWaypointIndicator : MonoBehaviour
         _pivot.localPosition = new Vector3(0f, heightAboveHead + hover, 0f);
 
         // ── Billboard + subtle Y wobble ───────────────────────────────────────
+        // Always face the main camera so the text is readable, then layer a
+        // gentle Y oscillation on top for the "slowly rotating" feel.
         Camera cam = Camera.main;
         if (cam != null)
         {
@@ -166,40 +184,5 @@ public class NoWaypointIndicator : MonoBehaviour
                 _pivot.rotation = billboardRot * Quaternion.Euler(0f, wobble, 0f);
             }
         }
-    }
-
-    /// <summary>
-    /// True when the agent genuinely has somewhere to go right now.
-    ///
-    /// Returns false when:
-    ///   - there are no waypoints for this agent's group
-    ///   - the path is PathPartial or PathInvalid (destination is unreachable)
-    ///   - there is no path and nothing is pending (SetDestination was never called
-    ///     or the agent is stuck with nowhere new to go)
-    ///   - the agent has arrived at its only waypoint and remaining distance is 0
-    ///     (it has nowhere further to travel)
-    /// </summary>
-    private bool HasMeaningfulDestination()
-    {
-        // No waypoints registered for this agent's group at all.
-        if (!_aiNav.HasWaypoints) return false;
-
-        // Agent is off-mesh or disabled — can't evaluate, give benefit of the doubt.
-        if (!_agent.isActiveAndEnabled || !_agent.isOnNavMesh) return true;
-
-        // Path is still being calculated — assume it will succeed.
-        if (_agent.pathPending) return true;
-
-        // Path exists, is fully reachable, and the agent still has real ground to cover.
-        // A PathComplete path with near-zero remaining distance means the agent has
-        // arrived (or is at its only waypoint) — treat that as "no destination".
-        if (_agent.hasPath
-            && _agent.path.status == NavMeshPathStatus.PathComplete
-            && _agent.remainingDistance > _agent.stoppingDistance + 0.2f)
-            return true;
-
-        // All other states: no path, partial path, invalid path, or arrived with
-        // no further meaningful waypoint to queue up.
-        return false;
     }
 }
