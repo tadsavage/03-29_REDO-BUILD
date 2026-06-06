@@ -30,7 +30,7 @@ public class NoWaypointIndicator : MonoBehaviour
     [SerializeField] private float fadeInDuration  = 0.25f;
     [SerializeField] private float fadeOutDuration = 1.5f;
 
-<<<<<<< HEAD
+//<<<<<<< HEAD
     [Header("Stuck Detection")]
     [Tooltip("Seconds without a meaningful destination before the ? appears. "  +
              "Keeps it from flickering during the brief gap between waypoints.")]
@@ -39,8 +39,8 @@ public class NoWaypointIndicator : MonoBehaviour
              "being considered physically blocked (wall, door, equipment, congestion).")]
     [SerializeField] private float physicallyBlockedGrace = 3f;
 
-=======
->>>>>>> parent of f8a23768 (working on foundations and nav)
+//=======
+//>>>>>>> parent of f8a23768 (working on foundations and nav)
     // ── Runtime ───────────────────────────────────────────────────────────────
     private AiNavigation  _aiNav;
     private NavMeshAgent  _agent;
@@ -48,16 +48,14 @@ public class NoWaypointIndicator : MonoBehaviour
     private TextMeshPro   _tmp;
 
     private float _alpha;
-<<<<<<< HEAD
+//<<<<<<< HEAD
     private float _hoverPhase;         // randomised so agents don't all bob in sync
     private float _stuckTimer;         // seconds agent has had no meaningful destination
     private float _velocityStuckTimer; // seconds agent has been stationary despite a complete path
 
     /// <summary>True while the "?" is fading in or fully visible — used by AgentAnimation to trigger the waving clip.</summary>
     public bool IsShowingIndicator => _alpha > 0.05f;
-=======
-    private float _hoverPhase;   // randomised per agent so they don't all bob in sync
->>>>>>> parent of f8a23768 (working on foundations and nav)
+//=======
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -101,7 +99,6 @@ public class NoWaypointIndicator : MonoBehaviour
 
     private void Update()
     {
-<<<<<<< HEAD
         // ── Physically-blocked detection ──────────────────────────────────────
         // An agent with a fully-complete NavMesh path, a distant destination, but
         // no movement is blocked by a physical obstacle (door, wall, equipment,
@@ -124,14 +121,14 @@ public class NoWaypointIndicator : MonoBehaviour
 
         // ── No-destination detection ──────────────────────────────────────────
         // Accumulate time without a meaningful destination; reset the moment one exists.
+        /*
         if (HasMeaningfulDestination())
             _stuckTimer = 0f;
         else
             _stuckTimer += Time.deltaTime;
-
+        */
         // Show when either: no reachable destination, OR physically blocked by an obstacle.
         bool wantsVisible = (_stuckTimer >= stuckGraceSeconds) || physicallyBlocked;
-=======
         // Show whenever there are no waypoints OR the agent has no active path.
         // We intentionally use HasWaypoints as the primary gate so the indicator
         // does NOT flicker during the normal between-waypoint gap.
@@ -139,8 +136,7 @@ public class NoWaypointIndicator : MonoBehaviour
                         && (_agent.hasPath || _agent.pathPending)
                         && _agent.velocity.sqrMagnitude > 0.01f;
 
-        bool wantsVisible = !_aiNav.HasWaypoints || (_aiNav.HasWaypoints && !agentMoving && !_agent.hasPath && !_agent.pathPending);
->>>>>>> parent of f8a23768 (working on foundations and nav)
+        //bool wantsVisible = !_aiNav.HasWaypoints || (_aiNav.HasWaypoints && !agentMoving && !_agent.hasPath && !_agent.pathPending);
 
         // Fade alpha toward target
         float targetAlpha = wantsVisible ? 1f : 0f;
