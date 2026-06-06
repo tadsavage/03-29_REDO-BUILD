@@ -28,6 +28,9 @@ public class PlaceCommand : ICommand
     // Net cost of replaced floors — used so we charge only the diff for tile upgrades
     private int _replacedFloorsCost;
 
+    // Full refund value credited when a ground replaces another ground (including its floor tiles)
+    private int _replacedGroundsCost;
+
     // Walls removed when a door is placed over them (straight walls with canBeReplacedByDoor)
     private readonly List<GameObject> _replacedWalls = new();
     private int _wallRefundTotal; // total sell-back-adjusted refund credited for those walls
@@ -120,26 +123,25 @@ public class PlaceCommand : ICommand
             }
         }
 
+        // For ground placements: refund the displaced ground + any floor tiles that were on it.
+        _replacedGroundsCost = 0;
+        if (IsGround(_data) && _disabledFloors.Count > 0)
+        {
+            foreach (var obj in _disabledFloors)
+            {
+                if (obj == null) continue;
+                var po = obj.GetComponent<PlacedObject>();
+                if (po?.data == null) continue;
+                _replacedGroundsCost += po.data.cost;
+                _money.Refund(po.data.cost, po.data.category);
+                _money.RemoveHourlyCost(po.data.hourlyCost);
+            }
+        }
+
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
 
-        // Floating money: net cost (floors show diff; doors over walls show net; others show full)
-        if (_data.isFloor)
-        {
-            int netCost = _data.cost - _replacedFloorsCost;
-            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -netCost);
-        }
-        else if ((_data.replacesWalls || _data.canBeReplacedByDoor) && _wallRefundTotal > 0)
-        {
-            int netCost = _data.cost - _wallRefundTotal;
-            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -netCost);
-        }
-        else if (_data.cost != 0)
-        {
-            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
-        }
-
-        // --- Auto-floor for foundations ---
+        // --- Auto-floor for foundations/grounds ---
         // Place one floor tile per footprint cell so the entire slab is covered.
         if (_data.defaultFloorTile != null && _autoFloors.Count == 0)
         {
@@ -158,6 +160,29 @@ public class PlaceCommand : ICommand
                 _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
                 _money.AddHourlyCost(_autoFloorData.hourlyCost);
             }
+        }
+
+        // Floating money: show net cost after all replacements and auto-floors.
+        if (_data.isFloor)
+        {
+            int netCost = _data.cost - _replacedFloorsCost;
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -netCost);
+        }
+        else if ((_data.replacesWalls || _data.canBeReplacedByDoor) && _wallRefundTotal > 0)
+        {
+            int netCost = _data.cost - _wallRefundTotal;
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -netCost);
+        }
+        else if (IsGround(_data))
+        {
+            // Net = new ground + auto-floor tiles - refund for old ground and its tiles
+            int netCost = _data.cost + _autoFloorTotalCost - _replacedGroundsCost;
+            if (netCost != 0)
+                FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -netCost);
+        }
+        else if (_data.cost != 0)
+        {
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
         }
 
         // Force height recalculation for all footprint cells

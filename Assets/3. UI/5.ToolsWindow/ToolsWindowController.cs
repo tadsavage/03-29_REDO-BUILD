@@ -154,6 +154,7 @@ public class ToolsWindowController : MonoBehaviour
 
         SwitchTab("dev");
         RefreshEconomy();
+        ApplySavedGlobalSettings();
     }
 
     private static void Wire<T>(string name, VisualElement root, System.Action<T> setup) where T : VisualElement
@@ -369,21 +370,24 @@ public class ToolsWindowController : MonoBehaviour
             "Show/hide path guidance lines on all NavMesh agents.",
             () => FindObjectsByType<NavAgentGuidance>(),
             (c, v) => ((NavAgentGuidance)c).showGuidanceLine = v,
-            c => ((NavAgentGuidance)c).showGuidanceLine));
+            c => ((NavAgentGuidance)c).showGuidanceLine,
+            "DevSettings_ShowGuidanceLines"));
 
         globalSection.Add(BuildGlobalToggleRow(
             "Show Waypoints",
             "Show/hide the visual waypoint markers in the scene.",
             () => FindObjectsByType<Waypoint>(),
             (c, v) => { foreach (var r in ((Waypoint)c).GetComponentsInChildren<MeshRenderer>()) r.enabled = v; },
-            c => { var r = ((Waypoint)c).GetComponentInChildren<MeshRenderer>(); return r != null && r.enabled; }));
+            c => { var r = ((Waypoint)c).GetComponentInChildren<MeshRenderer>(); return r != null && r.enabled; },
+            "DevSettings_ShowWaypoints"));
 
         globalSection.Add(BuildGlobalToggleRow(
             "Object Hover Popup",
             "Disables the object hover pop up window.",
             () => FindObjectsByType<WorldHoverPopupUI>(),
             (c, v) => ((WorldHoverPopupUI)c).SetEnabled(v),
-            c => ((WorldHoverPopupUI)c).IsEnabled));
+            c => ((WorldHoverPopupUI)c).IsEnabled,
+            "DevSettings_ObjectHoverPopup"));
 
         _contentSettings.Add(globalSection);
 
@@ -439,7 +443,8 @@ public class ToolsWindowController : MonoBehaviour
         string label, string tooltip,
         System.Func<MonoBehaviour[]> getAll,
         System.Action<MonoBehaviour, bool> setter,
-        System.Func<MonoBehaviour, bool> getter)
+        System.Func<MonoBehaviour, bool> getter,
+        string prefsKey = null)
     {
         var row = new VisualElement(); row.AddToClassList("ds-row");
         var lbl = new Label(label); lbl.AddToClassList("ds-label"); lbl.tooltip = tooltip;
@@ -448,9 +453,36 @@ public class ToolsWindowController : MonoBehaviour
         bool cur = all.Length > 0 && getter(all[0]);
         var toggle = new Toggle { value = cur };
         toggle.AddToClassList("ds-toggle");
-        toggle.RegisterValueChangedCallback(evt => { foreach (var c in getAll()) setter(c, evt.newValue); });
+        toggle.RegisterValueChangedCallback(evt =>
+        {
+            foreach (var c in getAll()) setter(c, evt.newValue);
+            if (prefsKey != null) PlayerPrefs.SetInt(prefsKey, evt.newValue ? 1 : 0);
+        });
         row.Add(toggle);
         return row;
+    }
+
+    private void ApplySavedGlobalSettings()
+    {
+        if (PlayerPrefs.HasKey("DevSettings_ShowGuidanceLines"))
+        {
+            bool v = PlayerPrefs.GetInt("DevSettings_ShowGuidanceLines") == 1;
+            foreach (var c in FindObjectsByType<NavAgentGuidance>())
+                c.showGuidanceLine = v;
+        }
+        if (PlayerPrefs.HasKey("DevSettings_ShowWaypoints"))
+        {
+            bool v = PlayerPrefs.GetInt("DevSettings_ShowWaypoints") == 1;
+            foreach (var wp in FindObjectsByType<Waypoint>())
+                foreach (var r in wp.GetComponentsInChildren<MeshRenderer>())
+                    r.enabled = v;
+        }
+        if (PlayerPrefs.HasKey("DevSettings_ObjectHoverPopup"))
+        {
+            bool v = PlayerPrefs.GetInt("DevSettings_ObjectHoverPopup") == 1;
+            foreach (var c in FindObjectsByType<WorldHoverPopupUI>())
+                c.SetEnabled(v);
+        }
     }
 
     private VisualElement BuildScriptGroup(System.Type type, MonoBehaviour target)

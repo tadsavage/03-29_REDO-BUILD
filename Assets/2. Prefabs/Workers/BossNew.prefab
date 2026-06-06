@@ -171,10 +171,12 @@ MonoBehaviour:
   role: 0
   footstepClip: {fileID: 8300000, guid: 5eecd934368cd634a81e82f913d009c2, type: 3}
   footstepVolume: 1
-  footstepPitch: 0.65
-  volumeAt10m: 1
-  volumeAt20m: 0.45
-  volumeAt30m: 0.2
+  footstepPitch: 0.6
+  volumeAt5m: 1
+  volumeAt10m: 0.75
+  volumeAt15m: 0.5
+  volumeAt20m: 0.25
+  volumeAt30m: 0.1
 --- !u!114 &900948505199721380
 MonoBehaviour:
   m_ObjectHideFlags: 0

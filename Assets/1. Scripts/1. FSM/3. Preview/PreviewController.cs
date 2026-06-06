@@ -369,6 +369,7 @@ public class PreviewController : MonoBehaviour
             typeof(NavAgentGuidance),
             typeof(AiNavigation),
             typeof(UnityEngine.AI.NavMeshAgent),
+            typeof(Rigidbody),
         };
         foreach (var type in removalOrder)
         {
@@ -394,9 +395,28 @@ public class PreviewController : MonoBehaviour
             }
         }
 
-        // Root motion on the source prefab's animator would move the ghost transform every
-        // frame based on animation curves (e.g. Climbing, JumpingDown have baked root motion).
-        // Keep the Animator for visual pose, but disable root motion so the ghost stays put.
+        // STEP 4 — Destroy every surviving Collider.
+        // The ground raycast uses Physics.Raycast; if ANY collider remains on the ghost
+        // (even on layer 2, which Unity normally ignores) it can still be returned as
+        // HitObject in the second object-raycast pass, and some paths re-use HitObject
+        // to derive HitCell. When that happens the ghost tracks its own cell and appears
+        // "stuck" — the classic self-tracking bug. Removing all Colliders is the only
+        // guarantee this can never occur, regardless of layer assignment.
+        bool colRemoved = true;
+        while (colRemoved)
+        {
+            colRemoved = false;
+            foreach (var col in ghost.GetComponentsInChildren<Collider>(true))
+            {
+                if (col == null) continue;
+                try { DestroyImmediate(col); colRemoved = true; }
+                catch { }
+            }
+        }
+
+        // Keep the Animator enabled so the ghost shows a live pose while hovering.
+        // applyRootMotion=false stops root-motion channels. Any remaining direct
+        // Transform.position curves are overridden each frame by LateUpdate().
         foreach (var anim in ghost.GetComponentsInChildren<Animator>(true))
             if (anim != null)
                 anim.applyRootMotion = false;
@@ -461,6 +481,22 @@ public class PreviewController : MonoBehaviour
                 _velocity = Vector3.zero;
             }
         }
+    }
+
+    // ---------------------------------------------------------
+    // LATE ENFORCEMENT (build mode only)
+    // ---------------------------------------------------------
+    // Animators, Rigidbodies, and other late-running systems can write to
+    // transform.position after Update(). In build mode (not move-preview)
+    // we re-apply _targetPos here so the ghost always lands exactly on the
+    // cursor cell — nothing can override it after this point.
+    private void LateUpdate()
+    {
+        if (_currentPreview == null || _isMovePreviewMode || _deleteMode)
+            return;
+
+        if (_targetPos != Vector3.zero)
+            _currentPreview.transform.position = _targetPos;
     }
 
     // ---------------------------------------------------------

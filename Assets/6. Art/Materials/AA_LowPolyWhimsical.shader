@@ -2,11 +2,21 @@ Shader "Custom/LowPolyWhimsical"
 {
     Properties
     {
-        [NoScaleOffset] _MainTex ("Shared Texture Palette", 2D) = "white" {}
+        [NoScaleOffset] _BaseMap ("Shared Texture Palette", 2D) = "white" {}
         _Tint ("Color Tint", Color) = (1,1,1,1)
         
         [NoScaleOffset] _OcclusionMap ("Occlusion Map G", 2D) = "white" {}
         _OcclusionStrength ("Occlusion Strength", Range(0.0, 1.0)) = 1.0
+
+        // --- URP/Lit compatibility shims (hidden, preserve values when switching shaders) ---
+        [HideInInspector] _BaseColor ("Base Color", Color) = (1,1,1,1)
+        [HideInInspector] _MetallicGlossMap ("Metallic Gloss Map", 2D) = "white" {}
+        [HideInInspector] _SpecGlossMap ("Spec Gloss Map", 2D) = "white" {}
+        [HideInInspector] _BumpMap ("Normal Map", 2D) = "bump" {}
+        [HideInInspector] _EmissionMap ("Emission Map", 2D) = "white" {}
+        [HideInInspector] _DetailMask ("Detail Mask", 2D) = "white" {}
+        [HideInInspector] _Smoothness ("Smoothness", Range(0.0, 1.0)) = 0.5
+        [HideInInspector] _Metallic ("Metallic", Range(0.0, 1.0)) = 0.0
 
         _ShadowColor ("Shadow Tint Color", Color) = (0.15, 0.15, 0.3, 1)
         _ShadowStep ("Toon Shadow Cutoff", Range(0.0, 1.0)) = 0.4
@@ -70,8 +80,8 @@ Shader "Custom/LowPolyWhimsical"
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
-            TEXTURE2D(_MainTex);
-            SAMPLER(sampler_MainTex);
+            TEXTURE2D(_BaseMap);
+            SAMPLER(sampler_BaseMap);
             TEXTURE2D(_OcclusionMap);
             SAMPLER(sampler_OcclusionMap);
 
@@ -115,7 +125,7 @@ Shader "Custom/LowPolyWhimsical"
             {
                 UNITY_SETUP_INSTANCE_ID(input);
 
-                half4 baseColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) * _Tint;
+                half4 baseColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv) * _Tint;
                 float rawAO = SAMPLE_TEXTURE2D(_OcclusionMap, sampler_OcclusionMap, input.uvAO).g;
                 float aoFactor = lerp(1.0, rawAO, _OcclusionStrength);
 

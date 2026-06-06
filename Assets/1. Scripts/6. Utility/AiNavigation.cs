@@ -18,9 +18,11 @@ public class AiNavigation : MonoBehaviour
     [SerializeField, Range(0.1f, 3f)] private float footstepPitch = 1f;
 
     [Header("Footstep Rolloff (Custom)")]
-    [SerializeField, Range(0f, 1f)] private float volumeAt10m = 1f;
-    [SerializeField, Range(0f, 1f)] private float volumeAt20m = 0.5f;
-    [SerializeField, Range(0f, 1f)] private float volumeAt30m = 0f;
+    [SerializeField, Range(0f, 1f)] private float volumeAt5m = 1f;
+    [SerializeField, Range(0f, 1f)] private float volumeAt10m = 0.75f;
+    [SerializeField, Range(0f, 1f)] private float volumeAt15m = 0.5f;
+    [SerializeField, Range(0f, 1f)] private float volumeAt20m = 0.25f;
+    [SerializeField, Range(0f, 1f)] private float volumeAt30m = 0.1f;
 
     private Transform[] waypoints;
     private NavMeshAgent agent;
@@ -594,7 +596,9 @@ public class AiNavigation : MonoBehaviour
         // volumeAt30m at max distance. Unity returns 0 beyond maxDistance.
         var curve = new AnimationCurve(
             new Keyframe(0f,        1f),
+            new Keyframe(5f / 30f, volumeAt5m),
             new Keyframe(10f / 30f, volumeAt10m),
+            new Keyframe(15f / 30f, volumeAt15m),
             new Keyframe(20f / 30f, volumeAt20m),
             new Keyframe(1f,        volumeAt30m)
         );

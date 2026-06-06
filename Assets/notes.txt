@@ -47,15 +47,21 @@ DONE >> Create a Fenceobject and add it to the game. It should be able to be pla
 DONE >> switchboard for all settings (e.g. music setting, sound effects setting, splash screen, speeds of things, etc.) Just go through all the empty objects in scene with serialized fields on them.
 DONE >> Added Vending Machines, dumpster, etc. More Flavor.
 DONE >> Setup a Graphics Settings menu with options for things like resolution, quality, etc.
-Done >> Security Guards
-Done >> Fencing for outside areas with barbed wire on top
-Done >> gate for truck entrance
-Done >> turnstiles for employee entrance
-Done >> guard shack
-Done >> drivers lounge
-Done >> Stairs that lead to yard
-Done >> Vending Machines
-Done>>Popups for showing information about objects in the world when you hover over them. (e.g. when you hover over a building, it shows the name and cost of the building)
+DONE >> Security Guards
+DONE >> Fencing for outside areas with barbed wire on top
+DONE >> gate for truck entrance
+DONE >> turnstiles for employee entrance
+DONE >> guard shack
+DONE >> drivers lounge
+DONE >> Stairs that lead to yard
+DONE >> Vending Machines
+DONE >> Popups for showing information about objects in the world when you hover over them. (e.g. when you hover over a building, it shows the name and cost of the building)
+DONE >> Grid changed from 60x60 to 100x100.
+DONE >> Waypoints look ugly. They're glow in the dark. I just want regular albedo 's. 
+DONE >> Guidance line looks like shit - what happened
+DONE >> Get angent back on top of surfaces
+DONE >> Slow down footsteps and fuck with spatial volume
+DONE >>Get agent ghost preview to follow raytrace
 
 TODO
 Rats hide inside pallets and boxes and come out when a worker is nearby and run to another location in the warehouse. They can also damage inventory and cause other problems for the player, so they need to be added to the game as a pest control challenge for the player to deal with.
@@ -75,29 +81,25 @@ Stat displays for employees (e.g. when you click on an employee, it shows their 
 Implement chat bubbles and reaction emoticons over their heads.
 
 Due Today 06-01-2026
-DONE>>Grid changed from 60x60 to 100x100.
-Add the Blender shader
-Get agent ghost preview to follow raytrace
-Get angent back on top of surfaces
+Add back in the floor prefabs to the foundation object  
+
 Get agents to pathfind around objects in the way of their path.
 Get agents to stop and have a 1.5s delay before walking to the next waypoint.
-Slow down footsteps and fuck with spatial volume
 Make new benches
-Fix Thumbnails for ground prefabs and more
+Fix Thumbnails - Need a thumbnail added 4 yard ground . Need a thumbnail for Yard tile under floors Category  
 Update yard thumb in floor buttons
 Jump down implementer
 Climb up implemented
 Camera is back to old one - need the one like in the SIms 4
-Guidance line looks like shit - what happened
 On save/load ui - the keystrokes are registering through the UI and making the camera move.
 DevTools is not letting me click the checkboxes when game objects are behind it.
 Missing Materials on vending machines
 Make all UIs match Artic Blaze aesthetic 
-Waypoints look ugly. They're glow in the dark. I just want regular albedo 's. 
 Find scripts that are parenting objects in hierarchy automatically I can't see what's in the scene There are no clones I would like for a script that possibly parents categories of objects under emp empty game objects in the hierarchy such as floor tiles or flavor or whatever 
 Update the script that will allow me to download a prefab and some kind of app UI interface where I can just drag that model into a serialized game object field and have drop downs that will allow me to assign category name  And then automatically create prefabs inside they prefab category hook it up to the Objectso registry as well as the bottom bar UI category items automatically assign a unique key set up all the components set up box Collider and anything else that might be needed for that category to speed up production process and possibly to be used in later projects 
-If the question mark is floating over the agents head for a certain amount of time let's say three seconds or more a REB A rebake of the NAS mes a vanav mesh should automatically take place it's that way we can keep checking to try to get the navagant's moving again Would that be a performance hit A significant performance hit anyways ? 
+If the question mark is floating over the agents head for a certain amount of time let's say three seconds or more A rebake of the navmesh surface should automatically take place it's that way we can keep checking to try to get the navagant's moving again Would that be a performance hit A significant performance hit anyways ? 
 Let's make it so that if I change resolutions the UI elements always automatically scale with the size of the frame of desktop settings Or whatever resolution we're 
+Add the Blender shader - moving to bottom - CM is slow as fuck
 
 
 
