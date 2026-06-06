@@ -78,6 +78,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5c81e098fb773d44eb3d02f1dc604887, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4304034282737266608}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5c81e098fb773d44eb3d02f1dc604887, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5651656550369376921}
   m_SourcePrefab: {fileID: 100100000, guid: 5c81e098fb773d44eb3d02f1dc604887, type: 3}
 --- !u!1 &6269753735943479528 stripped
 GameObject:
@@ -186,5 +189,19 @@ MonoBehaviour:
   halfCellSize: 0.665
   floorNudge: 0.4
   linkWidth: 1.2
+  climbDuration: 1.2
+  jumpDuration: 0.8
+--- !u!114 &5651656550369376921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6269753735943479528}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 853ba37ceb3f9a946a3578808db41f84, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LedgeLinkMarker
   climbDuration: 1.2
   jumpDuration: 0.8

@@ -41,10 +41,12 @@ public class GameContext : MonoBehaviour
             fsm.Initialize(this);
 
         var ui = FindAnyObjectByType<BuildMenuUI>();
-        ui.Initialize(MoneyService);
+        if (ui != null) ui.Initialize(MoneyService);
+        else Debug.LogError("[GameContext] BuildMenuUI not found in scene.");
 
         var placement = FindAnyObjectByType<PlacementSystem>();
-        placement.Initialize(MoneyService);
+        if (placement != null) placement.Initialize(MoneyService);
+        else Debug.LogError("[GameContext] PlacementSystem not found in scene.");
 
         TimeService.OnHourChanged += () => MoneyService.ApplyHourlyCost();
         TimeService.OnDayChanged += () => MoneyService.ResetDailySpending();

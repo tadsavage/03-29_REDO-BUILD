@@ -102,7 +102,7 @@ public class NavMeshManager : MonoBehaviour
 
     private void RefreshNavMeshLinks()
     {
-        foreach (var link in Object.FindObjectsByType<Unity.AI.Navigation.NavMeshLink>(FindObjectsSortMode.None))
+        foreach (var link in Object.FindObjectsByType<Unity.AI.Navigation.NavMeshLink>(FindObjectsInactive.Exclude))
         {
             if (link == null || !link.isActiveAndEnabled) continue;
             link.enabled = false;

@@ -21,11 +21,13 @@ MonoBehaviour:
   icon: {fileID: 2800000, guid: 0f7426c18124df7439533dbfba473982, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
-  ClearsGridAfterPlacement: 0
-  pathfindingClear: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
+  ClearsGridAfterPlacement: 1
+  pathfindingClear: 1
   navArea: 0
-  allowedAgents: 5
-  CanUseStairs: 0
+  allowedAgents: 0
+  CanUseStairs: 1
   isStackable: 0
   objHeight: 2
   defaultFloorTile: {fileID: 0}

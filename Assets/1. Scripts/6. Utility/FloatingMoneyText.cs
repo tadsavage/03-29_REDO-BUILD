@@ -74,7 +74,7 @@ public class FloatingMoneyText : MonoBehaviour
         _label.fontSize  = FontSize;
         _label.alignment = TextAlignmentOptions.Center;
         _label.fontStyle = FontStyles.Bold;
-        _label.enableWordWrapping = false;
+        _label.textWrappingMode = TextWrappingModes.NoWrap;
         _label.outlineWidth = 0.18f;
         _label.outlineColor = new Color32(0, 0, 0, 200);
 

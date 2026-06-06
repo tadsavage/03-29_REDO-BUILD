@@ -78,6 +78,11 @@ namespace SaveLoadSystem
 
             // 2. Capture thumbnail (async — writes PNG at end of frame)
             string thumbFileName = $"slot_{slotIndex}_thumb.png";
+            if (thumbnailCapture == null)
+            {
+                Debug.LogError("[SaveManager] thumbnailCapture is not assigned — save aborted.");
+                return;
+            }
             thumbnailCapture.CaptureThumbnail(saveFolderPath, thumbFileName, (tex) =>
             {
                 if (tex != null) Destroy(tex);

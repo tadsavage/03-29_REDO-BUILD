@@ -182,7 +182,33 @@ public class PreviewController : MonoBehaviour
     public void MoveTo(Vector3 pos, Vector2Int cell, ObjDataSO data)
     {
         _targetPos = CalculateTargetPos(pos, cell, data);
+
+        if (_currentPreview == null)
+        {
+            _hasTarget = true;
+            return;
+        }
+
+        // BUILD MODE: the ghost must sit EXACTLY on the cell indicator with zero lag.
+        // Snap it directly every frame and clear _hasTarget so Update()'s SmoothDamp
+        // doesn't drag it off the cell. (SmoothDamp lag — driven by serialized
+        // moveSmoothTime/Speed — was making the ghost appear to "stick" or jump.)
+        if (!_isMovePreviewMode)
+        {
+            _currentPreview.transform.position = _targetPos;
+            _velocity = Vector3.zero;
+            _hasTarget = false;
+            return;
+        }
+
+        // MOVE-PREVIEW MODE: keep the smooth lift animation. Snap only when the ghost
+        // is far away (first-show at prefab origin, or re-entry onto the grid).
         _hasTarget = true;
+        if ((_currentPreview.transform.position - _targetPos).sqrMagnitude > 9f)
+        {
+            _currentPreview.transform.position = _targetPos;
+            _velocity = Vector3.zero;
+        }
     }
 
     public void SnapTo(Vector3 baselinePos, Vector2Int cell, ObjDataSO data)
@@ -303,31 +329,77 @@ public class PreviewController : MonoBehaviour
         GameObject ghost = Instantiate(source);
         ghost.name = source.name + "_Ghost";
 
-        // Set to Ignore Raycast layer (2) so it doesn't block its own raycasts
-        ghost.layer = 2; 
+        // Set EVERY object in the hierarchy to Ignore Raycast (layer 2).
+        // Setting only the root leaves child colliders on the default layer — the
+        // raycast then hits the ghost instead of the floor, causing the ghost to
+        // track its own position and appear stuck where it is.
+        foreach (var t in ghost.GetComponentsInChildren<Transform>(true))
+            t.gameObject.layer = 2;
 
-        // Destroy non-visual components. Components must be removed in dependency order
-        // (dependents before their dependencies) to avoid "can't remove X because Y depends on it".
-        // We retry the loop until no more components can be removed.
+        // STEP 1 — NEUTRALIZE before destroying. A NavMeshAgent is the thing that
+        // pins the ghost to the NavMesh surface (it overrides transform.position every
+        // frame and clamps it to walkable mesh, so the ghost sticks at foundation edges).
+        // Disabling it + updatePosition=false guarantees the ghost is free to follow the
+        // cursor EVEN IF the DestroyImmediate cleanup below fails for any reason
+        // (e.g. a future RequireComponent dependency we don't know about). Disable the
+        // AI behaviours too so their Start()/Update() coroutines never drive the agent.
+        foreach (var a in ghost.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true))
+        {
+            if (a == null) continue;
+            a.updatePosition = false;
+            a.updateRotation = false;
+            a.enabled = false;
+        }
+        foreach (var b in ghost.GetComponentsInChildren<Behaviour>(true))
+        {
+            // Keep Animator (visual pose) and Light. Kill every other behaviour —
+            // AiNavigation, NoWaypointIndicator, NavAgentGuidance, PlacedObject, etc.
+            if (b == null || b is Animator || b is Light) continue;
+            b.enabled = false;
+        }
+
+        // STEP 2 — Destroy RequireComponent dependents in order so the shared
+        // dependencies can be removed cleanly. NoWaypointIndicator requires both
+        // AiNavigation AND NavMeshAgent; NavAgentGuidance requires NavMeshAgent.
+        // Removing them out of order makes DestroyImmediate fail silently and leaves
+        // the agent alive — hence the explicit order here.
+        var removalOrder = new System.Type[]
+        {
+            typeof(NoWaypointIndicator),
+            typeof(NavAgentGuidance),
+            typeof(AiNavigation),
+            typeof(UnityEngine.AI.NavMeshAgent),
+        };
+        foreach (var type in removalOrder)
+        {
+            foreach (var comp in ghost.GetComponentsInChildren(type, true))
+            {
+                if (comp != null)
+                    try { DestroyImmediate(comp); } catch { }
+            }
+        }
+
+        // STEP 3 — Generic pass: remove everything else that is not a visual component.
+        // NavMeshAgent and friends are already gone, so this runs without dependency errors.
         bool removed = true;
         while (removed)
         {
             removed = false;
-            
-            foreach (var comp in ghost.GetComponentsInChildren<Component>())
+            foreach (var comp in ghost.GetComponentsInChildren<Component>(true))
             {
                 if (comp is Transform || comp is Renderer || comp is MeshFilter || comp is Light || comp is Animator)
                     continue;
-
-                try
-                {
-                    DestroyImmediate(comp);
-                    removed = true;
-                }
+                try { DestroyImmediate(comp); removed = true; }
                 catch { }
             }
-            
         }
+
+        // Root motion on the source prefab's animator would move the ghost transform every
+        // frame based on animation curves (e.g. Climbing, JumpingDown have baked root motion).
+        // Keep the Animator for visual pose, but disable root motion so the ghost stays put.
+        foreach (var anim in ghost.GetComponentsInChildren<Animator>(true))
+            if (anim != null)
+                anim.applyRootMotion = false;
 
         if (_ghostMaterial != null)
         {

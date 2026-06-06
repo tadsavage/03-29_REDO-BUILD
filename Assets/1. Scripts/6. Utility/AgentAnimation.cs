@@ -7,6 +7,7 @@ public class AgentAnimation : MonoBehaviour
     private NavMeshAgent agent;
     private Animator animator;
     private AiNavigation navigation;
+    private Rigidbody _rb;
 
     [Header("Movement Settings")]
     [SerializeField] private float walkSpeed = 2f;
@@ -20,12 +21,21 @@ public class AgentAnimation : MonoBehaviour
     private float _waveDelayTimer;
     [SerializeField] private float waveDelay = 2f;
 
+    // Rotation is computed in Update() but applied in LateUpdate() so it fires
+    // after the NavMeshAgent's PreLateUpdate step, which otherwise resets the
+    // transform rotation to zero before user LateUpdates run.
+    private Quaternion _pendingRotation;
+    private bool _hasPendingRotation;
+
     void Start()
     {
         agent      = GetComponent<NavMeshAgent>();
         animator   = GetComponent<Animator>();
         navigation = GetComponent<AiNavigation>();
         _indicator = GetComponent<NoWaypointIndicator>();
+        _rb        = GetComponent<Rigidbody>();
+
+        _pendingRotation = transform.rotation;
 
         // Setup agent
         agent.speed = walkSpeed;
@@ -33,7 +43,7 @@ public class AgentAnimation : MonoBehaviour
         agent.acceleration = 12f;
         agent.stoppingDistance = waypointThreshold;
 
-        // CRITICAL: Disable auto-rotation to ensure we have full control over the heading.
+        // Disable NavMeshAgent auto-rotation — AgentAnimation owns the heading.
         agent.updateRotation = false;
     }
 
@@ -49,49 +59,44 @@ public class AgentAnimation : MonoBehaviour
         if (agent.hasPath || agent.velocity.sqrMagnitude > 0.01f) _everHadPath = true;
 
         // 1. Flow Control
-        // PathComplete guard: a PathPartial agent reaches remainingDistance≈0 at the
-        // nearest reachable point (edge of the blockage) — that is NOT a real arrival.
-        // Without this check WaitAndTurnRoutine fires and the agent loops endlessly.
         bool isAtDestination = !agent.pathPending
             && agent.remainingDistance <= agent.stoppingDistance + 0.1f
             && agent.pathStatus == NavMeshPathStatus.PathComplete;
 
-        // Only advance to the next waypoint on genuine arrival.
-        // When blocked by an obstacle the agent stays on its current destination —
-        // NoWaypointIndicator shows the "?" and the player resolves the blockage.
         if (isAtDestination && !isWaiting && _everHadPath)
         {
             StartCoroutine(WaitAndTurnRoutine());
         }
 
-        // 2. Manual Rotation
-        if (!isWaiting && agent.desiredVelocity.sqrMagnitude > 0.01f)
+        // 2. Compute target rotation — stored for LateUpdate application.
+        // NavMeshAgent's internal update runs in PreLateUpdate and resets
+        // transform.rotation before user LateUpdate, so we must apply rotation
+        // there (not here) to win the ordering battle.
+        if (!isWaiting)
         {
-            // Moving — face the direction of travel.
-            Quaternion targetRot = Quaternion.LookRotation(agent.desiredVelocity.normalized);
-            transform.rotation = Quaternion.RotateTowards(
-                transform.rotation,
-                targetRot,
-                turnSpeed * Time.deltaTime
-            );
-        }
-        else if (!isWaiting && !isAtDestination && agent.hasPath && !agent.pathPending)
-        {
-            // Physically blocked — face the next path corner so the agent looks
-            // toward the obstacle rather than staring into space.
-            Vector3 dir = agent.steeringTarget - transform.position;
-            dir.y = 0f;
-            if (dir.sqrMagnitude > 0.01f)
+            Vector3 flatDesired = new Vector3(agent.desiredVelocity.x, 0f, agent.desiredVelocity.z);
+            if (flatDesired.sqrMagnitude > 0.01f)
             {
-                Quaternion destRot = Quaternion.LookRotation(dir.normalized);
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, destRot, turnSpeed * Time.deltaTime);
+                Quaternion targetRot = Quaternion.LookRotation(flatDesired.normalized);
+                _pendingRotation = Quaternion.RotateTowards(_pendingRotation, targetRot, turnSpeed * Time.deltaTime);
+                _hasPendingRotation = true;
+            }
+            else if (!isAtDestination && agent.hasPath && !agent.pathPending)
+            {
+                Vector3 dir = agent.steeringTarget - transform.position;
+                dir.y = 0f;
+                if (dir.sqrMagnitude > 0.01f)
+                {
+                    Quaternion destRot = Quaternion.LookRotation(dir.normalized);
+                    _pendingRotation = Quaternion.RotateTowards(_pendingRotation, destRot, turnSpeed * Time.deltaTime);
+                    _hasPendingRotation = true;
+                }
             }
         }
 
         // 3. Animation Sync
         if (animator != null)
         {
-            // Ledge traversal takes highest priority
             bool isClimbing    = navigation != null && navigation.IsTraversingLedgeUp;
             bool isJumpingDown = navigation != null && navigation.IsTraversingLedgeDown;
 
@@ -122,15 +127,22 @@ public class AgentAnimation : MonoBehaviour
                 }
                 else
                 {
-                    float moveHeadingDot = 0f;
-                    if (agent.velocity.sqrMagnitude > 0.001f)
-                        moveHeadingDot = Vector3.Dot(transform.forward, agent.velocity.normalized);
-
-                    bool isWalking = agent.velocity.sqrMagnitude > 0.15f && !agent.isStopped && moveHeadingDot > 0.5f;
+                    bool isWalking = agent.velocity.sqrMagnitude > 0.15f && !agent.isStopped && !isWaiting;
                     animator.SetBool("IsWalking", isWalking);
                 }
             }
         }
+    }
+
+    // LateUpdate runs after NavMeshAgent's PreLateUpdate internal reset.
+    // Apply the rotation computed in Update() here so nothing overwrites it.
+    // AiNavigation.LateUpdate() (same object, earlier component order) already
+    // synced position, so we just need to commit rotation.
+    void LateUpdate()
+    {
+        if (!_hasPendingRotation) return;
+        transform.rotation = _pendingRotation;
+        if (_rb != null) _rb.MoveRotation(_pendingRotation);
     }
 
     private IEnumerator WaitAndTurnRoutine()
@@ -142,19 +154,14 @@ public class AgentAnimation : MonoBehaviour
 
         yield return new WaitForSeconds(idleDelay);
 
-        // Pick the next waypoint — always re-scans so newly placed ones are found.
         if (navigation != null)
             navigation.GoToRandomWaypoint();
 
-        // One frame for the path request to register before resuming.
         yield return null;
 
-        // Always resume — cleanup runs regardless of NavMesh state so the agent
-        // is never left permanently stopped.
         if (agent != null && agent.isActiveAndEnabled)
             agent.isStopped = false;
 
         isWaiting = false;
     }
 }
-

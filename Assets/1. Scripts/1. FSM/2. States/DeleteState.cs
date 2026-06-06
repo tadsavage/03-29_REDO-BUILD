@@ -168,6 +168,11 @@ public class DeleteState : IPlacementState
         if (Mouse.current.leftButton.wasReleasedThisFrame && _hover != null)
         {
             var bd = _hover.GetComponent<BuildingData>();
+            if (bd == null)
+            {
+                ClearHover();
+                return;
+            }
 
             // IMPORTANT: Clear highlight before deleting/disabling
             ClearHover();

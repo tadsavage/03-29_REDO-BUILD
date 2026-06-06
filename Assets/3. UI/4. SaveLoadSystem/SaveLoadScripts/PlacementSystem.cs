@@ -107,10 +107,18 @@ public class PlacementSystem : MonoBehaviour
         Vector2Int cell = new Vector2Int(x, y);
         Vector3 worldPos = grid.GetCellCenter(cell);
 
+        bool hasAgent = so.prefab.GetComponent<UnityEngine.AI.NavMeshAgent>() != null;
         GameObject go = Instantiate(so.prefab, worldPos,
-                                    Quaternion.Euler(0f, rot * 90f, 0f), _objectsContainer);
+                                    Quaternion.Euler(0f, rot * 90f, 0f),
+                                    hasAgent ? null : _objectsContainer);
 
         PlacedObject po = go.GetComponent<PlacedObject>();
+        if (po == null)
+        {
+            Debug.LogError($"[PlacementSystem] Prefab '{so.name}' is missing a PlacedObject component. Destroying instance.");
+            Destroy(go);
+            return null;
+        }
         po.Initialize(so, x, y, rot);
 
         PlacedObjectRegistry.Register(po);
@@ -308,9 +316,18 @@ public class PlacementSystem : MonoBehaviour
         Vector3 worldPos = grid.GetCellCenter(root);
         worldPos.y += stackY;
 
-        GameObject go = Instantiate(so.prefab, worldPos,Quaternion.Euler(0f, rotationDeg, 0f), _objectsContainer);
+        bool hasAgent = so.prefab.GetComponent<UnityEngine.AI.NavMeshAgent>() != null;
+        GameObject go = Instantiate(so.prefab, worldPos,
+                                    Quaternion.Euler(0f, rotationDeg, 0f),
+                                    hasAgent ? null : _objectsContainer);
 
         PlacedObject po = go.GetComponent<PlacedObject>();
+        if (po == null)
+        {
+            Debug.LogError($"[PlacementSystem] Prefab '{so.name}' (id={so.id}) is missing a PlacedObject component. Skipping.");
+            Destroy(go);
+            return null;
+        }
         po.Initialize(so, x, y, rot);
         po.customData = customData;
 
@@ -319,6 +336,12 @@ public class PlacementSystem : MonoBehaviour
         if (pb != null) pb.LoadBuildState();
 
         BuildingData bd = go.GetComponent<BuildingData>();
+        if (bd == null)
+        {
+            Debug.LogError($"[PlacementSystem] Prefab '{so.name}' (id={so.id}) is missing a BuildingData component. Skipping.");
+            Destroy(go);
+            return null;
+        }
         Vector2Int[] offsets = so.GetFootprintOffsets(-rotationDeg);
         bd.Initialize(root, rotationDeg, offsets, so);
 

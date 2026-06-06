@@ -104,7 +104,37 @@ public class PlacementFinalizer : MonoBehaviour
             _grid.AddStackObject(cell, instance, data);
         }
 
+        // For mobile agents, set Y from the actual renderer bounds of floor tiles in the cell.
+        // objHeight is the tile's physical thickness (0.05f), not its elevation (1.06f),
+        // so the stacking math would leave the agent at Y≈0 — fix that here.
+        if (instance.GetComponent<NavMeshAgent>() != null)
+        {
+            float floorTopY = GetFloorTopY(root);
+            instance.transform.position = new Vector3(pos.x, floorTopY, pos.z);
+        }
+
         return instance;
+    }
+
+    private float GetFloorTopY(Vector2Int cell)
+    {
+        float topY = 0f;
+        var cellObjects = _grid.GetObjectsInCell(cell);
+        if (cellObjects == null) return topY;
+
+        foreach (var entry in cellObjects)
+        {
+            if (entry.instance == null || entry.data == null) continue;
+            // Include floor tiles AND Foundation/Grounds — previously only isFloor was
+            // checked, so agents placed on a bare foundation got floorTopY=0 → y=0.
+            bool isSurface = entry.data.isFloor
+                || entry.data.category == "Foundation"
+                || entry.data.category == "Grounds";
+            if (!isSurface) continue;
+            foreach (var r in entry.instance.GetComponentsInChildren<Renderer>())
+                topY = Mathf.Max(topY, r.bounds.max.y);
+        }
+        return topY;
     }
 
     private bool IsGround(ObjDataSO data)

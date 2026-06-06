@@ -509,6 +509,8 @@ MonoBehaviour:
   yRotateSpeed: 0.7
   fadeInDuration: 0.25
   fadeOutDuration: 1.5
+  stuckGraceSeconds: 2
+  physicallyBlockedGrace: 3
 --- !u!1001 &4337254659362521858
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -533,7 +535,15 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3756171118655377320, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4737448340635025031, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5672173797442903100, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}

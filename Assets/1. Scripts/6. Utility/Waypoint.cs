@@ -59,13 +59,14 @@ public class Waypoint : MonoBehaviour
     {
         Vector3 pos = transform.position;
 
-        // Search upward first (waypoint may be below the floor), then at current
-        // height, then slightly below — whichever finds the walkable mesh first.
-        float[] yOffsets = { 2f, 0.5f, 0f, -0.5f };
+        // Search upward first (waypoint lands at y=0 from the grid; floor surface is ~1.06m up).
+        // Radius 1f is tight enough to avoid snapping to a different foundation one tile over.
+        // Dense offsets bridge the gap between y=0 and y=1.06 without missing the surface.
+        float[] yOffsets = { 2f, 1.5f, 1.0f, 0.5f, 0f, -0.5f };
         foreach (float offset in yOffsets)
         {
             Vector3 sample = new Vector3(pos.x, pos.y + offset, pos.z);
-            if (NavMesh.SamplePosition(sample, out NavMeshHit hit, 3f, NavMesh.AllAreas))
+            if (NavMesh.SamplePosition(sample, out NavMeshHit hit, 1f, NavMesh.AllAreas))
             {
                 transform.position = new Vector3(pos.x, hit.position.y, pos.z);
                 return;

@@ -25,9 +25,10 @@ public class PreviewCostUI : MonoBehaviour
         _label.style.display = DisplayStyle.Flex;
         _label.text = $"Build Cost: ${cost:N0}";
 
+        // Off-White (#F5F6F9) when affordable; Pop-Orange (#FF7F11) when not
         _label.style.color = canAfford
-            ? new StyleColor(new Color(.9f, 0.85f, 0.75f))
-            : new StyleColor(Color.red);
+            ? new StyleColor(new Color(0.961f, 0.965f, 0.976f))
+            : new StyleColor(new Color(1f, 0.498f, 0.067f));
     }
 
     public void SetScreenPosition(Vector3 worldPos, Camera cam)

@@ -1,0 +1,29 @@
+{
+  "name": "com.unity.ai.assistant",
+  "displayName": "Assistant",
+  "version": "2.11.0-pre.1",
+  "unity": "6000.0",
+  "description": "Assistant is a generative AI tool integrated into the Unity Editor to explore ideas, answer questions, and perform actions directly in the project. Use natural-language prompts to interact with Assistant in a conversation-based interface. Depending on the mode you choose, Assistant can either provide guidance or take action in your scene and assets.\n\nAsk\nFocuses on explanation and guidance. Assistant answers questions, suggests workflows, and inspects your project using read-only tools without modifying your content.\n\nAgent\nFocuses on action. Assistant can create, modify, or remove objects and assets by calling the Unity Editor tools. All actions respect your permission settings and require approval when needed.\n\nAssistant is designed to be project-aware, helping you work more efficiently without leaving the Unity Editor. It also provides tools for adding generative AI to Unity asset workflows.",
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "com.unity.modules.unitywebrequest": "1.0.0",
+    "com.unity.modules.uielements": "1.0.0",
+    "com.unity.2d.sprite": "1.0.0",
+    "com.unity.mathematics": "1.3.2",
+    "com.unity.nuget.mono-cecil": "1.11.5"
+  },
+  "unityRelease": "60f1",
+  "_upm": {
+    "changelog": "### Added\n- MCP Streamable HTTP transport — configure remote MCP servers in `mcp.json` with `type: \"http\"`, `url`, and optional `headers`.\n- XML documentation for the public API surface used by external agent tools.\n\n### Changed\n- Restoring a checkpoint now shows a confirmation dialog listing the files that will be affected (Added / Modified / Deleted) before proceeding.\n- Users can now browse past conversations when out of credits.\n\n### Fixed\n- A failed checkpoint restore could leave the project in a partially-modified state. It now rolls back to the pre-restore HEAD if any step fails.\n- Light mode issue on start page.\n- Light mode issue with settings button in generator window.\n- Remove false-positive \"Summarizing...\" status in chat.\n- The chat window would stop updating partway through a word while the rest of the answer was already in the editor.\n- Unity AI tag for meshes generated 3d assets.\n\n### Security\n- Checkpoint initialization now verifies that all project files were captured in the initial snapshot. If verification fails, checkpoints are disabled and the Settings view surfaces which files are missing along with Retry and \"Initialize Anyway\" options."
+  },
+  "upmCi": {
+    "footprint": "f0a4cd047b1d03c77f84836c2f829d0555adebcf"
+  },
+  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.ai.assistant@2.11/manual/index.html",
+  "repository": {
+    "url": "https://github.cds.internal.unity3d.com/unity/muse-editor.git",
+    "type": "git",
+    "revision": "f527f766f9932d0690c6ee7c0a7269de5e093354"
+  },
+  "_fingerprint": "e1f49a972172094d0fff5ad72e35d120e071d561"
+}

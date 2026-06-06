@@ -72,6 +72,10 @@ PrefabInstance:
       propertyPath: m_ApplyRootMotion
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6700540341333034510, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: e711b9fd6c1eb314ea8c0be6abf7d855, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -159,7 +163,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AiNavigation
   role: 0
   footstepClip: {fileID: 8300000, guid: 5eecd934368cd634a81e82f913d009c2, type: 3}
-  footstepVolume: 1
+  footstepVolume: 0.5
 --- !u!114 &4287778642630683992
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -173,9 +177,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AgentAnimation
   walkSpeed: 3
-  turnSpeed: 200
+  turnSpeed: 500
   idleDelay: 0.5
   waypointThreshold: 0.75
+  waveDelay: 2
 --- !u!195 &2437371579185781596
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -196,7 +201,7 @@ NavMeshAgent:
   m_AutoRepath: 1
   m_Height: 2
   m_BaseOffset: 0
-  m_WalkableMask: 25
+  m_WalkableMask: 61
   m_ObstacleAvoidanceType: 4
 --- !u!54 &4652045024478113605
 Rigidbody:
@@ -238,12 +243,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavAgentGuidance
   showGuidanceLine: 1
-  colorType: 1
+  colorType: 7
   lineWidth: 0.1
   isDashed: 1
   pointsPerSegment: 10
-  verticalOffset: 0.05
-  guidanceMaterial: {fileID: 2100000, guid: d4ad64ebc615eaf48a32b5c4c9d5eeaa, type: 2}
+  verticalOffset: 0.1
+  guidanceMaterial: {fileID: -876546973899608171, guid: dea41a882d6ef87489402d2409c08094, type: 3}
 --- !u!65 &-4542155788421991356
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -263,8 +268,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.5, y: 1, z: 0.5}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 1, y: 2, z: 1}
+  m_Center: {x: 0, y: 1, z: 0}
 --- !u!114 &7123400000000000004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -305,6 +310,8 @@ MonoBehaviour:
   yRotateSpeed: 0.7
   fadeInDuration: 1
   fadeOutDuration: 1.5
+  stuckGraceSeconds: 2
+  physicallyBlockedGrace: 3
 --- !u!82 &6599169515318372109
 AudioSource:
   m_ObjectHideFlags: 0

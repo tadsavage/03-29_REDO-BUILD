@@ -27,7 +27,12 @@ public class AiNavigation : MonoBehaviour
     private AudioSource _footstepSource;
     private NoWaypointIndicator _indicator;
     private AmbientMumble _mumble;
+    private Animator _animator;
+    private Rigidbody _rb;
 
+    // Temporary diagnostic state for the walk-in-place check in Update().
+    private Vector3 _diagLastPos;
+    private float _diagTimer;
     public bool HasWaypoints => waypoints != null && waypoints.Length > 0;
 
     /// <summary>True while the agent is playing the Climbing animation at a ledge.</summary>
@@ -54,6 +59,11 @@ public class AiNavigation : MonoBehaviour
 
         FindWaypoints();
 
+        // Always snap — the agent may be on the y=0 ground plane instead of the
+        // y=1.06 foundation surface when placed before the bake completes.
+        // SnapToNavMeshSurface searches upward first, so it prefers the higher surface.
+        SnapToNavMeshSurface();
+
         if (!agent.isOnNavMesh) return;
 
         if (!initialized && waypoints != null && waypoints.Length > 0)
@@ -76,7 +86,20 @@ public class AiNavigation : MonoBehaviour
         _agentAnimation = GetComponent<AgentAnimation>();
         _indicator = GetComponent<NoWaypointIndicator>();
         _mumble    = GetComponent<AmbientMumble>();
+        _animator  = GetComponent<Animator>();
+        _rb        = GetComponent<Rigidbody>();
         SetupAgentType();
+
+        // updatePosition is DELIBERATELY false. The agent shares its GameObject with a
+        // kinematic Rigidbody (required so gates/doors get OnTrigger callbacks). With
+        // updatePosition=true the agent reads the transform back every frame and resets
+        // its internal simulation to it; the Rigidbody's physics transform-sync reverts
+        // the transform to a stale pose first, so the agent resets to its start position
+        // every frame — full velocity, zero progress ("walks in place", stuck at spawn Y).
+        // With updatePosition=false the agent simulates freely; we copy agent.nextPosition
+        // onto the transform AND the Rigidbody in LateUpdate (below), so physics can never
+        // freeze pathfinding and the agent always renders on the correct surface.
+        if (agent != null) agent.updatePosition = false;
 
         if (footstepClip != null)
         {
@@ -103,13 +126,34 @@ public class AiNavigation : MonoBehaviour
         FindWaypoints();
     }
 
+    // Search upward from the agent's current position (0.5f-radius at each offset) to find the
+    // nearest walkable surface above — floor tiles (Y≈1.06) are found before the ground plane (Y≈0).
+    // Called unconditionally after each NavMesh bake so agents always land on the right surface.
+    private void SnapToNavMeshSurface()
+    {
+        if (agent == null) return;
+        float[] yOffsets = { 1.5f, 1.0f, 0.5f, 0.0f, -0.5f };
+        foreach (float offset in yOffsets)
+        {
+            Vector3 sample = new Vector3(transform.position.x, transform.position.y + offset, transform.position.z);
+            if (NavMesh.SamplePosition(sample, out NavMeshHit hit, 0.5f, NavMesh.AllAreas))
+            {
+                try { agent.Warp(hit.position); } catch { }
+                return;
+            }
+        }
+    }
+
     private void SetupAgentType()
     {
         if (agent == null) return;
 
-        // Must be false so TraverseLink owns the stair animation.
-        // Default true makes Unity teleport the agent through links, often landing off-mesh.
-        agent.autoTraverseOffMeshLink = false;
+        // TRUE so Unity auto-carries the agent across off-mesh links (foundation
+        // climb/jump, stairs). Manual traversal (TraverseLink) is DISABLED — see
+        // Update() — because it left agents frozen with updatePosition=false, which
+        // produced the "walks in place but never moves" bug. The custom climb/jump
+        // animation can be re-added later, but agents must actually move first.
+        agent.autoTraverseOffMeshLink = true;
 
         string targetTypeName = role == AgentRole.Worker ? "Human" : "MHE";
         int count = NavMesh.GetSettingsCount();
@@ -196,13 +240,10 @@ public class AiNavigation : MonoBehaviour
         }
 
         // ── Snap to surface ─────────────────────────────────────────────────────
-        if (!agent.isOnNavMesh)
-        {
-            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
-            {
-                try { agent.Warp(hit.position); } catch { }
-            }
-        }
+        // Always snap — even if the agent is already "on" the NavMesh, it may be on
+        // the wrong surface (ground plane at Y=0 instead of floor tiles at Y=1.06).
+        // Search upward first so floor-tile NavMesh is preferred over the ground plane.
+        SnapToNavMeshSurface();
 
         if (!agent.isOnNavMesh)
         {
@@ -257,14 +298,44 @@ public class AiNavigation : MonoBehaviour
 
     private void Update()
     {
-        // ── Stair / off-mesh link traversal ─────────────────────────────────────
-        if (!_traversingLink && agent != null && agent.isOnOffMeshLink)
+        // ── Off-mesh link traversal (foundation climb-up / jump-down) ────────────
+        // MANUAL traversal is DISABLED. autoTraverseOffMeshLink=true (SetupAgentType)
+        // lets Unity carry the agent across links itself. The animated climb/jump can
+        // return later as a proper OffMeshLink animation pass.
+        //
+        // NOTE: agent.updatePosition is intentionally kept false for the whole lifetime
+        // (see Awake). LateUpdate drives transform + Rigidbody from agent.nextPosition,
+        // which keeps the agent moving correctly and on the right surface even though a
+        // kinematic Rigidbody shares the GameObject. Do NOT force updatePosition back on
+        // here — that re-introduces the physics/agent reset fight that freezes movement.
+
+        // ROOT MOTION FIX: an Animator with applyRootMotion=true on the same object as
+        // a NavMeshAgent overrides the agent's position via OnAnimatorMove every frame.
+        // With an in-place walk clip that pins the transform → "walks in place" while
+        // agent.velocity stays high. The agent drives locomotion here, not animation,
+        // so root motion must stay OFF. (Climb traversal is disabled, so nothing needs it.)
+        if (_animator != null && _animator.applyRootMotion)
         {
-            StartCoroutine(TraverseLink());
-            return;
+            _animator.applyRootMotion = false;
+            Debug.LogWarning($"[NavDiag] {name}: Animator.applyRootMotion was TRUE — forced OFF. " +
+                             $"This was the walk-in-place cause.");
         }
 
-        if (_traversingLink) return;
+        // ── DIAGNOSTIC (temporary): catch walk-in-place if it ever recurs ────────
+        _diagTimer += Time.deltaTime;
+        if (_diagTimer >= 1f)
+        {
+            _diagTimer = 0f;
+            float moved = (transform.position - _diagLastPos).magnitude;
+            if (agent != null && agent.isOnNavMesh && agent.velocity.magnitude > 0.2f && moved < 0.05f)
+                Debug.LogWarning($"[NavDiag] {name} WALK-IN-PLACE: vel={agent.velocity.magnitude:F2} " +
+                                 $"updatePos={agent.updatePosition} " +
+                                 $"rootMotion={(_animator != null && _animator.applyRootMotion)} " +
+                                 $"stopped={agent.isStopped} speed={agent.speed:F1} " +
+                                 $"onLink={agent.isOnOffMeshLink} " +
+                                 $"y={transform.position.y:F2}");
+            _diagLastPos = transform.position;
+        }
 
         // ── Recovery: re-initialize if Start() gave up ──────────────────────────
         if (!initialized)
@@ -335,6 +406,28 @@ public class AiNavigation : MonoBehaviour
                 && agent.pathStatus == NavMeshPathStatus.PathComplete)
                 GoToRandomWaypoint();
         }
+    }
+
+    // ── Drive transform + Rigidbody from the agent simulation ────────────────
+    // agent.updatePosition is false (see Awake), so the NavMeshAgent simulates its
+    // path internally without being corrupted by the shared kinematic Rigidbody. Here
+    // we copy the agent's authoritative nextPosition onto the transform AND the
+    // Rigidbody every frame. Writing the Rigidbody too keeps physics in sync so it can
+    // never revert the transform to a stale pose (the cause of the agent being stuck at
+    // spawn Y ≈ 0 and "walking in place" instead of climbing onto the foundation).
+    private void LateUpdate()
+    {
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return;
+        // While a manual link traversal coroutine is running it drives the transform
+        // itself (currently disabled, but guard anyway).
+        if (_traversingLink) return;
+
+        Vector3 np = agent.nextPosition;
+        transform.position = np;
+        if (_rb != null)
+            _rb.MovePosition(np);
+        // Rotation is owned by AgentAnimation.LateUpdate() — do not set _rb.rotation
+        // here, as it fires before AgentAnimation's LateUpdate and would overwrite it.
     }
 
     // Local-space positions of the bottom and top of the stair walkway on the stairwell prefab
@@ -474,7 +567,7 @@ public class AiNavigation : MonoBehaviour
         LedgeLinkMarker nearest = null;
         float nearestDist = 6f; // wide enough to catch links on all 4 sides of a multi-cell foundation
 
-        foreach (var marker in FindObjectsByType<LedgeLinkMarker>(FindObjectsSortMode.None))
+        foreach (var marker in FindObjectsByType<LedgeLinkMarker>(FindObjectsInactive.Exclude))
         {
             if (marker == null) continue;
             float d = Vector3.Distance(searchPos, marker.transform.position);

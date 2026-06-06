@@ -8,6 +8,12 @@ public class PlacementController : MonoBehaviour
 
     private void Awake()
     {
+        if (_buildMenuUI == null)
+        {
+            Debug.LogError("[PlacementController] _buildMenuUI is not assigned. FSM will not receive UI events.");
+            return;
+        }
+
         // UI → FSM transitions
         _buildMenuUI.OnBuildItemClicked += HandleBuildItemClicked;
         _buildMenuUI.OnDeleteClicked += HandleDeleteClicked;
@@ -17,10 +23,6 @@ public class PlacementController : MonoBehaviour
 
         // Inject the real scene GameContext in Awake to ensure it's ready for FSM.Start()
         _fsm.Initialize(_gameContext);
-    }
-
-    private void Start()
-    {
     }
 
     private void HandleBuildItemClicked(ObjDataSO data)

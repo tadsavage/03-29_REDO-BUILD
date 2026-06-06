@@ -21,10 +21,12 @@ MonoBehaviour:
   icon: {fileID: 2800000, guid: f3e934998b9bd9944b2199666ec315fc, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 0
-  allowedAgents: 5
+  allowedAgents: -1
   CanUseStairs: 0
   isStackable: 0
   objHeight: 1.5

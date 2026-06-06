@@ -40,6 +40,8 @@ public class DeleteCommand : ICommand
         _vibrationSpeed = vibrationSpeed;
 
         var bd = target.GetComponent<BuildingData>();
+        if (bd == null)
+            throw new System.ArgumentException($"[DeleteCommand] Target '{target.name}' has no BuildingData component.");
         _data = bd.Data;
         _root = bd.RootCell;
         _offsets = bd.Offsets;

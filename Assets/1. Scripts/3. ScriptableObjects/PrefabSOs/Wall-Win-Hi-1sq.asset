@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
+  m_Name: Wall-Win-Hi-1sq
+  m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
+  id: 102
+  objName: Wall with Hi Window 1cell
+  cost: 325
+  hourlyCost: 0
+  category: Walls
+  prefab: {fileID: 7598043292887999755, guid: 9958b8f33261f0e4d86083c52a441500, type: 3}
+  icon: {fileID: 2800000, guid: 281d71de907a0764497cb3a077df7965, type: 3}
+  ignorePlacementRules: 0
+  isFloor: 0
+  canBeReplacedByDoor: 1
+  replacesWalls: 0
+  ClearsGridAfterPlacement: 0
+  pathfindingClear: 0
+  navArea: 1
+  allowedAgents: 0
+  CanUseStairs: 0
+  isStackable: 0
+  objHeight: 9
+  defaultFloorTile: {fileID: 0}
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []

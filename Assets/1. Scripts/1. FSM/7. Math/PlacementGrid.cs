@@ -177,8 +177,14 @@ public class PlacementGrid : MonoBehaviour
 
             bool isGround = IsGround(entry.data);
 
-            // Foundations always stay at y=0
-            // Objects that ignore rules or clear grid stay at y=0, unless they are floors or grounds
+            // Mobile NavMesh agents (workers, boss, etc.) manage their own Y via
+            // PlacementFinalizer (renderer-bounds snap) and AiNavigation.Start() (NavMesh snap).
+            // Never override their position here — objHeight is a logical thickness (0.05f),
+            // not the actual floor elevation, so stacking math would put them at ~Y=0.
+            if (entry.instance.GetComponent<NavMeshAgent>() != null) continue;
+
+            // Foundations always stay at y=0.
+            // Objects that ignore rules or clear grid stay at y=0, unless they are floors or grounds.
             if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
             {
                 Vector3 p = GetCellCenter(cell);
