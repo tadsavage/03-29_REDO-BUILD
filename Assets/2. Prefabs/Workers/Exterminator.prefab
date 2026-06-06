@@ -163,7 +163,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AiNavigation
   role: 0
   footstepClip: {fileID: 8300000, guid: 5eecd934368cd634a81e82f913d009c2, type: 3}
-  footstepVolume: 0.5
+  footstepVolume: 1
+  footstepPitch: 0.65
+  volumeAt10m: 1
+  volumeAt20m: 0.65
+  volumeAt30m: 0.33
 --- !u!114 &4287778642630683992
 MonoBehaviour:
   m_ObjectHideFlags: 0

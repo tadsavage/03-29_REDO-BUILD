@@ -14,7 +14,13 @@ public class AiNavigation : MonoBehaviour
 
     [Header("Footsteps")]
     [SerializeField] private AudioClip footstepClip;
-    [SerializeField, Range(0f, 1f)] private float footstepVolume = 0.6f;
+    [SerializeField, Range(0f, 1f)] private float footstepVolume = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float footstepPitch = 1f;
+
+    [Header("Footstep Rolloff (Custom)")]
+    [SerializeField, Range(0f, 1f)] private float volumeAt10m = 1f;
+    [SerializeField, Range(0f, 1f)] private float volumeAt20m = 0.5f;
+    [SerializeField, Range(0f, 1f)] private float volumeAt30m = 0f;
 
     private Transform[] waypoints;
     private NavMeshAgent agent;
@@ -107,11 +113,13 @@ public class AiNavigation : MonoBehaviour
             _footstepSource.clip = footstepClip;
             _footstepSource.loop = true;
             _footstepSource.volume = footstepVolume;
+            _footstepSource.pitch = footstepPitch;
             _footstepSource.spatialBlend = 1f;
-            _footstepSource.rolloffMode = AudioRolloffMode.Logarithmic;
-            _footstepSource.minDistance = 2f;
-            _footstepSource.maxDistance = 20f;
+            _footstepSource.rolloffMode = AudioRolloffMode.Custom;
+            _footstepSource.minDistance = 1f;
+            _footstepSource.maxDistance = 30f;
             _footstepSource.playOnAwake = false;
+            ApplyFootstepRolloffCurve();
         }
 
         // Auto-register agent type for door access — won't override a manually set tag
@@ -389,6 +397,7 @@ public class AiNavigation : MonoBehaviour
         // ── Footsteps ─────────────────────────────────────────────────────────────
         if (_footstepSource != null)
         {
+            _footstepSource.pitch = footstepPitch;
             bool moving = agent.velocity.sqrMagnitude > 0.01f;
             if (moving && !_footstepSource.isPlaying)
                 _footstepSource.Play();
@@ -574,6 +583,22 @@ public class AiNavigation : MonoBehaviour
             if (d < nearestDist) { nearestDist = d; nearest = marker; }
         }
         return nearest;
+    }
+
+    private void ApplyFootstepRolloffCurve()
+    {
+        if (_footstepSource == null) return;
+
+        // x-axis: normalized distance (0 = source, 1 = maxDistance of 30 m).
+        // Stays at full volume up to 10 m, then fades through 20 m, reaching
+        // volumeAt30m at max distance. Unity returns 0 beyond maxDistance.
+        var curve = new AnimationCurve(
+            new Keyframe(0f,        1f),
+            new Keyframe(10f / 30f, volumeAt10m),
+            new Keyframe(20f / 30f, volumeAt20m),
+            new Keyframe(1f,        volumeAt30m)
+        );
+        _footstepSource.SetCustomCurve(AudioSourceCurveType.CustomRolloff, curve);
     }
 
     public void GoToRandomWaypoint()
