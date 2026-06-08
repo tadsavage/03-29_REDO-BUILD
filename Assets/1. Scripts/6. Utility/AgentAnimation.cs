@@ -259,7 +259,9 @@ public class AgentAnimation : MonoBehaviour
 
         yield return new WaitForSeconds(idleDelay);
 
-        if (_agent != null && _agent.isActiveAndEnabled)
+        // Don't release the agent if TraverseLink owns isStopped right now.
+        if (_agent != null && _agent.isActiveAndEnabled
+            && (_navigation == null || !_navigation.IsTraversingLink))
             _agent.isStopped = false;
 
         _isWaiting = false;

@@ -23,6 +23,10 @@ public class GraphicsPresetManager : MonoBehaviour
     [Header("Scene Volume")]
     [SerializeField] private Volume globalVolume;
 
+    [Header("Renderer Data")]
+    [Tooltip("Assign PC_Renderer.asset here to allow per-preset toggling of renderer features.")]
+    [SerializeField] private ScriptableRendererData rendererData;
+
     public static GraphicsPresetManager Instance { get; private set; }
     public Preset CurrentPreset { get; private set; } = Preset.Ultra;
 
@@ -60,6 +64,8 @@ public class GraphicsPresetManager : MonoBehaviour
 
     private void ApplyUltra()
     {
+        FXPool.DisabledKeys.Remove("dust");
+        SetRendererFeatures(true);
         SetVolume(profileUltra);
         if (_urp == null) return;
 
@@ -68,17 +74,18 @@ public class GraphicsPresetManager : MonoBehaviour
         _urp.shadowCascadeCount              = 4;
         _urp.shadowDistance                  = 100f;
         _urp.mainLightShadowmapResolution    = 4096;
-        // supportsSoftShadows is read-only on URP asset (controlled by shadow cascade settings)
         _urp.maxAdditionalLightsCount        = 8;
         _urp.supportsHDR                     = true;
         QualitySettings.lodBias              = 2.0f;
         QualitySettings.anisotropicFiltering = AnisotropicFiltering.ForceEnable;
+        QualitySettings.particleRaycastBudget = 256;
         SetCameraAA(AntialiasingMode.SubpixelMorphologicalAntiAliasing);
-        //Debug.Log("[Graphics] Ultra applied.");
     }
 
     private void ApplyGood()
     {
+        FXPool.DisabledKeys.Remove("dust");
+        SetRendererFeatures(true);
         SetVolume(profileGood);
         if (_urp == null) return;
 
@@ -87,17 +94,18 @@ public class GraphicsPresetManager : MonoBehaviour
         _urp.shadowCascadeCount              = 2;
         _urp.shadowDistance                  = 60f;
         _urp.mainLightShadowmapResolution    = 2048;
-        // supportsSoftShadows is read-only on URP asset (controlled by shadow cascade settings)
         _urp.maxAdditionalLightsCount        = 4;
         _urp.supportsHDR                     = true;
         QualitySettings.lodBias              = 1.5f;
         QualitySettings.anisotropicFiltering = AnisotropicFiltering.Enable;
+        QualitySettings.particleRaycastBudget = 64;
         SetCameraAA(AntialiasingMode.FastApproximateAntialiasing);
-        //Debug.Log("[Graphics] Good applied.");
     }
 
     private void ApplyToaster()
     {
+        FXPool.DisabledKeys.Add("dust");
+        SetRendererFeatures(false);
         SetVolume(profileToaster);
         if (_urp == null) return;
 
@@ -106,16 +114,27 @@ public class GraphicsPresetManager : MonoBehaviour
         _urp.shadowCascadeCount              = 1;
         _urp.shadowDistance                  = 35f;
         _urp.mainLightShadowmapResolution    = 1024;
-        // supportsSoftShadows is read-only on URP asset
         _urp.maxAdditionalLightsCount        = 2;
-        _urp.supportsHDR                     = false; 
+        _urp.supportsHDR                     = false;
         QualitySettings.lodBias              = 0.7f;
         QualitySettings.anisotropicFiltering = AnisotropicFiltering.Disable;
+        QualitySettings.particleRaycastBudget = 4;
         SetCameraAA(AntialiasingMode.FastApproximateAntialiasing);
-        //Debug.Log("[Graphics] Toaster applied.");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private void SetRendererFeatures(bool enabled)
+    {
+        if (rendererData == null) return;
+        foreach (var feature in rendererData.rendererFeatures)
+        {
+            if (feature == null) continue;
+            if (feature.name == "ScreenSpaceAmbientOcclusion" ||
+                feature.name == "FullScreenPassRendererFeature")
+                feature.SetActive(enabled);
+        }
+    }
 
     private void SetVolume(VolumeProfile profile)
     {

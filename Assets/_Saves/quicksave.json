@@ -1,16 +1,16 @@
 {
     "saveName": "quicksave",
-    "money": 99780,
-    "spentToday": 20220,
+    "money": 107761,
+    "spentToday": 12239,
     "cameraData": {
         "focusPoint": {
-            "x": 37.45609664916992,
+            "x": 29.39570426940918,
             "y": 1.0,
-            "z": 29.15614128112793
+            "z": 32.601375579833987
         },
-        "distance": 20.0,
-        "pitch": 25.649991989135743,
-        "yaw": 213.09066772460938
+        "distance": 4.0,
+        "pitch": 17.099998474121095,
+        "yaw": 142.84066772460938
     },
     "placedObjects": [
         {
@@ -70630,30 +70630,37 @@
             "customData": ""
         },
         {
-            "id": 912,
-            "x": 76,
-            "y": 67,
+            "id": 900,
+            "x": 68,
+            "y": 69,
             "rot": 0,
             "customData": ""
         },
         {
-            "id": 912,
-            "x": 70,
-            "y": 67,
+            "id": 91,
+            "x": 88,
+            "y": 61,
             "rot": 0,
             "customData": ""
         },
         {
-            "id": 912,
-            "x": 84,
-            "y": 65,
+            "id": 900,
+            "x": 83,
+            "y": 70,
             "rot": 0,
             "customData": ""
         },
         {
-            "id": 911,
-            "x": 79,
-            "y": 77,
+            "id": 900,
+            "x": 77,
+            "y": 70,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 900,
+            "x": 77,
+            "y": 63,
             "rot": 0,
             "customData": ""
         }
@@ -70665,7 +70672,7 @@
         },
         {
             "key": "AiNavigation.footstepPitch",
-            "val": "0.6"
+            "val": "0.3"
         },
         {
             "key": "AiNavigation.volumeAt5m",
@@ -70686,6 +70693,42 @@
         {
             "key": "AiNavigation.volumeAt30m",
             "val": "0.1"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.15"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
         },
         {
             "key": "FreeLookCamera.moveSpeed",
@@ -70760,42 +70803,6 @@
             "val": "100"
         },
         {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.15"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
-        {
             "key": "NavMeshManager._debounceTime",
             "val": "0.5"
         }
@@ -70804,10 +70811,10 @@
     "toolsWindowY": 50.0,
     "guidanceLinesVisible": true,
     "waypointsVisible": true,
-    "hoverPopupEnabled": true,
+    "hoverPopupEnabled": false,
     "gameVolume": 1.0,
     "musicVolume": 0.12999999523162843,
-    "graphicsPreset": "Toaster",
+    "graphicsPreset": "Good",
     "difficulty": 0,
     "resolutionIndex": 1,
     "screenWidth": 1920,

@@ -76,8 +76,13 @@ public class FXPool : MonoBehaviour
             systems = systems
         };
     }
+    public static readonly System.Collections.Generic.HashSet<string> DisabledKeys =
+        new System.Collections.Generic.HashSet<string>();
+
     public void Play(string key, Vector3 position)
     {
+        if (DisabledKeys.Contains(key)) return;
+
         if (!_pools.TryGetValue(key, out var q))
         {
             Debug.LogWarning($"FXPool: No pool for key '{key}'");

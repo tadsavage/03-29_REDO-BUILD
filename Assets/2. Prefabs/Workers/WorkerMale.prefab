@@ -91,9 +91,6 @@ PrefabInstance:
       addedObject: {fileID: 6261589137132870513}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4f83c0744600d46429f22571c72a6c65, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 5540456551408323648}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4f83c0744600d46429f22571c72a6c65, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 5672173797442903100}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4f83c0744600d46429f22571c72a6c65, type: 3}
       insertIndex: -1
@@ -107,6 +104,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4f83c0744600d46429f22571c72a6c65, type: 3}
       insertIndex: -1
       addedObject: {fileID: -7723707320012250112}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4f83c0744600d46429f22571c72a6c65, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -3014765685870444286}
   m_SourcePrefab: {fileID: 100100000, guid: 4f83c0744600d46429f22571c72a6c65, type: 3}
 --- !u!1 &7464851632858873513 stripped
 GameObject:
@@ -243,33 +243,6 @@ MonoBehaviour:
   validColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
   invalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
   deleteColor: {r: 1, g: 0.9, b: 0, a: 0.5}
---- !u!54 &5540456551408323648
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7464851632858873513}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 0
-  m_IsKinematic: 1
-  m_Interpolate: 1
-  m_Constraints: 80
-  m_CollisionDetection: 0
 --- !u!114 &5672173797442903100
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -462,3 +435,30 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!54 &-3014765685870444286
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7464851632858873513}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0

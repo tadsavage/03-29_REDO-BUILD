@@ -120,6 +120,19 @@ public class AiNavigation : MonoBehaviour
         _rb        = GetComponent<Rigidbody>();
         SetupAgentType();
 
+        // The navigation design REQUIRES a kinematic Rigidbody. The agent simulates with
+        // updatePosition=false and we drive the transform + Rigidbody manually (LateUpdate
+        // and TraverseLink both call _rb.MovePosition). A DYNAMIC Rigidbody falls under
+        // gravity and gets ejected by collision depenetration the moment a climb pushes it
+        // through the foundation collider — that is the "teleporting all over the place"
+        // bug. A freshly-added Rigidbody defaults to dynamic, so force the correct state
+        // here rather than trusting every agent prefab to be configured by hand.
+        if (_rb != null)
+        {
+            _rb.isKinematic = true;
+            _rb.useGravity  = false;
+        }
+
         // updatePosition is DELIBERATELY false. The agent shares its GameObject with a
         // kinematic Rigidbody (required so gates/doors get OnTrigger callbacks). With
         // updatePosition=true the agent reads the transform back every frame and resets
@@ -576,22 +589,24 @@ public class AiNavigation : MonoBehaviour
         OffMeshLinkData linkData = agent.currentOffMeshLinkData;
         LedgeLinkMarker ledge    = FindNearestLedgeLink(agent.transform.position);
 
+        // ── Stop the agent so nextPosition doesn't drift during manual movement ──
+        // Must apply to BOTH the isOnOffMeshLink and _hasPendingPositions paths.
+        bool manualStop = false;
+        if (agent.isActiveAndEnabled && !agent.isStopped)
+        {
+            agent.isStopped = true;
+            manualStop = true;
+        }
+
         // ── Resolve from/to positions ─────────────────────────────────────────
         // Path-corner fallback sets _pendingFrom/_pendingTo before starting the coroutine.
         // isOnOffMeshLink path uses currentOffMeshLinkData.
         Vector3 from, to;
-        bool manualStop = false;
         if (_hasPendingPositions)
         {
             from = _pendingFrom;
             to   = _pendingTo;
             _hasPendingPositions = false;
-            // Agent is still mid-path; stop it so we own movement for the traversal.
-            if (agent.isActiveAndEnabled && agent.isOnNavMesh && !agent.isStopped)
-            {
-                agent.isStopped = true;
-                manualStop      = true;
-            }
         }
         else
         {
@@ -623,12 +638,16 @@ public class AiNavigation : MonoBehaviour
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
 
-                agent.transform.position = goingUp
+                Vector3 pos = goingUp
                     ? Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t))
                     : new Vector3(
                         Mathf.Lerp(from.x, to.x, t),
                         Mathf.Lerp(from.y, to.y, Mathf.Pow(t, 1.6f)),
                         Mathf.Lerp(from.z, to.z, t));
+
+                agent.transform.position = pos;
+                agent.nextPosition        = pos;
+                if (_rb != null) _rb.MovePosition(pos);
 
                 yield return null;
             }
@@ -670,7 +689,10 @@ public class AiNavigation : MonoBehaviour
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
-                agent.transform.position = Vector3.Lerp(stairFrom, stairTo, Mathf.Clamp01(elapsed / duration));
+                Vector3 pos = Vector3.Lerp(stairFrom, stairTo, Mathf.Clamp01(elapsed / duration));
+                agent.transform.position = pos;
+                agent.nextPosition        = pos;
+                if (_rb != null) _rb.MovePosition(pos);
                 yield return null;
             }
 
