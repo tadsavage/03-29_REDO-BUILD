@@ -571,14 +571,42 @@ public class AiNavigation : MonoBehaviour
         fwd = fwd.sqrMagnitude > 0.001f ? fwd.normalized : Vector3.forward;
 
         Vector3 dockPt  = nearest.transform.position;
+
+        // Floor endpoint for a jump-down. A fixed 0.5 m step can land in the eroded gap
+        // between the dock and ground NavMesh islands; the end-of-traversal Warp then
+        // snaps the agent onto the real ground edge, which shows up as a lateral teleport
+        // the instant the animation ends. Instead, step outward from the dock edge and
+        // sample the GROUND NavMesh (y < 0.5) so the jump-down lands exactly where the
+        // agent will stand — leaving nothing for Warp to correct.
         Vector3 floorPt = new Vector3(dockPt.x + fwd.x * 0.5f, 0f, dockPt.z + fwd.z * 0.5f);
+        for (float d = 0.5f; d <= 3.0f; d += 0.25f)
+        {
+            Vector3 probe = new Vector3(dockPt.x + fwd.x * d, 0f, dockPt.z + fwd.z * d);
+            if (NavMesh.SamplePosition(probe, out NavMeshHit groundHit, 0.6f, NavMesh.AllAreas)
+                && groundHit.position.y < 0.5f)
+            {
+                floorPt = groundHit.position;
+                break;
+            }
+        }
 
         _pendingFrom         = agent.transform.position;
         _pendingTo           = goingUp ? dockPt : floorPt;
         _hasPendingPositions = true;
 
         Debug.Log($"[Climb] {name}: DockLedge goingUp={goingUp} marker={nearest.name} from={_pendingFrom:F2} to={_pendingTo:F2} tgtY={tgtY:F2}");
+        TravLog($"--- DockLedge START {name} goingUp={goingUp} marker={nearest.name} markerPos={nearest.transform.position:F2} from={_pendingFrom:F2} to={_pendingTo:F2} tgtY={tgtY:F2} pathStatus={agent.pathStatus} onLink={agent.isOnOffMeshLink}");
         StartCoroutine(TraverseLink());
+    }
+
+    // ── TEMP DIAGNOSTIC (remove after the ledge teleport bug is fixed) ──
+    // Writes traversal trajectory to Assets/_trav_debug.txt so it can be inspected
+    // without relying on the (currently blind) console bridge.
+    private static readonly string s_travLogPath =
+        System.IO.Path.Combine(Application.dataPath, "_trav_debug.txt");
+    private static void TravLog(string s)
+    {
+        try { System.IO.File.AppendAllText(s_travLogPath, s + "\n"); } catch { }
     }
 
     private IEnumerator TraverseLink()
@@ -617,6 +645,8 @@ public class AiNavigation : MonoBehaviour
         }
 
         Debug.Log($"[Climb] {name}: TraverseLink ledge={ledge?.name ?? "NONE"} from={from:F2} to={to:F2}");
+        TravLog($"=== TRAV START {name} ledge={ledge?.name ?? "NONE"} onLink={agent.isOnOffMeshLink} from={from:F2} to={to:F2} startPos={agent.transform.position:F2} nextPos={agent.nextPosition:F2}");
+        int _dbgFrame = 0;
 
         if (ledge != null)
         {
@@ -648,6 +678,10 @@ public class AiNavigation : MonoBehaviour
                 agent.transform.position = pos;
                 agent.nextPosition        = pos;
                 if (_rb != null) _rb.MovePosition(pos);
+
+                if (_dbgFrame < 3 || _dbgFrame % 5 == 0)
+                    TravLog($"  ledge f{_dbgFrame} t={t:F2} lerpPos={pos:F2} tPos={agent.transform.position:F2} nextPos={agent.nextPosition:F2} onNav={agent.isOnNavMesh}");
+                _dbgFrame++;
 
                 yield return null;
             }
@@ -693,6 +727,9 @@ public class AiNavigation : MonoBehaviour
                 agent.transform.position = pos;
                 agent.nextPosition        = pos;
                 if (_rb != null) _rb.MovePosition(pos);
+                if (_dbgFrame < 3 || _dbgFrame % 5 == 0)
+                    TravLog($"  stair f{_dbgFrame} lerpPos={pos:F2} tPos={agent.transform.position:F2} nextPos={agent.nextPosition:F2} onNav={agent.isOnNavMesh}");
+                _dbgFrame++;
                 yield return null;
             }
 
@@ -707,6 +744,8 @@ public class AiNavigation : MonoBehaviour
         // climbing up, the ground when jumping down) so the re-path below can succeed.
         if (agent.isActiveAndEnabled)
             agent.Warp(agent.transform.position);
+
+        TravLog($"=== TRAV END {name} tPos={agent.transform.position:F2} nextPos={agent.nextPosition:F2} onNav={agent.isOnNavMesh} pathStatus={agent.pathStatus}");
 
         if (manualStop && agent.isActiveAndEnabled) agent.isStopped = false;
         _traversingLink = false;

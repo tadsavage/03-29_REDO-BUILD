@@ -1,1 +1,438 @@
 monitor start
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(7.64, 1.11, -2.06) to=(8.40, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(7.64, 1.11, -2.06) to=(8.40, 0.00, -2.04) startPos=(7.64, 1.11, -2.06) nextPos=(7.53, 1.11, -2.05)
+  ledge f0 t=0.14 lerpPos=(7.75, 1.06, -2.05) tPos=(7.75, 1.06, -2.05) nextPos=(7.75, 1.11, -2.05) onNav=True
+  ledge f1 t=0.23 lerpPos=(7.82, 1.00, -2.05) tPos=(7.82, 1.00, -2.05) nextPos=(7.82, 1.11, -2.05) onNav=True
+  ledge f2 t=0.42 lerpPos=(7.96, 0.83, -2.05) tPos=(7.96, 0.83, -2.05) nextPos=(7.96, 1.11, -2.05) onNav=True
+=== TRAV END Exterminator tPos=(8.40, 0.00, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(9.50, 0.05, -2.04) to=(7.90, 1.06, -2.04) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.50, 0.05, -2.04) to=(7.90, 1.06, -2.04) startPos=(9.50, 0.05, -2.04) nextPos=(9.50, 0.05, -2.04)
+  ledge f0 t=0.05 lerpPos=(9.49, 0.06, -2.04) tPos=(9.49, 0.06, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f1 t=0.11 lerpPos=(9.45, 0.08, -2.04) tPos=(9.45, 0.08, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f2 t=0.24 lerpPos=(9.27, 0.19, -2.04) tPos=(9.27, 0.19, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f5 t=0.38 lerpPos=(8.97, 0.38, -2.04) tPos=(8.97, 0.38, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f10 t=0.75 lerpPos=(8.15, 0.90, -2.04) tPos=(8.15, 0.90, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -2.04) nextPos=(7.90, 1.11, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(8.79, 1.11, -3.09) to=(8.40, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(8.79, 1.11, -3.09) to=(8.40, 0.00, -2.04) startPos=(8.79, 1.11, -3.09) nextPos=(8.88, 1.11, -3.30)
+  ledge f0 t=0.10 lerpPos=(8.75, 1.08, -2.98) tPos=(8.75, 1.08, -2.98) nextPos=(8.75, 1.11, -2.98) onNav=True
+  ledge f1 t=0.19 lerpPos=(8.71, 1.03, -2.88) tPos=(8.71, 1.03, -2.88) nextPos=(8.71, 1.11, -2.88) onNav=True
+  ledge f2 t=0.29 lerpPos=(8.67, 0.95, -2.78) tPos=(8.67, 0.95, -2.78) nextPos=(8.67, 1.11, -2.78) onNav=True
+  ledge f5 t=0.64 lerpPos=(8.54, 0.56, -2.41) tPos=(8.54, 0.56, -2.41) nextPos=(8.54, 1.11, -2.41) onNav=True
+=== TRAV END Exterminator tPos=(8.40, 0.00, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(9.71, 0.05, -2.09) to=(7.90, 1.06, -2.04) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.71, 0.05, -2.09) to=(7.90, 1.06, -2.04) startPos=(9.71, 0.05, -2.09) nextPos=(9.50, 0.05, -2.04)
+  ledge f0 t=0.28 lerpPos=(9.37, 0.24, -2.08) tPos=(9.37, 0.24, -2.08) nextPos=(9.50, 0.05, -2.08) onNav=True
+  ledge f1 t=0.34 lerpPos=(9.24, 0.31, -2.07) tPos=(9.24, 0.31, -2.07) nextPos=(9.50, 0.05, -2.07) onNav=True
+  ledge f2 t=0.39 lerpPos=(9.10, 0.39, -2.07) tPos=(9.10, 0.39, -2.07) nextPos=(9.50, 0.05, -2.07) onNav=True
+  ledge f5 t=0.60 lerpPos=(8.53, 0.71, -2.05) tPos=(8.53, 0.71, -2.05) nextPos=(9.50, 0.05, -2.05) onNav=True
+  ledge f10 t=0.96 lerpPos=(7.91, 1.06, -2.04) tPos=(7.91, 1.06, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -2.04) nextPos=(7.90, 1.11, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_W markerPos=(6.57, 1.06, -2.04) from=(6.83, 1.11, -2.03) to=(6.07, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_W onLink=False from=(6.83, 1.11, -2.03) to=(6.07, 0.00, -2.04) startPos=(6.83, 1.11, -2.03) nextPos=(6.83, 1.11, -2.04)
+  ledge f0 t=0.07 lerpPos=(6.78, 1.09, -2.03) tPos=(6.78, 1.09, -2.03) nextPos=(6.83, 1.11, -2.03) onNav=True
+  ledge f1 t=0.14 lerpPos=(6.72, 1.06, -2.03) tPos=(6.72, 1.06, -2.03) nextPos=(6.83, 1.11, -2.03) onNav=True
+  ledge f2 t=0.21 lerpPos=(6.68, 1.02, -2.03) tPos=(6.68, 1.02, -2.03) nextPos=(6.83, 1.11, -2.03) onNav=True
+  ledge f5 t=0.44 lerpPos=(6.50, 0.81, -2.03) tPos=(6.50, 0.81, -2.03) nextPos=(6.83, 1.11, -2.03) onNav=True
+  ledge f10 t=0.76 lerpPos=(6.26, 0.39, -2.04) tPos=(6.26, 0.39, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(6.07, 0.00, -2.04) nextPos=(6.07, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(9.51, 0.05, -2.04) to=(7.90, 1.06, -2.04) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.51, 0.05, -2.04) to=(7.90, 1.06, -2.04) startPos=(9.51, 0.05, -2.04) nextPos=(9.50, 0.05, -2.04)
+  ledge f0 t=0.04 lerpPos=(9.50, 0.05, -2.04) tPos=(9.50, 0.05, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f1 t=0.08 lerpPos=(9.48, 0.07, -2.04) tPos=(9.48, 0.07, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f2 t=0.12 lerpPos=(9.45, 0.09, -2.04) tPos=(9.45, 0.09, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f5 t=0.29 lerpPos=(9.18, 0.26, -2.04) tPos=(9.18, 0.26, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f10 t=0.49 lerpPos=(8.74, 0.53, -2.04) tPos=(8.74, 0.53, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f15 t=0.72 lerpPos=(8.22, 0.86, -2.04) tPos=(8.22, 0.86, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f20 t=0.94 lerpPos=(7.92, 1.05, -2.04) tPos=(7.92, 1.05, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -2.04) nextPos=(7.90, 1.11, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(8.63, 1.11, -2.73) to=(8.40, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(8.63, 1.11, -2.73) to=(8.40, 0.00, -2.04) startPos=(8.63, 1.11, -2.73) nextPos=(8.64, 1.11, -2.76)
+  ledge f0 t=0.06 lerpPos=(8.61, 1.10, -2.68) tPos=(8.61, 1.10, -2.68) nextPos=(8.61, 1.11, -2.68) onNav=True
+  ledge f1 t=0.13 lerpPos=(8.60, 1.07, -2.63) tPos=(8.60, 1.07, -2.63) nextPos=(8.60, 1.11, -2.63) onNav=True
+  ledge f2 t=0.20 lerpPos=(8.58, 1.03, -2.59) tPos=(8.58, 1.03, -2.59) nextPos=(8.58, 1.11, -2.59) onNav=True
+  ledge f5 t=0.41 lerpPos=(8.53, 0.84, -2.44) tPos=(8.53, 0.84, -2.44) nextPos=(8.53, 1.11, -2.44) onNav=True
+  ledge f10 t=0.77 lerpPos=(8.46, 0.39, -2.20) tPos=(8.46, 0.39, -2.20) nextPos=(8.46, 1.11, -2.20) onNav=True
+=== TRAV END Exterminator tPos=(8.40, 0.00, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(9.52, 0.05, -2.25) to=(7.90, 1.06, -2.04) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.52, 0.05, -2.25) to=(7.90, 1.06, -2.04) startPos=(9.52, 0.05, -2.25) nextPos=(9.50, 0.05, -2.04)
+  ledge f0 t=0.28 lerpPos=(9.21, 0.24, -2.21) tPos=(9.21, 0.24, -2.21) nextPos=(9.50, 0.05, -2.21) onNav=True
+  ledge f1 t=0.32 lerpPos=(9.14, 0.29, -2.20) tPos=(9.14, 0.29, -2.20) nextPos=(9.50, 0.05, -2.20) onNav=True
+  ledge f2 t=0.38 lerpPos=(8.99, 0.38, -2.18) tPos=(8.99, 0.38, -2.18) nextPos=(9.50, 0.05, -2.18) onNav=True
+  ledge f5 t=0.54 lerpPos=(8.60, 0.62, -2.13) tPos=(8.60, 0.62, -2.13) nextPos=(9.50, 0.05, -2.13) onNav=True
+  ledge f10 t=0.77 lerpPos=(8.11, 0.93, -2.07) tPos=(8.11, 0.93, -2.07) nextPos=(9.50, 0.05, -2.07) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -2.04) nextPos=(7.90, 1.11, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_W markerPos=(6.57, 1.06, -2.04) from=(6.87, 1.11, -2.04) to=(6.07, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_W onLink=False from=(6.87, 1.11, -2.04) to=(6.07, 0.00, -2.04) startPos=(6.87, 1.11, -2.04) nextPos=(6.83, 1.11, -2.04)
+  ledge f0 t=0.09 lerpPos=(6.80, 1.09, -2.04) tPos=(6.80, 1.09, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f1 t=0.17 lerpPos=(6.73, 1.04, -2.04) tPos=(6.73, 1.04, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f2 t=0.26 lerpPos=(6.66, 0.98, -2.04) tPos=(6.66, 0.98, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f5 t=0.64 lerpPos=(6.36, 0.57, -2.04) tPos=(6.36, 0.57, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f10 t=1.00 lerpPos=(6.07, 0.00, -2.04) tPos=(6.07, 0.00, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(6.07, 0.00, -2.04) nextPos=(6.07, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -7.34) from=(9.51, 0.05, -6.10) to=(7.90, 1.06, -7.34) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.51, 0.05, -6.10) to=(7.90, 1.06, -7.34) startPos=(9.51, 0.05, -6.10) nextPos=(9.50, 0.05, -6.03)
+  ledge f0 t=0.04 lerpPos=(9.50, 0.05, -6.11) tPos=(9.50, 0.05, -6.11) nextPos=(9.50, 0.05, -6.11) onNav=True
+  ledge f1 t=0.09 lerpPos=(9.47, 0.07, -6.13) tPos=(9.47, 0.07, -6.13) nextPos=(9.50, 0.05, -6.13) onNav=True
+  ledge f2 t=0.13 lerpPos=(9.44, 0.09, -6.16) tPos=(9.44, 0.09, -6.16) nextPos=(9.50, 0.05, -6.16) onNav=True
+  ledge f5 t=0.27 lerpPos=(9.21, 0.24, -6.33) tPos=(9.21, 0.24, -6.33) nextPos=(9.50, 0.05, -6.33) onNav=True
+  ledge f10 t=0.50 lerpPos=(8.71, 0.55, -6.72) tPos=(8.71, 0.55, -6.72) nextPos=(9.50, 0.05, -6.72) onNav=True
+  ledge f15 t=0.72 lerpPos=(8.20, 0.87, -7.11) tPos=(8.20, 0.87, -7.11) nextPos=(9.50, 0.05, -7.11) onNav=True
+  ledge f20 t=0.94 lerpPos=(7.92, 1.05, -7.33) tPos=(7.92, 1.05, -7.33) nextPos=(9.50, 0.05, -7.33) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -7.34) nextPos=(7.90, 1.11, -7.34) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_W markerPos=(6.57, 1.06, -2.04) from=(6.90, 1.11, -2.05) to=(6.07, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_W onLink=False from=(6.90, 1.11, -2.05) to=(6.07, 0.00, -2.04) startPos=(6.90, 1.11, -2.05) nextPos=(6.83, 1.11, -2.04)
+  ledge f0 t=0.07 lerpPos=(6.85, 1.10, -2.05) tPos=(6.85, 1.10, -2.05) nextPos=(6.85, 1.11, -2.05) onNav=True
+  ledge f1 t=0.14 lerpPos=(6.79, 1.06, -2.05) tPos=(6.79, 1.06, -2.05) nextPos=(6.83, 1.11, -2.05) onNav=True
+  ledge f2 t=0.21 lerpPos=(6.73, 1.02, -2.05) tPos=(6.73, 1.02, -2.05) nextPos=(6.83, 1.11, -2.05) onNav=True
+  ledge f5 t=0.51 lerpPos=(6.48, 0.73, -2.04) tPos=(6.48, 0.73, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f10 t=0.83 lerpPos=(6.21, 0.28, -2.04) tPos=(6.21, 0.28, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(6.07, 0.00, -2.04) nextPos=(6.07, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -7.34) from=(9.51, 0.05, -6.12) to=(7.90, 1.06, -7.34) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.51, 0.05, -6.12) to=(7.90, 1.06, -7.34) startPos=(9.51, 0.05, -6.12) nextPos=(9.50, 0.05, -6.01)
+  ledge f0 t=0.08 lerpPos=(9.48, 0.07, -6.15) tPos=(9.48, 0.07, -6.15) nextPos=(9.50, 0.05, -6.15) onNav=True
+  ledge f1 t=0.13 lerpPos=(9.43, 0.10, -6.18) tPos=(9.43, 0.10, -6.18) nextPos=(9.50, 0.05, -6.18) onNav=True
+  ledge f2 t=0.15 lerpPos=(9.41, 0.11, -6.19) tPos=(9.41, 0.11, -6.19) nextPos=(9.50, 0.05, -6.19) onNav=True
+  ledge f5 t=0.35 lerpPos=(9.05, 0.34, -6.47) tPos=(9.05, 0.34, -6.47) nextPos=(9.50, 0.05, -6.47) onNav=True
+  ledge f10 t=0.59 lerpPos=(8.50, 0.68, -6.88) tPos=(8.50, 0.68, -6.88) nextPos=(9.50, 0.05, -6.88) onNav=True
+  ledge f15 t=0.88 lerpPos=(7.97, 1.02, -7.29) tPos=(7.97, 1.02, -7.29) nextPos=(9.50, 0.05, -7.29) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -7.34) nextPos=(7.90, 1.11, -7.34) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_W markerPos=(6.57, 1.06, -2.04) from=(6.86, 1.11, -2.12) to=(6.07, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_W onLink=False from=(6.86, 1.11, -2.12) to=(6.07, 0.00, -2.04) startPos=(6.86, 1.11, -2.12) nextPos=(6.83, 1.11, -2.04)
+  ledge f0 t=0.08 lerpPos=(6.80, 1.09, -2.11) tPos=(6.80, 1.09, -2.11) nextPos=(6.83, 1.11, -2.11) onNav=True
+  ledge f1 t=0.17 lerpPos=(6.73, 1.05, -2.10) tPos=(6.73, 1.05, -2.10) nextPos=(6.83, 1.11, -2.10) onNav=True
+  ledge f2 t=0.26 lerpPos=(6.66, 0.98, -2.10) tPos=(6.66, 0.98, -2.10) nextPos=(6.83, 1.11, -2.10) onNav=True
+  ledge f5 t=0.62 lerpPos=(6.37, 0.60, -2.07) tPos=(6.37, 0.60, -2.07) nextPos=(6.83, 1.11, -2.07) onNav=True
+  ledge f10 t=1.00 lerpPos=(6.07, 0.00, -2.04) tPos=(6.07, 0.00, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(6.07, 0.00, -2.04) nextPos=(6.07, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -7.34) from=(9.51, 0.05, -6.11) to=(7.90, 1.06, -7.34) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.51, 0.05, -6.11) to=(7.90, 1.06, -7.34) startPos=(9.51, 0.05, -6.11) nextPos=(9.50, 0.05, -6.02)
+  ledge f0 t=0.05 lerpPos=(9.50, 0.06, -6.12) tPos=(9.50, 0.06, -6.12) nextPos=(9.50, 0.05, -6.12) onNav=True
+  ledge f1 t=0.10 lerpPos=(9.46, 0.08, -6.15) tPos=(9.46, 0.08, -6.15) nextPos=(9.50, 0.05, -6.15) onNav=True
+  ledge f2 t=0.15 lerpPos=(9.41, 0.11, -6.19) tPos=(9.41, 0.11, -6.19) nextPos=(9.50, 0.05, -6.19) onNav=True
+  ledge f5 t=0.35 lerpPos=(9.05, 0.34, -6.46) tPos=(9.05, 0.34, -6.46) nextPos=(9.50, 0.05, -6.46) onNav=True
+  ledge f10 t=0.67 lerpPos=(8.31, 0.81, -7.03) tPos=(8.31, 0.81, -7.03) nextPos=(9.50, 0.05, -7.03) onNav=True
+  ledge f15 t=1.00 lerpPos=(7.90, 1.06, -7.34) tPos=(7.90, 1.06, -7.34) nextPos=(9.50, 0.05, -7.34) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -7.34) nextPos=(7.90, 1.11, -7.34) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_W markerPos=(6.57, 1.06, -2.04) from=(6.87, 1.11, -2.12) to=(6.07, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_W onLink=False from=(6.87, 1.11, -2.12) to=(6.07, 0.00, -2.04) startPos=(6.87, 1.11, -2.12) nextPos=(6.83, 1.11, -2.04)
+  ledge f0 t=0.09 lerpPos=(6.79, 1.09, -2.11) tPos=(6.79, 1.09, -2.11) nextPos=(6.83, 1.11, -2.11) onNav=True
+  ledge f1 t=0.19 lerpPos=(6.72, 1.04, -2.10) tPos=(6.72, 1.04, -2.10) nextPos=(6.83, 1.11, -2.10) onNav=True
+  ledge f2 t=0.39 lerpPos=(6.55, 0.86, -2.09) tPos=(6.55, 0.86, -2.09) nextPos=(6.83, 1.11, -2.09) onNav=True
+  ledge f5 t=0.61 lerpPos=(6.38, 0.60, -2.07) tPos=(6.38, 0.60, -2.07) nextPos=(6.83, 1.11, -2.07) onNav=True
+=== TRAV END Exterminator tPos=(6.07, 0.00, -2.04) nextPos=(6.07, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(9.50, 0.05, -2.12) to=(7.90, 1.06, -2.04) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.50, 0.05, -2.12) to=(7.90, 1.06, -2.04) startPos=(9.50, 0.05, -2.12) nextPos=(9.50, 0.05, -2.04)
+  ledge f0 t=0.05 lerpPos=(9.49, 0.06, -2.12) tPos=(9.49, 0.06, -2.12) nextPos=(9.50, 0.05, -2.12) onNav=True
+  ledge f1 t=0.10 lerpPos=(9.46, 0.08, -2.12) tPos=(9.46, 0.08, -2.12) nextPos=(9.50, 0.05, -2.12) onNav=True
+  ledge f2 t=0.15 lerpPos=(9.40, 0.11, -2.12) tPos=(9.40, 0.11, -2.12) nextPos=(9.50, 0.05, -2.12) onNav=True
+  ledge f5 t=0.35 lerpPos=(9.06, 0.33, -2.10) tPos=(9.06, 0.33, -2.10) nextPos=(9.50, 0.05, -2.10) onNav=True
+  ledge f10 t=0.70 lerpPos=(8.25, 0.84, -2.06) tPos=(8.25, 0.84, -2.06) nextPos=(9.50, 0.05, -2.06) onNav=True
+  ledge f15 t=1.00 lerpPos=(7.90, 1.06, -2.04) tPos=(7.90, 1.06, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -2.04) nextPos=(7.90, 1.11, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_W markerPos=(6.57, 1.06, -2.04) from=(6.84, 1.11, -2.06) to=(6.07, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_W onLink=False from=(6.84, 1.11, -2.06) to=(6.07, 0.00, -2.04) startPos=(6.84, 1.11, -2.06) nextPos=(6.83, 1.11, -2.04)
+  ledge f0 t=0.09 lerpPos=(6.78, 1.09, -2.06) tPos=(6.78, 1.09, -2.06) nextPos=(6.83, 1.11, -2.06) onNav=True
+  ledge f1 t=0.19 lerpPos=(6.70, 1.03, -2.06) tPos=(6.70, 1.03, -2.06) nextPos=(6.83, 1.11, -2.06) onNav=True
+  ledge f2 t=0.29 lerpPos=(6.62, 0.96, -2.05) tPos=(6.62, 0.96, -2.05) nextPos=(6.83, 1.11, -2.05) onNav=True
+  ledge f5 t=0.62 lerpPos=(6.36, 0.59, -2.05) tPos=(6.36, 0.59, -2.05) nextPos=(6.83, 1.11, -2.05) onNav=True
+=== TRAV END Exterminator tPos=(6.07, 0.00, -2.04) nextPos=(6.07, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -4.69) from=(9.50, 0.05, -6.01) to=(7.90, 1.06, -4.69) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.50, 0.05, -6.01) to=(7.90, 1.06, -4.69) startPos=(9.50, 0.05, -6.01) nextPos=(9.50, 0.05, -6.01)
+  ledge f0 t=0.05 lerpPos=(9.49, 0.06, -6.00) tPos=(9.49, 0.06, -6.00) nextPos=(9.50, 0.05, -6.00) onNav=True
+  ledge f1 t=0.10 lerpPos=(9.45, 0.08, -5.98) tPos=(9.45, 0.08, -5.98) nextPos=(9.50, 0.05, -5.98) onNav=True
+  ledge f2 t=0.15 lerpPos=(9.40, 0.11, -5.93) tPos=(9.40, 0.11, -5.93) nextPos=(9.50, 0.05, -5.93) onNav=True
+  ledge f5 t=0.35 lerpPos=(9.06, 0.33, -5.65) tPos=(9.06, 0.33, -5.65) nextPos=(9.50, 0.05, -5.65) onNav=True
+  ledge f10 t=0.68 lerpPos=(8.29, 0.82, -5.01) tPos=(8.29, 0.82, -5.01) nextPos=(9.50, 0.05, -5.01) onNav=True
+  ledge f15 t=1.00 lerpPos=(7.90, 1.06, -4.69) tPos=(7.90, 1.06, -4.69) nextPos=(9.50, 0.05, -4.69) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -4.69) nextPos=(7.90, 1.11, -4.69) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_E markerPos=(7.90, 1.06, -4.69) from=(8.91, 1.11, -3.39) to=(8.40, 0.00, -4.69) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(8.91, 1.11, -3.39) to=(8.40, 0.00, -4.69) startPos=(8.91, 1.11, -3.39) nextPos=(8.92, 1.11, -3.36)
+  ledge f0 t=0.09 lerpPos=(8.86, 1.08, -3.51) tPos=(8.86, 1.08, -3.51) nextPos=(8.86, 1.11, -3.51) onNav=True
+  ledge f1 t=0.20 lerpPos=(8.81, 1.03, -3.65) tPos=(8.81, 1.03, -3.65) nextPos=(8.81, 1.11, -3.65) onNav=True
+  ledge f2 t=0.39 lerpPos=(8.71, 0.87, -3.89) tPos=(8.71, 0.87, -3.89) nextPos=(8.71, 1.11, -3.89) onNav=True
+  ledge f5 t=0.60 lerpPos=(8.61, 0.62, -4.17) tPos=(8.61, 0.62, -4.17) nextPos=(8.61, 1.11, -4.17) onNav=True
+=== TRAV END Exterminator tPos=(8.40, 0.00, -4.69) nextPos=(9.50, 0.05, -4.69) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(9.50, 0.05, -2.05) to=(7.90, 1.06, -2.04) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.50, 0.05, -2.05) to=(7.90, 1.06, -2.04) startPos=(9.50, 0.05, -2.05) nextPos=(9.50, 0.05, -2.04)
+  ledge f0 t=0.05 lerpPos=(9.49, 0.06, -2.05) tPos=(9.49, 0.06, -2.05) nextPos=(9.50, 0.05, -2.05) onNav=True
+  ledge f1 t=0.11 lerpPos=(9.45, 0.08, -2.05) tPos=(9.45, 0.08, -2.05) nextPos=(9.50, 0.05, -2.05) onNav=True
+  ledge f2 t=0.17 lerpPos=(9.38, 0.12, -2.05) tPos=(9.38, 0.12, -2.05) nextPos=(9.50, 0.05, -2.05) onNav=True
+  ledge f5 t=0.38 lerpPos=(8.98, 0.38, -2.05) tPos=(8.98, 0.38, -2.05) nextPos=(9.50, 0.05, -2.05) onNav=True
+  ledge f10 t=0.73 lerpPos=(8.18, 0.88, -2.04) tPos=(8.18, 0.88, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f15 t=1.00 lerpPos=(7.90, 1.06, -2.04) tPos=(7.90, 1.06, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -2.04) nextPos=(7.90, 1.11, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(8.60, 1.11, -2.69) to=(8.40, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(8.60, 1.11, -2.69) to=(8.40, 0.00, -2.04) startPos=(8.60, 1.11, -2.69) nextPos=(8.62, 1.11, -2.75)
+  ledge f0 t=0.10 lerpPos=(8.58, 1.08, -2.63) tPos=(8.58, 1.08, -2.63) nextPos=(8.58, 1.11, -2.63) onNav=True
+  ledge f1 t=0.21 lerpPos=(8.56, 1.02, -2.56) tPos=(8.56, 1.02, -2.56) nextPos=(8.56, 1.11, -2.56) onNav=True
+  ledge f2 t=0.32 lerpPos=(8.54, 0.93, -2.48) tPos=(8.54, 0.93, -2.48) nextPos=(8.54, 1.11, -2.48) onNav=True
+  ledge f5 t=0.66 lerpPos=(8.47, 0.53, -2.26) tPos=(8.47, 0.53, -2.26) nextPos=(8.47, 1.11, -2.26) onNav=True
+=== TRAV END Exterminator tPos=(8.40, 0.00, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -4.69) from=(9.50, 0.05, -6.01) to=(7.90, 1.06, -4.69) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.50, 0.05, -6.01) to=(7.90, 1.06, -4.69) startPos=(9.50, 0.05, -6.01) nextPos=(9.50, 0.05, -6.01)
+  ledge f0 t=0.07 lerpPos=(9.48, 0.06, -6.00) tPos=(9.48, 0.06, -6.00) nextPos=(9.50, 0.05, -6.00) onNav=True
+  ledge f1 t=0.14 lerpPos=(9.42, 0.10, -5.94) tPos=(9.42, 0.10, -5.94) nextPos=(9.50, 0.05, -5.94) onNav=True
+  ledge f2 t=0.20 lerpPos=(9.33, 0.16, -5.87) tPos=(9.33, 0.16, -5.87) nextPos=(9.50, 0.05, -5.87) onNav=True
+  ledge f5 t=0.42 lerpPos=(8.88, 0.44, -5.50) tPos=(8.88, 0.44, -5.50) nextPos=(9.50, 0.05, -5.50) onNav=True
+  ledge f10 t=0.77 lerpPos=(8.12, 0.92, -4.87) tPos=(8.12, 0.92, -4.87) nextPos=(9.50, 0.05, -4.87) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -4.69) nextPos=(7.90, 1.11, -4.69) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_W markerPos=(6.57, 1.06, -2.04) from=(6.83, 1.11, -2.04) to=(6.07, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_W onLink=False from=(6.83, 1.11, -2.04) to=(6.07, 0.00, -2.04) startPos=(6.83, 1.11, -2.04) nextPos=(6.83, 1.11, -2.04)
+  ledge f0 t=0.10 lerpPos=(6.76, 1.08, -2.04) tPos=(6.76, 1.08, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f1 t=0.19 lerpPos=(6.69, 1.03, -2.04) tPos=(6.69, 1.03, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f2 t=0.29 lerpPos=(6.61, 0.96, -2.04) tPos=(6.61, 0.96, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f5 t=0.65 lerpPos=(6.34, 0.56, -2.04) tPos=(6.34, 0.56, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(6.07, 0.00, -2.04) nextPos=(6.07, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(9.50, 0.05, -2.08) to=(7.90, 1.06, -2.04) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.50, 0.05, -2.08) to=(7.90, 1.06, -2.04) startPos=(9.50, 0.05, -2.08) nextPos=(9.50, 0.05, -2.04)
+  ledge f0 t=0.04 lerpPos=(9.49, 0.05, -2.08) tPos=(9.49, 0.05, -2.08) nextPos=(9.50, 0.05, -2.08) onNav=True
+  ledge f1 t=0.08 lerpPos=(9.47, 0.07, -2.08) tPos=(9.47, 0.07, -2.08) nextPos=(9.50, 0.05, -2.08) onNav=True
+  ledge f2 t=0.15 lerpPos=(9.40, 0.11, -2.08) tPos=(9.40, 0.11, -2.08) nextPos=(9.50, 0.05, -2.08) onNav=True
+  ledge f5 t=0.25 lerpPos=(9.25, 0.21, -2.07) tPos=(9.25, 0.21, -2.07) nextPos=(9.50, 0.05, -2.07) onNav=True
+  ledge f10 t=0.49 lerpPos=(8.74, 0.53, -2.06) tPos=(8.74, 0.53, -2.06) nextPos=(9.50, 0.05, -2.06) onNav=True
+  ledge f15 t=0.72 lerpPos=(8.20, 0.87, -2.05) tPos=(8.20, 0.87, -2.05) nextPos=(9.50, 0.05, -2.05) onNav=True
+  ledge f20 t=0.94 lerpPos=(7.92, 1.05, -2.04) tPos=(7.92, 1.05, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -2.04) nextPos=(7.90, 1.11, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(8.64, 1.11, -2.74) to=(8.40, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(8.64, 1.11, -2.74) to=(8.40, 0.00, -2.04) startPos=(8.64, 1.11, -2.74) nextPos=(8.65, 1.11, -2.77)
+  ledge f0 t=0.06 lerpPos=(8.62, 1.10, -2.69) tPos=(8.62, 1.10, -2.69) nextPos=(8.62, 1.11, -2.69) onNav=True
+  ledge f1 t=0.14 lerpPos=(8.60, 1.06, -2.64) tPos=(8.60, 1.06, -2.64) nextPos=(8.60, 1.11, -2.64) onNav=True
+  ledge f2 t=0.20 lerpPos=(8.59, 1.03, -2.60) tPos=(8.59, 1.03, -2.60) nextPos=(8.59, 1.11, -2.60) onNav=True
+  ledge f5 t=0.43 lerpPos=(8.54, 0.83, -2.44) tPos=(8.54, 0.83, -2.44) nextPos=(8.54, 1.11, -2.44) onNav=True
+  ledge f10 t=0.77 lerpPos=(8.46, 0.39, -2.20) tPos=(8.46, 0.39, -2.20) nextPos=(8.46, 1.11, -2.20) onNav=True
+=== TRAV END Exterminator tPos=(8.40, 0.00, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=True marker=LedgeLink_E markerPos=(7.90, 1.06, -2.04) from=(9.50, 0.05, -2.04) to=(7.90, 1.06, -2.04) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_E onLink=False from=(9.50, 0.05, -2.04) to=(7.90, 1.06, -2.04) startPos=(9.50, 0.05, -2.04) nextPos=(9.50, 0.05, -2.04)
+  ledge f0 t=0.04 lerpPos=(9.49, 0.06, -2.04) tPos=(9.49, 0.06, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f1 t=0.09 lerpPos=(9.46, 0.07, -2.04) tPos=(9.46, 0.07, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f2 t=0.13 lerpPos=(9.42, 0.10, -2.04) tPos=(9.42, 0.10, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f5 t=0.28 lerpPos=(9.19, 0.25, -2.04) tPos=(9.19, 0.25, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f10 t=0.49 lerpPos=(8.73, 0.54, -2.04) tPos=(8.73, 0.54, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f15 t=0.71 lerpPos=(8.24, 0.85, -2.04) tPos=(8.24, 0.85, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+  ledge f20 t=0.92 lerpPos=(7.93, 1.04, -2.04) tPos=(7.93, 1.04, -2.04) nextPos=(9.50, 0.05, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(7.90, 1.06, -2.04) nextPos=(7.90, 1.11, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START Exterminator goingUp=False marker=LedgeLink_W markerPos=(6.57, 1.06, -2.04) from=(6.83, 1.11, -2.04) to=(6.07, 0.00, -2.04) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START Exterminator ledge=LedgeLink_W onLink=False from=(6.83, 1.11, -2.04) to=(6.07, 0.00, -2.04) startPos=(6.83, 1.11, -2.04) nextPos=(6.83, 1.11, -2.04)
+  ledge f0 t=0.07 lerpPos=(6.78, 1.10, -2.04) tPos=(6.78, 1.10, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f1 t=0.15 lerpPos=(6.72, 1.06, -2.04) tPos=(6.72, 1.06, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f2 t=0.21 lerpPos=(6.67, 1.02, -2.04) tPos=(6.67, 1.02, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f5 t=0.44 lerpPos=(6.50, 0.81, -2.04) tPos=(6.50, 0.81, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+  ledge f10 t=0.81 lerpPos=(6.22, 0.32, -2.04) tPos=(6.22, 0.32, -2.04) nextPos=(6.83, 1.11, -2.04) onNav=True
+=== TRAV END Exterminator tPos=(6.07, 0.00, -2.04) nextPos=(6.07, 0.05, -2.04) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(6.58, 1.06, -6.01) from=(8.17, 0.05, -4.69) to=(6.58, 1.06, -6.01) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(8.17, 0.05, -4.69) to=(6.58, 1.06, -6.01) startPos=(8.17, 0.05, -4.69) nextPos=(8.17, 0.05, -4.69)
+  ledge f0 t=0.06 lerpPos=(8.15, 0.06, -4.70) tPos=(8.15, 0.06, -4.70) nextPos=(8.17, 0.05, -4.70) onNav=True
+  ledge f1 t=0.12 lerpPos=(8.10, 0.09, -4.74) tPos=(8.10, 0.09, -4.74) nextPos=(8.17, 0.05, -4.74) onNav=True
+  ledge f2 t=0.19 lerpPos=(8.02, 0.14, -4.81) tPos=(8.02, 0.14, -4.81) nextPos=(8.17, 0.05, -4.81) onNav=True
+  ledge f5 t=0.43 lerpPos=(7.54, 0.45, -5.21) tPos=(7.54, 0.45, -5.21) nextPos=(8.17, 0.05, -5.21) onNav=True
+  ledge f10 t=0.97 lerpPos=(6.58, 1.06, -6.01) tPos=(6.58, 1.06, -6.01) nextPos=(8.17, 0.05, -6.01) onNav=True
+=== TRAV END WorkerFemale tPos=(6.58, 1.06, -6.01) nextPos=(6.58, 1.11, -6.01) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_E markerPos=(6.58, 1.06, -6.01) from=(7.40, 1.11, -4.72) to=(7.08, 0.00, -6.01) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(7.40, 1.11, -4.72) to=(7.08, 0.00, -6.01) startPos=(7.40, 1.11, -4.72) nextPos=(7.54, 1.11, -4.69)
+  ledge f0 t=0.08 lerpPos=(7.38, 1.09, -4.82) tPos=(7.38, 1.09, -4.82) nextPos=(7.38, 1.11, -4.82) onNav=True
+  ledge f1 t=0.16 lerpPos=(7.35, 1.05, -4.93) tPos=(7.35, 1.05, -4.93) nextPos=(7.35, 1.11, -4.93) onNav=True
+  ledge f2 t=0.23 lerpPos=(7.33, 1.01, -5.01) tPos=(7.33, 1.01, -5.01) nextPos=(7.33, 1.11, -5.01) onNav=True
+  ledge f5 t=0.47 lerpPos=(7.25, 0.78, -5.33) tPos=(7.25, 0.78, -5.33) nextPos=(7.25, 1.11, -5.33) onNav=True
+  ledge f10 t=0.87 lerpPos=(7.12, 0.22, -5.84) tPos=(7.12, 0.22, -5.84) nextPos=(7.12, 1.11, -5.84) onNav=True
+=== TRAV END WorkerFemale tPos=(7.08, 0.00, -6.01) nextPos=(8.17, 0.05, -6.01) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(6.58, 1.06, -6.01) from=(8.17, 0.05, -4.70) to=(6.58, 1.06, -6.01) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(8.17, 0.05, -4.70) to=(6.58, 1.06, -6.01) startPos=(8.17, 0.05, -4.70) nextPos=(8.17, 0.05, -4.69)
+  ledge f0 t=0.05 lerpPos=(8.15, 0.06, -4.71) tPos=(8.15, 0.06, -4.71) nextPos=(8.17, 0.05, -4.71) onNav=True
+  ledge f1 t=0.11 lerpPos=(8.11, 0.08, -4.74) tPos=(8.11, 0.08, -4.74) nextPos=(8.17, 0.05, -4.74) onNav=True
+  ledge f2 t=0.16 lerpPos=(8.05, 0.12, -4.79) tPos=(8.05, 0.12, -4.79) nextPos=(8.17, 0.05, -4.79) onNav=True
+  ledge f5 t=0.38 lerpPos=(7.65, 0.38, -5.13) tPos=(7.65, 0.38, -5.13) nextPos=(8.17, 0.05, -5.13) onNav=True
+  ledge f10 t=0.72 lerpPos=(6.88, 0.87, -5.76) tPos=(6.88, 0.87, -5.76) nextPos=(8.17, 0.05, -5.76) onNav=True
+  ledge f15 t=1.00 lerpPos=(6.58, 1.06, -6.01) tPos=(6.58, 1.06, -6.01) nextPos=(8.17, 0.05, -6.01) onNav=True
+=== TRAV END WorkerFemale tPos=(6.58, 1.06, -6.01) nextPos=(6.58, 1.11, -6.01) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_N markerPos=(3.26, 1.06, -5.35) from=(3.12, 1.11, -4.77) to=(3.26, 0.00, -4.85) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_N onLink=False from=(3.12, 1.11, -4.77) to=(3.26, 0.00, -4.85) startPos=(3.12, 1.11, -4.77) nextPos=(2.92, 1.11, -4.69)
+  ledge f0 t=0.42 lerpPos=(3.18, 0.84, -4.80) tPos=(3.18, 0.84, -4.80) nextPos=(3.18, 1.11, -4.80) onNav=True
+  ledge f1 t=0.52 lerpPos=(3.19, 0.72, -4.81) tPos=(3.19, 0.72, -4.81) nextPos=(3.19, 1.11, -4.81) onNav=True
+  ledge f2 t=0.59 lerpPos=(3.20, 0.63, -4.82) tPos=(3.20, 0.63, -4.82) nextPos=(3.20, 1.11, -4.82) onNav=True
+  ledge f5 t=0.91 lerpPos=(3.25, 0.15, -4.84) tPos=(3.25, 0.15, -4.84) nextPos=(3.25, 1.11, -4.84) onNav=True
+=== TRAV END WorkerFemale tPos=(3.26, 0.00, -4.85) nextPos=(2.33, 0.05, -4.85) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(6.58, 1.06, -6.01) from=(8.19, 0.05, -4.90) to=(6.58, 1.06, -6.01) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(8.19, 0.05, -4.90) to=(6.58, 1.06, -6.01) startPos=(8.19, 0.05, -4.90) nextPos=(8.17, 0.05, -4.69)
+  ledge f0 t=0.27 lerpPos=(7.89, 0.24, -5.11) tPos=(7.89, 0.24, -5.11) nextPos=(8.17, 0.05, -5.11) onNav=True
+  ledge f1 t=0.32 lerpPos=(7.79, 0.30, -5.17) tPos=(7.79, 0.30, -5.17) nextPos=(8.17, 0.05, -5.17) onNav=True
+  ledge f2 t=0.39 lerpPos=(7.65, 0.39, -5.27) tPos=(7.65, 0.39, -5.27) nextPos=(8.17, 0.05, -5.27) onNav=True
+  ledge f5 t=0.64 lerpPos=(7.05, 0.76, -5.68) tPos=(7.05, 0.76, -5.68) nextPos=(8.17, 0.05, -5.68) onNav=True
+  ledge f10 t=0.97 lerpPos=(6.58, 1.06, -6.01) tPos=(6.58, 1.06, -6.01) nextPos=(8.17, 0.05, -6.01) onNav=True
+=== TRAV END WorkerFemale tPos=(6.58, 1.06, -6.01) nextPos=(6.58, 1.11, -6.01) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_N markerPos=(3.26, 1.06, -5.35) from=(2.93, 1.11, -4.69) to=(3.26, 0.00, -4.85) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_N onLink=False from=(2.93, 1.11, -4.69) to=(3.26, 0.00, -4.85) startPos=(2.93, 1.11, -4.69) nextPos=(2.92, 1.11, -4.69)
+  ledge f0 t=0.07 lerpPos=(2.95, 1.10, -4.70) tPos=(2.95, 1.10, -4.70) nextPos=(2.95, 1.11, -4.70) onNav=True
+  ledge f1 t=0.18 lerpPos=(2.99, 1.04, -4.72) tPos=(2.99, 1.04, -4.72) nextPos=(2.99, 1.11, -4.72) onNav=True
+  ledge f2 t=0.21 lerpPos=(3.00, 1.02, -4.72) tPos=(3.00, 1.02, -4.72) nextPos=(3.00, 1.11, -4.72) onNav=True
+  ledge f5 t=0.43 lerpPos=(3.07, 0.82, -4.76) tPos=(3.07, 0.82, -4.76) nextPos=(3.07, 1.11, -4.76) onNav=True
+  ledge f10 t=0.77 lerpPos=(3.19, 0.38, -4.81) tPos=(3.19, 0.38, -4.81) nextPos=(3.19, 1.11, -4.81) onNav=True
+=== TRAV END WorkerFemale tPos=(3.26, 0.00, -4.85) nextPos=(2.33, 0.05, -4.85) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(6.58, 1.06, -6.01) from=(8.17, 0.05, -4.69) to=(6.58, 1.06, -6.01) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(8.17, 0.05, -4.69) to=(6.58, 1.06, -6.01) startPos=(8.17, 0.05, -4.69) nextPos=(8.17, 0.05, -4.69)
+  ledge f0 t=0.05 lerpPos=(8.15, 0.06, -4.70) tPos=(8.15, 0.06, -4.70) nextPos=(8.17, 0.05, -4.70) onNav=True
+  ledge f1 t=0.11 lerpPos=(8.11, 0.08, -4.73) tPos=(8.11, 0.08, -4.73) nextPos=(8.17, 0.05, -4.73) onNav=True
+  ledge f2 t=0.17 lerpPos=(8.05, 0.12, -4.79) tPos=(8.05, 0.12, -4.79) nextPos=(8.17, 0.05, -4.79) onNav=True
+  ledge f5 t=0.36 lerpPos=(7.71, 0.34, -5.07) tPos=(7.71, 0.34, -5.07) nextPos=(8.17, 0.05, -5.07) onNav=True
+  ledge f10 t=0.64 lerpPos=(7.05, 0.76, -5.62) tPos=(7.05, 0.76, -5.62) nextPos=(8.17, 0.05, -5.62) onNav=True
+  ledge f15 t=0.92 lerpPos=(6.61, 1.04, -5.99) tPos=(6.61, 1.04, -5.99) nextPos=(8.17, 0.05, -5.99) onNav=True
+=== TRAV END WorkerFemale tPos=(6.58, 1.06, -6.01) nextPos=(6.58, 1.11, -6.01) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_N markerPos=(3.26, 1.06, -5.35) from=(2.92, 1.11, -4.69) to=(3.26, 0.00, -4.85) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_N onLink=False from=(2.92, 1.11, -4.69) to=(3.26, 0.00, -4.85) startPos=(2.92, 1.11, -4.69) nextPos=(2.92, 1.11, -4.69)
+  ledge f0 t=0.08 lerpPos=(2.94, 1.09, -4.70) tPos=(2.94, 1.09, -4.70) nextPos=(2.94, 1.11, -4.70) onNav=True
+  ledge f1 t=0.16 lerpPos=(2.97, 1.05, -4.71) tPos=(2.97, 1.05, -4.71) nextPos=(2.97, 1.11, -4.71) onNav=True
+  ledge f2 t=0.25 lerpPos=(3.00, 0.99, -4.73) tPos=(3.00, 0.99, -4.73) nextPos=(3.00, 1.11, -4.73) onNav=True
+  ledge f5 t=0.53 lerpPos=(3.10, 0.70, -4.77) tPos=(3.10, 0.70, -4.77) nextPos=(3.10, 1.11, -4.77) onNav=True
+  ledge f10 t=0.99 lerpPos=(3.26, 0.03, -4.85) tPos=(3.26, 0.03, -4.85) nextPos=(3.26, 1.11, -4.85) onNav=True
+=== TRAV END WorkerFemale tPos=(3.26, 0.00, -4.85) nextPos=(2.33, 0.05, -4.85) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(9.23, 1.06, -7.34) from=(10.83, 0.05, -6.03) to=(9.23, 1.06, -7.34) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.83, 0.05, -6.03) to=(9.23, 1.06, -7.34) startPos=(10.83, 0.05, -6.03) nextPos=(10.83, 0.05, -6.01)
+  ledge f0 t=0.05 lerpPos=(10.82, 0.06, -6.04) tPos=(10.82, 0.06, -6.04) nextPos=(10.83, 0.05, -6.04) onNav=True
+  ledge f1 t=0.11 lerpPos=(10.78, 0.08, -6.07) tPos=(10.78, 0.08, -6.07) nextPos=(10.83, 0.05, -6.07) onNav=True
+  ledge f2 t=0.16 lerpPos=(10.72, 0.12, -6.12) tPos=(10.72, 0.12, -6.12) nextPos=(10.83, 0.05, -6.12) onNav=True
+  ledge f5 t=0.36 lerpPos=(10.36, 0.35, -6.42) tPos=(10.36, 0.35, -6.42) nextPos=(10.83, 0.05, -6.42) onNav=True
+  ledge f10 t=0.85 lerpPos=(9.33, 1.00, -7.25) tPos=(9.33, 1.00, -7.25) nextPos=(10.83, 0.05, -7.25) onNav=True
+=== TRAV END WorkerFemale tPos=(9.23, 1.06, -7.34) nextPos=(9.23, 1.11, -7.34) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_S markerPos=(8.56, 1.06, -5.35) from=(8.48, 1.11, -5.90) to=(8.56, 0.00, -5.85) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_S onLink=False from=(8.48, 1.11, -5.90) to=(8.56, 0.00, -5.85) startPos=(8.48, 1.11, -5.90) nextPos=(8.48, 1.11, -5.90)
+  ledge f0 t=0.42 lerpPos=(8.52, 0.84, -5.88) tPos=(8.52, 0.84, -5.88) nextPos=(8.52, 1.11, -5.88) onNav=True
+  ledge f1 t=0.49 lerpPos=(8.52, 0.76, -5.88) tPos=(8.52, 0.76, -5.88) nextPos=(8.52, 1.11, -5.88) onNav=True
+  ledge f2 t=0.58 lerpPos=(8.53, 0.65, -5.87) tPos=(8.53, 0.65, -5.87) nextPos=(8.53, 1.11, -5.87) onNav=True
+  ledge f5 t=0.92 lerpPos=(8.56, 0.15, -5.86) tPos=(8.56, 0.15, -5.86) nextPos=(8.56, 1.11, -5.86) onNav=True
+=== TRAV END WorkerFemale tPos=(8.56, 0.00, -5.85) nextPos=(8.56, 1.11, -5.85) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_E markerPos=(9.23, 1.06, -12.64) from=(10.22, 1.11, -12.89) to=(10.67, 0.05, -12.64) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.22, 1.11, -12.89) to=(10.67, 0.05, -12.64) startPos=(10.22, 1.11, -12.89) nextPos=(10.25, 1.11, -13.00)
+  ledge f0 t=0.13 lerpPos=(10.28, 1.07, -12.85) tPos=(10.28, 1.07, -12.85) nextPos=(10.25, 1.11, -12.85) onNav=True
+  ledge f1 t=0.23 lerpPos=(10.32, 1.01, -12.83) tPos=(10.32, 1.01, -12.83) nextPos=(10.25, 1.11, -12.83) onNav=True
+  ledge f2 t=0.32 lerpPos=(10.36, 0.94, -12.81) tPos=(10.36, 0.94, -12.81) nextPos=(10.25, 1.11, -12.81) onNav=True
+  ledge f5 t=0.63 lerpPos=(10.50, 0.61, -12.73) tPos=(10.50, 0.61, -12.73) nextPos=(10.25, 1.11, -12.73) onNav=True
+=== TRAV END WorkerFemale tPos=(10.67, 0.05, -12.64) nextPos=(10.83, 0.05, -12.64) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(9.23, 1.06, -4.69) from=(10.83, 0.05, -6.01) to=(9.23, 1.06, -4.69) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.83, 0.05, -6.01) to=(9.23, 1.06, -4.69) startPos=(10.83, 0.05, -6.01) nextPos=(10.83, 0.05, -6.01)
+  ledge f0 t=0.05 lerpPos=(10.82, 0.06, -6.00) tPos=(10.82, 0.06, -6.00) nextPos=(10.83, 0.05, -6.00) onNav=True
+  ledge f1 t=0.11 lerpPos=(10.78, 0.08, -5.97) tPos=(10.78, 0.08, -5.97) nextPos=(10.83, 0.05, -5.97) onNav=True
+  ledge f2 t=0.17 lerpPos=(10.71, 0.12, -5.91) tPos=(10.71, 0.12, -5.91) nextPos=(10.83, 0.05, -5.91) onNav=True
+  ledge f5 t=0.36 lerpPos=(10.35, 0.35, -5.61) tPos=(10.35, 0.35, -5.61) nextPos=(10.83, 0.05, -5.61) onNav=True
+  ledge f10 t=0.85 lerpPos=(9.32, 1.00, -4.77) tPos=(9.32, 1.00, -4.77) nextPos=(10.83, 0.05, -4.77) onNav=True
+=== TRAV END WorkerFemale tPos=(9.23, 1.06, -4.69) nextPos=(9.23, 1.11, -4.69) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_N markerPos=(8.56, 1.06, -1.37) from=(8.57, 1.11, -0.37) to=(8.56, 0.05, 0.07) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_N onLink=False from=(8.57, 1.11, -0.37) to=(8.56, 0.05, 0.07) startPos=(8.57, 1.11, -0.37) nextPos=(8.56, 1.11, -0.33)
+  ledge f0 t=0.08 lerpPos=(8.57, 1.09, -0.34) tPos=(8.57, 1.09, -0.34) nextPos=(8.57, 1.11, -0.34) onNav=True
+  ledge f1 t=0.17 lerpPos=(8.57, 1.05, -0.30) tPos=(8.57, 1.05, -0.30) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f2 t=0.26 lerpPos=(8.57, 0.99, -0.26) tPos=(8.57, 0.99, -0.26) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f5 t=0.55 lerpPos=(8.57, 0.71, -0.13) tPos=(8.57, 0.71, -0.13) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f10 t=1.00 lerpPos=(8.56, 0.05, 0.07) tPos=(8.56, 0.05, 0.07) nextPos=(8.56, 1.11, -0.33) onNav=True
+=== TRAV END WorkerFemale tPos=(8.56, 0.05, 0.07) nextPos=(8.56, 0.05, 0.25) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(9.23, 1.06, -4.69) from=(10.83, 0.05, -5.99) to=(9.23, 1.06, -4.69) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.83, 0.05, -5.99) to=(9.23, 1.06, -4.69) startPos=(10.83, 0.05, -5.99) nextPos=(10.83, 0.05, -6.01)
+  ledge f0 t=0.03 lerpPos=(10.83, 0.05, -5.99) tPos=(10.83, 0.05, -5.99) nextPos=(10.83, 0.05, -5.99) onNav=True
+  ledge f1 t=0.07 lerpPos=(10.81, 0.06, -5.97) tPos=(10.81, 0.06, -5.97) nextPos=(10.83, 0.05, -5.97) onNav=True
+  ledge f2 t=0.10 lerpPos=(10.79, 0.08, -5.95) tPos=(10.79, 0.08, -5.95) nextPos=(10.83, 0.05, -5.95) onNav=True
+  ledge f5 t=0.22 lerpPos=(10.64, 0.18, -5.83) tPos=(10.64, 0.18, -5.83) nextPos=(10.83, 0.05, -5.83) onNav=True
+  ledge f10 t=0.45 lerpPos=(10.15, 0.48, -5.44) tPos=(10.15, 0.48, -5.44) nextPos=(10.83, 0.05, -5.44) onNav=True
+  ledge f15 t=0.62 lerpPos=(9.74, 0.74, -5.10) tPos=(9.74, 0.74, -5.10) nextPos=(10.83, 0.05, -5.10) onNav=True
+  ledge f20 t=0.82 lerpPos=(9.37, 0.97, -4.80) tPos=(9.37, 0.97, -4.80) nextPos=(10.83, 0.05, -4.80) onNav=True
+  ledge f25 t=1.00 lerpPos=(9.23, 1.06, -4.69) tPos=(9.23, 1.06, -4.69) nextPos=(10.83, 0.05, -4.69) onNav=True
+=== TRAV END WorkerFemale tPos=(9.23, 1.06, -4.69) nextPos=(9.23, 1.11, -4.69) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_N markerPos=(8.56, 1.06, -1.37) from=(8.58, 1.11, -0.37) to=(8.56, 0.05, 0.07) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_N onLink=False from=(8.58, 1.11, -0.37) to=(8.56, 0.05, 0.07) startPos=(8.58, 1.11, -0.37) nextPos=(8.56, 1.11, -0.33)
+  ledge f0 t=0.05 lerpPos=(8.58, 1.10, -0.35) tPos=(8.58, 1.10, -0.35) nextPos=(8.58, 1.11, -0.35) onNav=True
+  ledge f1 t=0.11 lerpPos=(8.58, 1.08, -0.32) tPos=(8.58, 1.08, -0.32) nextPos=(8.58, 1.11, -0.33) onNav=True
+  ledge f2 t=0.22 lerpPos=(8.57, 1.02, -0.28) tPos=(8.57, 1.02, -0.28) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f5 t=0.35 lerpPos=(8.57, 0.91, -0.22) tPos=(8.57, 0.91, -0.22) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f10 t=0.71 lerpPos=(8.57, 0.50, -0.06) tPos=(8.57, 0.50, -0.06) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f15 t=0.96 lerpPos=(8.56, 0.12, 0.05) tPos=(8.56, 0.12, 0.05) nextPos=(8.56, 1.11, -0.33) onNav=True
+=== TRAV END WorkerFemale tPos=(8.56, 0.05, 0.07) nextPos=(8.56, 0.05, 0.25) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(9.23, 1.06, -7.34) from=(10.83, 0.05, -6.02) to=(9.23, 1.06, -7.34) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.83, 0.05, -6.02) to=(9.23, 1.06, -7.34) startPos=(10.83, 0.05, -6.02) nextPos=(10.83, 0.05, -6.01)
+  ledge f0 t=0.04 lerpPos=(10.83, 0.05, -6.02) tPos=(10.83, 0.05, -6.02) nextPos=(10.83, 0.05, -6.02) onNav=True
+  ledge f1 t=0.08 lerpPos=(10.80, 0.07, -6.04) tPos=(10.80, 0.07, -6.04) nextPos=(10.83, 0.05, -6.04) onNav=True
+  ledge f2 t=0.11 lerpPos=(10.78, 0.08, -6.06) tPos=(10.78, 0.08, -6.06) nextPos=(10.83, 0.05, -6.06) onNav=True
+  ledge f5 t=0.24 lerpPos=(10.60, 0.20, -6.21) tPos=(10.60, 0.20, -6.21) nextPos=(10.83, 0.05, -6.21) onNav=True
+  ledge f10 t=0.40 lerpPos=(10.26, 0.41, -6.49) tPos=(10.26, 0.41, -6.49) nextPos=(10.83, 0.05, -6.49) onNav=True
+  ledge f15 t=0.58 lerpPos=(9.84, 0.67, -6.83) tPos=(9.84, 0.67, -6.83) nextPos=(10.83, 0.05, -6.83) onNav=True
+  ledge f20 t=0.76 lerpPos=(9.45, 0.92, -7.15) tPos=(9.45, 0.92, -7.15) nextPos=(10.83, 0.05, -7.15) onNav=True
+  ledge f25 t=0.94 lerpPos=(9.25, 1.05, -7.32) tPos=(9.25, 1.05, -7.32) nextPos=(10.83, 0.05, -7.32) onNav=True
+=== TRAV END WorkerFemale tPos=(9.23, 1.06, -7.34) nextPos=(9.23, 1.11, -7.34) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_N markerPos=(8.56, 1.06, -1.37) from=(8.56, 1.11, -0.34) to=(8.56, 0.05, 0.07) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_N onLink=False from=(8.56, 1.11, -0.34) to=(8.56, 0.05, 0.07) startPos=(8.56, 1.11, -0.34) nextPos=(8.56, 1.11, -0.33)
+  ledge f0 t=0.05 lerpPos=(8.56, 1.10, -0.32) tPos=(8.56, 1.10, -0.32) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f1 t=0.12 lerpPos=(8.56, 1.08, -0.29) tPos=(8.56, 1.08, -0.29) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f2 t=0.20 lerpPos=(8.56, 1.03, -0.26) tPos=(8.56, 1.03, -0.26) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f5 t=0.34 lerpPos=(8.56, 0.92, -0.20) tPos=(8.56, 0.92, -0.20) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f10 t=0.59 lerpPos=(8.56, 0.65, -0.10) tPos=(8.56, 0.65, -0.10) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f15 t=0.87 lerpPos=(8.56, 0.26, 0.01) tPos=(8.56, 0.26, 0.01) nextPos=(8.56, 1.11, -0.33) onNav=True
+=== TRAV END WorkerFemale tPos=(8.56, 0.05, 0.07) nextPos=(8.56, 0.05, 0.25) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(9.23, 1.06, -4.69) from=(10.83, 0.05, -6.01) to=(9.23, 1.06, -4.69) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.83, 0.05, -6.01) to=(9.23, 1.06, -4.69) startPos=(10.83, 0.05, -6.01) nextPos=(10.83, 0.05, -6.01)
+  ledge f0 t=0.03 lerpPos=(10.83, 0.05, -6.00) tPos=(10.83, 0.05, -6.00) nextPos=(10.83, 0.05, -6.00) onNav=True
+  ledge f1 t=0.07 lerpPos=(10.81, 0.07, -5.99) tPos=(10.81, 0.07, -5.99) nextPos=(10.83, 0.05, -5.99) onNav=True
+  ledge f2 t=0.11 lerpPos=(10.78, 0.08, -5.96) tPos=(10.78, 0.08, -5.96) nextPos=(10.83, 0.05, -5.96) onNav=True
+  ledge f5 t=0.24 lerpPos=(10.60, 0.20, -5.82) tPos=(10.60, 0.20, -5.82) nextPos=(10.83, 0.05, -5.82) onNav=True
+  ledge f10 t=0.44 lerpPos=(10.18, 0.46, -5.47) tPos=(10.18, 0.46, -5.47) nextPos=(10.83, 0.05, -5.47) onNav=True
+  ledge f15 t=0.63 lerpPos=(9.72, 0.75, -5.09) tPos=(9.72, 0.75, -5.09) nextPos=(10.83, 0.05, -5.09) onNav=True
+  ledge f20 t=0.83 lerpPos=(9.35, 0.98, -4.79) tPos=(9.35, 0.98, -4.79) nextPos=(10.83, 0.05, -4.79) onNav=True
+  ledge f25 t=1.00 lerpPos=(9.23, 1.06, -4.69) tPos=(9.23, 1.06, -4.69) nextPos=(10.83, 0.05, -4.69) onNav=True
+=== TRAV END WorkerFemale tPos=(9.23, 1.06, -4.69) nextPos=(9.23, 1.11, -4.69) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_N markerPos=(8.56, 1.06, -1.37) from=(8.57, 1.11, -0.35) to=(8.56, 0.05, 0.07) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_N onLink=False from=(8.57, 1.11, -0.35) to=(8.56, 0.05, 0.07) startPos=(8.57, 1.11, -0.35) nextPos=(8.56, 1.11, -0.33)
+  ledge f0 t=0.06 lerpPos=(8.57, 1.10, -0.33) tPos=(8.57, 1.10, -0.33) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f1 t=0.12 lerpPos=(8.57, 1.07, -0.30) tPos=(8.57, 1.07, -0.30) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f2 t=0.17 lerpPos=(8.57, 1.05, -0.28) tPos=(8.57, 1.05, -0.28) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f5 t=0.39 lerpPos=(8.57, 0.87, -0.19) tPos=(8.57, 0.87, -0.19) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f10 t=0.63 lerpPos=(8.57, 0.60, -0.09) tPos=(8.57, 0.60, -0.09) nextPos=(8.57, 1.11, -0.33) onNav=True
+  ledge f15 t=0.93 lerpPos=(8.56, 0.17, 0.04) tPos=(8.56, 0.17, 0.04) nextPos=(8.56, 1.11, -0.33) onNav=True
+=== TRAV END WorkerFemale tPos=(8.56, 0.05, 0.07) nextPos=(8.56, 0.05, 0.25) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(9.23, 1.06, -4.69) from=(10.83, 0.05, -6.01) to=(9.23, 1.06, -4.69) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.83, 0.05, -6.01) to=(9.23, 1.06, -4.69) startPos=(10.83, 0.05, -6.01) nextPos=(10.83, 0.05, -6.01)
+  ledge f0 t=0.04 lerpPos=(10.83, 0.05, -6.00) tPos=(10.83, 0.05, -6.00) nextPos=(10.83, 0.05, -6.00) onNav=True
+  ledge f1 t=0.09 lerpPos=(10.80, 0.07, -5.98) tPos=(10.80, 0.07, -5.98) nextPos=(10.83, 0.05, -5.98) onNav=True
+  ledge f2 t=0.12 lerpPos=(10.77, 0.09, -5.96) tPos=(10.77, 0.09, -5.96) nextPos=(10.83, 0.05, -5.96) onNav=True
+  ledge f5 t=0.24 lerpPos=(10.61, 0.19, -5.82) tPos=(10.61, 0.19, -5.82) nextPos=(10.83, 0.05, -5.82) onNav=True
+  ledge f10 t=0.43 lerpPos=(10.21, 0.44, -5.49) tPos=(10.21, 0.44, -5.49) nextPos=(10.83, 0.05, -5.49) onNav=True
+  ledge f15 t=0.62 lerpPos=(9.76, 0.73, -5.12) tPos=(9.76, 0.73, -5.12) nextPos=(10.83, 0.05, -5.12) onNav=True
+  ledge f20 t=0.79 lerpPos=(9.41, 0.95, -4.84) tPos=(9.41, 0.95, -4.84) nextPos=(10.83, 0.05, -4.84) onNav=True
+  ledge f25 t=0.97 lerpPos=(9.23, 1.06, -4.69) tPos=(9.23, 1.06, -4.69) nextPos=(10.83, 0.05, -4.69) onNav=True
+=== TRAV END WorkerFemale tPos=(9.23, 1.06, -4.69) nextPos=(9.23, 1.11, -4.69) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_N markerPos=(8.56, 1.06, -1.37) from=(8.56, 1.11, -0.34) to=(8.56, 0.05, 0.07) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_N onLink=False from=(8.56, 1.11, -0.34) to=(8.56, 0.05, 0.07) startPos=(8.56, 1.11, -0.34) nextPos=(8.56, 1.11, -0.33)
+  ledge f0 t=0.06 lerpPos=(8.56, 1.10, -0.31) tPos=(8.56, 1.10, -0.31) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f1 t=0.13 lerpPos=(8.56, 1.07, -0.29) tPos=(8.56, 1.07, -0.29) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f2 t=0.16 lerpPos=(8.56, 1.05, -0.27) tPos=(8.56, 1.05, -0.27) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f5 t=0.40 lerpPos=(8.56, 0.87, -0.18) tPos=(8.56, 0.87, -0.18) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f10 t=0.64 lerpPos=(8.56, 0.59, -0.08) tPos=(8.56, 0.59, -0.08) nextPos=(8.56, 1.11, -0.33) onNav=True
+  ledge f15 t=0.93 lerpPos=(8.56, 0.16, 0.04) tPos=(8.56, 0.16, 0.04) nextPos=(8.56, 1.11, -0.33) onNav=True
+=== TRAV END WorkerFemale tPos=(8.56, 0.05, 0.07) nextPos=(8.56, 0.05, 0.25) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(9.23, 1.06, -4.69) from=(10.83, 0.05, -6.01) to=(9.23, 1.06, -4.69) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.83, 0.05, -6.01) to=(9.23, 1.06, -4.69) startPos=(10.83, 0.05, -6.01) nextPos=(10.83, 0.05, -6.01)
+  ledge f0 t=0.08 lerpPos=(10.80, 0.07, -5.99) tPos=(10.80, 0.07, -5.99) nextPos=(10.83, 0.05, -5.99) onNav=True
+  ledge f1 t=0.14 lerpPos=(10.75, 0.10, -5.94) tPos=(10.75, 0.10, -5.94) nextPos=(10.83, 0.05, -5.94) onNav=True
+  ledge f2 t=0.19 lerpPos=(10.68, 0.14, -5.89) tPos=(10.68, 0.14, -5.89) nextPos=(10.83, 0.05, -5.89) onNav=True
+  ledge f5 t=0.67 lerpPos=(9.63, 0.81, -5.02) tPos=(9.63, 0.81, -5.02) nextPos=(10.83, 0.05, -5.02) onNav=True
+  ledge f10 t=0.91 lerpPos=(9.26, 1.04, -4.72) tPos=(9.26, 1.04, -4.72) nextPos=(10.83, 0.05, -4.72) onNav=True
+=== TRAV END WorkerFemale tPos=(9.23, 1.06, -4.69) nextPos=(9.23, 1.11, -4.69) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_E markerPos=(9.23, 1.06, -12.64) from=(10.24, 1.11, -12.94) to=(10.67, 0.05, -12.64) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.24, 1.11, -12.94) to=(10.67, 0.05, -12.64) startPos=(10.24, 1.11, -12.94) nextPos=(10.25, 1.11, -13.00)
+  ledge f0 t=0.08 lerpPos=(10.27, 1.09, -12.92) tPos=(10.27, 1.09, -12.92) nextPos=(10.25, 1.11, -12.92) onNav=True
+  ledge f1 t=0.17 lerpPos=(10.31, 1.05, -12.89) tPos=(10.31, 1.05, -12.89) nextPos=(10.25, 1.11, -12.89) onNav=True
+  ledge f2 t=0.33 lerpPos=(10.38, 0.93, -12.84) tPos=(10.38, 0.93, -12.84) nextPos=(10.25, 1.11, -12.84) onNav=True
+  ledge f5 t=0.51 lerpPos=(10.46, 0.75, -12.79) tPos=(10.46, 0.75, -12.79) nextPos=(10.25, 1.11, -12.79) onNav=True
+  ledge f10 t=0.94 lerpPos=(10.64, 0.15, -12.66) tPos=(10.64, 0.15, -12.66) nextPos=(10.25, 1.11, -12.66) onNav=True
+=== TRAV END WorkerFemale tPos=(10.67, 0.05, -12.64) nextPos=(10.83, 0.05, -12.64) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=True marker=LedgeLink_E markerPos=(9.23, 1.06, -7.34) from=(10.83, 0.05, -6.05) to=(9.23, 1.06, -7.34) tgtY=1.11 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.83, 0.05, -6.05) to=(9.23, 1.06, -7.34) startPos=(10.83, 0.05, -6.05) nextPos=(10.83, 0.05, -6.01)
+  ledge f0 t=0.05 lerpPos=(10.82, 0.06, -6.06) tPos=(10.82, 0.06, -6.06) nextPos=(10.83, 0.05, -6.06) onNav=True
+  ledge f1 t=0.11 lerpPos=(10.78, 0.08, -6.09) tPos=(10.78, 0.08, -6.09) nextPos=(10.83, 0.05, -6.09) onNav=True
+  ledge f2 t=0.15 lerpPos=(10.74, 0.11, -6.12) tPos=(10.74, 0.11, -6.12) nextPos=(10.83, 0.05, -6.12) onNav=True
+  ledge f5 t=0.33 lerpPos=(10.43, 0.30, -6.37) tPos=(10.43, 0.30, -6.37) nextPos=(10.83, 0.05, -6.37) onNav=True
+  ledge f10 t=0.61 lerpPos=(9.77, 0.72, -6.90) tPos=(9.77, 0.72, -6.90) nextPos=(10.83, 0.05, -6.90) onNav=True
+  ledge f15 t=0.90 lerpPos=(9.27, 1.03, -7.30) tPos=(9.27, 1.03, -7.30) nextPos=(10.83, 0.05, -7.30) onNav=True
+=== TRAV END WorkerFemale tPos=(9.23, 1.06, -7.34) nextPos=(9.23, 1.11, -7.34) onNav=True pathStatus=PathComplete
+--- DockLedge START WorkerFemale goingUp=False marker=LedgeLink_E markerPos=(9.23, 1.06, -12.64) from=(10.25, 1.11, -12.99) to=(10.67, 0.05, -12.64) tgtY=0.05 pathStatus=PathPartial onLink=False
+=== TRAV START WorkerFemale ledge=LedgeLink_E onLink=False from=(10.25, 1.11, -12.99) to=(10.67, 0.05, -12.64) startPos=(10.25, 1.11, -12.99) nextPos=(10.25, 1.11, -13.00)
+  ledge f0 t=0.07 lerpPos=(10.28, 1.10, -12.97) tPos=(10.28, 1.10, -12.97) nextPos=(10.25, 1.11, -12.97) onNav=True
+  ledge f1 t=0.15 lerpPos=(10.31, 1.06, -12.94) tPos=(10.31, 1.06, -12.94) nextPos=(10.25, 1.11, -12.94) onNav=True
+  ledge f2 t=0.29 lerpPos=(10.37, 0.96, -12.89) tPos=(10.37, 0.96, -12.89) nextPos=(10.25, 1.11, -12.89) onNav=True
+  ledge f5 t=0.47 lerpPos=(10.44, 0.80, -12.83) tPos=(10.44, 0.80, -12.83) nextPos=(10.25, 1.11, -12.83) onNav=True
+  ledge f10 t=0.89 lerpPos=(10.62, 0.23, -12.68) tPos=(10.62, 0.23, -12.68) nextPos=(10.25, 1.11, -12.68) onNav=True
+=== TRAV END WorkerFemale tPos=(10.67, 0.05, -12.64) nextPos=(10.83, 0.05, -12.64) onNav=True pathStatus=PathComplete
