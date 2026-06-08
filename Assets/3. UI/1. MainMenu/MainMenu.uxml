@@ -10,8 +10,9 @@
             <ui:VisualElement name="button-column" class="button-column" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);">
                 <ui:Button name="btn-clock-in" text="CLOCK IN" class="menu-btn menu-btn-green"/>
                 <ui:Button name="btn-resume" text="RESUME SHIFT" class="menu-btn menu-btn-blue"/>
+                <ui:Button name="btn-back-to-work" text="GO BACK TO WORK" class="menu-btn menu-btn-grey"/>
                 <ui:Button name="btn-settings" text="SETTINGS" class="menu-btn menu-btn-grey"/>
-                <ui:Button name="btn-punch-out" text="PUNCH OUT" class="menu-btn menu-btn-red" style="color: rgb(255, 255, 255);"/>
+                <ui:Button name="btn-punch-out" text="PUNCH OUT" class="menu-btn menu-btn-orange"/>
             </ui:VisualElement>
             <ui:Label name="version-label" text="v0.1 â€” PROTO" class="version-label"/>
         </ui:VisualElement>
@@ -20,23 +21,23 @@
             <ui:Label name="popup-question" text="What&apos;s your name, Boss?" class="popup-title"/>
             <ui:TextField name="name-field" placeholder-text="Enter your name..." class="popup-field"/>
             <ui:Button name="btn-name-confirm" text="START NEW GAME" class="popup-btn popup-btn-green"/>
-            <ui:Button name="btn-name-back" text="BACK" class="popup-btn popup-btn-grey"/>
+            <ui:Button name="btn-name-back" text="BACK" class="popup-btn popup-btn-orange"/>
         </ui:VisualElement>
         <ui:VisualElement name="load-popup" class="popup-panel" style="display: none;">
             <ui:Label text="RESUME SHIFT" class="popup-title"/>
-            <ui:Label name="load-hint" text="ðŸ’¡  Hit F9 anytime to quick-load your last autosave." class="popup-hint"/>
+            <ui:Label name="load-hint" text="Hit F9 anytime to quick-load your last quicksave." class="popup-hint"/>
             <ui:ScrollView name="save-slot-list" class="save-slot-list" style="max-height: 450px;">
                 <ui:VisualElement name="save-slot-container" class="save-slot-container"/>
             </ui:ScrollView>
-            <ui:Button name="btn-load-close" text="BACK" class="popup-btn popup-btn-grey"/>
+            <ui:Button name="btn-load-close" text="BACK" class="popup-btn popup-btn-orange"/>
         </ui:VisualElement>
         <ui:VisualElement name="settings-popup" class="popup-panel" style="display: none;">
-            <ui:Label text="SETTINGS" class="popup-title"/>
+            <ui:Label text="SETTINGS" class="popup-title" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);"/>
             <ui:Label text="WHAT&apos;S YOUR HORSEPOWER?" class="settings-section-header"/>
             <ui:VisualElement class="settings-row">
-                <ui:Button name="btn-ultra" text="DEEP BLUE" class="gfx-btn gfx-btn-blue"/>
-                <ui:Button name="btn-good" text="GOOD ENOUGH" class="gfx-btn gfx-btn-green"/>
                 <ui:Button name="btn-toaster" text="TOASTER" class="gfx-btn gfx-btn-red"/>
+                <ui:Button name="btn-good" text="GOOD ENOUGH" class="gfx-btn gfx-btn-green"/>
+                <ui:Button name="btn-screamin" text="SCREAMIN" class="gfx-btn gfx-btn-blue"/>
             </ui:VisualElement>
             <ui:Label text="DIFFICULTY" class="settings-section-header"/>
             <ui:VisualElement class="settings-row">
@@ -55,7 +56,19 @@
                 <ui:Label text="Music" class="settings-slider-label"/>
                 <ui:Slider name="slider-music-volume" low-value="0" high-value="1" value="0.7" class="settings-slider"/>
             </ui:VisualElement>
-            <ui:Button name="btn-settings-close" text="DONE" class="popup-btn popup-btn-green"/>
+            <ui:VisualElement class="settings-action-row">
+                <ui:Button name="btn-settings-back-to-work" text="BACK TO WORK" class="popup-btn popup-btn-grey settings-action-btn" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);"/>
+                <ui:Button name="btn-settings-close" text="DONE" class="popup-btn popup-btn-green settings-action-btn" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="resolution-confirm-overlay" class="confirm-overlay" style="display: none;">
+            <ui:VisualElement name="resolution-confirm-panel" class="confirm-panel">
+                <ui:Label text="ACCEPT CHANGES?" class="popup-title confirm-title" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);"/>
+                <ui:VisualElement class="settings-action-row">
+                    <ui:Button name="btn-res-yes" text="YES" class="menu-btn menu-btn-blue settings-action-btn" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);"/>
+                    <ui:Button name="btn-res-no" text="NO" class="menu-btn menu-btn-grey settings-action-btn" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

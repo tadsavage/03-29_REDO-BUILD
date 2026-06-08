@@ -139,11 +139,29 @@ This is a warehouse simulation game with a serious logistics core and a whimsica
 Ideas and planned systems. These range from fully thought-out to early sparks.
 
 ### The Rat System
-Rats appear in the building and left unaddressed they spiral out of control:
-- They procreate and multiply over time
+> **Status: Deferred.** Rats are intentionally being held until the core gameplay loop is solid. Do not implement until employee AI, inventory, and the basic simulation loop are all functional. The foundation has to come first.
+
+Rats are a pest control challenge that layers chaos on top of the simulation. Left unaddressed, an infestation spirals out of control.
+
+**Core behavior (implement first):**
+- Rats hide inside pallets and boxes at rest
+- When a worker passes nearby, a rat bolts from its hiding spot and scurries to a new location in the warehouse
+- A green contamination cloud hangs around areas where rats have been present
+- Rats can damage inventory — spoilage, contamination, loss
+
+**Escalation (implement after core behavior is solid):**
+- Rats procreate and multiply over time
 - Individual rats grow larger and more aggressive as the infestation matures
 - Cascading consequences: employee morale drops, employees quit, health inspectors arrive, fines accumulate, potential shutdown
-- Endgame escalation: the player (as the warehouse manager) may have to physically fight a boss rat
+- Endgame escalation: the player may have to physically fight a boss rat
+
+**Testing checklist (for when this is built):**
+- [ ] Rats spawn hidden inside pallets/boxes at scene load
+- [ ] Rats flee to a new hiding spot when a worker comes within trigger range
+- [ ] Green contamination cloud appears at rat locations
+- [ ] Inventory items near rats take damage / show contamination state
+- [ ] Rat population grows over time if unchecked
+- [ ] Infestation consequences (morale, inspectors, fines) fire at correct thresholds
 
 ### Employee Simulation
 Deep human element for warehouse workers:

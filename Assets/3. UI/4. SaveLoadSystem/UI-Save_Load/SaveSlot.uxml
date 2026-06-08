@@ -1,11 +1,11 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
     <Style src="project://database/Assets/3.%20UI/3.SaveLoadSystem/UI-Save_Load/SaveSlot.uss?fileID=7433441132597879392&amp;guid=64e2db04fd6e4a54db676c0ab817b4d1&amp;type=3#SaveSlot"/>
     <ui:VisualElement name="slot-root" class="slot-root">
-        <ui:Label name="slot-index-label" text="SLOT 1" class="slot-index-label"/>
         <ui:VisualElement name="thumbnail-image" class="thumbnail-image"/>
         <ui:VisualElement name="empty-slot-overlay" class="empty-slot-overlay">
             <ui:Label text="— EMPTY —" class="empty-label"/>
         </ui:VisualElement>
+        <ui:Label name="slot-index-label" text="SLOT 1" class="slot-index-label"/>
         <ui:VisualElement name="info-column" class="info-column">
             <ui:TextField name="save-name-field" value="Save 1" class="save-name-field"/>
             <ui:Label name="timestamp-label" text="" class="timestamp-label"/>

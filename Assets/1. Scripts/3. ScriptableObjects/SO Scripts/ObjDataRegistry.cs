@@ -32,7 +32,7 @@ public class ObjDataRegistry : ScriptableObject
         if (_lookup.TryGetValue(id, out var result))
             return result;
 
-        Debug.LogError($"ObjDataRegistry: No ObjDataSO found with id {id}");
+        Debug.LogWarning($"ObjDataRegistry: No ObjDataSO found with id {id} — object will be skipped on load.");
         return null;
     }
 

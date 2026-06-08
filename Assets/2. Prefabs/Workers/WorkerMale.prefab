@@ -177,10 +177,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AgentAnimation
   walkSpeed: 3
-  turnSpeed: 500
-  idleDelay: 0.5
-  waypointThreshold: 0.75
-  waveDelay: 2
+  turnSpeed: 120
+  idleDelay: 0.25
+  waypointThreshold: 0.2
+  angleThreshold: 30
+  speedAdj: 0.25
+  turnLookAheadDist: 1.5
+  waveDelay: 1.5
 --- !u!195 &332238526548194429
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -192,16 +195,16 @@ NavMeshAgent:
   m_AgentTypeID: 1479372276
   m_Radius: 0.25
   m_Speed: 3
-  m_Acceleration: 10
-  avoidancePriority: 85
-  m_AngularSpeed: 200
-  m_StoppingDistance: 0.75
-  m_AutoTraverseOffMeshLink: 1
+  m_Acceleration: 6
+  avoidancePriority: 75
+  m_AngularSpeed: 120
+  m_StoppingDistance: 0.25
+  m_AutoTraverseOffMeshLink: 0
   m_AutoBraking: 1
   m_AutoRepath: 1
   m_Height: 2
   m_BaseOffset: 0
-  m_WalkableMask: 61
+  m_WalkableMask: 25
   m_ObstacleAvoidanceType: 4
 --- !u!95 &7505412903444389743
 Animator:
@@ -264,8 +267,8 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 0
   m_IsKinematic: 1
-  m_Interpolate: 0
-  m_Constraints: 0
+  m_Interpolate: 1
+  m_Constraints: 80
   m_CollisionDetection: 0
 --- !u!114 &5672173797442903100
 MonoBehaviour:
@@ -284,7 +287,7 @@ MonoBehaviour:
   lineWidth: 0.1
   isDashed: 1
   pointsPerSegment: 10
-  verticalOffset: 0.1
+  verticalOffset: 0.15
   guidanceMaterial: {fileID: -876546973899608171, guid: dea41a882d6ef87489402d2409c08094, type: 3}
 --- !u!65 &-3551500837667953246
 BoxCollider:
@@ -319,13 +322,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f3d698b0375cff545979f23eca0c6d06, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AmbientMumble
-  mumbleClips: []
+  mumbleClips:
+  - {fileID: 8300000, guid: 0ec3cf64da5476e4eb638ed98f41dffd, type: 3}
+  - {fileID: 8300000, guid: 74b68d881465f0c4284b785d308d58da, type: 3}
+  - {fileID: 8300000, guid: daa539699d4192241b263de99852be22, type: 3}
+  - {fileID: 8300000, guid: abf42a7cd4964f741a2a886bf6bfdb74, type: 3}
+  - {fileID: 8300000, guid: 5776e102968b81142bd9a9a9a7186b44, type: 3}
+  - {fileID: 8300000, guid: 1ec5bf7db85493247b4b54dfe06c7fa3, type: 3}
+  - {fileID: 8300000, guid: ae3534748f66fe04fb60e9ae7f09125c, type: 3}
+  - {fileID: 8300000, guid: 77845b6c930aff54c92e2f1b4594f647, type: 3}
+  - {fileID: 8300000, guid: 8d82e0bbc05734f4d999ece8e8d0038d, type: 3}
+  - {fileID: 8300000, guid: e44cbf28caea5ca43989e14b9fc23cee, type: 3}
+  - {fileID: 8300000, guid: 7278f07ff0c818a4c901c299f3e1e8ac, type: 3}
+  - {fileID: 8300000, guid: da20269de186f954fb9183bc9dccacd3, type: 3}
   volume: 0.5
   minPitch: 0.85
   maxPitch: 1.15
   chanceToMumble: 50
   fullVolumeDistance: 2
-  maxHearingDistance: 15
+  maxHearingDistance: 12
 --- !u!114 &3756171118655377320
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -339,16 +354,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
   heightAboveHead: 2.5
-  markColor: {r: 1, g: 0.1, b: 0.08, a: 1}
-  fontSize: 6
+  markColor: {r: 0.723706, g: 0.7294118, b: 0.070588216, a: 0.8980392}
+  fontSize: 5
   hoverAmplitude: 0.25
-  hoverSpeed: 1.1
-  yRotateDeg: 30
-  yRotateSpeed: 0.7
+  hoverSpeed: 1.5
+  yRotateDeg: 25
+  yRotateSpeed: 1
+  graceBeforeShow: 3
   fadeInDuration: 1
-  fadeOutDuration: 1.5
-  stuckGraceSeconds: 2
-  physicallyBlockedGrace: 3
+  fadeOutDuration: 0.5
+  stuckSeconds: 5
+  stuckMoveThreshold: 0.1
 --- !u!82 &-7723707320012250112
 AudioSource:
   m_ObjectHideFlags: 0
@@ -361,7 +377,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
-  m_PlayOnAwake: 1
+  m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
   Loop: 1

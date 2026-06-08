@@ -84,7 +84,7 @@ public class GameContext : MonoBehaviour
                 SaveManager.Instance.LoadFromSlot(loadSlotIndex);
             else
             {
-                string saveName = PlayerPrefs.GetString("LastSaveName", "autosave");
+                string saveName = PlayerPrefs.GetString("LastSaveName", "quicksave");
                 placement.LoadGame(saveName);
             }
 

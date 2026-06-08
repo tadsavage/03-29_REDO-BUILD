@@ -196,9 +196,9 @@ public class DeleteState : IPlacementState
             var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
             if (bd != null && bd.Data != null)
             {
-                // Floor tiles cannot be deleted — redirect to the Foundation in the same cell
+                // Floor tiles are indestructible — ignore them entirely
                 if (bd.Data.isFloor)
-                    bd = FindFoundationInCell(cell);
+                    bd = null;
 
                 if (bd != null)
                     newHover = bd.GetComponent<BuildingHighlighter>();
@@ -234,14 +234,16 @@ public class DeleteState : IPlacementState
         }
     }
 
-    // Returns the BuildingData for the Foundation in the given cell, or null if none.
+    // Returns the BuildingData for the ground (Foundation or Grounds) in the given cell, or null if none.
     private BuildingData FindFoundationInCell(Vector2Int cell)
     {
         var objs = _grid.GetObjectsInCell(cell);
         if (objs == null) return null;
         foreach (var entry in objs)
         {
-            if (entry.data?.category == "Foundation" && entry.instance != null)
+            if (entry.instance == null) continue;
+            string cat = entry.data?.category;
+            if (cat == "Foundation" || cat == "Grounds")
                 return entry.instance.GetComponent<BuildingData>();
         }
         return null;

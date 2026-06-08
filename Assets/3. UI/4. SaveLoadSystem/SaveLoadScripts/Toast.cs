@@ -9,6 +9,7 @@ public class UIToast : MonoBehaviour
     private void Awake()
     {
         var doc = GetComponent<UIDocument>();
+        doc.sortingOrder = 100; // render above all other UI panels
         toast = doc.rootVisualElement.Q<Label>("ToastLabel");
         toast.style.opacity = 0;
     }

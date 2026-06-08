@@ -3,15 +3,20 @@ using TMPro;
 using UnityEngine.AI;
 
 /// <summary>
-/// Displays a red "?" above the agent's head when it has no waypoints to travel to.
-/// Fades out over 1.5 s once the agent has a destination and is moving.
-/// Reads directly from AiNavigation.HasWaypoints and NavMeshAgent — no callbacks needed.
+/// Displays a red "?" above the agent when it has nowhere to go (0–1 waypoints)
+/// or is physically stuck (hasn't moved in stuckSeconds despite having a valid path).
+///
+/// Sequence:
+///   Condition true → graceBeforeShow (2.5 s) → fade IN (2 s) → fully visible
+///   → AgentAnimation starts wave after 1.5 s more (waveDelay = 3.5 s in AgentAnimation)
+///   Condition clears → fade OUT (2.5 s) → hidden
 /// </summary>
 [RequireComponent(typeof(AiNavigation))]
 [RequireComponent(typeof(NavMeshAgent))]
 public class NoWaypointIndicator : MonoBehaviour
 {
     [Header("Position")]
+    [Tooltip("Height above the agent's pivot to place the indicator. Adjust based on agent height and pivot point.")]
     [SerializeField] private float heightAboveHead = 2.4f;
 
     [Header("Appearance")]
@@ -19,43 +24,47 @@ public class NoWaypointIndicator : MonoBehaviour
     [SerializeField] private float fontSize = 6f;
 
     [Header("Hover")]
+    [Tooltip("Vertical bobbing amplitude in world units.")]
     [SerializeField] private float hoverAmplitude = 0.18f;
+    [Tooltip("Vertical bobbing speed in cycles per second.")]
     [SerializeField] private float hoverSpeed     = 1.1f;
 
-    [Header("Rotation")]
-    [SerializeField] private float yRotateDeg = 30f;   // peak wobble in degrees each side
-    [SerializeField] private float yRotateSpeed = 0.7f; // oscillations per second
+    [Header("Rotation Wobble")]
+    [Tooltip("Maximum rotation angle around the Y axis in degrees.")]
+    [SerializeField] private float yRotateDeg   = 30f;
+    [Tooltip("Rotation speed around the Y axis in cycles per second.")]
+    [SerializeField] private float yRotateSpeed = 0.7f;
 
-    [Header("Fade")]
-    [SerializeField] private float fadeInDuration  = 0.25f;
-    [SerializeField] private float fadeOutDuration = 1.5f;
+    [Header("Timing")]
+    [Tooltip("Seconds the condition must be true before the ? starts to appear.")]
+    [SerializeField] private float graceBeforeShow = 2.5f;
+    [Tooltip("Seconds to fade the ? in once grace has expired.")]
+    [SerializeField] private float fadeInDuration  = 2.0f;
+    [Tooltip("Seconds to fade the ? out once the condition clears.")]
+    [SerializeField] private float fadeOutDuration = 2.5f;
 
-//<<<<<<< HEAD
     [Header("Stuck Detection")]
-    [Tooltip("Seconds without a meaningful destination before the ? appears. "  +
-             "Keeps it from flickering during the brief gap between waypoints.")]
-    [SerializeField] private float stuckGraceSeconds = 2f;
-    [Tooltip("Seconds the agent can have a complete path but zero velocity before " +
-             "being considered physically blocked (wall, door, equipment, congestion).")]
-    [SerializeField] private float physicallyBlockedGrace = 3f;
+    [Tooltip("Agent must go this many seconds without meaningful movement (and have enough waypoints) before being counted as stuck.")]
+    [SerializeField] private float stuckSeconds = 5f;
+    [Tooltip("Minimum distance moved per 0.5 s check to NOT be considered stuck.")]
+    [SerializeField] private float stuckMoveThreshold = 0.1f;
 
-//=======
-//>>>>>>> parent of f8a23768 (working on foundations and nav)
     // ── Runtime ───────────────────────────────────────────────────────────────
-    private AiNavigation  _aiNav;
-    private NavMeshAgent  _agent;
-    private Transform     _pivot;   // child that bobs + rotates
-    private TextMeshPro   _tmp;
+    private AiNavigation _aiNav;
+    private NavMeshAgent _agent;
+    private Transform    _pivot;
+    private TextMeshPro  _tmp;
 
     private float _alpha;
-//<<<<<<< HEAD
-    private float _hoverPhase;         // randomised so agents don't all bob in sync
-    private float _stuckTimer;         // seconds agent has had no meaningful destination
-    private float _velocityStuckTimer; // seconds agent has been stationary despite a complete path
+    private float _hoverPhase;
 
-    /// <summary>True while the "?" is fading in or fully visible — used by AgentAnimation to trigger the waving clip.</summary>
+    private float   _conditionTimer;   // time current condition has been continuously true
+    private float   _stuckTimer;       // accumulated time without movement
+    private float   _posCheckTimer;    // sub-timer for 0.5 s position samples
+    private Vector3 _lastCheckedPos;
+
+    /// <summary>True while the "?" is fading in or fully visible — polled by AgentAnimation.</summary>
     public bool IsShowingIndicator => _alpha > 0.05f;
-//=======
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -66,8 +75,8 @@ public class NoWaypointIndicator : MonoBehaviour
 
         BuildIndicator();
 
-        // Stagger the hover and wobble so a crowd of agents looks natural
-        _hoverPhase = Random.Range(0f, Mathf.PI * 2f);
+        _hoverPhase     = Random.Range(0f, Mathf.PI * 2f);
+        _lastCheckedPos = transform.position;
     }
 
     private void BuildIndicator()
@@ -76,14 +85,13 @@ public class NoWaypointIndicator : MonoBehaviour
         go.transform.SetParent(transform, false);
         go.transform.localPosition = new Vector3(0f, heightAboveHead, 0f);
 
-        _tmp = go.AddComponent<TextMeshPro>();
+        _tmp           = go.AddComponent<TextMeshPro>();
         _tmp.text      = "?";
         _tmp.fontSize  = fontSize;
         _tmp.fontStyle = FontStyles.Bold;
         _tmp.alignment = TextAlignmentOptions.Center;
         _tmp.color     = new Color(markColor.r, markColor.g, markColor.b, 0f);
 
-        // Disable shadows on the question mark mesh so it doesn't cast weird blobs
         var mr = go.GetComponent<MeshRenderer>();
         if (mr != null)
         {
@@ -92,53 +100,52 @@ public class NoWaypointIndicator : MonoBehaviour
         }
 
         _pivot = go.transform;
-        go.SetActive(false); // start hidden
+        go.SetActive(false);
     }
 
     // ── Update ────────────────────────────────────────────────────────────────
 
     private void Update()
     {
-        // ── Physically-blocked detection ──────────────────────────────────────
-        // An agent with a fully-complete NavMesh path, a distant destination, but
-        // no movement is blocked by a physical obstacle (door, wall, equipment,
-        // congestion) that the NavMesh doesn't know about.
-        bool hasCompletePath = _agent.isActiveAndEnabled && _agent.isOnNavMesh
-            && !_agent.pathPending && _agent.hasPath
-            && _agent.path.status == NavMeshPathStatus.PathComplete
-            && _agent.remainingDistance > _agent.stoppingDistance + 0.3f;
+        bool noWaypoints = !_aiNav.HasEnoughWaypoints;
 
-        // Never count as stuck while traversing an off-mesh link (stairwell, bridge, etc.).
-        // The agent's velocity is 0 during manual link traversal, which would be a false positive.
-        bool onOffMeshLink = _agent.isOnOffMeshLink;
+        // ── Stuck detection ───────────────────────────────────────────────────
+        // Only run when the agent HAS enough waypoints — an agent with 0–1 waypoints
+        // is expected to stand still, so zero velocity isn't "stuck".
+        if (!noWaypoints && _agent.isActiveAndEnabled && _agent.isOnNavMesh)
+        {
+            _posCheckTimer += Time.deltaTime;
+            if (_posCheckTimer >= 0.5f)
+            {
+                float moved = Vector3.Distance(transform.position, _lastCheckedPos);
+                if (moved < stuckMoveThreshold)
+                    _stuckTimer += _posCheckTimer;
+                else
+                    _stuckTimer = 0f;
 
-        if (hasCompletePath && !onOffMeshLink && _agent.velocity.sqrMagnitude < 0.01f)
-            _velocityStuckTimer += Time.deltaTime;
+                _lastCheckedPos = transform.position;
+                _posCheckTimer  = 0f;
+            }
+        }
         else
-            _velocityStuckTimer = 0f;
+        {
+            // Reset so a freshly-added waypoint doesn't immediately re-trigger stuck.
+            _stuckTimer    = 0f;
+            _posCheckTimer = 0f;
+            _lastCheckedPos = transform.position;
+        }
 
-        bool physicallyBlocked = _velocityStuckTimer >= physicallyBlockedGrace;
+        // ── Condition ─────────────────────────────────────────────────────────
+        bool conditionActive = noWaypoints || (_stuckTimer >= stuckSeconds);
 
-        // ── No-destination detection ──────────────────────────────────────────
-        // Accumulate time without a meaningful destination; reset the moment one exists.
-        /*
-        if (HasMeaningfulDestination())
-            _stuckTimer = 0f;
+        if (conditionActive)
+            _conditionTimer += Time.deltaTime;
         else
-            _stuckTimer += Time.deltaTime;
-        */
-        // Show when either: no reachable destination, OR physically blocked by an obstacle.
-        bool wantsVisible = (_stuckTimer >= stuckGraceSeconds) || physicallyBlocked;
-        // Show whenever there are no waypoints OR the agent has no active path.
-        // We intentionally use HasWaypoints as the primary gate so the indicator
-        // does NOT flicker during the normal between-waypoint gap.
-        bool agentMoving = _agent.isActiveAndEnabled
-                        && (_agent.hasPath || _agent.pathPending)
-                        && _agent.velocity.sqrMagnitude > 0.01f;
+            _conditionTimer = 0f;
 
-        //bool wantsVisible = !_aiNav.HasWaypoints || (_aiNav.HasWaypoints && !agentMoving && !_agent.hasPath && !_agent.pathPending);
+        // ── Fade target ───────────────────────────────────────────────────────
+        bool wantsVisible = _conditionTimer >= graceBeforeShow;
 
-        // Fade alpha toward target
         float targetAlpha = wantsVisible ? 1f : 0f;
         float fadeSpeed   = wantsVisible
             ? 1f / Mathf.Max(fadeInDuration,  0.001f)
@@ -146,27 +153,27 @@ public class NoWaypointIndicator : MonoBehaviour
 
         _alpha = Mathf.MoveTowards(_alpha, targetAlpha, fadeSpeed * Time.deltaTime);
 
-        // Toggle the GameObject so it costs nothing when fully invisible
+        // ── Visibility toggle ─────────────────────────────────────────────────
         if (_alpha <= 0f)
         {
-            if (_pivot.gameObject.activeSelf) _pivot.gameObject.SetActive(false);
+            if (_pivot.gameObject.activeSelf)
+                _pivot.gameObject.SetActive(false);
             return;
         }
 
-        if (!_pivot.gameObject.activeSelf) _pivot.gameObject.SetActive(true);
+        if (!_pivot.gameObject.activeSelf)
+            _pivot.gameObject.SetActive(true);
 
-        // Apply alpha
+        // ── Apply alpha ────────────────────────────────────────────────────────
         Color c = _tmp.color;
         c.a        = _alpha;
         _tmp.color = c;
 
-        // ── Hover (bob up and down in local space) ────────────────────────────
+        // ── Hover (bob up/down) ────────────────────────────────────────────────
         float hover = Mathf.Sin(Time.time * hoverSpeed + _hoverPhase) * hoverAmplitude;
         _pivot.localPosition = new Vector3(0f, heightAboveHead + hover, 0f);
 
-        // ── Billboard + subtle Y wobble ───────────────────────────────────────
-        // Always face the main camera so the text is readable, then layer a
-        // gentle Y oscillation on top for the "slowly rotating" feel.
+        // ── Billboard + subtle Y wobble ────────────────────────────────────────
         Camera cam = Camera.main;
         if (cam != null)
         {

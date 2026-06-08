@@ -19,12 +19,9 @@ public class DeleteCommand : ICommand
     // Floors that were hidden under the foundation and get revealed when it's deleted
     private readonly List<GameObject> _reEnabledFloors = new();
 
-    // Active floor tiles (foundation's auto-floor or any upgrade tile) deleted along with the foundation
-    private readonly List<GameObject> _linkedFloors = new();
-
     private bool _wasContaminated;
 
-    private static bool IsFoundation(ObjDataSO d) => d != null && d.category == "Foundation";
+    private static bool IsGround(ObjDataSO d) => d != null && (d.category == "Foundation" || d.category == "Grounds");
 
     public DeleteCommand(GameObject target, PlacementGrid grid, MoneyService money,
         float duration, float sinkAmount, float vibrationAmount, float vibrationSpeed)
@@ -51,40 +48,15 @@ public class DeleteCommand : ICommand
             return;
 
         _reEnabledFloors.Clear();
-        _linkedFloors.Clear();
 
-        // 1. For foundations: remove the active floor tile(s) in the same cells first.
-        //    This covers both the auto-placed default floor and any upgrade tiles.
-        if (IsFoundation(_data))
-        {
-            foreach (var o in _offsets)
-            {
-                Vector2Int cell = _root + o;
-                var cellObjs = _grid.GetObjectsInCell(cell);
-                if (cellObjs == null) continue;
-
-                for (int i = cellObjs.Count - 1; i >= 0; i--)
-                {
-                    var entry = cellObjs[i];
-                    if (entry.data?.isFloor != true) continue;
-                    if (entry.instance == null || !entry.instance.activeSelf) continue;
-
-                    _linkedFloors.Add(entry.instance);
-                    _grid.RemoveStackObject(cell, entry.instance, entry.data);
-                    _money.Refund(entry.data.cost, entry.data.category);
-                    _money.RemoveHourlyCost(entry.data.hourlyCost);
-                    entry.instance.SetActive(false);
-                }
-            }
-        }
-
-        // 2. Remove foundation from grid; re-enable yard floor tiles that were hidden beneath it
+        // 1. Remove object from grid; for foundations only, re-enable any yard floor tiles
+        //    that were hidden beneath it. Floor tiles themselves are NEVER deleted.
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
             _grid.RemoveStackObject(cell, _target, _data);
 
-            if (!_grid.IsOccupied(cell))
+            if (IsGround(_data) && !_grid.IsOccupied(cell))
             {
                 var cellObjs = _grid.GetObjectsInCell(cell);
                 if (cellObjs != null)
@@ -103,7 +75,7 @@ public class DeleteCommand : ICommand
             _grid.UpdateStackPositions(cell);
         }
 
-        // 3. Money: refund foundation; skip if contaminated
+        // 2. Money: refund; skip if contaminated
         var contam = _target.GetComponent<ContaminationState>();
         _wasContaminated = contam != null && contam.IsContaminated;
 
@@ -171,25 +143,7 @@ public class DeleteCommand : ICommand
         }
         _reEnabledFloors.Clear();
 
-        // 3. Restore linked floor tiles (foundation's auto-floor / upgrade tiles)
-        foreach (var floor in _linkedFloors)
-        {
-            if (floor == null) continue;
-            var bd = floor.GetComponent<BuildingData>();
-            if (bd == null) continue;
-
-            floor.SetActive(true);
-            foreach (var o in bd.Offsets)
-                _grid.AddStackObject(bd.RootCell + o, floor, bd.Data);
-
-            _grid.UpdateStackPositions(bd.RootCell);
-
-            // Reverse the refund we issued in Execute()
-            _money.Deduct(bd.Data.cost, bd.Data.category);
-            _money.AddHourlyCost(bd.Data.hourlyCost);
-        }
-
-        // 4. Reverse foundation money
+        // 3. Reverse foundation money
         _money.AddHourlyCost(_data.hourlyCost);
 
         if (!_wasContaminated)

@@ -244,9 +244,11 @@ public bool IsPlacementState => true;
         // ---------------------------------------------------------
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
-        // Snap to nearest replaceable target so door/wall previews land on the
-        // correct cell even when the raycast hits an adjacent face.
-        if (_currentData.replacesWalls || _currentData.canBeReplacedByDoor)
+        // Snap to nearest replaceable target so door previews land on the correct
+        // cell even when the raycast hits an adjacent face. Walls (canBeReplacedByDoor)
+        // are 1×1 and place precisely — no snap needed, and snap would steal the
+        // cursor from the cell adjacent to a placed door (causing the "1-cell gap on X" bug).
+        if (_currentData.replacesWalls)
             root = SnapToReplaceTarget(root, offsets, _currentData);
 
         _preview.MoveTo(_grid.GetCellCenter(root), root, _currentData);
@@ -352,7 +354,7 @@ public bool IsPlacementState => true;
         Vector2Int root = _raycast.HitCell;
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
-        if (_currentData.replacesWalls || _currentData.canBeReplacedByDoor)
+        if (_currentData.replacesWalls)
             root = SnapToReplaceTarget(root, offsets, _currentData);
 
         bool isValid = _validator.IsValidPlacement(root, offsets, _currentData);

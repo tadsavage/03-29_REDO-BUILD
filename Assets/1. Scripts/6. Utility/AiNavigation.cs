@@ -41,7 +41,17 @@ public class AiNavigation : MonoBehaviour
     // Temporary diagnostic state for the walk-in-place check in Update().
     private Vector3 _diagLastPos;
     private float _diagTimer;
-    public bool HasWaypoints => waypoints != null && waypoints.Length > 0;
+
+    // Auto-rebake: fires when agent has no waypoints (? visible) or is stuck for too long.
+    private float   _noWaypointRebakeTimer;
+    private float   _stuckRebakeTimer;
+    private Vector3 _stuckRefPos;
+    private static float s_lastGlobalRebake = float.MinValue;
+    private const  float k_RebakeTrigger  = 3.5f;
+    private const  float k_RebakeCooldown = 25f;
+    public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
+    /// <summary>True when there are at least 2 waypoints — enough for a return trip.</summary>
+    public bool HasEnoughWaypoints => waypoints != null && waypoints.Length >= 2;
 
     /// <summary>True while the agent is playing the Climbing animation at a ledge.</summary>
     public bool IsTraversingLedgeUp   { get; private set; }
@@ -338,12 +348,6 @@ public class AiNavigation : MonoBehaviour
             _diagTimer = 0f;
             float moved = (transform.position - _diagLastPos).magnitude;
             if (agent != null && agent.isOnNavMesh && agent.velocity.magnitude > 0.2f && moved < 0.05f)
-                Debug.LogWarning($"[NavDiag] {name} WALK-IN-PLACE: vel={agent.velocity.magnitude:F2} " +
-                                 $"updatePos={agent.updatePosition} " +
-                                 $"rootMotion={(_animator != null && _animator.applyRootMotion)} " +
-                                 $"stopped={agent.isStopped} speed={agent.speed:F1} " +
-                                 $"onLink={agent.isOnOffMeshLink} " +
-                                 $"y={transform.position.y:F2}");
             _diagLastPos = transform.position;
         }
 
@@ -406,6 +410,9 @@ public class AiNavigation : MonoBehaviour
             else if (!moving && _footstepSource.isPlaying)
                 _footstepSource.Stop();
         }
+
+        // ── Auto-rebake trigger ───────────────────────────────────────────────────
+        UpdateRebakeTrigger();
 
         // ── Waypoint progression (for agents without AgentAnimation) ─────────────
         // Only advance on a fully-complete path so a blocked agent at a partial-path
@@ -631,5 +638,61 @@ public class AiNavigation : MonoBehaviour
 
         if (agent != null && agent.enabled && agent.isOnNavMesh && waypoints[currentIndex] != null)
             agent.SetDestination(waypoints[currentIndex].position);
+    }
+
+    // ── Auto-rebake trigger ───────────────────────────────────────────────────
+
+    private void UpdateRebakeTrigger()
+    {
+        // No-waypoint check: question mark is showing over agent's head
+        if (_indicator != null && _indicator.IsShowingIndicator)
+        {
+            _noWaypointRebakeTimer += Time.deltaTime;
+            if (_noWaypointRebakeTimer >= k_RebakeTrigger)
+            {
+                TryForceRebake("no waypoints");
+                _noWaypointRebakeTimer = 0f;
+            }
+        }
+        else
+        {
+            _noWaypointRebakeTimer = 0f;
+        }
+
+        // Stuck check: agent wants to move but hasn't actually moved
+        if (initialized && agent.isOnNavMesh && agent.hasPath && !agent.isStopped
+            && agent.desiredVelocity.sqrMagnitude > 0.04f)
+        {
+            float moved = Vector3.Distance(transform.position, _stuckRefPos);
+            if (moved < 0.15f)
+            {
+                _stuckRebakeTimer += Time.deltaTime;
+                if (_stuckRebakeTimer >= k_RebakeTrigger)
+                {
+                    TryForceRebake("stuck");
+                    _stuckRebakeTimer = 0f;
+                    _stuckRefPos = transform.position;
+                }
+            }
+            else
+            {
+                _stuckRebakeTimer = 0f;
+                _stuckRefPos = transform.position;
+            }
+        }
+        else
+        {
+            _stuckRebakeTimer = 0f;
+            _stuckRefPos = transform.position;
+        }
+    }
+
+    private void TryForceRebake(string reason)
+    {
+        if (Time.time - s_lastGlobalRebake < k_RebakeCooldown) return;
+        if (NavMeshManager.Instance == null) return;
+        s_lastGlobalRebake = Time.time;
+        Debug.Log($"[AiNavigation] {name}: forcing NavMesh rebake ({reason})");
+        NavMeshManager.Instance.BakeImmediate();
     }
 }

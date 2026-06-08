@@ -134,6 +134,12 @@ MonoBehaviour:
   role: 1
   footstepClip: {fileID: 0}
   footstepVolume: 0.6
+  footstepPitch: 1
+  volumeAt5m: 1
+  volumeAt10m: 0.75
+  volumeAt15m: 0.5
+  volumeAt20m: 0.25
+  volumeAt30m: 0.1
 --- !u!114 &9136143248148186346
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -217,6 +223,10 @@ MonoBehaviour:
   turnSpeed: 200
   idleDelay: 1.5
   waypointThreshold: 1
+  angleThreshold: 30
+  speedAdj: 0.4
+  turnLookAheadDist: 2.5
+  waveDelay: 3.5
 --- !u!114 &5248485512289028954
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -393,9 +403,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13474f5c7c29e4d4f97a49ff0d7c4888, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
-  headHeight: 2.75
-  bobAmplitude: 0.07
-  bobSpeed: 0.9
-  driftAmplitude: 0.025
+  heightAboveHead: 2.4
+  markColor: {r: 1, g: 0.1, b: 0.08, a: 1}
   fontSize: 8
-  fadeDuration: 1.5
+  hoverAmplitude: 0.18
+  hoverSpeed: 1.1
+  yRotateDeg: 30
+  yRotateSpeed: 0.7
+  graceBeforeShow: 2.5
+  fadeInDuration: 2
+  fadeOutDuration: 2.5
+  stuckSeconds: 5
+  stuckMoveThreshold: 0.1

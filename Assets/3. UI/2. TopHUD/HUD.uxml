@@ -3,6 +3,7 @@
     <Style src="project://database/Assets/3.%20UI/1.TopHUD/TopBar.uss?fileID=7433441132597879392&amp;guid=e177c4ab0f3cfdf4c87cdda0512c4745&amp;type=3#TopBar"/>
     <Style src="project://database/Assets/3.%20UI/1.TopHUD/Toast.uss?fileID=7433441132597879392&amp;guid=d60103934d9a3cd4598fe59ca2afd524&amp;type=3#Toast"/>
     <Style src="project://database/Assets/3.%20UI/4.PopupUIs/WorldHoverPopup.uss?fileID=7433441132597879392&amp;guid=e7f4862e76357b3469d9ad92258f0600&amp;type=3#WorldHoverPopup"/>
+    <Style src="project://database/Assets/3.%20UI/1.%20MainMenu/MainMenu.uss"/>
     
     <ui:VisualElement name="Root" picking-mode="Ignore" class="hud-root">
         <ui:VisualElement name="TopBar" picking-mode="Position" class="topbar-root">
@@ -33,10 +34,53 @@
         <ui:VisualElement name="menu-overlay" picking-mode="Ignore" class="menu-overlay" style="display: none;">
             <ui:VisualElement name="menu-panel" class="menu-panel" picking-mode="Position">
                 <ui:Label text="Going home already?" class="menu-panel-title"/>
-                <ui:Button name="MenuMainMenuButton" text="MAIN MENU"  class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
-                <ui:Button name="MenuSaveButton"     text="SAVE GAME"  class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
-                <ui:Button name="MenuResumeButton"   text="RESUME"     class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
-                <ui:Button name="MenuExitButton"     text="EXIT GAME"  class="menu-panel-btn menu-panel-btn-resume" picking-mode="Position"/>
+                <ui:Button name="MenuMainMenuButton"  text="MAIN MENU"  class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
+                <ui:Button name="MenuSettingsButton"  text="SETTINGS"   class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
+                <ui:Button name="MenuSaveButton"      text="SAVE GAME"  class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
+                <ui:Button name="MenuResumeButton"    text="RESUME"     class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
+                <ui:Button name="MenuExitButton"      text="EXIT GAME"  class="menu-panel-btn menu-panel-btn-resume" picking-mode="Position"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- In-game settings overlay -->
+        <ui:VisualElement name="in-game-settings-overlay" class="confirm-overlay" picking-mode="Position" style="display: none;">
+            <ui:VisualElement name="in-game-settings-panel" class="in-game-settings-panel" picking-mode="Position">
+                <ui:Label text="SETTINGS" class="popup-title" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);"/>
+                <ui:Label text="WHAT&apos;S YOUR HORSEPOWER?" class="settings-section-header"/>
+                <ui:VisualElement class="settings-row">
+                    <ui:Button name="ig-btn-toaster"  text="TOASTER"    class="gfx-btn gfx-btn-red"/>
+                    <ui:Button name="ig-btn-good"     text="GOOD ENOUGH" class="gfx-btn gfx-btn-green"/>
+                    <ui:Button name="ig-btn-screamin" text="SCREAMIN"   class="gfx-btn gfx-btn-blue"/>
+                </ui:VisualElement>
+                <ui:Label text="DIFFICULTY" class="settings-section-header"/>
+                <ui:VisualElement class="settings-row">
+                    <ui:Button name="ig-btn-diff-clerk"      text="CLERK"      class="gfx-btn gfx-btn-green"/>
+                    <ui:Button name="ig-btn-diff-supervisor" text="SUPERVISOR" class="gfx-btn gfx-btn-blue"/>
+                    <ui:Button name="ig-btn-diff-manager"    text="MANAGER"    class="gfx-btn gfx-btn-red"/>
+                </ui:VisualElement>
+                <ui:Label text="RESOLUTION" class="settings-section-header"/>
+                <ui:DropdownField name="ig-resolution-dropdown" class="settings-dropdown"/>
+                <ui:Label text="VOLUME" class="settings-section-header"/>
+                <ui:VisualElement class="settings-slider-row">
+                    <ui:Label text="Game" class="settings-slider-label"/>
+                    <ui:Slider name="ig-slider-game-volume" low-value="0" high-value="1" value="1" class="settings-slider"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="settings-slider-row">
+                    <ui:Label text="Music" class="settings-slider-label"/>
+                    <ui:Slider name="ig-slider-music-volume" low-value="0" high-value="1" value="0.7" class="settings-slider"/>
+                </ui:VisualElement>
+                <ui:Button name="ig-settings-done" text="DONE" class="popup-btn popup-btn-green" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;); margin-top: 10px;" picking-mode="Position"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Resolution confirm for in-game settings -->
+        <ui:VisualElement name="ig-res-confirm-overlay" class="confirm-overlay" picking-mode="Position" style="display: none;">
+            <ui:VisualElement name="ig-res-confirm-panel" class="confirm-panel" picking-mode="Position">
+                <ui:Label text="ACCEPT CHANGES?" class="popup-title confirm-title" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);"/>
+                <ui:VisualElement class="settings-action-row">
+                    <ui:Button name="ig-btn-res-yes" text="YES" class="menu-btn menu-btn-blue settings-action-btn" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);" picking-mode="Position"/>
+                    <ui:Button name="ig-btn-res-no"  text="NO"  class="menu-btn menu-btn-grey settings-action-btn" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;);" picking-mode="Position"/>
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
 

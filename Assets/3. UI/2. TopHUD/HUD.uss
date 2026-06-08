@@ -35,16 +35,18 @@
 }
 
 .menu-panel-title {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
-    font-size: 28px;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    font-size: 34px;
+    -unity-font-style: bold;
     color: #CFE2F0;
     -unity-text-align: middle-center;
     margin-bottom: 20px;
+    white-space: normal;
 }
 
 .menu-panel-btn {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
-    font-size: 18px;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    font-size: 22px;
     height: 52px;
     border-radius: 4px;
     border-width: 0;
@@ -125,10 +127,22 @@
     display: none;
 }
 
+/* ── IN-GAME SETTINGS PANEL (centered card, shown over game) ── */
+.in-game-settings-panel {
+    width: 500px;
+    background-color: rgba(30, 38, 46, 0.97);
+    border-width: 2px;
+    border-color: #CFE2F0;
+    border-radius: 16px;
+    padding: 24px 26px;
+    flex-direction: column;
+    align-items: stretch;
+}
+
 /* Label element styling layout rules */
 .topbar-utility-lbl {
     color: rgb(240, 230, 211);
     font-size: 15px;
     -unity-text-align: middle-left;
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
 }

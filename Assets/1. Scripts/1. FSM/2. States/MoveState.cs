@@ -180,8 +180,8 @@ public string ObjectName => _obj != null ? _obj.name : "None";
             if (trueTop != null) bd = trueTop.GetComponent<BuildingData>();
         }
 
-        // Validate we found a movable object
-        if (bd == null || bd.Data == null || bd.Data.ClearsGridAfterPlacement)
+        // Validate we found a movable object; floor tiles can only be replaced, not moved
+        if (bd == null || bd.Data == null || bd.Data.ClearsGridAfterPlacement || bd.Data.isFloor)
             return;
 
         ClearHoverHighlight();
@@ -415,7 +415,7 @@ Vector2Int newRoot = hitCell - _selectionDelta;
                 if (topObj != null) bd = topObj.GetComponent<BuildingData>();
             }
 
-            if (bd != null && bd.Data != null && !bd.Data.ClearsGridAfterPlacement)
+            if (bd != null && bd.Data != null && !bd.Data.ClearsGridAfterPlacement && !bd.Data.isFloor)
             {
                 newHighlighter = bd.GetComponent<BuildingHighlighter>();
                 

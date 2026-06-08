@@ -17,6 +17,14 @@ public class DragPlaceCommand : ICommand
     // Floors disabled across all cells in this drag operation
     private readonly List<GameObject> _disabledFloors = new();
 
+    // Auto-floor tiles placed alongside grounds (one per footprint cell per ground placed)
+    private readonly List<GameObject> _autoFloors = new();
+    private ObjDataSO _autoFloorData;
+    private readonly List<GameObject> _autoFloorDisabled = new();
+
+    private static bool IsGround(ObjDataSO d) =>
+        d != null && (d.category == "Foundation" || d.category == "Grounds");
+
     public DragPlaceCommand(
         PlacementGrid grid,
         PlacementFinalizer finalizer,
@@ -53,128 +61,152 @@ public class DragPlaceCommand : ICommand
             {
                 _instances.Add(placed);
 
-                // Deduct cost per placed object
                 _money.Deduct(_data.cost);
                 _money.AddHourlyCost(_data.hourlyCost);
 
-                // Force height recalculation for every cell in this object's footprint
                 foreach (var o in _offsets)
                     _grid.UpdateStackPositions(cell + o);
             }
         }
 
-        bool isGround = _data.category == "Foundation" || _data.category == "Grounds";
+        // Auto-floor: place one floor tile per footprint cell for every ground placed
+        if (_data.defaultFloorTile != null && _autoFloors.Count == 0)
+        {
+            _autoFloorData = _data.defaultFloorTile;
+            Vector2Int[] tileOffsets = _autoFloorData.GetFootprintOffsets(0f);
+
+            foreach (var instance in _instances)
+            {
+                var bd = instance.GetComponent<BuildingData>();
+                if (bd == null) continue;
+                Vector2Int root = bd.RootCell;
+
+                foreach (var o in _offsets)
+                {
+                    Vector2Int cellRoot = root + o;
+                    var tile = _finalizer.FinalizePlacement(cellRoot, tileOffsets, _autoFloorData, 0f, _autoFloorDisabled);
+                    if (tile == null) continue;
+                    tile.SetActive(true);
+                    _autoFloors.Add(tile);
+                    _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
+                    _money.AddHourlyCost(_autoFloorData.hourlyCost);
+                    _grid.UpdateStackPositions(cellRoot);
+                }
+            }
+        }
+
+        bool isGround = IsGround(_data);
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs || isGround)
             NavMeshManager.Instance.MarkDirty();
     }
 
-
     public void Undo()
     {
+        // 1. Remove auto-floor tiles first
+        if (_autoFloors.Count > 0 && _autoFloorData != null)
+        {
+            Vector2Int[] tileOffsets = _autoFloorData.GetFootprintOffsets(0f);
+            foreach (var tile in _autoFloors)
+            {
+                if (tile == null) continue;
+                var bd = tile.GetComponent<BuildingData>();
+                Vector2Int tileRoot = bd != null ? bd.RootCell : _grid.WorldToCell(tile.transform.position);
+                foreach (var o in tileOffsets)
+                    _grid.RemoveStackObject(tileRoot + o, tile, _autoFloorData);
+                tile.SetActive(false);
+                _money.Refund(_autoFloorData.cost, _autoFloorData.category);
+                _money.RemoveHourlyCost(_autoFloorData.hourlyCost);
+            }
+            foreach (var floor in _autoFloorDisabled)
+                if (floor != null) floor.SetActive(true);
+        }
+
+        // 2. Remove placed grounds
         foreach (var instance in _instances)
         {
-            if (instance == null)
-                continue;
+            if (instance == null) continue;
 
             var bd = instance.GetComponent<BuildingData>();
             if (bd == null)
             {
-                Object.Destroy(instance); // fallback for non-building objects
+                Object.Destroy(instance);
                 continue;
             }
 
             Vector2Int root = bd.RootCell;
-
             foreach (var o in _offsets)
-            {
-                Vector2Int cell = root + o;
-                _grid.RemoveStackObject(cell, instance, bd.Data);
-            }
+                _grid.RemoveStackObject(root + o, instance, bd.Data);
 
             instance.SetActive(false);
-            
-            // Refund money for each object
+
             _money.Refund(_data.cost);
             _money.RemoveHourlyCost(_data.hourlyCost);
         }
 
-        // Re-enable any floors we disabled during execution
+        // 3. Re-enable displaced floors
         bool revealedFloor = false;
         foreach (var floor in _disabledFloors)
         {
-            if (floor != null)
-            {
-                floor.SetActive(true);
-                revealedFloor = true;
-            }
-        }
-
-        // Update stack heights for all affected cells
-        foreach (var cell in _cells)
-        {
-            foreach (var o in _offsets)
-            {
-                _grid.UpdateStackPositions(cell + o);
-            }
-        }
-
-        bool isGround = _data.category == "Foundation" || _data.category == "Grounds";
-        if (revealedFloor || _data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround)
-        {
-            NavMeshManager.Instance.MarkDirty();
-        }
-    }
-
-    public void Redo()
-    {
-        // 1. Enable objects first
-        foreach (var instance in _instances)
-        {
-            if (instance != null)
-                instance.SetActive(true);
-        }
-
-        // 2. Add back to grid
-        foreach (var instance in _instances)
-        {
-            if (instance == null) continue;
-            var bd = instance.GetComponent<BuildingData>();
-            if (bd == null) continue;
-
-            Vector2Int root = bd.RootCell;
-            foreach (var o in _offsets)
-            {
-                _grid.AddStackObject(root + o, instance, bd.Data);
-            }
-        }
-
-        // 3. Re-disable floors
-        foreach (var floor in _disabledFloors)
-        {
-            if (floor != null)
-                floor.SetActive(false);
+            if (floor != null) { floor.SetActive(true); revealedFloor = true; }
         }
 
         // 4. Update stack heights
         foreach (var cell in _cells)
-        {
             foreach (var o in _offsets)
-            {
                 _grid.UpdateStackPositions(cell + o);
-            }
-        }
 
-        // 5. Deduct money
+        bool isGround = IsGround(_data);
+        if (revealedFloor || _data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround)
+            NavMeshManager.Instance.MarkDirty();
+    }
+
+    public void Redo()
+    {
+        // 1. Re-disable floors displaced by the original placement
+        foreach (var floor in _disabledFloors)
+            if (floor != null) floor.SetActive(false);
+
+        // 2. Re-enable and re-add grounds
         foreach (var instance in _instances)
         {
+            if (instance == null) continue;
+            instance.SetActive(true);
+            var bd = instance.GetComponent<BuildingData>();
+            if (bd == null) continue;
+            Vector2Int root = bd.RootCell;
+            foreach (var o in _offsets)
+                _grid.AddStackObject(root + o, instance, bd.Data);
             _money.Deduct(_data.cost);
             _money.AddHourlyCost(_data.hourlyCost);
         }
 
-        bool isGround2 = _data.category == "Foundation" || _data.category == "Grounds";
-        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround2)
+        // 3. Re-enable and re-add auto-floor tiles
+        if (_autoFloors.Count > 0 && _autoFloorData != null)
         {
-            NavMeshManager.Instance.MarkDirty();
+            Vector2Int[] tileOffsets = _autoFloorData.GetFootprintOffsets(0f);
+            foreach (var floor in _autoFloorDisabled)
+                if (floor != null) floor.SetActive(false);
+
+            foreach (var tile in _autoFloors)
+            {
+                if (tile == null) continue;
+                tile.SetActive(true);
+                var bd = tile.GetComponent<BuildingData>();
+                Vector2Int tileRoot = bd != null ? bd.RootCell : _grid.WorldToCell(tile.transform.position);
+                foreach (var o in tileOffsets)
+                    _grid.AddStackObject(tileRoot + o, tile, _autoFloorData);
+                _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
+                _money.AddHourlyCost(_autoFloorData.hourlyCost);
+            }
         }
+
+        // 4. Update all stack heights
+        foreach (var cell in _cells)
+            foreach (var o in _offsets)
+                _grid.UpdateStackPositions(cell + o);
+
+        bool isGround2 = IsGround(_data);
+        if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround2)
+            NavMeshManager.Instance.MarkDirty();
     }
 }

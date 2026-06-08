@@ -20,7 +20,7 @@
     border-color: #CFE2F0;
     border-radius: 6px;
     padding: 5px 10px;
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 13px;
     color: #CFE2F0;
     -unity-text-align: middle-center;
@@ -88,8 +88,8 @@
     -unity-font-style: normal;
     -unity-text-letter-spacing: 0;
     white-space: nowrap;
-    margin-top: -34px;
-    margin-bottom: 22px;
+    margin-top: 10px;
+    margin-bottom: 16px;
 }
 
 /* ── LOGO (rats image — large, dominates the upper card) ─────────── */
@@ -118,12 +118,12 @@
 
 .menu-btn {
     -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
-    font-size: 24px;
-    height: 64px;
+    font-size: 22px;
+    height: 50px;
     border-radius: 4px;
     border-width: 0;
     border-bottom-width: 5px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     -unity-text-align: middle-center;
     -unity-text-letter-spacing: 2px;
     transition: translate 0.05s, border-bottom-width 0.05s;
@@ -136,15 +136,17 @@
 .menu-btn-blue   { background-color: #5A7184; border-bottom-color: #36444F; color: #FFFFFF; }
 .menu-btn-grey   { background-color: #566573; border-bottom-color: #333E47; color: #ECEFF1; }
 .menu-btn-red    { background-color: #3F4C59; border-bottom-color: #232C33; color: #DCE6EF; }
+.menu-btn-orange { background-color: #B5743A; border-bottom-color: #7A4C22; color: #FDE8CC; }
 
 .menu-btn-green:hover  { background-color: #5BA6D8; }
 .menu-btn-blue:hover   { background-color: #6A859A; }
 .menu-btn-grey:hover   { background-color: #657686; }
 .menu-btn-red:hover    { background-color: #4D5C6A; }
+.menu-btn-orange:hover { background-color: #C67F42; }
 
 /* ── VERSION STAMP ───────────────────────────────────────────── */
 .version-label {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 12px;
     color: rgba(223, 235, 245, 0.2);
     -unity-text-align: middle-center;
@@ -154,7 +156,7 @@
 /* ── POPUP PANEL (shared base, top-right) ────────────────────── */
 .popup-panel {
     position: absolute;
-    top: 380px;
+    top: 100px;
     right: 32px;
     width: 500px;
     background-color: rgba(30, 38, 46, 0.97);
@@ -167,10 +169,11 @@
 
 .popup-title {
     -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
-    font-size: 34px;
+    font-size: 52px;
     color: #CFE2F0;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     -unity-text-align: middle-center;
+    -unity-text-letter-spacing: 2px;
 }
 
 /* ── NAME FIELD ──────────────────────────────────────────────── */
@@ -241,7 +244,7 @@
 
 /* ── WELCOME TEXT ────────────────────────────────────────────── */
 .welcome-text {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 28px;
     color: #EAF2F8;
     white-space: normal;
@@ -252,8 +255,8 @@
 
 /* ── LOAD HINT ───────────────────────────────────────────────── */
 .popup-hint {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Regular.ttf?fileID=12800000&guid=65659553c3e2aec4fa1368693dea6c68&type=3#Fredoka-Regular");
-    font-size: 13px;
+    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
+    font-size: 19px;
     color: rgba(207, 226, 240, 0.7);
     margin-bottom: 12px;
     white-space: normal;
@@ -264,33 +267,48 @@
 .save-slot-list {
     flex-direction: column;
     margin-bottom: 12px;
-    max-height: 420px;
+    max-height: 520px;
     overflow: hidden;
 }
 
 /* ── POPUP BUTTONS ───────────────────────────────────────────── */
 .popup-btn {
     -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
-    font-size: 18px;
-    height: 50px;
+    font-size: 26px;
+    height: 58px;
     border-radius: 4px;
     border-width: 0;
-    border-bottom-width: 3px;
-    margin-top: 4px;
+    border-bottom-width: 4px;
+    margin-top: 6px;
     -unity-text-align: middle-center;
-    -unity-text-letter-spacing: 1px;
+    -unity-text-letter-spacing: 2px;
     width: 100%;
 }
 .popup-btn:active { translate: 0 2px; border-bottom-width: 1px; }
 
-.popup-btn-green { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }
-.popup-btn-grey  { background-color: #566573; border-bottom-color: #333E47; color: #ECEFF1; }
-.popup-btn-green:hover { background-color: #5BA6D8; }
-.popup-btn-grey:hover  { background-color: #657686; }
+.popup-btn-green  { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }
+.popup-btn-grey   { background-color: #566573; border-bottom-color: #333E47; color: #ECEFF1; }
+.popup-btn-orange { background-color: #B5743A; border-bottom-color: #7A4C22; color: #FDE8CC; }
+.popup-btn-green:hover  { background-color: #5BA6D8; }
+.popup-btn-grey:hover   { background-color: #657686; }
+.popup-btn-orange:hover { background-color: #C67F42; }
+
+.settings-action-row {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+.settings-action-btn {
+    flex: 1;
+    margin-top: 0;
+}
+.settings-action-btn:first-child {
+    margin-right: 6px;
+}
 
 /* ── SETTINGS ────────────────────────────────────────────────── */
 .settings-section-header {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 14px;
     color: #5C9BC4;
     -unity-text-letter-spacing: 2px;
@@ -306,7 +324,7 @@
 }
 
 .gfx-btn {
-    -unity-font: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 13px;
     flex: 1;
     height: 44px;
@@ -342,7 +360,18 @@
     border-radius: 8px;
     color: #EAF2F8;
     font-size: 15px;
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    padding-right: 28px;
+}
+
+.settings-dropdown .unity-base-popup-field__arrow {
+    width: 16px;
+    min-width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    -unity-background-image-tint-color: #CFE2F0;
+    flex-shrink: 0;
+    align-self: center;
 }
 
 .settings-slider-row {
@@ -351,7 +380,7 @@
     margin-bottom: 8px;
 }
 .settings-slider-label {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 15px;
     color: #EAF2F8;
     width: 55px;
@@ -372,13 +401,39 @@
     height: 6px;
 }
 .settings-slider .unity-base-slider__dragger {
-    background-color: #CFE2F0;
-    border-radius: 10px;
+    background-image: url("project://database/Assets/6.%20Art/UI/ForkSprite.png");
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-radius: 0;
+    width: 114px;
+    height: 75px;
+    top: -34px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* ── RESOLUTION CONFIRM OVERLAY ─────────────────────────────── */
+.confirm-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+
+.confirm-panel {
+    width: 310px;
+    background-color: rgba(30, 38, 46, 0.97);
     border-width: 2px;
-    border-color: #1A2128;
-    width: 18px;
-    height: 18px;
-    top: -6px;
+    border-color: #CFE2F0;
+    border-radius: 16px;
+    padding: 22px 24px 18px 24px;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.confirm-title {
+    font-size: 30px;
+    margin-bottom: 14px;
 }
 
 /* ── SAVE SLOT CARD (resume popup) ───────────────────────────── */
@@ -415,7 +470,7 @@
     border-color: rgba(207, 226, 240, 0.12);
 }
 .slot-thumb-label {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 12px;
     color: rgba(207, 226, 240, 0.35);
     -unity-text-align: middle-center;
@@ -431,14 +486,24 @@
 }
 .slot-name {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
-    font-size: 16px;
+    font-size: 20px;
+    -unity-font-style: bold;
     color: #EAF2F8;
     -unity-text-align: middle-left;
     white-space: nowrap;
     overflow: hidden;
 }
+.slot-filename {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    font-size: 16px;
+    color: rgba(207, 226, 240, 0.5);
+    -unity-text-align: middle-left;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+}
 .slot-timestamp {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 11px;
     color: rgba(207, 226, 240, 0.55);
     -unity-text-align: middle-left;

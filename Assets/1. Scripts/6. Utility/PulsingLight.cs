@@ -32,5 +32,7 @@ public class EmissionPulse : MonoBehaviour
         _renderer.GetPropertyBlock(_mpb);
         _mpb.SetColor(EmissionColorID, emissionColor * intensity);
         _renderer.SetPropertyBlock(_mpb);
+
+        Debug.Log($"Emission intensity: {intensity:F2}");
     }
 }

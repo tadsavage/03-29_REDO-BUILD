@@ -194,13 +194,19 @@ public class PlacementGrid : MonoBehaviour
             }
 
             // Set position - Only the Root cell of a building should drive its transform position
+            // Floor tiles have center-pivot meshes; offset by half height so the
+            // tile's bottom aligns with the top of the surface below (currentY).
+            float yPos = isGround ? 0f
+                       : entry.data.isFloor ? currentY + entry.data.objHeight * 0.5f
+                       : currentY;
+
             var bd = entry.instance.GetComponent<BuildingData>();
             if (bd != null)
             {
                 if (bd.RootCell == cell)
                 {
                     Vector3 pos = GetCellCenter(cell);
-                    pos.y = isGround ? 0f : currentY;
+                    pos.y = yPos;
 
                     var agent = entry.instance.GetComponent<NavMeshAgent>();
                     if (agent != null && agent.isActiveAndEnabled)
@@ -220,7 +226,7 @@ public class PlacementGrid : MonoBehaviour
             {
                 // Fallback for items without building data
                 Vector3 pos = GetCellCenter(cell);
-                pos.y = isGround ? 0f : currentY;
+                pos.y = yPos;
 
                 var agent = entry.instance.GetComponent<NavMeshAgent>();
                 if (agent != null && agent.isActiveAndEnabled)

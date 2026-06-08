@@ -21,7 +21,7 @@ public class PlacementSystem : MonoBehaviour
 
     private float quicksaveCooldown = 1.0f;
     private float quicksaveTimer = 0f;
-    private string lastSaveName = "autosave";
+    private string lastSaveName = "quicksave";
 
     // Called by GameContext
     public void Initialize(MoneyService money)
@@ -48,7 +48,7 @@ public class PlacementSystem : MonoBehaviour
         // Quicksave (F5)
         if (Keyboard.current.f5Key.isPressed && quicksaveTimer <= 0f)
         {
-            SaveGame("autosave");
+            SaveGame("quicksave");
             quicksaveTimer = quicksaveCooldown;
             AudioManager.Play("UI_Save");
             UIToast.Show("Quick-save successful");
@@ -56,7 +56,7 @@ public class PlacementSystem : MonoBehaviour
             if (thumbnailCapture != null)
             {
                 string saveDir = System.IO.Path.Combine(Application.dataPath, "_Saves");
-                thumbnailCapture.CaptureThumbnail(saveDir, "autosave_thumb.png", tex =>
+                thumbnailCapture.CaptureThumbnail(saveDir, "quicksave_thumb.png", tex =>
                 {
                     if (tex != null) Destroy(tex);
                 });
@@ -412,7 +412,7 @@ private void OnSlotSaveCompleted(int slotIndex)
 
     private static readonly HashSet<string> DevScanTypes = new()
     {
-        "FreeLookCamera", "AiNavigation", "AgentAnimation", "RatBehavior",
+        "FreeLookCamera", "AiNavigation", "RatBehavior",
         "WallVisibilityManager", "LightPulse", "Gate_Open_Close",
         "NavMeshManager", "VehicleThrottleAudio", "AmbientMumble", "PalletBuilder",
     };

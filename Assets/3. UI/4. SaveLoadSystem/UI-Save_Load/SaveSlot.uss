@@ -2,7 +2,7 @@
 
 .slot-root {
     flex-direction: row; align-items: center;
-    height: 120px; min-height: 120px; max-height: 120px;
+    height: 170px; min-height: 170px; max-height: 170px;
     padding: 10px 14px; margin-bottom: 8px;
     background-color: rgba(255,255,255,0.04);
     border-width: 1px; border-color: rgba(255,255,255,0.09);
@@ -13,24 +13,27 @@
 }
 
 .slot-index-label {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 12px; letter-spacing: -4px; color: rgba(255,255,255,0.35);
     width: 56px; min-width: 56px; -unity-text-align: middle-center; flex-shrink: 0;
+    margin-left: 10px; margin-right: 10px;
 }
 
 .thumbnail-image {
-    width: 178px; min-width: 178px; height: 100px; min-height: 100px;
+    width: 267px; min-width: 267px; height: 150px; min-height: 150px;
     border-radius: 6px; border-width: 2px; border-color: rgba(92,155,196,0.35);
     background-color: rgba(20,28,38,0.8);
-    -unity-background-scale-mode: scale-and-crop; flex-shrink: 0; margin-right: 14px;
+    -unity-background-scale-mode: scale-and-crop; flex-shrink: 0;
+    -unity-background-image-tint-color: rgba(255,255,255,1);
+    opacity: 1;
 }
 
 .empty-slot-overlay {
-    position: absolute; left: 70px; top: 0; bottom: 0; width: 178px;
+    position: absolute; left: 0; top: 0; bottom: 0; width: 267px;
     align-items: center; justify-content: center;
 }
 .empty-label {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 13px; letter-spacing: -4px; color: rgba(255,255,255,0.22);
 }
 
@@ -40,7 +43,7 @@
 }
 
 .save-name-field {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 16px; letter-spacing: -4px; color: #DCF0FF;
     height: 34px; min-height: 34px; max-height: 34px; margin: 0; padding: 4px 8px;
     background-color: rgba(255,255,255,0.06);
@@ -50,13 +53,13 @@
     border-color: #5C9BC4; background-color: rgba(76,144,192,0.12);
 }
 .save-name-field > .unity-text-field__input {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 16px; letter-spacing: -4px; color: #DCF0FF;
     background-color: transparent; border-width: 0; padding: 0; margin: 0;
 }
 
 .timestamp-label {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 12px; letter-spacing: -4px; color: rgba(255,255,255,0.42);
     margin-top: 5px; padding-left: 8px;
 }
@@ -67,7 +70,7 @@
 }
 
 .action-button {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 14px; letter-spacing: -4px; color: #FFFFFF; height: 42px;
     margin-bottom: 5px; background-color: rgba(76,144,192,0.38);
     border-width: 1px; border-bottom-width: 3px; border-color: #4C90C0; border-bottom-color: #2C5E82;
@@ -81,7 +84,7 @@
 }
 
 .delete-button {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 12px; letter-spacing: -4px; color: #E86060; height: 32px;
     background-color: rgba(200,55,55,0.15);
     border-width: 1px; border-color: rgba(210,60,60,0.4); border-radius: 4px;

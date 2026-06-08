@@ -80,13 +80,29 @@ public class MainMenuManager : MonoBehaviour
     private DropdownField _resolutionDropdown;
 
     // Graphics preset buttons
-    private Button _btnUltra, _btnGood, _btnToaster;
+    private Button _btnScreamin, _btnGood, _btnToaster;
+
+    // Resolution confirm overlay
+    private VisualElement _resolutionConfirmOverlay;
+    private int _currentResolutionIndex = 1; // default 1080p
+    private int _pendingResolutionIndex = -1;
 
     // Difficulty buttons
     private Button _btnClerk, _btnSupervisor, _btnManager;
 
     // Tooltip
     private Label _tooltipLabel;
+
+    // ── Settings persistence ───────────────────────────────────────────────────
+    [System.Serializable]
+    private class SettingsJson
+    {
+        public float gameVolume  = 1f;
+        public float musicVolume = 0.7f;
+    }
+
+    private static string SettingsPath =>
+        System.IO.Path.Combine(Application.dataPath, "_Saves", "settings.json");
 
     // ── State ─────────────────────────────────────────────────────────────────
     private string _playerName;
@@ -145,7 +161,7 @@ public class MainMenuManager : MonoBehaviour
         src.loop = false;          // play through once, in full
         src.spatialBlend = 0f;     // 2D
         src.playOnAwake = false;
-        src.volume = menuMusicVolume;
+        src.volume = PlayerPrefs.GetFloat(musicMixerParam, menuMusicVolume);
         src.Play();
 
         _persistentMenuMusic = src;
@@ -203,9 +219,11 @@ public class MainMenuManager : MonoBehaviour
         _musicVolumeSlider = _root.Q<Slider>("slider-music-volume");
         _resolutionDropdown = _root.Q<DropdownField>("resolution-dropdown");
 
-        _btnUltra   = _root.Q<Button>("btn-ultra");
-        _btnGood    = _root.Q<Button>("btn-good");
-        _btnToaster = _root.Q<Button>("btn-toaster");
+        _btnScreamin = _root.Q<Button>("btn-screamin");
+        _btnGood     = _root.Q<Button>("btn-good");
+        _btnToaster  = _root.Q<Button>("btn-toaster");
+
+        _resolutionConfirmOverlay = _root.Q("resolution-confirm-overlay");
 
         _btnClerk      = _root.Q<Button>("btn-diff-clerk");
         _btnSupervisor = _root.Q<Button>("btn-diff-supervisor");
@@ -222,6 +240,8 @@ public class MainMenuManager : MonoBehaviour
             logoImage.style.backgroundImage = new StyleBackground(forklifLogo);
     }
 
+    private void PlayClick() => AudioManager.Play("ButtonClick");
+
     private void WireButtons()
     {
         // Clock In tooltip
@@ -230,34 +250,40 @@ public class MainMenuManager : MonoBehaviour
         clockInBtn?.RegisterCallback<MouseLeaveEvent>(_ => HideTooltip());
 
         // Main menu
-        clockInBtn?.RegisterCallback<ClickEvent>(_ => OnClockIn());
-        _root.Q<Button>("btn-resume")?.RegisterCallback<ClickEvent>(_ => OnResumeShift());
-        _root.Q<Button>("btn-settings")?.RegisterCallback<ClickEvent>(_ => ShowPopup(_settingsPopup));
-        _root.Q<Button>("btn-punch-out")?.RegisterCallback<ClickEvent>(_ => OnPunchOut());
+        clockInBtn?.RegisterCallback<ClickEvent>(_ => { PlayClick(); OnClockIn(); });
+        _root.Q<Button>("btn-resume")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); OnResumeShift(); });
+        _root.Q<Button>("btn-settings")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); ShowPopup(_settingsPopup); });
+        _root.Q<Button>("btn-back-to-work")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); OnBackToWork(); });
+        _root.Q<Button>("btn-punch-out")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); OnPunchOut(); });
 
         // Name popup
-        _root.Q<Button>("btn-name-confirm")?.RegisterCallback<ClickEvent>(_ => OnNameConfirmed());
+        _root.Q<Button>("btn-name-confirm")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); OnNameConfirmed(); });
         if (_nameField != null)
             _nameField.RegisterCallback<KeyDownEvent>(evt =>
             {
                 if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
                     OnNameConfirmed();
             });
-        _root.Q<Button>("btn-name-back")?.RegisterCallback<ClickEvent>(_ => HideAllPopups());
+        _root.Q<Button>("btn-name-back")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); HideAllPopups(); });
 
         // Load popup
-        _root.Q<Button>("btn-load-close")?.RegisterCallback<ClickEvent>(_ => HideAllPopups());
+        _root.Q<Button>("btn-load-close")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); HideAllPopups(); });
 
         // Settings
-        _btnUltra?.RegisterCallback<ClickEvent>(_ => ApplyGraphicsPreset("Ultra"));
-        _btnGood?.RegisterCallback<ClickEvent>(_ => ApplyGraphicsPreset("Good"));
-        _btnToaster?.RegisterCallback<ClickEvent>(_ => ApplyGraphicsPreset("Toaster"));
+        _btnScreamin?.RegisterCallback<ClickEvent>(_ => { PlayClick(); ApplyGraphicsPreset("Ultra"); });
+        _btnGood?.RegisterCallback<ClickEvent>(_ => { PlayClick(); ApplyGraphicsPreset("Good"); });
+        _btnToaster?.RegisterCallback<ClickEvent>(_ => { PlayClick(); ApplyGraphicsPreset("Toaster"); });
 
-        _btnClerk?.RegisterCallback<ClickEvent>(_ => ApplyDifficulty(0));
-        _btnSupervisor?.RegisterCallback<ClickEvent>(_ => ApplyDifficulty(1));
-        _btnManager?.RegisterCallback<ClickEvent>(_ => ApplyDifficulty(2));
+        // Resolution confirmation
+        _root.Q<Button>("btn-res-yes")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); OnResolutionAccepted(); });
+        _root.Q<Button>("btn-res-no")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); OnResolutionCancelled(); });
 
-        _root.Q<Button>("btn-settings-close")?.RegisterCallback<ClickEvent>(_ => HideAllPopups());
+        _btnClerk?.RegisterCallback<ClickEvent>(_ => { PlayClick(); ApplyDifficulty(0); });
+        _btnSupervisor?.RegisterCallback<ClickEvent>(_ => { PlayClick(); ApplyDifficulty(1); });
+        _btnManager?.RegisterCallback<ClickEvent>(_ => { PlayClick(); ApplyDifficulty(2); });
+
+        _root.Q<Button>("btn-settings-close")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); OnSettingsDone(); });
+        _root.Q<Button>("btn-settings-back-to-work")?.RegisterCallback<ClickEvent>(_ => { PlayClick(); OnSettingsDone(); OnBackToWork(); });
 
         // Volume sliders
         if (_gameVolumeSlider != null)
@@ -303,6 +329,15 @@ public class MainMenuManager : MonoBehaviour
         ShowPopup(_loadPopup);
     }
 
+    private void OnBackToWork()
+    {
+        PlayerPrefs.SetInt("LoadSlotIndex", -1);
+        PlayerPrefs.SetString("LastSaveName", "quicksave");
+        PlayerPrefs.SetInt("IsNewGame", 0);
+        PlayerPrefs.Save();
+        LoadGameScene();
+    }
+
     private void OnPunchOut()
     {
 #if UNITY_EDITOR
@@ -328,7 +363,7 @@ public class MainMenuManager : MonoBehaviour
 
         // Autosave card — timestamp from file if it exists, otherwise empty
         {
-            string autoPath = System.IO.Path.Combine(Application.dataPath, "_Saves", "autosave.json");
+            string autoPath = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave.json");
             string autoTs = "";
             long autoTicks = 0;
             if (System.IO.File.Exists(autoPath))
@@ -337,7 +372,7 @@ public class MainMenuManager : MonoBehaviour
                 autoTs = t.ToString("MMM dd, yyyy  h:mm tt").ToUpper();
                 autoTicks = t.Ticks;
             }
-            AddSlotCard(-1, "Autosave", autoTs, autoTicks);
+            AddSlotCard(-1, "Quicksave", autoTs, autoTicks);
         }
 
         // Numbered slots from metadata
@@ -393,7 +428,7 @@ public class MainMenuManager : MonoBehaviour
             // Fallback: construct path directly (MainMenu scene has no SaveManager)
             string saveDir = System.IO.Path.Combine(Application.dataPath, "_Saves");
             thumbPath = System.IO.Path.Combine(saveDir,
-                slotIndex < 0 ? "autosave_thumb.png" : $"slot_{slotIndex}_thumb.png");
+                slotIndex < 0 ? "quicksave_thumb.png" : $"slot_{slotIndex}_thumb.png");
         }
 
         if (!string.IsNullOrEmpty(thumbPath))
@@ -424,6 +459,11 @@ public class MainMenuManager : MonoBehaviour
         nameLabel.AddToClassList("slot-name");
         info.Add(nameLabel);
 
+        string fileName = slotIndex < 0 ? "quicksave.json" : $"slot_{slotIndex}_data.json";
+        var fileLabel = new Label(fileName);
+        fileLabel.AddToClassList("slot-filename");
+        info.Add(fileLabel);
+
         if (!string.IsNullOrEmpty(timestamp))
         {
             var tsLabel = new Label(timestamp);
@@ -446,11 +486,12 @@ public class MainMenuManager : MonoBehaviour
         int capturedIndex = slotIndex;
         loadBtn.clicked += () =>
         {
+            PlayClick();
             if (capturedIndex < 0)
             {
                 // Autosave: use quicksave load path
                 PlayerPrefs.SetInt("LoadSlotIndex", -1);
-                PlayerPrefs.SetString("LastSaveName", "autosave");
+                PlayerPrefs.SetString("LastSaveName", "quicksave");
             }
             else
             {
@@ -478,15 +519,15 @@ public class MainMenuManager : MonoBehaviour
         }
 
         // Update button highlight
-        _btnUltra?.RemoveFromClassList("gfx-btn--active");
+        _btnScreamin?.RemoveFromClassList("gfx-btn--active");
         _btnGood?.RemoveFromClassList("gfx-btn--active");
         _btnToaster?.RemoveFromClassList("gfx-btn--active");
 
         switch (preset)
         {
-            case "Ultra":   _btnUltra?.AddToClassList("gfx-btn--active");   break;
-            case "Good":    _btnGood?.AddToClassList("gfx-btn--active");    break;
-            case "Toaster": _btnToaster?.AddToClassList("gfx-btn--active"); break;
+            case "Ultra":   _btnScreamin?.AddToClassList("gfx-btn--active"); break;
+            case "Good":    _btnGood?.AddToClassList("gfx-btn--active");     break;
+            case "Toaster": _btnToaster?.AddToClassList("gfx-btn--active");  break;
         }
 
         PlayerPrefs.SetString("GraphicsPresetName", preset);
@@ -503,29 +544,167 @@ public class MainMenuManager : MonoBehaviour
 
         // Default to current resolution
         int w = Screen.width, h = Screen.height;
-        int match = 1; // default 1080p
+        _currentResolutionIndex = 1; // fallback 1080p
         for (int i = 0; i < CommonResolutions.Length; i++)
             if (CommonResolutions[i].width == w && CommonResolutions[i].height == h)
-                match = i;
-        _resolutionDropdown.index = match;
+                _currentResolutionIndex = i;
+        _resolutionDropdown.SetValueWithoutNotify(choices[_currentResolutionIndex]);
 
+        // Show confirmation dialog — don't apply until the user confirms
         _resolutionDropdown.RegisterValueChangedCallback(evt =>
         {
             int idx = _resolutionDropdown.index;
-            if (idx < 0 || idx >= CommonResolutions.Length) return;
-            var r = CommonResolutions[idx];
-            Screen.SetResolution(r.width, r.height, Screen.fullScreen);
+            if (idx < 0 || idx >= CommonResolutions.Length || idx == _currentResolutionIndex) return;
+            _pendingResolutionIndex = idx;
+            SetVisible(_resolutionConfirmOverlay, true);
         });
+    }
+
+    private void OnResolutionAccepted()
+    {
+        if (_pendingResolutionIndex >= 0 && _pendingResolutionIndex < CommonResolutions.Length)
+        {
+            var r = CommonResolutions[_pendingResolutionIndex];
+            ApplyResolution(_pendingResolutionIndex);
+            _currentResolutionIndex = _pendingResolutionIndex;
+            PlayerPrefs.SetInt("ResolutionIndex", _currentResolutionIndex);
+            PlayerPrefs.Save();
+        }
+        _pendingResolutionIndex = -1;
+        SetVisible(_resolutionConfirmOverlay, false);
+    }
+
+    private static void ApplyResolution(int index)
+    {
+        if (index < 0 || index >= CommonResolutions.Length) return;
+        var r = CommonResolutions[index];
+        Screen.SetResolution(r.width, r.height, Screen.fullScreen);
+#if UNITY_EDITOR
+        SetEditorGameViewResolution(r.width, r.height);
+#endif
+    }
+
+#if UNITY_EDITOR
+    // Forces the Editor Game View to the specified resolution so UI scaling can be
+    // visually verified during Play mode without building. Uses the GameViewSizes API
+    // to add (or find) a custom fixed-resolution entry and select it.
+    private static void SetEditorGameViewResolution(int width, int height)
+    {
+        try
+        {
+            var assembly      = typeof(UnityEditor.EditorWindow).Assembly;
+            var gameViewType  = assembly.GetType("UnityEditor.GameView");
+            var gvSizesType   = assembly.GetType("UnityEditor.GameViewSizes");
+            var gvSizeType    = assembly.GetType("UnityEditor.GameViewSize");
+            var sizeTypeEnum  = assembly.GetType("UnityEditor.GameViewSizeType");
+            if (gameViewType == null || gvSizesType == null || gvSizeType == null) return;
+
+            // GameViewSizes.instance
+            var singletonBase = typeof(UnityEditor.ScriptableSingleton<>).MakeGenericType(gvSizesType);
+            object sizesInst  = singletonBase.GetProperty("instance")?.GetValue(null);
+            if (sizesInst == null) return;
+
+            // GetGroup(1) = Standalone
+            object group = gvSizesType.GetMethod("GetGroup")?.Invoke(sizesInst, new object[] { 1 });
+            if (group == null) return;
+
+            var groupType = group.GetType();
+
+            // Search for an existing entry with matching dimensions
+            int total   = (int)(groupType.GetMethod("GetTotalCount")?.Invoke(group, null) ?? 0);
+            int sizeIdx = -1;
+            for (int i = 0; i < total; i++)
+            {
+                var s  = groupType.GetMethod("GetGameViewSize")?.Invoke(group, new object[] { i });
+                if (s == null) continue;
+                int w2 = (int)(s.GetType().GetProperty("width")?.GetValue(s)  ?? 0);
+                int h2 = (int)(s.GetType().GetProperty("height")?.GetValue(s) ?? 0);
+                if (w2 == width && h2 == height) { sizeIdx = i; break; }
+            }
+
+            // If not found, add a new FixedResolution custom size
+            if (sizeIdx < 0)
+            {
+                object fixedRes = System.Enum.Parse(sizeTypeEnum, "FixedResolution");
+                var newEntry = System.Activator.CreateInstance(
+                    gvSizeType, fixedRes, width, height, $"{width}x{height}");
+                groupType.GetMethod("AddCustomSize")?.Invoke(group, new object[] { newEntry });
+                total   = (int)(groupType.GetMethod("GetTotalCount")?.Invoke(group, null) ?? 0);
+                sizeIdx = total - 1;
+            }
+
+            // Select the size in the open Game View
+            var gv = UnityEditor.EditorWindow.GetWindow(gameViewType);
+            gameViewType.GetMethod("SizeSelectionCallback")
+                        ?.Invoke(gv, new object[] { sizeIdx, null });
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[Resolution] Editor Game View resize skipped: {e.Message}");
+        }
+    }
+#endif
+
+    private void OnResolutionCancelled()
+    {
+        // Revert the dropdown to the last confirmed resolution without firing the callback
+        if (_resolutionDropdown != null)
+            _resolutionDropdown.SetValueWithoutNotify(_resolutionDropdown.choices[_currentResolutionIndex]);
+        _pendingResolutionIndex = -1;
+        SetVisible(_resolutionConfirmOverlay, false);
     }
 
     private void SetVolume(string param, float linear)
     {
-        if (audioMixer == null) return;
-        float db = linear > 0.0001f
-            ? Mathf.Log10(linear) * 20f
-            : -80f;
-        audioMixer.SetFloat(param, db);
+        // AudioMixer route (optional — only if wired in Inspector)
+        if (audioMixer != null)
+        {
+            float db = linear > 0.0001f ? Mathf.Log10(linear) * 20f : -80f;
+            audioMixer.SetFloat(param, db);
+        }
+
+        // Direct AudioManager route (in-game session — may be null on first launch)
+        if (AudioManager.instance != null)
+        {
+            if (param == gameMixerParam)
+                AudioManager.instance.SetSfxVolume(linear);
+            else if (param == musicMixerParam)
+                AudioManager.instance.SetMusicVolume(linear);
+        }
+
+        // Menu music source — always updated so the slider gives real-time feedback
+        if (param == musicMixerParam && _persistentMenuMusic != null)
+            _persistentMenuMusic.volume = linear;
+
         PlayerPrefs.SetFloat(param, linear);
+    }
+
+    private void OnSettingsDone()
+    {
+        SaveSettingsToJson();
+        HideAllPopups();
+    }
+
+    private void SaveSettingsToJson()
+    {
+        var data = new SettingsJson
+        {
+            gameVolume  = _gameVolumeSlider  != null ? _gameVolumeSlider.value  : 1f,
+            musicVolume = _musicVolumeSlider != null ? _musicVolumeSlider.value : 0.7f,
+        };
+        string dir = System.IO.Path.Combine(Application.dataPath, "_Saves");
+        if (!System.IO.Directory.Exists(dir))
+            System.IO.Directory.CreateDirectory(dir);
+        System.IO.File.WriteAllText(SettingsPath, JsonUtility.ToJson(data, true));
+    }
+
+    private void LoadSettingsFromJson()
+    {
+        if (!System.IO.File.Exists(SettingsPath)) return;
+        var data = JsonUtility.FromJson<SettingsJson>(System.IO.File.ReadAllText(SettingsPath));
+        if (data == null) return;
+        PlayerPrefs.SetFloat(gameMixerParam,  data.gameVolume);
+        PlayerPrefs.SetFloat(musicMixerParam, data.musicVolume);
     }
 
     private void ApplyDifficulty(int level)
@@ -564,6 +743,9 @@ public class MainMenuManager : MonoBehaviour
 
     private void ApplyStoredSettings()
     {
+        // Populate PlayerPrefs from settings.json if it exists (settings file wins over stale PlayerPrefs)
+        LoadSettingsFromJson();
+
         // Graphics preset
         string savedPreset = PlayerPrefs.GetString("GraphicsPresetName", "Ultra");
         ApplyGraphicsPreset(savedPreset);
@@ -571,6 +753,14 @@ public class MainMenuManager : MonoBehaviour
         // Difficulty
         int savedDiff = PlayerPrefs.GetInt("Difficulty", 0);
         ApplyDifficulty(savedDiff);
+
+        // Resolution — restore saved choice and sync the dropdown label
+        int savedRes = PlayerPrefs.GetInt("ResolutionIndex", 1);
+        savedRes = Mathf.Clamp(savedRes, 0, CommonResolutions.Length - 1);
+        _currentResolutionIndex = savedRes;
+        ApplyResolution(savedRes);
+        if (_resolutionDropdown != null && _resolutionDropdown.choices?.Count > savedRes)
+            _resolutionDropdown.SetValueWithoutNotify(_resolutionDropdown.choices[savedRes]);
 
         // Volumes
         float gv = PlayerPrefs.GetFloat(gameMixerParam, 1f);
@@ -590,9 +780,11 @@ public class MainMenuManager : MonoBehaviour
 
     private void HideAllPopups()
     {
-        SetVisible(_namePopup,       false);
-        SetVisible(_loadPopup,       false);
-        SetVisible(_settingsPopup,   false);
+        SetVisible(_namePopup,               false);
+        SetVisible(_loadPopup,               false);
+        SetVisible(_settingsPopup,           false);
+        SetVisible(_resolutionConfirmOverlay, false);
+        _pendingResolutionIndex = -1;
     }
 
     private void ShowPopup(VisualElement popup)

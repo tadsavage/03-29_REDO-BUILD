@@ -42,9 +42,6 @@ public class PlacementFinalizer : MonoBehaviour
         // --- GROUND REPLACEMENT LOGIC ---
         if (IsGround(data))
         {
-            if (IsSameGroundAlreadyThere(root, offsets, data))
-                return null;
-
             DisableExistingGrounds(root, offsets, disabledObjects);
             // Foundations also displace yard floor tiles sitting in the same cells
             DisableExistingFloors(root, offsets, disabledObjects);
@@ -201,11 +198,10 @@ public class PlacementFinalizer : MonoBehaviour
 
             foreach (var entry in list)
             {
-                if (entry.data != null && entry.data.isFloor)
-                {
-                    if (entry.data.id == data.id)
-                        return true;
-                }
+                if (entry.data != null && entry.data.isFloor
+                    && entry.instance != null && entry.instance.activeSelf
+                    && entry.data.id == data.id)
+                    return true;
             }
         }
         return false;

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.SceneManagement;
@@ -19,9 +20,31 @@ public class TopBarUI : MonoBehaviour
 
     private VisualElement _menuOverlay;
     private Button _menuMainMenuButton;
+    private Button _menuSettingsButton;
     private Button _menuSaveButton;
     private Button _menuResumeButton;
     private Button _menuExitButton;
+
+    // In-game settings
+    private VisualElement _igSettingsOverlay;
+    private VisualElement _igResConfirmOverlay;
+    private Button _igBtnScreamin, _igBtnGood, _igBtnToaster;
+    private Button _igBtnClerk, _igBtnSupervisor, _igBtnManager;
+    private DropdownField _igResolutionDropdown;
+    private Slider _igGameVolumeSlider, _igMusicVolumeSlider;
+    private int _igCurrentResIdx = 1;
+    private int _igPendingResIdx = -1;
+
+    private static readonly Resolution[] CommonResolutions =
+    {
+        new Resolution { width = 1280, height = 720  },
+        new Resolution { width = 1920, height = 1080 },
+        new Resolution { width = 2560, height = 1440 },
+        new Resolution { width = 3840, height = 2160 },
+    };
+
+    private const string GameVolParam  = "GameVolume";
+    private const string MusicVolParam = "MusicVolume";
 
     private float _fpsTimer;
     private int _frames;
@@ -67,19 +90,51 @@ public class TopBarUI : MonoBehaviour
         _loadButton      = topBar.Q<Button>("LoadButton");
         _mainMenuButton  = topBar.Q<Button>("MainMenuButton");
 
-        _menuOverlay      = hudRoot.Q<VisualElement>("menu-overlay");
+        _menuOverlay        = hudRoot.Q<VisualElement>("menu-overlay");
         _menuMainMenuButton = hudRoot.Q<Button>("MenuMainMenuButton");
+        _menuSettingsButton = hudRoot.Q<Button>("MenuSettingsButton");
         _menuSaveButton     = hudRoot.Q<Button>("MenuSaveButton");
         _menuResumeButton   = hudRoot.Q<Button>("MenuResumeButton");
         _menuExitButton     = hudRoot.Q<Button>("MenuExitButton");
 
-        if (_saveButton       != null) _saveButton.clicked       += () => _saveLoadController?.Open(SaveLoadMode.Save);
-        if (_loadButton       != null) _loadButton.clicked       += () => _saveLoadController?.Open(SaveLoadMode.Load);
-        if (_mainMenuButton   != null) _mainMenuButton.clicked   += ToggleMenuPopup;
-        if (_menuMainMenuButton != null) _menuMainMenuButton.clicked += OnMenuDirectToMainMenu;
-        if (_menuSaveButton   != null) _menuSaveButton.clicked   += OnMenuSave;
-        if (_menuResumeButton != null) _menuResumeButton.clicked += CloseMenuPopup;
-        if (_menuExitButton   != null) _menuExitButton.clicked   += OnExitGame;
+        // In-game settings
+        _igSettingsOverlay    = hudRoot.Q<VisualElement>("in-game-settings-overlay");
+        _igResConfirmOverlay  = hudRoot.Q<VisualElement>("ig-res-confirm-overlay");
+        _igBtnScreamin        = hudRoot.Q<Button>("ig-btn-screamin");
+        _igBtnGood            = hudRoot.Q<Button>("ig-btn-good");
+        _igBtnToaster         = hudRoot.Q<Button>("ig-btn-toaster");
+        _igBtnClerk           = hudRoot.Q<Button>("ig-btn-diff-clerk");
+        _igBtnSupervisor      = hudRoot.Q<Button>("ig-btn-diff-supervisor");
+        _igBtnManager         = hudRoot.Q<Button>("ig-btn-diff-manager");
+        _igResolutionDropdown = hudRoot.Q<DropdownField>("ig-resolution-dropdown");
+        _igGameVolumeSlider   = hudRoot.Q<Slider>("ig-slider-game-volume");
+        _igMusicVolumeSlider  = hudRoot.Q<Slider>("ig-slider-music-volume");
+
+        if (_saveButton           != null) _saveButton.clicked           += () => _saveLoadController?.Open(SaveLoadMode.Save);
+        if (_loadButton           != null) _loadButton.clicked           += () => _saveLoadController?.Open(SaveLoadMode.Load);
+        if (_mainMenuButton       != null) _mainMenuButton.clicked       += ToggleMenuPopup;
+        if (_menuMainMenuButton   != null) _menuMainMenuButton.clicked   += OnMenuDirectToMainMenu;
+        if (_menuSettingsButton   != null) _menuSettingsButton.clicked   += OnMenuSettings;
+        if (_menuSaveButton       != null) _menuSaveButton.clicked       += OnMenuSave;
+        if (_menuResumeButton     != null) _menuResumeButton.clicked     += CloseMenuPopup;
+        if (_menuExitButton       != null) _menuExitButton.clicked       += OnExitGame;
+
+        // In-game settings wiring
+        _igBtnScreamin?.RegisterCallback<ClickEvent>(_ => IgApplyGraphicsPreset("Ultra"));
+        _igBtnGood?.RegisterCallback<ClickEvent>(_ => IgApplyGraphicsPreset("Good"));
+        _igBtnToaster?.RegisterCallback<ClickEvent>(_ => IgApplyGraphicsPreset("Toaster"));
+        _igBtnClerk?.RegisterCallback<ClickEvent>(_ => IgApplyDifficulty(0));
+        _igBtnSupervisor?.RegisterCallback<ClickEvent>(_ => IgApplyDifficulty(1));
+        _igBtnManager?.RegisterCallback<ClickEvent>(_ => IgApplyDifficulty(2));
+        hudRoot.Q<Button>("ig-settings-done")?.RegisterCallback<ClickEvent>(_ => CloseSettings());
+        hudRoot.Q<Button>("ig-btn-res-yes")?.RegisterCallback<ClickEvent>(_ => IgOnResolutionAccepted());
+        hudRoot.Q<Button>("ig-btn-res-no")?.RegisterCallback<ClickEvent>(_ => IgOnResolutionCancelled());
+
+        if (_igGameVolumeSlider  != null) _igGameVolumeSlider.RegisterValueChangedCallback(evt => IgSetVolume(GameVolParam, evt.newValue));
+        if (_igMusicVolumeSlider != null) _igMusicVolumeSlider.RegisterValueChangedCallback(evt => IgSetVolume(MusicVolParam, evt.newValue));
+
+        IgBuildResolutionDropdown();
+        IgApplyStoredSettings();
 
         if (SaveManager.Instance != null)
             SaveManager.Instance.OnSaveCompleted += OnSaveCompleted;
@@ -217,6 +272,149 @@ public class TopBarUI : MonoBehaviour
             _lastDay    = _timeService.Day;
             _time.text  = $"Time: {_lastHour:00}:{_lastMinute:00}  Day {_lastDay}";
         }
+    }
+
+    // ── In-game settings ──────────────────────────────────────────
+
+    private void OnMenuSettings()
+    {
+        CloseMenuPopup();
+        if (_igSettingsOverlay != null)
+        {
+            _igSettingsOverlay.style.display = DisplayStyle.Flex;
+            _igSettingsOverlay.pickingMode   = PickingMode.Position;
+        }
+    }
+
+    private void CloseSettings()
+    {
+        if (_igSettingsOverlay != null)
+        {
+            _igSettingsOverlay.style.display = DisplayStyle.None;
+            _igSettingsOverlay.pickingMode   = PickingMode.Ignore;
+        }
+        if (_igResConfirmOverlay != null)
+        {
+            _igResConfirmOverlay.style.display = DisplayStyle.None;
+            _igResConfirmOverlay.pickingMode   = PickingMode.Ignore;
+        }
+        _igPendingResIdx = -1;
+        OpenMenuPopup();
+    }
+
+    private void IgApplyStoredSettings()
+    {
+        string preset = PlayerPrefs.GetString("GraphicsPresetName", "Ultra");
+        IgApplyGraphicsPreset(preset);
+
+        int diff = PlayerPrefs.GetInt("Difficulty", 0);
+        IgApplyDifficulty(diff);
+
+        float gv = PlayerPrefs.GetFloat(GameVolParam, 1f);
+        float mv = PlayerPrefs.GetFloat(MusicVolParam, 0.7f);
+        if (_igGameVolumeSlider  != null) _igGameVolumeSlider.SetValueWithoutNotify(gv);
+        if (_igMusicVolumeSlider != null) _igMusicVolumeSlider.SetValueWithoutNotify(mv);
+    }
+
+    private void IgApplyGraphicsPreset(string preset)
+    {
+        var mgr = FindAnyObjectByType<GraphicsPresetManager>();
+        if (mgr != null)
+            mgr.ApplyPreset((GraphicsPresetManager.Preset)System.Enum.Parse(
+                typeof(GraphicsPresetManager.Preset), preset));
+
+        _igBtnScreamin?.RemoveFromClassList("gfx-btn--active");
+        _igBtnGood?.RemoveFromClassList("gfx-btn--active");
+        _igBtnToaster?.RemoveFromClassList("gfx-btn--active");
+        switch (preset)
+        {
+            case "Ultra":   _igBtnScreamin?.AddToClassList("gfx-btn--active"); break;
+            case "Good":    _igBtnGood?.AddToClassList("gfx-btn--active");     break;
+            case "Toaster": _igBtnToaster?.AddToClassList("gfx-btn--active");  break;
+        }
+        PlayerPrefs.SetString("GraphicsPresetName", preset);
+    }
+
+    private void IgApplyDifficulty(int level)
+    {
+        PlayerPrefs.SetInt("Difficulty", level);
+        _igBtnClerk?.RemoveFromClassList("gfx-btn--active");
+        _igBtnSupervisor?.RemoveFromClassList("gfx-btn--active");
+        _igBtnManager?.RemoveFromClassList("gfx-btn--active");
+        switch (level)
+        {
+            case 0: _igBtnClerk?.AddToClassList("gfx-btn--active");      break;
+            case 1: _igBtnSupervisor?.AddToClassList("gfx-btn--active"); break;
+            case 2: _igBtnManager?.AddToClassList("gfx-btn--active");    break;
+        }
+    }
+
+    private void IgBuildResolutionDropdown()
+    {
+        if (_igResolutionDropdown == null) return;
+
+        var choices = new List<string>();
+        foreach (var r in CommonResolutions)
+            choices.Add($"{r.width} x {r.height}");
+        _igResolutionDropdown.choices = choices;
+
+        int w = Screen.width, h = Screen.height;
+        _igCurrentResIdx = 1;
+        for (int i = 0; i < CommonResolutions.Length; i++)
+            if (CommonResolutions[i].width == w && CommonResolutions[i].height == h)
+                _igCurrentResIdx = i;
+        _igResolutionDropdown.SetValueWithoutNotify(choices[_igCurrentResIdx]);
+
+        _igResolutionDropdown.RegisterValueChangedCallback(evt =>
+        {
+            int idx = _igResolutionDropdown.index;
+            if (idx < 0 || idx >= CommonResolutions.Length || idx == _igCurrentResIdx) return;
+            _igPendingResIdx = idx;
+            if (_igResConfirmOverlay != null)
+            {
+                _igResConfirmOverlay.style.display = DisplayStyle.Flex;
+                _igResConfirmOverlay.pickingMode   = PickingMode.Position;
+            }
+        });
+    }
+
+    private void IgOnResolutionAccepted()
+    {
+        if (_igPendingResIdx >= 0 && _igPendingResIdx < CommonResolutions.Length)
+        {
+            var r = CommonResolutions[_igPendingResIdx];
+            Screen.SetResolution(r.width, r.height, Screen.fullScreen);
+            _igCurrentResIdx = _igPendingResIdx;
+            PlayerPrefs.SetInt("ResolutionIndex", _igCurrentResIdx);
+        }
+        _igPendingResIdx = -1;
+        if (_igResConfirmOverlay != null)
+        {
+            _igResConfirmOverlay.style.display = DisplayStyle.None;
+            _igResConfirmOverlay.pickingMode   = PickingMode.Ignore;
+        }
+    }
+
+    private void IgOnResolutionCancelled()
+    {
+        if (_igResolutionDropdown != null)
+            _igResolutionDropdown.SetValueWithoutNotify(_igResolutionDropdown.choices[_igCurrentResIdx]);
+        _igPendingResIdx = -1;
+        if (_igResConfirmOverlay != null)
+        {
+            _igResConfirmOverlay.style.display = DisplayStyle.None;
+            _igResConfirmOverlay.pickingMode   = PickingMode.Ignore;
+        }
+    }
+
+    private void IgSetVolume(string param, float linear)
+    {
+        if (AudioManager.instance != null)
+        {
+            if (param == GameVolParam)  AudioManager.instance.SetSfxVolume(linear);
+            else                        AudioManager.instance.SetMusicVolume(linear);
+        }
+        PlayerPrefs.SetFloat(param, linear);
     }
 
     private void OnDestroy()

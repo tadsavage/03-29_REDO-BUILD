@@ -235,6 +235,19 @@ public class PlaceCommand : ICommand
             }
         }
 
+        // Reverse ground replacement refunds (re-charge displaced grounds and their floor tiles)
+        if (IsGround(_data) && _replacedGroundsCost > 0)
+        {
+            foreach (var obj in _disabledFloors)
+            {
+                if (obj == null) continue;
+                var po = obj.GetComponent<PlacedObject>();
+                if (po?.data == null) continue;
+                _money.Deduct(po.data.cost, po.data.category);
+                _money.AddHourlyCost(po.data.hourlyCost);
+            }
+        }
+
         _money.Refund(_data.cost, _data.category);
         _money.RemoveHourlyCost(_data.hourlyCost);
 
@@ -341,15 +354,21 @@ public class PlaceCommand : ICommand
                 _money.RemoveHourlyCost(po.data.hourlyCost);
             }
         }
+
+        if (IsGround(_data) && _replacedGroundsCost > 0)
+        {
+            foreach (var obj in _disabledFloors)
+            {
+                if (obj == null) continue;
+                var po = obj.GetComponent<PlacedObject>();
+                if (po?.data == null) continue;
+                _money.Refund(po.data.cost, po.data.category);
+                _money.RemoveHourlyCost(po.data.hourlyCost);
+            }
+        }
+
         _money.Deduct(_data.cost, _data.category);
         _money.AddHourlyCost(_data.hourlyCost);
-
-        if (_data.isFloor)
-            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -(_data.cost - _replacedFloorsCost));
-        else if ((_data.replacesWalls || _data.canBeReplacedByDoor) && _wallRefundTotal > 0)
-            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -(_data.cost - _wallRefundTotal));
-        else if (_data.cost != 0)
-            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
 
         if (_autoFloors.Count > 0 && _autoFloorData != null)
         {
@@ -360,6 +379,19 @@ public class PlaceCommand : ICommand
                 _money.AddHourlyCost(_autoFloorData.hourlyCost);
             }
         }
+
+        if (_data.isFloor)
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -(_data.cost - _replacedFloorsCost));
+        else if ((_data.replacesWalls || _data.canBeReplacedByDoor) && _wallRefundTotal > 0)
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -(_data.cost - _wallRefundTotal));
+        else if (IsGround(_data))
+        {
+            int netCost = _data.cost + _autoFloorTotalCost - _replacedGroundsCost;
+            if (netCost != 0)
+                FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -netCost);
+        }
+        else if (_data.cost != 0)
+            FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
 
         if (NeedsNavMesh(_data))
             NavMeshManager.Instance.MarkDirty();

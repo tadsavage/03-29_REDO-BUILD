@@ -19,6 +19,8 @@ public class Waypoint : MonoBehaviour
         MHE          = 1 << 3,   // forklifts / reach trucks (indoor + dock area)
         Truck        = 1 << 4,   // delivery trucks (yard only)
         Exterminator = 1 << 5,   // primarily external / perimeter
+        IC           = 1 << 6,   // Office to Warehouse (indoor only)
+        TruckDriver   = 1 << 7,   // Truck drivers outdoor in Yard and parking lot
         // Add new groups here as needed — existing waypoints are unaffected
     }
 

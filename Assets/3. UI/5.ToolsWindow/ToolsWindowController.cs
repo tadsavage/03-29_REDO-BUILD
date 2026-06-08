@@ -335,15 +335,20 @@ public class ToolsWindowController : MonoBehaviour
         globalTitle.tooltip = "Scene-wide toggles that affect all objects.";
         globalSection.Add(globalTitle);
 
-        // Graphics preset buttons
-        var presetRow = new VisualElement(); presetRow.AddToClassList("ds-row");
+        // Graphics preset — centered label above buttons
+        var presetBlock = new VisualElement();
+        presetBlock.style.flexDirection = FlexDirection.Column;
+        presetBlock.style.marginBottom = 10;
         var presetLbl = new Label("Graphics Preset");
-        presetLbl.AddToClassList("ds-label");
+        presetLbl.style.fontSize = 18;
+        presetLbl.style.color = new Color(0.808f, 0.882f, 0.941f, 1f); // #CFE2F0
+        presetLbl.style.unityTextAlign = TextAnchor.MiddleCenter;
+        presetLbl.style.alignSelf = Align.Stretch;
+        presetLbl.style.marginBottom = 6;
         presetLbl.tooltip = "Switches the full graphics quality preset for the current session. Saved across sessions.";
-        presetRow.Add(presetLbl);
+        presetBlock.Add(presetLbl);
         var presetBtns = new VisualElement();
         presetBtns.style.flexDirection = FlexDirection.Row;
-        presetBtns.style.flexGrow = 1.4f;
         foreach (var (label, preset) in new[]{ ("ULTRA","Ultra"), ("GOOD","Good"), ("TOASTER","Toaster") })
         {
             var btn = new UnityEngine.UIElements.Button();
@@ -362,8 +367,8 @@ public class ToolsWindowController : MonoBehaviour
             };
             presetBtns.Add(btn);
         }
-        presetRow.Add(presetBtns);
-        globalSection.Add(presetRow);
+        presetBlock.Add(presetBtns);
+        globalSection.Add(presetBlock);
 
         globalSection.Add(BuildGlobalToggleRow(
             "Show Guidance Lines",

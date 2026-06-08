@@ -47,6 +47,10 @@ public class AudioManager : MonoBehaviour
         musicSource.playOnAwake = false;
         musicSource.volume = 0;
 
+        // Apply saved volume settings (written by MainMenuManager on Done)
+        sfxVolume   = PlayerPrefs.GetFloat("GameVolume",  sfxVolume);
+        musicVolume = PlayerPrefs.GetFloat("MusicVolume", musicVolume);
+
         soundMap = new Dictionary<string, SoundDefinition.SoundEntry>();
 
         if (soundLibrary != null)
@@ -71,6 +75,9 @@ public class AudioManager : MonoBehaviour
             instance = null;
         }
     }
+
+    public void SetSfxVolume(float v)   { sfxVolume   = v; }
+    public void SetMusicVolume(float v) { musicVolume = v; }
 
     public static void Play(string soundName)
     {

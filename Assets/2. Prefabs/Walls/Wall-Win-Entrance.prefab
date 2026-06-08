@@ -48,9 +48,37 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: e711b9fd6c1eb314ea8c0be6abf7d855, type: 2}
+    - target: {fileID: -7511558181221131132, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: e711b9fd6c1eb314ea8c0be6abf7d855, type: 2}
+    - target: {fileID: -4608888550618570879, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -4608888550618570879, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -3240465233558266385, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
       propertyPath: m_Name
       value: Wall-Win-Entrance
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 5933273005509239650, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      propertyPath: m_Layer
+      value: 6
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -68,6 +96,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6917855169139089701}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -2134567890123456789}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -3456789012345678901}
   m_SourcePrefab: {fileID: 100100000, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
 --- !u!1 &3741823717697543036 stripped
 GameObject:
@@ -140,3 +174,50 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+--- !u!114 &-2134567890123456789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3741823717697543036}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3e50876b4d7f2a154321fedcba98765, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntranceDoorController
+  doorTransform: {fileID: 9211944238951433044}
+  startRotY: 0
+  endRotY: -90
+  speed: 150
+  openClip: {fileID: 8300000, guid: 28a8946928485334dbd18898801d86c7, type: 3}
+  closeClip: {fileID: 8300000, guid: af8042b03ca8f5244a98219ecbe46c8a, type: 3}
+  doorVolume: 1
+  fullVolumeDistance: 2
+  maxHearingDistance: 15
+  audioSource: {fileID: 0}
+--- !u!114 &-3456789012345678901
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3741823717697543036}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifier
+  m_SerializedVersion: 0
+  m_OverrideArea: 1
+  m_Area: 4
+  m_OverrideGenerateLinks: 0
+  m_GenerateLinks: 1
+  m_IgnoreFromBuild: 0
+  m_ApplyToChildren: 1
+  m_AffectedAgents: ffffffff
+--- !u!4 &9211944238951433044 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -4540842890009811591, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+  m_PrefabInstance: {fileID: 4552234365021808173}
+  m_PrefabAsset: {fileID: 0}

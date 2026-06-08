@@ -7,6 +7,7 @@ Shader "Custom/LowPolyWhimsical"
         
         [NoScaleOffset] _OcclusionMap ("Occlusion Map G", 2D) = "white" {}
         _OcclusionStrength ("Occlusion Strength", Range(0.0, 1.0)) = 1.0
+        [Toggle] _UseOcclusionMap ("Use Occlusion Map", Float) = 0.0
 
         // --- URP/Lit compatibility shims (hidden, preserve values when switching shaders) ---
         [HideInInspector] _BaseColor ("Base Color", Color) = (1,1,1,1)
@@ -91,6 +92,7 @@ Shader "Custom/LowPolyWhimsical"
                 float4 _SpecularColor;
                 float4 _RimColor;
                 float _OcclusionStrength;
+                float _UseOcclusionMap;
                 float _ShadowStep;
                 float _ShadowFeather;
                 float _EdgeIntensity;
@@ -126,8 +128,16 @@ Shader "Custom/LowPolyWhimsical"
                 UNITY_SETUP_INSTANCE_ID(input);
 
                 half4 baseColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv) * _Tint;
-                float rawAO = SAMPLE_TEXTURE2D(_OcclusionMap, sampler_OcclusionMap, input.uvAO).g;
-                float aoFactor = lerp(1.0, rawAO, _OcclusionStrength);
+                float aoFactor;
+                if (_UseOcclusionMap > 0.5)
+                {
+                    float rawAO = SAMPLE_TEXTURE2D(_OcclusionMap, sampler_OcclusionMap, input.uvAO).g;
+                    aoFactor = lerp(1.0, rawAO, _OcclusionStrength);
+                }
+                else
+                {
+                    aoFactor = 1.0;
+                }
 
                 float3 normalWS = normalize(input.normalWS);
                 float3 viewDirWS = normalize(input.viewDirWS);

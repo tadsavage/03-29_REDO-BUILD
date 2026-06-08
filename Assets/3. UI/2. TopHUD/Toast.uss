@@ -1,52 +1,32 @@
-/* ========================================================
-   ROOT PANEL ANCHOR: Invisible wrapper spanning full width
-   ======================================================== */
+/* ── TOAST NOTIFICATION ─────────────────────────────────
+   Centered on screen, above all other UI (sortingOrder=100)
+   ───────────────────────────────────────────────────────── */
 .toast-root-container {
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 135px; /* Safely clears the 120px tall bottom toolbar with a 15px gap */
-    display: flex;
+    left: 0; right: 0; top: 0; bottom: 0;
     flex-direction: row;
-    justify-content: center; /* Forces the child elements to group exactly at horizontal center */
+    justify-content: center;
     align-items: center;
     pointer-events: none;
     overflow: visible;
 }
 
-/* ========================================================
-   COZY TOAST NOTIFICATION WINDOW OVERRIDES
-   ======================================================== */
 .toast-label {
-    /* No manual left/translate shifting required anymore due to flexbox container rule above */
     position: relative;
-    width: auto; /* Scales automatically to fit content length dynamically */
-    max-width: 600px;
-    
-    /* PALIA THEME: Crisp pale cream parchment text with readable font sizing */
-    color: #F5EEDB;
+    width: auto;
+    max-width: 620px;
+    color: #CFE2F0;
     font-size: 24px;
-    -unity-font-definition: url("project://database/Assets/6.%20Art/Fonts/Fredoka,Grandstander,Winky_Rough,Work_Sans/Fredoka/static/Fredoka-Medium.ttf?fileID=12800000&guid=189cc47193d14cf48980be934208aa1c&type=3#Fredoka-Medium");
-    -unity-font-style: bold;
-    
-    /* TEXT CONTRAST: Sharp shadows to read clearly over bright gameplay graphics */
-    text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.9);
-    
-    /* PALIA THEME: Deep purple-charcoal base container background */
-    background-color: #2D2B3A;
-    
-    /* PALIA THEME: Uniform structural gold boundary frames */
-    border-color: #ECC98A;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.85);
+    background-color: rgba(18, 26, 36, 0.97);
+    border-color: #5C9BC4;
     border-width: 2px;
-    border-radius: 6px;
-    
-    /* SPACING CONFIG: Generous inside margins so text doesn't slam into borders */
-    padding-left: 24px;
-    padding-right: 24px;
-    padding-top: 10px;
-    padding-bottom: 10px;
-    
-    /* ALIGNMENT SAFETIES */
+    border-radius: 10px;
+    padding-left: 28px;
+    padding-right: 28px;
+    padding-top: 12px;
+    padding-bottom: 12px;
     -unity-text-align: middle-center;
     -unity-text-wrap: nowrap;
 }
