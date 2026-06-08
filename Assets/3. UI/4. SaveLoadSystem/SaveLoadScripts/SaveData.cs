@@ -15,6 +15,17 @@ public class SaveData
     public bool  guidanceLinesVisible = true;
     public bool  waypointsVisible     = true;
     public bool  hoverPopupEnabled    = true;
+
+    // ── Game settings captured per-save ──────────────────────────────────────
+    // Sentinel defaults (-1 / empty) mean "not stored in this file" so that
+    // loading an OLD save does not overwrite the player's current settings.
+    public float  gameVolume      = -1f;   // SFX/game volume   (PlayerPrefs "GameVolume")
+    public float  musicVolume     = -1f;   // music volume      (PlayerPrefs "MusicVolume")
+    public string graphicsPreset  = "";    // "Ultra"/"Good"/"Toaster"
+    public int    difficulty      = -1;    // 0 Clerk, 1 Supervisor, 2 Manager
+    public int    resolutionIndex = -1;    // dropdown index (PlayerPrefs "ResolutionIndex")
+    public int    screenWidth     = 0;     // actual width  applied via Screen.SetResolution
+    public int    screenHeight    = 0;     // actual height applied via Screen.SetResolution
 }
 
 /// <summary>Key = "TypeName.fieldName", Val = serialized value string.</summary>

@@ -90,7 +90,8 @@ public class AgentAnimation : MonoBehaviour
                     && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f
                     && _agent.pathStatus == NavMeshPathStatus.PathComplete;
 
-        if (arrived && !_isWaiting && _everHadPath)
+        bool traversing = _navigation != null && _navigation.IsTraversingLink;
+        if (arrived && !_isWaiting && _everHadPath && !traversing)
             StartCoroutine(WaitAtWaypointRoutine());
 
         // ── Visual heading ─────────────────────────────────────────────────────
@@ -102,6 +103,12 @@ public class AgentAnimation : MonoBehaviour
         bool jumpingDown = _navigation != null && _navigation.IsTraversingLedgeDown;
         if (climbing || jumpingDown)
         {
+            // Freeze _pendingRotation to the current transform so LateUpdate doesn't
+            // fight AiNavigation.TraverseLink(), which sets the rotation once at the
+            // start of each traversal. Each frame we snapshot what TraverseLink set.
+            _pendingRotation    = transform.rotation;
+            _hasPendingRotation = true;
+
             SetAllBools(false);
             _animator.SetBool("IsClimbing",    climbing);
             _animator.SetBool("IsJumpingDown", jumpingDown);

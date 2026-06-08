@@ -110,4 +110,8 @@ public class MoneyService
         SpentToday = amount;
         OnMoneyChanged?.Invoke();
     }
+    public void SetSellBackRate(float rate)
+    {
+        SellBackRate = rate;
+    }
 }

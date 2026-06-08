@@ -1,32 +1,24 @@
 /* ── TOAST NOTIFICATION ─────────────────────────────────
-   Centered on screen, above all other UI (sortingOrder=100)
+   Positioned programmatically to Screen.width/2, Screen.height/2
+   sortingOrder=100 keeps it above all other panels
    ───────────────────────────────────────────────────────── */
-.toast-root-container {
-    position: absolute;
-    left: 0; right: 0; top: 0; bottom: 0;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    pointer-events: none;
-    overflow: visible;
-}
 
 .toast-label {
-    position: relative;
+    position: absolute;
     width: auto;
-    max-width: 620px;
+    max-width: 1860px;
     color: #CFE2F0;
-    font-size: 24px;
+    font-size: 36px;
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.85);
     background-color: rgba(18, 26, 36, 0.97);
     border-color: #5C9BC4;
-    border-width: 2px;
-    border-radius: 10px;
-    padding-left: 28px;
-    padding-right: 28px;
-    padding-top: 12px;
-    padding-bottom: 12px;
+    border-width: 3px;
+    border-radius: 15px;
+    padding-left: 42px;
+    padding-right: 42px;
+    padding-top: 18px;
+    padding-bottom: 18px;
     -unity-text-align: middle-center;
     -unity-text-wrap: nowrap;
 }

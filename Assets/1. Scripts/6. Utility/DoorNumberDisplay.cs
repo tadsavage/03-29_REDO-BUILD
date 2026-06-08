@@ -30,7 +30,10 @@ public class DoorNumberDisplay : MonoBehaviour
     {
         UpdateDisplay();
     }
-
+    private void Update()
+    {
+        //UpdateDisplay();
+    }
     public void UpdateDisplay()
     {
         if (textComponents == null) return;

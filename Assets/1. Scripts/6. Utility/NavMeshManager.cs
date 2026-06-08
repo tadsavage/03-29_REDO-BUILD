@@ -64,6 +64,7 @@ public class NavMeshManager : MonoBehaviour
 
             AddFloorNavMeshSources(sources, surface.defaultArea);
             AddStairRampSources(sources);
+            AddDockTopNavMeshSources(sources, surface.defaultArea);
 
             var settings = surface.GetBuildSettings();
             var newData = NavMeshBuilder.BuildNavMeshData(settings, sources, worldBounds, surface.transform.position, surface.transform.rotation);
@@ -102,12 +103,16 @@ public class NavMeshManager : MonoBehaviour
 
     private void RefreshNavMeshLinks()
     {
+        int count = 0;
         foreach (var link in Object.FindObjectsByType<Unity.AI.Navigation.NavMeshLink>(FindObjectsInactive.Exclude))
         {
             if (link == null || !link.isActiveAndEnabled) continue;
-            link.enabled = false;
-            link.enabled = true;
+            // UpdateLink() = RemoveLink + AddLink, re-sampling the endpoints against the
+            // freshly-baked NavMesh tiles. This is what actually reconnects the dock links.
+            link.UpdateLink();
+            count++;
         }
+        Debug.Log($"[NavDock] RefreshNavMeshLinks: re-registered {count} link(s) against current NavMesh.");
     }
 
     private List<NavMeshBuildMarkup> BuildMarkups(List<NavMeshModifier> modifiers)
@@ -162,6 +167,51 @@ public class NavMeshManager : MonoBehaviour
                 break;
             }
         }
+    }
+
+    // Injects a thin walkable Box source at the top surface of every placed foundation
+    // (detected via DockLedgeSetup). This guarantees the dock surface is NavMesh-walkable
+    // even when the foundation geometry is not picked up by CollectSources (e.g. wrong layer).
+    private void AddDockTopNavMeshSources(List<NavMeshBuildSource> sources, int defaultArea)
+    {
+        int scanned = 0;
+        int count   = 0;
+        foreach (var dock in Object.FindObjectsByType<DockLedgeSetup>(FindObjectsInactive.Exclude))
+        {
+            if (dock == null) continue;
+            scanned++;
+
+            // LedgeLinkMarker children are placed at dock-surface height in world space.
+            var marker = dock.GetComponentInChildren<LedgeLinkMarker>();
+            if (marker == null)
+            {
+                Debug.LogWarning($"[NavDock] {dock.name}: no LedgeLinkMarker child — skipping.");
+                continue;
+            }
+
+            float topY = marker.transform.position.y;  // dock surface world Y (typically 1.06)
+
+            // Box must be wider than the cell (1.33m) to account for agent-radius erosion.
+            // NavMesh erodes inward by the agent radius (~0.35–0.5m per side); the link
+            // endpoints sit at ±0.665m from center, so we need navigable area to reach them.
+            // 3.0m gives ~1.0m navigable margin on each side at typical agent radii.
+            const float sourceThickness = 0.10f;
+            const float navBoxSize      = 3.0f;
+
+            sources.Add(new NavMeshBuildSource
+            {
+                transform = Matrix4x4.TRS(
+                    new Vector3(dock.transform.position.x, topY - sourceThickness * 0.5f, dock.transform.position.z),
+                    Quaternion.identity,
+                    Vector3.one),
+                shape = NavMeshBuildSourceShape.Box,
+                area  = defaultArea,
+                size  = new Vector3(navBoxSize, sourceThickness, navBoxSize)
+            });
+            count++;
+        }
+        // Always log — a missing "[NavDock]" line means this method was never called.
+        Debug.Log($"[NavDock] AddDockTopNavMeshSources: scanned={scanned} injected={count}");
     }
 
     // Injects explicit Box NavMesh sources at each floor tile's top surface.
@@ -301,6 +351,7 @@ public class NavMeshManager : MonoBehaviour
 
                 AddFloorNavMeshSources(sources, surface.defaultArea);
                 AddStairRampSources(sources);
+                AddDockTopNavMeshSources(sources, surface.defaultArea);
 
                 AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
                 while (!op.isDone) yield return null;
@@ -313,6 +364,13 @@ public class NavMeshManager : MonoBehaviour
             {
                 if (surface != null) { surface.enabled = false; surface.enabled = true; }
             }
+
+            // CRITICAL: every rebake rebuilds the NavMesh tiles, which invalidates the
+            // connection of every NavMeshLink added against the OLD tiles. Without this,
+            // the first runtime rebake permanently disconnects all dock/stair links (the
+            // dock becomes an unreachable island and agents can never climb). BakeSynchronous
+            // already refreshes after its bake — this covers every async rebake too.
+            RefreshNavMeshLinks();
 
             _isUpdating = false;
         }

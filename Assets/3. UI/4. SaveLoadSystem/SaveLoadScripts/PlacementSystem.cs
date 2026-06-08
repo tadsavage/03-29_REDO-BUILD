@@ -230,6 +230,20 @@ public class PlacementSystem : MonoBehaviour
             if (mr != null) save.waypointsVisible = mr.enabled;
         }
 
+        // ── Game settings (source of truth lives in PlayerPrefs, written by the UI) ──
+        save.gameVolume      = PlayerPrefs.GetFloat("GameVolume", 1f);
+        save.musicVolume     = PlayerPrefs.GetFloat("MusicVolume", 0.7f);
+        save.difficulty      = PlayerPrefs.GetInt("Difficulty", 0);
+        save.resolutionIndex = PlayerPrefs.GetInt("ResolutionIndex", 1);
+        save.screenWidth     = Screen.width;
+        save.screenHeight    = Screen.height;
+
+        // Graphics preset: prefer the live manager, fall back to PlayerPrefs.
+        if (GraphicsPresetManager.Instance != null)
+            save.graphicsPreset = GraphicsPresetManager.Instance.CurrentPreset.ToString();
+        else
+            save.graphicsPreset = PlayerPrefs.GetString("GraphicsPresetName", "Ultra");
+
         foreach (var entry in PlacedObjectRegistry.All)
         {
             SavedObject obj = new SavedObject();
@@ -299,6 +313,64 @@ public class PlacementSystem : MonoBehaviour
         yield return null; // wait one frame for Destroy() to flush
         if (NavMeshManager.Instance != null)
             NavMeshManager.Instance.BakeSynchronous();
+    }
+
+    // ---------------------------------------------------------
+    // RESTORE GAME SETTINGS FROM A SAVE
+    // Each block is guarded by its sentinel so loading an older
+    // save (without these fields) leaves current settings intact.
+    // ---------------------------------------------------------
+    private void ApplySavedSettings(SaveData save)
+    {
+        // --- Audio (SFX/game + music) ---
+        if (save.gameVolume >= 0f)
+        {
+            PlayerPrefs.SetFloat("GameVolume", save.gameVolume);
+            if (AudioManager.instance != null)
+                AudioManager.instance.SetSfxVolume(save.gameVolume);
+        }
+        if (save.musicVolume >= 0f)
+        {
+            PlayerPrefs.SetFloat("MusicVolume", save.musicVolume);
+            if (AudioManager.instance != null)
+                AudioManager.instance.SetMusicVolume(save.musicVolume);
+        }
+
+        // --- Graphics preset ---
+        if (!string.IsNullOrEmpty(save.graphicsPreset))
+        {
+            PlayerPrefs.SetString("GraphicsPresetName", save.graphicsPreset);
+            if (GraphicsPresetManager.Instance != null &&
+                System.Enum.TryParse(save.graphicsPreset, out GraphicsPresetManager.Preset preset))
+            {
+                GraphicsPresetManager.Instance.ApplyPreset(preset);
+            }
+        }
+
+        // --- Difficulty (also restores the matching sell-back refund rate) ---
+        if (save.difficulty >= 0)
+        {
+            PlayerPrefs.SetInt("Difficulty", save.difficulty);
+            if (moneyService != null)
+            {
+                float sellBackRate = save.difficulty switch
+                {
+                    0 => 1.0f,  // Clerk
+                    1 => 0.75f, // Supervisor
+                    2 => 0.5f,  // Manager
+                    _ => 0.5f
+                };
+                moneyService.SetSellBackRate(sellBackRate);
+            }
+        }
+
+        // --- Resolution ---
+        if (save.resolutionIndex >= 0)
+            PlayerPrefs.SetInt("ResolutionIndex", save.resolutionIndex);
+        if (save.screenWidth > 0 && save.screenHeight > 0)
+            Screen.SetResolution(save.screenWidth, save.screenHeight, Screen.fullScreen);
+
+        PlayerPrefs.Save();
     }
 
         // ---------------------------------------------------------

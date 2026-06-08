@@ -289,23 +289,23 @@
 }
 
 
-/* THE ITEM TITLE TEXT (Added explicit target handling for #HoverTitle) */
-.world-hover-title, #HoverTitle, .buildmenu-stationed-popup #HoverTitle {
+/* THE ITEM TITLE TEXT — scoped to stationed popup only, floating popup uses WorldHoverPopup.uss */
+.buildmenu-stationed-popup .world-hover-title, .buildmenu-stationed-popup #HoverTitle {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular") !important;
-    font-size: 22px !important; /* Forces text up to large display metric */
-    height: auto !important;       
-    max-height: none !important;   
+    font-size: 22px !important;
+    height: auto !important;
+    max-height: none !important;
     color: #FFFFFF !important;
     margin-top: 0 !important;
     margin-bottom: 2px !important;
     -unity-text-align: middle-center !important;
 }
 
-/* FORCE THE LOWER ROW LABELS TO MATCH THE COST FORMAT EXACTLY */
-.buildmenu-stationed-popup Label, #HoverCost, #HoverHourlyCost {
+/* FORCE THE LOWER ROW LABELS — scoped to stationed popup only */
+.buildmenu-stationed-popup Label, .buildmenu-stationed-popup #HoverCost, .buildmenu-stationed-popup #HoverHourlyCost {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular") !important;
     font-size: 12px !important;
-    height: auto !important;       
+    height: auto !important;
     max-height: none !important;
     color: #ECC98A !important;
     margin-top: 1px !important;
@@ -313,7 +313,7 @@
     -unity-text-align: middle-center !important;
 }
 
-/* EXCLUDE THE TITLE REGARDLESS OF SELECTOR TYPE SO IT ALWAYS REMAINS WHITE */
+/* EXCLUDE THE TITLE SO IT ALWAYS REMAINS WHITE */
 .buildmenu-stationed-popup #HoverTitle, .buildmenu-stationed-popup .world-hover-title {
     color: #FFFFFF !important;
 }

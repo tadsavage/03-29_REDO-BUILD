@@ -30,7 +30,13 @@ public class AiNavigation : MonoBehaviour
     private bool initialized = false;
     private VehicleThrottleAudio throttleAudio;
     private bool hasHonkedThisArrival = false;
-    private bool _traversingLink = false;
+    private bool    _traversingLink = false;
+    private Vector3 _pendingFrom;
+    private Vector3 _pendingTo;
+    private bool    _hasPendingPositions;
+    // Proximity-based ledge detection state (CheckDockLedge)
+    private float             _ledgeCheckTimer = 0f;
+    private LedgeLinkMarker[] _cachedLedges;
     private AgentAnimation _agentAnimation;
     private AudioSource _footstepSource;
     private NoWaypointIndicator _indicator;
@@ -57,6 +63,8 @@ public class AiNavigation : MonoBehaviour
     public bool IsTraversingLedgeUp   { get; private set; }
     /// <summary>True while the agent is playing the JumpingDown animation at a ledge.</summary>
     public bool IsTraversingLedgeDown { get; private set; }
+    /// <summary>True during any off-mesh link traversal (ledge or stair).</summary>
+    public bool IsTraversingLink      => _traversingLink;
 
     private void OnEnable()
     {
@@ -75,7 +83,11 @@ public class AiNavigation : MonoBehaviour
     {
         if (agent == null || !agent.isActiveAndEnabled) return;
 
+        _cachedLedges = null;  // foundations may have been placed since last bake
         FindWaypoints();
+
+        // Skip snap while mid-climb — a warp mid-animation would teleport the agent.
+        if (_traversingLink) return;
 
         // Always snap — the agent may be on the y=0 ground plane instead of the
         // y=1.06 foundation surface when placed before the bake completes.
@@ -88,7 +100,7 @@ public class AiNavigation : MonoBehaviour
         {
             ApplyAgentCosts();
             currentIndex = Random.Range(0, waypoints.Length);
-            if (agent.SetDestination(waypoints[currentIndex].position))
+            if (SetDestinationSnapped(waypoints[currentIndex].position))
                 initialized = true;
         }
         else if (initialized && !agent.hasPath && !agent.pathPending
@@ -146,13 +158,14 @@ public class AiNavigation : MonoBehaviour
         FindWaypoints();
     }
 
-    // Search upward from the agent's current position (0.5f-radius at each offset) to find the
-    // nearest walkable surface above — floor tiles (Y≈1.06) are found before the ground plane (Y≈0).
-    // Called unconditionally after each NavMesh bake so agents always land on the right surface.
+    // Warps an off-NavMesh agent to the nearest walkable surface.
+    // Only fires when the agent is NOT already on the NavMesh — avoids blinking
+    // floor-level agents up to the dock surface during auto-rebakes.
     private void SnapToNavMeshSurface()
     {
         if (agent == null) return;
-        float[] yOffsets = { 1.5f, 1.0f, 0.5f, 0.0f, -0.5f };
+        if (agent.isOnNavMesh) return;  // already grounded — don't disturb
+        float[] yOffsets = { 0f, 0.5f, -0.5f, 1.0f, -1.0f };
         foreach (float offset in yOffsets)
         {
             Vector3 sample = new Vector3(transform.position.x, transform.position.y + offset, transform.position.z);
@@ -168,12 +181,11 @@ public class AiNavigation : MonoBehaviour
     {
         if (agent == null) return;
 
-        // TRUE so Unity auto-carries the agent across off-mesh links (foundation
-        // climb/jump, stairs). Manual traversal (TraverseLink) is DISABLED — see
-        // Update() — because it left agents frozen with updatePosition=false, which
-        // produced the "walks in place but never moves" bug. The custom climb/jump
-        // animation can be re-added later, but agents must actually move first.
-        agent.autoTraverseOffMeshLink = true;
+        // FALSE — we handle off-mesh link traversal manually in TraverseLink() so
+        // the climb/jump animations play. updatePosition stays permanently false
+        // (see Awake) and we sync agent.nextPosition at the end of each traversal
+        // instead of setting updatePosition=true, which was the old crash/freeze cause.
+        agent.autoTraverseOffMeshLink = false;
 
         string targetTypeName = role == AgentRole.Worker ? "Human" : "MHE";
         int count = NavMesh.GetSettingsCount();
@@ -291,7 +303,7 @@ public class AiNavigation : MonoBehaviour
 
         // ── Go ──────────────────────────────────────────────────────────────────
         currentIndex = Random.Range(0, waypoints.Length);
-        if (agent.SetDestination(waypoints[currentIndex].position))
+        if (SetDestinationSnapped(waypoints[currentIndex].position))
             initialized = true;
     }
 
@@ -318,16 +330,9 @@ public class AiNavigation : MonoBehaviour
 
     private void Update()
     {
-        // ── Off-mesh link traversal (foundation climb-up / jump-down) ────────────
-        // MANUAL traversal is DISABLED. autoTraverseOffMeshLink=true (SetupAgentType)
-        // lets Unity carry the agent across links itself. The animated climb/jump can
-        // return later as a proper OffMeshLink animation pass.
-        //
-        // NOTE: agent.updatePosition is intentionally kept false for the whole lifetime
-        // (see Awake). LateUpdate drives transform + Rigidbody from agent.nextPosition,
-        // which keeps the agent moving correctly and on the right surface even though a
-        // kinematic Rigidbody shares the GameObject. Do NOT force updatePosition back on
-        // here — that re-introduces the physics/agent reset fight that freezes movement.
+        // SAFETY: agent.updatePosition stays false for the entire lifetime (set in Awake).
+        // LateUpdate drives transform + Rigidbody from agent.nextPosition.
+        // Never set updatePosition=true — it re-introduces the Rigidbody reset fight.
 
         // ROOT MOTION FIX: an Animator with applyRootMotion=true on the same object as
         // a NavMeshAgent overrides the agent's position via OnAnimatorMove every frame.
@@ -360,16 +365,54 @@ public class AiNavigation : MonoBehaviour
                 if (waypoints != null && waypoints.Length > 0)
                 {
                     ApplyAgentCosts();
-                    if (agent.SetDestination(waypoints[currentIndex].position))
+                    if (SetDestinationSnapped(waypoints[currentIndex].position))
                         initialized = true;
                 }
             }
             return;
         }
 
+        // ── Periodic state diagnostic ────────────────────────────────────────────
+        if (Time.frameCount % 180 == 0 && agent.isOnNavMesh)
+        {
+            int wpCount = waypoints != null ? waypoints.Length : 0;
+            int wpHigh  = 0;
+            if (waypoints != null)
+                foreach (var w in waypoints) if (w != null && w.position.y > 0.5f) wpHigh++;
+            float curY = (waypoints != null && currentIndex < wpCount && waypoints[currentIndex] != null)
+                       ? waypoints[currentIndex].position.y : -99f;
+            Debug.Log($"[AiDiag] {name}: status={agent.pathStatus} destY={agent.destination.y:F2} " +
+                      $"posY={transform.position.y:F2} | wpCount={wpCount} wpHigh={wpHigh} curIdx={currentIndex} curWpY={curY:F2}");
+        }
+
+        // ── Off-mesh link traversal (climb up / jump down) ──────────────────────
+        // Primary: isOnOffMeshLink (keep in case it ever fires).
+        // Fallback: CheckDockLedge — proximity + destination height check. This is
+        // the reliable path: it doesn't depend on isOnOffMeshLink or path.corners,
+        // both of which are unreliable with NavMeshLink in Unity 6 when the dock and
+        // floor NavMesh surfaces form disconnected islands.
+        if (!_traversingLink)
+        {
+            if (agent.isOnOffMeshLink)
+            {
+                _hasPendingPositions = false;
+                Debug.Log($"[Climb] {name}: isOnOffMeshLink=true at {agent.transform.position:F2}");
+                StartCoroutine(TraverseLink());
+            }
+            else
+            {
+                CheckDockLedge();
+            }
+        }
+
         // ── Recovery: re-snap if a runtime bake knocked us off the mesh ─────────
+        // GUARD: when the agent is on an off-mesh link, Unity sets isOnNavMesh=false.
+        // Without this check the recovery block fires every ~30 frames and Warps the
+        // agent off the ledge link mid-climb, breaking traversal entirely.
         if (!agent.isOnNavMesh)
         {
+            if (_traversingLink || agent.isOnOffMeshLink) return;
+
             if (Time.frameCount % 30 == 0)
             {
                 if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
@@ -412,7 +455,8 @@ public class AiNavigation : MonoBehaviour
         }
 
         // ── Auto-rebake trigger ───────────────────────────────────────────────────
-        UpdateRebakeTrigger();
+        // Never rebake while traversing a ledge — it would disrupt the manual climb/jump.
+        if (!_traversingLink) UpdateRebakeTrigger();
 
         // ── Waypoint progression (for agents without AgentAnimation) ─────────────
         // Only advance on a fully-complete path so a blocked agent at a partial-path
@@ -452,34 +496,126 @@ public class AiNavigation : MonoBehaviour
     private static readonly Vector3 StairLocalBottom = new Vector3(0.63f, 0f,    0f);
     private static readonly Vector3 StairLocalTop    = new Vector3(0.63f, 1.06f, 1.34f);
 
+    // Partial-path-driven ledge traversal trigger.
+    //
+    // The dock top and the ground are separate NavMesh islands (the NavMeshLinks do
+    // not reliably bridge them — confirmed via Tools/Diagnose Dock Links). So when the
+    // agent targets a waypoint on the OTHER island, its path comes back PathPartial and
+    // it walks to the closest reachable point — the dock edge. We detect that situation
+    // (height-mismatched destination + stuck near a dock-edge marker) and perform the
+    // climb/jump manually, then warp onto the destination island and re-path.
+    private void CheckDockLedge()
+    {
+        if (agent.pathPending) { _ledgeCheckTimer = 0f; return; }
+
+        // Use the CURRENT WAYPOINT's true height, not agent.destination.y — the latter is
+        // mapped onto the nearest NavMesh and can read ground even when targeting the dock.
+        Transform wp = (waypoints != null && currentIndex >= 0 && currentIndex < waypoints.Length)
+                     ? waypoints[currentIndex] : null;
+        if (wp == null) { _ledgeCheckTimer = 0f; return; }
+
+        // Target is on a different height level than the agent → needs a ledge.
+        float posY = agent.transform.position.y;
+        float tgtY = wp.position.y;
+        bool goingUp   = posY < 0.3f && tgtY > 0.5f;
+        bool goingDown = posY > 0.5f && tgtY < 0.3f;
+        if (!goingUp && !goingDown) { _ledgeCheckTimer = 0f; return; }
+
+        // Only when the agent can't get there directly (partial path) and has reached
+        // the end of what it CAN walk (i.e. it's sitting at the dock edge), essentially stopped.
+        bool blocked  = agent.pathStatus != NavMeshPathStatus.PathComplete;
+        bool atEnd    = agent.remainingDistance <= agent.stoppingDistance + 0.75f;
+        bool stopped  = agent.velocity.sqrMagnitude < 0.06f;
+        if (!blocked || !(atEnd || stopped)) { _ledgeCheckTimer = 0f; return; }
+
+        // Find the nearest dock-edge marker (the climb pivot). Wider radius than before
+        // because the eroded ground navmesh stops short of the foundation edge.
+        if (_cachedLedges == null)
+            _cachedLedges = FindObjectsByType<LedgeLinkMarker>(FindObjectsInactive.Exclude);
+        LedgeLinkMarker nearest = null;
+        float nearestXZ = 2.5f;
+        float ax = agent.transform.position.x;
+        float az = agent.transform.position.z;
+        foreach (var m in _cachedLedges)
+        {
+            if (m == null) continue;
+            float dx = ax - m.transform.position.x;
+            float dz = az - m.transform.position.z;
+            float xz = Mathf.Sqrt(dx * dx + dz * dz);
+            if (xz < nearestXZ) { nearestXZ = xz; nearest = m; }
+        }
+        if (nearest == null) { _ledgeCheckTimer = 0f; return; }
+
+        // Require a brief sustained stop so we don't fire mid-stride.
+        _ledgeCheckTimer += Time.deltaTime;
+        if (_ledgeCheckTimer < 0.4f) return;
+        _ledgeCheckTimer = 0f;
+
+        // Dock endpoint = the marker (sits on the dock NavMesh, Y≈1.11).
+        // Floor endpoint = pushed outward from the marker onto the ground NavMesh (Y≈0).
+        Vector3 fwd = nearest.transform.forward; fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.001f) { fwd = agent.transform.position - nearest.transform.position; fwd.y = 0f; }
+        fwd = fwd.sqrMagnitude > 0.001f ? fwd.normalized : Vector3.forward;
+
+        Vector3 dockPt  = nearest.transform.position;
+        Vector3 floorPt = new Vector3(dockPt.x + fwd.x * 0.5f, 0f, dockPt.z + fwd.z * 0.5f);
+
+        _pendingFrom         = agent.transform.position;
+        _pendingTo           = goingUp ? dockPt : floorPt;
+        _hasPendingPositions = true;
+
+        Debug.Log($"[Climb] {name}: DockLedge goingUp={goingUp} marker={nearest.name} from={_pendingFrom:F2} to={_pendingTo:F2} tgtY={tgtY:F2}");
+        StartCoroutine(TraverseLink());
+    }
+
     private IEnumerator TraverseLink()
     {
         _traversingLink = true;
-        agent.updatePosition = false;
-        agent.updateRotation = false;
+        // LateUpdate skips when _traversingLink=true so this coroutine fully owns the transform.
 
         OffMeshLinkData linkData = agent.currentOffMeshLinkData;
+        LedgeLinkMarker ledge    = FindNearestLedgeLink(agent.transform.position);
 
-        // ── Ledge check (climb up / jump down) ──────────────────────────────────
-        LedgeLinkMarker ledge = FindNearestLedgeLink(agent.transform.position);
-        if (ledge != null)
+        // ── Resolve from/to positions ─────────────────────────────────────────
+        // Path-corner fallback sets _pendingFrom/_pendingTo before starting the coroutine.
+        // isOnOffMeshLink path uses currentOffMeshLinkData.
+        Vector3 from, to;
+        bool manualStop = false;
+        if (_hasPendingPositions)
         {
-            // Determine which link endpoint is the destination (the one we're moving TO)
+            from = _pendingFrom;
+            to   = _pendingTo;
+            _hasPendingPositions = false;
+            // Agent is still mid-path; stop it so we own movement for the traversal.
+            if (agent.isActiveAndEnabled && agent.isOnNavMesh && !agent.isStopped)
+            {
+                agent.isStopped = true;
+                manualStop      = true;
+            }
+        }
+        else
+        {
             bool startIsClose = Vector3.Distance(agent.transform.position, linkData.startPos)
                               < Vector3.Distance(agent.transform.position, linkData.endPos);
-            Vector3 from = agent.transform.position;
-            Vector3 to   = startIsClose ? linkData.endPos : linkData.startPos;
+            from = agent.transform.position;
+            to   = startIsClose ? linkData.endPos : linkData.startPos;
+        }
+
+        Debug.Log($"[Climb] {name}: TraverseLink ledge={ledge?.name ?? "NONE"} from={from:F2} to={to:F2}");
+
+        if (ledge != null)
+        {
+            // ── Ledge (climb up / jump down) ──────────────────────────────────
             bool goingUp = to.y > from.y + 0.1f;
 
-            // Face horizontal direction of travel
             Vector3 hDir = to - from; hDir.y = 0f;
             if (hDir.sqrMagnitude > 0.001f)
                 agent.transform.rotation = Quaternion.LookRotation(hDir.normalized);
 
             float duration = goingUp ? ledge.climbDuration : ledge.jumpDuration;
 
-            if (goingUp) IsTraversingLedgeUp   = true;
-            else         IsTraversingLedgeDown  = true;
+            if (goingUp) IsTraversingLedgeUp  = true;
+            else         IsTraversingLedgeDown = true;
 
             float elapsed = 0f;
             while (elapsed < duration)
@@ -487,29 +623,23 @@ public class AiNavigation : MonoBehaviour
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
 
-                if (goingUp)
-                {
-                    // Smooth-step: slow start as the agent grabs the ledge, faster pull-up
-                    agent.transform.position = Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t));
-                }
-                else
-                {
-                    // Gravity feel: horizontal movement linear, vertical accelerates downward
-                    agent.transform.position = new Vector3(
+                agent.transform.position = goingUp
+                    ? Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t))
+                    : new Vector3(
                         Mathf.Lerp(from.x, to.x, t),
                         Mathf.Lerp(from.y, to.y, Mathf.Pow(t, 1.6f)),
                         Mathf.Lerp(from.z, to.z, t));
-                }
+
                 yield return null;
             }
 
             agent.transform.position = to;
-            IsTraversingLedgeUp   = false;
+            IsTraversingLedgeUp  = false;
             IsTraversingLedgeDown = false;
         }
         else
         {
-            // ── Stair traversal (existing logic) ────────────────────────────────
+            // ── Stair traversal ───────────────────────────────────────────────
             BuildingData stair = FindNearestStair();
 
             Vector3 worldBottom, worldTop;
@@ -520,37 +650,50 @@ public class AiNavigation : MonoBehaviour
             }
             else
             {
-                worldBottom = linkData.startPos;
-                worldTop    = linkData.endPos;
+                worldBottom = linkData.valid ? linkData.startPos : from;
+                worldTop    = linkData.valid ? linkData.endPos   : to;
             }
 
-            bool goingUp = Vector3.Distance(agent.transform.position, worldBottom)
-                         < Vector3.Distance(agent.transform.position, worldTop);
-            Vector3 from = goingUp ? worldBottom : worldTop;
-            Vector3 to   = goingUp ? worldTop    : worldBottom;
+            bool goingUp    = Vector3.Distance(agent.transform.position, worldBottom)
+                            < Vector3.Distance(agent.transform.position, worldTop);
+            Vector3 stairFrom = goingUp ? worldBottom : worldTop;
+            Vector3 stairTo   = goingUp ? worldTop    : worldBottom;
 
-            Vector3 dir = to - from; dir.y = 0f;
+            Vector3 dir = stairTo - stairFrom; dir.y = 0f;
             if (dir.sqrMagnitude > 0.001f)
                 agent.transform.rotation = Quaternion.LookRotation(dir.normalized);
 
-            float dist     = Vector3.Distance(from, to);
+            float dist     = Vector3.Distance(stairFrom, stairTo);
             float duration = dist / Mathf.Max(agent.speed, 0.1f);
             float elapsed  = 0f;
 
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
-                agent.transform.position = Vector3.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
+                agent.transform.position = Vector3.Lerp(stairFrom, stairTo, Mathf.Clamp01(elapsed / duration));
                 yield return null;
             }
 
-            agent.transform.position = to;
+            agent.transform.position = stairTo;
         }
 
-        agent.CompleteOffMeshLink();
-        agent.updatePosition = true;
-        agent.updateRotation = true;
+        if (agent.isOnOffMeshLink)
+            agent.CompleteOffMeshLink();
+
+        // Land cleanly ON the destination NavMesh island. Warp snaps the agent's internal
+        // simulation to the nearest NavMesh at the final position (the dock surface when
+        // climbing up, the ground when jumping down) so the re-path below can succeed.
+        if (agent.isActiveAndEnabled)
+            agent.Warp(agent.transform.position);
+
+        if (manualStop && agent.isActiveAndEnabled) agent.isStopped = false;
         _traversingLink = false;
+
+        // Re-path from the new surface — the agent is now ON the destination island, so the
+        // path that was PathPartial before the climb will complete.
+        if (agent.isActiveAndEnabled && agent.isOnNavMesh
+            && waypoints != null && waypoints.Length > 0 && waypoints[currentIndex] != null)
+            SetDestinationSnapped(waypoints[currentIndex].position);
     }
 
     // Per-instance cache — static would survive Play Mode restarts with stale destroyed refs
@@ -637,7 +780,22 @@ public class AiNavigation : MonoBehaviour
         }
 
         if (agent != null && agent.enabled && agent.isOnNavMesh && waypoints[currentIndex] != null)
-            agent.SetDestination(waypoints[currentIndex].position);
+            SetDestinationSnapped(waypoints[currentIndex].position);
+    }
+
+    // Snaps the target onto the NavMesh with a GENEROUS radius before pathing.
+    // NavMeshAgent.SetDestination uses a tight internal sample tolerance, so a waypoint
+    // sitting slightly over the dock edge gets mapped DOWN to the ground below it — the
+    // agent then thinks its goal is on the ground and never tries to climb. Pre-sampling
+    // with radius 2 lands the destination solidly on the correct surface (dock at Y≈1.11),
+    // which also makes the ground→dock path correctly Partial so the agent waits at the
+    // dock edge instead of false-arriving on the ground.
+    private bool SetDestinationSnapped(Vector3 target)
+    {
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return false;
+        if (NavMesh.SamplePosition(target, out NavMeshHit hit, 2.0f, agent.areaMask))
+            return agent.SetDestination(hit.position);
+        return agent.SetDestination(target);
     }
 
     // ── Auto-rebake trigger ───────────────────────────────────────────────────

@@ -3,28 +3,68 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Marks a ShippingDoor as a dockable slot for trucks.
-/// Place this on (or next to) the door object and assign the three child transforms
-/// in the Inspector. Gizmos show the full path in the Scene View.
+/// All three waypoints are computed at runtime from this object's transform + serialized
+/// offsets — no scene references needed, survives save/load cycles cleanly.
 /// </summary>
 public class DockSlot : MonoBehaviour
 {
     public static readonly List<DockSlot> All = new();
 
-    [Header("Waypoints — set these up once per door")]
-    [Tooltip("Yard nav point the truck drives to first (before the pull-past).")]
-    [SerializeField] private Transform approachWaypoint;
+    [Header("Lane offsets")]
+    [Tooltip("How far into the yard the traffic lane sits (approach + pull-past depth).")]
+    [SerializeField] private float laneDepth = 8f;
 
-    [Tooltip("Point in the traffic lane, one truck-length PAST the door. Truck drives here, then reverses.")]
-    [SerializeField] private Transform pullPastPoint;
+    [Tooltip("How far past the door along the wall the truck pulls (≈ truck length + clearance).")]
+    [SerializeField] private float pullPastOffset = 6f;
 
-    [Tooltip("Final truck pose when docked. Position = truck center, Forward = facing toward yard (away from building).")]
-    [SerializeField] private Transform dockTarget;
+    [Tooltip("+1 = pull past to the right (default),  -1 = pull past to the left.")]
+    [SerializeField] private float pullPastSide = 1f;
 
-    public Transform ApproachWaypoint => approachWaypoint;
-    public Transform PullPastPoint    => pullPastPoint;
-    public Transform DockTarget       => dockTarget;
+    [Tooltip("How far out from the wall the truck center sits when fully docked.")]
+    [SerializeField] private float dockOffset = 3.5f;
+
+    [Tooltip("Flip if waypoints appear on the wrong side of the door (inside building instead of yard).")]
+    [SerializeField] private bool flipYardSide = false;
+
+    // ── Computed waypoints ────────────────────────────────────────────────────
+
+    private Vector3 YardForward => flipYardSide ? -transform.forward : transform.forward;
+    private Vector3 YardRight   => flipYardSide ? -transform.right   : transform.right;
+
+    public Vector3    ApproachPoint => transform.position + YardForward * laneDepth;
+    public Vector3    PullPastPoint => transform.position
+                                       + YardForward * laneDepth
+                                       + YardRight   * (pullPastOffset * pullPastSide);
+    public Vector3    DockPosition  => transform.position + YardForward * dockOffset;
+    public Quaternion DockRotation  => flipYardSide
+                                       ? transform.rotation * Quaternion.Euler(0, 180, 0)
+                                       : transform.rotation;
 
     public bool IsOccupied { get; private set; }
+
+    // ── Cached child components ───────────────────────────────────────────────
+
+    private DoorNumberDisplay   _numberDisplay;
+    private DockLightController _lightController;
+
+    public DockLightController LightController => _lightController;
+
+    private int _doorNumber;
+    public int DoorNumber
+    {
+        get => _doorNumber;
+        set
+        {
+            _doorNumber = value;
+            if (_numberDisplay != null) _numberDisplay.Number = value;
+        }
+    }
+
+    private void Awake()
+    {
+        _numberDisplay   = GetComponentInChildren<DoorNumberDisplay>(true);
+        _lightController = GetComponentInChildren<DockLightController>(true);
+    }
 
     private void OnEnable()  => All.Add(this);
     private void OnDisable() => All.Remove(this);
@@ -33,34 +73,31 @@ public class DockSlot : MonoBehaviour
     public void Release() => IsOccupied = false;
 
     // ── Scene gizmos ──────────────────────────────────────────────────────────
+
     private void OnDrawGizmos()
     {
+        Vector3 pos = transform.position;
+        Vector3 fwd = flipYardSide ? -transform.forward : transform.forward;
+        Vector3 rgt = flipYardSide ? -transform.right   : transform.right;
+
+        Vector3 ap = pos + fwd * laneDepth;
+        Vector3 pp = pos + fwd * laneDepth + rgt * (pullPastOffset * pullPastSide);
+        Vector3 dt = pos + fwd * dockOffset;
+
         Gizmos.color = IsOccupied ? Color.red : Color.green;
-        Gizmos.DrawWireCube(transform.position, Vector3.one * 0.4f);
+        Gizmos.DrawWireCube(pos, Vector3.one * 0.4f);
 
-        if (approachWaypoint != null)
-        {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawWireSphere(approachWaypoint.position, 0.35f);
-            Gizmos.DrawLine(transform.position, approachWaypoint.position);
-        }
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(ap, 0.35f);
+        Gizmos.DrawLine(pos, ap);
 
-        if (pullPastPoint != null)
-        {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(pullPastPoint.position, 0.35f);
-            if (approachWaypoint != null)
-                Gizmos.DrawLine(approachWaypoint.position, pullPastPoint.position);
-        }
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(pp, 0.35f);
+        Gizmos.DrawLine(ap, pp);
 
-        if (dockTarget != null)
-        {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawWireSphere(dockTarget.position, 0.35f);
-            // Draw an arrow showing the truck's final facing direction
-            Gizmos.DrawRay(dockTarget.position, dockTarget.forward * 1.5f);
-            if (pullPastPoint != null)
-                Gizmos.DrawLine(pullPastPoint.position, dockTarget.position);
-        }
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawWireSphere(dt, 0.35f);
+        Gizmos.DrawRay(dt, fwd * 1.5f);
+        Gizmos.DrawLine(pp, dt);
     }
 }

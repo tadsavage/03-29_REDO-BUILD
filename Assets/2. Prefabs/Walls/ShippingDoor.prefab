@@ -196,7 +196,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 3
+  m_text: 99
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 848cb6e4a90bf8f48ba251836d316792, type: 2}
   m_sharedMaterial: {fileID: -5671361863337070534, guid: 848cb6e4a90bf8f48ba251836d316792, type: 2}
@@ -580,7 +580,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 3
+  m_text: 99
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 848cb6e4a90bf8f48ba251836d316792, type: 2}
   m_sharedMaterial: {fileID: -5671361863337070534, guid: 848cb6e4a90bf8f48ba251836d316792, type: 2}
@@ -910,6 +910,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5fa0892971d373b4fb735db5ebecd5ce, type: 3}
       insertIndex: -1
       addedObject: {fileID: -974780578094168320}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5fa0892971d373b4fb735db5ebecd5ce, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5064008837827501984}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5fa0892971d373b4fb735db5ebecd5ce, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4350987187947004110}
     - targetCorrespondingSourceObject: {fileID: 5092708244707826562, guid: 5fa0892971d373b4fb735db5ebecd5ce, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5808296696818934618}
@@ -1012,6 +1018,35 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+--- !u!114 &5064008837827501984
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4926578325478168106}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2130e39bf6096034c8c1bd054ebd1f7f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DockSlot
+  laneDepth: 20
+  pullPastOffset: 6.5
+  pullPastSide: 1.5
+  dockOffset: 5.8
+  flipYardSide: 1
+--- !u!114 &4350987187947004110
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4926578325478168106}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d4e71bcb5d5f4b4ca3507445673bf0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DockLightController
 --- !u!4 &5242448014012899481 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 26805552335948770, guid: 5fa0892971d373b4fb735db5ebecd5ce, type: 3}
@@ -1060,7 +1095,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad04c838464150543855bcb2a0364724, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorNumberDisplay
-  doorNumber: 3
+  doorNumber: 99
   format: D1
   textComponents:
   - {fileID: 7246346425134906171}
