@@ -26,7 +26,7 @@ public class TruckController : MonoBehaviour
     }
 
     [Header("Driving")]
-    [SerializeField] private float driveSpeed       = 8f;
+    [SerializeField] private float driveSpeed       = 3.5f;
     [SerializeField] private float driveTurnSpeed   = 120f;
     [SerializeField] private float arrivedThreshold = 0.5f;
 
@@ -39,10 +39,9 @@ public class TruckController : MonoBehaviour
     [Tooltip("0 = nearly straight, 1 = wide sweeping curve. 0.45 is a natural truck arc.")]
     [SerializeField] private float reverseArcTension = 0.45f;
 
-    [Header("Guard check timing")]
-    [SerializeField] private float guardApproachDuration = 2f;
-    [SerializeField] private float guardCheckDuration    = 3f;
-    [SerializeField] private float guardReturnDuration   = 2f;
+    [Header("Trailer articulation")]
+    [Tooltip("How much the Trailer child swings on local Y relative to the tractor while backing. 0.3–0.5 looks subtle and realistic.")]
+    [SerializeField] private float trailerArticulationScale = 0.4f;
 
     [Header("Unload & exit")]
     [SerializeField] private float unloadDuration = 7f;
@@ -51,8 +50,9 @@ public class TruckController : MonoBehaviour
     [Header("State (read-only in play)")]
     [SerializeField] private TruckState _state = TruckState.Idle;
 
-    private DockSlot      _dock;
-    private Vector3?      _gateStop;
+    private DockSlot        _dock;
+    private GuardController _guard;
+    private Vector3?        _gateStop;
     private Vector3?      _gateEnterNoTurn;
     private Vector3?      _gateLeaveNoTurn;
     private Vector3?      _exitWaypoint;
@@ -77,12 +77,13 @@ public class TruckController : MonoBehaviour
     }
 
     public void Init(Vector3? gateStop, Vector3? gateEnterNoTurn, Vector3? gateLeaveNoTurn,
-                     Vector3? exitWaypoint, System.Action onExited)
+                     Vector3? exitWaypoint, GuardController guard, System.Action onExited)
     {
         _gateStop        = gateStop;
         _gateEnterNoTurn = gateEnterNoTurn;
         _gateLeaveNoTurn = gateLeaveNoTurn;
         _exitWaypoint    = exitWaypoint;
+        _guard           = guard;
         _onExited        = onExited;
     }
 
@@ -124,14 +125,7 @@ public class TruckController : MonoBehaviour
                 break;
 
             case TruckState.GuardCheck:
-                _stateTimer -= Time.deltaTime;
-                if (_stateTimer <= 0f)
-                {
-                    if (_gateEnterNoTurn.HasValue)
-                        SetTarget(TruckState.EnteringYard, _gateEnterNoTurn.Value);
-                    else
-                        SetTarget(TruckState.Approaching, _dock.ApproachPoint);
-                }
+                // Waiting for GuardClearedToEnter() callback from GuardController.
                 break;
 
             case TruckState.EnteringYard:
@@ -267,6 +261,7 @@ public class TruckController : MonoBehaviour
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation, desired, 300f * Time.deltaTime);
         }
+
     }
 
     private static Vector3 EvalBezier(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
@@ -291,8 +286,19 @@ public class TruckController : MonoBehaviour
 
     private void BeginGuardCheck()
     {
-        _state      = TruckState.GuardCheck;
-        _stateTimer = guardApproachDuration + guardCheckDuration + guardReturnDuration;
+        _state = TruckState.GuardCheck;
+        if (_guard != null)
+            _guard.BeginInspection(GuardClearedToEnter);
+        else
+            GuardClearedToEnter();
+    }
+
+    public void GuardClearedToEnter()
+    {
+        if (_gateEnterNoTurn.HasValue)
+            SetTarget(TruckState.EnteringYard, _gateEnterNoTurn.Value);
+        else
+            SetTarget(TruckState.Approaching, _dock.ApproachPoint);
     }
 
     private void BeginAlign()
@@ -326,8 +332,23 @@ public class TruckController : MonoBehaviour
         SetTarget(TruckState.DepartingDock, _dock.PullPastPoint);
     }
 
-    private void StartExiting()
+    private void OnDestroy()
     {
+        if (_dock != null)
+        {
+            _dock.Release();
+            _dock = null;
+        }
+
+        if (_onExited != null)
+        {
+            _onExited.Invoke();
+            _onExited = null;
+        }
+    }
+
+    private void StartExiting()
+{
         if (_exitWaypoint.HasValue)
             SetTarget(TruckState.Exiting, _exitWaypoint.Value);
         else

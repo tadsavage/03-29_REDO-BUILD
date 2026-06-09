@@ -25,6 +25,7 @@ public class ToolsWindowController : MonoBehaviour
     private GameContext _ctx;
     private PlacementStateMachine _fsm;
     private PlacementGrid _grid;
+    private TruckYardManager _truckYard;
 
     // Tabs (PLT BUILDER removed — pallet settings now live in Dev Settings)
     private Button _tabDev, _tabSettings;
@@ -36,6 +37,8 @@ public class ToolsWindowController : MonoBehaviour
     private Label _time, _speed;
     private Label _objects, _undo;
     private Label _state, _stack;
+    private Label _statFreeDoors, _statActiveTrucks;
+    private Button _btnTruckEnter;
 
     // Drag
     private VisualElement _titlebar;
@@ -97,9 +100,10 @@ public class ToolsWindowController : MonoBehaviour
 
     private void Start()
     {
-        _ctx  = FindAnyObjectByType<GameContext>();
-        _fsm  = FindAnyObjectByType<PlacementStateMachine>();
-        _grid = FindAnyObjectByType<PlacementGrid>();
+        _ctx       = FindAnyObjectByType<GameContext>();
+        _fsm       = FindAnyObjectByType<PlacementStateMachine>();
+        _grid      = FindAnyObjectByType<PlacementGrid>();
+        _truckYard = FindAnyObjectByType<TruckYardManager>();
 
         var root = _doc.rootVisualElement;
         root.pickingMode = PickingMode.Ignore;
@@ -128,15 +132,18 @@ public class ToolsWindowController : MonoBehaviour
             _titlebar.RegisterCallback<PointerDownEvent>(OnTitlebarDown);
 
         // Dev console labels
-        _balance = root.Q<Label>("stat-balance");
-        _hourly  = root.Q<Label>("stat-hourly");
-        _spent   = root.Q<Label>("stat-spent");
-        _time    = root.Q<Label>("stat-time");
-        _speed   = root.Q<Label>("stat-speed");
-        _objects = root.Q<Label>("stat-objects");
-        _undo    = root.Q<Label>("stat-undo");
-        _state   = root.Q<Label>("stat-state");
-        _stack   = root.Q<Label>("stat-stack");
+        _balance          = root.Q<Label>("stat-balance");
+        _hourly           = root.Q<Label>("stat-hourly");
+        _spent            = root.Q<Label>("stat-spent");
+        _time             = root.Q<Label>("stat-time");
+        _speed            = root.Q<Label>("stat-speed");
+        _objects          = root.Q<Label>("stat-objects");
+        _undo             = root.Q<Label>("stat-undo");
+        _state            = root.Q<Label>("stat-state");
+        _stack            = root.Q<Label>("stat-stack");
+        _statFreeDoors    = root.Q<Label>("stat-free-doors");
+        _statActiveTrucks = root.Q<Label>("stat-active-trucks");
+        Wire<Button>("btn-truck-enter", root, b => { _btnTruckEnter = b; b.clicked += () => _truckYard?.SpawnNextTruck(); });
 
         Wire<Button>("btn-add-1k",   root, b => b.clicked += () => _ctx?.MoneyService.Refund(1_000,   "Debug"));
         Wire<Button>("btn-add-10k",  root, b => b.clicked += () => _ctx?.MoneyService.Refund(10_000,  "Debug"));
@@ -201,6 +208,16 @@ public class ToolsWindowController : MonoBehaviour
 
             if (Mouse.current.rightButton.wasPressedThisFrame)
                 ClearAllSelections();
+        }
+
+        // Truck stats (always updated so they're current when window opens)
+        {
+            int total = DockSlot.All.Count;
+            int free  = 0;
+            foreach (var d in DockSlot.All) if (!d.IsOccupied) free++;
+            if (_statFreeDoors    != null) _statFreeDoors.text    = total > 0 ? $"{free}/{total}" : "—";
+            if (_statActiveTrucks != null) _statActiveTrucks.text = _truckYard != null ? _truckYard.ActiveTrucks.ToString() : "—";
+            if (_btnTruckEnter    != null) _btnTruckEnter.SetEnabled(free > 0 && _truckYard != null);
         }
 
         if (!_visible || _ctx == null) return;
