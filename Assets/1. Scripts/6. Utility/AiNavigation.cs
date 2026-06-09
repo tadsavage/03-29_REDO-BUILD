@@ -44,10 +44,6 @@ public class AiNavigation : MonoBehaviour
     private Animator _animator;
     private Rigidbody _rb;
 
-    // Temporary diagnostic state for the walk-in-place check in Update().
-    private Vector3 _diagLastPos;
-    private float _diagTimer;
-
     // Auto-rebake: fires when agent has no waypoints (? visible) or is stuck for too long.
     private float   _noWaypointRebakeTimer;
     private float   _stuckRebakeTimer;
@@ -359,16 +355,6 @@ public class AiNavigation : MonoBehaviour
                              $"This was the walk-in-place cause.");
         }
 
-        // ── DIAGNOSTIC (temporary): catch walk-in-place if it ever recurs ────────
-        _diagTimer += Time.deltaTime;
-        if (_diagTimer >= 1f)
-        {
-            _diagTimer = 0f;
-            float moved = (transform.position - _diagLastPos).magnitude;
-            if (agent != null && agent.isOnNavMesh && agent.velocity.magnitude > 0.2f && moved < 0.05f)
-            _diagLastPos = transform.position;
-        }
-
         // ── Recovery: re-initialize if Start() gave up ──────────────────────────
         if (!initialized)
         {
@@ -385,19 +371,6 @@ public class AiNavigation : MonoBehaviour
             return;
         }
 
-        // ── Periodic state diagnostic ────────────────────────────────────────────
-        if (Time.frameCount % 180 == 0 && agent.isOnNavMesh)
-        {
-            int wpCount = waypoints != null ? waypoints.Length : 0;
-            int wpHigh  = 0;
-            if (waypoints != null)
-                foreach (var w in waypoints) if (w != null && w.position.y > 0.5f) wpHigh++;
-            float curY = (waypoints != null && currentIndex < wpCount && waypoints[currentIndex] != null)
-                       ? waypoints[currentIndex].position.y : -99f;
-            Debug.Log($"[AiDiag] {name}: status={agent.pathStatus} destY={agent.destination.y:F2} " +
-                      $"posY={transform.position.y:F2} | wpCount={wpCount} wpHigh={wpHigh} curIdx={currentIndex} curWpY={curY:F2}");
-        }
-
         // ── Off-mesh link traversal (climb up / jump down) ──────────────────────
         // Primary: isOnOffMeshLink (keep in case it ever fires).
         // Fallback: CheckDockLedge — proximity + destination height check. This is
@@ -409,7 +382,6 @@ public class AiNavigation : MonoBehaviour
             if (agent.isOnOffMeshLink)
             {
                 _hasPendingPositions = false;
-                Debug.Log($"[Climb] {name}: isOnOffMeshLink=true at {agent.transform.position:F2}");
                 StartCoroutine(TraverseLink());
             }
             else
@@ -552,6 +524,7 @@ public class AiNavigation : MonoBehaviour
         foreach (var m in _cachedLedges)
         {
             if (m == null) continue;
+            if (!m.gameObject.name.StartsWith("LedgeLink_")) continue;
             float dx = ax - m.transform.position.x;
             float dz = az - m.transform.position.z;
             float xz = Mathf.Sqrt(dx * dx + dz * dz);
@@ -594,19 +567,7 @@ public class AiNavigation : MonoBehaviour
         _pendingTo           = goingUp ? dockPt : floorPt;
         _hasPendingPositions = true;
 
-        Debug.Log($"[Climb] {name}: DockLedge goingUp={goingUp} marker={nearest.name} from={_pendingFrom:F2} to={_pendingTo:F2} tgtY={tgtY:F2}");
-        TravLog($"--- DockLedge START {name} goingUp={goingUp} marker={nearest.name} markerPos={nearest.transform.position:F2} from={_pendingFrom:F2} to={_pendingTo:F2} tgtY={tgtY:F2} pathStatus={agent.pathStatus} onLink={agent.isOnOffMeshLink}");
         StartCoroutine(TraverseLink());
-    }
-
-    // ── TEMP DIAGNOSTIC (remove after the ledge teleport bug is fixed) ──
-    // Writes traversal trajectory to Assets/_trav_debug.txt so it can be inspected
-    // without relying on the (currently blind) console bridge.
-    private static readonly string s_travLogPath =
-        System.IO.Path.Combine(Application.dataPath, "_trav_debug.txt");
-    private static void TravLog(string s)
-    {
-        try { System.IO.File.AppendAllText(s_travLogPath, s + "\n"); } catch { }
     }
 
     private IEnumerator TraverseLink()
@@ -644,10 +605,6 @@ public class AiNavigation : MonoBehaviour
             to   = startIsClose ? linkData.endPos : linkData.startPos;
         }
 
-        Debug.Log($"[Climb] {name}: TraverseLink ledge={ledge?.name ?? "NONE"} from={from:F2} to={to:F2}");
-        TravLog($"=== TRAV START {name} ledge={ledge?.name ?? "NONE"} onLink={agent.isOnOffMeshLink} from={from:F2} to={to:F2} startPos={agent.transform.position:F2} nextPos={agent.nextPosition:F2}");
-        int _dbgFrame = 0;
-
         if (ledge != null)
         {
             // ── Ledge (climb up / jump down) ──────────────────────────────────
@@ -678,10 +635,6 @@ public class AiNavigation : MonoBehaviour
                 agent.transform.position = pos;
                 agent.nextPosition        = pos;
                 if (_rb != null) _rb.MovePosition(pos);
-
-                if (_dbgFrame < 3 || _dbgFrame % 5 == 0)
-                    TravLog($"  ledge f{_dbgFrame} t={t:F2} lerpPos={pos:F2} tPos={agent.transform.position:F2} nextPos={agent.nextPosition:F2} onNav={agent.isOnNavMesh}");
-                _dbgFrame++;
 
                 yield return null;
             }
@@ -727,9 +680,6 @@ public class AiNavigation : MonoBehaviour
                 agent.transform.position = pos;
                 agent.nextPosition        = pos;
                 if (_rb != null) _rb.MovePosition(pos);
-                if (_dbgFrame < 3 || _dbgFrame % 5 == 0)
-                    TravLog($"  stair f{_dbgFrame} lerpPos={pos:F2} tPos={agent.transform.position:F2} nextPos={agent.nextPosition:F2} onNav={agent.isOnNavMesh}");
-                _dbgFrame++;
                 yield return null;
             }
 
@@ -744,8 +694,6 @@ public class AiNavigation : MonoBehaviour
         // climbing up, the ground when jumping down) so the re-path below can succeed.
         if (agent.isActiveAndEnabled)
             agent.Warp(agent.transform.position);
-
-        TravLog($"=== TRAV END {name} tPos={agent.transform.position:F2} nextPos={agent.nextPosition:F2} onNav={agent.isOnNavMesh} pathStatus={agent.pathStatus}");
 
         if (manualStop && agent.isActiveAndEnabled) agent.isStopped = false;
         _traversingLink = false;
@@ -792,6 +740,7 @@ public class AiNavigation : MonoBehaviour
         foreach (var marker in FindObjectsByType<LedgeLinkMarker>(FindObjectsInactive.Exclude))
         {
             if (marker == null) continue;
+            if (!marker.gameObject.name.StartsWith("LedgeLink_")) continue;
             float d = Vector3.Distance(searchPos, marker.transform.position);
             if (d < nearestDist) { nearestDist = d; nearest = marker; }
         }

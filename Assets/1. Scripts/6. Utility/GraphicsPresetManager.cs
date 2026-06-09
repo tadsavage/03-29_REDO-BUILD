@@ -56,8 +56,8 @@ public class GraphicsPresetManager : MonoBehaviour
             case Preset.Toaster: ApplyToaster(); break;
         }
 
-        string[] labels = { "Ultra Graphics Profile", "Good Graphics Profile", "Toaster Graphics Profile" };
-        UIToast.Show($"Switched to {labels[(int)preset]}", 2.5f);
+        string[] labels = { "Ultra", "Good", "Toaster" };
+        UIToast.Show($"Profile is {labels[(int)preset]}", 2.5f);
     }
 
     // ── Preset Definitions ────────────────────────────────────────────────────

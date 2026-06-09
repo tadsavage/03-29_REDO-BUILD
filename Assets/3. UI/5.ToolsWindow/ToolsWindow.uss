@@ -284,11 +284,12 @@
     padding: 12px 15px 15px 15px;
 }
 
-/* Economy = orange accent; Time = blue; World = light blue; FSM = rose hint */
+/* Economy = orange accent; Time = blue; World = light blue; FSM = rose hint; Trucks = green */
 .dev-s-gold  { border-left-color: #E8A850; }
 .dev-s-amber { border-left-color: #5C9BC4; }
 .dev-s-teal  { border-left-color: #7ECCE8; }
 .dev-s-rose  { border-left-color: #E86080; }
+.dev-s-green { border-left-color: #50D890; }
 
 .dev-s-heading {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
@@ -300,6 +301,7 @@
 .dev-s-amber > .dev-s-heading { color: rgba( 92, 155, 196, 0.6); }
 .dev-s-teal  > .dev-s-heading { color: rgba(126, 204, 232, 0.6); }
 .dev-s-rose  > .dev-s-heading { color: rgba(232,  96, 128, 0.6); }
+.dev-s-green > .dev-s-heading { color: rgba( 80, 216, 144, 0.6); }
 
 /* Stat pills */
 .dev-pills {
@@ -354,21 +356,24 @@
     color: rgba(10, 8, 25, 0.92);
 }
 
-/* Economy = orange; Time + World = blue; Danger = red */
+/* Economy = orange; Time + World = blue; Danger = red; Trucks = green */
 .dev-btn-gold   { background-color: #E8A850; border-bottom-color: #A06010; }
 .dev-btn-amber  { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }
 .dev-btn-teal   { background-color: #5C9BC4; border-bottom-color: #3A6E94; color: #FFFFFF; }
 .dev-btn-danger { background-color: #E05252; border-bottom-color: #981010; color: #FFFFFF; }
+.dev-btn-green  { background-color: #3DAA6A; border-bottom-color: #1E6E40; color: #FFFFFF; }
 
 .dev-btn-gold:hover   { background-color: #F0B860; }
 .dev-btn-amber:hover  { background-color: #5BA6D8; }
 .dev-btn-teal:hover   { background-color: #6AAED8; }
 .dev-btn-danger:hover { background-color: #EE6868; }
+.dev-btn-green:hover  { background-color: #50C880; }
 
 .dev-btn-gold:active   { background-color: #C08030; border-bottom-width: 1px; translate: 0 1px; }
 .dev-btn-amber:active  { background-color: #3A7AAA; border-bottom-width: 1px; translate: 0 1px; }
 .dev-btn-teal:active   { background-color: #3A7AAA; border-bottom-width: 1px; translate: 0 1px; }
 .dev-btn-danger:active { background-color: #B03030; border-bottom-width: 1px; translate: 0 1px; }
+.dev-btn-green:active  { background-color: #2A8048; border-bottom-width: 1px; translate: 0 1px; }
 
 /* ═══════════════════════════════════════════════════════
    DEV SETTINGS TAB

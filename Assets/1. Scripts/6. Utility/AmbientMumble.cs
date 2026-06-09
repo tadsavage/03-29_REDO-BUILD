@@ -39,6 +39,7 @@ public class AmbientMumble : MonoBehaviour
     public void TryMumble()
     {
         if (mumbleClips == null || mumbleClips.Length == 0) return;
+        if (_source.isPlaying) return;
         if (Random.Range(0f, 100f) > chanceToMumble) return;
 
         if (_index >= _shuffled.Count)

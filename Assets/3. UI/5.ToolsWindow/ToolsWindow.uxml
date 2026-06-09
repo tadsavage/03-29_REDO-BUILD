@@ -12,6 +12,22 @@
             </ui:VisualElement>
             <ui:ScrollView name="tools-scroll" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto" class="tools-scroll">
                 <ui:VisualElement name="tab-content-dev" class="tab-content">
+                    <ui:VisualElement class="dev-section dev-s-green">
+                        <ui:Label text="TRUCKS" class="dev-s-heading"/>
+                        <ui:VisualElement class="dev-pills">
+                            <ui:VisualElement class="dev-pill">
+                                <ui:Label text="Free Doors" class="dev-pill-key"/>
+                                <ui:Label name="stat-free-doors" text="0/0" class="dev-pill-val"/>
+                            </ui:VisualElement>
+                            <ui:VisualElement class="dev-pill">
+                                <ui:Label text="Active" class="dev-pill-key"/>
+                                <ui:Label name="stat-active-trucks" text="0" class="dev-pill-val"/>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="dev-actions">
+                            <ui:Button name="btn-truck-enter" text="TRUCK ENTERS" class="dev-btn dev-btn-green"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                     <ui:VisualElement class="dev-section dev-s-gold">
                         <ui:Label text="ECONOMY" class="dev-s-heading"/>
                         <ui:VisualElement class="dev-pills">
