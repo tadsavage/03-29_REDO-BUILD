@@ -20,6 +20,8 @@ public class DockSlot : MonoBehaviour
     [Tooltip("+1 = pull past to the right (default),  -1 = pull past to the left.")]
     [SerializeField] private float pullPastSide = 1f;
 
+    public float PullPastSide => pullPastSide;
+
     [Tooltip("How far out from the wall the truck center sits when fully docked.")]
     [SerializeField] private float dockOffset = 3.5f;
 

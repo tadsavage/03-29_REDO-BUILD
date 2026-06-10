@@ -17,6 +17,9 @@ public class PlacementSystem : MonoBehaviour
     [SerializeField] private FreeLookCamera freeLookCamera;
     [SerializeField] private SaveLoadSystem.SaveThumbnailCapture thumbnailCapture;
 
+    [Header("Employee")]
+    [SerializeField] private List<EmployeeData> _employeeDataTemplates;
+
     private MoneyService moneyService;
 
     private float quicksaveCooldown = 1.0f;
@@ -102,6 +105,61 @@ public class PlacementSystem : MonoBehaviour
         }
     }
 
+    private EmployeeData FindEmployeeTemplate(ObjDataSO so)
+    {
+        if (_employeeDataTemplates == null || _employeeDataTemplates.Count == 0)
+            return null;
+
+        string objNameNormalized = so.name.ToLowerInvariant().Replace(" ", "").Replace("_", "");
+        foreach (var template in _employeeDataTemplates)
+        {
+            if (template == null) continue;
+            string templateNameNormalized = template.name.ToLowerInvariant().Replace(" ", "").Replace("_", "");
+            if (templateNameNormalized.Contains(objNameNormalized) || objNameNormalized.Contains(templateNameNormalized))
+                return template;
+        }
+        return null;
+    }
+
+    private void EnsureEmployeeComponents(GameObject go, ObjDataSO so)
+    {
+        if (so == null || go == null) return;
+
+        // Only add employee components to staff/worker types
+        bool isEmployeeCategory = so.category == "Staff" || so.category == "Worker";
+        if (!isEmployeeCategory) return;
+
+        // ── Collider (EmployeeClickHandler requires it at runtime) ──
+        if (go.GetComponent<Collider>() == null)
+        {
+            var capsule = go.AddComponent<CapsuleCollider>();
+            capsule.center = new Vector3(0f, 0.5f, 0f);
+            capsule.radius = 0.3f;
+            capsule.height = 1.5f;
+        }
+
+        // ── EmployeeIdentity ──
+        EmployeeIdentity identity = go.GetComponent<EmployeeIdentity>();
+        EmployeeData template = FindEmployeeTemplate(so);
+
+        if (identity == null)
+        {
+            identity = go.AddComponent<EmployeeIdentity>();
+        }
+
+        // Set template data if found and identity doesn't already have one assigned
+        if (template != null && identity.Record == null)
+        {
+            identity.SetEmployeeData(template);
+        }
+
+        // ── EmployeeClickHandler ──
+        if (go.GetComponent<EmployeeClickHandler>() == null)
+        {
+            go.AddComponent<EmployeeClickHandler>();
+        }
+    }
+
     public PlacedObject PlaceObject(ObjDataSO so, int x, int y, int rot)
     {
         EnsureContainer();
@@ -121,6 +179,8 @@ public class PlacementSystem : MonoBehaviour
             return null;
         }
         po.Initialize(so, x, y, rot);
+
+        EnsureEmployeeComponents(go, so);
 
         PlacedObjectRegistry.Register(po);
         grid.AddStackObject(cell, go, so);
@@ -435,6 +495,8 @@ public class PlacementSystem : MonoBehaviour
         }
         po.Initialize(so, x, y, rot);
         po.customData = customData;
+
+        EnsureEmployeeComponents(go, so);
 
         // Ensure PalletBuilder loads its state if it exists
         var pb = go.GetComponent<PalletBuilder>();
