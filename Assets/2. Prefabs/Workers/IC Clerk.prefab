@@ -100,6 +100,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 50c9878f9b64e9c4d8c2a8535e6ae7b1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8641687547142542180}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 50c9878f9b64e9c4d8c2a8535e6ae7b1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9000000000000001}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 50c9878f9b64e9c4d8c2a8535e6ae7b1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9000000000000002}
   m_SourcePrefab: {fileID: 100100000, guid: 50c9878f9b64e9c4d8c2a8535e6ae7b1, type: 3}
 --- !u!1 &6854493657648180400 stripped
 GameObject:
@@ -433,3 +439,46 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+
+--- !u!114 &9000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6854493657648180400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b42fde2dfdee7a498333457cba9203e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmployeeClickHandler
+  _employeeData: {fileID: 11400000, guid: 6e8f0a2b5c7d9e1f3a4b5c6d7e8f9a0b, type: 2}
+  _uiOverride: {fileID: 0}
+--- !u!114 &9000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6854493657648180400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b9f3c571d89ace4895016eb3356051b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmployeeIdentity
+  _employeeData: {fileID: 11400000, guid: 6e8f0a2b5c7d9e1f3a4b5c6d7e8f9a0b, type: 2}
+  _record:
+    employeeGuid: 
+    employeeName: 
+    employeeId: 
+    employeeIdPrefix: 
+    gender: 0
+    fatigue: 0
+    safety: 0
+    morale: 0
+    skill: 0
+    skillLevel: 0
+    avatarResourceKey: 
+    jobIconResourceKey: 
+  _idPrefix: CLK
+  _gender: 0
