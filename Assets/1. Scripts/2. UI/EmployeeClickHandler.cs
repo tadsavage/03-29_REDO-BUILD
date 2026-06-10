@@ -13,16 +13,30 @@ public class EmployeeClickHandler : MonoBehaviour
     private EmployeeInfoUI _employeeUI;
     private Camera _mainCamera;
 
+    private EmployeeIdentity _identity;
+
     private void Start()
     {
         _mainCamera = Camera.main;
-        if (_employeeData == null)
+
+        _identity = GetComponent<EmployeeIdentity>();
+
+        if (_identity != null)
         {
-            Debug.LogWarning($"[EmployeeClickHandler] No EmployeeData on {gameObject.name}. Creating dummy data.");
+            // Use stable identity record; fall back to EmployeeData if identity has a template
+            _identity.EnsureRecord();
+        }
+        else if (_employeeData == null)
+        {
+            Debug.LogWarning($"[EmployeeClickHandler] No EmployeeData or EmployeeIdentity on {gameObject.name}. Creating dummy data.");
             _employeeData = ScriptableObject.CreateInstance<EmployeeData>();
             _employeeData.employeeName = "Jordan Barnes";
-            _employeeData.RandomizeId();
-            _employeeData.RandomizeStats();
+            _employeeData.EnsureConfigured();
+        }
+        else
+        {
+            // EmployeeData exists but no identity — ensure it's configured
+            _employeeData.EnsureConfigured();
         }
     }
 
@@ -47,13 +61,25 @@ public class EmployeeClickHandler : MonoBehaviour
             _employeeUI = _uiOverride ?? FindAnyObjectByType<EmployeeInfoUI>();
         }
 
-        if (_employeeUI != null)
+        if (_employeeUI == null)
         {
+            Debug.LogError("[EmployeeClickHandler] No EmployeeInfoUI found in scene.");
+            return;
+        }
+
+        // Priority: identity record > EmployeeData > nothing
+        if (_identity != null && _identity.Record != null)
+        {
+            _employeeUI.Show(_identity.Record);
+        }
+        else if (_employeeData != null)
+        {
+            _employeeData.EnsureConfigured();
             _employeeUI.Show(_employeeData);
         }
         else
         {
-            Debug.LogError("[EmployeeClickHandler] No EmployeeInfoUI found in scene.");
+            Debug.LogWarning($"[EmployeeClickHandler] No EmployeeData or EmployeeIdentity record on {gameObject.name}.");
         }
     }
 }

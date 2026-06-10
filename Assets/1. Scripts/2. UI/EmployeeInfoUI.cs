@@ -14,6 +14,7 @@ public class EmployeeInfoUI : MonoBehaviour
 
     // Avatar
     private VisualElement _avatarElement;
+    private VisualElement _jobIconElement;
 
     // Stat bars
     private VisualElement _fatigueBar;
@@ -26,6 +27,10 @@ public class EmployeeInfoUI : MonoBehaviour
     private Label _moraleValue;
     private Label _skillValue;
     private Label _skillLevelLabel;
+
+    // Runtime-only display data for record-based Show() path.
+    // Avoids reusing (and potentially corrupting) a serialized asset-instance _employeeData.
+    private EmployeeData _recordDisplayData;
 
     private bool _isVisible = false;
 
@@ -45,6 +50,7 @@ public class EmployeeInfoUI : MonoBehaviour
         _nameLabel = _panel.Q<Label>("employee-name");
         _idLabel = _panel.Q<Label>("employee-id");
         _avatarElement = _panel.Q<VisualElement>("employee-avatar");
+        _jobIconElement = _panel.Q<VisualElement>("employee-job-icon");
 
         _fatigueBar = _panel.Q<VisualElement>("fatigue-bar-fill");
         _safetyBar = _panel.Q<VisualElement>("safety-bar-fill");
@@ -75,8 +81,31 @@ public class EmployeeInfoUI : MonoBehaviour
             return;
         }
 
-        _employeeData.RandomizeId();
-        _employeeData.RandomizeStats();
+        _employeeData.EnsureConfigured();
+        RefreshUI();
+
+        _panel.style.display = DisplayStyle.Flex;
+        _panel.pickingMode = PickingMode.Position;
+        _isVisible = true;
+    }
+
+    public void Show(EmployeeRecord record)
+    {
+        if (record == null)
+        {
+            Debug.LogWarning("[EmployeeInfoUI] EmployeeRecord is null.");
+            return;
+        }
+
+        // Use a dedicated runtime instance so we never corrupt a serialized asset.
+        if (_recordDisplayData == null)
+            _recordDisplayData = ScriptableObject.CreateInstance<EmployeeData>();
+
+        _recordDisplayData.ApplyRecord(record);
+        _recordDisplayData.SetConfigured();
+
+        // Point to the runtime instance for RefreshUI
+        _employeeData = _recordDisplayData;
         RefreshUI();
 
         _panel.style.display = DisplayStyle.Flex;
@@ -114,6 +143,9 @@ public class EmployeeInfoUI : MonoBehaviour
 
         if (_avatarElement != null && _employeeData.avatarSprite != null)
             _avatarElement.style.backgroundImage = new StyleBackground(_employeeData.avatarSprite);
+
+        if (_jobIconElement != null && _employeeData.jobIcon != null)
+            _jobIconElement.style.backgroundImage = new StyleBackground(_employeeData.jobIcon);
 
         SetBar(_fatigueBar, _fatigueValue, _employeeData.fatigue, "~{0:F0}%");
         SetBar(_safetyBar, _safetyValue, _employeeData.safety, "~{0:F0}%");

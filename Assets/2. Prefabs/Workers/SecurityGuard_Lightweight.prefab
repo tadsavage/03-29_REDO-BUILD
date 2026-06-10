@@ -991,6 +991,9 @@ GameObject:
   - component: {fileID: 3492250264309688160}
   - component: {fileID: 785485768770577780}
   - component: {fileID: 1799257912090001809}
+  - component: {fileID: -7969910229424417130}
+  - component: {fileID: 6915226579667716440}
+  - component: {fileID: 6630346444838089459}
   m_Layer: 0
   m_Name: SecurityGuard_Lightweight
   m_TagString: Untagged
@@ -1080,6 +1083,68 @@ MonoBehaviour:
   footstepClip: {fileID: 8300000, guid: 5eecd934368cd634a81e82f913d009c2, type: 3}
   footstepVolume: 0.3
   _state: 0
+--- !u!54 &-7969910229424417130
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6940925393979170693}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!65 &6915226579667716440
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6940925393979170693}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 2, z: 1}
+  m_Center: {x: 0, y: 1, z: 0}
+--- !u!114 &6630346444838089459
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6940925393979170693}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b42fde2dfdee7a498333457cba9203e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmployeeClickHandler
+  _employeeData: {fileID: 11400000, guid: 4f035baf53071074c83aa3189d800837, type: 2}
+  _uiOverride: {fileID: 0}
 --- !u!1 &7574295333990020708
 GameObject:
   m_ObjectHideFlags: 0

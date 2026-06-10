@@ -47,8 +47,14 @@ public class TruckController : MonoBehaviour
     [SerializeField] private float unloadDuration = 7f;
     [SerializeField] private float exitShrinkTime = 1.2f;
 
+    [Header("Trailer Doors")]
+    [SerializeField] private float doorOpenSpeed = 150f;
+
     [Header("State (read-only in play)")]
     [SerializeField] private TruckState _state = TruckState.Idle;
+
+    [Header("Forward Driving — Bezier")]
+    [SerializeField] private float forwardDriveTension = 0.8f;
 
     private DockSlot        _dock;
     private GuardController _guard;
@@ -61,8 +67,12 @@ public class TruckController : MonoBehaviour
     private float         _stateTimer;
     private float         _groundY;
     private Vector3       _currentTarget;
+    private Transform     _driverDoor;
+    private Transform     _passDoor;
+    private bool          _doorsOpen;
+    private bool          _useBezier;
 
-    // Bezier reverse arc
+    // Bezier segments (shared for reverse and forward smoothing)
     private Vector3 _bzP0, _bzP1, _bzP2, _bzP3;
     private float   _bzT;
     private float   _bzArcLen;
@@ -74,10 +84,28 @@ public class TruckController : MonoBehaviour
         _groundY = transform.position.y;
         var agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
         if (agent != null) agent.enabled = false;
+
+        // Find trailer doors
+        _driverDoor = FindDeepChild(transform, "TrailerDoor.Driver");
+        if (_driverDoor == null) _driverDoor = FindDeepChild(transform, "TrailerDoor");
+        
+        _passDoor = FindDeepChild(transform, "TrailerDoor.Pass");
+        if (_passDoor == null) _passDoor = FindDeepChild(transform, "TrailerDoor.001");
+    }
+
+    private Transform FindDeepChild(Transform parent, string name)
+    {
+        foreach (Transform child in parent)
+        {
+            if (child.name == name) return child;
+            var result = FindDeepChild(child, name);
+            if (result != null) return result;
+        }
+        return null;
     }
 
     public void Init(Vector3? gateStop, Vector3? gateEnterNoTurn, Vector3? gateLeaveNoTurn,
-                     Vector3? exitWaypoint, GuardController guard, System.Action onExited)
+Vector3? exitWaypoint, GuardController guard, System.Action onExited)
     {
         _gateStop        = gateStop;
         _gateEnterNoTurn = gateEnterNoTurn;
@@ -118,6 +146,8 @@ public class TruckController : MonoBehaviour
 
     private void Update()
     {
+        UpdateDoors();
+
         switch (_state)
         {
             case TruckState.WaitingAtGate:
@@ -184,6 +214,35 @@ public class TruckController : MonoBehaviour
 
     private bool DriveToward(Vector3 target)
     {
+        if (_useBezier)
+        {
+            _bzT += (driveSpeed / Mathf.Max(_bzArcLen, 0.1f)) * Time.deltaTime;
+
+            if (_bzT >= 1f)
+            {
+                transform.position = _bzP3;
+                _useBezier = false;
+                return true;
+            }
+
+            // Position follows the cubic Bezier
+            Vector3 pos = EvalBezier(_bzP0, _bzP1, _bzP2, _bzP3, _bzT);
+            pos.y = _groundY;
+            transform.position = pos;
+
+            // Rotation follows tangent (forward)
+            Vector3 tangent = EvalBezierTangent(_bzP0, _bzP1, _bzP2, _bzP3, _bzT);
+            tangent.y = 0f;
+            if (tangent.sqrMagnitude > 0.001f)
+            {
+                Quaternion desired = Quaternion.LookRotation(tangent.normalized);
+                // Faster rotation during smoothing looks more natural for a heavy vehicle
+                transform.rotation = Quaternion.RotateTowards(
+                    transform.rotation, desired, driveTurnSpeed * 1.5f * Time.deltaTime);
+            }
+            return false;
+        }
+
         Vector3 flat     = new Vector3(target.x, _groundY, target.z);
         Vector3 toTarget = flat - transform.position;
         toTarget.y = 0f;
@@ -194,14 +253,34 @@ public class TruckController : MonoBehaviour
             return true;
         }
 
-        Quaternion desired = Quaternion.LookRotation(toTarget.normalized);
+        Quaternion desiredLinear = Quaternion.LookRotation(toTarget.normalized);
         transform.rotation = Quaternion.RotateTowards(
-            transform.rotation, desired, driveTurnSpeed * Time.deltaTime);
+            transform.rotation, desiredLinear, driveTurnSpeed * Time.deltaTime);
 
         transform.position = Vector3.MoveTowards(
             transform.position, flat, driveSpeed * Time.deltaTime);
 
         return false;
+    }
+
+    // ── Bezier forward setup ──────────────────────────────────────────────────
+
+    private void SetupBezierForward(Vector3 endPos, Vector3 endForward, float tension)
+    {
+        _bzP0 = transform.position;
+        _bzP3 = new Vector3(endPos.x, _groundY, endPos.z);
+        
+        float chord = Vector3.Distance(_bzP0, _bzP3);
+        float t = chord * tension;
+
+        // Start tangent: straight out from current heading
+        _bzP1 = _bzP0 + transform.forward * t;
+        // End tangent: arriving along the target forward
+        _bzP2 = _bzP3 - endForward.normalized * t;
+        
+        _bzT = 0f;
+        _bzArcLen = chord * 1.4f; 
+        _useBezier = true;
     }
 
     // ── Bezier reverse arc ────────────────────────────────────────────────────
@@ -288,13 +367,30 @@ public class TruckController : MonoBehaviour
     {
         _state = TruckState.GuardCheck;
         if (_guard != null)
-            _guard.BeginInspection(GuardClearedToEnter);
+            _guard.BeginInspection(this, GuardClearedToEnter);
         else
             GuardClearedToEnter();
     }
 
-    public void GuardClearedToEnter()
+    public void OpenTrailerDoors()  { _doorsOpen = true; }
+    public void CloseTrailerDoors() { _doorsOpen = false; }
+
+    private void UpdateDoors()
     {
+        if (_driverDoor == null || _passDoor == null) return;
+
+        float targetDriver = _doorsOpen ? 65f : 0f;
+        float targetPass   = _doorsOpen ? -65f : 0f;
+
+        Quaternion drRot = Quaternion.Euler(0, targetDriver, 0);
+        Quaternion paRot = Quaternion.Euler(0, targetPass, 0);
+
+        _driverDoor.localRotation = Quaternion.RotateTowards(_driverDoor.localRotation, drRot, doorOpenSpeed * Time.deltaTime);
+        _passDoor.localRotation   = Quaternion.RotateTowards(_passDoor.localRotation, paRot, doorOpenSpeed * Time.deltaTime);
+    }
+
+    public void GuardClearedToEnter()
+{
         if (_gateEnterNoTurn.HasValue)
             SetTarget(TruckState.EnteringYard, _gateEnterNoTurn.Value);
         else

@@ -18,7 +18,9 @@ public class GuardController : MonoBehaviour
         WaitingAtGateStop,
         MovingToCheckRear1,
         MovingToCheckRear2,
-        InspectingRear,
+        TurningToInspectRear,
+        WaitingToOpenTrailer,
+        InspectingTrailer,
         MovingBackToCheckRear1,
         MovingBackToGateStop,
         WavingIn,
@@ -32,6 +34,7 @@ public class GuardController : MonoBehaviour
 
     [Header("Timing")]
     [SerializeField] private float waitAtGateStop = 3f;
+    [SerializeField] private float waitBeforeOpen = 1f;
     [SerializeField] private float waitAtCheckRear = 2f;
     [SerializeField] private float waitWavingIn   = 2.0f;
 
@@ -48,12 +51,12 @@ public class GuardController : MonoBehaviour
     private Transform _checkRear1;
     private Transform _checkRear2;
 
-    private float         _stateTimer;
-    private System.Action _onCleared;
-    private Animator      _animator;
-    private NavMeshAgent  _agent;
-    private AudioSource   _footstepSource;
-    private Quaternion    _targetInspectRotation;
+    private float           _stateTimer;
+    private System.Action   _onCleared;
+    private Animator        _animator;
+    private NavMeshAgent    _agent;
+    private AudioSource     _footstepSource;
+    private TruckController _currentTruck;
 
     private static readonly int IsWalking = Animator.StringToHash("IsWalking");
     private static readonly int IsWaving  = Animator.StringToHash("IsWaving");
@@ -106,7 +109,7 @@ public class GuardController : MonoBehaviour
         _state = GuardState.Posted;
     }
 
-    public void BeginInspection(System.Action onCleared)
+    public void BeginInspection(TruckController truck, System.Action onCleared)
     {
         if (_state != GuardState.Posted)
         {
@@ -114,7 +117,8 @@ public class GuardController : MonoBehaviour
             onCleared?.Invoke();
             return;
         }
-        _onCleared = onCleared;
+        _currentTruck = truck;
+        _onCleared    = onCleared;
 
         if (_exitPost != null)
             SetDestination(GuardState.MovingToExitPost, _exitPost.position);
@@ -157,16 +161,43 @@ public class GuardController : MonoBehaviour
             case GuardState.MovingToCheckRear2:
                 if (HasArrived())
                 {
-                    _state      = GuardState.InspectingRear;
-                    _stateTimer = waitAtCheckRear;
+                    _state      = GuardState.TurningToInspectRear;
                     StopMovement();
                 }
                 break;
 
-            case GuardState.InspectingRear:
+            case GuardState.TurningToInspectRear:
+                // Rotate to face the trailer (Y=180)
+                Quaternion targetRot = Quaternion.Euler(0, 180, 0);
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
+                if (Quaternion.Angle(transform.rotation, targetRot) < 0.1f)
+                {
+                    _state      = GuardState.WaitingToOpenTrailer;
+                    _stateTimer = waitBeforeOpen;
+                }
+                break;
+
+            case GuardState.WaitingToOpenTrailer:
                 _stateTimer -= Time.deltaTime;
                 if (_stateTimer <= 0f)
+                {
+                    if (_currentTruck != null)
+                        _currentTruck.OpenTrailerDoors();
+
+                    _state      = GuardState.InspectingTrailer;
+                    _stateTimer = waitAtCheckRear;
+                }
+                break;
+
+            case GuardState.InspectingTrailer:
+                _stateTimer -= Time.deltaTime;
+                if (_stateTimer <= 0f)
+                {
+                    if (_currentTruck != null)
+                        _currentTruck.CloseTrailerDoors();
+
                     SetDestination(GuardState.MovingBackToCheckRear1, _checkRear1.position);
+                }
                 break;
 
             case GuardState.MovingBackToCheckRear1:
@@ -248,7 +279,7 @@ public class GuardController : MonoBehaviour
     {
         if (_footstepSource == null) return;
 
-        bool moving = _agent != null && _agent.velocity.sqrMagnitude > 0.1f && !(_state == GuardState.WavingIn || _state == GuardState.InspectingRear || _state == GuardState.WaitingAtGateStop);
+        bool moving = _agent != null && _agent.velocity.sqrMagnitude > 0.1f && !(_state == GuardState.WavingIn || _state == GuardState.InspectingTrailer || _state == GuardState.WaitingAtGateStop);
         
         if (moving && !_footstepSource.isPlaying)
             _footstepSource.Play();

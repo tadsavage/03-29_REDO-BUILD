@@ -10,6 +10,7 @@ public class EmployeeData : ScriptableObject
 
     [Header("Portrait")]
     public Sprite avatarSprite;
+    public Sprite jobIcon;
 
     [Header("Stats (0-100)")]
     [Range(0f, 100f)] public float fatigue = 25f;
@@ -22,13 +23,21 @@ public class EmployeeData : ScriptableObject
 
     [SerializeField] private bool _isConfigured = false;
 
+    public bool IsConfigured => _isConfigured;
+
+    // OnEnable must NOT auto-randomize — that would overwrite saved asset data on reload.
+    // Randomization only happens via EnsureConfigured() for legacy unconfigured assets.
     private void OnEnable()
     {
-        if (!_isConfigured)
-        {
-            RandomizeId();
-            RandomizeStats();
-        }
+        // Intentionally empty. Randomization is opt-in via EnsureConfigured().
+    }
+
+    public void EnsureConfigured()
+    {
+        if (_isConfigured) return;
+        RandomizeId();
+        RandomizeStats();
+        _isConfigured = true;
     }
 
     public void RandomizeId()
@@ -48,5 +57,40 @@ public class EmployeeData : ScriptableObject
     public void SetConfigured()
     {
         _isConfigured = true;
+    }
+
+    public void ApplyRecord(EmployeeRecord record)
+    {
+        if (record == null) return;
+        employeeName = record.employeeName;
+        employeeIdPrefix = record.employeeIdPrefix;
+        employeeId = record.employeeId;
+        fatigue = record.fatigue;
+        safety = record.safety;
+        morale = record.morale;
+        skill = record.skill;
+        skillLevel = record.skillLevel;
+        _isConfigured = true;
+    }
+
+    public EmployeeRecord ExportToRecord()
+    {
+        // Ensure the data is valid before exporting
+        if (string.IsNullOrEmpty(employeeId))
+            EnsureConfigured();
+
+        EmployeeRecord record = new EmployeeRecord
+        {
+            employeeName = employeeName,
+            employeeIdPrefix = employeeIdPrefix,
+            employeeId = employeeId,
+            gender = EmployeeGender.Neutral,
+            fatigue = fatigue,
+            safety = safety,
+            morale = morale,
+            skill = skill,
+            skillLevel = skillLevel
+        };
+        return record;
     }
 }

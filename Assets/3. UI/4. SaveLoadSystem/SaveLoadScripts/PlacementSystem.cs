@@ -253,7 +253,16 @@ public class PlacementSystem : MonoBehaviour
             obj.rot = entry.rotation;
             obj.customData = entry.customData;
             save.placedObjects.Add(obj);
-}
+        }
+
+        // Employee record persistence — best-effort snapshot of all scene employees
+        var identities = Object.FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None);
+        foreach (var ident in identities)
+        {
+            var rec = ident.Record;
+            if (rec != null)
+                save.employeeRecords.Add(rec.Clone());
+        }
 
         return save;
     }
@@ -262,6 +271,7 @@ public class PlacementSystem : MonoBehaviour
     {
         moneyService.SetMoney(save.money);
         moneyService.SetSpentToday(save.spentToday);
+        ApplySavedSettings(save);
 
         if (save.cameraData != null && freeLookCamera != null)
             freeLookCamera.SetState(save.cameraData);
@@ -277,6 +287,28 @@ public class PlacementSystem : MonoBehaviour
                 continue;
             }
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData);
+        }
+
+        // Apply saved employee records to matching scene EmployeeIdentity components
+        if (save.employeeRecords != null && save.employeeRecords.Count > 0)
+        {
+            var recordByGuid = new Dictionary<string, EmployeeRecord>();
+            foreach (var rec in save.employeeRecords)
+            {
+                if (!string.IsNullOrEmpty(rec.employeeGuid))
+                    recordByGuid[rec.employeeGuid] = rec;
+            }
+
+            var sceneIdentities = Object.FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None);
+            foreach (var ident in sceneIdentities)
+            {
+                var current = ident.Record;
+                if (current != null && !string.IsNullOrEmpty(current.employeeGuid)
+                    && recordByGuid.TryGetValue(current.employeeGuid, out var savedRec))
+                {
+                    ident.ApplyRecord(savedRec.Clone());
+                }
+            }
         }
 
         grid.RebuildFromRegistry();
