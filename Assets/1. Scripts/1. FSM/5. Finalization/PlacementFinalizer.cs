@@ -92,7 +92,7 @@ public class PlacementFinalizer : MonoBehaviour
                 instance.transform.position = pos;
         }
 
-        if (!silent)
+        if (!silent && FXPool.Instance != null)
             FXPool.Instance.Play("dust", pos);
 
         // Initialize PlacedObject

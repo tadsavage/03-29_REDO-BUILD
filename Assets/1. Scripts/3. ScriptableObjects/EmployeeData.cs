@@ -25,7 +25,7 @@ public class EmployeeData : ScriptableObject
 
     public bool IsConfigured => _isConfigured;
 
-    // OnEnable must NOT auto-randomize — that would overwrite saved asset data on reload.
+    // OnEnable must NOT auto-randomize â€” that would overwrite saved asset data on reload.
     // Randomization only happens via EnsureConfigured() for legacy unconfigured assets.
     private void OnEnable()
     {
@@ -70,6 +70,25 @@ public class EmployeeData : ScriptableObject
         morale = record.morale;
         skill = record.skill;
         skillLevel = record.skillLevel;
+
+        // Load portrait sprite from Resources using the avatar key on the record
+        if (!string.IsNullOrEmpty(record.avatarResourceKey))
+        {
+            string fullKey = $"EmployeeAssets/{record.avatarResourceKey}";
+            // Try as Sprite first, then Texture2D fallback
+            var sprite = Resources.Load<Sprite>(fullKey);
+            if (sprite == null)
+            {
+                var tex = Resources.Load<Texture2D>(fullKey);
+                if (tex != null)
+                    sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new UnityEngine.Vector2(0.5f, 0.5f));
+            }
+            avatarSprite = sprite;
+
+            if (avatarSprite == null)
+                Debug.LogWarning($"[EmployeeData] Portrait not found at Resources/{fullKey} for {employeeName}");
+        }
+
         _isConfigured = true;
     }
 

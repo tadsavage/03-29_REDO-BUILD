@@ -49,18 +49,25 @@ public class DeleteCommand : ICommand
         // These floor tiles must be deleted with the foundation (golden rule exception).
         if (IsGround(_data))
         {
-            HashSet<GameObject> seen = new HashSet<GameObject>();
-            foreach (var o in _offsets)
+            if (_offsets == null)
             {
-                var cell = _root + o;
-                var objs = _grid.GetObjectsInCell(cell);
-                if (objs == null) continue;
-                foreach (var entry in objs)
+                Debug.LogWarning($"[DeleteCommand] _offsets is null for {target.name}. Skipping attached floor detection.");
+            }
+            else
+            {
+                HashSet<GameObject> seen = new HashSet<GameObject>();
+                foreach (var o in _offsets)
                 {
-                    if (entry.data != null && entry.data.isFloor && entry.instance != null && entry.instance.activeSelf)
+                    var cell = _root + o;
+                    var objs = _grid.GetObjectsInCell(cell);
+                    if (objs == null) continue;
+                    foreach (var entry in objs)
                     {
-                        if (seen.Add(entry.instance))
-                            _attachedFloors.Add(entry.instance);
+                        if (entry.data != null && entry.data.isFloor && entry.instance != null && entry.instance.activeSelf)
+                        {
+                            if (seen.Add(entry.instance))
+                                _attachedFloors.Add(entry.instance);
+                        }
                     }
                 }
             }

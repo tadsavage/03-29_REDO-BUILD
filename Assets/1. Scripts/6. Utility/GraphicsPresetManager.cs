@@ -5,15 +5,28 @@ using UnityEngine.Rendering.Universal;
 /// <summary>
 /// Applies one of three graphics presets at runtime.
 ///
-/// Assign the three VolumeProfile assets (PP_Ultra, PP_Good, PP_Toaster)
-/// and the global Volume in the Inspector, then call ApplyPreset() from
-/// a settings menu or from DevSettings.
+/// Each preset is a self-contained UniversalRenderPipelineAsset (URP_Ultra =
+/// PC_RPAsset, URP_Good, URP_Toaster). ApplyPreset() swaps the active pipeline
+/// via QualitySettings.renderPipeline rather than mutating fields on a single
+/// shared asset — so shadow quality, APV budget, reflection-probe projection,
+/// additional-light shadow resolution, etc. are baked per-asset and nothing
+/// dirties the shared asset on disk.
+///
+/// Assign the three URP assets, the three VolumeProfile assets (PP_Ultra,
+/// PP_Good, PP_Toaster) and the global Volume in the Inspector, then call
+/// ApplyPreset() from a settings menu or from DevSettings.
 ///
 /// Current preset is persisted to PlayerPrefs key "GraphicsPreset".
 /// </summary>
 public class GraphicsPresetManager : MonoBehaviour
 {
     public enum Preset { Ultra, Good, Toaster }
+
+    [Header("Render Pipeline Assets")]
+    [Tooltip("Assign PC_RPAsset here (the project default / full quality).")]
+    [SerializeField] private UniversalRenderPipelineAsset urpUltra;
+    [SerializeField] private UniversalRenderPipelineAsset urpGood;
+    [SerializeField] private UniversalRenderPipelineAsset urpToaster;
 
     [Header("Post-Process Profiles")]
     [SerializeField] private VolumeProfile profileUltra;
@@ -24,18 +37,15 @@ public class GraphicsPresetManager : MonoBehaviour
     [SerializeField] private Volume globalVolume;
 
     [Header("Renderer Data")]
-    [Tooltip("Assign PC_Renderer.asset here to allow per-preset toggling of renderer features.")]
+    [Tooltip("Assign PC_Renderer.asset here to allow per-preset toggling of renderer features (SSAO / full-screen pass).")]
     [SerializeField] private ScriptableRendererData rendererData;
 
     public static GraphicsPresetManager Instance { get; private set; }
     public Preset CurrentPreset { get; private set; } = Preset.Ultra;
 
-    private UniversalRenderPipelineAsset _urp;
-
     private void Awake()
     {
         Instance = this;
-        _urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
 
         // Restore saved preset
         int saved = PlayerPrefs.GetInt("GraphicsPreset", (int)Preset.Ultra);
@@ -61,68 +71,66 @@ public class GraphicsPresetManager : MonoBehaviour
     }
 
     // ── Preset Definitions ────────────────────────────────────────────────────
+    // Pipeline-level quality (shadows, APV, reflection probes, opaque texture,
+    // render scale, MSAA, light counts) lives in the URP assets above. Only the
+    // global QualitySettings knobs that aren't part of the URP asset are set here.
 
     private void ApplyUltra()
     {
         FXPool.DisabledKeys.Remove("dust");
+        SetPipeline(urpUltra);
         SetRendererFeatures(true);
         SetVolume(profileUltra);
-        if (_urp == null) return;
 
-        _urp.renderScale                     = 1.0f;
-        _urp.msaaSampleCount                 = 4;
-        _urp.shadowCascadeCount              = 4;
-        _urp.shadowDistance                  = 100f;
-        _urp.mainLightShadowmapResolution    = 4096;
-        _urp.maxAdditionalLightsCount        = 8;
-        _urp.supportsHDR                     = true;
-        QualitySettings.lodBias              = 2.0f;
-        QualitySettings.anisotropicFiltering = AnisotropicFiltering.ForceEnable;
-        QualitySettings.particleRaycastBudget = 256;
+        QualitySettings.lodBias                  = 2.0f;
+        QualitySettings.anisotropicFiltering     = AnisotropicFiltering.ForceEnable;
+        QualitySettings.particleRaycastBudget    = 256;
+        QualitySettings.globalTextureMipmapLimit = 0;   // full-res textures
+        QualitySettings.skinWeights              = SkinWeights.FourBones;
+        QualitySettings.realtimeReflectionProbes = true;
         SetCameraAA(AntialiasingMode.SubpixelMorphologicalAntiAliasing);
     }
 
     private void ApplyGood()
     {
         FXPool.DisabledKeys.Remove("dust");
+        SetPipeline(urpGood);
         SetRendererFeatures(true);
         SetVolume(profileGood);
-        if (_urp == null) return;
 
-        _urp.renderScale                     = 1.0f;
-        _urp.msaaSampleCount                 = 2;
-        _urp.shadowCascadeCount              = 2;
-        _urp.shadowDistance                  = 60f;
-        _urp.mainLightShadowmapResolution    = 2048;
-        _urp.maxAdditionalLightsCount        = 4;
-        _urp.supportsHDR                     = true;
-        QualitySettings.lodBias              = 1.5f;
-        QualitySettings.anisotropicFiltering = AnisotropicFiltering.Enable;
-        QualitySettings.particleRaycastBudget = 64;
+        QualitySettings.lodBias                  = 1.5f;
+        QualitySettings.anisotropicFiltering     = AnisotropicFiltering.Enable;
+        QualitySettings.particleRaycastBudget    = 64;
+        QualitySettings.globalTextureMipmapLimit = 0;   // full-res textures
+        QualitySettings.skinWeights              = SkinWeights.FourBones;
+        QualitySettings.realtimeReflectionProbes = true;
         SetCameraAA(AntialiasingMode.FastApproximateAntialiasing);
     }
 
     private void ApplyToaster()
     {
         FXPool.DisabledKeys.Add("dust");
+        SetPipeline(urpToaster);
         SetRendererFeatures(false);
         SetVolume(profileToaster);
-        if (_urp == null) return;
 
-        _urp.renderScale                     = 0.85f;
-        _urp.msaaSampleCount                 = 1;
-        _urp.shadowCascadeCount              = 1;
-        _urp.shadowDistance                  = 35f;
-        _urp.mainLightShadowmapResolution    = 1024;
-        _urp.maxAdditionalLightsCount        = 2;
-        _urp.supportsHDR                     = false;
-        QualitySettings.lodBias              = 0.7f;
-        QualitySettings.anisotropicFiltering = AnisotropicFiltering.Disable;
-        QualitySettings.particleRaycastBudget = 4;
+        QualitySettings.lodBias                  = 0.7f;
+        QualitySettings.anisotropicFiltering     = AnisotropicFiltering.Disable;
+        QualitySettings.particleRaycastBudget    = 4;
+        QualitySettings.globalTextureMipmapLimit = 1;   // half-res textures (bandwidth/VRAM)
+        QualitySettings.skinWeights              = SkinWeights.TwoBones;
+        QualitySettings.realtimeReflectionProbes = false;
         SetCameraAA(AntialiasingMode.FastApproximateAntialiasing);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static void SetPipeline(UniversalRenderPipelineAsset asset)
+    {
+        if (asset == null) return;
+        // Overrides the pipeline for the active quality level; takes effect next frame.
+        QualitySettings.renderPipeline = asset;
+    }
 
     private void SetRendererFeatures(bool enabled)
     {

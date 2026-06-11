@@ -362,6 +362,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2193abe053db494baff6a5d2e330e07, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GraphicsPresetManager
+  urpUltra: {fileID: 11400000, guid: 4b83569d67af61e458304325a23e5dfd, type: 2}
+  urpGood: {fileID: 11400000, guid: a1c4e7f209b34d6e8f1029384756ab10, type: 2}
+  urpToaster: {fileID: 11400000, guid: 79d5a2f2edcd7ce49ac5983f4b940aa3, type: 2}
   profileUltra: {fileID: 11400000, guid: 1ff58907d4e1a9a4f990444c267f215c, type: 2}
   profileGood: {fileID: 11400000, guid: 2d8ca4c942e0c2a43a796beb27fbb8b3, type: 2}
   profileToaster: {fileID: 11400000, guid: 84447ab415d23dd4681cabbc845b425f, type: 2}
@@ -382,6 +385,75 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2013715565
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2013715568}
+  - component: {fileID: 2013715567}
+  - component: {fileID: 2013715566}
+  m_Layer: 0
+  m_Name: EmployeeListPanel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2013715566
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013715565}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d7e92bbed45ae849b1ad85429251a10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmployeeListPanelController
+  _listItemTemplate: {fileID: 9197481963319205126, guid: 9899d985d56738b4d8b2448cd4a9f7fa, type: 3}
+--- !u!114 &2013715567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013715565}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
+  m_PanelSettings: {fileID: 11400000, guid: 90ee474b9d63d4f438bc0bac7f63bd60, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: f6e972210df832149891d17ddd4771bd, type: 3}
+  m_SortingOrder: 0
+  m_Position: 0
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 1920
+  m_WorldSpaceHeight: 1080
+  m_PivotReferenceSize: 0
+  m_Pivot: 0
+  m_WorldSpaceCollider: {fileID: 0}
+--- !u!4 &2013715568
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013715565}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -389,3 +461,4 @@ SceneRoots:
   - {fileID: 1270217927}
   - {fileID: 161181775}
   - {fileID: 1654171006}
+  - {fileID: 2013715568}

@@ -1,0 +1,134 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/3.%20UI/7.%20EmployeeUI/EmployeeListPanel.uss"/>
+
+    <ui:VisualElement name="employee-overlay" picking-mode="Ignore" class="overlay" style="display: none;">
+        <ui:VisualElement name="employee-modal" picking-mode="Ignore" class="modal-panel">
+            <!-- Title bar -->
+            <ui:VisualElement class="title-bar">
+                <ui:Label text="EMPLOYEES" class="title-label"/>
+                <ui:Label name="employee-count" text="(0)" class="count-label"/>
+                <ui:Button name="close-button" text="✕" class="close-button"/>
+            </ui:VisualElement>
+
+            <!-- Main content: list + detail side by side -->
+            <ui:VisualElement class="main-content">
+                <!-- LEFT: Employee list -->
+                <ui:VisualElement class="list-column">
+                    <!-- Filter tabs -->
+                    <ui:VisualElement class="filter-bar">
+                        <ui:Button name="filter-all" text="ALL" class="filter-btn filter-active"/>
+                        <ui:Button name="filter-active" text="ACTIVE" class="filter-btn"/>
+                        <ui:Button name="filter-injured" text="INJURED" class="filter-btn"/>
+                        <ui:Button name="filter-former" text="FORMER" class="filter-btn"/>
+                    </ui:VisualElement>
+                    <ui:ScrollView name="employee-scroll" mode="Vertical" class="employee-scroll">
+                        <ui:VisualElement name="employee-list-container" class="employee-list-container"/>
+                    </ui:ScrollView>
+                </ui:VisualElement>
+
+                <!-- RIGHT: Detail panel (hidden when no employee selected) -->
+                <ui:VisualElement name="detail-column" class="detail-column" style="display: none;">
+                    <!-- Header: name, ID, status badge -->
+                    <ui:VisualElement class="detail-header">
+                        <ui:VisualElement name="detail-job-icon" class="detail-job-icon"/>
+                        <ui:VisualElement class="detail-header-text">
+                            <ui:Label name="detail-name" text="—" class="detail-name"/>
+                            <ui:Label name="detail-id" text="—" class="detail-id"/>
+                        </ui:VisualElement>
+                        <ui:Label name="detail-status-badge" text="ACTIVE" class="status-badge status-active"/>
+                    </ui:VisualElement>
+
+                    <!-- Stats section -->
+                    <ui:VisualElement class="detail-section">
+                        <ui:Label text="STATS" class="section-header"/>
+                        <ui:VisualElement name="detail-fatigue-row" class="stat-row">
+                            <ui:VisualElement class="stat-swatch fatigue-swatch"/>
+                            <ui:Label text="FATIGUE" class="stat-label"/>
+                            <ui:VisualElement class="stat-bar-bg">
+                                <ui:VisualElement name="detail-fatigue-fill" class="stat-bar-fill fatigue-fill"/>
+                            </ui:VisualElement>
+                            <ui:Label name="detail-fatigue-val" text="0%" class="stat-value"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="detail-safety-row" class="stat-row">
+                            <ui:VisualElement class="stat-swatch safety-swatch"/>
+                            <ui:Label text="SAFETY" class="stat-label"/>
+                            <ui:VisualElement class="stat-bar-bg">
+                                <ui:VisualElement name="detail-safety-fill" class="stat-bar-fill safety-fill"/>
+                            </ui:VisualElement>
+                            <ui:Label name="detail-safety-val" text="0%" class="stat-value"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="detail-morale-row" class="stat-row">
+                            <ui:VisualElement class="stat-swatch morale-swatch"/>
+                            <ui:Label text="MORALE" class="stat-label"/>
+                            <ui:VisualElement class="stat-bar-bg">
+                                <ui:VisualElement name="detail-morale-fill" class="stat-bar-fill morale-fill"/>
+                            </ui:VisualElement>
+                            <ui:Label name="detail-morale-val" text="0%" class="stat-value"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="detail-skill-row" class="stat-row">
+                            <ui:VisualElement class="stat-swatch skill-swatch"/>
+                            <ui:Label text="SKILL" class="stat-label"/>
+                            <ui:VisualElement class="stat-bar-bg">
+                                <ui:VisualElement name="detail-skill-fill" class="stat-bar-fill skill-fill"/>
+                            </ui:VisualElement>
+                            <ui:Label name="detail-skill-val" text="0%" class="stat-value"/>
+                        </ui:VisualElement>
+                        <ui:Label name="detail-skill-level" text="LVL 1" class="skill-level-label"/>
+                    </ui:VisualElement>
+
+                    <!-- Employment info -->
+                    <ui:VisualElement class="detail-section">
+                        <ui:Label text="EMPLOYMENT" class="section-header"/>
+                        <ui:VisualElement class="info-row">
+                            <ui:Label text="Wage:" class="info-key"/>
+                            <ui:Label name="detail-wage" text="$0.00/hr" class="info-value"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="info-row">
+                            <ui:Label text="Hired:" class="info-key"/>
+                            <ui:Label name="detail-hire-date" text="—" class="info-value"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="info-row">
+                            <ui:Label text="Total Paid:" class="info-key"/>
+                            <ui:Label name="detail-total-paid" text="$0.00" class="info-value"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- Schedule overview -->
+                    <ui:VisualElement class="detail-section">
+                        <ui:Label text="SCHEDULE" class="section-header"/>
+                        <ui:VisualElement name="schedule-week" class="schedule-week">
+                            <!-- 7 day cells injected by code -->
+                        </ui:VisualElement>
+                        <ui:Label name="schedule-notes" text="" class="schedule-notes"/>
+                    </ui:VisualElement>
+
+                    <!-- Injury section (hidden unless injured) -->
+                    <ui:VisualElement name="injury-section" class="detail-section injury-section" style="display: none;">
+                        <ui:Label text="INJURY" class="section-header injury-header"/>
+                        <ui:Label name="injury-description" text="—" class="injury-text"/>
+                        <ui:Label name="injury-recovery" text="—" class="injury-recovery"/>
+                    </ui:VisualElement>
+
+                    <!-- Action buttons -->
+                    <ui:VisualElement class="detail-actions">
+                        <ui:VisualElement class="action-row">
+                            <ui:Button name="action-fire" text="FIRE" class="action-btn action-fire"/>
+                            <ui:Button name="action-suspend" text="SUSPEND" class="action-btn action-suspend"/>
+                            <ui:Button name="action-leave" text="LEAVE" class="action-btn action-leave"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="action-row">
+                            <ui:Button name="action-reactivate" text="REACTIVATE" class="action-btn action-reactivate"/>
+                            <ui:Button name="action-injure" text="INJURE" class="action-btn action-injure"/>
+                            <ui:Button name="action-recover" text="RECOVER" class="action-btn action-recover"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Placeholder when no employee selected -->
+                <ui:VisualElement name="detail-placeholder" class="detail-column placeholder-column">
+                    <ui:Label text="← SELECT AN EMPLOYEE" class="placeholder-text"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

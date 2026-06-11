@@ -5,6 +5,16 @@ public class FXPool : MonoBehaviour
 {
     public static FXPool Instance { get; private set; }
 
+    // When "Enter Play Mode Options" disables Domain Reload, static fields are NOT
+    // cleared between Play sessions. Reset them explicitly so we never carry a stale
+    // Instance or disabled-key set into a fresh session.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+        DisabledKeys.Clear();
+    }
+
     [System.Serializable]
     public class FXEntry
     {
@@ -28,6 +38,13 @@ public class FXPool : MonoBehaviour
     {
         Instance = this;
 
+        // Rebuild from scratch. With Scene Reload disabled, leftover pooled children
+        // and stale dictionary entries can survive from a previous Play session — clear
+        // them so we never hand out a destroyed instance.
+        _pools.Clear();
+        for (int i = transform.childCount - 1; i >= 0; i--)
+            Destroy(transform.GetChild(i).gameObject);
+
         foreach (var entry in entries)
         {
             var q = new Queue<FXObject>();
@@ -36,6 +53,11 @@ public class FXPool : MonoBehaviour
             for (int i = 0; i < entry.preload; i++)
                 q.Enqueue(CreateInstance(entry.prefab));
         }
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     private FXObject CreateInstance(GameObject prefab)
@@ -89,16 +111,30 @@ public class FXPool : MonoBehaviour
             return;
         }
 
-        FXObject fx;
+        FXObject fx = null;
 
-        if (q.Count > 0)
-            fx = q.Dequeue();
-        else
+        // Pull a live instance, discarding any whose GameObject was destroyed between
+        // Play sessions (the Unity == null check catches destroyed objects).
+        while (q.Count > 0)
         {
-            Debug.LogWarning($"FXPool: Pool for key '{key}' is empty, instantiating new instance");
-            fx = CreateInstance(FindEntry(key).prefab);
+            var candidate = q.Dequeue();
+            if (candidate != null && candidate.go != null)
+            {
+                fx = candidate;
+                break;
+            }
         }
-            
+
+        if (fx == null)
+        {
+            var entry = FindEntry(key);
+            if (entry == null || entry.prefab == null)
+            {
+                Debug.LogWarning($"FXPool: No usable prefab for key '{key}'");
+                return;
+            }
+            fx = CreateInstance(entry.prefab);
+        }
 
         fx.go.transform.position = position;
         fx.go.SetActive(true);
@@ -141,7 +177,11 @@ public class FXPool : MonoBehaviour
             yield return null;
         }
 
+        // The instance may have been destroyed (scene change / pool rebuild) — drop it.
+        if (fx.go == null) yield break;
+
         fx.go.SetActive(false);
-        _pools[key].Enqueue(fx);
+        if (_pools.TryGetValue(key, out var q))
+            q.Enqueue(fx);
     }
 }

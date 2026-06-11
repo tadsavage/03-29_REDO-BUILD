@@ -1,0 +1,29 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="employee-row" class="employee-row">
+        <!-- Status indicator dot -->
+        <ui:VisualElement name="status-dot" class="status-dot status-dot-active"/>
+
+        <!-- Name + ID -->
+        <ui:VisualElement class="name-column">
+            <ui:Label name="row-name" text="Jordan Barnes" class="row-name"/>
+            <ui:Label name="row-id" text="WHSE 001" class="row-id"/>
+        </ui:VisualElement>
+
+        <!-- Mini stat bars (fatigue + morale) -->
+        <ui:VisualElement class="minibars-column">
+            <ui:VisualElement class="minibar-row">
+                <ui:VisualElement class="minibar-bg">
+                    <ui:VisualElement name="row-fatigue-fill" class="minibar-fill fatigue-fill"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="minibar-row">
+                <ui:VisualElement class="minibar-bg">
+                    <ui:VisualElement name="row-morale-fill" class="minibar-fill morale-fill"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Shift label -->
+        <ui:Label name="row-shift" text="Day" class="row-shift"/>
+    </ui:VisualElement>
+</ui:UXML>

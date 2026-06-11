@@ -26,8 +26,8 @@ public class TruckController : MonoBehaviour
     }
 
     [Header("Driving")]
-    [SerializeField] private float driveSpeed       = 3.5f;
-    [SerializeField] private float driveTurnSpeed   = 120f;
+    [SerializeField] private float driveSpeed       = 2.5f;
+    [SerializeField] private float driveTurnSpeed   = 180f;
     [SerializeField] private float arrivedThreshold = 0.5f;
 
     [Header("Align (spin before reversing)")]
@@ -43,6 +43,24 @@ public class TruckController : MonoBehaviour
     [Tooltip("How much the Trailer child swings on local Y relative to the tractor while backing. 0.3–0.5 looks subtle and realistic.")]
     [SerializeField] private float trailerArticulationScale = 0.4f;
 
+    [Header("Cab steering (tractor yaws at the hitch)")]
+    [Tooltip("Turn the cab on its Y axis so it leads into curves, like a real tractor pivoting at the fifth wheel. Pure yaw — never touches X/Z.")]
+    [SerializeField] private bool  articulateCab   = true;
+    [Tooltip("Name of the cab child transform that pivots. Origin sits at the hitch, so it swings correctly.")]
+    [SerializeField] private string cabChildName   = "Tractor";
+    [Tooltip("Most the cab can crank away from the trailer body, in degrees. Real semis sit around 30–40°.")]
+    [SerializeField] private float maxCabSteer     = 35f;
+    [Tooltip("Maps how fast the body is turning (deg/sec) to cab steer angle. Higher = cab cranks harder in curves.")]
+    [SerializeField] private float cabSteerGain    = 0.22f;
+    [Tooltip("How quickly the cab swings toward its target steer angle, deg/sec. Lower = lazier, heavier feel.")]
+    [SerializeField] private float cabSteerSlew    = 140f;
+
+    [Header("Cab steering — reversing into dock")]
+    [Tooltip("Cab steer gain used ONLY while backing into the dock. The body barely yaws during the reverse arc, so this is normally much higher than the forward gain to keep the tractor visibly cranked while it tucks in.")]
+    [SerializeField] private float reverseCabSteerGain = 1.6f;
+    [Tooltip("Invert the cab crank direction while reversing — a real tractor steers opposite to the trailer's swing when backing. Turn off if the cab leans the wrong way.")]
+    [SerializeField] private bool  invertCabSteerWhenReversing = true;
+
     [Header("Unload & exit")]
     [SerializeField] private float unloadDuration = 7f;
     [SerializeField] private float exitShrinkTime = 1.2f;
@@ -54,7 +72,7 @@ public class TruckController : MonoBehaviour
     [SerializeField] private TruckState _state = TruckState.Idle;
 
     [Header("Forward Driving — Bezier")]
-    [SerializeField] private float forwardDriveTension = 0.8f;
+    [SerializeField] private float forwardDriveTension = 0.45f;
 
     private DockSlot        _dock;
     private GuardController _guard;
@@ -71,6 +89,13 @@ public class TruckController : MonoBehaviour
     private Transform     _passDoor;
     private bool          _doorsOpen;
     private bool          _useBezier;
+
+    // Cab steering (articulated tractor)
+    private Transform     _cab;
+    private Quaternion    _cabRest;
+    private float         _cabYaw;
+    private float         _prevYaw;
+    private bool          _cabInit;
 
     // Bezier segments (shared for reverse and forward smoothing)
     private Vector3 _bzP0, _bzP1, _bzP2, _bzP3;
@@ -91,6 +116,12 @@ public class TruckController : MonoBehaviour
         
         _passDoor = FindDeepChild(transform, "TrailerDoor.Pass");
         if (_passDoor == null) _passDoor = FindDeepChild(transform, "TrailerDoor.001");
+
+        // Cab (tractor) — pivots on Y at the hitch to steer into curves
+        _cab = FindDeepChild(transform, cabChildName);
+        if (_cab != null) _cabRest = _cab.localRotation;
+        else if (articulateCab)
+            Debug.LogWarning($"[TruckController] Cab child '{cabChildName}' not found — cab steering disabled.");
     }
 
     private Transform FindDeepChild(Transform parent, string name)
@@ -136,7 +167,8 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
         if (_gateStop.HasValue)
             SetTarget(TruckState.WaitingAtGate, _gateStop.Value);
         else
-            SetTarget(TruckState.Approaching, firstTarget);
+            SetTargetCurved(TruckState.Approaching, firstTarget,
+                            _dock.PullPastPoint - firstTarget);
     }
 
     public void ForceDeparture()
@@ -147,6 +179,7 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
     private void Update()
     {
         UpdateDoors();
+        UpdateCabSteering();
 
         switch (_state)
         {
@@ -160,12 +193,16 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
 
             case TruckState.EnteringYard:
                 if (DriveToward(_currentTarget))
-                    SetTarget(TruckState.Approaching, _dock.ApproachPoint);
+                    SetTargetCurved(TruckState.Approaching, _dock.ApproachPoint,
+                                    _dock.PullPastPoint - _dock.ApproachPoint);
                 break;
 
             case TruckState.Approaching:
                 if (DriveToward(_currentTarget))
-                    SetTarget(TruckState.PullingPast, _dock.PullPastPoint);
+                    // Arrive at the pull-past spot already pointing nose-out (dock heading),
+                    // so Align has nothing to spin and the reverse begins smoothly.
+                    SetTargetCurved(TruckState.PullingPast, _dock.PullPastPoint,
+                                    _dock.DockRotation * Vector3.forward);
                 break;
 
             case TruckState.PullingPast:
@@ -190,7 +227,11 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
                 {
                     _dock.Release();
                     if (_gateLeaveNoTurn.HasValue)
-                        SetTarget(TruckState.LeavingYard, _gateLeaveNoTurn.Value);
+                    {
+                        Vector3 afterGate = _exitWaypoint ?? _gateLeaveNoTurn.Value;
+                        SetTargetCurved(TruckState.LeavingYard, _gateLeaveNoTurn.Value,
+                                        afterGate - _gateLeaveNoTurn.Value);
+                    }
                     else
                         StartExiting();
                 }
@@ -208,6 +249,45 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
                 }
                 break;
         }
+    }
+
+    // ── Cab steering (articulated tractor) ────────────────────────────────────
+    //
+    // The cab pivots on Y at the hitch (its origin) so it leads into curves like a
+    // real tractor at the fifth wheel. The steer angle is driven by how fast the
+    // truck *body* is yawing this frame: tight curve → big crank, straight → 0.
+    // Works for the forward arc, the align spin, and the reverse-into-dock arc with
+    // no special-casing. Only ever writes local Y — X/Z come from the cab's rest
+    // pose every frame, so they can never drift.
+    private void UpdateCabSteering()
+    {
+        if (!articulateCab || _cab == null) return;
+
+        float curYaw = transform.eulerAngles.y;
+
+        // Defer the first sample so the spawn snap doesn't register as a yaw spike.
+        if (!_cabInit)
+        {
+            _prevYaw = curYaw;
+            _cabInit = true;
+            return;
+        }
+
+        float dt      = Mathf.Max(Time.deltaTime, 1e-4f);
+        float yawRate = Mathf.DeltaAngle(_prevYaw, curYaw) / dt;   // deg/sec, signed
+        _prevYaw      = curYaw;
+
+        // Reversing barely yaws the body and inverts the cab/trailer relationship,
+        // so it gets its own gain (usually higher) and an optional sign flip.
+        bool  reversing = _state == TruckState.Reversing;
+        float gain      = reversing ? reverseCabSteerGain : cabSteerGain;
+        float sign      = (reversing && invertCabSteerWhenReversing) ? -1f : 1f;
+
+        float steerTarget = Mathf.Clamp(yawRate * gain * sign, -maxCabSteer, maxCabSteer);
+        _cabYaw           = Mathf.MoveTowards(_cabYaw, steerTarget, cabSteerSlew * dt);
+
+        // Pure-Y crank applied on top of the cab's rest orientation.
+        _cab.localRotation = Quaternion.Euler(0f, _cabYaw, 0f) * _cabRest;
     }
 
     // ── Direct forward movement ───────────────────────────────────────────────
@@ -361,6 +441,28 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
     {
         _state         = next;
         _currentTarget = destination;
+        _useBezier     = false;   // straight leg — clear any leftover arc
+    }
+
+    /// <summary>
+    /// Drive a forward leg as a planned Bezier curve that arrives at <paramref name="destination"/>
+    /// already pointing along <paramref name="endForward"/> (the direction of the NEXT leg, or the
+    /// dock-facing direction). This is what lets the truck ease into corners and straighten out
+    /// instead of pivoting in place. Falls back to a straight leg if the look-ahead is degenerate.
+    /// </summary>
+    private void SetTargetCurved(TruckState next, Vector3 destination, Vector3 endForward)
+    {
+        _state         = next;
+        _currentTarget = destination;
+
+        endForward.y = 0f;
+        if (endForward.sqrMagnitude < 0.0001f)
+        {
+            _useBezier = false;   // nothing meaningful to aim at — just drive straight
+            return;
+        }
+
+        SetupBezierForward(destination, endForward.normalized, forwardDriveTension);
     }
 
     private void BeginGuardCheck()
@@ -394,7 +496,8 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
         if (_gateEnterNoTurn.HasValue)
             SetTarget(TruckState.EnteringYard, _gateEnterNoTurn.Value);
         else
-            SetTarget(TruckState.Approaching, _dock.ApproachPoint);
+            SetTargetCurved(TruckState.Approaching, _dock.ApproachPoint,
+                            _dock.PullPastPoint - _dock.ApproachPoint);
     }
 
     private void BeginAlign()
@@ -425,7 +528,11 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
     private void BeginDeparture()
     {
         _dock.LightController?.SetOccupied(false);
-        SetTarget(TruckState.DepartingDock, _dock.PullPastPoint);
+
+        // Pull out of the dock and curve toward wherever we leave through next.
+        Vector3 nextOut = _gateLeaveNoTurn ?? _exitWaypoint ?? _dock.PullPastPoint;
+        SetTargetCurved(TruckState.DepartingDock, _dock.PullPastPoint,
+                        nextOut - _dock.PullPastPoint);
     }
 
     private void OnDestroy()

@@ -184,6 +184,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2907001384155674544}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 943926545739967651}
   m_SourcePrefab: {fileID: 100100000, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
 --- !u!1 &5600343475338616855 stripped
 GameObject:
@@ -490,3 +493,33 @@ MonoBehaviour:
   fadeOutDuration: 2.5
   stuckSeconds: 5
   stuckMoveThreshold: 0.1
+--- !u!114 &943926545739967651
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5600343475338616855}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b8ec9990e5410424282b0f31f1eee3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TruckController
+  driveSpeed: 2.5
+  driveTurnSpeed: 75
+  arrivedThreshold: 0.5
+  alignTurnSpeed: 90
+  alignAngleTolerance: 2
+  reverseSpeed: 2
+  reverseArcTension: 0.75
+  trailerArticulationScale: 0.5
+  articulateCab: 1
+  cabChildName: Tractor
+  maxCabSteer: 45
+  cabSteerGain: 0.25
+  cabSteerSlew: 100
+  unloadDuration: 7
+  exitShrinkTime: 1
+  doorOpenSpeed: 150
+  _state: 0
+  forwardDriveTension: 0.8

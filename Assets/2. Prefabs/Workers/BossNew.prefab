@@ -130,6 +130,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 36eb9b75d0f74d44296bef5b402ce2a6, type: 3}
       insertIndex: -1
       addedObject: {fileID: 9000000000000002}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 36eb9b75d0f74d44296bef5b402ce2a6, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 383830739656603166}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 36eb9b75d0f74d44296bef5b402ce2a6, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3858106418844860063}
   m_SourcePrefab: {fileID: 100100000, guid: 36eb9b75d0f74d44296bef5b402ce2a6, type: 3}
 --- !u!1 &4160228961936110459 stripped
 GameObject:
@@ -327,16 +333,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13474f5c7c29e4d4f97a49ff0d7c4888, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
-  heightAboveHead: 2.5
-  markColor: {r: 0.723706, g: 0.7294118, b: 0.070588216, a: 0.8980392}
-  fontSize: 5
-  hoverAmplitude: 0.25
-  hoverSpeed: 1.5
-  yRotateDeg: 25
-  yRotateSpeed: 1
+  alertEmoteName: emote_exclamations
+  alertEmoteOverride: {fileID: 0}
   graceBeforeShow: 3
-  fadeInDuration: 1
-  fadeOutDuration: 0.5
   stuckSeconds: 5
   stuckMoveThreshold: 0.1
 --- !u!82 &-4568872167714680027
@@ -463,7 +462,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
-
 --- !u!114 &9000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -504,5 +502,57 @@ MonoBehaviour:
     skillLevel: 0
     avatarResourceKey: 
     jobIconResourceKey: 
+    status: 0
+    hourlyWage: 0
+    totalWagesPaid: 0
+    hireDateIso: 
+    separationDateIso: 
+    shift: 0
+    scheduledDaysMask: 0
+    isInjured: 0
+    injuryDescription: 
+    injuryRecoveryDaysLeft: 0
+    workSchedule:
+      shiftsPerDay: 03000000030000000300000003000000030000000300000003000000
+      overtimeDaysMask: 0
+      notes: 
+      effectiveDateIso: 
   _idPrefix: BOS
   _gender: 0
+  _avatarRenderer: {fileID: 0}
+--- !u!114 &383830739656603166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4160228961936110459}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38e9615d661e0f2469da34d31d394633, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmoteBubble
+  heightAboveHead: 2.5
+  bubbleScale: 1.2
+  bobAmplitude: 0.12
+  bobSpeed: 1.1
+  swayDegrees: 16
+  swaySpeed: 0.6
+  fadeInDuration: 0.35
+  fadeOutDuration: 0.5
+--- !u!114 &3858106418844860063
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4160228961936110459}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ce14bf3215a3614985512fa73766edd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AgentEmoteController
+  interval: 30
+  chance: 0.5
+  displayDuration: 4
+  emotes: []

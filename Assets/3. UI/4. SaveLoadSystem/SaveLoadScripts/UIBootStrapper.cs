@@ -13,6 +13,7 @@ public class UIBootstrapper : MonoBehaviour
     [SerializeField] private TopBarUI _topBarUI;
     [SerializeField] private WorldHoverPopupUI _hoverUI;
     [SerializeField] private EmployeeInfoUI _employeeInfoUI;
+    [SerializeField] private EmployeeListPanelController _employeeListController;
     [SerializeField] private SaveLoadSystem.SaveLoadWindowController _saveLoadController;
 
     [Header("Game Services")]
