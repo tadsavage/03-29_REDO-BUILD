@@ -17,7 +17,7 @@ public class TruckController : MonoBehaviour
         Idle,
         WaitingAtGate, GuardCheck,
         EnteringYard,
-        Approaching, PullingPast,
+        Approaching, Looping, PullingPast,
         Aligning, Reversing,
         Docked,
         DepartingDock,
@@ -193,20 +193,48 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
 
             case TruckState.EnteringYard:
                 if (DriveToward(_currentTarget))
-                    SetTargetCurved(TruckState.Approaching, _dock.ApproachPoint,
-                                    _dock.PullPastPoint - _dock.ApproachPoint);
+                {
+                    SetTarget(TruckState.Approaching, _dock.ApproachPoint);
+                }
                 break;
 
             case TruckState.Approaching:
+                {
+                    float distToApproach = Vector3.Distance(transform.position, _dock.ApproachPoint);
+                    if (distToApproach <= 4.0f)
+                    {
+                        BeginLoop();
+                    }
+                    else
+                    {
+                        DriveToward(_currentTarget);
+                    }
+                }
+                break;
+
+            case TruckState.Looping:
                 if (DriveToward(_currentTarget))
-                    // Arrive at the pull-past spot already pointing nose-out (dock heading),
-                    // so Align has nothing to spin and the reverse begins smoothly.
-                    SetTargetCurved(TruckState.PullingPast, _dock.PullPastPoint,
-                                    _dock.DockRotation * Vector3.forward);
+                {
+                    Vector3 ap = _dock.ApproachPoint;
+                    Vector3 pp = _dock.PullPastPoint;
+                    Vector3 dt = _dock.DockPosition;
+                    Vector3 fwd = _dock.DockRotation * Vector3.forward;
+
+                    Vector3 purpleLineDir = (pp - dt).normalized;
+                    Vector3 perpDir = Vector3.Cross(purpleLineDir, Vector3.up).normalized;
+                    if (Vector3.Dot(perpDir, fwd) < 0f)
+                    {
+                        perpDir = -perpDir;
+                    }
+
+                    Vector3 loopEndPoint = pp + perpDir * 2.5f;
+
+                    SetTargetCurved(TruckState.PullingPast, loopEndPoint, perpDir);
+                }
                 break;
 
             case TruckState.PullingPast:
-                if (DriveToward(_currentTarget)) BeginAlign();
+                if (DriveToward(_currentTarget)) BeginReverse();
                 break;
 
             case TruckState.Aligning:
@@ -498,6 +526,24 @@ Vector3? exitWaypoint, GuardController guard, System.Action onExited)
         else
             SetTargetCurved(TruckState.Approaching, _dock.ApproachPoint,
                             _dock.PullPastPoint - _dock.ApproachPoint);
+    }
+
+    private void BeginLoop()
+    {
+        _state = TruckState.Looping;
+
+        Vector3 ap = _dock.ApproachPoint;
+        Vector3 pp = _dock.PullPastPoint;
+        Vector3 fwd = _dock.DockRotation * Vector3.forward;
+        Vector3 sideDir = (pp - ap).normalized;
+
+        // Backside loop point: behind approach point, and slightly opposite to the pull-past side
+        Vector3 loopBackPoint = ap + fwd * 4.5f - sideDir * 2.0f;
+
+        // Target forward direction at the loop back point: diagonal towards the pull-past side
+        Vector3 loopBackForward = (sideDir + fwd * 0.5f).normalized;
+
+        SetTargetCurved(TruckState.Looping, loopBackPoint, loopBackForward);
     }
 
     private void BeginAlign()
