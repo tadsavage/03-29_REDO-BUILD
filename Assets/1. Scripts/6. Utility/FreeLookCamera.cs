@@ -246,4 +246,14 @@ public class FreeLookCamera : MonoBehaviour
 
         ApplyTransform();
     }
+
+    /// <summary>Recenter the camera's focal point on a world position (keeps current pitch/yaw/distance).
+    /// Clamps into the configured focal bounds.</summary>
+    public void FocusOn(Vector3 worldPosition)
+    {
+        _focalPoint.x = Mathf.Clamp(worldPosition.x, xMin, xMax);
+        _focalPoint.z = Mathf.Clamp(worldPosition.z, zMin, zMax);
+        _focalPoint.y = Mathf.Clamp(worldPosition.y, focalHeightMin, focalHeightMax);
+        ApplyTransform();
+    }
 }

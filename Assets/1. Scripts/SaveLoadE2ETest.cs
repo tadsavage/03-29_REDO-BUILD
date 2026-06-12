@@ -23,9 +23,14 @@ public class SaveLoadE2ETest : MonoBehaviour
 {
     private const string ResultPath = "Assets/_Saves/e2e_test_result.json";
 
+    [SerializeField] private bool autoRun = false;
+
     private void Start()
     {
-        StartCoroutine(RunTestGuarded());
+        if (autoRun)
+        {
+            StartCoroutine(RunTestGuarded());
+        }
     }
 
     // Wrapper that guarantees a result file is written even if RunTest throws.
