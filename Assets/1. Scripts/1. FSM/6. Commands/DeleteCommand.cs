@@ -45,8 +45,11 @@ public class DeleteCommand : ICommand
         _root = bd.RootCell;
         _offsets = bd.Offsets;
 
-        // If deleting a foundation, find any active floor tiles in its footprint.
-        // These floor tiles must be deleted with the foundation (golden rule exception).
+        // If deleting a foundation, find its OWN auto-spawned floor tiles in its footprint.
+        // These are deleted with the foundation (golden rule exception). The ground-plane
+        // yard tile is NOT deleted — it uses a different ObjDataSO than the foundation's
+        // defaultFloorTile, so matching that asset reliably excludes it. (Height can't be
+        // used: placing a foundation LIFTS the yard tile onto it, so both sit at Y>1.)
         if (IsGround(_data))
         {
             if (_offsets == null)
@@ -63,7 +66,9 @@ public class DeleteCommand : ICommand
                     if (objs == null) continue;
                     foreach (var entry in objs)
                     {
-                        if (entry.data != null && entry.data.isFloor && entry.instance != null && entry.instance.activeSelf)
+                        if (entry.data != null && _data.defaultFloorTile != null
+                            && entry.data == _data.defaultFloorTile
+                            && entry.instance != null && entry.instance.activeSelf)
                         {
                             if (seen.Add(entry.instance))
                                 _attachedFloors.Add(entry.instance);

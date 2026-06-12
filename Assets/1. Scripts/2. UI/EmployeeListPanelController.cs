@@ -1,5 +1,6 @@
 // METADATA file_path: Assets/1. Scripts/2. UI/EmployeeListPanelController.cs
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -68,6 +69,10 @@ public class EmployeeListPanelController : MonoBehaviour
     private EmployeeRecord _selectedRecord;
     private string _activeFilter = "all";
 
+    // Subscription guard
+    private bool _subscribed;
+    private Coroutine _subscribeRetry;
+
     // ─── Unity lifecycle ──────────────────────────────────────────────────────
     private void Awake()
     {
@@ -77,6 +82,11 @@ public class EmployeeListPanelController : MonoBehaviour
             return;
         }
         Instance = this;
+    }
+
+    private void OnDisable()
+    {
+        UnsubscribeFromRegistry();
     }
 
     private void OnEnable()
@@ -160,12 +170,8 @@ public class EmployeeListPanelController : MonoBehaviour
         _actionInjure?.RegisterCallback<ClickEvent>(_ => InjureSelected());
         _actionRecover?.RegisterCallback<ClickEvent>(_ => RecoverSelected());
 
-        // Subscribe to registry events for live updates
-        if (EmployeeRegistry.Instance != null)
-        {
-            EmployeeRegistry.Instance.OnEmployeeAdded += _ => RebuildList();
-            EmployeeRegistry.Instance.OnEmployeeRemoved += _ => RebuildList();
-        }
+        // Subscribe to registry events for live updates (lazy/retry)
+        TrySubscribeToRegistry();
 
         Close();
     }
@@ -177,6 +183,7 @@ public class EmployeeListPanelController : MonoBehaviour
         _overlay.style.display = DisplayStyle.Flex;
         _overlay.pickingMode = PickingMode.Position;
         _modal.pickingMode = PickingMode.Position;
+        TrySubscribeToRegistry(); // ensure subscription alive on open
         RebuildList();
     }
 
@@ -195,6 +202,61 @@ public class EmployeeListPanelController : MonoBehaviour
         else
             Open();
     }
+
+    // ─── Registry subscription (lazy/retry) ──────────────────────────────────
+    private void TrySubscribeToRegistry()
+    {
+        if (_subscribed) return;
+
+        var registry = EmployeeRegistry.Instance;
+        if (registry != null)
+        {
+            registry.OnEmployeeAdded   += OnRegistryChanged;
+            registry.OnEmployeeRemoved += OnRegistryChanged;
+            _subscribed = true;
+            if (_subscribeRetry != null)
+            {
+                StopCoroutine(_subscribeRetry);
+                _subscribeRetry = null;
+            }
+            return;
+        }
+
+        // Registry not spawned yet — start polling
+        if (_subscribeRetry == null)
+            _subscribeRetry = StartCoroutine(SubscribeRetryLoop());
+    }
+
+    private IEnumerator SubscribeRetryLoop()
+    {
+        var wait = new WaitForSeconds(0.25f);
+        while (!_subscribed)
+        {
+            yield return wait;
+            TrySubscribeToRegistry();
+        }
+    }
+
+    private void UnsubscribeFromRegistry()
+    {
+        if (_subscribeRetry != null)
+        {
+            StopCoroutine(_subscribeRetry);
+            _subscribeRetry = null;
+        }
+
+        if (!_subscribed) return;
+
+        var registry = EmployeeRegistry.Instance;
+        if (registry != null)
+        {
+            registry.OnEmployeeAdded   -= OnRegistryChanged;
+            registry.OnEmployeeRemoved -= OnRegistryChanged;
+        }
+        _subscribed = false;
+    }
+
+    private void OnRegistryChanged(EmployeeIdentity _) => RebuildList();
 
     // ─── List building ────────────────────────────────────────────────────────
     private void RebuildList()

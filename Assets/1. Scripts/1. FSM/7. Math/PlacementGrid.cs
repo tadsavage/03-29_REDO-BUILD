@@ -77,6 +77,17 @@ public class PlacementGrid : MonoBehaviour
         CellSize = Mathf.Max(0.01f, CellSize);
     }
 
+    /// <summary>
+    /// Allocates the grid backing storage only if it hasn't been already. Safe to call before
+    /// operating on the grid (e.g. yard-floor population) when a load may have failed/early-returned
+    /// and left _cells null. A no-op when the grid is already initialized, so existing data is kept.
+    /// </summary>
+    public void EnsureInitialized()
+    {
+        if (_cells == null)
+            InitializeGrid();
+    }
+
     public void InitializeGrid()
     {
         _cells = new List<PlacedObject>[Width, Height];

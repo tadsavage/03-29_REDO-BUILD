@@ -1,8 +1,8 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uxml="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/3.%20UI/1.TopHUD/HUD.uss?fileID=7433441132597879392&amp;guid=f34d0036cbe6d1343a7bb251134182cc&amp;type=3#HUD"/>
-    <Style src="project://database/Assets/3.%20UI/1.TopHUD/TopBar.uss?fileID=7433441132597879392&amp;guid=e177c4ab0f3cfdf4c87cdda0512c4745&amp;type=3#TopBar"/>
-    <Style src="project://database/Assets/3.%20UI/1.TopHUD/Toast.uss?fileID=7433441132597879392&amp;guid=d60103934d9a3cd4598fe59ca2afd524&amp;type=3#Toast"/>
-    <Style src="project://database/Assets/3.%20UI/4.PopupUIs/WorldHoverPopup.uss?fileID=7433441132597879392&amp;guid=e7f4862e76357b3469d9ad92258f0600&amp;type=3#WorldHoverPopup"/>
+    <Style src="project://database/Assets/3.%20UI/2.%20TopHUD/HUD.uss?fileID=7433441132597879392&amp;guid=f34d0036cbe6d1343a7bb251134182cc&amp;type=3#HUD"/>
+    <Style src="project://database/Assets/3.%20UI/2.%20TopHUD/TopBar.uss?fileID=7433441132597879392&amp;guid=e177c4ab0f3cfdf4c87cdda0512c4745&amp;type=3#TopBar"/>
+    <Style src="project://database/Assets/3.%20UI/2.%20TopHUD/Toast.uss?fileID=7433441132597879392&amp;guid=d60103934d9a3cd4598fe59ca2afd524&amp;type=3#Toast"/>
+    <Style src="project://database/Assets/3.%20UI/6.%20PopupUIs/WorldHoverPopup.uss?fileID=7433441132597879392&amp;guid=e7f4862e76357b3469d9ad92258f0600&amp;type=3#WorldHoverPopup"/>
     <Style src="project://database/Assets/3.%20UI/1.%20MainMenu/MainMenu.uss"/>
     
     <ui:VisualElement name="Root" picking-mode="Ignore" class="hud-root">
@@ -14,18 +14,7 @@
             <ui:VisualElement class="topbar-box"><ui:Label name="FPSLabel" class="topbar-time"/></ui:VisualElement>
             <ui:VisualElement class="topbar-box topbar-cell-box"><ui:Label name="CellLabel" class="topbar-time"/></ui:VisualElement>
             
-            <!-- Cleaned System Button Wrapper Panel Box -->
-            <ui:VisualElement class="topbar-box topbar-button-container" picking-mode="Position">
-                <ui:Button name="SaveButton" class="topbar-utility-btn">
-                    <ui:VisualElement name="SaveIcon" class="topbar-utility-icon save-icon" picking-mode="Ignore"/>
-                    <ui:Label text="Save" name="SaveLbl" class="topbar-utility-lbl" picking-mode="Ignore"/>
-                </ui:Button>
-                <ui:Button name="LoadButton" class="topbar-utility-btn">
-                    <ui:VisualElement name="LoadIcon" class="topbar-utility-icon load-icon" picking-mode="Ignore"/>
-                    <ui:Label text="Load" name="LoadLbl" class="topbar-utility-lbl" picking-mode="Ignore"/>
-                </ui:Button>
-                <ui:Button name="MainMenuButton" text="MENU (ESC)" class="topbar-utility-btn topbar-mainmenu-btn" picking-mode="Position"/>
-            </ui:VisualElement>
+            <ui:Button name="MainMenuButton" text="MENU (ESC)" class="topbar-box topbar-mainmenu-btn" picking-mode="Position"/>
         </ui:VisualElement>
 
         <ui:Label name="ToastLabel" text="Toast" picking-mode="Ignore" class="toast-label"/>
@@ -37,7 +26,8 @@
                 <ui:Button name="MenuMainMenuButton"  text="MAIN MENU"  class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
                 <ui:Button name="MenuSettingsButton"  text="SETTINGS"   class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
                 <ui:Button name="MenuSaveButton"      text="SAVE GAME"  class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
-                <ui:Button name="MenuResumeButton"    text="RESUME"     class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
+                <ui:Button name="MenuLoadButton"      text="LOAD GAME"  class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
+                <ui:Button name="MenuResumeButton"    text="RESUME GAME" class="menu-panel-btn menu-panel-btn-save"   picking-mode="Position"/>
                 <ui:Button name="MenuExitButton"      text="EXIT GAME"  class="menu-panel-btn menu-panel-btn-resume" picking-mode="Position"/>
             </ui:VisualElement>
         </ui:VisualElement>
@@ -96,8 +86,6 @@
 
         <!-- Employee Info Panel -->
         <ui:VisualElement name="employee-info-panel" picking-mode="Position" style="display: none; position: absolute; bottom: 130px; left: 16px; width: 300px; background-color: rgba(30, 38, 46, 0.98); border-top-width: 3px; border-right-width: 3px; border-bottom-width: 3px; border-left-width: 3px; border-top-color: rgb(92, 155, 196); border-right-color: rgb(92, 155, 196); border-bottom-color: rgb(92, 155, 196); border-left-color: rgb(92, 155, 196); border-radius: 16px; padding: 12px; flex-direction: column;">
-            <!-- Close button (upper-right, Windows-style) -->
-            <ui:Button name="employee-close-btn" text="✕" style="position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; background-color: rgb(200, 60, 60); color: rgb(255, 255, 255); font-size: 18px; -unity-font-style: bold; border-radius: 16px; border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; -unity-text-align: middle-center; padding: 0;"/>
             <!-- Header: job icon + name + id -->
             <ui:VisualElement style="flex-direction: row; align-items: center; margin-bottom: 10px; margin-top: 2px; margin-left: 0; margin-right: 0;">
                 <ui:VisualElement name="employee-job-icon" style="width: 52px; height: 52px; background-color: rgb(22, 28, 36); border-radius: 8px; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-top-color: rgb(92, 155, 196); border-right-color: rgb(92, 155, 196); border-bottom-color: rgb(92, 155, 196); border-left-color: rgb(92, 155, 196); margin-right: 10px; flex-shrink: 0; -unity-background-scale-mode: scale-to-fit;"/>
@@ -151,6 +139,8 @@
                 <!-- Skill Level -->
                 <ui:Label name="skill-level" text="LVL 3" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;); font-size: 22px; color: rgb(150, 190, 220); -unity-text-align: middle-center; margin-top: 6px;"/>
             </ui:VisualElement>
+            <!-- Close button (last child — renders on top of everything) -->
+            <ui:Button name="employee-close-btn" text="✕" style="position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; background-color: rgb(200, 60, 60); color: rgb(255, 255, 255); font-size: 18px; -unity-font-style: bold; border-radius: 16px; border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; -unity-text-align: middle-center; padding: 0;"/>
         </ui:VisualElement>
 
     </ui:VisualElement>

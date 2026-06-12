@@ -153,7 +153,31 @@ public class RaycastController : MonoBehaviour
         // 2. Object raycast (now uses dynamic filter mask to ignore lowered walls!)
         // ---------------------------------------------------------
         if (Physics.Raycast(ray, out RaycastHit objHit, 500f, dynamicObjectMask))
-            HitObject = objHit.collider.gameObject;
+        {
+            var hitGO = objHit.collider.gameObject;
+            // If we hit a parent collider (like "Foundations"), query the grid to get the actual object
+            if (hitGO.GetComponent<BuildingData>() == null && hitGO.name == "Foundations")
+            {
+                var cellObjs = _grid.GetObjectsInCell(HitCell);
+                if (cellObjs != null && cellObjs.Count > 0)
+                {
+                    // Return topmost object (skip floor tiles)
+                    for (int i = cellObjs.Count - 1; i >= 0; i--)
+                    {
+                        if (cellObjs[i].data != null && !cellObjs[i].data.isFloor && cellObjs[i].instance != null)
+                        {
+                            HitObject = cellObjs[i].instance;
+                            return;
+                        }
+                    }
+                }
+                HitObject = null;
+            }
+            else
+            {
+                HitObject = hitGO;
+            }
+        }
         else
             HitObject = null;
 

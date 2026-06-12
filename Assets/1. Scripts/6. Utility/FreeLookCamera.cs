@@ -2,15 +2,20 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
-/// RTS/simulation orbital camera.
-/// WASD/Arrows  — pan focal point on XZ plane (camera Y never changes)
-/// Q / E        — raise / lower camera world Y (clamped by minHeight / maxHeight)
-/// Shift        — 3x speed for all movement and zoom
-/// Right Mouse  — hold + drag to orbit (yaw and pitch)
-/// Scroll Wheel — zoom in / out (changes camera world Y via orbital distance)
-/// LMB + RMB    — move forward on XZ only
+/// RTS/simulation orbital camera. The focal point is ALWAYS centered on screen — the camera is
+/// positioned on an orbit around it and looks straight at it. The three controls are fully
+/// decoupled so none of them disturbs the others:
 ///
-/// Both scroll and Q/E clamp transform.position.y to [minHeight, maxHeight].
+/// WASD / Arrows — pan the focal point on the XZ plane (relative to current yaw)
+/// E / Q         — raise / lower the whole rig (moves the focal point's Y; camera follows)
+/// Right Mouse   — hold + drag to orbit (yaw = drag X, pitch = drag Y)
+/// Scroll Wheel  — zoom in / out (changes orbit distance only)
+/// Shift         — 3x speed for movement and zoom
+/// LMB + RMB     — move forward on XZ only
+///
+/// Distance is controlled ONLY by zoom, pitch/yaw ONLY by orbit, focal point ONLY by pan/QE.
+/// Nothing rewrites distance behind the user's back, so orbiting never dollies and panning
+/// never creeps. Camera world height is just a natural consequence of distance + pitch.
 public class FreeLookCamera : MonoBehaviour
 {
     [SerializeField] private BuildMenuUI buildMenuUI;
@@ -26,16 +31,22 @@ public class FreeLookCamera : MonoBehaviour
     [SerializeField] private float zoomSpeed = 4f;
 
     [Header("Pitch (Tilt) Limits")]
-    [SerializeField] private float pitchMin      = 15f;
-    [SerializeField] private float pitchMax      = 80f;
-    [SerializeField] private float defaultPitch  = 45f;
+    [SerializeField] private float pitchMin       = 15f;
+    [SerializeField] private float pitchMax       = 80f;
+    [SerializeField] private float defaultPitch   = 45f;
+
+    [Header("Zoom Distance Bounds  (orbit radius)")]
+    [Tooltip("Closest the camera can zoom toward the focal point.")]
+    [SerializeField] private float minDistance     = 4f;
+    [Tooltip("Farthest the camera can zoom out from the focal point.")]
+    [SerializeField] private float maxDistance     = 45f;
     [SerializeField] private float defaultDistance = 15f;
 
-    [Header("Height / Zoom Bounds  (camera world Y)")]
-    [Tooltip("Minimum camera world Y — floor for both scroll-zoom and Q/E.")]
-    [SerializeField] private float minHeight = 1.5f;
-    [Tooltip("Maximum camera world Y — ceiling for both scroll-zoom and Q/E.")]
-    [SerializeField] private float maxHeight = 25f;
+    [Header("Focal Height Bounds  (E/Q vertical range)")]
+    [Tooltip("Lowest the focal point can go (0 = ground level).")]
+    [SerializeField] private float focalHeightMin = 0f;
+    [Tooltip("Highest the focal point can be raised with E.")]
+    [SerializeField] private float focalHeightMax = 20f;
 
     [Header("Focal Point XZ Bounds")]
     [SerializeField] private float xMin = -18f;
@@ -52,10 +63,14 @@ public class FreeLookCamera : MonoBehaviour
 
     private void Awake()
     {
-        if (minHeight >= maxHeight) { minHeight = 1.5f; maxHeight = 25f; Debug.LogWarning("[FreeLookCamera] minHeight/maxHeight invalid — reset to defaults."); }
-        if (xMin >= xMax)           { xMin = -18f; xMax = 18f;           Debug.LogWarning("[FreeLookCamera] xMin/xMax invalid — reset to defaults."); }
-        if (zMin >= zMax)           { zMin =  -8f; zMax = 18f;           Debug.LogWarning("[FreeLookCamera] zMin/zMax invalid — reset to defaults."); }
-        if (pitchMin >= pitchMax)   { pitchMin = 15f; pitchMax = 80f;    Debug.LogWarning("[FreeLookCamera] pitchMin/pitchMax invalid — reset to defaults."); }
+        if (minDistance >= maxDistance)   { minDistance = 4f;  maxDistance = 45f;    Debug.LogWarning("[FreeLookCamera] minDistance/maxDistance invalid — reset to defaults."); }
+        if (focalHeightMin >= focalHeightMax) { focalHeightMin = 0f; focalHeightMax = 20f; Debug.LogWarning("[FreeLookCamera] focalHeightMin/Max invalid — reset to defaults."); }
+        if (xMin >= xMax)                 { xMin = -18f; xMax = 18f;                 Debug.LogWarning("[FreeLookCamera] xMin/xMax invalid — reset to defaults."); }
+        if (zMin >= zMax)                 { zMin =  -8f; zMax = 18f;                 Debug.LogWarning("[FreeLookCamera] zMin/zMax invalid — reset to defaults."); }
+        if (pitchMin >= pitchMax)         { pitchMin = 15f; pitchMax = 80f;          Debug.LogWarning("[FreeLookCamera] pitchMin/pitchMax invalid — reset to defaults."); }
+
+        defaultDistance = Mathf.Clamp(defaultDistance, minDistance, maxDistance);
+        defaultPitch    = Mathf.Clamp(defaultPitch, pitchMin, pitchMax);
     }
 
     private void Start()
@@ -63,24 +78,29 @@ public class FreeLookCamera : MonoBehaviour
         if (_stateLoadedFromSave) { ApplyTransform(); return; }
 
         _yaw   = transform.eulerAngles.y;
-        _pitch = Mathf.Clamp(transform.eulerAngles.x, pitchMin, pitchMax);
+        _pitch = Mathf.Clamp(NormalizePitch(transform.eulerAngles.x), pitchMin, pitchMax);
 
+        // Project the camera's forward onto the ground plane (y = focalHeightMin) to find the
+        // point it's currently looking at — that becomes the focal point.
         float dy = transform.forward.y;
-        if (Mathf.Abs(dy) > 0.001f)
+        if (dy < -0.001f)
         {
-            float t = -transform.position.y / dy;
+            float t = (transform.position.y - focalHeightMin) / -dy;
             _focalPoint = transform.position + transform.forward * Mathf.Max(t, 0f);
         }
         else
         {
-            _focalPoint = transform.position + transform.forward * defaultDistance;
+            // Camera isn't looking downward — fall back to a default look-at in front of it.
+            var rot = Quaternion.Euler(_pitch, _yaw, 0f);
+            _focalPoint = transform.position + rot * Vector3.forward * defaultDistance;
         }
 
-        _distance = Vector3.Distance(transform.position, _focalPoint);
-        if (_distance < 0.5f) _distance = defaultDistance;
-        if (_pitch    < 1f)   _pitch    = defaultPitch;
+        _focalPoint.x = Mathf.Clamp(_focalPoint.x, xMin, xMax);
+        _focalPoint.z = Mathf.Clamp(_focalPoint.z, zMin, zMax);
+        _focalPoint.y = Mathf.Clamp(_focalPoint.y, focalHeightMin, focalHeightMax);
 
-        EnforceYBounds();
+        _distance = Mathf.Clamp(Vector3.Distance(transform.position, _focalPoint), minDistance, maxDistance);
+
         ApplyTransform();
     }
 
@@ -128,26 +148,22 @@ public class FreeLookCamera : MonoBehaviour
 
         if (delta.sqrMagnitude > 0.01f)
         {
-            // XZ only — Y must never change from WASD or LMB+RMB
+            // XZ only — vertical movement is Q/E's job, never WASD's.
             var move = delta.normalized * (speed * Time.deltaTime);
             _focalPoint.x += move.x;
             _focalPoint.z += move.z;
         }
 
-        // Q/E raise/lower camera world Y by shifting the focal point vertically.
-        // Clamp focal Y so camera world Y (= focalY + sin(pitch)*distance) stays in [minHeight, maxHeight].
-        if (Keyboard.current[Key.Q].isPressed)
-            _focalPoint.y += speed * Time.deltaTime;
+        // Q/E raise/lower the rig by moving the focal point's Y. The camera follows on its orbit,
+        // so the focal point stays centered while the whole view rises/falls.
         if (Keyboard.current[Key.E].isPressed)
+            _focalPoint.y += speed * Time.deltaTime;
+        if (Keyboard.current[Key.Q].isPressed)
             _focalPoint.y -= speed * Time.deltaTime;
-
-        float sinP = Mathf.Sin(_pitch * Mathf.Deg2Rad);
-        _focalPoint.y = Mathf.Clamp(_focalPoint.y,
-            minHeight - sinP * _distance,
-            maxHeight - sinP * _distance);
 
         _focalPoint.x = Mathf.Clamp(_focalPoint.x, xMin, xMax);
         _focalPoint.z = Mathf.Clamp(_focalPoint.z, zMin, zMax);
+        _focalPoint.y = Mathf.Clamp(_focalPoint.y, focalHeightMin, focalHeightMax);
     }
 
     private void ProcessOrbit(bool overUI)
@@ -163,7 +179,7 @@ public class FreeLookCamera : MonoBehaviour
             Cursor.visible = true;
         }
 
-        // LMB+RMB together = forward movement; suppress orbit so both don't fire at once
+        // LMB+RMB together = forward movement; suppress orbit so both don't fire at once.
         if (!_orbiting || Mouse.current.leftButton.isPressed) return;
 
         Vector2 delta = Mouse.current.delta.ReadValue();
@@ -178,46 +194,25 @@ public class FreeLookCamera : MonoBehaviour
         float scroll = Mouse.current.scroll.ReadValue().y;
         if (Mathf.Abs(scroll) < 0.001f) return;
 
-        // Scroll up = zoom in = reduce distance (camera moves down/forward along orbital arc)
+        // Scroll up = zoom in = reduce orbit distance. Distance is the ONLY thing zoom touches.
         _distance -= Mathf.Sign(scroll) * speed;
-
-        // Clamp distance so camera world Y (= focalY + sin(pitch)*distance) stays in [minHeight, maxHeight]
-        float sinP = Mathf.Sin(_pitch * Mathf.Deg2Rad);
-        if (sinP > 0.001f)
-        {
-            float dMin = (minHeight - _focalPoint.y) / sinP;
-            float dMax = (maxHeight - _focalPoint.y) / sinP;
-            _distance  = Mathf.Clamp(_distance, Mathf.Max(0.1f, dMin), Mathf.Max(0.1f, dMax));
-        }
-        else
-        {
-            _distance = Mathf.Clamp(_distance, 0.1f, maxHeight);
-        }
-    }
-
-    // Corrects _distance so camera world Y stays in [minHeight, maxHeight].
-    // Catches any path (orbit pitch change, save load) that bypasses per-input clamping.
-    private void EnforceYBounds()
-    {
-        float sinP = Mathf.Sin(_pitch * Mathf.Deg2Rad);
-        if (sinP < 0.001f) return;
-
-        float cameraY = _focalPoint.y + sinP * _distance;
-        if (cameraY > maxHeight)
-            _distance = (maxHeight - _focalPoint.y) / sinP;
-        else if (cameraY < minHeight)
-            _distance = Mathf.Max(0.1f, (minHeight - _focalPoint.y) / sinP);
+        _distance  = Mathf.Clamp(_distance, minDistance, maxDistance);
     }
 
     private void ApplyTransform()
     {
-        // Safety clamp every frame — catches Y drift from orbit (pitch change) or any other path
-        EnforceYBounds();
-
+        // Pure orbital placement: sit on the orbit around the focal point and look straight at it.
+        // This is what guarantees the focal point is always dead-center on screen.
         var rot = Quaternion.Euler(_pitch, _yaw, 0f);
         transform.SetPositionAndRotation(
             _focalPoint + rot * (Vector3.back * _distance),
             rot);
+    }
+
+    private static float NormalizePitch(float eulerX)
+    {
+        // Euler X comes back in [0,360); convert the >180 range to negative so the clamp behaves.
+        return eulerX > 180f ? eulerX - 360f : eulerX;
     }
 
     private bool IsPointerOverUI()
@@ -242,13 +237,13 @@ public class FreeLookCamera : MonoBehaviour
         var fp = state.focusPoint;
         fp.x = Mathf.Clamp(fp.x, xMin, xMax);
         fp.z = Mathf.Clamp(fp.z, zMin, zMax);
-        fp.y = Mathf.Min(fp.y, maxHeight); // EnforceYBounds in ApplyTransform handles the rest
+        fp.y = Mathf.Clamp(fp.y, focalHeightMin, focalHeightMax);
 
         _focalPoint = fp;
         _pitch      = Mathf.Clamp(state.pitch, pitchMin, pitchMax);
         _yaw        = state.yaw;
-        _distance   = state.distance > 0.1f ? state.distance : defaultDistance;
+        _distance   = Mathf.Clamp(state.distance > 0.1f ? state.distance : defaultDistance, minDistance, maxDistance);
 
-        ApplyTransform(); // includes EnforceYBounds
+        ApplyTransform();
     }
 }

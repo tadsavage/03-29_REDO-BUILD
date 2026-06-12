@@ -90,8 +90,6 @@ namespace SaveLoadSystem
             root.RegisterCallback<PointerDownEvent>(
                 OnRootPointerDown, TrickleDown.TrickleDown);
 
-            root.RegisterCallback<KeyDownEvent>(OnKeyDown);
-
             confirmYesButton.RegisterCallback<ClickEvent>(OnConfirmYesClicked);
             confirmNoButton.RegisterCallback<ClickEvent>(OnConfirmNoClicked);
 
@@ -109,7 +107,6 @@ namespace SaveLoadSystem
 
             root.UnregisterCallback<PointerDownEvent>(
                 OnRootPointerDown, TrickleDown.TrickleDown);
-            root.UnregisterCallback<KeyDownEvent>(OnKeyDown);
             confirmYesButton.UnregisterCallback<ClickEvent>(OnConfirmYesClicked);
             confirmNoButton.UnregisterCallback<ClickEvent>(OnConfirmNoClicked);
 
@@ -172,16 +169,6 @@ namespace SaveLoadSystem
 
 
             // ========== EVENT HANDLERS ==========
-
-        
-        private void OnKeyDown(KeyDownEvent evt)
-        {
-            if (evt.keyCode == KeyCode.Escape && isOpen)
-            {
-                Close();
-                evt.StopPropagation();
-            }
-        }
 
         private void OnConfirmYesClicked(ClickEvent evt)
         {
@@ -429,6 +416,17 @@ namespace SaveLoadSystem
                         SaveManager.Instance.LoadFromSlot(idx);
                         Close();
                     };
+
+                    // QoL: clicking anywhere on the slot row (except the delete/load
+                    // buttons, which already have their own handlers) loads it.
+                    slotRoot.RegisterCallback<ClickEvent>(evt =>
+                    {
+                        var target = evt.target as VisualElement;
+                        if (IsDescendantOrSelf(target, deleteBtn)) return;
+                        if (IsDescendantOrSelf(target, actionBtn)) return;
+                        SaveManager.Instance.LoadFromSlot(idx);
+                        Close();
+                    });
                 }
                 actionBtn.SetEnabled(true);
 
@@ -471,6 +469,15 @@ namespace SaveLoadSystem
             SetConfirmVisible(false);
             pendingActionSlot = -1;
             pendingOverwriteName = null;
+        }
+
+        // ========== HELPERS ==========
+
+        private static bool IsDescendantOrSelf(VisualElement element, VisualElement ancestor)
+        {
+            for (var el = element; el != null; el = el.parent)
+                if (el == ancestor) return true;
+            return false;
         }
 
         // ========== CLEANUP ==========

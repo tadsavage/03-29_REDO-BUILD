@@ -65,6 +65,16 @@ public class MoveState : IPlacementState
 
     private BuildingHighlighter _hoveredHighlighter;
 
+    // Floor tiles that travel with the foundation
+    private struct RiderTile
+    {
+        public GameObject go;
+        public ObjDataSO data;
+        public Vector2Int cell;
+        public Vector2Int localOffset; // cell - root
+    }
+    private readonly List<RiderTile> _riders = new();
+
     public bool IsPlacementState => true;
 public string ObjectName => _obj != null ? _obj.name : "None";
 
@@ -131,7 +141,7 @@ public string ObjectName => _obj != null ? _obj.name : "None";
         if (_obj != null)
 {
             _preview.ClearFlatHighlight(_obj);
-            
+
             // If we still have a selection, it means the move wasn't confirmed.
             // We should put it back.
             if (_hasSelection)
@@ -140,6 +150,14 @@ public string ObjectName => _obj != null ? _obj.name : "None";
                 foreach (var o in _offsets)
                 {
                     _grid.AddStackObject(_originalRoot + o, _obj, _data);
+                }
+
+                // Put rider tiles back where they came from
+                foreach (var rider in _riders)
+                {
+                    if (rider.go == null) continue;
+                    rider.go.SetActive(true);
+                    _grid.AddStackObject(rider.cell, rider.go, rider.data);
                 }
             }
         }
@@ -151,6 +169,7 @@ public string ObjectName => _obj != null ? _obj.name : "None";
         _rotation = 0f;
         _originalRoot = default;
         _hasSelection = false;
+        _riders.Clear();
 
         _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
         _actions.BuildPlacement.Place.performed -= OnConfirmMove;
@@ -204,13 +223,55 @@ public string ObjectName => _obj != null ? _obj.name : "None";
         _selectionDelta = _clickedCell - _originAtSelect;
 
         Vector3 lastWorldPos = _obj.transform.position;
+        float foundationY = _obj.transform.position.y;
 
-        // REMOVE from grid FIRST so SnapTo calculates the correct baseline height 
+        // REMOVE from grid FIRST so SnapTo calculates the correct baseline height
         // (now that the slot it was occupying is 'empty')
         foreach (var o in _offsets)
         {
             Vector2Int cell = _originalRoot + o;
             _grid.RemoveStackObject(cell, _obj, _data);
+        }
+
+        // Pick up any floor tiles ABOVE the foundation (Y > foundation.Y).
+        // Yard tiles below stay in place.
+        GatherRiderTiles(foundationY);
+
+        // Reveal underlying yard tiles (or other hidden floor tiles) under the picked up foundation
+        if (_data != null && (_data.category == "Foundation" || _data.category == "Grounds"))
+        {
+            foreach (var o in _offsets)
+            {
+                Vector2Int cell = _originalRoot + o;
+                var cellObjs = _grid.GetObjectsInCell(cell);
+                if (cellObjs != null)
+                {
+                    foreach (var entry in cellObjs)
+                    {
+                        if (entry.data != null && entry.data.isFloor)
+                        {
+                            if (entry.instance != null && !entry.instance.activeSelf)
+                            {
+                                // Check if this is one of our rider tiles (we shouldn't enable it because it's disabled for movement)
+                                bool isRider = false;
+                                foreach (var r in _riders)
+                                {
+                                    if (r.go == entry.instance)
+                                    {
+                                        isRider = true;
+                                        break;
+                                    }
+                                }
+                                if (!isRider)
+                                {
+                                    entry.instance.SetActive(true);
+                                }
+                            }
+                        }
+                    }
+                }
+                _grid.UpdateStackPositions(cell);
+            }
         }
 
         // Highlight + show ghost
@@ -341,7 +402,29 @@ Vector2Int newRoot = hitCell - _selectionDelta;
 
         _preview.ClearFlatHighlight(_obj);
 
-        // Push undo/redo command
+        // Build rider list for the command with proper offsets
+        var riderList = new List<MoveCommand.RiderObject>();
+        foreach (var rider in _riders)
+        {
+            if (rider.go != null)
+            {
+                // Find the new local offset by looking up the old offset in the old footprint
+                Vector2Int newLocal = rider.localOffset;
+                int idx = System.Array.IndexOf(_originalOffsets, rider.localOffset);
+                if (idx >= 0 && idx < _offsets.Length)
+                    newLocal = _offsets[idx];
+
+                riderList.Add(new MoveCommand.RiderObject
+                {
+                    instance = rider.go,
+                    data = rider.data,
+                    oldLocal = rider.localOffset,
+                    newLocal = newLocal
+                });
+            }
+        }
+
+        // Push undo/redo command with riders
         _fsm.History.Push(
             new MoveCommand(
                 _grid,
@@ -353,7 +436,8 @@ Vector2Int newRoot = hitCell - _selectionDelta;
                 _offsets,
                 _originalRotation,
                 _rotation,
-                _money
+                _money,
+                riderList
             )
         );
 
@@ -366,6 +450,7 @@ Vector2Int newRoot = hitCell - _selectionDelta;
         _rotation = 0f;
         _originalRoot = default;
         _hasSelection = false;
+        _riders.Clear();
 
         _indicator.ClearAll();
     }
@@ -434,6 +519,41 @@ Vector2Int newRoot = hitCell - _selectionDelta;
                     _hoveredHighlighter.HighlightValid(true);
                 else
                     _hoveredHighlighter.HighlightInvalid(true);
+            }
+        }
+    }
+
+    private void GatherRiderTiles(float foundationY)
+    {
+        _riders.Clear();
+
+        foreach (var o in _originalOffsets)
+        {
+            Vector2Int cell = _originalRoot + o;
+            var list = _grid.GetObjectsInCell(cell);
+            if (list == null) continue;
+
+            foreach (var entry in list.ToArray())
+            {
+                if (entry.data == null || !entry.data.isFloor) continue;
+                if (entry.instance == null || !entry.instance.activeSelf) continue;
+
+                // Never pick up the yard tile (ID 200)
+                if (entry.data.id == 200) continue;
+
+                // Only pick up floors that are ABOVE the foundation
+                if (entry.instance.transform.position.y > foundationY)
+                {
+                    _riders.Add(new RiderTile
+                    {
+                        go = entry.instance,
+                        data = entry.data,
+                        cell = cell,
+                        localOffset = cell - _originalRoot
+                    });
+                    _grid.RemoveStackObject(cell, entry.instance, entry.data);
+                    entry.instance.SetActive(false);
+                }
             }
         }
     }

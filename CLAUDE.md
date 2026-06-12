@@ -177,6 +177,26 @@ Core logistics loop:
 - Fill outgoing orders from stock
 - Stockouts, overstocking, and supplier delays create pressure
 
+### Performance Optimizations (2026-06-11)
+
+**Collider Architecture — Parent Colliders Instead of Per-Object**
+
+Analyzed raycast system and discovered that individual Box Colliders on every placed object (floor tiles, foundations) causes massive performance overhead. Solution: one **parent collider per category**.
+
+**Why This Works:**
+- `RaycastController` performs two passes: ground raycast (gets grid cell) + object raycast (gets clicked object)
+- The object raycast only needs to HIT something — it doesn't care if it's 1 collider or 3600
+- Move/Delete logic identifies the exact object via BuildingData/PlacedObject components, not the collider itself
+
+**Implementation:**
+- **Floors:** Removed Box Colliders from FloorTile prefab. Added one large Box Collider to parent Ground GameObject. ✅ Complete, tested working.
+- **Foundations:** Removing individual Box Colliders and adding one large Box Collider to parent Foundations GameObject. ⏳ In progress.
+- **Walls:** Same pattern (TBD).
+
+**Performance Gain:** 3600+ individual colliders → 1 parent collider per category. Ground optimization alone yielded +200 FPS. Foundations should see similar improvement.
+
+**Code Impact:** Placement system needs to automatically parent placed objects to their category parent (Ground, Foundations, Walls) so the raycast hits the correct parent collider.
+
 ---
 
 ## TODO

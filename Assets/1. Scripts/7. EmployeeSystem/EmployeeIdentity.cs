@@ -42,7 +42,7 @@ public class EmployeeIdentity : MonoBehaviour
             return;
 
         // NOTE: Unity always deserializes a [SerializeField] of a [Serializable] class
-        // as a NON-null instance (with empty fields) — so checking `_record == null` is
+        // as a NON-null instance (with empty fields) â€” so checking `_record == null` is
         // not enough. A freshly-serialized prefab has an empty record, which must still
         // trigger generation, otherwise the ID badge shows a blank name.
         if (IsRecordEmpty(_record))

@@ -1,5 +1,5 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uxml="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False" name="TopBar">
-    <Style src="project://database/Assets/3.%20UI/1.TopHUD/TopBar.uss?fileID=7433441132597879392&amp;guid=e177c4ab0f3cfdf4c87cdda0512c4745&amp;type=3#TopBar"/>
+    <Style src="project://database/Assets/3.%20UI/2.%20TopHUD/TopBar.uss?fileID=7433441132597879392&amp;guid=e177c4ab0f3cfdf4c87cdda0512c4745&amp;type=3#TopBar"/>
     <ui:VisualElement name="TopBar" picking-mode="Position" class="topbar-root">
         <ui:VisualElement class="topbar-box">
             <ui:Label name="MoneyLabel" class="topbar-money"/>
@@ -19,16 +19,6 @@
         <ui:VisualElement class="topbar-box">
             <ui:Label name="CellLabel" class="topbar-cell" text="Cell: (0,0)" />
         </ui:VisualElement>
-        <ui:VisualElement class="topbar-box topbar-button-container">
-            <ui:Button name="SaveButton" class="topbar-icon-button">
-                <ui:VisualElement name="SaveIcon" class="topbar-icon save-icon" />
-                <ui:Label text="Save" class="topbar-button-label" />
-            </ui:Button>
-            <ui:Button name="LoadButton" class="topbar-icon-button">
-                <ui:VisualElement name="LoadIcon" class="topbar-icon load-icon" />
-                <ui:Label text="Load" class="topbar-button-label" />
-            </ui:Button>
-        </ui:VisualElement>
-        <ui:Button name="MainMenuButton" text="Main Menu" class="topbar-mainmenu-btn"/>
+        <ui:Button name="MainMenuButton" text="MENU (ESC)" class="topbar-box topbar-mainmenu-btn" picking-mode="Position"/>
     </ui:VisualElement>
 </ui:UXML>

@@ -43,8 +43,8 @@ public class PlacementFinalizer : MonoBehaviour
         if (IsGround(data))
         {
             DisableExistingGrounds(root, offsets, disabledObjects);
-            // Foundations also displace yard floor tiles sitting in the same cells
-            DisableExistingFloors(root, offsets, disabledObjects);
+            // NOTE: Yard tiles are part of the static ground plane and are always visible.
+            // Foundations sit visually on top of them, so no need to disable them.
         }
 
         // --- FLOOR REPLACEMENT LOGIC ---
@@ -80,6 +80,18 @@ public class PlacementFinalizer : MonoBehaviour
 
         GameObject instance = Instantiate(data.prefab, pos, Quaternion.Euler(0f, rotation, 0f));
         instance.name = data.objName;
+
+        // Parent Foundations to a shared parent GameObject (performance optimization: one parent collider for all)
+        if (data.category == "Foundation")
+        {
+            GameObject foundationsParent = GameObject.Find("Foundations");
+            if (foundationsParent == null)
+            {
+                foundationsParent = new GameObject("Foundations");
+                foundationsParent.SetActive(true);
+            }
+            instance.transform.SetParent(foundationsParent.transform);
+        }
 
         // For freshly placed NavMesh agents: set transform position directly — don't
         // call Warp because the NavMesh may not be baked yet at this moment.
@@ -225,6 +237,10 @@ public class PlacementFinalizer : MonoBehaviour
                 if (entry.instance == null)
                     continue;
 
+                // NOTE: This path runs only for floor-over-floor REPLACEMENT (e.g. a
+                // pedestrian/MHE tile replacing a yard tile). Disabling the old tile here
+                // is correct — replacement is allowed by the golden rule. Foundations no
+                // longer call this method, so yard tiles are never disabled by a foundation.
                 if (entry.instance.activeSelf)
                 {
                     entry.instance.SetActive(false);

@@ -19,7 +19,7 @@ public class EmployeeSpawner : MonoBehaviour
 
     // ─── Auto-spawn (testing) ─────────────────────────────────────────────────
     [Header("Auto-Spawn (Testing)")]
-    [SerializeField] private bool _autoSpawnOnStart = true;
+    [SerializeField] private bool _autoSpawnOnStart = false;
     [SerializeField] private int _autoSpawnCount = 5;
 
     [Header("Spawn Point")]

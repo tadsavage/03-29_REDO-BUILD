@@ -27,17 +27,32 @@ public class MoveCommand : ICommand
     }
     private readonly List<ReplacedData> _replaced = new();
 
+    /// <summary>
+    /// A floor tile that rides along with a foundation move. Its cell is expressed as a local
+    /// offset from the foundation root, captured both before (oldLocal) and after (newLocal) any
+    /// rotation, so the tile lands on the correct footprint cell when the slab is moved/rotated.
+    /// </summary>
+    public struct RiderObject
+    {
+        public GameObject instance;
+        public ObjDataSO data;
+        public Vector2Int oldLocal;
+        public Vector2Int newLocal;
+    }
+    private readonly List<RiderObject> _riders;
+
     public MoveCommand(
-        PlacementGrid grid, 
-        GameObject obj, 
-        ObjDataSO data, 
-        Vector2Int oldRoot, 
-        Vector2Int newRoot, 
-        Vector2Int[] oldOffsets, 
-        Vector2Int[] newOffsets, 
-        float oldRotation, 
+        PlacementGrid grid,
+        GameObject obj,
+        ObjDataSO data,
+        Vector2Int oldRoot,
+        Vector2Int newRoot,
+        Vector2Int[] oldOffsets,
+        Vector2Int[] newOffsets,
+        float oldRotation,
         float newRotation,
-        MoneyService money)
+        MoneyService money,
+        List<RiderObject> riders = null)
     {
         _grid = grid;
         _instance = obj;
@@ -49,6 +64,7 @@ public class MoveCommand : ICommand
         _oldRotation = oldRotation;
         _newRotation = newRotation;
         _money = money;
+        _riders = riders ?? new List<RiderObject>();
     }
 
     public void Execute()
@@ -57,11 +73,13 @@ public class MoveCommand : ICommand
             HandleReplacement(_newRoot, _newOffsets);
 
         Move(_oldRoot, _newRoot, _oldOffsets, _newOffsets, _newRotation);
+        MoveRiders(forward: true);
     }
 
     public void Undo()
     {
         Move(_newRoot, _oldRoot, _newOffsets, _oldOffsets, _oldRotation);
+        MoveRiders(forward: false);
 
         if (_replaced.Count > 0)
             RestoreReplaced();
@@ -131,6 +149,106 @@ public class MoveCommand : ICommand
         }
     }
 
+    /// <summary>
+    /// Relocates the foundation's floor tiles in lockstep with the slab.
+    /// forward = the slab moved old→new; !forward = an undo moving new→old.
+    /// Floor tiles are 1×1, never rotate, and always sit directly on the foundation.
+    /// </summary>
+    private void MoveRiders(bool forward)
+    {
+        if (_riders == null) return;
+
+        foreach (var r in _riders)
+        {
+            if (r.instance == null || r.data == null) continue;
+
+            Vector2Int fromCell = forward ? _oldRoot + r.oldLocal : _newRoot + r.newLocal;
+            Vector2Int toCell   = forward ? _newRoot + r.newLocal : _oldRoot + r.oldLocal;
+
+            // Remove from wherever it currently lives (no-op on the first Execute, where the
+            // tile was already pulled out of the grid by MoveState at selection time).
+            _grid.RemoveStackObject(fromCell, r.instance, r.data);
+
+            r.instance.SetActive(true);
+
+            Vector2Int[] tileOffsets = r.data.GetFootprintOffsets(0f); // 1×1 → {(0,0)}
+
+            var bd = r.instance.GetComponent<BuildingData>();
+            if (bd != null)
+                bd.Initialize(toCell, 0f, tileOffsets, r.data);
+
+            _grid.AddStackObject(toCell, r.instance, r.data);
+
+            var po = r.instance.GetComponent<PlacedObject>();
+            if (po != null)
+            {
+                po.gridX = toCell.x;
+                po.gridY = toCell.y;
+                po.rotation = 0;
+            }
+        }
+    }
+
+    private bool IsRider(GameObject go)
+    {
+        if (_riders == null || go == null) return false;
+        foreach (var r in _riders)
+            if (r.instance == go) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Re-enables yard floor tiles that were hidden beneath a foundation at the cells it is leaving,
+    /// so the ground is restored (no holes). Skips the foundation's own rider tiles. Only re-enables
+    /// when the cell is otherwise clear, matching DeleteCommand's reveal logic.
+    /// </summary>
+    private void RevealHiddenFloors(Vector2Int root, Vector2Int[] offsets)
+    {
+        foreach (var o in offsets)
+        {
+            Vector2Int cell = root + o;
+            if (_grid.IsOccupied(cell)) continue;
+
+            var list = _grid.GetObjectsInCell(cell);
+            if (list == null) continue;
+
+            foreach (var entry in list)
+            {
+                if (entry.data == null || !entry.data.isFloor) continue;
+                if (entry.instance == null || entry.instance.activeSelf) continue;
+                if (IsRider(entry.instance)) continue;
+                entry.instance.SetActive(true);
+            }
+
+            _grid.UpdateStackPositions(cell);
+        }
+    }
+
+    /// <summary>
+    /// Hides the existing ground-plane yard floor tiles at the cells a foundation is arriving on, so
+    /// the foundation's own floor tile sits flush on the slab. Skips the foundation's own rider tiles
+    /// (they are added by MoveRiders after this runs and must stay visible).
+    /// </summary>
+    private void HideUnderlyingFloors(Vector2Int root, Vector2Int[] offsets)
+    {
+        foreach (var o in offsets)
+        {
+            Vector2Int cell = root + o;
+            var list = _grid.GetObjectsInCell(cell);
+            if (list == null) continue;
+
+            foreach (var entry in list)
+            {
+                if (entry.data == null || !entry.data.isFloor) continue;
+                if (entry.instance == null || !entry.instance.activeSelf) continue;
+                if (IsRider(entry.instance)) continue;
+                entry.instance.SetActive(false);
+            }
+
+            _grid.UpdateStackPositions(cell);
+        }
+    }
+
     private void RestoreReplaced()
     {
         foreach (var rd in _replaced)
@@ -162,6 +280,13 @@ public class MoveCommand : ICommand
         foreach (var o in fromOffsets)
             _grid.RemoveStackObject(from + o, _instance, _data);
 
+        // Foundation LEAVING these cells: re-reveal the ground-plane yard tiles that were hidden
+        // beneath it. Placing a foundation disables the underlying yard tile (so the foundation's
+        // own floor tile can sit flush), but nothing re-enabled it on a move — the vacated cells
+        // kept a disabled yard tile and read as holes. Mirrors DeleteCommand's reveal logic.
+        if (IsFoundation(_data))
+            RevealHiddenFloors(from, fromOffsets);
+
         _instance.transform.rotation = Quaternion.Euler(0f, toRotation, 0f);
         _instance.SetActive(true);
 
@@ -174,6 +299,13 @@ public class MoveCommand : ICommand
 
         foreach (var o in toOffsets)
             _grid.AddStackObject(to + o, _instance, _data);
+
+        // Foundation ARRIVING on these cells: hide the existing ground-plane yard tiles so the
+        // slab's own floor tile (re-added next by MoveRiders) sits flush on the foundation instead
+        // of stacking on top of the yard tile, which would push it ~0.05 too high. Mirrors what
+        // PlacementFinalizer.DisableExistingFloors does at first placement.
+        if (IsFoundation(_data))
+            HideUnderlyingFloors(to, toOffsets);
 
         // Immediate position at cell center as a baseline
         _instance.transform.position = _grid.GetCellCenter(to);

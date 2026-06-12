@@ -42,19 +42,26 @@ public class EmployeeClickHandler : MonoBehaviour
 
     private void Update()
     {
-        if (!Mouse.current.rightButton.wasPressedThisFrame) return;
+        if (!Mouse.current.leftButton.wasPressedThisFrame) return;
+
+        // Prevent clicking through UI
+        if ((UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+            || UIInputGuard.IsPointerOverUIToolkit())
+        {
+            return;
+        }
 
         Ray ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
             if (hit.collider.gameObject == gameObject)
             {
-                OnRightClicked();
+                OnClicked();
             }
         }
     }
 
-    private void OnRightClicked()
+    private void OnClicked()
     {
         if (_employeeUI == null)
         {

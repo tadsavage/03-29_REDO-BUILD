@@ -88,7 +88,15 @@ public class GameContext : MonoBehaviour
                 placement.LoadGame(saveName);
             }
 
-            SyncAndBake(grid);
+            // Guarantee the yard-floor baseline even on load. The yard tiles are runtime-only
+            // (never part of the saved scene), so any launch that loads instead of starting a
+            // new game must re-fill them — otherwise the field comes up as a bare grid.
+            // PopulateYardFloors skips cells that already carry a floor, so loaded floors/foundations
+            // are preserved and only the empty remainder is filled.
+            if (_yardFloorTile != null && grid != null)
+                StartCoroutine(PopulateYardFloors(grid));
+            else
+                SyncAndBake(grid);
         }
     }
 
@@ -103,6 +111,10 @@ public class GameContext : MonoBehaviour
             SyncAndBake(grid);
             yield break;
         }
+
+        // Guard against an uninitialized grid (e.g. a launch where the load early-returned
+        // because the save file was missing — _cells would still be null here).
+        grid.EnsureInitialized();
 
         Vector2Int[] offsets = _yardFloorTile.GetFootprintOffsets(0f);
 

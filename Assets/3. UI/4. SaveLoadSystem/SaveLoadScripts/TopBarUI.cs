@@ -22,6 +22,7 @@ public class TopBarUI : MonoBehaviour
     private Button _menuMainMenuButton;
     private Button _menuSettingsButton;
     private Button _menuSaveButton;
+    private Button _menuLoadButton;
     private Button _menuResumeButton;
     private Button _menuExitButton;
 
@@ -55,6 +56,7 @@ public class TopBarUI : MonoBehaviour
 
     private bool _menuOpen = false;
     private bool _pendingGoToMenu = false;
+    private bool _pendingCloseAfterSave = false;
     private bool _saveWindowWasOpen = false;
 
     public void Init(UIDocument doc, MoneyService money, SimulationTimeService time, SaveLoadWindowController saveLoad)
@@ -94,6 +96,7 @@ public class TopBarUI : MonoBehaviour
         _menuMainMenuButton = hudRoot.Q<Button>("MenuMainMenuButton");
         _menuSettingsButton = hudRoot.Q<Button>("MenuSettingsButton");
         _menuSaveButton     = hudRoot.Q<Button>("MenuSaveButton");
+        _menuLoadButton     = hudRoot.Q<Button>("MenuLoadButton");
         _menuResumeButton   = hudRoot.Q<Button>("MenuResumeButton");
         _menuExitButton     = hudRoot.Q<Button>("MenuExitButton");
 
@@ -116,6 +119,7 @@ public class TopBarUI : MonoBehaviour
         if (_menuMainMenuButton   != null) _menuMainMenuButton.clicked   += OnMenuDirectToMainMenu;
         if (_menuSettingsButton   != null) _menuSettingsButton.clicked   += OnMenuSettings;
         if (_menuSaveButton       != null) _menuSaveButton.clicked       += OnMenuSave;
+        if (_menuLoadButton       != null) _menuLoadButton.clicked       += OnMenuLoad;
         if (_menuResumeButton     != null) _menuResumeButton.clicked     += CloseMenuPopup;
         if (_menuExitButton       != null) _menuExitButton.clicked       += OnExitGame;
 
@@ -150,14 +154,32 @@ public class TopBarUI : MonoBehaviour
         UpdateFPS();
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
-            ToggleMenuPopup();
+        {
+            // Save/load window takes priority: Escape closes it (and ensures
+            // the pause menu doesn't pop back open in the same press) instead
+            // of toggling the pause menu.
+            if (_saveLoadController != null && _saveLoadController.IsOpen)
+            {
+                _saveLoadController.Close();
+                _pendingGoToMenu = false;
+                _pendingCloseAfterSave = false;
+                CloseMenuPopup();
+            }
+            else
+            {
+                ToggleMenuPopup();
+            }
+        }
 
-        // Reset pending-go-to-menu if user closed save window without saving
-        if (_pendingGoToMenu && _saveLoadController != null)
+        // Reset pending flags if user closed save window without saving
+        if ((_pendingGoToMenu || _pendingCloseAfterSave) && _saveLoadController != null)
         {
             bool windowOpen = _saveLoadController.IsOpen;
             if (_saveWindowWasOpen && !windowOpen)
+            {
                 _pendingGoToMenu = false;
+                _pendingCloseAfterSave = false;
+            }
             _saveWindowWasOpen = windowOpen;
         }
     }
@@ -195,9 +217,15 @@ public class TopBarUI : MonoBehaviour
     private void OnMenuSave()
     {
         CloseMenuPopup();
-        _pendingGoToMenu   = true;
-        _saveWindowWasOpen = false;
+        _pendingCloseAfterSave = true;
+        _saveWindowWasOpen     = false;
         _saveLoadController?.Open(SaveLoadMode.Save);
+    }
+
+    private void OnMenuLoad()
+    {
+        CloseMenuPopup();
+        _saveLoadController?.Open(SaveLoadMode.Load);
     }
 
     private void OnExitGame()
@@ -212,9 +240,18 @@ public class TopBarUI : MonoBehaviour
 
     private void OnSaveCompleted(int _)
     {
-        if (!_pendingGoToMenu) return;
-        _pendingGoToMenu = false;
-        GoToMainMenu();
+        if (_pendingGoToMenu)
+        {
+            _pendingGoToMenu = false;
+            GoToMainMenu();
+            return;
+        }
+
+        if (_pendingCloseAfterSave)
+        {
+            _pendingCloseAfterSave = false;
+            _saveLoadController?.Close();
+        }
     }
 
     private void GoToMainMenu()

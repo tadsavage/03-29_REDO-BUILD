@@ -37,8 +37,10 @@ public class EmployeeInfoUI : MonoBehaviour
     // ────────── Dragging ──────────
     private VisualElement _headerRow;
     private bool _isDragging;
-    private Vector2 _dragOffset;
+    private Vector2 _pointerStart;   // pointer position (panel coords) at drag start
+    private Vector2 _panelStart;     // panel top-left (panel coords) at drag start
     private Vector2? _customPosition;
+    private int _capturedPointerId = -1;
 
     public void Init(UIDocument hudDocument)
     {
@@ -73,9 +75,9 @@ public class EmployeeInfoUI : MonoBehaviour
             _closeButton.clicked += Hide;
 
         // ────────── Dragging Setup ──────────
-        if (_panel.childCount > 1)
+        if (_panel.childCount > 0)
         {
-            _headerRow = _panel.ElementAt(1);
+            _headerRow = _panel.ElementAt(0);  // header row is first child
             _headerRow.RegisterCallback<PointerDownEvent>(OnHeaderPointerDown);
             _panel.RegisterCallback<PointerMoveEvent>(OnPanelPointerMove);
             _panel.RegisterCallback<PointerUpEvent>(OnPanelPointerUp);
@@ -133,6 +135,15 @@ public class EmployeeInfoUI : MonoBehaviour
     public void Hide()
     {
         if (_panel == null) return;
+
+        // Release any captured pointer before hiding panel (prevents permanent input deadlock)
+        if (_isDragging && _headerRow != null && _capturedPointerId >= 0)
+        {
+            _panel.ReleasePointer(_capturedPointerId);
+            _capturedPointerId = -1;
+        }
+        _isDragging = false;
+
         _panel.style.display = DisplayStyle.None;
         _panel.pickingMode = PickingMode.Ignore;
         ResetCustomPosition();
@@ -166,31 +177,70 @@ public class EmployeeInfoUI : MonoBehaviour
 
     private void OnHeaderPointerDown(PointerDownEvent evt)
     {
+        // Ignore clicks on the close button or its child text label
+        if (IsCloseButtonOrChild(evt.target as VisualElement))
+            return;
+
         if (_panel == null) return;
         _isDragging = true;
-        // Convert pointer position to panel-local space so offset math matches move events
-        Vector2 panelLocal = _headerRow.ChangeCoordinatesTo(_panel, evt.position);
-        _dragOffset = (Vector2)_panel.worldBound.position - _panel.LocalToWorld(panelLocal);
-        _headerRow.CapturePointer(evt.pointerId);
+        _capturedPointerId = evt.pointerId;
+
+        // evt.position is ALREADY in panel (root) coordinates — the same space as worldBound.
+        // Do NOT call LocalToWorld on it; that would double-transform and break the drag.
+        _pointerStart = (Vector2)evt.position;
+        _panelStart = _panel.worldBound.position;
+
+        // Switch to absolute positioning seeded at the panel's current on-screen position,
+        // so style.left/top are interpreted as panel-space coordinates, not USS-layout offsets.
+        _panel.style.position = Position.Absolute;
+
+        // CRITICAL: the UXML inline style pins the panel with `bottom: 130px` (and `left`).
+        // If we only set `top`, both `top` and `bottom` are active with no fixed height,
+        // so the layout engine STRETCHES the panel vertically (top moves, bottom stays pinned).
+        // Clear bottom/right so left+top are the sole position drivers during/after drag.
+        _panel.style.bottom = StyleKeyword.Auto;
+        _panel.style.right = StyleKeyword.Auto;
+
+        _panel.style.left = _panelStart.x;
+        _panel.style.top = _panelStart.y;
+        _customPosition = _panelStart;
+
+        _panel.CapturePointer(evt.pointerId);
+    }
+
+    private bool IsCloseButtonOrChild(VisualElement target)
+    {
+        while (target != null)
+        {
+            if (target == _closeButton)
+                return true;
+            target = target.parent;
+        }
+        return false;
     }
 
     private void OnPanelPointerMove(PointerMoveEvent evt)
     {
         if (!_isDragging || _panel == null) return;
 
-        // evt.position is panel-local; must convert to world to match _dragOffset
-        Vector2 pointerWorld = _panel.LocalToWorld(evt.position);
-        Vector2 newPos = pointerWorld + _dragOffset;
-        float panelW = _panel.worldBound.width;
-        float panelH = _panel.worldBound.height;
-        float maxX = Screen.width - panelW;
-        float maxY = Screen.height - panelH;
+        // evt.position is in panel (root) coordinates — same space as _pointerStart/_panelStart.
+        // Move the panel by the same delta the pointer moved. No coordinate conversion needed.
+        Vector2 delta = (Vector2)evt.position - _pointerStart;
+        Vector2 newPos = _panelStart + delta;
+
+        // Clamp against the root visual tree's logical size (the panel's own coordinate space),
+        // NOT Screen.width/height which can differ under PanelSettings scaling.
+        VisualElement root = _panel.panel != null ? _panel.panel.visualTree : _panel.parent;
+        float boundsW = root != null ? root.layout.width : Screen.width;
+        float boundsH = root != null ? root.layout.height : Screen.height;
+
+        float panelW = _panel.layout.width;
+        float panelH = _panel.layout.height;
+        float maxX = Mathf.Max(0f, boundsW - panelW);
+        float maxY = Mathf.Max(0f, boundsH - panelH);
 
         newPos.x = Mathf.Clamp(newPos.x, 0f, maxX);
         newPos.y = Mathf.Clamp(newPos.y, 0f, maxY);
-
-        newPos.x = Mathf.Round(newPos.x);
-        newPos.y = Mathf.Round(newPos.y);
 
         _panel.style.left = newPos.x;
         _panel.style.top = newPos.y;
@@ -202,25 +252,44 @@ public class EmployeeInfoUI : MonoBehaviour
         if (!_isDragging) return;
         _isDragging = false;
 
-        if (_headerRow != null && _headerRow.HasPointerCapture(evt.pointerId))
-            _headerRow.ReleasePointer(evt.pointerId);
+        if (_panel != null && _panel.HasPointerCapture(evt.pointerId))
+        {
+            _panel.ReleasePointer(evt.pointerId);
+            _capturedPointerId = -1;
+        }
     }
 
     private void ApplyCustomPosition()
     {
         if (_customPosition.HasValue)
         {
+            // Restore a previously dragged-to position: top/left drive it, bottom/right cleared
+            // (mirrors the setup in OnHeaderPointerDown to avoid vertical stretching).
             _panel.style.position = Position.Absolute;
+            _panel.style.bottom = StyleKeyword.Auto;
+            _panel.style.right = StyleKeyword.Auto;
             _panel.style.left = _customPosition.Value.x;
             _panel.style.top = _customPosition.Value.y;
         }
     }
 
+    // Default docking from HUD.uxml inline style on #employee-info-panel.
+    private const float DefaultLeft = 16f;
+    private const float DefaultBottom = 130f;
+
     private void ResetCustomPosition()
     {
         _customPosition = null;
-        _panel.style.left = StyleKeyword.Null;
-        _panel.style.top = StyleKeyword.Null;
+        // Explicitly restore the original UXML docking (position: absolute; bottom: 130px;
+        // left: 16px). We cannot rely on StyleKeyword.Null here: the defaults were authored
+        // as INLINE styles in UXML, so clearing our runtime inline overrides to Null would
+        // drop them to `auto` (collapsing the panel to the top-left corner) rather than
+        // reverting to 130px/16px. Restoring the values explicitly is the robust fix.
+        _panel.style.position = Position.Absolute;
+        _panel.style.top = StyleKeyword.Auto;
+        _panel.style.right = StyleKeyword.Auto;
+        _panel.style.left = DefaultLeft;
+        _panel.style.bottom = DefaultBottom;
     }
 
     private void RefreshUI()

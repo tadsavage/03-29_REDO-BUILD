@@ -1,4 +1,8 @@
 /*
+2026-06-11 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+/*
 2026-05-25 AI-Tag
 This was created with the help of Assistant, a Unity Artificial Intelligence product.
 */
@@ -7,12 +11,12 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    height: 50px;
+    height: 56px;
     background-color: rgba(35, 35, 40, 0.95);
     border-bottom-width: 2px;
     border-bottom-color: rgba(236, 201, 138, 0.4);
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: 20px;
+    padding-right: 20px;
     width: 100%;
 }
 
@@ -22,13 +26,13 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     align-items: center;
     justify-content: center;
     flex-grow: 1;
-    height: 36px;
-    padding-left: 12px;
-    padding-right: 12px;
-    margin-left: 4px;
-    margin-right: 4px;
+    height: 42px;
+    padding-left: 16px;
+    padding-right: 16px;
+    margin-left: 8px;
+    margin-right: 8px;
     background-color: rgba(255, 255, 255, 0.03);
-    border-radius: 4px;
+    border-radius: 6px;
     border-width: 1px;
     border-color: rgba(255, 255, 255, 0.08);
 }
@@ -40,7 +44,7 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 .topbar-fps,
 .topbar-cell {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
-    font-size: 15px;
+    font-size: 17px;
     -unity-font-style: normal;
     -unity-text-align: middle-center;
 }
@@ -70,7 +74,7 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 }
 
 .topbar-cell-box {
-    min-width: 100px;
+    min-width: 120px;
     flex-grow: 0.5;
 }
 
@@ -127,6 +131,20 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 
 .topbar-mainmenu-btn {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
-    font-size: 13px;
+    font-size: 17px;
     color: rgb(240, 230, 211);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.03);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.topbar-mainmenu-btn:hover {
+    background-color: rgba(212, 135, 77, 0.15);
+    border-color: rgba(212, 135, 77, 0.6);
+}
+
+.topbar-mainmenu-btn:active {
+    background-color: rgba(212, 135, 77, 0.3);
+    border-color: rgb(212, 135, 77);
 }

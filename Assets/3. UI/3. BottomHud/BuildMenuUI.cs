@@ -279,6 +279,7 @@ public class BuildMenuUI : MonoBehaviour
 
     private void HandleGenericUtilityClick(string id)
     {
+        CloseSubmenu();
         switch (id.ToLower())
         {
             case "delete": OnDeleteClicked?.Invoke(); break;
@@ -395,7 +396,11 @@ public class BuildMenuUI : MonoBehaviour
                 costLabel.text = $"${item.cost}";
 
                 var capturedItem = item;
-                button.clicked += () => OnBuildItemClicked?.Invoke(capturedItem);
+                button.clicked += () =>
+                {
+                    CloseSubmenu();
+                    OnBuildItemClicked?.Invoke(capturedItem);
+                };
                 _submenuScroll.Add(ve);
             }
         }

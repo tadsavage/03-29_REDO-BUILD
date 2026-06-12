@@ -484,7 +484,7 @@ public class MainMenuManager : MonoBehaviour
         loadBtn.AddToClassList(colorVariants[colorIdx]);
 
         int capturedIndex = slotIndex;
-        loadBtn.clicked += () =>
+        void DoLoad()
         {
             PlayClick();
             if (capturedIndex < 0)
@@ -499,10 +499,28 @@ public class MainMenuManager : MonoBehaviour
                 PlayerPrefs.SetString("LastSaveName", $"slot_{capturedIndex}");
             }
             LoadGameScene();
-        };
+        }
+
+        loadBtn.clicked += DoLoad;
+
+        // QoL: clicking anywhere on the save slot card (except the LOAD button,
+        // which already has its own handler) loads it too.
+        card.RegisterCallback<ClickEvent>(evt =>
+        {
+            var target = evt.target as VisualElement;
+            if (IsDescendantOrSelf(target, loadBtn)) return;
+            DoLoad();
+        });
 
         card.Add(loadBtn);
         _saveSlotContainer?.Add(card);
+    }
+
+    private static bool IsDescendantOrSelf(VisualElement element, VisualElement ancestor)
+    {
+        for (var el = element; el != null; el = el.parent)
+            if (el == ancestor) return true;
+        return false;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -66,10 +66,11 @@ public class PlacementSystem : MonoBehaviour
             }
         }
 
-        // Quickload (F9) — UNTOUCHED
-        if (Keyboard.current.f9Key.isPressed && quicksaveTimer <= 0f)
+        // Quickload (F9)
+        if (Keyboard.current.f9Key.wasPressedThisFrame && quicksaveTimer <= 0f)
         {
             LoadGame();
+            quicksaveTimer = quicksaveCooldown;
             AudioManager.Play("UI_Load");
             UIToast.Show("Quick-load successful");
         }
@@ -349,26 +350,28 @@ public class PlacementSystem : MonoBehaviour
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData);
         }
 
-        // Apply saved employee records to matching scene EmployeeIdentity components
+        // Restore employees: destroy auto-generated scene employees and respawn from save.
+        // GUID-matching doesn't work here because freshly loaded scene objects have
+        // brand-new auto-generated GUIDs that will never match the saved ones.
         if (save.employeeRecords != null && save.employeeRecords.Count > 0)
         {
-            var recordByGuid = new Dictionary<string, EmployeeRecord>();
-            foreach (var rec in save.employeeRecords)
-            {
-                if (!string.IsNullOrEmpty(rec.employeeGuid))
-                    recordByGuid[rec.employeeGuid] = rec;
-            }
+            // Destroy all current EmployeeIdentity GameObjects so we start clean, then
+            // respawn from the save AFTER the destroys have flushed.
+            //
+            // Why deferred: Object.Destroy defers teardown to end-of-frame, so each old
+            // employee's OnDestroy → Unregister(guid) also runs at end-of-frame. The old
+            // employees were themselves loaded from this same save, so they hold the
+            // identical GUIDs as the records we respawn. If we respawn in the SAME frame,
+            // the new employees register under those GUIDs and are then wiped by the old
+            // employees' deferred Unregister — leaving the registry empty (verified by
+            // end-to-end test). Yielding one frame lets the old Unregister calls complete
+            // and frees the GUIDs before the new employees claim them. (DestroyImmediate
+            // is unsafe here — it can abort the load mid-restore during play mode.)
+            var existing = Object.FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None);
+            foreach (var ident in existing)
+                Object.Destroy(ident.gameObject);
 
-            var sceneIdentities = Object.FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None);
-            foreach (var ident in sceneIdentities)
-            {
-                var current = ident.Record;
-                if (current != null && !string.IsNullOrEmpty(current.employeeGuid)
-                    && recordByGuid.TryGetValue(current.employeeGuid, out var savedRec))
-                {
-                    ident.ApplyRecord(savedRec.Clone());
-                }
-            }
+            StartCoroutine(RespawnEmployeesAfterDestroyFlush(save.employeeRecords));
         }
 
         grid.RebuildFromRegistry();
@@ -405,6 +408,28 @@ public class PlacementSystem : MonoBehaviour
         yield return null; // wait one frame for Destroy() to flush
         if (NavMeshManager.Instance != null)
             NavMeshManager.Instance.BakeSynchronous();
+    }
+
+    // Respawn saved employees one frame after the old ones are destroyed, so their
+    // deferred OnDestroy → Unregister(guid) completes first and frees the saved GUIDs.
+    // Spawning in the same frame as Destroy() lets the old Unregister wipe the new
+    // employees (shared GUIDs), leaving the registry empty.
+    private IEnumerator RespawnEmployeesAfterDestroyFlush(List<EmployeeRecord> records)
+    {
+        yield return null; // wait one frame for Destroy() → Unregister to flush
+
+        var spawner = Object.FindAnyObjectByType<EmployeeSpawner>();
+        if (spawner == null)
+        {
+            Debug.LogWarning("[PlacementSystem] No EmployeeSpawner found — saved employees not restored.");
+            yield break;
+        }
+
+        foreach (var rec in records)
+        {
+            if (rec != null && !string.IsNullOrEmpty(rec.employeeGuid))
+                spawner.SpawnEmployee(rec.Clone());
+        }
     }
 
     // ---------------------------------------------------------
