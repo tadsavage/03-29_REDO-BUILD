@@ -20,7 +20,7 @@ public class EmployeeData : ScriptableObject
 
     [Tooltip("Roles: OrderSelector, Packer, ForkliftOperator, QualityControl, Maintenance")]
     [Header("Role")]
-    public EmployeeRole role;//  = EmployeeRole.OrderSelector;
+    public EmployeeRole role;
 
     [Tooltip("Skill level from 1 to 5, where 1 is Novice and 5 is Expert")]
     [Header("Skill Level")]

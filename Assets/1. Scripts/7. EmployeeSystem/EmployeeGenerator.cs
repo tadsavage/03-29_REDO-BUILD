@@ -15,6 +15,9 @@ public static class EmployeeGenerator
         { "CLERK", (13f, 18f) },   // IC Clerk
         { "EXT",   (18f, 28f) },   // Exterminator
         { "TRKD",  (20f, 30f) },   // Truck driver
+        {"HR",    (18f, 35f) },   // HR staff
+        {"ADMIN", (20f, 40f) },   // Admin staff
+        {"SAN",   (13f, 20f) }    // Sanitation worker
     };
 
     // Mon–Fri mask  = bits 1+2+3+4+5 = 0b0111110 = 62
@@ -39,39 +42,37 @@ public static class EmployeeGenerator
 
         EmployeeRecord record = new EmployeeRecord
         {
-            employeeGuid      = guid,
-            employeeName      = $"{firstName} {lastName}",
-            employeeIdPrefix  = idPrefix,
-            employeeId        = $"{idPrefix} {idNum:D3}",
-            gender            = gender,
+            employeeGuid = guid,
+            employeeName = $"{firstName} {lastName}",
+            employeeIdPrefix = idPrefix,
+            employeeId = $"{idPrefix} {idNum:D3}",
+            gender = gender,
 
             // Stats
-            fatigue           = UnityEngine.Random.Range(10f, 95f),
-            safety            = UnityEngine.Random.Range(20f, 95f),
-            morale            = UnityEngine.Random.Range(30f, 100f),
-            skill             = UnityEngine.Random.Range(15f, 90f),
-            skillLevel        = UnityEngine.Random.Range(1, 6),
+            fatigue = UnityEngine.Random.Range(10f, 95f),
+            safety = UnityEngine.Random.Range(20f, 95f),
+            morale = UnityEngine.Random.Range(30f, 100f),
+            skill = UnityEngine.Random.Range(15f, 90f),
+            skillLevel = UnityEngine.Random.Range(1, 6),
 
             // Avatar — assign from gender-specific pool
             avatarResourceKey = EmployeeRegistry.Instance?.AvatarRegistry.AssignAvatar(gender, guid)
                                 ?? (gender == EmployeeGender.Female ? "Female/avatar_01" : "Male/avatar_01"),
 
             // Role — OrderSelector is the default for new hires
-            //role              = EmployeeRole.OrderSelector,
-
-            // Employment
-            status            = EmploymentStatus.Active,
-            hourlyWage        = RandomWage(idPrefix),
-            totalWagesPaid    = 0f,
-            hireDateIso       = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            role = EmployeeRole.HR, // Default role — can be changed later
+            status = EmploymentStatus.Active,
+            hourlyWage = RandomWage(idPrefix),
+            totalWagesPaid = 0f,
+            hireDateIso = DateTime.UtcNow.ToString("yyyy-MM-dd"),
             separationDateIso = string.Empty,
 
             // Work Schedule — default Mon–Fri, random Day/Evening shift
             // (will be populated via SetDefaultSchedule below)
 
             // Injury — start healthy
-            isInjured              = false,
-            injuryDescription      = string.Empty,
+            isInjured = false,
+            injuryDescription = string.Empty,
             injuryRecoveryDaysLeft = 0
         };
 
