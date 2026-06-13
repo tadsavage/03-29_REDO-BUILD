@@ -14,9 +14,11 @@ public enum EmployeeRole
 	Boss,                 // Management (indirect)
 	Security,             // Guard (indirect)
 	InventoryControl,     // IC clerk / cycle counts (indirect)
-	HR,                   // PLACEHOLDER — not yet implemented
+    Exterminator,         // Exterminator — Kills Rats - what else???
+    HR,                   // PLACEHOLDER — not yet implemented
 	Admin,                // PLACEHOLDER — not yet implemented
-	Sanitation            // PLACEHOLDER — not yet implemented
+	Sanitation,           // PLACEHOLDER — not yet implemented
+	TruckDriver,          // PLACEHOLDER — not yet implemented
 }
 
 // ─── Extensions ───────────────────────────────────────────────────────────

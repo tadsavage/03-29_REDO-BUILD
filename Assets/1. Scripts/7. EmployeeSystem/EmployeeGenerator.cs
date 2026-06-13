@@ -28,7 +28,8 @@ public static class EmployeeGenerator
     // ─── Public API ───────────────────────────────────────────────────────────
 
     public static EmployeeRecord Generate(EmployeeGender gender = EmployeeGender.Random,
-                                          string idPrefix = "WHSE")
+                                          string idPrefix = "WHSE",
+                                          EmployeeRole role = EmployeeRole.OrderSelector)
     {
         if (gender == EmployeeGender.Random)
             gender = RandomGender();
@@ -59,8 +60,8 @@ public static class EmployeeGenerator
             avatarResourceKey = EmployeeRegistry.Instance?.AvatarRegistry.AssignAvatar(gender, guid)
                                 ?? (gender == EmployeeGender.Female ? "Female/avatar_01" : "Male/avatar_01"),
 
-            // Role — OrderSelector is the default for new hires
-            role = EmployeeRole.HR, // Default role — can be changed later
+            // Role — uses parameter, defaults to OrderSelector
+            role = role,
             status = EmploymentStatus.Active,
             hourlyWage = RandomWage(idPrefix),
             totalWagesPaid = 0f,
@@ -98,6 +99,35 @@ public static class EmployeeGenerator
         }
 
         return Generate(gender, template.employeeIdPrefix);
+    }
+
+    // ─── Role ↔ wage helpers (public — used by the hiring board) ───────────────
+
+    /// <summary>
+    /// Maps an EmployeeRole to its WageTable prefix so role-based callers
+    /// (e.g. the hiring board) share the same single wage source of truth.
+    /// </summary>
+    public static string PrefixForRole(EmployeeRole role) => role switch
+    {
+        EmployeeRole.Boss             => "BOSS",
+        EmployeeRole.Security         => "SEC",
+        EmployeeRole.InventoryControl => "CLERK",
+        EmployeeRole.Exterminator     => "EXT",
+        EmployeeRole.TruckDriver      => "TRKD",
+        EmployeeRole.HR               => "HR",
+        EmployeeRole.Admin            => "ADMIN",
+        EmployeeRole.Sanitation       => "SAN",
+        // OrderSelector, ReachTruckOperator, Loader, Receiver, Supervisor
+        _                             => "WHSE"
+    };
+
+    /// <summary>Min/max hourly wage range for a role (from the shared WageTable).</summary>
+    public static (float min, float max) GetWageRange(EmployeeRole role)
+    {
+        string prefix = PrefixForRole(role);
+        if (WageTable.TryGetValue(prefix, out var range))
+            return (range.min, range.max);
+        return (13f, 20f);
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────

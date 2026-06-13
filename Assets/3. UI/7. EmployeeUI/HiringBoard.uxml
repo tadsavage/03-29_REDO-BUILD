@@ -1,0 +1,38 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/3.%20UI/7.%20EmployeeUI/HiringBoard.uss"/>
+
+    <ui:VisualElement name="hb-overlay" picking-mode="Ignore" class="hb-overlay" style="display: none;">
+        <ui:VisualElement name="hb-modal" picking-mode="Position" class="hb-modal">
+
+            <!-- Title bar -->
+            <ui:VisualElement class="hb-title-bar">
+                <ui:Label text="HIRING BOARD - NEW CANDIDATES" class="hb-title"/>
+                <ui:Button name="hb-close" text="✕" class="hb-close"/>
+            </ui:VisualElement>
+
+            <!-- Column headers (widths mirror the .hb-col-* classes in code) -->
+            <ui:VisualElement class="hb-header">
+                <ui:Label text="" class="hb-header-label" style="width: 56px;"/>
+                <ui:Label text="APPLICANT" class="hb-header-label" style="flex-grow: 1; padding-left: 12px;"/>
+                <ui:Label text="POSITION" class="hb-header-label" style="width: 180px;"/>
+                <ui:Label text="EXPERIENCE" class="hb-header-label" style="width: 90px;"/>
+                <ui:Label text="STRENGTH" class="hb-header-label" style="width: 132px;"/>
+                <ui:Label text="WEAKNESS" class="hb-header-label" style="width: 132px;"/>
+                <ui:Label text="EXP. SALARY" class="hb-header-label" style="width: 110px;"/>
+                <ui:Label text="ACTIONS" class="hb-header-label" style="width: 150px; -unity-text-align: middle-right;"/>
+            </ui:VisualElement>
+
+            <!-- Candidate cards (built in HiringBoardUI) -->
+            <ui:ScrollView name="hb-scroll" mode="Vertical" class="hb-scroll">
+                <ui:VisualElement name="hb-list" class="hb-list"/>
+            </ui:ScrollView>
+
+            <!-- Footer -->
+            <ui:VisualElement class="hb-footer">
+                <ui:Label name="hb-count" text="0 candidates" class="hb-count"/>
+                <ui:Button name="hb-refresh" text="POST NEW LISTING" class="hb-refresh"/>
+            </ui:VisualElement>
+
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -49,9 +49,24 @@ public class EmployeeLifecycleService : MonoBehaviour
     /// Returns the record so the caller can attach it to a spawned EmployeeIdentity.
     /// </summary>
     public EmployeeRecord Hire(string idPrefix = "WHSE",
-                               EmployeeGender gender = EmployeeGender.Random)
+                               EmployeeGender gender = EmployeeGender.Random,
+                               EmployeeRole role = EmployeeRole.OrderSelector)
     {
-        var record = EmployeeGenerator.Generate(gender, idPrefix);
+        var record = EmployeeGenerator.Generate(gender, idPrefix, role);
+        OnHired?.Invoke(record);
+        OnStatusChanged?.Invoke(record);
+        return record;
+    }
+
+    /// <summary>
+    /// Hire a pre-built EmployeeRecord (e.g. an applicant accepted from the hiring
+    /// board). The caller is responsible for finalizing fields like hourlyWage.
+    /// Fires OnHired so EmployeeSpawner instantiates the GameObject.
+    /// </summary>
+    public EmployeeRecord HireRecord(EmployeeRecord record)
+    {
+        if (record == null) return null;
+        record.status = EmploymentStatus.Active;
         OnHired?.Invoke(record);
         OnStatusChanged?.Invoke(record);
         return record;

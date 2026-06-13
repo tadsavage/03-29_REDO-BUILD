@@ -94,6 +94,7 @@ public class EmployeeData : ScriptableObject
                 Debug.LogWarning($"[EmployeeData] Portrait not found at Resources/{fullKey} for {employeeName}");
         }
 
+        role = record.role;
         _isConfigured = true;
     }
 
