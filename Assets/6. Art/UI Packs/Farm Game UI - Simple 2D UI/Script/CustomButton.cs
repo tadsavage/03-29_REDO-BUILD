@@ -1,4 +1,3 @@
-#pragma warning disable 0414 // third-party asset: unused field warning suppressed
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
