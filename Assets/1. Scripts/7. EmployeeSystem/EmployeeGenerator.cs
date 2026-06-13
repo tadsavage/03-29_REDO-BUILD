@@ -57,7 +57,7 @@ public static class EmployeeGenerator
                                 ?? (gender == EmployeeGender.Female ? "Female/avatar_01" : "Male/avatar_01"),
 
             // Role — OrderSelector is the default for new hires
-            role              = EmployeeRole.OrderSelector,
+            //role              = EmployeeRole.OrderSelector,
 
             // Employment
             status            = EmploymentStatus.Active,

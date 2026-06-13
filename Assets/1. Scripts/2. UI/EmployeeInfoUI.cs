@@ -18,7 +18,6 @@ public class EmployeeInfoUI : MonoBehaviour
     // Avatar
     private VisualElement _avatarElement;
     private VisualElement _jobIconElement;
-    private VisualElement _roleIconElement;
 
     // Stat bars
     private VisualElement _fatigueBar;
@@ -37,7 +36,7 @@ public class EmployeeInfoUI : MonoBehaviour
     private EmployeeData _recordDisplayData;
 
     // Role displayed in the current panel (set by both Show() paths).
-    private EmployeeRole _displayRole = EmployeeRole.OrderSelector;
+    private EmployeeRole _displayRole;
 
     private bool _isVisible = false;
 
@@ -66,7 +65,7 @@ public class EmployeeInfoUI : MonoBehaviour
         _idLabel = _panel.Q<Label>("employee-id");
         _avatarElement = _panel.Q<VisualElement>("employee-avatar");
         _jobIconElement = _panel.Q<VisualElement>("employee-job-icon");
-        _roleIconElement = _panel.Q<VisualElement>("employee-role-icon");
+
 
         _fatigueBar = _panel.Q<VisualElement>("fatigue-bar-fill");
         _safetyBar = _panel.Q<VisualElement>("safety-bar-fill");
@@ -106,7 +105,7 @@ public class EmployeeInfoUI : MonoBehaviour
             return;
         }
 
-        _displayRole = EmployeeRole.OrderSelector;
+        _displayRole = _employeeData.role;
         _employeeData.EnsureConfigured();
         RefreshUI();
 
@@ -315,21 +314,18 @@ public class EmployeeInfoUI : MonoBehaviour
         if (_avatarElement != null && _employeeData.avatarSprite != null)
             _avatarElement.style.backgroundImage = new StyleBackground(_employeeData.avatarSprite);
 
-        if (_jobIconElement != null && _employeeData.jobIcon != null)
-            _jobIconElement.style.backgroundImage = new StyleBackground(_employeeData.jobIcon);
-
-        // ── Role icon ──────────────────────────────────────────────────
-        if (_roleIconLibrary != null && _roleIconElement != null)
+        // ── Role icon (left frame) ─────────────────────────────────────    
+        if (_jobIconElement != null && _roleIconLibrary != null)
         {
             var sprite = _roleIconLibrary.GetIcon(_displayRole);
             if (sprite != null)
             {
-                _roleIconElement.style.backgroundImage = new StyleBackground(sprite);
-                _roleIconElement.style.display = DisplayStyle.Flex;
+                _jobIconElement.style.backgroundImage = new StyleBackground(sprite);
+                _jobIconElement.style.display = DisplayStyle.Flex;
             }
             else
             {
-                _roleIconElement.style.display = DisplayStyle.None;
+                _jobIconElement.style.display = DisplayStyle.None;
             }
         }
 

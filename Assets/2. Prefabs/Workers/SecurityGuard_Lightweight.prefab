@@ -1079,6 +1079,7 @@ MonoBehaviour:
   turnSpeed: 240
   arrivedThreshold: 0.5
   waitAtGateStop: 3
+  waitBeforeOpen: 1
   waitAtCheckRear: 2
   waitWavingIn: 2
   footstepClip: {fileID: 8300000, guid: 5eecd934368cd634a81e82f913d009c2, type: 3}
@@ -1165,6 +1166,7 @@ MonoBehaviour:
     employeeId: 
     employeeIdPrefix: 
     gender: 0
+    role: 6
     fatigue: 0
     safety: 0
     morale: 0
@@ -1172,8 +1174,24 @@ MonoBehaviour:
     skillLevel: 0
     avatarResourceKey: 
     jobIconResourceKey: 
+    status: 0
+    hourlyWage: 0
+    totalWagesPaid: 0
+    hireDateIso: 
+    separationDateIso: 
+    shift: 0
+    scheduledDaysMask: 0
+    isInjured: 0
+    injuryDescription: 
+    injuryRecoveryDaysLeft: 0
+    workSchedule:
+      shiftsPerDay: 03000000030000000300000003000000030000000300000003000000
+      overtimeDaysMask: 0
+      notes: 
+      effectiveDateIso: 
   _idPrefix: SEC
   _gender: 0
+  _avatarRenderer: {fileID: 0}
 --- !u!1 &7574295333990020708
 GameObject:
   m_ObjectHideFlags: 0

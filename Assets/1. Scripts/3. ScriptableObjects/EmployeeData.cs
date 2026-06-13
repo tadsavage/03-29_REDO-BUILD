@@ -18,11 +18,16 @@ public class EmployeeData : ScriptableObject
     [Range(0f, 100f)] public float morale = 90f;
     [Range(0f, 100f)] public float skill = 40f;
 
+    [Tooltip("Roles: OrderSelector, Packer, ForkliftOperator, QualityControl, Maintenance")]
+    [Header("Role")]
+    public EmployeeRole role;//  = EmployeeRole.OrderSelector;
+
+    [Tooltip("Skill level from 1 to 5, where 1 is Novice and 5 is Expert")]
     [Header("Skill Level")]
     public int skillLevel = 3;
 
+    [Tooltip("Internal flag to track if this asset has been configured with valid data. Not serialized at runtime.")]
     [SerializeField] private bool _isConfigured = false;
-
     public bool IsConfigured => _isConfigured;
 
     // OnEnable must NOT auto-randomize â€” that would overwrite saved asset data on reload.
@@ -30,8 +35,8 @@ public class EmployeeData : ScriptableObject
     private void OnEnable()
     {
         // Intentionally empty. Randomization is opt-in via EnsureConfigured().
-    }
 
+    }
     public void EnsureConfigured()
     {
         if (_isConfigured) return;

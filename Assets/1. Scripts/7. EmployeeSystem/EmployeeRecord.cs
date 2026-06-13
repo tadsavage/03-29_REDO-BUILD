@@ -34,7 +34,7 @@ public class EmployeeRecord
     public EmployeeGender gender;
 
     // ─── Role ─────────────────────────────────────────────────────────────────
-    public EmployeeRole role = EmployeeRole.OrderSelector;
+    public EmployeeRole role; // = EmployeeRole.OrderSelector;
 
     // ─── Stats (0–100) ────────────────────────────────────────────────────────
     public float fatigue;
