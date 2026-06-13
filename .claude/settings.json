@@ -1,0 +1,55 @@
+{
+  "mcpServers": {
+    "unityMCP": {
+      "command": "C:\\Users\\tadsa\\.local\\bin\\uvx.exe",
+      "args": [
+        "--no-cache",
+        "--refresh",
+        "--from",
+        "mcpforunityserver==9.7.1",
+        "mcp-for-unity",
+        "--transport",
+        "stdio"
+      ]
+    },
+    "Code Maestro - Advanced Unity MCP": {
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "C:\\Users\\tadsa\\AppData\\Local\\Programs\\CodeMaestro\\UnityMcpRelay\\launch.bat"
+      ]
+    }
+  },
+  "coworkUserFilesPath": "C:\\Users\\tadsa\\Claude",
+  "preferences": {
+    "launchPreviewPersistSession": true,
+    "coworkScheduledTasksEnabled": true,
+    "coworkHipaaRestricted": false,
+    "ccdScheduledTasksEnabled": true,
+    "sidebarMode": "epitaxy",
+    "bypassPermissionsOptInByAccount": {
+      "5d601199-59e6-4b8b-a060-09401f6ad18a": true
+    },
+    "bypassPermissionsGateByAccount": {
+      "5d601199-59e6-4b8b-a060-09401f6ad18a": true
+    },
+    "coworkWebSearchEnabled": true,
+    "coworkModelAutoFallbackByAccount": {
+      "5d601199-59e6-4b8b-a060-09401f6ad18a": true
+    },
+    "chicagoEnabled": true,
+    "remoteToolsDeviceName": "screamer",
+    "ccRemoteControlDefaultEnabled": true,
+    "epitaxyPrefs": {
+      "starred-local-code-sessions": [],
+      "starred-cowork-spaces": [],
+      "starred-session-groups": [],
+      "dframe-local-slice": {
+        "pinnedOrder": [],
+        "customGroupAssignments": {},
+        "customGroupOrder": {}
+      },
+      "epitaxy-pr-create-mode": "create"
+    }
+  }
+}
