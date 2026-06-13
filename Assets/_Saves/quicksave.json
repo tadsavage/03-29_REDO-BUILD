@@ -1,16 +1,16 @@
 {
     "saveName": "quicksave",
-    "money": 158440,
-    "spentToday": -38440,
+    "money": 66440,
+    "spentToday": 53560,
     "cameraData": {
         "focusPoint": {
-            "x": -14.781821250915528,
-            "y": 5.903018951416016,
-            "z": 15.151734352111817
+            "x": -27.290298461914064,
+            "y": 12.994264602661133,
+            "z": -3.1137914657592775
         },
-        "distance": 32.0,
-        "pitch": 41.84999084472656,
-        "yaw": 48.47064208984375
+        "distance": 4.0,
+        "pitch": 50.70005416870117,
+        "yaw": 107.72064208984375
     },
     "placedObjects": [
         {
@@ -70022,15 +70022,29 @@
         },
         {
             "id": 91,
-            "x": 39,
-            "y": 66,
+            "x": 0,
+            "y": 0,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 90,
+            "x": 0,
+            "y": 0,
             "rot": 0,
             "customData": ""
         },
         {
             "id": 91,
-            "x": 41,
-            "y": 65,
+            "x": 0,
+            "y": 0,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 91,
+            "x": 0,
+            "y": 0,
             "rot": 0,
             "customData": ""
         },
@@ -71757,92 +71771,14 @@
             "customData": ""
         },
         {
-            "id": 90,
-            "x": 28,
-            "y": 69,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 90,
-            "x": 50,
-            "y": 63,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 91,
-            "x": 29,
-            "y": 68,
+            "id": 69,
+            "x": 0,
+            "y": 0,
             "rot": 0,
             "customData": ""
         }
     ],
     "devSettings": [
-        {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.5"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
-            "key": "Gate_Open_Close.rot_down",
-            "val": "0"
-        },
-        {
-            "key": "Gate_Open_Close.rot_up",
-            "val": "-85"
-        },
-        {
-            "key": "Gate_Open_Close.arm_speed",
-            "val": "80"
-        },
-        {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
-            "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
-        },
-        {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
-        },
         {
             "key": "WallVisibilityManager.foundationHeight",
             "val": "1.11"
@@ -71854,10 +71790,6 @@
         {
             "key": "WallVisibilityManager.slideDuration",
             "val": "2"
-        },
-        {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
         },
         {
             "key": "FreeLookCamera.moveSpeed",
@@ -71922,60 +71854,128 @@
         {
             "key": "FreeLookCamera.zMax",
             "val": "100"
+        },
+        {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.15"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "0.6"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
+        },
+        {
+            "key": "VehicleThrottleAudio.hearingDistance",
+            "val": "25"
+        },
+        {
+            "key": "VehicleThrottleAudio.minPitch",
+            "val": "0.5"
+        },
+        {
+            "key": "VehicleThrottleAudio.maxPitch",
+            "val": "0.75"
+        },
+        {
+            "key": "VehicleThrottleAudio.engineVolume",
+            "val": "1"
+        },
+        {
+            "key": "VehicleThrottleAudio.pitchOffset",
+            "val": "0"
+        },
+        {
+            "key": "VehicleThrottleAudio.fadeSpeed",
+            "val": "2"
+        },
+        {
+            "key": "VehicleThrottleAudio._honker",
+            "val": "True"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkVolume",
+            "val": "0.7"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkPitch",
+            "val": "0.25"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkProbability",
+            "val": "0.5"
+        },
+        {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
         }
     ],
     "toolsWindowX": 12.0,
     "toolsWindowY": 50.0,
-    "guidanceLinesVisible": false,
-    "waypointsVisible": false,
+    "guidanceLinesVisible": true,
+    "waypointsVisible": true,
     "hoverPopupEnabled": false,
     "employeeRecords": [
-        {
-            "employeeGuid": "88a66694-f971-478c-b331-86bbfaea47b6",
-            "employeeName": "Teresa McMurray",
-            "employeeId": "WHSE 251",
-            "employeeIdPrefix": "WHSE",
-            "gender": 2,
-            "role": 0,
-            "fatigue": 83.44513702392578,
-            "safety": 77.48260498046875,
-            "morale": 75.86796569824219,
-            "skill": 24.291709899902345,
-            "skillLevel": 2,
-            "avatarResourceKey": "Female/FemaleSprites/Asian_Black_Haired_Small_sized",
-            "jobIconResourceKey": "",
-            "status": 0,
-            "hourlyWage": 14.050000190734864,
-            "totalWagesPaid": 0.0,
-            "hireDateIso": "2026-06-12",
-            "separationDateIso": "",
-            "shift": 0,
-            "scheduledDaysMask": 0,
-            "isInjured": false,
-            "injuryDescription": "",
-            "injuryRecoveryDaysLeft": 0,
-            "workSchedule": {
-                "shiftsPerDay": [
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    3,
-                    3
-                ],
-                "overtimeDaysMask": 0,
-                "notes": "",
-                "effectiveDateIso": ""
-            }
-        },
         {
             "employeeGuid": "60654dde-d3e8-49d6-b8ce-79162f42033f",
             "employeeName": "Jose Savage",
             "employeeId": "SEC 301",
             "employeeIdPrefix": "SEC",
             "gender": 1,
-            "role": 0,
             "fatigue": 67.8097152709961,
             "safety": 62.45001983642578,
             "morale": 57.34912109375,
@@ -72009,21 +72009,20 @@
             }
         },
         {
-            "employeeGuid": "7faff1d0-a998-4b07-ba8d-f6535543f5b7",
-            "employeeName": "Tyler Bennett",
-            "employeeId": "WHSE 797",
-            "employeeIdPrefix": "WHSE",
+            "employeeGuid": "0c971259-d6f3-46bd-9927-5977d0cc2c01",
+            "employeeName": "Frank Martinez",
+            "employeeId": "WKR 549",
+            "employeeIdPrefix": "WKR",
             "gender": 1,
-            "role": 0,
-            "fatigue": 58.5195198059082,
-            "safety": 77.06826782226563,
-            "morale": 62.13581085205078,
-            "skill": 24.685260772705079,
-            "skillLevel": 5,
-            "avatarResourceKey": "Male/Male Sprites/African_american_bald_Haired_S (1)",
+            "fatigue": 48.06846237182617,
+            "safety": 74.200927734375,
+            "morale": 70.04010772705078,
+            "skill": 27.06983184814453,
+            "skillLevel": 1,
+            "avatarResourceKey": "Male/Male Sprites/bald_Haired_Small_sized_Eyes_m",
             "jobIconResourceKey": "",
             "status": 0,
-            "hourlyWage": 20.190000534057618,
+            "hourlyWage": 19.760000228881837,
             "totalWagesPaid": 0.0,
             "hireDateIso": "2026-06-12",
             "separationDateIso": "",
@@ -72034,11 +72033,11 @@
             "injuryRecoveryDaysLeft": 0,
             "workSchedule": {
                 "shiftsPerDay": [
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
                     3,
                     3
                 ],
@@ -72048,21 +72047,20 @@
             }
         },
         {
-            "employeeGuid": "484af5bd-c6f5-4631-aa6b-374ff7b0c441",
-            "employeeName": "Jerry Morales",
-            "employeeId": "WHSE 198",
-            "employeeIdPrefix": "WHSE",
+            "employeeGuid": "af2c983e-fa3d-47df-9491-e3542b62d928",
+            "employeeName": "Kenneth Garcia",
+            "employeeId": "EXT 006",
+            "employeeIdPrefix": "EXT",
             "gender": 1,
-            "role": 0,
-            "fatigue": 10.146773338317871,
-            "safety": 43.5206184387207,
-            "morale": 52.90479278564453,
-            "skill": 71.73458862304688,
-            "skillLevel": 1,
+            "fatigue": 61.049468994140628,
+            "safety": 61.83424758911133,
+            "morale": 39.6388053894043,
+            "skill": 63.56911087036133,
+            "skillLevel": 4,
             "avatarResourceKey": "Male/Male Sprites/African_american_bald_Haired_S (2)",
             "jobIconResourceKey": "",
             "status": 0,
-            "hourlyWage": 21.360000610351564,
+            "hourlyWage": 26.760000228881837,
             "totalWagesPaid": 0.0,
             "hireDateIso": "2026-06-12",
             "separationDateIso": "",
@@ -72092,7 +72090,6 @@
             "employeeId": "IC 605",
             "employeeIdPrefix": "IC",
             "gender": 2,
-            "role": 0,
             "fatigue": 78.95645141601563,
             "safety": 29.57958984375,
             "morale": 39.64547348022461,
@@ -72124,52 +72121,13 @@
                 "notes": "",
                 "effectiveDateIso": ""
             }
-        },
-        {
-            "employeeGuid": "3361afee-4bb6-4c4b-af97-99724a102d9c",
-            "employeeName": "Adam Torres",
-            "employeeId": "WHSE 210",
-            "employeeIdPrefix": "WHSE",
-            "gender": 1,
-            "role": 0,
-            "fatigue": 92.19143676757813,
-            "safety": 71.89570617675781,
-            "morale": 90.37901306152344,
-            "skill": 74.11091613769531,
-            "skillLevel": 5,
-            "avatarResourceKey": "Male/Male Sprites/African_american_bald_Haired_S (3)",
-            "jobIconResourceKey": "",
-            "status": 0,
-            "hourlyWage": 16.950000762939454,
-            "totalWagesPaid": 0.0,
-            "hireDateIso": "2026-06-12",
-            "separationDateIso": "",
-            "shift": 0,
-            "scheduledDaysMask": 0,
-            "isInjured": false,
-            "injuryDescription": "",
-            "injuryRecoveryDaysLeft": 0,
-            "workSchedule": {
-                "shiftsPerDay": [
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    3,
-                    3
-                ],
-                "overtimeDaysMask": 0,
-                "notes": "",
-                "effectiveDateIso": ""
-            }
         }
     ],
     "gameVolume": 1.0,
     "musicVolume": 0.699999988079071,
-    "graphicsPreset": "Toaster",
+    "graphicsPreset": "Good",
     "difficulty": 0,
     "resolutionIndex": 1,
-    "screenWidth": 1918,
-    "screenHeight": 879
+    "screenWidth": 1920,
+    "screenHeight": 1080
 }

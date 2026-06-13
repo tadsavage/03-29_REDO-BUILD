@@ -134,39 +134,6 @@
     -unity-text-align: middle-center;
 }
 
-/* ── Role icon ─────────────────────────────────────────────────────────── */
-.row-role-icon {
-    width: 24px; height: 24px; flex-shrink: 0; margin-right: 6px;
-    background-color: rgba(255,255,255,0.04); border-radius: 4px;
-    -unity-background-scale-mode: scale-to-fit;
-}
-
-/* ── Locate button ─────────────────────────────────────────────────────── */
-.row-location-btn {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular");
-    font-size: 9px; letter-spacing: -1px; padding: 2px 6px; margin-right: 6px;
-    border-radius: 3px; border-width: 1px; border-color: rgba(92,155,196,0.30);
-    background-color: rgba(76,144,192,0.10); color: #8AB8D8; flex-shrink: 0;
-    -unity-text-align: middle-center;
-}
-.row-location-btn:hover {
-    background-color: rgba(76,144,192,0.28); border-color: #5C9BC4; color: #CFE2F0;
-}
-
-/* ── Task label ────────────────────────────────────────────────────────── */
-.row-task {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular");
-    font-size: 9px; color: #6A8090; margin-right: 8px; flex-shrink: 0;
-    -unity-text-align: upper-left;
-}
-
-/* ── Performance label ─────────────────────────────────────────────────── */
-.row-performance {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular");
-    font-size: 10px; letter-spacing: -1px; color: #CFE2F0; width: 60px; flex-shrink: 0;
-    -unity-text-align: middle-right;
-}
-
 /* ── Right: Detail column ────────────────────────────────────────────────── */
 .detail-column {
     flex-grow: 1; padding: 14px 18px; flex-direction: column; overflow: hidden;

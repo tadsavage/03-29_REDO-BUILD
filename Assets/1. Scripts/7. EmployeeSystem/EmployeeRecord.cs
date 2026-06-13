@@ -33,9 +33,6 @@ public class EmployeeRecord
     public string employeeIdPrefix;
     public EmployeeGender gender;
 
-    // ─── Role ─────────────────────────────────────────────────────────────────
-    public EmployeeRole role = EmployeeRole.OrderSelector;
-
     // ─── Stats (0–100) ────────────────────────────────────────────────────────
     public float fatigue;
     public float safety;

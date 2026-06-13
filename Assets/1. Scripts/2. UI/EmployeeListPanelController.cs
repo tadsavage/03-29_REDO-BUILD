@@ -20,7 +20,6 @@ public class EmployeeListPanelController : MonoBehaviour
 
     // ─── Serialized ───────────────────────────────────────────────────────────
     [SerializeField] private VisualTreeAsset _listItemTemplate;
-    [SerializeField] private RoleIconLibrary _roleIconLibrary;
 
     // ─── State ────────────────────────────────────────────────────────────────
     private UIDocument _doc;
@@ -69,9 +68,6 @@ public class EmployeeListPanelController : MonoBehaviour
     private readonly List<VisualElement> _rows = new List<VisualElement>();
     private EmployeeRecord _selectedRecord;
     private string _activeFilter = "all";
-
-    // Camera cache for locate-button
-    private FreeLookCamera _camera;
 
     // Subscription guard
     private bool _subscribed;
@@ -332,45 +328,6 @@ public class EmployeeListPanelController : MonoBehaviour
         var shiftLabel = row.Q<Label>("row-shift");
         if (shiftLabel != null)
             shiftLabel.text = record.shift.ToString().ToUpper();
-
-        // ── Role icon ─────────────────────────────────────────────────────────
-        var roleIcon = row.Q<VisualElement>("row-role-icon");
-        if (_roleIconLibrary != null && roleIcon != null)
-        {
-            var sprite = _roleIconLibrary.GetIcon(record.role);
-            if (sprite != null)
-                roleIcon.style.backgroundImage = new StyleBackground(sprite);
-        }
-
-        // ── Locate button ─────────────────────────────────────────────────────
-        var locBtn = row.Q<Button>("row-location-btn");
-        if (locBtn != null)
-        {
-            var capturedRecord = record;
-            var capturedIdentity = identity;
-            locBtn.clicked += () => FocusCameraOn(capturedIdentity, capturedRecord);
-        }
-
-        // ── Task label ────────────────────────────────────────────────────────
-        var taskLabel = row.Q<Label>("row-task");
-        if (taskLabel != null)
-        {
-            // TODO: map to AI FSM state (Putting Up Pallet / Bringing Down Pallet / Staging a Pallet)
-            taskLabel.text = "ToBeImplemented";
-        }
-
-        // ── Performance label ─────────────────────────────────────────────────
-        var perfLabel = row.Q<Label>("row-performance");
-        if (perfLabel != null)
-        {
-            var metric = record.role.PerformanceMetric();
-            perfLabel.text = metric switch
-            {
-                EmployeePerformanceMetric.CasesPerHour   => "-- CPH",   // TODO: real CPH when work-tracking exists
-                EmployeePerformanceMetric.PalletsPerHour => "-- PPH",   // TODO: real PPH
-                _                                        => "Indirect"
-            };
-        }
 
         // Click to select
         row.RegisterCallback<ClickEvent>(_ => SelectRecord(record));
@@ -659,19 +616,6 @@ public class EmployeeListPanelController : MonoBehaviour
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
-    private void FocusCameraOn(EmployeeIdentity identity, EmployeeRecord record)
-    {
-        if (identity == null) return;
-
-        if (_camera == null)
-            _camera = UnityEngine.Object.FindFirstObjectByType<FreeLookCamera>();
-
-        _camera?.FocusOn(identity.transform.position);
-
-        if (record != null)
-            SelectRecord(record);
-    }
-
     private void SetBar(VisualElement bar, Label valueLabel, float pct)
     {
         if (bar != null)

@@ -56,9 +56,6 @@ public static class EmployeeGenerator
             avatarResourceKey = EmployeeRegistry.Instance?.AvatarRegistry.AssignAvatar(gender, guid)
                                 ?? (gender == EmployeeGender.Female ? "Female/avatar_01" : "Male/avatar_01"),
 
-            // Role — OrderSelector is the default for new hires
-            role              = EmployeeRole.OrderSelector,
-
             // Employment
             status            = EmploymentStatus.Active,
             hourlyWage        = RandomWage(idPrefix),

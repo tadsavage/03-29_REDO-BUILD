@@ -1,50 +1,55 @@
 # MAESTRO.md — Session Handoff
 
-**Written:** 2026-06-12 (latest session)
-**Last Commit:** `75216d9c` — "@work - on emplyees" *(not yet committed — uncommitted work below)*
+**Written:** 2026-06-02 (approximate)
+**Last Commit:** `75216d9c` — "@work - on emplyees"
 **Project:** Warehouse/Facility Builder Sim — Unity 6 URP
 
 ---
 
-## What We Did This Session (2026-06-12)
+## What We Just Did
 
-### Step 1 — Role Icon System (COMPLETED)
-The role icon display pipeline is fully wired:
+### Last Commit: Massive Cleanup + Employee System Work
+The most recent commit (`75216d9c`) was a large sweep touching **515 files**:
 
-- **`Assets/1. Scripts/7. EmployeeSystem/EmployeeRole.cs`** — 11-role enum with `DisplayName()` and `PerformanceMetric()` extension methods
-- **`Assets/1. Scripts/7. EmployeeSystem/RoleIconLibrary.cs`** — ScriptableObject mapping `EmployeeRole → Sprite` with lazy dictionary lookup
-- **`Assets/3. UI/2. TopHUD/HUD.uxml`** — added `employee-role-icon` VisualElement (36×36px, right-aligned, `display:none` default, inside employee-info-panel header) at line 96
-- **`Assets/1. Scripts/2. UI/EmployeeListPanelController.cs`** line 667 — fixed `Object` ambiguity by fully qualifying `UnityEngine.Object.FindFirstObjectByType<FreeLookCamera>()`
-- **`Assets/1. Scripts/3. ScriptableObjects/RoleIconLibrary.asset`** — pre-populated with 11 role→sprite mappings using existing project sprites (WP_WorkerThumb, WP_MHEThumb, WP_TruckThumb, PltStackThumbnail, WP_BossThumb, WP_SecurityThumb, WP_ICThumb, Trashcan_Blue)
-- **7 thumbnail PNGs** in `Assets/6. Art/Icons/Category Icons/` — reimported from `spriteMode: 2` (Multiple, empty slices) to `spriteMode: 1` (Single) so they resolve as valid Sprites at runtime
-- **`EmployeeInfoUI` component on `UIBootStrapper` GameObject** — `_roleIconLibrary` field wired to `RoleIconLibrary.asset` via inspector
+**Removals (housekeeping):**
+- Removed unused `Nebula - Free low poly car pack` entirely (materials, meshes, prefabs, textures, scenes)
+- Deleted `Assets/_Recovery/` — ~50 stale recovery scene snapshots
+- Deleted `Assets/_Saves/` — autosave/quicksave/slot JSON files (now generated at runtime)
+- Removed `BuildPhaseTasks.json`, `Project_Overview.md`, `AI Toolkit/Temp/` images
+- Removed `Safety Cone` FBX duplicates and `Assets/models/blenderFiles/Men/IC.blend`
 
-### Step 2 — RoleConfig ScriptableObject (COMPLETED — uncommitted)
-Per-role economic configuration for hiring/promotion costs and morale modifiers:
+**Employee System (the actual feature work):**
+- `EmployeeGenerator.cs` — modified
+- `EmployeeIdentity.cs` — modified
+- `EmployeeRecord.cs` — modified
+- `EmployeeData.cs` (ScriptableObject) — modified, plus `WorkerFemale_EmployeeData.asset`
+- `PlacementFinalizer.cs` — small fix
+- `DeleteCommand.cs` — modified
+- `FXPool.cs`, `GraphicsPresetManager.cs`, `NoWaypointIndicator.cs`, `TruckController.cs` — various tweaks
+- **New prefabs added/updated:** `Truck_SavageDev.prefab`, BossNew, Exterminator, IC Clerk, Security, Truck Driver, WorkerFemale, WorkerMale
+- New icon: `IC Clerk_preview.png`
+- `employee_names.json` — updated name list
+- `HUD.uxml` — tweaked
+- `UIBootStrapper.cs` — one line added
+- Font: `WorkSans-SemiBold SDF.asset` added
+- `PP_Good/Toaster/Ultra.asset` — PostProcessing profile adjustments
+- `Main.unity`, `MainMenu.unity` — scene changes
 
-- **`Assets/1. Scripts/7. EmployeeSystem/RoleConfig.cs`** — ScriptableObject script with:
-  - `RoleConfigEntry` struct: `role`, `hiringCost` (Min=0), `promotionCost` (Min=0), `moraleModifier` (Range -100..100)
-  - Lazy `Dictionary<EmployeeRole, RoleConfigEntry>` lookup
-  - Public API: `GetConfig()`, `GetHiringCost()`, `GetPromotionCost()`, `GetMoraleModifier()`
-  - `OnValidate()` editor invalidation for runtime safety
-- **GUID:** `c28344f4d99e30148a4d4bfbd6792c4d`
-- **`Assets/1. Scripts/3. ScriptableObjects/RoleConfig.asset`** — pre-populated YAML asset with all 11 roles and designer-balanced defaults:
+### Devlog Context (prior sessions this week)
 
-| Role | Hiring Cost | Promotion Cost | Morale Mod |
-|------|------------|----------------|------------|
-| OrderSelector | $500 | $0 | 0 |
-| ReachTruckOperator | $1,200 | $700 | +5 |
-| Loader | $800 | $300 | -5 |
-| Receiver | $900 | $400 | 0 |
-| Supervisor | $2,000 | $1,000 | +10 |
-| Boss | $4,000 | $2,000 | +15 |
-| Security | $1,500 | $0 | +5 |
-| InventoryControl | $1,100 | $0 | 0 |
-| HR | $1,300 | $0 | +5 |
-| Admin | $1,000 | $0 | 0 |
-| Sanitation | $600 | $0 | -10 |
+**May 29:**
+- Dev Console panel built (UI Toolkit, Two Point Hospital aesthetic)
+- Unified ToolsWindow (Pallet Builder + Dev Console tabs, shared UXML)
 
-> **⚠️ Note:** Unity MCP bridge was flaky at session end — AssetDatabase refresh timed out. When you open Unity, select `RoleConfig.asset` and hit Ctrl+R to force a reimport if it shows as missing/unknown.
+**May 30-31:**
+- Build bar/placement fully restored (ground mask + UI raycast fixes)
+- Nav agent fixes (obstacle bake timing, rat nav, AiNavigation)
+- Rat life system (breeding, scavenging, wall-hugging, curiosity)
+- Guard shack lights & gate animation
+- Security guard avatar fix (was T-pose from wrong rig import)
+- ObjDataSO cost rebalance (all 68 assets, real 2024 pricing)
+- GPU instancing audit & fix (37 embedded FBX materials fixed)
+- Cyclone fence Blender generator script
 
 ---
 
@@ -53,52 +58,67 @@ Per-role economic configuration for hiring/promotion costs and morale modifiers:
 ```
 Branch: TestBranch5
 Remote: https://github.com/tadsavage/03-29_REDO-BUILD
-Uncommitted: RoleConfig.cs, RoleConfig.cs.meta, RoleConfig.asset
+Clean: Check `git status` — likely clean or near-clean after the big commit
 ```
 
-### Employee System — Files Created This Session
+### Key Systems at a Glance
+
+| System | Status | Key Files |
+|--------|--------|-----------|
+| **Employee System** | In progress — last commit was focused here | `Assets/1. Scripts/7. EmployeeSystem/` |
+| **Placement/Build FSM** | Working (restored May 30) | `Assets/1. Scripts/1. FSM/` |
+| **Nav Mesh / Pathfinding** | Working after fixes | `NavMeshManager.cs`, `AiNavigation` |
+| **Rat Life System** | Working | `RatBehavior.cs` |
+| **Economy** | Balanced (68 SOs with real-world prices) | `Assets/1. Scripts/3. ScriptableObjects/ObjData/` |
+| **Dev Console / ToolsWindow** | Working | `Assets/3. UI/7.ToolsWindow/` |
+| **Save/Load** | Working (F5 quicksave, F9 quickload) | FSM command stack serialization |
+| **Gate Animation** | Working | `Gate_Open_Close.cs` |
+| **GPU Instancing** | All materials now instancing ON | 28 + 37 materials fixed |
+
+### Project Structure Quick Reference
 
 ```
-Assets/1. Scripts/7. EmployeeSystem/
-  EmployeeRole.cs              ← enum + extensions
-  EmployeePerformanceMetric.cs ← CPH/PPH/Indirect enum
-  RoleIconLibrary.cs           ← SO: role→sprite map
-  RoleConfig.cs                ← SO: hire/promo costs + morale  ★ NEW
-
-Assets/1. Scripts/3. ScriptableObjects/
-  RoleIconLibrary.asset        ← 11 role→sprite entries
-  RoleConfig.asset             ← 11 role economic entries  ★ NEW
-```
-
-### Employee System — Files Modified This Session
-
-```
-Assets/1. Scripts/2. UI/EmployeeListPanelController.cs  ← Object ambiguity fix line 667
-Assets/3. UI/2. TopHUD/HUD.uxml                          ← employee-role-icon element
-Assets/6. Art/Icons/Category Icons/ (7 PNGs)             ← spriteMode fix
+Assets/
+  1. Scripts/
+    1. FSM/          — Placement state machine + commands
+    3. ScriptableObjects/ — ObjDataSO, EmployeeData
+    6. Utility/      — FXPool, TruckController, etc.
+    7. EmployeeSystem/ — EmployeeGenerator, Identity, Record, etc.
+  2. Prefabs/Workers/ — Boss, Clerk, Exterminator, Security, etc.
+  3. UI/
+    2. TopHUD/       — Runtime HUD
+    5. DevPanel/     — Standalone dev console (replaced by ToolsWindow)
+    7. ToolsWindow/  — Unified pallet builder + dev console
+  5. Models/         — FBX models + BlenderFiles/
+  6. Art/Materials/  — 28 materials (all instancing ON)
+  8. Scenes/
+    Main.unity       — Game scene
+    MainMenu.unity   — Menu scene
 ```
 
 ---
 
-## Employee System Roadmap (Updated)
+## Immediate Next Steps
 
-1. **[DONE]** Role enum, record field, default assignment, UI hooks (icons, list columns, camera focus).
-2. **[DONE]** Role art imported + `RoleIconLibrary.asset` populated + `RoleConfig.asset` with economics.
-3. **Work-tracking service** → real CPH/PPH; wire Task column to AI FSM state. *Depends on AI FSM task reporting.*
-4. **Promotion flow** — wire `RoleConfig` costs to a hire/promote UI; money deduction via `MoneyService`.
-5. **Role XP & unlock mechanics** on `EmployeeRecord` (roleXp, roleHoursWorked, unlockedRoles).
-6. **Skill Tree UI** panel (UXML/USS + `SkillTreeController`).
-7. **Trait system:** `EmployeeTrait`/`TraitLibrary`, `TraitEvaluator` (daily tick), modifier resolver, **Clone() deep-copy fix for trait list**.
-8. **Trait → performance/morale integration** + acquisition triggers.
+1. **Open Unity and verify `Main.unity` loads clean** — the scene file shrank from ~7MB to ~177KB in the last commit (likely removed baked data / unnecessary references)
+2. **Check compilation** — the last commit touched many scripts; make sure Unity compiles without errors
+3. **Test employee spawning** — prefabs and employee system were heavily modified; spawn some workers and verify they appear, animate, and nav correctly
+4. **Review `Assets/notes.txt`** — has the running todo list; the last checked-off items were about rats, exterminator, female clerk, and wall color mismatches
+5. **Next feature target** — based on `notes.txt`, the remaining wall color mismatch fix (underside of top ledge) is the last unchecked item
+6. **Push to remote** if you want the cleanup commit on GitHub: `git push origin TestBranch5`
 
 ---
 
 ## Quick Commands
 
 ```bash
-git status                    # Should show RoleConfig.cs, RoleConfig.cs.meta, RoleConfig.asset as new
-git add Assets/1. Scripts/7. EmployeeSystem/RoleConfig.cs
-git add Assets/1. Scripts/7. EmployeeSystem/RoleConfig.cs.meta
-git add Assets/1. Scripts/3. ScriptableObjects/RoleConfig.asset
-git commit -m "feat: RoleConfig SO — per-role hiring/promotion costs + morale modifiers"
+# Check git state
+git status
+git log --oneline -5
+
+# Open project in Unity
+# Just open the folder in Unity Hub / Unity 6
+
+# If Unity complains about scene references, try:
+# Assets → Open Scene → Main.unity
 ```
