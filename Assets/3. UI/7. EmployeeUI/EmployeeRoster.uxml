@@ -1,0 +1,24 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/3.%20UI/7.%20EmployeeUI/EmployeeRoster.uss"/>
+
+    <ui:VisualElement name="er-overlay" picking-mode="Ignore" class="er-overlay" style="display: none;">
+        <ui:VisualElement name="er-panel" picking-mode="Position" class="er-panel">
+
+            <ui:VisualElement class="er-title-bar">
+                <ui:Label text="EMPLOYEE ROSTER" class="er-title"/>
+                <ui:Label name="er-count" text="0" class="er-count"/>
+                <ui:Button name="er-close" text="✕" class="er-close"/>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="er-filter-row">
+                <ui:Label text="SORT / FILTER" class="er-filter-label"/>
+                <ui:DropdownField name="er-filter" class="er-filter"/>
+            </ui:VisualElement>
+
+            <ui:ScrollView name="er-scroll" mode="Vertical" class="er-scroll">
+                <ui:VisualElement name="er-list" class="er-list"/>
+            </ui:ScrollView>
+
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -260,12 +260,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavAgentGuidance
   showGuidanceLine: 1
-  colorType: 5
-  lineWidth: 0.1
+  colorType: 0
+  lineWidth: 0.05
   isDashed: 0
-  pointsPerSegment: 10
-  verticalOffset: 0.15
-  guidanceMaterial: {fileID: -876546973899608171, guid: 8bab5bc95378e3746b10fe5f5f93d387, type: 3}
+  pointsPerSegment: 12
+  verticalOffset: 0.05
+  guidanceMaterial: {fileID: -876546973899608171, guid: dea41a882d6ef87489402d2409c08094, type: 3}
 --- !u!114 &6887333376888000270
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -494,9 +494,15 @@ MonoBehaviour:
       overtimeDaysMask: 0
       notes: 
       effectiveDateIso: 
+    posX: 0
+    posY: 0
+    posZ: 0
+    rotY: 0
+    hasSavedPosition: 0
   _idPrefix: TRK
   _gender: 1
   _avatarRenderer: {fileID: 0}
+  _systemManaged: 0
 --- !u!114 &4396316770944197486
 MonoBehaviour:
   m_ObjectHideFlags: 0

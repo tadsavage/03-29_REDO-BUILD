@@ -8,16 +8,19 @@
     flex-direction: column;
 }
 
-/* PALIA THEME: Deep purple-charcoal base panel with clean gold top accent border */
+/* Retheme 2026-06-14: matched to the Employee Roster / Hiring Board palette.
+   Back bar = rgba(20,28,38,0.82) + blue #5C9BC4 top border; button/card faces =
+   rgba(34,44,56,0.55) + subtle white borders, blue hovers; selected = blue fill.
+   Layout, sizes and fonts are unchanged. */
 .buildmenu-bottom-bar {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
     height: 120px;
-    background-color: #2D2B3A;
+    background-color: rgba(20, 28, 38, 0.82);
     border-top-width: 2px;
-    border-top-color: #ECC98A;
+    border-top-color: rgba(92, 155, 196, 0.6);
     display: flex;
     flex-direction: row;
     justify-content: space-between;
@@ -43,10 +46,10 @@
     flex-grow: 0;
     flex-shrink: 0;
     /* Explicitly prevent your utilities row from over-expanding */
-    max-width: 520px !important; 
+    max-width: 520px !important;
 }
 
-/* PALIA THEME: Category buttons use a subtle dark container shade */
+/* Category buttons — card face */
 .buildmenu-category-button {
     width: 120px;
     height: 104px;
@@ -54,26 +57,26 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: rgba(90, 85, 110, 0.15);
+    background-color: rgba(34, 44, 56, 0.55);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(236, 201, 138, 0.2);
+    border-color: rgba(255, 255, 255, 0.08);
     padding: 4px;
     margin: 4px;
     opacity: 1;
 }
 
-/* PALIA THEME: Hover glows with light gold borders */
+/* Hover — blue card highlight */
 .buildmenu-category-button:hover {
-    background-color: rgba(236, 201, 138, 0.1);
-    border-color: #ECC98A;
+    background-color: rgba(46, 60, 76, 0.65);
+    border-color: rgba(92, 155, 196, 0.35);
     opacity: 0.95;
 }
 
-/* PALIA THEME: Selected buttons highlight in solid gold with deep text contrast */
+/* Selected — blue fill */
 .buildmenu-category-button.selected {
-    background-color: #ECC98A;
-    border-color: #F5EEDB;
+    background-color: rgba(76, 144, 192, 0.55);
+    border-color: rgb(92, 155, 196);
     opacity: 1;
 }
 
@@ -85,13 +88,12 @@
     background-position: center;
 }
 
-/* PALIA THEME: Text labels use soft off-white parchment tones */
 .buildmenu-category-label {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 16px;
     -unity-text-letter-spacing: -1px;
     -unity-font-style: normal;
-    color: #F5EEDB;
+    color: #96BEDC;
     -unity-text-align: middle-center;
     -unity-text-wrap: nowrap;
 }
@@ -103,18 +105,18 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: #3E3B4F;
+    background-color: rgba(34, 44, 56, 0.55);
     border-radius: 6px;
     border-width: 1px;
-    border-color: rgba(236, 201, 138, 0.4);
+    border-color: rgba(255, 255, 255, 0.08);
     padding: 4px;
     margin: 4px;
     opacity: 1;
 }
 
 .buildmenu-utility-button:hover {
-    background-color: rgba(236, 201, 138, 0.1);
-    border-color: #ECC98A;
+    background-color: rgba(46, 60, 76, 0.65);
+    border-color: rgba(92, 155, 196, 0.35);
     opacity: 0.95;
 }
 
@@ -125,6 +127,7 @@
     background-repeat: no-repeat;
     background-position: center;
     margin-bottom: 4px;
+    -unity-background-image-tint-color: #96BEDC;
 }
 
 .buildmenu-utility-label {
@@ -132,7 +135,7 @@
     font-size: 11px;
     -unity-text-letter-spacing: -1px;
     -unity-font-style: bold;
-    color: #F5EEDB;
+    color: #96BEDC;
     -unity-text-align: middle-center;
     -unity-text-wrap: nowrap;
 }
@@ -155,23 +158,23 @@
     display: none;
 }
 
-/* FIXED MERGE: Submenu dropdown uses the same dark backdrop with an elegant gold border framing, right padding, and overflow hidden */
+/* Submenu dropdown — back panel with blue framing */
 .buildmenu-submenu-root {
-    background-color: #2D2B3A;
-    border-radius: 6px;
+    background-color: rgba(20, 28, 38, 0.92);
+    border-radius: 10px;
     border-width: 2px;
-    border-color: #ECC98A;
+    border-color: rgb(92, 155, 196);
     padding: 6px;
-    padding-right: 8px; 
+    padding-right: 8px;
     max-height: 320px;
-    overflow: hidden; 
+    overflow: hidden;
 }
 
 .buildmenu-submenu-scroll {
     flex-grow: 1;
 }
 
-/* PALIA THEME: Item buttons use a slightly lighter muted gray-purple panel tint */
+/* Item buttons — card face */
 .buildmenu-item-button {
     width: 260px;
     height: 64px;
@@ -181,17 +184,17 @@
     justify-content: flex-start;
     padding: 6px;
     margin-bottom: 6px;
-    background-color: #3E3B4F;
+    background-color: rgba(34, 44, 56, 0.55);
     border-radius: 6px;
     border-width: 1px;
-    border-color: rgba(236, 201, 138, 0.2);
+    border-color: rgba(255, 255, 255, 0.08);
     opacity: 1;
 }
 
-/* PALIA THEME: Item cards highlight cleanly on hover with gold borders */
+/* Item cards — blue hover highlight */
 .buildmenu-item-button:hover {
-    background-color: rgba(236, 201, 138, 0.12);
-    border-color: #ECC98A;
+    background-color: rgba(46, 60, 76, 0.65);
+    border-color: rgba(92, 155, 196, 0.35);
     opacity: 1;
 }
 
@@ -214,13 +217,13 @@
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 15px;
     -unity-text-letter-spacing: 0px;
-    color: #F5EEDB;
+    color: #96BEDC;
     -unity-text-wrap: nowrap;
     overflow: hidden;
     -unity-text-overflow: ellipsis;
 }
 
-/* PALIA THEME: Item costs match the soft sand/gold utility elements */
+/* Item costs — kept as the soft gold accent */
 .buildmenu-item-cost {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 14px;
@@ -238,29 +241,29 @@
 .buildmenu-submenu-scroll .unity-scroller {
     width: 14px;
     background-color: transparent;
-    margin-top: 4px;     
-    margin-bottom: 4px;  
-    margin-right: 6px;   
+    margin-top: 4px;
+    margin-bottom: 4px;
+    margin-right: 6px;
 }
 
 .buildmenu-submenu-scroll .unity-scroller__slider {
-    background-color: #3E3B4F; 
-    border-radius: 4px; 
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
     margin: 0;
     border-width: 0;
 }
 
 .buildmenu-submenu-scroll .unity-scroller__thumb {
-    background-color: #ECC98A; 
+    background-color: rgba(92, 155, 196, 0.45);
     border-radius: 4px;
     border-width: 0;
 }
 
 .buildmenu-submenu-scroll .unity-scroller__thumb:hover {
-    background-color: #F5EEDB; 
+    background-color: rgba(92, 155, 196, 0.7);
 }
 
-.buildmenu-submenu-scroll .unity-scroller__low-button, 
+.buildmenu-submenu-scroll .unity-scroller__low-button,
 .buildmenu-submenu-scroll .unity-scroller__high-button {
     display: none;
     visibility: hidden;
@@ -270,17 +273,17 @@
     padding: 0;
 }
 
-/* THE SELECTION DISPLAY BOX CONTAINER */
+/* THE SELECTION DISPLAY BOX CONTAINER — card face */
 .buildmenu-stationed-popup {
     flex-grow: 1;
     max-width: 400px;
-    height: auto !important;     
-    min-height: 104px !important; 
+    height: auto !important;
+    min-height: 104px !important;
     margin: 8px 16px;
-    padding: 6px 12px !important; 
-    background-color: rgba(90, 85, 110, 0.15);
+    padding: 6px 12px !important;
+    background-color: rgba(34, 44, 56, 0.55);
     border-width: 1px;
-    border-color: rgba(236, 201, 138, 0.2);
+    border-color: rgba(255, 255, 255, 0.08);
     border-radius: 4px;
     display: flex;
     flex-direction: column;
@@ -325,10 +328,12 @@
     width: 90px !important;
     height: 90px !important;
     align-self: center;
+    -unity-background-image-tint-color: #96BEDC;
 }
 
 .wall-raise-icon {
     width: 90px !important;
     height: 90px !important;
     align-self: center;
+    -unity-background-image-tint-color: #96BEDC;
 }

@@ -8,8 +8,10 @@ using UnityEngine;
 /// </summary>
 public class DockLightController : MonoBehaviour
 {
-    private Renderer _green;
-    private Renderer _red;
+    private Renderer _greenInt;
+    private Renderer _redInt;
+    private Renderer _greenExt;
+    private Renderer _redExt;
     private Color    _greenEmission;
     private Color    _redEmission;
 
@@ -20,15 +22,19 @@ public class DockLightController : MonoBehaviour
         _mpb = new MaterialPropertyBlock();
         foreach (Transform t in GetComponentsInChildren<Transform>(true))
         {
-            if (t.name == "GreenLight" && _green == null) _green = t.GetComponent<Renderer>();
-            if (t.name == "RedLight"   && _red   == null) _red   = t.GetComponent<Renderer>();
+            if (t.name == "GreenLight-INT" && _greenInt == null) _greenInt = t.GetComponent<Renderer>();
+            if (t.name == "RedLight-INT"   && _redInt   == null) _redInt   = t.GetComponent<Renderer>();
+            if (t.name == "GreenLight-EXT" && _greenExt == null) _greenExt = t.GetComponent<Renderer>();
+            if (t.name == "RedLight-EXT"   && _redExt   == null) _redExt   = t.GetComponent<Renderer>();
         }
 
-        if (_green == null) Debug.LogWarning($"[DockLightController] GreenLight not found on {name}.");
-        if (_red   == null) Debug.LogWarning($"[DockLightController] RedLight not found on {name}.");
+        if (_greenInt == null) Debug.LogWarning($"[DockLightController] GreenLight-INT not found on {name}.");
+        if (_redInt   == null) Debug.LogWarning($"[DockLightController] RedLight-INT not found on {name}.");
+        if (_greenExt == null) Debug.LogWarning($"[DockLightController] GreenLight-EXT not found on {name}.");
+        if (_redExt   == null) Debug.LogWarning($"[DockLightController] RedLight-EXT not found on {name}.");
 
-        _greenEmission = ReadEmission(_green, Color.green);
-        _redEmission   = ReadEmission(_red,   Color.red);
+        _greenEmission = ReadEmission(_greenInt, Color.green);
+        _redEmission   = ReadEmission(_redInt,   Color.red);
 
         SetOccupied(false); // default: green on, red off
     }
@@ -39,8 +45,11 @@ public class DockLightController : MonoBehaviour
     /// </summary>
     public void SetOccupied(bool occupied)
     {
-        WriteEmission(_green, occupied ? Color.black : _greenEmission);
-        WriteEmission(_red,   occupied ? _redEmission : Color.black);
+        WriteEmission(_greenInt, occupied ? _greenEmission : Color.black); 
+        WriteEmission(_redInt,   occupied ? Color.black : _redEmission);
+        WriteEmission(_greenExt, occupied ? Color.black : _greenEmission);
+        WriteEmission(_redExt,   occupied ? _redEmission : Color.black);
+        Debug.Log($"[DockLightController] SetOccupied({occupied}) on {name}.");
     }
 
     private static Color ReadEmission(Renderer r, Color fallback)

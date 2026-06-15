@@ -269,13 +269,13 @@ MonoBehaviour:
   active: 1
   color:
     m_OverrideState: 1
-    m_Value: {r: 0.028361196, g: 0.037215006, b: 0.03773582, a: 1}
+    m_Value: {r: 0, g: 0, b: 0, a: 1}
   center:
     m_OverrideState: 1
     m_Value: {x: 0.5, y: 0.5}
   intensity:
     m_OverrideState: 1
-    m_Value: 0.25
+    m_Value: 0
   smoothness:
     m_OverrideState: 1
     m_Value: 0.2
@@ -368,16 +368,16 @@ MonoBehaviour:
     m_Value: 0
   gaussianStart:
     m_OverrideState: 1
-    m_Value: 35
+    m_Value: 10
   gaussianEnd:
     m_OverrideState: 1
-    m_Value: 50
+    m_Value: 30
   gaussianMaxRadius:
     m_OverrideState: 1
     m_Value: 1
   highQualitySampling:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 0
   focusDistance:
     m_OverrideState: 1
     m_Value: 10
@@ -411,7 +411,7 @@ MonoBehaviour:
   active: 1
   postExposure:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 0
   contrast:
     m_OverrideState: 1
     m_Value: 0
@@ -471,7 +471,7 @@ MonoBehaviour:
   active: 1
   mode:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 1
   neutralHDRRangeReductionMode:
     m_OverrideState: 1
     m_Value: 2

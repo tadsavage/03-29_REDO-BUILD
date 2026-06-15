@@ -53,6 +53,7 @@ public class TopBarUI : MonoBehaviour
     private MoneyService _moneyService;
     private SimulationTimeService _timeService;
     private SaveLoadWindowController _saveLoadController;
+    private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
 
     private bool _menuOpen = false;
     private bool _pendingGoToMenu = false;
@@ -165,6 +166,13 @@ public class TopBarUI : MonoBehaviour
                 _pendingCloseAfterSave = false;
                 CloseMenuPopup();
             }
+            else if (EmployeeCardOpen())
+            {
+                // Escape backs out of the open employee card first (which also drops the
+                // outline/camera-follow focus via the card's Hide → DropFocus). Only when no
+                // card is open does Escape fall through to the pause menu.
+                _employeeInfoUI.Hide();
+            }
             else
             {
                 ToggleMenuPopup();
@@ -185,6 +193,13 @@ public class TopBarUI : MonoBehaviour
     }
 
     // ── Menu popup ────────────────────────────────────────────────
+
+    /// <summary>True if the employee info card is currently open (cached lookup).</summary>
+    private bool EmployeeCardOpen()
+    {
+        if (_employeeInfoUI == null) _employeeInfoUI = FindAnyObjectByType<EmployeeInfoUI>();
+        return _employeeInfoUI != null && _employeeInfoUI.IsVisible;
+    }
 
     private void ToggleMenuPopup()
     {
@@ -342,7 +357,7 @@ public class TopBarUI : MonoBehaviour
     private void IgApplyStoredSettings()
     {
         string preset = PlayerPrefs.GetString("GraphicsPresetName", "Ultra");
-        IgApplyGraphicsPreset(preset);
+        IgApplyGraphicsPreset(preset, notify: false);
 
         int diff = PlayerPrefs.GetInt("Difficulty", 0);
         IgApplyDifficulty(diff);
@@ -353,12 +368,12 @@ public class TopBarUI : MonoBehaviour
         if (_igMusicVolumeSlider != null) _igMusicVolumeSlider.SetValueWithoutNotify(mv);
     }
 
-    private void IgApplyGraphicsPreset(string preset)
+    private void IgApplyGraphicsPreset(string preset, bool notify = true)
     {
         var mgr = FindAnyObjectByType<GraphicsPresetManager>();
         if (mgr != null)
             mgr.ApplyPreset((GraphicsPresetManager.Preset)System.Enum.Parse(
-                typeof(GraphicsPresetManager.Preset), preset));
+                typeof(GraphicsPresetManager.Preset), preset), notify);
 
         _igBtnScreamin?.RemoveFromClassList("gfx-btn--active");
         _igBtnGood?.RemoveFromClassList("gfx-btn--active");

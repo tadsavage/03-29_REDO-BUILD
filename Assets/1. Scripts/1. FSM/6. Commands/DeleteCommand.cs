@@ -66,8 +66,13 @@ public class DeleteCommand : ICommand
                     if (objs == null) continue;
                     foreach (var entry in objs)
                     {
-                        if (entry.data != null && _data.defaultFloorTile != null
-                            && entry.data == _data.defaultFloorTile
+                        // Deleting a foundation takes EVERY floor tile in its footprint with it —
+                        // not just the default ones. Players REPLACE floor tiles (pedestrian,
+                        // shipping-lane, etc.), so a defaultFloorTile-only match left the replaced
+                        // tiles floating in the hole — stuck (can't delete floors, can't place a
+                        // new foundation over them). Grabbing all isFloor tiles empties the cells
+                        // cleanly so a new foundation can go down.
+                        if (entry.data != null && entry.data.isFloor
                             && entry.instance != null && entry.instance.activeSelf)
                         {
                             if (seen.Add(entry.instance))

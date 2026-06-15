@@ -307,6 +307,18 @@ public class PlacementSystem : MonoBehaviour
 
         foreach (var entry in PlacedObjectRegistry.All)
         {
+            // Yard floor tiles (id 200) aren't saved individually — they make up the vast
+            // majority of placedObjects (~9,400 of ~10,250) and are regenerated on load by
+            // GameContext.PopulateYardFloors, which fills every empty cell with the yard
+            // tile (skipping cells that already have a different floor). Saving/spawning
+            // them all individually is what caused the multi-second freeze on load.
+            if (entry.data.id == 200) continue;
+
+            // Employees are persisted via employeeRecords (identity + position), NEVER as grid
+            // placements. Saving them as placed objects regenerates a fresh random identity on
+            // load AND double-spawns them — that's the "strangers appear after load" bug.
+            if (entry.GetComponent<EmployeeIdentity>() != null) continue;
+
             SavedObject obj = new SavedObject();
             obj.id = entry.data.id;
             obj.x = entry.gridX;
@@ -316,14 +328,30 @@ public class PlacementSystem : MonoBehaviour
             save.placedObjects.Add(obj);
         }
 
-        // Employee record persistence — best-effort snapshot of all scene employees
-        var identities = Object.FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None);
-        foreach (var ident in identities)
+        // Employee persistence — snapshot only REGISTERED (active) employees, each with their
+        // live world position so they resume where they were. Using the registry rather than a
+        // scene scan means a terminated employee still walking off to the exit is NOT saved
+        // (they were already unregistered), so they don't come back as active on load.
+        if (EmployeeRegistry.Instance != null)
         {
-            var rec = ident.Record;
-            if (rec != null)
-                save.employeeRecords.Add(rec.Clone());
+            foreach (var ident in EmployeeRegistry.Instance.All)
+            {
+                if (ident == null || ident.Record == null) continue;
+                var rec = ident.Record.Clone();
+                var t = ident.transform;
+                rec.posX = t.position.x;
+                rec.posY = t.position.y;
+                rec.posZ = t.position.z;
+                rec.rotY = t.eulerAngles.y;
+                rec.hasSavedPosition = true;
+                save.employeeRecords.Add(rec);
+            }
         }
+
+        // Former employees (terminated/resigned) — persisted so a rehire is possible later.
+        // Only snapshot if an archive exists, so saving never spawns one needlessly.
+        if (FormerEmployeeArchive.HasInstance)
+            save.formerEmployees = FormerEmployeeArchive.Instance.Snapshot();
 
         return save;
     }
@@ -339,40 +367,47 @@ public class PlacementSystem : MonoBehaviour
 
         ClearAll();
 
+        // Restore the former-employee archive (best-effort; older saves simply have none).
+        FormerEmployeeArchive.Instance.LoadFrom(save.formerEmployees);
+
         foreach (var objSave in save.placedObjects)
         {
+            // Skip yard floor tiles from older saves that still have them serialized —
+            // PopulateYardFloors regenerates these below, so spawning them here would
+            // re-introduce the load-time freeze for existing save files.
+            if (objSave.id == 200) continue;
+
             ObjDataSO so = registry.GetByID(objSave.id);
             if (so == null)
             {
                 Debug.LogWarning($"[PlacementSystem] Skipping saved object with unknown id={objSave.id} at ({objSave.x},{objSave.y}) — not in ObjDataRegistry.");
                 continue;
             }
+            // Skip employee placements from OLDER saves — employees are restored from
+            // employeeRecords below (with their saved identity + position). Spawning them here
+            // too would duplicate them with regenerated identities. New saves don't store
+            // employees as placed objects at all (see BuildSaveData).
+            if (so.category == "Worker" || so.category == "Staff") continue;
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData);
         }
 
-        // Restore employees: destroy auto-generated scene employees and respawn from save.
-        // GUID-matching doesn't work here because freshly loaded scene objects have
-        // brand-new auto-generated GUIDs that will never match the saved ones.
-        if (save.employeeRecords != null && save.employeeRecords.Count > 0)
-        {
-            // Destroy all current EmployeeIdentity GameObjects so we start clean, then
-            // respawn from the save AFTER the destroys have flushed.
-            //
-            // Why deferred: Object.Destroy defers teardown to end-of-frame, so each old
-            // employee's OnDestroy → Unregister(guid) also runs at end-of-frame. The old
-            // employees were themselves loaded from this same save, so they hold the
-            // identical GUIDs as the records we respawn. If we respawn in the SAME frame,
-            // the new employees register under those GUIDs and are then wiped by the old
-            // employees' deferred Unregister — leaving the registry empty (verified by
-            // end-to-end test). Yielding one frame lets the old Unregister calls complete
-            // and frees the GUIDs before the new employees claim them. (DestroyImmediate
-            // is unsafe here — it can abort the load mid-restore during play mode.)
-            var existing = Object.FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None);
-            foreach (var ident in existing)
-                Object.Destroy(ident.gameObject);
+        // Rebuild the employee set from the save UNCONDITIONALLY — even when the save has zero
+        // employees. Destroy whatever employees are currently in the scene, then respawn exactly
+        // the saved ones. (Previously this was skipped when the save had 0 employees, which left
+        // the current scene's employees alive → "phantom" workers after loading an empty roster.)
+        //
+        // Why deferred: Object.Destroy defers teardown to end-of-frame, so each old employee's
+        // OnDestroy → Unregister(guid) also runs at end-of-frame. The old employees may hold the
+        // same GUIDs as the records we respawn. If we respawn in the SAME frame, the new
+        // employees register under those GUIDs and are then wiped by the old employees' deferred
+        // Unregister — leaving the registry empty (verified by end-to-end test). Yielding one
+        // frame lets the old Unregister calls complete first. (DestroyImmediate is unsafe here —
+        // it can abort the load mid-restore during play mode.)
+        var existingEmployees = Object.FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None);
+        foreach (var ident in existingEmployees)
+            Object.Destroy(ident.gameObject);
 
-            StartCoroutine(RespawnEmployeesAfterDestroyFlush(save.employeeRecords));
-        }
+        StartCoroutine(RespawnEmployeesAfterDestroyFlush(save.employeeRecords ?? new List<EmployeeRecord>()));
 
         grid.RebuildFromRegistry();
 
@@ -406,8 +441,29 @@ public class PlacementSystem : MonoBehaviour
     private IEnumerator BakeAfterDestroyFlush()
     {
         yield return null; // wait one frame for Destroy() to flush
-        if (NavMeshManager.Instance != null)
-            NavMeshManager.Instance.BakeSynchronous();
+
+        // Rebuild again now that the old objects' deferred Destroy() → Unregister has
+        // completed — the RebuildFromRegistry called synchronously above (same frame as
+        // ClearAll) still saw those about-to-be-destroyed objects.
+        grid.RebuildFromRegistry();
+
+        // Yard floor tiles aren't saved to disk (BuildSaveData skips id 200 — see comment
+        // there), so they must be regenerated on every load, not just the initial scene
+        // Start. PopulateYardFloors fills every empty cell and performs its own
+        // RebuildFromRegistry + NavMesh bake when done.
+        var ctx = Object.FindAnyObjectByType<GameContext>();
+        if (ctx != null)
+        {
+            yield return ctx.StartCoroutine(ctx.PopulateYardFloors(grid));
+        }
+        else if (NavMeshManager.Instance != null)
+        {
+            // Async bake instead of BakeSynchronous() — a synchronous build over the full
+            // registry + ~2,500 yard-floor sources froze the main thread for several
+            // seconds on every load. The one-frame delay above (for Destroy() flush) is
+            // unaffected; only the bake itself is now off-thread.
+            NavMeshManager.Instance.BakeImmediate();
+        }
     }
 
     // Respawn saved employees one frame after the old ones are destroyed, so their
@@ -460,7 +516,7 @@ public class PlacementSystem : MonoBehaviour
             if (GraphicsPresetManager.Instance != null &&
                 System.Enum.TryParse(save.graphicsPreset, out GraphicsPresetManager.Preset preset))
             {
-                GraphicsPresetManager.Instance.ApplyPreset(preset);
+                GraphicsPresetManager.Instance.ApplyPreset(preset, notify: false);
             }
         }
 

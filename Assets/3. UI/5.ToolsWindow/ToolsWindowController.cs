@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// Unified Tools Window — Dev Console + Dev Settings.
-/// F2 = toggle Dev Settings | backtick not used.
+/// F1 = toggle Dev Console | backtick not used.
 /// Clicking a pallet in the scene opens Dev Settings focused on Pallet Builder.
 /// Clicking an agent opens Dev Settings focused on that agent's components.
 /// Right-click or clicking an unrelated object clears the current selection.
@@ -177,10 +177,10 @@ public class ToolsWindowController : MonoBehaviour
 
     private void Update()
     {
-        if (Keyboard.current.f2Key.wasPressedThisFrame)
+        if (Keyboard.current.f1Key.wasPressedThisFrame)
         {
-            if (_visible && IsTabActive("settings")) Hide();
-            else Show("settings");
+            if (_visible && IsTabActive("dev")) Hide();
+            else Show("dev");
         }
 
         // Drag

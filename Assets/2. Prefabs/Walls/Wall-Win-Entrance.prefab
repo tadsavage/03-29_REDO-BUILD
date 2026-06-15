@@ -10,15 +10,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -3.3066747
+      value: 1.325
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.00000020303492
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 2.2408054
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
       propertyPath: m_LocalRotation.w
@@ -62,12 +62,20 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -4608888550618570879, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
       propertyPath: m_StaticEditorFlags
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -3414275814439281196, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: e711b9fd6c1eb314ea8c0be6abf7d855, type: 2}
     - target: {fileID: -3240465233558266385, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
       propertyPath: m_Layer
       value: 6
       objectReference: {fileID: 0}
+    - target: {fileID: -2668758900340619300, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: e711b9fd6c1eb314ea8c0be6abf7d855, type: 2}
     - target: {fileID: 919132149155446097, guid: 577dc98e5bf5b0f49b5687744ee3b85b, type: 3}
       propertyPath: m_Name
       value: Wall-Win-Entrance

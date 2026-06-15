@@ -5,16 +5,16 @@ public class PalletBuilder : MonoBehaviour
 {
     [Header("Product Config")]
     public GameObject casePrefab;
-    public float maxTotalHeight = 1.0f;
+    [Range(0.1f, 3.0f)] public float maxTotalHeight = 1.0f;
 
     [Header("Pallet Config")]
     public Vector3 palletDimensions = new Vector3(1.0f, 0.15f, 1.22f); // W, H, L
 
     [Header("Spacing Settings")]
     [Tooltip("Minimum horizontal distance between cases.")]
-    public float spaceBetweenCases = 0.05f;
+    [Range(0.01f, 0.2f)] public float spaceBetweenCases = 0.05f;
     [Tooltip("Fixed vertical gap between layers.")]
-    public float verticalGap = 0.025f;
+    [Range(0.01f, 0.25f)] public float verticalGap = 0.025f;
 
     [Header("Case Overrides")]
     public bool usePrefabBounds = true;
@@ -22,7 +22,7 @@ public class PalletBuilder : MonoBehaviour
 
     [Header("Aesthetic Settings")]
     [Tooltip("Random Y rotation variation for a realistic look.")]
-    public float crookedCase = 2.0f;
+    [Range(0f, 10f)] public float crookedCase = 2.0f;
 
     [Header("Overrides (Manual Ti-Hi)")]
     public bool useTiHiOverride = false;
@@ -329,6 +329,12 @@ public class PalletBuilder : MonoBehaviour
 
     private void OnMouseDown()
     {
+        // Only allow bringing up the Pallet Builder UI if the state machine is in IdleState
+        var fsm = FindAnyObjectByType<PlacementStateMachine>();
+        if (fsm != null && !(fsm.CurrentState is IdleState))
+        {
+            return;
+        }
         ToggleUI();
     }
 

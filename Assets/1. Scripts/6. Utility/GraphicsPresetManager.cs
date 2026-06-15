@@ -47,14 +47,17 @@ public class GraphicsPresetManager : MonoBehaviour
     {
         Instance = this;
 
-        // Restore saved preset
+        // Restore saved preset (silent — this is a startup restore, not a user action)
         int saved = PlayerPrefs.GetInt("GraphicsPreset", (int)Preset.Ultra);
-        ApplyPreset((Preset)saved);
+        ApplyPreset((Preset)saved, notify: false);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    public void ApplyPreset(Preset preset)
+    // notify controls the "Profile is X" toast — pass false when restoring a saved
+    // preset on startup/load so it doesn't linger in front of the player before
+    // they've done anything; user-initiated preset changes keep the default (true).
+    public void ApplyPreset(Preset preset, bool notify = true)
     {
         CurrentPreset = preset;
         PlayerPrefs.SetInt("GraphicsPreset", (int)preset);
@@ -66,8 +69,11 @@ public class GraphicsPresetManager : MonoBehaviour
             case Preset.Toaster: ApplyToaster(); break;
         }
 
-        string[] labels = { "Ultra", "Good", "Toaster" };
-        UIToast.Show($"Profile is {labels[(int)preset]}", 2.5f);
+        if (notify)
+        {
+            string[] labels = { "Ultra", "Good", "Toaster" };
+            UIToast.Show($"Profile is {labels[(int)preset]}", 2.5f);
+        }
     }
 
     // ── Preset Definitions ────────────────────────────────────────────────────
@@ -115,7 +121,9 @@ public class GraphicsPresetManager : MonoBehaviour
         SetVolume(profileToaster);
 
         QualitySettings.lodBias                  = 0.7f;
-        QualitySettings.anisotropicFiltering     = AnisotropicFiltering.Disable;
+        // Anisotropic filtering is nearly free on any modern GPU; disabling it
+        // causes heavy vertical shimmer/streaking on walls at grazing angles.
+        QualitySettings.anisotropicFiltering     = AnisotropicFiltering.ForceEnable;
         QualitySettings.particleRaycastBudget    = 4;
         QualitySettings.globalTextureMipmapLimit = 1;   // half-res textures (bandwidth/VRAM)
         QualitySettings.skinWeights              = SkinWeights.TwoBones;

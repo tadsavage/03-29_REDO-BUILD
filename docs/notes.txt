@@ -20,12 +20,12 @@ DONE >> Mismatched colors on walls and floors in some areas.
 			Underside of top ledge of wall  
 			Corner asset does not match wall color
 			Underside of corner asset is missing a surface on inside right side of corner
-			Light showing through Mandoor bottom ledge
+			Light showing through Man door bottom ledge
 DONE >> Undo is not Undoing deletions of objects. (e.g. if you build a building and then delete it, undoing should bring it back but it doesnt)
 DONE >> Loading the game back in reverts items 'Moved' after initial placement back to 'Placed' and they lose their moved position.
 DONE >> You can click through the UI - specifcally the Delete.
-DONE >> Some players not moving on instatiating or popping across a few tiles when they are instantiated. Part of this was because one of the waypoints was up really high and couldnt be reached.
-DONE >> HoverUI is too big and its stuck at the top of the screen. It should be smaller and follow the mouse cursor around so that it can be used to show information about objects in the world when you hover over them.
+DONE >> Some players not moving on instantiating or popping across a few tiles when they are instantiated. Part of this was because one of the waypoints was up really high and couldnt be reached.
+DONE >> Hover UI is too big and its stuck at the top of the screen. It should be smaller and follow the mouse cursor around so that it can be used to show information about objects in the world when you hover over them.
 DONE >> Wrong prefabs being used for MHE
 DONE >> Remove Scroll Zoom and make items rotate by using the scroll wheel while a preview object is active.
 DONE >> Why cant I place 'Floor' objects under shipping doors or racks? I should be able to place floor objects anywhere.
@@ -85,12 +85,30 @@ Done >> Truck Drivers
 DONE >> Jump down implementer
 DONE >> Climb up implemented
 DONE >> Create a low poly truck model and add it to the game. It should be able to drive around the yard and back into the shipping doors when a delivery is scheduled.
+DONE >> Stat displays for employees (e.g. when you click on an employee, it shows their stats such as speed, strength, etc.)  
+DONE >> Implement chat bubbles and reaction emoticons over their heads.  
+DONE >> Make sure terminated employees feet are touching ground when they leave They were hovering at about 1 Meter so I don't think it's updating the Y coordinate when we terminate them. Also can we have some kind of lightning bolt graphic plane as they head out the door?
+DONE >> Need a save method so all avatars are persistent through saves.
+DONE >> Shift clicking an employee  info UI We'll bring them on the employee roster already selected.
+DONE >> Clicking on an employee in the world will create a Light blue outline so you can see what is selected and see them either in the employee info UI and Oregon the roster
+DONE >> Man-door glass entrance not being allowed to be placed inside a single cell that is by other walls Not sure why Please address.
+DONE >> Bring back the old low Poly. Need more dramatic shadows in game.
+DONE >> On shipping doors if door green outside it needs to be red inside and vice versa..
+DONE >>Red lights on are not on.
+DONE >> Do not bring up the pallet builder window if we are in build mode
+DONE >> You cannot Delete floor tiles that are on foundations only replace them you cannot ever delete floor tiles only replace them you cannot move them You can only replace them. That being said when a tile is on top of a foundation the rule is the foundation underneath the tile gets deleted along with all four tiles that were sitting on top of it. This will allow you to place a new foundation if you absolutely feel like you need to get rid of the foundation. But that should not happen very often.
+
+06-14
+Explore options for employee could we create GIF, Could we have animation loops play. Or should we just have flat straight on photos like a drivers license question? If it's too cost performant we could always just have the animated ones for the higher level of graphics like Ultra
+Set up the employee photo. Should probably be below zero so user cannot. We'll need a special dedicated camera down there Lights backdrop of some sort could be random.
+Create the employee photo booth
+Create script that picks customizable appearance options like hair, accessories and colors then instantiates them on avatar and finalizes them.
+Employee photo and appearance are assigned to employee in employee data..Cs or whatever file holds them. I should probably figure that out
 
 
 
-Due Today 06-01-2026
-Stat displays for employees (e.g. when you click on an employee, it shows their stats such as speed, strength, etc.) - Inprogress
-Implement chat bubbles and reaction emoticons over their heads. - Inprogress
+
+
 
 
 

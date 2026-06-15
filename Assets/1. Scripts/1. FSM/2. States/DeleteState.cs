@@ -168,9 +168,21 @@ public class DeleteState : IPlacementState
         if (Mouse.current.leftButton.wasReleasedThisFrame && _hover != null)
         {
             var bd = _hover.GetComponent<BuildingData>();
-            if (bd == null)
+            // Employees can't be deleted (terminate them instead) — guard even though the hover
+            // filter already excludes them.
+            if (bd == null || bd.GetComponent<EmployeeIdentity>() != null)
             {
                 ClearHover();
+                return;
+            }
+
+            // Don't bulldoze a foundation that still has a wall / pallet / prop on it — make the
+            // player clear it off first. Deleting a clear foundation takes all its floor tiles too.
+            if (IsFoundationData(bd.Data) && !FoundationIsClearToDelete(bd))
+            {
+                ClearHover();
+                AudioManager.Play("InvalidPlace");
+                UIToast.Show("Clear everything off the foundation before deleting it");
                 return;
             }
 
@@ -196,8 +208,9 @@ public class DeleteState : IPlacementState
             var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
             if (bd != null && bd.Data != null)
             {
-                // Floor tiles are indestructible — ignore them entirely
-                if (bd.Data.isFloor)
+                // Floor tiles are indestructible, and EMPLOYEES must be terminated (not deleted) —
+                // ignore both so the delete cursor never targets them.
+                if (bd.Data.isFloor || bd.GetComponent<EmployeeIdentity>() != null)
                     bd = null;
 
                 if (bd != null)
@@ -218,6 +231,7 @@ public class DeleteState : IPlacementState
                     if (entry.data != null && entry.data.isFloor) continue;
                     if (entry.instance != null)
                     {
+                        if (entry.instance.GetComponent<EmployeeIdentity>() != null) continue; // employees: terminate, not delete
                         newHover = entry.instance.GetComponent<BuildingHighlighter>();
                         break;
                     }
@@ -257,6 +271,37 @@ public class DeleteState : IPlacementState
         _hover = null;
     }
 
+    private static bool IsFoundationData(ObjDataSO d)
+        => d != null && (d.category == "Foundation" || d.category == "Grounds");
+
+    // A foundation may only be deleted when nothing but its own floor tiles sits anywhere in its
+    // footprint. A wall / pallet / door / prop blocks the delete so the player has to clear it
+    // first — this stops the foundation (and everything on it) from being bulldozed by accident
+    // when the player was really aiming at a wall. Checks the WHOLE footprint, since a foundation
+    // spans several cells and the blocker may be on a different cell than the one clicked.
+    private bool FoundationIsClearToDelete(BuildingData foundation)
+    {
+        if (foundation == null || foundation.Data == null) return true;
+        var offsets = foundation.Offsets;
+        if (offsets == null) return true;
+
+        var root = foundation.RootCell;
+        foreach (var o in offsets)
+        {
+            var objs = _grid.GetObjectsInCell(root + o);
+            if (objs == null) continue;
+            foreach (var entry in objs)
+            {
+                if (entry.instance == null || !entry.instance.activeSelf || entry.data == null) continue;
+                if (entry.instance == foundation.gameObject) continue; // the foundation itself
+                if (entry.data.isFloor) continue;                      // its floor tiles ride along
+                if (IsFoundationData(entry.data)) continue;            // stacked grounds — ignore
+                return false;                                          // wall / pallet / door / prop / etc.
+            }
+        }
+        return true;
+    }
+
     private readonly HashSet<BuildingHighlighter> _lastDragTargets = new();
 
     private void UpdateDragDelete(Vector3 dragEndWorld)
@@ -281,6 +326,9 @@ public class DeleteState : IPlacementState
                     if (entry.data != null && entry.data.isFloor) continue;
                     if (entry.instance != null)
                     {
+                        if (entry.instance.GetComponent<EmployeeIdentity>() != null) continue; // employees: terminate, not delete
+                        var ebd = entry.instance.GetComponent<BuildingData>();
+                        if (ebd != null && IsFoundationData(ebd.Data) && !FoundationIsClearToDelete(ebd)) continue; // foundation with stuff on it
                         var h = entry.instance.GetComponent<BuildingHighlighter>();
                         if (h != null) { newTargets.Add(h); break; }
                     }

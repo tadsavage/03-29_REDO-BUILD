@@ -83,6 +83,14 @@ public class EmployeeRecord
     /// <summary>Weekly schedule defining shifts, overtime, and availability.</summary>
     public EmployeeWorkSchedule workSchedule;
 
+    // ─── Last-known world transform (save/restore of roaming position) ────────────
+    // Captured at save time so a loaded employee resumes exactly where they were instead of
+    // teleporting back to the spawn point. hasSavedPosition is false for freshly hired staff
+    // and for saves made before this field existed → those spawn at the spawn point.
+    public float posX, posY, posZ;
+    public float rotY;
+    public bool  hasSavedPosition;
+
     // ─── Constructor ──────────────────────────────────────────────────────────
     public EmployeeRecord()
     {

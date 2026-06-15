@@ -17,7 +17,7 @@
             <ui:Button name="MainMenuButton" text="MENU (ESC)" class="topbar-box topbar-mainmenu-btn" picking-mode="Position"/>
         </ui:VisualElement>
 
-        <ui:Label name="ToastLabel" text="Toast" picking-mode="Ignore" class="toast-label"/>
+        <ui:Label name="ToastLabel" text="" picking-mode="Ignore" class="toast-label"/>
         <ui:Label name="PreviewCostLabel" text="$1,250" picking-mode="Ignore" class="preview-cost-label"/>
 
         <ui:VisualElement name="menu-overlay" picking-mode="Ignore" class="menu-overlay" style="display: none;">

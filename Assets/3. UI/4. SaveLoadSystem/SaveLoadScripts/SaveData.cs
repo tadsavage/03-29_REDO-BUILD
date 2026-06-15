@@ -18,6 +18,10 @@ public class SaveData
 
     public List<EmployeeRecord> employeeRecords = new();
 
+    // Former employees (terminated / resigned) — kept on file for rehire, union reinstatement,
+    // and HR history. Populated from FormerEmployeeArchive. Absent in older saves (empty list).
+    public List<EmployeeRecord> formerEmployees = new();
+
     // ── Game settings captured per-save ──────────────────────────────────────
     // Sentinel defaults (-1 / empty) mean "not stored in this file" so that
     // loading an OLD save does not overwrite the player's current settings.

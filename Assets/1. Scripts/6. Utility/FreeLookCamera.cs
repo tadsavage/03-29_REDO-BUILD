@@ -61,6 +61,16 @@ public class FreeLookCamera : MonoBehaviour
     private bool    _orbiting;
     private bool    _stateLoadedFromSave;
 
+    // Set when FocusOn snaps to a target outside the normal pan bounds (e.g. "find my
+    // employee" out in the yard). While true the per-frame pan clamp is suspended so the
+    // off-bounds focal point sticks; the first manual pan clears it and bounds re-engage.
+    private bool    _focusBeyondBounds;
+
+    // When set, the focal point tracks this transform's XZ every frame (the camera "follows"
+    // a selected employee, Sims/SimCity style). Y is left under the player's control (Q/E).
+    // A manual WASD pan clears it; orbit/zoom/height keep following.
+    private Transform _followTarget;
+
     private void Awake()
     {
         if (minDistance >= maxDistance)   { minDistance = 4f;  maxDistance = 45f;    Debug.LogWarning("[FreeLookCamera] minDistance/maxDistance invalid — reset to defaults."); }
@@ -117,7 +127,19 @@ public class FreeLookCamera : MonoBehaviour
         ProcessPan(speed, overUI);
         ProcessOrbit(overUI);
         ProcessZoom(overUI, fast ? zoomSpeed * 3f : zoomSpeed);
+        ProcessFollow();
         ApplyTransform();
+    }
+
+    // Track a followed target on the XZ plane (Y stays whatever the player set via Q/E).
+    // ProcessPan clears _followTarget the moment the player pans manually, so this is a no-op
+    // until then.
+    private void ProcessFollow()
+    {
+        if (_followTarget == null) return;
+        _focalPoint.x = _followTarget.position.x;
+        _focalPoint.z = _followTarget.position.z;
+        _focusBeyondBounds = true;   // a followed unit may roam beyond the normal pan bounds
     }
 
     private void OnDisable()
@@ -146,24 +168,33 @@ public class FreeLookCamera : MonoBehaviour
         if (!overUI && Mouse.current.leftButton.isPressed && Mouse.current.rightButton.isPressed)
             delta += flatForward;
 
+        bool hadInput = false;
+
         if (delta.sqrMagnitude > 0.01f)
         {
             // XZ only — vertical movement is Q/E's job, never WASD's.
             var move = delta.normalized * (speed * Time.deltaTime);
             _focalPoint.x += move.x;
             _focalPoint.z += move.z;
+            hadInput = true;
+            _followTarget = null;   // manual pan ends "follow selected employee"
         }
 
         // Q/E raise/lower the rig by moving the focal point's Y. The camera follows on its orbit,
         // so the focal point stays centered while the whole view rises/falls.
-        if (Keyboard.current[Key.E].isPressed)
-            _focalPoint.y += speed * Time.deltaTime;
-        if (Keyboard.current[Key.Q].isPressed)
-            _focalPoint.y -= speed * Time.deltaTime;
+        if (Keyboard.current[Key.E].isPressed) { _focalPoint.y += speed * Time.deltaTime; hadInput = true; }
+        if (Keyboard.current[Key.Q].isPressed) { _focalPoint.y -= speed * Time.deltaTime; hadInput = true; }
 
-        _focalPoint.x = Mathf.Clamp(_focalPoint.x, xMin, xMax);
-        _focalPoint.z = Mathf.Clamp(_focalPoint.z, zMin, zMax);
-        _focalPoint.y = Mathf.Clamp(_focalPoint.y, focalHeightMin, focalHeightMax);
+        // A manual pan cancels a "focus beyond bounds" snap and re-engages the normal clamp,
+        // easing the focal point back into the playable area.
+        if (hadInput) _focusBeyondBounds = false;
+
+        if (!_focusBeyondBounds)
+        {
+            _focalPoint.x = Mathf.Clamp(_focalPoint.x, xMin, xMax);
+            _focalPoint.z = Mathf.Clamp(_focalPoint.z, zMin, zMax);
+            _focalPoint.y = Mathf.Clamp(_focalPoint.y, focalHeightMin, focalHeightMax);
+        }
     }
 
     private void ProcessOrbit(bool overUI)
@@ -233,6 +264,8 @@ public class FreeLookCamera : MonoBehaviour
     {
         if (state == null) return;
         _stateLoadedFromSave = true;
+        _followTarget = null;          // a loaded camera isn't following anyone
+        _focusBeyondBounds = false;
 
         var fp = state.focusPoint;
         fp.x = Mathf.Clamp(fp.x, xMin, xMax);
@@ -247,13 +280,35 @@ public class FreeLookCamera : MonoBehaviour
         ApplyTransform();
     }
 
-    /// <summary>Recenter the camera's focal point on a world position (keeps current pitch/yaw/distance).
-    /// Clamps into the configured focal bounds.</summary>
-    public void FocusOn(Vector3 worldPosition)
+    /// <summary>Recenter the camera's focal point on a world position (keeps current
+    /// pitch/yaw/distance). Snaps to the target even if it's outside the normal pan bounds —
+    /// so "find my employee" can reach anyone in the yard. Normal panning re-engages the
+    /// bounds (see ProcessPan). Pass clampToBounds:true to keep the old clamped behaviour.</summary>
+    public void FocusOn(Vector3 worldPosition, bool clampToBounds = false)
     {
-        _focalPoint.x = Mathf.Clamp(worldPosition.x, xMin, xMax);
-        _focalPoint.z = Mathf.Clamp(worldPosition.z, zMin, zMax);
-        _focalPoint.y = Mathf.Clamp(worldPosition.y, focalHeightMin, focalHeightMax);
+        if (clampToBounds)
+        {
+            _focalPoint.x = Mathf.Clamp(worldPosition.x, xMin, xMax);
+            _focalPoint.z = Mathf.Clamp(worldPosition.z, zMin, zMax);
+            _focalPoint.y = Mathf.Clamp(worldPosition.y, focalHeightMin, focalHeightMax);
+            _focusBeyondBounds = false;
+        }
+        else
+        {
+            _focalPoint = worldPosition;
+            _focusBeyondBounds = true;
+        }
         ApplyTransform();
     }
+
+    /// <summary>Have the camera continuously follow a transform on the XZ plane (the player keeps
+    /// Y/orbit/zoom control). Pass null to stop following. A manual WASD pan also stops it.</summary>
+    public void SetFollowTarget(Transform target)
+    {
+        _followTarget = target;
+        if (target != null) _focusBeyondBounds = true;
+    }
+
+    /// <summary>The transform the camera is currently following, or null.</summary>
+    public Transform FollowTarget => _followTarget;
 }

@@ -250,6 +250,8 @@ public bool IsPlacementState => true;
         // cursor from the cell adjacent to a placed door (causing the "1-cell gap on X" bug).
         if (_currentData.replacesWalls)
             root = SnapToReplaceTarget(root, offsets, _currentData);
+        else
+            root = SnapFootprintToHover(root, offsets, _currentData);
 
         _preview.MoveTo(_grid.GetCellCenter(root), root, _currentData);
 
@@ -577,6 +579,31 @@ public bool IsPlacementState => true;
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// Quality-of-life snap for MULTI-cell objects (foundations etc.): if the footprint doesn't
+    /// fit with the hovered cell as its (0,0) origin, try shifting it so the hovered cell maps to
+    /// each footprint cell, and use the first position that's valid. This lets the player drop the
+    /// object by pointing at ANY of its cells — e.g. a foundation into the empty hole left by a
+    /// deleted one — instead of hunting for the exact corner.
+    ///
+    /// It only ever activates when the default origin placement is INVALID, so normal open-area
+    /// placement behaviour is unchanged.
+    /// </summary>
+    private Vector2Int SnapFootprintToHover(Vector2Int hoverCell, Vector2Int[] offsets, ObjDataSO data)
+    {
+        if (offsets == null || offsets.Length <= 1) return hoverCell;          // single-cell: nothing to snap
+        if (_validator.IsValidPlacement(hoverCell, offsets, data)) return hoverCell; // already fits
+
+        foreach (var o in offsets)
+        {
+            Vector2Int candidate = hoverCell - o;
+            if (candidate == hoverCell) continue;                             // (0,0) already tested
+            if (_validator.IsValidPlacement(candidate, offsets, data))
+                return candidate;
+        }
+        return hoverCell;                                                     // nothing fits — preview invalid
     }
 
     /// <summary>

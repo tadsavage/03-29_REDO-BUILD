@@ -94,11 +94,31 @@ public class EmployeeSpawner : MonoBehaviour
         }
 
         // ── Instantiate ───────────────────────────────────────────────────────
-        Vector3 pos = _spawnPoint != null ? _spawnPoint.position : transform.position;
-        Quaternion rot = _spawnPoint != null ? _spawnPoint.rotation : Quaternion.identity;
+        // Prefer the employee's last-known position (restored from a save) so they resume
+        // exactly where they were; otherwise use the spawn point (fresh hires).
+        Vector3 pos;
+        Quaternion rot;
+        if (record.hasSavedPosition)
+        {
+            pos = new Vector3(record.posX, record.posY, record.posZ);
+            rot = Quaternion.Euler(0f, record.rotY, 0f);
+        }
+        else
+        {
+            pos = _spawnPoint != null ? _spawnPoint.position : transform.position;
+            rot = _spawnPoint != null ? _spawnPoint.rotation : Quaternion.identity;
+        }
 
         var instance = Instantiate(prefab, pos, rot);
         instance.name = $"Employee_{record.employeeName}";
+
+        // Re-snap the nav agent to the restored spot (Warp keeps it on the NavMesh).
+        if (record.hasSavedPosition)
+        {
+            var agent = instance.GetComponent<UnityEngine.AI.NavMeshAgent>();
+            if (agent != null && agent.isActiveAndEnabled)
+                agent.Warp(pos);
+        }
 
         var identity = instance.GetComponent<EmployeeIdentity>();
         if (identity == null)

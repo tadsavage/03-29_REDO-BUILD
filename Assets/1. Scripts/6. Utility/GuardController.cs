@@ -167,10 +167,25 @@ public class GuardController : MonoBehaviour
                 break;
 
             case GuardState.TurningToInspectRear:
-                // Rotate to face the trailer (Y=180)
-                Quaternion targetRot = Quaternion.Euler(0, 180, 0);
+                // Face the passenger-side rear trailer door of the truck being inspected.
+                // Falls back to the CheckRear2 anchor's rotation if the door is missing.
+                Quaternion targetRot;
+                Transform door = _currentTruck != null ? _currentTruck.PassengerDoor : null;
+                if (door != null)
+                {
+                    Vector3 toDoor = door.position - transform.position;
+                    toDoor.y = 0f;
+                    targetRot = toDoor.sqrMagnitude > 0.01f
+                        ? Quaternion.LookRotation(toDoor.normalized)
+                        : transform.rotation;
+                }
+                else
+                {
+                    targetRot = _checkRear2 != null ? _checkRear2.rotation : transform.rotation;
+                }
+
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
-                if (Quaternion.Angle(transform.rotation, targetRot) < 0.1f)
+                if (Quaternion.Angle(transform.rotation, targetRot) < 0.5f)
                 {
                     _state      = GuardState.WaitingToOpenTrailer;
                     _stateTimer = waitBeforeOpen;

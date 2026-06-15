@@ -15,14 +15,35 @@ public class EmployeeIdentity : MonoBehaviour
     [Header("Avatar Display")]
     [SerializeField] private SpriteRenderer _avatarRenderer;
 
+    [Header("System NPC")]
+    [Tooltip("ON for simulation-spawned staff that are NOT player-hired employees (e.g. the " +
+             "yard Guard, truck Drivers). They keep a record so they're still clickable, but do " +
+             "NOT register with EmployeeRegistry — so they never appear in the roster, never " +
+             "count as employees, and are never saved/respawned (their own system spawns them).")]
+    [SerializeField] private bool _systemManaged;
+
     private bool _recordEnsured;
 
     public EmployeeRecord Record => _record;
 
+    /// <summary>True for simulation NPCs (guard, drivers) that aren't player-hired employees.</summary>
+    public bool SystemManaged => _systemManaged;
+
     private void Awake()
     {
+        // Safety: If we are instantiated as a temporary model inside the PhotoBooth,
+        // treat ourselves as system-managed so we don't register in the registry or pollute the roster.
+        if (transform.parent != null && transform.parent.GetComponent<EmployeePhotoBooth>() != null)
+        {
+            _systemManaged = true;
+        }
+
         EnsureRecord();
-        EmployeeRegistry.Instance?.Register(this);
+        // System NPCs (guard/drivers) stay out of the registry entirely — they're spawned and
+        // owned by their own systems, so registering them would pollute the roster and get them
+        // saved/respawned as phantom "employees the player never hired".
+        if (!_systemManaged)
+            EmployeeRegistry.Instance?.Register(this);
     }
 
     private void OnDestroy()
@@ -81,12 +102,25 @@ public class EmployeeIdentity : MonoBehaviour
         if (_avatarRenderer == null)
             return;
 
-        // Load the texture from Resources/EmployeeAssets/Male/ or Female/
-        var texture = Resources.Load<Texture2D>($"EmployeeAssets/{_record.avatarResourceKey}");
-        if (texture != null)
+        Sprite sprite = null;
+        if (_record.avatarResourceKey.StartsWith("Custom_") && 
+            EmployeePhotoBooth.CustomAvatarCache.TryGetValue(_record.avatarResourceKey, out var cachedSprite))
         {
-            // Convert texture to sprite
-            var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.one * 0.5f);
+            sprite = cachedSprite;
+        }
+        else
+        {
+            // Load the texture from Resources/EmployeeAssets/Male/ or Female/
+            var texture = Resources.Load<Texture2D>($"EmployeeAssets/{_record.avatarResourceKey}");
+            if (texture != null)
+            {
+                // Convert texture to sprite
+                sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.one * 0.5f);
+            }
+        }
+
+        if (sprite != null)
+        {
             _avatarRenderer.sprite = sprite;
         }
         else
@@ -100,6 +134,7 @@ public class EmployeeIdentity : MonoBehaviour
         if (record == null) return;
         _record = record;
         _recordEnsured = true;
+        ApplyAvatarToDisplay();
     }
 
     public EmployeeData GetDisplayData()

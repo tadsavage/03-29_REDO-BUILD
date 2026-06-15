@@ -420,23 +420,38 @@ public class EmployeeListPanelController : MonoBehaviour
         // Portrait
         if (_detailJobIcon != null)
         {
-            string resourceKey = !string.IsNullOrEmpty(record.avatarResourceKey)
-                ? $"EmployeeAssets/{record.avatarResourceKey}"
-                : (record.gender == EmployeeGender.Female ? "EmployeeAssets/Female/avatar_01" : "EmployeeAssets/Male/avatar_01");
-
-            var tex = Resources.Load<Texture2D>(resourceKey);
-            if (tex != null)
+            Sprite customSprite = null;
+            if (!string.IsNullOrEmpty(record.avatarResourceKey) && 
+                record.avatarResourceKey.StartsWith("Custom_") && 
+                EmployeePhotoBooth.CustomAvatarCache.TryGetValue(record.avatarResourceKey, out var cachedSprite))
             {
-                _detailJobIcon.style.backgroundImage = Background.FromTexture2D(tex);
+                customSprite = cachedSprite;
+            }
+
+            if (customSprite != null)
+            {
+                _detailJobIcon.style.backgroundImage = new StyleBackground(customSprite);
             }
             else
             {
-                Debug.LogWarning($"[EmployeeListPanel] Portrait not found at Resources/{resourceKey} for employee {record.employeeName} (key='{record.avatarResourceKey}')");
-                _detailJobIcon.style.backgroundImage = StyleKeyword.None;
-                // Show a gender-tinted fallback color so blank is obvious
-                _detailJobIcon.style.backgroundColor = record.gender == EmployeeGender.Female
-                    ? new Color(0.7f, 0.3f, 0.5f, 0.6f)
-                    : new Color(0.2f, 0.5f, 0.8f, 0.6f);
+                string resourceKey = !string.IsNullOrEmpty(record.avatarResourceKey)
+                    ? $"EmployeeAssets/{record.avatarResourceKey}"
+                    : (record.gender == EmployeeGender.Female ? "EmployeeAssets/Female/avatar_01" : "EmployeeAssets/Male/avatar_01");
+
+                var tex = Resources.Load<Texture2D>(resourceKey);
+                if (tex != null)
+                {
+                    _detailJobIcon.style.backgroundImage = Background.FromTexture2D(tex);
+                }
+                else
+                {
+                    Debug.LogWarning($"[EmployeeListPanel] Portrait not found at Resources/{resourceKey} for employee {record.employeeName} (key='{record.avatarResourceKey}')");
+                    _detailJobIcon.style.backgroundImage = StyleKeyword.None;
+                    // Show a gender-tinted fallback color so blank is obvious
+                    _detailJobIcon.style.backgroundColor = record.gender == EmployeeGender.Female
+                        ? new Color(0.7f, 0.3f, 0.5f, 0.6f)
+                        : new Color(0.2f, 0.5f, 0.8f, 0.6f);
+                }
             }
         }
 
@@ -565,7 +580,16 @@ public class EmployeeListPanelController : MonoBehaviour
     private void FireSelected()
     {
         if (_selectedRecord == null) return;
-        EmployeeLifecycleService.Instance?.Fire(_selectedRecord.employeeGuid);
+
+        // Route through the shared termination service so firing here does the full process
+        // (archive + unregister + walk-off), identical to the roster and info card. Fall back
+        // to a record-only fire if the live scene object isn't found.
+        var identity = EmployeeRegistry.Instance?.GetByGuid(_selectedRecord.employeeGuid);
+        if (identity != null)
+            EmployeeTerminationService.Terminate(identity);
+        else
+            EmployeeLifecycleService.Instance?.Fire(_selectedRecord.employeeGuid);
+
         RebuildList();
     }
 

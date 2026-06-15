@@ -214,35 +214,103 @@ public class NavMeshManager : MonoBehaviour
         Debug.Log($"[NavDock] AddDockTopNavMeshSources: scanned={scanned} injected={count}");
     }
 
-    // Injects explicit Box NavMesh sources at each floor tile's top surface.
-    // This bypasses the NavMesh voxel resolution limit for thin floor geometry.
+    // Builds the walkable NavMesh sources from floor tiles. Model (per Tug): each grid CELL's
+    // surface is its HIGHEST floor tile. Lower tiles in the same cell — e.g. a ground yard tile
+    // sitting under an elevated building floor — are IGNORED; height changes are bridged by
+    // stair/dock LINKS, not by overlapping nav layers. This is what stops agents pathing on a
+    // phantom ground layer UNDER the building and clipping through the foundations.
+    //
+    // Thin floor geometry doesn't voxelize, so we emit explicit Box sources:
+    //   • Elevated cells  → one per-tile box (thick enough to rasterize at the ~0.167m voxel).
+    //   • Ground cells    → merged into contiguous gridX RUNS per row. A single bounding box
+    //                       would fill the hole under a building; one box per tile froze the
+    //                       bake (~2,500 yard tiles). Runs do neither.
     private void AddFloorNavMeshSources(List<NavMeshBuildSource> sources, int defaultArea)
     {
+        const float cellSize = 1.33f;   // project grid cell size
+
+        // 1) Highest floor tile per cell.
+        var top = new Dictionary<Vector2Int, PlacedObject>();
         foreach (var placed in PlacedObjectRegistry.All)
         {
             if (placed == null || placed.data == null || !placed.data.isFloor) continue;
             if (placed.gameObject == null || !placed.gameObject.activeSelf) continue;
 
-            var renderers = placed.GetComponentsInChildren<Renderer>();
-            if (renderers.Length == 0) continue;
+            var key = new Vector2Int(placed.gridX, placed.gridY);
+            if (!top.TryGetValue(key, out var cur)
+                || placed.transform.position.y > cur.transform.position.y)
+                top[key] = placed;
+        }
+        if (top.Count == 0) return;
 
+        // 2) Elevated cells → exact per-tile box. The box must be THICKER than the voxel size or
+        //    thin floor geometry never rasterizes (a 0.05m box left the whole building floor
+        //    un-walkable). Extend DOWNWARD so the walkable top stays at the floor surface.
+        const float elevThickness = 0.30f;
+        var groundTiles = new List<PlacedObject>();
+        foreach (var kv in top)
+        {
+            var p = kv.Value;
+            if (p.transform.position.y < 0.5f) { groundTiles.Add(p); continue; }
+
+            var renderers = p.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) continue;
             Bounds b = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++)
                 b.Encapsulate(renderers[i].bounds);
 
-            const float sourceThickness = 0.05f;
-            float topY = b.max.y;
-
             sources.Add(new NavMeshBuildSource
             {
                 transform = Matrix4x4.TRS(
-                    new Vector3(b.center.x, topY - sourceThickness * 0.5f, b.center.z),
-                    placed.transform.rotation,
-                    Vector3.one),
+                    new Vector3(b.center.x, b.max.y - elevThickness * 0.5f, b.center.z),
+                    p.transform.rotation, Vector3.one),
                 shape = NavMeshBuildSourceShape.Box,
-                area = placed.data.navArea != 0 ? placed.data.navArea : defaultArea,
-                size = new Vector3(b.size.x, sourceThickness, b.size.z)
+                area  = p.data.navArea != 0 ? p.data.navArea : defaultArea,
+                size  = new Vector3(b.size.x, elevThickness, b.size.z)
             });
+        }
+
+        // 3) Ground cells → contiguous gridX runs per row. Splitting a run when the nav area
+        //    changes keeps the ped / MHE lane areas distinct.
+        const float gThickness = 0.12f;
+        var byRow = new Dictionary<int, List<PlacedObject>>();
+        foreach (var p in groundTiles)
+        {
+            if (!byRow.TryGetValue(p.gridY, out var lst)) { lst = new List<PlacedObject>(); byRow[p.gridY] = lst; }
+            lst.Add(p);
+        }
+        foreach (var kv in byRow)
+        {
+            var row = kv.Value;
+            row.Sort((a, c) => a.gridX.CompareTo(c.gridX));
+
+            int i = 0;
+            while (i < row.Count)
+            {
+                int area = row[i].data.navArea != 0 ? row[i].data.navArea : defaultArea;
+                int j = i;
+                while (j + 1 < row.Count
+                       && row[j + 1].gridX == row[j].gridX + 1
+                       && (row[j + 1].data.navArea != 0 ? row[j + 1].data.navArea : defaultArea) == area)
+                    j++;
+
+                PlacedObject first = row[i], last = row[j];
+                float topY = first.transform.position.y + (first.data.objHeight > 0f ? first.data.objHeight : 0.1f);
+                float minX = first.transform.position.x - cellSize * 0.5f;
+                float maxX = last.transform.position.x  + cellSize * 0.5f;
+                float cz   = first.transform.position.z;
+
+                sources.Add(new NavMeshBuildSource
+                {
+                    transform = Matrix4x4.TRS(
+                        new Vector3((minX + maxX) * 0.5f, topY - gThickness * 0.5f, cz), Quaternion.identity, Vector3.one),
+                    shape = NavMeshBuildSourceShape.Box,
+                    area  = area,
+                    size  = new Vector3(maxX - minX, gThickness, cellSize)
+                });
+
+                i = j + 1;
+            }
         }
     }
 
@@ -356,7 +424,11 @@ public class NavMeshManager : MonoBehaviour
                 AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
                 while (!op.isDone) yield return null;
 
-                surface.UpdateNavMesh(surface.navMeshData);
+                // NOTE: do NOT call surface.UpdateNavMesh(surface.navMeshData) here — it
+                // re-collects sources via the surface's own CollectSources() (missing our
+                // floor/dock/stair box injections) and kicks an un-awaited async rebuild
+                // that overwrites this navMeshData a moment later, silently stripping the
+                // ground/floor/dock walkable areas we just baked in.
             }
 
             // Nudge all surfaces to register updated data

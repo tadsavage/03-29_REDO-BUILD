@@ -527,13 +527,13 @@ public class MainMenuManager : MonoBehaviour
     // Settings
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void ApplyGraphicsPreset(string preset)
+    private void ApplyGraphicsPreset(string preset, bool notify = true)
     {
         var mgr = FindAnyObjectByType<GraphicsPresetManager>();
         if (mgr != null)
         {
             mgr.ApplyPreset((GraphicsPresetManager.Preset)System.Enum.Parse(
-                typeof(GraphicsPresetManager.Preset), preset));
+                typeof(GraphicsPresetManager.Preset), preset), notify);
         }
 
         // Update button highlight
@@ -766,7 +766,7 @@ public class MainMenuManager : MonoBehaviour
 
         // Graphics preset
         string savedPreset = PlayerPrefs.GetString("GraphicsPresetName", "Ultra");
-        ApplyGraphicsPreset(savedPreset);
+        ApplyGraphicsPreset(savedPreset, notify: false);
 
         // Difficulty
         int savedDiff = PlayerPrefs.GetInt("Difficulty", 0);

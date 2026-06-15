@@ -414,6 +414,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: 8c9ca8533358b914a82adc5a7bf941c5, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: e711b9fd6c1eb314ea8c0be6abf7d855, type: 2}
     - target: {fileID: 919132149155446097, guid: 8c9ca8533358b914a82adc5a7bf941c5, type: 3}
       propertyPath: m_Name
       value: Rack-HalfYellow48
@@ -514,6 +518,7 @@ MonoBehaviour:
   gridX: 0
   gridY: 0
   rotation: 0
+  customData: 
 --- !u!114 &5139068898203311595
 MonoBehaviour:
   m_ObjectHideFlags: 0

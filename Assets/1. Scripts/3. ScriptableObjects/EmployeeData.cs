@@ -79,19 +79,27 @@ public class EmployeeData : ScriptableObject
         // Load portrait sprite from Resources using the avatar key on the record
         if (!string.IsNullOrEmpty(record.avatarResourceKey))
         {
-            string fullKey = $"EmployeeAssets/{record.avatarResourceKey}";
-            // Try as Sprite first, then Texture2D fallback
-            var sprite = Resources.Load<Sprite>(fullKey);
-            if (sprite == null)
+            Sprite sprite = null;
+            if (record.avatarResourceKey.StartsWith("Custom_") && 
+                EmployeePhotoBooth.CustomAvatarCache.TryGetValue(record.avatarResourceKey, out var cachedSprite))
             {
-                var tex = Resources.Load<Texture2D>(fullKey);
-                if (tex != null)
-                    sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new UnityEngine.Vector2(0.5f, 0.5f));
+                sprite = cachedSprite;
+            }
+            else
+            {
+                string fullKey = $"EmployeeAssets/{record.avatarResourceKey}";
+                // Try as Sprite first, then Texture2D fallback
+                sprite = Resources.Load<Sprite>(fullKey);
+                if (sprite == null)
+                {
+                    var tex = Resources.Load<Texture2D>(fullKey);
+                    if (tex != null)
+                        sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new UnityEngine.Vector2(0.5f, 0.5f));
+                }
+                if (sprite == null)
+                    Debug.LogWarning($"[EmployeeData] Portrait not found at Resources/{fullKey} for {employeeName}");
             }
             avatarSprite = sprite;
-
-            if (avatarSprite == null)
-                Debug.LogWarning($"[EmployeeData] Portrait not found at Resources/{fullKey} for {employeeName}");
         }
 
         role = record.role;

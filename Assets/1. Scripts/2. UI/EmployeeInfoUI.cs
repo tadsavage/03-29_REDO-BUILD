@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -19,6 +20,13 @@ public class EmployeeInfoUI : MonoBehaviour
     private VisualElement _avatarElement;
     private VisualElement _jobIconElement;
 
+    // Actions dropdown (same capability as the roster card). Built in code so the info card
+    // gets it without a UXML change. Terminate is the only action for now; reassignment etc.
+    // will be added here later — and those must NOT close the card (only termination does).
+    private DropdownField _actionsDropdown;
+    private const string ActionDefault   = "Actions...";
+    private const string ActionTerminate = "Terminate";
+
     // Stat bars
     private VisualElement _fatigueBar;
     private VisualElement _safetyBar;
@@ -38,6 +46,11 @@ public class EmployeeInfoUI : MonoBehaviour
     // Role displayed in the current panel (set by both Show() paths).
     private EmployeeRole _displayRole;
 
+    // Scene object backing the currently-displayed employee (resolved from the registry by
+    // GUID). Drives the shift-click "highlight + camera focus" on the avatar. Null if the
+    // displayed employee has no live scene instance (e.g. the dummy EmployeeData fallback).
+    private EmployeeIdentity _currentIdentity;
+
     private bool _isVisible = false;
 
     // ────────── Dragging ──────────
@@ -53,19 +66,39 @@ public class EmployeeInfoUI : MonoBehaviour
         if (hudDocument == null) return;
 
         var root = hudDocument.rootVisualElement;
-        _panel = root?.Q<VisualElement>("employee-info-panel");
-        if (_panel == null)
+        var panel = root?.Q<VisualElement>("employee-info-panel");
+        if (panel == null)
         {
             Debug.LogError("[EmployeeInfoUI] employee-info-panel not found in HUD UXML.");
             return;
         }
 
+        // Clean up previous event registrations if already initialized to avoid duplicate callbacks
+        if (_panel != null)
+        {
+            if (_closeButton != null)
+                _closeButton.clicked -= Hide;
+            if (_headerRow != null)
+                _headerRow.UnregisterCallback<PointerDownEvent>(OnHeaderPointerDown);
+            if (_avatarElement != null)
+                _avatarElement.UnregisterCallback<PointerDownEvent>(OnAvatarPointerDown);
+            _panel.UnregisterCallback<PointerMoveEvent>(OnPanelPointerMove);
+            _panel.UnregisterCallback<PointerUpEvent>(OnPanelPointerUp);
+
+            // Drop any actions dropdown from a previous Init/panel so we don't duplicate it.
+            if (_actionsDropdown != null)
+            {
+                _actionsDropdown.RemoveFromHierarchy();
+                _actionsDropdown = null;
+            }
+        }
+
+        _panel = panel;
         _closeButton = _panel.Q<Button>("employee-close-btn");
         _nameLabel = _panel.Q<Label>("employee-name");
         _idLabel = _panel.Q<Label>("employee-id");
         _avatarElement = _panel.Q<VisualElement>("employee-avatar");
         _jobIconElement = _panel.Q<VisualElement>("employee-job-icon");
-
 
         _fatigueBar = _panel.Q<VisualElement>("fatigue-bar-fill");
         _safetyBar = _panel.Q<VisualElement>("safety-bar-fill");
@@ -90,12 +123,54 @@ public class EmployeeInfoUI : MonoBehaviour
             _panel.RegisterCallback<PointerUpEvent>(OnPanelPointerUp);
         }
 
+        // Shift-click the portrait → outline the employee in the world + make them the
+        // camera focal point. Plain clicks on the avatar do nothing (so it never fights drag).
+        if (_avatarElement != null)
+            _avatarElement.RegisterCallback<PointerDownEvent>(OnAvatarPointerDown);
+
+        // Actions dropdown (Terminate). Appended to the bottom of the card.
+        _actionsDropdown = new DropdownField { name = "employee-actions" };
+        _actionsDropdown.choices = new List<string> { ActionDefault, ActionTerminate };
+        _actionsDropdown.SetValueWithoutNotify(ActionDefault);
+        _actionsDropdown.style.marginTop    = 10;
+        _actionsDropdown.style.marginLeft   = 2;
+        _actionsDropdown.style.marginRight  = 2;
+        _actionsDropdown.RegisterValueChangedCallback(OnActionSelected);
+        _panel.Add(_actionsDropdown);
+
         // Start hidden
         Hide();
     }
 
+    private void EnsureInitialized()
+    {
+        if (_panel != null) return;
+
+        var docs = Object.FindObjectsByType<UIDocument>(FindObjectsInactive.Include);
+        foreach (var doc in docs)
+        {
+            if (doc != null && doc.rootVisualElement != null)
+            {
+                var panel = doc.rootVisualElement.Q<VisualElement>("employee-info-panel");
+                if (panel != null)
+                {
+                    Init(doc);
+                    return;
+                }
+            }
+        }
+    }
+
     public void Show(EmployeeData data = null)
     {
+        EnsureInitialized();
+
+        if (_panel == null)
+        {
+            Debug.LogError("[EmployeeInfoUI] _panel is null when attempting to Show. Ensure a valid HUD UIDocument is loaded.");
+            return;
+        }
+
         if (data != null)
             _employeeData = data;
 
@@ -107,6 +182,16 @@ public class EmployeeInfoUI : MonoBehaviour
 
         _displayRole = _employeeData.role;
         _employeeData.EnsureConfigured();
+
+        // This path is the no-record fallback; try to resolve a scene object by GUID if the
+        // data carries one, otherwise shift-click highlight is simply unavailable.
+        _currentIdentity = (EmployeeRegistry.Instance != null && !string.IsNullOrEmpty(_employeeData.employeeId))
+            ? EmployeeRegistry.Instance.GetByGuid(_employeeData.employeeId)
+            : null;
+
+        // Opening/switching the card drops any previous focus.
+        DropFocus();
+
         RefreshUI();
 
         _panel.style.display = DisplayStyle.Flex;
@@ -117,6 +202,14 @@ public class EmployeeInfoUI : MonoBehaviour
 
     public void Show(EmployeeRecord record)
     {
+        EnsureInitialized();
+
+        if (_panel == null)
+        {
+            Debug.LogError("[EmployeeInfoUI] _panel is null when attempting to Show. Ensure a valid HUD UIDocument is loaded.");
+            return;
+        }
+
         if (record == null)
         {
             Debug.LogWarning("[EmployeeInfoUI] EmployeeRecord is null.");
@@ -131,6 +224,15 @@ public class EmployeeInfoUI : MonoBehaviour
         _recordDisplayData.ApplyRecord(record);
         _recordDisplayData.SetConfigured();
 
+        // Resolve the live scene object so shift-click on the avatar can highlight/focus it.
+        _currentIdentity = EmployeeRegistry.Instance != null
+            ? EmployeeRegistry.Instance.GetByGuid(record.employeeGuid)
+            : null;
+
+        // Opening/switching the card drops any previous focus (e.g. left-clicking a different
+        // employee). A subsequent shift-click re-establishes it on this one.
+        DropFocus();
+
         // Point to the runtime instance for RefreshUI
         _employeeData = _recordDisplayData;
         RefreshUI();
@@ -141,9 +243,22 @@ public class EmployeeInfoUI : MonoBehaviour
         _isVisible = true;
     }
 
+    // Focus (world outline + camera follow) only lives while THIS card is open and showing the
+    // employee. Every (re)open and every close drops the previous focus; a shift-click on the
+    // portrait (or a roster shift-click) is what re-establishes it. Guarded so we never spin up
+    // a highlighter just to clear nothing.
+    private void DropFocus()
+    {
+        if (EmployeeHighlighter.HasInstance)
+            EmployeeHighlighter.Instance.Clear();
+    }
+
     public void Hide()
     {
         if (_panel == null) return;
+
+        // Card closed by any means (red X, F2 toggle, Escape, terminate) → lose focus.
+        DropFocus();
 
         // Release any captured pointer before hiding panel (prevents permanent input deadlock)
         if (_isDragging && _headerRow != null && _capturedPointerId >= 0)
@@ -169,6 +284,44 @@ public class EmployeeInfoUI : MonoBehaviour
 
     public bool IsVisible => _isVisible;
 
+    // ────────── Highlight / focus ──────────
+
+    /// <summary>Shift-click the portrait → outline this employee in the world and make the
+    /// camera focus on them. Plain (non-shift) clicks are ignored.</summary>
+    private void OnAvatarPointerDown(PointerDownEvent evt)
+    {
+        if (!evt.shiftKey) return;
+        if (_currentIdentity == null) return;
+
+        EmployeeHighlighter.Instance.FocusAndHighlight(_currentIdentity);
+        evt.StopPropagation();
+    }
+
+    /// <summary>Actions dropdown handler. Terminate runs the full HR/termination process and,
+    /// because the person no longer works here, closes this info card. Future actions (e.g.
+    /// reassignment) should NOT close the card — only termination removes the employee.</summary>
+    private void OnActionSelected(ChangeEvent<string> evt)
+    {
+        if (evt.newValue == ActionTerminate)
+        {
+            var id = _currentIdentity;
+
+            // Reset the dropdown straight away so it never sticks on "Terminate".
+            _actionsDropdown?.SetValueWithoutNotify(ActionDefault);
+
+            if (id != null && id.Record != null)
+                EmployeeTerminationService.Terminate(id);
+
+            // Terminated → they're gone from the company, so close the card.
+            Hide();
+        }
+        else
+        {
+            // Any non-action selection just snaps back to the placeholder.
+            _actionsDropdown?.SetValueWithoutNotify(ActionDefault);
+        }
+    }
+
     // ────────── Dragging ──────────
 
     /// <summary>Clean up registered callbacks when the component is disabled.</summary>
@@ -176,6 +329,9 @@ public class EmployeeInfoUI : MonoBehaviour
     {
         if (_headerRow != null)
             _headerRow.UnregisterCallback<PointerDownEvent>(OnHeaderPointerDown);
+
+        if (_avatarElement != null)
+            _avatarElement.UnregisterCallback<PointerDownEvent>(OnAvatarPointerDown);
 
         if (_panel != null)
         {

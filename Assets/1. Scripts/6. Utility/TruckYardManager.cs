@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Linq;
+using System.Collections.Generic;
 
 /// <summary>
 /// Lives on the guard shack prefab. Manages the yard: assigns door numbers at startup,
@@ -19,8 +20,11 @@ public class TruckYardManager : MonoBehaviour
     [SerializeField] private GameObject truckPrefab;
     [SerializeField] private GameObject guardPrefab;
 
-    [Header("Dev UI")]
-    [SerializeField] private bool showDevOverlay = false;
+    [Header("Gate queue")]
+    [Tooltip("Spacing between trucks queued behind the gate (≈ trailer length + ~2m gap).")]
+    [SerializeField] private float queueSpacing = 16f;
+
+    private readonly List<TruckController> _gateQueue = new();
 
     private Transform       _spawnPoint;
     private Transform       _gateStop;
@@ -81,9 +85,35 @@ public class TruckYardManager : MonoBehaviour
 
     public int ActiveTrucks => _activeTrucks;
 
+    /// <summary>Guard-shack stop position (where trucks pause for inspection). Null if missing.</summary>
+    public Vector3? GuardShackStop => _gateStop != null ? (Vector3?)_gateStop.position : null;
+
+    /// <summary>Yard exit position (where trucks leave the scene). Null if missing.</summary>
+    public Vector3? YardExit => _exitPoint != null ? (Vector3?)_exitPoint.position : null;
+
+    /// <summary>GuardAnchors/ExitPost — where a fired employee stops to wave. Null if missing.</summary>
+    public Vector3? GuardExitPost => Pos(DeepFind(transform, "ExitPost"));
+
+    /// <summary>GS_Main — the guard-shack body a fired employee faces while waving. Null if missing.</summary>
+    public Vector3? GuardShackMain => Pos(DeepFind(transform, "GS_Main"));
+
+    private static Vector3? Pos(Transform t) => t != null ? (Vector3?)t.position : null;
+
+    private static Transform DeepFind(Transform parent, string childName)
+    {
+        foreach (Transform c in parent)
+        {
+            if (c.name == childName) return c;
+            var r = DeepFind(c, childName);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
     public void ResetYard()
     {
         _activeTrucks = 0;
+        _gateQueue.Clear();
         foreach (var dock in DockSlot.All)
         {
             dock.Release();
@@ -116,12 +146,19 @@ public class TruckYardManager : MonoBehaviour
         var ctrl = go.GetComponent<TruckController>() ?? go.AddComponent<TruckController>();
 
         Vector3? gatePos       = _gateStop        != null ? (Vector3?)_gateStop.position        : null;
-        Vector3? enterNoTurn  = _gateEnterNoTurn != null ? (Vector3?)_gateEnterNoTurn.position : null;
-        Vector3? leaveNoTurn  = _gateLeaveNoTurn != null ? (Vector3?)_gateLeaveNoTurn.position : null;
-        Vector3? exitPos      = _exitPoint       != null ? (Vector3?)_exitPoint.position       : null;
+        Vector3? enterNoTurn   = _gateEnterNoTurn != null ? (Vector3?)_gateEnterNoTurn.position : null;
+        Vector3? leaveNoTurn   = _gateLeaveNoTurn != null ? (Vector3?)_gateLeaveNoTurn.position : null;
+        Vector3? exitPos       = _exitPoint       != null ? (Vector3?)_exitPoint.position       : null;
 
         ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited);
+        ctrl.OnClearedGate += () => OnTruckClearedGate(ctrl);
         ctrl.AssignAndGo(dock);
+
+        if (_gateStop != null)
+        {
+            _gateQueue.Add(ctrl);
+            LayoutQueue();   // assigns this truck its slot and re-lays the line
+        }
 
         _activeTrucks++;
         Debug.Log($"[TruckYardManager] Truck dispatched to door {dock.DoorNumber}. Active: {_activeTrucks}");
@@ -179,51 +216,41 @@ public class TruckYardManager : MonoBehaviour
         _activeTrucks = Mathf.Max(0, _activeTrucks - 1);
     }
 
+    // ── Gate queue ──────────────────────────────────────────────────────────────
+    /// <summary>
+    /// Positions every queued truck behind the gate: slot 0 sits on GateStop, each
+    /// truck behind it offset by queueSpacing along the inbound road. Slot 0 is the
+    /// only one flagged "front" (it gets inspected on arrival).
+    /// </summary>
+    private void LayoutQueue()
+    {
+        if (_gateStop == null) return;
+
+        Vector3 gate   = _gateStop.position;
+        Vector3 behind = _spawnPoint != null ? (_spawnPoint.position - gate) : -_gateStop.forward;
+        behind.y = 0f;
+        if (behind.sqrMagnitude < 0.0001f) behind = -_gateStop.forward;
+        behind.Normalize();
+
+        for (int i = 0; i < _gateQueue.Count; i++)
+        {
+            var t = _gateQueue[i];
+            if (t == null) continue;
+            Vector3 slot = gate + behind * (i * queueSpacing);
+            t.SetQueueSlot(slot, i == 0);
+        }
+    }
+
+    /// <summary>Front truck cleared the guard → drop it and slide everyone forward.</summary>
+    private void OnTruckClearedGate(TruckController ctrl)
+    {
+        _gateQueue.Remove(ctrl);
+        LayoutQueue();
+    }
+
     private DockSlot FindFreeDock()
     {
         var free = DockSlot.All.Where(d => !d.IsOccupied).ToList();
         return free.Count == 0 ? null : free[Random.Range(0, free.Count)];
-    }
-
-    // ── Dev overlay ───────────────────────────────────────────────────────────
-
-    private void OnGUI()
-    {
-        if (!showDevOverlay) return;
-
-        var btnStyle = new GUIStyle(GUI.skin.button)
-        {
-            fontSize  = 14,
-            fontStyle = FontStyle.Bold,
-            alignment = TextAnchor.MiddleCenter,
-        };
-        var lblStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 12,
-            normal   = { textColor = Color.white },
-        };
-
-        int  freeDocks = DockSlot.All.Count(d => !d.IsOccupied);
-        bool canSpawn  = freeDocks > 0 && _spawnPoint != null;
-
-        GUI.color = canSpawn ? Color.white : new Color(1f, 0.4f, 0.4f);
-        if (GUI.Button(new Rect(12, 52, 190, 40), "TRUCK ENTERS", btnStyle) && canSpawn)
-            SpawnNextTruck();
-
-        GUI.color = new Color(1f, 0.6f, 0.6f);
-        if (GUI.Button(new Rect(210, 52, 120, 40), "RESET YARD", btnStyle))
-            ResetYard();
-
-        GUI.color = Color.white;
-        GUI.Label(
-            new Rect(12, 96, 350, 22),
-            $"Doors: {freeDocks}/{DockSlot.All.Count} free  |  Trucks: {_activeTrucks}",
-            lblStyle);
-
-        if (_spawnPoint == null)
-        {
-            GUI.color = Color.red;
-            GUI.Label(new Rect(12, 118, 300, 20), "ERROR: SpawnPoint not found!", lblStyle);
-        }
     }
 }

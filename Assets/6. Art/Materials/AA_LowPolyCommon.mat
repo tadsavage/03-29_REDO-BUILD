@@ -13,7 +13,6 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _ENVIRONMENTREFLECTIONS_OFF
-  - _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
   - _SPECULAR_SETUP
   m_InvalidKeywords: []
   m_LightmapFlags: 4
@@ -164,9 +163,9 @@ Material:
     - _ShadowStep: 0
     - _Shininess: 0
     - _ShinyEdges: 1
-    - _Smoothness: 0
+    - _Smoothness: 0.5
     - _SmoothnessSource: 0
-    - _SmoothnessTextureChannel: 1
+    - _SmoothnessTextureChannel: 0
     - _SpecSource: 0
     - _SpecularGloss: 0.5
     - _SpecularHighlights: 1
@@ -192,7 +191,7 @@ Material:
     - _RimColor: {r: 1, g: 1, b: 1, a: 1}
     - _SPECULAR_COLOR: {r: 1, g: 1, b: 1, a: 0}
     - _ShadowColor: {r: 0.14999998, g: 0.14999998, b: 0.29999998, a: 1}
-    - _SpecColor: {r: 0.19999987, g: 0.19999987, b: 0.19999987, a: 0.25}
+    - _SpecColor: {r: 0, g: 0, b: 0, a: 0.25}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
     - _Tint: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
