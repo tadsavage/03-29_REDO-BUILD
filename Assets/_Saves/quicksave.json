@@ -4,13 +4,13 @@
     "spentToday": 11333,
     "cameraData": {
         "focusPoint": {
-            "x": 4.251653671264648,
-            "y": 9.891812324523926,
-            "z": -1.4384573698043824
+            "x": -2.5555286407470705,
+            "y": 0.07500000298023224,
+            "z": 11.929746627807618
         },
         "distance": 5.0,
-        "pitch": 23.700164794921876,
-        "yaw": 3827.470703125
+        "pitch": 19.50017547607422,
+        "yaw": 3818.220703125
     },
     "placedObjects": [
         {
@@ -13535,86 +13535,6 @@
             "val": "0"
         },
         {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
-            "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
-        },
-        {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
-        },
-        {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.5"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
-        },
-        {
-            "key": "Gate_Open_Close.rot_down",
-            "val": "0"
-        },
-        {
-            "key": "Gate_Open_Close.rot_up",
-            "val": "-85"
-        },
-        {
-            "key": "Gate_Open_Close.arm_speed",
-            "val": "80"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
-        {
             "key": "FreeLookCamera.moveSpeed",
             "val": "15"
         },
@@ -13677,6 +13597,86 @@
         {
             "key": "FreeLookCamera.zMax",
             "val": "100"
+        },
+        {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
+        },
+        {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.15"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
         }
     ],
     "toolsWindowX": 12.0,
@@ -13684,7 +13684,52 @@
     "guidanceLinesVisible": true,
     "waypointsVisible": true,
     "hoverPopupEnabled": false,
-    "employeeRecords": [],
+    "employeeRecords": [
+        {
+            "employeeGuid": "3418699f-1061-4952-99ff-ffcde79236f1",
+            "employeeName": "Blake Harris",
+            "employeeId": "CLERK 477",
+            "employeeIdPrefix": "CLERK",
+            "gender": 2,
+            "role": 7,
+            "fatigue": 18.446796417236329,
+            "safety": 56.25958251953125,
+            "morale": 83.89234924316406,
+            "skill": 45.515594482421878,
+            "skillLevel": 3,
+            "avatarResourceKey": "Custom_3418699f-1061-4952-99ff-ffcde79236f1",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 15.470000267028809,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-15",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": -5.705737590789795,
+            "posY": 1.1185787916183472,
+            "posZ": 44.0211296081543,
+            "rotY": 91.6617202758789,
+            "hasSavedPosition": true
+        }
+    ],
     "formerEmployees": [
         {
             "employeeGuid": "ebbca9e3-b0ae-47cb-a89e-7150bc6ae851",

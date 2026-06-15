@@ -189,11 +189,11 @@ public class EmployeePhotoBooth : MonoBehaviour
         }
     }
 
-    private void OnEmployeeHired(EmployeeRecord record)
+    public void GeneratePortraitForRecord(EmployeeRecord record)
     {
         if (record == null) return;
 
-        // 1. Determine model and force matching gender
+        // Determine model and force matching gender
         GameObject prefab = GetPrefabForRoleAndGender(record.role, record.gender, out EmployeeGender finalGender);
         record.gender = finalGender;
 
@@ -203,8 +203,24 @@ public class EmployeePhotoBooth : MonoBehaviour
             prefab = _workerMalePrefab;
         }
 
-        // 2. Capture and save portrait
+        // Capture and save portrait
         CapturePortrait(record, prefab);
+    }
+
+    private void OnEmployeeHired(EmployeeRecord record)
+    {
+        if (record == null) return;
+
+        // If the portrait was already generated when they were a candidate,
+        // we can reuse it rather than taking another snapshot.
+        string key = "Custom_" + record.employeeGuid;
+        if (CustomAvatarCache.ContainsKey(key))
+        {
+            record.avatarResourceKey = key;
+            return;
+        }
+
+        GeneratePortraitForRecord(record);
     }
 
     private GameObject GetPrefabForRoleAndGender(EmployeeRole role, EmployeeGender gender, out EmployeeGender finalGender)

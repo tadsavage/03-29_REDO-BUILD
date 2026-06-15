@@ -170,7 +170,13 @@ public class HiringService : MonoBehaviour
         while (accum >= interval && _roster.Count < _cap)
         {
             accum -= interval;
-            _roster.Add(HiringCandidateGenerator.Generate(pool[UnityEngine.Random.Range(0, pool.Length)]));
+            var candidate = HiringCandidateGenerator.Generate(pool[UnityEngine.Random.Range(0, pool.Length)]);
+            
+            // Generate custom studio portrait for the candidate immediately
+            if (EmployeePhotoBooth.Instance != null)
+                EmployeePhotoBooth.Instance.GeneratePortraitForRecord(candidate.record);
+                
+            _roster.Add(candidate);
             added = true;
         }
         // At cap: hold a single interval's worth ready so a freed slot fills promptly,
@@ -186,13 +192,21 @@ public class HiringService : MonoBehaviour
 
         int osCount = Mathf.Clamp(Mathf.RoundToInt(_cap * _orderSelectorShare), 0, _cap);
         for (int i = 0; i < osCount; i++)
-            _roster.Add(HiringCandidateGenerator.Generate(EmployeeRole.OrderSelector));
+        {
+            var candidate = HiringCandidateGenerator.Generate(EmployeeRole.OrderSelector);
+            if (EmployeePhotoBooth.Instance != null)
+                EmployeePhotoBooth.Instance.GeneratePortraitForRecord(candidate.record);
+            _roster.Add(candidate);
+        }
 
         int remaining = _cap - osCount;
         for (int i = 0; i < remaining; i++)
         {
             var role = StartingSkilledRoles[UnityEngine.Random.Range(0, StartingSkilledRoles.Length)];
-            _roster.Add(HiringCandidateGenerator.Generate(role));
+            var candidate = HiringCandidateGenerator.Generate(role);
+            if (EmployeePhotoBooth.Instance != null)
+                EmployeePhotoBooth.Instance.GeneratePortraitForRecord(candidate.record);
+            _roster.Add(candidate);
         }
 
         OnRosterChanged?.Invoke();
