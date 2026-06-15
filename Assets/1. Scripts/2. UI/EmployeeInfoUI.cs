@@ -284,6 +284,12 @@ public class EmployeeInfoUI : MonoBehaviour
         // Card closed by any means (red X, F2 toggle, Escape, terminate) → lose focus.
         DropFocus();
 
+        // The photo booth live feed (animated model, camera, light, mood gestures) only
+        // exists to feed this card's avatar — tear it down so it isn't left running/visible
+        // at the booth's position in the world once the card is closed.
+        if (EmployeePhotoBooth.Instance != null)
+            EmployeePhotoBooth.Instance.StopLiveFeed();
+
         // Release any captured pointer before hiding panel (prevents permanent input deadlock)
         if (_isDragging && _headerRow != null && _capturedPointerId >= 0)
         {

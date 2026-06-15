@@ -32,7 +32,14 @@ public static class HiringCandidateGenerator
             ?? HireableRoles[Random.Range(0, HireableRoles.Length)];
 
         string prefix = EmployeeGenerator.PrefixForRole(role);
-        EmployeeRecord record = EmployeeGenerator.Generate(EmployeeGender.Random, prefix, role);
+
+        // Inventory Control only has a female clerk model — only generate
+        // female candidates for this role so name/gender/model stay consistent.
+        EmployeeGender gender = (role == EmployeeRole.InventoryControl)
+            ? EmployeeGender.Female
+            : EmployeeGender.Random;
+
+        EmployeeRecord record = EmployeeGenerator.Generate(gender, prefix, role);
 
         int years = Random.Range(1, 11); // 1..10 inclusive
 

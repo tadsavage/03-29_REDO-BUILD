@@ -52,8 +52,8 @@ public class EmployeeHighlighter : MonoBehaviour
     [Tooltip("Outline colour. Default is the UI accent blue #5C9BC4.")]
     [SerializeField] private Color _outlineColor = new Color(0.361f, 0.608f, 0.769f, 1f);
 
-    [Tooltip("Outline thickness in world units. ~0.03 reads as 'medium' on a ~1.8m character.")]
-    [SerializeField, Range(0f, 0.2f)] private float _outlineWidth = 0.03f;
+    [Tooltip("Outline thickness in world units. ~0.05 reads as 'medium-thick' on a ~1.8m character.")]
+    [SerializeField, Range(0f, 0.2f)] private float _outlineWidth = 0.05f;
 
     private Material _maskMat;
     private Material _fillMat;
@@ -85,9 +85,9 @@ public class EmployeeHighlighter : MonoBehaviour
             if (_camera != null) _camera.SetFollowTarget(null);
         }
 
-        // Right-click cancels focus (stop outlining + following) but leaves the info card open,
-        // so the player can free-look / orbit while still reading the card.
-        if (_current != null && Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+        // TAB cancels focus (stop outlining + following) but leaves the info card open, so the
+        // player can free-look / orbit (including right-click drag) while still reading the card.
+        if (_current != null && Keyboard.current != null && Keyboard.current[Key.Tab].wasPressedThisFrame)
             Clear();
     }
 

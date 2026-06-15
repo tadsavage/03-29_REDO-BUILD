@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// Controls the Employee Photo Booth system. Intercepts hiring of employees,
@@ -26,24 +28,33 @@ public class EmployeePhotoBooth : MonoBehaviour
     [Tooltip("Clear color of the camera (backdrop color).")]
     [SerializeField] private Color _backdropColor = new Color(0.322f, 0.419f, 0.401f, 1.0f);
     [SerializeField] private float _studioLightIntensity = 0.75f;
+    [Tooltip("Vertical offset for the IC Clerk model in the booth. The clerk model is ~0.17 units shorter than the Worker models, so without this it sits noticeably lower in frame than Worker portraits.")]
+    [SerializeField] private float _clerkVerticalOffset = 0.17f;
 
     [Header("Live Feed Settings")]
     [SerializeField] private float _cameraRotationSpeed = 0.5f;
     [SerializeField] private float _cameraMaxAngle = 45f;
-    [SerializeField] private float _cameraDistance = 2.0f;
+    [SerializeField] private float _cameraDistance = 2.75f;
     [SerializeField] private float _cameraHeight = 1.45f;
     [SerializeField] private float _lookAtHeight = 1.35f;
+    [Tooltip("Downward shift applied to the live-feed model only, so heads aren't cut off at the top of the EmployeeInfoUI avatar frame (~0.3 of the frame height at the current camera distance).")]
+    [SerializeField] private float _avatarFrameShift = -0.38f;
     [SerializeField] private float _waveIntervalMin = 5f;
-    [SerializeField] private float _waveIntervalMax = 9f;
+    [SerializeField] private float _waveIntervalMax = 5f;
+
+    [Header("Post-Processing")]
+    [Tooltip("Volume profile applied only to the photo booth's cameras (live feed + portrait capture) — gives the 'Kodak Instamatic' look (DOF, saturation, contrast, vignette, grain) without affecting the main game camera.")]
+    [SerializeField] private VolumeProfile _photoBoothProfile;
 
     private Camera _liveCamera;
     private Light _liveLight;
     private GameObject _liveModelInstance;
     private RenderTexture _liveRenderTexture;
     private bool _isLiveFeedActive = false;
-    private float _nextWaveTime = 0f;
-    private float _waveEndTime = 0f;
-    private bool _isWaving = false;
+    private float _nextGestureTime = 0f;
+    private float _gestureEndTime = 0f;
+    private bool _isGesturing = false;
+    private EmployeeMood _liveMood = EmployeeMood.Neutral;
     private Animator _liveAnimator;
     private float _liveStartTime;
 
@@ -68,6 +79,28 @@ public class EmployeePhotoBooth : MonoBehaviour
         // Initialize RenderTexture for live feed
         _liveRenderTexture = new RenderTexture(256, 256, 24, RenderTextureFormat.ARGB32);
         _liveRenderTexture.Create();
+
+        // Dedicated post-processing volume for the photo booth's cameras only. It lives on
+        // its own layer (PhotoBoothFX) so it never affects the main game camera's view.
+        if (_photoBoothProfile != null)
+        {
+            GameObject volumeGO = new GameObject("PhotoBoothPostFX");
+            volumeGO.transform.SetParent(transform);
+            volumeGO.layer = LayerMask.NameToLayer("PhotoBoothFX");
+
+            Volume volume = volumeGO.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.priority = 10f;
+            volume.sharedProfile = _photoBoothProfile;
+        }
+    }
+
+    /// <summary>Routes a camera's rendering through the photo booth's dedicated post-processing volume only.</summary>
+    private static void ApplyPhotoBoothPostFX(Camera cam)
+    {
+        var data = cam.GetUniversalAdditionalCameraData();
+        data.renderPostProcessing = true;
+        data.volumeLayerMask = LayerMask.GetMask("PhotoBoothFX");
     }
 
     private void Start()
@@ -100,20 +133,24 @@ public class EmployeePhotoBooth : MonoBehaviour
         _liveCamera.transform.localPosition = new Vector3(x, _cameraHeight, z);
         _liveCamera.transform.LookAt(transform.position + new Vector3(0f, _lookAtHeight, 0f));
 
-        // 2. Handle waving animation
+        // 2. Handle mood-driven gesture animation (happy = wave, angry = rude gesture, ...)
         if (_liveAnimator != null)
         {
-            if (!_isWaving && Time.time >= _nextWaveTime)
+            string gestureParam = EmployeeMoodAnimator.GestureParam(_liveMood);
+            if (gestureParam != null)
             {
-                _isWaving = true;
-                _liveAnimator.SetBool("IsWaving", true);
-                _waveEndTime = Time.time + 2.0f; // Wave for 2 seconds
-            }
-            else if (_isWaving && Time.time >= _waveEndTime)
-            {
-                _isWaving = false;
-                _liveAnimator.SetBool("IsWaving", false);
-                _nextWaveTime = Time.time + UnityEngine.Random.Range(_waveIntervalMin, _waveIntervalMax);
+                if (!_isGesturing && Time.time >= _nextGestureTime)
+                {
+                    _isGesturing = true;
+                    _liveAnimator.SetBool(gestureParam, true);
+                    _gestureEndTime = Time.time + 2.0f; // Gesture for 2 seconds
+                }
+                else if (_isGesturing && Time.time >= _gestureEndTime)
+                {
+                    _isGesturing = false;
+                    _liveAnimator.SetBool(gestureParam, false);
+                    _nextGestureTime = Time.time + UnityEngine.Random.Range(_waveIntervalMin, _waveIntervalMax);
+                }
             }
         }
     }
@@ -126,22 +163,33 @@ public class EmployeePhotoBooth : MonoBehaviour
         if (prefab == null) prefab = _workerMalePrefab;
 
         _liveModelInstance = Instantiate(prefab, transform);
-        _liveModelInstance.transform.localPosition = Vector3.zero;
+        _liveModelInstance.transform.localPosition = new Vector3(0f, GetModelVerticalOffset(record.role) + _avatarFrameShift, 0f);
         _liveModelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
         _liveModelInstance.name = $"LiveFeed_{record.employeeName}";
+
+        // Posture (slouch) and gesture (wave/rude) are independent: a tired-but-happy
+        // employee can slouch AND still wave — fatigue no longer blocks a morale gesture.
+        EmployeeMood postureMood = EmployeeMoodEvaluator.EvaluatePosture(record);
+        _liveMood = EmployeeMoodEvaluator.EvaluateGesture(record);
 
         _liveAnimator = _liveModelInstance.GetComponent<Animator>();
         if (_liveAnimator != null)
         {
             _liveAnimator.SetBool("IsWalking", false);
-            _liveAnimator.SetBool("IsWaving", false);
+            _liveAnimator.SetBool(EmployeeMoodAnimator.WavingParam, false);
+            _liveAnimator.SetBool(EmployeeMoodAnimator.AngryParam, false);
+            EmployeeMoodAnimator.ApplyPersistent(_liveAnimator, postureMood);
         }
 
-        // Disable movement
+        // Disable movement and the in-world animation driver — AgentAnimation calls
+        // SetAllBools(false) every frame while off the NavMesh, which would stomp the
+        // mood-driven IsWaving/IsAngry/IsTired bools we set below.
         var agent = _liveModelInstance.GetComponent<UnityEngine.AI.NavMeshAgent>();
         if (agent != null) agent.enabled = false;
         var identity = _liveModelInstance.GetComponent<EmployeeIdentity>();
         if (identity != null) identity.enabled = false;
+        var agentAnimation = _liveModelInstance.GetComponent<AgentAnimation>();
+        if (agentAnimation != null) agentAnimation.enabled = false;
 
         // Camera
         GameObject camGO = new GameObject("LiveFeed_Camera");
@@ -151,6 +199,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         _liveCamera.backgroundColor = _backdropColor;
         _liveCamera.fieldOfView = 26f;
         _liveCamera.targetTexture = _liveRenderTexture;
+        ApplyPhotoBoothPostFX(_liveCamera);
 
         // Light
         GameObject lightGO = new GameObject("LiveFeed_Light");
@@ -164,7 +213,8 @@ public class EmployeePhotoBooth : MonoBehaviour
         _liveLight.shadows = LightShadows.Hard;
 
         _liveStartTime = Time.time;
-        _nextWaveTime = Time.time + UnityEngine.Random.Range(_waveIntervalMin, _waveIntervalMax);
+        _isGesturing = false;
+        _nextGestureTime = Time.time + UnityEngine.Random.Range(_waveIntervalMin, _waveIntervalMax);
         _isLiveFeedActive = true;
     }
 
@@ -261,13 +311,20 @@ public class EmployeePhotoBooth : MonoBehaviour
         }
     }
 
+    /// <summary>Per-role vertical correction so every model frames the same in the booth.</summary>
+    private float GetModelVerticalOffset(EmployeeRole role) => role switch
+    {
+        EmployeeRole.InventoryControl => _clerkVerticalOffset,
+        _ => 0f
+    };
+
     private void CapturePortrait(EmployeeRecord record, GameObject prefab)
     {
         if (prefab == null) return;
 
         // 1. Instantiate temporary model at photo booth origin
         GameObject modelInstance = Instantiate(prefab, transform);
-        modelInstance.transform.localPosition = Vector3.zero;
+        modelInstance.transform.localPosition = new Vector3(0f, GetModelVerticalOffset(record.role), 0f);
         modelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
         modelInstance.name = $"PhotoBooth_Temp_{record.employeeName}";
 
@@ -293,6 +350,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         cam.fieldOfView = 26f; // Match camera preview FOV
         cam.nearClipPlane = 0.1f;
         cam.farClipPlane = 10f;
+        ApplyPhotoBoothPostFX(cam);
 
         // Solve lighting issue: Create a nice Point light to get shadows/angles on low poly polygons
         GameObject lightGO = new GameObject("PhotoBooth_Light");
@@ -333,12 +391,16 @@ public class EmployeePhotoBooth : MonoBehaviour
         byte[] pngBytes = tex.EncodeToPNG();
         SavePortraitToDisk(record.employeeGuid, pngBytes);
 
-        // 8. Clean up temporary objects immediately
-        Destroy(modelInstance);
-        Destroy(camGO);
-        Destroy(lightGO);
+        // 8. Clean up temporary objects immediately.
+        // DestroyImmediate is required here (not Destroy) because portraits for
+        // multiple candidates are captured back-to-back in the same frame —
+        // Destroy() defers removal until end-of-frame, leaving the previous
+        // model/camera/light visible (and rendered) in the next candidate's shot.
+        DestroyImmediate(modelInstance);
+        DestroyImmediate(camGO);
+        DestroyImmediate(lightGO);
         rt.Release();
-        Destroy(rt);
+        DestroyImmediate(rt);
 
         Debug.Log($"[EmployeePhotoBooth] Successfully captured studio portrait for {record.employeeName} ({record.role})");
     }

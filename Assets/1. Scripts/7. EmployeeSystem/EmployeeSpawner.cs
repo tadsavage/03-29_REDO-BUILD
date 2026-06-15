@@ -16,6 +16,8 @@ public class EmployeeSpawner : MonoBehaviour
     [Header("Prefabs")]
     [SerializeField] private GameObject _workerMalePrefab;
     [SerializeField] private GameObject _workerFemalePrefab;
+    [Tooltip("Dedicated model for Inventory Control clerks. Used exclusively for the InventoryControl role, which is exclusively female.")]
+    [SerializeField] private GameObject _clerkPrefab;
 
     // ─── Auto-spawn (testing) ─────────────────────────────────────────────────
     [Header("Auto-Spawn (Testing)")]
@@ -146,6 +148,10 @@ public class EmployeeSpawner : MonoBehaviour
     // ─── Helpers ──────────────────────────────────────────────────────────────
     private GameObject PickPrefab(EmployeeRecord record)
     {
+        // Inventory Control has a dedicated clerk model and is exclusively female.
+        if (record.role == EmployeeRole.InventoryControl && _clerkPrefab != null)
+            return _clerkPrefab;
+
         return record.gender == EmployeeGender.Female
             ? _workerFemalePrefab ?? _workerMalePrefab
             : _workerMalePrefab ?? _workerFemalePrefab;
