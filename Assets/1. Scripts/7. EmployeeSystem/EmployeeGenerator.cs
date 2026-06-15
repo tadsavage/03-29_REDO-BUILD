@@ -149,10 +149,9 @@ public static class EmployeeGenerator
 
     private static EmployeeGender RandomGender()
     {
-        float roll = UnityEngine.Random.value;
-        return roll < 0.45f ? EmployeeGender.Male
-             : roll < 0.90f ? EmployeeGender.Female
-             : EmployeeGender.Neutral;
+        // Worker models only come in Male/Female, so candidates are generated
+        // as one or the other to keep names matching the resulting model.
+        return UnityEngine.Random.value < 0.5f ? EmployeeGender.Male : EmployeeGender.Female;
     }
 
     private static string PickFirstName(EmployeeNameListJson names, EmployeeGender gender)
