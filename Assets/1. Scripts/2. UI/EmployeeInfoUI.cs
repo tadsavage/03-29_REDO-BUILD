@@ -194,6 +194,20 @@ public class EmployeeInfoUI : MonoBehaviour
 
         RefreshUI();
 
+        // Start live feed for animated portrait if it's a real record or has enough data
+        if (EmployeePhotoBooth.Instance != null)
+        {
+            // We need a record for the photo booth. If we only have EmployeeData, 
+            // we can export a temporary record.
+            EmployeeRecord tempRecord = _employeeData.ExportToRecord();
+            EmployeePhotoBooth.Instance.StartLiveFeed(tempRecord);
+            
+            if (_avatarElement != null && EmployeePhotoBooth.Instance.LiveRenderTexture != null)
+            {
+                _avatarElement.style.backgroundImage = Background.FromRenderTexture(EmployeePhotoBooth.Instance.LiveRenderTexture);
+            }
+        }
+
         _panel.style.display = DisplayStyle.Flex;
         _panel.pickingMode = PickingMode.Position;
         ApplyCustomPosition();
@@ -236,6 +250,16 @@ public class EmployeeInfoUI : MonoBehaviour
         // Point to the runtime instance for RefreshUI
         _employeeData = _recordDisplayData;
         RefreshUI();
+
+        // Start live feed for animated portrait
+        if (EmployeePhotoBooth.Instance != null)
+        {
+            EmployeePhotoBooth.Instance.StartLiveFeed(record);
+            if (_avatarElement != null && EmployeePhotoBooth.Instance.LiveRenderTexture != null)
+            {
+                _avatarElement.style.backgroundImage = Background.FromRenderTexture(EmployeePhotoBooth.Instance.LiveRenderTexture);
+            }
+        }
 
         _panel.style.display = DisplayStyle.Flex;
         _panel.pickingMode = PickingMode.Position;
