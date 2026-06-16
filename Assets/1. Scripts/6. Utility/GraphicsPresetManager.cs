@@ -140,6 +140,9 @@ public class GraphicsPresetManager : MonoBehaviour
         QualitySettings.renderPipeline = asset;
     }
 
+    // SSAO and the cavity full-screen pass (FullScreenPassRendererFeature →
+    // Cavity_Material06-07) both follow the preset: on for Ultra/Good, off on Toaster
+    // to claw back frames on weak GPUs (a full-screen pass is real cost there).
     private void SetRendererFeatures(bool enabled)
     {
         if (rendererData == null) return;

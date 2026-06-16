@@ -11,8 +11,15 @@
             <ui:VisualElement class="topbar-box"><ui:Label name="HourlyLabel" class="topbar-hourly"/></ui:VisualElement>
             <ui:VisualElement class="topbar-box"><ui:Label name="SpentLabel" class="topbar-spent"/></ui:VisualElement>
             <ui:VisualElement class="topbar-box"><ui:Label name="TimeLabel" class="topbar-time"/></ui:VisualElement>
-            <ui:VisualElement class="topbar-box"><ui:Label name="FPSLabel" class="topbar-time"/></ui:VisualElement>
-            <ui:VisualElement class="topbar-box topbar-cell-box"><ui:Label name="CellLabel" class="topbar-time"/></ui:VisualElement>
+            <ui:VisualElement class="topbar-box"><ui:Label name="CellLabel" class="topbar-cell"/></ui:VisualElement>
+            <ui:VisualElement name="SpeedBox" class="topbar-box">
+                <ui:VisualElement name="SpeedControl" class="topbar-speed">
+                    <ui:Button name="SpeedPause" class="topbar-speed-btn" text="II" />
+                    <ui:Button name="Speed1x" class="topbar-speed-btn" text="&gt;" />
+                    <ui:Button name="Speed2x" class="topbar-speed-btn" text="&gt;&gt;" />
+                    <ui:Button name="Speed3x" class="topbar-speed-btn" text="&gt;&gt;&gt;" />
+                </ui:VisualElement>
+            </ui:VisualElement>
             
             <ui:Button name="MainMenuButton" text="MENU (ESC)" class="topbar-box topbar-mainmenu-btn" picking-mode="Position"/>
         </ui:VisualElement>

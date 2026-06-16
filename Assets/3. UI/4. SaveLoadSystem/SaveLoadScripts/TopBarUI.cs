@@ -11,7 +11,6 @@ public class TopBarUI : MonoBehaviour
     private Label _hourly;
     private Label _spent;
     private Label _time;
-    private Label _fps;
     private Label _cell;
 
     private Button _saveButton;
@@ -47,8 +46,8 @@ public class TopBarUI : MonoBehaviour
     private const string GameVolParam  = "GameVolume";
     private const string MusicVolParam = "MusicVolume";
 
-    private float _fpsTimer;
-    private int _frames;
+    // Game-speed (time advancer) buttons.
+    private Button _spdPause, _spd1x, _spd2x, _spd3x;
 
     private MoneyService _moneyService;
     private SimulationTimeService _timeService;
@@ -79,15 +78,18 @@ public class TopBarUI : MonoBehaviour
         _hourly = topBar.Q<Label>("HourlyLabel");
         _spent  = topBar.Q<Label>("SpentLabel");
         _time   = topBar.Q<Label>("TimeLabel");
-        _fps    = topBar.Q<Label>("FPSLabel");
         _cell   = topBar.Q<Label>("CellLabel");
 
         if (_money == null || _hourly == null || _spent == null ||
-            _time  == null || _fps   == null || _cell  == null)
+            _time  == null || _cell  == null)
         {
             Debug.LogError("One or more TopBar labels are missing.");
             return;
         }
+
+        // FPS moved to the draggable DevHudWindow (F8). The freed top-bar slot now holds
+        // the game-speed control (Pause / 1× / 2× / 3×).
+        WireSpeedControl(topBar);
 
         _saveButton      = topBar.Q<Button>("SaveButton");
         _loadButton      = topBar.Q<Button>("LoadButton");
@@ -152,8 +154,6 @@ public class TopBarUI : MonoBehaviour
 
     private void Update()
     {
-        UpdateFPS();
-
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             // Save/load window takes priority: Escape closes it (and ensures
@@ -277,16 +277,38 @@ public class TopBarUI : MonoBehaviour
 
     // ── TopBar labels ─────────────────────────────────────────────
 
-    private void UpdateFPS()
+    // ── Game speed (time advancer) ────────────────────────────────
+    private void WireSpeedControl(VisualElement topBar)
     {
-        _frames++;
-        _fpsTimer += Time.deltaTime;
-        if (_fpsTimer >= 0.5f)
-        {
-            if (_fps != null) _fps.text = $"FPS: {Mathf.RoundToInt(_frames / _fpsTimer)}";
-            _frames = 0;
-            _fpsTimer = 0f;
-        }
+        _spdPause = topBar.Q<Button>("SpeedPause");
+        _spd1x    = topBar.Q<Button>("Speed1x");
+        _spd2x    = topBar.Q<Button>("Speed2x");
+        _spd3x    = topBar.Q<Button>("Speed3x");
+
+        _spdPause?.RegisterCallback<ClickEvent>(_ => SetSpeed(0f));
+        _spd1x?.RegisterCallback<ClickEvent>(_ => SetSpeed(1f));
+        _spd2x?.RegisterCallback<ClickEvent>(_ => SetSpeed(2f));
+        _spd3x?.RegisterCallback<ClickEvent>(_ => SetSpeed(3f));
+
+        SetSpeed(1f); // start at normal speed + highlight 1×
+    }
+
+    // Holistic game speed: scales the whole simulation (clock, employees, animation).
+    // 0 = paused. Uses Time.timeScale so everything advances together.
+    private void SetSpeed(float scale)
+    {
+        Time.timeScale = scale;
+
+        _spdPause?.RemoveFromClassList("topbar-speed-btn--active");
+        _spd1x?.RemoveFromClassList("topbar-speed-btn--active");
+        _spd2x?.RemoveFromClassList("topbar-speed-btn--active");
+        _spd3x?.RemoveFromClassList("topbar-speed-btn--active");
+
+        Button active = scale <= 0f ? _spdPause
+                      : scale >= 3f ? _spd3x
+                      : scale >= 2f ? _spd2x
+                                    : _spd1x;
+        active?.AddToClassList("topbar-speed-btn--active");
     }
 
     public void SetState(string stateName) { }

@@ -129,6 +129,13 @@ public class WallVisibilityManager : MonoBehaviour
         _activeSlideCoroutine = StartCoroutine(SlideWallsRoutine());
     }
 
+    public WallVisibilityMode CurrentMode => _currentMode;
+
+    // Three-stage stepping: Full → Cut → Hidden (down) and back (up). Clamped at the ends,
+    // so it takes two "down" clicks to go all the way down and two "up" to come all the way up.
+    public void StepDown() => SetVisibilityMode((WallVisibilityMode)Mathf.Min((int)_currentMode + 1, (int)WallVisibilityMode.Hidden));
+    public void StepUp()   => SetVisibilityMode((WallVisibilityMode)Mathf.Max((int)_currentMode - 1, (int)WallVisibilityMode.Full));
+
     private IEnumerator SlideWallsRoutine()
     {
         if (_audioSource != null && slideSound != null)

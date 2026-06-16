@@ -27,7 +27,7 @@ public class EmployeePhotoBooth : MonoBehaviour
     [Header("Studio Setup")]
     [Tooltip("Clear color of the camera (backdrop color).")]
     [SerializeField] private Color _backdropColor = new Color(0.322f, 0.419f, 0.401f, 1.0f);
-    [SerializeField] private float _studioLightIntensity = 0.75f;
+    [SerializeField] private float _studioLightIntensity = 1.0f;
     [Tooltip("Vertical offset for the IC Clerk model in the booth. The clerk model is ~0.17 units shorter than the Worker models, so without this it sits noticeably lower in frame than Worker portraits.")]
     [SerializeField] private float _clerkVerticalOffset = 0.17f;
 
@@ -57,6 +57,7 @@ public class EmployeePhotoBooth : MonoBehaviour
     private EmployeeMood _liveMood = EmployeeMood.Neutral;
     private Animator _liveAnimator;
     private float _liveStartTime;
+    private bool _warmedUp; // first portrait render of the session is a throwaway warm-up
 
     public RenderTexture LiveRenderTexture => _liveRenderTexture;
     public bool IsLiveFeedActive => _isLiveFeedActive;
@@ -369,6 +370,11 @@ public class EmployeePhotoBooth : MonoBehaviour
         // 3. Render to temporary texture
         RenderTexture rt = new RenderTexture(256, 256, 24, RenderTextureFormat.ARGB32);
         cam.targetTexture = rt;
+
+        // The first capture of the session can come back wrong (shader / post-volume /
+        // skinning warm-up) — that's why candidate #0's portrait looked off. Prime the
+        // pipeline with a throwaway render the first time, then render for real.
+        if (!_warmedUp) { cam.Render(); _warmedUp = true; }
         cam.Render();
 
         // 4. Read back pixels to Texture2D

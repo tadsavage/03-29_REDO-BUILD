@@ -77,6 +77,42 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     transition-duration: 0.25s;
 }
 
+/* Game-speed control (time advancer) — sits in the box next to MENU. */
+.topbar-speed {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.topbar-speed-btn {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    font-size: 18px;
+    color: rgb(150, 190, 220);
+    background-color: transparent;
+    border-width: 0;
+    height: 34px;
+    min-width: 28px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-left: 2px;
+    margin-right: 2px;
+    -unity-text-align: middle-center;
+}
+
+.topbar-speed-btn:hover {
+    color: rgb(205, 228, 246);
+    background-color: rgba(92, 155, 196, 0.18);
+    border-radius: 4px;
+}
+
+.topbar-speed-btn--active {
+    color: rgb(255, 255, 255);
+    background-color: rgba(92, 155, 196, 0.38);
+    border-radius: 4px;
+}
+
 .topbar-cell-box {
     min-width: 120px;
     flex-grow: 0.5;

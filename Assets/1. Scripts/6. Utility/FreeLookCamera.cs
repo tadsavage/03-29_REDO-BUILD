@@ -173,7 +173,7 @@ public class FreeLookCamera : MonoBehaviour
         if (delta.sqrMagnitude > 0.01f)
         {
             // XZ only — vertical movement is Q/E's job, never WASD's.
-            var move = delta.normalized * (speed * Time.deltaTime);
+            var move = delta.normalized * (speed * Time.unscaledDeltaTime);
             _focalPoint.x += move.x;
             _focalPoint.z += move.z;
             hadInput = true;
@@ -182,8 +182,8 @@ public class FreeLookCamera : MonoBehaviour
 
         // Q/E raise/lower the rig by moving the focal point's Y. The camera follows on its orbit,
         // so the focal point stays centered while the whole view rises/falls.
-        if (Keyboard.current[Key.E].isPressed) { _focalPoint.y += speed * Time.deltaTime; hadInput = true; }
-        if (Keyboard.current[Key.Q].isPressed) { _focalPoint.y -= speed * Time.deltaTime; hadInput = true; }
+        if (Keyboard.current[Key.E].isPressed) { _focalPoint.y += speed * Time.unscaledDeltaTime; hadInput = true; }
+        if (Keyboard.current[Key.Q].isPressed) { _focalPoint.y -= speed * Time.unscaledDeltaTime; hadInput = true; }
 
         // A manual pan cancels a "focus beyond bounds" snap and re-engages the normal clamp,
         // easing the focal point back into the playable area.
