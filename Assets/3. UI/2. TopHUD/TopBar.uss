@@ -188,3 +188,8 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     background-color: rgba(240, 126, 45, 0.3);
     border-color: rgb(240, 126, 45);
 }
+
+/* Shared LilitaOne font class for programmatic UI (FinancialBreakdownPanel, etc.) */
+.fin-lilita {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+}

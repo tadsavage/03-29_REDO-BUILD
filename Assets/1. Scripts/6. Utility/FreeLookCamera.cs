@@ -210,8 +210,7 @@ public class FreeLookCamera : MonoBehaviour
             Cursor.visible = true;
         }
 
-        // LMB+RMB together = forward movement; suppress orbit so both don't fire at once.
-        if (!_orbiting || Mouse.current.leftButton.isPressed) return;
+        if (!_orbiting) return;
 
         Vector2 delta = Mouse.current.delta.ReadValue();
         _yaw  += delta.x * orbitSensitivity;

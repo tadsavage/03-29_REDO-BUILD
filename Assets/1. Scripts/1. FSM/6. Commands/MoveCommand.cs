@@ -137,7 +137,7 @@ public class MoveCommand : ICommand
             if (_money != null)
             {
                 _money.Refund(bd.Data.cost, bd.Data.category);
-                _money.RemoveHourlyCost(bd.Data.hourlyCost);
+                _money.RemoveHourlyCost(bd.Data.hourlyCost, FinanceCategory.ForHourlyCost(bd.Data.category), bd.Data.category);
             }
 
             // Disable
@@ -267,7 +267,7 @@ public class MoveCommand : ICommand
             if (_money != null)
             {
                 _money.Deduct(rd.data.cost, rd.data.category);
-                _money.AddHourlyCost(rd.data.hourlyCost);
+                _money.AddHourlyCost(rd.data.hourlyCost, FinanceCategory.ForHourlyCost(rd.data.category), rd.data.category);
             }
         }
         _replaced.Clear();

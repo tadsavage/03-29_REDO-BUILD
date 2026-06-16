@@ -174,8 +174,9 @@ public class PlacementStateMachine : MonoBehaviour
                 // We don't call raycast.Tick() again here because IdleState already did it.
                 HandleIdleHover(tickRaycast: false);
 
-                // If user clicks while in IdleState and not over UI, check for interactables like PalletBuilder
-                if (Mouse.current.leftButton.wasPressedThisFrame && !_raycast.IsPointerOverUI)
+                // Shift + Left Click on a pallet opens PalletBuilder UI (plain left click is reserved for future selection)
+                bool _shiftHeld = Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
+                if (Mouse.current.leftButton.wasPressedThisFrame && _shiftHeld && !_raycast.IsPointerOverUI)
                 {
                     if (_raycast.HitObject != null)
                     {

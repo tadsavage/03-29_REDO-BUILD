@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
 public class PalletBuilder : MonoBehaviour
@@ -332,9 +333,13 @@ public class PalletBuilder : MonoBehaviour
         // Only allow bringing up the Pallet Builder UI if the state machine is in IdleState
         var fsm = FindAnyObjectByType<PlacementStateMachine>();
         if (fsm != null && !(fsm.CurrentState is IdleState))
-        {
             return;
-        }
+
+        // Require Shift + Left Click — plain left click is reserved for future selection
+        bool shiftHeld = Keyboard.current != null
+            && (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
+        if (!shiftHeld) return;
+
         ToggleUI();
     }
 

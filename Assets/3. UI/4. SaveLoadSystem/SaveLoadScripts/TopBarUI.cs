@@ -51,6 +51,7 @@ public class TopBarUI : MonoBehaviour
 
     private MoneyService _moneyService;
     private SimulationTimeService _timeService;
+    private FinancialBreakdownPanel _breakdownPanel;
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
 
@@ -86,6 +87,9 @@ public class TopBarUI : MonoBehaviour
             Debug.LogError("One or more TopBar labels are missing.");
             return;
         }
+
+        _breakdownPanel = new FinancialBreakdownPanel(root, _moneyService);
+        _money.RegisterCallback<ClickEvent>(_ => _breakdownPanel.Toggle());
 
         // FPS moved to the draggable DevHudWindow (F8). The freed top-bar slot now holds
         // the game-speed control (Pause / 1× / 2× / 3×).
@@ -497,5 +501,6 @@ public class TopBarUI : MonoBehaviour
         if (_timeService  != null) _timeService.OnTimeChanged   -= Refresh;
         if (SaveManager.Instance != null)
             SaveManager.Instance.OnSaveCompleted -= OnSaveCompleted;
+        _breakdownPanel?.Dispose();
     }
 }

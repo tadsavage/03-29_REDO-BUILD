@@ -4,13 +4,13 @@
     "spentToday": -5610,
     "cameraData": {
         "focusPoint": {
-            "x": 2.471991777420044,
-            "y": 8.19527530670166,
-            "z": 35.28977584838867
+            "x": -8.08047866821289,
+            "y": 1.0,
+            "z": 35.37889862060547
         },
-        "distance": 4.0,
-        "pitch": 34.79999542236328,
-        "yaw": 6717.970703125
+        "distance": 16.0,
+        "pitch": 30.749984741210939,
+        "yaw": 6357.220703125
     },
     "placedObjects": [
         {
@@ -13365,30 +13365,6 @@
     ],
     "devSettings": [
         {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.5"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
             "key": "PalletBuilder.maxTotalHeight",
             "val": "1"
         },
@@ -13433,6 +13409,18 @@
             "val": "0"
         },
         {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
+        },
+        {
             "key": "AiNavigation.footstepVolume",
             "val": "1"
         },
@@ -13473,20 +13461,28 @@
             "val": "2"
         },
         {
-            "key": "Gate_Open_Close.rot_down",
-            "val": "0"
-        },
-        {
-            "key": "Gate_Open_Close.rot_up",
-            "val": "-85"
-        },
-        {
-            "key": "Gate_Open_Close.arm_speed",
-            "val": "80"
-        },
-        {
-            "key": "NavMeshManager._debounceTime",
+            "key": "AmbientMumble.volume",
             "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.15"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
         },
         {
             "key": "FreeLookCamera.moveSpeed",
@@ -13551,6 +13547,10 @@
         {
             "key": "FreeLookCamera.zMax",
             "val": "100"
+        },
+        {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
         }
     ],
     "toolsWindowX": 12.0,
@@ -13597,10 +13597,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 7.021416187286377,
-            "posY": 1.1185787916183472,
-            "posZ": 42.0698127746582,
-            "rotY": 213.4956817626953,
+            "posX": -10.88190746307373,
+            "posY": -4.9388366954585219e-17,
+            "posZ": 17.877368927001954,
+            "rotY": 252.7867431640625,
             "hasSavedPosition": true
         },
         {
@@ -13641,10 +13641,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -12.215569496154786,
-            "posY": 0.07500000298023224,
-            "posZ": 18.1817626953125,
-            "rotY": 241.48043823242188,
+            "posX": 6.266054630279541,
+            "posY": -1.0424578080413014e-16,
+            "posZ": 37.6418342590332,
+            "rotY": 173.84719848632813,
             "hasSavedPosition": true
         },
         {
@@ -13685,10 +13685,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -6.8330159187316898,
-            "posY": 0.07500000298023224,
-            "posZ": 23.46070671081543,
-            "rotY": 171.49244689941407,
+            "posX": -3.9762799739837648,
+            "posY": -5.479522310237073e-17,
+            "posZ": 19.825395584106447,
+            "rotY": 253.67491149902345,
             "hasSavedPosition": true
         },
         {
@@ -13729,10 +13729,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -14.880146980285645,
-            "posY": 0.07500000298023224,
-            "posZ": 16.838422775268556,
-            "rotY": 231.33761596679688,
+            "posX": -1.2557131052017213,
+            "posY": -9.130784884318823e-17,
+            "posZ": 32.98045349121094,
+            "rotY": 332.5444641113281,
             "hasSavedPosition": true
         },
         {
@@ -13773,10 +13773,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 7.451017379760742,
-            "posY": 1.1185787916183472,
-            "posZ": 42.61613082885742,
-            "rotY": 23.695602416992189,
+            "posX": -16.356931686401368,
+            "posY": -1.0534822727220611e-16,
+            "posZ": 38.039031982421878,
+            "rotY": 235.4317626953125,
             "hasSavedPosition": true
         }
     ],
@@ -15940,9 +15940,9 @@
     ],
     "gameVolume": 0.4020000100135803,
     "musicVolume": 0.02800000086426735,
-    "graphicsPreset": "Ultra",
+    "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
-    "screenWidth": 2560,
-    "screenHeight": 1440
+    "screenWidth": 1920,
+    "screenHeight": 1080
 }

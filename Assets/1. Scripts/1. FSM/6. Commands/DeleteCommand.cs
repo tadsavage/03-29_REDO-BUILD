@@ -120,7 +120,7 @@ public class DeleteCommand : ICommand
             {
                 int refund = Mathf.RoundToInt(po.data.cost * _money.SellBackRate);
                 _money.Refund(refund, po.data.category);
-                _money.RemoveHourlyCost(po.data.hourlyCost);
+                _money.RemoveHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
                 _attachedFloorsRefundTotal += refund;
             }
 
@@ -157,7 +157,7 @@ public class DeleteCommand : ICommand
         }
 
         // 3. Money: refund foundation; skip if contaminated
-        _money.RemoveHourlyCost(_data.hourlyCost);
+        _money.RemoveHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
 
         var pb = _target.GetComponent<PalletBuilder>();
 
@@ -250,7 +250,7 @@ public class DeleteCommand : ICommand
             {
                 int refund = Mathf.RoundToInt(po.data.cost * _money.SellBackRate);
                 _money.Deduct(refund, po.data.category);
-                _money.AddHourlyCost(po.data.hourlyCost);
+                _money.AddHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
@@ -261,7 +261,7 @@ public class DeleteCommand : ICommand
         _reEnabledFloors.Clear();
 
         // 5. Reverse foundation money
-        _money.AddHourlyCost(_data.hourlyCost);
+        _money.AddHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
 
         if (!_wasContaminated)
         {

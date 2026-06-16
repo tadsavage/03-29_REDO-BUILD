@@ -62,7 +62,7 @@ public class DragPlaceCommand : ICommand
                 _instances.Add(placed);
 
                 _money.Deduct(_data.cost);
-                _money.AddHourlyCost(_data.hourlyCost);
+                _money.AddHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
 
                 foreach (var o in _offsets)
                     _grid.UpdateStackPositions(cell + o);
@@ -89,7 +89,7 @@ public class DragPlaceCommand : ICommand
                     tile.SetActive(true);
                     _autoFloors.Add(tile);
                     _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
-                    _money.AddHourlyCost(_autoFloorData.hourlyCost);
+                    _money.AddHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
                     _grid.UpdateStackPositions(cellRoot);
                 }
             }
@@ -115,7 +115,7 @@ public class DragPlaceCommand : ICommand
                     _grid.RemoveStackObject(tileRoot + o, tile, _autoFloorData);
                 tile.SetActive(false);
                 _money.Refund(_autoFloorData.cost, _autoFloorData.category);
-                _money.RemoveHourlyCost(_autoFloorData.hourlyCost);
+                _money.RemoveHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
             }
             foreach (var floor in _autoFloorDisabled)
                 if (floor != null) floor.SetActive(true);
@@ -140,7 +140,7 @@ public class DragPlaceCommand : ICommand
             instance.SetActive(false);
 
             _money.Refund(_data.cost);
-            _money.RemoveHourlyCost(_data.hourlyCost);
+            _money.RemoveHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
         }
 
         // 3. Re-enable displaced floors
@@ -177,7 +177,7 @@ public class DragPlaceCommand : ICommand
             foreach (var o in _offsets)
                 _grid.AddStackObject(root + o, instance, bd.Data);
             _money.Deduct(_data.cost);
-            _money.AddHourlyCost(_data.hourlyCost);
+            _money.AddHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
         }
 
         // 3. Re-enable and re-add auto-floor tiles
@@ -196,7 +196,7 @@ public class DragPlaceCommand : ICommand
                 foreach (var o in tileOffsets)
                     _grid.AddStackObject(tileRoot + o, tile, _autoFloorData);
                 _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
-                _money.AddHourlyCost(_autoFloorData.hourlyCost);
+                _money.AddHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
             }
         }
 

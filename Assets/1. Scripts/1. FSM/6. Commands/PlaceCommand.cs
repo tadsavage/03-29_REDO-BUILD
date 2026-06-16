@@ -101,7 +101,7 @@ public class PlaceCommand : ICommand
 
                     int refund = Mathf.RoundToInt(placed.data.cost * _money.SellBackRate);
                     _money.Refund(refund, placed.data.category);
-                    _money.RemoveHourlyCost(placed.data.hourlyCost);
+                    _money.RemoveHourlyCost(placed.data.hourlyCost, FinanceCategory.ForHourlyCost(placed.data.category), placed.data.category);
                     _wallRefundTotal += refund;
                 }
             }
@@ -119,7 +119,7 @@ public class PlaceCommand : ICommand
                 if (po?.data?.isFloor != true) continue;
                 _replacedFloorsCost += po.data.cost;
                 _money.Refund(po.data.cost, po.data.category);
-                _money.RemoveHourlyCost(po.data.hourlyCost);
+                _money.RemoveHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
@@ -134,12 +134,12 @@ public class PlaceCommand : ICommand
                 if (po?.data == null) continue;
                 _replacedGroundsCost += po.data.cost;
                 _money.Refund(po.data.cost, po.data.category);
-                _money.RemoveHourlyCost(po.data.hourlyCost);
+                _money.RemoveHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
         _money.Deduct(_data.cost, _data.category);
-        _money.AddHourlyCost(_data.hourlyCost);
+        _money.AddHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
 
         // --- Auto-floor for foundations/grounds ---
         // Place one floor tile per footprint cell so the entire slab is covered.
@@ -158,7 +158,7 @@ public class PlaceCommand : ICommand
                 _autoFloors.Add(tile);
                 _autoFloorTotalCost += _autoFloorData.cost;
                 _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
-                _money.AddHourlyCost(_autoFloorData.hourlyCost);
+                _money.AddHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
             }
         }
 
@@ -211,7 +211,7 @@ public class PlaceCommand : ICommand
                     _grid.RemoveStackObject(tileRoot + o, tile, _autoFloorData);
                 tile.SetActive(false);
                 _money.Refund(_autoFloorData.cost, _autoFloorData.category);
-                _money.RemoveHourlyCost(_autoFloorData.hourlyCost);
+                _money.RemoveHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
             }
             foreach (var floor in _autoFloorDisabled)
                 if (floor != null) floor.SetActive(true);
@@ -231,7 +231,7 @@ public class PlaceCommand : ICommand
                 var po = floor.GetComponent<PlacedObject>();
                 if (po?.data?.isFloor != true) continue;
                 _money.Deduct(po.data.cost, po.data.category);
-                _money.AddHourlyCost(po.data.hourlyCost);
+                _money.AddHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
@@ -244,12 +244,12 @@ public class PlaceCommand : ICommand
                 var po = obj.GetComponent<PlacedObject>();
                 if (po?.data == null) continue;
                 _money.Deduct(po.data.cost, po.data.category);
-                _money.AddHourlyCost(po.data.hourlyCost);
+                _money.AddHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
         _money.Refund(_data.cost, _data.category);
-        _money.RemoveHourlyCost(_data.hourlyCost);
+        _money.RemoveHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
 
         // Restore walls that were replaced by this door
         if (_replacedWalls.Count > 0)
@@ -270,7 +270,7 @@ public class PlaceCommand : ICommand
                 // Reverse the sell-back refund we gave for this wall
                 int refund = Mathf.RoundToInt(po.data.cost * _money.SellBackRate);
                 _money.Deduct(refund, po.data.category);
-                _money.AddHourlyCost(po.data.hourlyCost);
+                _money.AddHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
@@ -308,7 +308,7 @@ public class PlaceCommand : ICommand
 
                 int refund = Mathf.RoundToInt(po.data.cost * _money.SellBackRate);
                 _money.Refund(refund, po.data.category);
-                _money.RemoveHourlyCost(po.data.hourlyCost);
+                _money.RemoveHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
@@ -351,7 +351,7 @@ public class PlaceCommand : ICommand
                 var po = floor.GetComponent<PlacedObject>();
                 if (po?.data?.isFloor != true) continue;
                 _money.Refund(po.data.cost, po.data.category);
-                _money.RemoveHourlyCost(po.data.hourlyCost);
+                _money.RemoveHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
@@ -363,12 +363,12 @@ public class PlaceCommand : ICommand
                 var po = obj.GetComponent<PlacedObject>();
                 if (po?.data == null) continue;
                 _money.Refund(po.data.cost, po.data.category);
-                _money.RemoveHourlyCost(po.data.hourlyCost);
+                _money.RemoveHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
         _money.Deduct(_data.cost, _data.category);
-        _money.AddHourlyCost(_data.hourlyCost);
+        _money.AddHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
 
         if (_autoFloors.Count > 0 && _autoFloorData != null)
         {
@@ -376,7 +376,7 @@ public class PlaceCommand : ICommand
             {
                 if (tile == null) continue;
                 _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
-                _money.AddHourlyCost(_autoFloorData.hourlyCost);
+                _money.AddHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
             }
         }
 
