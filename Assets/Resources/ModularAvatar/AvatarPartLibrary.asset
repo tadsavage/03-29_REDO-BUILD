@@ -1,0 +1,183 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe0d78a953cb9b94ab3542ac5c5fb5d8, type: 3}
+  m_Name: AvatarPartLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::AvatarPartLibrary
+  sources:
+  - fbxPath: Assets/5. Models/BlenderFiles/Modular_Staff/Modular_Staff.fbx
+    prefab: {fileID: 919132149155446097, guid: 28310b90379c503428d4309202eb635f, type: 3}
+  parts:
+  - objectName: male_body_Black
+    gender: male
+    slot: body
+    variant: Black
+    sourceIndex: 0
+  - objectName: male_body_Brown
+    gender: male
+    slot: body
+    variant: Brown
+    sourceIndex: 0
+  - objectName: male_body_White
+    gender: male
+    slot: body
+    variant: White
+    sourceIndex: 0
+  - objectName: male_chest_BlueShirt
+    gender: male
+    slot: chest
+    variant: BlueShirt
+    sourceIndex: 0
+  - objectName: male_chest_RedShirt
+    gender: male
+    slot: chest
+    variant: RedShirt
+    sourceIndex: 0
+  - objectName: male_chest_WhiteShirt
+    gender: male
+    slot: chest
+    variant: WhiteShirt
+    sourceIndex: 0
+  - objectName: male_eyebrows_BrowsMad
+    gender: male
+    slot: eyebrows
+    variant: BrowsMad
+    sourceIndex: 0
+  - objectName: male_eyebrows_BrowsNeutral
+    gender: male
+    slot: eyebrows
+    variant: BrowsNeutral
+    sourceIndex: 0
+  - objectName: male_eyebrows_BrowsSad
+    gender: male
+    slot: eyebrows
+    variant: BrowsSad
+    sourceIndex: 0
+  - objectName: male_eyes_wide
+    gender: male
+    slot: eyes
+    variant: wide
+    sourceIndex: 0
+  - objectName: male_face_Frown
+    gender: male
+    slot: face
+    variant: Frown
+    sourceIndex: 0
+  - objectName: male_face_Neutral
+    gender: male
+    slot: face
+    variant: Neutral
+    sourceIndex: 0
+  - objectName: male_face_Smile
+    gender: male
+    slot: face
+    variant: Smile
+    sourceIndex: 0
+  - objectName: male_face_TongueOut
+    gender: male
+    slot: face
+    variant: TongueOut
+    sourceIndex: 0
+  - objectName: male_facialHair_Goatee
+    gender: male
+    slot: facialhair
+    variant: Goatee
+    sourceIndex: 0
+  - objectName: male_facialHair_HitlerStache
+    gender: male
+    slot: facialhair
+    variant: HitlerStache
+    sourceIndex: 0
+  - objectName: male_facialHair_Lemmy
+    gender: male
+    slot: facialhair
+    variant: Lemmy
+    sourceIndex: 0
+  - objectName: male_facialHair_theGreg
+    gender: male
+    slot: facialhair
+    variant: theGreg
+    sourceIndex: 0
+  - objectName: male_feet_BootsBlack
+    gender: male
+    slot: feet
+    variant: BootsBlack
+    sourceIndex: 0
+  - objectName: male_feet_BootsBrown
+    gender: male
+    slot: feet
+    variant: BootsBrown
+    sourceIndex: 0
+  - objectName: male_head_Afro
+    gender: male
+    slot: head
+    variant: Afro
+    sourceIndex: 0
+  - objectName: male_head_HatBlack
+    gender: male
+    slot: head
+    variant: HatBlack
+    sourceIndex: 0
+  - objectName: male_head_HatGray
+    gender: male
+    slot: head
+    variant: HatGray
+    sourceIndex: 0
+  - objectName: male_head_HatGreen
+    gender: male
+    slot: head
+    variant: HatGreen
+    sourceIndex: 0
+  - objectName: male_head_HatRed
+    gender: male
+    slot: head
+    variant: HatRed
+    sourceIndex: 0
+  - objectName: male_head_Helmet
+    gender: male
+    slot: head
+    variant: Helmet
+    sourceIndex: 0
+  - objectName: male_head_Hitler
+    gender: male
+    slot: head
+    variant: Hitler
+    sourceIndex: 0
+  - objectName: male_head_Surfer
+    gender: male
+    slot: head
+    variant: Surfer
+    sourceIndex: 0
+  - objectName: male_legs_JeansBlack
+    gender: male
+    slot: legs
+    variant: JeansBlack
+    sourceIndex: 0
+  - objectName: male_legs_JeansBlue
+    gender: male
+    slot: legs
+    variant: JeansBlue
+    sourceIndex: 0
+  - objectName: male_legs_KhakiBlkBelt
+    gender: male
+    slot: legs
+    variant: KhakiBlkBelt
+    sourceIndex: 0
+  - objectName: male_vest_OrangeStripes
+    gender: male
+    slot: vest
+    variant: OrangeStripes
+    sourceIndex: 0
+  - objectName: male_vest_VestOrange
+    gender: male
+    slot: vest
+    variant: VestOrange
+    sourceIndex: 0

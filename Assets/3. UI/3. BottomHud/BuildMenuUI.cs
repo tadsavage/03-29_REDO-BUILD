@@ -251,7 +251,7 @@ public class BuildMenuUI : MonoBehaviour
                 {
                     if (WallVisibilityManager.Instance != null)
                     {
-                        WallVisibilityManager.Instance.SetVisibilityMode(WallVisibilityManager.WallVisibilityMode.Cut);
+                        WallVisibilityManager.Instance.StepDown();
                     }
                 };
             }
@@ -263,7 +263,7 @@ public class BuildMenuUI : MonoBehaviour
                 {
                     if (WallVisibilityManager.Instance != null)
                     {
-                        WallVisibilityManager.Instance.SetVisibilityMode(WallVisibilityManager.WallVisibilityMode.Full);
+                        WallVisibilityManager.Instance.StepUp();
                     }
                 };
             }

@@ -40,7 +40,10 @@ public class WallVisibilityManager : MonoBehaviour
     private WallVisibilityMode _currentMode = WallVisibilityMode.Full;
     private Coroutine _activeSlideCoroutine;
 
-    public enum WallVisibilityMode { Full, Cut, Hidden }
+    // Full  = walls at their normal top height (solid mesh).
+    // Mid   = walls dropped halfway toward their resting spot (transparent).
+    // Lowered = walls dropped all the way to their resting spot (transparent).
+    public enum WallVisibilityMode { Full, Mid, Lowered }
 
     private class WallData
     {
@@ -131,9 +134,9 @@ public class WallVisibilityManager : MonoBehaviour
 
     public WallVisibilityMode CurrentMode => _currentMode;
 
-    // Three-stage stepping: Full → Cut → Hidden (down) and back (up). Clamped at the ends,
+    // Three-stage stepping: Full → Mid → Lowered (down) and back (up). Clamped at the ends,
     // so it takes two "down" clicks to go all the way down and two "up" to come all the way up.
-    public void StepDown() => SetVisibilityMode((WallVisibilityMode)Mathf.Min((int)_currentMode + 1, (int)WallVisibilityMode.Hidden));
+    public void StepDown() => SetVisibilityMode((WallVisibilityMode)Mathf.Min((int)_currentMode + 1, (int)WallVisibilityMode.Lowered));
     public void StepUp()   => SetVisibilityMode((WallVisibilityMode)Mathf.Max((int)_currentMode - 1, (int)WallVisibilityMode.Full));
 
     private IEnumerator SlideWallsRoutine()
@@ -153,12 +156,18 @@ public class WallVisibilityManager : MonoBehaviour
             if (wall.transform == null) continue;
             startPositions[wall] = wall.transform.position;
 
-            Vector3 targetPos = wall.originalPosition;
-            if (_currentMode == WallVisibilityMode.Cut && wall.originalWorldTopY > targetTopY)
+            // Full drop distance (negative) needed for this wall to reach its resting spot.
+            float loweredDelta = (wall.originalWorldTopY > targetTopY) ? targetTopY - wall.originalWorldTopY : 0f;
+
+            // Mid stops halfway between the top and the resting spot.
+            float appliedDelta = _currentMode switch
             {
-                float delta = targetTopY - wall.originalWorldTopY;
-                targetPos = new Vector3(wall.originalPosition.x, wall.originalPosition.y + delta, wall.originalPosition.z);
-            }
+                WallVisibilityMode.Mid => loweredDelta * 0.5f,
+                WallVisibilityMode.Lowered => loweredDelta,
+                _ => 0f
+            };
+
+            Vector3 targetPos = new Vector3(wall.originalPosition.x, wall.originalPosition.y + appliedDelta, wall.originalPosition.z);
             endPositions[wall] = targetPos;
 
             if (_currentMode == WallVisibilityMode.Full)
@@ -166,6 +175,11 @@ public class WallVisibilityManager : MonoBehaviour
                 SetRenderersEnabled(wall.renderers, true);
                 SetWallMaterials(wall, false);
                 foreach (var decor in _dynamicallyFoundDecor) if (decor != null) decor.enabled = true;
+            }
+            else if (_currentMode == WallVisibilityMode.Mid)
+            {
+                // Mid is solid too — restore the normal material (covers raising back up from Lowered).
+                SetWallMaterials(wall, false);
             }
         }
 
@@ -188,7 +202,8 @@ public class WallVisibilityManager : MonoBehaviour
             if (wall.transform == null) continue;
             wall.transform.position = endPositions[wall];
 
-            if (_currentMode == WallVisibilityMode.Cut)
+            // Only the fully Lowered stage uses the transparent material; Mid stays solid.
+            if (_currentMode == WallVisibilityMode.Lowered)
                 SetWallMaterials(wall, true);
         }
 

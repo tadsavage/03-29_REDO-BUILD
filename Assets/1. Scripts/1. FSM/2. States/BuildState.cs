@@ -358,6 +358,8 @@ public bool IsPlacementState => true;
 
         if (_currentData.replacesWalls)
             root = SnapToReplaceTarget(root, offsets, _currentData);
+        else
+            root = SnapFootprintToHover(root, offsets, _currentData);
 
         bool isValid = _validator.IsValidPlacement(root, offsets, _currentData);
 

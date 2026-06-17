@@ -16,6 +16,14 @@ public class EmployeeSpawner : MonoBehaviour
     [Header("Prefabs")]
     [SerializeField] private GameObject _workerMalePrefab;
     [SerializeField] private GameObject _workerFemalePrefab;
+
+    [Header("Modular Avatars")]
+    [Tooltip("When ON, spawned employees use a modular avatar (assembled from AvatarPartLibrary, " +
+             "seeded from their GUID so the look is stable) instead of the default worker mesh. " +
+             "NOTE: parts aren't weight-painted yet, so they render in T-pose until weights exist. " +
+             "Turn OFF to use the animated worker model. Females fall back to the default model " +
+             "until female parts are added.")]
+    [SerializeField] private bool _useModularAvatars = true;
     [Tooltip("Dedicated model for Inventory Control clerks. Used exclusively for the InventoryControl role, which is exclusively female.")]
     [SerializeField] private GameObject _clerkPrefab;
 
@@ -140,6 +148,9 @@ public class EmployeeSpawner : MonoBehaviour
         if (EmployeeRegistry.Instance != null)
             EmployeeRegistry.Instance.Register(identity);
 
+        if (_useModularAvatars)
+            ApplyModularAvatar(identity);
+
         Debug.Log($"[EmployeeSpawner] Spawned {record.employeeName} ({record.employeeId}) at {pos}");
 
         return identity;
@@ -155,5 +166,83 @@ public class EmployeeSpawner : MonoBehaviour
         return record.gender == EmployeeGender.Female
             ? _workerFemalePrefab ?? _workerMalePrefab
             : _workerMalePrefab ?? _workerFemalePrefab;
+    }
+
+    // ─── Modular avatar swap ────────────────────────────────────────────────────
+    // Replaces the default animated worker mesh with an assembled modular avatar. The NavMesh
+    // agent / Animator / scripts on the root stay (so the employee still moves); the modular
+    // avatar rides along. Look is seeded from the GUID, so it's stable + consistent across loads.
+    private void ApplyModularAvatar(EmployeeIdentity identity)
+    {
+        var lib = ModularAvatarAssembler.LoadLibrary();
+        if (lib == null || lib.PartCount == 0) return;
+
+        var rec = identity.Record;
+        if (rec == null) return;
+
+        string gender = rec.gender == EmployeeGender.Female ? "female" : "male";
+        int seed = ModularAvatarAssembler.StableSeed(rec.employeeGuid);
+
+        // The worker's Animator (driven by AgentAnimation). Captured before we touch the hierarchy.
+        var workerAnimator = identity.GetComponentInChildren<Animator>(true);
+
+        var avatar = ModularAvatarAssembler.Build(lib, gender, seed);
+        if (avatar == null) return;   // no parts for that gender yet → keep the default model
+
+        // Hide the worker's own animated mesh — the modular avatar replaces it visually.
+        foreach (var smr in identity.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            smr.enabled = false;
+
+        // Parent the avatar UNDER the worker so it inherits movement, lifecycle, layer and stays
+        // discoverable for selection/outline. It keeps its OWN skeleton + Animator (the modular FBX
+        // builds its own humanoid avatar from its own rest pose — we can't share the worker's avatar
+        // or skeleton because the two FBX exports use different bone orientations).
+        var t = avatar.transform;
+        t.SetParent(identity.transform, worldPositionStays: false);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+        t.localScale    = Vector3.one;
+        avatar.name = "ModularAvatar";
+        SetLayerRecursively(avatar, identity.gameObject.layer);
+
+        // Force per-frame bounds so frustum culling can't hide the animated mesh.
+        foreach (var smr in avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            smr.updateWhenOffscreen = true;
+
+        // Use the avatar's OWN Animator (the modular FBX imported Humanoid as Modular_StaffAvatar via
+        // Create-From-This-Model — built from its own rest pose, so retargeting deforms it correctly).
+        // Give it the worker's controller and re-bind so it drives the modular skeleton.
+        var modAnimator = avatar.GetComponent<Animator>();
+        if (modAnimator == null) modAnimator = avatar.AddComponent<Animator>();
+        if (modAnimator.avatar == null && workerAnimator != null) modAnimator.avatar = workerAnimator.avatar;
+        if (workerAnimator != null) modAnimator.runtimeAnimatorController = workerAnimator.runtimeAnimatorController;
+        modAnimator.applyRootMotion = false;
+        modAnimator.enabled = true;
+        modAnimator.Rebind();
+
+        var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
+        avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
+
+        Debug.Log($"[ModularAvatar] nested '{avatar.name}': avatar={(modAnimator.avatar != null ? modAnimator.avatar.name : "NULL")} " +
+            $"isHuman={(modAnimator.avatar != null && modAnimator.avatar.isHuman)} " +
+            $"controller={(modAnimator.runtimeAnimatorController != null ? modAnimator.runtimeAnimatorController.name : "NULL")} " +
+            $"localPos={t.localPosition} sampleBone={(sampleBone != null)}");
+    }
+
+    private static Transform FindDeepByName(Transform parent, string boneName)
+    {
+        if (parent.name == boneName) return parent;
+        foreach (Transform c in parent)
+        {
+            var r = FindDeepByName(c, boneName);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    private static void SetLayerRecursively(GameObject go, int layer)
+    {
+        go.layer = layer;
+        foreach (Transform c in go.transform) SetLayerRecursively(c.gameObject, layer);
     }
 }
