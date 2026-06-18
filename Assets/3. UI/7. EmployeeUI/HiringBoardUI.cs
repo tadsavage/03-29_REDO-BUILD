@@ -598,7 +598,8 @@ public class HiringBoardUI : MonoBehaviour
         if (avatarResourceKey.StartsWith("Custom_") && 
             EmployeePhotoBooth.CustomAvatarCache.TryGetValue(avatarResourceKey, out var cachedSprite))
         {
-            return cachedSprite;
+            if (cachedSprite != null)
+                return cachedSprite;
         }
         string fullKey = $"EmployeeAssets/{avatarResourceKey}";
         var sprite = Resources.Load<Sprite>(fullKey);

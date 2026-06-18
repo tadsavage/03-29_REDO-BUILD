@@ -74,6 +74,9 @@ public class EmployeePhotoBooth : MonoBehaviour
         }
         Instance = this;
 
+        // Clear the cache first to discard any destroyed sprites from previous play sessions/domain loads
+        CustomAvatarCache.Clear();
+
         // Pre-load existing custom portraits from disk so they survive game restarts/saves
         LoadAllPortraitsFromDisk();
 
@@ -114,6 +117,24 @@ public class EmployeePhotoBooth : MonoBehaviour
         else
         {
             Debug.LogError("[EmployeePhotoBooth] EmployeeLifecycleService.Instance is null in Start!");
+        }
+
+        // Retroactively generate portraits for any already-registered active employees
+        // who might have been spawned before we finished subscribing to OnHired.
+        if (EmployeeRegistry.Instance != null)
+        {
+            foreach (var emp in EmployeeRegistry.Instance.All)
+            {
+                var record = emp.Record;
+                if (record != null)
+                {
+                    string key = "Custom_" + record.employeeGuid;
+                    if (!CustomAvatarCache.TryGetValue(key, out var sprite) || sprite == null)
+                    {
+                        GeneratePortraitForRecord(record);
+                    }
+                }
+            }
         }
     }
 
@@ -168,6 +189,16 @@ public class EmployeePhotoBooth : MonoBehaviour
         _liveModelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
         _liveModelInstance.name = $"LiveFeed_{record.employeeName}";
 
+        var identity = _liveModelInstance.GetComponent<EmployeeIdentity>();
+        if (identity != null)
+        {
+            identity.ApplyRecord(record);
+            identity.enabled = false;
+        }
+
+        // Apply modular avatar if possible
+        ApplyModularAvatar(_liveModelInstance, record);
+
         // Posture (slouch) and gesture (wave/rude) are independent: a tired-but-happy
         // employee can slouch AND still wave — fatigue no longer blocks a morale gesture.
         EmployeeMood postureMood = EmployeeMoodEvaluator.EvaluatePosture(record);
@@ -187,7 +218,6 @@ public class EmployeePhotoBooth : MonoBehaviour
         // mood-driven IsWaving/IsAngry/IsTired bools we set below.
         var agent = _liveModelInstance.GetComponent<UnityEngine.AI.NavMeshAgent>();
         if (agent != null) agent.enabled = false;
-        var identity = _liveModelInstance.GetComponent<EmployeeIdentity>();
         if (identity != null) identity.enabled = false;
         var agentAnimation = _liveModelInstance.GetComponent<AgentAnimation>();
         if (agentAnimation != null) agentAnimation.enabled = false;
@@ -329,11 +359,41 @@ public class EmployeePhotoBooth : MonoBehaviour
         modelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
         modelInstance.name = $"PhotoBooth_Temp_{record.employeeName}";
 
+        var identity = modelInstance.GetComponent<EmployeeIdentity>();
+        if (identity != null)
+        {
+            identity.ApplyRecord(record);
+            identity.enabled = false;
+        }
+
+        // Apply modular avatar if possible
+        ApplyModularAvatar(modelInstance, record);
+
         // Ensure low-poly character has settled its pose/anim
         Animator animator = modelInstance.GetComponent<Animator>();
         if (animator != null)
         {
             animator.Update(1.0f);
+        }
+
+        // Sync parameters and pose modular animator synchronously for the snapshot
+        var modularAvatar = modelInstance.transform.Find("ModularAvatar");
+        if (modularAvatar != null)
+        {
+            var modAnimator = modularAvatar.GetComponent<Animator>();
+            if (modAnimator != null && animator != null)
+            {
+                foreach (var p in animator.parameters)
+                {
+                    switch (p.type)
+                    {
+                        case AnimatorControllerParameterType.Bool:  modAnimator.SetBool(p.nameHash,    animator.GetBool(p.nameHash));    break;
+                        case AnimatorControllerParameterType.Float: modAnimator.SetFloat(p.nameHash,   animator.GetFloat(p.nameHash));   break;
+                        case AnimatorControllerParameterType.Int:   modAnimator.SetInteger(p.nameHash, animator.GetInteger(p.nameHash)); break;
+                    }
+                }
+                modAnimator.Update(1.0f);
+            }
         }
 
         // Clean up redundant scripts/components on the temporary clone
@@ -492,7 +552,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         foreach (var b in behaviours)
         {
             if (b == null) continue;
-            if (b is Animator || b == this) continue;
+            if (b == this) continue;
             
             // Disable the behaviour so its Awake/Start/Update don't run or trigger warnings
             b.enabled = false;
@@ -511,5 +571,67 @@ public class EmployeePhotoBooth : MonoBehaviour
         {
             if (rb != null) rb.isKinematic = true;
         }
+    }
+
+    private void ApplyModularAvatar(GameObject modelInstance, EmployeeRecord record)
+    {
+        var lib = ModularAvatarAssembler.LoadLibrary();
+        if (lib == null || lib.PartCount == 0) return;
+
+        string gender = record.gender == EmployeeGender.Female ? "female" : "male";
+        int seed = ModularAvatarAssembler.StableSeed(record.employeeGuid);
+
+        var workerAnimator = modelInstance.GetComponentInChildren<Animator>(true);
+
+        var avatar = ModularAvatarAssembler.Build(lib, gender, seed);
+        if (avatar == null) return;   // no parts for that gender yet → keep the default model
+
+        // Hide the worker's own animated mesh — the modular avatar replaces it visually.
+        foreach (var smr in modelInstance.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            smr.enabled = false;
+
+        var t = avatar.transform;
+        t.SetParent(modelInstance.transform, worldPositionStays: false);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+        t.localScale    = Vector3.one;
+        avatar.name = "ModularAvatar";
+        SetLayerRecursively(avatar, modelInstance.layer);
+
+        // Force per-frame bounds so frustum culling can't hide the animated mesh.
+        foreach (var smr in avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            smr.updateWhenOffscreen = true;
+
+        var modAnimator = avatar.GetComponent<Animator>();
+        if (modAnimator == null) modAnimator = avatar.AddComponent<Animator>();
+        if (modAnimator.avatar == null && workerAnimator != null) modAnimator.avatar = workerAnimator.avatar;
+        if (workerAnimator != null) modAnimator.runtimeAnimatorController = workerAnimator.runtimeAnimatorController;
+        modAnimator.applyRootMotion = false;
+        modAnimator.enabled = true;
+        modAnimator.Rebind();
+
+        var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
+        avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
+
+        // Apply dynamic expression based on mood
+        EmployeeMood gestureMood = EmployeeMoodEvaluator.EvaluateGesture(record);
+        ModularAvatarAssembler.ApplyMoodExpression(avatar, gender, gestureMood);
+    }
+
+    private static Transform FindDeepByName(Transform parent, string boneName)
+    {
+        if (parent.name == boneName) return parent;
+        foreach (Transform c in parent)
+        {
+            var r = FindDeepByName(c, boneName);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    private static void SetLayerRecursively(GameObject go, int layer)
+    {
+        go.layer = layer;
+        foreach (Transform c in go.transform) SetLayerRecursively(c.gameObject, layer);
     }
 }

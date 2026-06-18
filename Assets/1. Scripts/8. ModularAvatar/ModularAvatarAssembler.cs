@@ -108,6 +108,15 @@ public static class ModularAvatarAssembler
             // A "part" is any mesh whose name parses to gender_slot_variant. Anything that
             // isn't a recognised part (the armature, bones, empties) is left untouched.
             if (!IsPartObject(t)) continue;
+
+            // Keep all expression parts (eyebrows and face/mouth) so they can be swapped dynamically based on mood.
+            if (t.name.Contains("_eyebrows_") || t.name.Contains("_face_"))
+            {
+                var smr = t.GetComponent<SkinnedMeshRenderer>();
+                if (smr != null) smr.enabled = false;
+                continue;
+            }
+
             if (!chosenNames.Contains(t.name))
                 SafeDestroy(t.gameObject);
         }
@@ -130,7 +139,58 @@ public static class ModularAvatarAssembler
             SafeDestroy(temp);
         }
 
+        ApplyMoodExpression(root, gender, EmployeeMood.Neutral);
+
         return root;
+    }
+
+    /// <summary>
+    /// Applies the appropriate expression parts (eyebrows and face) based on the employee's mood.
+    /// </summary>
+    public static void ApplyMoodExpression(GameObject avatarRoot, string gender, EmployeeMood mood)
+    {
+        if (avatarRoot == null) return;
+        gender = gender?.ToLower();
+
+        // Map mood to specific variants
+        string targetEyebrow = "BrowsNeutral";
+        string targetFace = "Neutral";
+
+        switch (mood)
+        {
+            case EmployeeMood.Happy:
+                targetEyebrow = "BrowsNeutral";
+                targetFace = "Smile";
+                break;
+            case EmployeeMood.Angry:
+                targetEyebrow = "BrowsMad";
+                targetFace = "Frown";
+                break;
+            case EmployeeMood.Tired:
+                targetEyebrow = "BrowsSad";
+                targetFace = "Neutral";
+                break;
+            default: // Neutral
+                targetEyebrow = "BrowsNeutral";
+                targetFace = "Neutral";
+                break;
+        }
+
+        string eyebrowName = $"{gender}_eyebrows_{targetEyebrow}";
+        string faceName = $"{gender}_face_{targetFace}";
+
+        foreach (var smr in avatarRoot.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            string nameLower = smr.name.ToLower();
+            if (nameLower.Contains("_eyebrows_"))
+            {
+                smr.enabled = smr.name.Equals(eyebrowName, System.StringComparison.OrdinalIgnoreCase);
+            }
+            else if (nameLower.Contains("_face_"))
+            {
+                smr.enabled = smr.name.Equals(faceName, System.StringComparison.OrdinalIgnoreCase);
+            }
+        }
     }
 
     /// <summary>Deterministic build — same seed always produces the same avatar (so an employee
@@ -203,7 +263,9 @@ public static class ModularAvatarAssembler
     private static void SafeDestroy(Object o)
     {
         if (o == null) return;
-        if (Application.isPlaying) Object.Destroy(o);
-        else Object.DestroyImmediate(o);
+        // Always use DestroyImmediate so that unchosen parts are pruned synchronously.
+        // This is critical for systems like the Photo Booth that instantiate, prune, and 
+        // render a portrait on the exact same frame before the end-of-frame cleanups run.
+        Object.DestroyImmediate(o);
     }
 }

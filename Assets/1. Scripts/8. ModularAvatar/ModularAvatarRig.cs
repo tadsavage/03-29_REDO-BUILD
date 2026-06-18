@@ -17,10 +17,19 @@ public class ModularAvatarRig : MonoBehaviour
     private Transform _sampleBone;   // a leg bone, for the one-shot diagnostic
     private float _diagT; private bool _diagDone;
 
+    private EmployeeIdentity _identity;
+    private string _gender;
+    private EmployeeMood _lastMood = (EmployeeMood)(-1);
+
     public void Init(Animator source, Animator self, Transform sampleBone)
     {
         _source = source; _self = self; _sampleBone = sampleBone;
         _params = source != null ? source.parameters : System.Array.Empty<AnimatorControllerParameter>();
+        _identity = GetComponentInParent<EmployeeIdentity>();
+        if (_identity != null && _identity.Record != null)
+        {
+            _gender = _identity.Record.gender == EmployeeGender.Female ? "female" : "male";
+        }
     }
 
     void LateUpdate()
@@ -35,6 +44,17 @@ public class ModularAvatarRig : MonoBehaviour
                 case AnimatorControllerParameterType.Bool:  _self.SetBool(p.nameHash,    _source.GetBool(p.nameHash));    break;
                 case AnimatorControllerParameterType.Float: _self.SetFloat(p.nameHash,   _source.GetFloat(p.nameHash));   break;
                 case AnimatorControllerParameterType.Int:   _self.SetInteger(p.nameHash, _source.GetInteger(p.nameHash)); break;
+            }
+        }
+
+        // Dynamic expression swapping based on mood (happy/sad/angry/neutral)
+        if (_identity != null && _identity.Record != null && !string.IsNullOrEmpty(_gender))
+        {
+            EmployeeMood mood = EmployeeMoodEvaluator.EvaluateGesture(_identity.Record);
+            if (mood != _lastMood)
+            {
+                _lastMood = mood;
+                ModularAvatarAssembler.ApplyMoodExpression(gameObject, _gender, mood);
             }
         }
 

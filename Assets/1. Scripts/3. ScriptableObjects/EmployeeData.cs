@@ -83,9 +83,10 @@ public class EmployeeData : ScriptableObject
             if (record.avatarResourceKey.StartsWith("Custom_") && 
                 EmployeePhotoBooth.CustomAvatarCache.TryGetValue(record.avatarResourceKey, out var cachedSprite))
             {
-                sprite = cachedSprite;
+                if (cachedSprite != null)
+                    sprite = cachedSprite;
             }
-            else
+            if (sprite == null)
             {
                 string fullKey = $"EmployeeAssets/{record.avatarResourceKey}";
                 // Try as Sprite first, then Texture2D fallback

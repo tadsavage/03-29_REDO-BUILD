@@ -106,9 +106,10 @@ public class EmployeeIdentity : MonoBehaviour
         if (_record.avatarResourceKey.StartsWith("Custom_") && 
             EmployeePhotoBooth.CustomAvatarCache.TryGetValue(_record.avatarResourceKey, out var cachedSprite))
         {
-            sprite = cachedSprite;
+            if (cachedSprite != null)
+                sprite = cachedSprite;
         }
-        else
+        if (sprite == null)
         {
             // Load the texture from Resources/EmployeeAssets/Male/ or Female/
             var texture = Resources.Load<Texture2D>($"EmployeeAssets/{_record.avatarResourceKey}");

@@ -47,7 +47,7 @@ public class TopBarUI : MonoBehaviour
     private const string MusicVolParam = "MusicVolume";
 
     // Game-speed (time advancer) buttons.
-    private Button _spdPause, _spd1x, _spd2x, _spd3x;
+    private Button _spdPause, _spdQuarter, _spdHalf, _spd1x, _spd2x, _spd3x;
 
     private MoneyService _moneyService;
     private SimulationTimeService _timeService;
@@ -284,12 +284,16 @@ public class TopBarUI : MonoBehaviour
     // ── Game speed (time advancer) ────────────────────────────────
     private void WireSpeedControl(VisualElement topBar)
     {
-        _spdPause = topBar.Q<Button>("SpeedPause");
-        _spd1x    = topBar.Q<Button>("Speed1x");
-        _spd2x    = topBar.Q<Button>("Speed2x");
-        _spd3x    = topBar.Q<Button>("Speed3x");
+        _spdPause   = topBar.Q<Button>("SpeedPause");
+        _spdQuarter = topBar.Q<Button>("SpeedQuarter");
+        _spdHalf    = topBar.Q<Button>("SpeedHalf");
+        _spd1x      = topBar.Q<Button>("Speed1x");
+        _spd2x      = topBar.Q<Button>("Speed2x");
+        _spd3x      = topBar.Q<Button>("Speed3x");
 
         _spdPause?.RegisterCallback<ClickEvent>(_ => SetSpeed(0f));
+        _spdQuarter?.RegisterCallback<ClickEvent>(_ => SetSpeed(0.25f));
+        _spdHalf?.RegisterCallback<ClickEvent>(_ => SetSpeed(0.5f));
         _spd1x?.RegisterCallback<ClickEvent>(_ => SetSpeed(1f));
         _spd2x?.RegisterCallback<ClickEvent>(_ => SetSpeed(2f));
         _spd3x?.RegisterCallback<ClickEvent>(_ => SetSpeed(3f));
@@ -304,11 +308,15 @@ public class TopBarUI : MonoBehaviour
         Time.timeScale = scale;
 
         _spdPause?.RemoveFromClassList("topbar-speed-btn--active");
+        _spdQuarter?.RemoveFromClassList("topbar-speed-btn--active");
+        _spdHalf?.RemoveFromClassList("topbar-speed-btn--active");
         _spd1x?.RemoveFromClassList("topbar-speed-btn--active");
         _spd2x?.RemoveFromClassList("topbar-speed-btn--active");
         _spd3x?.RemoveFromClassList("topbar-speed-btn--active");
 
         Button active = scale <= 0f ? _spdPause
+                      : Mathf.Approximately(scale, 0.25f) ? _spdQuarter
+                      : Mathf.Approximately(scale, 0.5f) ? _spdHalf
                       : scale >= 3f ? _spd3x
                       : scale >= 2f ? _spd2x
                                     : _spd1x;
