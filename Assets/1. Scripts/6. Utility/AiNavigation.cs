@@ -48,10 +48,11 @@ public class AiNavigation : MonoBehaviour
     private float   _noWaypointRebakeTimer;
     private float   _stuckRebakeTimer;
     private Vector3 _stuckRefPos;
+    private int     _consecutiveStuckCount;
     private static float s_lastGlobalRebake = float.MinValue;
     private const  float k_RebakeTrigger  = 3.5f;
     private const  float k_RebakeCooldown = 25f;
-    public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
+public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     /// <summary>True when there are at least 2 waypoints — enough for a return trip.</summary>
     public bool HasEnoughWaypoints => waypoints != null && waypoints.Length >= 2;
 
@@ -138,7 +139,13 @@ public class AiNavigation : MonoBehaviour
         // With updatePosition=false the agent simulates freely; we copy agent.nextPosition
         // onto the transform AND the Rigidbody in LateUpdate (below), so physics can never
         // freeze pathfinding and the agent always renders on the correct surface.
-        if (agent != null) agent.updatePosition = false;
+        if (agent != null)
+        {
+            agent.updatePosition = false;
+            // Random priority helps resolve "head-on" deadlocks in narrow corridors or
+            // stairwells — the prioritized agent will claim the path while the other yields.
+            agent.avoidancePriority = Random.Range(0, 100);
+        }
 
         if (footstepClip != null)
         {
@@ -837,18 +844,36 @@ public class AiNavigation : MonoBehaviour
                 _stuckRebakeTimer += Time.deltaTime;
                 if (_stuckRebakeTimer >= k_RebakeTrigger)
                 {
-                    TryForceRebake("stuck");
                     _stuckRebakeTimer = 0f;
                     _stuckRefPos = transform.position;
+                    _consecutiveStuckCount++;
+
+                    // Smarter replanning: abandon the current destination and pick a new one
+                    // before trying a heavy global NavMesh rebake. This resolves deadlocks
+                    // between agents by forcing one of them to turn around.
+                    if (HasEnoughWaypoints)
+                    {
+                        Debug.Log($"[AiNavigation] {name}: stuck for {k_RebakeTrigger}s, abandoning destination.");
+                        GoToRandomWaypoint();
+                    }
+
+                    // Only rebake as a last resort if they get stuck multiple times in a row
+                    // (which suggests a broken NavMesh, not just congestion).
+                    if (_consecutiveStuckCount >= 2)
+                    {
+                        TryForceRebake("persistently stuck");
+                        _consecutiveStuckCount = 0;
+                    }
                 }
             }
             else
             {
                 _stuckRebakeTimer = 0f;
                 _stuckRefPos = transform.position;
+                _consecutiveStuckCount = 0;
             }
         }
-        else
+else
         {
             _stuckRebakeTimer = 0f;
             _stuckRefPos = transform.position;

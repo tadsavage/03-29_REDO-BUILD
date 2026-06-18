@@ -4,13 +4,13 @@
     "spentToday": -5610,
     "cameraData": {
         "focusPoint": {
-            "x": -15.733996391296387,
+            "x": -1.2297511100769044,
             "y": 1.1185787916183472,
-            "z": 37.494384765625
+            "z": 7.273131847381592
         },
-        "distance": 4.0,
-        "pitch": 37.650001525878909,
-        "yaw": 8024.720703125
+        "distance": 8.0,
+        "pitch": 24.900041580200197,
+        "yaw": 7870.720703125
     },
     "placedObjects": [
         {
@@ -13365,6 +13365,34 @@
     ],
     "devSettings": [
         {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
+        },
+        {
             "key": "PalletBuilder.maxTotalHeight",
             "val": "1"
         },
@@ -13409,62 +13437,6 @@
             "val": "0"
         },
         {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
-            "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
-        },
-        {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
-        },
-        {
-            "key": "Gate_Open_Close.rot_down",
-            "val": "0"
-        },
-        {
-            "key": "Gate_Open_Close.rot_up",
-            "val": "-85"
-        },
-        {
-            "key": "Gate_Open_Close.arm_speed",
-            "val": "80"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
-        {
             "key": "AmbientMumble.volume",
             "val": "0.5"
         },
@@ -13474,7 +13446,7 @@
         },
         {
             "key": "AmbientMumble.maxPitch",
-            "val": "1.15"
+            "val": "1.5"
         },
         {
             "key": "AmbientMumble.chanceToMumble",
@@ -13487,6 +13459,18 @@
         {
             "key": "AmbientMumble.maxHearingDistance",
             "val": "12"
+        },
+        {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
         },
         {
             "key": "FreeLookCamera.moveSpeed",
@@ -13551,6 +13535,22 @@
         {
             "key": "FreeLookCamera.zMax",
             "val": "100"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
+        },
+        {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
         }
     ],
     "toolsWindowX": 12.0,
@@ -13597,10 +13597,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -12.336775779724121,
-            "posY": 0.07500000298023224,
-            "posZ": 19.01038360595703,
-            "rotY": 320.5884704589844,
+            "posX": -8.9957857131958,
+            "posY": 1.1185787916183472,
+            "posZ": 44.116432189941409,
+            "rotY": 91.66336059570313,
             "hasSavedPosition": true
         },
         {
@@ -13641,10 +13641,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 5.795229434967041,
-            "posY": 0.07500000298023224,
-            "posZ": 25.84363555908203,
-            "rotY": 251.51513671875,
+            "posX": 0.13840436935424806,
+            "posY": 1.1185787916183472,
+            "posZ": 44.02742385864258,
+            "rotY": 276.02606201171877,
             "hasSavedPosition": true
         },
         {
@@ -13685,10 +13685,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -16.477127075195314,
-            "posY": 1.1185787916183472,
-            "posZ": 34.3199462890625,
-            "rotY": 3.430997610092163,
+            "posX": -15.409852981567383,
+            "posY": 0.07500000298023224,
+            "posZ": 16.73406982421875,
+            "rotY": 144.4715118408203,
             "hasSavedPosition": true
         },
         {
@@ -13729,10 +13729,186 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -9.23750114440918,
-            "posY": 1.1099998950958253,
-            "posZ": 36.18601608276367,
-            "rotY": 46.2408332824707,
+            "posX": -9.632781028747559,
+            "posY": 1.1185787916183472,
+            "posZ": 44.06354522705078,
+            "rotY": 91.4086685180664,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "f6b696e7-a2f5-4773-887d-0cafc05e6501",
+            "employeeName": "Christina Phillips",
+            "employeeId": "WHSE 191",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 0,
+            "fatigue": 15.7198486328125,
+            "safety": 77.18090057373047,
+            "morale": 54.62050247192383,
+            "skill": 56.420188903808597,
+            "skillLevel": 3,
+            "avatarResourceKey": "Custom_f6b696e7-a2f5-4773-887d-0cafc05e6501",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 18.700000762939454,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-18",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": 0.0,
+            "posY": 0.07500000298023224,
+            "posZ": 0.0,
+            "rotY": 0.0,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "a66d852d-85ae-4bbe-b1c7-c07e71f87a0c",
+            "employeeName": "Ann Hayes",
+            "employeeId": "WHSE 542",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 0,
+            "fatigue": 64.56586456298828,
+            "safety": 78.86770629882813,
+            "morale": 36.5115966796875,
+            "skill": 39.806121826171878,
+            "skillLevel": 2,
+            "avatarResourceKey": "Custom_a66d852d-85ae-4bbe-b1c7-c07e71f87a0c",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 17.299999237060548,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-18",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": 0.0,
+            "posY": 0.07500000298023224,
+            "posZ": 0.0,
+            "rotY": 0.0,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "cab0bc59-1f88-4652-9547-987357ee9844",
+            "employeeName": "Rachel Thomas",
+            "employeeId": "WHSE 860",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 0,
+            "fatigue": 18.4666748046875,
+            "safety": 31.41063690185547,
+            "morale": 57.07457733154297,
+            "skill": 29.061296463012697,
+            "skillLevel": 2,
+            "avatarResourceKey": "Custom_cab0bc59-1f88-4652-9547-987357ee9844",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 17.84000015258789,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-18",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": 0.0,
+            "posY": 0.07500000298023224,
+            "posZ": 0.0,
+            "rotY": 0.0,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "305ae190-1f60-49ab-a935-60a99977aed9",
+            "employeeName": "Brandon Sanchez",
+            "employeeId": "WHSE 662",
+            "employeeIdPrefix": "WHSE",
+            "gender": 1,
+            "role": 0,
+            "fatigue": 86.1722183227539,
+            "safety": 36.611610412597659,
+            "morale": 99.65867614746094,
+            "skill": 24.770092010498048,
+            "skillLevel": 2,
+            "avatarResourceKey": "Custom_305ae190-1f60-49ab-a935-60a99977aed9",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 15.979999542236329,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-18",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": 0.0,
+            "posY": 0.07500000298023224,
+            "posZ": 0.0,
+            "rotY": 0.0,
             "hasSavedPosition": true
         }
     ],
@@ -16160,9 +16336,9 @@
     ],
     "gameVolume": 0.4020000100135803,
     "musicVolume": 0.02800000086426735,
-    "graphicsPreset": "Ultra",
+    "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
-    "screenWidth": 2560,
-    "screenHeight": 1440
+    "screenWidth": 1920,
+    "screenHeight": 1080
 }
