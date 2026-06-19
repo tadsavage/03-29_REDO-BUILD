@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 28310b90379c503428d4309202eb635f
+guid: af0100804cd85a841985e99bad95faf8
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -241,36 +241,36 @@ ModelImporter:
         length: 0
         modified: 0
     skeleton:
-    - name: Modular_Staff(Clone)
+    - name: Male_Modular_Staff(Clone)
       parentName: 
       position: {x: 0, y: 0, z: 0}
       rotation: {x: 0, y: 0, z: 0, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: ArmatureMaleWorker
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: Hips
       parentName: ArmatureMaleWorker
       position: {x: -2.9103178e-11, y: 0.00000012211834, z: 0.76098484}
-      rotation: {x: 0.7175117, y: 0.00000013820548, z: -0.00000013719728, w: 0.6965465}
-      scale: {x: 1, y: 1, z: 1}
+      rotation: {x: 0.7175119, y: 0.00000016767646, z: -0.00000011345793, w: 0.69654644}
+      scale: {x: 1.0000231, y: 0.9999999, z: 1.0000154}
     - name: Spine
       parentName: Hips
-      position: {x: 3.2609238e-11, y: 0.25775504, z: 0.00004028529}
-      rotation: {x: -0.03910879, y: -0.0000000035426593, z: 0.0000000033676146, w: 0.999235}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: 3.2617284e-11, y: 0.25775504, z: 0.000040283427}
+      rotation: {x: -0.03910875, y: -0.0000000035426662, z: 0.0000000033676169, w: 0.99923503}
+      scale: {x: 0.9999886, y: 1.0000017, z: 1}
     - name: Chest
       parentName: Spine
-      position: {x: -1.4840536e-10, y: 0.22526523, z: -0.0000000046566093}
-      rotation: {x: -0.0021774143, y: -3.916128e-11, z: 3.687337e-11, w: 0.9999976}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: -1.4840566e-10, y: 0.22526535, z: -0.000000007450577}
+      rotation: {x: -0.0021774468, y: -3.9044542e-11, z: 3.681244e-11, w: 0.9999977}
+      scale: {x: 1.0000234, y: 0.9999984, z: 1.0000145}
     - name: Head
       parentName: Chest
-      position: {x: -8.2823734e-11, y: 0.20027615, z: -0.00034309272}
-      rotation: {x: 0.026830975, y: 0.0000000022976423, z: -0.0000000021762139, w: 0.99964}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: -8.285038e-11, y: 0.20027605, z: -0.000343089}
+      rotation: {x: 0.026830962, y: 0.0000000022975044, z: -0.0000000021761712, w: 0.99964005}
+      scale: {x: 0.9999886, y: 1.000001, z: 0.9999909}
     - name: Head_end
       parentName: Head
       position: {x: -0, y: 0.36113355, z: 0}
@@ -278,24 +278,24 @@ ModelImporter:
       scale: {x: 1, y: 1, z: 1}
     - name: Shoulder.L
       parentName: Chest
-      position: {x: -0.15319969, y: 0.10802512, z: 0.008988014}
-      rotation: {x: 0.017080234, y: -0.020218998, z: 0.76364404, w: 0.64509475}
-      scale: {x: 1, y: 0.99999994, z: 1}
+      position: {x: -0.15319967, y: 0.10802501, z: 0.008988021}
+      rotation: {x: 0.01708025, y: -0.020218989, z: 0.76364386, w: 0.6450949}
+      scale: {x: 0.9999969, y: 0.9999817, z: 0.99997705}
     - name: UpperArm.L
       parentName: Shoulder.L
-      position: {x: -0.0000005289912, y: 0.1224473, z: 0.0000000061318453}
-      rotation: {x: -0.022562956, y: 0.00046502135, z: -0.04983759, w: 0.9985023}
-      scale: {x: 0.99999994, y: 1, z: 1}
+      position: {x: -0.00000034272674, y: 0.12244727, z: -0.0000000018127757}
+      rotation: {x: -0.02256407, y: 0.00046521862, z: -0.049834967, w: 0.99850243}
+      scale: {x: 1.0000148, y: 0.99998456, z: 0.99999994}
     - name: LowerArm.L
       parentName: UpperArm.L
-      position: {x: 0.00000013498142, y: 0.25372908, z: -0.000000006519258}
-      rotation: {x: 0.053189136, y: 0.00017024986, z: -0.0063219178, w: 0.9985645}
-      scale: {x: 1, y: 0.9999999, z: 1}
+      position: {x: 0.0000002656841, y: 0.25372908, z: -0.000000007916242}
+      rotation: {x: 0.05318889, y: 0.00017020466, z: -0.006322019, w: 0.9985645}
+      scale: {x: 1.0000072, y: 1.0000031, z: 1.000015}
     - name: Hand.L
       parentName: LowerArm.L
-      position: {x: -0.00000046939016, y: 0.30646986, z: 0.000000032028765}
-      rotation: {x: -0.015703002, y: 0.0042810566, z: 0.08153502, w: 0.99653757}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: -0.0000006332995, y: 0.30646983, z: 0.00000003396417}
+      rotation: {x: -0.015702946, y: 0.004281201, z: 0.08153338, w: 0.99653774}
+      scale: {x: 0.99997187, y: 1.000039, z: 1.0000113}
     - name: Hand.L_end
       parentName: Hand.L
       position: {x: -0, y: 0.1529835, z: 0}
@@ -303,24 +303,24 @@ ModelImporter:
       scale: {x: 1, y: 1, z: 1}
     - name: Shoulder.R
       parentName: Chest
-      position: {x: 0.1531996, y: 0.10802512, z: 0.008988025}
-      rotation: {x: 0.017080223, y: 0.020218985, z: -0.7636441, w: 0.6450947}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: 0.15319961, y: 0.10802501, z: 0.008988029}
+      rotation: {x: -0.017080208, y: -0.020219004, z: 0.7636441, w: -0.6450947}
+      scale: {x: 0.99999887, y: 0.9999898, z: 0.9999848}
     - name: UpperArm.R
       parentName: Shoulder.R
-      position: {x: 0.0000004321337, y: 0.1224473, z: 0.0000000056538205}
-      rotation: {x: -0.021300338, y: -0.00028720679, z: 0.049168248, w: 0.99856335}
-      scale: {x: 1, y: 0.9999999, z: 0.99999994}
+      position: {x: 0.00000041723257, y: 0.122447304, z: -0.0000000013026096}
+      rotation: {x: -0.021300988, y: -0.0002870418, z: 0.049166664, w: 0.99856335}
+      scale: {x: 1.0000236, y: 0.9999879, z: 1.0000108}
     - name: LowerArm.R
       parentName: UpperArm.R
-      position: {x: 0.00000007695904, y: 0.28022936, z: 0.0000000013969839}
-      rotation: {x: 0.055361535, y: -0.00005323383, z: 0.010239283, w: 0.9984139}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: 0.000000074505806, y: 0.2802294, z: 0.0000000018626451}
+      rotation: {x: 0.055361513, y: -0.000053446616, z: 0.010239205, w: 0.998414}
+      scale: {x: 1.0000225, y: 1.0000136, z: 1.0000434}
     - name: Hand.R
       parentName: LowerArm.R
-      position: {x: 0.000000021760707, y: 0.27998567, z: 0.0000000011641532}
-      rotation: {x: -0.017376967, y: -0.0042863567, z: -0.08135847, w: 0.9965242}
-      scale: {x: 1, y: 0.99999994, z: 1}
+      position: {x: -0.00000022460033, y: 0.2799857, z: 0.000000003958121}
+      rotation: {x: -0.017376946, y: -0.0042864173, z: -0.08135483, w: 0.9965245}
+      scale: {x: 0.99996954, y: 1.0000324, z: 0.99999994}
     - name: Hand.R_end
       parentName: Hand.R
       position: {x: -0, y: 0.15298362, z: 0}
@@ -328,83 +328,88 @@ ModelImporter:
       scale: {x: 1, y: 1, z: 1}
     - name: Bone
       parentName: Chest
-      position: {x: 1.8331799e-13, y: 0.1837475, z: -0.000000014901156}
-      rotation: {x: -0.010376776, y: -0.0000000029426404, z: 0.0000000027897913, w: 0.9999462}
-      scale: {x: 1, y: 1.0000001, z: 1}
+      position: {x: 1.2810033e-13, y: 0.18374752, z: -0.000000010244543}
+      rotation: {x: -0.010376828, y: -0.000000002943304, z: 0.00000000279034, w: 0.9999462}
+      scale: {x: 0.9999929, y: 0.9999995, z: 0.9999959}
     - name: Bone_end
       parentName: Bone
-      position: {x: 8.242018e-14, y: 0.016532088, z: -0.000000006519252}
-      rotation: {x: -0.000000027939677, y: 2.812417e-12, z: -2.5750235e-12, w: 1}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: -4.7899185e-14, y: 0.01653234, z: -9.313167e-10}
+      rotation: {x: -0, y: 2.7775553e-12, z: -2.5171247e-12, w: 1}
+      scale: {x: 1.0000157, y: 1.0000024, z: 1.0000082}
     - name: Bone_end_end
       parentName: Bone_end
-      position: {x: -6.368517e-14, y: 0.016532186, z: 6.2588823e-15}
-      rotation: {x: -0.0000000055879354, y: -1.8631763e-12, z: 1.6701293e-12, w: 1}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: -1.1071005e-13, y: 0.0165322, z: 0.000000014901167}
+      rotation: {x: 1.3897754e-26, y: -1.0598187e-12, z: 9.554438e-13, w: 1}
+      scale: {x: 1.0000157, y: 1.0000015, z: 1.0000075}
     - name: Bone_end_end_end
       parentName: Bone_end_end
-      position: {x: -5.764833e-14, y: 0.016532047, z: -0.000000011175865}
-      rotation: {x: -0.0000000018626451, y: -3.330669e-16, z: 2.1677105e-14, w: 1}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: -5.301315e-14, y: 0.016531939, z: -0.00000001303851}
+      rotation: {x: -1.2555508e-25, y: -1.9051423e-13, z: 2.4629945e-13, w: 1}
+      scale: {x: 1.0000157, y: 1.0000008, z: 1.0000088}
     - name: Bone_end_end_end_end
       parentName: Bone_end_end_end
+      position: {x: 3.7470027e-16, y: 0.016532158, z: 0.0000000037252965}
+      rotation: {x: 1.06859075e-26, y: 7.7715595e-15, z: -1.3690434e-14, w: 1}
+      scale: {x: 1.0000157, y: 1.0000002, z: 1.0000098}
+    - name: Bone_end_end_end_end_end
+      parentName: Bone_end_end_end_end
       position: {x: -0, y: 0.016532114, z: 0}
       rotation: {x: 0, y: -0, z: -0, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: UpperLeg.L
       parentName: Hips
-      position: {x: -0.19772159, y: 0.10650437, z: -0.022281209}
-      rotation: {x: -0.00027042115, y: 0.080066934, z: 0.99677515, w: -0.0053472286}
-      scale: {x: 1, y: 0.9999997, z: 0.9999941}
+      position: {x: -0.19772159, y: 0.10650443, z: -0.02228121}
+      rotation: {x: -0.00027077983, y: 0.08006671, z: 0.9967752, w: -0.005347317}
+      scale: {x: 0.9999884, y: 1.0000043, z: 0.9999966}
     - name: LowerLeg.L
       parentName: UpperLeg.L
-      position: {x: -0.000000010092623, y: 0.40336192, z: -0.000000038387952}
-      rotation: {x: -0.106439084, y: -0.00013248024, z: -0.005518292, w: 0.99430394}
-      scale: {x: 0.99999994, y: 0.99999994, z: 0.9999999}
+      position: {x: -0.0000000027884095, y: 0.40336198, z: -0.000000050262315}
+      rotation: {x: -0.10643947, y: -0.00013247621, z: -0.0055183494, w: 0.99430394}
+      scale: {x: 0.999996, y: 1.0000479, z: 1.0000045}
     - name: Foot.L
       parentName: LowerLeg.L
-      position: {x: 0.0000000072468525, y: 0.4051672, z: -0.000000015606702}
-      rotation: {x: 0.6736687, y: 0.000100683035, z: 0.00013066488, w: 0.73903346}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: -0.0000000016295065, y: 0.4051671, z: -0.0000000074680315}
+      rotation: {x: -0.6736683, y: -0.000100592406, z: -0.0001308528, w: -0.73903376}
+      scale: {x: 1, y: 0.9999814, z: 0.9999892}
     - name: Toes.L
       parentName: Foot.L
-      position: {x: 0.0000000638479, y: 0.20196235, z: 0.00000009060716}
-      rotation: {x: 0.034898173, y: -0.0000024799363, z: -0.00000035178232, w: 0.9993909}
-      scale: {x: 1, y: 0.99999994, z: 1}
+      position: {x: 0.00000008793818, y: 0.20196225, z: 0.00000007103489}
+      rotation: {x: 0.034898337, y: -0.000002493827, z: -0.00000034685942, w: 0.99939096}
+      scale: {x: 0.9999961, y: 1.0000145, z: 0.9999965}
     - name: Toes.L_end
       parentName: Toes.L
-      position: {x: -0, y: 0.07942215, z: 0}
+      position: {x: -0, y: 0.07942214, z: 0}
       rotation: {x: 0, y: -0, z: -0, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: UpperLeg.R
       parentName: Hips
-      position: {x: 0.19772154, y: 0.10650441, z: -0.0222812}
-      rotation: {x: 0.00027062182, y: 0.080067895, z: 0.99677503, w: 0.005347213}
-      scale: {x: 0.99999994, y: 0.99999946, z: 0.99998856}
+      position: {x: 0.19772154, y: 0.10650447, z: -0.022281198}
+      rotation: {x: 0.00027019656, y: 0.08006888, z: 0.996775, w: 0.005347121}
+      scale: {x: 0.9999885, y: 1.0000052, z: 1.000005}
     - name: LowerLeg.R
       parentName: UpperLeg.R
-      position: {x: -0.000000016485581, y: 0.40336162, z: -0.000000007508788}
-      rotation: {x: -0.10644245, y: 0.00013252464, z: 0.0055192662, w: 0.9943036}
-      scale: {x: 1, y: 0.99999994, z: 1}
+      position: {x: -0.00000001839131, y: 0.40336147, z: -0.000000024068868}
+      rotation: {x: -0.10643998, y: 0.00013259803, z: 0.005519353, w: 0.9943038}
+      scale: {x: 0.9999959, y: 1.0000271, z: 0.9999886}
     - name: Foot.R
       parentName: LowerLeg.R
-      position: {x: -0.00000006096342, y: 0.40516743, z: 0.00000005497759}
-      rotation: {x: 0.6736699, y: -0.000102285005, z: -0.00013272675, w: 0.7390324}
-      scale: {x: 1, y: 0.9999998, z: 0.99999994}
+      position: {x: -0.000000036875367, y: 0.40516657, z: 0.00000007360575}
+      rotation: {x: -0.6736659, y: 0.00010211753, z: 0.00013308002, w: -0.73903614}
+      scale: {x: 1, y: 1.000016, z: 1.0000072}
     - name: Toes.R
       parentName: Foot.R
-      position: {x: 0.00000004020213, y: 0.20196174, z: 0.000000051375167}
-      rotation: {x: 0.034898207, y: -0.00000088520903, z: -0.0000001326334, w: 0.9993909}
-      scale: {x: 1, y: 1, z: 1}
+      position: {x: 0.000000054208062, y: 0.2019585, z: 0.00000006020852}
+      rotation: {x: 0.034898512, y: -0.00000085945044, z: -0.00000014138638, w: 0.99939084}
+      scale: {x: 1, y: 0.99999183, z: 0.9999961}
     - name: Toes.R_end
       parentName: Toes.R
-      position: {x: -0, y: 0.07942199, z: 0}
+      position: {x: -0, y: 0.079421975, z: 0}
       rotation: {x: 0, y: -0, z: -0, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: ikPole.L
       parentName: ArmatureMaleWorker
       position: {x: 0.19357347, y: 0.4081374, z: 0.5212964}
-      rotation: {x: -0.00000012878866, y: -5.1860407e-23, z: 0.00000006439433, w: 1}
+      rotation: {x: -0.00000017881393, y: 3.5527137e-15, z: 0.00000006439433, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: ikPole.L_end
       parentName: ikPole.L
@@ -414,17 +419,17 @@ ModelImporter:
     - name: ikTarget.L
       parentName: ArmatureMaleWorker
       position: {x: 0.19357355, y: -0.000000007920586, z: 0.064418636}
-      rotation: {x: 0.00001112143, y: 0.0036969823, z: 0.9999932, w: 0.0000000025956828}
-      scale: {x: 1, y: 0.9999998, z: 1}
+      rotation: {x: 0.000011121256, y: 0.0036970377, z: 0.9999932, w: -0.00000004390904}
+      scale: {x: 1.0000079, y: 1.0000076, z: 1.0000039}
     - name: ikTarget.L_end
       parentName: ikTarget.L
-      position: {x: -0, y: 0.175257, z: 0}
+      position: {x: -0, y: 0.17525698, z: 0}
       rotation: {x: 0, y: -0, z: -0, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: ikPole.R
       parentName: ArmatureMaleWorker
       position: {x: -0.19357349, y: 0.40813738, z: 0.5212964}
-      rotation: {x: -0.00000012878864, y: -8.427048e-23, z: -0.00000006439432, w: 1}
+      rotation: {x: -0.00000017881393, y: -3.5527137e-15, z: -0.000000064394314, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: ikPole.R_end
       parentName: ikPole.R
@@ -434,160 +439,175 @@ ModelImporter:
     - name: ikTarget.R
       parentName: ArmatureMaleWorker
       position: {x: -0.19357353, y: -0.000000007916906, z: 0.06441863}
-      rotation: {x: -0.00001112143, y: 0.0036969823, z: 0.9999932, w: -0.0000000025956828}
-      scale: {x: 1, y: 0.9999998, z: 1}
+      rotation: {x: -0.000011121256, y: 0.0036970377, z: 0.9999932, w: 0.00000004390904}
+      scale: {x: 1.0000079, y: 1.0000076, z: 1.0000039}
     - name: ikTarget.R_end
       parentName: ikTarget.R
-      position: {x: -0, y: 0.175257, z: 0}
+      position: {x: -0, y: 0.17525698, z: 0}
       rotation: {x: 0, y: -0, z: -0, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: male_body_Black
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_body_Brown
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_body_White
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_chest_BlueShirt
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_chest_RedShirt
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_chest_WhiteShirt
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_eyebrows_BrowsMad
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_eyebrows_BrowsNeutral
-      parentName: Modular_Staff(Clone)
-      position: {x: -0, y: 0, z: 0}
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0.029829944, z: 0.0042937654}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_eyebrows_BrowsSad
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
-    - name: male_eyes_wide
-      parentName: Modular_Staff(Clone)
+    - name: male_eyes
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
-    - name: male_face_Smiile
-      parentName: Modular_Staff(Clone)
+    - name: male_face_Frown
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_face_Neutral
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: -0.009089826, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_face_Smile
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_face_TongueOut
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_facialHair_Goatee
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_facialHair_HitlerStache
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_facialHair_Lemmy
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_facialHair_theGreg
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_feet_BootsBlack
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_feet_BootsBrown
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
-    - name: male_hair_Afro
-      parentName: Modular_Staff(Clone)
-      position: {x: -0, y: 0, z: 0}
-      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
-      scale: {x: 1, y: 1, z: 1}
-    - name: male_hair_Helmet
-      parentName: Modular_Staff(Clone)
-      position: {x: -0, y: 0, z: 0}
-      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
-      scale: {x: 1, y: 1, z: 1}
-    - name: male_hair_Hitler
-      parentName: Modular_Staff(Clone)
-      position: {x: -0, y: 0, z: 0}
-      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
-      scale: {x: 1, y: 1, z: 1}
-    - name: male_hair_Surfer
-      parentName: Modular_Staff(Clone)
+    - name: male_head_Afro
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_head_HatBlack
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_head_HatGray
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_head_HatGreen
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_head_HatRed
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_head_Helmet
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0.042541277, z: 0.006190407}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_head_Hitler
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_head_Surfer
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_legs_JeansBlack
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_legs_JeansBlue
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_legs_KhakiBlkBelt
-      parentName: Modular_Staff(Clone)
-      position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
-      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
-      scale: {x: 1, y: 1, z: 1}
-    - name: male_mouth_Frown
-      parentName: Modular_Staff(Clone)
-      position: {x: -0, y: 0, z: 0}
-      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
-      scale: {x: 1, y: 1, z: 1}
-    - name: male_mouth_Neutral
-      parentName: Modular_Staff(Clone)
-      position: {x: -0, y: 0, z: 0}
-      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
-      scale: {x: 1, y: 1, z: 1}
-    - name: male_mouth_TongueOut
-      parentName: Modular_Staff(Clone)
-      position: {x: -0, y: 0, z: 0}
-      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
-      scale: {x: 1, y: 1, z: 1}
-    - name: male_vest_OrangeStripes
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
     - name: male_vest_VestOrange
-      parentName: Modular_Staff(Clone)
+      parentName: Male_Modular_Staff(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
+      scale: {x: 1, y: 1, z: 1}
+    - name: male_vest_VestStripe
+      parentName: Male_Modular_Staff(Clone)
       position: {x: -0.000000018112129, y: -0.0000000078256335, z: 9.243628e-11}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}

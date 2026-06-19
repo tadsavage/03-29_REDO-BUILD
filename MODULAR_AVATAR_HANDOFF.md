@@ -1,90 +1,100 @@
-# Modular Avatar — Session Handoff (2026-06-17)
+# Modular Avatar — Session Handoff (2026-06-19)
 
-> Read this first when resuming on another machine. It captures the full state of the modular-avatar
-> animation work so we can continue without re-deriving everything. (Claude's local memory files do
-> NOT sync across machines — this doc is the bridge.)
+> Read this first when resuming on another machine. Claude's local memory does NOT sync across
+> machines — this doc + the repo + the saved `.blend`/FBX are the bridge.
+> **This supersedes the 2026-06-17 version** (that one was about the male animation "explosion"
+> blocker, which is now RESOLVED — males walk + faces are correct).
 
-## Goal
-Get the **male modular avatars** (assembled from `Modular_Staff.fbx` parts) to **walk** with the
-worker AI, using the worker's existing `MaleStaff` humanoid animation controller. Women are next,
-after the men work.
+## TL;DR status
+- ✅ **Males**: fully working — correct faces, hair, body, animation.
+- ✅ **Female face-on-back bug**: ROOT CAUSE FOUND + FIX APPLIED IN BLENDER (see below). Pending save + re-export.
+- ⏳ **Female torso waist gap**: diagnosed precisely, fix is a 2-min manual Blender step (see below). NOT yet done.
+- ✅ Female renames worked: `female_body_white`, `female_legs_BlackLeggings/JeansBlue`,
+  `female_feet_BootsBlack/BootsBrowm` (note typo "Browm"), chest/head/vest/eyebrows/face all scan fine.
 
-## Where we are
-- ✅ **Rig/import fixed earlier:** weights were always clean (the "off-target leg" was an illusion —
-  the Blender armature was in *Rest Position* display). Legs/feet bind correctly.
-- ✅ **Animation pipeline works:** the assembled avatar gets its own `Animator`
-  (avatar `Modular_StaffAvatar`, controller `MaleStaff`); `ModularAvatarRig` mirrors the worker
-  Animator's params onto it. Confirmed via Editor.log: leg bones swing through a real walk cycle
-  (e.g. `LowerLeg.R.localEuler` goes from rest to ~-50°).
-- ❌ **BLOCKER — the mesh explodes when animated.** SkinnedMeshRenderer bounds blow up to
-  ~61×98×50 units centered ~95 units in the air (vertices flung skyward = Tad's "flying pieces /
-  alien shapes near the camera"). Renderer is enabled, mesh present — the *skinning* detonates.
+## ⚠️ FIRST THING ON THE OTHER MACHINE
+1. **The face fix lives only in the open Blender session unless the `.blend` was SAVED and synced.**
+   The blend is `Assets/5. Models/BlenderFiles/Modular_Staff.blend` (holds BOTH rigs:
+   `ArmatureMaleWorker` + `WorkerFemale`). Make sure it (and the re-exported FBX) actually travels
+   (commit/push or cloud-copy — the drop-folder FBX is git-untracked).
+2. If unsure the fix survived, **verify / re-apply it** (it's fully reproducible — see next section).
+3. ⚠️ A Blender **undo wiped the face fix once this session** (the modifier-repoint IS undoable). So
+   after applying, **save immediately**.
 
-## Root-cause analysis (important — don't repeat dead ends)
-- The modular rig (`ArmatureMaleWorker`) is a **clean, consistent T-pose rig**. Compared to
-  `WorkerNew`'s rig (imported into the blend for comparison, then removed): **legs, spine, chest,
-  head, shoulders are IDENTICAL** (0° / same positions). The **only** difference is the **arms**:
-  modular = T-pose (horizontal), WorkerNew = A-pose (~81° down).
-- Because the modular rig is clean, the explosion is most likely a **Unity humanoid avatar / setup
-  issue, not a rig defect.** (But verify with the isolation test below before committing to a fix.)
-- Bone positions confirm different per-bone orientation between the two FBX exports, e.g. Hips local
-  pos worker=(0,0.761,0) vs modular=(0,0,0.761) — so **bone-sharing onto the worker skeleton does
-  NOT work** (bind-pose mismatch → skinning spikes).
+## FIX #1 — Female faces on the back of the head (FOUND + APPLIED)
+**Cause:** the 8 female facial meshes had their **Armature MODIFIER pointing at `ArmatureMaleWorker`**
+(the male rig) instead of `WorkerFemale`, even though parented to WorkerFemale and weighted to a
+"Head" vgroup. Classic duplicate-the-male-meshes-and-forget-to-repoint mistake. Bind pose looked
+fine (both Head bones nearly identical), so it only broke **when animated** — the face followed the
+male rig the female Animator never drives → stranded/displaced ("on the back").
 
-### Things tried that DON'T work (skip these)
-- **CopyFromOther → WorkerNewAvatar:** no explosion, but **no motion** (worker's rest pose ≠ modular
-  rest pose → retarget produces near-rest output / T-pose).
-- **Bone-remap modular meshes onto the worker skeleton by name:** spikes from per-bone rotation
-  mismatch; also the modular neck chain `Bone_end_end`/`Bone_end_end_end` has no worker twin.
-- **De-nesting the avatar (parent to scene root + follow):** nesting was never the cause; produced
-  invisible / flying-pieces with the wrong avatar. Reverted to nested.
-- **`updateWhenOffscreen = true`:** only made the *exploded* mesh visible (not a fix).
+The 8 meshes: `female_eyes`, `female_face_Frown`, `female_face_Neutral`, `female_face_Smile`,
+`female_face_TongueOut`, `female_eyebrows_BrowsMad`, `female_eyebrows_BrowsNeutral`,
+`female_eyebrows_BrowsSad`.
 
-## NEXT STEP — the decisive isolation test (do this first)
-In Unity:
-1. Drag `Assets/5. Models/BlenderFiles/Modular_Staff/Modular_Staff.fbx` straight into the scene
-   (raw model, no spawner).
-2. Set its `Animator` **Controller** to **MaleStaff** (avatar is already assigned).
-3. Press **Play**.
+**Fix (applied this session; reproducible):** repoint each one's Armature modifier `Object` →
+`WorkerFemale`. Everything else (body/chest/vest/legs/feet/hair/hats) was already correctly bound to
+WorkerFemale — so **hair was never the bug**; "no hair" was the mangled face / hat-or-bald draws.
+Blender Python to re-apply if needed:
+```python
+import bpy
+fem = bpy.data.objects['WorkerFemale']
+for n in ["female_eyes","female_face_Frown","female_face_Neutral","female_face_Smile",
+          "female_face_TongueOut","female_eyebrows_BrowsMad","female_eyebrows_BrowsNeutral",
+          "female_eyebrows_BrowsSad"]:
+    for m in bpy.data.objects[n].modifiers:
+        if m.type=='ARMATURE': m.object = fem
+```
+Verified by posing WorkerFemale's `Head` bone 40°: `female_face_Neutral` now travels with the head
+(centroid moved 0.19u; before the fix it stayed put). **Then save the .blend.**
 
-- **Raw model explodes** → it's the **FBX/avatar config** → fix in import settings (maybe delete the
-  junk `Bone`/`Bone_end*` + `ikPole/ikTarget` bones in Blender for a clean humanoid skeleton, or
-  re-do the humanoid avatar T-pose). The rig itself likely never needs re-skinning.
-- **Raw model walks fine** → it's the **runtime assembler/spawner code** (`EmployeeSpawner.ApplyModularAvatar`
-  or `ModularAvatarAssembler`) doing something wrong when it rebuilds the avatar.
+## FIX #2 — Female torso "midriff void" (DIAGNOSED, NOT DONE — do this by hand)
+`female_body_white` is **not** missing its lower half — it's built as **disconnected vertical chunks**
+with an **empty ring at the waist (local z ≈ 0.84–1.0)** between the pelvis chunk (z 0.60–0.84) and
+the chest chunk (z 1.0+). That hollow band is the void that shows through under a cropped vest.
+(Width profile: solid at 0.60–0.84, **empty 0.84–1.0**, solid 1.0+.)
 
-(Tad's standing instinct: if needed, re-skin the parts onto the actual `WorkerNew` rig. That's the
-fallback — but it requires reconciling the T-pose mesh with WorkerNew's A-pose arms, i.e. re-posing
-the mesh, so only go there if the isolation test points at the avatar AND import-side fixes fail.)
+**Do NOT auto-extrude the bottom** — a script tried that, grabbed the pelvis-bottom cap, and pulled it
+to the knees (z 0.47). It was reverted; mesh is back to original 302 verts, undamaged.
 
-## Key files
-- `Assets/1. Scripts/7. EmployeeSystem/EmployeeSpawner.cs` → `ApplyModularAvatar` (nested approach:
-  hides worker mesh, parents assembled avatar under the worker, gives it its own Animator using the
-  FBX's own `Modular_StaffAvatar`, `updateWhenOffscreen=true`, adds `ModularAvatarRig`). Has a
-  `[ModularAvatar] nested ...` Debug.Log.
-- `Assets/1. Scripts/8. ModularAvatar/ModularAvatarRig.cs` → mirrors worker Animator params each
-  LateUpdate; one-shot `[ModularRig] diag ...` log reporting leg rotation + SMR bounds/visibility.
-- `Assets/1. Scripts/8. ModularAvatar/ModularAvatarAssembler.cs` → builds the avatar (instantiate
-  body FBX, prune to chosen parts, reparent parts from other sources).
-- `Assets/5. Models/BlenderFiles/Modular_Staff/Modular_Staff.fbx.meta` → currently
-  `avatarSetup: 1` (CreateFromThisModel), humanoid map fixed to `Head→Head`, Neck mapping removed.
-- `Assets/10. Editor/ModularAvatarVerify.cs` → throwaway menu `Tools ▸ Modular Avatar ▸ Verify Rig
-  (write report)` (writes `<projectroot>/modular_avatar_verify.txt`). Delete when done.
-- `Assets/5. Models/WorkerNew.fbx` → the worker's source model + `WorkerNewAvatar` (the clean
-  reference rig). Controller on prefab: `b6bbbe3e31fbd2d4e802bb9ff509c69a`; SMR Animator base:
-  `115ee44c755217f40a3b5f313f810a44` (MaleStaff).
+**Correct fix (manual, ~2 min):**
+1. Select `female_body_white` → Edit Mode → edge select.
+2. **Alt-click** the open loop at the **top of the pelvis** chunk (~z 0.84); **Shift-Alt-click** the
+   open loop at the **bottom of the chest** chunk (~z 1.0).
+3. **Edge ▸ Bridge Edge Loops** to fill the waist.
+4. Assign the new verts to the **`Spine`** vertex group (weight 1.0) so they deform.
+   (Solidify modifier with Rim-Fill will thicken the new faces automatically.)
 
-## Environment gotchas (this machine — may differ on the other one)
-- The Unity MCP bridge (`advanced-unity-mcp` / Code Maestro relay) **drops on every recompile/domain
-  reload** and only a **full Unity restart** reliably revives it. Launch script:
-  `C:\Users\tadsa\AppData\Local\Programs\CodeMaestro\UnityMcpRelay\launch.bat` (but it's the MCP
-  host that manages it; a Unity restart is the real fix). Intermittent Unity licensing-404 errors
-  were also seen.
-- Because the bridge is flaky, diagnostics were read from **`Editor.log`** via PowerShell
-  (`Get-Content $log -Tail N | Select-String ...`). `[ModularAvatar]` / `[ModularRig]` are the log
-  tags. Debug.Log → Editor.log works even when the bridge is down.
-- Toggle on `EmployeeSpawner`: `_useModularAvatars` (default ON). OFF = original animated worker.
+## Apply pipeline (after the Blender fixes)
+1. **Save** `Modular_Staff.blend`.
+2. **Re-export** over `Assets/5. Models/BlenderFiles/Modular_Staff/Female_Modular_Staff.fbx` with the
+   usual export preset (the Unity `.meta` import config is preserved on re-export).
+3. Unity auto-rescans on import, or run `Tools ▸ Modular Avatar ▸ Scan & Rebuild Library`.
+4. **Regenerate the portraits** in `Assets/Sprites/Portraits/` — the existing PNGs were rendered with
+   the broken avatars (every female face mangled). They're the real verification: males = clean,
+   females should now match after the fix.
 
-## To resume on the other machine
-Open Claude Code in this repo and say: *"Read MODULAR_AVATAR_HANDOFF.md and let's continue — start
-with the isolation test."*
+## Architecture recap (current)
+- Two FBX in drop folder `Assets/5. Models/BlenderFiles/Modular_Staff/`: `Male_Modular_Staff.fbx`
+  (guid af0100804cd85a841985e99bad95faf8) + `Female_Modular_Staff.fbx`
+  (guid eb264ac023d997b41810917d35ed1fec). Splitting into two FBX is fine — the code handles one
+  bucket or many sources. No code change is needed for any of this.
+- Library: `Assets/Resources/ModularAvatar/AvatarPartLibrary.asset` (scanned by
+  `Assets/10. Editor/ModularAvatarImporter.cs`, naming convention `gender_slot_variant`).
+  Only `female_eyes`/`male_eyes` get skipped (2-segment names) — harmless, they always render.
+- In-game: `EmployeeSpawner.ApplyModularAvatar` builds the avatar (`ModularAvatarAssembler.Build`),
+  hides the worker SMRs, nests the avatar, gives it its OWN humanoid avatar + the **worker's**
+  animator controller, retargets via `ModularAvatarRig`. The old "explosion" blocker is RESOLVED.
+- Preview tool: `Tools ▸ Modular Avatar ▸ Spawn 8 Random Avatars` — but note this shows **bind pose
+  (T-pose), where the female face looked CORRECT even while broken.** The face bug only shows when
+  ANIMATED — verify via the photo-booth portraits, not the preview spawns.
+
+## Environment notes (this machine — may differ on the other)
+- Live Unity MCP relay this session was **`unity-mcp` (Code Maestro)**; `unityMCP` and
+  `advanced-unity-mcp` were DOWN. Relay drops on recompile/domain-reload; Unity restart revives it.
+- **Blender MCP** (addon server) worked well for inspection + the modifier fix.
+- Toggle on `EmployeeSpawner`: `_useModularAvatars` (default ON; OFF = original animated worker model).
+
+## To resume
+Open Claude Code in this repo and say: *"Read MODULAR_AVATAR_HANDOFF.md — verify the female face fix
+survived, then do FIX #2 (bridge the waist) and re-export."*
