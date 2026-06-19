@@ -13,166 +13,303 @@ MonoBehaviour:
   m_Name: AvatarPartLibrary
   m_EditorClassIdentifier: Assembly-CSharp::AvatarPartLibrary
   sources:
-  - fbxPath: Assets/5. Models/BlenderFiles/Modular_Staff/Modular_Staff.fbx
-    prefab: {fileID: 919132149155446097, guid: 28310b90379c503428d4309202eb635f, type: 3}
+  - fbxPath: Assets/5. Models/BlenderFiles/Modular_Staff/Female_Modular_Staff.fbx
+    prefab: {fileID: 919132149155446097, guid: eb264ac023d997b41810917d35ed1fec, type: 3}
+  - fbxPath: Assets/5. Models/BlenderFiles/Modular_Staff/Male_Modular_Staff.fbx
+    prefab: {fileID: 919132149155446097, guid: af0100804cd85a841985e99bad95faf8, type: 3}
   parts:
+  - objectName: female_body_white
+    gender: female
+    slot: body
+    variant: white
+    sourceIndex: 0
+  - objectName: female_chest_ShirtBlack
+    gender: female
+    slot: chest
+    variant: ShirtBlack
+    sourceIndex: 0
+  - objectName: female_chest_ShirtRed
+    gender: female
+    slot: chest
+    variant: ShirtRed
+    sourceIndex: 0
+  - objectName: female_chest_ShirtWhite
+    gender: female
+    slot: chest
+    variant: ShirtWhite
+    sourceIndex: 0
+  - objectName: female_eyebrows_BrowsMad
+    gender: female
+    slot: eyebrows
+    variant: BrowsMad
+    sourceIndex: 0
+  - objectName: female_eyebrows_BrowsNeutral
+    gender: female
+    slot: eyebrows
+    variant: BrowsNeutral
+    sourceIndex: 0
+  - objectName: female_eyebrows_BrowsSad
+    gender: female
+    slot: eyebrows
+    variant: BrowsSad
+    sourceIndex: 0
+  - objectName: female_face_Frown
+    gender: female
+    slot: face
+    variant: Frown
+    sourceIndex: 0
+  - objectName: female_face_Neutral
+    gender: female
+    slot: face
+    variant: Neutral
+    sourceIndex: 0
+  - objectName: female_face_Smile
+    gender: female
+    slot: face
+    variant: Smile
+    sourceIndex: 0
+  - objectName: female_face_TongueOut
+    gender: female
+    slot: face
+    variant: TongueOut
+    sourceIndex: 0
+  - objectName: female_feet_BootsBlack
+    gender: female
+    slot: feet
+    variant: BootsBlack
+    sourceIndex: 0
+  - objectName: female_feet_BootsBrowm
+    gender: female
+    slot: feet
+    variant: BootsBrowm
+    sourceIndex: 0
+  - objectName: female_head_BlackPixie
+    gender: female
+    slot: head
+    variant: BlackPixie
+    sourceIndex: 0
+  - objectName: female_head_BlackPonytail
+    gender: female
+    slot: head
+    variant: BlackPonytail
+    sourceIndex: 0
+  - objectName: female_head_BlondePonytail
+    gender: female
+    slot: head
+    variant: BlondePonytail
+    sourceIndex: 0
+  - objectName: female_head_hatGray
+    gender: female
+    slot: head
+    variant: hatGray
+    sourceIndex: 0
+  - objectName: female_head_hatGreen
+    gender: female
+    slot: head
+    variant: hatGreen
+    sourceIndex: 0
+  - objectName: female_head_hatPink
+    gender: female
+    slot: head
+    variant: hatPink
+    sourceIndex: 0
+  - objectName: female_head_hatRed
+    gender: female
+    slot: head
+    variant: hatRed
+    sourceIndex: 0
+  - objectName: female_head_RedPixie
+    gender: female
+    slot: head
+    variant: RedPixie
+    sourceIndex: 0
+  - objectName: female_head_RedPonytail
+    gender: female
+    slot: head
+    variant: RedPonytail
+    sourceIndex: 0
+  - objectName: female_head_WhitePixie
+    gender: female
+    slot: head
+    variant: WhitePixie
+    sourceIndex: 0
+  - objectName: female_legs_BlackLeggings
+    gender: female
+    slot: legs
+    variant: BlackLeggings
+    sourceIndex: 0
+  - objectName: female_legs_JeansBlue
+    gender: female
+    slot: legs
+    variant: JeansBlue
+    sourceIndex: 0
+  - objectName: female_vest_SafetyVestOrange
+    gender: female
+    slot: vest
+    variant: SafetyVestOrange
+    sourceIndex: 0
+  - objectName: female_vest_SafetyVestPink
+    gender: female
+    slot: vest
+    variant: SafetyVestPink
+    sourceIndex: 0
   - objectName: male_body_Black
     gender: male
     slot: body
     variant: Black
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_body_Brown
     gender: male
     slot: body
     variant: Brown
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_body_White
     gender: male
     slot: body
     variant: White
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_chest_BlueShirt
     gender: male
     slot: chest
     variant: BlueShirt
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_chest_RedShirt
     gender: male
     slot: chest
     variant: RedShirt
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_chest_WhiteShirt
     gender: male
     slot: chest
     variant: WhiteShirt
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_eyebrows_BrowsMad
     gender: male
     slot: eyebrows
     variant: BrowsMad
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_eyebrows_BrowsNeutral
     gender: male
     slot: eyebrows
     variant: BrowsNeutral
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_eyebrows_BrowsSad
     gender: male
     slot: eyebrows
     variant: BrowsSad
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_face_Frown
     gender: male
     slot: face
     variant: Frown
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_face_Neutral
     gender: male
     slot: face
     variant: Neutral
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_face_Smile
     gender: male
     slot: face
     variant: Smile
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_face_TongueOut
     gender: male
     slot: face
     variant: TongueOut
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_facialHair_Goatee
     gender: male
     slot: facialhair
     variant: Goatee
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_facialHair_HitlerStache
     gender: male
     slot: facialhair
     variant: HitlerStache
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_facialHair_Lemmy
     gender: male
     slot: facialhair
     variant: Lemmy
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_facialHair_theGreg
     gender: male
     slot: facialhair
     variant: theGreg
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_feet_BootsBlack
     gender: male
     slot: feet
     variant: BootsBlack
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_feet_BootsBrown
     gender: male
     slot: feet
     variant: BootsBrown
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_head_Afro
     gender: male
     slot: head
     variant: Afro
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_head_HatBlack
     gender: male
     slot: head
     variant: HatBlack
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_head_HatGray
     gender: male
     slot: head
     variant: HatGray
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_head_HatGreen
     gender: male
     slot: head
     variant: HatGreen
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_head_HatRed
     gender: male
     slot: head
     variant: HatRed
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_head_Helmet
     gender: male
     slot: head
     variant: Helmet
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_head_Hitler
     gender: male
     slot: head
     variant: Hitler
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_head_Surfer
     gender: male
     slot: head
     variant: Surfer
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_legs_JeansBlack
     gender: male
     slot: legs
     variant: JeansBlack
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_legs_JeansBlue
     gender: male
     slot: legs
     variant: JeansBlue
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_legs_KhakiBlkBelt
     gender: male
     slot: legs
     variant: KhakiBlkBelt
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_vest_VestOrange
     gender: male
     slot: vest
     variant: VestOrange
-    sourceIndex: 0
+    sourceIndex: 1
   - objectName: male_vest_VestStripe
     gender: male
     slot: vest
     variant: VestStripe
-    sourceIndex: 0
+    sourceIndex: 1
