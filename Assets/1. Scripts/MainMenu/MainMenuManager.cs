@@ -349,7 +349,28 @@ public class MainMenuManager : MonoBehaviour
 
     private void LoadGameScene()
     {
-        SceneManager.LoadScene(gameSceneName);
+        var screen = LoadingScreenManager.Spawn();
+        StartCoroutine(LoadAsync(screen));
+    }
+
+    private IEnumerator LoadAsync(LoadingScreenManager screen)
+    {
+        // High priority so async loading matches the speed of the old synchronous load.
+        Application.backgroundLoadingPriority = ThreadPriority.High;
+
+        var op = SceneManager.LoadSceneAsync(gameSceneName);
+        op.allowSceneActivation = false;
+
+        while (op.progress < 0.9f)
+        {
+            screen?.SetProgress(op.progress * 0.25f);   // maps 0–0.9 into 0–0.225
+            yield return null;
+        }
+        screen?.SetProgress(0.25f);
+        op.allowSceneActivation = true;
+
+        Application.backgroundLoadingPriority = ThreadPriority.Normal;
+        // GameContext takes over from here with its own SetProgress calls
     }
 
     // ─────────────────────────────────────────────────────────────────────────

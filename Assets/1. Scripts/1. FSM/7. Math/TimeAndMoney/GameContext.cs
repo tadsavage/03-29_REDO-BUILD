@@ -16,6 +16,8 @@ public class GameContext : MonoBehaviour
 
     private void Awake()
     {
+        LoadingScreenManager.Instance?.SetProgress(0.1f);
+
         TimeService = new SimulationTimeService(1, 8, 0);
         timeDriver.Initialize(TimeService);
 
@@ -56,6 +58,8 @@ public class GameContext : MonoBehaviour
     {
         var placement = FindAnyObjectByType<PlacementSystem>();
         var grid = FindAnyObjectByType<PlacementGrid>();
+
+        LoadingScreenManager.Instance?.SetProgress(0.25f);
 
         bool isNewGame = PlayerPrefs.GetInt("IsNewGame", 0) == 1;
         if (isNewGame)
@@ -138,6 +142,9 @@ public class GameContext : MonoBehaviour
 
         for (int x = 0; x < grid.Width; x++)
         {
+            // Report progress 30 % → 85 % as the grid fills column by column
+            LoadingScreenManager.Instance?.SetProgress(0.30f + 0.55f * x / grid.Width);
+
             for (int y = 0; y < grid.Height; y++)
             {
                 var cell = new Vector2Int(x, y);
@@ -177,11 +184,13 @@ public class GameContext : MonoBehaviour
         if (grid != null)
             grid.RebuildFromRegistry();
 
+        // Dismiss loading screen the moment the bake starts — navmesh builds off-thread
+        // just like it did before the loading screen existed. Agents wait on OnNavMeshReady
+        // internally, so nothing breaks. This restores the original startup speed.
+        LoadingScreenManager.Instance?.SetProgress(0.9f);
+        LoadingScreenManager.Instance?.CompleteAndHide();
+
         if (NavMeshManager.Instance != null)
-            // Async (threaded) bake instead of BakeSynchronous() — a synchronous build
-            // over the ~2,500 yard-floor nav sources froze the main thread for several
-            // seconds on Play. The async path builds off-thread; agents already wait on
-            // OnNavMeshReady, so nothing breaks — the startup just no longer hitches.
             NavMeshManager.Instance.BakeImmediate();
         else
             Debug.LogWarning("[GameContext] NavMeshManager not found — agents may not navigate.");

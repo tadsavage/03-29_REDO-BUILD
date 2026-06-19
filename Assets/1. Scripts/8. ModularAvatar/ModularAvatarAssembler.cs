@@ -242,7 +242,7 @@ public static class ModularAvatarAssembler
         foreach (var s in HeadPositionSlots)
             pool.AddRange(lib.VariantsFor(gender, s));
         if (pool.Count == 0) return null;
-        if (rng.NextDouble() < BaldChance) return null;       // bald / no hat
+        if (gender != "female" && rng.NextDouble() < BaldChance) return null;   // bald only for males
         return pool[rng.Next(pool.Count)];
     }
 

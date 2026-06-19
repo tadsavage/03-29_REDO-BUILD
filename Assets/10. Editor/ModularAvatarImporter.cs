@@ -41,6 +41,11 @@ public static class ModularAvatarImporter
         foreach (var guid in guids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
+            // Skip Blender source files (.blend, .blend1) — only FBX/OBJ exports should be sources.
+            // Having both the .blend and the .fbx in the folder causes duplicate sourceIndex entries
+            // which breaks SkinnedMeshRenderer bone references during cross-source merging.
+            string pathLower = path.ToLower();
+            if (pathLower.EndsWith(".blend") || pathLower.EndsWith(".blend1")) continue;
             var root = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (root == null) continue;
 
