@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
+using SaveLoadSystem;
 
 /// <summary>
 /// Tiny draggable play-testing readout: current FPS on top, active graphics preset
@@ -24,6 +25,10 @@ public class DevHudWindow : MonoBehaviour
     private DraggableWindow _dragger;
     private float _smoothedFps = 60f;
 
+    private bool _subscribed;
+    private const string PrefKeyX = "DevHudWindow_X";
+    private const string PrefKeyY = "DevHudWindow_Y";
+
     private void OnEnable()
     {
         _doc = GetComponent<UIDocument>();
@@ -35,6 +40,15 @@ public class DevHudWindow : MonoBehaviour
         root.pickingMode = PickingMode.Ignore;
         root.Clear();
         BuildUI(root);
+        RestoreWindowPos();   // put the window back where it was at the last save
+        TrySubscribeSave();
+    }
+
+    private void OnDisable()
+    {
+        if (_subscribed && SaveManager.Instance != null)
+            SaveManager.Instance.OnSaveCompleted -= OnGameSaved;
+        _subscribed = false;
     }
 
     private void BuildUI(VisualElement root)
@@ -133,6 +147,8 @@ public class DevHudWindow : MonoBehaviour
 
     private void Update()
     {
+        TrySubscribeSave();   // SaveManager may initialise after us
+
         // Smoothed FPS (unscaled so pause/fast-forward don't skew it).
         float dt = Time.unscaledDeltaTime;
         if (dt > 0f)
@@ -188,6 +204,35 @@ public class DevHudWindow : MonoBehaviour
             _                                    => GraphicsPresetManager.Preset.Toaster,
         };
         mgr.ApplyPreset(next);
+    }
+
+    // ── Position persistence (saved with the game, restored on load) ──────
+    private void TrySubscribeSave()
+    {
+        if (_subscribed || SaveManager.Instance == null) return;
+        SaveManager.Instance.OnSaveCompleted += OnGameSaved;
+        _subscribed = true;
+    }
+
+    private void OnGameSaved(int _) => SaveWindowPos();
+
+    private void SaveWindowPos()
+    {
+        if (_panel == null) return;
+        var rs = _panel.resolvedStyle;
+        PlayerPrefs.SetFloat(PrefKeyX, rs.left);
+        PlayerPrefs.SetFloat(PrefKeyY, rs.top);
+        PlayerPrefs.Save();
+    }
+
+    private void RestoreWindowPos()
+    {
+        if (_panel == null || !PlayerPrefs.HasKey(PrefKeyX)) return;
+        _panel.style.position = Position.Absolute;
+        _panel.style.left   = PlayerPrefs.GetFloat(PrefKeyX);
+        _panel.style.top    = PlayerPrefs.GetFloat(PrefKeyY);
+        _panel.style.right  = StyleKeyword.Auto;
+        _panel.style.bottom = StyleKeyword.Auto;
     }
 
     private static void SetRadius(VisualElement e, float r)

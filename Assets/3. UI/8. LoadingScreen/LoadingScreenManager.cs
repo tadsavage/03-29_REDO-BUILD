@@ -15,15 +15,27 @@ public class LoadingScreenManager : MonoBehaviour
 
     // ── Palette — matches MainMenu.uss ────────────────────────────────
     private static readonly Color BG_COLOR     = FromHex("1E262E");   // deep navy
-    private static readonly Color BORDER_COLOR = FromHex("5C9BC4");   // light blue border
-    private static readonly Color FILL_COLOR   = FromHex("B5743A");   // orange fill
-    private static readonly Color TRIM_COLOR   = FromHex("7A4C22");   // dark orange (bottom trim)
+    // Unfilled track: transparent dark, matching the recessed slots in our other UIs (rgba(20,32,46,0.6)).
+    private static readonly Color TRACK_COLOR  = new Color(20f / 255f, 32f / 255f, 46f / 255f, 0.6f);
+    private static readonly Color FILL_COLOR   = FromHex("5C9BC4");   // light-blue fill = the progress
+    private static readonly Color TRIM_COLOR   = FromHex("7A4C22");   // dark/brown bottom trim
     private static readonly Color TEXT_COLOR   = FromHex("EAF4FF");   // near-white title
 
     private const float BAR_W  = 680f;
     private const float BAR_H  = 36f;
-    private const float FORK_W = 114f;
-    private const float FORK_H = 75f;
+    private const float FORK_W = 146f;   // ~28% larger than the old 114
+    private const float FORK_H = 96f;    // ~28% larger than the old 75 (aspect preserved)
+    private const float FORK_LEAD = 2f; // small gap between the fill's leading edge and the forklift's tail
+    private const float FORK_Y    = 0f;  // forklift bottom rests this far above the bar's bottom (0 = flush)
+
+    // Dust-puff effect kicked up behind the forklift while it drives.
+    private const int   PUFF_COUNT      = 6;
+    private const float PUFF_INTERVAL   = 0.10f;          // seconds between puffs while moving
+    private const float PUFF_LIFE       = 0.45f;          // seconds each puff lives
+    private const float PUFF_START_SIZE = 14f;
+    private const float PUFF_END_SIZE   = FORK_H * 0.5f;  // grows to ~half the forklift's size
+    private const float PUFF_MAX_ALPHA  = 0.55f;
+    private static readonly Color PUFF_COLOR = new Color(0.82f, 0.75f, 0.60f); // dusty tan
 
     private CanvasGroup   _group;
     private RectTransform _fillRect;
@@ -32,6 +44,15 @@ public class LoadingScreenManager : MonoBehaviour
     private float _targetProgress;
     private float _displayProgress;
     private bool  _completing;
+
+    // Dust-puff pool
+    private RectTransform[] _puffRt;
+    private Image[]         _puffImg;
+    private float[]         _puffAge;
+    private Vector2[]       _puffOrigin;
+    private Vector2[]       _puffVel;
+    private float           _emitTimer;
+    private float           _prevForkX = float.NaN;
 
     // ── Bootstrap: auto-spawn when Main scene loads ───────────────────
 
@@ -82,10 +103,14 @@ public class LoadingScreenManager : MonoBehaviour
 
     private void Update()
     {
-        if (_completing) return;
-        _displayProgress = Mathf.MoveTowards(
-            _displayProgress, _targetProgress, Time.unscaledDeltaTime * 0.55f);
-        DriveBar(_displayProgress);
+        float dt = Time.unscaledDeltaTime;
+        if (!_completing)
+        {
+            _displayProgress = Mathf.MoveTowards(
+                _displayProgress, _targetProgress, dt * 0.55f);
+            DriveBar(_displayProgress);
+        }
+        TickPuffs(dt);   // animate the dust every frame, including the final sprint
     }
 
     // ── Complete routine ──────────────────────────────────────────────
@@ -127,11 +152,118 @@ public class LoadingScreenManager : MonoBehaviour
 
         if (_forkRect != null)
         {
-            // Leading edge: forklift center sits just past the fill's right edge.
-            // 4 px is the inset from the border to the fill start.
-            float edgeX = 4f + w;
-            _forkRect.anchoredPosition = new Vector2(edgeX - FORK_W * 0.5f, 28f);
+            // The forklift drives just AHEAD of the fill on the empty track, and the blue follows
+            // right behind its rear wheels (FORK_LEAD = the small gap between the fill edge and the
+            // forklift's tail). 4 px is the inset from the border to the fill start.
+            float fillEdgeX   = 4f + w;
+            float forkCenterX = fillEdgeX + FORK_LEAD + FORK_W * 0.5f;
+            // Keep it on the track — at 100% the forklift settles at the right end and the fill
+            // catches up to it rather than the forklift overrunning the bar.
+            forkCenterX = Mathf.Clamp(forkCenterX, FORK_W * 0.5f, (4f + BAR_W) - FORK_W * 0.5f);
+            _forkRect.anchoredPosition = new Vector2(forkCenterX, FORK_Y);
         }
+    }
+
+    // ── Dust puffs ────────────────────────────────────────────────────
+
+    private void BuildPuffPool(RectTransform barRt)
+    {
+        _puffRt     = new RectTransform[PUFF_COUNT];
+        _puffImg    = new Image[PUFF_COUNT];
+        _puffAge    = new float[PUFF_COUNT];
+        _puffOrigin = new Vector2[PUFF_COUNT];
+        _puffVel    = new Vector2[PUFF_COUNT];
+
+        var sprite = SoftCircleSprite();
+        for (int i = 0; i < PUFF_COUNT; i++)
+        {
+            var go  = new GameObject("Puff" + i);
+            go.transform.SetParent(barRt, false);
+            var img = go.AddComponent<Image>();
+            img.sprite        = sprite;
+            img.color         = PUFF_COLOR;
+            img.raycastTarget = false;
+
+            var rt = img.rectTransform;
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0f, 0f);
+            rt.pivot     = new Vector2(0.5f, 0f);   // sit on the ground, grow upward
+            rt.sizeDelta = new Vector2(PUFF_START_SIZE, PUFF_START_SIZE);
+
+            _puffRt[i]  = rt;
+            _puffImg[i] = img;
+            _puffAge[i] = PUFF_LIFE;                 // start retired
+            go.SetActive(false);
+        }
+    }
+
+    private void TickPuffs(float dt)
+    {
+        if (_puffRt == null || _forkRect == null) return;
+
+        float forkX = _forkRect.anchoredPosition.x;
+        bool moving = !float.IsNaN(_prevForkX) && Mathf.Abs(forkX - _prevForkX) > 0.05f;
+        _prevForkX = forkX;
+
+        if (moving)
+        {
+            _emitTimer -= dt;
+            if (_emitTimer <= 0f)
+            {
+                _emitTimer = PUFF_INTERVAL;
+                EmitPuff(forkX - FORK_W * 0.42f);    // at the forklift's rear wheels
+            }
+        }
+
+        for (int i = 0; i < _puffRt.Length; i++)
+        {
+            if (_puffAge[i] >= PUFF_LIFE) continue;   // retired
+            _puffAge[i] += dt;
+            if (_puffAge[i] >= PUFF_LIFE) { _puffRt[i].gameObject.SetActive(false); continue; }
+
+            float k    = _puffAge[i] / PUFF_LIFE;
+            float size = Mathf.Lerp(PUFF_START_SIZE, PUFF_END_SIZE, k);
+            _puffRt[i].sizeDelta        = new Vector2(size, size);
+            _puffRt[i].anchoredPosition = _puffOrigin[i] + _puffVel[i] * _puffAge[i];
+
+            // Quick fade-in, then ease out.
+            float a = (k < 0.2f ? k / 0.2f : 1f - (k - 0.2f) / 0.8f) * PUFF_MAX_ALPHA;
+            var c = PUFF_COLOR; c.a = Mathf.Clamp01(a);
+            _puffImg[i].color = c;
+        }
+    }
+
+    private void EmitPuff(float rearX)
+    {
+        for (int i = 0; i < _puffRt.Length; i++)
+        {
+            if (_puffAge[i] < PUFF_LIFE) continue;    // still alive
+            _puffAge[i] = 0f;
+            _puffRt[i].gameObject.SetActive(true);
+            _puffOrigin[i] = new Vector2(rearX + Random.Range(-6f, 6f), Random.Range(3f, 11f));
+            _puffVel[i]    = new Vector2(Random.Range(-42f, -16f), Random.Range(16f, 40f)); // drift back + rise
+            return;
+        }
+    }
+
+    private static Sprite _puffSprite;
+    private static Sprite SoftCircleSprite()
+    {
+        if (_puffSprite != null) return _puffSprite;
+        const int S = 64;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+        float r = S * 0.5f;
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float dx = x - r + 0.5f, dy = y - r + 0.5f;
+                float d = Mathf.Sqrt(dx * dx + dy * dy) / r;     // 0 centre → 1 edge
+                float a = Mathf.Clamp01(1f - d);
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a * a)); // soft radial falloff
+            }
+        tex.Apply();
+        _puffSprite = Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f));
+        return _puffSprite;
     }
 
     // ── Canvas builder ────────────────────────────────────────────────
@@ -182,7 +314,7 @@ public class LoadingScreenManager : MonoBehaviour
         var barGo = new GameObject("BarTrack");
         barGo.transform.SetParent(bg, false);
         var barImg = barGo.AddComponent<Image>();
-        barImg.color = BORDER_COLOR;
+        barImg.color = TRACK_COLOR;
         var barRt = barImg.rectTransform;
         barRt.anchorMin        = new Vector2(0.5f, 0.5f);
         barRt.anchorMax        = new Vector2(0.5f, 0.5f);
@@ -226,6 +358,9 @@ public class LoadingScreenManager : MonoBehaviour
         _fillRect.anchoredPosition = Vector2.zero;
         _fillRect.sizeDelta        = new Vector2(0f, 0f);
 
+        // ── Dust puffs (added before the forklift so they render behind it) ─
+        BuildPuffPool(barRt);
+
         // ── Forklift icon — sits on bar edge, outside the fill mask ─
         // Parented to barRt so it can float above the track.
         var forkGo = new GameObject("Forklift");
@@ -235,9 +370,10 @@ public class LoadingScreenManager : MonoBehaviour
         forkImg.preserveAspect = true;
         if (forkImg.sprite == null) forkImg.color = new Color(1, 1, 1, 0);  // hide if missing
         _forkRect = forkImg.rectTransform;
-        _forkRect.anchorMin = new Vector2(0f, 0.5f);
-        _forkRect.anchorMax = new Vector2(0f, 0.5f);
-        _forkRect.pivot     = new Vector2(0.5f, 0.5f);
+        // Bottom-anchored so the forklift "sits" on the bottom of the bar (Y axis).
+        _forkRect.anchorMin = new Vector2(0f, 0f);
+        _forkRect.anchorMax = new Vector2(0f, 0f);
+        _forkRect.pivot     = new Vector2(0.5f, 0f);
         _forkRect.sizeDelta = new Vector2(FORK_W, FORK_H);
         forkGo.transform.localScale = new Vector3(-1f, 1f, 1f);  // face right (toward unfilled bar)
 
