@@ -1,0 +1,560 @@
+/* ═══════════════════════════════════════════════════════
+   TOOLS WINDOW  —  Dev Console & Dev Settings
+   Toggle: backtick (`) for Dev tab
+   Blue-gray theme — 25% larger than original
+   ═══════════════════════════════════════════════════════ */
+
+/* ── FONT ALIAS ──────────────────────────────────────── */
+.tools-window Label,
+.tools-window Button {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+}
+
+/* ── OVERLAY ROOT ────────────────────────────────────── */
+.tools-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    picking-mode: ignore;
+}
+
+/* ── WINDOW PANEL ────────────────────────────────────── */
+.tools-window {
+    position: absolute;
+    top: 50px;
+    left: 12px;
+    width: 525px;
+    background-color: rgba(18, 26, 36, 0.97);
+    border-width: 2px;
+    border-color: #5C9BC4;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+/* ── TITLE BAR ───────────────────────────────────────── */
+.tools-titlebar {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(12, 18, 26, 1);
+    padding-top: 10px;
+    padding-bottom: 10px;
+    padding-left: 18px;
+    padding-right: 12px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(92, 155, 196, 0.35);
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    cursor: move;
+}
+
+.tools-title {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 20px;
+    color: #CFE2F0;
+}
+
+.tools-close {
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    border-width: 1px;
+    border-color: rgba(230, 80, 80, 0.5);
+    background-color: rgba(200, 60, 60, 0.15);
+    color: #FF9090;
+    font-size: 20px;
+    -unity-text-align: middle-center;
+    padding: 0;
+}
+.tools-close:hover  { background-color: rgba(220, 60, 60, 0.42); color: #FFFFFF; }
+.tools-close:active { background-color: rgba(160, 30, 30, 0.65); translate: 0 1px; }
+
+/* ── TAB STRIP ───────────────────────────────────────── */
+.tools-tabstrip {
+    flex-direction: row;
+    background-color: rgba(0, 0, 0, 0.18);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(92, 155, 196, 0.2);
+}
+
+.tools-tab {
+    flex: 1;
+    height: 54px;
+    border-width: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: transparent;
+    border-radius: 0;
+    background-color: transparent;
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 18px;
+    -unity-text-align: middle-center;
+    padding: 0;
+    transition: color 0.1s, background-color 0.1s;
+}
+
+.tools-tab--active {
+    color: #5C9BC4;
+    border-bottom-color: #5C9BC4;
+    background-color: rgba(92, 155, 196, 0.1);
+}
+
+.tools-tab--inactive {
+    color: rgba(185, 210, 230, 0.38);
+}
+.tools-tab--inactive:hover {
+    color: rgba(185, 210, 230, 0.7);
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* ── SCROLL AREA ─────────────────────────────────────── */
+.tools-scroll {
+    max-height: 700px;
+}
+
+.tools-scroll > .unity-scroll-view__content-and-vertical-scroll-container > .unity-scroller--vertical {
+    width: 15px;
+    background-color: rgba(0, 0, 0, 0.55);
+    border-radius: 8px;
+    margin: 4px 3px;
+}
+.tools-scroll .unity-base-slider__dragger {
+    background-color: rgba(20, 30, 42, 1);
+    border-radius: 8px;
+    border-width: 0;
+    min-height: 30px;
+}
+.tools-scroll .unity-scroller__low-button,
+.tools-scroll .unity-scroller__high-button {
+    display: none;
+    height: 0;
+    width: 0;
+}
+
+/* ── TAB CONTENT WRAPPER ─────────────────────────────── */
+.tab-content {
+    padding-top: 4px;
+    padding-bottom: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   PALLET BUILDER
+   ═══════════════════════════════════════════════════════ */
+
+.plt-section {
+    margin: 8px 10px 0 10px;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-radius: 10px;
+    border-left-width: 3px;
+    border-left-color: #E8A850;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    padding: 12px 15px 15px 15px;
+}
+
+.plt-s-heading {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 14px;
+    color: rgba(232, 168, 80, 0.55);
+    margin-bottom: 11px;
+}
+
+.plt-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.plt-label {
+    flex: 1;
+    font-size: 20px;
+    color: #CFE2F0;
+}
+
+.plt-field {
+    flex: 1.2;
+    height: 48px;
+    min-width: 0;
+}
+.plt-field .unity-base-text-field__input {
+    background-color: rgba(20, 32, 46, 0.6);
+    border-width: 1px;
+    border-color: rgba(92, 155, 196, 0.35);
+    color: #DCF0FF;
+    border-radius: 6px;
+    font-size: 20px;
+    padding-left: 12px;
+    -unity-text-align: middle-left;
+}
+.plt-field:focus .unity-base-text-field__input,
+.plt-field .unity-text-field--focused .unity-base-text-field__input {
+    border-color: #5C9BC4;
+    background-color: rgba(20, 32, 46, 0.8);
+}
+
+.plt-toggle {
+    height: 34px;
+    width: 61px;
+}
+
+/* Dropdown */
+.plt-dropdown {
+    margin-top: 5px;
+    height: 51px;
+}
+.plt-dropdown .unity-base-field__label {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 20px;
+    color: #CFE2F0;
+    min-width: 120px;
+    flex-grow: 0;
+}
+.plt-dropdown .unity-base-popup-field__input {
+    flex: 1;
+    background-color: rgba(20, 32, 46, 0.6);
+    border-width: 1px;
+    border-color: rgba(92, 155, 196, 0.35);
+    color: #DCF0FF;
+    font-size: 20px;
+    height: 100%;
+    border-radius: 6px;
+    padding-left: 12px;
+}
+.plt-dropdown .unity-base-popup-field__input:hover {
+    border-color: rgba(92, 155, 196, 0.65);
+}
+.plt-dropdown .unity-base-popup-field__arrow {
+    -unity-background-image-tint-color: #7ECCE8;
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+}
+
+/* Dropdown popup list */
+.unity-base-dropdown__container-inner {
+    background-color: rgba(18, 26, 36, 0.97);
+    border-width: 2px;
+    border-color: #5C9BC4;
+    border-radius: 8px;
+}
+.unity-base-dropdown__item {
+    background-color: transparent;
+    color: #CFE2F0;
+    font-size: 20px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    padding-left: 15px;
+}
+.unity-base-dropdown__item:hover {
+    background-color: rgba(92, 155, 196, 0.18);
+    color: #7ECCE8;
+}
+.unity-base-dropdown__label { color: #CFE2F0; }
+
+/* BUILD button */
+.plt-build-btn {
+    margin: 12px 10px 0 10px;
+    height: 64px;
+    background-color: #4C90C0;
+    border-width: 0;
+    border-bottom-width: 3px;
+    border-bottom-color: #2C5E82;
+    border-radius: 10px;
+    color: #FFFFFF;
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 20px;
+    -unity-text-align: middle-center;
+    transition: background-color 0.1s;
+}
+.plt-build-btn:hover  { background-color: #5BA6D8; }
+.plt-build-btn:active { background-color: #3A7AAA; border-bottom-width: 1px; translate: 0 1px; }
+
+/* ═══════════════════════════════════════════════════════
+   DEV CONSOLE
+   ═══════════════════════════════════════════════════════ */
+
+.dev-section {
+    margin: 8px 10px 0 10px;
+    border-radius: 10px;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-left-width: 3px;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    padding: 12px 15px 15px 15px;
+}
+
+/* Economy = orange accent; Time = blue; World = light blue; FSM = rose hint; Trucks = green */
+.dev-s-gold  { border-left-color: #E8A850; }
+.dev-s-amber { border-left-color: #5C9BC4; }
+.dev-s-teal  { border-left-color: #7ECCE8; }
+.dev-s-rose  { border-left-color: #E86080; }
+.dev-s-green { border-left-color: #50D890; }
+
+.dev-s-heading {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 35px;
+    -unity-text-align: middle-center;
+    margin-bottom: 12px;
+}
+.dev-s-gold  > .dev-s-heading { color: rgba(232, 168,  80, 0.6); }
+.dev-s-amber > .dev-s-heading { color: rgba( 92, 155, 196, 0.6); }
+.dev-s-teal  > .dev-s-heading { color: rgba(126, 204, 232, 0.6); }
+.dev-s-rose  > .dev-s-heading { color: rgba(232,  96, 128, 0.6); }
+.dev-s-green > .dev-s-heading { color: rgba( 80, 216, 144, 0.6); }
+
+/* Stat pills */
+.dev-pills {
+    flex-direction: row;
+    margin-bottom: 12px;
+}
+.dev-pill {
+    flex: 1;
+    background-color: rgba(0, 0, 0, 0.28);
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.07);
+    padding: 9px 12px;
+    margin-right: 6px;
+    min-width: 0;
+}
+.dev-pill-wide { flex: 1.6; }
+
+.dev-pill-key {
+    font-size: 18px;
+    -unity-text-align: middle-center;
+    color: rgba(185, 210, 230, 0.45);
+    margin-bottom: 4px;
+}
+.dev-pill-val {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 24px;
+    color: #CFE2F0;
+    overflow: hidden;
+    white-space: nowrap;
+    -unity-text-overflow: ellipsis;
+}
+
+/* Action buttons */
+.dev-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+.dev-btn {
+    height: 44px;
+    border-radius: 8px;
+    border-width: 0;
+    border-bottom-width: 2px;
+    margin-right: 6px;
+    margin-bottom: 0;
+    padding-left: 16px;
+    padding-right: 16px;
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 18px;
+    -unity-text-align: middle-center;
+    color: rgba(10, 8, 25, 0.92);
+}
+
+/* Economy = orange; Time + World = blue; Danger = red; Trucks = green */
+.dev-btn-gold   { background-color: #E8A850; border-bottom-color: #A06010; }
+.dev-btn-amber  { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }
+.dev-btn-teal   { background-color: #5C9BC4; border-bottom-color: #3A6E94; color: #FFFFFF; }
+.dev-btn-danger { background-color: #E05252; border-bottom-color: #981010; color: #FFFFFF; }
+.dev-btn-green  { background-color: #3DAA6A; border-bottom-color: #1E6E40; color: #FFFFFF; }
+
+.dev-btn-gold:hover   { background-color: #F0B860; }
+.dev-btn-amber:hover  { background-color: #5BA6D8; }
+.dev-btn-teal:hover   { background-color: #6AAED8; }
+.dev-btn-danger:hover { background-color: #EE6868; }
+.dev-btn-green:hover  { background-color: #50C880; }
+
+.dev-btn-gold:active   { background-color: #C08030; border-bottom-width: 1px; translate: 0 1px; }
+.dev-btn-amber:active  { background-color: #3A7AAA; border-bottom-width: 1px; translate: 0 1px; }
+.dev-btn-teal:active   { background-color: #3A7AAA; border-bottom-width: 1px; translate: 0 1px; }
+.dev-btn-danger:active { background-color: #B03030; border-bottom-width: 1px; translate: 0 1px; }
+.dev-btn-green:active  { background-color: #2A8048; border-bottom-width: 1px; translate: 0 1px; }
+
+/* ═══════════════════════════════════════════════════════
+   DEV SETTINGS TAB
+   ═══════════════════════════════════════════════════════ */
+
+.ds-group {
+    margin: 8px 10px 0 10px;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-radius: 10px;
+    border-left-width: 3px;
+    border-left-color: #5C9BC4;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(92, 155, 196, 0.22);
+    padding: 12px 15px 15px 15px;
+    transition: opacity 0.2s;
+}
+
+.ds-group--inactive {
+    opacity: 0.32;
+}
+
+.ds-group-title {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 20px;
+    color: rgba(220, 240, 255, 0.9);
+    margin-bottom: 11px;
+    -unity-text-align: middle-center;
+}
+
+.ds-hint {
+    font-size: 14px;
+    color: rgba(185, 210, 230, 0.35);
+    -unity-text-align: middle-center;
+    margin-bottom: 5px;
+}
+
+.ds-global-section {
+    margin: 8px 10px 0 10px;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-radius: 10px;
+    border-left-width: 3px;
+    border-left-color: #E8A850;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(92, 155, 196, 0.22);
+    padding: 12px 15px;
+}
+
+.ds-global-title {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 20px;
+    color: rgba(220, 240, 255, 0.9);
+    margin-bottom: 11px;
+    -unity-text-align: middle-center;
+}
+
+.ds-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.ds-label {
+    flex: 1;
+    font-size: 18px;
+    color: #CFE2F0;
+    margin-right: 10px;
+}
+
+.ds-control {
+    flex: 1.4;
+    min-width: 0;
+}
+
+/* ── Custom slider ────────────────────────────────────── */
+
+.ds-slider-row {
+    flex-direction: column;
+    flex: 1.4;
+    min-width: 0;
+}
+
+.ds-slider-value {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 15px;
+    color: #7ECCE8;
+    -unity-text-align: middle-right;
+    margin-bottom: 4px;
+}
+
+.ds-slider-wrap {
+    position: relative;
+    height: 43px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.ds-track-bg {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: rgba(92, 155, 196, 0.1);
+    border-width: 1px;
+    border-color: rgba(92, 155, 196, 0.2);
+    top: 50%;
+    translate: 0 -5px;
+}
+
+.ds-track-fill {
+    position: absolute;
+    left: 14px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: #5C9BC4;
+    top: 50%;
+    translate: 0 -5px;
+    min-width: 0;
+}
+
+.ds-thumb {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    background-color: #5C9BC4;
+    border-width: 3px;
+    border-color: rgba(12, 18, 26, 1);
+    top: 50%;
+    translate: -14px -14px;
+}
+.ds-thumb:hover {
+    background-color: #7ECCE8;
+    width: 30px;
+    height: 30px;
+    border-radius: 15px;
+    translate: -15px -15px;
+}
+
+.ds-slider-overlay {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+.ds-slider-overlay .unity-base-slider__tracker {
+    background-color: transparent;
+    border-width: 0;
+}
+.ds-slider-overlay .unity-base-slider__dragger {
+    background-color: transparent;
+    border-width: 0;
+    width: 28px;
+    height: 43px;
+    top: 0;
+    border-radius: 0;
+}
+.ds-slider-overlay:focus { border-width: 0; }
+
+.ds-toggle {
+    height: 34px;
+    width: 61px;
+}
+
+.ds-field {
+    flex: 1.4;
+    height: 48px;
+}
+.ds-field .unity-base-text-field__input {
+    background-color: rgba(20, 32, 46, 0.6);
+    border-width: 1px;
+    border-color: rgba(92, 155, 196, 0.35);
+    color: #DCF0FF;
+    border-radius: 6px;
+    font-size: 18px;
+    padding-left: 12px;
+    -unity-text-align: middle-left;
+}
+.ds-field:focus .unity-base-text-field__input {
+    border-color: #5C9BC4;
+}

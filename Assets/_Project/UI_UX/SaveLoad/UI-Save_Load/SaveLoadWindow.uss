@@ -1,0 +1,106 @@
+/* Save/Load window — blue/gray palette to match main menu aesthetic */
+
+.overlay {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background-color: rgba(10, 15, 22, 0.65);
+    align-items: center; justify-content: center;
+}
+
+.modal-panel {
+    width: 880px; height: 620px;
+    background-color: rgba(22, 30, 40, 0.97);
+    border-width: 3px; border-color: #5C9BC4; border-radius: 14px;
+    translate: 0 -3%; flex-shrink: 0; overflow: hidden;
+}
+
+.title-bar {
+    flex-direction: row; justify-content: space-between; align-items: center;
+    padding: 16px 20px 10px 20px;
+    border-bottom-width: 1px; border-bottom-color: rgba(92,155,196,0.35);
+    flex-shrink: 0;
+}
+.title-label {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 26px; letter-spacing: -4px; color: #CFE2F0;
+    -unity-text-align: middle-left;
+}
+.close-button {
+    width: 36px; height: 36px; font-size: 20px; color: #8AAABB;
+    background-color: rgba(255,255,255,0.05);
+    border-width: 1px; border-color: rgba(255,255,255,0.1); border-radius: 6px;
+    -unity-text-align: middle-center;
+}
+.close-button:hover {
+    color: #FFFFFF; background-color: rgba(76,144,192,0.28); border-color: #5C9BC4;
+}
+
+.tab-bar {
+    flex-direction: row; padding: 10px 20px 4px 20px;
+    border-bottom-width: 1px; border-bottom-color: rgba(255,255,255,0.08);
+    flex-shrink: 0;
+}
+.tab-button {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 16px; letter-spacing: -4px; padding: 7px 26px; margin-right: 10px;
+    border-radius: 6px 6px 0 0; border-width: 1px; border-bottom-width: 0;
+}
+.tab-active {
+    color: #FFFFFF; background-color: rgba(76,144,192,0.28); border-color: #5C9BC4;
+}
+.tab-inactive {
+    color: #7A99B0; background-color: rgba(255,255,255,0.03);
+    border-color: rgba(255,255,255,0.08);
+}
+.tab-inactive:hover { color: #B8D4E8; background-color: rgba(76,144,192,0.10); }
+
+.slot-scroll-view { flex-grow: 1; padding: 10px 16px; }
+.slot-container { flex-direction: column; }
+
+.confirm-overlay {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.65); align-items: center; justify-content: center;
+}
+.confirm-panel {
+    width: 440px; padding: 28px; background-color: rgba(20, 30, 42, 0.99);
+    border-width: 3px; border-color: #5C9BC4; border-radius: 12px; align-items: center;
+}
+
+.confirm-name-field {
+    width: 100%;
+    margin-bottom: 18px;
+}
+.confirm-name-field .unity-base-text-field__input {
+    background-color: rgba(40, 60, 80, 0.55);
+    border-width: 2px;
+    border-color: rgba(92, 155, 196, 0.5);
+    border-radius: 6px;
+    color: #DCF0FF;
+    font-size: 17px;
+    padding-left: 10px;
+    -unity-text-align: middle-left;
+}
+.confirm-name-field:focus .unity-base-text-field__input {
+    border-color: #5C9BC4;
+}
+.confirm-label {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 20px; letter-spacing: -4px; color: #CFE2F0; margin-bottom: 22px;
+    -unity-text-align: middle-center;
+}
+.confirm-buttons { flex-direction: row; }
+.confirm-button {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 15px; letter-spacing: -4px; padding: 10px 32px; margin: 0 8px;
+    border-radius: 5px; border-width: 1px; border-bottom-width: 3px;
+}
+.confirm-yes {
+    color: #FFFFFF; background-color: rgba(76,144,192,0.55);
+    border-color: #4C90C0; border-bottom-color: #2C5E82;
+}
+.confirm-yes:hover { background-color: rgba(76,144,192,0.82); }
+.confirm-yes:active { translate: 0 2px; border-bottom-width: 1px; }
+.confirm-no {
+    color: #AABFCC; background-color: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.14); border-bottom-color: rgba(255,255,255,0.06);
+}
+.confirm-no:hover { color: #FFFFFF; background-color: rgba(255,255,255,0.14); }

@@ -1,0 +1,45 @@
+/* ── FLOATING OBJECT HOVER POPUP ─────────────────────────
+   Follows the cursor. Compact blue-gray theme matching Toast.
+   ───────────────────────────────────────────────────────── */
+
+.world-hover-popup {
+    position: absolute;
+    background-color: rgba(18, 26, 36, 0.95);
+    border-width: 3px;
+    border-color: #5C9BC4;
+    border-radius: 6px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 10px;
+    padding-right: 10px;
+    min-width: 100px;
+    display: none;
+    flex-direction: column;
+    picking-mode: ignore;
+    top: 0;
+    left: 0;
+}
+
+.world-hover-popup.show {
+    display: flex;
+}
+
+.world-hover-title {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 13px;
+    color: #CFE2F0;
+    margin-bottom: 3px;
+}
+
+.world-hover-cost {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 11px;
+    color: rgba(156, 191, 218, 0.85);
+    margin-bottom: 2px;
+}
+
+.world-hover-hourlyCost {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 10px;
+    color: rgba(156, 191, 218, 0.55);
+}

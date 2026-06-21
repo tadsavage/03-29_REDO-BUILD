@@ -1,0 +1,195 @@
+/*
+2026-06-11 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+/*
+2026-05-25 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+/* Retheme 2026-06-14: backgrounds/borders matched to the Employee Roster / Hiring
+   Board palette — back panel rgba(20,28,38,0.82) + blue #5C9BC4 accents, card faces
+   rgba(34,44,56,0.55) + subtle white borders, blue hovers. Layout/fonts unchanged.
+   MENU (ESC) text is the hiring-board orange since it's the only interactive button. */
+.topbar-root {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 56px;
+    background-color: rgba(20, 28, 38, 0.82);
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(92, 155, 196, 0.6);
+    padding-left: 20px;
+    padding-right: 20px;
+    width: 100%;
+}
+
+.topbar-box {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    height: 42px;
+    padding-left: 16px;
+    padding-right: 16px;
+    margin-left: 8px;
+    margin-right: 8px;
+    background-color: rgba(34, 44, 56, 0.55);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.topbar-money,
+.topbar-hourly,
+.topbar-spent,
+.topbar-time,
+.topbar-fps,
+.topbar-cell {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 17px;
+    -unity-font-style: normal;
+    -unity-text-align: middle-center;
+}
+
+.topbar-fps,
+.topbar-cell {
+    color: rgb(150, 190, 220);
+}
+
+.topbar-money {
+    color: rgb(160, 255, 200);
+}
+
+.topbar-hourly {
+    color: rgb(150, 190, 220);
+}
+
+.topbar-spent,
+.topbar-time {
+    color: rgb(150, 190, 220);
+}
+
+.topbar-box:hover {
+    background-color: rgba(46, 60, 76, 0.65);
+    border-color: rgba(92, 155, 196, 0.35);
+    transition-duration: 0.25s;
+}
+
+/* Game-speed control (time advancer) — sits in the box next to MENU. */
+.topbar-speed {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.topbar-speed-btn {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 18px;
+    color: rgb(150, 190, 220);
+    background-color: transparent;
+    border-width: 0;
+    height: 34px;
+    min-width: 28px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-left: 2px;
+    margin-right: 2px;
+    -unity-text-align: middle-center;
+}
+
+.topbar-speed-btn:hover {
+    color: rgb(205, 228, 246);
+    background-color: rgba(92, 155, 196, 0.18);
+    border-radius: 4px;
+}
+
+.topbar-speed-btn--active {
+    color: rgb(255, 255, 255);
+    background-color: rgba(92, 155, 196, 0.38);
+    border-radius: 4px;
+}
+
+.topbar-cell-box {
+    min-width: 120px;
+    flex-grow: 0.5;
+}
+
+.topbar-button-container {
+    flex-direction: row;
+    justify-content: center;
+    min-width: 90px;
+    flex-grow: 0.5;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+.topbar-icon-button {
+    background-color: transparent;
+    border-width: 0;
+    height: 28px;
+    padding-left: 6px;
+    padding-right: 6px;
+    margin: 0 4px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+}
+
+.topbar-button-label {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 14px;
+    color: rgb(240, 230, 211);
+    margin-left: 6px;
+    -unity-text-align: middle-left;
+}
+
+.topbar-icon-button:hover {
+    background-color: rgba(92, 155, 196, 0.20);
+    border-radius: 4px;
+}
+
+.topbar-icon {
+    width: 20px;
+    height: 20px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    -unity-background-image-tint-color: white;
+}
+
+.save-icon {
+    background-image: url("project://database/Assets/3.%20UI/3.%20BottomHud/BuildBarIcons/Save.png");
+}
+
+.load-icon {
+    background-image: url("project://database/Assets/3.%20UI/3.%20BottomHud/BuildBarIcons/Load.png");
+}
+
+.topbar-mainmenu-btn {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 17px;
+    color: rgb(240, 126, 45);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(34, 44, 56, 0.55);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.topbar-mainmenu-btn:hover {
+    background-color: rgba(240, 126, 45, 0.18);
+    border-color: rgba(240, 126, 45, 0.6);
+}
+
+.topbar-mainmenu-btn:active {
+    background-color: rgba(240, 126, 45, 0.3);
+    border-color: rgb(240, 126, 45);
+}
+
+/* Shared LilitaOne font class for programmatic UI (FinancialBreakdownPanel, etc.) */
+.fin-lilita {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+}

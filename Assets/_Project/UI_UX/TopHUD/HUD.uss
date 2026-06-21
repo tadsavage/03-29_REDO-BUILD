@@ -1,0 +1,148 @@
+/* Container holding both utility action buttons */
+.topbar-button-container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    padding-left: 8px;
+    padding-right: 8px;
+    min-width: 210px;
+}
+
+/* ── HUD ROOT — fills the full panel so absolute-positioned overlays work ── */
+.hud-root {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+}
+
+/* ── MENU POPUP ──────────────────────────────────────────────── */
+.menu-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+
+.menu-panel {
+    width: 380px;
+    background-color: rgba(30, 38, 46, 0.97);
+    border-width: 2px;
+    border-color: #CFE2F0;
+    border-radius: 16px;
+    padding: 28px 26px 20px 26px;
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.menu-panel-title {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: #CFE2F0;
+    -unity-text-align: middle-center;
+    margin-bottom: 20px;
+    white-space: normal;
+}
+
+.menu-panel-btn {
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+    font-size: 22px;
+    height: 52px;
+    border-radius: 4px;
+    border-width: 0;
+    border-bottom-width: 3px;
+    margin-bottom: 10px;
+    -unity-text-align: middle-center;
+    -unity-text-letter-spacing: 1px;
+}
+.menu-panel-btn:active { translate: 0 2px; border-bottom-width: 1px; }
+
+.menu-panel-btn-save {
+    background-color: #4C90C0;
+    border-bottom-color: #2C5E82;
+    color: #FFFFFF;
+}
+.menu-panel-btn-save:hover { background-color: #5BA6D8; }
+
+.menu-panel-btn-resume {
+    background-color: #566573;
+    border-bottom-color: #333E47;
+    color: #ECEFF1;
+}
+.menu-panel-btn-resume:hover { background-color: #657686; }
+
+/* Base button properties with transitions for hover micro-interactions */
+.topbar-utility-btn {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    height: 80%;
+    margin-left: 4px;
+    margin-right: 4px;
+    padding-left: 6px;
+    padding-right: 8px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Button Hover State - Matches caramel color highlight details on build window */
+.topbar-utility-btn:hover {
+    background-color: rgba(212, 135, 77, 0.15);
+    border-color: rgba(212, 135, 77, 0.6);
+}
+
+/* Active Pressed Feedback State */
+.topbar-utility-btn:active {
+    background-color: rgba(212, 135, 77, 0.3);
+    border-color: rgb(212, 135, 77);
+}
+
+/* Standardized dimensions for low poly system icons */
+.topbar-utility-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+/* ── Preview cost label (follows cursor while dragging a build item) ─── */
+.preview-cost-label {
+    position: absolute;
+    top: 0; left: 0;
+    background-color: rgba(30, 34, 42, 0.92);
+    border-width: 2px;
+    border-color: #F2B705;
+    border-radius: 8px;
+    padding: 8px 20px;
+    -unity-font: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset");
+    font-size: 26px;
+    color: #F5F6F9;
+    picking-mode: ignore;
+    display: none;
+}
+
+/* ── IN-GAME SETTINGS PANEL (centered card, shown over game) ── */
+.in-game-settings-panel {
+    width: 500px;
+    background-color: rgba(30, 38, 46, 0.97);
+    border-width: 2px;
+    border-color: #CFE2F0;
+    border-radius: 16px;
+    padding: 24px 26px;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* Label element styling layout rules */
+.topbar-utility-lbl {
+    color: rgb(240, 230, 211);
+    font-size: 15px;
+    -unity-text-align: middle-left;
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&guid=d86e933e6ca983a45ad912f7d7fa9882&type=2#LilitaOne-Regular");
+}
