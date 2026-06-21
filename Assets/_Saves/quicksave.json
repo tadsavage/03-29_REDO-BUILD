@@ -4,6 +4,7 @@
     "spentToday": 3845,
     "cameraData": {
         "focusPoint": {
+<<<<<<< HEAD
             "x": -10.820808410644532,
             "y": 1.0,
             "z": 23.629018783569337
@@ -11,6 +12,15 @@
         "distance": 8.0,
         "pitch": 15.749998092651368,
         "yaw": 8291.970703125
+=======
+            "x": -4.228938102722168,
+            "y": 0.0,
+            "z": 16.40300750732422
+        },
+        "distance": 4.0,
+        "pitch": 20.849994659423829,
+        "yaw": 8615.720703125
+>>>>>>> parent of eb142747 (stuff)
     },
     "placedObjects": [
         {
@@ -14910,8 +14920,81 @@
             "val": "0.25"
         },
         {
+<<<<<<< HEAD
             "key": "AiNavigation.volumeAt30m",
             "val": "0.1"
+=======
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.5"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
+        },
+        {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
+        },
+        {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
+>>>>>>> parent of eb142747 (stuff)
         },
         {
             "key": "FreeLookCamera.moveSpeed",
@@ -14976,6 +15059,7 @@
         {
             "key": "FreeLookCamera.zMax",
             "val": "100"
+<<<<<<< HEAD
         },
         {
             "key": "AmbientMumble.volume",
@@ -15028,6 +15112,8 @@
         {
             "key": "Gate_Open_Close.arm_speed",
             "val": "80"
+=======
+>>>>>>> parent of eb142747 (stuff)
         }
     ],
     "toolsWindowX": 12.0,
@@ -15037,23 +15123,23 @@
     "hoverPopupEnabled": false,
     "employeeRecords": [
         {
-            "employeeGuid": "58cba75b-cf46-4439-9223-e2b8d3b410ef",
-            "employeeName": "Ashley Barton",
-            "employeeId": "WHSE 398",
+            "employeeGuid": "02bae6d7-6529-4356-95de-9e60a6fbc100",
+            "employeeName": "Virginia McMurray",
+            "employeeId": "WHSE 280",
             "employeeIdPrefix": "WHSE",
             "gender": 2,
             "role": 0,
-            "fatigue": 20.877487182617189,
-            "safety": 68.4979019165039,
-            "morale": 40.76011657714844,
-            "skill": 33.87830352783203,
-            "skillLevel": 2,
-            "avatarResourceKey": "Custom_58cba75b-cf46-4439-9223-e2b8d3b410ef",
+            "fatigue": 93.97587585449219,
+            "safety": 23.570878982543947,
+            "morale": 66.90338897705078,
+            "skill": 49.576133728027347,
+            "skillLevel": 3,
+            "avatarResourceKey": "Custom_02bae6d7-6529-4356-95de-9e60a6fbc100",
             "jobIconResourceKey": "",
             "status": 0,
-            "hourlyWage": 16.450000762939454,
+            "hourlyWage": 18.270000457763673,
             "totalWagesPaid": 0.0,
-            "hireDateIso": "2026-06-20",
+            "hireDateIso": "2026-06-19",
             "separationDateIso": "",
             "shift": 0,
             "scheduledDaysMask": 0,
@@ -15074,6 +15160,7 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
+<<<<<<< HEAD
             "posX": -15.665974617004395,
             "posY": 1.1185787916183472,
             "posZ": 43.83877944946289,
@@ -15230,6 +15317,32 @@
             "hourlyWage": 20.18000030517578,
             "totalWagesPaid": 0.0,
             "hireDateIso": "2026-06-20",
+=======
+            "posX": -11.326316833496094,
+            "posY": 1.1185787916183472,
+            "posZ": 44.18873977661133,
+            "rotY": 271.6123046875,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "7fe62e0f-a6bc-4f86-81c8-9dd860f1b8a3",
+            "employeeName": "Kathleen King",
+            "employeeId": "WHSE 416",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 0,
+            "fatigue": 34.02970504760742,
+            "safety": 43.016273498535159,
+            "morale": 55.823482513427737,
+            "skill": 22.972900390625,
+            "skillLevel": 2,
+            "avatarResourceKey": "Custom_7fe62e0f-a6bc-4f86-81c8-9dd860f1b8a3",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 17.56999969482422,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-19",
+>>>>>>> parent of eb142747 (stuff)
             "separationDateIso": "",
             "shift": 0,
             "scheduledDaysMask": 0,
@@ -15238,11 +15351,19 @@
             "injuryRecoveryDaysLeft": 0,
             "workSchedule": {
                 "shiftsPerDay": [
+<<<<<<< HEAD
                     1,
                     1,
                     1,
                     1,
                     1,
+=======
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+>>>>>>> parent of eb142747 (stuff)
                     3,
                     3
                 ],
@@ -15250,6 +15371,7 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
+<<<<<<< HEAD
             "posX": -15.095675468444825,
             "posY": 0.07500000298023224,
             "posZ": 24.716503143310548,
@@ -15274,6 +15396,32 @@
             "hourlyWage": 19.809999465942384,
             "totalWagesPaid": 0.0,
             "hireDateIso": "2026-06-20",
+=======
+            "posX": -16.700319290161134,
+            "posY": 0.3200417757034302,
+            "posZ": 25.21634864807129,
+            "rotY": 336.640380859375,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "bc8cbc4f-8470-4814-9479-5dca7fa3e3a6",
+            "employeeName": "Laura Gutierrez",
+            "employeeId": "WHSE 581",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 2,
+            "fatigue": 72.4652328491211,
+            "safety": 83.27603149414063,
+            "morale": 41.91608428955078,
+            "skill": 37.42638397216797,
+            "skillLevel": 2,
+            "avatarResourceKey": "Custom_bc8cbc4f-8470-4814-9479-5dca7fa3e3a6",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 17.670000076293947,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-19",
+>>>>>>> parent of eb142747 (stuff)
             "separationDateIso": "",
             "shift": 0,
             "scheduledDaysMask": 0,
@@ -15294,10 +15442,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
+<<<<<<< HEAD
             "posX": -16.68056297302246,
             "posY": 0.26421475410461428,
             "posZ": 25.1301212310791,
             "rotY": 9.063234329223633,
+=======
+            "posX": -14.636408805847168,
+            "posY": 0.07500000298023224,
+            "posZ": 24.24722671508789,
+            "rotY": 344.7656555175781,
+>>>>>>> parent of eb142747 (stuff)
             "hasSavedPosition": true
         }
     ],
@@ -18121,9 +18276,14 @@
     ],
     "gameVolume": 0.4020000100135803,
     "musicVolume": 0.02800000086426735,
-    "graphicsPreset": "Ultra",
+    "graphicsPreset": "Good",
     "difficulty": 0,
     "resolutionIndex": 1,
+<<<<<<< HEAD
     "screenWidth": 3840,
     "screenHeight": 2160
+=======
+    "screenWidth": 1920,
+    "screenHeight": 1080
+>>>>>>> parent of eb142747 (stuff)
 }

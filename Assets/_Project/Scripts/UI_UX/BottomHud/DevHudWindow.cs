@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
-using SaveLoadSystem;
 
 /// <summary>
 /// Tiny draggable play-testing readout: current FPS on top, active graphics preset
@@ -28,10 +27,6 @@ public class DevHudWindow : MonoBehaviour
     private DraggableWindow _dragger;
     private float _smoothedFps = 60f;
 
-    private bool _subscribed;
-    private const string PrefKeyX = "DevHudWindow_X";
-    private const string PrefKeyY = "DevHudWindow_Y";
-
     private void OnEnable()
     {
         _doc = GetComponent<UIDocument>();
@@ -42,6 +37,7 @@ public class DevHudWindow : MonoBehaviour
         root.pickingMode = PickingMode.Ignore;
         root.Clear();
         BuildUI(root);
+<<<<<<< HEAD:Assets/_Project/Scripts/UI_UX/BottomHud/DevHudWindow.cs
         RestoreWindowPos();
         TrySubscribeSave();
     }
@@ -51,6 +47,8 @@ public class DevHudWindow : MonoBehaviour
         if (_subscribed && SaveManager.Instance != null)
             SaveManager.Instance.OnSaveCompleted -= OnGameSaved;
         _subscribed = false;
+=======
+>>>>>>> parent of eb142747 (stuff):Assets/3. UI/3. BottomHud/DevHudWindow.cs
     }
 
     private void BuildUI(VisualElement root)
@@ -147,9 +145,13 @@ public class DevHudWindow : MonoBehaviour
 
     private void Update()
     {
+<<<<<<< HEAD:Assets/_Project/Scripts/UI_UX/BottomHud/DevHudWindow.cs
         TrySubscribeSave();
 
         // Smoothed FPS
+=======
+        // Smoothed FPS (unscaled so pause/fast-forward don't skew it).
+>>>>>>> parent of eb142747 (stuff):Assets/3. UI/3. BottomHud/DevHudWindow.cs
         float dt = Time.unscaledDeltaTime;
         if (dt > 0f)
         {
@@ -205,6 +207,7 @@ public class DevHudWindow : MonoBehaviour
         mgr.ApplyPreset(next);
     }
 
+<<<<<<< HEAD:Assets/_Project/Scripts/UI_UX/BottomHud/DevHudWindow.cs
     // ── Position persistence ──────────────────────────────────────────
 
     private void TrySubscribeSave()
@@ -240,6 +243,8 @@ public class DevHudWindow : MonoBehaviour
 
     // ── Helpers ───────────────────────────────────────────────────────
 
+=======
+>>>>>>> parent of eb142747 (stuff):Assets/3. UI/3. BottomHud/DevHudWindow.cs
     private static void SetRadius(VisualElement e, float r)
     {
         e.style.borderTopLeftRadius = r;
