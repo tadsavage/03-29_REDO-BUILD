@@ -43,8 +43,15 @@ public class PlacementFinalizer : MonoBehaviour
         if (IsGround(data))
         {
             DisableExistingGrounds(root, offsets, disabledObjects);
-            // NOTE: Yard tiles are part of the static ground plane and are always visible.
-            // Foundations sit visually on top of them, so no need to disable them.
+
+            // Hide any floor tile already in these cells — the free ground-plane yard tile, or a
+            // real paid floor (pedestrian/MHE/shipping lane) the player had down before deciding
+            // to build here. Without this, UpdateStackPositions lifts that floor to the TOP of the
+            // new ground (floors stack above grounds), leaving it sitting visibly on top of grass /
+            // flowerbed / foundation. This is a swap (golden rule: replace, never orphan) — the old
+            // floor is disabled and tracked in disabledObjects so PlaceCommand/DragPlaceCommand can
+            // refund its cost and undo/redo it, and DeleteCommand re-reveals it later.
+            DisableExistingFloors(root, offsets, disabledObjects);
         }
 
         // --- FLOOR REPLACEMENT LOGIC ---
@@ -219,6 +226,11 @@ public class PlacementFinalizer : MonoBehaviour
         return false;
     }
 
+    // Disables any active floor tile in these cells — used both for floor-over-floor
+    // replacement (e.g. a pedestrian/MHE tile replacing a yard tile) and for a ground/
+    // foundation being placed over an existing floor. Replacement is allowed by the golden
+    // rule (floor tiles are swapped, never orphaned); the caller is responsible for refunding
+    // the displaced tile's cost via disabledObjects.
     private void DisableExistingFloors(Vector2Int root, Vector2Int[] offsets, List<GameObject> disabledObjects)
     {
         foreach (var o in offsets)
@@ -237,10 +249,6 @@ public class PlacementFinalizer : MonoBehaviour
                 if (entry.instance == null)
                     continue;
 
-                // NOTE: This path runs only for floor-over-floor REPLACEMENT (e.g. a
-                // pedestrian/MHE tile replacing a yard tile). Disabling the old tile here
-                // is correct — replacement is allowed by the golden rule. Foundations no
-                // longer call this method, so yard tiles are never disabled by a foundation.
                 if (entry.instance.activeSelf)
                 {
                     entry.instance.SetActive(false);

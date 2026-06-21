@@ -8,6 +8,9 @@ using SaveLoadSystem;
 /// (Ultra / Good / Toaster) below. Built entirely in code (no UXML/USS), on its own
 /// UIDocument sharing the HUD's PanelSettings. Drag it anywhere by the title bar; the
 /// red X hides it; F8 toggles it back. Playtest-only — not meant for production.
+///
+/// Position is saved to PlayerPrefs every time the game saves OR quicksaves, AND also
+/// immediately when you finish dragging so you never lose a drag you did without saving.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
 public class DevHudWindow : MonoBehaviour
@@ -32,15 +35,14 @@ public class DevHudWindow : MonoBehaviour
     private void OnEnable()
     {
         _doc = GetComponent<UIDocument>();
-        _doc.sortingOrder = 100; // render above the rest of the HUD
+        _doc.sortingOrder = 100;
         var root = _doc.rootVisualElement;
         if (root == null) return;
 
-        // Empty areas of our full-screen root must not eat clicks meant for the game.
         root.pickingMode = PickingMode.Ignore;
         root.Clear();
         BuildUI(root);
-        RestoreWindowPos();   // put the window back where it was at the last save
+        RestoreWindowPos();
         TrySubscribeSave();
     }
 
@@ -53,7 +55,7 @@ public class DevHudWindow : MonoBehaviour
 
     private void BuildUI(VisualElement root)
     {
-        // ── Window panel — dark chrome to match the HUD ──────────────────────
+        // ── Window panel ──────────────────────────────────────────────
         _panel = new VisualElement();
         _panel.style.position = Position.Absolute;
         _panel.style.left = 16;
@@ -63,7 +65,7 @@ public class DevHudWindow : MonoBehaviour
         SetRadius(_panel, 6f);
         SetBorder(_panel, new Color(0.22f, 0.30f, 0.45f, 1f), 1f);
 
-        // ── Title bar (drag handle) + close ──────────────────────────────────
+        // ── Title bar ─────────────────────────────────────────────────
         var titleBar = new VisualElement();
         titleBar.style.flexDirection = FlexDirection.Row;
         titleBar.style.justifyContent = Justify.SpaceBetween;
@@ -100,7 +102,7 @@ public class DevHudWindow : MonoBehaviour
         titleBar.Add(title);
         titleBar.Add(close);
 
-        // ── Body: FPS (big) + mode (small) ───────────────────────────────────
+        // ── Body ──────────────────────────────────────────────────────
         var body = new VisualElement();
         body.style.paddingLeft = 10;
         body.style.paddingRight = 10;
@@ -113,8 +115,6 @@ public class DevHudWindow : MonoBehaviour
         _fpsLabel.style.color = Color.white;
         _fpsLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
 
-        // Clickable preset chip — the inner border hints it's a button. Click cycles
-        // Toaster → Good → Ultra → Toaster.
         _modeButton = new VisualElement();
         _modeButton.style.marginTop = 5;
         _modeButton.style.paddingTop = 2;
@@ -141,15 +141,14 @@ public class DevHudWindow : MonoBehaviour
         _panel.Add(body);
         root.Add(_panel);
 
-        // Drag by the title bar; X never starts a drag.
         _dragger = new DraggableWindow(_panel, titleBar, close);
     }
 
     private void Update()
     {
-        TrySubscribeSave();   // SaveManager may initialise after us
+        TrySubscribeSave();
 
-        // Smoothed FPS (unscaled so pause/fast-forward don't skew it).
+        // Smoothed FPS
         float dt = Time.unscaledDeltaTime;
         if (dt > 0f)
         {
@@ -192,7 +191,6 @@ public class DevHudWindow : MonoBehaviour
         _panel.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
     }
 
-    // Click the chip to cycle Toaster → Good → Ultra → Toaster.
     private void CyclePreset()
     {
         var mgr = GraphicsPresetManager.Instance;
@@ -200,13 +198,14 @@ public class DevHudWindow : MonoBehaviour
         var next = mgr.CurrentPreset switch
         {
             GraphicsPresetManager.Preset.Toaster => GraphicsPresetManager.Preset.Good,
-            GraphicsPresetManager.Preset.Good    => GraphicsPresetManager.Preset.Ultra,
-            _                                    => GraphicsPresetManager.Preset.Toaster,
+            GraphicsPresetManager.Preset.Good => GraphicsPresetManager.Preset.Ultra,
+            _ => GraphicsPresetManager.Preset.Toaster,
         };
         mgr.ApplyPreset(next);
     }
 
-    // ── Position persistence (saved with the game, restored on load) ──────
+    // ── Position persistence ──────────────────────────────────────────
+
     private void TrySubscribeSave()
     {
         if (_subscribed || SaveManager.Instance == null) return;
@@ -220,6 +219,9 @@ public class DevHudWindow : MonoBehaviour
     {
         if (_panel == null) return;
         var rs = _panel.resolvedStyle;
+        // resolvedStyle.left/top are 0 when the panel hasn't been laid out yet; guard
+        // against writing zeros over a valid saved position.
+        if (rs.left == 0f && rs.top == 0f) return;
         PlayerPrefs.SetFloat(PrefKeyX, rs.left);
         PlayerPrefs.SetFloat(PrefKeyY, rs.top);
         PlayerPrefs.Save();
@@ -229,11 +231,13 @@ public class DevHudWindow : MonoBehaviour
     {
         if (_panel == null || !PlayerPrefs.HasKey(PrefKeyX)) return;
         _panel.style.position = Position.Absolute;
-        _panel.style.left   = PlayerPrefs.GetFloat(PrefKeyX);
-        _panel.style.top    = PlayerPrefs.GetFloat(PrefKeyY);
-        _panel.style.right  = StyleKeyword.Auto;
+        _panel.style.left = PlayerPrefs.GetFloat(PrefKeyX);
+        _panel.style.top = PlayerPrefs.GetFloat(PrefKeyY);
+        _panel.style.right = StyleKeyword.Auto;
         _panel.style.bottom = StyleKeyword.Auto;
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────
 
     private static void SetRadius(VisualElement e, float r)
     {

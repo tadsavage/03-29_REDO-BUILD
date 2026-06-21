@@ -45,11 +45,10 @@ public class DeleteCommand : ICommand
         _root = bd.RootCell;
         _offsets = bd.Offsets;
 
-        // If deleting a foundation, find its OWN auto-spawned floor tiles in its footprint.
-        // These are deleted with the foundation (golden rule exception). The ground-plane
-        // yard tile is NOT deleted — it uses a different ObjDataSO than the foundation's
-        // defaultFloorTile, so matching that asset reliably excludes it. (Height can't be
-        // used: placing a foundation LIFTS the yard tile onto it, so both sit at Y>1.)
+        // If deleting a foundation, find every floor tile sitting in its footprint — these are
+        // deleted (sunk) with it. The ground-plane yard tile is excluded automatically: it's
+        // disabled (inactive) the moment a ground is placed over it (PlacementFinalizer), and
+        // this scan only collects ACTIVE isFloor entries.
         if (IsGround(_data))
         {
             if (_offsets == null)
@@ -130,8 +129,10 @@ public class DeleteCommand : ICommand
             effect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed);
         }
 
-        // 2. Remove primary object from grid; for foundations only, re-enable any yard floor tiles
-        //    that were hidden beneath it.
+        // 2. Remove primary object from grid; for foundations only, queue any yard floor tiles
+        //    that were hidden beneath it to be re-enabled once the destruction animation finishes
+        //    (see step 4 — revealing them now would overlap the still-visible, still-sinking
+        //    foundation/floor for the whole animation, producing floating/overlapping artifacts).
         foreach (var o in _offsets)
         {
             Vector2Int cell = _root + o;
@@ -146,7 +147,6 @@ public class DeleteCommand : ICommand
                     {
                         if (entry.data?.isFloor != true) continue;
                         if (entry.instance == null || entry.instance.activeSelf) continue;
-                        entry.instance.SetActive(true);
                         if (!_reEnabledFloors.Contains(entry.instance))
                             _reEnabledFloors.Add(entry.instance);
                     }
@@ -191,9 +191,19 @@ public class DeleteCommand : ICommand
         var foundationEffect = _target.GetComponent<BuildingDestructionEffect>();
         if (foundationEffect == null) foundationEffect = _target.AddComponent<BuildingDestructionEffect>();
         foundationEffect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed);
+        foundationEffect.OnComplete = RevealHiddenFloors;
 
         // 5. NavMesh: always rebake when a foundation is deleted (floor surface changes)
         NavMeshManager.Instance?.MarkDirty();
+    }
+
+    // Re-enables the yard tiles queued in step 2, called only once the foundation has finished
+    // sinking out of view. If Undo() runs first, BuildingDestructionEffect.Abort() clears the
+    // callback so this never fires on a delete that got reversed.
+    private void RevealHiddenFloors()
+    {
+        foreach (var floor in _reEnabledFloors)
+            if (floor != null) floor.SetActive(true);
     }
 
     public void Undo()

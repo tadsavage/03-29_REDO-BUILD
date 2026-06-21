@@ -198,9 +198,10 @@ public class MoveCommand : ICommand
     }
 
     /// <summary>
-    /// Re-enables yard floor tiles that were hidden beneath a foundation at the cells it is leaving,
-    /// so the ground is restored (no holes). Skips the foundation's own rider tiles. Only re-enables
-    /// when the cell is otherwise clear, matching DeleteCommand's reveal logic.
+    /// Re-enables whatever floor tile (yard tile or a real paid floor) was hidden beneath a
+    /// foundation at the cells it is leaving, so the ground is restored (no holes). Skips the
+    /// foundation's own rider tiles. Only re-enables when the cell is otherwise clear, matching
+    /// DeleteCommand's reveal logic.
     /// </summary>
     private void RevealHiddenFloors(Vector2Int root, Vector2Int[] offsets)
     {
@@ -225,9 +226,10 @@ public class MoveCommand : ICommand
     }
 
     /// <summary>
-    /// Hides the existing ground-plane yard floor tiles at the cells a foundation is arriving on, so
-    /// the foundation's own floor tile sits flush on the slab. Skips the foundation's own rider tiles
-    /// (they are added by MoveRiders after this runs and must stay visible).
+    /// Hides whatever floor tile (yard tile or a real paid floor) already occupies the cells a
+    /// foundation is arriving on, so the foundation's own floor tile sits flush on the slab. Skips
+    /// the foundation's own rider tiles (they are added by MoveRiders after this runs and must
+    /// stay visible).
     /// </summary>
     private void HideUnderlyingFloors(Vector2Int root, Vector2Int[] offsets)
     {
@@ -280,10 +282,10 @@ public class MoveCommand : ICommand
         foreach (var o in fromOffsets)
             _grid.RemoveStackObject(from + o, _instance, _data);
 
-        // Foundation LEAVING these cells: re-reveal the ground-plane yard tiles that were hidden
-        // beneath it. Placing a foundation disables the underlying yard tile (so the foundation's
-        // own floor tile can sit flush), but nothing re-enabled it on a move — the vacated cells
-        // kept a disabled yard tile and read as holes. Mirrors DeleteCommand's reveal logic.
+        // Foundation LEAVING these cells: re-reveal whatever floor tile (yard tile or a real paid
+        // floor) was hidden beneath it. Placing/moving a foundation disables the underlying floor
+        // (so the foundation's own floor tile can sit flush) — this re-enables it so the vacated
+        // cells don't read as holes. Mirrors DeleteCommand's reveal logic.
         if (IsFoundation(_data))
             RevealHiddenFloors(from, fromOffsets);
 
@@ -300,10 +302,10 @@ public class MoveCommand : ICommand
         foreach (var o in toOffsets)
             _grid.AddStackObject(to + o, _instance, _data);
 
-        // Foundation ARRIVING on these cells: hide the existing ground-plane yard tiles so the
-        // slab's own floor tile (re-added next by MoveRiders) sits flush on the foundation instead
-        // of stacking on top of the yard tile, which would push it ~0.05 too high. Mirrors what
-        // PlacementFinalizer.DisableExistingFloors does at first placement.
+        // Foundation ARRIVING on these cells: hide whatever floor tile is already there (yard tile
+        // or a real paid floor) so the slab's own floor tile (re-added next by MoveRiders) sits
+        // flush on the foundation instead of stacking on top of it, which would push it ~0.05 too
+        // high. Mirrors what PlacementFinalizer.DisableExistingFloors does at first placement.
         if (IsFoundation(_data))
             HideUnderlyingFloors(to, toOffsets);
 

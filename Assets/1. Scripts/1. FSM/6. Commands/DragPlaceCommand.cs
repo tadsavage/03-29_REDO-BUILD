@@ -17,6 +17,11 @@ public class DragPlaceCommand : ICommand
     // Floors disabled across all cells in this drag operation
     private readonly List<GameObject> _disabledFloors = new();
 
+    // Total cost refunded for floors displaced by a dragged ground (mirrors PlaceCommand's
+    // _replacedGroundsCost) — without this, drag-placing a foundation over an existing paid
+    // floor silently destroyed its value with no refund.
+    private int _replacedGroundsCost;
+
     // Auto-floor tiles placed alongside grounds (one per footprint cell per ground placed)
     private readonly List<GameObject> _autoFloors = new();
     private ObjDataSO _autoFloorData;
@@ -66,6 +71,22 @@ public class DragPlaceCommand : ICommand
 
                 foreach (var o in _offsets)
                     _grid.UpdateStackPositions(cell + o);
+            }
+        }
+
+        // Refund floors/grounds displaced by this drag (e.g. a foundation dragged over an
+        // existing paid floor tile) — mirrors PlaceCommand's ground-replacement refund.
+        _replacedGroundsCost = 0;
+        if (IsGround(_data) && _disabledFloors.Count > 0)
+        {
+            foreach (var obj in _disabledFloors)
+            {
+                if (obj == null) continue;
+                var po = obj.GetComponent<PlacedObject>();
+                if (po?.data == null) continue;
+                _replacedGroundsCost += po.data.cost;
+                _money.Refund(po.data.cost, po.data.category);
+                _money.RemoveHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
             }
         }
 
@@ -143,11 +164,23 @@ public class DragPlaceCommand : ICommand
             _money.RemoveHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
         }
 
-        // 3. Re-enable displaced floors
+        // 3. Re-enable displaced floors and reverse their refund
         bool revealedFloor = false;
         foreach (var floor in _disabledFloors)
         {
             if (floor != null) { floor.SetActive(true); revealedFloor = true; }
+        }
+
+        if (IsGround(_data) && _replacedGroundsCost > 0)
+        {
+            foreach (var obj in _disabledFloors)
+            {
+                if (obj == null) continue;
+                var po = obj.GetComponent<PlacedObject>();
+                if (po?.data == null) continue;
+                _money.Deduct(po.data.cost, po.data.category);
+                _money.AddHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
+            }
         }
 
         // 4. Update stack heights
@@ -162,9 +195,21 @@ public class DragPlaceCommand : ICommand
 
     public void Redo()
     {
-        // 1. Re-disable floors displaced by the original placement
+        // 1. Re-disable floors displaced by the original placement and re-apply their refund
         foreach (var floor in _disabledFloors)
             if (floor != null) floor.SetActive(false);
+
+        if (IsGround(_data) && _replacedGroundsCost > 0)
+        {
+            foreach (var obj in _disabledFloors)
+            {
+                if (obj == null) continue;
+                var po = obj.GetComponent<PlacedObject>();
+                if (po?.data == null) continue;
+                _money.Refund(po.data.cost, po.data.category);
+                _money.RemoveHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
+            }
+        }
 
         // 2. Re-enable and re-add grounds
         foreach (var instance in _instances)

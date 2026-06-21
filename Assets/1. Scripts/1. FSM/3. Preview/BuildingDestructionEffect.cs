@@ -13,6 +13,11 @@ public class BuildingDestructionEffect : MonoBehaviour
 
     private bool _isComplete;
 
+    // Fired once the sink animation finishes and the object is deactivated. Used to delay
+    // revealing whatever is underneath (e.g. the yard tile) until the dying object is actually
+    // gone, instead of both being visible/overlapping for the duration of the animation.
+    public System.Action OnComplete;
+
     public void Initialize(float duration, float sinkAmount, float vibrationAmount, float vibrationSpeed)
     {
         _duration = duration;
@@ -64,12 +69,17 @@ public class BuildingDestructionEffect : MonoBehaviour
         _isComplete = true;
         gameObject.SetActive(false);
         // The component will be destroyed when the object is re-enabled/undone or just cleaned up
+
+        var callback = OnComplete;
+        OnComplete = null;
+        callback?.Invoke();
     }
 
     public void Abort()
     {
         _isComplete = true;
         transform.position = _originalPos;
+        OnComplete = null; // the delete is being undone — whatever it was about to reveal must not fire
         Destroy(this);
     }
 }
