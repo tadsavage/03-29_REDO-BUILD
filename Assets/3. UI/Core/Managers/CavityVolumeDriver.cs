@@ -26,8 +26,10 @@ public class CavityVolumeDriver : MonoBehaviour
     {
         if (cavityMaterial == null) return;
 
-        // Use TryGet on the stack for safety
-        if (VolumeManager.instance.stack.GetComponent<CavityVolumeComponent>() is CavityVolumeComponent cavity && cavity.active)
+        var manager = VolumeManager.instance;
+        if (manager == null || manager.stack == null) return;
+
+        if (manager.stack.GetComponent<CavityVolumeComponent>() is CavityVolumeComponent cavity && cavity.active)
         {
             cavityMaterial.SetFloat(IntensityID, cavity.intensity.value);
             cavityMaterial.SetFloat(RadiusID, cavity.radius.value);

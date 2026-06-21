@@ -24,7 +24,17 @@ public static class SaveSystem
             Debug.LogWarning($"[SaveSystem] No save found at {path}");
             return null;
         }
-        string json = File.ReadAllText(path);
-        return JsonUtility.FromJson<SaveData>(json);
+
+        try
+        {
+            string json = File.ReadAllText(path);
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            return JsonUtility.FromJson<SaveData>(json);
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[SaveSystem] Failed to parse JSON from {path}: {ex.Message}");
+            return null;
+        }
     }
 }

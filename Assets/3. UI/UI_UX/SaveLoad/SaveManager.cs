@@ -181,8 +181,17 @@ namespace SaveLoadSystem
         {
             if (File.Exists(metadataFilePath))
             {
-                string json = File.ReadAllText(metadataFilePath);
-                metadataCollection = JsonUtility.FromJson<SaveMetadataCollection>(json);
+                try
+                {
+                    string json = File.ReadAllText(metadataFilePath);
+                    if (!string.IsNullOrWhiteSpace(json))
+                        metadataCollection = JsonUtility.FromJson<SaveMetadataCollection>(json);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[SaveManager] Failed to parse metadata JSON: {ex.Message}");
+                    metadataCollection = null;
+                }
             }
 
             if (metadataCollection == null || metadataCollection.slots == null)

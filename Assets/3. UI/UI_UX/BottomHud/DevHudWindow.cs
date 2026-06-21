@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
+using SaveLoadSystem;
 
 /// <summary>
 /// Tiny draggable play-testing readout: current FPS on top, active graphics preset
@@ -26,6 +27,10 @@ public class DevHudWindow : MonoBehaviour
     private VisualElement _modeButton;
     private DraggableWindow _dragger;
     private float _smoothedFps = 60f;
+    private bool _subscribed;
+
+    private const string PrefKeyX = "DevHud_X";
+    private const string PrefKeyY = "DevHud_Y";
 
     private void OnEnable()
     {
@@ -37,7 +42,6 @@ public class DevHudWindow : MonoBehaviour
         root.pickingMode = PickingMode.Ignore;
         root.Clear();
         BuildUI(root);
-<<<<<<< HEAD:Assets/_Project/Scripts/UI_UX/BottomHud/DevHudWindow.cs
         RestoreWindowPos();
         TrySubscribeSave();
     }
@@ -47,8 +51,6 @@ public class DevHudWindow : MonoBehaviour
         if (_subscribed && SaveManager.Instance != null)
             SaveManager.Instance.OnSaveCompleted -= OnGameSaved;
         _subscribed = false;
-=======
->>>>>>> parent of eb142747 (stuff):Assets/3. UI/3. BottomHud/DevHudWindow.cs
     }
 
     private void BuildUI(VisualElement root)
@@ -144,13 +146,9 @@ public class DevHudWindow : MonoBehaviour
 
     private void Update()
     {
-<<<<<<< HEAD:Assets/_Project/Scripts/UI_UX/BottomHud/DevHudWindow.cs
         TrySubscribeSave();
 
-        // Smoothed FPS
-=======
         // Smoothed FPS (unscaled so pause/fast-forward don't skew it).
->>>>>>> parent of eb142747 (stuff):Assets/3. UI/3. BottomHud/DevHudWindow.cs
         float dt = Time.unscaledDeltaTime;
         if (dt > 0f)
         {
@@ -206,44 +204,40 @@ public class DevHudWindow : MonoBehaviour
         mgr.ApplyPreset(next);
     }
 
-<<<<<<< HEAD:Assets/_Project/Scripts/UI_UX/BottomHud/DevHudWindow.cs
-    // ── Position persistence ──────────────────────────────────────────
+// ── Position persistence ──────────────────────────────────────────
 
-    private void TrySubscribeSave()
-    {
-        if (_subscribed || SaveManager.Instance == null) return;
-        SaveManager.Instance.OnSaveCompleted += OnGameSaved;
-        _subscribed = true;
-    }
+private void TrySubscribeSave()
+{
+    if (_subscribed || SaveManager.Instance == null) return;
+    SaveManager.Instance.OnSaveCompleted += OnGameSaved;
+    _subscribed = true;
+}
 
-    private void OnGameSaved(int _) => SaveWindowPos();
+private void OnGameSaved(int _) => SaveWindowPos();
 
-    private void SaveWindowPos()
-    {
-        if (_panel == null) return;
-        var rs = _panel.resolvedStyle;
-        // resolvedStyle.left/top are 0 when the panel hasn't been laid out yet; guard
-        // against writing zeros over a valid saved position.
-        if (rs.left == 0f && rs.top == 0f) return;
-        PlayerPrefs.SetFloat(PrefKeyX, rs.left);
-        PlayerPrefs.SetFloat(PrefKeyY, rs.top);
-        PlayerPrefs.Save();
-    }
+private void SaveWindowPos()
+{
+    if (_panel == null) return;
+    var rs = _panel.resolvedStyle;
+    // resolvedStyle.left/top are 0 when the panel hasn't been laid out yet; guard
+    // against writing zeros over a valid saved position.
+    if (rs.left == 0f && rs.top == 0f) return;
+    PlayerPrefs.SetFloat(PrefKeyX, rs.left);
+    PlayerPrefs.SetFloat(PrefKeyY, rs.top);
+    PlayerPrefs.Save();
+}
 
-    private void RestoreWindowPos()
-    {
-        if (_panel == null || !PlayerPrefs.HasKey(PrefKeyX)) return;
-        _panel.style.position = Position.Absolute;
-        _panel.style.left = PlayerPrefs.GetFloat(PrefKeyX);
-        _panel.style.top = PlayerPrefs.GetFloat(PrefKeyY);
-        _panel.style.right = StyleKeyword.Auto;
-        _panel.style.bottom = StyleKeyword.Auto;
-    }
+private void RestoreWindowPos()
+{
+    if (_panel == null || !PlayerPrefs.HasKey(PrefKeyX)) return;
+    _panel.style.position = Position.Absolute;
+    _panel.style.left = PlayerPrefs.GetFloat(PrefKeyX);
+    _panel.style.top = PlayerPrefs.GetFloat(PrefKeyY);
+    _panel.style.right = StyleKeyword.Auto;
+    _panel.style.bottom = StyleKeyword.Auto;
+}
 
-    // ── Helpers ───────────────────────────────────────────────────────
-
-=======
->>>>>>> parent of eb142747 (stuff):Assets/3. UI/3. BottomHud/DevHudWindow.cs
+// ── Helpers ───────────────────────────────────────────────────────
     private static void SetRadius(VisualElement e, float r)
     {
         e.style.borderTopLeftRadius = r;

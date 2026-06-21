@@ -740,10 +740,19 @@ public class MainMenuManager : MonoBehaviour
     private void LoadSettingsFromJson()
     {
         if (!System.IO.File.Exists(SettingsPath)) return;
-        var data = JsonUtility.FromJson<SettingsJson>(System.IO.File.ReadAllText(SettingsPath));
-        if (data == null) return;
-        PlayerPrefs.SetFloat(gameMixerParam,  data.gameVolume);
-        PlayerPrefs.SetFloat(musicMixerParam, data.musicVolume);
+        try
+        {
+            string json = System.IO.File.ReadAllText(SettingsPath);
+            if (string.IsNullOrWhiteSpace(json)) return;
+            var data = JsonUtility.FromJson<SettingsJson>(json);
+            if (data == null) return;
+            PlayerPrefs.SetFloat(gameMixerParam,  data.gameVolume);
+            PlayerPrefs.SetFloat(musicMixerParam, data.musicVolume);
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[MainMenuManager] Failed to parse settings JSON: {ex.Message}");
+        }
     }
 
     private void ApplyDifficulty(int level)
