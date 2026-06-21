@@ -1,0 +1,729 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+
+/// <summary>
+/// Controls the Employee Photo Booth system. Intercepts hiring of employees,
+/// instantiates the selected role/gender low-poly model in the photo booth,
+/// takes a waist-up studio portrait using a dedicated camera and spotlights,
+/// and stores the sprite in memory so all game UIs display it automatically.
+/// </summary>
+public class EmployeePhotoBooth : MonoBehaviour
+{
+    public static EmployeePhotoBooth Instance { get; private set; }
+
+    [Header("Studio Prefabs")]
+    [SerializeField] private GameObject _workerMalePrefab;
+    [SerializeField] private GameObject _workerFemalePrefab;
+    [SerializeField] private GameObject _bossPrefab;
+    [SerializeField] private GameObject _securityPrefab;
+    [SerializeField] private GameObject _clerkPrefab;
+    [SerializeField] private GameObject _exterminatorPrefab;
+    [SerializeField] private GameObject _truckDriverPrefab;
+
+    [Header("Studio Setup")]
+    [Tooltip("Clear color of the camera (backdrop color).")]
+    [SerializeField] private Color _backdropColor = new Color(0.322f, 0.419f, 0.401f, 1.0f);
+    [SerializeField] private float _studioLightIntensity = 1.0f;
+    [Tooltip("Vertical offset for the IC Clerk model in the booth. The clerk model is ~0.17 units shorter than the Worker models, so without this it sits noticeably lower in frame than Worker portraits.")]
+    [SerializeField] private float _clerkVerticalOffset = 0.17f;
+
+    [Header("Live Feed Settings")]
+    [SerializeField] private float _cameraRotationSpeed = 0.5f;
+    [SerializeField] private float _cameraMaxAngle = 45f;
+    [SerializeField] private float _cameraDistance = 2.75f;
+    [SerializeField] private float _cameraHeight = 1.45f;
+    [SerializeField] private float _lookAtHeight = 1.35f;
+    [Tooltip("Downward shift applied to the live-feed model only, so heads aren't cut off at the top of the EmployeeInfoUI avatar frame (~0.3 of the frame height at the current camera distance).")]
+    [SerializeField] private float _avatarFrameShift = -0.38f;
+    [SerializeField] private float _waveIntervalMin = 5f;
+    [SerializeField] private float _waveIntervalMax = 5f;
+
+    [Header("Post-Processing")]
+    [Tooltip("Volume profile applied only to the photo booth's cameras (live feed + portrait capture) — gives the 'Kodak Instamatic' look (DOF, saturation, contrast, vignette, grain) without affecting the main game camera.")]
+    [SerializeField] private VolumeProfile _photoBoothProfile;
+
+    private Camera _liveCamera;
+    private Light _liveLight;
+    private GameObject _liveModelInstance;
+    private RenderTexture _liveRenderTexture;
+    private bool _isLiveFeedActive = false;
+    private float _nextGestureTime = 0f;
+    private float _gestureEndTime = 0f;
+    private bool _isGesturing = false;
+    private EmployeeMood _liveMood = EmployeeMood.Neutral;
+    private Animator _liveAnimator;
+    private float _liveStartTime;
+    private bool _warmedUp; // first portrait render of the session is a throwaway warm-up
+
+    public RenderTexture LiveRenderTexture => _liveRenderTexture;
+    public bool IsLiveFeedActive => _isLiveFeedActive;
+
+    // Runtime cache for custom portrait sprites in memory
+    public static readonly Dictionary<string, Sprite> CustomAvatarCache = new Dictionary<string, Sprite>();
+
+    // In-editor portrait folder, relative to Application.dataPath (project Assets/). Lives under
+    // _Project so it travels with the rest of our authored content after the folder restructure.
+    private const string EditorPortraitFolder = "_Project/Sprites/Portraits";
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+
+        // Clear the cache first to discard any destroyed sprites from previous play sessions/domain loads
+        CustomAvatarCache.Clear();
+
+        // Pre-load existing custom portraits from disk so they survive game restarts/saves
+        LoadAllPortraitsFromDisk();
+
+        // Initialize RenderTexture for live feed
+        _liveRenderTexture = new RenderTexture(256, 256, 24, RenderTextureFormat.ARGB32);
+        _liveRenderTexture.Create();
+
+        // Dedicated post-processing volume for the photo booth's cameras only. It lives on
+        // its own layer (PhotoBoothFX) so it never affects the main game camera's view.
+        if (_photoBoothProfile != null)
+        {
+            GameObject volumeGO = new GameObject("PhotoBoothPostFX");
+            volumeGO.transform.SetParent(transform);
+            volumeGO.layer = LayerMask.NameToLayer("PhotoBoothFX");
+
+            Volume volume = volumeGO.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.priority = 10f;
+            volume.sharedProfile = _photoBoothProfile;
+        }
+    }
+
+    /// <summary>Routes a camera's rendering through the photo booth's dedicated post-processing volume only.</summary>
+    private static void ApplyPhotoBoothPostFX(Camera cam)
+    {
+        var data = cam.GetUniversalAdditionalCameraData();
+        data.renderPostProcessing = true;
+        data.volumeLayerMask = LayerMask.GetMask("PhotoBoothFX");
+    }
+
+    private void Start()
+    {
+        // Subscribe to hire event in Start to guarantee all Awake methods have run
+        if (EmployeeLifecycleService.Instance != null)
+        {
+            EmployeeLifecycleService.Instance.OnHired += OnEmployeeHired;
+        }
+        else
+        {
+            Debug.LogError("[EmployeePhotoBooth] EmployeeLifecycleService.Instance is null in Start!");
+        }
+
+        // Retroactively generate portraits for any already-registered active employees
+        // who might have been spawned before we finished subscribing to OnHired.
+        if (EmployeeRegistry.Instance != null)
+        {
+            foreach (var emp in EmployeeRegistry.Instance.All)
+            {
+                var record = emp.Record;
+                if (record != null)
+                {
+                    string key = "Custom_" + record.employeeGuid;
+                    if (!CustomAvatarCache.TryGetValue(key, out var sprite) || sprite == null)
+                    {
+                        GeneratePortraitForRecord(record);
+                    }
+                }
+            }
+        }
+    }
+
+    private void Update()
+    {
+        if (!_isLiveFeedActive || _liveCamera == null || _liveModelInstance == null) return;
+
+        // 1. Rotate camera slowly from -45 to 45 degrees
+        float timeSinceStart = Time.time - _liveStartTime;
+        float angle = Mathf.Sin(timeSinceStart * _cameraRotationSpeed) * _cameraMaxAngle;
+        
+        // Position camera on a horizontal arc around the model (which is at Vector3.zero)
+        // Note: Model faces local X+ (90 degrees rotation), so 0 angle should be (2, height, 0)
+        float rad = angle * Mathf.Deg2Rad;
+        float x = Mathf.Cos(rad) * _cameraDistance;
+        float z = Mathf.Sin(rad) * _cameraDistance;
+        
+        _liveCamera.transform.localPosition = new Vector3(x, _cameraHeight, z);
+        _liveCamera.transform.LookAt(transform.position + new Vector3(0f, _lookAtHeight, 0f));
+
+        // 2. Handle mood-driven gesture animation (happy = wave, angry = rude gesture, ...)
+        if (_liveAnimator != null)
+        {
+            string gestureParam = EmployeeMoodAnimator.GestureParam(_liveMood);
+            if (gestureParam != null)
+            {
+                if (!_isGesturing && Time.time >= _nextGestureTime)
+                {
+                    _isGesturing = true;
+                    _liveAnimator.SetBool(gestureParam, true);
+                    _gestureEndTime = Time.time + 2.0f; // Gesture for 2 seconds
+                }
+                else if (_isGesturing && Time.time >= _gestureEndTime)
+                {
+                    _isGesturing = false;
+                    _liveAnimator.SetBool(gestureParam, false);
+                    _nextGestureTime = Time.time + UnityEngine.Random.Range(_waveIntervalMin, _waveIntervalMax);
+                }
+            }
+        }
+    }
+
+    public void StartLiveFeed(EmployeeRecord record)
+    {
+        StopLiveFeed(); // Clean up any existing feed
+
+        GameObject prefab = GetPrefabForRoleAndGender(record.role, record.gender, out _);
+        if (prefab == null) prefab = _workerMalePrefab;
+
+        _liveModelInstance = Instantiate(prefab, transform);
+        _liveModelInstance.transform.localPosition = new Vector3(0f, GetModelVerticalOffset(record.role) + _avatarFrameShift, 0f);
+        _liveModelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
+        _liveModelInstance.name = $"LiveFeed_{record.employeeName}";
+
+        var identity = _liveModelInstance.GetComponent<EmployeeIdentity>();
+        if (identity != null)
+        {
+            identity.ApplyRecord(record);
+            identity.enabled = false;
+        }
+
+        // Apply modular avatar if possible
+        ApplyModularAvatar(_liveModelInstance, record);
+
+        // Posture (slouch) and gesture (wave/rude) are independent: a tired-but-happy
+        // employee can slouch AND still wave — fatigue no longer blocks a morale gesture.
+        EmployeeMood postureMood = EmployeeMoodEvaluator.EvaluatePosture(record);
+        _liveMood = EmployeeMoodEvaluator.EvaluateGesture(record);
+
+        _liveAnimator = _liveModelInstance.GetComponent<Animator>();
+        if (_liveAnimator != null)
+        {
+            _liveAnimator.SetBool("IsWalking", false);
+            _liveAnimator.SetBool(EmployeeMoodAnimator.WavingParam, false);
+            _liveAnimator.SetBool(EmployeeMoodAnimator.AngryParam, false);
+            EmployeeMoodAnimator.ApplyPersistent(_liveAnimator, postureMood);
+        }
+
+        // Disable movement and the in-world animation driver — AgentAnimation calls
+        // SetAllBools(false) every frame while off the NavMesh, which would stomp the
+        // mood-driven IsWaving/IsAngry/IsTired bools we set below.
+        var agent = _liveModelInstance.GetComponent<UnityEngine.AI.NavMeshAgent>();
+        if (agent != null) agent.enabled = false;
+        if (identity != null) identity.enabled = false;
+        var agentAnimation = _liveModelInstance.GetComponent<AgentAnimation>();
+        if (agentAnimation != null) agentAnimation.enabled = false;
+
+        // Camera
+        GameObject camGO = new GameObject("LiveFeed_Camera");
+        camGO.transform.SetParent(transform);
+        _liveCamera = camGO.AddComponent<Camera>();
+        _liveCamera.clearFlags = CameraClearFlags.SolidColor;
+        _liveCamera.backgroundColor = _backdropColor;
+        _liveCamera.fieldOfView = 26f;
+        _liveCamera.targetTexture = _liveRenderTexture;
+        ApplyPhotoBoothPostFX(_liveCamera);
+
+        // Light
+        GameObject lightGO = new GameObject("LiveFeed_Light");
+        lightGO.transform.SetParent(transform);
+        lightGO.transform.localPosition = new Vector3(0.10f, 1.38f, 0.81f);
+        _liveLight = lightGO.AddComponent<Light>();
+        _liveLight.type = LightType.Point;
+        _liveLight.intensity = _studioLightIntensity;
+        _liveLight.range = 2.0f;
+        _liveLight.color = new Color(0.872f, 0.857f, 0.834f, 1.0f);
+        _liveLight.shadows = LightShadows.Hard;
+
+        _liveStartTime = Time.time;
+        _isGesturing = false;
+        _nextGestureTime = Time.time + UnityEngine.Random.Range(_waveIntervalMin, _waveIntervalMax);
+        _isLiveFeedActive = true;
+    }
+
+    public void StopLiveFeed()
+    {
+        _isLiveFeedActive = false;
+        if (_liveModelInstance != null) Destroy(_liveModelInstance);
+        if (_liveCamera != null) Destroy(_liveCamera.gameObject);
+        if (_liveLight != null) Destroy(_liveLight.gameObject);
+        _liveModelInstance = null;
+        _liveCamera = null;
+        _liveLight = null;
+        _liveAnimator = null;
+    }
+
+
+    private void OnDestroy()
+    {
+        if (EmployeeLifecycleService.Instance != null)
+        {
+            EmployeeLifecycleService.Instance.OnHired -= OnEmployeeHired;
+        }
+    }
+
+    public void GeneratePortraitForRecord(EmployeeRecord record)
+    {
+        if (record == null) return;
+
+        // Determine model and force matching gender
+        GameObject prefab = GetPrefabForRoleAndGender(record.role, record.gender, out EmployeeGender finalGender);
+        record.gender = finalGender;
+
+        if (prefab == null)
+        {
+            Debug.LogWarning($"[EmployeePhotoBooth] No prefab found for role={record.role}, gender={record.gender}. Using WorkerMale as default.");
+            prefab = _workerMalePrefab;
+        }
+
+        // Capture and save portrait
+        CapturePortrait(record, prefab);
+    }
+
+    private void OnEmployeeHired(EmployeeRecord record)
+    {
+        if (record == null) return;
+
+        // If the portrait was already generated when they were a candidate,
+        // we can reuse it rather than taking another snapshot.
+        string key = "Custom_" + record.employeeGuid;
+        if (CustomAvatarCache.ContainsKey(key))
+        {
+            record.avatarResourceKey = key;
+            return;
+        }
+
+        GeneratePortraitForRecord(record);
+    }
+
+    private GameObject GetPrefabForRoleAndGender(EmployeeRole role, EmployeeGender gender, out EmployeeGender finalGender)
+    {
+        // Default to Male for specific male-only model roles
+        finalGender = EmployeeGender.Male;
+
+        switch (role)
+        {
+            case EmployeeRole.Boss:
+                return _bossPrefab;
+
+            case EmployeeRole.Security:
+                return _securityPrefab;
+
+            case EmployeeRole.InventoryControl:
+                finalGender = EmployeeGender.Female; // clerk model is female
+                return _clerkPrefab;
+
+            case EmployeeRole.Exterminator:
+                return _exterminatorPrefab;
+
+            case EmployeeRole.TruckDriver:
+                return _truckDriverPrefab;
+
+            default:
+                // Floor workers, supervisor, etc.
+                if (gender == EmployeeGender.Female)
+                {
+                    finalGender = EmployeeGender.Female;
+                    return _workerFemalePrefab;
+                }
+                else
+                {
+                    finalGender = EmployeeGender.Male;
+                    return _workerMalePrefab;
+                }
+        }
+    }
+
+    /// <summary>Per-role vertical correction so every model frames the same in the booth.</summary>
+    private float GetModelVerticalOffset(EmployeeRole role) => role switch
+    {
+        EmployeeRole.InventoryControl => _clerkVerticalOffset,
+        _ => 0f
+    };
+
+    private void CapturePortrait(EmployeeRecord record, GameObject prefab)
+    {
+        if (prefab == null) return;
+
+        // 1. Instantiate temporary model at photo booth origin
+        GameObject modelInstance = Instantiate(prefab, transform);
+        modelInstance.transform.localPosition = new Vector3(0f, GetModelVerticalOffset(record.role), 0f);
+        modelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
+        modelInstance.name = $"PhotoBooth_Temp_{record.employeeName}";
+
+        var identity = modelInstance.GetComponent<EmployeeIdentity>();
+        if (identity != null)
+        {
+            identity.ApplyRecord(record);
+            identity.enabled = false;
+        }
+
+        // Apply modular avatar if possible
+        ApplyModularAvatar(modelInstance, record);
+
+        // Ensure low-poly character has settled its pose/anim
+        Animator animator = modelInstance.GetComponent<Animator>();
+        if (animator != null)
+        {
+            animator.Update(1.0f);
+        }
+
+        // Sync parameters and pose modular animator synchronously for the snapshot
+        var modularAvatar = modelInstance.transform.Find("ModularAvatar");
+        if (modularAvatar != null)
+        {
+            var modAnimator = modularAvatar.GetComponent<Animator>();
+            if (modAnimator != null && animator != null)
+            {
+                foreach (var p in animator.parameters)
+                {
+                    switch (p.type)
+                    {
+                        case AnimatorControllerParameterType.Bool:  modAnimator.SetBool(p.nameHash,    animator.GetBool(p.nameHash));    break;
+                        case AnimatorControllerParameterType.Float: modAnimator.SetFloat(p.nameHash,   animator.GetFloat(p.nameHash));   break;
+                        case AnimatorControllerParameterType.Int:   modAnimator.SetInteger(p.nameHash, animator.GetInteger(p.nameHash)); break;
+                    }
+                }
+                modAnimator.Update(1.0f);
+            }
+        }
+
+        // Clean up redundant scripts/components on the temporary clone
+        StripNonVisualComponents(modelInstance);
+
+        // 2. Spawn temporary camera for passport driver/license style portrait (waist up)
+        GameObject camGO = new GameObject("PhotoBooth_Camera");
+        camGO.transform.SetParent(transform);
+        camGO.transform.localPosition = new Vector3(2.0f, 1.45f, 0f); // Match camera preview position
+        camGO.transform.LookAt(modelInstance.transform.position + new Vector3(0f, 1.35f, 0f));
+
+        Camera cam = camGO.AddComponent<Camera>();
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = _backdropColor;
+        cam.fieldOfView = 26f; // Match camera preview FOV
+        cam.nearClipPlane = 0.1f;
+        cam.farClipPlane = 10f;
+        cam.depthTextureMode = DepthTextureMode.Depth | DepthTextureMode.DepthNormals;
+        ApplyPhotoBoothPostFX(cam);
+
+        // Solve lighting issue: Create a nice Point light to get shadows/angles on low poly polygons
+        GameObject lightGO = new GameObject("PhotoBooth_Light");
+        lightGO.transform.SetParent(transform);
+        // Positioned close and slightly to the side/front to create high-contrast shadows on low-poly edges
+        lightGO.transform.localPosition = new Vector3(0.10f, 1.38f, 0.81f);
+        
+        Light light = lightGO.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.intensity = _studioLightIntensity;
+        light.range = 2.0f;
+        light.color = new Color(0.872f, 0.857f, 0.834f, 1.0f);
+        light.shadows = LightShadows.Hard; // Hard shadows for low poly look
+        lightGO.transform.LookAt(modelInstance.transform.position + new Vector3(0f, 1.4f, 0f));
+
+        // 3. Render to temporary texture
+        RenderTexture rt = new RenderTexture(256, 256, 24, RenderTextureFormat.ARGB32);
+        cam.targetTexture = rt;
+
+        // The first capture of the session can come back wrong (shader / post-volume /
+        // skinning warm-up) — that's why candidate #0's portrait looked off. Prime the
+        // pipeline with a throwaway render the first time, then render for real.
+        if (!_warmedUp) { cam.Render(); _warmedUp = true; }
+        cam.Render();
+
+        // 4. Read back pixels to Texture2D
+        RenderTexture prevActive = RenderTexture.active;
+        RenderTexture.active = rt;
+        Texture2D tex = new Texture2D(256, 256, TextureFormat.RGBA32, false);
+        tex.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
+        tex.Apply();
+        RenderTexture.active = prevActive;
+
+        // 5. Create Sprite
+        Sprite sprite = Sprite.Create(tex, new Rect(0, 0, 256, 256), new Vector2(0.5f, 0.5f));
+
+        // 6. Cache it
+        string customKey = "Custom_" + record.employeeGuid;
+        CustomAvatarCache[customKey] = sprite;
+        record.avatarResourceKey = customKey;
+
+        // 7. Save to disk so saves can load it
+        byte[] pngBytes = tex.EncodeToPNG();
+        SavePortraitToDisk(record.employeeGuid, pngBytes);
+
+        // 8. Clean up temporary objects immediately.
+        // DestroyImmediate is required here (not Destroy) because portraits for
+        // multiple candidates are captured back-to-back in the same frame —
+        // Destroy() defers removal until end-of-frame, leaving the previous
+        // model/camera/light visible (and rendered) in the next candidate's shot.
+        DestroyImmediate(modelInstance);
+        DestroyImmediate(camGO);
+        DestroyImmediate(lightGO);
+        rt.Release();
+        DestroyImmediate(rt);
+
+        Debug.Log($"[EmployeePhotoBooth] Successfully captured studio portrait for {record.employeeName} ({record.role})");
+    }
+
+    private void SavePortraitToDisk(string guid, byte[] pngBytes)
+    {
+        try
+        {
+            string buildDir = Path.Combine(Application.persistentDataPath, "Portraits");
+            Directory.CreateDirectory(buildDir);
+            string buildPath = Path.Combine(buildDir, guid + ".png");
+            File.WriteAllBytes(buildPath, pngBytes);
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                string editorDir = Path.Combine(Application.dataPath, EditorPortraitFolder);
+                Directory.CreateDirectory(editorDir);
+                string editorPath = Path.Combine(editorDir, guid + ".png");
+                File.WriteAllBytes(editorPath, pngBytes);
+            }
+#endif
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[EmployeePhotoBooth] Failed to save portrait to disk: {ex.Message}");
+        }
+    }
+
+    private void LoadAllPortraitsFromDisk()
+    {
+        try
+        {
+            // Load from persistent data path (standalone build/persistent state)
+            string buildDir = Path.Combine(Application.persistentDataPath, "Portraits");
+            if (Directory.Exists(buildDir))
+            {
+                foreach (string file in Directory.GetFiles(buildDir, "*.png"))
+                {
+                    string guid = Path.GetFileNameWithoutExtension(file);
+                    byte[] bytes = File.ReadAllBytes(file);
+                    Texture2D tex = new Texture2D(256, 256, TextureFormat.RGBA32, false);
+                    tex.LoadImage(bytes);
+                    Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                    CustomAvatarCache["Custom_" + guid] = sprite;
+                }
+            }
+
+#if UNITY_EDITOR
+            // Load from Editor path so it registers during development
+            string editorDir = Path.Combine(Application.dataPath, EditorPortraitFolder);
+            if (Directory.Exists(editorDir))
+            {
+                foreach (string file in Directory.GetFiles(editorDir, "*.png"))
+                {
+                    string guid = Path.GetFileNameWithoutExtension(file);
+                    string key = "Custom_" + guid;
+                    if (!CustomAvatarCache.ContainsKey(key))
+                    {
+                        byte[] bytes = File.ReadAllBytes(file);
+                        Texture2D tex = new Texture2D(256, 256, TextureFormat.RGBA32, false);
+                        tex.LoadImage(bytes);
+                        Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        CustomAvatarCache[key] = sprite;
+                    }
+                }
+            }
+#endif
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[EmployeePhotoBooth] Failed to load portraits from disk: {ex.Message}");
+        }
+    }
+
+<<<<<<< HEAD:Assets/_Project/Scripts/Actors/EmployeeSystem/EmployeePhotoBooth.cs
+    /// <summary>
+    /// Deletes portrait PNGs on disk (build + editor folders) for anyone no longer in the active
+    /// character database — i.e. not a current employee, not in the former-employee archive, and
+    /// not a candidate still on the hiring board. Unhired candidates that cycle off the board are
+    /// the main source of accumulation. Returns the number of portrait files removed.
+    /// </summary>
+    [ContextMenu("Prune Orphan Portraits")]
+    public int PrunePortraits()
+    {
+        HashSet<string> keepGuids = CollectActiveCharacterGuids();
+
+        int removed = 0;
+        removed += PrunePortraitFolder(Path.Combine(Application.persistentDataPath, "Portraits"), keepGuids, deleteMeta: false);
+#if UNITY_EDITOR
+        removed += PrunePortraitFolder(Path.Combine(Application.dataPath, EditorPortraitFolder), keepGuids, deleteMeta: true);
+#endif
+
+        if (removed > 0)
+            Debug.Log($"[EmployeePhotoBooth] Pruned {removed} orphan portrait(s); kept {keepGuids.Count} active character(s).");
+        return removed;
+    }
+
+    /// <summary>
+    /// Builds the set of employee GUIDs whose portraits must be preserved: everyone currently
+    /// employed, everyone in the former-employee archive (kept for rehire / HR history), and every
+    /// candidate still on the hiring board (so a not-yet-hired applicant never loses their photo).
+    /// </summary>
+    private static HashSet<string> CollectActiveCharacterGuids()
+    {
+        var guids = new HashSet<string>();
+
+        if (EmployeeRegistry.Instance != null)
+            foreach (var employee in EmployeeRegistry.Instance.All)
+                AddGuid(guids, employee?.Record?.employeeGuid);
+
+        if (FormerEmployeeArchive.HasInstance)
+            foreach (var record in FormerEmployeeArchive.Instance.All)
+                AddGuid(guids, record?.employeeGuid);
+
+        if (HiringService.Instance != null)
+            foreach (var candidate in HiringService.Instance.Roster)
+                AddGuid(guids, candidate?.record?.employeeGuid);
+
+        return guids;
+    }
+
+    private static void AddGuid(HashSet<string> set, string guid)
+    {
+        if (!string.IsNullOrEmpty(guid)) set.Add(guid);
+    }
+
+    /// <summary>
+    /// Removes every "{guid}.png" in a folder whose GUID isn't in the keep-set. Also drops the
+    /// matching in-memory cache entry and (in the editor) the Unity ".meta" sidecar so the asset
+    /// database stays clean.
+    /// </summary>
+    private static int PrunePortraitFolder(string folder, HashSet<string> keepGuids, bool deleteMeta)
+    {
+        if (!Directory.Exists(folder)) return 0;
+
+        int removed = 0;
+        foreach (string file in Directory.GetFiles(folder, "*.png"))
+        {
+            string guid = Path.GetFileNameWithoutExtension(file);
+            if (keepGuids.Contains(guid)) continue;
+
+            try
+            {
+                File.Delete(file);
+                if (deleteMeta && File.Exists(file + ".meta")) File.Delete(file + ".meta");
+                CustomAvatarCache.Remove("Custom_" + guid);
+                removed++;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[EmployeePhotoBooth] Failed to delete orphan portrait '{file}': {ex.Message}");
+            }
+        }
+        return removed;
+    }
+
+=======
+>>>>>>> parent of a0e54d30 (After Milestone1 - many files removed. Now onto Milestone2. Everything is working good here.):Assets/1. Scripts/7. EmployeeSystem/EmployeePhotoBooth.cs
+    private void StripNonVisualComponents(GameObject go)
+    {
+        if (go == null) return;
+
+        // Disable standard navigation agent immediately
+        var agent = go.GetComponent<UnityEngine.AI.NavMeshAgent>();
+        if (agent != null) agent.enabled = false;
+
+        // Disable or destroy all MonoBehaviours except the Animator
+        var behaviours = go.GetComponentsInChildren<MonoBehaviour>(true);
+        foreach (var b in behaviours)
+        {
+            if (b == null) continue;
+            if (b == this) continue;
+            
+            // Disable the behaviour so its Awake/Start/Update don't run or trigger warnings
+            b.enabled = false;
+        }
+
+        // Disable colliders so physics doesn't interact with them
+        var colliders = go.GetComponentsInChildren<Collider>(true);
+        foreach (var c in colliders)
+        {
+            if (c != null) c.enabled = false;
+        }
+
+        // Disable rigidbodies so gravity or force doesn't move them
+        var rbs = go.GetComponentsInChildren<Rigidbody>(true);
+        foreach (var rb in rbs)
+        {
+            if (rb != null) rb.isKinematic = true;
+        }
+    }
+
+    private void ApplyModularAvatar(GameObject modelInstance, EmployeeRecord record)
+    {
+        var lib = ModularAvatarAssembler.LoadLibrary();
+        if (lib == null || lib.PartCount == 0) return;
+
+        string gender = record.gender == EmployeeGender.Female ? "female" : "male";
+        int seed = ModularAvatarAssembler.StableSeed(record.employeeGuid);
+
+        var workerAnimator = modelInstance.GetComponentInChildren<Animator>(true);
+
+        var avatar = ModularAvatarAssembler.Build(lib, gender, seed);
+        if (avatar == null) return;   // no parts for that gender yet → keep the default model
+
+        // Hide the worker's own animated mesh — the modular avatar replaces it visually.
+        foreach (var smr in modelInstance.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            smr.enabled = false;
+
+        var t = avatar.transform;
+        t.SetParent(modelInstance.transform, worldPositionStays: false);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+        t.localScale    = Vector3.one;
+        avatar.name = "ModularAvatar";
+        SetLayerRecursively(avatar, modelInstance.layer);
+
+        // Force per-frame bounds so frustum culling can't hide the animated mesh.
+        foreach (var smr in avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            smr.updateWhenOffscreen = true;
+
+        var modAnimator = avatar.GetComponent<Animator>();
+        if (modAnimator == null) modAnimator = avatar.AddComponent<Animator>();
+        if (modAnimator.avatar == null && workerAnimator != null) modAnimator.avatar = workerAnimator.avatar;
+        if (workerAnimator != null) modAnimator.runtimeAnimatorController = workerAnimator.runtimeAnimatorController;
+        modAnimator.applyRootMotion = false;
+        modAnimator.enabled = true;
+        modAnimator.Rebind();
+
+        var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
+        avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
+
+        // Apply dynamic expression based on mood
+        EmployeeMood gestureMood = EmployeeMoodEvaluator.EvaluateGesture(record);
+        ModularAvatarAssembler.ApplyMoodExpression(avatar, gender, gestureMood);
+    }
+
+    private static Transform FindDeepByName(Transform parent, string boneName)
+    {
+        if (parent.name == boneName) return parent;
+        foreach (Transform c in parent)
+        {
+            var r = FindDeepByName(c, boneName);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    private static void SetLayerRecursively(GameObject go, int layer)
+    {
+        go.layer = layer;
+        foreach (Transform c in go.transform) SetLayerRecursively(c.gameObject, layer);
+    }
+}
