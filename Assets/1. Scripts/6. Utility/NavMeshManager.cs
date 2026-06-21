@@ -112,7 +112,6 @@ public class NavMeshManager : MonoBehaviour
             link.UpdateLink();
             count++;
         }
-        Debug.Log($"[NavDock] RefreshNavMeshLinks: re-registered {count} link(s) against current NavMesh.");
     }
 
     private List<NavMeshBuildMarkup> BuildMarkups(List<NavMeshModifier> modifiers)
@@ -211,7 +210,6 @@ public class NavMeshManager : MonoBehaviour
             count++;
         }
         // Always log — a missing "[NavDock]" line means this method was never called.
-        Debug.Log($"[NavDock] AddDockTopNavMeshSources: scanned={scanned} injected={count}");
     }
 
     // Builds the walkable NavMesh sources from floor tiles. Model (per Tug): each grid CELL's

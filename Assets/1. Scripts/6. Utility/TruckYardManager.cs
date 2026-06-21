@@ -195,7 +195,6 @@ public class TruckYardManager : MonoBehaviour
         go.name = "Guard";
         _guard  = go.GetComponent<GuardController>() ?? go.AddComponent<GuardController>();
         _guard.Init(posted, exitPost, gateStop, checkRear1, checkRear2);
-        Debug.Log("[TruckYardManager] Guard spawned at Posted.");
     }
 
     private void AssignDoorNumbers()
@@ -207,8 +206,6 @@ public class TruckYardManager : MonoBehaviour
 
         for (int i = 0; i < sorted.Count; i++)
             sorted[i].DoorNumber = i + 1;
-
-        Debug.Log($"[TruckYardManager] Assigned door numbers to {sorted.Count} dock(s).");
     }
 
     private void OnTruckExited()

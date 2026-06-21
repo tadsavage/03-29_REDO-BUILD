@@ -151,8 +151,6 @@ public class EmployeeSpawner : MonoBehaviour
         if (_useModularAvatars)
             ApplyModularAvatar(identity);
 
-        Debug.Log($"[EmployeeSpawner] Spawned {record.employeeName} ({record.employeeId}) at {pos}");
-
         return identity;
     }
 
@@ -223,10 +221,6 @@ public class EmployeeSpawner : MonoBehaviour
         var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
 
-        Debug.Log($"[ModularAvatar] nested '{avatar.name}': avatar={(modAnimator.avatar != null ? modAnimator.avatar.name : "NULL")} " +
-            $"isHuman={(modAnimator.avatar != null && modAnimator.avatar.isHuman)} " +
-            $"controller={(modAnimator.runtimeAnimatorController != null ? modAnimator.runtimeAnimatorController.name : "NULL")} " +
-            $"localPos={t.localPosition} sampleBone={(sampleBone != null)}");
     }
 
     private static Transform FindDeepByName(Transform parent, string boneName)

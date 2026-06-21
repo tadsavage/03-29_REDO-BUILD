@@ -353,6 +353,11 @@ public class PlacementSystem : MonoBehaviour
         if (FormerEmployeeArchive.HasInstance)
             save.formerEmployees = FormerEmployeeArchive.Instance.Snapshot();
 
+        // Trim portrait PNGs for anyone no longer in the active character database (e.g. unhired
+        // candidates that cycled off the hiring board) so the Portraits folder can't grow unbounded.
+        if (EmployeePhotoBooth.Instance != null)
+            EmployeePhotoBooth.Instance.PrunePortraits();
+
         return save;
     }
 

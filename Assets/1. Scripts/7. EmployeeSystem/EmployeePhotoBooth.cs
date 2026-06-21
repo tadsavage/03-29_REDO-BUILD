@@ -468,7 +468,6 @@ public class EmployeePhotoBooth : MonoBehaviour
         rt.Release();
         DestroyImmediate(rt);
 
-        Debug.Log($"[EmployeePhotoBooth] Successfully captured studio portrait for {record.employeeName} ({record.role})");
     }
 
     private void SavePortraitToDisk(string guid, byte[] pngBytes)
@@ -537,6 +536,87 @@ public class EmployeePhotoBooth : MonoBehaviour
         {
             Debug.LogError($"[EmployeePhotoBooth] Failed to load portraits from disk: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Deletes portrait PNGs on disk (build + editor folders) for anyone no longer in the active
+    /// character database — i.e. not a current employee, not in the former-employee archive, and
+    /// not a candidate still on the hiring board. Unhired candidates that cycle off the board are
+    /// the main source of accumulation. Returns the number of portrait files removed.
+    /// </summary>
+    [ContextMenu("Prune Orphan Portraits")]
+    public int PrunePortraits()
+    {
+        HashSet<string> keepGuids = CollectActiveCharacterGuids();
+
+        int removed = 0;
+        removed += PrunePortraitFolder(Path.Combine(Application.persistentDataPath, "Portraits"), keepGuids, deleteMeta: false);
+#if UNITY_EDITOR
+        removed += PrunePortraitFolder(Path.Combine(Application.dataPath, "Sprites/Portraits"), keepGuids, deleteMeta: true);
+#endif
+
+        if (removed > 0)
+            Debug.Log($"[EmployeePhotoBooth] Pruned {removed} orphan portrait(s); kept {keepGuids.Count} active character(s).");
+        return removed;
+    }
+
+    /// <summary>
+    /// Builds the set of employee GUIDs whose portraits must be preserved: everyone currently
+    /// employed, everyone in the former-employee archive (kept for rehire / HR history), and every
+    /// candidate still on the hiring board (so a not-yet-hired applicant never loses their photo).
+    /// </summary>
+    private static HashSet<string> CollectActiveCharacterGuids()
+    {
+        var guids = new HashSet<string>();
+
+        if (EmployeeRegistry.Instance != null)
+            foreach (var employee in EmployeeRegistry.Instance.All)
+                AddGuid(guids, employee?.Record?.employeeGuid);
+
+        if (FormerEmployeeArchive.HasInstance)
+            foreach (var record in FormerEmployeeArchive.Instance.All)
+                AddGuid(guids, record?.employeeGuid);
+
+        if (HiringService.Instance != null)
+            foreach (var candidate in HiringService.Instance.Roster)
+                AddGuid(guids, candidate?.record?.employeeGuid);
+
+        return guids;
+    }
+
+    private static void AddGuid(HashSet<string> set, string guid)
+    {
+        if (!string.IsNullOrEmpty(guid)) set.Add(guid);
+    }
+
+    /// <summary>
+    /// Removes every "{guid}.png" in a folder whose GUID isn't in the keep-set. Also drops the
+    /// matching in-memory cache entry and (in the editor) the Unity ".meta" sidecar so the asset
+    /// database stays clean.
+    /// </summary>
+    private static int PrunePortraitFolder(string folder, HashSet<string> keepGuids, bool deleteMeta)
+    {
+        if (!Directory.Exists(folder)) return 0;
+
+        int removed = 0;
+        foreach (string file in Directory.GetFiles(folder, "*.png"))
+        {
+            string guid = Path.GetFileNameWithoutExtension(file);
+            if (keepGuids.Contains(guid)) continue;
+
+            try
+            {
+                File.Delete(file);
+                if (deleteMeta && File.Exists(file + ".meta")) File.Delete(file + ".meta");
+                CustomAvatarCache.Remove("Custom_" + guid);
+                removed++;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[EmployeePhotoBooth] Failed to delete orphan portrait '{file}': {ex.Message}");
+            }
+        }
+        return removed;
     }
 
     private void StripNonVisualComponents(GameObject go)

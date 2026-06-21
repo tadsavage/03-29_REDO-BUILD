@@ -4,13 +4,13 @@
     "spentToday": 3845,
     "cameraData": {
         "focusPoint": {
-            "x": -4.889652252197266,
-            "y": 1.0,
-            "z": -36.00651931762695
+            "x": -29.52545166015625,
+            "y": 0.0,
+            "z": 6.461600303649902
         },
-        "distance": 36.0,
-        "pitch": 19.94999122619629,
-        "yaw": 8289.720703125
+        "distance": 24.0,
+        "pitch": 29.10003662109375,
+        "yaw": 8277.970703125
     },
     "placedObjects": [
         {
@@ -14842,6 +14842,50 @@
     ],
     "devSettings": [
         {
+            "key": "PalletBuilder.maxTotalHeight",
+            "val": "1"
+        },
+        {
+            "key": "PalletBuilder.spaceBetweenCases",
+            "val": "0.05"
+        },
+        {
+            "key": "PalletBuilder.verticalGap",
+            "val": "0.025"
+        },
+        {
+            "key": "PalletBuilder.usePrefabBounds",
+            "val": "True"
+        },
+        {
+            "key": "PalletBuilder.crookedCase",
+            "val": "2"
+        },
+        {
+            "key": "PalletBuilder.useTiHiOverride",
+            "val": "False"
+        },
+        {
+            "key": "PalletBuilder.manualTi",
+            "val": "6"
+        },
+        {
+            "key": "PalletBuilder.manualHi",
+            "val": "3"
+        },
+        {
+            "key": "PalletBuilder.casesPerLayer",
+            "val": "0"
+        },
+        {
+            "key": "PalletBuilder.layers",
+            "val": "0"
+        },
+        {
+            "key": "PalletBuilder.totalCases",
+            "val": "0"
+        },
+        {
             "key": "AmbientMumble.volume",
             "val": "0.5"
         },
@@ -14894,50 +14938,6 @@
             "val": "0.1"
         },
         {
-            "key": "PalletBuilder.maxTotalHeight",
-            "val": "1"
-        },
-        {
-            "key": "PalletBuilder.spaceBetweenCases",
-            "val": "0.05"
-        },
-        {
-            "key": "PalletBuilder.verticalGap",
-            "val": "0.025"
-        },
-        {
-            "key": "PalletBuilder.usePrefabBounds",
-            "val": "True"
-        },
-        {
-            "key": "PalletBuilder.crookedCase",
-            "val": "2"
-        },
-        {
-            "key": "PalletBuilder.useTiHiOverride",
-            "val": "False"
-        },
-        {
-            "key": "PalletBuilder.manualTi",
-            "val": "6"
-        },
-        {
-            "key": "PalletBuilder.manualHi",
-            "val": "3"
-        },
-        {
-            "key": "PalletBuilder.casesPerLayer",
-            "val": "0"
-        },
-        {
-            "key": "PalletBuilder.layers",
-            "val": "0"
-        },
-        {
-            "key": "PalletBuilder.totalCases",
-            "val": "0"
-        },
-        {
             "key": "Gate_Open_Close.rot_down",
             "val": "0"
         },
@@ -14948,6 +14948,22 @@
         {
             "key": "Gate_Open_Close.arm_speed",
             "val": "80"
+        },
+        {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
         },
         {
             "key": "FreeLookCamera.moveSpeed",
@@ -15012,22 +15028,6 @@
         {
             "key": "FreeLookCamera.zMax",
             "val": "100"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
-        {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
         }
     ],
     "toolsWindowX": 12.0,
@@ -15074,10 +15074,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -10.698468208312989,
-            "posY": 0.07500000298023224,
-            "posZ": 18.996286392211915,
-            "rotY": 241.5757598876953,
+            "posX": -14.547399520874024,
+            "posY": 1.1185787916183472,
+            "posZ": 44.33572006225586,
+            "rotY": 270.04974365234377,
             "hasSavedPosition": true
         },
         {
@@ -15118,10 +15118,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -16.513402938842775,
-            "posY": 1.1185787916183472,
-            "posZ": 43.815330505371097,
-            "rotY": 349.2525634765625,
+            "posX": -16.89076805114746,
+            "posY": 0.19608846306800843,
+            "posZ": 25.0248966217041,
+            "rotY": 299.0208435058594,
             "hasSavedPosition": true
         },
         {
@@ -15162,10 +15162,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 5.482614517211914,
-            "posY": 1.1099998950958253,
-            "posZ": 35.752986907958987,
-            "rotY": 105.54497528076172,
+            "posX": -16.088111877441408,
+            "posY": 0.07500000298023224,
+            "posZ": 24.834007263183595,
+            "rotY": 109.93275451660156,
             "hasSavedPosition": true
         },
         {
@@ -15206,10 +15206,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -7.161806106567383,
-            "posY": 0.07500000298023224,
-            "posZ": 20.99660301208496,
-            "rotY": 230.60179138183595,
+            "posX": 6.93848180770874,
+            "posY": 1.1185787916183472,
+            "posZ": 43.40559387207031,
+            "rotY": 127.97760772705078,
             "hasSavedPosition": true
         },
         {
@@ -15250,10 +15250,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -9.271236419677735,
-            "posY": 0.07500000298023224,
-            "posZ": 23.004961013793947,
-            "rotY": 286.21783447265627,
+            "posX": -16.590518951416017,
+            "posY": 1.1185787916183472,
+            "posZ": 43.23246383666992,
+            "rotY": 224.62020874023438,
             "hasSavedPosition": true
         },
         {
@@ -15294,10 +15294,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -10.264299392700196,
-            "posY": 0.07500000298023224,
-            "posZ": 19.26045799255371,
-            "rotY": 241.3192138671875,
+            "posX": -16.60248565673828,
+            "posY": 1.0691444873809815,
+            "posZ": 26.68808937072754,
+            "rotY": 179.98289489746095,
             "hasSavedPosition": true
         }
     ],

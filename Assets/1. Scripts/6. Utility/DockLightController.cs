@@ -49,7 +49,6 @@ public class DockLightController : MonoBehaviour
         WriteEmission(_redInt,   occupied ? Color.black : _redEmission);
         WriteEmission(_greenExt, occupied ? Color.black : _greenEmission);
         WriteEmission(_redExt,   occupied ? _redEmission : Color.black);
-        Debug.Log($"[DockLightController] SetOccupied({occupied}) on {name}.");
     }
 
     private static Color ReadEmission(Renderer r, Color fallback)

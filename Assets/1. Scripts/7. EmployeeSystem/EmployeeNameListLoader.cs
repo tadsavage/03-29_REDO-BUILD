@@ -21,18 +21,15 @@ public static class EmployeeNameListLoader
                 _cached = JsonUtility.FromJson<EmployeeNameListJson>(jsonAsset.text);
                 if (_cached != null && HasAnyNames(_cached))
                 {
-                    Debug.Log("[EmployeeNameListLoader] Loaded names from Resources/EmployeeAssets/employee_names.json");
                     return _cached;
                 }
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"[EmployeeNameListLoader] Failed to parse JSON, using fallback: {e.Message}");
             }
         }
 
         _cached = CreateFallback();
-        Debug.Log("[EmployeeNameListLoader] Using fallback name lists.");
         return _cached;
     }
 

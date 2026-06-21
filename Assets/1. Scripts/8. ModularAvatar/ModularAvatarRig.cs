@@ -73,8 +73,6 @@ public class ModularAvatarRig : MonoBehaviour
                     ? $"smr='{smr.name}' enabled={smr.enabled} active={smr.gameObject.activeInHierarchy} visible={smr.isVisible} " +
                       $"boundsCenter={smr.bounds.center} boundsSize={smr.bounds.size} mesh={(smr.sharedMesh != null)}"
                     : "no SMR found";
-                Debug.Log($"[ModularRig] diag '{name}': selfWalk={_self.GetBool("IsWalking")} avatarWorldPos={transform.position} " +
-                          $"legEuler={rot} | {smrInfo}");
             }
         }
     }
