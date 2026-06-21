@@ -4,13 +4,13 @@
     "spentToday": 3845,
     "cameraData": {
         "focusPoint": {
-            "x": -29.52545166015625,
-            "y": 0.0,
-            "z": 6.461600303649902
+            "x": -12.532455444335938,
+            "y": 2.7019124031066896,
+            "z": 40.36091613769531
         },
-        "distance": 24.0,
-        "pitch": 29.10003662109375,
-        "yaw": 8277.970703125
+        "distance": 4.0,
+        "pitch": 20.249984741210939,
+        "yaw": 8767.470703125
     },
     "placedObjects": [
         {
@@ -14842,6 +14842,34 @@
     ],
     "devSettings": [
         {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
+        },
+        {
             "key": "PalletBuilder.maxTotalHeight",
             "val": "1"
         },
@@ -14895,7 +14923,7 @@
         },
         {
             "key": "AmbientMumble.maxPitch",
-            "val": "1.15"
+            "val": "1.5"
         },
         {
             "key": "AmbientMumble.chanceToMumble",
@@ -14908,46 +14936,6 @@
         {
             "key": "AmbientMumble.maxHearingDistance",
             "val": "12"
-        },
-        {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
-            "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
-        },
-        {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
-        },
-        {
-            "key": "Gate_Open_Close.rot_down",
-            "val": "0"
-        },
-        {
-            "key": "Gate_Open_Close.rot_up",
-            "val": "-85"
-        },
-        {
-            "key": "Gate_Open_Close.arm_speed",
-            "val": "80"
         },
         {
             "key": "NavMeshManager._debounceTime",
@@ -14964,6 +14952,18 @@
         {
             "key": "WallVisibilityManager.slideDuration",
             "val": "2"
+        },
+        {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
         },
         {
             "key": "FreeLookCamera.moveSpeed",
@@ -15074,10 +15074,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -14.547399520874024,
+            "posX": -9.677530288696289,
             "posY": 1.1185787916183472,
-            "posZ": 44.33572006225586,
-            "rotY": 270.04974365234377,
+            "posZ": 44.10088348388672,
+            "rotY": 91.54141998291016,
             "hasSavedPosition": true
         },
         {
@@ -15118,10 +15118,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -16.89076805114746,
-            "posY": 0.19608846306800843,
-            "posZ": 25.0248966217041,
-            "rotY": 299.0208435058594,
+            "posX": -10.636754035949707,
+            "posY": 0.07500000298023224,
+            "posZ": 20.535032272338868,
+            "rotY": 50.40516662597656,
             "hasSavedPosition": true
         },
         {
@@ -15162,10 +15162,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -16.088111877441408,
+            "posX": -9.313737869262696,
             "posY": 0.07500000298023224,
-            "posZ": 24.834007263183595,
-            "rotY": 109.93275451660156,
+            "posZ": 24.163742065429689,
+            "rotY": 99.16682434082031,
             "hasSavedPosition": true
         },
         {
@@ -15206,10 +15206,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 6.93848180770874,
+            "posX": -16.9067325592041,
             "posY": 1.1185787916183472,
-            "posZ": 43.40559387207031,
-            "rotY": 127.97760772705078,
+            "posZ": 28.131420135498048,
+            "rotY": 34.879852294921878,
             "hasSavedPosition": true
         },
         {
@@ -15250,10 +15250,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -16.590518951416017,
+            "posX": 7.298592567443848,
             "posY": 1.1185787916183472,
-            "posZ": 43.23246383666992,
-            "rotY": 224.62020874023438,
+            "posZ": 39.68254852294922,
+            "rotY": 5.314225673675537,
             "hasSavedPosition": true
         },
         {
@@ -15294,10 +15294,186 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -16.60248565673828,
-            "posY": 1.0691444873809815,
-            "posZ": 26.68808937072754,
-            "rotY": 179.98289489746095,
+            "posX": -16.59918785095215,
+            "posY": 1.1185787916183472,
+            "posZ": 29.052785873413087,
+            "rotY": 359.95098876953127,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "65caae46-424d-491f-baef-3f6099072f28",
+            "employeeName": "Evelyn Ortiz",
+            "employeeId": "WHSE 646",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 0,
+            "fatigue": 27.9503173828125,
+            "safety": 30.36273193359375,
+            "morale": 37.038055419921878,
+            "skill": 79.00492858886719,
+            "skillLevel": 5,
+            "avatarResourceKey": "Custom_65caae46-424d-491f-baef-3f6099072f28",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 22.950000762939454,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-21",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": 7.054894924163818,
+            "posY": 1.1185787916183472,
+            "posZ": 43.24003601074219,
+            "rotY": 139.77845764160157,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "1a43679d-bba4-42ba-9202-9f338a00d3d8",
+            "employeeName": "Anthony Cook",
+            "employeeId": "WHSE 272",
+            "employeeIdPrefix": "WHSE",
+            "gender": 1,
+            "role": 0,
+            "fatigue": 90.78925323486328,
+            "safety": 80.33240509033203,
+            "morale": 47.30418395996094,
+            "skill": 24.379417419433595,
+            "skillLevel": 2,
+            "avatarResourceKey": "Custom_1a43679d-bba4-42ba-9202-9f338a00d3d8",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 18.440000534057618,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-21",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": 7.232879638671875,
+            "posY": 1.1185787916183472,
+            "posZ": 28.300199508666993,
+            "rotY": 0.017817236483097078,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "c0db2ae3-b1ee-45b6-ac59-16381d684649",
+            "employeeName": "Katherine Lewis",
+            "employeeId": "WHSE 685",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 0,
+            "fatigue": 56.46059799194336,
+            "safety": 72.06954956054688,
+            "morale": 54.94151306152344,
+            "skill": 22.484115600585939,
+            "skillLevel": 1,
+            "avatarResourceKey": "Custom_c0db2ae3-b1ee-45b6-ac59-16381d684649",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 15.649999618530274,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-21",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": -16.121103286743165,
+            "posY": 1.1185787916183472,
+            "posZ": 29.198959350585939,
+            "rotY": 54.732479095458987,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "5ea983f9-214f-4742-aef5-63ba8d841c15",
+            "employeeName": "Laura Ortiz",
+            "employeeId": "WHSE 840",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 0,
+            "fatigue": 25.46004295349121,
+            "safety": 89.30782318115235,
+            "morale": 79.89596557617188,
+            "skill": 14.25226879119873,
+            "skillLevel": 1,
+            "avatarResourceKey": "Custom_5ea983f9-214f-4742-aef5-63ba8d841c15",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 17.889999389648439,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-21",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": -6.379672527313232,
+            "posY": 0.07500000298023224,
+            "posZ": 23.774843215942384,
+            "rotY": 77.0179214477539,
             "hasSavedPosition": true
         }
     ],
