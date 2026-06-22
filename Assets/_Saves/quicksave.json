@@ -14842,32 +14842,28 @@
     ],
     "devSettings": [
         {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
+            "key": "AmbientMumble.volume",
             "val": "0.5"
         },
         {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
         },
         {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.5"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
         },
         {
             "key": "PalletBuilder.maxTotalHeight",
@@ -14914,32 +14910,36 @@
             "val": "0"
         },
         {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.5"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
             "key": "NavMeshManager._debounceTime",
             "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
         },
         {
             "key": "WallVisibilityManager.foundationHeight",
@@ -14967,7 +14967,7 @@
         },
         {
             "key": "FreeLookCamera.moveSpeed",
-            "val": "15"
+            "val": "1"
         },
         {
             "key": "FreeLookCamera.orbitSensitivity",
@@ -14979,7 +14979,7 @@
         },
         {
             "key": "FreeLookCamera.zoomSpeed",
-            "val": "4"
+            "val": "0.25"
         },
         {
             "key": "FreeLookCamera.pitchMin",
@@ -14995,7 +14995,7 @@
         },
         {
             "key": "FreeLookCamera.minDistance",
-            "val": "4"
+            "val": "2"
         },
         {
             "key": "FreeLookCamera.maxDistance",
@@ -15007,27 +15007,27 @@
         },
         {
             "key": "FreeLookCamera.focalHeightMin",
-            "val": "0"
+            "val": "4"
         },
         {
             "key": "FreeLookCamera.focalHeightMax",
-            "val": "20"
+            "val": "25"
         },
         {
             "key": "FreeLookCamera.xMin",
-            "val": "-100"
+            "val": "-75"
         },
         {
             "key": "FreeLookCamera.xMax",
-            "val": "100"
+            "val": "75"
         },
         {
             "key": "FreeLookCamera.zMin",
-            "val": "-100"
+            "val": "-75"
         },
         {
             "key": "FreeLookCamera.zMax",
-            "val": "100"
+            "val": "75"
         }
     ],
     "toolsWindowX": 12.0,
@@ -15074,10 +15074,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -9.677530288696289,
+            "posX": -16.182558059692384,
             "posY": 1.1185787916183472,
-            "posZ": 44.10088348388672,
-            "rotY": 91.54141998291016,
+            "posZ": 39.53739929199219,
+            "rotY": 181.96322631835938,
             "hasSavedPosition": true
         },
         {
@@ -15118,10 +15118,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -10.636754035949707,
+            "posX": -14.533011436462403,
             "posY": 0.07500000298023224,
-            "posZ": 20.535032272338868,
-            "rotY": 50.40516662597656,
+            "posZ": 22.591514587402345,
+            "rotY": 0.35759225487709048,
             "hasSavedPosition": true
         },
         {
@@ -15162,10 +15162,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -9.313737869262696,
+            "posX": -15.240324020385743,
             "posY": 0.07500000298023224,
-            "posZ": 24.163742065429689,
-            "rotY": 99.16682434082031,
+            "posZ": 16.569517135620118,
+            "rotY": 237.71841430664063,
             "hasSavedPosition": true
         },
         {
@@ -15206,10 +15206,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -16.9067325592041,
-            "posY": 1.1185787916183472,
-            "posZ": 28.131420135498048,
-            "rotY": 34.879852294921878,
+            "posX": 3.977553129196167,
+            "posY": 0.07500000298023224,
+            "posZ": 25.077922821044923,
+            "rotY": 89.89911651611328,
             "hasSavedPosition": true
         },
         {
@@ -15250,10 +15250,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 7.298592567443848,
+            "posX": 7.38483190536499,
             "posY": 1.1185787916183472,
-            "posZ": 39.68254852294922,
-            "rotY": 5.314225673675537,
+            "posZ": 31.76085662841797,
+            "rotY": 181.96636962890626,
             "hasSavedPosition": true
         },
         {
@@ -15294,10 +15294,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -16.59918785095215,
-            "posY": 1.1185787916183472,
-            "posZ": 29.052785873413087,
-            "rotY": 359.95098876953127,
+            "posX": 2.231750726699829,
+            "posY": 0.07500000298023224,
+            "posZ": 25.04090118408203,
+            "rotY": 89.48997497558594,
             "hasSavedPosition": true
         },
         {
@@ -15338,10 +15338,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 7.054894924163818,
+            "posX": -4.049520969390869,
             "posY": 1.1185787916183472,
-            "posZ": 43.24003601074219,
-            "rotY": 139.77845764160157,
+            "posZ": 44.03959655761719,
+            "rotY": 271.3590087890625,
             "hasSavedPosition": true
         },
         {
@@ -15382,10 +15382,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 7.232879638671875,
-            "posY": 1.1185787916183472,
-            "posZ": 28.300199508666993,
-            "rotY": 0.017817236483097078,
+            "posX": -14.740656852722168,
+            "posY": 0.07500000298023224,
+            "posZ": 16.811473846435548,
+            "rotY": 241.33575439453126,
             "hasSavedPosition": true
         },
         {
@@ -15426,10 +15426,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -16.121103286743165,
-            "posY": 1.1185787916183472,
-            "posZ": 29.198959350585939,
-            "rotY": 54.732479095458987,
+            "posX": 0.6019785404205322,
+            "posY": 0.07500000298023224,
+            "posZ": 25.08325958251953,
+            "rotY": 90.0,
             "hasSavedPosition": true
         },
         {
@@ -15470,10 +15470,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -6.379672527313232,
-            "posY": 0.07500000298023224,
-            "posZ": 23.774843215942384,
-            "rotY": 77.0179214477539,
+            "posX": 7.210661888122559,
+            "posY": 0.3066377639770508,
+            "posZ": 25.19564437866211,
+            "rotY": 45.17057800292969,
             "hasSavedPosition": true
         }
     ],
@@ -18297,7 +18297,7 @@
     ],
     "gameVolume": 0.4020000100135803,
     "musicVolume": 0.02800000086426735,
-    "graphicsPreset": "Ultra",
+    "graphicsPreset": "Good",
     "difficulty": 0,
     "resolutionIndex": 1,
     "screenWidth": 2560,
