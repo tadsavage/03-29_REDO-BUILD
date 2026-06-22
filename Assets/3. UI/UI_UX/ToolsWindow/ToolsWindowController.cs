@@ -41,11 +41,9 @@ public class ToolsWindowController : MonoBehaviour
     private Button _btnTruckEnter;
 
     // Drag
-    private VisualElement _titlebar;
-    private bool _dragging;
-    private Vector2 _dragStartScreen;
-    private Vector2 _windowStartPos;
-    private Vector2 _storedPosition = new Vector2(12f, 50f); // mirrors CSS default
+    private DraggableWindow _dragger;
+    private DraggableWindowPersistence _posPersist;
+    private Vector2 _storedPosition = new Vector2(12f, 50f); // mirrors CSS default; round-tripped through the save file
 
     // ── Script metadata ───────────────────────────────────────────────────────
 
@@ -115,21 +113,23 @@ public class ToolsWindowController : MonoBehaviour
         if (_window == null) { Debug.LogError("[ToolsWindow] tools-window not found."); return; }
         _window.style.display = DisplayStyle.None;
 
-        // Apply any position stored before Start() ran (e.g. from save load at startup)
-        _window.style.right = StyleKeyword.Auto;
-        _window.style.left  = _storedPosition.x;
-        _window.style.top   = _storedPosition.y;
-
-        Wire<Button>("tools-close",    root, b => b.clicked += () => Hide());
+        var closeBtn = root.Q<Button>("tools-close");
+        if (closeBtn != null) closeBtn.clicked += () => Hide();
+        else Debug.LogWarning("[ToolsWindow] Element 'tools-close' not found.");
         Wire<Button>("tab-btn-dev",    root, b => { _tabDev      = b; b.clicked += () => SwitchTab("dev"); });
         Wire<Button>("tab-btn-settings", root, b => { _tabSettings = b; b.clicked += () => SwitchTab("settings"); });
 
         _contentDev      = root.Q("tab-content-dev");
         _contentSettings = root.Q("tab-content-settings");
-        _titlebar        = root.Q("tools-titlebar");
 
-        if (_titlebar != null)
-            _titlebar.RegisterCallback<PointerDownEvent>(OnTitlebarDown);
+        // Drag by the title bar — position persists across play sessions via PlayerPrefs.
+        var titlebar = root.Q("tools-titlebar");
+        _dragger = new DraggableWindow(_window, titlebar, closeBtn);
+        _posPersist = new DraggableWindowPersistence(_window, _dragger, "ToolsWindow");
+        // Keep _storedPosition (round-tripped through the save file, see GetWindowPosition/
+        // SetWindowPosition) in sync with whatever the player just dragged it to.
+        _dragger.OnDragEnd += () =>
+            _storedPosition = new Vector2(_window.resolvedStyle.left, _window.resolvedStyle.top);
 
         // Dev console labels
         _balance          = root.Q<Label>("stat-balance");
@@ -177,27 +177,12 @@ public class ToolsWindowController : MonoBehaviour
 
     private void Update()
     {
+        _posPersist?.Tick();
+
         if (Keyboard.current.f1Key.wasPressedThisFrame)
         {
             if (_visible && IsTabActive("dev")) Hide();
             else Show("dev");
-        }
-
-        // Drag
-        if (_dragging)
-        {
-            if (Mouse.current.leftButton.isPressed)
-            {
-                var panelNow = RuntimePanelUtils.ScreenToPanel(
-                    _doc.rootVisualElement.panel, Mouse.current.position.ReadValue());
-                var d = panelNow - _dragStartScreen;
-                float nx = _windowStartPos.x + d.x;
-                float ny = _windowStartPos.y - d.y;
-                _window.style.left = nx;
-                _window.style.top  = ny;
-                _storedPosition    = new Vector2(nx, ny);
-            }
-            else _dragging = false;
         }
 
         // Scene object selection / deselection for Dev Settings
@@ -773,30 +758,6 @@ public class ToolsWindowController : MonoBehaviour
         foreach (var obj in PlacedObjectRegistry.GetSnapshot())
             if (obj != null) Destroy(obj.gameObject);
         _grid?.RebuildFromRegistry();
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Drag
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void OnTitlebarDown(PointerDownEvent evt)
-    {
-        var el = evt.target as VisualElement;
-        while (el != null && el != _titlebar) { if (el is Button) return; el = el.parent; }
-        _dragging = true;
-        _dragStartScreen = RuntimePanelUtils.ScreenToPanel(
-            _doc.rootVisualElement.panel, Mouse.current.position.ReadValue());
-        _windowStartPos = new Vector2(_window.resolvedStyle.left, _window.resolvedStyle.top);
-        if (float.IsNaN(_windowStartPos.x))
-        {
-            var root = _doc.rootVisualElement;
-            float right = _window.resolvedStyle.right;
-            _windowStartPos.x = float.IsNaN(right) ? 12f
-                : root.resolvedStyle.width - _window.resolvedStyle.width - right;
-        }
-        _window.style.right = StyleKeyword.Auto;
-        _window.style.left  = _windowStartPos.x;
-        _window.style.top   = _windowStartPos.y;
     }
 
     private void OnDestroy()

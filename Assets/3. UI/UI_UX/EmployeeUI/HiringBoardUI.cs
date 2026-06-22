@@ -37,6 +37,7 @@ public class HiringBoardUI : MonoBehaviour
     private VisualElement _tooltip;     // styled hover tooltip for trait words
     private Label _tooltipText;
     private DraggableWindow _dragger;   // drag-by-title-bar + reset-on-X
+    private DraggableWindowPersistence _posPersist;
     private Button _closeButton;
     private Button _refreshButton;
     private Label _countLabel;
@@ -112,13 +113,14 @@ public class HiringBoardUI : MonoBehaviour
             _overlay.Add(_tooltip);
         }
 
-        // Red X → close AND reset position to the original spot next time.
-        _closeButton?.RegisterCallback<ClickEvent>(_ => { _dragger?.ResetToOriginal(); Close(); });
+        // Red X → close. Position is remembered (PlayerPrefs), not reset.
+        _closeButton?.RegisterCallback<ClickEvent>(_ => Close());
         _refreshButton?.RegisterCallback<ClickEvent>(_ => HiringService.Instance?.RefreshRoster());
 
-        // Drag the modal by its title bar (session-only position memory).
+        // Drag the modal by its title bar — position persists across play sessions via PlayerPrefs.
         var titleBar = root.Q<VisualElement>(className: "hb-title-bar");
         _dragger = new DraggableWindow(_modal, titleBar, _closeButton);
+        _posPersist = new DraggableWindowPersistence(_modal, _dragger, "HiringBoard");
 
         _hApplicant?.RegisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Name));
         _hPosition?.RegisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Position));
@@ -138,6 +140,8 @@ public class HiringBoardUI : MonoBehaviour
 
     private void Update()
     {
+        _posPersist?.Tick();
+
         if (!_enableHotkey) return;
         if (Keyboard.current != null && Keyboard.current.f2Key.wasPressedThisFrame)
             Toggle();

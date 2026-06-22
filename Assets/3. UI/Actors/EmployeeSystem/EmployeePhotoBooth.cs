@@ -81,8 +81,10 @@ public class EmployeePhotoBooth : MonoBehaviour
         // Clear the cache first to discard any destroyed sprites from previous play sessions/domain loads
         CustomAvatarCache.Clear();
 
-        // Pre-load existing custom portraits from disk so they survive game restarts/saves
-        LoadAllPortraitsFromDisk();
+        // Portrait disk loading happens in Start() (see below), not here — every other
+        // script's Awake() (including the loading screen's bootstrap) must run first, and
+        // with thousands of accumulated portrait files this can take many seconds; doing it
+        // here would block the entire scene's Awake() cascade before anything can render.
 
         // Initialize RenderTexture for live feed
         _liveRenderTexture = new RenderTexture(256, 256, 24, RenderTextureFormat.ARGB32);
@@ -101,6 +103,17 @@ public class EmployeePhotoBooth : MonoBehaviour
             volume.priority = 10f;
             volume.sharedProfile = _photoBoothProfile;
         }
+
+        // The main game camera defaults to a volumeLayerMask of "Everything", which would
+        // otherwise pick up the PhotoBoothPostFX volume above (its strong Bokeh DOF/vignette
+        // "Kodak Instamatic" look is meant only for the booth's own dedicated cameras, via
+        // ApplyPhotoBoothPostFX). Explicitly exclude that layer here so it can never bleed
+        // into the main view, regardless of how the camera's mask got reset.
+        if (Camera.main != null)
+        {
+            var mainCamData = Camera.main.GetUniversalAdditionalCameraData();
+            mainCamData.volumeLayerMask &= ~(1 << LayerMask.NameToLayer("PhotoBoothFX"));
+        }
     }
 
     /// <summary>Routes a camera's rendering through the photo booth's dedicated post-processing volume only.</summary>
@@ -113,6 +126,15 @@ public class EmployeePhotoBooth : MonoBehaviour
 
     private void Start()
     {
+        // Prune orphaned portrait files (unhired candidates that cycled off the board, etc.)
+        // before loading — by Start() every registry this depends on has finished its own
+        // Awake(), so this is the first safe point to know what's actually still needed.
+        // Without this, the folder only ever grows, and loading thousands of accumulated
+        // PNGs synchronously is exactly what was blocking the scene's startup for seconds
+        // before the loading screen could even appear.
+        PrunePortraits();
+        LoadAllPortraitsFromDisk();
+
         // Subscribe to hire event in Start to guarantee all Awake methods have run
         if (EmployeeLifecycleService.Instance != null)
         {

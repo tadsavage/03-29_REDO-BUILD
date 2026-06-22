@@ -134,10 +134,12 @@ public class GameContext : MonoBehaviour
 
         Vector2Int[] offsets = _yardFloorTile.GetFootprintOffsets(0f);
 
-        // Spread the fill across frames by a TIME BUDGET (~4ms/frame) rather than a
-        // fixed column-per-frame. A whole column (50 tiles) in one frame still hitched;
-        // capping by elapsed time keeps every frame smooth regardless of machine speed.
-        const float frameBudget = 0.004f; // seconds of fill work per frame
+        // Spread the fill across frames by a TIME BUDGET rather than a fixed
+        // column-per-frame (a whole column of 50 tiles in one frame still hitched).
+        // This whole fill runs behind the loading screen, so a smooth 60fps isn't
+        // the concern here — the budget just needs to be small enough that the
+        // loading bar keeps updating and Windows doesn't flag the app as hung.
+        const float frameBudget = 0.02f; // seconds of fill work per frame
         float frameStart = Time.realtimeSinceStartup;
 
         for (int x = 0; x < grid.Width; x++)

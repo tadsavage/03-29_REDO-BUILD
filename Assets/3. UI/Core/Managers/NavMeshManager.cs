@@ -43,7 +43,17 @@ public class NavMeshManager : MonoBehaviour
     // Called by GameContext.Start() after the save is fully loaded.
     public void BakeSynchronous()
     {
+        // Cancel any in-flight async build (from UpdateRoutine) BEFORE tearing down the
+        // coroutine that's awaiting it. Stopping the coroutine first abandons the pending
+        // AsyncOperation with nothing left to cancel it — its scheduled job never gets
+        // completed/disposed in time, which is exactly what trips Unity's "JobTempAlloc
+        // older than 4 frames" leak warning.
+        foreach (var surface in _surfaces)
+            if (surface != null && surface.navMeshData != null)
+                NavMeshBuilder.Cancel(surface.navMeshData);
+
         if (_updateCoroutine != null) StopCoroutine(_updateCoroutine);
+        _isUpdating = false;
         IsReady = false;
 
         var modifiers = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>());
@@ -52,7 +62,6 @@ public class NavMeshManager : MonoBehaviour
         foreach (var surface in _surfaces)
         {
             if (surface == null) continue;
-            if (surface.navMeshData != null) NavMeshBuilder.Cancel(surface.navMeshData);
 
             var sources = new List<NavMeshBuildSource>();
             Bounds worldBounds = GetWorldBounds(surface);

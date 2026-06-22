@@ -4,12 +4,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// Modal employee list + detail panel.
 /// Uses its own UIDocument (not shared with HUD) — following the SaveLoadWindow pattern.
 ///
-/// Open via EmployeeListPanelController.Instance?.Open()
+/// Open via EmployeeListPanelController.Instance?.Open(), or toggle with F4 in play mode.
 /// Wire in UIBootstrapper via [SerializeField] or FindObjectOfType.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
@@ -21,6 +22,13 @@ public class EmployeeListPanelController : MonoBehaviour
     // ─── Serialized ───────────────────────────────────────────────────────────
     [SerializeField] private VisualTreeAsset _listItemTemplate;
     [SerializeField] private RoleIconLibrary _roleIconLibrary;
+
+    private DraggableWindow _dragger;   // drag-by-title-bar
+    private DraggableWindowPersistence _posPersist;
+
+    [Header("Behaviour")]
+    [Tooltip("Toggle the panel with F4 in play mode.")]
+    [SerializeField] private bool _enableHotkey = true;
 
     // ─── State ────────────────────────────────────────────────────────────────
     private UIDocument _doc;
@@ -161,6 +169,11 @@ public class EmployeeListPanelController : MonoBehaviour
         // ── Wire events ───────────────────────────────────────────────────────
         _closeButton?.RegisterCallback<ClickEvent>(_ => Close());
 
+        // Drag the modal by its title bar — position persists across play sessions via PlayerPrefs.
+        var titleBar = root.Q<VisualElement>(className: "title-bar");
+        _dragger = new DraggableWindow(_modal, titleBar, _closeButton);
+        _posPersist = new DraggableWindowPersistence(_modal, _dragger, "EmployeeListPanel");
+
         _filterAll?.RegisterCallback<ClickEvent>(_ => SetFilter("all"));
         _filterActive?.RegisterCallback<ClickEvent>(_ => SetFilter("active"));
         _filterInjured?.RegisterCallback<ClickEvent>(_ => SetFilter("injured"));
@@ -205,6 +218,15 @@ public class EmployeeListPanelController : MonoBehaviour
             Close();
         else
             Open();
+    }
+
+    private void Update()
+    {
+        _posPersist?.Tick();
+
+        if (!_enableHotkey) return;
+        if (Keyboard.current != null && Keyboard.current.f4Key.wasPressedThisFrame)
+            Toggle();
     }
 
     // ─── Registry subscription (lazy/retry) ──────────────────────────────────

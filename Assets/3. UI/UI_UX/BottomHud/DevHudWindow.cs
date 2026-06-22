@@ -142,6 +142,7 @@ public class DevHudWindow : MonoBehaviour
         root.Add(_panel);
 
         _dragger = new DraggableWindow(_panel, titleBar, close);
+        _dragger.OnDragEnd += SaveWindowPos;
     }
 
     private void Update()

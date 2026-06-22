@@ -28,7 +28,7 @@
     border-bottom-width: 1px; border-bottom-color: rgba(92,155,196,0.35);
 }
 .hb-title {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 30px; letter-spacing: -3px; color: #CFE2F0;
     -unity-text-align: middle-center;
 }
@@ -49,7 +49,7 @@
     padding: 8px 18px 6px 18px; flex-shrink: 0;
 }
 .hb-header-label {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 12px; letter-spacing: -1px; color: #7A99B0;
     -unity-text-align: middle-left;
 }
@@ -104,11 +104,11 @@
 /* Column: name */
 .hb-col-name { flex-grow: 1; flex-shrink: 1; flex-direction: column; padding-left: 12px; }
 .hb-firstname {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 13px; letter-spacing: -1px; color: #8AAABB; -unity-text-align: upper-left;
 }
 .hb-lastname {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 18px; letter-spacing: -2px; color: #EAF4FF; -unity-text-align: upper-left;
 }
 
@@ -121,7 +121,7 @@
     -unity-background-scale-mode: scale-to-fit;
 }
 .hb-role-name {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 13px; letter-spacing: -1px; color: #CFE2F0;
     -unity-text-align: middle-left; white-space: normal; flex-shrink: 1;
 }
@@ -129,14 +129,14 @@
 /* Column: experience */
 .hb-col-exp { width: 90px; flex-shrink: 0; }
 .hb-exp {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 14px; letter-spacing: -1px; color: #B8D4E8; -unity-text-align: middle-left;
 }
 
 /* Columns: strength / weakness chips */
 .hb-col-trait { width: 132px; flex-shrink: 0; padding-right: 8px; }
 .hb-chip {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 11px; letter-spacing: -1px; color: #CFE2F0;
     background-color: rgba(15, 20, 28, 0.55);
     border-radius: 6px; padding: 8px 8px;
@@ -148,19 +148,19 @@
 /* Column: salary */
 .hb-col-salary { width: 110px; flex-shrink: 0; flex-direction: column; }
 .hb-salary {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 15px; letter-spacing: -1px; color: #EAF4FF; -unity-text-align: middle-left;
 }
 .hb-salary-countered { color: #50C864; }
 .hb-salary-note {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 9px; letter-spacing: -1px; color: #50C864; -unity-text-align: upper-left;
 }
 
 /* Column: actions */
 .hb-col-actions { width: 150px; flex-shrink: 0; flex-direction: row; align-items: center; justify-content: flex-end; }
 .hb-btn {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 13px; letter-spacing: -1px; -unity-text-align: middle-center;
     border-radius: 8px; border-width: 0; padding: 8px 0;
     margin-left: 6px;
@@ -185,11 +185,11 @@
     border-top-width: 1px; border-top-color: rgba(92,155,196,0.25);
 }
 .hb-count {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 12px; letter-spacing: -1px; color: #7A99B0;
 }
 .hb-refresh {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 13px; letter-spacing: -1px; color: #DCEAF5;
     background-color: rgba(76,144,192,0.25);
     border-width: 1px; border-color: #4C90C0; border-radius: 8px;
@@ -207,14 +207,14 @@
     padding: 10px 12px; justify-content: center;
 }
 .hb-tooltip-text {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 15px; -unity-font-style: normal; letter-spacing: -1px;
     color: #CFE2F0; white-space: normal; -unity-text-align: middle-left;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 .hb-empty {
-    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-RegularSDF.asset?fileID=11400000&amp;guid=d86e933e6ca983a45ad912f7d7fa9882&amp;type=2#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/_Project/Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 16px; letter-spacing: -1px; color: #7A99B0;
     -unity-text-align: middle-center; padding: 40px 0;
 }

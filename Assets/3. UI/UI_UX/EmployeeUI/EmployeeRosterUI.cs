@@ -43,7 +43,8 @@ public class EmployeeRosterUI : MonoBehaviour
     private Button         _close;
     private Label          _count;
     private DropdownField  _filter;
-    private DraggableWindow _dragger;   // drag-by-title-bar + reset-on-X
+    private DraggableWindow _dragger;   // drag-by-title-bar
+    private DraggableWindowPersistence _posPersist;
 
     private EmployeeInfoUI _infoUI;     // cached target for shift-click → detail panel
 
@@ -76,13 +77,14 @@ public class EmployeeRosterUI : MonoBehaviour
         _count   = root.Q<Label>("er-count");
         _filter  = root.Q<DropdownField>("er-filter");
 
-        // Red X → close AND reset position to the original spot next time.
-        _close?.RegisterCallback<ClickEvent>(_ => { _dragger?.ResetToOriginal(); Close(); });
+        // Red X → close. Position is remembered (PlayerPrefs), not reset.
+        _close?.RegisterCallback<ClickEvent>(_ => Close());
 
-        // Drag the panel by its title bar (session-only position memory).
+        // Drag the panel by its title bar — position persists across play sessions via PlayerPrefs.
         var panel = root.Q<VisualElement>("er-panel");
         var titleBar = root.Q<VisualElement>(className: "er-title-bar");
         _dragger = new DraggableWindow(panel, titleBar, _close);
+        _posPersist = new DraggableWindowPersistence(panel, _dragger, "EmployeeRoster");
 
         if (_filter != null)
         {
@@ -107,6 +109,8 @@ public class EmployeeRosterUI : MonoBehaviour
 
     private void Update()
     {
+        _posPersist?.Tick();
+
         if (!_enableHotkey) return;
         if (Keyboard.current != null && Keyboard.current.f3Key.wasPressedThisFrame)
             Toggle();

@@ -26,6 +26,9 @@ public class DraggableWindow
     /// <summary>True while the user is actively dragging the panel.</summary>
     public bool IsDragging => _dragging;
 
+    /// <summary>Fires once, right after a drag completes (pointer released while dragging).</summary>
+    public event System.Action OnDragEnd;
+
     public DraggableWindow(VisualElement panel, VisualElement handle, VisualElement closeButton)
     {
         _panel = panel;
@@ -74,6 +77,7 @@ public class DraggableWindow
         _dragging = false;
         if (_panel.HasPointerCapture(e.pointerId)) _panel.ReleasePointer(e.pointerId);
         _pointerId = -1;
+        OnDragEnd?.Invoke();
     }
     // Lock the current size so switching to absolute positioning doesn't collapse a
     // stretched panel (e.g. the roster, which is sized by top+bottom).
