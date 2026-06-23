@@ -50,6 +50,11 @@ public class AiNavigation : MonoBehaviour
     // sibling under an anchor, not necessarily a child captured at Awake time).
     private bool _parked;
 
+    // Equipment seeking (operator walks toward placed equipment)
+    private MHEOperatorSlot _targetEquipment;
+    private bool _seekingEquipment;
+    private EmployeeIdentity _operatorIdentity;
+
     // Auto-rebake: fires when agent has no waypoints (? visible) or is stuck for too long.
     private float   _noWaypointRebakeTimer;
     private float   _stuckRebakeTimer;
@@ -202,6 +207,97 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         {
             if (agent.isActiveAndEnabled) agent.isStopped = false;
             GoToRandomWaypoint();
+        }
+    }
+
+    /// <summary>Transitions equipment to active state with an operator aboard.</summary>
+    public void GoActive(EmployeeIdentity operatorIdentity)
+    {
+        _operatorIdentity = operatorIdentity;
+
+        // Show the MHE's own NoWaypointIndicator (operator is driving, so show if stuck)
+        var mheIndicator = GetComponent<NoWaypointIndicator>();
+        if (mheIndicator != null) mheIndicator.gameObject.SetActive(true);
+
+        if (agent != null && agent.isActiveAndEnabled)
+        {
+            agent.isStopped = false;
+            GoToRandomWaypoint();
+        }
+    }
+
+    /// <summary>Transitions equipment to idle state (no operator, frozen in place).</summary>
+    public void GoIdle()
+    {
+        _operatorIdentity = null;
+
+        // Hide the MHE's own NoWaypointIndicator (equipment is idle, no indicator)
+        var mheIndicator = GetComponent<NoWaypointIndicator>();
+        if (mheIndicator != null) mheIndicator.gameObject.SetActive(false);
+
+        if (agent != null && agent.isActiveAndEnabled)
+        {
+            agent.isStopped = true;
+            agent.ResetPath();
+        }
+    }
+
+    /// <summary>Operator seeks this equipment and walks toward it.</summary>
+    public void SeekEquipment(MHEOperatorSlot slot)
+    {
+        if (agent == null || !agent.isActiveAndEnabled) return;
+        if (role == AgentRole.Forklift) return;  // Only workers seek equipment
+        if (_seekingEquipment) return;  // Already seeking
+
+        _targetEquipment = slot;
+        _seekingEquipment = true;
+        SetDestinationSnapped(slot.transform.position);
+    }
+
+    /// <summary>Cancel equipment seeking (e.g., if target became occupied).</summary>
+    private void CancelEquipmentSeeking()
+    {
+        _seekingEquipment = false;
+        _targetEquipment = null;
+    }
+
+    /// <summary>Find and seek the closest unoccupied equipment matching the operator's previous target type.</summary>
+    private void FindAndSeekNextAvailableEquipment()
+    {
+        if (_operatorIdentity == null || _targetEquipment == null) return;
+
+        // We don't know the operator's exact role, but we know the equipment type they were seeking
+        // Get the data from the previously-occupied target to match equipment type
+        var previousVehicleData = _targetEquipment.GetComponent<PlacedObject>()?.data;
+        if (previousVehicleData == null) return;
+
+        // Find all MHE slots and pick the closest unoccupied one matching the previous equipment type
+        var allSlots = FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None);
+        MHEOperatorSlot closest = null;
+        float closestDist = float.MaxValue;
+
+        foreach (var slot in allSlots)
+        {
+            if (slot.IsOccupied) continue;
+            if (slot == _targetEquipment) continue;  // Skip the one that just became occupied
+
+            var vehicleObj = slot.GetComponent<PlacedObject>();
+            if (vehicleObj == null) continue;
+
+            // Check if this equipment matches the type they were just seeking
+            if (vehicleObj.data != previousVehicleData) continue;
+
+            float dist = Vector3.Distance(transform.position, slot.transform.position);
+            if (dist < closestDist)
+            {
+                closestDist = dist;
+                closest = slot;
+            }
+        }
+
+        if (closest != null)
+        {
+            SeekEquipment(closest);
         }
     }
 
@@ -387,6 +483,33 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             return;
         }
         if (_animator != null && !_animator.enabled) _animator.enabled = true;
+
+        // ── Equipment seeking (operator walks toward placed equipment) ──────────────
+        if (_seekingEquipment && _targetEquipment != null)
+        {
+            // Check if target equipment became occupied
+            if (_targetEquipment.IsOccupied)
+            {
+                // Target is now occupied — find the next available equipment of the same type
+                CancelEquipmentSeeking();
+                FindAndSeekNextAvailableEquipment();
+            }
+            // Check if we've reached the equipment (very generous distance tolerance)
+            else if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathComplete
+                     && agent.remainingDistance <= 2.0f)  // Increased from 0.5f to account for equipment position offset
+            {
+                // Reached equipment — board it
+                CancelEquipmentSeeking();
+                _targetEquipment.AssignOperator(_operatorIdentity);
+            }
+            // Check if path is invalid (can't reach equipment)
+            else if (agent.pathStatus == NavMeshPathStatus.PathInvalid && !agent.pathPending)
+            {
+                Debug.LogWarning($"[AiNavigation] {name} cannot reach equipment at {_targetEquipment.transform.position} (path invalid) — seeking next available");
+                CancelEquipmentSeeking();
+                FindAndSeekNextAvailableEquipment();
+            }
+        }
 
         // SAFETY: agent.updatePosition stays false for the entire lifetime (set in Awake).
         // LateUpdate drives transform + Rigidbody from agent.nextPosition.

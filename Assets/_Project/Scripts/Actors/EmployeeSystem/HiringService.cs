@@ -185,6 +185,69 @@ public class HiringService : MonoBehaviour
         return added;
     }
 
+    // ─── Roster guarantee (critical roles) ──────────────────────────────────────
+    /// <summary>
+    /// Ensure the roster contains at least minCount candidates of the specified role.
+    /// If the roster lacks enough, generate new candidates up to minCount.
+    /// If adding would exceed the cap, evict the lowest-wage non-critical candidates
+    /// (OrderSelector or Sanitation preferred) to stay under cap while keeping the guarantee.
+    /// </summary>
+    private void EnsureMinimumRole(EmployeeRole targetRole, int minCount)
+    {
+        // Count existing candidates with this role.
+        int currentCount = 0;
+        foreach (var candidate in _roster)
+        {
+            if (candidate.record.role == targetRole) currentCount++;
+        }
+
+        // If we already have enough, nothing to do.
+        if (currentCount >= minCount) return;
+
+        int needed = minCount - currentCount;
+
+        // Generate new candidates to reach minCount, evicting low-wage non-critical if necessary.
+        for (int i = 0; i < needed; i++)
+        {
+            var newCandidate = HiringCandidateGenerator.Generate(targetRole);
+            if (EmployeePhotoBooth.Instance != null)
+                EmployeePhotoBooth.Instance.GeneratePortraitForRecord(newCandidate.record);
+
+            // If adding would exceed cap, evict the lowest-wage non-critical candidate first.
+            if (_roster.Count >= _cap)
+            {
+                HiringCandidate toEvict = null;
+                foreach (var candidate in _roster)
+                {
+                    // Prefer to evict OrderSelectors or Sanitation workers (non-critical roles).
+                    if (candidate.record.role == EmployeeRole.OrderSelector || candidate.record.role == EmployeeRole.Sanitation)
+                    {
+                        if (toEvict == null || candidate.record.hourlyWage < toEvict.record.hourlyWage)
+                            toEvict = candidate;
+                    }
+                }
+
+                // If no non-critical found, evict the lowest-wage candidate of any role (but not a critical one).
+                if (toEvict == null)
+                {
+                    foreach (var candidate in _roster)
+                    {
+                        if (candidate.record.role == EmployeeRole.ReachTruckOperator ||
+                            candidate.record.role == EmployeeRole.DockStockerOperator)
+                            continue; // Don't evict other critical roles.
+                        if (toEvict == null || candidate.record.hourlyWage < toEvict.record.hourlyWage)
+                            toEvict = candidate;
+                    }
+                }
+
+                if (toEvict != null)
+                    _roster.Remove(toEvict);
+            }
+
+            _roster.Add(newCandidate);
+        }
+    }
+
     // ─── Roster building ────────────────────────────────────────────────────────
     private void BuildInitialRoster()
     {
@@ -208,6 +271,10 @@ public class HiringService : MonoBehaviour
                 EmployeePhotoBooth.Instance.GeneratePortraitForRecord(candidate.record);
             _roster.Add(candidate);
         }
+
+        // Guarantee at least 1 of each critical operator role for the equipment-first hiring model.
+        EnsureMinimumRole(EmployeeRole.ReachTruckOperator, 1);
+        EnsureMinimumRole(EmployeeRole.DockStockerOperator, 1);
 
         OnRosterChanged?.Invoke();
     }

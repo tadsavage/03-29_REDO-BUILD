@@ -592,13 +592,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9b3b9e29f9727440abb52245c9fc723, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavAgentGuidance
-  showGuidanceLine: 0
+  showGuidanceLine: 1
   colorType: 7
   lineWidth: 0.25
   isDashed: 1
   pointsPerSegment: 10
   verticalOffset: 0.05
-  guidanceMaterial: {fileID: 2100000, guid: d4ad64ebc615eaf48a32b5c4c9d5eeaa, type: 2}
+  guidanceMaterial: {fileID: -876546973899608171, guid: dea41a882d6ef87489402d2409c08094, type: 3}
 --- !u!82 &-1621888154689040394
 AudioSource:
   m_ObjectHideFlags: 0
@@ -733,7 +733,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
   alertEmoteName: emote_exclamations
-  alertEmoteOverride: {fileID: 0}
+  alertEmoteOverride: {fileID: 21300000, guid: 8a32753f8599e464284b8e20b277918e, type: 3}
   graceBeforeShow: 2.5
   stuckSeconds: 5
   stuckMoveThreshold: 0.1

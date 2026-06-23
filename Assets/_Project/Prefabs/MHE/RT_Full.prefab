@@ -278,7 +278,7 @@ NavMeshAgent:
   m_AutoRepath: 1
   m_Height: 2.5
   m_BaseOffset: 0
-  m_WalkableMask: 9
+  m_WalkableMask: 61
   m_ObstacleAvoidanceType: 4
 --- !u!114 &4711667653918820540
 MonoBehaviour:
@@ -401,18 +401,18 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4077015868802141654}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d9b3b9e29f9727440abb52245c9fc723, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavAgentGuidance
-  showGuidanceLine: 0
+  showGuidanceLine: 1
   colorType: 7
   lineWidth: 0.25
   isDashed: 1
   pointsPerSegment: 10
   verticalOffset: 0.05
-  guidanceMaterial: {fileID: 2100000, guid: d4ad64ebc615eaf48a32b5c4c9d5eeaa, type: 2}
+  guidanceMaterial: {fileID: -876546973899608171, guid: dea41a882d6ef87489402d2409c08094, type: 3}
 --- !u!82 &3292346624736469682
 AudioSource:
   m_ObjectHideFlags: 0
@@ -541,13 +541,13 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4077015868802141654}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 13474f5c7c29e4d4f97a49ff0d7c4888, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
   alertEmoteName: emote_exclamations
-  alertEmoteOverride: {fileID: 0}
+  alertEmoteOverride: {fileID: 21300000, guid: 8a32753f8599e464284b8e20b277918e, type: 3}
   graceBeforeShow: 2.5
   stuckSeconds: 5
   stuckMoveThreshold: 0.1
@@ -584,7 +584,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MHEOperatorSlot
   _operatorAnchor: {fileID: 2344123756611189053}
-  _operatorDriveController: {fileID: 0}
+  _operatorDriveController: {fileID: 9100000, guid: e92cc716c193c174ba4050b60da02324, type: 2}
 --- !u!1001 &4337254659362521858
 PrefabInstance:
   m_ObjectHideFlags: 0

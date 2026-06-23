@@ -40,6 +40,12 @@ public class MHEOperatorSlot : MonoBehaviour
         _vehicleNav = GetComponent<AiNavigation>();
     }
 
+    private void OnEnable()
+    {
+        // Broadcast to idle operators that this equipment is now available
+        MHEPlacementEvent.BroadcastEquipmentPlaced(this);
+    }
+
     // The vehicle's own (large, parent-optimized) BoxCollider sits in front of the much smaller
     // operator collider in any raycast, so EmployeeClickHandler on the operator itself almost
     // never wins the hit test while they're riding. Forward clicks on the vehicle's collider to
@@ -97,12 +103,15 @@ public class MHEOperatorSlot : MonoBehaviour
         }
 
         identity.GetComponent<AgentAnimation>()?.SetRidingMHE(true);
-        identity.GetComponent<NoWaypointIndicator>()?.UseExternalNavSource(_vehicleNav);
+
+        // Hide operator's NoWaypointIndicator while riding (they're not waving, vehicle is driving)
+        var operatorIndicator = identity.GetComponent<NoWaypointIndicator>();
+        if (operatorIndicator != null) operatorIndicator.gameObject.SetActive(false);
 
         identity.AssignedSlot = this;
         CurrentOperator = identity;
 
-        _vehicleNav.SetParked(false);
+        _vehicleNav.GoActive(identity);
     }
 
     /// <summary>Returns the departing operator so the caller (termination flow) can hand them
@@ -123,7 +132,10 @@ public class MHEOperatorSlot : MonoBehaviour
         _savedControllers.Clear();
 
         identity.GetComponent<AgentAnimation>()?.SetRidingMHE(false);
-        identity.GetComponent<NoWaypointIndicator>()?.UseExternalNavSource(null);
+
+        // Restore operator's NoWaypointIndicator visibility (they're no longer riding)
+        var operatorIndicator = identity.GetComponent<NoWaypointIndicator>();
+        if (operatorIndicator != null) operatorIndicator.gameObject.SetActive(true);
 
         var operatorNav = identity.GetComponent<AiNavigation>();
         if (operatorNav != null) operatorNav.enabled = true;
@@ -134,7 +146,7 @@ public class MHEOperatorSlot : MonoBehaviour
         identity.AssignedSlot = null;
         CurrentOperator = null;
 
-        _vehicleNav.SetParked(true);
+        _vehicleNav.GoIdle();
 
         return identity;
     }

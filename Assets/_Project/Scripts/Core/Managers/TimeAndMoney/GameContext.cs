@@ -21,7 +21,8 @@ public class GameContext : MonoBehaviour
         TimeService = new SimulationTimeService(1, 8, 0);
         timeDriver.Initialize(TimeService);
 
-        int difficulty = PlayerPrefs.GetInt("Difficulty", 0);
+        // LOCKED to Clerk difficulty for equipment-first hiring model development
+        int difficulty = 0; // Clerk (easy): 120k starting capital, 100% sell-back rate, 4x faster hiring replenishment
         int startingCapital = difficulty switch
         {
             0 => 120000, // Clerk — easiest, more money

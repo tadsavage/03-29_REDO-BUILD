@@ -84,7 +84,38 @@ public class EmployeeSpawner : MonoBehaviour
     private void OnEmployeeHired(EmployeeRecord record)
     {
         if (_isAutoSpawning) return; // already handled inline in Start
-        SpawnEmployee(record);
+        var identity = SpawnEmployee(record);
+
+        // Subscribe to equipment placement so idle operators can seek equipment
+        if (identity != null && (record.role == EmployeeRole.ReachTruckOperator
+                                 || record.role == EmployeeRole.DockStockerOperator
+                                 || record.role == EmployeeRole.Loader))
+        {
+            MHEPlacementEvent.OnMHEEquipmentPlaced += (slot) => OnEquipmentPlaced(identity, slot, record.role);
+        }
+    }
+
+    /// <summary>Called when equipment is placed; check if this idle operator should seek it.</summary>
+    private void OnEquipmentPlaced(EmployeeIdentity identity, MHEOperatorSlot slot, EmployeeRole role)
+    {
+        if (identity == null || identity.AssignedSlot != null) return;  // Already has equipment
+
+        var vehicleData = slot.GetComponent<PlacedObject>()?.data;
+        if (vehicleData == null) return;
+
+        // Determine what equipment this operator role can use
+        ObjDataSO targetData = role == EmployeeRole.ReachTruckOperator ? _reachTruckData
+                             : (role == EmployeeRole.DockStockerOperator || role == EmployeeRole.Loader) ? _dockStockerData
+                             : null;
+
+        if (vehicleData != targetData) return;  // Wrong equipment type
+
+        // Operator is idle and matches this equipment's role — seek it
+        var nav = identity.GetComponent<AiNavigation>();
+        if (nav != null)
+        {
+            nav.SeekEquipment(slot);
+        }
     }
 
     // ─── Spawning ─────────────────────────────────────────────────────────────
@@ -169,15 +200,16 @@ public class EmployeeSpawner : MonoBehaviour
         if (_useModularAvatars)
             ApplyModularAvatar(identity);
 
-        // Fresh ReachTruckOperator/DockStockerOperator/Loader hires board an MHE immediately
-        // (Loaders drive the Dock Stocker too — same dock-loading equipment). Skipped for
-        // save-restored employees (hasSavedPosition) — operator<->vehicle pairing isn't persisted,
-        // so a reload intentionally drops them back to free-roaming until a fresh hire re-pairs them.
+        // Fresh ReachTruckOperator/DockStockerOperator/Loader attempt to board an existing MHE.
+        // Equipment must be placed manually via the build menu first — this system no longer auto-creates
+        // equipment. If no unoccupied MHE exists, the operator spawns on-foot. Skipped for save-restored
+        // employees (hasSavedPosition) — operator<->vehicle pairing isn't persisted, so a reload
+        // intentionally drops them back to free-roaming until a fresh hire re-pairs them.
         if (!record.hasSavedPosition &&
             (record.role == EmployeeRole.ReachTruckOperator || record.role == EmployeeRole.DockStockerOperator
              || record.role == EmployeeRole.Loader))
         {
-            AssignToMHE(identity, record.role);
+            TryBoardExistingMHE(identity, record.role);
         }
 
         return identity;
@@ -185,10 +217,45 @@ public class EmployeeSpawner : MonoBehaviour
 
     // ─── MHE operator assignment ────────────────────────────────────────────────
     /// <summary>
+    /// Attempts to board an operator onto an existing unoccupied MHE matching their role.
+    /// Does NOT spawn new equipment — players must place equipment via the build menu first.
+    /// If no free vehicle exists, the operator stays on-foot.
+    /// </summary>
+    private bool TryBoardExistingMHE(EmployeeIdentity identity, EmployeeRole role)
+    {
+        ObjDataSO targetData = role == EmployeeRole.ReachTruckOperator ? _reachTruckData
+                             : (role == EmployeeRole.DockStockerOperator || role == EmployeeRole.Loader) ? _dockStockerData
+                             : null;
+        if (targetData == null)
+        {
+            Debug.LogWarning($"[EmployeeSpawner] TryBoardExistingMHE: no ObjDataSO wired for role {role}");
+            return false;
+        }
+
+        // Search for any unoccupied MHE matching this operator's role.
+        foreach (var slot in FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None))
+        {
+            if (slot.IsOccupied) continue;
+            var vehicleObj = slot.GetComponent<PlacedObject>();
+            if (vehicleObj == null || vehicleObj.data != targetData) continue;
+
+            // Found a matching unoccupied vehicle — board the operator.
+            slot.AssignOperator(identity);
+            return true;
+        }
+
+        // No available MHE found — operator stays on-foot.
+        Debug.LogWarning($"[EmployeeSpawner] TryBoardExistingMHE: no unoccupied {role} equipment found — operator spawns on-foot.");
+        return false;
+    }
+
+    /// <summary>
     /// Boards a freshly-hired ReachTruckOperator/DockStockerOperator/Loader onto an MHE: reuses an
     /// existing unoccupied matching vehicle if one exists, otherwise spawns a brand-new one (preferring
     /// an MHE waypoint, falling back to an unoccupied Foundation cell, falling back to the generic spawn
     /// point) and boards that instead.
+    ///
+    /// DEPRECATED: This method is kept for backward compatibility only. Use TryBoardExistingMHE() instead.
     /// </summary>
     private void AssignToMHE(EmployeeIdentity identity, EmployeeRole role)
     {
