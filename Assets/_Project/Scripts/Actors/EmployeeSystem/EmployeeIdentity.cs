@@ -29,6 +29,14 @@ public class EmployeeIdentity : MonoBehaviour
     /// <summary>True for simulation NPCs (guard, drivers) that aren't player-hired employees.</summary>
     public bool SystemManaged => _systemManaged;
 
+    /// <summary>
+    /// The MHE slot (Reach Truck / Dock Stocker / Pallet Jack) this employee currently
+    /// operates, or null if they're on foot. Set by MHEOperatorSlot.AssignOperator,
+    /// cleared by VacateOperator. EmployeeTerminationService checks this to vacate the
+    /// vehicle before the walk-out sequence begins.
+    /// </summary>
+    public MHEOperatorSlot AssignedSlot { get; set; }
+
     private void Awake()
     {
         // Safety: If we are instantiated as a temporary model inside the PhotoBooth,

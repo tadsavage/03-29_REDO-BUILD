@@ -122,6 +122,13 @@ public static class ModularAvatarAssembler
         }
 
         // ── Merge in chosen parts that come from OTHER source FBXs ────────────────
+        // A merged-in mesh is still skinned to ITS OWN source's skeleton, which lives on
+        // `temp` and is about to be destroyed. Without rebinding, the SkinnedMeshRenderer's
+        // bones[]/rootBone keep pointing at those (soon-null) transforms, so it renders
+        // collapsed at its bind-pose origin — looking like a stray piece left at world zero,
+        // even though the GameObject itself is correctly parented under `root` the whole time.
+        Dictionary<string, Transform> rootBonesByName = null;
+
         foreach (var grp in chosen.Where(p => p.sourceIndex != primarySource).GroupBy(p => p.sourceIndex))
         {
             var prefab = lib.sources[grp.Key].prefab;
@@ -135,6 +142,25 @@ public static class ModularAvatarAssembler
                 child.localPosition = Vector3.zero;
                 child.localRotation = Quaternion.identity;
                 child.localScale    = Vector3.one;
+
+                var smr = child.GetComponent<SkinnedMeshRenderer>();
+                if (smr == null || smr.bones == null || smr.bones.Length == 0) continue;
+
+                rootBonesByName ??= root.GetComponentsInChildren<Transform>(true)
+                                        .GroupBy(b => b.name)
+                                        .ToDictionary(g => g.Key, g => g.First());
+
+                var remappedBones = new Transform[smr.bones.Length];
+                for (int i = 0; i < smr.bones.Length; i++)
+                {
+                    var bone = smr.bones[i];
+                    remappedBones[i] = (bone != null && rootBonesByName.TryGetValue(bone.name, out var match))
+                        ? match : bone;
+                }
+                smr.bones = remappedBones;
+
+                if (smr.rootBone != null && rootBonesByName.TryGetValue(smr.rootBone.name, out var rootMatch))
+                    smr.rootBone = rootMatch;
             }
             SafeDestroy(temp);
         }

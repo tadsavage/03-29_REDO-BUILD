@@ -234,36 +234,25 @@ public class FinancialBreakdownPanel
         hdr.style.borderTopRightRadius  = 5f;
         tt.Add(hdr);
 
-        if (category == FinanceCategory.Wages)
+        // Wages and the other expandable categories (Maintenance/Electricity/Groundskeeping) all
+        // share the same generic per-category detail bucket (MoneyService._lifetimeDetail, rolled
+        // up every in-game hour in ApplyHourlyCost) — Wages just keys its detail by role name
+        // instead of an ObjDataSO category string, so DetailLabel resolves it to a display name.
+        var detail = _money.GetLifetimeDetail(category);
+        if (detail == null || detail.Count == 0)
         {
-            bool any = false;
-            int idx = 0;
-            foreach (EmployeeRole role in Enum.GetValues(typeof(EmployeeRole)))
-            {
-                if (!_money.WagesByRole.TryGetValue(role.ToString(), out int amt) || amt <= 0) continue;
-                tt.Add(TipRow(role.DisplayName(), amt, idx++ % 2 == 0));
-                any = true;
-            }
-            if (!any) tt.Add(EmptyMsg("No wages paid yet"));
+            tt.Add(EmptyMsg(category == FinanceCategory.Wages ? "No wages paid yet" : "No costs recorded yet"));
+            return;
         }
-        else
+        int idx = 0;
+        bool any = false;
+        foreach (var kvp in detail)
         {
-            var detail = _money.GetLifetimeDetail(category);
-            if (detail == null || detail.Count == 0)
-            {
-                tt.Add(EmptyMsg("No costs recorded yet"));
-                return;
-            }
-            int idx = 0;
-            bool any = false;
-            foreach (var kvp in detail)
-            {
-                if (kvp.Value <= 0) continue;
-                tt.Add(TipRow(DetailLabel(category, kvp.Key), kvp.Value, idx++ % 2 == 0));
-                any = true;
-            }
-            if (!any) tt.Add(EmptyMsg("No costs recorded yet"));
+            if (kvp.Value <= 0) continue;
+            tt.Add(TipRow(DetailLabel(category, kvp.Key), kvp.Value, idx++ % 2 == 0));
+            any = true;
         }
+        if (!any) tt.Add(EmptyMsg(category == FinanceCategory.Wages ? "No wages paid yet" : "No costs recorded yet"));
     }
 
     // ── Element factories ─────────────────────────────────────────────────────
@@ -394,8 +383,12 @@ public class FinancialBreakdownPanel
         _                              => "Breakdown"
     };
 
-    static string DetailLabel(string cat, string key) =>
-        cat == FinanceCategory.Maintenance ? MaintenanceLabel(key) : key;
+    static string DetailLabel(string cat, string key)
+    {
+        if (cat == FinanceCategory.Wages && Enum.TryParse(key, out EmployeeRole role))
+            return role.DisplayName();
+        return cat == FinanceCategory.Maintenance ? MaintenanceLabel(key) : key;
+    }
 
     static string MaintenanceLabel(string key) => key switch
     {

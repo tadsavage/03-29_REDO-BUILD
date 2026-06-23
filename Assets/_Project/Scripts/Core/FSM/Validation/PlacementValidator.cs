@@ -102,11 +102,14 @@ public class PlacementValidator : MonoBehaviour
 
             bool entryIsGround = IsGround(entry.data);
 
-            // 1. Placing Ground: can replace other Grounds or sit on top of Floor tiles.
-            // Anything else (normal objects, etc.) blocks ground placement.
+            // 1. Placing Ground/Foundation: only allowed to sit on top of Floor tiles.
+            // Another Foundation/Ground already here always blocks placement — letting
+            // two ground-category objects share a cell corrupts the stack order (index 0
+            // is reserved for exactly one Foundation/Ground) and is what caused placed
+            // foundations to merge meshes and leave behind orphaned tiles on delete.
             if (isPlacingGround)
             {
-                if (!entryIsGround && !entry.data.isFloor) return false;
+                if (entryIsGround || !entry.data.isFloor) return false;
                 continue;
             }
 

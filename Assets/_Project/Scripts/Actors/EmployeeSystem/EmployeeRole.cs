@@ -8,6 +8,7 @@ public enum EmployeeRole
 {
 	OrderSelector,        // Picks cases/orders — performance measured in CPH
 	ReachTruckOperator,   // Operates reach truck — performance measured in PPH
+	DockStockerOperator,  // Operates dock stocker — performance measured in PPH
 	Loader,               // Loads trucks — performance measured in PPH
 	Receiver,             // Receives/checks inbound freight
 	Supervisor,           // Floor supervisor (indirect)
@@ -29,6 +30,7 @@ public static class EmployeeRoleExtensions
 	{
 		EmployeeRole.OrderSelector      => "Order Selector",
 		EmployeeRole.ReachTruckOperator => "Reach Truck Operator",
+		EmployeeRole.DockStockerOperator => "Dock Stocker Operator",
 		EmployeeRole.Loader             => "Loader",
 		EmployeeRole.Receiver           => "Receiver",
 		EmployeeRole.Supervisor         => "Supervisor",
@@ -46,6 +48,7 @@ public static class EmployeeRoleExtensions
 	{
 		EmployeeRole.OrderSelector      => EmployeePerformanceMetric.CasesPerHour,
 		EmployeeRole.ReachTruckOperator => EmployeePerformanceMetric.PalletsPerHour,
+		EmployeeRole.DockStockerOperator => EmployeePerformanceMetric.PalletsPerHour,
 		EmployeeRole.Loader             => EmployeePerformanceMetric.PalletsPerHour,
 		_                               => EmployeePerformanceMetric.Indirect
 	};

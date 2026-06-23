@@ -50,6 +50,18 @@ public class NoWaypointIndicator : MonoBehaviour
     /// <summary>True while the alert is up — polled by AgentAnimation to drive the wave.</summary>
     public bool IsShowingIndicator => _alertActive;
 
+    /// <summary>
+    /// Repoints waypoint-availability checks at an external AiNavigation (the MHE this
+    /// employee is riding) instead of this employee's own — RequireComponent guarantees
+    /// the local one always exists, so a null-check fallback can't tell "use the local
+    /// one" apart from "no override set"; this is the explicit override path instead.
+    /// Pass null to revert to this employee's own AiNavigation.
+    /// </summary>
+    public void UseExternalNavSource(AiNavigation source)
+    {
+        _aiNav = source != null ? source : GetComponent<AiNavigation>();
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void Awake()

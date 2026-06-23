@@ -410,7 +410,10 @@ public bool IsPlacementState => true;
             {
                 Vector2Int cell = new Vector2Int(x, y);
 
-                bool valid = _validator.IsCellValid(cell, _currentData);
+                // Full-footprint check (not just the root cell) so multi-cell objects like
+                // foundations can't drag-place with part of their footprint overlapping
+                // something — e.g. an adjacent foundation.
+                bool valid = _validator.IsValidPlacement(cell, offsets, _currentData);
 
                 GameObject objAtCell = _raycast.RaycastCellCenter(cell);
                 if (objAtCell != null)

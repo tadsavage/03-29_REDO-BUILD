@@ -42,6 +42,11 @@ public static class EmployeeTerminationService
         if (EmployeeHighlighter.HasInstance && EmployeeHighlighter.Instance.IsHighlighted(identity))
             EmployeeHighlighter.Instance.Clear();
 
+        // 4.5) If they're operating an MHE, vacate it before the storm-off starts — unparents them
+        //      from the vehicle, restores their own nav/animator, and parks the vehicle in place
+        //      until a new hire re-occupies it.
+        identity.AssignedSlot?.VacateOperator();
+
         // 5) Storm-off walk → yard exit → despawn. Anchors come from the guard shack; fall back
         //    to a straight march if the yard manager isn't present.
         var yard = Object.FindAnyObjectByType<TruckYardManager>();

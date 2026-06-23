@@ -48,6 +48,11 @@ public class AgentAnimation : MonoBehaviour
     private bool  _everHadPath;
     private float _waveTimer;
 
+    // True while this employee is riding an MHE as its operator (own NavMeshAgent is
+    // disabled by MHEOperatorSlot, so the normal isOnNavMesh-driven path below would
+    // zero every bool and bail). Set by MHEOperatorSlot.AssignOperator/VacateOperator.
+    private bool _ridingMHE;
+
     // Rotation computed in Update, committed in LateUpdate so it fires after
     // NavMeshAgent's PreLateUpdate (which would otherwise reset it to zero).
     private Quaternion _pendingRotation;
@@ -72,9 +77,37 @@ public class AgentAnimation : MonoBehaviour
         _agent.updateRotation   = false;       // this script owns heading
     }
 
+    /// <summary>
+    /// Called by MHEOperatorSlot when this employee boards/leaves an MHE. While riding,
+    /// this employee's own NavMeshAgent is disabled, so the normal movement-driven
+    /// animation logic below is skipped entirely — only the wave/"?" check still runs,
+    /// reading off whatever AiNavigation NoWaypointIndicator.UseExternalNavSource pointed
+    /// the indicator at (the vehicle's, not this employee's own).
+    /// </summary>
+    public void SetRidingMHE(bool riding)
+    {
+        _ridingMHE = riding;
+        if (!riding) _waveTimer = 0f;
+    }
+
     void Update()
     {
         if (_animator == null) return;
+
+        if (_ridingMHE)
+        {
+            bool ridingIndicatorOn = _indicator != null && _indicator.IsShowingIndicator;
+            _waveTimer = ridingIndicatorOn ? _waveTimer + Time.deltaTime : 0f;
+            bool ridingWaving = ridingIndicatorOn && _waveTimer >= waveDelay;
+            _animator.SetBool("IsWaving", ridingWaving);
+            if (!ridingWaving)
+            {
+                _animator.SetBool("IsWalking",      false);
+                _animator.SetBool("IsTurningLeft",  false);
+                _animator.SetBool("IsTurningRight", false);
+            }
+            return;
+        }
 
         if (!_agent.isOnNavMesh)
         {

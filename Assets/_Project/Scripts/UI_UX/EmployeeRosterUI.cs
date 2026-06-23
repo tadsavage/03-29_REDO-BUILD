@@ -262,7 +262,7 @@ public class EmployeeRosterUI : MonoBehaviour
 
         var avatar = new VisualElement();
         avatar.AddToClassList("er-avatar");
-        var sprite = LoadAvatar(r.avatarResourceKey);
+        var sprite = LoadAvatar(r);
         if (sprite != null) avatar.style.backgroundImage = new StyleBackground(sprite);
         right.Add(avatar);
 
@@ -363,15 +363,13 @@ public class EmployeeRosterUI : MonoBehaviour
         return lbl;
     }
 
-    private static Sprite LoadAvatar(string avatarResourceKey)
+    private static Sprite LoadAvatar(EmployeeRecord record)
     {
+        var resolved = EmployeePhotoBooth.ResolveDisplaySprite(record);
+        if (resolved != null) return resolved;
+
+        string avatarResourceKey = record?.avatarResourceKey;
         if (string.IsNullOrEmpty(avatarResourceKey)) return null;
-        if (avatarResourceKey.StartsWith("Custom_") && 
-            EmployeePhotoBooth.CustomAvatarCache.TryGetValue(avatarResourceKey, out var cachedSprite))
-        {
-            if (cachedSprite != null)
-                return cachedSprite;
-        }
         string fullKey = $"EmployeeAssets/{avatarResourceKey}";
         var sprite = Resources.Load<Sprite>(fullKey);
         if (sprite == null)

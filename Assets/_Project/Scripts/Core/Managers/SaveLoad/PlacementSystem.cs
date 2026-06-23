@@ -408,9 +408,16 @@ public class PlacementSystem : MonoBehaviour
         // Unregister — leaving the registry empty (verified by end-to-end test). Yielding one
         // frame lets the old Unregister calls complete first. (DestroyImmediate is unsafe here —
         // it can abort the load mid-restore during play mode.)
+        // System-managed identities (yard Guard, vehicle operators nested in prefabs like the
+        // ReachTruck) are skipped — they're never in employeeRecords, and their own owning
+        // system (the vehicle/spawner prefab respawned above) already recreated them. Destroying
+        // them here with nothing to recreate them would leave the vehicle's operator seat empty.
         var existingEmployees = Object.FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None);
         foreach (var ident in existingEmployees)
+        {
+            if (ident.SystemManaged) continue;
             Object.Destroy(ident.gameObject);
+        }
 
         StartCoroutine(RespawnEmployeesAfterDestroyFlush(save.employeeRecords ?? new List<EmployeeRecord>()));
 

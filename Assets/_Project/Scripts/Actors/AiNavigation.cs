@@ -43,6 +43,12 @@ public class AiNavigation : MonoBehaviour
     private AmbientMumble _mumble;
     private Animator _animator;
     private Rigidbody _rb;
+    // Forklift-role vehicles (ReachTruck, DockStocker, PalletJack) start parked until an
+    // MHEOperatorSlot assigns a rider. Push-based — SetParked is the only way this flips,
+    // no per-frame re-derivation (slot occupancy is owned by MHEOperatorSlot, not guessed
+    // from GetComponentInChildren<EmployeeIdentity>, since the operator now rides as a
+    // sibling under an anchor, not necessarily a child captured at Awake time).
+    private bool _parked;
 
     // Auto-rebake: fires when agent has no waypoints (? visible) or is stuck for too long.
     private float   _noWaypointRebakeTimer;
@@ -169,9 +175,34 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             tag.agentType = role == AgentRole.Worker ? AgentType.Human : AgentType.MHE;
         }
 
-        // Ensure we scan for waypoints immediately so the indicator can show up 
+        // Ensure we scan for waypoints immediately so the indicator can show up
         // even if the agent starts off-mesh or is waiting for a bake.
         FindWaypoints();
+
+        if (role == AgentRole.Forklift)
+            _parked = true;
+    }
+
+    /// <summary>
+    /// Parks (stops, no destination changes) or un-parks (resumes waypoint loop) a
+    /// Forklift-role agent. Called by MHEOperatorSlot when an operator boards/leaves.
+    /// agent.isStopped is never reset anywhere else for Forklift-role agents (they have
+    /// no AgentAnimation), so un-parking must explicitly clear it and kick a fresh
+    /// destination rather than relying on Update() to notice.
+    /// </summary>
+    public void SetParked(bool parked)
+    {
+        _parked = parked;
+        if (agent == null) return;
+        if (parked)
+        {
+            if (agent.isActiveAndEnabled) agent.isStopped = true;
+        }
+        else
+        {
+            if (agent.isActiveAndEnabled) agent.isStopped = false;
+            GoToRandomWaypoint();
+        }
     }
 
     // Warps an off-NavMesh agent to the nearest walkable surface.
@@ -346,6 +377,17 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
     private void Update()
     {
+        // ── Parked forklift: no driver, no movement ──────────────────────────────
+        // Stop the agent and kill the animation rather than let an empty vehicle
+        // keep wandering the warehouse on its own. Flipped via SetParked().
+        if (_parked)
+        {
+            if (agent != null && agent.isActiveAndEnabled) agent.isStopped = true;
+            if (_animator != null) _animator.enabled = false;
+            return;
+        }
+        if (_animator != null && !_animator.enabled) _animator.enabled = true;
+
         // SAFETY: agent.updatePosition stays false for the entire lifetime (set in Awake).
         // LateUpdate drives transform + Rigidbody from agent.nextPosition.
         // Never set updatePosition=true — it re-introduces the Rigidbody reset fight.

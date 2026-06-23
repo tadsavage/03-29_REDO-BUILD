@@ -216,6 +216,37 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &2243578362410498334
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8226973680266631542}
+  m_Layer: 0
+  m_Name: OperatorAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8226973680266631542
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2243578362410498334}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0.7566171, z: -0, w: -0.65385824}
+  m_LocalPosition: {x: -0.15, y: 0.00000005280711, z: 0.45}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5314544001230889057}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2918155428716428604
 GameObject:
   m_ObjectHideFlags: 0
@@ -328,6 +359,8 @@ GameObject:
   - component: {fileID: -1621888154689040394}
   - component: {fileID: 6630915856464944243}
   - component: {fileID: 894282299918833025}
+  - component: {fileID: 349279629250712024}
+  - component: {fileID: 8360487380794472156}
   m_Layer: 0
   m_Name: DS_FULL
   m_TagString: Untagged
@@ -351,6 +384,7 @@ Transform:
   - {fileID: 7690479678454832486}
   - {fileID: 9046561936554004650}
   - {fileID: 5188775777674726043}
+  - {fileID: 8226973680266631542}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &9008636442359312036
@@ -698,18 +732,45 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13474f5c7c29e4d4f97a49ff0d7c4888, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoWaypointIndicator
-  heightAboveHead: 2.4
-  markColor: {r: 1, g: 0.1, b: 0.08, a: 1}
-  fontSize: 8
-  hoverAmplitude: 0.18
-  hoverSpeed: 1.1
-  yRotateDeg: 30
-  yRotateSpeed: 0.7
+  alertEmoteName: emote_exclamations
+  alertEmoteOverride: {fileID: 0}
   graceBeforeShow: 2.5
-  fadeInDuration: 0.25
-  fadeOutDuration: 1.5
   stuckSeconds: 5
   stuckMoveThreshold: 0.1
+--- !u!114 &349279629250712024
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3389889987695447165}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38e9615d661e0f2469da34d31d394633, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmoteBubble
+  heightAboveHead: 2.5
+  bubbleScale: 1.2
+  bobAmplitude: 0.12
+  bobSpeed: 1.1
+  swayDegrees: 16
+  swaySpeed: 0.6
+  fadeInDuration: 0.35
+  fadeOutDuration: 0.5
+--- !u!114 &8360487380794472156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3389889987695447165}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44ef2f874d8a7f949b19dc812578ad02, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MHEOperatorSlot
+  _operatorAnchor: {fileID: 8226973680266631542}
+  _operatorDriveController: {fileID: 9100000, guid: e92cc716c193c174ba4050b60da02324, type: 2}
 --- !u!1 &6245394892165333976
 GameObject:
   m_ObjectHideFlags: 0
@@ -1123,6 +1184,10 @@ PrefabInstance:
     - target: {fileID: 7464851632858873513, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
       propertyPath: m_Name
       value: WorkerNew
+      objectReference: {fileID: 0}
+    - target: {fileID: 7464851632858873513, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7482098828818994662, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
       propertyPath: m_Enabled

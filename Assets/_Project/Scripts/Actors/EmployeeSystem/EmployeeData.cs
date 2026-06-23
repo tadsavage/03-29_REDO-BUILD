@@ -77,16 +77,9 @@ public class EmployeeData : ScriptableObject
         skillLevel = record.skillLevel;
 
         // Load portrait sprite from Resources using the avatar key on the record
-        if (!string.IsNullOrEmpty(record.avatarResourceKey))
         {
-            Sprite sprite = null;
-            if (record.avatarResourceKey.StartsWith("Custom_") && 
-                EmployeePhotoBooth.CustomAvatarCache.TryGetValue(record.avatarResourceKey, out var cachedSprite))
-            {
-                if (cachedSprite != null)
-                    sprite = cachedSprite;
-            }
-            if (sprite == null)
+            Sprite sprite = EmployeePhotoBooth.ResolveDisplaySprite(record);
+            if (sprite == null && !string.IsNullOrEmpty(record.avatarResourceKey))
             {
                 string fullKey = $"EmployeeAssets/{record.avatarResourceKey}";
                 // Try as Sprite first, then Texture2D fallback

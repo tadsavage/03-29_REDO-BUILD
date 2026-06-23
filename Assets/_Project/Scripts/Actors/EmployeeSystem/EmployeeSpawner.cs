@@ -35,6 +35,14 @@ public class EmployeeSpawner : MonoBehaviour
     [Header("Spawn Point")]
     [SerializeField] private Transform _spawnPoint;
 
+    [Header("MHE Equipment (Reach Truck / Dock Stocker hiring)")]
+    [Tooltip("Reach Truck ObjDataSO (RT). Used to spawn a brand-new Reach Truck when hiring a " +
+             "Reach Truck Operator finds no unoccupied RT to board.")]
+    [SerializeField] private ObjDataSO _reachTruckData;
+    [Tooltip("Dock Stocker ObjDataSO (DS). Used to spawn a brand-new Dock Stocker when hiring a " +
+             "Dock Stocker Operator finds no unoccupied DS to board.")]
+    [SerializeField] private ObjDataSO _dockStockerData;
+
     private bool _isAutoSpawning;
 
     // ─── Unity lifecycle ──────────────────────────────────────────────────────
@@ -143,6 +151,16 @@ public class EmployeeSpawner : MonoBehaviour
         if (EmployeeRegistry.Instance != null)
             EmployeeRegistry.Instance.Unregister(identity);
 
+        // Guarantee a modern Custom_ portrait before the record is applied/displayed.
+        // This is the single chokepoint for every spawn path (fresh hire, auto-spawn test,
+        // AND save-restore via PlacementSystem.RespawnEmployeesAfterDestroyFlush) — the latter
+        // calls SpawnEmployee() directly, bypassing the OnHired event that normally triggers
+        // portrait generation, so legacy/save-loaded employees would otherwise keep their old
+        // static stock-photo avatarResourceKey forever. EnsurePortrait is a no-op if a portrait
+        // is already cached, so this is safe to call unconditionally.
+        if (EmployeePhotoBooth.Instance != null)
+            EmployeePhotoBooth.Instance.EnsurePortrait(record);
+
         identity.ApplyRecord(record);
 
         if (EmployeeRegistry.Instance != null)
@@ -151,7 +169,114 @@ public class EmployeeSpawner : MonoBehaviour
         if (_useModularAvatars)
             ApplyModularAvatar(identity);
 
+        // Fresh ReachTruckOperator/DockStockerOperator/Loader hires board an MHE immediately
+        // (Loaders drive the Dock Stocker too — same dock-loading equipment). Skipped for
+        // save-restored employees (hasSavedPosition) — operator<->vehicle pairing isn't persisted,
+        // so a reload intentionally drops them back to free-roaming until a fresh hire re-pairs them.
+        if (!record.hasSavedPosition &&
+            (record.role == EmployeeRole.ReachTruckOperator || record.role == EmployeeRole.DockStockerOperator
+             || record.role == EmployeeRole.Loader))
+        {
+            AssignToMHE(identity, record.role);
+        }
+
         return identity;
+    }
+
+    // ─── MHE operator assignment ────────────────────────────────────────────────
+    /// <summary>
+    /// Boards a freshly-hired ReachTruckOperator/DockStockerOperator/Loader onto an MHE: reuses an
+    /// existing unoccupied matching vehicle if one exists, otherwise spawns a brand-new one (preferring
+    /// an MHE waypoint, falling back to an unoccupied Foundation cell, falling back to the generic spawn
+    /// point) and boards that instead.
+    /// </summary>
+    private void AssignToMHE(EmployeeIdentity identity, EmployeeRole role)
+    {
+        ObjDataSO so = role == EmployeeRole.ReachTruckOperator ? _reachTruckData
+                     : (role == EmployeeRole.DockStockerOperator || role == EmployeeRole.Loader) ? _dockStockerData
+                     : null;
+        if (so == null)
+        {
+            Debug.LogWarning($"[EmployeeSpawner] AssignToMHE: no ObjDataSO wired for role {role} — operator stays on foot.");
+            return;
+        }
+
+        // 1) Reuse an existing unoccupied matching vehicle.
+        foreach (var slot in FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None))
+        {
+            if (slot.IsOccupied) continue;
+            var existingPo = slot.GetComponent<PlacedObject>();
+            if (existingPo == null || existingPo.data != so) continue;
+
+            slot.AssignOperator(identity);
+            return;
+        }
+
+        // 2) Spawn a brand-new vehicle via the normal placement pipeline (sellable, registered,
+        // grid-tracked) — MHE waypoint, else unoccupied Foundation, else the generic spawn point.
+        var grid = FindAnyObjectByType<PlacementGrid>();
+        var placement = FindAnyObjectByType<PlacementSystem>();
+        if (grid == null || placement == null)
+        {
+            Debug.LogWarning("[EmployeeSpawner] AssignToMHE: no PlacementGrid/PlacementSystem in scene — operator stays on foot.");
+            return;
+        }
+
+        Vector2Int cell;
+        int rotSteps;
+        if (!TryFindMHEWaypointCell(grid, out cell, out rotSteps) &&
+            !TryFindUnoccupiedFoundationCell(grid, out cell))
+        {
+            rotSteps = 0;
+            Vector3 fallbackPos = _spawnPoint != null ? _spawnPoint.position : transform.position;
+            cell = grid.WorldToCell(fallbackPos);
+        }
+
+        PlacedObject newPo = placement.PlaceObject(so, cell.x, cell.y, rotSteps);
+        if (newPo == null)
+        {
+            Debug.LogWarning($"[EmployeeSpawner] AssignToMHE: PlaceObject failed for '{so.objName}' — operator stays on foot.");
+            return;
+        }
+
+        var newSlot = newPo.GetComponent<MHEOperatorSlot>();
+        if (newSlot == null)
+        {
+            Debug.LogWarning($"[EmployeeSpawner] AssignToMHE: spawned '{so.objName}' has no MHEOperatorSlot — operator stays on foot.");
+            return;
+        }
+
+        newSlot.AssignOperator(identity);
+    }
+
+    private static bool TryFindMHEWaypointCell(PlacementGrid grid, out Vector2Int cell, out int rotSteps)
+    {
+        cell = default;
+        rotSteps = 0;
+        foreach (var wp in FindObjectsByType<Waypoint>(FindObjectsSortMode.None))
+        {
+            if (!wp.AllowsGroup(Waypoint.WaypointGroup.MHE)) continue;
+            cell = grid.WorldToCell(wp.transform.position);
+            rotSteps = Mathf.RoundToInt(wp.transform.eulerAngles.y / 90f) % 4;
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryFindUnoccupiedFoundationCell(PlacementGrid grid, out Vector2Int cell)
+    {
+        cell = default;
+        foreach (var po in PlacedObjectRegistry.All)
+        {
+            if (po == null || po.data == null || po.data.category != "Foundation") continue;
+
+            Vector2Int candidate = new Vector2Int(po.gridX, po.gridY);
+            if (grid.IsOccupied(candidate)) continue;
+
+            cell = candidate;
+            return true;
+        }
+        return false;
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

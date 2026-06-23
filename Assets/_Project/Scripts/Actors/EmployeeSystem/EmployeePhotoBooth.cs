@@ -121,9 +121,13 @@ public class EmployeePhotoBooth : MonoBehaviour
 
         // Retroactively generate portraits for any already-registered active employees
         // who might have been spawned before we finished subscribing to OnHired.
+        // Snapshot to a list first: GeneratePortraitForRecord instantiates a temporary
+        // EmployeeIdentity in the photo booth, whose Awake()/OnDestroy() register/unregister
+        // against this same EmployeeRegistry — mutating the live `All` view mid-enumeration
+        // throws "Collection was modified".
         if (EmployeeRegistry.Instance != null)
         {
-            foreach (var emp in EmployeeRegistry.Instance.All)
+            foreach (var emp in new List<EmployeeIdentity>(EmployeeRegistry.Instance.All))
             {
                 var record = emp.Record;
                 if (record != null)
@@ -270,6 +274,14 @@ public class EmployeePhotoBooth : MonoBehaviour
         }
     }
 
+    // Unity calls this both when a built game quits AND when Play Mode is stopped in the
+    // Editor, so this is what keeps the Portraits folder from growing unbounded across
+    // repeated Play/Stop cycles where no explicit save happens in between.
+    private void OnApplicationQuit()
+    {
+        PrunePortraits();
+    }
+
     public void GeneratePortraitForRecord(EmployeeRecord record)
     {
         if (record == null) return;
@@ -290,12 +302,25 @@ public class EmployeePhotoBooth : MonoBehaviour
 
     private void OnEmployeeHired(EmployeeRecord record)
     {
+        EnsurePortrait(record);
+    }
+
+    /// <summary>
+    /// Guarantees the given employee has a generated Custom_ portrait, regardless of how they
+    /// entered the scene (fresh hire via OnHired, auto-spawn testing, or save-restore via
+    /// EmployeeSpawner). Reuses the cached portrait if one already exists (e.g. captured while
+    /// still a hiring-board candidate, or loaded from disk at startup) rather than re-rendering.
+    /// Save-restored employees previously never reached this code at all — they came from
+    /// EmployeeSpawner.SpawnEmployee() directly, which doesn't go through OnHired — so legacy
+    /// records with a static stock-photo avatarResourceKey would keep that key forever. Calling
+    /// this from SpawnEmployee for every spawn path closes that gap.
+    /// </summary>
+    public void EnsurePortrait(EmployeeRecord record)
+    {
         if (record == null) return;
 
-        // If the portrait was already generated when they were a candidate,
-        // we can reuse it rather than taking another snapshot.
         string key = "Custom_" + record.employeeGuid;
-        if (CustomAvatarCache.ContainsKey(key))
+        if (CustomAvatarCache.TryGetValue(key, out var sprite) && sprite != null)
         {
             record.avatarResourceKey = key;
             return;
@@ -560,6 +585,75 @@ public class EmployeePhotoBooth : MonoBehaviour
         return removed;
     }
 
+    public const string TerminatedPlaceholderLabel = "TERMINATED — NOT ELIGIBLE FOR REHIRE";
+
+    private static Sprite _terminatedPlaceholderSprite;
+
+    /// <summary>
+    /// Generic dark head-and-shoulders silhouette shown in place of a real portrait for
+    /// terminated employees, whose actual photo is pruned from disk (see PrunePortraits).
+    /// Generated once and cached in memory; never written to disk.
+    /// </summary>
+    public static Sprite GetTerminatedPlaceholderSprite()
+    {
+        if (_terminatedPlaceholderSprite != null) return _terminatedPlaceholderSprite;
+
+        const int size = 256;
+        var backdrop = new Color(0.10f, 0.10f, 0.10f, 1f);
+        var silhouette = new Color(0.30f, 0.07f, 0.07f, 1f);
+
+        var headCenter = new Vector2(size * 0.5f, size * 0.66f);
+        float headRadiusX = size * 0.16f;
+        float headRadiusY = size * 0.19f;
+        var shoulderCenter = new Vector2(size * 0.5f, size * 0.05f);
+        float shoulderRadiusX = size * 0.40f;
+        float shoulderRadiusY = size * 0.32f;
+
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        var pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                bool inHead = IsInsideEllipse(x, y, headCenter, headRadiusX, headRadiusY);
+                bool inShoulders = IsInsideEllipse(x, y, shoulderCenter, shoulderRadiusX, shoulderRadiusY);
+                pixels[y * size + x] = (inHead || inShoulders) ? silhouette : backdrop;
+            }
+        }
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        _terminatedPlaceholderSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        return _terminatedPlaceholderSprite;
+    }
+
+    private static bool IsInsideEllipse(int x, int y, Vector2 center, float radiusX, float radiusY)
+    {
+        float dx = (x - center.x) / radiusX;
+        float dy = (y - center.y) / radiusY;
+        return dx * dx + dy * dy <= 1f;
+    }
+
+    /// <summary>
+    /// Resolves the sprite that should be displayed for a given employee record: the terminated
+    /// placeholder for Terminated status, otherwise the cached custom portrait (or null if none
+    /// is cached, leaving callers to fall back to their own default-avatar logic).
+    /// </summary>
+    public static Sprite ResolveDisplaySprite(EmployeeRecord record)
+    {
+        if (record == null) return null;
+        if (record.status == EmploymentStatus.Terminated) return GetTerminatedPlaceholderSprite();
+
+        if (!string.IsNullOrEmpty(record.avatarResourceKey) &&
+            record.avatarResourceKey.StartsWith("Custom_") &&
+            CustomAvatarCache.TryGetValue(record.avatarResourceKey, out var cachedSprite) &&
+            cachedSprite != null)
+        {
+            return cachedSprite;
+        }
+        return null;
+    }
+
     /// <summary>
     /// Builds the set of employee GUIDs whose portraits must be preserved: everyone currently
     /// employed, everyone in the former-employee archive (kept for rehire / HR history), and every
@@ -573,9 +667,13 @@ public class EmployeePhotoBooth : MonoBehaviour
             foreach (var employee in EmployeeRegistry.Instance.All)
                 AddGuid(guids, employee?.Record?.employeeGuid);
 
+        // Resigned (and other non-terminated separations) keep their real photo; Terminated
+        // employees do not — their portrait is pruned and a generic placeholder is shown instead
+        // (see GetTerminatedPlaceholderSprite), since "not eligible for rehire" means no photo on file.
         if (FormerEmployeeArchive.HasInstance)
             foreach (var record in FormerEmployeeArchive.Instance.All)
-                AddGuid(guids, record?.employeeGuid);
+                if (record != null && record.status != EmploymentStatus.Terminated)
+                    AddGuid(guids, record.employeeGuid);
 
         if (HiringService.Instance != null)
             foreach (var candidate in HiringService.Instance.Roster)

@@ -4,12 +4,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// Modal employee list + detail panel.
 /// Uses its own UIDocument (not shared with HUD) — following the SaveLoadWindow pattern.
 ///
-/// Open via EmployeeListPanelController.Instance?.Open()
+/// Open via EmployeeListPanelController.Instance?.Open() — or press F4 in play mode.
 /// Wire in UIBootstrapper via [SerializeField] or FindObjectOfType.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
@@ -21,6 +22,10 @@ public class EmployeeListPanelController : MonoBehaviour
     // ─── Serialized ───────────────────────────────────────────────────────────
     [SerializeField] private VisualTreeAsset _listItemTemplate;
     [SerializeField] private RoleIconLibrary _roleIconLibrary;
+
+    [Header("Behaviour")]
+    [Tooltip("Toggle the employee list with the F4 key in play mode.")]
+    [SerializeField] private bool _enableHotkey = true;
 
     // ─── State ────────────────────────────────────────────────────────────────
     private UIDocument _doc;
@@ -91,6 +96,13 @@ public class EmployeeListPanelController : MonoBehaviour
     private void OnDisable()
     {
         UnsubscribeFromRegistry();
+    }
+
+    private void Update()
+    {
+        if (!_enableHotkey) return;
+        if (Keyboard.current != null && Keyboard.current.f4Key.wasPressedThisFrame)
+            Toggle();
     }
 
     private void OnEnable()
@@ -420,13 +432,7 @@ public class EmployeeListPanelController : MonoBehaviour
         // Portrait
         if (_detailJobIcon != null)
         {
-            Sprite customSprite = null;
-            if (!string.IsNullOrEmpty(record.avatarResourceKey) && 
-                record.avatarResourceKey.StartsWith("Custom_") && 
-                EmployeePhotoBooth.CustomAvatarCache.TryGetValue(record.avatarResourceKey, out var cachedSprite))
-            {
-                customSprite = cachedSprite;
-            }
+            Sprite customSprite = EmployeePhotoBooth.ResolveDisplaySprite(record);
 
             if (customSprite != null)
             {
@@ -458,7 +464,9 @@ public class EmployeeListPanelController : MonoBehaviour
         // Status badge
         if (_detailStatusBadge != null)
         {
-            _detailStatusBadge.text = record.status.ToString().ToUpper();
+            _detailStatusBadge.text = record.status == EmploymentStatus.Terminated
+                ? EmployeePhotoBooth.TerminatedPlaceholderLabel
+                : record.status.ToString().ToUpper();
             _detailStatusBadge.RemoveFromClassList("status-active");
             _detailStatusBadge.RemoveFromClassList("status-injured");
             _detailStatusBadge.RemoveFromClassList("status-onleave");

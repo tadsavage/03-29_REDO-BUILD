@@ -61,7 +61,7 @@ public class HiringService : MonoBehaviour
     private static readonly EmployeeRole[] Tier1Roles =
     {
         EmployeeRole.Sanitation, EmployeeRole.OrderSelector,
-        EmployeeRole.ReachTruckOperator, EmployeeRole.Loader,
+        EmployeeRole.ReachTruckOperator, EmployeeRole.DockStockerOperator, EmployeeRole.Loader,
     };
     private static readonly EmployeeRole[] Tier2Roles =
     {
