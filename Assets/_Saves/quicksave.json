@@ -4,13 +4,13 @@
     "spentToday": 58403,
     "cameraData": {
         "focusPoint": {
-            "x": -1.4310462474822999,
-            "y": 0.030000001192092897,
-            "z": -12.128081321716309
+            "x": 10.003734588623047,
+            "y": 4.0,
+            "z": -24.48969841003418
         },
-        "distance": 13.790000915527344,
-        "pitch": 43.95009231567383,
-        "yaw": -656.5293579101563
+        "distance": 16.0,
+        "pitch": 49.350093841552737,
+        "yaw": -469.02935791015627
     },
     "placedObjects": [
         {
@@ -1414,13 +1414,6 @@
             "customData": ""
         },
         {
-            "id": 900,
-            "x": 54,
-            "y": 29,
-            "rot": 0,
-            "customData": ""
-        },
-        {
             "id": 903,
             "x": 48,
             "y": 40,
@@ -1449,13 +1442,6 @@
             "customData": ""
         },
         {
-            "id": 900,
-            "x": 48,
-            "y": 33,
-            "rot": 0,
-            "customData": ""
-        },
-        {
             "id": 903,
             "x": 53,
             "y": 32,
@@ -1466,13 +1452,6 @@
             "id": 903,
             "x": 54,
             "y": 41,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 900,
-            "x": 55,
-            "y": 37,
             "rot": 0,
             "customData": ""
         },
@@ -1577,82 +1556,6 @@
             "val": "0.1"
         },
         {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.5"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
-        {
-            "key": "VehicleThrottleAudio.hearingDistance",
-            "val": "25"
-        },
-        {
-            "key": "VehicleThrottleAudio.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "VehicleThrottleAudio.maxPitch",
-            "val": "1"
-        },
-        {
-            "key": "VehicleThrottleAudio.engineVolume",
-            "val": "0.25"
-        },
-        {
-            "key": "VehicleThrottleAudio.pitchOffset",
-            "val": "0"
-        },
-        {
-            "key": "VehicleThrottleAudio.fadeSpeed",
-            "val": "3"
-        },
-        {
-            "key": "VehicleThrottleAudio._honker",
-            "val": "True"
-        },
-        {
-            "key": "VehicleThrottleAudio.honkVolume",
-            "val": "1"
-        },
-        {
-            "key": "VehicleThrottleAudio.honkPitch",
-            "val": "1.2"
-        },
-        {
-            "key": "VehicleThrottleAudio.honkProbability",
-            "val": "0.085"
-        },
-        {
             "key": "FreeLookCamera.pitchMin",
             "val": "15"
         },
@@ -1701,15 +1604,91 @@
             "val": "75"
         },
         {
+            "key": "VehicleThrottleAudio.hearingDistance",
+            "val": "25"
+        },
+        {
+            "key": "VehicleThrottleAudio.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "VehicleThrottleAudio.maxPitch",
+            "val": "1"
+        },
+        {
+            "key": "VehicleThrottleAudio.engineVolume",
+            "val": "0.25"
+        },
+        {
+            "key": "VehicleThrottleAudio.pitchOffset",
+            "val": "0"
+        },
+        {
+            "key": "VehicleThrottleAudio.fadeSpeed",
+            "val": "3"
+        },
+        {
+            "key": "VehicleThrottleAudio._honker",
+            "val": "True"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkVolume",
+            "val": "1"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkPitch",
+            "val": "1.2"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkProbability",
+            "val": "0.085"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.5"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
             "key": "NavMeshManager._debounceTime",
             "val": "0.5"
         }
     ],
     "toolsWindowX": 12.0,
     "toolsWindowY": 50.0,
-    "guidanceLinesVisible": true,
+    "guidanceLinesVisible": false,
     "waypointsVisible": true,
-    "hoverPopupEnabled": false,
+    "hoverPopupEnabled": true,
     "employeeRecords": [
         {
             "employeeGuid": "56e5037d-b42c-4e34-86b8-805b654e1827",
@@ -1749,10 +1728,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -1.4310462474822999,
+            "posX": -2.0346925258636476,
             "posY": 1.1099998950958253,
-            "posZ": -12.128081321716309,
-            "rotY": 143.85955810546876,
+            "posZ": -21.967864990234376,
+            "rotY": 303.4234313964844,
             "hasSavedPosition": true
         },
         {
@@ -1793,10 +1772,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 5.033771514892578,
+            "posX": 5.916437149047852,
             "posY": 1.1099998950958253,
-            "posZ": -14.499137878417969,
-            "rotY": 125.6688461303711,
+            "posZ": -27.212217330932618,
+            "rotY": 98.69158935546875,
             "hasSavedPosition": true
         }
     ],
@@ -1892,9 +1871,9 @@
     ],
     "gameVolume": 0.4020000100135803,
     "musicVolume": 0.02800000086426735,
-    "graphicsPreset": "Ultra",
+    "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
-    "screenWidth": 2560,
-    "screenHeight": 1440
+    "screenWidth": 1920,
+    "screenHeight": 1080
 }
