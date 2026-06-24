@@ -71,6 +71,12 @@ public class EmployeeRegistry : MonoBehaviour
         string guid = identity.Record?.employeeGuid;
         if (string.IsNullOrEmpty(guid)) return;
 
+        // Guard against GUID collisions (e.g. a PhotoBooth LiveFeed clone that copied a real
+        // employee's record): only remove the entry if it's actually THIS instance, not just
+        // whatever happens to be stored under the same GUID.
+        if (_byGuid.TryGetValue(guid, out var current) && current != identity)
+            return;
+
         if (_byGuid.Remove(guid))
             OnEmployeeRemoved?.Invoke(identity);
     }

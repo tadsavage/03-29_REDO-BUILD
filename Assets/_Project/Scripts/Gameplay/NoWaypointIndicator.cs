@@ -50,6 +50,23 @@ public class NoWaypointIndicator : MonoBehaviour
     /// <summary>True while the alert is up — polled by AgentAnimation to drive the wave.</summary>
     public bool IsShowingIndicator => _alertActive;
 
+    /// <summary>Immediately clears any active alert. MUST be called before disabling this
+    /// component (e.g. MHEOperatorSlot.AssignOperator/AiNavigation.GoActive/GoIdle) — Update()
+    /// is what normally clears the bubble when the condition goes away, and a disabled
+    /// component's Update never runs, so a bubble that was up the instant before disabling
+    /// would otherwise stay frozen on screen forever.</summary>
+    public void ForceClear()
+    {
+        if (_alertActive)
+        {
+            _bubble?.ClearPriority();
+            _alertActive = false;
+        }
+        _conditionTimer = 0f;
+        _stuckTimer     = 0f;
+        _posCheckTimer  = 0f;
+    }
+
     /// <summary>
     /// Repoints waypoint-availability checks at an external AiNavigation (the MHE this
     /// employee is riding) instead of this employee's own — RequireComponent guarantees
@@ -85,7 +102,10 @@ public class NoWaypointIndicator : MonoBehaviour
 
     private void Update()
     {
-        bool noWaypoints = !_aiNav.HasEnoughWaypoints;
+        // An operator walking toward MHE equipment to board it has a real destination — just
+        // not one that came from the Worker waypoint patrol — so it must not count as "nowhere
+        // to go" and trigger the wave/stuck alert for the entire approach.
+        bool noWaypoints = !_aiNav.HasEnoughWaypoints && !_aiNav.IsSeekingEquipment;
 
         // ── Stuck detection ───────────────────────────────────────────────────
         // Only run when the agent HAS enough waypoints — an agent with 0–1 waypoints

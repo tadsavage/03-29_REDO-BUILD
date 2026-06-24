@@ -45,6 +45,12 @@ public class EmployeeTerminationWalk : MonoBehaviour
         TintRed();
         TakeOver();
 
+        // If they're up on a dock (operating MHE gets vacated before this walk starts, leaving
+        // them wherever the vehicle's anchor was), walk across to the ledge and jump down —
+        // the SAME climb/jump arc every other agent uses (AiNavigation.TraverseLink) — before
+        // continuing on the ground. No bespoke smooth-glide-down here; always jump.
+        yield return JumpDownFromDockIfElevated();
+
         // March to ExitPost.
         yield return MarchTo(stop);
 
@@ -146,6 +152,78 @@ public class EmployeeTerminationWalk : MonoBehaviour
             yield return null;
         }
         SetAnim(walking: false, waving: false);
+    }
+
+    // Walks across to the nearest dock ledge (if currently elevated) and jumps down using the
+    // exact same arc/easing/duration AiNavigation.TraverseLink uses for every other agent
+    // descending a ledge. No bespoke smooth-glide here — always walk, always jump.
+    private IEnumerator JumpDownFromDockIfElevated()
+    {
+        if (transform.position.y < 0.5f) yield break;
+
+        LedgeLinkMarker nearest = FindNearestLedgeLink();
+        if (nearest == null) yield break;
+
+        // Walk across the dock surface to the ledge first.
+        yield return MarchTo(nearest.transform.position);
+
+        Vector3 from = transform.position;
+        Vector3 fwd = nearest.transform.forward; fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.001f) { fwd = from - nearest.transform.position; fwd.y = 0f; }
+        fwd = fwd.sqrMagnitude > 0.001f ? fwd.normalized : Vector3.forward;
+
+        // Same ground-point probing CheckDockLedge uses: step outward from the dock edge and
+        // sample the GROUND NavMesh so the jump lands exactly where they'll stand.
+        Vector3 dockPt  = nearest.transform.position;
+        Vector3 floorPt = new Vector3(dockPt.x + fwd.x * 0.5f, 0f, dockPt.z + fwd.z * 0.5f);
+        for (float d = 0.5f; d <= 3.0f; d += 0.25f)
+        {
+            Vector3 probe = new Vector3(dockPt.x + fwd.x * d, 0f, dockPt.z + fwd.z * d);
+            if (NavMesh.SamplePosition(probe, out NavMeshHit groundHit, 0.6f, NavMesh.AllAreas)
+                && groundHit.position.y < 0.5f)
+            {
+                floorPt = groundHit.position;
+                break;
+            }
+        }
+
+        Vector3 hDir = floorPt - from; hDir.y = 0f;
+        if (hDir.sqrMagnitude > 0.001f)
+            transform.rotation = Quaternion.LookRotation(hDir.normalized);
+
+        SetBoolSafe("IsJumpingDown", true);
+
+        float duration = nearest.jumpDuration;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            Vector3 pos = new Vector3(
+                Mathf.Lerp(from.x, floorPt.x, t),
+                Mathf.Lerp(from.y, floorPt.y, Mathf.Pow(t, 1.6f)),
+                Mathf.Lerp(from.z, floorPt.z, t));
+            transform.position = pos;
+            if (_rb != null) _rb.MovePosition(pos);
+            yield return null;
+        }
+        transform.position = floorPt;
+        if (_rb != null) _rb.MovePosition(floorPt);
+
+        SetBoolSafe("IsJumpingDown", false);
+    }
+
+    private LedgeLinkMarker FindNearestLedgeLink()
+    {
+        LedgeLinkMarker nearest = null;
+        float nearestDist = 6f;
+        foreach (var m in FindObjectsByType<LedgeLinkMarker>(FindObjectsInactive.Exclude))
+        {
+            if (m == null || !m.gameObject.name.StartsWith("LedgeLink_")) continue;
+            float d = Vector3.Distance(transform.position, m.transform.position);
+            if (d < nearestDist) { nearestDist = d; nearest = m; }
+        }
+        return nearest;
     }
 
     private void FaceFlat(Vector3 target)

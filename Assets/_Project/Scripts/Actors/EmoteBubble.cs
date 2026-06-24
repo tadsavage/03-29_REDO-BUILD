@@ -68,6 +68,21 @@ public class EmoteBubble : MonoBehaviour
         _transientTimer = Mathf.Max(duration, 0.1f);
     }
 
+    /// <summary>Immediately hides the bubble and clears all pending emotes. MUST be called
+    /// before disabling this component — Update() (which normally fades it out) won't run
+    /// once disabled, so a bubble visible the instant before would otherwise freeze on
+    /// screen forever (e.g. an MHE vehicle's bubble when its operator vacates, or an
+    /// operator's own bubble the moment they board).</summary>
+    public void ForceHide()
+    {
+        _priority       = null;
+        _transient      = null;
+        _transientTimer = 0f;
+        _displayed      = null;
+        _alpha          = 0f;
+        if (_pivot != null && _pivot.gameObject.activeSelf) _pivot.gameObject.SetActive(false);
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void Awake()

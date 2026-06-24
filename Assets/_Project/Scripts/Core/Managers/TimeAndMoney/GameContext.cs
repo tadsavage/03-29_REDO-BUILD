@@ -107,74 +107,44 @@ public class GameContext : MonoBehaviour
 
     private bool _isPopulatingYardFloors;
 
-    // Fills every empty cell with a yard floor tile, spread across frames (time-budgeted),
-    // then triggers a single NavMesh bake when done. Public so PlacementSystem can re-run
-    // this after every load (F9 quickload, slot load) — yard tiles aren't saved to disk
-    // (see PlacementSystem.BuildSaveData), so they must be regenerated every time the
-    // world is rebuilt, not just on the initial scene Start.
+    // One merged mesh + one collider standing in for what used to be up to 10,000 individually
+    // Instantiate()'d yard tile GameObjects — see YardFloorMeshBuilder. Rebuilt (not reused)
+    // every call since which cells are "bare yard" vs covered by a real floor can change
+    // between loads.
+    private GameObject _yardFloorMeshObject;
+
+    // Rebuilds the yard floor carpet (every empty cell, minus anything with a real
+    // floor/ground/foundation already there), then triggers a single NavMesh bake. Public so
+    // PlacementSystem can re-run this after every load (F9 quickload, slot load) — yard tiles
+    // aren't saved to disk (see PlacementSystem.BuildSaveData), so they must be regenerated
+    // every time the world is rebuilt, not just on the initial scene Start. Kept as an
+    // IEnumerator for call-site compatibility (callers StartCoroutine/yield this), even though
+    // the merged-mesh build itself completes synchronously — no more frame-budget spreading
+    // needed now that this isn't 10,000 individual Instantiate + placement-pipeline calls.
     public IEnumerator PopulateYardFloors(PlacementGrid grid)
     {
         // Guard against two fills running concurrently (e.g. the initial GameContext.Start
         // fallback overlapping with a fill triggered by ApplySaveData in the same frame) —
-        // running twice would place duplicate yard tiles in the same cells.
+        // running twice would double up the mesh.
         if (_isPopulatingYardFloors) yield break;
         _isPopulatingYardFloors = true;
-
-        var finalizer = FindAnyObjectByType<PlacementFinalizer>();
-        if (finalizer == null)
-        {
-            Debug.LogWarning("[GameContext] PlacementFinalizer not found — skipping yard floor population.");
-            SyncAndBake(grid);
-            _isPopulatingYardFloors = false;
-            yield break;
-        }
 
         // Guard against an uninitialized grid (e.g. a launch where the load early-returned
         // because the save file was missing — _cells would still be null here).
         grid.EnsureInitialized();
 
-        Vector2Int[] offsets = _yardFloorTile.GetFootprintOffsets(0f);
+        LoadingScreenManager.Instance?.SetProgress(0.5f);
 
-        // Spread the fill across frames by a TIME BUDGET (~4ms/frame) rather than a
-        // fixed column-per-frame. A whole column (50 tiles) in one frame still hitched;
-        // capping by elapsed time keeps every frame smooth regardless of machine speed.
-        const float frameBudget = 0.004f; // seconds of fill work per frame
-        float frameStart = Time.realtimeSinceStartup;
-
-        for (int x = 0; x < grid.Width; x++)
+        if (_yardFloorMeshObject != null)
         {
-            // Report progress 30 % → 85 % as the grid fills column by column
-            LoadingScreenManager.Instance?.SetProgress(0.30f + 0.55f * x / grid.Width);
-
-            for (int y = 0; y < grid.Height; y++)
-            {
-                var cell = new Vector2Int(x, y);
-                // Only carpet a cell with a yard tile if it has no existing SURFACE — that means
-                // no floor tile AND no Grounds/Foundation object (grass, flowerbeds, yard pads,
-                // foundations etc.). Without the Grounds/Foundation check, the yard tile gets
-                // stacked on top of grass — covering the player's landscaping.
-                var list = grid.GetObjectsInCell(cell);
-                bool hasSurface = false;
-                if (list != null)
-                    foreach (var e in list)
-                    {
-                        if (e.data == null) continue;
-                        if (e.data.isFloor
-                            || e.data.category == "Grounds"
-                            || e.data.category == "Foundation")
-                        { hasSurface = true; break; }
-                    }
-
-                if (!hasSurface)
-                    finalizer.FinalizePlacement(cell, offsets, _yardFloorTile, 0f, null, true);
-
-                if (Time.realtimeSinceStartup - frameStart >= frameBudget)
-                {
-                    yield return null;
-                    frameStart = Time.realtimeSinceStartup;
-                }
-            }
+            Destroy(_yardFloorMeshObject);
+            _yardFloorMeshObject = null;
         }
+
+        if (_yardFloorTile != null)
+            _yardFloorMeshObject = YardFloorMeshBuilder.Build(grid, _yardFloorTile, transform);
+        else
+            Debug.LogWarning("[GameContext] _yardFloorTile not assigned — skipping yard floor mesh.");
 
         SyncAndBake(grid);
         _isPopulatingYardFloors = false;

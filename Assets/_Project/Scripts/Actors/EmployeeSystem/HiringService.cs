@@ -41,6 +41,12 @@ public class HiringService : MonoBehaviour
     [Tooltip("Fraction of the starting roster that are Order Selectors. The rest is a skilled/special mix.")]
     [Range(0f, 1f)] [SerializeField] private float _orderSelectorShare = 0.70f;
 
+    // TODO(core loop): hardcoded cap on how many Order Selectors can be on the board at once.
+    // Order Selectors don't have anything to actually DO yet (no inventory/ordering system),
+    // so _orderSelectorShare alone was flooding the board with them. Revisit/remove once the
+    // core gameplay loop (inventory, ordering) exists and there's real demand for the role.
+    private const int OrderSelectorHardCap = 8;
+
     [Header("Replenishment — base interval in IN-GAME MINUTES (at Manager difficulty)")]
     [Tooltip("Floor associates: Sanitation, Order Selector, Reach Truck, Loader. Manager = 1 per 30 min.")]
     [SerializeField] private float _tier1BaseMinutes = 30f;
@@ -170,12 +176,23 @@ public class HiringService : MonoBehaviour
         while (accum >= interval && _roster.Count < _cap)
         {
             accum -= interval;
-            var candidate = HiringCandidateGenerator.Generate(pool[UnityEngine.Random.Range(0, pool.Length)]);
-            
+            EmployeeRole role = pool[UnityEngine.Random.Range(0, pool.Length)];
+
+            // TODO(core loop): see OrderSelectorHardCap — redirect to another role in the pool
+            // once the board already has enough Order Selectors, instead of piling on more.
+            if (role == EmployeeRole.OrderSelector && CountRole(EmployeeRole.OrderSelector) >= OrderSelectorHardCap)
+            {
+                var alt = System.Array.FindAll(pool, r => r != EmployeeRole.OrderSelector);
+                if (alt.Length == 0) continue;
+                role = alt[UnityEngine.Random.Range(0, alt.Length)];
+            }
+
+            var candidate = HiringCandidateGenerator.Generate(role);
+
             // Generate custom studio portrait for the candidate immediately
             if (EmployeePhotoBooth.Instance != null)
                 EmployeePhotoBooth.Instance.GeneratePortraitForRecord(candidate.record);
-                
+
             _roster.Add(candidate);
             added = true;
         }
@@ -183,6 +200,14 @@ public class HiringService : MonoBehaviour
         // but don't bank an unbounded backlog.
         if (_roster.Count >= _cap && accum > interval) accum = interval;
         return added;
+    }
+
+    private int CountRole(EmployeeRole role)
+    {
+        int count = 0;
+        foreach (var c in _roster)
+            if (c.record.role == role) count++;
+        return count;
     }
 
     // ─── Roster guarantee (critical roles) ──────────────────────────────────────
@@ -253,7 +278,7 @@ public class HiringService : MonoBehaviour
     {
         _roster.Clear();
 
-        int osCount = Mathf.Clamp(Mathf.RoundToInt(_cap * _orderSelectorShare), 0, _cap);
+        int osCount = Mathf.Min(Mathf.Clamp(Mathf.RoundToInt(_cap * _orderSelectorShare), 0, _cap), OrderSelectorHardCap);
         for (int i = 0; i < osCount; i++)
         {
             var candidate = HiringCandidateGenerator.Generate(EmployeeRole.OrderSelector);

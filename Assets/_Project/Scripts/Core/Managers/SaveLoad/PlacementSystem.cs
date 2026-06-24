@@ -1,6 +1,7 @@
 using SaveLoadSystem;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -180,6 +181,7 @@ public class PlacementSystem : MonoBehaviour
             return null;
         }
         po.Initialize(so, x, y, rot);
+        go.GetComponent<MHEOperatorSlot>()?.NotifyPlaced();
 
         EnsureEmployeeComponents(go, so);
 
@@ -375,7 +377,17 @@ public class PlacementSystem : MonoBehaviour
         // Restore the former-employee archive (best-effort; older saves simply have none).
         FormerEmployeeArchive.Instance.LoadFrom(save.formerEmployees);
 
-        foreach (var objSave in save.placedObjects)
+        // Restore grounds/foundations/floors FIRST. save.placedObjects has no guaranteed
+        // order (an object can easily be serialized before the floor it sits on) — and
+        // SpawnFromSave's NavMeshAgent floor-height correction (GetFloorTopY) reads whatever's
+        // already in the grid at that moment. A vehicle restored before its foundation finds
+        // an empty cell, computes floorTopY=0, and ends up clipped into the ground — which one
+        // vehicle hits and another doesn't depends purely on each one's arbitrary position in
+        // the save list. OrderBy is a stable sort, so relative order within each group (and for
+        // everything else) is otherwise unchanged.
+        var orderedObjects = save.placedObjects.OrderBy(o => SurfaceLoadPriority(registry.GetByID(o.id)));
+
+        foreach (var objSave in orderedObjects)
         {
             // Skip yard floor tiles from older saves that still have them serialized —
             // PopulateYardFloors regenerates these below, so spawning them here would
@@ -394,6 +406,16 @@ public class PlacementSystem : MonoBehaviour
             // employees as placed objects at all (see BuildSaveData).
             if (so.category == "Worker" || so.category == "Staff") continue;
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData);
+        }
+
+        // Lower number restores first. Grounds/Foundations/floors must exist in the grid
+        // before anything else (vehicles, racking) queries it for floor height. Unknown ids
+        // (so == null) sort last — SpawnFromSave's own null check skips them anyway.
+        static int SurfaceLoadPriority(ObjDataSO so)
+        {
+            if (so == null) return 2;
+            if (so.category == "Foundation" || so.category == "Grounds" || so.isFloor) return 0;
+            return 1;
         }
 
         // Rebuild the employee set from the save UNCONDITIONALLY — even when the save has zero
@@ -588,6 +610,7 @@ public class PlacementSystem : MonoBehaviour
         }
         po.Initialize(so, x, y, rot);
         po.customData = customData;
+        go.GetComponent<MHEOperatorSlot>()?.NotifyPlaced();
 
         EnsureEmployeeComponents(go, so);
 
@@ -611,6 +634,20 @@ public class PlacementSystem : MonoBehaviour
         {
             Vector2Int c = root + o;
             grid.AddStackObject(c, go, so);
+        }
+
+        // For mobile agents (vehicles, humanoids): the isStackable-gated stackY above is for
+        // stacked ITEMS (pallets/boxes), not this — without it, a NavMeshAgent-bearing prefab
+        // restored from a save lands at the grid-cell-center height (~0) instead of the actual
+        // floor/foundation surface, visibly clipped into the ground. Mirrors the same
+        // correction PlacementFinalizer.FinalizePlacement already applies for fresh placements.
+        if (go.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
+        {
+            float floorTopY = PlacementFinalizer.GetFloorTopY(grid, root);
+            go.transform.position = new Vector3(worldPos.x, floorTopY, worldPos.z);
+            var navAgent = go.GetComponent<UnityEngine.AI.NavMeshAgent>();
+            if (navAgent != null && navAgent.isActiveAndEnabled && navAgent.isOnNavMesh)
+                navAgent.Warp(go.transform.position);
         }
 
         return po;

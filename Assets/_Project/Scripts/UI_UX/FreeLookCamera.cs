@@ -20,15 +20,16 @@ public class FreeLookCamera : MonoBehaviour
 {
     [SerializeField] private BuildMenuUI buildMenuUI;
 
-    [Header("Pan (WASD)")]
-    [SerializeField] private float moveSpeed;
-
-    [Header("Orbit (Right Mouse)")]
-    [SerializeField] private float orbitSensitivity = 0.25f;
-    [SerializeField] private float pitchSensitivity = 0.15f;
-
-    [Header("Zoom (Scroll Wheel)")]
-    [SerializeField] private float zoomSpeed = 4f;
+    // Move speed, focal-height (Q/E) speed, zoom speed, orbit sensitivity, and pitch sensitivity
+    // are deliberately NOT [SerializeField] — they are pulled exclusively from CameraDevSettings
+    // (PlayerPrefs-backed, edited only via the Tools window's Dev Settings panel) so nothing in
+    // the Inspector/prefab can silently drift or override them. See ApplyDevSettings().
+    private float moveSpeed;
+    private float focalHeightSpeed;
+    private float orbitSensitivity;
+    private float pitchSensitivity;
+    private float zoomSpeed;
+    private float minCameraHeight;
 
     [Header("Pitch (Tilt) Limits")]
     [SerializeField] private float pitchMin       = 15f;
@@ -81,6 +82,59 @@ public class FreeLookCamera : MonoBehaviour
 
         defaultDistance = Mathf.Clamp(defaultDistance, minDistance, maxDistance);
         defaultPitch    = Mathf.Clamp(defaultPitch, pitchMin, pitchMax);
+
+        ApplyDevSettings();
+        EnsureDoorTriggerSetup();
+    }
+
+    /// <summary>
+    /// Doors (ManDoorController/EntranceDoorController/RollupDoorController) react to
+    /// OnTriggerEnter/Exit, filtered by AgentTypeTag — the camera has neither by default, so
+    /// walking it through a doorway (zoomed in close, a pseudo-first-person view) never opened
+    /// anything. Auto-adds what's needed, mirroring how AiNavigation auto-adds AgentTypeTag for
+    /// agents. A kinematic Rigidbody is required for Unity to fire trigger events against an
+    /// object whose transform is moved directly (ApplyTransform sets position every frame,
+    /// never via physics) rather than via the physics system.
+    /// </summary>
+    private void EnsureDoorTriggerSetup()
+    {
+        if (GetComponent<AgentTypeTag>() == null)
+        {
+            var tag = gameObject.AddComponent<AgentTypeTag>();
+            tag.agentType = AgentType.Human;
+        }
+
+        if (GetComponent<Rigidbody>() == null)
+        {
+            var rb = gameObject.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity  = false;
+        }
+
+        if (GetComponent<BoxCollider>() == null)
+        {
+            var col = gameObject.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.size      = Vector3.one * 0.6f;
+        }
+    }
+
+    private void OnEnable()
+    {
+        CameraDevSettings.OnChanged += ApplyDevSettings;
+    }
+
+    /// <summary>Pulls move/zoom/focal-height speed and orbit/pitch sensitivity from
+    /// CameraDevSettings. Called on Awake and whenever the Tools window's Dev Settings panel
+    /// changes a value, so edits apply instantly without needing a scene reload.</summary>
+    private void ApplyDevSettings()
+    {
+        moveSpeed        = CameraDevSettings.MoveSpeed;
+        focalHeightSpeed = CameraDevSettings.FocalHeightSpeed;
+        zoomSpeed        = CameraDevSettings.ZoomSpeed;
+        orbitSensitivity = CameraDevSettings.OrbitSensitivity;
+        pitchSensitivity = CameraDevSettings.PitchSensitivity;
+        minCameraHeight  = CameraDevSettings.MinCameraHeight;
     }
 
     private void Start()
@@ -122,9 +176,10 @@ public class FreeLookCamera : MonoBehaviour
         bool fast   = Keyboard.current[Key.LeftShift].isPressed
                    || Keyboard.current[Key.RightShift].isPressed;
 
-        float speed = fast ? moveSpeed * 3f : moveSpeed;
+        float speed     = fast ? moveSpeed * 3f        : moveSpeed;
+        float vertSpeed = fast ? focalHeightSpeed * 3f : focalHeightSpeed;
 
-        ProcessPan(speed, overUI);
+        ProcessPan(speed, vertSpeed, overUI);
         ProcessOrbit(overUI);
         ProcessZoom(overUI, fast ? zoomSpeed * 3f : zoomSpeed);
         ProcessFollow();
@@ -146,9 +201,10 @@ public class FreeLookCamera : MonoBehaviour
     {
         _orbiting      = false;
         Cursor.visible = true;
+        CameraDevSettings.OnChanged -= ApplyDevSettings;
     }
 
-    private void ProcessPan(float speed, bool overUI)
+    private void ProcessPan(float speed, float vertSpeed, bool overUI)
     {
         var flatRot     = Quaternion.Euler(0f, _yaw, 0f);
         var flatForward = flatRot * Vector3.forward;
@@ -181,9 +237,10 @@ public class FreeLookCamera : MonoBehaviour
         }
 
         // Q/E raise/lower the rig by moving the focal point's Y. The camera follows on its orbit,
-        // so the focal point stays centered while the whole view rises/falls.
-        if (Keyboard.current[Key.E].isPressed) { _focalPoint.y += speed * Time.unscaledDeltaTime; hadInput = true; }
-        if (Keyboard.current[Key.Q].isPressed) { _focalPoint.y -= speed * Time.unscaledDeltaTime; hadInput = true; }
+        // so the focal point stays centered while the whole view rises/falls. Uses its own
+        // dedicated speed (CameraDevSettings.FocalHeightSpeed), independent of WASD pan speed.
+        if (Keyboard.current[Key.E].isPressed) { _focalPoint.y += vertSpeed * Time.unscaledDeltaTime; hadInput = true; }
+        if (Keyboard.current[Key.Q].isPressed) { _focalPoint.y -= vertSpeed * Time.unscaledDeltaTime; hadInput = true; }
 
         // A manual pan cancels a "focus beyond bounds" snap and re-engages the normal clamp,
         // easing the focal point back into the playable area.
@@ -234,9 +291,14 @@ public class FreeLookCamera : MonoBehaviour
         // Pure orbital placement: sit on the orbit around the focal point and look straight at it.
         // This is what guarantees the focal point is always dead-center on screen.
         var rot = Quaternion.Euler(_pitch, _yaw, 0f);
-        transform.SetPositionAndRotation(
-            _focalPoint + rot * (Vector3.back * _distance),
-            rot);
+        Vector3 pos = _focalPoint + rot * (Vector3.back * _distance);
+
+        // Floor clamp (CameraDevSettings.MinCameraHeight) — a low pitch + close zoom toward a
+        // focal point near ground/foundation height would otherwise put the camera position
+        // below the floor, clipping through it.
+        if (pos.y < minCameraHeight) pos.y = minCameraHeight;
+
+        transform.SetPositionAndRotation(pos, rot);
     }
 
     private static float NormalizePitch(float eulerX)

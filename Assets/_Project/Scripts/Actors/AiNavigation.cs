@@ -66,6 +66,10 @@ public class AiNavigation : MonoBehaviour
 public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     /// <summary>True when there are at least 2 waypoints — enough for a return trip.</summary>
     public bool HasEnoughWaypoints => waypoints != null && waypoints.Length >= 2;
+    /// <summary>True while a Worker-role operator is walking toward MHE equipment to board it —
+    /// they have a real destination even though it didn't come from the Worker waypoint patrol,
+    /// so NoWaypointIndicator must not treat this as "nowhere to go".</summary>
+    public bool IsSeekingEquipment => _seekingEquipment;
 
     /// <summary>True while the agent is playing the Climbing animation at a ledge.</summary>
     public bool IsTraversingLedgeUp   { get; private set; }
@@ -185,7 +189,22 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         FindWaypoints();
 
         if (role == AgentRole.Forklift)
+        {
             _parked = true;
+            // Unoccupied MHE has no business running navigation at all: no NavMeshAgent, no
+            // AiNavigation Update/OnEnable (which would otherwise subscribe to NavMesh rebakes
+            // for a vehicle nobody's driving). GoActive() (MHEOperatorSlot.AssignOperator) turns
+            // both back on the moment an operator boards; GoIdle() (VacateOperator) turns them
+            // back off.
+            if (agent != null) agent.enabled = false;
+
+            // Unoccupied MHE shows no bubble at all — only the boarded operator's vehicle gets
+            // one, never both. GoActive()/GoIdle() toggle this for the rest of the vehicle's life.
+            var bubble = GetComponent<EmoteBubble>();
+            if (bubble != null) bubble.enabled = false;
+
+            enabled = false;
+        }
     }
 
     /// <summary>
@@ -210,14 +229,28 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
     }
 
-    /// <summary>Transitions equipment to active state with an operator aboard.</summary>
+    /// <summary>Transitions equipment to active state with an operator aboard. MHE owns its own
+    /// navigation only while occupied — turns its NavMeshAgent + this script back on (Awake()
+    /// turns both off for an unoccupied vehicle) and un-parks.</summary>
     public void GoActive(EmployeeIdentity operatorIdentity)
     {
         _operatorIdentity = operatorIdentity;
+        _parked = false;
+        enabled = true;
+        if (agent != null) agent.enabled = true;
 
-        // Show the MHE's own NoWaypointIndicator (operator is driving, so show if stuck)
+        // The VEHICLE's own bubble is the only one active while occupied — MHEOperatorSlot.
+        // AssignOperator disables the rider's own bubble at the same time, so the two parented
+        // objects are never both showing a bubble at once.
+        var bubble = GetComponent<EmoteBubble>();
+        if (bubble != null) bubble.enabled = true;
+
+        // MHE never plays its own stuck/no-waypoint emote — operators driving it should show
+        // no navigation-indicator behavior at all. ForceClear() FIRST: Update() is what
+        // normally fades the bubble out, and that never runs once disabled — without this a
+        // bubble that happened to be up the instant before boarding stays frozen forever.
         var mheIndicator = GetComponent<NoWaypointIndicator>();
-        if (mheIndicator != null) mheIndicator.gameObject.SetActive(true);
+        if (mheIndicator != null) { mheIndicator.ForceClear(); mheIndicator.enabled = false; }
 
         if (agent != null && agent.isActiveAndEnabled)
         {
@@ -226,20 +259,30 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
     }
 
-    /// <summary>Transitions equipment to idle state (no operator, frozen in place).</summary>
+    /// <summary>Transitions equipment to idle state (no operator). Stop cleanly first, THEN turn
+    /// the NavMeshAgent + this script off — unoccupied MHE runs no navigation at all.</summary>
     public void GoIdle()
     {
         _operatorIdentity = null;
 
-        // Hide the MHE's own NoWaypointIndicator (equipment is idle, no indicator)
         var mheIndicator = GetComponent<NoWaypointIndicator>();
-        if (mheIndicator != null) mheIndicator.gameObject.SetActive(false);
+        if (mheIndicator != null) { mheIndicator.ForceClear(); mheIndicator.enabled = false; }
 
         if (agent != null && agent.isActiveAndEnabled)
         {
             agent.isStopped = true;
             agent.ResetPath();
         }
+
+        // Unoccupied vehicle shows no bubble at all — ForceHide first so a bubble visible the
+        // instant before vacating doesn't freeze on screen (Update, which fades it out, stops
+        // running the moment this component is disabled below).
+        var bubble = GetComponent<EmoteBubble>();
+        if (bubble != null) { bubble.ForceHide(); bubble.enabled = false; }
+
+        _parked = true;
+        if (agent != null) agent.enabled = false;
+        enabled = false;
     }
 
     /// <summary>Operator seeks this equipment and walks toward it.</summary>
@@ -250,7 +293,21 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (_seekingEquipment) return;  // Already seeking
 
         _targetEquipment = slot;
+        // AiNavigation and EmployeeIdentity are sibling components on the same worker
+        // GameObject. Update()'s arrival check calls _targetEquipment.AssignOperator(
+        // _operatorIdentity) — without this, _operatorIdentity stays null (it's normally
+        // only set by GoActive(), which runs on the VEHICLE's AiNavigation, not the
+        // worker's), so AssignOperator's null guard silently no-ops and the operator
+        // arrives, "boards", and just stands there forever.
+        _operatorIdentity = GetComponent<EmployeeIdentity>();
         _seekingEquipment = true;
+        // Update()'s "Recovery: re-initialize if Start() gave up" block returns BEFORE reaching
+        // off-mesh-link traversal / CheckDockLedge whenever !initialized — and initialized is
+        // otherwise only ever set by the patrol-waypoint bootstrap, which an equipment-seeking
+        // operator never goes through (no Worker waypoints needed for this destination). Without
+        // this, an operator seeking equipment up on a dock would never even attempt the climb —
+        // they'd just stand at the yard edge forever, isOnOffMeshLink=true and going nowhere.
+        initialized = true;
         SetDestinationSnapped(slot.transform.position);
     }
 
@@ -261,14 +318,14 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         _targetEquipment = null;
     }
 
-    /// <summary>Find and seek the closest unoccupied equipment matching the operator's previous target type.</summary>
-    private void FindAndSeekNextAvailableEquipment()
+    /// <summary>Find and seek the closest unoccupied equipment matching the previous target's type.</summary>
+    private void FindAndSeekNextAvailableEquipment(MHEOperatorSlot previousTarget)
     {
-        if (_operatorIdentity == null || _targetEquipment == null) return;
+        if (_operatorIdentity == null || previousTarget == null) return;
 
         // We don't know the operator's exact role, but we know the equipment type they were seeking
         // Get the data from the previously-occupied target to match equipment type
-        var previousVehicleData = _targetEquipment.GetComponent<PlacedObject>()?.data;
+        var previousVehicleData = previousTarget.GetComponent<PlacedObject>()?.data;
         if (previousVehicleData == null) return;
 
         // Find all MHE slots and pick the closest unoccupied one matching the previous equipment type
@@ -279,7 +336,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         foreach (var slot in allSlots)
         {
             if (slot.IsOccupied) continue;
-            if (slot == _targetEquipment) continue;  // Skip the one that just became occupied
+            if (slot == previousTarget) continue;  // Skip the one that just became occupied
 
             var vehicleObj = slot.GetComponent<PlacedObject>();
             if (vehicleObj == null) continue;
@@ -301,14 +358,25 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
     }
 
-    // Warps an off-NavMesh agent to the nearest walkable surface.
-    // Only fires when the agent is NOT already on the NavMesh — avoids blinking
-    // floor-level agents up to the dock surface during auto-rebakes.
+    // Warps the agent onto the best nearby walkable surface, searching upward first.
+    //
+    // Both call sites' own comments already assumed this "always snaps, prefers the higher
+    // surface" behavior — but two bugs meant neither ever actually happened:
+    //   1. The early-return `if (agent.isOnNavMesh) return;` skipped the search entirely
+    //      whenever the agent already read as on SOME navmesh — and a freshly spawned/
+    //      save-loaded agent reads isOnNavMesh=true the instant its NavMeshAgent activates,
+    //      snapped by Unity to whatever's nearest, usually the y=0 ground plane directly under
+    //      an elevated foundation. The intended upward search never ran, so they stayed
+    //      visually clipped into the floor — resolved only once real movement gave Unity's own
+    //      pathfinding a reason to re-place them, matching "fine once they start moving, stuck
+    //      in the ground while idle."
+    //   2. The offset order checked the agent's CURRENT height FIRST (0f before 1.0f/-1.0f),
+    //      so even without bug #1 it would lock onto the ground-level match before ever trying
+    //      the elevated one above it.
     private void SnapToNavMeshSurface()
     {
         if (agent == null) return;
-        if (agent.isOnNavMesh) return;  // already grounded — don't disturb
-        float[] yOffsets = { 0f, 0.5f, -0.5f, 1.0f, -1.0f };
+        float[] yOffsets = { 1.0f, 0.5f, 0f, -0.5f, -1.0f };
         foreach (float offset in yOffsets)
         {
             Vector3 sample = new Vector3(transform.position.x, transform.position.y + offset, transform.position.z);
@@ -490,24 +558,33 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             // Check if target equipment became occupied
             if (_targetEquipment.IsOccupied)
             {
-                // Target is now occupied — find the next available equipment of the same type
+                // Target is now occupied — find the next available equipment of the same type.
+                // Capture the target BEFORE cancelling: CancelEquipmentSeeking() nulls
+                // _targetEquipment, and FindAndSeekNextAvailableEquipment needs the OLD
+                // target to know what equipment type to match.
+                var previousTarget = _targetEquipment;
                 CancelEquipmentSeeking();
-                FindAndSeekNextAvailableEquipment();
+                FindAndSeekNextAvailableEquipment(previousTarget);
             }
             // Check if we've reached the equipment (very generous distance tolerance)
             else if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathComplete
                      && agent.remainingDistance <= 2.0f)  // Increased from 0.5f to account for equipment position offset
             {
-                // Reached equipment — board it
+                // Reached equipment — board it. Capture the target BEFORE cancelling:
+                // CancelEquipmentSeeking() nulls _targetEquipment, and the old code dereferenced
+                // it AFTER nulling it — a guaranteed NullReferenceException on every arrival,
+                // which is why operators would walk up to equipment and then just stand there.
+                var target = _targetEquipment;
                 CancelEquipmentSeeking();
-                _targetEquipment.AssignOperator(_operatorIdentity);
+                target.AssignOperator(_operatorIdentity);
             }
             // Check if path is invalid (can't reach equipment)
             else if (agent.pathStatus == NavMeshPathStatus.PathInvalid && !agent.pathPending)
             {
                 Debug.LogWarning($"[AiNavigation] {name} cannot reach equipment at {_targetEquipment.transform.position} (path invalid) — seeking next available");
+                var previousTarget = _targetEquipment;
                 CancelEquipmentSeeking();
-                FindAndSeekNextAvailableEquipment();
+                FindAndSeekNextAvailableEquipment(previousTarget);
             }
         }
 
@@ -665,15 +742,21 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     {
         if (agent.pathPending) { _ledgeCheckTimer = 0f; return; }
 
-        // Use the CURRENT WAYPOINT's true height, not agent.destination.y — the latter is
-        // mapped onto the nearest NavMesh and can read ground even when targeting the dock.
-        Transform wp = (waypoints != null && currentIndex >= 0 && currentIndex < waypoints.Length)
-                     ? waypoints[currentIndex] : null;
-        if (wp == null) { _ledgeCheckTimer = 0f; return; }
+        // Use the CURRENT TARGET's true height, not agent.destination.y — the latter is mapped
+        // onto the nearest NavMesh and can read ground even when targeting the dock. The target
+        // is either the MHE equipment an operator is walking to board (no patrol waypoint at
+        // all while seeking — this case was previously skipped entirely, leaving operators
+        // stuck waving at the dock edge instead of climbing up) or the normal patrol waypoint.
+        Vector3? targetPos = _seekingEquipment && _targetEquipment != null
+            ? _targetEquipment.transform.position
+            : ((waypoints != null && currentIndex >= 0 && currentIndex < waypoints.Length)
+                ? waypoints[currentIndex].position
+                : (Vector3?)null);
+        if (targetPos == null) { _ledgeCheckTimer = 0f; return; }
 
         // Target is on a different height level than the agent → needs a ledge.
         float posY = agent.transform.position.y;
-        float tgtY = wp.position.y;
+        float tgtY = targetPos.Value.y;
         bool goingUp   = posY < 0.3f && tgtY > 0.5f;
         bool goingDown = posY > 0.5f && tgtY < 0.3f;
         if (!goingUp && !goingDown) { _ledgeCheckTimer = 0f; return; }
@@ -871,10 +954,16 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         _traversingLink = false;
 
         // Re-path from the new surface — the agent is now ON the destination island, so the
-        // path that was PathPartial before the climb will complete.
-        if (agent.isActiveAndEnabled && agent.isOnNavMesh
-            && waypoints != null && waypoints.Length > 0 && waypoints[currentIndex] != null)
-            SetDestinationSnapped(waypoints[currentIndex].position);
+        // path that was PathPartial before the climb will complete. Prefer the equipment-seek
+        // target over the patrol waypoint — an operator seeking MHE equipment has no patrol
+        // waypoints at all, so without this they'd climb the ledge and then just stop.
+        if (agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            if (_seekingEquipment && _targetEquipment != null)
+                SetDestinationSnapped(_targetEquipment.transform.position);
+            else if (waypoints != null && waypoints.Length > 0 && waypoints[currentIndex] != null)
+                SetDestinationSnapped(waypoints[currentIndex].position);
+        }
     }
 
     // Per-instance cache — static would survive Play Mode restarts with stale destroyed refs

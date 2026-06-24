@@ -40,9 +40,18 @@ public class MHEOperatorSlot : MonoBehaviour
         _vehicleNav = GetComponent<AiNavigation>();
     }
 
-    private void OnEnable()
+    /// <summary>
+    /// Call after a REAL placement (PlacementFinalizer/PlacementSystem, post-Initialize) to
+    /// notify idle operators this equipment is available. Deliberately NOT wired to
+    /// OnEnable/Start: those fire synchronously during Instantiate, including for
+    /// PreviewController's build-menu hover ghost — which is a full clone of this prefab
+    /// (component-stripping can't run until AFTER Instantiate returns, so OnEnable can't be
+    /// guarded against it) and was firing this broadcast at the ghost's instantiate-time
+    /// position (often (0,0,0)) every time a player just hovered a Reach Truck/Dock Stocker
+    /// in the build menu, sending real operators off to seek a never-placed ghost forever.
+    /// </summary>
+    public void NotifyPlaced()
     {
-        // Broadcast to idle operators that this equipment is now available
         MHEPlacementEvent.BroadcastEquipmentPlaced(this);
     }
 
@@ -81,6 +90,8 @@ public class MHEOperatorSlot : MonoBehaviour
         Transform t = identity.transform;
         t.SetParent(anchor, worldPositionStays: false);
         t.localPosition = Vector3.zero;
+        // Inherit the anchor's own rotation exactly — per-vehicle facing/position is tuned
+        // directly on each prefab's operator anchor transform (RT_Full / DS_FULL), not here.
         t.localRotation = Quaternion.identity;
         t.localScale    = Vector3.one;
 
@@ -104,9 +115,19 @@ public class MHEOperatorSlot : MonoBehaviour
 
         identity.GetComponent<AgentAnimation>()?.SetRidingMHE(true);
 
-        // Hide operator's NoWaypointIndicator while riding (they're not waving, vehicle is driving)
+        // Hide operator's NoWaypointIndicator while riding (they're not waving, vehicle is driving).
+        // NoWaypointIndicator RequireComponents AiNavigation/NavMeshAgent, both of which live on
+        // this SAME root GameObject as EmployeeIdentity — so .gameObject.SetActive(false) here
+        // disabled the operator's ENTIRE GameObject (mesh, Animator, everything), not just the
+        // indicator. Disable the component instead.
         var operatorIndicator = identity.GetComponent<NoWaypointIndicator>();
-        if (operatorIndicator != null) operatorIndicator.gameObject.SetActive(false);
+        if (operatorIndicator != null) { operatorIndicator.ForceClear(); operatorIndicator.enabled = false; }
+
+        // Only the VEHICLE's bubble is active while occupied (enabled in AiNavigation.GoActive,
+        // called below) — the rider's own bubble must stay off so the two parented objects are
+        // never both showing one at once.
+        var operatorBubble = identity.GetComponent<EmoteBubble>();
+        if (operatorBubble != null) { operatorBubble.ForceHide(); operatorBubble.enabled = false; }
 
         identity.AssignedSlot = this;
         CurrentOperator = identity;
@@ -133,9 +154,14 @@ public class MHEOperatorSlot : MonoBehaviour
 
         identity.GetComponent<AgentAnimation>()?.SetRidingMHE(false);
 
-        // Restore operator's NoWaypointIndicator visibility (they're no longer riding)
+        // Restore operator's NoWaypointIndicator (they're no longer riding)
         var operatorIndicator = identity.GetComponent<NoWaypointIndicator>();
-        if (operatorIndicator != null) operatorIndicator.gameObject.SetActive(true);
+        if (operatorIndicator != null) operatorIndicator.enabled = true;
+
+        // Restore operator's own bubble (the vehicle's gets disabled in AiNavigation.GoIdle,
+        // called below)
+        var operatorBubble = identity.GetComponent<EmoteBubble>();
+        if (operatorBubble != null) operatorBubble.enabled = true;
 
         var operatorNav = identity.GetComponent<AiNavigation>();
         if (operatorNav != null) operatorNav.enabled = true;

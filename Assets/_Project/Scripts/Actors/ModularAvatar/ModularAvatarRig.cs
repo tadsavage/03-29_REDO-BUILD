@@ -34,7 +34,7 @@ public class ModularAvatarRig : MonoBehaviour
 
     void LateUpdate()
     {
-        if (_source == null || _self == null || !_self.isInitialized) return;
+        if (_source == null || _self == null || _params == null || !_self.isInitialized) return;
 
         for (int i = 0; i < _params.Length; i++)
         {

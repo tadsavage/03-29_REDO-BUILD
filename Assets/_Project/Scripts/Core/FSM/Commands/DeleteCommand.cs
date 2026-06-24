@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class DeleteCommand : ICommand
 {
@@ -87,6 +88,19 @@ public class DeleteCommand : ICommand
     {
         if (_target == null)
             return;
+
+        // If an operator is riding this equipment, vacate them BEFORE the destruction
+        // animation disables the vehicle — they're parented under it, so without this they'd
+        // be dragged into inactivity (or left at whatever height the anchor happened to put
+        // them) instead of staying on the job, on foot, on the floor. They keep their role and
+        // resume normal on-foot logic afterward: seek a worker waypoint if one exists, or wave
+        // with the "no waypoint" alert if none do — the same as any other idle worker.
+        var operatorSlot = _target.GetComponent<MHEOperatorSlot>();
+        if (operatorSlot != null && operatorSlot.IsOccupied)
+        {
+            var vacated = operatorSlot.VacateOperator();
+            if (vacated != null) SnapToFloorSurface(vacated.transform);
+        }
 
         _reEnabledFloors.Clear();
         _attachedFloorsRefundTotal = 0;
@@ -195,6 +209,30 @@ public class DeleteCommand : ICommand
 
         // 5. NavMesh: always rebake when a foundation is deleted (floor surface changes)
         NavMeshManager.Instance?.MarkDirty();
+    }
+
+    // Snaps a freshly-vacated operator onto the real walkable surface beneath them (e.g. the
+    // foundation top at Y=1.15) rather than leaving them at whatever world position the
+    // vehicle's operator anchor happened to place them at — which can be inside the foundation
+    // mesh. Mirrors AiNavigation.SnapToNavMeshSurface's upward-first search (prefer the
+    // elevated floor surface over the ground plane below it).
+    private static void SnapToFloorSurface(Transform t)
+    {
+        float[] yOffsets = { 0f, 0.5f, 1.0f, -0.5f, -1.0f };
+        foreach (float offset in yOffsets)
+        {
+            Vector3 sample = new Vector3(t.position.x, t.position.y + offset, t.position.z);
+            if (NavMesh.SamplePosition(sample, out NavMeshHit hit, 1.0f, NavMesh.AllAreas))
+            {
+                t.position = hit.position;
+                var agent = t.GetComponent<NavMeshAgent>();
+                if (agent != null && agent.isActiveAndEnabled)
+                {
+                    try { agent.Warp(hit.position); } catch { }
+                }
+                return;
+            }
+        }
     }
 
     // Re-enables the yard tiles queued in step 2, called only once the foundation has finished

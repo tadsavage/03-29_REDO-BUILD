@@ -56,7 +56,13 @@ public class EmployeeIdentity : MonoBehaviour
 
     private void OnDestroy()
     {
-        EmployeeRegistry.Instance?.Unregister(this);
+        // Mirror Awake's registration guard: a system-managed instance (PhotoBooth LiveFeed
+        // clone, guard/driver NPC) never registered itself, so it must never unregister either.
+        // Unregister() removes purely by GUID — a LiveFeed clone carries the REAL employee's
+        // GUID after ApplyRecord(), so without this guard, closing the info panel (destroying
+        // the clone) would rip the actual employee out of the registry by GUID collision.
+        if (!_systemManaged)
+            EmployeeRegistry.Instance?.Unregister(this);
     }
 
     public EmployeeRecord GetOrCreateRecord()

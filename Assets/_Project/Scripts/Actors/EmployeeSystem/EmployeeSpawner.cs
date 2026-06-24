@@ -217,9 +217,12 @@ public class EmployeeSpawner : MonoBehaviour
 
     // ─── MHE operator assignment ────────────────────────────────────────────────
     /// <summary>
-    /// Attempts to board an operator onto an existing unoccupied MHE matching their role.
-    /// Does NOT spawn new equipment — players must place equipment via the build menu first.
-    /// If no free vehicle exists, the operator stays on-foot.
+    /// Attempts to send a freshly-hired operator walking toward an existing unoccupied MHE
+    /// matching their role (boards on arrival via AiNavigation's normal seek-and-board flow —
+    /// matches the behavior of an idle operator reacting to equipment placed after they were
+    /// hired, instead of teleporting straight onto the vehicle). Does NOT spawn new equipment —
+    /// players must place equipment via the build menu first. If no free vehicle exists, the
+    /// operator stays on-foot.
     /// </summary>
     private bool TryBoardExistingMHE(EmployeeIdentity identity, EmployeeRole role)
     {
@@ -239,8 +242,9 @@ public class EmployeeSpawner : MonoBehaviour
             var vehicleObj = slot.GetComponent<PlacedObject>();
             if (vehicleObj == null || vehicleObj.data != targetData) continue;
 
-            // Found a matching unoccupied vehicle — board the operator.
-            slot.AssignOperator(identity);
+            // Found a matching unoccupied vehicle — walk over and board on arrival.
+            var nav = identity.GetComponent<AiNavigation>();
+            if (nav != null) nav.SeekEquipment(slot);
             return true;
         }
 

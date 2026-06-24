@@ -24,6 +24,17 @@ public class NavMeshManager : MonoBehaviour
     private bool _isDirty;
     private bool _isUpdating;
 
+    // ── Incremental per-cell top-floor cache ────────────────────────────────────
+    // AddFloorNavMeshSources() used to rebuild this by scanning ALL of
+    // PlacedObjectRegistry (9,400+ yard tiles alone) on EVERY rebake — including the
+    // ~every-25s stuck-agent rebake, which never actually changes floor topology. That
+    // full rescan + fresh Dictionary build was the dominant cost behind multi-MB GC
+    // spikes recurring throughout play. Maintained incrementally via PlacedObjectRegistry's
+    // (Un)Registered events instead: O(1) per placement/removal, O(0) — direct reuse —
+    // on every rebake that doesn't touch floor tiles at all (the common case).
+    private readonly Dictionary<Vector2Int, PlacedObject> _floorTopCache = new();
+    private PlacementGrid _grid;
+
     private void Awake()
     {
         Instance = this;
@@ -37,6 +48,59 @@ public class NavMeshManager : MonoBehaviour
             if (mod == null) mod = go.AddComponent<NavMeshModifier>();
             mod.ignoreFromBuild = true;
             mod.applyToChildren = true;
+        }
+
+        // Seed the cache once from whatever's already placed (scene-authored tiles, or a
+        // save already restored before this Awake ran) — every change after this point is
+        // captured incrementally via the registry events instead of a re-scan.
+        _grid = Object.FindAnyObjectByType<PlacementGrid>();
+        foreach (var placed in PlacedObjectRegistry.All)
+            TryAddFloorToCache(placed);
+
+        PlacedObjectRegistry.OnRegistered   += OnPlacedObjectRegistered;
+        PlacedObjectRegistry.OnUnregistered += OnPlacedObjectUnregistered;
+        PlacedObjectRegistry.OnCleared      += OnPlacedObjectsCleared;
+    }
+
+    private void OnPlacedObjectsCleared() => _floorTopCache.Clear();
+
+    private void OnPlacedObjectRegistered(PlacedObject placed) => TryAddFloorToCache(placed);
+
+    private void TryAddFloorToCache(PlacedObject placed)
+    {
+        if (placed == null || placed.data == null || !placed.data.isFloor) return;
+        if (placed.gameObject == null || !placed.gameObject.activeSelf) return;
+
+        var key = new Vector2Int(placed.gridX, placed.gridY);
+        if (!_floorTopCache.TryGetValue(key, out var cur)
+            || placed.transform.position.y > cur.transform.position.y)
+            _floorTopCache[key] = placed;
+    }
+
+    private void OnPlacedObjectUnregistered(PlacedObject placed)
+    {
+        if (placed == null || placed.data == null || !placed.data.isFloor) return;
+
+        var key = new Vector2Int(placed.gridX, placed.gridY);
+        if (!_floorTopCache.TryGetValue(key, out var cur) || cur != placed) return;
+
+        // The removed tile WAS this cell's cached top — re-derive from the grid's own stack
+        // for just this one cell (rare event; placement/removal, not the routine stuck-rebake).
+        _floorTopCache.Remove(key);
+        if (_grid == null) _grid = Object.FindAnyObjectByType<PlacementGrid>();
+        if (_grid == null) return;
+
+        var stack = _grid.GetObjectsInCell(key);
+        if (stack == null) return;
+
+        foreach (var entry in stack)
+        {
+            if (entry.instance == null || !entry.instance.activeSelf) continue;
+            var po = entry.instance.GetComponent<PlacedObject>();
+            if (po == null || po == placed || po.data == null || !po.data.isFloor) continue;
+
+            if (!_floorTopCache.TryGetValue(key, out var best) || po.transform.position.y > best.transform.position.y)
+                _floorTopCache[key] = po;
         }
     }
 
@@ -227,19 +291,12 @@ public class NavMeshManager : MonoBehaviour
     {
         const float cellSize = 1.33f;   // project grid cell size
 
-        // 1) Highest floor tile per cell.
-        var top = new Dictionary<Vector2Int, PlacedObject>();
-        foreach (var placed in PlacedObjectRegistry.All)
-        {
-            if (placed == null || placed.data == null || !placed.data.isFloor) continue;
-            if (placed.gameObject == null || !placed.gameObject.activeSelf) continue;
-
-            var key = new Vector2Int(placed.gridX, placed.gridY);
-            if (!top.TryGetValue(key, out var cur)
-                || placed.transform.position.y > cur.transform.position.y)
-                top[key] = placed;
-        }
-        if (top.Count == 0) return;
+        // 1) Highest floor tile per cell — read directly from the incrementally-maintained
+        // cache (see _floorTopCache / OnPlacedObjectRegistered / OnPlacedObjectUnregistered)
+        // instead of rescanning all of PlacedObjectRegistry (9,400+ entries) on every rebake.
+        // NOTE: deliberately no early-return when this is empty — step 4 below still needs to
+        // run on a fresh game (pure bare yard, zero real floors placed yet).
+        var top = _floorTopCache;
 
         // 2) Elevated cells → exact per-tile box. The box must be THICKER than the voxel size or
         //    thin floor geometry never rasterizes (a 0.05m box left the whole building floor
@@ -310,6 +367,56 @@ public class NavMeshManager : MonoBehaviour
                 i = j + 1;
             }
         }
+
+        // 4. Default yard ground — any grid cell with no real floor/foundation (covered
+        // visually by YardFloorMeshBuilder's single merged mesh, which carries no per-cell
+        // PlacedObject for this method to read from `top`) still needs a walkable box. Same
+        // contiguous-row-run merging as step 3, just driven directly by grid occupancy instead
+        // of the floor cache, since there's no PlacedObject per bare cell anymore.
+        if (_grid != null)
+        {
+            var defaultRuns = new Dictionary<int, List<int>>();
+            for (int gy = 0; gy < _grid.Height; gy++)
+            {
+                List<int> xs = null;
+                for (int gx = 0; gx < _grid.Width; gx++)
+                {
+                    if (top.ContainsKey(new Vector2Int(gx, gy))) continue; // real floor covers it
+                    if (xs == null) { xs = new List<int>(); defaultRuns[gy] = xs; }
+                    xs.Add(gx);
+                }
+            }
+
+            const float defaultThickness = 0.12f;
+            foreach (var kv in defaultRuns)
+            {
+                int gy = kv.Key;
+                var xs = kv.Value; // ascending by construction
+                int i2 = 0;
+                while (i2 < xs.Count)
+                {
+                    int j2 = i2;
+                    while (j2 + 1 < xs.Count && xs[j2 + 1] == xs[j2] + 1) j2++;
+
+                    Vector3 firstWorld = _grid.GetCellCenter(new Vector2Int(xs[i2], gy));
+                    Vector3 lastWorld  = _grid.GetCellCenter(new Vector2Int(xs[j2], gy));
+                    float minX = firstWorld.x - cellSize * 0.5f;
+                    float maxX = lastWorld.x  + cellSize * 0.5f;
+
+                    sources.Add(new NavMeshBuildSource
+                    {
+                        transform = Matrix4x4.TRS(
+                            new Vector3((minX + maxX) * 0.5f, firstWorld.y - defaultThickness * 0.5f, firstWorld.z),
+                            Quaternion.identity, Vector3.one),
+                        shape = NavMeshBuildSourceShape.Box,
+                        area  = defaultArea,
+                        size  = new Vector3(maxX - minX, defaultThickness, cellSize)
+                    });
+
+                    i2 = j2 + 1;
+                }
+            }
+        }
     }
 
     private Bounds GetWorldBounds(NavMeshSurface surface)
@@ -348,6 +455,9 @@ public class NavMeshManager : MonoBehaviour
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
+        PlacedObjectRegistry.OnRegistered   -= OnPlacedObjectRegistered;
+        PlacedObjectRegistry.OnUnregistered -= OnPlacedObjectUnregistered;
+        PlacedObjectRegistry.OnCleared      -= OnPlacedObjectsCleared;
     }
 
     public void MarkDirty(bool immediate = false)

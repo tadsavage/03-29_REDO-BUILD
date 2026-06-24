@@ -525,6 +525,32 @@ public class ToolsWindowController : MonoBehaviour
         if (ScriptDescriptions.TryGetValue(type.Name, out string desc)) title.tooltip = desc;
         group.Add(title);
 
+        // FreeLookCamera's move/zoom/focal-height speed and orbit/pitch sensitivity are no
+        // longer [SerializeField] (see CameraDevSettings) — the generic reflection rows below
+        // can no longer see them. These five are the single authoritative place to edit them,
+        // with the explicit ranges/types the design calls for instead of GetFloatRange's guesses.
+        if (type.Name == "FreeLookCamera")
+        {
+            group.Add(BuildIntSettingRow("Move Speed",
+                CameraDevSettings.MoveSpeedMin, CameraDevSettings.MoveSpeedMax,
+                () => CameraDevSettings.MoveSpeed, v => CameraDevSettings.MoveSpeed = v));
+            group.Add(BuildFloatSettingRow("Zoom Speed",
+                CameraDevSettings.ZoomSpeedMin, CameraDevSettings.ZoomSpeedMax,
+                () => CameraDevSettings.ZoomSpeed, v => CameraDevSettings.ZoomSpeed = v));
+            group.Add(BuildIntSettingRow("Focal Height Speed",
+                CameraDevSettings.FocalHeightSpeedMin, CameraDevSettings.FocalHeightSpeedMax,
+                () => CameraDevSettings.FocalHeightSpeed, v => CameraDevSettings.FocalHeightSpeed = v));
+            group.Add(BuildFloatSettingRow("Pitch Sensitivity",
+                CameraDevSettings.PitchSensitivityMin, CameraDevSettings.PitchSensitivityMax,
+                () => CameraDevSettings.PitchSensitivity, v => CameraDevSettings.PitchSensitivity = v));
+            group.Add(BuildFloatSettingRow("Orbit Sensitivity",
+                CameraDevSettings.OrbitSensitivityMin, CameraDevSettings.OrbitSensitivityMax,
+                () => CameraDevSettings.OrbitSensitivity, v => CameraDevSettings.OrbitSensitivity = v));
+            group.Add(BuildFloatSettingRow("Minimum Camera Height",
+                CameraDevSettings.MinCameraHeightMin, CameraDevSettings.MinCameraHeightMax,
+                () => CameraDevSettings.MinCameraHeight, v => CameraDevSettings.MinCameraHeight = v));
+        }
+
         if (isSpecific && !hasSelection)
         {
             var hint = new Label("↑ click an object in the scene to edit");
@@ -679,6 +705,67 @@ public class ToolsWindowController : MonoBehaviour
         toggle.AddToClassList("ds-toggle");
         toggle.RegisterValueChangedCallback(evt => field.SetValue(target, evt.newValue));
         return toggle;
+    }
+
+    // Same visual shape as BuildFieldRow/BuildFloatControl/BuildIntControl, but bound via a
+    // getter/setter pair instead of reflection — for settings (e.g. CameraDevSettings) backed
+    // by something other than a MonoBehaviour's own serialized field.
+    private VisualElement BuildFloatSettingRow(string label, float min, float max,
+        System.Func<float> getter, System.Action<float> setter)
+    {
+        var row = new VisualElement(); row.AddToClassList("ds-row");
+        var lbl = new Label(label); lbl.AddToClassList("ds-label"); row.Add(lbl);
+
+        float val = getter();
+        float pct = max > min ? Mathf.Clamp01((val - min) / (max - min)) : 0f;
+
+        var col = new VisualElement(); col.AddToClassList("ds-slider-row");
+        var vLabel = new Label(val.ToString("F2")); vLabel.AddToClassList("ds-slider-value"); col.Add(vLabel);
+
+        var (wrap, fill, thumb) = MakeSliderWrap();
+        SetSliderVisuals(fill, thumb, pct);
+
+        var slider = new Slider(min, max) { value = val };
+        slider.AddToClassList("ds-slider-overlay");
+        slider.RegisterValueChangedCallback(evt =>
+        {
+            setter(evt.newValue);
+            float p = max > min ? Mathf.Clamp01((evt.newValue - min) / (max - min)) : 0f;
+            SetSliderVisuals(fill, thumb, p);
+            vLabel.text = evt.newValue.ToString("F2");
+        });
+        wrap.Add(slider); col.Add(wrap);
+        row.Add(col);
+        return row;
+    }
+
+    private VisualElement BuildIntSettingRow(string label, int min, int max,
+        System.Func<int> getter, System.Action<int> setter)
+    {
+        var row = new VisualElement(); row.AddToClassList("ds-row");
+        var lbl = new Label(label); lbl.AddToClassList("ds-label"); row.Add(lbl);
+
+        int val = getter();
+        float pct = max > min ? Mathf.Clamp01((float)(val - min) / (max - min)) : 0f;
+
+        var col = new VisualElement(); col.AddToClassList("ds-slider-row");
+        var vLabel = new Label(val.ToString()); vLabel.AddToClassList("ds-slider-value"); col.Add(vLabel);
+
+        var (wrap, fill, thumb) = MakeSliderWrap();
+        SetSliderVisuals(fill, thumb, pct);
+
+        var slider = new SliderInt(min, max) { value = val };
+        slider.AddToClassList("ds-slider-overlay");
+        slider.RegisterValueChangedCallback(evt =>
+        {
+            setter(evt.newValue);
+            float p = max > min ? Mathf.Clamp01((float)(evt.newValue - min) / (max - min)) : 0f;
+            SetSliderVisuals(fill, thumb, p);
+            vLabel.text = evt.newValue.ToString();
+        });
+        wrap.Add(slider); col.Add(wrap);
+        row.Add(col);
+        return row;
     }
 
     private static (VisualElement wrap, VisualElement fill, VisualElement thumb) MakeSliderWrap()

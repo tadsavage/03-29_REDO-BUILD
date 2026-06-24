@@ -96,16 +96,14 @@ public class AgentAnimation : MonoBehaviour
 
         if (_ridingMHE)
         {
-            bool ridingIndicatorOn = _indicator != null && _indicator.IsShowingIndicator;
-            _waveTimer = ridingIndicatorOn ? _waveTimer + Time.deltaTime : 0f;
-            bool ridingWaving = ridingIndicatorOn && _waveTimer >= waveDelay;
-            _animator.SetBool("IsWaving", ridingWaving);
-            if (!ridingWaving)
-            {
-                _animator.SetBool("IsWalking",      false);
-                _animator.SetBool("IsTurningLeft",  false);
-                _animator.SetBool("IsTurningRight", false);
-            }
+            // No emotes, no nav-indicator logic while riding — the rider's own NoWaypointIndicator
+            // is disabled by MHEOperatorSlot.AssignOperator, which freezes IsShowingIndicator at
+            // whatever it last read (NOT necessarily false), so this must never consult it. Just
+            // loop whatever idle/drive pose the rig has; the vehicle's own movement carries them.
+            _animator.SetBool("IsWaving",       false);
+            _animator.SetBool("IsWalking",      false);
+            _animator.SetBool("IsTurningLeft",  false);
+            _animator.SetBool("IsTurningRight", false);
             return;
         }
 

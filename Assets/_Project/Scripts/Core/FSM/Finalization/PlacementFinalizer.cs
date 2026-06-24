@@ -119,6 +119,8 @@ public class PlacementFinalizer : MonoBehaviour
         if (po != null)
             po.Initialize(data, root.x, root.y, (int)(rotation / 90f));
 
+        instance.GetComponent<MHEOperatorSlot>()?.NotifyPlaced();
+
         // Initialize BuildingData BEFORE adding to grid so UpdateStackPositions works
         var bd = instance.GetComponent<BuildingData>();
         if (bd != null)
@@ -136,17 +138,22 @@ public class PlacementFinalizer : MonoBehaviour
         // so the stacking math would leave the agent at Y≈0 — fix that here.
         if (instance.GetComponent<NavMeshAgent>() != null)
         {
-            float floorTopY = GetFloorTopY(root);
+            float floorTopY = GetFloorTopY(_grid, root);
             instance.transform.position = new Vector3(pos.x, floorTopY, pos.z);
         }
 
         return instance;
     }
 
-    private float GetFloorTopY(Vector2Int cell)
+    // Static + grid passed in (rather than an instance method on _grid) so PlacementSystem's
+    // save-restore path (SpawnFromSave) can reuse the exact same correction — it was missing
+    // entirely there, leaving NavMeshAgent-bearing prefabs (vehicles) restored from a save at
+    // the grid-cell-center height (~0) instead of the actual floor/foundation surface,
+    // visibly clipped into the ground until something else moved them.
+    public static float GetFloorTopY(PlacementGrid grid, Vector2Int cell)
     {
         float topY = 0f;
-        var cellObjects = _grid.GetObjectsInCell(cell);
+        var cellObjects = grid.GetObjectsInCell(cell);
         if (cellObjects == null) return topY;
 
         foreach (var entry in cellObjects)
