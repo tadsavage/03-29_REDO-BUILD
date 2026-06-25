@@ -191,6 +191,19 @@ namespace SaveLoadSystem
 
         public void Open(SaveLoadMode mode)
         {
+            // Lazy initialize if not already done (handles timing issues with UIDocument initialization)
+            if (root == null || overlay == null)
+            {
+                root = saveLoadDocument.rootVisualElement;
+                QueryElements();
+            }
+
+            if (root == null || overlay == null)
+            {
+                Debug.LogError("[SaveLoadWindowController.Open] Failed to initialize UI elements");
+                return;
+            }
+
             currentMode = mode;
             isOpen = true;
             pendingActionSlot = -1;

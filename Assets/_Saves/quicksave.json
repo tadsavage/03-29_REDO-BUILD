@@ -1,7 +1,7 @@
 {
     "saveName": "quicksave",
-    "money": 61578,
-    "spentToday": 58422,
+    "money": 67978,
+    "spentToday": 52022,
     "cameraData": {
         "focusPoint": {
             "x": 4.006793022155762,
@@ -9,8 +9,8 @@
             "z": -17.02185821533203
         },
         "distance": 15.0,
-        "pitch": 35.099979400634769,
-        "yaw": 262.47064208984377
+        "pitch": 24.899999618530275,
+        "yaw": 317.97064208984377
     },
     "placedObjects": [
         {
@@ -1512,20 +1512,6 @@
             "customData": ""
         },
         {
-            "id": 65,
-            "x": 50,
-            "y": 27,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 65,
-            "x": 53,
-            "y": 27,
-            "rot": 0,
-            "customData": ""
-        },
-        {
             "id": 900,
             "x": 48,
             "y": 43,
@@ -1541,42 +1527,6 @@
         }
     ],
     "devSettings": [
-        {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.5"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
         {
             "key": "FreeLookCamera.pitchMin",
             "val": "15"
@@ -1626,6 +1576,58 @@
             "val": "75"
         },
         {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.5"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
+        },
+        {
             "key": "VehicleThrottleAudio.hearingDistance",
             "val": "25"
         },
@@ -1670,39 +1672,23 @@
             "val": "0.5"
         },
         {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
         },
         {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
         },
         {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
-            "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
-        },
-        {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
         }
     ],
     "toolsWindowX": 12.0,
     "toolsWindowY": 50.0,
     "guidanceLinesVisible": true,
     "waypointsVisible": true,
-    "hoverPopupEnabled": false,
+    "hoverPopupEnabled": true,
     "employeeRecords": [
         {
             "employeeGuid": "5d094d7a-f4db-4b6d-832e-72195e97109d",
@@ -1711,6 +1697,7 @@
             "employeeIdPrefix": "WHSE",
             "gender": 2,
             "role": 1,
+            "currentAssignment": 0,
             "fatigue": 69.31427001953125,
             "safety": 62.62394332885742,
             "morale": 59.85699462890625,
@@ -1742,10 +1729,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 6.309680938720703,
+            "posX": 4.675548553466797,
             "posY": 1.1099998950958253,
-            "posZ": -24.284679412841798,
-            "rotY": 149.93441772460938,
+            "posZ": -21.52090835571289,
+            "rotY": 320.76654052734377,
             "hasSavedPosition": true
         },
         {
@@ -1755,6 +1742,7 @@
             "employeeIdPrefix": "WHSE",
             "gender": 2,
             "role": 1,
+            "currentAssignment": 0,
             "fatigue": 19.54227066040039,
             "safety": 27.5649471282959,
             "morale": 70.93115234375,
@@ -1786,10 +1774,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 3.7572059631347658,
+            "posX": 2.123105764389038,
             "posY": 1.1099998950958253,
-            "posZ": -20.926799774169923,
-            "rotY": 142.13279724121095,
+            "posZ": -16.700441360473634,
+            "rotY": 152.63307189941407,
             "hasSavedPosition": true
         },
         {
@@ -1799,6 +1787,7 @@
             "employeeIdPrefix": "WHSE",
             "gender": 2,
             "role": 2,
+            "currentAssignment": 0,
             "fatigue": 92.82537078857422,
             "safety": 86.44964599609375,
             "morale": 46.49772262573242,
@@ -1830,10 +1819,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 2.890504837036133,
+            "posX": 4.98369836807251,
             "posY": 1.1099998950958253,
-            "posZ": -11.931686401367188,
-            "rotY": 125.4468994140625,
+            "posZ": -22.88808250427246,
+            "rotY": 147.3605194091797,
             "hasSavedPosition": true
         }
     ],
@@ -1845,6 +1834,7 @@
             "employeeIdPrefix": "WHSE",
             "gender": 1,
             "role": 1,
+            "currentAssignment": 0,
             "fatigue": 35.62886047363281,
             "safety": 54.66120147705078,
             "morale": 52.75208282470703,
@@ -1889,6 +1879,7 @@
             "employeeIdPrefix": "WHSE",
             "gender": 2,
             "role": 2,
+            "currentAssignment": 0,
             "fatigue": 20.7655029296875,
             "safety": 51.99699783325195,
             "morale": 60.83943176269531,
@@ -1933,6 +1924,7 @@
             "employeeIdPrefix": "WHSE",
             "gender": 2,
             "role": 1,
+            "currentAssignment": 0,
             "fatigue": 65.60404968261719,
             "safety": 81.10316467285156,
             "morale": 41.853023529052737,
@@ -1977,6 +1969,7 @@
             "employeeIdPrefix": "WHSE",
             "gender": 1,
             "role": 0,
+            "currentAssignment": 0,
             "fatigue": 89.20903015136719,
             "safety": 76.92180633544922,
             "morale": 46.79001235961914,
@@ -2021,6 +2014,7 @@
             "employeeIdPrefix": "WHSE",
             "gender": 1,
             "role": 2,
+            "currentAssignment": 0,
             "fatigue": 33.21426773071289,
             "safety": 71.4562759399414,
             "morale": 62.41175079345703,
@@ -2065,6 +2059,7 @@
             "employeeIdPrefix": "WHSE",
             "gender": 1,
             "role": 0,
+            "currentAssignment": 0,
             "fatigue": 25.023582458496095,
             "safety": 69.06282806396485,
             "morale": 91.80158996582031,
@@ -2108,6 +2103,6 @@
     "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
-    "screenWidth": 2560,
-    "screenHeight": 1440
+    "screenWidth": 1920,
+    "screenHeight": 1080
 }
