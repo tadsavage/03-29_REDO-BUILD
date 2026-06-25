@@ -1,3 +1,4 @@
+using GameCore.Economy;
 // METADATA file_path: Assets/1. Scripts/7. EmployeeSystem/EmployeeLifecycleService.cs
 using System;
 using UnityEngine;

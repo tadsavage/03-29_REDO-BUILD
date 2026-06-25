@@ -1,3 +1,4 @@
+using GameCore.Economy;
 using SaveLoadSystem;
 using System.Collections;
 using System.Collections.Generic;

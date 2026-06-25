@@ -1,9 +1,12 @@
+using GameCore.Economy;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
 using SaveLoadSystem;
+using GameCore.Events;
+using GameCore.Events.Payloads;
 
 public class TopBarUI : MonoBehaviour
 {
@@ -51,6 +54,7 @@ public class TopBarUI : MonoBehaviour
 
     private MoneyService _moneyService;
     private SimulationTimeService _timeService;
+    private EventManager _eventManager;
     private FinancialBreakdownPanel _breakdownPanel;
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
@@ -150,8 +154,19 @@ public class TopBarUI : MonoBehaviour
         if (SaveManager.Instance != null)
             SaveManager.Instance.OnSaveCompleted += OnSaveCompleted;
 
-        _moneyService.OnMoneyChanged += Refresh;
-        _timeService.OnTimeChanged   += Refresh;
+        // Subscribe to new GameEvents-based economy/time updates
+        _eventManager = EventManager.Instance;
+        if (_eventManager != null)
+        {
+            _eventManager.Subscribe<int>(GameEvents.Economy.OnMoneyChanged, OnMoneyChangedEvent);
+            _eventManager.Subscribe<SimulationTimeData>(GameEvents.Time.OnMinutePassed, OnTimePassedEvent);
+        }
+        else
+        {
+            // Fallback: subscribe to legacy events if EventManager is not available
+            _moneyService.OnMoneyChanged += Refresh;
+            _timeService.OnTimeChanged   += Refresh;
+        }
 
         Refresh();
     }
@@ -503,10 +518,33 @@ public class TopBarUI : MonoBehaviour
         PlayerPrefs.SetFloat(param, linear);
     }
 
+    // ── Event handlers for new GameEvents-based system ────────────────
+
+    private void OnMoneyChangedEvent(string eventId, int newBalance)
+    {
+        Refresh();
+    }
+
+    private void OnTimePassedEvent(string eventId, SimulationTimeData timeData)
+    {
+        Refresh();
+    }
+
     private void OnDestroy()
     {
-        if (_moneyService != null) _moneyService.OnMoneyChanged -= Refresh;
-        if (_timeService  != null) _timeService.OnTimeChanged   -= Refresh;
+        // Unsubscribe from new GameEvents if EventManager is available
+        if (_eventManager != null)
+        {
+            _eventManager.Unsubscribe<int>(GameEvents.Economy.OnMoneyChanged, OnMoneyChangedEvent);
+            _eventManager.Unsubscribe<SimulationTimeData>(GameEvents.Time.OnMinutePassed, OnTimePassedEvent);
+        }
+        else
+        {
+            // Unsubscribe from legacy events if they were used as fallback
+            if (_moneyService != null) _moneyService.OnMoneyChanged -= Refresh;
+            if (_timeService  != null) _timeService.OnTimeChanged   -= Refresh;
+        }
+
         if (SaveManager.Instance != null)
             SaveManager.Instance.OnSaveCompleted -= OnSaveCompleted;
         _breakdownPanel?.Dispose();

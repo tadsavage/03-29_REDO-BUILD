@@ -1,3 +1,4 @@
+using GameCore.Economy;
 using UnityEngine;
 
 public class TimeDriver : MonoBehaviour

@@ -1,3 +1,4 @@
+using GameCore.Economy;
 using UnityEngine;
 using System.Collections.Generic;
 
