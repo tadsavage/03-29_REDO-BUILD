@@ -303,6 +303,34 @@ UI/Economy react to event
 
 ---
 
+## Recommended Next Work (2026-06-25)
+
+**PRIORITY: Wave 5 — Command Refactoring**
+
+Continue architectural momentum by completing the command layer refactoring:
+
+1. **PlaceCommand, MoveCommand, DeleteCommand** — Make them inherit PlacementCommandBase and implement IPlacementCommand
+2. **Unify command creation** — Centralize in BuildService.TryPlaceObject() / TryMoveObject() / TryDeleteObject()
+3. **Event publishing standardization** — All commands publish via EventManager using PlacementCommandBase helpers
+
+**Why now:**
+- Wave 4 infrastructure is solid and tested
+- Architectural patterns are fresh and understood
+- Commands are complex but well-defined
+- Completing this solidifies the entire build system design
+
+**After Wave 5:**
+- Shift to gameplay features (Phase 1 Equipment Testing)
+- Test actual mechanics instead of refactoring
+- See the game come alive with real content
+
+**Secondary items if Wave 5 blocks:**
+- Fix ToolsWindow (non-functional UI currently)
+- Migrate saves to `Application.persistentDataPath` (shipping blocker)
+- Configure SimulationTimeService time scale (tuning needed)
+
+---
+
 ## TODO
 
 Things that need to be built, in rough priority order. Move items here as they come up and remove them when done.
