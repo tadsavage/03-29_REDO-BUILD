@@ -1,6 +1,10 @@
 using System.Collections;
 using UnityEngine;
 using SaveLoadSystem;
+using GameCore.Services;
+using GameCore.Economy;
+using GameCore.Events;
+using GameCore.Build;
 
 [DefaultExecutionOrder(-100)]
 public class GameContext : MonoBehaviour
@@ -18,8 +22,14 @@ public class GameContext : MonoBehaviour
     {
         LoadingScreenManager.Instance?.SetProgress(0.1f);
 
-        TimeService = new SimulationTimeService(1, 8, 0);
-        timeDriver.Initialize(TimeService);
+        // Ensure EventManager exists (required by all services)
+        var eventManager = EventManager.Instance;
+        if (eventManager == null)
+        {
+            GameObject eventManagerObj = new GameObject("EventManager");
+            eventManager = eventManagerObj.AddComponent<EventManager>();
+            Debug.Log("[GameContext] EventManager not found in scene; created at runtime.");
+        }
 
         // LOCKED to Clerk difficulty for equipment-first hiring model development
         int difficulty = 0; // Clerk (easy): 120k starting capital, 100% sell-back rate, 4x faster hiring replenishment
@@ -37,7 +47,39 @@ public class GameContext : MonoBehaviour
             2 => 0.5f,  // Manager (hard) — 50% back
             _ => 0.5f
         };
+
+        // Create refactored services (plain C# classes)
+        TimeService = new SimulationTimeService(1, 8, 0);
         MoneyService = new MoneyService(startingCapital, sellBackRate);
+        var economyService = new EconomyService();
+
+        // Register services with ServiceLocator for dependency injection
+        ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
+        ServiceLocator.Register<MoneyService>(MoneyService as MoneyService);
+        ServiceLocator.Register<EconomyService>(economyService);
+
+        // Initialize services (subscribes to events, publishes initial state)
+        TimeService.Initialize();
+        MoneyService.Initialize();
+        economyService.Initialize();
+
+        // Wire timeDriver to use refactored TimeService
+        timeDriver.Initialize(TimeService);
+
+        // Create and initialize BuildService (FSM coordination)
+        var grid = FindAnyObjectByType<PlacementGrid>();
+        var commandHistory = new CommandHistory();
+        if (grid != null && commandHistory != null)
+        {
+            var buildService = new BuildService(grid, commandHistory);
+            buildService.Initialize();
+            ServiceLocator.Register<BuildService>(buildService);
+            Debug.Log("[GameContext] BuildService registered.");
+        }
+        else
+        {
+            Debug.LogError("[GameContext] Cannot initialize BuildService: grid or command history null.");
+        }
 
         var fsm = FindAnyObjectByType<PlacementStateMachine>();
         if (fsm != null)
@@ -51,7 +93,7 @@ public class GameContext : MonoBehaviour
         if (placement != null) placement.Initialize(MoneyService);
         else Debug.LogError("[GameContext] PlacementSystem not found in scene.");
 
-        TimeService.OnHourChanged += () => MoneyService.ApplyHourlyCost();
+        // Wire legacy OnDayChanged event for backward compatibility (MoneyService resets daily spending)
         TimeService.OnDayChanged += () => MoneyService.ResetDailySpending();
     }
 

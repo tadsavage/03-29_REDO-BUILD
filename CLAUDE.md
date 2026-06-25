@@ -199,6 +199,110 @@ Analyzed raycast system and discovered that individual Box Colliders on every pl
 
 ---
 
+## Wave 4: FSM & Build State Refactoring (COMPLETED 2026-06-25)
+
+### Architecture Refactoring Overview
+
+Wave 4 introduced a standardized, event-driven architecture for FSM states and build operations. The work involved 3 major phases:
+
+**Phase 1: Infrastructure Creation**
+- `IBuildService` — Service contract for placement/move/delete operations
+- `IPlacementCommand` — Unified command interface (Execute/Undo/Redo)
+- `PlacementCommandBase` — Abstract base for command implementations
+- `PlacementStateBase` — Abstract base implementing `IPlacementState` with shared services
+- `BuildService` — Facade coordinating validation, command execution, and undo/redo
+- `GameEvents.Build` — New event registry entries (OnValidationFailed, OnCommandUndone, OnCommandRedone)
+
+**Phase 2: Service Integration**
+- `GameContext` now instantiates and registers `BuildService` with `ServiceLocator`
+- `CommandHistory` created fresh for each game session
+- `EventManager` has runtime fallback instantiation if not in scene
+- All services initialized in dependency order in `Awake()`
+
+**Phase 3: State Refactoring (All 5 States Updated)**
+All FSM states now inherit from `PlacementStateBase`:
+- **IdleState** — Hover inspection and popup display
+- **RaycastPlacementState** — Grid hover with cell indicators
+- **BuildState** — Object placement with drag-place and validation
+- **MoveState** — Object relocation with offset preservation
+- **DeleteState** — Object removal with refunds and animations
+
+### Service Access Pattern
+
+All states now use `PlacementStateBase` to access services:
+```csharp
+public override void OnEnter()
+{
+    base.OnEnter();  // Initializes _eventManager, caches services
+    // State-specific logic here
+    // Access _moneyService, _timeService, _grid via protected members
+}
+```
+
+### Build Operation Flow
+
+```
+User Input (Click/Drag)
+    ↓
+FSM State (BuildState, MoveState, DeleteState)
+    ↓
+BuildService.TryPlaceObject() / TryMoveObject() / TryDeleteObject()
+    ↓
+Validation: CanAffordCost? GridRulesOK? Etc.
+    ↓
+Create ICommand (PlaceCommand, MoveCommand, DeleteCommand)
+    ↓
+CommandHistory.Push(command) → Execute immediately
+    ↓
+Publish GameEvents.Build.OnObjectPlaced
+    ↓
+UI/Economy react to event
+```
+
+### Key Design Decisions
+
+1. **Facade Pattern for BuildService** — Minimal implementation that delegates to existing commands and validators. Designed for future unification of command creation logic.
+
+2. **PlacementStateBase as IPlacementState** — Base class implements the interface; concrete states override and call `base.OnEnter()` / `base.OnExit()` to ensure service initialization.
+
+3. **Service Caching in Initialize()** — Services looked up once from ServiceLocator and cached in state instance, avoiding repeated registry queries.
+
+4. **Protected Helpers** — `PublishBuildEvent()`, `CanAfford()`, `CurrentCapital`, `CurrentTime` provide quick access to common operations.
+
+5. **Backward Compatibility** — Existing command classes (PlaceCommand, MoveCommand, DeleteCommand) remain unchanged. CommandHistory still owns undo/redo logic.
+
+### Files Created
+
+- `Assets/_Project/Scripts/1. FSM/1. Services/IBuildService.cs`
+- `Assets/_Project/Scripts/1. FSM/1. Services/BuildService.cs`
+- `Assets/_Project/Scripts/1. FSM/6. Commands/IPlacementCommand.cs`
+- `Assets/_Project/Scripts/1. FSM/6. Commands/PlacementCommandBase.cs`
+- `Assets/_Project/Scripts/1. FSM/2. States/PlacementStateBase.cs`
+
+### Files Modified
+
+- `GameContext.cs` — Registers BuildService and creates CommandHistory
+- `IdleState.cs`, `RaycastPlacementState.cs`, `BuildState.cs`, `MoveState.cs`, `DeleteState.cs` — All now inherit PlacementStateBase
+- `GameEvents.cs` — Added Build.OnValidationFailed, Build.OnCommandUndone, Build.OnCommandRedone
+
+### Testing Checklist
+
+- ✅ All 5 states refactored and compile clean
+- ✅ Services accessible via ServiceLocator from all states
+- ✅ EventManager initializes at runtime if not in scene
+- ✅ BuildService facade works for validation queries
+- ✅ Undo/redo via CommandHistory still functions
+- ✅ No breaking changes to existing gameplay
+
+### Next Steps (Future Waves)
+
+- Refactor command classes to inherit from PlacementCommandBase and implement IPlacementCommand
+- Unify command creation logic in BuildService (currently deferred to states/UI)
+- Add more granular build events for UI/feedback systems
+- Consider state-specific event publishers for cleaner decoupling
+
+---
+
 ## TODO
 
 Things that need to be built, in rough priority order. Move items here as they come up and remove them when done.

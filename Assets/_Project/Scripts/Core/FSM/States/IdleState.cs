@@ -1,17 +1,24 @@
 using UnityEngine;
+using GameCore.Build;
 
-public class IdleState : IPlacementState
+/// <summary>
+/// Hover inspection state. Shows object details when hovering, allows no placement.
+/// Inherits from PlacementStateBase for standardized service access and event handling.
+/// </summary>
+public class IdleState : PlacementStateBase
 {
-    public bool IsPlacementState => false;
+    public override bool IsPlacementState => false;
 
     private RaycastController _raycast;
     private TopBarUI _topBarUI;
-    
+
     private RaycastController raycast => _raycast != null ? _raycast : _raycast = Object.FindAnyObjectByType<RaycastController>();
     private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
 
-    public void OnEnter()
+    public override void OnEnter()
     {
+        base.OnEnter(); // Initialize event manager and services
+
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
@@ -21,7 +28,7 @@ public class IdleState : IPlacementState
         raycast?.ResetHitData();
     }
 
-    public void Tick()
+    public override void Update()
     {
         var ray = raycast;
         if (ray == null) return;
@@ -34,7 +41,7 @@ public class IdleState : IPlacementState
         }
     }
 
-    public void OnExit()
+    public override void OnExit()
     {
         // Nothing to clean up
     }

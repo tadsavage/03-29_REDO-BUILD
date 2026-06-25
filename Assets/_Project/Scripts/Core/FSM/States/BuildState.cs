@@ -1,3 +1,5 @@
+using GameCore.Economy;
+using GameCore.Build;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -12,11 +14,10 @@ using UnityEngine.InputSystem;
 /// - Validity preview
 /// - Final placement
 ///
-/// IMPORTANT:
-/// This state NO LONGER interacts with the hover popup UI.
-/// Only IdleState controls hover popups.
+/// Inherits from PlacementStateBase for standardized service access and event handling.
+/// NO LONGER interacts with the hover popup UI - only IdleState controls those.
 /// </summary>
-public class BuildState : IPlacementState
+public class BuildState : PlacementStateBase
 {
     private readonly PlacementActions _actions;
     private readonly PreviewController _preview;
@@ -50,7 +51,7 @@ public class BuildState : IPlacementState
     private readonly Dictionary<Renderer, Material[]> _replacementOriginalMaterials = new();
     private Material _ghostReplaceOrangeMat;
 
-public bool IsPlacementState => true;
+public override bool IsPlacementState => true;
     public ObjDataSO CurrentData => _currentData;
     public bool IsDragging => _isDragging;
     public string ObjectName => _currentData != null ? _currentData.objName : "None";
@@ -89,8 +90,10 @@ public bool IsPlacementState => true;
     // ---------------------------------------------------------
     // ENTER
     // ---------------------------------------------------------
-    public void OnEnter()
+    public override void OnEnter()
     {
+        base.OnEnter(); // Initialize event manager and services
+
         BuildModeOverride.Instance?.Activate();
 
         _actions.BuildPlacement.Rotate.performed += OnRotatePerformed;
@@ -122,7 +125,7 @@ public bool IsPlacementState => true;
     // ---------------------------------------------------------
     // EXIT
     // ---------------------------------------------------------
-    public void OnExit()
+    public override void OnExit()
     {
         BuildModeOverride.Instance?.Deactivate();
 
@@ -134,12 +137,14 @@ public bool IsPlacementState => true;
 
         _actions.BuildPlacement.Place.canceled -= OnPlacePerformed;
         _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
+
+        base.OnExit(); // Clean up base state
     }
 
     // ---------------------------------------------------------
-    // TICK
+    // UPDATE
     // ---------------------------------------------------------
-    public void Tick()
+    public override void Update()
     {
         _raycast.Tick();
 

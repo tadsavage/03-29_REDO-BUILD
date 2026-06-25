@@ -1,8 +1,14 @@
+using GameCore.Economy;
+using GameCore.Build;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
-public class DeleteState : IPlacementState
+/// <summary>
+/// Handles selecting and deleting placed objects from the grid.
+/// Inherits from PlacementStateBase for standardized service access and event handling.
+/// </summary>
+public class DeleteState : PlacementStateBase
 {
     private readonly RaycastController _raycast;
     private readonly PlacementGrid _grid;
@@ -28,7 +34,7 @@ public class DeleteState : IPlacementState
     private bool _isDragging;
     private Vector3 _dragStartWorld;
 
-    public bool IsPlacementState => true;
+    public override bool IsPlacementState => true;
 
     public DeleteState(
         RaycastController raycast,
@@ -56,8 +62,10 @@ public class DeleteState : IPlacementState
         _destructionVibrationSpeed = destructionVibrationSpeed;
     }
 
-    public void OnEnter()
+    public override void OnEnter()
     {
+        base.OnEnter(); // Initialize event manager and services
+
         BuildModeOverride.Instance?.Activate();
 
         _raycast.EnableRay();
@@ -72,7 +80,7 @@ public class DeleteState : IPlacementState
         _fsm.OnHistoryChanged += OnHistoryChanged;
     }
 
-    public void OnExit()
+    public override void OnExit()
     {
         BuildModeOverride.Instance?.Deactivate();
 
@@ -83,6 +91,8 @@ public class DeleteState : IPlacementState
         ClearDragHighlights();
 
         _fsm.OnHistoryChanged -= OnHistoryChanged;
+
+        base.OnExit(); // Clean up base state
     }
 
     private void OnHistoryChanged()
@@ -94,7 +104,7 @@ public class DeleteState : IPlacementState
         _isDragging = false;
     }
 
-    public void Tick()
+    public override void Update()
     {
         _raycast.Tick();
 

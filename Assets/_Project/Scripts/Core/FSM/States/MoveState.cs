@@ -1,3 +1,5 @@
+using GameCore.Economy;
+using GameCore.Build;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -6,14 +8,16 @@ using UnityEngine.InputSystem;
 /// Handles selecting an existing placed object, picking it up,
 /// moving it around the grid, rotating it, validating placement,
 /// and confirming the new position.
-/// 
+///
+/// Inherits from PlacementStateBase for standardized service access and event handling.
+///
 /// Key behavior:
 /// - Clicking ANY footprint cell selects the object.
 /// - If the user clicked an offset cell, movement preserves that offset.
 /// - Rotation only applies to the currently selected object.
 /// - No rotation leaks between objects.
 /// </summary>
-public class MoveState : IPlacementState
+public class MoveState : PlacementStateBase
 {
     // ---------------------------------------------------------
     // DEPENDENCIES
@@ -75,8 +79,8 @@ public class MoveState : IPlacementState
     }
     private readonly List<RiderTile> _riders = new();
 
-    public bool IsPlacementState => true;
-public string ObjectName => _obj != null ? _obj.name : "None";
+    public override bool IsPlacementState => true;
+    public string ObjectName => _obj != null ? _obj.name : "None";
 
     // ---------------------------------------------------------
     // CONSTRUCTOR
@@ -110,8 +114,10 @@ public string ObjectName => _obj != null ? _obj.name : "None";
     // ---------------------------------------------------------
     // ENTER / EXIT
     // ---------------------------------------------------------
-    public void OnEnter()
+    public override void OnEnter()
     {
+        base.OnEnter(); // Initialize event manager and services
+
         BuildModeOverride.Instance?.Activate();
 
         _actions.BuildPlacement.Place.performed += OnConfirmMove;
@@ -128,7 +134,7 @@ public string ObjectName => _obj != null ? _obj.name : "None";
         topBarUI?.SetState(GetType().Name);
     }
 
-    public void OnExit()
+    public override void OnExit()
     {
         BuildModeOverride.Instance?.Deactivate();
 
@@ -173,6 +179,8 @@ public string ObjectName => _obj != null ? _obj.name : "None";
 
         _actions.BuildPlacement.Rotate.performed -= OnRotatePerformed;
         _actions.BuildPlacement.Place.performed -= OnConfirmMove;
+
+        base.OnExit(); // Clean up base state
     }
 
     // ---------------------------------------------------------
@@ -289,9 +297,9 @@ public string ObjectName => _obj != null ? _obj.name : "None";
     }
 
     // ---------------------------------------------------------
-    // TICK — MOVEMENT + VALIDATION
+    // UPDATE — MOVEMENT + VALIDATION
     // ---------------------------------------------------------
-    public void Tick()
+    public override void Update()
     {
         _raycast.Tick();
 
