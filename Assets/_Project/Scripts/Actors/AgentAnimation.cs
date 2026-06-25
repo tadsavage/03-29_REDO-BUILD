@@ -78,16 +78,28 @@ public class AgentAnimation : MonoBehaviour
     }
 
     /// <summary>
-    /// Called by MHEOperatorSlot when this employee boards/leaves an MHE. While riding,
-    /// this employee's own NavMeshAgent is disabled, so the normal movement-driven
-    /// animation logic below is skipped entirely — only the wave/"?" check still runs,
-    /// reading off whatever AiNavigation NoWaypointIndicator.UseExternalNavSource pointed
-    /// the indicator at (the vehicle's, not this employee's own).
+    /// Called by MHEOperatorSlot when this employee boards/leaves an MHE (which also covers
+    /// every other way a rider stops driving — reassignment to Patrol and Termination both
+    /// vacate the slot first). Boarding disables this component entirely, matching the same
+    /// treatment NavMeshAgent/AiNavigation already get: the vehicle's own movement carries the
+    /// rider, so nothing here needs to run. The locomotion bools are zeroed FIRST so the rider
+    /// holds a clean idle pose instead of freezing mid-stride for the rest of the ride.
+    /// Vacating re-enables the component so normal walk/turn/wave animation resumes.
     /// </summary>
     public void SetRidingMHE(bool riding)
     {
         _ridingMHE = riding;
-        if (!riding) _waveTimer = 0f;
+
+        if (riding)
+        {
+            if (_animator != null) SetAllBools(false);
+            enabled = false;
+        }
+        else
+        {
+            _waveTimer = 0f;
+            enabled = true;
+        }
     }
 
     void Update()
