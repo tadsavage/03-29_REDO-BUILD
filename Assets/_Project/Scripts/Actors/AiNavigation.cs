@@ -318,6 +318,17 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         _targetEquipment = null;
     }
 
+    /// <summary>Cancels any in-progress equipment seeking and resumes the normal waypoint
+    /// patrol loop. Used by EmployeeAssignmentService when a Worker's assignment changes
+    /// to Patrol — does NOT vacate an MHE slot the operator may be riding; the caller is
+    /// responsible for that (it runs on the rider's own AiNavigation, which is disabled
+    /// while riding, so this only matters for an operator who hasn't boarded yet).</summary>
+    public void Patrol()
+    {
+        if (_seekingEquipment) CancelEquipmentSeeking();
+        GoToRandomWaypoint();
+    }
+
     /// <summary>Find and seek the closest unoccupied equipment matching the previous target's type.</summary>
     private void FindAndSeekNextAvailableEquipment(MHEOperatorSlot previousTarget)
     {

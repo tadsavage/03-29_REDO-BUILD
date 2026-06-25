@@ -21,10 +21,12 @@ public class EmployeeInfoUI : MonoBehaviour
     private VisualElement _jobIconElement;
 
     // Actions dropdown (same capability as the roster card). Built in code so the info card
-    // gets it without a UXML change. Terminate is the only action for now; reassignment etc.
-    // will be added here later — and those must NOT close the card (only termination does).
+    // gets it without a UXML change. Choices are rebuilt per-employee in RefreshActionsDropdown
+    // (Patrol + Terminate are universal, plus one role-specific assignment if the role has one).
+    // Only Terminate closes the card.
     private DropdownField _actionsDropdown;
     private const string ActionDefault   = "Actions...";
+    private const string ActionPatrol    = "Patrol";
     private const string ActionTerminate = "Terminate";
 
     // Stat bars
@@ -128,9 +130,11 @@ public class EmployeeInfoUI : MonoBehaviour
         if (_avatarElement != null)
             _avatarElement.RegisterCallback<PointerDownEvent>(OnAvatarPointerDown);
 
-        // Actions dropdown (Terminate). Appended to the bottom of the card.
+        // Actions dropdown. Choices depend on the displayed employee's role, so the real list
+        // is populated per-Show() by RefreshActionsDropdown — this is just a placeholder until
+        // then. Appended to the bottom of the card.
         _actionsDropdown = new DropdownField { name = "employee-actions" };
-        _actionsDropdown.choices = new List<string> { ActionDefault, ActionTerminate };
+        _actionsDropdown.choices = new List<string> { ActionDefault };
         _actionsDropdown.SetValueWithoutNotify(ActionDefault);
         _actionsDropdown.style.marginTop    = 10;
         _actionsDropdown.style.marginLeft   = 2;
@@ -327,29 +331,55 @@ public class EmployeeInfoUI : MonoBehaviour
         evt.StopPropagation();
     }
 
+    /// <summary>Rebuilds the dropdown's choices for the currently displayed employee: Patrol +
+    /// Terminate are universal, plus one role-specific assignment (Drive Reach / Drive
+    /// Dockstalker / Order Selection) if EmployeeRoleExtensions.RoleSpecificAssignment returns
+    /// one for _displayRole.</summary>
+    private void RefreshActionsDropdown()
+    {
+        if (_actionsDropdown == null) return;
+
+        var choices = new List<string> { ActionDefault, ActionPatrol };
+        var roleAssignment = _displayRole.RoleSpecificAssignment();
+        if (roleAssignment.HasValue)
+            choices.Add(roleAssignment.Value.DisplayName());
+        choices.Add(ActionTerminate);
+
+        _actionsDropdown.choices = choices;
+        _actionsDropdown.SetValueWithoutNotify(ActionDefault);
+    }
+
     /// <summary>Actions dropdown handler. Terminate runs the full HR/termination process and,
-    /// because the person no longer works here, closes this info card. Future actions (e.g.
-    /// reassignment) should NOT close the card — only termination removes the employee.</summary>
+    /// because the person no longer works here, closes this info card. Every other action
+    /// routes to EmployeeAssignmentService and does NOT close the card.</summary>
     private void OnActionSelected(ChangeEvent<string> evt)
     {
-        if (evt.newValue == ActionTerminate)
+        string selected = evt.newValue;
+
+        // Reset the dropdown straight away so it never sticks on the chosen action.
+        _actionsDropdown?.SetValueWithoutNotify(ActionDefault);
+
+        if (selected == ActionDefault) return;
+
+        var id = _currentIdentity;
+        if (id == null || id.Record == null) return;
+
+        if (selected == ActionTerminate)
         {
-            var id = _currentIdentity;
-
-            // Reset the dropdown straight away so it never sticks on "Terminate".
-            _actionsDropdown?.SetValueWithoutNotify(ActionDefault);
-
-            if (id != null && id.Record != null)
-                EmployeeTerminationService.Terminate(id);
-
-            // Terminated → they're gone from the company, so close the card.
-            Hide();
+            EmployeeTerminationService.Terminate(id);
+            Hide(); // Terminated → they're gone from the company, so close the card.
+            return;
         }
-        else
+
+        if (selected == ActionPatrol)
         {
-            // Any non-action selection just snaps back to the placeholder.
-            _actionsDropdown?.SetValueWithoutNotify(ActionDefault);
+            EmployeeAssignmentService.Assign(id, EmployeeAssignment.Patrol);
+            return;
         }
+
+        var roleAssignment = _displayRole.RoleSpecificAssignment();
+        if (roleAssignment.HasValue && selected == roleAssignment.Value.DisplayName())
+            EmployeeAssignmentService.Assign(id, roleAssignment.Value);
     }
 
     // ────────── Dragging ──────────
@@ -522,6 +552,8 @@ public class EmployeeInfoUI : MonoBehaviour
 
         if (_skillLevelLabel != null)
             _skillLevelLabel.text = $"LVL {_employeeData.skillLevel}";
+
+        RefreshActionsDropdown();
     }
 
     private void SetBar(VisualElement bar, Label valueLabel, float pct, string format)

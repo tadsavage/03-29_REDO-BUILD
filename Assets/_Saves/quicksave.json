@@ -1,16 +1,16 @@
 {
     "saveName": "quicksave",
-    "money": 61597,
-    "spentToday": 58403,
+    "money": 61578,
+    "spentToday": 58422,
     "cameraData": {
         "focusPoint": {
-            "x": 10.003734588623047,
+            "x": 4.006793022155762,
             "y": 4.0,
-            "z": -24.48969841003418
+            "z": -17.02185821533203
         },
-        "distance": 16.0,
-        "pitch": 49.350093841552737,
-        "yaw": -469.02935791015627
+        "distance": 15.0,
+        "pitch": 35.099979400634769,
+        "yaw": 262.47064208984377
     },
     "placedObjects": [
         {
@@ -1524,36 +1524,58 @@
             "y": 27,
             "rot": 0,
             "customData": ""
+        },
+        {
+            "id": 900,
+            "x": 48,
+            "y": 43,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 900,
+            "x": 55,
+            "y": 30,
+            "rot": 0,
+            "customData": ""
         }
     ],
     "devSettings": [
         {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
+            "key": "AmbientMumble.volume",
             "val": "0.5"
         },
         {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
         },
         {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.5"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
         },
         {
             "key": "FreeLookCamera.pitchMin",
@@ -1644,70 +1666,62 @@
             "val": "0.085"
         },
         {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.5"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
             "key": "NavMeshManager._debounceTime",
             "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
         }
     ],
     "toolsWindowX": 12.0,
     "toolsWindowY": 50.0,
-    "guidanceLinesVisible": false,
+    "guidanceLinesVisible": true,
     "waypointsVisible": true,
-    "hoverPopupEnabled": true,
+    "hoverPopupEnabled": false,
     "employeeRecords": [
         {
-            "employeeGuid": "56e5037d-b42c-4e34-86b8-805b654e1827",
-            "employeeName": "Stephanie Moore",
-            "employeeId": "WHSE 020",
+            "employeeGuid": "5d094d7a-f4db-4b6d-832e-72195e97109d",
+            "employeeName": "Ashley Davis",
+            "employeeId": "WHSE 016",
             "employeeIdPrefix": "WHSE",
             "gender": 2,
             "role": 1,
-            "fatigue": 65.60404968261719,
-            "safety": 81.10316467285156,
-            "morale": 41.853023529052737,
-            "skill": 28.12338638305664,
-            "skillLevel": 2,
-            "avatarResourceKey": "Custom_56e5037d-b42c-4e34-86b8-805b654e1827",
+            "fatigue": 69.31427001953125,
+            "safety": 62.62394332885742,
+            "morale": 59.85699462890625,
+            "skill": 48.678714752197269,
+            "skillLevel": 3,
+            "avatarResourceKey": "Custom_5d094d7a-f4db-4b6d-832e-72195e97109d",
             "jobIconResourceKey": "",
             "status": 0,
-            "hourlyWage": 16.709999084472658,
+            "hourlyWage": 17.149999618530275,
             "totalWagesPaid": 0.0,
-            "hireDateIso": "2026-06-24",
+            "hireDateIso": "2026-06-25",
             "separationDateIso": "",
             "shift": 0,
             "scheduledDaysMask": 0,
@@ -1728,30 +1742,30 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -2.0346925258636476,
+            "posX": 6.309680938720703,
             "posY": 1.1099998950958253,
-            "posZ": -21.967864990234376,
-            "rotY": 303.4234313964844,
+            "posZ": -24.284679412841798,
+            "rotY": 149.93441772460938,
             "hasSavedPosition": true
         },
         {
-            "employeeGuid": "f66c24ad-ec0a-4bbc-a01f-3c05f2259226",
-            "employeeName": "Frank Jones",
-            "employeeId": "WHSE 547",
+            "employeeGuid": "14d80d7c-0c8f-4ab1-84ac-7fb7d4a8eb91",
+            "employeeName": "Christine Hayes",
+            "employeeId": "WHSE 463",
             "employeeIdPrefix": "WHSE",
-            "gender": 1,
-            "role": 2,
-            "fatigue": 33.21426773071289,
-            "safety": 71.4562759399414,
-            "morale": 62.41175079345703,
-            "skill": 77.00316619873047,
-            "skillLevel": 5,
-            "avatarResourceKey": "Custom_f66c24ad-ec0a-4bbc-a01f-3c05f2259226",
+            "gender": 2,
+            "role": 1,
+            "fatigue": 19.54227066040039,
+            "safety": 27.5649471282959,
+            "morale": 70.93115234375,
+            "skill": 71.50273132324219,
+            "skillLevel": 4,
+            "avatarResourceKey": "Custom_14d80d7c-0c8f-4ab1-84ac-7fb7d4a8eb91",
             "jobIconResourceKey": "",
             "status": 0,
-            "hourlyWage": 24.200000762939454,
+            "hourlyWage": 19.8799991607666,
             "totalWagesPaid": 0.0,
-            "hireDateIso": "2026-06-24",
+            "hireDateIso": "2026-06-25",
             "separationDateIso": "",
             "shift": 0,
             "scheduledDaysMask": 0,
@@ -1772,10 +1786,54 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 5.916437149047852,
+            "posX": 3.7572059631347658,
             "posY": 1.1099998950958253,
-            "posZ": -27.212217330932618,
-            "rotY": 98.69158935546875,
+            "posZ": -20.926799774169923,
+            "rotY": 142.13279724121095,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "2dd36a88-495e-4b3a-b5d4-3b37ec004beb",
+            "employeeName": "Sandra Ritter",
+            "employeeId": "WHSE 033",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 2,
+            "fatigue": 92.82537078857422,
+            "safety": 86.44964599609375,
+            "morale": 46.49772262573242,
+            "skill": 91.94951629638672,
+            "skillLevel": 5,
+            "avatarResourceKey": "Custom_2dd36a88-495e-4b3a-b5d4-3b37ec004beb",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 23.100000381469728,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-25",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": 2.890504837036133,
+            "posY": 1.1099998950958253,
+            "posZ": -11.931686401367188,
+            "rotY": 125.4468994140625,
             "hasSavedPosition": true
         }
     ],
@@ -1867,6 +1925,182 @@
             "posZ": 0.0,
             "rotY": 0.0,
             "hasSavedPosition": false
+        },
+        {
+            "employeeGuid": "56e5037d-b42c-4e34-86b8-805b654e1827",
+            "employeeName": "Stephanie Moore",
+            "employeeId": "WHSE 020",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 1,
+            "fatigue": 65.60404968261719,
+            "safety": 81.10316467285156,
+            "morale": 41.853023529052737,
+            "skill": 28.12338638305664,
+            "skillLevel": 2,
+            "avatarResourceKey": "Custom_56e5037d-b42c-4e34-86b8-805b654e1827",
+            "jobIconResourceKey": "",
+            "status": 4,
+            "hourlyWage": 16.709999084472658,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-24",
+            "separationDateIso": "2026-06-25",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": -1.2004936933517457,
+            "posY": 1.1099998950958253,
+            "posZ": -10.921164512634278,
+            "rotY": 76.5914077758789,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "aa6f9432-7aed-4b75-9a14-fa853597fd53",
+            "employeeName": "Larry Barnes",
+            "employeeId": "WHSE 950",
+            "employeeIdPrefix": "WHSE",
+            "gender": 1,
+            "role": 0,
+            "fatigue": 89.20903015136719,
+            "safety": 76.92180633544922,
+            "morale": 46.79001235961914,
+            "skill": 8.1737060546875,
+            "skillLevel": 1,
+            "avatarResourceKey": "Custom_aa6f9432-7aed-4b75-9a14-fa853597fd53",
+            "jobIconResourceKey": "",
+            "status": 4,
+            "hourlyWage": 16.56999969482422,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-24",
+            "separationDateIso": "2026-06-25",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": -2.0478909015655519,
+            "posY": 1.1099998950958253,
+            "posZ": -8.790912628173829,
+            "rotY": 99.05883026123047,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "f66c24ad-ec0a-4bbc-a01f-3c05f2259226",
+            "employeeName": "Frank Jones",
+            "employeeId": "WHSE 547",
+            "employeeIdPrefix": "WHSE",
+            "gender": 1,
+            "role": 2,
+            "fatigue": 33.21426773071289,
+            "safety": 71.4562759399414,
+            "morale": 62.41175079345703,
+            "skill": 77.00316619873047,
+            "skillLevel": 5,
+            "avatarResourceKey": "Custom_f66c24ad-ec0a-4bbc-a01f-3c05f2259226",
+            "jobIconResourceKey": "",
+            "status": 4,
+            "hourlyWage": 24.200000762939454,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-24",
+            "separationDateIso": "2026-06-25",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": -1.4298063516616822,
+            "posY": 1.1099998950958253,
+            "posZ": -9.636003494262696,
+            "rotY": 227.36361694335938,
+            "hasSavedPosition": true
+        },
+        {
+            "employeeGuid": "8b2b9e18-27ea-4c95-9528-29d5e973ae08",
+            "employeeName": "Robert Lewis",
+            "employeeId": "WHSE 604",
+            "employeeIdPrefix": "WHSE",
+            "gender": 1,
+            "role": 0,
+            "fatigue": 25.023582458496095,
+            "safety": 69.06282806396485,
+            "morale": 91.80158996582031,
+            "skill": 38.400089263916019,
+            "skillLevel": 2,
+            "avatarResourceKey": "Custom_8b2b9e18-27ea-4c95-9528-29d5e973ae08",
+            "jobIconResourceKey": "",
+            "status": 4,
+            "hourlyWage": 18.729999542236329,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-06-24",
+            "separationDateIso": "2026-06-25",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": -0.004151645116508007,
+            "posY": 1.1099998950958253,
+            "posZ": -12.590752601623536,
+            "rotY": 78.56777954101563,
+            "hasSavedPosition": true
         }
     ],
     "gameVolume": 0.4020000100135803,
@@ -1874,6 +2108,6 @@
     "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
-    "screenWidth": 1920,
-    "screenHeight": 1080
+    "screenWidth": 2560,
+    "screenHeight": 1440
 }

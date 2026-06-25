@@ -5,8 +5,18 @@ using UnityEngine.AI;
 
 /// <summary>
 /// "Fired employee storms off" sequence:
-///   tint red → march straight to GuardAnchors/ExitPost → face GS_Main and wave for
-///   ~3s with an angry emote overhead → march straight to the yard exit → despawn.
+///   tint red → wave ~3s with an angry emote overhead (facing the security guard if one is
+///   actually on duty AND reachable without a climb/jump — otherwise right where termination
+///   caught them) → walk to the dock edge and jump down if elevated → march straight to the
+///   yard exit → despawn.
+///
+/// The wave happens BEFORE any walking on purpose: this script can only play a jump-DOWN
+/// animation (JumpDownFromDockIfElevated), not a climb-up one, so the old order — jump down
+/// first, then march to the guard's post, then wave — would silently glide the agent back UP
+/// onto a dock with no climb animation whenever the guard's post happened to be elevated
+/// (e.g. a guard shack built on its own foundation), then jump down a SECOND time afterward
+/// with no animation either. Waving first and only ever moving downward afterward avoids any
+/// climb entirely.
 ///
 /// Movement is a deliberate DIRECT march (transform driven here), not pathfinding —
 /// it overrides the agent's normal route. We disable the agent's nav/anim controllers
@@ -45,16 +55,18 @@ public class EmployeeTerminationWalk : MonoBehaviour
         TintRed();
         TakeOver();
 
-        // If they're up on a dock (operating MHE gets vacated before this walk starts, leaving
-        // them wherever the vehicle's anchor was), walk across to the ledge and jump down —
-        // the SAME climb/jump arc every other agent uses (AiNavigation.TraverseLink) — before
-        // continuing on the ground. No bespoke smooth-glide-down here; always jump.
-        yield return JumpDownFromDockIfElevated();
+        // Only walk over to confront the guard if one is actually on duty AND their post is on
+        // the same elevation we're already standing on — this script has no climb-UP animation,
+        // so walking to a higher/lower "stop" here would silently glide instead of climbing.
+        // Otherwise (no guard, or the guard's post requires a climb we can't animate) they just
+        // vent right where termination caught them, per the design: nothing to confront, no
+        // reason to go anywhere before leaving.
+        bool hasReachableGuard = HasActiveSecurityGuard() && Mathf.Abs(stop.y - transform.position.y) < 0.5f;
+        if (hasReachableGuard)
+            yield return MarchAlongPath(stop);
 
-        // March to ExitPost.
-        yield return MarchTo(stop);
-
-        // Stop, face GS_Main, wave with the angry emote overhead.
+        // Stop, wave with the angry emote overhead — facing the guard shack only if we actually
+        // walked over to it above.
         SetAnim(walking: false, waving: true);
         Sprite angry = emote != null ? emote : EmoteLibrary.Get("emote_faceAngry");
         if (_bubble != null && angry != null) _bubble.SetPriority(angry);
@@ -62,7 +74,7 @@ public class EmployeeTerminationWalk : MonoBehaviour
         float t = 0f;
         while (t < waveSeconds)
         {
-            if (face.HasValue) FaceFlat(face.Value);
+            if (hasReachableGuard && face.HasValue) FaceFlat(face.Value);
             t += Time.deltaTime;
             yield return null;
         }
@@ -70,49 +82,96 @@ public class EmployeeTerminationWalk : MonoBehaviour
         if (_bubble != null) _bubble.ClearPriority();
         SetAnim(walking: false, waving: false);
 
-        // March to the exit and leave for good.
-        yield return MarchTo(exit);
+        // NOW leave: walk to the dock edge and jump down if elevated (the SAME climb/jump arc
+        // every other agent uses), then march to the yard exit and despawn. Every remaining
+        // step in this sequence only ever moves DOWNWARD, so JumpDownFromDockIfElevated (jump-
+        // down only, no climb-up) is always sufficient from here on.
+        yield return JumpDownFromDockIfElevated();
+        yield return MarchAlongPath(exit);
         Destroy(gameObject);
     }
 
+    /// <summary>True if a security guard NPC is currently spawned and active — i.e. there's
+    /// actually someone to confront with the angry wave. The guard is a TruckYardManager-owned
+    /// child (SecurityGuard_Lightweight.prefab, GuardController), not tracked by EmployeeRegistry.</summary>
+    private static bool HasActiveSecurityGuard()
+    {
+        var guard = FindFirstObjectByType<GuardController>();
+        return guard != null && guard.gameObject.activeInHierarchy;
+    }
+
+    // NavMesh-aware height lookup — searches upward first so an elevated surface (dock/
+    // foundation) is preferred over the ground plane directly underneath it. This is the
+    // EXACT same offset list/radius as AiNavigation.SnapToNavMeshSurface, which is what keeps
+    // every regular (non-terminated) agent correctly standing on top of docks/foundations
+    // instead of clipping into the floor below them.
+    //
+    // The previous implementation used Physics.RaycastAll against world colliders, which finds
+    // the visible MESH surface, not the NavMesh surface regular agents actually walk on — the
+    // two don't always agree (e.g. the dock's mesh top vs. its baked NavMesh height), which is
+    // what caused the drop-to-0-then-pop-back-up-to-1.15 bug while crossing a dock during the
+    // storm-off walk: this NavMesh query is the same source of truth as the rest of navigation,
+    // so a terminated employee now stays on the correct surface the whole walk, same as anyone else.
     private float GetGroundHeight(Vector3 position)
     {
-        // Cast a ray from 2m above the current position downward.
-        Vector3 origin = new Vector3(position.x, position.y + 2f, position.z);
-        float groundY = position.y;
-
-        // Perform a RaycastAll to find the highest non-trigger collider that does not belong to this character
-        RaycastHit[] hits = Physics.RaycastAll(origin, Vector3.down, 10f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
-        float highestY = -9999f;
-        bool found = false;
-
-        foreach (var hit in hits)
+        float[] yOffsets = { 1.0f, 0.5f, 0f, -0.5f, -1.0f };
+        foreach (float offset in yOffsets)
         {
-            // Ignore ourselves (any collider on this GameObject or its children)
-            if (hit.transform.root == transform.root)
-                continue;
-
-            if (hit.point.y > highestY)
-            {
-                highestY = hit.point.y;
-                found = true;
-            }
+            Vector3 sample = new Vector3(position.x, position.y + offset, position.z);
+            if (NavMesh.SamplePosition(sample, out NavMeshHit hit, 0.5f, NavMesh.AllAreas))
+                return hit.position.y;
         }
+        return position.y;
+    }
 
-        if (found)
+    // Routes a long march through actual connected NavMesh corners instead of a straight line.
+    // MarchTo's straight-line + GetGroundHeight follow is only safe across a SINGLE connected
+    // surface — if the direct line between two ground points happens to pass under/through a
+    // separate elevated island (e.g. a different dock built along the way to the yard exit),
+    // GetGroundHeight faithfully follows that island's height too, since it has no concept of
+    // path connectivity — producing the exact same no-animation glide-up/glide-down bug as the
+    // original dock-then-guard-then-dock issue, just somewhere else on the map. Ground and dock
+    // NavMesh are confirmed-separate, unbridged islands (see project notes on dock-climb links),
+    // so a calculated path between two ground points can never include dock polygons — corners
+    // are guaranteed to stay on the connected ground mesh the whole way.
+    private IEnumerator MarchAlongPath(Vector3 dest)
+    {
+        var path = new NavMeshPath();
+        if (NavMesh.CalculatePath(transform.position, dest, HumanAgentFilter(), path)
+            && path.status != NavMeshPathStatus.PathInvalid && path.corners.Length > 1)
         {
-            groundY = highestY;
+            for (int i = 1; i < path.corners.Length; i++)
+                yield return MarchTo(path.corners[i]);
         }
         else
         {
-            // Fallback: try NavMesh.SamplePosition
-            if (NavMesh.SamplePosition(position, out NavMeshHit navHit, 3.0f, NavMesh.AllAreas))
+            yield return MarchTo(dest);
+        }
+    }
+
+    // Matches AiNavigation.SetupAgentType's lookup — without an explicit agent type, NavMesh.
+    // CalculatePath logs "could not determine precisely which agent type" and silently falls
+    // back to an arbitrary/default mesh, which can return corners that route through a
+    // different elevated NavMesh layer (e.g. MHE) instead of the ground layer a worker
+    // actually walks on. Cached once; the settings index doesn't change at runtime.
+    private static int s_humanAgentTypeId = int.MinValue;
+    private static NavMeshQueryFilter HumanAgentFilter()
+    {
+        if (s_humanAgentTypeId == int.MinValue)
+        {
+            s_humanAgentTypeId = 0;
+            int count = NavMesh.GetSettingsCount();
+            for (int i = 0; i < count; i++)
             {
-                groundY = navHit.position.y;
+                var settings = NavMesh.GetSettingsByIndex(i);
+                if (NavMesh.GetSettingsNameFromID(settings.agentTypeID) == "Human")
+                {
+                    s_humanAgentTypeId = settings.agentTypeID;
+                    break;
+                }
             }
         }
-
-        return groundY;
+        return new NavMeshQueryFilter { agentTypeID = s_humanAgentTypeId, areaMask = NavMesh.AllAreas };
     }
 
     private IEnumerator MarchTo(Vector3 dest)

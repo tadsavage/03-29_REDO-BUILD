@@ -36,6 +36,10 @@ public class EmployeeRecord
     // ─── Role ─────────────────────────────────────────────────────────────────
     public EmployeeRole role; // = EmployeeRole.OrderSelector;
 
+    /// <summary>Current job assignment chosen via the Actions dropdown. Defaults to Patrol
+    /// (value 0) for legacy records/saves predating this field.</summary>
+    public EmployeeAssignment currentAssignment;
+
     // ─── Stats (0–100) ────────────────────────────────────────────────────────
     public float fatigue;
     public float safety;

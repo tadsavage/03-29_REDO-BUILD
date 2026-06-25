@@ -45,6 +45,11 @@ public class EmployeeSpawner : MonoBehaviour
 
     private bool _isAutoSpawning;
 
+    /// <summary>Exposed so EmployeeAssignmentService can resolve the same ObjDataSO references
+    /// without duplicating the Inspector wiring.</summary>
+    public ObjDataSO ReachTruckData => _reachTruckData;
+    public ObjDataSO DockStockerData => _dockStockerData;
+
     // ─── Unity lifecycle ──────────────────────────────────────────────────────
     private void Start()
     {
@@ -235,22 +240,22 @@ public class EmployeeSpawner : MonoBehaviour
             return false;
         }
 
-        // Search for any unoccupied MHE matching this operator's role.
-        foreach (var slot in FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None))
+        var slot = MHESlotFinder.FindUnoccupied(targetData);
+        if (slot == null)
         {
-            if (slot.IsOccupied) continue;
-            var vehicleObj = slot.GetComponent<PlacedObject>();
-            if (vehicleObj == null || vehicleObj.data != targetData) continue;
-
-            // Found a matching unoccupied vehicle — walk over and board on arrival.
-            var nav = identity.GetComponent<AiNavigation>();
-            if (nav != null) nav.SeekEquipment(slot);
-            return true;
+            // No available MHE found — operator stays on-foot.
+            Debug.LogWarning($"[EmployeeSpawner] TryBoardExistingMHE: no unoccupied {role} equipment found — operator spawns on-foot.");
+            return false;
         }
 
-        // No available MHE found — operator stays on-foot.
-        Debug.LogWarning($"[EmployeeSpawner] TryBoardExistingMHE: no unoccupied {role} equipment found — operator spawns on-foot.");
-        return false;
+        // Found a matching unoccupied vehicle — walk over and board on arrival.
+        var nav = identity.GetComponent<AiNavigation>();
+        if (nav != null) nav.SeekEquipment(slot);
+
+        identity.Record.currentAssignment = role == EmployeeRole.ReachTruckOperator
+            ? EmployeeAssignment.DriveReach
+            : EmployeeAssignment.DriveDockstalker;
+        return true;
     }
 
     /// <summary>

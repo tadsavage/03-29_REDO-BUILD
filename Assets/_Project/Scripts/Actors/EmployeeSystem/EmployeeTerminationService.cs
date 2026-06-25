@@ -48,13 +48,22 @@ public static class EmployeeTerminationService
         identity.AssignedSlot?.VacateOperator();
 
         // 5) Storm-off walk → yard exit → despawn. Anchors come from the guard shack; fall back
-        //    to a straight march if the yard manager isn't present.
+        //    to a straight march if the yard manager isn't present. The fallback positions are
+        //    zeroed to ground level (Y=0) rather than identity.transform.position.y: if
+        //    termination catches the employee elevated on a dock, keeping their current Y would
+        //    hand EmployeeTerminationWalk a "ground-level" destination that's actually still up
+        //    at dock height, which can make NavMesh.CalculatePath snap onto the dock surface
+        //    instead of the ground below it. MarchTo only ever uses XZ for direction (height is
+        //    resolved live via NavMesh sampling), so the fallback Y has no effect once on the
+        //    ground — it only matters for CalculatePath's nearest-polygon snap.
         var yard = Object.FindAnyObjectByType<TruckYardManager>();
+        Vector3 pos = identity.transform.position;
+        Vector3 fwd = identity.transform.forward;
         Vector3  stop = (yard != null && yard.GuardExitPost.HasValue)
-            ? yard.GuardExitPost.Value : identity.transform.position;
+            ? yard.GuardExitPost.Value : new Vector3(pos.x, 0f, pos.z);
         Vector3? face = yard != null ? yard.GuardShackMain : null;
         Vector3  exit = (yard != null && yard.YardExit.HasValue)
-            ? yard.YardExit.Value : identity.transform.position + identity.transform.forward * 20f;
+            ? yard.YardExit.Value : new Vector3(pos.x + fwd.x * 20f, 0f, pos.z + fwd.z * 20f);
 
         var walk = identity.gameObject.AddComponent<EmployeeTerminationWalk>();
         walk.Begin(stop, face, exit, angryEmote, waveSeconds);
