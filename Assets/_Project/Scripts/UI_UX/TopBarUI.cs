@@ -100,7 +100,7 @@ public class TopBarUI : MonoBehaviour
         _capitalPanel     = new CapitalSummaryPanel(root, _moneyService);
         _spentTodayPanel  = new SpentTodayPanel(root, _moneyService);
         _shiftStatusPanel = new ShiftStatusPanel(root, _timeService);
-        _shiftManagerPanel = new ShiftManagerPanel(root);
+        _shiftManagerPanel = new ShiftManagerPanel(root, _timeService);
 
         _money.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_capitalPanel));
         _hourly.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_breakdownPanel));
