@@ -40,6 +40,8 @@ public static class EmployeeRoleExtensions
 		EmployeeRole.HR                 => "HR",
 		EmployeeRole.Admin              => "Admin",
 		EmployeeRole.Sanitation         => "Sanitation",
+		EmployeeRole.TruckDriver        => "Truck Driver",
+		EmployeeRole.Exterminator       => "Exterminator",
 		_                               => role.ToString()
 	};
 

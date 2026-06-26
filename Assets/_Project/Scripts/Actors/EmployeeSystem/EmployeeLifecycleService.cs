@@ -1,4 +1,3 @@
-using GameCore.Economy;
 // METADATA file_path: Assets/1. Scripts/7. EmployeeSystem/EmployeeLifecycleService.cs
 using System;
 using UnityEngine;
@@ -54,7 +53,6 @@ public class EmployeeLifecycleService : MonoBehaviour
                                EmployeeRole role = EmployeeRole.OrderSelector)
     {
         var record = EmployeeGenerator.Generate(gender, idPrefix, role);
-        AddWageCost(record);
         OnHired?.Invoke(record);
         OnStatusChanged?.Invoke(record);
         return record;
@@ -69,7 +67,6 @@ public class EmployeeLifecycleService : MonoBehaviour
     {
         if (record == null) return null;
         record.status = EmploymentStatus.Active;
-        AddWageCost(record);
         OnHired?.Invoke(record);
         OnStatusChanged?.Invoke(record);
         return record;
@@ -85,7 +82,6 @@ public class EmployeeLifecycleService : MonoBehaviour
 
         record.status = EmploymentStatus.Terminated;
         record.separationDateIso = TodayIso();
-        RemoveWageCost(record);
 
         OnFired?.Invoke(record);
         OnStatusChanged?.Invoke(record);
@@ -102,7 +98,6 @@ public class EmployeeLifecycleService : MonoBehaviour
 
         record.status = EmploymentStatus.Resigned;
         record.separationDateIso = TodayIso();
-        RemoveWageCost(record);
 
         OnResigned?.Invoke(record);
         OnStatusChanged?.Invoke(record);
@@ -188,29 +183,4 @@ public class EmployeeLifecycleService : MonoBehaviour
     }
 
     private static string TodayIso() => DateTime.UtcNow.ToString("yyyy-MM-dd");
-
-    // ─── Wage cost tracking ─────────────────────────────────────────────────────
-    // Resolved lazily (not cached) since GameContext.Start() may run after this component's
-    // Awake — same pattern HiringService uses for its TimeService lookup.
-    private static MoneyService ResolveMoney()
-    {
-        var ctx = FindAnyObjectByType<GameContext>();
-        return ctx != null ? ctx.MoneyService : null;
-    }
-
-    /// <summary>Adds this employee's wage to the running hourly cost, under Wages/role-name —
-    /// mirrors how DeleteCommand/PlaceCommand track ObjDataSO.hourlyCost under Maintenance/category.</summary>
-    private static void AddWageCost(EmployeeRecord record)
-    {
-        var money = ResolveMoney();
-        if (money == null || record == null) return;
-        money.AddHourlyCost(Mathf.RoundToInt(record.hourlyWage), FinanceCategory.Wages, record.role.ToString());
-    }
-
-    private static void RemoveWageCost(EmployeeRecord record)
-    {
-        var money = ResolveMoney();
-        if (money == null || record == null) return;
-        money.RemoveHourlyCost(Mathf.RoundToInt(record.hourlyWage), FinanceCategory.Wages, record.role.ToString());
-    }
 }

@@ -20,6 +20,12 @@ public class ObjDataSO : ScriptableObject
     public int hourlyCost;
     public string category;
 
+    [Tooltip("General Ledger line for hourly-cost reporting (FinancialBreakdownPanel). Defaults " +
+             "to a value derived from 'category' (see FinanceCategory.ForGLLine) via the " +
+             "Tools/ObjData/Auto-Assign GL Lines batch tool, but can be hand-overridden per asset " +
+             "for exceptions (e.g. a specific door, vehicle, or transport item).")]
+    public string GL_Line;
+
     [Header("Prefab + Visuals")]
     public GameObject prefab;
     public Texture2D icon;

@@ -17,10 +17,13 @@ MonoBehaviour:
   cost: 350
   hourlyCost: 0
   category: Barrier
+  GL_Line: Barriers
   prefab: {fileID: 1491425356555844063, guid: 00988924e5e3acc4991a5510bd685cad, type: 3}
   icon: {fileID: 2800000, guid: 5d919e340440b91499cecee49ac9be7b, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 1

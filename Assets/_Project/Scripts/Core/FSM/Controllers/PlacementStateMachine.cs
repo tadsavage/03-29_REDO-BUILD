@@ -1,4 +1,6 @@
+using GameCore.Build;
 using GameCore.Economy;
+using GameCore.Services;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -31,7 +33,10 @@ public class PlacementStateMachine : MonoBehaviour
     private readonly Stack<IPlacementState> _stateStack = new();
 
     public IPlacementState CurrentState => _currentState;
-    public CommandHistory History { get; private set; } = new CommandHistory();
+
+    // Shared with BuildService — both must reference the SAME CommandHistory instance,
+    // otherwise BuildService.Undo()/Redo() operate on an empty stack nothing ever pushes to.
+    public CommandHistory History { get; private set; }
     public System.Action OnHistoryChanged;
 
     // ---------------------------------------------------------
@@ -71,6 +76,13 @@ public class PlacementStateMachine : MonoBehaviour
     public void Initialize(GameContext context)
     {
         Context = context;
+
+        // Adopt BuildService's CommandHistory so undo/redo state stays unified — BuildService
+        // is registered by GameContext.Awake() before this runs. Fallback to a fresh instance
+        // if it's somehow missing, so the FSM never ends up with a null History.
+        History = ServiceLocator.TryGet<BuildService>(out var buildService) && buildService != null
+            ? buildService.CommandHistory
+            : new CommandHistory();
     }
 
     /// <summary>

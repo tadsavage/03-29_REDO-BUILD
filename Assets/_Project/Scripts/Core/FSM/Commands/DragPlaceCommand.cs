@@ -1,8 +1,10 @@
+using GameCore.Build;
 using GameCore.Economy;
+using GameCore.Events;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class DragPlaceCommand : ICommand
+public class DragPlaceCommand : PlacementCommandBase
 {
     private readonly PlacementGrid _grid;
     private readonly PlacementFinalizer _finalizer;
@@ -39,6 +41,7 @@ public class DragPlaceCommand : ICommand
         ObjDataSO data,
         float rotation,
         MoneyService money)
+        : base($"Place {cells?.Count ?? 0}x {data?.objName ?? "Object"}")
     {
         _grid = grid;
         _finalizer = finalizer;
@@ -49,7 +52,7 @@ public class DragPlaceCommand : ICommand
         _money = money;
     }
 
-    public void Execute()
+    public override void Execute()
     {
         _instances.Clear();
         _disabledFloors.Clear();
@@ -120,9 +123,11 @@ public class DragPlaceCommand : ICommand
         bool isGround = IsGround(_data);
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs || isGround)
             NavMeshManager.Instance.MarkDirty();
+
+        PublishBuildEvent(GameEvents.Build.OnObjectPlaced);
     }
 
-    public void Undo()
+    public override void Undo()
     {
         // 1. Remove auto-floor tiles first
         if (_autoFloors.Count > 0 && _autoFloorData != null)
@@ -194,7 +199,7 @@ public class DragPlaceCommand : ICommand
             NavMeshManager.Instance.MarkDirty();
     }
 
-    public void Redo()
+    public override void Redo()
     {
         // 1. Re-disable floors displaced by the original placement and re-apply their refund
         foreach (var floor in _disabledFloors)
@@ -254,5 +259,7 @@ public class DragPlaceCommand : ICommand
         bool isGround2 = IsGround(_data);
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround2)
             NavMeshManager.Instance.MarkDirty();
+
+        PublishBuildEvent(GameEvents.Build.OnObjectPlaced);
     }
 }

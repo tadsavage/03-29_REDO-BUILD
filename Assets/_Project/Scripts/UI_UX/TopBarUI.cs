@@ -55,7 +55,11 @@ public class TopBarUI : MonoBehaviour
     private MoneyService _moneyService;
     private SimulationTimeService _timeService;
     private EventManager _eventManager;
-    private FinancialBreakdownPanel _breakdownPanel;
+    private FinancialBreakdownPanel _breakdownPanel;   // "Hourly" — full per-category expense drill-down
+    private CapitalSummaryPanel _capitalPanel;          // "Capital" — revenue + single expense total + net
+    private SpentTodayPanel _spentTodayPanel;           // "Spent Today" — today's spend by GL line
+    private ShiftStatusPanel _shiftStatusPanel;         // "Time" — hours left in shift + overtime count
+    private ShiftManagerPanel _shiftManagerPanel;       // "5" key — define named shifts (first draft, UI only)
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
 
@@ -92,8 +96,22 @@ public class TopBarUI : MonoBehaviour
             return;
         }
 
-        _breakdownPanel = new FinancialBreakdownPanel(root, _moneyService);
-        _money.RegisterCallback<ClickEvent>(_ => _breakdownPanel.Toggle());
+        _breakdownPanel   = new FinancialBreakdownPanel(root, _moneyService);
+        _capitalPanel     = new CapitalSummaryPanel(root, _moneyService);
+        _spentTodayPanel  = new SpentTodayPanel(root, _moneyService);
+        _shiftStatusPanel = new ShiftStatusPanel(root, _timeService);
+        _shiftManagerPanel = new ShiftManagerPanel(root);
+
+        _money.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_capitalPanel));
+        _hourly.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_breakdownPanel));
+        _spent.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_spentTodayPanel));
+        _time.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_shiftStatusPanel));
+
+        RegisterPanelHoverTracking(_money, _capitalPanel);
+        RegisterPanelHoverTracking(_hourly, _breakdownPanel);
+        RegisterPanelHoverTracking(_spent, _spentTodayPanel);
+        RegisterPanelHoverTracking(_time, _shiftStatusPanel);
+        root.schedule.Execute(PollPanelAutoClose).Every(100);
 
         // FPS moved to the draggable DevHudWindow (F8). The freed top-bar slot now holds
         // the game-speed control (Pause / 1× / 2× / 3×).
@@ -173,6 +191,9 @@ public class TopBarUI : MonoBehaviour
 
     private void Update()
     {
+        if (Keyboard.current.digit5Key.wasPressedThisFrame)
+            _shiftManagerPanel?.Toggle();
+
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             // Save/load window takes priority: Escape closes it (and ensures
@@ -338,6 +359,61 @@ public class TopBarUI : MonoBehaviour
         active?.AddToClassList("topbar-speed-btn--active");
     }
 
+    // Only one of the four TopBar dropdowns may be open at a time.
+    private void ToggleExclusive(ITopBarPanel panel)
+    {
+        bool wasOpen = panel.IsVisible;
+        _capitalPanel?.Hide();
+        _breakdownPanel?.Hide();
+        _spentTodayPanel?.Hide();
+        _shiftStatusPanel?.Hide();
+        if (!wasOpen) panel.Show();
+    }
+
+    // ── Auto-close TopBar dropdowns after ~1.5s unhovered ──────────────────────
+    // Click opens a panel; if the mouse leaves BOTH the trigger label and the panel itself and
+    // stays away, it auto-closes after _panelAutoCloseMs. Hovering either resets the idle clock.
+    private const float PanelAutoCloseMs = 1500f;
+    private readonly Dictionary<ITopBarPanel, bool> _panelHovered = new();
+    private float _panelIdleMs;
+
+    private void RegisterPanelHoverTracking(VisualElement trigger, ITopBarPanel panel)
+    {
+        _panelHovered[panel] = false;
+
+        trigger.RegisterCallback<MouseEnterEvent>(_ => _panelHovered[panel] = true);
+        trigger.RegisterCallback<MouseLeaveEvent>(_ => _panelHovered[panel] = false);
+        panel.Root.RegisterCallback<MouseEnterEvent>(_ => _panelHovered[panel] = true);
+        panel.Root.RegisterCallback<MouseLeaveEvent>(_ => _panelHovered[panel] = false);
+    }
+
+    private void PollPanelAutoClose()
+    {
+        ITopBarPanel active = _capitalPanel.IsVisible ? _capitalPanel
+                            : _breakdownPanel.IsVisible ? _breakdownPanel
+                            : _spentTodayPanel.IsVisible ? _spentTodayPanel
+                            : _shiftStatusPanel.IsVisible ? _shiftStatusPanel
+                            : null;
+
+        if (active == null)
+        {
+            _panelIdleMs = 0f;
+            return;
+        }
+
+        if (_panelHovered.TryGetValue(active, out bool hovered) && hovered)
+        {
+            _panelIdleMs = 0f;
+            return;
+        }
+
+        _panelIdleMs += 100f;
+        if (_panelIdleMs < PanelAutoCloseMs) return;
+
+        active.Hide();
+        _panelIdleMs = 0f;
+    }
+
     public void SetState(string stateName) { }
 
     public void SetCell(int x, int y)
@@ -372,6 +448,7 @@ public class TopBarUI : MonoBehaviour
             _lastHour   = _timeService.Hour;
             _lastDay    = _timeService.Day;
             _time.text  = $"Time: {_lastHour:00}:{_lastMinute:00}  Day {_lastDay}";
+            _shiftStatusPanel?.RefreshIfVisible();
         }
     }
 
@@ -548,5 +625,9 @@ public class TopBarUI : MonoBehaviour
         if (SaveManager.Instance != null)
             SaveManager.Instance.OnSaveCompleted -= OnSaveCompleted;
         _breakdownPanel?.Dispose();
+        _capitalPanel?.Dispose();
+        _spentTodayPanel?.Dispose();
+        _shiftStatusPanel?.Dispose();
+        _shiftManagerPanel?.Dispose();
     }
 }

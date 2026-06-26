@@ -17,10 +17,13 @@ MonoBehaviour:
   cost: 50
   hourlyCost: 1
   category: Loss Prevention
+  GL_Line: Loss Prevention
   prefab: {fileID: 8850996902494351595, guid: 68f5df7bc122aa9489b016220fcc3a50, type: 3}
   icon: {fileID: 2800000, guid: c039eb8057050394f979d66110033399, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 1

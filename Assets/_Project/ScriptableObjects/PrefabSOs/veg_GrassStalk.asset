@@ -17,10 +17,13 @@ MonoBehaviour:
   cost: 14
   hourlyCost: 0
   category: Flavor
+  GL_Line: Groundskeeping
   prefab: {fileID: 114378, guid: 35047f5db11d8804f941830d7855dcf9, type: 3}
   icon: {fileID: 2800000, guid: 645688ab15ee02c46b1dcf8a5b4feeee, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 0

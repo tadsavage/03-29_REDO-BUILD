@@ -15,12 +15,15 @@ MonoBehaviour:
   id: 81
   objName: Vending Machine (Red)
   cost: 2500
-  hourlyCost: 0
+  hourlyCost: 1
   category: Flavor
+  GL_Line: Flavor
   prefab: {fileID: 5552178356927274852, guid: 520bf86f8407aae41b6923fe6da8edca, type: 3}
   icon: {fileID: 2800000, guid: 4d3dad8082a196e488fbe4cc752e4b50, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 0

@@ -25,7 +25,7 @@ public class HiringBoardUI : MonoBehaviour
     [SerializeField] private RoleIconLibrary _roleIconLibrary;
 
     [Header("Behaviour")]
-    [Tooltip("Toggle the hiring board with the F2 key in play mode.")]
+    [Tooltip("Toggle the hiring board with the 2 key in play mode.")]
     [SerializeField] private bool _enableHotkey = true;
 
     // ─── UI refs ──────────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ public class HiringBoardUI : MonoBehaviour
     private void Update()
     {
         if (!_enableHotkey) return;
-        if (Keyboard.current != null && Keyboard.current.f2Key.wasPressedThisFrame)
+        if (Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
             Toggle();
     }
 

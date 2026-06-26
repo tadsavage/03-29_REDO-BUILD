@@ -25,9 +25,11 @@ public class EmployeeInfoUI : MonoBehaviour
     // (Patrol + Terminate are universal, plus one role-specific assignment if the role has one).
     // Only Terminate closes the card.
     private DropdownField _actionsDropdown;
-    private const string ActionDefault   = "Actions...";
-    private const string ActionPatrol    = "Patrol";
-    private const string ActionTerminate = "Terminate";
+    private const string ActionDefault     = "Actions...";
+    private const string ActionPatrol      = "Patrol";
+    private const string ActionAskOvertime = "Ask to Work OT";
+    private const string ActionSendHome    = "Send Home";
+    private const string ActionTerminate   = "Terminate";
 
     // Stat bars
     private VisualElement _fatigueBar;
@@ -343,6 +345,8 @@ public class EmployeeInfoUI : MonoBehaviour
         var roleAssignment = _displayRole.RoleSpecificAssignment();
         if (roleAssignment.HasValue)
             choices.Add(roleAssignment.Value.DisplayName());
+        choices.Add(ActionAskOvertime);
+        choices.Add(ActionSendHome);
         choices.Add(ActionTerminate);
 
         _actionsDropdown.choices = choices;
@@ -374,6 +378,18 @@ public class EmployeeInfoUI : MonoBehaviour
         if (selected == ActionPatrol)
         {
             EmployeeAssignmentService.Assign(id, EmployeeAssignment.Patrol);
+            return;
+        }
+
+        if (selected == ActionAskOvertime)
+        {
+            EmployeeOvertimeService.AskToWorkOvertime(id);
+            return;
+        }
+
+        if (selected == ActionSendHome)
+        {
+            EmployeeOvertimeService.SendHome(id);
             return;
         }
 

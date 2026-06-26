@@ -1,8 +1,11 @@
+using GameCore.Build;
 using GameCore.Economy;
+using GameCore.Events;
+using GameCore.Events.Payloads;
 using UnityEngine;
 using System.Collections.Generic;
 
-public class MoveCommand : ICommand
+public class MoveCommand : PlacementCommandBase
 {
     private readonly PlacementGrid _grid;
     private readonly GameObject _instance;
@@ -54,6 +57,7 @@ public class MoveCommand : ICommand
         float newRotation,
         MoneyService money,
         List<RiderObject> riders = null)
+        : base($"Move {data?.objName ?? "Object"}")
     {
         _grid = grid;
         _instance = obj;
@@ -68,25 +72,43 @@ public class MoveCommand : ICommand
         _riders = riders ?? new List<RiderObject>();
     }
 
-    public void Execute()
+    public override void Execute()
     {
         if (IsFoundation(_data))
             HandleReplacement(_newRoot, _newOffsets);
 
         Move(_oldRoot, _newRoot, _oldOffsets, _newOffsets, _newRotation);
         MoveRiders(forward: true);
+
+        PublishBuildEvent(GameEvents.Build.OnObjectMoved, new BuildingMoveData
+        {
+            FromX = _oldRoot.x,
+            FromY = _oldRoot.y,
+            ToX = _newRoot.x,
+            ToY = _newRoot.y,
+            Rotation = (int)_newRotation
+        });
     }
 
-    public void Undo()
+    public override void Undo()
     {
         Move(_newRoot, _oldRoot, _newOffsets, _oldOffsets, _oldRotation);
         MoveRiders(forward: false);
 
         if (_replaced.Count > 0)
             RestoreReplaced();
+
+        PublishBuildEvent(GameEvents.Build.OnObjectMoved, new BuildingMoveData
+        {
+            FromX = _newRoot.x,
+            FromY = _newRoot.y,
+            ToX = _oldRoot.x,
+            ToY = _oldRoot.y,
+            Rotation = (int)_oldRotation
+        });
     }
 
-    public void Redo() => Execute();
+    public override void Redo() => Execute();
 
     private bool IsFoundation(ObjDataSO data)
     {

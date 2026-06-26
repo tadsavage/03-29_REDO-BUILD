@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Left-side employee roster (toggle with F3). Lists every registered employee as
+/// Left-side employee roster (toggle with the 3 key). Lists every registered employee as
 /// an ID card — identity + stats + level on the left, photo + current task on the
 /// right, and an actions dropdown across the bottom (Terminate for now).
 ///
@@ -26,7 +26,7 @@ public class EmployeeRosterUI : MonoBehaviour
     [SerializeField] private RoleIconLibrary _roleIconLibrary;
 
     [Header("Behaviour")]
-    [Tooltip("Toggle the roster with F3 in play mode.")]
+    [Tooltip("Toggle the roster with the 3 key in play mode.")]
     [SerializeField] private bool _enableHotkey = true;
 
     [Header("Termination Walk-Off")]
@@ -108,7 +108,7 @@ public class EmployeeRosterUI : MonoBehaviour
     private void Update()
     {
         if (!_enableHotkey) return;
-        if (Keyboard.current != null && Keyboard.current.f3Key.wasPressedThisFrame)
+        if (Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
             Toggle();
     }
 

@@ -15,12 +15,15 @@ MonoBehaviour:
   id: 48
   objName: Jersey Barrier
   cost: 800
-  hourlyCost: 0
+  hourlyCost: 1
   category: Loss Prevention
+  GL_Line: Loss Prevention
   prefab: {fileID: 5976655321562312755, guid: cdacbba2985a16f46bf242e8175e4c64, type: 3}
   icon: {fileID: 2800000, guid: 30e9bd49e10d681458ea46c69af8e50a, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 0

@@ -27,6 +27,13 @@ All development is done through the **Unity Editor** — open the project in Uni
 - `F9` — quickload from `autosave`
 - `F6` — open the slot-based save/load window
 
+**UI hotkeys (in Play Mode, number row — rebound from F1–F4 on 2026-06-26 to make room for 5):**
+- `1` — Dev Console (`ToolsWindowController` — currently non-functional, see BUGS & ISSUES)
+- `2` — Hiring Board
+- `3` — Employee Roster
+- `4` — Employee List
+- `5` — Shift Manager (first draft, UI-only — see Economy & Financial Reporting System below)
+
 ## Architecture
 
 ### Core Systems
@@ -67,13 +74,17 @@ Difficulty levels (set via Main Menu, stored in `PlayerPrefs("Difficulty")`):
 
 **MoneyService / SimulationTimeService**
 
-Plain C# classes (not MonoBehaviours) held by `GameContext`. `SimulationTimeService` runs at 1 real-second = 1 in-game-minute. `MoneyService` fires `OnMoneyChanged` on any balance change; hourly costs are applied via event subscription. `MoneyService` now takes a `sellBackRate` (0–1 float) that scales all deletion refunds — `DeleteCommand` uses `_money.SellBackRate` to compute the adjusted refund.
+Plain C# classes (not MonoBehaviours) held by `GameContext`, registered with `ServiceLocator`. `SimulationTimeService` runs at 1 real-second = 1 in-game-minute. `MoneyService` fires `OnMoneyChanged` on any balance change; hourly costs are applied via event subscription. `MoneyService` now takes a `sellBackRate` (0–1 float) that scales all deletion refunds — `DeleteCommand` uses `_money.SellBackRate` to compute the adjusted refund.
+
+`MoneyService`, `EconomyService`, and `PayrollService` together drive the full economy — see [Economy & Financial Reporting System](#economy--financial-reporting-system) below for the complete picture (GL_Line cost tracking, wage tiers, overtime, the 4 TopBar reporting panels).
 
 ### Data Model
 
 **ObjDataSO** (`Assets/1. Scripts/3. ScriptableObjects/SO Scripts/ObjDataSO.cs`)
 
-ScriptableObject describing a placeable item: `id` (unique int), `prefab`, `cost`, `hourlyCost`, `footprint` (Vector2Int), optional `customShapeOffsets`, stacking rules, pathfinding flags, and special behavior flags (`isFloor`, `ClearsGridAfterPlacement`, `ignorePlacementRules`).
+ScriptableObject describing a placeable item: `id` (unique int), `prefab`, `cost`, `hourlyCost`, `category`, `GL_Line`, `footprint` (Vector2Int), optional `customShapeOffsets`, stacking rules, pathfinding flags, and special behavior flags (`isFloor`, `ClearsGridAfterPlacement`, `ignorePlacementRules`).
+
+`GL_Line` is the General Ledger line for hourly-cost reporting — see [Economy & Financial Reporting System](#economy--financial-reporting-system) below. It's a plain hand-editable string per asset (no runtime default-computation); the `Tools/ObjData/Auto-Assign GL Lines` one-time batch (run via `Unity_RunCommand`, not an Editor menu item yet) populated it across all 105 assets from `category` with named overrides.
 
 `GetFootprintOffsets(rotation)` returns the rotated cell offsets for a placement. The convention is: pass `-currentRotation` to get footprint offsets (negated because world rotation and grid rotation are inversed).
 
@@ -303,31 +314,136 @@ UI/Economy react to event
 
 ---
 
-## Recommended Next Work (2026-06-25)
+## Wave 5: Command Refactoring — Phase A COMPLETED (2026-06-25)
 
-**PRIORITY: Wave 5 — Command Refactoring**
+**Phase A done:** `PlaceCommand`, `MoveCommand`, `DeleteCommand`, `DragPlaceCommand` now inherit `PlacementCommandBase` and implement `IPlacementCommand` (which now extends `ICommand`, so `CommandHistory` needed no changes). Commands get real `Description` text and publish `GameEvents.Build.OnObjectPlaced/OnObjectMoved/OnObjectDeleted` through `EventManager`. Also fixed in the same pass: `PlacementStateMachine` previously constructed its **own** `CommandHistory` separate from the one `GameContext` handed to `BuildService` — `BuildService.Undo()/Redo()` were operating on a permanently-empty stack. `PlacementStateMachine.Initialize()` now adopts `BuildService.CommandHistory` via `ServiceLocator` instead of creating a fresh one.
 
-Continue architectural momentum by completing the command layer refactoring:
+**Side effect worth knowing:** this event-publishing is what made `EconomyService` start actually receiving `OnObjectPlaced`/`OnObjectDeleted` for the first time — hourly cost deduction for placed objects was dormant before this (see Economy section below).
 
-1. **PlaceCommand, MoveCommand, DeleteCommand** — Make them inherit PlacementCommandBase and implement IPlacementCommand
-2. **Unify command creation** — Centralize in BuildService.TryPlaceObject() / TryMoveObject() / TryDeleteObject()
-3. **Event publishing standardization** — All commands publish via EventManager using PlacementCommandBase helpers
+**Phase B — deliberately deferred, not started:** centralizing command *construction* into `BuildService.TryPlaceObject/TryMoveObject/TryDeleteObject` instead of states constructing commands directly. User's call after weighing it: real benefit is only "a non-FSM caller could place objects programmatically" (nothing currently needs that), real cost is touching the placement hot path plus `DeleteState`'s `AddToBatch` has no equivalent in `IBuildService` today. Revisit only if a concrete feature needs headless placement.
 
-**Why now:**
-- Wave 4 infrastructure is solid and tested
-- Architectural patterns are fresh and understood
-- Commands are complex but well-defined
-- Completing this solidifies the entire build system design
-
-**After Wave 5:**
-- Shift to gameplay features (Phase 1 Equipment Testing)
-- Test actual mechanics instead of refactoring
-- See the game come alive with real content
-
-**Secondary items if Wave 5 blocks:**
+**Secondary items, still open:**
 - Fix ToolsWindow (non-functional UI currently)
 - Migrate saves to `Application.persistentDataPath` (shipping blocker)
 - Configure SimulationTimeService time scale (tuning needed)
+
+---
+
+## Economy & Financial Reporting System
+
+Built out 2026-06-25, actively being extended. This is the active focus area for the foreseeable future — keep this section current as it evolves rather than letting it drift like the Wave 4/5 docs did.
+
+**⚠️ Testing gotcha, confirmed 2026-06-25: restart Play Mode after any code change before re-testing this system.** Recompiling scripts mid-Play-session triggers a Unity domain reload, which silently nulls `EventManager.Instance`, `ServiceLocator`'s entire registry, and `GameContext.MoneyService`/`TimeService` (plain C# objects don't survive domain reload the way the `GameContext` GameObject itself does). The result: `SimulationTimeService` stops ticking, `EconomyService`'s hourly accrual stops, `PayrollService` stops paying wages — but the TopBar UI keeps showing whatever numbers were last rendered, so it LOOKS like the game is still running when it's actually frozen. This reads exactly like a UI/data-wiring bug (and cost real debugging time before the actual cause was found via `Unity_RunCommand`: `EventManager.Instance == null` + `ServiceLocator.TryGet<MoneyService>()` failing while `GameContext` itself is still findable in-scene). There's no automatic recovery — stop and re-enter Play Mode to get a clean `GameContext.Awake()`.
+
+### Core data flow
+
+Two **separate, parallel** cost pipelines feed `MoneyService`, both ultimately routed through `FinanceCategory`:
+
+1. **Object hourly costs** (`EconomyService`) — driven by `ObjDataSO.hourlyCost` for placed buildings/vehicles/decor. Tracked per `GL_Line`, NOT per individual object.
+2. **Employee wages** (`PayrollService`) — driven by `EmployeeRecord.hourlyWage`, paid once per in-game hour. Completely separate from (1) — see the "Worker/Staff exclusion" gotcha below.
+
+**`ObjDataSO.GL_Line`** — a plain string field, hand-set per asset (Inspector-editable, no runtime default-computation). Defaults were populated by a one-time batch (`Unity_RunCommand`, not a menu item) mapping `category` → `GL_Line`:
+
+| category | default GL_Line | top-level bucket |
+|---|---|---|
+| Barrier/Barriers | Barriers | Maintenance |
+| Flavor | Flavor | Maintenance |
+| Floor | Floor | Maintenance |
+| Grounds | Groundskeeping | Groundskeeping |
+| Inventory | Pallet Lease and Repair | Pallet Lease and Repair |
+| Loss Prevention | Loss Prevention | Loss Prevention |
+| Racking | Racking | Maintenance |
+| Staff | Wages | Wages |
+| Vehicles | (per-vehicle, see below) | MHE Costs |
+| Walls | Walls | Maintenance |
+| Waypoints | Waypoints | Maintenance |
+| Worker | Worker | Maintenance |
+
+**Per-asset overrides on top of the table above** (set directly on the asset, not derivable from category):
+- `ManDoor`, `RollupDoor`, `ShippingDoor`, `Wall-Win-Entrance` → GL_Line `"Doors"` (still Maintenance)
+- `Truck`, `TruckSavageDev`, `TruckDriver` → GL_Line `"Transportation"` (own top-level bucket, pairs the vehicle + its driver's wage)
+- `DS`/`PJ`/`RT` (Dockstocker/PalletJack/ReachTruck) → GL_Line `"Dock Stocker"`/`"Pallet Jack"`/`"Reach Truck"` respectively — each vehicle type gets its **own** GL_Line string so the MHE Costs tooltip can break them out individually, all three routed to the same `MHECosts` top bucket via `FinanceCategory.ForGLLine`
+- `Dumpster`, `Garbage Can`, `Trash Can` → GL_Line `"Sanitation"` (own top-level bucket, pairs with the Sanitation employee tier)
+- `Exterminator` (the Staff body model) → GL_Line `"Contract Labor"` (pairs with the Exterminator employee's wage)
+
+**`FinanceCategory.cs`** (`Assets/_Project/Scripts/Core/Managers/TimeAndMoney/FinanceCategory.cs`) is the single source of truth for category strings and routing:
+- `IncomeOrder`/`ExpenseOrder` — fixed arrays that drive row order in every breakdown panel.
+- `ForGLLine(string glLine)` — maps a GL_Line value to its top-level bucket. **Whenever you give an object/category a new distinct GL_Line value, you must add a case here too**, or it silently falls through to the `Maintenance` default (this has bitten us twice already — Sanitation and Contract Labor GL_Line values were missing cases and got miscategorized).
+- `ForWageGLLine(EmployeeRole role)` — maps an employee role to `(topCategory, detailKey)`. Exterminator→Contract Labor, Security→Loss Prevention, Sanitation→Sanitation (own line), TruckDriver→Transportation — these four are pulled OUT of Wages entirely. Everything else stays under Wages, tiered into `FloorWages`/`HourlyWages`/`SalaryWages` (OrderSelector/Loader/DockStockerOperator/ReachTruckOperator/Receiver = Floor; InventoryControl/Admin = Hourly; HR/Boss/Supervisor = Salary).
+
+### EconomyService (`Assets/_Project/Scripts/1. FSM/1. Services/EconomyService.cs`)
+
+- Subscribes to `GameEvents.Build.OnObjectPlaced/OnObjectDeleted` and pools hourly cost **per GL_Line** in `_hourlyByGLLine` (NOT a single flat total — that was the old, dormant-until-2026-06-25 design).
+- **Fractional-carry accumulator (`_fractionalByGLLine`) is load-bearing, do not remove.** Without it, `Mathf.CeilToInt(hourlyAmount/60f)` rounds every GL_Line up to a **$1/minute floor** regardless of its real rate — several cheap categories (a few dollars/hour each) all hit the same floor and accumulate *identical* lifetime totals, which looks exactly like a data bug but is a rounding bug.
+- **`IsWageTracked()` excludes `category == "Worker" || "Staff"`.** Employee prefabs carry a `PlacedObject` component too (for the hover-popup), so they self-register with `PlacedObjectRegistry` just like a placed building even though they never go through `PlaceCommand`. Without this exclusion, every hired employee's body double-charges its legacy `ObjDataSO.hourlyCost` on top of `PayrollService`'s own wage — confirmed empirically (the math matched to the dollar) before this was understood.
+- **`RebuildFromRegistry()` must be called after every save load / scene start / manual rebuild** — call it everywhere `PlacementGrid.RebuildFromRegistry()` is called (currently: `GameContext.SyncAndBake`, `PlacementSystem`'s two load call sites, `ToolsWindowController`'s rebuild button and Clear-All). Objects restored from a save or placed by hand in the Editor scene are instantiated directly, bypassing `PlaceCommand` — `OnObjectPlaced` never fires for them, so without an explicit rescan they're invisible to hourly-cost tracking even though they're sitting right there costing money.
+- **`OnMinutePassed` also calls `moneyService.RecordHourlySpend(wholeDollars)`** for every real per-GL_Line deduction — bookkeeping only (the dollar was already removed by `RemoveCapital` on the line above), tags it as a *recurring* hourly cost for the Spent Today panel. `PayrollService` does the same for wages. See MoneyService below.
+- **Known gap, still not fixed:** one-time placement costs (`PlaceCommand`'s `_money.Deduct(_data.cost, _data.category)`) are tagged with the raw `ObjDataSO.category` string directly in `_lifetimeExpenses`/`_lifetimeDetail` — completely bypassing `FinanceCategory`/`GL_Line` for the **lifetime** totals. The Hourly tab's per-category breakdown still won't show one-time purchase costs (category strings like `"Grounds"`/`"Walls"` don't match any `FinanceCategory.ExpenseOrder` entry). This WAS fixed for the **Spent Today** panel specifically (see `MoneyService.Deduct()` below) but not for the lifetime/Hourly-tab view — would need the same `FinanceCategory`/`GL_Line` routing `Deduct()` callers don't currently use.
+
+### PayrollService (`Assets/_Project/Scripts/1. FSM/1. Services/PayrollService.cs`)
+
+Pays every `Active`, non-`SystemManaged` employee their `EmployeeRecord.hourlyWage` once per in-game hour, routed through `FinanceCategory.ForWageGLLine`. Increments `EmployeeRecord.totalWagesPaid`.
+
+**Overtime rule (added 2026-06-25):** if `ShiftSchedule.IsOvertime(record.shift, currentHour)` is true, that hour is paid at **1.5×** the base rate. `Flexible`-shift employees have no fixed window and are never overtime.
+
+### ShiftSchedule (`Assets/_Project/Scripts/Actors/EmployeeSystem/ShiftSchedule.cs`)
+
+Single source of truth for shift windows, shared by `PayrollService` (overtime pay) and `ShiftStatusPanel` (the Time dropdown). Fixed windows, not yet configurable:
+- Day: 08:00–16:00
+- Evening: 16:00–00:00
+- Night: 00:00–08:00
+- Flexible: always "in shift," never overtime
+
+This is a reasonable first-pass interpretation, not a confirmed design spec — revisit if the windows or overtime definition need to change.
+
+### MoneyService (`Assets/_Project/Scripts/Core/Managers/TimeAndMoney/MoneyService.cs`)
+
+Lifetime tracking (`_lifetimeExpenses`/`_lifetimeIncome` top-level totals, `_lifetimeDetail` = `category → detailKey → amount` powering the Hourly tab's tooltips) all flow through `RemoveCapital`'s two overloads sharing a private `ApplyRemoval()` core: the 2-arg version records under `reason`; the 3-arg version (`amount, category, detailKey`) records under the finer `detailKey` instead of `category`, to avoid double-recording the same dollar under two granularities.
+
+**Two SEPARATE "today" counters power the Spent Today panel** — these used to be one conflated number and that was a real, user-reported bug (2026-06-25/26): buying 56 foundations showed as "$25,200 Total Hourly Expenses" with an empty Purchases list, because the old single `SpentToday`/`_spentTodayDetail` lumped one-time purchases in with recurring hourly costs, and the by-category list was only ever fed by the hourly loop. Fixed by splitting into:
+- **`_spentTodayHourlyOnly`** — RECURRING costs only: `EconomyService.OnMinutePassed` (object upkeep) and `PayrollService` (wages) both call `RecordHourlySpend(amount)` as bookkeeping alongside their real `RemoveCapital` call. Powers Spent Today's "Total Hourly Expenses" line.
+- **`_spentTodayByObjectCategory`** — ONE-TIME purchase costs only, keyed by raw `ObjDataSO.category`. Populated exclusively by **`Deduct(int amount, string category)`** — every `PlaceCommand`/`MoveCommand`/`DeleteCommand` one-time cost adjustment goes through this method, and it always carries a real category string, so it's the correct/only hook point. Powers Spent Today's "Purchases" section + "Total Purchases" row.
+
+Both reset in `ResetDailySpending()` alongside the legacy `_spentToday` int (which still exists and still means "everything," just isn't displayed as a single number anywhere anymore). If you add a NEW one-time-cost call site, route it through `Deduct()` (not raw `RemoveCapital`) so it's correctly counted as a purchase, not an hourly cost.
+
+**Lease/Mortgage** — `EconomyService.ChargeLease()`, fired on `OnDayChanged`: `(PlacementGrid.Width × Height) / 10` dollars, once per in-game **day** (not hourly, unlike everything else — rent is conventionally billed per period). Explicitly a quick stand-in per the user's request ("may not be a permanent feature") — easy to rip out or replace with a real property/lease system later.
+
+### The four TopBar reporting panels
+
+All implement `ITopBarPanel` (`IsVisible`/`Show()`/`Hide()`/`Root` — `Root` exposes the panel's own VisualElement) and share visual building blocks from `FinanceUIKit.cs`. `TopBarUI.ToggleExclusive()` ensures only one is ever open at a time, and `TopBarUI.PollPanelAutoClose()` (checked every 100ms) auto-closes whichever panel is open once it's been unhovered — neither its trigger label nor its own `Root` — for 1500ms. Hovering either the label or the panel resets that idle clock.
+
+| TopBar label | Panel class | Shows |
+|---|---|---|
+| Capital | `CapitalSummaryPanel` | Revenue breakdown (green header / light-yellow text) + **one** rolled-up Total Expenses line + Net Profit. No per-category expense drill-down here. |
+| Hourly | `FinancialBreakdownPanel` | **Expenses only** (red header / white text) — full per-category breakdown with hover-to-expand tooltips (Wages tiers, Maintenance by area, MHE Costs by vehicle, etc). The Income section and Net Profit row were removed entirely — Revenue/Net Profit live on Capital instead. |
+| Spent Today | `SpentTodayPanel` | "Total Hourly Expenses" — recurring costs only, one number, not broken out. Below it, a "Purchases" section: one-time costs broken out by raw `ObjDataSO.category`, with a "Total Purchases" row. See MoneyService above for why these are two genuinely separate counters now. |
+| Time | `ShiftStatusPanel` | Hours left in whichever shift window currently contains the in-game time, + live count of `Active` employees currently working outside their own shift (overtime). |
+
+**Tooltip retract mechanism (FinancialBreakdownPanel's per-category hover tooltips, NOT the same thing as the panel auto-close above)** — rewritten 2026-06-25 after two patch attempts both failed under sustained use. The original design created a fresh `IVisualElementScheduledItem` per mouse-enter/leave event and called `Pause()` on the previous one each time; this degraded after repeated hover cycles into tooltips getting permanently stuck open. **Do not reintroduce that pattern.** Current design: a `TooltipEntry` (`Row`, `Tooltip`, `Category`, `Hovered` bool) per expandable row, tracked in a `List<TooltipEntry>`, with **one** shared idle-timer (`_idleMs`) polled by **one** scheduled item created once in the constructor (`_panel.schedule.Execute(PollIdle).Every(100)`) that runs for the panel's entire lifetime, closing after 1500ms unhovered. No per-interaction timer creation/cancellation.
+
+**UI Toolkit scheduling gotcha, learned the hard way (twice):** `IVisualElementScheduledItem.ExecuteLater(ms)` reschedules an item that has **already fired once** — it does NOT delay the first execution. To delay a first run, use `.StartingIn(ms)` instead. Both the tooltip retract above AND the panel auto-close (`TopBarUI.PollPanelAutoClose`) initially used `ExecuteLater` and silently didn't work — the panels stayed open until manually re-clicked, which read as a missing feature rather than a one-word API mistake.
+
+### Overtime actions — "Ask to Work OT" / "Send Home" (added 2026-06-25)
+
+Two new options in the Employee Info card's Actions dropdown (`EmployeeInfoUI`), handled by a new static `EmployeeOvertimeService`:
+- **Ask to Work OT** — applies an instant morale penalty (5 points normally, 12 if morale is already below 40 — "low morale takes a bigger hit"), and marks today as an overtime day on the employee's `EmployeeWorkSchedule` (`SetOvertime`). Does NOT gate whether overtime pay/fatigue actually happens — `PayrollService` already pays 1.5x automatically by hour regardless of consent (see ShiftSchedule above); this button is the morale-cost flavor action of formally asking, not a gameplay gate.
+- **Send Home** — flat 10-point morale penalty (`// TODO: scale by difficulty` — explicitly a placeholder per Tad's note, not implemented yet). Does nothing else right now (no pay/status change) — kept deliberately minimal to match the literal ask.
+
+**`EmployeeStatSystem.cs`'s daily fatigue/morale tick (`TickDay`/`TickDayForAll`) is NOT wired to run automatically anywhere** — confirmed by grep, it's only ever called from its own Editor debug context menu ("Tick Day for All Employees"). Its overtime fatigue gain is now `_fatiguePerWorkDay * _overtimeFatigueMultiplier` (multiplier defaults to 2 — an exact "doubled" relationship, replacing an old unrelated flat constant), and `GetCurrentDayOfWeek()` is now `public static` (still uses real-world `DateTime.Now`, not in-game day — a known placeholder) so `EmployeeOvertimeService` can share it instead of duplicating the bug. Net effect: the "doubled fatigue during overtime" rule is implemented correctly but has **zero visible effect in actual play** until this daily tick gets wired to a real day-change event — flagged to Tad, not silently fixed (wiring it up is a separate decision: should it fire on `GameEvents.Time.OnDayChanged`, and should `GetCurrentDayOfWeek` be fixed to use `SimulationTimeService.Day` at the same time, since they're related bugs).
+
+### ShiftManagerPanel — first draft (2026-06-26, UI ONLY, not wired to gameplay)
+
+`Assets/_Project/Scripts/UI_UX/ShiftManagerPanel.cs`, bound to the **5** key (built/owned by `TopBarUI` like the four panels above, but NOT one of them — it's a full-screen modal, not a TopBar dropdown, so it's outside `ToggleExclusive`/`PollPanelAutoClose`). Lets the player define named shifts (free-text name, e.g. "Day Shift", "Clean Shift", "Night Shift") with a Start/End time dropdown per day of week (Sun=0..Sat=6 — **note this differs from `EmployeeWorkSchedule`'s Mon=0..Sun=6 convention**, unreconciled since this isn't wired to that system yet), in 30-minute increments 00:00–23:30, or "Closed".
+
+Validation: setting a day's Start to Closed force-closes its End too; setting an End on a day with no Start reverts with a toast; editing **today's** day-of-week column (via `EmployeeStatSystem.GetCurrentDayOfWeek()`, same placeholder as above) reverts with a toast ("changing the same day is not allowed... 24 hours notice" — this approximates "24 hours advance notice" as "can't touch today's column," not a full rolling 24-hour check across all days); Save & Close and the **✕** button both block (with a toast) unless every active day has both a start and an end time.
+
+**Explicitly scoped as UI-only per Tad:** nothing here drives actual employee arrival/departure/overtime/attendance — `EmployeeRecord.shift`/`ShiftSchedule.cs`/`PayrollService` are completely unchanged and still what actually runs. Schedules built here are also **not persisted** — in-memory only, reset every Play session. A "Remove" button per shift and a "+ Add Shift" button were added as minimal necessary usability (not explicitly requested, but the UI is unusable without them).
+
+**Planned follow-up, not built yet:** a second "side UI" for assigning individual employees to one of these named shifts (the Shift Manager only defines shift *templates* — Sun-Sat windows under a name — it doesn't touch any specific employee). When this and the gameplay wiring above both land, this whole system would replace `ShiftSchedule.cs`'s fixed Day/Evening/Night/Flexible windows with the player-defined ones.
+
+### Keybindings (rebound 2026-06-26)
+
+F1–F4 were rebound to the number row to free up F-keys and make room for **5** (Shift Manager): **1** = Dev Console (`ToolsWindowController`, itself non-functional — see BUGS), **2** = Hiring Board, **3** = Employee Roster, **4** = Employee List, **5** = Shift Manager. All via `Keyboard.current.digitNKey`, not the numpad. Quicksave/load (F5/F6/F9, see Development Commands above) are unrelated F-keys, untouched.
 
 ---
 
@@ -342,6 +458,9 @@ Things that need to be built, in rough priority order. Move items here as they c
 - [ ] Move save files out of `Assets/_Saves/` to `Application.persistentDataPath` (required before any real build/release)
 - [ ] Replace `FindFirstObjectByType` calls in `PlacementStateMachine.Start()` with proper scene references
 - [ ] Review and playtest difficulty balance (starting capital + sell-back rate per level)
+- [ ] Wire `ShiftManagerPanel` schedules into actual gameplay (replace `ShiftSchedule.cs`'s fixed windows), add persistence, and build the planned "side UI" for assigning individual employees to a named shift
+- [ ] Reconcile day-of-week conventions: `ShiftManagerPanel` uses Sun=0..Sat=6, `EmployeeWorkSchedule` uses Mon=0..Sun=6
+- [ ] Decide whether/how to wire `EmployeeStatSystem.TickDay` to a real day-change event (currently dormant — see BUGS & ISSUES)
 
 ---
 
@@ -352,3 +471,5 @@ Known problems that need fixing. Add to this list as issues are discovered.
 - Save files currently write to `Assets/_Saves/` — this works in the Editor but will break in a built player. Must be moved to `Application.persistentDataPath` before shipping.
 - `SimulationTimeService` time scale (1 real-second = 1 in-game-minute) is a placeholder — needs tuning/configurability before gameplay feels right.
 - **ToolsWindow (`Assets/3. UI/7.ToolsWindow/`) is non-functional** — none of the following work: tilde toggle, X close button, tab switching, panel drag. Mouse scroll in the panel also bleeds through to the game camera. Root cause likely: PanelSettings misconfiguration, `Start()` silently failing before event wiring runs, or UIDocument not blocking input. Needs full debug pass.
+- **One-time placement costs aren't `FinanceCategory`-categorized for lifetime totals** — `PlaceCommand`'s `_money.Deduct(_data.cost, _data.category)` tags the deduction with the raw `ObjDataSO.category` string into `_lifetimeExpenses`/`_lifetimeDetail`, which doesn't match any `FinanceCategory.ExpenseOrder` entry. The dollars are real and now correctly shown in the **Spent Today → Purchases** list (fixed 2026-06-25/26), but the **Hourly tab's lifetime per-category breakdown still won't include them**. See [Economy & Financial Reporting System](#economy--financial-reporting-system).
+- **`EmployeeStatSystem`'s daily fatigue/morale tick is dormant** — `TickDay`/`TickDayForAll` are never called except from their own Editor debug context menu. The new overtime-doubles-fatigue rule is implemented correctly inside it but has zero effect in actual play until it's wired to a real day-change event. `GetCurrentDayOfWeek()` is also still a real-world-`DateTime.Now` placeholder, not tied to the in-game calendar.

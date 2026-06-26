@@ -15,12 +15,15 @@ MonoBehaviour:
   id: 64
   objName: StackPlts
   cost: 225
-  hourlyCost: 0
+  hourlyCost: 10
   category: Inventory
+  GL_Line: Pallet Lease and Repair
   prefab: {fileID: 625809847009389548, guid: 0038f14ea7722754bbe5e94cb02dbcf0, type: 3}
   icon: {fileID: 2800000, guid: 948013b437d7e5e4fa7e73e04d222d70, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 1

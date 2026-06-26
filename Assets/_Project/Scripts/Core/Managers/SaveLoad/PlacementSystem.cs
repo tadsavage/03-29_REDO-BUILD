@@ -1,4 +1,5 @@
 using GameCore.Economy;
+using GameCore.Services;
 using SaveLoadSystem;
 using System.Collections;
 using System.Collections.Generic;
@@ -445,6 +446,7 @@ public class PlacementSystem : MonoBehaviour
         StartCoroutine(RespawnEmployeesAfterDestroyFlush(save.employeeRecords ?? new List<EmployeeRecord>()));
 
         grid.RebuildFromRegistry();
+        ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
 
         // Apply saved dev-settings to all matching scene components
         if (save.devSettings != null && save.devSettings.Count > 0)
@@ -481,6 +483,7 @@ public class PlacementSystem : MonoBehaviour
         // completed — the RebuildFromRegistry called synchronously above (same frame as
         // ClearAll) still saw those about-to-be-destroyed objects.
         grid.RebuildFromRegistry();
+        ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
 
         // Yard floor tiles aren't saved to disk (BuildSaveData skips id 200 — see comment
         // there), so they must be regenerated on every load, not just the initial scene

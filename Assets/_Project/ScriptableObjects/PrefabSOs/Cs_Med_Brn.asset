@@ -17,10 +17,13 @@ MonoBehaviour:
   cost: 12
   hourlyCost: 0
   category: Inventory
+  GL_Line: Pallet Lease and Repair
   prefab: {fileID: 5409716415484160698, guid: 299b83ef741158546ac382e10c549487, type: 3}
   icon: {fileID: 2800000, guid: 92c8153f3f29f504d9f5e382b3625078, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 1

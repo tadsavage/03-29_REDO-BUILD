@@ -16,11 +16,14 @@ MonoBehaviour:
   objName: Barrier Rollup
   cost: 700
   hourlyCost: 1
-  category: Barriers
+  category: Barrier
+  GL_Line: Barriers
   prefab: {fileID: 5016555536539278680, guid: 867531b22ce69d54eb80d9fe1882a312, type: 3}
   icon: {fileID: 2800000, guid: 3174b2dcfd7056c4cb4526bdc6b3c5c8, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 1

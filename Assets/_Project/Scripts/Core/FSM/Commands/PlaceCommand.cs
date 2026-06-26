@@ -1,8 +1,10 @@
+using GameCore.Build;
 using GameCore.Economy;
+using GameCore.Events;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlaceCommand : ICommand
+public class PlaceCommand : PlacementCommandBase
 {
     private readonly PlacementGrid _grid;
     private readonly PlacementFinalizer _finalizer;
@@ -42,6 +44,7 @@ public class PlaceCommand : ICommand
     public PlaceCommand(PlacementGrid grid, PlacementFinalizer finalizer,
         Vector2Int root, Vector2Int[] offsets, ObjDataSO data,
         float rotation, MoneyService money)
+        : base($"Place {data?.objName ?? "Object"}")
     {
         _grid = grid;
         _finalizer = finalizer;
@@ -52,7 +55,7 @@ public class PlaceCommand : ICommand
         _money = money;
     }
 
-    public void Execute()
+    public override void Execute()
     {
         if (_instance == null)
         {
@@ -193,9 +196,11 @@ public class PlaceCommand : ICommand
         // NavMesh: foundations, grounds, floors, pathfinding-clear, stairs all need a bake
         if (NeedsNavMesh(_data) || _disabledFloors.Count > 0)
             NavMeshManager.Instance.MarkDirty();
+
+        PublishBuildEvent(GameEvents.Build.OnObjectPlaced, _instance.GetComponent<PlacedObject>());
     }
 
-    public void Undo()
+    public override void Undo()
     {
         if (_instance == null) return;
 
@@ -287,7 +292,7 @@ public class PlaceCommand : ICommand
             NavMeshManager.Instance.MarkDirty();
     }
 
-    public void Redo()
+    public override void Redo()
     {
         if (_instance == null) return;
 
@@ -396,6 +401,8 @@ public class PlaceCommand : ICommand
 
         if (NeedsNavMesh(_data))
             NavMeshManager.Instance.MarkDirty();
+
+        PublishBuildEvent(GameEvents.Build.OnObjectPlaced, _instance.GetComponent<PlacedObject>());
     }
 
     private static bool NeedsNavMesh(ObjDataSO d) =>

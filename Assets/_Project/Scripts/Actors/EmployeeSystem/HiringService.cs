@@ -74,6 +74,7 @@ public class HiringService : MonoBehaviour
     {
         EmployeeRole.InventoryControl, EmployeeRole.Receiver,
         EmployeeRole.Admin, EmployeeRole.Security, EmployeeRole.Supervisor,
+        EmployeeRole.Exterminator, EmployeeRole.HR,
     };
     // Skilled/special roles used to fill the non-OrderSelector slice of the start roster.
     private static readonly EmployeeRole[] StartingSkilledRoles =
@@ -259,8 +260,10 @@ public class HiringService : MonoBehaviour
                     foreach (var candidate in _roster)
                     {
                         if (candidate.record.role == EmployeeRole.ReachTruckOperator ||
-                            candidate.record.role == EmployeeRole.DockStockerOperator)
-                            continue; // Don't evict other critical roles.
+                            candidate.record.role == EmployeeRole.DockStockerOperator ||
+                            candidate.record.role == EmployeeRole.Exterminator ||
+                            candidate.record.role == EmployeeRole.HR)
+                            continue; // Don't evict other critical/guaranteed roles.
                         if (toEvict == null || candidate.record.hourlyWage < toEvict.record.hourlyWage)
                             toEvict = candidate;
                     }
@@ -301,6 +304,11 @@ public class HiringService : MonoBehaviour
         // Guarantee at least 1 of each critical operator role for the equipment-first hiring model.
         EnsureMinimumRole(EmployeeRole.ReachTruckOperator, 1);
         EnsureMinimumRole(EmployeeRole.DockStockerOperator, 1);
+
+        // Exterminator (contract labor) and HR are otherwise low-odds Tier2 picks that could
+        // easily never appear on a small starting board — guarantee at least one of each.
+        EnsureMinimumRole(EmployeeRole.Exterminator, 1);
+        EnsureMinimumRole(EmployeeRole.HR, 1);
 
         OnRosterChanged?.Invoke();
     }

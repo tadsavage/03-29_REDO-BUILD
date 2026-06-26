@@ -27,6 +27,16 @@ public class EmployeeSpawner : MonoBehaviour
     [Tooltip("Dedicated model for Inventory Control clerks. Used exclusively for the InventoryControl role, which is exclusively female.")]
     [SerializeField] private GameObject _clerkPrefab;
 
+    [Header("Fixed-Look Roles (override modular avatar)")]
+    [Tooltip("Pre-rigged Humanoid FBX (Boss/Exterminator/IC/Security) applied as a visual overlay " +
+             "on top of the standard worker base, exactly like the modular avatar swap, but with a " +
+             "fixed model instead of randomly-assembled parts. Takes priority over _useModularAvatars " +
+             "for these 4 roles — they always get their dedicated look, never the random assembly.")]
+    [SerializeField] private GameObject _bossAvatarModel;
+    [SerializeField] private GameObject _exterminatorAvatarModel;
+    [SerializeField] private GameObject _icAvatarModel;
+    [SerializeField] private GameObject _securityAvatarModel;
+
     // ─── Auto-spawn (testing) ─────────────────────────────────────────────────
     [Header("Auto-Spawn (Testing)")]
     [SerializeField] private bool _autoSpawnOnStart = false;
@@ -202,7 +212,10 @@ public class EmployeeSpawner : MonoBehaviour
         if (EmployeeRegistry.Instance != null)
             EmployeeRegistry.Instance.Register(identity);
 
-        if (_useModularAvatars)
+        var fixedAvatar = FixedAvatarFor(record.role);
+        if (fixedAvatar != null)
+            ApplyFixedAvatar(identity, fixedAvatar);
+        else if (_useModularAvatars)
             ApplyModularAvatar(identity);
 
         // Fresh ReachTruckOperator/DockStockerOperator/Loader attempt to board an existing MHE.
@@ -422,6 +435,60 @@ public class EmployeeSpawner : MonoBehaviour
         var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
 
+    }
+
+    /// <summary>Dedicated fixed-look FBX for roles that always use the same model — null for
+    /// every other role, which then falls through to the random modular avatar (if enabled) or
+    /// the default worker mesh.</summary>
+    private GameObject FixedAvatarFor(EmployeeRole role) => role switch
+    {
+        EmployeeRole.Boss             => _bossAvatarModel,
+        EmployeeRole.Exterminator     => _exterminatorAvatarModel,
+        EmployeeRole.InventoryControl => _icAvatarModel,
+        EmployeeRole.Security         => _securityAvatarModel,
+        _                             => null,
+    };
+
+    // ─── Fixed avatar overlay ───────────────────────────────────────────────────
+    // Same overlay technique as ApplyModularAvatar (worker keeps its NavMeshAgent/EmployeeIdentity/
+    // scripts; the visual model rides along), but instantiates a fixed, pre-rigged Humanoid FBX
+    // instead of randomly-assembled parts — for roles with a dedicated look that should never vary.
+    private void ApplyFixedAvatar(EmployeeIdentity identity, GameObject fixedModel)
+    {
+        if (fixedModel == null) return;
+
+        var workerAnimator = identity.GetComponentInChildren<Animator>(true);
+
+        var avatar = Instantiate(fixedModel);
+
+        // Hide the worker's own animated mesh — the fixed avatar replaces it visually.
+        foreach (var smr in identity.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            smr.enabled = false;
+
+        var t = avatar.transform;
+        t.SetParent(identity.transform, worldPositionStays: false);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+        t.localScale    = Vector3.one;
+        avatar.name = "FixedAvatar";
+        SetLayerRecursively(avatar, identity.gameObject.layer);
+
+        foreach (var smr in avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            smr.updateWhenOffscreen = true;
+
+        // The fixed FBX already imported its own Humanoid Avatar (Create From This Model) — keep
+        // it, only fall back to the worker's avatar if for some reason it's missing. Always take
+        // the worker's controller so the same animation clips drive this model too.
+        var modAnimator = avatar.GetComponent<Animator>();
+        if (modAnimator == null) modAnimator = avatar.AddComponent<Animator>();
+        if (modAnimator.avatar == null && workerAnimator != null) modAnimator.avatar = workerAnimator.avatar;
+        if (workerAnimator != null) modAnimator.runtimeAnimatorController = workerAnimator.runtimeAnimatorController;
+        modAnimator.applyRootMotion = false;
+        modAnimator.enabled = true;
+        modAnimator.Rebind();
+
+        var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
+        avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
     }
 
     private static Transform FindDeepByName(Transform parent, string boneName)

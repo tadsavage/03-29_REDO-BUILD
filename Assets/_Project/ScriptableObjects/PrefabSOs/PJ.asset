@@ -15,12 +15,15 @@ MonoBehaviour:
   id: 50
   objName: PalletJack
   cost: 900
-  hourlyCost: 2
+  hourlyCost: 8
   category: Vehicles
+  GL_Line: Pallet Jack
   prefab: {fileID: 7153508595185007600, guid: 191e202ba22405a42b9ed55193258e44, type: 3}
   icon: {fileID: 2800000, guid: b6ea350d55a3e9946b6c4a187311d6a6, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 3

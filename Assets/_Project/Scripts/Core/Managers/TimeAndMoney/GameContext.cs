@@ -52,16 +52,19 @@ public class GameContext : MonoBehaviour
         TimeService = new SimulationTimeService(1, 8, 0);
         MoneyService = new MoneyService(startingCapital, sellBackRate);
         var economyService = new EconomyService();
+        var payrollService = new PayrollService();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
         ServiceLocator.Register<MoneyService>(MoneyService as MoneyService);
         ServiceLocator.Register<EconomyService>(economyService);
+        ServiceLocator.Register<PayrollService>(payrollService);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
         MoneyService.Initialize();
         economyService.Initialize();
+        payrollService.Initialize();
 
         // Wire timeDriver to use refactored TimeService
         timeDriver.Initialize(TimeService);
@@ -196,6 +199,11 @@ public class GameContext : MonoBehaviour
     {
         if (grid != null)
             grid.RebuildFromRegistry();
+
+        // Seed hourly-cost tracking from whatever's already on the grid (manually-placed scene
+        // content, or objects this load just restored) — these never went through PlaceCommand,
+        // so EconomyService's event-driven tracking would otherwise never see them.
+        ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
 
         // Dismiss loading screen the moment the bake starts — navmesh builds off-thread
         // just like it did before the loading screen existed. Agents wait on OnNavMeshReady

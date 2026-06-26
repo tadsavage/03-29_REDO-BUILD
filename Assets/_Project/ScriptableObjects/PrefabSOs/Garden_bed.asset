@@ -15,12 +15,15 @@ MonoBehaviour:
   id: 37
   objName: Garden Bed
   cost: 350
-  hourlyCost: 0
+  hourlyCost: 1
   category: Flavor
+  GL_Line: Flavor
   prefab: {fileID: 5178814024160770362, guid: 49ff13a76ddbd194d876565bd40c24de, type: 3}
   icon: {fileID: 2800000, guid: d4891eca29bf4bd4aa40bb69bbeb9b4a, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 0

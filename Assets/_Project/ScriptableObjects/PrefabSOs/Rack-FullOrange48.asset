@@ -15,12 +15,15 @@ MonoBehaviour:
   id: 51
   objName: Full Bay Orange 48"
   cost: 680
-  hourlyCost: 0
+  hourlyCost: 1
   category: Racking
+  GL_Line: Racking
   prefab: {fileID: 5775947584798496265, guid: be043eaaa68d2fc488dc770831df5a1c, type: 3}
   icon: {fileID: 2800000, guid: 9dccb09fd35cdec41b47b9be7fdae71b, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 1

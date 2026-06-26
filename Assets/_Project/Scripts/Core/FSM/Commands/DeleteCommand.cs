@@ -1,9 +1,11 @@
+using GameCore.Build;
 using GameCore.Economy;
+using GameCore.Events;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-public class DeleteCommand : ICommand
+public class DeleteCommand : PlacementCommandBase
 {
     private readonly PlacementGrid _grid;
     private readonly ObjDataSO _data;
@@ -31,6 +33,7 @@ public class DeleteCommand : ICommand
 
     public DeleteCommand(GameObject target, PlacementGrid grid, MoneyService money,
         float duration, float sinkAmount, float vibrationAmount, float vibrationSpeed)
+        : base($"Delete {target?.GetComponent<BuildingData>()?.Data?.objName ?? "Object"}")
     {
         _target = target;
         _grid = grid;
@@ -85,7 +88,7 @@ public class DeleteCommand : ICommand
         }
     }
 
-    public void Execute()
+    public override void Execute()
     {
         if (_target == null)
             return;
@@ -210,6 +213,8 @@ public class DeleteCommand : ICommand
 
         // 5. NavMesh: always rebake when a foundation is deleted (floor surface changes)
         NavMeshManager.Instance?.MarkDirty();
+
+        PublishBuildEvent(GameEvents.Build.OnObjectDeleted, _target.GetComponent<PlacedObject>());
     }
 
     // Snaps a freshly-vacated operator onto the real walkable surface beneath them (e.g. the
@@ -245,7 +250,7 @@ public class DeleteCommand : ICommand
             if (floor != null) floor.SetActive(true);
     }
 
-    public void Undo()
+    public override void Undo()
     {
         if (_target == null)
             return;
@@ -330,9 +335,11 @@ public class DeleteCommand : ICommand
             highlighter.HighlightDelete(false);
 
         NavMeshManager.Instance?.MarkDirty();
+
+        PublishBuildEvent(GameEvents.Build.OnObjectPlaced, _target.GetComponent<PlacedObject>());
     }
 
-    public void Redo()
+    public override void Redo()
     {
         Execute();
     }

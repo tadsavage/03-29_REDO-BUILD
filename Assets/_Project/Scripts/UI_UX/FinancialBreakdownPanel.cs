@@ -3,49 +3,39 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static FinanceUIKit;
 
-/// Financial breakdown panel — toggled by clicking the Capital label in TopBarUI.
-/// Hover over Wages, Maintenance, Electricity, or Groundskeeping rows for sub-breakdown.
-public class FinancialBreakdownPanel
+/// Per-category expense breakdown with drill-down tooltips — triggered by the "Hourly" label in
+/// TopBarUI. Revenue and Net Profit live on the Capital tab (CapitalSummaryPanel) instead. Hover
+/// an expandable expense row for its sub-breakdown.
+public class FinancialBreakdownPanel : ITopBarPanel
 {
-    // ── Palette (matches TopBar / HiringBoard) ────────────────────────────────
-    static readonly Color ColBg          = new Color(0.078f, 0.110f, 0.149f, 0.97f);
-    static readonly Color ColOrange      = new Color(0.941f, 0.494f, 0.176f, 1f);   // rgb(240,126,45)
-    static readonly Color ColOrangeDark  = new Color(0.65f,  0.32f,  0.09f,  1f);
-    static readonly Color ColBlueDark    = new Color(0.05f,  0.22f,  0.36f,  1f);
-    static readonly Color ColBlueTint    = new Color(0.75f,  0.88f,  0.96f,  1f);
-    static readonly Color ColRowA        = new Color(0.10f,  0.14f,  0.18f,  1f);
-    static readonly Color ColRowB        = new Color(0.12f,  0.17f,  0.22f,  1f);
-    static readonly Color ColValueBg     = new Color(0.06f,  0.13f,  0.22f,  1f);
-    static readonly Color ColTotalBg     = new Color(0.05f,  0.19f,  0.31f,  1f);
-    static readonly Color ColHoverRow    = new Color(0.18f,  0.26f,  0.35f,  1f);
-    static readonly Color ColNetPos      = new Color(0.65f,  0.32f,  0.09f,  1f);
-    static readonly Color ColNetNeg      = new Color(0.48f,  0.07f,  0.07f,  1f);
-    static readonly Color ColTooltipBg   = new Color(0.05f,  0.08f,  0.12f,  0.98f);
-    static readonly Color ColBorder      = new Color(0.36f,  0.61f,  0.77f,  0.5f);
-    static readonly Color ColLabelNormal = new Color(0.75f,  0.80f,  0.85f,  1f);
-    static readonly Color ColLabelHover  = new Color(0.88f,  0.92f,  0.96f,  1f);
-
-    const float Width        = 360f;
-    const float TooltipWidth = 230f;
-    const float RowHeight    = 28f;
-    const float HeaderHeight = 24f;
-    const float ValueWidth   = 100f;
-    const string FontClass   = "fin-lilita";
-
     // ── State ─────────────────────────────────────────────────────────────────
     readonly VisualElement _root;
     readonly VisualElement _panel;
     readonly MoneyService  _money;
-    readonly Dictionary<string, Label> _incomeValues  = new();
     readonly Dictionary<string, Label> _expenseValues = new();
     readonly List<VisualElement>       _tooltips      = new();
 
-    Label         _incomeTotalLabel;
-    Label         _expenseTotalLabel;
-    Label         _netLabel;
-    VisualElement _netRow;
-    bool          _visible;
+    Label _expenseTotalLabel;
+    bool  _visible;
+
+    // Tracks each expandable row/tooltip pair's live hover state. A SINGLE poll (started once,
+    // never re-created) drives closing — this replaced an earlier design that created a fresh
+    // IVisualElementScheduledItem per mouse event and Pause()'d the previous one; that approach
+    // broke down after repeated hover cycles (stale scheduled items, races between independent
+    // per-tooltip timers) and tooltips would get permanently stuck open. One shared idle-timer
+    // checked on a fixed interval has no per-interaction state to corrupt.
+    class TooltipEntry
+    {
+        public VisualElement Row;
+        public VisualElement Tooltip;
+        public string Category;
+        public bool Hovered;
+    }
+    readonly List<TooltipEntry> _entries = new();
+    TooltipEntry _activeEntry;
+    float _idleMs;
 
     // ── Construction ─────────────────────────────────────────────────────────
     public FinancialBreakdownPanel(VisualElement root, MoneyService money)
@@ -59,10 +49,13 @@ public class FinancialBreakdownPanel
         foreach (var tt in _tooltips)
             _root.Add(tt);
         _money.OnMoneyChanged += Refresh;
+        _panel.schedule.Execute(PollIdle).Every(100);
         Refresh();
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
+    public bool IsVisible => _visible;
+    public VisualElement Root => _panel;
     public void Toggle() { if (_visible) Hide(); else Show(); }
 
     public void Show()
@@ -76,8 +69,61 @@ public class FinancialBreakdownPanel
     {
         _visible = false;
         _panel.style.display = DisplayStyle.None;
+        _activeEntry = null;
+        _idleMs = 0f;
         foreach (var tt in _tooltips)
             tt.style.display = DisplayStyle.None;
+    }
+
+    // Runs every 100ms for the lifetime of the panel. Closes the active tooltip once it's been
+    // unhovered for ~2s. Hovering (row OR tooltip) resets the idle clock back to zero.
+    void PollIdle()
+    {
+        if (_activeEntry == null) return;
+
+        if (!_visible || _activeEntry.Hovered)
+        {
+            _idleMs = 0f;
+            if (!_visible) { HideTooltip(_activeEntry.Tooltip); _activeEntry = null; }
+            return;
+        }
+
+        _idleMs += 100f;
+        if (_idleMs < 1500f) return;
+
+        HideTooltip(_activeEntry.Tooltip);
+        _activeEntry = null;
+        _idleMs = 0f;
+    }
+
+    void ActivateEntry(TooltipEntry entry)
+    {
+        if (_activeEntry == entry) return;
+        if (_activeEntry != null) HideTooltip(_activeEntry.Tooltip);
+
+        _activeEntry = entry;
+        _idleMs = 0f;
+
+        var tt = entry.Tooltip;
+        PopulateTooltip(tt, entry.Category);
+        tt.style.top       = entry.Row.worldBound.y;
+        tt.style.left      = Width;
+        tt.style.display   = DisplayStyle.Flex;
+        tt.style.translate = new Translate(0f, 0f);
+        tt.style.opacity   = 1f;
+    }
+
+    // Fades + slides a tooltip back toward the panel, then sets display:None once the
+    // transition finishes (display can't itself be animated in UI Toolkit).
+    static void HideTooltip(VisualElement tt)
+    {
+        tt.style.opacity   = 0f;
+        tt.style.translate = new Translate(-16f, 0f);
+        tt.schedule.Execute(() =>
+        {
+            if (tt.resolvedStyle.opacity <= 0.01f)
+                tt.style.display = DisplayStyle.None;
+        }).StartingIn(150);
     }
 
     public void Dispose()
@@ -91,36 +137,10 @@ public class FinancialBreakdownPanel
     // ── Build ─────────────────────────────────────────────────────────────────
     VisualElement Build()
     {
-        var panel = new VisualElement();
-        panel.style.position                = Position.Absolute;
-        panel.style.top                     = 44f;
-        panel.style.left                    = 0f;
-        panel.style.width                   = Width;
-        panel.style.backgroundColor         = new StyleColor(ColBg);
-        panel.style.borderBottomLeftRadius  = 6f;
-        panel.style.borderBottomRightRadius = 6f;
-        panel.style.borderBottomColor       = new StyleColor(ColBorder);
-        panel.style.borderBottomWidth       = 1f;
-        panel.style.borderLeftColor         = new StyleColor(ColBorder);
-        panel.style.borderLeftWidth         = 1f;
-        panel.style.borderRightColor        = new StyleColor(ColBorder);
-        panel.style.borderRightWidth        = 1f;
-        panel.pickingMode                   = PickingMode.Position;
+        var panel = Panel();
 
-        // ── Incoming Funds ─────────────────────────────────────────────────
-        panel.Add(SectionHeader("Incoming Funds", ColOrangeDark, ColOrange));
-        for (int i = 0; i < FinanceCategory.IncomeOrder.Length; i++)
-        {
-            var cat = FinanceCategory.IncomeOrder[i];
-            var val = ValueLabel();
-            _incomeValues[cat] = val;
-            panel.Add(DataRow(cat, val, i % 2 == 0 ? ColRowA : ColRowB, false));
-        }
-        _incomeTotalLabel = ValueLabel(bold: true, color: ColOrange);
-        panel.Add(TotalRow("Total Income", _incomeTotalLabel, ColTotalBg, ColOrange));
-
-        // ── Expenses ───────────────────────────────────────────────────────
-        panel.Add(SectionHeader("Expenses", ColBlueDark, ColBlueTint));
+        // ── Expenses only — Revenue/Net Profit live on the Capital tab now ──
+        panel.Add(SectionHeader("Expenses", ColExpenseRed, ColExpenseWhite));
         for (int i = 0; i < FinanceCategory.ExpenseOrder.Length; i++)
         {
             var cat = FinanceCategory.ExpenseOrder[i];
@@ -130,7 +150,13 @@ public class FinancialBreakdownPanel
             bool expandable = cat == FinanceCategory.Wages
                            || cat == FinanceCategory.Maintenance
                            || cat == FinanceCategory.Electricity
-                           || cat == FinanceCategory.Groundskeeping;
+                           || cat == FinanceCategory.Groundskeeping
+                           || cat == FinanceCategory.ContractLabor
+                           || cat == FinanceCategory.LossPrevention
+                           || cat == FinanceCategory.Sanitation
+                           || cat == FinanceCategory.MHECosts
+                           || cat == FinanceCategory.PalletLeaseRepair
+                           || cat == FinanceCategory.Transportation;
 
             Color rowBg = i % 2 == 0 ? ColRowA : ColRowB;
             var row     = DataRow(cat, val, rowBg, expandable);
@@ -139,31 +165,8 @@ public class FinancialBreakdownPanel
             if (expandable)
                 AttachTooltip(row, cat, rowBg);
         }
-        _expenseTotalLabel = ValueLabel(bold: true, color: ColBlueTint);
-        panel.Add(TotalRow("Total Expenses", _expenseTotalLabel, ColTotalBg, ColBlueTint));
-
-        // ── Net Profit ─────────────────────────────────────────────────────
-        _netRow = new VisualElement();
-        _netRow.style.flexDirection   = FlexDirection.Row;
-        _netRow.style.backgroundColor = new StyleColor(ColNetPos);
-        _netRow.style.paddingTop      = 5f;
-        _netRow.style.paddingBottom   = 5f;
-        _netRow.style.borderTopWidth  = 1f;
-        _netRow.style.borderTopColor  = new StyleColor(new Color(1f, 1f, 1f, 0.12f));
-        _netRow.style.alignItems      = Align.Center;
-
-        var netKey = Lbl("Net Profit", bold: true, size: 14f);
-        netKey.style.flexGrow    = 1f;
-        netKey.style.paddingLeft = 10f;
-
-        _netLabel = Lbl("$0", bold: true, size: 14f);
-        _netLabel.style.width          = ValueWidth;
-        _netLabel.style.unityTextAlign = TextAnchor.MiddleRight;
-        _netLabel.style.paddingRight   = 10f;
-
-        _netRow.Add(netKey);
-        _netRow.Add(_netLabel);
-        panel.Add(_netRow);
+        _expenseTotalLabel = ValueLabel(bold: true, color: ColExpenseWhite);
+        panel.Add(TotalRow("Total Expenses", _expenseTotalLabel, ColTotalBg, ColExpenseWhite));
 
         return panel;
     }
@@ -188,37 +191,29 @@ public class FinancialBreakdownPanel
         tt.style.borderLeftColor            = new StyleColor(ColBorder);
         tt.style.borderRightColor           = new StyleColor(ColBorder);
         tt.style.display                    = DisplayStyle.None;
+        tt.style.opacity                     = 0f;
+        tt.style.translate                  = new Translate(-16f, 0f);
+        tt.style.transitionProperty          = new List<StylePropertyName> { new("opacity"), new("translate") };
+        tt.style.transitionDuration          = new List<TimeValue> { new(140, TimeUnit.Millisecond) };
         tt.pickingMode                      = PickingMode.Position;
         _tooltips.Add(tt);   // added to root AFTER panel in constructor
 
-        bool overRow = false, overTip = false;
-
-        void UpdateVis()
-        {
-            bool show = _visible && (overRow || overTip);
-            if (show)
-            {
-                PopulateTooltip(tt, financeCategory);
-                tt.style.top  = row.worldBound.y;
-                tt.style.left = Width;
-            }
-            tt.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
-        }
+        var entry = new TooltipEntry { Row = row, Tooltip = tt, Category = financeCategory };
+        _entries.Add(entry);
 
         row.RegisterCallback<MouseEnterEvent>(_ =>
         {
-            overRow = true;
+            entry.Hovered = true;
             row.style.backgroundColor = new StyleColor(ColHoverRow);
-            UpdateVis();
+            if (_visible) ActivateEntry(entry);
         });
         row.RegisterCallback<MouseLeaveEvent>(_ =>
         {
-            overRow = false;
+            entry.Hovered = false;
             row.style.backgroundColor = new StyleColor(normalBg);
-            UpdateVis();
         });
-        tt.RegisterCallback<MouseEnterEvent>(_ => { overTip = true;  UpdateVis(); });
-        tt.RegisterCallback<MouseLeaveEvent>(_ => { overTip = false; UpdateVis(); });
+        tt.RegisterCallback<MouseEnterEvent>(_ => entry.Hovered = true);
+        tt.RegisterCallback<MouseLeaveEvent>(_ => entry.Hovered = false);
     }
 
     void PopulateTooltip(VisualElement tt, string category)
@@ -235,14 +230,15 @@ public class FinancialBreakdownPanel
         hdr.style.borderTopRightRadius  = 5f;
         tt.Add(hdr);
 
-        // Wages and the other expandable categories (Maintenance/Electricity/Groundskeeping) all
-        // share the same generic per-category detail bucket (MoneyService._lifetimeDetail, rolled
-        // up every in-game hour in ApplyHourlyCost) — Wages just keys its detail by role name
-        // instead of an ObjDataSO category string, so DetailLabel resolves it to a display name.
+        // Every expandable category shares the same generic per-category detail bucket
+        // (MoneyService._lifetimeDetail, populated by RemoveCapital(amount, category, detailKey)
+        // from PayrollService — wages — and EconomyService — ObjDataSO.GL_Line hourly costs).
+        // Wages keys its detail by wage-tier or role name; everything else keys by GL_Line.
         var detail = _money.GetLifetimeDetail(category);
+        string emptyMsg = category == FinanceCategory.Wages ? "No wages paid yet" : "No costs recorded yet";
         if (detail == null || detail.Count == 0)
         {
-            tt.Add(EmptyMsg(category == FinanceCategory.Wages ? "No wages paid yet" : "No costs recorded yet"));
+            tt.Add(EmptyMsg(emptyMsg));
             return;
         }
         int idx = 0;
@@ -253,140 +249,29 @@ public class FinancialBreakdownPanel
             tt.Add(TipRow(DetailLabel(category, kvp.Key), kvp.Value, idx++ % 2 == 0));
             any = true;
         }
-        if (!any) tt.Add(EmptyMsg(category == FinanceCategory.Wages ? "No wages paid yet" : "No costs recorded yet"));
-    }
-
-    // ── Element factories ─────────────────────────────────────────────────────
-    VisualElement SectionHeader(string text, Color bg, Color textColor)
-    {
-        var row = new VisualElement();
-        row.style.backgroundColor = new StyleColor(bg);
-        row.style.height          = HeaderHeight;
-        row.style.justifyContent  = Justify.Center;
-        row.style.alignItems      = Align.Center;
-        row.style.borderTopWidth  = 1f;
-        row.style.borderTopColor  = new StyleColor(new Color(1f, 1f, 1f, 0.08f));
-
-        var lbl = Lbl(text, bold: true, size: 14f);
-        lbl.style.color          = new StyleColor(textColor);
-        lbl.style.unityTextAlign = TextAnchor.MiddleCenter;
-        row.Add(lbl);
-        return row;
-    }
-
-    static VisualElement DataRow(string key, Label val, Color bg, bool expandable)
-    {
-        var row = new VisualElement();
-        row.style.flexDirection   = FlexDirection.Row;
-        row.style.backgroundColor = new StyleColor(bg);
-        row.style.height          = RowHeight;
-        row.style.alignItems      = Align.Center;
-
-        var keyLbl = Lbl(expandable ? key + " ▾" : key, size: 13f);
-        keyLbl.style.flexGrow    = 1f;
-        keyLbl.style.paddingLeft = 10f;
-        keyLbl.style.color       = new StyleColor(expandable ? ColLabelHover : ColLabelNormal);
-
-        val.style.width           = ValueWidth;
-        val.style.unityTextAlign  = TextAnchor.MiddleRight;
-        val.style.paddingRight    = 10f;
-        val.style.backgroundColor = new StyleColor(ColValueBg);
-
-        row.Add(keyLbl);
-        row.Add(val);
-        return row;
-    }
-
-    static VisualElement TotalRow(string key, Label val, Color bg, Color keyColor)
-    {
-        var row = new VisualElement();
-        row.style.flexDirection   = FlexDirection.Row;
-        row.style.backgroundColor = new StyleColor(bg);
-        row.style.height          = RowHeight + 2f;
-        row.style.alignItems      = Align.Center;
-        row.style.borderTopWidth  = 1f;
-        row.style.borderTopColor  = new StyleColor(new Color(1f, 1f, 1f, 0.08f));
-
-        var keyLbl = Lbl(key, bold: true, size: 13f);
-        keyLbl.style.flexGrow    = 1f;
-        keyLbl.style.paddingLeft = 10f;
-        keyLbl.style.color       = new StyleColor(keyColor);
-
-        val.style.width          = ValueWidth;
-        val.style.unityTextAlign = TextAnchor.MiddleRight;
-        val.style.paddingRight   = 10f;
-
-        row.Add(keyLbl);
-        row.Add(val);
-        return row;
-    }
-
-    static VisualElement TipRow(string key, int value, bool alt)
-    {
-        var row = new VisualElement();
-        row.style.flexDirection   = FlexDirection.Row;
-        row.style.backgroundColor = new StyleColor(alt ? ColRowA : ColRowB);
-        row.style.height          = 24f;
-        row.style.alignItems      = Align.Center;
-
-        var keyLbl = Lbl(key, size: 11f);
-        keyLbl.style.flexGrow    = 1f;
-        keyLbl.style.paddingLeft = 8f;
-        keyLbl.style.color       = new StyleColor(ColLabelNormal);
-
-        var valLbl = Lbl(FormatMoney(value), size: 11f);
-        valLbl.style.width           = 82f;
-        valLbl.style.unityTextAlign  = TextAnchor.MiddleRight;
-        valLbl.style.paddingRight    = 8f;
-        valLbl.style.backgroundColor = new StyleColor(ColValueBg);
-        valLbl.style.color           = new StyleColor(ColOrange);
-
-        row.Add(keyLbl);
-        row.Add(valLbl);
-        return row;
-    }
-
-    static VisualElement EmptyMsg(string msg)
-    {
-        var lbl = Lbl(msg, size: 11f);
-        lbl.style.color         = new StyleColor(new Color(0.50f, 0.55f, 0.60f, 1f));
-        lbl.style.paddingTop    = 6f;
-        lbl.style.paddingBottom = 6f;
-        lbl.style.paddingLeft   = 8f;
-        return lbl;
-    }
-
-    static Label Lbl(string text = "", bool bold = false, float size = 13f)
-    {
-        var lbl = new Label(text);
-        lbl.AddToClassList(FontClass);
-        lbl.style.color                   = new StyleColor(Color.white);
-        lbl.style.fontSize                = size;
-        lbl.style.unityFontStyleAndWeight = bold ? FontStyle.Bold : FontStyle.Normal;
-        lbl.style.unityTextAlign          = TextAnchor.MiddleLeft;
-        return lbl;
-    }
-
-    static Label ValueLabel(bool bold = false, Color? color = null)
-    {
-        var lbl = Lbl("$0", bold);
-        if (color.HasValue) lbl.style.color = new StyleColor(color.Value);
-        return lbl;
+        if (!any) tt.Add(EmptyMsg(emptyMsg));
     }
 
     // ── Label helpers ─────────────────────────────────────────────────────────
     static string TooltipTitle(string cat) => cat switch
     {
-        FinanceCategory.Wages          => "By Role",
-        FinanceCategory.Maintenance    => "By Area",
-        FinanceCategory.Electricity    => "By Type",
-        FinanceCategory.Groundskeeping => "By Category",
-        _                              => "Breakdown"
+        FinanceCategory.Wages             => "By Tier / Role",
+        FinanceCategory.Maintenance       => "By Area",
+        FinanceCategory.Electricity       => "By Type",
+        FinanceCategory.Groundskeeping    => "By Category",
+        FinanceCategory.ContractLabor     => "By Role",
+        FinanceCategory.LossPrevention    => "By Source",
+        FinanceCategory.Sanitation        => "By Source",
+        FinanceCategory.MHECosts          => "By Vehicle",
+        FinanceCategory.PalletLeaseRepair => "By Item",
+        FinanceCategory.Transportation    => "By Item",
+        _                                 => "Breakdown"
     };
 
     static string DetailLabel(string cat, string key)
     {
-        if (cat == FinanceCategory.Wages && Enum.TryParse(key, out EmployeeRole role))
+        if ((cat == FinanceCategory.Wages || cat == FinanceCategory.ContractLabor || cat == FinanceCategory.LossPrevention
+             || cat == FinanceCategory.Sanitation || cat == FinanceCategory.Transportation) && Enum.TryParse(key, out EmployeeRole role))
             return role.DisplayName();
         return cat == FinanceCategory.Maintenance ? MaintenanceLabel(key) : key;
     }
@@ -402,15 +287,6 @@ public class FinancialBreakdownPanel
     // ── Refresh ───────────────────────────────────────────────────────────────
     void Refresh()
     {
-        int totalIncome = 0;
-        foreach (var cat in FinanceCategory.IncomeOrder)
-        {
-            int v = _money.LifetimeIncome.TryGetValue(cat, out int x) ? x : 0;
-            totalIncome += v;
-            if (_incomeValues.TryGetValue(cat, out var lbl)) lbl.text = FormatMoney(v);
-        }
-        _incomeTotalLabel.text = FormatMoney(totalIncome);
-
         int totalExpense = 0;
         foreach (var cat in FinanceCategory.ExpenseOrder)
         {
@@ -419,13 +295,5 @@ public class FinancialBreakdownPanel
             if (_expenseValues.TryGetValue(cat, out var lbl)) lbl.text = FormatMoney(v);
         }
         _expenseTotalLabel.text = FormatMoney(totalExpense);
-
-        int net = totalIncome - totalExpense;
-        _netLabel.text = FormatMoney(net);
-        if (_netRow != null)
-            _netRow.style.backgroundColor = new StyleColor(net >= 0 ? ColNetPos : ColNetNeg);
     }
-
-    static string FormatMoney(int amount)
-        => (amount < 0 ? "-$" : "$") + Mathf.Abs(amount).ToString("N0");
 }

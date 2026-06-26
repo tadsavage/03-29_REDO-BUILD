@@ -1,4 +1,5 @@
 using GameCore.Economy;
+using GameCore.Services;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -8,7 +9,7 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// Unified Tools Window — Dev Console + Dev Settings.
-/// F1 = toggle Dev Console | backtick not used.
+/// 1 = toggle Dev Console | backtick not used.
 /// Clicking a pallet in the scene opens Dev Settings focused on Pallet Builder.
 /// Clicking an agent opens Dev Settings focused on that agent's components.
 /// Right-click or clicking an unrelated object clears the current selection.
@@ -154,7 +155,11 @@ public class ToolsWindowController : MonoBehaviour
         Wire<Button>("btn-1x",       root, b => b.clicked += () => _ctx?.TimeService.SetTimeScale(1f));
         Wire<Button>("btn-2x",       root, b => b.clicked += () => _ctx?.TimeService.SetTimeScale(2f));
         Wire<Button>("btn-5x",       root, b => b.clicked += () => _ctx?.TimeService.SetTimeScale(5f));
-        Wire<Button>("btn-rebuild",  root, b => b.clicked += () => _grid?.RebuildFromRegistry());
+        Wire<Button>("btn-rebuild",  root, b => b.clicked += () =>
+        {
+            _grid?.RebuildFromRegistry();
+            ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
+        });
         Wire<Button>("btn-clear",    root, b => b.clicked += ClearAll);
 
         if (_ctx != null)
@@ -178,7 +183,7 @@ public class ToolsWindowController : MonoBehaviour
 
     private void Update()
     {
-        if (Keyboard.current.f1Key.wasPressedThisFrame)
+        if (Keyboard.current.digit1Key.wasPressedThisFrame)
         {
             if (_visible && IsTabActive("dev")) Hide();
             else Show("dev");
@@ -861,6 +866,7 @@ public class ToolsWindowController : MonoBehaviour
         foreach (var obj in PlacedObjectRegistry.GetSnapshot())
             if (obj != null) Destroy(obj.gameObject);
         _grid?.RebuildFromRegistry();
+        ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -890,6 +896,6 @@ public class ToolsWindowController : MonoBehaviour
     private void OnDestroy()
     {
         Instance = null;
-        if (_ctx != null) _ctx.MoneyService.OnMoneyChanged -= RefreshEconomy;
+        if (_ctx != null && _ctx.MoneyService != null) _ctx.MoneyService.OnMoneyChanged -= RefreshEconomy;
     }
 }

@@ -15,12 +15,15 @@ MonoBehaviour:
   id: 66
   objName: T-Wall
   cost: 950
-  hourlyCost: 0
+  hourlyCost: 1
   category: Walls
+  GL_Line: Walls
   prefab: {fileID: 7521947125358256196, guid: ff46f654922086a4598964c5563ce564, type: 3}
   icon: {fileID: 2800000, guid: 8fe4b2762d6ad764aa011ee6696c193e, type: 3}
   ignorePlacementRules: 0
   isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 1

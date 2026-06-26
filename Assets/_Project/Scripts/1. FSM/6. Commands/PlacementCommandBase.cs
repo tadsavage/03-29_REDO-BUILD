@@ -1,5 +1,6 @@
 using UnityEngine;
 using GameCore.Events;
+using GameCore.Events.Payloads;
 using GameCore.Services;
 
 namespace GameCore.Build
@@ -62,6 +63,10 @@ namespace GameCore.Build
             else if (payload is int intValue)
             {
                 _eventManager.Publish<int>(eventId, intValue);
+            }
+            else if (payload is BuildingMoveData moveData)
+            {
+                _eventManager.Publish<BuildingMoveData>(eventId, moveData);
             }
         }
 

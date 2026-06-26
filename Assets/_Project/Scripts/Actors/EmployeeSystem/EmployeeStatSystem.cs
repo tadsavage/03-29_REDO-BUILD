@@ -32,9 +32,12 @@ public class EmployeeStatSystem : MonoBehaviour
     [SerializeField]
     private float _fatiguePerWorkDay = 15f;
 
-    /// <summary>Fatigue gained per overtime shift (0–100 scale).</summary>
+    /// <summary>Overtime fatigue gain is _fatiguePerWorkDay multiplied by this (2x = doubled,
+    /// per the "working overtime doubles fatigue decay" rule). Replaces an earlier independent
+    /// flat overtime constant so the "doubled" relationship is exact and stays exact if
+    /// _fatiguePerWorkDay is retuned.</summary>
     [SerializeField]
-    private float _fatiguePerOvertimeDay = 25f;
+    private float _overtimeFatigueMultiplier = 2f;
 
     /// <summary>Fatigue replenished per rest day (0–100 scale).</summary>
     [SerializeField]
@@ -86,7 +89,7 @@ public class EmployeeStatSystem : MonoBehaviour
         if (isWorkingToday)
         {
             // Lose fatigue when working
-            float fatigueGain = isOvertimeToday ? _fatiguePerOvertimeDay : _fatiguePerWorkDay;
+            float fatigueGain = isOvertimeToday ? _fatiguePerWorkDay * _overtimeFatigueMultiplier : _fatiguePerWorkDay;
             record.fatigue = Mathf.Clamp(record.fatigue + fatigueGain, 0f, 100f);
         }
         else if (!isOvertimeToday)
@@ -204,9 +207,11 @@ public class EmployeeStatSystem : MonoBehaviour
 
     /// <summary>
     /// Get the current day of the week (0 = Monday, 6 = Sunday).
-    /// Placeholder for your actual game time system.
+    /// Placeholder for your actual game time system — uses real-world time, NOT in-game day, so
+    /// this drifts from SimulationTimeService.Day. Public/static so EmployeeOvertimeService can
+    /// share the exact same (currently wrong) notion of "today" rather than duplicating it.
     /// </summary>
-    private int GetCurrentDayOfWeek()
+    public static int GetCurrentDayOfWeek()
     {
         // TODO: Replace with your actual game time system
         // For now, use real-world day of week as placeholder
@@ -219,8 +224,8 @@ public class EmployeeStatSystem : MonoBehaviour
     public float GetFatiguePerWorkDay() => _fatiguePerWorkDay;
     public void SetFatiguePerWorkDay(float value) => _fatiguePerWorkDay = value;
 
-    public float GetFatiguePerOvertimeDay() => _fatiguePerOvertimeDay;
-    public void SetFatiguePerOvertimeDay(float value) => _fatiguePerOvertimeDay = value;
+    public float GetOvertimeFatigueMultiplier() => _overtimeFatigueMultiplier;
+    public void SetOvertimeFatigueMultiplier(float value) => _overtimeFatigueMultiplier = value;
 
     public float GetFatigueReplenishPerRestDay() => _fatigueReplenishPerRestDay;
     public void SetFatigueReplenishPerRestDay(float value) => _fatigueReplenishPerRestDay = value;

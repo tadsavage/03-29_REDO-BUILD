@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 /// Modal employee list + detail panel.
 /// Uses its own UIDocument (not shared with HUD) — following the SaveLoadWindow pattern.
 ///
-/// Open via EmployeeListPanelController.Instance?.Open() — or press F4 in play mode.
+/// Open via EmployeeListPanelController.Instance?.Open() — or press the 4 key in play mode.
 /// Wire in UIBootstrapper via [SerializeField] or FindObjectOfType.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
@@ -24,7 +24,7 @@ public class EmployeeListPanelController : MonoBehaviour
     [SerializeField] private RoleIconLibrary _roleIconLibrary;
 
     [Header("Behaviour")]
-    [Tooltip("Toggle the employee list with the F4 key in play mode.")]
+    [Tooltip("Toggle the employee list with the 4 key in play mode.")]
     [SerializeField] private bool _enableHotkey = true;
 
     // ─── State ────────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ public class EmployeeListPanelController : MonoBehaviour
     private void Update()
     {
         if (!_enableHotkey) return;
-        if (Keyboard.current != null && Keyboard.current.f4Key.wasPressedThisFrame)
+        if (Keyboard.current != null && Keyboard.current.digit4Key.wasPressedThisFrame)
             Toggle();
     }
 
