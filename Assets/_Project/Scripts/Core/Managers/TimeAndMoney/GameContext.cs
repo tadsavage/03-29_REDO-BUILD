@@ -53,18 +53,21 @@ public class GameContext : MonoBehaviour
         MoneyService = new MoneyService(startingCapital, sellBackRate);
         var economyService = new EconomyService();
         var payrollService = new PayrollService();
+        var inventoryService = new InventoryService();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
         ServiceLocator.Register<MoneyService>(MoneyService as MoneyService);
         ServiceLocator.Register<EconomyService>(economyService);
         ServiceLocator.Register<PayrollService>(payrollService);
+        ServiceLocator.Register<InventoryService>(inventoryService);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
         MoneyService.Initialize();
         economyService.Initialize();
         payrollService.Initialize();
+        inventoryService.Initialize();
 
         // Wire timeDriver to use refactored TimeService
         timeDriver.Initialize(TimeService);

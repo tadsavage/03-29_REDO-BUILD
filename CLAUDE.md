@@ -453,22 +453,71 @@ Two new options in the Employee Info card's Actions dropdown (`EmployeeInfoUI`),
 
 F1–F4 were rebound to the number row to free up F-keys and make room for **5** (Shift Manager): **1** = Dev Console (`ToolsWindowController`, itself non-functional — see BUGS), **2** = Hiring Board, **3** = Employee Roster, **4** = Employee List, **5** = Shift Manager. All via `Keyboard.current.digitNKey`, not the numpad. Quicksave/load (F5/F6/F9, see Development Commands above) are unrelated F-keys, untouched.
 
+### Inventory System (NEW — 2026-06-26)
+
+**Core classes created for Milestone 1 (Receiving & Putaway):**
+- `PalletData.cs` — Individual pallet entity (SKU, quantity, location, age, expiration)
+- `SkuData.cs` — Master product data (ScriptableObject: cost, price, shelf life, stacking rules)
+- `InventoryService.cs` — Service managing all pallets, locations, picking, spoilage
+- `ShipmentData.cs` — Inbound shipment tracking (supplier, ETA, line items)
+- `OrderData.cs` — Customer order tracking (fulfillment, SLA, revenue)
+
+**Integration:** InventoryService registered in GameContext.Awake() and initialized at startup. Subscribes to OnDayChanged for daily spoilage checks. Published events for pallet lifecycle.
+
+**Technical Design:** See `MILESTONE_1_TECHNICAL_DESIGN.md` for complete architecture, API, UI requirements, testing strategy, and next steps.
+
 ---
 
 ## TODO
 
 Things that need to be built, in rough priority order. Move items here as they come up and remove them when done.
 
-- [ ] Transition from build phase to live gameplay loop
-- [ ] Employee AI — basic pathfinding and task assignment
-- [ ] Inventory system — receiving, storing, and fulfilling orders
+**Detailed gameplay loop design:** See `GAMEPLAY_LOOP_DESIGN.md` for complete mechanics, phasing, and technical architecture.
+
+**Phase 1: Receiving & Putaway (NEXT — Foundation for all gameplay)**
+- [ ] Shipment generator — spawn inbound goods at start of day
+- [ ] Pallet data structure and InventoryService
+- [ ] Receiving task UI — dock worker scans and authorizes incoming shipment
+- [ ] Putaway mechanics — dock stocker/reach operator moves pallets from receiving to storage locations
+- [ ] Storage location tracking (cell-based, rack-based)
+
+**Phase 2: Order Selection & Fulfillment**
+- [ ] Customer order generator
+- [ ] Order queue UI and prioritization
+- [ ] Picking task assignment to employees
+- [ ] Inventory decrement on item pick
+- [ ] Partial-order handling (backorder, split, cancel)
+
+**Phase 3: Staging, Loading & Shipping**
+- [ ] Staging area with capacity constraints
+- [ ] Truck scheduling and assignment UI
+- [ ] Load planning (assign orders to trucks)
+- [ ] Truck departure trigger and visual feedback
+
+**Phase 4: Revenue & Financial Integration**
+- [ ] Revenue calculation on shipment departure
+- [ ] Invoice UI showing order → revenue detail
+- [ ] Daily profit/loss reporting integration with FinanceCategory
+
+**Phase 5: Perishable Spoilage**
+- [ ] Expiration date tracking per pallet
+- [ ] Daily spoilage check and contamination state
+- [ ] Write-off loss calculation
+
+**Phase 6: Employee AI for Warehouse Tasks**
+- [ ] Task assignment system (Receive, Putaway, Pick, Load tasks)
+- [ ] Pathfinding to task locations in warehouse
+- [ ] Task priority queuing
+- [ ] Task completion detection (pallet moved, order picked, truck loaded)
+
+**Post-MVP (Deferred until core loop is solid)**
 - [ ] Ordering system — suppliers, lead times, restock triggers
 - [ ] Move save files out of `Assets/_Saves/` to `Application.persistentDataPath` (required before any real build/release)
 - [ ] Replace `FindFirstObjectByType` calls in `PlacementStateMachine.Start()` with proper scene references
 - [ ] Review and playtest difficulty balance (starting capital + sell-back rate per level)
-- [ ] Wire `ShiftManagerPanel` schedules into actual gameplay (replace `ShiftSchedule.cs`'s fixed windows), add persistence, and build the planned "side UI" for assigning individual employees to a named shift
+- [ ] Wire `ShiftManagerPanel` schedules into actual gameplay (replace `ShiftSchedule.cs`'s fixed windows), add persistence
 - [ ] Reconcile day-of-week conventions: `ShiftManagerPanel` uses Sun=0..Sat=6, `EmployeeWorkSchedule` uses Mon=0..Sun=6
-- [ ] Decide whether/how to wire `EmployeeStatSystem.TickDay` to a real day-change event (currently dormant — see BUGS & ISSUES)
+- [ ] Wire `EmployeeStatSystem.TickDay` to day-change event (currently dormant)
 
 ---
 
