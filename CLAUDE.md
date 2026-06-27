@@ -457,14 +457,25 @@ F1–F4 were rebound to the number row to free up F-keys and make room for **5**
 
 **Core classes created for Milestone 1 (Receiving & Putaway):**
 - `PalletData.cs` — Individual pallet entity (SKU, quantity, location, age, expiration)
-- `SkuData.cs` — Master product data (ScriptableObject: cost, price, shelf life, stacking rules)
+- `SkuData.cs` — Master product data (ScriptableObject: cost, price, shelf life, stacking rules, Ti/Hi counts)
 - `InventoryService.cs` — Service managing all pallets, locations, picking, spoilage
 - `ShipmentData.cs` — Inbound shipment tracking (supplier, ETA, line items)
 - `OrderData.cs` — Customer order tracking (fulfillment, SLA, revenue)
 
-**Integration:** InventoryService registered in GameContext.Awake() and initialized at startup. Subscribes to OnDayChanged for daily spoilage checks. Published events for pallet lifecycle.
+**Excel Data Import (NEW):**
+- `SkuImporter.cs` — Editor tool reads ItemFilesForForkIT.xlsx (13k+ products, 7k+ with setup data)
+  - Merges two sheets by SKU, auto-generates pricing and shelf-life categories
+  - Creates 100+ SkuData assets in Assets/_Project/Data/Inventory/SKUs/
+  - Run via menu: **Warehouse > Import SKUs from Excel** (editor-only)
+- `TestDataGenerator.cs` — Runtime tool generates realistic test shipments and orders
+  - Samples from imported SKU database, randomizes quantities and timing
+  - Enables gameplay testing with authentic product/vendor/customer data
 
-**Technical Design:** See `MILESTONE_1_TECHNICAL_DESIGN.md` for complete architecture, API, UI requirements, testing strategy, and next steps.
+**Integration:** InventoryService registered in GameContext.Awake() and initialized at startup. Subscribes to OnDayChanged for daily spoilage checks. Published events for pallet lifecycle. SkuDatabase loaded at runtime via `inventoryService.LoadSkuDatabase()`.
+
+**Documentation:** 
+- `MILESTONE_1_TECHNICAL_DESIGN.md` — Complete architecture, API, UI requirements, testing strategy
+- `EXCEL_DATA_IMPORT_GUIDE.md` — Detailed workflow for importing Excel data and using in gameplay
 
 ---
 
