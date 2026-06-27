@@ -59,6 +59,9 @@ namespace GameCore.Economy
         // once they're actually owed fixes this.
         private readonly System.Collections.Generic.Dictionary<string, float> _fractionalByGLLine = new();
 
+        // Cache GL_Line lookups per ObjDataSO to avoid string checks on hot path
+        private static readonly System.Collections.Generic.Dictionary<ObjDataSO, string> _glLineCache = new();
+
         // ============ LIFECYCLE ============
 
         public void Initialize()
@@ -111,8 +114,15 @@ namespace GameCore.Economy
 
         // ============ EVENT HANDLERS ============
 
-        private static string GLLineOf(ObjDataSO data) =>
-            string.IsNullOrEmpty(data.GL_Line) ? data.category : data.GL_Line;
+        private static string GLLineOf(ObjDataSO data)
+        {
+            if (data == null) return "Unknown";
+            if (_glLineCache.TryGetValue(data, out var cached)) return cached;
+
+            var result = string.IsNullOrEmpty(data.GL_Line) ? data.category : data.GL_Line;
+            _glLineCache[data] = result;
+            return result;
+        }
 
         // Employee prefabs carry a PlacedObject component too (for hover-popup/inspection), so
         // they self-register with PlacedObjectRegistry exactly like a placed building the moment

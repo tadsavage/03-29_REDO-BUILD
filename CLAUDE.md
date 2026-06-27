@@ -476,6 +476,24 @@ Things that need to be built, in rough priority order. Move items here as they c
 
 Known problems that need fixing. Add to this list as issues are discovered.
 
+### CRITICAL — Post-Refactor Audit (2026-06-26) — FIXED ✅
+
+- **EVENT UNSUBSCRIPTION IN BUILDSTATE** — ✅ CONFIRMED ALREADY FIXED in refactor. Input callbacks are properly unsubscribed in BuildState.OnExit() (line 138-139).
+
+- **STATIC EVENT MEMORY LEAK IN EMPLOYEESPAWNER** — ✅ FIXED (2026-06-26). `MHEPlacementEvent.OnMHEEquipmentPlaced` subscriptions are now tracked in a dictionary and unsubscribed when the employee is removed via `OnEmployeeRemoved()` handler. This prevents dead closures and memory leaks from accumulating over playtime.
+
+- **SERVICELOCATOR RETURNS NULL INSTEAD OF THROWING** — ✅ FIXED (2026-06-26). `ServiceLocator.Get<T>()` now throws `InvalidOperationException` when a service isn't found, making initialization failures fail fast and clearly instead of silently returning null.
+
+### IMPORTANT — Post-Refactor Audit (2026-06-26)
+
+- **FindAnyObjectByType in Hot Path** (`EmployeeAssignmentService.cs` lines 71-76) — O(n) search called on every employee assignment. Should cache spawner reference at initialization.
+
+- **Try-Catch Silent Swallow** (`DeleteCommand.cs` line 237) — Bare catch block with no logging swallows all exceptions. Add exception logging to aid debugging.
+
+- **HiringBoardUI Event Unsubscription Missing** — UI callbacks registered in `OnEnable()` but not unregistered in `OnDisable()`. Toggling panel causes duplicate callbacks. Add `OnDisable()` with callback unregistration.
+
+### EXISTING ISSUES
+
 - Save files currently write to `Assets/_Saves/` — this works in the Editor but will break in a built player. Must be moved to `Application.persistentDataPath` before shipping.
 - `SimulationTimeService` time scale (1 real-second = 1 in-game-minute) is a placeholder — needs tuning/configurability before gameplay feels right.
 - **ToolsWindow (`Assets/3. UI/7.ToolsWindow/`) is non-functional** — none of the following work: tilde toggle, X close button, tab switching, panel drag. Mouse scroll in the panel also bleeds through to the game camera. Root cause likely: PanelSettings misconfiguration, `Start()` silently failing before event wiring runs, or UIDocument not blocking input. Needs full debug pass.

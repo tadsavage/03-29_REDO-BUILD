@@ -234,7 +234,8 @@ public class DeleteCommand : PlacementCommandBase
                 var agent = t.GetComponent<NavMeshAgent>();
                 if (agent != null && agent.isActiveAndEnabled)
                 {
-                    try { agent.Warp(hit.position); } catch { }
+                    try { agent.Warp(hit.position); }
+                    catch (System.Exception ex) { Debug.LogError($"[DeleteCommand] Failed to warp agent to floor surface: {ex.Message}"); }
                 }
                 return;
             }

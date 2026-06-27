@@ -11,6 +11,9 @@ public static class EmployeeAssignmentService
     /// without polling. No subscribers yet; reserved for roster/info-card live-refresh.</summary>
     public static event System.Action<EmployeeIdentity, EmployeeAssignment> OnAssignmentChanged;
 
+    private static EmployeeSpawner _cachedSpawner;
+    private static bool _spawnerSearched;
+
     public static void Assign(EmployeeIdentity identity, EmployeeAssignment assignment)
     {
         if (identity == null || identity.Record == null) return;
@@ -70,8 +73,14 @@ public static class EmployeeAssignmentService
 
     private static ObjDataSO GetEquipmentData(bool reach)
     {
-        var spawner = Object.FindAnyObjectByType<EmployeeSpawner>();
-        if (spawner == null) return null;
-        return reach ? spawner.ReachTruckData : spawner.DockStockerData;
+        // Cache spawner on first access to avoid expensive FindAnyObjectByType calls
+        if (!_spawnerSearched)
+        {
+            _cachedSpawner = Object.FindAnyObjectByType<EmployeeSpawner>();
+            _spawnerSearched = true;
+        }
+
+        if (_cachedSpawner == null) return null;
+        return reach ? _cachedSpawner.ReachTruckData : _cachedSpawner.DockStockerData;
     }
 }

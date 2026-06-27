@@ -47,10 +47,7 @@ namespace GameCore.Services
             Type type = typeof(T);
 
             if (!_services.ContainsKey(type))
-            {
-                Debug.LogError($"[ServiceLocator] Service {type.Name} not found.");
-                return null;
-            }
+                throw new InvalidOperationException($"[ServiceLocator] Service {type.Name} not found. Ensure it was registered in GameContext.Awake().");
 
             return _services[type] as T;
         }

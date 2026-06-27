@@ -134,6 +134,14 @@ public class HiringBoardUI : MonoBehaviour
         if (_subscribed && HiringService.Instance != null)
             HiringService.Instance.OnRosterChanged -= RebuildList;
         _subscribed = false;
+
+        // Unregister all UI callbacks to prevent duplicates on re-enable
+        _closeButton?.UnregisterCallback<ClickEvent>(_ => { _dragger?.ResetToOriginal(); Close(); });
+        _refreshButton?.UnregisterCallback<ClickEvent>(_ => HiringService.Instance?.RefreshRoster());
+        _hApplicant?.UnregisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Name));
+        _hPosition?.UnregisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Position));
+        _hExperience?.UnregisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Experience));
+        _hSalary?.UnregisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Salary));
     }
 
     private void Update()

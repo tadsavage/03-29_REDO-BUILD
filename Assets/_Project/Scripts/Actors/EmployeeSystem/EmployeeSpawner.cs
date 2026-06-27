@@ -55,6 +55,9 @@ public class EmployeeSpawner : MonoBehaviour
 
     private bool _isAutoSpawning;
 
+    // ─── Equipment seeking callbacks (for cleanup on employee removal) ────────
+    private System.Collections.Generic.Dictionary<EmployeeIdentity, System.Action<MHEOperatorSlot>> _equipmentSeekCallbacks = new();
+
     /// <summary>Exposed so EmployeeAssignmentService can resolve the same ObjDataSO references
     /// without duplicating the Inspector wiring.</summary>
     public ObjDataSO ReachTruckData => _reachTruckData;
@@ -65,6 +68,9 @@ public class EmployeeSpawner : MonoBehaviour
     {
         if (EmployeeLifecycleService.Instance != null)
             EmployeeLifecycleService.Instance.OnHired += OnEmployeeHired;
+
+        if (EmployeeRegistry.Instance != null)
+            EmployeeRegistry.Instance.OnEmployeeRemoved += OnEmployeeRemoved;
 
         if (_autoSpawnOnStart)
         {
@@ -89,9 +95,15 @@ public class EmployeeSpawner : MonoBehaviour
     {
         if (EmployeeLifecycleService.Instance != null)
             EmployeeLifecycleService.Instance.OnHired -= OnEmployeeHired;
+
+        if (EmployeeRegistry.Instance != null)
+            EmployeeRegistry.Instance.OnEmployeeRemoved -= OnEmployeeRemoved;
+
+        // Clean up all stored callbacks
+        _equipmentSeekCallbacks.Clear();
     }
 
-    // ─── Event handler ────────────────────────────────────────────────────────
+    // ─── Event handlers ───────────────────────────────────────────────────────
     /// <summary>
     /// Respond to programmatic Hire() calls from UI or other systems.
     /// Skipped during auto-spawn to avoid double-instantiation.
@@ -106,7 +118,22 @@ public class EmployeeSpawner : MonoBehaviour
                                  || record.role == EmployeeRole.DockStockerOperator
                                  || record.role == EmployeeRole.Loader))
         {
-            MHEPlacementEvent.OnMHEEquipmentPlaced += (slot) => OnEquipmentPlaced(identity, slot, record.role);
+            // Create the callback and store it so we can unsubscribe later when the employee is removed
+            System.Action<MHEOperatorSlot> callback = (slot) => OnEquipmentPlaced(identity, slot, record.role);
+            _equipmentSeekCallbacks[identity] = callback;
+            MHEPlacementEvent.OnMHEEquipmentPlaced += callback;
+        }
+    }
+
+    /// <summary>
+    /// Respond to employee removal (fired/quit/destroyed). Unsubscribe from equipment events.
+    /// </summary>
+    private void OnEmployeeRemoved(EmployeeIdentity identity)
+    {
+        if (identity != null && _equipmentSeekCallbacks.TryGetValue(identity, out var callback))
+        {
+            MHEPlacementEvent.OnMHEEquipmentPlaced -= callback;
+            _equipmentSeekCallbacks.Remove(identity);
         }
     }
 
