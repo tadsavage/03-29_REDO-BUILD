@@ -196,13 +196,13 @@ public class SkuImporter
         int dailyDemand = sheet1?.DailyMovement ?? 5;
 
         // Size category: Based on case weight
-        var sizeCategory = SkuData.SizeCategory.Medium;
+        var sizeCategory = SkuData.SkuSizeCategory.Medium;
         if (sheet2 != null)
         {
             if (sheet2.CaseWeight < 5f)
-                sizeCategory = SkuData.SizeCategory.Small;
+                sizeCategory = SkuData.SkuSizeCategory.Small;
             else if (sheet2.CaseWeight > 15f)
-                sizeCategory = SkuData.SizeCategory.Large;
+                sizeCategory = SkuData.SkuSizeCategory.Large;
         }
 
         // Stacking: Lighter items can stack higher

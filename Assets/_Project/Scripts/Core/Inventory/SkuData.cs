@@ -12,7 +12,7 @@ public class SkuData : ScriptableObject
     [SerializeField] private int _unitCost; // What we paid the supplier
     [SerializeField] private int _sellingPrice; // What customers pay (revenue per unit)
     [SerializeField] private int _shelfLifeDays; // Days until expires (-1 if non-perishable)
-    [SerializeField] private SizeCategory _sizeCategory;
+    [SerializeField] private SkuSizeCategory _sizeCategory;
     [SerializeField] private bool _canStack;
     [SerializeField] private int _maxStackHeight;
     [SerializeField] private int _averageDailyDemand; // Units/day for forecasting
@@ -25,7 +25,7 @@ public class SkuData : ScriptableObject
     public int UnitCost => _unitCost;
     public int SellingPrice => _sellingPrice;
     public int ShelfLifeDays => _shelfLifeDays;
-    public SizeCategory SizeCategory => _sizeCategory;
+    public SkuSizeCategory SizeCategory => _sizeCategory;
     public bool CanStack => _canStack;
     public int MaxStackHeight => _maxStackHeight;
     public int AverageDailyDemand => _averageDailyDemand;
@@ -39,11 +39,11 @@ public class SkuData : ScriptableObject
     /// <summary>Profit margin as percentage.</summary>
     public float ProfitMarginPercent => _unitCost > 0 ? (GrossProfitPerUnit / (float)_unitCost * 100f) : 0f;
 
-    public enum SizeCategory { Small, Medium, Large }
+    public enum SkuSizeCategory { Small, Medium, Large }
 
     /// <summary>Builder method for creating SKU data from import sources.</summary>
     public void Initialize(string skuId, string skuName, int unitCost, int sellingPrice,
-        int shelfLifeDays, SizeCategory sizeCategory, bool canStack, int maxStackHeight,
+        int shelfLifeDays, SkuSizeCategory sizeCategory, bool canStack, int maxStackHeight,
         int averageDailyDemand, int tiCount = 0, int hiCount = 0, float caseWeight = 0f)
     {
         _skuId = skuId;

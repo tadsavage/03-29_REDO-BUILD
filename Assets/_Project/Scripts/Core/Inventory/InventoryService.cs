@@ -29,7 +29,7 @@ public class InventoryService : IService
     private readonly Dictionary<Vector2Int, List<string>> _palletsByLocation = new();
     private readonly Dictionary<string, SkuData> _skuDataCache = new();
     private EventManager _eventManager;
-    private ITimeService _timeService;
+    private SimulationTimeService _timeService;
 
     // Events
     public static event System.Action<PalletData> OnPalletReceived;

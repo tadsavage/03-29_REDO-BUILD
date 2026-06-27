@@ -18,7 +18,7 @@ public class OrderData
     public int DueDay { get; set; } // Day order must ship by
     public List<OrderLineItem> LineItems { get; set; } = new();
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
-    public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Prepaid;
+    public OrderPaymentMethod PaymentMethod { get; set; } = OrderPaymentMethod.Prepaid;
     public int CreatedTimeMinute { get; set; } // When order arrived (for FIFO priority)
 
     public OrderData(string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute)
@@ -57,7 +57,7 @@ public class OrderData
     public int DaysUntilDue(int currentDay) => DueDay - currentDay;
 
     public enum OrderStatus { Pending, PartiallyPicked, FullyPicked, Staged, Shipped, Cancelled, Backorder }
-    public enum PaymentMethod { Prepaid, COD, Invoice }
+    public enum OrderPaymentMethod { Prepaid, COD, Invoice }
 }
 
 /// <summary>A single line item in a customer order (SKU + qty needed).</summary>
