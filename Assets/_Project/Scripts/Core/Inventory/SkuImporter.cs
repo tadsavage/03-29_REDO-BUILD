@@ -51,6 +51,9 @@ public class SkuImporter
             var setupBySkuSetup = ReadSetupCsv(setupPath);
             Debug.Log($"[SkuImporter] Read {setupBySkuSetup.Count} items from ItemSetup CSV");
 
+            // Validate cross-reference
+            ValidateAndReportCrossReference(itemsBySkuData, setupBySkuSetup);
+
             // Merge and create SkuData assets
             var created = MergeAndCreateSkuData(itemsBySkuData, setupBySkuSetup);
             EditorUtility.DisplayDialog("Success", $"Created {created} SkuData assets in Assets/_Project/Data/Inventory/SKUs/", "OK");
@@ -149,6 +152,38 @@ public class SkuImporter
         return result;
     }
 
+    /// <summary>Validate and report cross-reference between the two CSVs.</summary>
+    private static void ValidateAndReportCrossReference(Dictionary<string, Sheet1Data> sheet1Data, Dictionary<string, Sheet2Data> sheet2Data)
+    {
+        int matched = 0;
+        int onlyInDaysSupply = 0;
+        int onlyInItemSetup = 0;
+
+        // Check Days Supply items that have matching ItemSetup data
+        foreach (var sku in sheet1Data.Keys)
+        {
+            if (sheet2Data.ContainsKey(sku))
+                matched++;
+            else
+                onlyInDaysSupply++;
+        }
+
+        // Check ItemSetup items that don't have Days Supply data
+        foreach (var sku in sheet2Data.Keys)
+        {
+            if (!sheet1Data.ContainsKey(sku))
+                onlyInItemSetup++;
+        }
+
+        Debug.Log($"[SkuImporter] === CROSS-REFERENCE REPORT ===");
+        Debug.Log($"Days Supply SKUs: {sheet1Data.Count}");
+        Debug.Log($"ItemSetup SKUs: {sheet2Data.Count}");
+        Debug.Log($"Successfully matched (Days Supply + ItemSetup): {matched}");
+        Debug.Log($"Only in Days Supply (missing dimensions): {onlyInDaysSupply}");
+        Debug.Log($"Only in ItemSetup (no demand data): {onlyInItemSetup}");
+        Debug.Log($"Match rate: {(matched / (float)sheet1Data.Count * 100):F1}%");
+    }
+
     /// <summary>Merge data from both sheets and create SkuData assets.</summary>
     private static int MergeAndCreateSkuData(Dictionary<string, Sheet1Data> sheet1Data, Dictionary<string, Sheet2Data> sheet2Data)
     {
@@ -158,6 +193,7 @@ public class SkuImporter
             System.IO.Directory.CreateDirectory(outputDir);
 
         int created = 0;
+        int skipped = 0;
 
         // Merge: for each item in sheet1, find matching dimensions in sheet2
         foreach (var kvp in sheet1Data)
@@ -167,6 +203,13 @@ public class SkuImporter
 
             Sheet2Data item2 = null;
             sheet2Data.TryGetValue(sku, out item2);
+
+            // Only create asset if we have at least the Days Supply data
+            if (item2 == null)
+            {
+                skipped++;
+                continue; // Skip SKUs without dimension data
+            }
 
             try
             {
@@ -178,7 +221,10 @@ public class SkuImporter
                     string assetPath = $"{outputDir}/SKU_{safeName}.asset";
                     AssetDatabase.CreateAsset(skuData, assetPath);
                     created++;
-                    Debug.Log($"[SkuImporter] Created {assetPath}");
+
+                    // Log successful creation with Ti, Hi, Weight
+                    if (item2 != null)
+                        Debug.Log($"[SkuImporter] ✓ {sku}: Ti={item2.Ti}, Hi={item2.Hi}, Weight={item2.CaseWeight}lbs");
                 }
             }
             catch (System.Exception ex)
@@ -188,6 +234,9 @@ public class SkuImporter
         }
 
         AssetDatabase.SaveAssets();
+        Debug.Log($"[SkuImporter] === CREATION SUMMARY ===");
+        Debug.Log($"Created: {created} assets");
+        Debug.Log($"Skipped (no dimension data): {skipped}");
         return created;
     }
 
