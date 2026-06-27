@@ -70,7 +70,7 @@ public class SkuImporter
         var result = new Dictionary<string, Sheet1Data>();
         var lines = File.ReadAllLines(csvPath);
 
-        for (int i = 1; i < lines.Length && i < 100; i++) // Skip header, limit to 100 for testing
+        for (int i = 1; i < lines.Length; i++) // Skip header, read all items
         {
             try
             {
@@ -114,7 +114,7 @@ public class SkuImporter
         var result = new Dictionary<string, Sheet2Data>();
         var lines = File.ReadAllLines(csvPath);
 
-        for (int i = 1; i < lines.Length && i < 100; i++) // Skip header, limit to 100 for testing
+        for (int i = 1; i < lines.Length; i++) // Skip header, read all items
         {
             try
             {
