@@ -453,29 +453,37 @@ Two new options in the Employee Info card's Actions dropdown (`EmployeeInfoUI`),
 
 F1–F4 were rebound to the number row to free up F-keys and make room for **5** (Shift Manager): **1** = Dev Console (`ToolsWindowController`, itself non-functional — see BUGS), **2** = Hiring Board, **3** = Employee Roster, **4** = Employee List, **5** = Shift Manager. All via `Keyboard.current.digitNKey`, not the numpad. Quicksave/load (F5/F6/F9, see Development Commands above) are unrelated F-keys, untouched.
 
-### Inventory System (NEW — 2026-06-26)
+### Inventory System — Milestone 1 (CORE COMPLETE — 2026-06-27)
 
-**Core classes created for Milestone 1 (Receiving & Putaway):**
-- `PalletData.cs` — Individual pallet entity (SKU, quantity, location, age, expiration)
-- `SkuData.cs` — Master product data (ScriptableObject: cost, price, shelf life, stacking rules, Ti/Hi counts)
-- `InventoryService.cs` — Service managing all pallets, locations, picking, spoilage
-- `ShipmentData.cs` — Inbound shipment tracking (supplier, ETA, line items)
-- `OrderData.cs` — Customer order tracking (fulfillment, SLA, revenue)
+**✅ COMPLETED: Core Data Structures**
+- `PalletData.cs` — Pallet entity (SKU, qty, location, age, expiration); expiration detection
+- `SkuData.cs` — Master product data (SO): pricing, shelf-life, Ti/Hi/CaseWeight, stacking rules, demand
+- `SkuImporter.cs` — CSV-based importer (no COM deps); reads Days Supply + ItemSetup; cross-references by SKU; auto-generates pricing/shelf-life/stacking rules
+- `InventoryService.cs` — Pallet lifecycle: create, move, pick, destroy; location indexing; daily spoilage checks; event publishing
+- `ShipmentData.cs` + `ShipmentLineItem.cs` — Inbound tracking (supplier, ETA, line items, costs)
+- `OrderData.cs` + `OrderLineItem.cs` — Order tracking (fulfillment, SLA, revenue, profit calc)
+- `TestDataGenerator.cs` — Runtime test shipment/order generation from SKU database
 
-**Excel Data Import (NEW):**
-- `SkuImporter.cs` — Editor tool reads ItemFilesForForkIT.xlsx (13k+ products, 7k+ with setup data)
-  - Merges two sheets by SKU, auto-generates pricing and shelf-life categories
-  - Creates 100+ SkuData assets in Assets/_Project/Data/Inventory/SKUs/
-  - Run via menu: **Warehouse > Import SKUs from Excel** (editor-only)
-- `TestDataGenerator.cs` — Runtime tool generates realistic test shipments and orders
-  - Samples from imported SKU database, randomizes quantities and timing
-  - Enables gameplay testing with authentic product/vendor/customer data
+**✅ COMPLETED: Excel Integration**
+- **99 SKU assets** created from ItemFilesForForkIT.xlsx (Days Supply + ItemSetup sheets)
+- Cross-reference validated: matched all Days Supply items with ItemSetup dimension data
+- All assets populate Ti, Hi, CaseWeight, pricing, shelf-life categories
+- Assets saved to: `Assets/_Project/Data/Inventory/SKUs/SKU_*.asset`
 
-**Integration:** InventoryService registered in GameContext.Awake() and initialized at startup. Subscribes to OnDayChanged for daily spoilage checks. Published events for pallet lifecycle. SkuDatabase loaded at runtime via `inventoryService.LoadSkuDatabase()`.
+**✅ COMPLETED: Service Integration**
+- InventoryService registered in GameContext.Awake(), initialized at startup
+- Subscribes to OnDayChanged for daily spoilage detection
+- Event system: OnPalletReceived, OnPalletMoved, OnPalletPartialPicked, OnPalletDestroyed, OnSpoilageDetected
+- SkuDatabase loaded at runtime via `inventoryService.LoadSkuDatabase(skus)`
 
-**Documentation:** 
-- `MILESTONE_1_TECHNICAL_DESIGN.md` — Complete architecture, API, UI requirements, testing strategy
-- `EXCEL_DATA_IMPORT_GUIDE.md` — Detailed workflow for importing Excel data and using in gameplay
+**⚠️ KNOWN ISSUE**
+- Shadow atlas set to 16384×16384 to accommodate 240+ shadow maps; source unclear (no lights visible in Main.unity)
+- Need to investigate on next session if warning persists
+
+**📚 Documentation**
+- `GAMEPLAY_LOOP_DESIGN.md` — 6-phase loop with mechanics, roles, 6-milestone roadmap, success metrics
+- `MILESTONE_1_TECHNICAL_DESIGN.md` — Architecture, API, UI/UX specs, testing strategy, acceptance criteria
+- `EXCEL_DATA_IMPORT_GUIDE.md` — Step-by-step workflow for CSV export and import
 
 ---
 
@@ -485,12 +493,14 @@ Things that need to be built, in rough priority order. Move items here as they c
 
 **Detailed gameplay loop design:** See `GAMEPLAY_LOOP_DESIGN.md` for complete mechanics, phasing, and technical architecture.
 
-**Phase 1: Receiving & Putaway (NEXT — Foundation for all gameplay)**
-- [ ] Shipment generator — spawn inbound goods at start of day
-- [ ] Pallet data structure and InventoryService
-- [ ] Receiving task UI — dock worker scans and authorizes incoming shipment
-- [ ] Putaway mechanics — dock stocker/reach operator moves pallets from receiving to storage locations
-- [ ] Storage location tracking (cell-based, rack-based)
+**Phase 1: Receiving & Putaway (Data layer DONE — UI/Services NEXT)**
+- [x] Pallet data structure and InventoryService — COMPLETE
+- [x] 99 SKU assets with cross-referenced Excel data — COMPLETE
+- [x] Test data generator (shipments + orders) — COMPLETE
+- [ ] ShipmentService — Manage inbound queue, trigger receiving tasks
+- [ ] Receiving task UI — Display incoming shipments, "Scan & Receive" workflow
+- [ ] Putaway mechanics — Task assignment, employee moves pallets to storage
+- [ ] Storage location tracking — Cell-based capacity, pallet validation
 
 **Phase 2: Order Selection & Fulfillment**
 - [ ] Customer order generator
