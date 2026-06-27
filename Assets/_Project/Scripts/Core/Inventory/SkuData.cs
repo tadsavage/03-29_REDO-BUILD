@@ -16,6 +16,9 @@ public class SkuData : ScriptableObject
     [SerializeField] private bool _canStack;
     [SerializeField] private int _maxStackHeight;
     [SerializeField] private int _averageDailyDemand; // Units/day for forecasting
+    [SerializeField] private int _tiCount; // Units per case tier (from Excel)
+    [SerializeField] private int _hiCount; // Units per pallet layer (from Excel)
+    [SerializeField] private float _caseWeight; // Weight in lbs (from Excel)
 
     public string SkuId => _skuId;
     public string SkuName => _skuName;
@@ -26,6 +29,9 @@ public class SkuData : ScriptableObject
     public bool CanStack => _canStack;
     public int MaxStackHeight => _maxStackHeight;
     public int AverageDailyDemand => _averageDailyDemand;
+    public int TiCount => _tiCount; // Units per case
+    public int HiCount => _hiCount; // Units per pallet layer
+    public float CaseWeight => _caseWeight;
 
     /// <summary>Gross profit per unit = selling price - unit cost.</summary>
     public int GrossProfitPerUnit => _sellingPrice - _unitCost;
@@ -34,6 +40,25 @@ public class SkuData : ScriptableObject
     public float ProfitMarginPercent => _unitCost > 0 ? (GrossProfitPerUnit / (float)_unitCost * 100f) : 0f;
 
     public enum SizeCategory { Small, Medium, Large }
+
+    /// <summary>Builder method for creating SKU data from import sources.</summary>
+    public void Initialize(string skuId, string skuName, int unitCost, int sellingPrice,
+        int shelfLifeDays, SizeCategory sizeCategory, bool canStack, int maxStackHeight,
+        int averageDailyDemand, int tiCount = 0, int hiCount = 0, float caseWeight = 0f)
+    {
+        _skuId = skuId;
+        _skuName = skuName;
+        _unitCost = unitCost;
+        _sellingPrice = sellingPrice;
+        _shelfLifeDays = shelfLifeDays;
+        _sizeCategory = sizeCategory;
+        _canStack = canStack;
+        _maxStackHeight = maxStackHeight;
+        _averageDailyDemand = averageDailyDemand;
+        _tiCount = tiCount;
+        _hiCount = hiCount;
+        _caseWeight = caseWeight;
+    }
 
     private void OnValidate()
     {
