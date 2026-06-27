@@ -23,7 +23,7 @@ public class BuildState : PlacementStateBase
     private readonly PreviewController _preview;
     private readonly PlacementValidator _validator;
     private readonly PlacementFinalizer _finalizer;
-    private readonly PlacementGrid _grid;
+    private new readonly PlacementGrid _grid;
     private readonly PlacementStateMachine _fsm;
     private readonly RaycastController _raycast;
     private readonly CellIndicatorController _indicator;
@@ -55,7 +55,7 @@ public override bool IsPlacementState => true;
     public ObjDataSO CurrentData => _currentData;
     public bool IsDragging => _isDragging;
     public string ObjectName => _currentData != null ? _currentData.objName : "None";
-    
+
     private Vector2Int _lastHitCell;
 
     public BuildState(

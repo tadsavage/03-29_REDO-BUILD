@@ -96,7 +96,7 @@ public class EmployeeTerminationWalk : MonoBehaviour
     /// child (SecurityGuard_Lightweight.prefab, GuardController), not tracked by EmployeeRegistry.</summary>
     private static bool HasActiveSecurityGuard()
     {
-        var guard = FindFirstObjectByType<GuardController>();
+        var guard = FindAnyObjectByType<GuardController>();
         return guard != null && guard.gameObject.activeInHierarchy;
     }
 
@@ -276,7 +276,7 @@ public class EmployeeTerminationWalk : MonoBehaviour
     {
         LedgeLinkMarker nearest = null;
         float nearestDist = 6f;
-        foreach (var m in FindObjectsByType<LedgeLinkMarker>(FindObjectsInactive.Exclude))
+        foreach (var m in FindObjectsByType<LedgeLinkMarker>())
         {
             if (m == null || !m.gameObject.name.StartsWith("LedgeLink_")) continue;
             float d = Vector3.Distance(transform.position, m.transform.position);

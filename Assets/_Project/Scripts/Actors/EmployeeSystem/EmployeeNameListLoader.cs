@@ -24,7 +24,7 @@ public static class EmployeeNameListLoader
                     return _cached;
                 }
             }
-            catch (System.Exception e)
+            catch (System.Exception)
             {
             }
         }

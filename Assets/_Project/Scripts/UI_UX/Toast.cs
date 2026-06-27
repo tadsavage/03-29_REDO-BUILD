@@ -5,7 +5,9 @@ public class UIToast : MonoBehaviour
 {
     private static Label _toast;
     private static float _timer;
+#pragma warning disable CS0414
     [SerializeField] private float _defaultDuration = 1.5f;
+#pragma warning restore CS0414
 
     private void Awake()
     {

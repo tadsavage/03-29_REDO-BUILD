@@ -100,7 +100,7 @@ public class EmployeeHighlighter : MonoBehaviour
         Highlight(identity);
 
         if (_camera == null)
-            _camera = FindFirstObjectByType<FreeLookCamera>();
+            _camera = FindAnyObjectByType<FreeLookCamera>();
         if (_camera != null)
         {
             _camera.FocusOn(identity.transform.position);
@@ -127,7 +127,7 @@ public class EmployeeHighlighter : MonoBehaviour
         _clones.Clear();
         _current = null;
 
-        if (_camera == null) _camera = FindFirstObjectByType<FreeLookCamera>();
+        if (_camera == null) _camera = FindAnyObjectByType<FreeLookCamera>();
         if (_camera != null) _camera.SetFollowTarget(null);
     }
 

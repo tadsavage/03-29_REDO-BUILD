@@ -18,7 +18,7 @@ namespace GameCore.Build
     ///
     /// SHARED RESPONSIBILITIES:
     /// - Implement IPlacementState contract (OnEnter/OnExit/Tick/IsPlacementState)
-    /// - Track PlacementController, PlacementGrid, and services
+    /// - Track PlacementGrid and services
     /// - Manage input action subscriptions (OnEnter/OnExit)
     /// - Provide protected access to BuildService and data services
     /// - Coordinate with EventManager for event publishing
@@ -31,7 +31,6 @@ namespace GameCore.Build
     public abstract class PlacementStateBase : IPlacementState
     {
         // ============ CORE DEPENDENCIES ============
-        protected PlacementController _controller;
         protected PlacementGrid _grid;
         protected IBuildService _buildService;
         protected MoneyService _moneyService;
@@ -83,12 +82,11 @@ namespace GameCore.Build
         // ============ INITIALIZATION ============
 
         /// <summary>
-        /// Initialize state with controller and dependencies.
+        /// Initialize state with dependencies.
         /// Called by PlacementStateMachine when state is instantiated.
         /// </summary>
-        public virtual void Initialize(PlacementController controller, PlacementGrid grid, IBuildService buildService)
+        public virtual void Initialize(PlacementGrid grid, IBuildService buildService)
         {
-            _controller = controller;
             _grid = grid;
             _buildService = buildService;
 
@@ -97,7 +95,6 @@ namespace GameCore.Build
             ServiceLocator.TryGet<SimulationTimeService>(out _timeService);
             _eventManager = EventManager.Instance;
 
-            if (_controller == null) Debug.LogError("[PlacementStateBase] PlacementController is null.");
             if (_grid == null) Debug.LogError("[PlacementStateBase] PlacementGrid is null.");
             if (_buildService == null) Debug.LogError("[PlacementStateBase] IBuildService is null.");
         }

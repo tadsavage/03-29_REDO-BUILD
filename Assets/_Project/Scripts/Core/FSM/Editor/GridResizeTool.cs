@@ -7,7 +7,7 @@ public static class GridResizeTool
     [MenuItem("Tools/Grid/Resize to 100x100")]
     private static void ResizeTo100x100()
     {
-        var grid = Object.FindFirstObjectByType<PlacementGrid>();
+        var grid = Object.FindAnyObjectByType<PlacementGrid>();
         if (grid == null)
         {
             EditorUtility.DisplayDialog("Grid Resize", "No PlacementGrid found in the active scene.", "OK");
@@ -35,7 +35,7 @@ public static class GridResizeTool
         float gridMaxX = grid.Origin.x + grid.Width  * grid.CellSize;
         float gridMaxZ = grid.Origin.z + grid.Height * grid.CellSize;
 
-        var cam = Object.FindFirstObjectByType<FreeLookCamera>();
+        var cam = Object.FindAnyObjectByType<FreeLookCamera>();
         if (cam != null)
         {
             var so = new SerializedObject(cam);

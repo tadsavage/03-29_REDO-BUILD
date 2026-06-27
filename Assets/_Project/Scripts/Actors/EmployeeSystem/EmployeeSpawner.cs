@@ -318,7 +318,7 @@ public class EmployeeSpawner : MonoBehaviour
         }
 
         // 1) Reuse an existing unoccupied matching vehicle.
-        foreach (var slot in FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None))
+        foreach (var slot in FindObjectsByType<MHEOperatorSlot>())
         {
             if (slot.IsOccupied) continue;
             var existingPo = slot.GetComponent<PlacedObject>();
@@ -369,7 +369,7 @@ public class EmployeeSpawner : MonoBehaviour
     {
         cell = default;
         rotSteps = 0;
-        foreach (var wp in FindObjectsByType<Waypoint>(FindObjectsSortMode.None))
+        foreach (var wp in FindObjectsByType<Waypoint>())
         {
             if (!wp.AllowsGroup(Waypoint.WaypointGroup.MHE)) continue;
             cell = grid.WorldToCell(wp.transform.position);

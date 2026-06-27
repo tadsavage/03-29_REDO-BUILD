@@ -671,7 +671,6 @@ public class PlacementGrid : MonoBehaviour
 
             if (!IsInsideGrid(root))
             {
-                Debug.LogWarning($"RebuildFromRegistry: {placed.name} root {root} is outside grid bounds. Skipping.");
                 continue;
             }
 
@@ -681,7 +680,6 @@ public class PlacementGrid : MonoBehaviour
 
             if (offsets == null || offsets.Length == 0)
             {
-                Debug.LogWarning($"RebuildFromRegistry: {placed.name} has no footprint offsets. Skipping.");
                 continue;
             }
 
@@ -699,7 +697,6 @@ public class PlacementGrid : MonoBehaviour
 
                 if (!IsInsideGrid(cell))
                 {
-                    Debug.LogWarning($"RebuildFromRegistry: {placed.name} footprint cell {cell} outside grid. Skipping that cell.");
                     continue;
                 }
 

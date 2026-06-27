@@ -79,7 +79,7 @@ public class EditorPrefabCreationTool : EditorWindow
                 AssetDatabase.GUIDToAssetPath(guids[0]));
 
         // BuildMenuUI — look in all open scenes
-        var found = Object.FindObjectsByType<BuildMenuUI>(FindObjectsInactive.Include);
+        var found = Object.FindObjectsByType<BuildMenuUI>();
         _buildMenuUI = found.Length > 0 ? found[0] : null;
     }
 

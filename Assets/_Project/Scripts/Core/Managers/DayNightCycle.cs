@@ -186,7 +186,7 @@ public class DayNightCycle : MonoBehaviour
     private static Light FindBrightestDirectional()
     {
         Light best = null;
-        foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None))
+        foreach (var l in FindObjectsByType<Light>())
         {
             if (l.type != LightType.Directional) continue;
             if (best == null || l.intensity > best.intensity) best = l;

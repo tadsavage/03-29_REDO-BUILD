@@ -380,6 +380,11 @@ public class EmployeePhotoBooth : MonoBehaviour
 
         // 1. Instantiate temporary model at photo booth origin
         GameObject modelInstance = Instantiate(prefab, transform);
+
+        // Remove NavMesh agent entirely — not needed in photobooth
+        var agent = modelInstance.GetComponent<UnityEngine.AI.NavMeshAgent>();
+        if (agent != null) Destroy(agent);
+
         modelInstance.transform.localPosition = new Vector3(0f, GetModelVerticalOffset(record.role), 0f);
         modelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
         modelInstance.name = $"PhotoBooth_Temp_{record.employeeName}";
@@ -580,8 +585,6 @@ public class EmployeePhotoBooth : MonoBehaviour
         removed += PrunePortraitFolder(Path.Combine(Application.dataPath, "_Project/Sprites/Portraits"), keepGuids, deleteMeta: true);
 #endif
 
-        if (removed > 0)
-            Debug.Log($"[EmployeePhotoBooth] Pruned {removed} orphan portrait(s); kept {keepGuids.Count} active character(s).");
         return removed;
     }
 

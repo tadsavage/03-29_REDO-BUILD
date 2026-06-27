@@ -11,7 +11,7 @@ public static class MHESlotFinder
     {
         if (targetData == null) return null;
 
-        foreach (var slot in Object.FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None))
+        foreach (var slot in Object.FindObjectsByType<MHEOperatorSlot>())
         {
             if (slot.IsOccupied) continue;
             var vehicleObj = slot.GetComponent<PlacedObject>();

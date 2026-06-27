@@ -165,6 +165,18 @@ public class PlacementStateMachine : MonoBehaviour
         // Start in Idle
         _currentState = _idleState;
         if (_currentState != null) _currentState.OnEnter();
+
+        // Wire UI events to state transitions
+        if (_buildMenuUI != null)
+        {
+            _buildMenuUI.OnBuildItemClicked += (data) => EnterBuild(data);
+            _buildMenuUI.OnDeleteClicked += () => EnterDelete();
+            _buildMenuUI.OnMoveClicked += () => EnterMove();
+            _buildMenuUI.OnUndoClicked += () => Undo();
+            _buildMenuUI.OnRedoClicked += () => Redo();
+            _buildMenuUI.OnCancelClicked += () => ReturnToPrevious();
+            // Rotation is handled via input actions (R key), not UI button
+        }
     }
 
     // ---------------------------------------------------------

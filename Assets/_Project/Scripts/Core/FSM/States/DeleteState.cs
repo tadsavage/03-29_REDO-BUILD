@@ -11,7 +11,7 @@ using System.Collections.Generic;
 public class DeleteState : PlacementStateBase
 {
     private readonly RaycastController _raycast;
-    private readonly PlacementGrid _grid;
+    private new readonly PlacementGrid _grid;
     private readonly PlacementFinalizer _finalizer;
     private readonly PlacementStateMachine _fsm;
     private readonly CellIndicatorController _indicator;

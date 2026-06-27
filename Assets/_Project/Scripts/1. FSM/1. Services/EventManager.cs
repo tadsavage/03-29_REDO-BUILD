@@ -31,7 +31,6 @@ namespace GameCore.Events
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            Debug.Log("[EventManager] Initialized.");
         }
 
         /// <summary>

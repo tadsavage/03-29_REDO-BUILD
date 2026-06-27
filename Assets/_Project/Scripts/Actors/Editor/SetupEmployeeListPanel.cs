@@ -63,7 +63,7 @@ public static class SetupEmployeeListPanel
         cso.ApplyModifiedPropertiesWithoutUndo();
 
         // ── Wire into UIBootstrapper ──────────────────────────────────────────
-        var bootstrapper = Object.FindFirstObjectByType<UIBootstrapper>();
+        var bootstrapper = Object.FindAnyObjectByType<UIBootstrapper>();
         if (bootstrapper != null)
         {
             Undo.RecordObject(bootstrapper, "Wire EmployeeListPanel to Bootstrapper");

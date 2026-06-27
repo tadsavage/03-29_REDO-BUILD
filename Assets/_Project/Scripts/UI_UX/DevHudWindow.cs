@@ -23,10 +23,12 @@ public class DevHudWindow : MonoBehaviour
     private UIDocument _doc;
     private VisualElement _panel;
     private Label _fpsLabel;
+    private Label _cellLabel;
     private Label _modeLabel;
     private VisualElement _modeButton;
     private DraggableWindow _dragger;
     private float _smoothedFps = 60f;
+    private int _lastCellX = -1, _lastCellY = -1;
 
     private bool _subscribed;
     private const string PrefKeyX = "DevHudWindow_X";
@@ -115,6 +117,13 @@ public class DevHudWindow : MonoBehaviour
         _fpsLabel.style.color = Color.white;
         _fpsLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
 
+        _cellLabel = new Label("Cell: (--, --)");
+        _cellLabel.style.fontSize = 11;
+        _cellLabel.style.unityFontStyleAndWeight = FontStyle.Normal;
+        _cellLabel.style.color = new Color(0.72f, 0.80f, 0.92f, 1f);
+        _cellLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        _cellLabel.style.marginTop = 4;
+
         _modeButton = new VisualElement();
         _modeButton.style.marginTop = 5;
         _modeButton.style.paddingTop = 2;
@@ -135,6 +144,7 @@ public class DevHudWindow : MonoBehaviour
         _modeButton.RegisterCallback<ClickEvent>(_ => CyclePreset());
 
         body.Add(_fpsLabel);
+        body.Add(_cellLabel);
         body.Add(_modeButton);
 
         _panel.Add(titleBar);
@@ -203,6 +213,16 @@ public class DevHudWindow : MonoBehaviour
             _ => GraphicsPresetManager.Preset.Toaster,
         };
         mgr.ApplyPreset(next);
+    }
+
+    public void SetCell(int x, int y)
+    {
+        if (_cellLabel != null && (_lastCellX != x || _lastCellY != y))
+        {
+            _lastCellX = x;
+            _lastCellY = y;
+            _cellLabel.text = $"Cell: ({x}, {y})";
+        }
     }
 
     // ── Position persistence ──────────────────────────────────────────

@@ -36,7 +36,6 @@ namespace GameCore.Services
             }
 
             _services[type] = service;
-            Debug.Log($"[ServiceLocator] Registered service: {type.Name}");
         }
 
         /// <summary>
@@ -77,10 +76,7 @@ namespace GameCore.Services
             Type type = typeof(T);
 
             if (_services.ContainsKey(type))
-            {
                 _services.Remove(type);
-                Debug.Log($"[ServiceLocator] Unregistered service: {type.Name}");
-            }
         }
 
         /// <summary>
@@ -88,8 +84,6 @@ namespace GameCore.Services
         /// </summary>
         public static void ShutdownAll()
         {
-            Debug.Log("[ServiceLocator] Shutting down all services...");
-
             foreach (var kvp in _services)
             {
                 var service = kvp.Value as IService;
@@ -97,7 +91,6 @@ namespace GameCore.Services
             }
 
             _services.Clear();
-            Debug.Log("[ServiceLocator] All services shut down.");
         }
     }
 }

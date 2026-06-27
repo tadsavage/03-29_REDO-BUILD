@@ -26,7 +26,7 @@ public class MoveState : PlacementStateBase
     private readonly PreviewController _preview;
     private readonly PlacementValidator _validator;
     private readonly PlacementFinalizer _finalizer;
-    private readonly PlacementGrid _grid;
+    private new readonly PlacementGrid _grid;
     private readonly PlacementStateMachine _fsm;
     private readonly RaycastController _raycast;
     private readonly CellIndicatorController _indicator;

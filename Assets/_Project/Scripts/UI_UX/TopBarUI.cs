@@ -1,5 +1,7 @@
 using GameCore.Economy;
+using GameCore.Services;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.SceneManagement;
@@ -14,7 +16,7 @@ public class TopBarUI : MonoBehaviour
     private Label _hourly;
     private Label _spent;
     private Label _time;
-    private Label _cell;
+    private Label _headcount;
 
     private Button _saveButton;
     private Button _loadButton;
@@ -28,37 +30,21 @@ public class TopBarUI : MonoBehaviour
     private Button _menuResumeButton;
     private Button _menuExitButton;
 
-    // In-game settings
-    private VisualElement _igSettingsOverlay;
-    private VisualElement _igResConfirmOverlay;
-    private Button _igBtnScreamin, _igBtnGood, _igBtnToaster;
-    private Button _igBtnClerk, _igBtnSupervisor, _igBtnManager;
-    private DropdownField _igResolutionDropdown;
-    private Slider _igGameVolumeSlider, _igMusicVolumeSlider;
-    private int _igCurrentResIdx = 1;
-    private int _igPendingResIdx = -1;
-
-    private static readonly Resolution[] CommonResolutions =
-    {
-        new Resolution { width = 1280, height = 720  },
-        new Resolution { width = 1920, height = 1080 },
-        new Resolution { width = 2560, height = 1440 },
-        new Resolution { width = 3840, height = 2160 },
-    };
-
-    private const string GameVolParam  = "GameVolume";
-    private const string MusicVolParam = "MusicVolume";
+    // Settings panel (delegated)
+    private TopBarSettingsPanel _settingsPanel;
 
     // Game-speed (time advancer) buttons.
     private Button _spdPause, _spdQuarter, _spdHalf, _spd1x, _spd2x, _spd3x;
 
     private MoneyService _moneyService;
     private SimulationTimeService _timeService;
+    private EconomyService _economyService;
     private EventManager _eventManager;
     private FinancialBreakdownPanel _breakdownPanel;   // "Hourly" — full per-category expense drill-down
     private CapitalSummaryPanel _capitalPanel;          // "Capital" — revenue + single expense total + net
     private SpentTodayPanel _spentTodayPanel;           // "Spent Today" — today's spend by GL line
     private ShiftStatusPanel _shiftStatusPanel;         // "Time" — hours left in shift + overtime count
+    private StaffingPanel _staffingPanel;               // "Headcount" — employees by shift and role
     private ShiftManagerPanel _shiftManagerPanel;       // "5" key — define named shifts (first draft, UI only)
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
@@ -83,14 +69,14 @@ public class TopBarUI : MonoBehaviour
         if (hudRoot == null) { Debug.LogError("HUD Root not found!"); return; }
         if (topBar == null)  { Debug.LogError("TopBar not found inside HUD Root."); return; }
 
-        _money  = topBar.Q<Label>("MoneyLabel");
-        _hourly = topBar.Q<Label>("HourlyLabel");
-        _spent  = topBar.Q<Label>("SpentLabel");
-        _time   = topBar.Q<Label>("TimeLabel");
-        _cell   = topBar.Q<Label>("CellLabel");
+        _money      = topBar.Q<Label>("MoneyLabel");
+        _hourly     = topBar.Q<Label>("HourlyLabel");
+        _spent      = topBar.Q<Label>("SpentLabel");
+        _time       = topBar.Q<Label>("TimeLabel");
+        _headcount  = topBar.Q<Label>("CellLabel");  // Reuse the CellLabel position for Headcount
 
         if (_money == null || _hourly == null || _spent == null ||
-            _time  == null || _cell  == null)
+            _time  == null || _headcount  == null)
         {
             Debug.LogError("One or more TopBar labels are missing.");
             return;
@@ -100,17 +86,20 @@ public class TopBarUI : MonoBehaviour
         _capitalPanel     = new CapitalSummaryPanel(root, _moneyService);
         _spentTodayPanel  = new SpentTodayPanel(root, _moneyService);
         _shiftStatusPanel = new ShiftStatusPanel(root, _timeService);
+        _staffingPanel    = new StaffingPanel(root);
         _shiftManagerPanel = new ShiftManagerPanel(root, _timeService);
 
         _money.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_capitalPanel));
         _hourly.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_breakdownPanel));
         _spent.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_spentTodayPanel));
         _time.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_shiftStatusPanel));
+        _headcount.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_staffingPanel));
 
         RegisterPanelHoverTracking(_money, _capitalPanel);
         RegisterPanelHoverTracking(_hourly, _breakdownPanel);
         RegisterPanelHoverTracking(_spent, _spentTodayPanel);
         RegisterPanelHoverTracking(_time, _shiftStatusPanel);
+        RegisterPanelHoverTracking(_headcount, _staffingPanel);
         root.schedule.Execute(PollPanelAutoClose).Every(100);
 
         // FPS moved to the draggable DevHudWindow (F8). The freed top-bar slot now holds
@@ -129,19 +118,6 @@ public class TopBarUI : MonoBehaviour
         _menuResumeButton   = hudRoot.Q<Button>("MenuResumeButton");
         _menuExitButton     = hudRoot.Q<Button>("MenuExitButton");
 
-        // In-game settings
-        _igSettingsOverlay    = hudRoot.Q<VisualElement>("in-game-settings-overlay");
-        _igResConfirmOverlay  = hudRoot.Q<VisualElement>("ig-res-confirm-overlay");
-        _igBtnScreamin        = hudRoot.Q<Button>("ig-btn-screamin");
-        _igBtnGood            = hudRoot.Q<Button>("ig-btn-good");
-        _igBtnToaster         = hudRoot.Q<Button>("ig-btn-toaster");
-        _igBtnClerk           = hudRoot.Q<Button>("ig-btn-diff-clerk");
-        _igBtnSupervisor      = hudRoot.Q<Button>("ig-btn-diff-supervisor");
-        _igBtnManager         = hudRoot.Q<Button>("ig-btn-diff-manager");
-        _igResolutionDropdown = hudRoot.Q<DropdownField>("ig-resolution-dropdown");
-        _igGameVolumeSlider   = hudRoot.Q<Slider>("ig-slider-game-volume");
-        _igMusicVolumeSlider  = hudRoot.Q<Slider>("ig-slider-music-volume");
-
         if (_saveButton           != null) _saveButton.clicked           += () => _saveLoadController?.Open(SaveLoadMode.Save);
         if (_loadButton           != null) _loadButton.clicked           += () => _saveLoadController?.Open(SaveLoadMode.Load);
         if (_mainMenuButton       != null) _mainMenuButton.clicked       += ToggleMenuPopup;
@@ -152,22 +128,9 @@ public class TopBarUI : MonoBehaviour
         if (_menuResumeButton     != null) _menuResumeButton.clicked     += CloseMenuPopup;
         if (_menuExitButton       != null) _menuExitButton.clicked       += OnExitGame;
 
-        // In-game settings wiring
-        _igBtnScreamin?.RegisterCallback<ClickEvent>(_ => IgApplyGraphicsPreset("Ultra"));
-        _igBtnGood?.RegisterCallback<ClickEvent>(_ => IgApplyGraphicsPreset("Good"));
-        _igBtnToaster?.RegisterCallback<ClickEvent>(_ => IgApplyGraphicsPreset("Toaster"));
-        _igBtnClerk?.RegisterCallback<ClickEvent>(_ => IgApplyDifficulty(0));
-        _igBtnSupervisor?.RegisterCallback<ClickEvent>(_ => IgApplyDifficulty(1));
-        _igBtnManager?.RegisterCallback<ClickEvent>(_ => IgApplyDifficulty(2));
-        hudRoot.Q<Button>("ig-settings-done")?.RegisterCallback<ClickEvent>(_ => CloseSettings());
-        hudRoot.Q<Button>("ig-btn-res-yes")?.RegisterCallback<ClickEvent>(_ => IgOnResolutionAccepted());
-        hudRoot.Q<Button>("ig-btn-res-no")?.RegisterCallback<ClickEvent>(_ => IgOnResolutionCancelled());
-
-        if (_igGameVolumeSlider  != null) _igGameVolumeSlider.RegisterValueChangedCallback(evt => IgSetVolume(GameVolParam, evt.newValue));
-        if (_igMusicVolumeSlider != null) _igMusicVolumeSlider.RegisterValueChangedCallback(evt => IgSetVolume(MusicVolParam, evt.newValue));
-
-        IgBuildResolutionDropdown();
-        IgApplyStoredSettings();
+        // Initialize settings panel
+        _settingsPanel = gameObject.AddComponent<TopBarSettingsPanel>();
+        _settingsPanel.Init(hudRoot);
 
         if (SaveManager.Instance != null)
             SaveManager.Instance.OnSaveCompleted += OnSaveCompleted;
@@ -359,7 +322,7 @@ public class TopBarUI : MonoBehaviour
         active?.AddToClassList("topbar-speed-btn--active");
     }
 
-    // Only one of the four TopBar dropdowns may be open at a time.
+    // Only one of the TopBar dropdowns may be open at a time.
     private void ToggleExclusive(ITopBarPanel panel)
     {
         bool wasOpen = panel.IsVisible;
@@ -367,6 +330,7 @@ public class TopBarUI : MonoBehaviour
         _breakdownPanel?.Hide();
         _spentTodayPanel?.Hide();
         _shiftStatusPanel?.Hide();
+        _staffingPanel?.Hide();
         if (!wasOpen) panel.Show();
     }
 
@@ -393,6 +357,7 @@ public class TopBarUI : MonoBehaviour
                             : _breakdownPanel.IsVisible ? _breakdownPanel
                             : _spentTodayPanel.IsVisible ? _spentTodayPanel
                             : _shiftStatusPanel.IsVisible ? _shiftStatusPanel
+                            : _staffingPanel.IsVisible ? _staffingPanel
                             : null;
 
         if (active == null)
@@ -418,26 +383,61 @@ public class TopBarUI : MonoBehaviour
 
     public void SetCell(int x, int y)
     {
-        if (_cell != null) _cell.text = $"Cell: ({x},{y})";
+        // Cell info moved to DevHud window via TopBar's SetCell routing
+        var devHud = FindAnyObjectByType<DevHudWindow>();
+        if (devHud != null) devHud.SetCell(x, y);
     }
 
-    private int _lastMoney = -1, _lastHourly = -1, _lastSpent = -1;
+    private int _lastMoney = -1;
+    private int _lastRevenueThisHour = -1, _lastExpensesThisHour = -1;
+    private int _lastRevenueLastHour = -1, _lastExpensesLastHour = -1;
+    private int _lastRevenueToday = -1, _lastExpensesToday = -1;
+    private int _lastRevenueYesterday = -1, _lastExpensesYesterday = -1;
+    private int _lastRevenueWeek = -1, _lastExpensesWeek = -1;
     private int _lastMinute = -1, _lastHour = -1, _lastDay = -1;
 
     private void Refresh()
     {
         if (_moneyService == null || _timeService == null) return;
 
-        if (_moneyService.CurrentCapital  != _lastMoney  ||
-            _moneyService.TotalHourlyCost != _lastHourly ||
-            _moneyService.SpentToday      != _lastSpent)
+        // Update capital
+        if (_moneyService.CurrentCapital != _lastMoney)
         {
-            _lastMoney  = _moneyService.CurrentCapital;
-            _lastHourly = _moneyService.TotalHourlyCost;
-            _lastSpent  = _moneyService.SpentToday;
+            _lastMoney = _moneyService.CurrentCapital;
             _money.text = $"Capital: ${_lastMoney:N0}";
-            _hourly.text = $"Hourly: ${_lastHourly:N0}";
-            _spent.text  = $"Spent Today: ${_lastSpent:N0}";
+        }
+
+        // Update hourly expense/revenue metrics
+        if (_moneyService.ExpensesThisHour != _lastExpensesThisHour ||
+            _moneyService.RevenueThisHour != _lastRevenueThisHour ||
+            _moneyService.ExpensesLastHour != _lastExpensesLastHour ||
+            _moneyService.RevenueLastHour != _lastRevenueLastHour)
+        {
+            _lastExpensesThisHour = _moneyService.ExpensesThisHour;
+            _lastRevenueThisHour = _moneyService.RevenueThisHour;
+            _lastExpensesLastHour = _moneyService.ExpensesLastHour;
+            _lastRevenueLastHour = _moneyService.RevenueLastHour;
+
+            string hourlyText = $"Hour Expenses: ${_lastExpensesThisHour:N0} | Last Hour: ${_lastExpensesLastHour:N0}";
+            _hourly.text = hourlyText;
+        }
+
+        // Update daily expense metrics
+        if (_moneyService.ExpensesToday != _lastExpensesToday ||
+            _moneyService.ExpensesYesterday != _lastExpensesYesterday)
+        {
+            _lastExpensesToday = _moneyService.ExpensesToday;
+            _lastExpensesYesterday = _moneyService.ExpensesYesterday;
+            _spent.text = $"Today: ${_lastExpensesToday:N0} | Yesterday: ${_lastExpensesYesterday:N0}";
+        }
+
+        // Update headcount
+        var registry = EmployeeRegistry.Instance;
+        if (registry != null)
+        {
+            var activeCount = registry.All
+                .Count(e => e?.Record?.status == EmploymentStatus.Active);
+            _headcount.text = $"Headcount: {activeCount}";
         }
 
         if (_timeService.Minute != _lastMinute ||
@@ -457,142 +457,7 @@ public class TopBarUI : MonoBehaviour
     private void OnMenuSettings()
     {
         CloseMenuPopup();
-        if (_igSettingsOverlay != null)
-        {
-            _igSettingsOverlay.style.display = DisplayStyle.Flex;
-            _igSettingsOverlay.pickingMode   = PickingMode.Position;
-        }
-    }
-
-    private void CloseSettings()
-    {
-        if (_igSettingsOverlay != null)
-        {
-            _igSettingsOverlay.style.display = DisplayStyle.None;
-            _igSettingsOverlay.pickingMode   = PickingMode.Ignore;
-        }
-        if (_igResConfirmOverlay != null)
-        {
-            _igResConfirmOverlay.style.display = DisplayStyle.None;
-            _igResConfirmOverlay.pickingMode   = PickingMode.Ignore;
-        }
-        _igPendingResIdx = -1;
-        OpenMenuPopup();
-    }
-
-    private void IgApplyStoredSettings()
-    {
-        string preset = PlayerPrefs.GetString("GraphicsPresetName", "Ultra");
-        IgApplyGraphicsPreset(preset, notify: false);
-
-        int diff = PlayerPrefs.GetInt("Difficulty", 0);
-        IgApplyDifficulty(diff);
-
-        float gv = PlayerPrefs.GetFloat(GameVolParam, 1f);
-        float mv = PlayerPrefs.GetFloat(MusicVolParam, 0.7f);
-        if (_igGameVolumeSlider  != null) _igGameVolumeSlider.SetValueWithoutNotify(gv);
-        if (_igMusicVolumeSlider != null) _igMusicVolumeSlider.SetValueWithoutNotify(mv);
-    }
-
-    private void IgApplyGraphicsPreset(string preset, bool notify = true)
-    {
-        var mgr = FindAnyObjectByType<GraphicsPresetManager>();
-        if (mgr != null)
-            mgr.ApplyPreset((GraphicsPresetManager.Preset)System.Enum.Parse(
-                typeof(GraphicsPresetManager.Preset), preset), notify);
-
-        _igBtnScreamin?.RemoveFromClassList("gfx-btn--active");
-        _igBtnGood?.RemoveFromClassList("gfx-btn--active");
-        _igBtnToaster?.RemoveFromClassList("gfx-btn--active");
-        switch (preset)
-        {
-            case "Ultra":   _igBtnScreamin?.AddToClassList("gfx-btn--active"); break;
-            case "Good":    _igBtnGood?.AddToClassList("gfx-btn--active");     break;
-            case "Toaster": _igBtnToaster?.AddToClassList("gfx-btn--active");  break;
-        }
-        PlayerPrefs.SetString("GraphicsPresetName", preset);
-    }
-
-    private void IgApplyDifficulty(int level)
-    {
-        PlayerPrefs.SetInt("Difficulty", level);
-        _igBtnClerk?.RemoveFromClassList("gfx-btn--active");
-        _igBtnSupervisor?.RemoveFromClassList("gfx-btn--active");
-        _igBtnManager?.RemoveFromClassList("gfx-btn--active");
-        switch (level)
-        {
-            case 0: _igBtnClerk?.AddToClassList("gfx-btn--active");      break;
-            case 1: _igBtnSupervisor?.AddToClassList("gfx-btn--active"); break;
-            case 2: _igBtnManager?.AddToClassList("gfx-btn--active");    break;
-        }
-    }
-
-    private void IgBuildResolutionDropdown()
-    {
-        if (_igResolutionDropdown == null) return;
-
-        var choices = new List<string>();
-        foreach (var r in CommonResolutions)
-            choices.Add($"{r.width} x {r.height}");
-        _igResolutionDropdown.choices = choices;
-
-        int w = Screen.width, h = Screen.height;
-        _igCurrentResIdx = 1;
-        for (int i = 0; i < CommonResolutions.Length; i++)
-            if (CommonResolutions[i].width == w && CommonResolutions[i].height == h)
-                _igCurrentResIdx = i;
-        _igResolutionDropdown.SetValueWithoutNotify(choices[_igCurrentResIdx]);
-
-        _igResolutionDropdown.RegisterValueChangedCallback(evt =>
-        {
-            int idx = _igResolutionDropdown.index;
-            if (idx < 0 || idx >= CommonResolutions.Length || idx == _igCurrentResIdx) return;
-            _igPendingResIdx = idx;
-            if (_igResConfirmOverlay != null)
-            {
-                _igResConfirmOverlay.style.display = DisplayStyle.Flex;
-                _igResConfirmOverlay.pickingMode   = PickingMode.Position;
-            }
-        });
-    }
-
-    private void IgOnResolutionAccepted()
-    {
-        if (_igPendingResIdx >= 0 && _igPendingResIdx < CommonResolutions.Length)
-        {
-            var r = CommonResolutions[_igPendingResIdx];
-            Screen.SetResolution(r.width, r.height, Screen.fullScreen);
-            _igCurrentResIdx = _igPendingResIdx;
-            PlayerPrefs.SetInt("ResolutionIndex", _igCurrentResIdx);
-        }
-        _igPendingResIdx = -1;
-        if (_igResConfirmOverlay != null)
-        {
-            _igResConfirmOverlay.style.display = DisplayStyle.None;
-            _igResConfirmOverlay.pickingMode   = PickingMode.Ignore;
-        }
-    }
-
-    private void IgOnResolutionCancelled()
-    {
-        if (_igResolutionDropdown != null)
-            _igResolutionDropdown.SetValueWithoutNotify(_igResolutionDropdown.choices[_igCurrentResIdx]);
-        _igPendingResIdx = -1;
-        if (_igResConfirmOverlay != null)
-        {
-            _igResConfirmOverlay.style.display = DisplayStyle.None;
-            _igResConfirmOverlay.pickingMode   = PickingMode.Ignore;
-        }
-    }
-
-    private void IgSetVolume(string param, float linear)
-    {
-        if (AudioManager.instance != null)
-        {
-            if (param == GameVolParam)  AudioManager.instance.SetSfxVolume(linear);
-            else                        AudioManager.instance.SetMusicVolume(linear);
-        }
-        PlayerPrefs.SetFloat(param, linear);
+        _settingsPanel?.Open();
     }
 
     // ── Event handlers for new GameEvents-based system ────────────────
@@ -628,6 +493,7 @@ public class TopBarUI : MonoBehaviour
         _capitalPanel?.Dispose();
         _spentTodayPanel?.Dispose();
         _shiftStatusPanel?.Dispose();
+        _staffingPanel?.Dispose();
         _shiftManagerPanel?.Dispose();
     }
 }

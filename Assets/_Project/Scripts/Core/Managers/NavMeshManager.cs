@@ -168,7 +168,7 @@ public class NavMeshManager : MonoBehaviour
     private void RefreshNavMeshLinks()
     {
         int count = 0;
-        foreach (var link in Object.FindObjectsByType<Unity.AI.Navigation.NavMeshLink>(FindObjectsInactive.Exclude))
+        foreach (var link in Object.FindObjectsByType<Unity.AI.Navigation.NavMeshLink>())
         {
             if (link == null || !link.isActiveAndEnabled) continue;
             // UpdateLink() = RemoveLink + AddLink, re-sampling the endpoints against the
@@ -239,7 +239,7 @@ public class NavMeshManager : MonoBehaviour
     {
         int scanned = 0;
         int count   = 0;
-        foreach (var dock in Object.FindObjectsByType<DockLedgeSetup>(FindObjectsInactive.Exclude))
+        foreach (var dock in Object.FindObjectsByType<DockLedgeSetup>())
         {
             if (dock == null) continue;
             scanned++;
@@ -289,6 +289,7 @@ public class NavMeshManager : MonoBehaviour
     //                       bake (~2,500 yard tiles). Runs do neither.
     private void AddFloorNavMeshSources(List<NavMeshBuildSource> sources, int defaultArea)
     {
+        var floorStartTime = Time.realtimeSinceStartup;
         const float cellSize = 1.33f;   // project grid cell size
 
         // 1) Highest floor tile per cell — read directly from the incrementally-maintained
@@ -297,6 +298,7 @@ public class NavMeshManager : MonoBehaviour
         // NOTE: deliberately no early-return when this is empty — step 4 below still needs to
         // run on a fresh game (pure bare yard, zero real floors placed yet).
         var top = _floorTopCache;
+        //Debug.Log($"[NavMesh]    FloorTopCache has {top.Count} cells");
 
         // 2) Elevated cells → exact per-tile box. The box must be THICKER than the voxel size or
         //    thin floor geometry never rasterizes (a 0.05m box left the whole building floor
@@ -417,6 +419,8 @@ public class NavMeshManager : MonoBehaviour
                 }
             }
         }
+
+        //Debug.Log($"[NavMesh]    AddFloorNavMeshSources COMPLETE: {(Time.realtimeSinceStartup - floorStartTime) * 1000:F2}ms");
     }
 
     private Bounds GetWorldBounds(NavMeshSurface surface)

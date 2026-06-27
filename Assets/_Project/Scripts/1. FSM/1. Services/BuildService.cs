@@ -51,7 +51,6 @@ namespace GameCore.Build
 
         public void Initialize()
         {
-            Debug.Log("[BuildService] Initializing...");
 
             _eventManager = EventManager.Instance;
             if (_eventManager == null)
@@ -66,7 +65,6 @@ namespace GameCore.Build
                 Debug.LogWarning("[BuildService] MoneyService not found.");
             }
 
-            Debug.Log("[BuildService] Initialized.");
         }
 
         public void Shutdown()

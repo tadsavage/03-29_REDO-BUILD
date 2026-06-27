@@ -9,8 +9,10 @@ using System.Linq;
 public class TestDataGenerator : MonoBehaviour
 {
     [SerializeField] private SkuData[] _allSkus;
+#pragma warning disable CS0414
     [SerializeField] private int _itemsPerShipment = 5;
     [SerializeField] private int _itemsPerOrder = 3;
+#pragma warning restore CS0414
 
     private System.Random _random;
 
@@ -28,7 +30,6 @@ public class TestDataGenerator : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[TestDataGenerator] Loaded {_allSkus.Length} SKUs from database.");
     }
 
     /// <summary>Generate a random shipment from supplier.</summary>

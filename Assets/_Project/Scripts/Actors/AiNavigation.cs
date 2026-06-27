@@ -340,7 +340,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (previousVehicleData == null) return;
 
         // Find all MHE slots and pick the closest unoccupied one matching the previous equipment type
-        var allSlots = FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None);
+        var allSlots = FindObjectsByType<MHEOperatorSlot>();
         MHEOperatorSlot closest = null;
         float closestDist = float.MaxValue;
 
@@ -782,7 +782,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // Find the nearest dock-edge marker (the climb pivot). Wider radius than before
         // because the eroded ground navmesh stops short of the foundation edge.
         if (_cachedLedges == null)
-            _cachedLedges = FindObjectsByType<LedgeLinkMarker>(FindObjectsInactive.Exclude);
+            _cachedLedges = FindObjectsByType<LedgeLinkMarker>();
         LedgeLinkMarker nearest = null;
         float nearestXZ = 2.5f;
         float ax = agent.transform.position.x;
@@ -1009,7 +1009,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         LedgeLinkMarker nearest = null;
         float nearestDist = 6f; // wide enough to catch links on all 4 sides of a multi-cell foundation
 
-        foreach (var marker in FindObjectsByType<LedgeLinkMarker>(FindObjectsInactive.Exclude))
+        foreach (var marker in FindObjectsByType<LedgeLinkMarker>())
         {
             if (marker == null) continue;
             if (!marker.gameObject.name.StartsWith("LedgeLink_")) continue;

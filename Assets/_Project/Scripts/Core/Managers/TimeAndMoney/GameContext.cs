@@ -28,7 +28,7 @@ public class GameContext : MonoBehaviour
         {
             GameObject eventManagerObj = new GameObject("EventManager");
             eventManager = eventManagerObj.AddComponent<EventManager>();
-            Debug.Log("[GameContext] EventManager not found in scene; created at runtime.");
+            //Debug.Log("[GameContext] EventManager not found in scene; created at runtime.");
         }
 
         // LOCKED to Clerk difficulty for equipment-first hiring model development
@@ -80,11 +80,11 @@ public class GameContext : MonoBehaviour
             var buildService = new BuildService(grid, commandHistory);
             buildService.Initialize();
             ServiceLocator.Register<BuildService>(buildService);
-            Debug.Log("[GameContext] BuildService registered.");
+            //Debug.Log("[GameContext] BuildService registered.");
         }
         else
         {
-            Debug.LogError("[GameContext] Cannot initialize BuildService: grid or command history null.");
+            //Debug.LogError("[GameContext] Cannot initialize BuildService: grid or command history null.");
         }
 
         var fsm = FindAnyObjectByType<PlacementStateMachine>();
@@ -97,7 +97,7 @@ public class GameContext : MonoBehaviour
 
         var placement = FindAnyObjectByType<PlacementSystem>();
         if (placement != null) placement.Initialize(MoneyService);
-        else Debug.LogError("[GameContext] PlacementSystem not found in scene.");
+        //else Debug.LogError("[GameContext] PlacementSystem not found in scene.");
 
         // Wire legacy OnDayChanged event for backward compatibility (MoneyService resets daily spending)
         TimeService.OnDayChanged += () => MoneyService.ResetDailySpending();
@@ -191,8 +191,8 @@ public class GameContext : MonoBehaviour
 
         if (_yardFloorTile != null)
             _yardFloorMeshObject = YardFloorMeshBuilder.Build(grid, _yardFloorTile, transform);
-        else
-            Debug.LogWarning("[GameContext] _yardFloorTile not assigned — skipping yard floor mesh.");
+        //else
+        //    Debug.LogWarning("[GameContext] _yardFloorTile not assigned — skipping yard floor mesh.");
 
         SyncAndBake(grid);
         _isPopulatingYardFloors = false;
@@ -216,7 +216,7 @@ public class GameContext : MonoBehaviour
 
         if (NavMeshManager.Instance != null)
             NavMeshManager.Instance.BakeImmediate();
-        else
-            Debug.LogWarning("[GameContext] NavMeshManager not found — agents may not navigate.");
+        //else
+            //Debug.LogWarning("[GameContext] NavMeshManager not found — agents may not navigate.");
     }
 }

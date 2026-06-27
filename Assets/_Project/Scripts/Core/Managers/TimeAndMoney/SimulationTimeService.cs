@@ -91,12 +91,12 @@ namespace GameCore.Economy
 
         public void Initialize()
         {
-            Debug.Log($"[SimulationTimeService] Initializing. Starting time: {TimeString}, Day {_currentDay}");
+            //Debug.Log($"[SimulationTimeService] Initializing. Starting time: {TimeString}, Day {_currentDay}");
 
             _eventManager = EventManager.Instance;
             if (_eventManager == null)
             {
-                Debug.LogError("[SimulationTimeService] EventManager not found.");
+                //Debug.LogError("[SimulationTimeService] EventManager not found.");
                 return;
             }
 
@@ -108,13 +108,13 @@ namespace GameCore.Economy
             };
             _eventManager.Publish(GameEvents.Time.OnMinutePassed, timeData);
 
-            Debug.Log("[SimulationTimeService] Initialized.");
+            //Debug.Log("[SimulationTimeService] Initialized.");
         }
 
         public void Shutdown()
         {
-            Debug.Log("[SimulationTimeService] Shutting down...");
-            Debug.Log("[SimulationTimeService] Shut down complete.");
+            //Debug.Log("[SimulationTimeService] Shutting down...");
+           // Debug.Log("[SimulationTimeService] Shut down complete.");
         }
 
         /// <summary>
@@ -154,7 +154,7 @@ namespace GameCore.Economy
 
             _timeScale = scale;
 
-            Debug.Log($"[SimulationTimeService] Time scale changed to {_timeScale}x");
+            //Debug.Log($"[SimulationTimeService] Time scale changed to {_timeScale}x");
             _eventManager?.Publish(GameEvents.Time.OnTimeScaleChanged, _timeScale);
         }
 
@@ -182,7 +182,7 @@ namespace GameCore.Economy
 
                     _currentDay += daysToAdd;
 
-                    Debug.Log($"[SimulationTimeService] New day: {_currentDay}");
+                    //Debug.Log($"[SimulationTimeService] New day: {_currentDay}");
                 }
             }
         }

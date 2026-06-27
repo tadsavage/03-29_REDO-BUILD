@@ -436,7 +436,7 @@ public class PlacementSystem : MonoBehaviour
         // ReachTruck) are skipped — they're never in employeeRecords, and their own owning
         // system (the vehicle/spawner prefab respawned above) already recreated them. Destroying
         // them here with nothing to recreate them would leave the vehicle's operator seat empty.
-        var existingEmployees = Object.FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None);
+        var existingEmployees = Object.FindObjectsByType<EmployeeIdentity>();
         foreach (var ident in existingEmployees)
         {
             if (ident.SystemManaged) continue;

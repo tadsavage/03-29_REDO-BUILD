@@ -33,7 +33,6 @@ namespace GameCore.Economy
 
         public void Initialize()
         {
-            Debug.Log("[PayrollService] Initializing...");
 
             _eventManager = EventManager.Instance;
             if (_eventManager == null)
@@ -51,7 +50,6 @@ namespace GameCore.Economy
 
             _eventManager.Subscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
 
-            Debug.Log("[PayrollService] Initialized.");
         }
 
         public void Shutdown()
@@ -94,10 +92,7 @@ namespace GameCore.Economy
                 _moneyService.RemoveCapital(wage, topCategory, detailKey);
                 record.totalWagesPaid += wage;
 
-                // Wages are a recurring hourly cost too — counts toward the Spent Today panel's
-                // "Total Hourly Expenses" line alongside object upkeep, same as PayrollService's
-                // own framing ("pays...their hourly wage once per in-game hour tick").
-                _moneyService.RecordHourlySpend(wage);
+                _moneyService.RecordWageSpend(wage);
             }
         }
     }

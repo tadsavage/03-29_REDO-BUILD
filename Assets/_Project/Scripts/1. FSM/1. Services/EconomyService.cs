@@ -64,9 +64,17 @@ namespace GameCore.Economy
 
         // ============ LIFECYCLE ============
 
+        /// <summary>Get total hourly cost across all GL lines.</summary>
+        public int GetTotalHourlyCost()
+        {
+            int total = 0;
+            foreach (var cost in _hourlyByGLLine.Values)
+                total += cost;
+            return total;
+        }
+
         public void Initialize()
         {
-            Debug.Log("[EconomyService] Initializing...");
 
             _eventManager = EventManager.Instance;
             if (_eventManager == null)
@@ -94,7 +102,6 @@ namespace GameCore.Economy
             _eventManager.Subscribe<SimulationTimeData>(GameEvents.Time.OnMinutePassed, OnMinutePassed);
             _eventManager.Subscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
 
-            Debug.Log("[EconomyService] Initialized.");
         }
 
         public void Shutdown()

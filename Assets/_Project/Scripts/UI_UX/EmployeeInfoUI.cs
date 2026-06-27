@@ -152,7 +152,7 @@ public class EmployeeInfoUI : MonoBehaviour
     {
         if (_panel != null) return;
 
-        var docs = Object.FindObjectsByType<UIDocument>(FindObjectsInactive.Include);
+        var docs = Object.FindObjectsByType<UIDocument>();
         foreach (var doc in docs)
         {
             if (doc != null && doc.rootVisualElement != null)

@@ -42,11 +42,8 @@ public class HiringService : MonoBehaviour
     [Tooltip("Fraction of the starting roster that are Order Selectors. The rest is a skilled/special mix.")]
     [Range(0f, 1f)] [SerializeField] private float _orderSelectorShare = 0.70f;
 
-    // TODO(core loop): hardcoded cap on how many Order Selectors can be on the board at once.
-    // Order Selectors don't have anything to actually DO yet (no inventory/ordering system),
-    // so _orderSelectorShare alone was flooding the board with them. Revisit/remove once the
-    // core gameplay loop (inventory, ordering) exists and there's real demand for the role.
-    private const int OrderSelectorHardCap = 8;
+    [Header("Role Pool Configuration")]
+    [SerializeField] private RolePoolConfig _rolePoolConfig;
 
     [Header("Replenishment — base interval in IN-GAME MINUTES (at Manager difficulty)")]
     [Tooltip("Floor associates: Sanitation, Order Selector, Reach Truck, Loader. Manager = 1 per 30 min.")]
@@ -64,24 +61,6 @@ public class HiringService : MonoBehaviour
              "Will be driven by a global Difficulty class later (1 = neutral).")]
     [SerializeField] private float _difficultyRejectMultiplier = 1f;
 
-    // ─── Role tiers ─────────────────────────────────────────────────────────────
-    private static readonly EmployeeRole[] Tier1Roles =
-    {
-        EmployeeRole.Sanitation, EmployeeRole.OrderSelector,
-        EmployeeRole.ReachTruckOperator, EmployeeRole.DockStockerOperator, EmployeeRole.Loader,
-    };
-    private static readonly EmployeeRole[] Tier2Roles =
-    {
-        EmployeeRole.InventoryControl, EmployeeRole.Receiver,
-        EmployeeRole.Admin, EmployeeRole.Security, EmployeeRole.Supervisor,
-        EmployeeRole.Exterminator, EmployeeRole.HR,
-    };
-    // Skilled/special roles used to fill the non-OrderSelector slice of the start roster.
-    private static readonly EmployeeRole[] StartingSkilledRoles =
-    {
-        EmployeeRole.Boss, EmployeeRole.Security, EmployeeRole.Admin,
-        EmployeeRole.InventoryControl, EmployeeRole.Receiver, EmployeeRole.Supervisor,
-    };
 
     // ─── Runtime state ──────────────────────────────────────────────────────────
     private readonly List<HiringCandidate> _roster = new List<HiringCandidate>();
@@ -114,6 +93,15 @@ public class HiringService : MonoBehaviour
 
     private void Start()
     {
+        // Ensure RolePoolConfig is assigned
+        if (_rolePoolConfig == null)
+        {
+            _rolePoolConfig = Resources.Load<RolePoolConfig>("RolePoolConfig") ??
+                             FindAnyObjectByType<RolePoolConfig>();
+            if (_rolePoolConfig == null)
+                Debug.LogWarning("[HiringService] RolePoolConfig not found. Falling back to hardcoded defaults.");
+        }
+
         int difficulty = PlayerPrefs.GetInt("Difficulty", 0); // 0 Clerk, 1 Supervisor, 2 Manager
 
         _cap = difficulty switch
@@ -163,11 +151,13 @@ public class HiringService : MonoBehaviour
 
     private void OnGameMinute()
     {
+        if (_rolePoolConfig == null) return;
+
         bool changed = false;
         _tier1Accum += 1f;
         _tier2Accum += 1f;
-        changed |= Replenish(ref _tier1Accum, _tier1Interval, Tier1Roles);
-        changed |= Replenish(ref _tier2Accum, _tier2Interval, Tier2Roles);
+        changed |= Replenish(ref _tier1Accum, _tier1Interval, _rolePoolConfig.tier1Roles);
+        changed |= Replenish(ref _tier2Accum, _tier2Interval, _rolePoolConfig.tier2Roles);
         if (changed) OnRosterChanged?.Invoke();
     }
 
@@ -180,9 +170,7 @@ public class HiringService : MonoBehaviour
             accum -= interval;
             EmployeeRole role = pool[UnityEngine.Random.Range(0, pool.Length)];
 
-            // TODO(core loop): see OrderSelectorHardCap — redirect to another role in the pool
-            // once the board already has enough Order Selectors, instead of piling on more.
-            if (role == EmployeeRole.OrderSelector && CountRole(EmployeeRole.OrderSelector) >= OrderSelectorHardCap)
+            if (role == EmployeeRole.OrderSelector && CountRole(EmployeeRole.OrderSelector) >= _rolePoolConfig.orderSelectorHardCap)
             {
                 var alt = System.Array.FindAll(pool, r => r != EmployeeRole.OrderSelector);
                 if (alt.Length == 0) continue;
@@ -280,9 +268,11 @@ public class HiringService : MonoBehaviour
     // ─── Roster building ────────────────────────────────────────────────────────
     private void BuildInitialRoster()
     {
+        if (_rolePoolConfig == null) return;
+
         _roster.Clear();
 
-        int osCount = Mathf.Min(Mathf.Clamp(Mathf.RoundToInt(_cap * _orderSelectorShare), 0, _cap), OrderSelectorHardCap);
+        int osCount = Mathf.Min(Mathf.Clamp(Mathf.RoundToInt(_cap * _orderSelectorShare), 0, _cap), _rolePoolConfig.orderSelectorHardCap);
         for (int i = 0; i < osCount; i++)
         {
             var candidate = HiringCandidateGenerator.Generate(EmployeeRole.OrderSelector);
@@ -294,7 +284,7 @@ public class HiringService : MonoBehaviour
         int remaining = _cap - osCount;
         for (int i = 0; i < remaining; i++)
         {
-            var role = StartingSkilledRoles[UnityEngine.Random.Range(0, StartingSkilledRoles.Length)];
+            var role = _rolePoolConfig.startingSkilledRoles[UnityEngine.Random.Range(0, _rolePoolConfig.startingSkilledRoles.Length)];
             var candidate = HiringCandidateGenerator.Generate(role);
             if (EmployeePhotoBooth.Instance != null)
                 EmployeePhotoBooth.Instance.GeneratePortraitForRecord(candidate.record);

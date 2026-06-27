@@ -56,13 +56,28 @@ namespace GameCore.Economy
         // "purchases from the build menu." Reset daily.
         private System.Collections.Generic.Dictionary<string, int> _spentTodayByObjectCategory = new();
 
-        // Today's RECURRING hourly-cost spending only (object upkeep via EconomyService + wages
-        // via PayrollService) — explicitly excludes one-time purchase costs and the daily Lease
-        // charge. This is what the "Total Hourly Expenses" line on the Spent Today panel shows;
-        // it used to read the all-up _spentToday total, which wrongly included one-time
-        // purchases (e.g. buying 56 foundations showed up as "$25,200 hourly expenses" when it
-        // was really a one-time cost). Reset daily.
-        private int _spentTodayHourlyOnly = 0;
+        // Today's RECURRING hourly-cost spending split into two categories:
+        // - _spentTodayUpkeep: object maintenance costs only (from EconomyService)
+        // - _spentTodayWages: wage costs only (from PayrollService)
+        // Explicitly excludes one-time purchase costs and the daily Lease charge. Reset daily.
+        private int _spentTodayUpkeep = 0;
+        private int _spentTodayWages = 0;
+
+        // Hourly tracking (current hour accumulating, last hour completed)
+        private int _revenueThisHour = 0;
+        private int _expensesThisHour = 0;
+        private int _revenueLastHour = 0;
+        private int _expensesLastHour = 0;
+
+        // Daily totals (persisted for historical view)
+        private int _revenueToday = 0;
+        private int _expensesToday = 0;
+        private int _revenueYesterday = 0;
+        private int _expensesYesterday = 0;
+
+        // Weekly total (accumulates across 7 days)
+        private int _revenueThisWeek = 0;
+        private int _expensesThisWeek = 0;
 
         private EventManager _eventManager;
 
@@ -87,10 +102,30 @@ namespace GameCore.Economy
         /// the Spent Today panel's "Purchases" list).</summary>
         public System.Collections.Generic.IReadOnlyDictionary<string, int> SpentTodayByObjectCategory => _spentTodayByObjectCategory;
 
-        /// <summary>Today's recurring hourly-cost spending only (object upkeep + wages), excluding
-        /// one-time purchases and the daily Lease charge — powers the Spent Today panel's "Total
-        /// Hourly Expenses" line.</summary>
-        public int SpentTodayHourlyOnly => _spentTodayHourlyOnly;
+        /// <summary>Today's object maintenance costs (from EconomyService hourly deductions).</summary>
+        public int SpentTodayUpkeep => _spentTodayUpkeep;
+
+        /// <summary>Today's wage costs (from PayrollService hourly deductions).</summary>
+        public int SpentTodayWages => _spentTodayWages;
+
+        /// <summary>Total of both upkeep and wages (convenience property for backward compat).</summary>
+        public int SpentTodayHourlyOnly => _spentTodayUpkeep + _spentTodayWages;
+
+        // ============ HOURLY METRICS ============
+        public int RevenueThisHour => _revenueThisHour;
+        public int ExpensesThisHour => _expensesThisHour;
+        public int RevenueLastHour => _revenueLastHour;
+        public int ExpensesLastHour => _expensesLastHour;
+
+        // ============ DAILY METRICS ============
+        public int RevenueToday => _revenueToday;
+        public int ExpensesToday => _expensesToday;
+        public int RevenueYesterday => _revenueYesterday;
+        public int ExpensesYesterday => _expensesYesterday;
+
+        // ============ WEEKLY METRICS ============
+        public int RevenueThisWeek => _revenueThisWeek;
+        public int ExpensesThisWeek => _expensesThisWeek;
 
         /// <summary>Records an amount already deducted elsewhere (this is bookkeeping only, NOT
         /// a second deduction) under a raw object-category tag for the Spent Today panel.</summary>
@@ -101,11 +136,25 @@ namespace GameCore.Economy
             _spentTodayByObjectCategory[category] += amount;
         }
 
+        /// <summary>Records hourly upkeep cost (object maintenance) as bookkeeping (amount already
+        /// deducted elsewhere). Used by EconomyService.</summary>
+        public void RecordUpkeepSpend(int amount)
+        {
+            if (amount > 0) _spentTodayUpkeep += amount;
+        }
+
+        /// <summary>Records hourly wage cost as bookkeeping (amount already deducted elsewhere).
+        /// Used by PayrollService.</summary>
+        public void RecordWageSpend(int amount)
+        {
+            if (amount > 0) _spentTodayWages += amount;
+        }
+
         /// <summary>Records an amount already deducted elsewhere (bookkeeping only) as a
-        /// recurring hourly cost (object upkeep or wages) for the Spent Today panel.</summary>
+        /// recurring hourly cost for the Spent Today panel (legacy, calls RecordUpkeepSpend).</summary>
         public void RecordHourlySpend(int amount)
         {
-            if (amount > 0) _spentTodayHourlyOnly += amount;
+            RecordUpkeepSpend(amount);
         }
 
         // ============ CONSTRUCTOR ============
@@ -122,7 +171,7 @@ namespace GameCore.Economy
 
         public void Initialize()
         {
-            Debug.Log($"[MoneyService] Initializing with ${_startingCapital:N0} starting capital, {_sellBackRate * 100}% sell-back rate");
+            //Debug.Log($"[MoneyService] Initializing with ${_startingCapital:N0} starting capital, {_sellBackRate * 100}% sell-back rate");
 
             _eventManager = EventManager.Instance;
             if (_eventManager == null)
@@ -131,10 +180,11 @@ namespace GameCore.Economy
                 return;
             }
 
+            _eventManager.Subscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
             _eventManager.Subscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
             _eventManager.Publish(GameEvents.Economy.OnMoneyChanged, _currentCapital);
 
-            Debug.Log("[MoneyService] Initialized.");
+            //Debug.Log("[MoneyService] Initialized.");
         }
 
         public void Shutdown()
@@ -143,6 +193,7 @@ namespace GameCore.Economy
 
             if (_eventManager != null)
             {
+                _eventManager.Unsubscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
                 _eventManager.Unsubscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
             }
 
@@ -184,6 +235,11 @@ namespace GameCore.Economy
             // Track lifetime income
             if (!_lifetimeIncome.ContainsKey(reason)) _lifetimeIncome[reason] = 0;
             _lifetimeIncome[reason] += amount;
+
+            // Track hourly/daily/weekly revenue
+            _revenueThisHour += amount;
+            _revenueToday += amount;
+            _revenueThisWeek += amount;
         }
 
         public void RemoveCapital(int amount, string reason = "Expense")
@@ -248,6 +304,11 @@ namespace GameCore.Economy
             if (!_lifetimeExpenses.ContainsKey(reason)) _lifetimeExpenses[reason] = 0;
             _lifetimeExpenses[reason] += amount;
 
+            // Track hourly/daily/weekly expenses
+            _expensesThisHour += amount;
+            _expensesToday += amount;
+            _expensesThisWeek += amount;
+
             return true;
         }
 
@@ -264,17 +325,44 @@ namespace GameCore.Economy
 
         public void ResetDailySpending()
         {
-            Debug.Log($"[MoneyService] Resetting daily spending. Previous: ${_spentToday:N0}");
+            Debug.Log($"[MoneyService] Resetting daily spending. Previous: ${_spentToday:N0} (Upkeep: ${_spentTodayUpkeep:N0}, Wages: ${_spentTodayWages:N0})");
             _spentToday = 0;
             _spentTodayByObjectCategory.Clear();
-            _spentTodayHourlyOnly = 0;
+            _spentTodayUpkeep = 0;
+            _spentTodayWages = 0;
             _eventManager?.Publish(GameEvents.Economy.OnSpentTodayChanged, _spentToday);
         }
 
         // ============ EVENT HANDLERS ============
 
+        private void OnHourChanged(string eventId, int newHour)
+        {
+            // Move current hour to last hour
+            _revenueLastHour = _revenueThisHour;
+            _expensesLastHour = _expensesThisHour;
+
+            // Reset current hour accumulators
+            _revenueThisHour = 0;
+            _expensesThisHour = 0;
+        }
+
         private void OnDayChanged(string eventId, int newDay)
         {
+            // Move today's totals to yesterday
+            _revenueYesterday = _revenueToday;
+            _expensesYesterday = _expensesToday;
+
+            // Reset today's accumulators and weekly (if day 7 → day 1)
+            _revenueToday = 0;
+            _expensesToday = 0;
+
+            // Reset weekly on day 1 (or every 7 days)
+            if (newDay % 7 == 1)
+            {
+                _revenueThisWeek = 0;
+                _expensesThisWeek = 0;
+            }
+
             ResetDailySpending();
         }
 

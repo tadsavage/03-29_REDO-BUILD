@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Linq;
 using System.Collections.Generic;
+using GameCore.Events;
 
 /// <summary>
 /// Lives on the guard shack prefab. Manages the yard: assigns door numbers at startup,
@@ -79,6 +80,31 @@ public class TruckYardManager : MonoBehaviour
 {
         AssignDoorNumbers();
         SpawnGuard();
+
+        // Subscribe to object placement/deletion to re-assign door numbers dynamically
+        var eventManager = GameCore.Events.EventManager.Instance;
+        if (eventManager != null)
+        {
+            eventManager.Subscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnObjectPlacedOrDeleted);
+            eventManager.Subscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnObjectPlacedOrDeleted);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        var eventManager = GameCore.Events.EventManager.Instance;
+        if (eventManager != null)
+        {
+            eventManager.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnObjectPlacedOrDeleted);
+            eventManager.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnObjectPlacedOrDeleted);
+        }
+    }
+
+    private void OnObjectPlacedOrDeleted(string eventId, PlacedObject placedObj)
+    {
+        // Re-assign door numbers whenever any object is placed/deleted
+        // (specifically for shipping doors, but harmless to run always)
+        AssignDoorNumbers();
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -119,13 +145,12 @@ public class TruckYardManager : MonoBehaviour
             dock.Release();
         }
         
-        var trucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None);
+        var trucks = Object.FindObjectsByType<TruckController>();
         foreach (var t in trucks)
         {
             Destroy(t.gameObject);
         }
         
-        Debug.Log("[TruckYardManager] Yard reset: all docks released, all trucks removed.");
     }
 
     public void SpawnNextTruck()
@@ -161,7 +186,6 @@ public class TruckYardManager : MonoBehaviour
         }
 
         _activeTrucks++;
-        Debug.Log($"[TruckYardManager] Truck dispatched to door {dock.DoorNumber}. Active: {_activeTrucks}");
     }
 
     // ── Private ───────────────────────────────────────────────────────────────

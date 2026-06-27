@@ -696,7 +696,7 @@ public class EmployeeListPanelController : MonoBehaviour
         if (identity == null) return;
 
         if (_camera == null)
-            _camera = UnityEngine.Object.FindFirstObjectByType<FreeLookCamera>();
+            _camera = UnityEngine.Object.FindAnyObjectByType<FreeLookCamera>();
 
         _camera?.FocusOn(identity.transform.position);
 

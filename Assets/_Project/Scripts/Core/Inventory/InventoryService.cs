@@ -47,7 +47,7 @@ public class InventoryService : IService
 
     public void Initialize()
     {
-        Debug.Log("[InventoryService] Initializing...");
+        //Debug.Log("[InventoryService] Initializing...");
 
         _eventManager = EventManager.Instance;
         if (_eventManager == null)
@@ -66,7 +66,7 @@ public class InventoryService : IService
         // Subscribe to daily tick for spoilage checks
         _eventManager.Subscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
 
-        Debug.Log("[InventoryService] Initialized.");
+        //Debug.Log("[InventoryService] Initialized.");
     }
 
     public void Shutdown()
@@ -267,6 +267,5 @@ public class InventoryService : IService
             if (sku != null)
                 _skuDataCache[sku.SkuId] = sku;
         }
-        Debug.Log($"[InventoryService] Loaded {_skuDataCache.Count} SKUs.");
     }
 }
