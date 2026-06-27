@@ -89,7 +89,7 @@ public class InventoryService : IService
     public List<PalletData> ReceiveShipment(List<(string skuId, int quantity, int expirationDayOffset)> items)
     {
         var created = new List<PalletData>();
-        int currentDay = _timeService?.CurrentDay ?? 0;
+        int currentDay = _timeService?.Day ?? 0;
 
         foreach (var (skuId, quantity, expirationOffset) in items)
         {
@@ -227,12 +227,13 @@ public class InventoryService : IService
 
     private void OnDayChanged(string eventId, int newDay)
     {
+        Debug.Log($"[InventoryService] Day changed to {newDay}. Checking spoilage...");
         CheckSpoilage();
     }
 
     private void CheckSpoilage()
     {
-        int currentDay = _timeService?.CurrentDay ?? 0;
+        int currentDay = _timeService?.Day ?? 0;
         var expiredPallets = _palletsByID.Values
             .Where(p => !p.IsContaminated && p.IsExpired(currentDay))
             .ToList();

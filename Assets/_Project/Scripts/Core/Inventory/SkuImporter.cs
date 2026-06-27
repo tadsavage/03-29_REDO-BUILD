@@ -2,85 +2,95 @@ using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 
 #if UNITY_EDITOR
 
 /// <summary>
-/// Imports SKU data from Excel spreadsheet into SkuData ScriptableObjects.
-/// Two-sheet format:
-/// - Sheet 1 "Days Supply": Item, Vendor, Vendor Name, Description, Daily Movement, Days Supply, etc.
-/// - Sheet 2 "ItemSetup": SKU, Description, High (Hi), Tie (Ti), Case dimensions, Weight
+/// Imports SKU data from CSV files into SkuData ScriptableObjects.
+///
+/// USAGE: Export Excel sheets as CSV files first:
+/// 1. Open ItemFilesForForkIT.xlsx
+/// 2. Save Sheet 1 "Days Supply" as: SKU_DaysSupply.csv
+/// 3. Save Sheet 2 "ItemSetup" as: SKU_ItemSetup.csv
+/// 4. Place both CSV files in Assets/_Project/Data/Inventory/Import/
+/// 5. Run: Warehouse > Import SKUs from CSV
 ///
 /// Creates SkuData assets with realistic pricing, demand, and physical properties.
 /// </summary>
 public class SkuImporter
 {
-    [MenuItem("Warehouse/Import SKUs from Excel")]
-    public static void ImportFromExcel()
-    {
-        string excelPath = "C:\\Users\\MURILLO\\Downloads\\ItemFilesForForkIT.xlsx";
+    private const string IMPORT_DIR = "Assets/_Project/Data/Inventory/Import";
+    private const string SUPPLY_CSV = "SKU_DaysSupply.csv";
+    private const string SETUP_CSV = "SKU_ItemSetup.csv";
 
-        if (!System.IO.File.Exists(excelPath))
+    [MenuItem("Warehouse/Import SKUs from CSV")]
+    public static void ImportFromCsv()
+    {
+        string supplyPath = Path.Combine(IMPORT_DIR, SUPPLY_CSV);
+        string setupPath = Path.Combine(IMPORT_DIR, SETUP_CSV);
+
+        if (!File.Exists(supplyPath))
         {
-            EditorUtility.DisplayDialog("Error", $"Excel file not found: {excelPath}", "OK");
+            EditorUtility.DisplayDialog("Error", $"File not found: {supplyPath}\n\nExport the 'Days Supply' sheet from Excel as CSV first.", "OK");
             return;
         }
 
-        // Load Excel
-        dynamic excel = System.Activator.CreateInstance(System.Type.GetTypeFromProgID("Excel.Application"));
-        excel.Visible = false;
-        dynamic workbook = excel.Workbooks.Open(excelPath);
+        if (!File.Exists(setupPath))
+        {
+            EditorUtility.DisplayDialog("Error", $"File not found: {setupPath}\n\nExport the 'ItemSetup' sheet from Excel as CSV first.", "OK");
+            return;
+        }
 
         try
         {
-            // Read Sheet 1: Days Supply (general item data)
-            var sheet1 = workbook.Sheets(1);
-            var itemsBySkuData = ReadSheet1(sheet1);
-            Debug.Log($"[SkuImporter] Read {itemsBySkuData.Count} items from Sheet 1 (Days Supply)");
+            // Read both CSV files
+            var itemsBySkuData = ReadSupplyCsv(supplyPath);
+            Debug.Log($"[SkuImporter] Read {itemsBySkuData.Count} items from Days Supply CSV");
 
-            // Read Sheet 2: ItemSetup (physical dimensions)
-            var sheet2 = workbook.Sheets(2);
-            var setupBySkuSetup = ReadSheet2(sheet2);
-            Debug.Log($"[SkuImporter] Read {setupBySkuSetup.Count} items from Sheet 2 (ItemSetup)");
+            var setupBySkuSetup = ReadSetupCsv(setupPath);
+            Debug.Log($"[SkuImporter] Read {setupBySkuSetup.Count} items from ItemSetup CSV");
 
             // Merge and create SkuData assets
             var created = MergeAndCreateSkuData(itemsBySkuData, setupBySkuSetup);
             EditorUtility.DisplayDialog("Success", $"Created {created} SkuData assets in Assets/_Project/Data/Inventory/SKUs/", "OK");
         }
-        finally
+        catch (System.Exception ex)
         {
-            workbook.Close();
-            excel.Quit();
-            System.Runtime.InteropServices.Marshal.ReleaseComObject(excel);
+            EditorUtility.DisplayDialog("Error", $"Failed to import SKUs: {ex.Message}", "OK");
         }
     }
 
-    /// <summary>Read Sheet 1: Days Supply (general item data)</summary>
-    private static Dictionary<string, Sheet1Data> ReadSheet1(dynamic sheet)
+    /// <summary>Read Days Supply CSV (general item data)</summary>
+    private static Dictionary<string, Sheet1Data> ReadSupplyCsv(string csvPath)
     {
         var result = new Dictionary<string, Sheet1Data>();
-        var usedRange = sheet.UsedRange;
-        int rows = usedRange.Rows.Count;
-        int cols = usedRange.Columns.Count;
+        var lines = File.ReadAllLines(csvPath);
 
-        for (int row = 2; row <= rows && row < 100; row++) // Limit to first 100 for testing
+        for (int i = 1; i < lines.Length && i < 100; i++) // Skip header, limit to 100 for testing
         {
             try
             {
-                string sku = (sheet.Cells(row, 1).Value2 ?? "").ToString().Trim();
+                string line = lines[i];
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                string[] fields = line.Split(',');
+                if (fields.Length < 9) continue;
+
+                string sku = fields[0].Trim();
                 if (string.IsNullOrEmpty(sku)) continue;
 
                 var data = new Sheet1Data
                 {
                     Sku = sku,
-                    VendorNum = (sheet.Cells(row, 2).Value2 ?? "").ToString().Trim(),
-                    VendorName = (sheet.Cells(row, 3).Value2 ?? "").ToString().Trim(),
-                    Description = (sheet.Cells(row, 4).Value2 ?? "").ToString().Trim(),
-                    Facility = (sheet.Cells(row, 5).Value2 ?? "").ToString().Trim(),
-                    DailyMovement = ParseInt(sheet.Cells(row, 6).Value2),
-                    DaysSupply = ParseInt(sheet.Cells(row, 7).Value2),
-                    CasesInHouse = ParseInt(sheet.Cells(row, 8).Value2),
-                    PalletsInHouse = ParseInt(sheet.Cells(row, 9).Value2),
+                    VendorNum = fields[1].Trim(),
+                    VendorName = fields[2].Trim(),
+                    Description = fields[3].Trim(),
+                    Facility = fields[4].Trim(),
+                    DailyMovement = ParseInt(fields[5]),
+                    DaysSupply = ParseInt(fields[6]),
+                    CasesInHouse = ParseInt(fields[7]),
+                    PalletsInHouse = ParseInt(fields[8]),
                 };
 
                 if (!result.ContainsKey(data.Sku))
@@ -88,39 +98,43 @@ public class SkuImporter
             }
             catch (System.Exception ex)
             {
-                Debug.LogWarning($"[SkuImporter] Error reading Sheet1 row {row}: {ex.Message}");
+                Debug.LogWarning($"[SkuImporter] Error reading supply CSV line {i}: {ex.Message}");
             }
         }
 
         return result;
     }
 
-    /// <summary>Read Sheet 2: ItemSetup (physical dimensions)</summary>
-    private static Dictionary<string, Sheet2Data> ReadSheet2(dynamic sheet)
+    /// <summary>Read ItemSetup CSV (physical dimensions)</summary>
+    private static Dictionary<string, Sheet2Data> ReadSetupCsv(string csvPath)
     {
         var result = new Dictionary<string, Sheet2Data>();
-        var usedRange = sheet.UsedRange;
-        int rows = usedRange.Rows.Count;
-        int cols = usedRange.Columns.Count;
+        var lines = File.ReadAllLines(csvPath);
 
-        for (int row = 2; row <= rows && row < 100; row++)
+        for (int i = 1; i < lines.Length && i < 100; i++) // Skip header, limit to 100 for testing
         {
             try
             {
-                string sku = (sheet.Cells(row, 1).Value2 ?? "").ToString().Trim();
+                string line = lines[i];
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                string[] fields = line.Split(',');
+                if (fields.Length < 9) continue;
+
+                string sku = fields[0].Trim();
                 if (string.IsNullOrEmpty(sku)) continue;
 
                 var data = new Sheet2Data
                 {
                     Sku = sku,
-                    Description = (sheet.Cells(row, 2).Value2 ?? "").ToString().Trim(),
-                    Location = (sheet.Cells(row, 3).Value2 ?? "").ToString().Trim(),
-                    Hi = ParseInt(sheet.Cells(row, 4).Value2),
-                    Ti = ParseInt(sheet.Cells(row, 5).Value2),
-                    CaseHeight = ParseFloat(sheet.Cells(row, 6).Value2),
-                    CaseDepth = ParseFloat(sheet.Cells(row, 7).Value2),
-                    CaseWidth = ParseFloat(sheet.Cells(row, 8).Value2),
-                    CaseWeight = ParseFloat(sheet.Cells(row, 9).Value2),
+                    Description = fields[1].Trim(),
+                    Location = fields[2].Trim(),
+                    Hi = ParseInt(fields[3]),
+                    Ti = ParseInt(fields[4]),
+                    CaseHeight = ParseFloat(fields[5]),
+                    CaseDepth = ParseFloat(fields[6]),
+                    CaseWidth = ParseFloat(fields[7]),
+                    CaseWeight = ParseFloat(fields[8]),
                 };
 
                 if (!result.ContainsKey(data.Sku))
@@ -128,7 +142,7 @@ public class SkuImporter
             }
             catch (System.Exception ex)
             {
-                Debug.LogWarning($"[SkuImporter] Error reading Sheet2 row {row}: {ex.Message}");
+                Debug.LogWarning($"[SkuImporter] Error reading setup CSV line {i}: {ex.Message}");
             }
         }
 

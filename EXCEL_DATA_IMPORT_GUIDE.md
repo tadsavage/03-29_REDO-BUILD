@@ -39,12 +39,22 @@
 
 ## Import Workflow
 
-### Step 1: Import SkuData Assets (Editor-Only)
+### Step 1: Export Excel Sheets as CSV
 
-In the Unity Editor, go to menu: **Warehouse > Import SKUs from Excel**
+1. Open `ItemFilesForForkIT.xlsx` in Excel
+2. Select Sheet 1 "Days Supply"
+3. **Save As** → `SKU_DaysSupply.csv` (CSV UTF-8 format)
+4. Select Sheet 2 "ItemSetup"
+5. **Save As** → `SKU_ItemSetup.csv` (CSV UTF-8 format)
+6. Place both CSV files in: `Assets/_Project/Data/Inventory/Import/`
+   - Create the directory if it doesn't exist
+
+### Step 2: Import SkuData Assets (Editor-Only)
+
+In the Unity Editor, go to menu: **Warehouse > Import SKUs from CSV**
 
 This will:
-1. Read both sheets from the Excel file
+1. Read both CSV files
 2. Match items by SKU across sheets
 3. Generate pricing and shelf-life categories:
    - **Cost:** Based on case weight (heavier = more expensive)
@@ -62,7 +72,7 @@ This will:
 4. Create SkuData assets in: `Assets/_Project/Data/Inventory/SKUs/`
 5. Assets named: `SKU_<ITEM_NUMBER>.asset`
 
-**First Run:** Limit to 100 items for testing (edit line 51 in SkuImporter.cs)
+**First Run:** Limit to 100 items for testing (edit line 20 in SkuImporter.cs to increase after validating)
 
 ### Step 2: Load SKU Database at Runtime
 
