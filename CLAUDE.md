@@ -546,6 +546,19 @@ Things that need to be built, in rough priority order. Move items here as they c
 
 Known problems that need fixing. Add to this list as issues are discovered.
 
+### Aisle Initialization System (2026-06-28) — FIXED ✅
+
+**Chevrons spawning in wrong corridors**
+- **Problem:** Chevrons appeared in tiny bay-to-bay gaps (~0.3m) instead of wide warehouse corridors (3-4m).
+- **Root Cause:** `CorridorDetector.cs` tuning thresholds too tight. `RowBinSize = 1.5f` treated each bay as separate row. `MinWalkway = 2.0f` detected ~0.3m gaps as "corridors."
+- **Fix:** Increased `RowBinSize = 3.2f` (groups adjacent bays into same row), `MinWalkway = 3.4f` (filters bay gaps, keeps wide corridors), `EndAisleOffset = 4.0f` (wider end-aisle assumption).
+- **Result:** Chevrons now spawn only in the wide corridors of travel.
+
+**Chevron hover using oversized toast instead of tooltip**
+- **Problem:** `AislePad.OnMouseOver()` called `UIToast.Show()`, rendering a huge toast notification instead of a compact hover UI.
+- **Fix:** Replaced with `WorldHoverPopupUI.TickHover()`. `AislePad` caches the popup reference and calls `TickHover(true, "Right-click: flip direction  •  Double-click: edit", 0, 0, position, Camera.main)` on hover.
+- **Result:** Hover now displays the proper compact info-window tooltip.
+
 ### CRITICAL — Post-Refactor Audit (2026-06-26) — FIXED ✅
 
 - **EVENT UNSUBSCRIPTION IN BUILDSTATE** — ✅ CONFIRMED ALREADY FIXED in refactor. Input callbacks are properly unsubscribed in BuildState.OnExit() (line 138-139).
