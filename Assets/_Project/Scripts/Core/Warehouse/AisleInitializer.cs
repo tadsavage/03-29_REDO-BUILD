@@ -20,7 +20,8 @@ namespace Warehouse
             int aisleNumber,
             AisleSide workerSide,
             List<LevelConfig> levelConfigs,
-            Vector3? corridorCenter = null)
+            Vector3? corridorCenter = null,
+            Vector3? travelDir = null)
         {
             var result = new List<RackLocation>();
             if (sections == null || sections.Count == 0) return result;
@@ -76,11 +77,14 @@ namespace Warehouse
 
                 // Cull interior faces — keep only the labels facing this aisle. With a corridor
                 // centre, "this aisle" = the face pointing toward the walkway centre (so each
-                // corridor lights the two facing rows). Otherwise fall back to the worker side.
-                Vector3 keepDir = corridorCenter.HasValue
-                    ? new Vector3(corridorCenter.Value.x - section.transform.position.x, 0f,
-                                  corridorCenter.Value.z - section.transform.position.z).normalized
-                    : workerSideDir;
+                // Use the travel direction if provided (points INTO the aisle).
+                // Labels should face inward along the travel direction.
+                Vector3 keepDir = travelDir.HasValue
+                    ? travelDir.Value
+                    : (corridorCenter.HasValue
+                        ? new Vector3(corridorCenter.Value.x - section.transform.position.x, 0f,
+                                      corridorCenter.Value.z - section.transform.position.z).normalized
+                        : workerSideDir);
                 CullInteriorLabels(section, keepDir);
 
                 result.Add(new RackLocation

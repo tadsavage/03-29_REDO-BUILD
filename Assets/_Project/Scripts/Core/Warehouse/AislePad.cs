@@ -202,7 +202,7 @@ namespace Warehouse
             if (sections.Count == 0) { UIToast.Show("No racks border this aisle.", 2f); return; }
 
             _modalOpen = true;
-            _ = new AisleInitializationModal(root, sections, OnModalClosed, _corridor.Centerline);
+            _ = new AisleInitializationModal(root, sections, OnModalClosed, _corridor.Centerline, _travelDir);
         }
 
         private void OnModalClosed(bool success)

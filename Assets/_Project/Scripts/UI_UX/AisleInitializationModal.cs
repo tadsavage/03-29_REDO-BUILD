@@ -72,6 +72,7 @@ public class AisleInitializationModal
     private readonly List<RackLabelDisplay> _sections;
     private readonly Action<bool> _onClosed; // true = initialized, false = cancelled
     private readonly Vector3? _corridorCenter; // when opened from a chevron: cull labels toward the walkway
+    private readonly Vector3 _travelDir; // the direction worker travels into the aisle (from chevron)
     private bool _closed;
     private DraggableWindow _drag;           // drag by the blueprint area
 
@@ -81,11 +82,12 @@ public class AisleInitializationModal
     private readonly List<LevelRow> _levelRows = new();
 
     public AisleInitializationModal(VisualElement root, List<RackLabelDisplay> sections, Action<bool> onClosed,
-        Vector3? corridorCenter = null)
+        Vector3? corridorCenter = null, Vector3? travelDir = null)
     {
         _sections = sections;
         _onClosed = onClosed;
         _corridorCenter = corridorCenter;
+        _travelDir = travelDir ?? Vector3.forward;
 
         _overlay = BuildOverlay();
         root.Add(_overlay);
@@ -332,7 +334,7 @@ public class AisleInitializationModal
             configs.Add(new LevelConfig { LevelNumber = r.LevelNumber, Type = type, Designation = designation });
         }
 
-        var locations = AisleInitializer.InitializeAisle(_sections, aisle, _selectedSide, configs, _corridorCenter);
+        var locations = AisleInitializer.InitializeAisle(_sections, aisle, _selectedSide, configs, _corridorCenter, _travelDir);
         WarehouseLocationsRegistry.Instance.AddLocations(locations);
 
         UIToast.Show($"Aisle {aisle:D2} initialized — {locations.Count} locations.", 2f);
