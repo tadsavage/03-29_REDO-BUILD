@@ -58,12 +58,19 @@ namespace Warehouse
             foreach (var c in corridors)
             {
                 Vector3 aToB = (c.EndB - c.EndA); aToB.y = 0f;
-                if (aToB.sqrMagnitude < 0.01f) continue;
+                if (aToB.sqrMagnitude < 0.01f)
+                {
+                    Debug.Log($"[AislePadSpawner] Skipping corridor - EndA and EndB too close");
+                    continue;
+                }
                 Vector3 dir = aToB.normalized;
 
                 // Single pad at end A (dock), pointing into the aisle toward B.
+                Debug.Log($"[AislePadSpawner] Creating pad at EndA={c.EndA} pointing toward EndB={c.EndB}, direction={dir}");
                 _pads.Add(AislePad.Create(c, c.EndA, dir, transform).gameObject);
             }
+
+            Debug.Log($"[AislePadSpawner] Spawned {_pads.Count} pads");
         }
     }
 }
