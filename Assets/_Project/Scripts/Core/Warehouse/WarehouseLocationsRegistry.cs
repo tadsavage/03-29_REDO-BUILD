@@ -15,7 +15,7 @@ namespace Warehouse
             {
                 if (_instance == null)
                 {
-                    _instance = FindFirstObjectByType<WarehouseLocationsRegistry>();
+                    _instance = FindAnyObjectByType<WarehouseLocationsRegistry>();
                     if (_instance == null)
                     {
                         GameObject obj = new GameObject("WarehouseLocationsRegistry");

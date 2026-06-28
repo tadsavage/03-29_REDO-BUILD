@@ -1,315 +1,214 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Warehouse
 {
-    public class AisleInitializer : MonoBehaviour
+    /// <summary>
+    /// Turns a gathered run of rack SECTIONS (each a RackLabelDisplay) into named locations.
+    /// An aisle is many sections: distinct heights = levels (bottom→top), distinct positions along
+    /// the run's dominant horizontal axis = positions (AA, AB, AC…). Each section gets a name
+    /// "AA-PP-L" stamped through its RackLabelDisplay, and a RackLocation record for the registry.
+    /// </summary>
+    public static class AisleInitializer
     {
-        /// <summary>
-        /// Initialize an aisle from placed rack objects
-        /// </summary>
+        private const float MetersToInches = 39.3701f;
+
         public static List<RackLocation> InitializeAisle(
-            List<GameObject> rackLocations,
+            List<RackLabelDisplay> sections,
             int aisleNumber,
             AisleSide workerSide,
-            List<LevelConfig> levelConfigs)
+            List<LevelConfig> levelConfigs,
+            Vector3? corridorCenter = null)
         {
             var result = new List<RackLocation>();
+            if (sections == null || sections.Count == 0) return result;
 
-            // Determine which locations are on which side
-            var (activeSideLocations, inactiveSideLocations) = DivideBySide(rackLocations, workerSide);
+            // ── Levels: distinct heights, ascending (level 1 = lowest) ──
+            var levelKeys = sections
+                .Select(s => Round(s.transform.position.y))
+                .Distinct()
+                .OrderBy(y => y)
+                .ToList();
 
-            // Disable inactive side to reduce overhead
-            DisableSide(inactiveSideLocations);
+            // ── Positions: project onto the run's dominant horizontal axis, distinct, ordered ──
+            bool runAlongX = SpreadAlongX(sections) >= SpreadAlongZ(sections);
+            var posKeys = sections
+                .Select(s => Round(runAlongX ? s.transform.position.x : s.transform.position.z))
+                .Distinct()
+                .OrderBy(v => v)
+                .ToList();
 
-            // Group locations by their Z height (vertical level)
-            var locationsByHeight = GroupLocationsByHeight(activeSideLocations);
+            // ── Which world direction is the worker (aisle) side? Used to cull interior labels. ──
+            Vector3 runDir = runAlongX ? Vector3.right : Vector3.forward;
+            Vector3 rightOfRun = Vector3.Cross(Vector3.up, runDir).normalized;
+            Vector3 workerSideDir = (workerSide == AisleSide.Right) ? rightOfRun : -rightOfRun;
 
-            // Validate and get position codes
-            var positionCodes = AssignPositionCodes(activeSideLocations);
-
-            // Generate location names
-            int levelIndex = 0;
-            foreach (var (height, locs) in locationsByHeight.OrderBy(kvp => kvp.Key))
+            foreach (var section in sections)
             {
-                if (levelIndex >= levelConfigs.Count)
+                float yKey = Round(section.transform.position.y);
+                float pKey = Round(runAlongX ? section.transform.position.x : section.transform.position.z);
+
+                int levelIndex = levelKeys.IndexOf(yKey);                 // 0-based, bottom-up
+                int posIndex = posKeys.IndexOf(pKey);                     // 0-based along the run
+
+                var cfg = (levelIndex >= 0 && levelIndex < levelConfigs.Count) ? levelConfigs[levelIndex] : null;
+                LocationType type = cfg?.Type ?? LocationType.Reserve;
+                string levelDesignation = cfg?.Designation ?? ((char)('A' + levelIndex)).ToString();
+                string positionCode = PositionCode(posIndex);
+
+                string name = $"{aisleNumber:D2}-{positionCode}-{levelDesignation}";
+
+                // Stamp the label through the existing display component (drives all 4 faces).
+                section.labelText = name;
+                section.UpdateDisplay();
+                foreach (var tmp in section.GetComponentsInChildren<TMPro.TextMeshPro>(true))
                 {
-                    Debug.LogWarning("More physical levels than configured levels. Stopping.");
-                    break;
+                    tmp.enabled = true;
+                    // Fit the name on one line of the label cube (was overflowing/wrapping at the
+                    // prefab's size 2). Auto-size shrinks to fit; no-wrap keeps it on one line.
+                    tmp.enableWordWrapping = false;
+                    tmp.enableAutoSizing = true;
+                    tmp.fontSizeMin = 0.4f;
+                    tmp.fontSizeMax = 1.5f;
                 }
 
-                var levelConfig = levelConfigs[levelIndex];
-                string levelDesignation = GetLevelDesignation(levelIndex, levelConfig.Type);
+                // Cull interior faces — keep only the labels facing this aisle. With a corridor
+                // centre, "this aisle" = the face pointing toward the walkway centre (so each
+                // corridor lights the two facing rows). Otherwise fall back to the worker side.
+                Vector3 keepDir = corridorCenter.HasValue
+                    ? new Vector3(corridorCenter.Value.x - section.transform.position.x, 0f,
+                                  corridorCenter.Value.z - section.transform.position.z).normalized
+                    : workerSideDir;
+                CullInteriorLabels(section, keepDir);
 
-                foreach (var loc in locs)
+                result.Add(new RackLocation
                 {
-                    if (!positionCodes.TryGetValue(loc, out string posCode))
-                    {
-                        Debug.LogWarning($"No position code assigned for location at {loc.transform.position}");
-                        continue;
-                    }
-
-                    string locationName = FormatLocationName(aisleNumber, posCode, levelDesignation);
-                    float locHeight = GetLocationHeight(loc);
-
-                    var rackLoc = new RackLocation
-                    {
-                        LocationName = locationName,
-                        AisleNumber = aisleNumber,
-                        PositionCode = posCode,
-                        Level = levelDesignation,
-                        WorldPosition = loc.transform.position,
-                        GridCell = WorldToGridCell(loc.transform.position),
-                        Height = locHeight,
-                        Type = levelConfig.Type,
-                        Status = LocationStatus.Available,
-                        MaxPallets = GetMaxPalletsForType(levelConfig.Type),
-                        CurrentPalletCount = 0
-                    };
-
-                    result.Add(rackLoc);
-
-                    // Update the TextMeshPro label on the location
-                    UpdateLocationLabel(loc, locationName);
-                }
-
-                levelIndex++;
+                    LocationName = name,
+                    AisleNumber = aisleNumber,
+                    PositionCode = positionCode,
+                    Level = levelDesignation,
+                    WorldPosition = section.transform.position,
+                    GridCell = WorldToCell(section.transform.position),
+                    Height = (yKey - levelKeys[0]) * MetersToInches,
+                    Type = type,
+                    Status = LocationStatus.Available,
+                    MaxPallets = type == LocationType.Pick ? 1 : 2,
+                    CurrentPalletCount = 0
+                });
             }
 
+            Debug.Log($"[AisleInitializer] Aisle {aisleNumber:D2}: {levelKeys.Count} levels × {posKeys.Count} positions " +
+                      $"→ {result.Count} locations (run along {(runAlongX ? "X" : "Z")}, worker side {workerSide}).");
             return result;
         }
 
         /// <summary>
-        /// Group rack locations by their physical height (vertical level)
+        /// Detect levels for the modal: one entry per distinct height (bottom→top), with the beam
+        /// height in inches and whether it's out of human reach (&gt; 80" ⇒ Reserve-locked). Beam
+        /// height of a level = the cumulative opening-height of all sections below it (a 48"+48" rack
+        /// gives a reachable level-2 shelf pick at 48", level-3 at 96" = reserve, etc).
         /// </summary>
-        private static Dictionary<float, List<GameObject>> GroupLocationsByHeight(List<GameObject> locations)
+        public static List<LevelInfo> DetectLevels(List<RackLabelDisplay> sections)
         {
-            var grouped = new Dictionary<float, List<GameObject>>();
-
-            foreach (var loc in locations)
-            {
-                float height = Mathf.Round(loc.transform.position.y, 2); // Round to avoid floating point issues
-
-                if (!grouped.ContainsKey(height))
-                {
-                    grouped[height] = new List<GameObject>();
-                }
-                grouped[height].Add(loc);
-            }
-
-            return grouped;
-        }
-
-        /// <summary>
-        /// Assign position codes (AA, AB, AC, AD, AE, AF, AG, AH, etc.) based on grid layout
-        /// Uses left-to-right, front-to-back assignment
-        /// </summary>
-        private static Dictionary<GameObject, string> AssignPositionCodes(List<GameObject> locations)
-        {
-            var result = new Dictionary<GameObject, string>();
-
-            // Get unique X positions (left-right), sort left to right
-            var uniqueX = locations.Select(l => Mathf.Round(l.transform.position.x, 2))
-                .Distinct()
-                .OrderBy(x => x)
+            var byLevel = sections
+                .GroupBy(s => Round(s.transform.position.y))
+                .OrderBy(g => g.Key)
                 .ToList();
 
-            // Get unique Z positions (front-back), sort front to back
-            var uniqueZ = locations.Select(l => Mathf.Round(l.transform.position.z, 2))
-                .Distinct()
-                .OrderBy(z => z)
-                .ToList();
-
-            // Assign position codes sequentially
-            // Format: AA, AB, AC, AD, AE, AF, AG, AH, ... BA, BB, BC, etc.
-            int positionIndex = 0;
-            string currentPrefix = "A";
-            int prefixCounter = 0;
-
-            foreach (var z in uniqueZ)
+            var levels = new List<LevelInfo>();
+            float cumulativeInches = 0f;
+            int n = 1;
+            foreach (var g in byLevel)
             {
-                foreach (var x in uniqueX)
+                int sectionInches = ParseSectionInches(g.First().gameObject);
+                levels.Add(new LevelInfo
                 {
-                    var matchingLoc = locations.FirstOrDefault(l =>
-                        Mathf.Abs(l.transform.position.x - x) < 0.1f &&
-                        Mathf.Abs(l.transform.position.z - z) < 0.1f);
-
-                    if (matchingLoc != null)
-                    {
-                        // Generate position code (AA, AB, AC, etc.)
-                        char prefix = (char)('A' + prefixCounter);
-                        char suffix = (char)('A' + positionIndex);
-                        string posCode = $"{prefix}{suffix}";
-
-                        result[matchingLoc] = posCode;
-
-                        positionIndex++;
-                        if (positionIndex >= 26) // Reset after Z
-                        {
-                            positionIndex = 0;
-                            prefixCounter++;
-                        }
-                    }
-                }
+                    LevelNumber = n++,
+                    BeamHeightInches = cumulativeInches,        // floor this level sits at = where you reach
+                    Locked = cumulativeInches > 80f
+                });
+                cumulativeInches += sectionInches;
             }
-
-            return result;
+            return levels;
         }
 
         /// <summary>
-        /// Get the level designation (numeric for pick, alpha for reserve)
+        /// Disable the label faces (cube + TMP GameObject) that point AWAY from the worker aisle,
+        /// leaving only the outside/aisle-facing labels enabled. A label's outward direction is its
+        /// horizontal offset from the section centre; faces whose outward direction agrees with the
+        /// worker-side direction are kept, the rest are turned off.
         /// </summary>
-        private static string GetLevelDesignation(int levelIndex, LocationType type)
+        private static void CullInteriorLabels(RackLabelDisplay section, Vector3 keepDir)
         {
-            if (type == LocationType.Pick)
+            Vector3 center = section.transform.position;
+            foreach (var tmp in section.GetComponentsInChildren<TMPro.TextMeshPro>(true))
             {
-                return (levelIndex + 1).ToString(); // "1", "2", "3", etc.
-            }
-            else // Reserve
-            {
-                return ((char)('A' + levelIndex)).ToString(); // "A", "B", "C", etc.
+                // The face direction comes from the TMP's own world position (it carries the
+                // ±front/rear offset), but we toggle the whole label CONTAINER — the cube parent
+                // that holds both the white backing and the text — so both turn off together.
+                Vector3 outward = tmp.transform.position - center;
+                outward.y = 0f;
+
+                var face = tmp.gameObject;
+                var parent = tmp.transform.parent;
+                if (parent != null && parent != section.transform) face = parent.gameObject;
+
+                if (outward.sqrMagnitude < 0.0001f) { face.SetActive(true); continue; } // centred, keep
+                bool facesAisle = Vector3.Dot(outward.normalized, keepDir) > 0f;
+                face.SetActive(facesAisle);
             }
         }
 
-        /// <summary>
-        /// Format the full location name
-        /// </summary>
-        private static string FormatLocationName(int aisleNumber, string posCode, string level)
+        // ── Helpers ──────────────────────────────────────────────────────────────
+        private static float Round(float v) => Mathf.Round(v * 100f) / 100f;
+
+        private static float SpreadAlongX(List<RackLabelDisplay> s) =>
+            s.Max(r => r.transform.position.x) - s.Min(r => r.transform.position.x);
+
+        private static float SpreadAlongZ(List<RackLabelDisplay> s) =>
+            s.Max(r => r.transform.position.z) - s.Min(r => r.transform.position.z);
+
+        private static string PositionCode(int index)
         {
-            return $"{aisleNumber:D2}-{posCode}-{level}";
+            char prefix = (char)('A' + (index / 26));
+            char suffix = (char)('A' + (index % 26));
+            return $"{prefix}{suffix}";
         }
 
-        /// <summary>
-        /// Get the physical height of a location (in inches, for validation)
-        /// </summary>
-        private static float GetLocationHeight(GameObject location)
+        private static int ParseSectionInches(GameObject go)
         {
-            // Get the Y scale or mesh bounds to determine height
-            // For now, using a placeholder; adjust based on your rack structure
-            var collider = location.GetComponent<Collider>();
-            if (collider != null)
-            {
-                return collider.bounds.size.y * 39.37f; // Convert meters to inches
-            }
-
-            return location.transform.localScale.y * 39.37f;
+            var m = Regex.Match(go.name, @"(\d{2,3})"); // e.g. "Rack-FullOrange48(Clone)" → 48
+            return m.Success ? int.Parse(m.Value) : 48;
         }
 
-        /// <summary>
-        /// Convert world position to grid cell
-        /// </summary>
-        private static Vector3Int WorldToGridCell(Vector3 worldPos)
+        private static Vector3Int WorldToCell(Vector3 worldPos)
         {
-            // Placeholder; adjust based on your grid system
             const float cellSize = 1.33f;
             return new Vector3Int(
                 Mathf.RoundToInt(worldPos.x / cellSize),
                 Mathf.RoundToInt(worldPos.y / cellSize),
-                Mathf.RoundToInt(worldPos.z / cellSize)
-            );
-        }
-
-        /// <summary>
-        /// Get max pallets for a location type
-        /// </summary>
-        private static int GetMaxPalletsForType(LocationType type)
-        {
-            return type == LocationType.Pick ? 1 : 2; // Picks: 1 pallet, Reserves: 2 pallets (can stack)
-        }
-
-        /// <summary>
-        /// Update the TextMeshPro label on the location with its name
-        /// </summary>
-        private static void UpdateLocationLabel(GameObject location, string locationName)
-        {
-            // Find TextMeshPro child element
-            var textMesh = location.GetComponentInChildren<TMPro.TextMeshPro>();
-            if (textMesh != null)
-            {
-                textMesh.text = locationName;
-            }
-            else
-            {
-                Debug.LogWarning($"No TextMeshPro found on location at {location.transform.position}");
-            }
-        }
-
-        /// <summary>
-        /// Divide locations into active side and inactive side based on worker side
-        /// </summary>
-        private static (List<GameObject> activeSide, List<GameObject> inactiveSide) DivideBySide(
-            List<GameObject> rackLocations,
-            AisleSide workerSide)
-        {
-            // Find the X midpoint
-            var xPositions = rackLocations.Select(l => l.transform.position.x).OrderBy(x => x).ToList();
-            float midX = (xPositions.First() + xPositions.Last()) / 2f;
-
-            var activeSide = new List<GameObject>();
-            var inactiveSide = new List<GameObject>();
-
-            foreach (var loc in rackLocations)
-            {
-                bool isLeftSide = loc.transform.position.x < midX;
-                bool isActive = (workerSide == AisleSide.Left && isLeftSide) ||
-                               (workerSide == AisleSide.Right && !isLeftSide);
-
-                if (isActive)
-                    activeSide.Add(loc);
-                else
-                    inactiveSide.Add(loc);
-            }
-
-            return (activeSide, inactiveSide);
-        }
-
-        /// <summary>
-        /// Disable all renderers, colliders, and TextMeshPro on inactive side
-        /// </summary>
-        private static void DisableSide(List<GameObject> locations)
-        {
-            foreach (var loc in locations)
-            {
-                // Disable renderer
-                var renderer = loc.GetComponent<Renderer>();
-                if (renderer != null)
-                    renderer.enabled = false;
-
-                // Disable collider
-                var collider = loc.GetComponent<Collider>();
-                if (collider != null)
-                    collider.enabled = false;
-
-                // Disable TextMeshPro
-                var textMesh = loc.GetComponentInChildren<TMPro.TextMeshPro>();
-                if (textMesh != null)
-                    textMesh.enabled = false;
-
-                // Disable the GameObject itself to reduce overhead
-                loc.SetActive(false);
-
-                Debug.Log($"Disabled inactive location at {loc.transform.position}");
-            }
+                Mathf.RoundToInt(worldPos.z / cellSize));
         }
     }
 
-    /// <summary>
-    /// Level configuration during aisle initialization
-    /// </summary>
+    /// <summary>One vertical level, as surfaced to the modal.</summary>
+    public class LevelInfo
+    {
+        public int LevelNumber;        // 1 = bottom
+        public float BeamHeightInches;
+        public bool Locked;            // > 80" ⇒ Reserve only
+    }
+
+    /// <summary>Per-level choice coming back from the modal.</summary>
     [System.Serializable]
     public class LevelConfig
     {
         public int LevelNumber;
-        public LocationType Type; // Pick or Reserve
+        public LocationType Type;       // Pick or Reserve
+        public string Designation;      // "1","2" (pick) or "A","B" (reserve) — filled by the modal
     }
 
-    /// <summary>
-    /// Which side workers enter/exit from
-    /// </summary>
-    public enum AisleSide
-    {
-        Left,
-        Right
-    }
+    public enum AisleSide { Left, Right }
 }

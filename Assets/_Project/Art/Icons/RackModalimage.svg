@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 900 1150" width="900" height="1150">
+  <!-- Definition of reusable elements to mimic the original blueprint style -->
+  <defs>
+    <!-- Glowing orange stroke style -->
+    <style>
+      .grid-line { stroke: rgba(235, 130, 40, 0.15); stroke-width: 0.5; }
+      .grid-major { stroke: rgba(235, 130, 40, 0.3); stroke-width: 1; }
+      .rack-line { stroke: #ff9130; stroke-width: 1.5; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+      .rack-accent { stroke: #cc6611; stroke-width: 1; fill: none; }
+      .dim-line { stroke: #ffaa55; stroke-width: 1; fill: none; }
+      .txt-main { fill: #ffaa55; font-family: 'Courier New', Courier, monospace; font-size: 11px; font-weight: bold; }
+      .txt-lbl { fill: #ff9130; font-family: Arial, sans-serif; font-size: 10px; text-anchor: middle; }
+      .lbl-bg { fill: rgba(20, 15, 10, 0.85); stroke: #ff9130; stroke-width: 0.7; }
+    </style>
+
+    <!-- Isometric transformation matrices for different planes -->
+    <!-- Isometric Projection Matrix roughly: cos(30), sin(30), -cos(30), sin(30) -->
+    
+    <!-- Reusable Label Box -->
+    <g id="label-box">
+      <rect x="-24" y="-7" width="48" height="14" rx="2" class="lbl-bg"/>
+    </g>
+    
+    <!-- Reusable Upright Frame Truss Section (Vertical Side) -->
+    <g id="frame-truss">
+      <!-- Left post line, Right post line, and internal diagonal bracing -->
+      <line x1="0" y1="0" x2="0" y2="1000" class="rack-line" />
+      <line x1="50" y1="28" x2="50" y2="1028" class="rack-line" />
+      <!-- Bracing -->
+      <path d="M0,0 L50,150 L0,300 L50,450 L0,600 L50,750 L0,900 L50,1000" class="rack-accent" />
+    </g>
+
+    <!-- Reusable Shelf Bed (Horizontal Support Structure) -->
+    <g id="shelf-bed">
+      <!-- Front Beam -->
+      <line x1="0" y1="0" x2="180" y2="-104" class="rack-line" />
+      <!-- Rear Beam -->
+      <line x1="0" y1="-40" x2="180" y2="-144" class="rack-line" />
+      <!-- Cross Support Ties -->
+      <line x1="30" y1="-17" x2="30" y2="-57" class="rack-accent" />
+      <line x1="60" y1="-34" x2="60" y2="-74" class="rack-accent" />
+      <line x1="90" y1="-52" x2="90" y2="-92" class="rack-accent" />
+      <line x1="120" y1="-69" x2="120" y2="-109" class="rack-accent" />
+      <line x1="150" y1="-86" x2="150" y2="-126" class="rack-accent" />
+    </g>
+  </defs>
+
+  <!-- BACKGROUND: Fully transparent. No rect element fill, allowing underlying UI to show through -->
+
+  <!-- TECHNICAL BLUEPRINT GRAPH GRID -->
+  <g id="blueprint-grid">
+    <!-- Vertical Grid Lines -->
+    <path d="M 25,0 L 25,1100 M 75,0 L 75,1100 M 125,0 L 125,1100 M 175,0 L 175,1100 M 225,0 L 225,1100 M 275,0 L 275,1100 M 325,0 L 325,1100 M 375,0 L 375,1100 M 425,0 L 425,1100 M 475,0 L 475,1100 M 525,0 L 525,1100 M 575,0 L 575,1100 M 625,0 L 625,1100 M 675,0 L 675,1100 M 725,0 L 725,1100 M 775,0 L 775,1100 M 825,0 L 825,1100 M 875,0 L 875,1100" class="grid-line" />
+    <path d="M 100,0 L 100,1100 M 200,0 L 200,1100 M 300,0 L 300,1100 M 400,0 L 400,1100 M 500,0 L 500,1100 M 600,0 L 600,1100 M 700,0 L 700,1100 M 800,0 L 800,1100" class="grid-major" />
+    
+    <!-- Horizontal Grid Lines -->
+    <path d="M 0,25 L 900,25 M 0,75 L 900,75 M 0,125 L 900,125 M 0,175 L 900,175 M 0,225 L 900,225 M 0,275 L 900,275 M 0,325 L 900,325 M 0,375 L 900,375 M 0,425 L 900,425 M 0,475 L 900,475 M 0,525 L 900,525 M 0,575 L 900,575 M 0,625 L 900,625 M 0,675 L 900,675 M 0,725 L 900,725 M 0,775 L 900,775 M 0,825 L 900,825 M 0,875 L 900,875 M 0,925 L 900,925 M 0,975 L 900,975 M 0,1025 L 900,1025 M 0,1075 L 900,1075" class="grid-line" />
+    <path d="M 0,100 L 900,100 M 0,200 L 900,200 M 0,300 L 900,300 M 0,400 L 900,400 M 0,500 L 900,500 M 0,600 L 900,600 M 0,700 L 900,700 M 0,800 L 900,800 M 0,900 L 900,900 M 0,1000 L 900,1000 M 0,1100 L 900,1100" class="grid-major" />
+  </g>
+
+  <!-- ISOMETRIC PALLET RACKING STRUCTURE -->
+  <!-- Base point transformation setup to keep layout aligned cleanly -->
+  <g id="structural-assembly" transform="translate(180, 100)">
+    
+    <!-- BACK ROW RACKING SECTION -->
+    <g id="back-row" transform="translate(480, 240)">
+      <!-- Vertical Uprights Frames (Back Row) -->
+      <use href="#frame-truss" x="0" y="0" transform="skewY(30)" />
+      <use href="#frame-truss" x="180" y="-104" transform="skewY(30)" />
+      <use href="#frame-truss" x="360" y="-208" transform="skewY(30)" />
+      
+      <!-- Levels / Shelves for Back Row (Bottom to Top) -->
+      <!-- Level 1 -->
+      <use href="#shelf-bed" x="0" y="550" transform="skewY(30)" />
+      <use href="#shelf-bed" x="180" y="446" transform="skewY(30)" />
+      <!-- Level 2 -->
+      <use href="#shelf-bed" x="0" y="350" transform="skewY(30)" />
+      <use href="#shelf-bed" x="180" y="246" transform="skewY(30)" />
+      <!-- Level 3 -->
+      <use href="#shelf-bed" x="0" y="150" transform="skewY(30)" />
+      <use href="#shelf-bed" x="180" y="046" transform="skewY(30)" />
+    </g>
+
+    <!-- FRONT ROW RACKING SECTION -->
+    <g id="front-row" transform="translate(100, 460)">
+      <!-- Vertical Uprights Frames (Front Row) -->
+      <g id="upright-1"><use href="#frame-truss" x="0" y="0" transform="skewY(30)" /></g>
+      <g id="upright-2"><use href="#frame-truss" x="180" y="-104" transform="skewY(30)" /></g>
+      <g id="upright-3"><use href="#frame-truss" x="360" y="-208" transform="skewY(30)" /></g>
+      <g id="upright-4"><use href="#frame-truss" x="540" y="-312" transform="skewY(30)" /></g>
+
+      <!-- Horizontal Shelf Beams & Cross Ties (Front Row) -->
+      <!-- Shelf Level 1 (Lowest) -->
+      <use href="#shelf-bed" x="0" y="700" transform="skewY(30)" />
+      <use href="#shelf-bed" x="180" y="596" transform="skewY(30)" />
+      <use href="#shelf-bed" x="360" y="492" transform="skewY(30)" />
+
+      <!-- Shelf Level 2 (Middle Lower) -->
+      <use href="#shelf-bed" x="0" y="500" transform="skewY(30)" />
+      <use href="#shelf-bed" x="180" y="396" transform="skewY(30)" />
+      <use href="#shelf-bed" x="360" y="292" transform="skewY(30)" />
+
+      <!-- Shelf Level 3 (Middle Upper) -->
+      <use href="#shelf-bed" x="0" y="300" transform="skewY(30)" />
+      <use href="#shelf-bed" x="180" y="196" transform="skewY(30)" />
+      <use href="#shelf-bed" x="360" y="092" transform="skewY(30)" />
+
+      <!-- Shelf Level 4 (Top Level) -->
+      <use href="#shelf-bed" x="0" y="100" transform="skewY(30)" />
+      <use href="#shelf-bed" x="180" y="-004" transform="skewY(30)" />
+      <use href="#shelf-bed" x="360" y="-108" transform="skewY(30)" />
+
+      <!-- DATA LABELS (SCHEMATIC LOCATIONS) -->
+      <!-- Placed symmetrically along the front beams of each level -->
+      <!-- Top Level Labels -->
+      <g transform="translate(90, 50)"><use href="#label-box"/><text class="txt-lbl" y="3">A-01-01</text></g>
+      <g transform="translate(270, -54)"><use href="#label-box"/><text class="txt-lbl" y="3">A-01-02</text></g>
+      <g transform="translate(450, -158)"><use href="#label-box"/><text class="txt-lbl" y="3">A-01-03</text></g>
+
+      <!-- Level 3 Labels -->
+      <g transform="translate(90, 250)"><use href="#label-box"/><text class="txt-lbl" y="3">A-02-01</text></g>
+      <g transform="translate(270, 146)"><use href="#label-box"/><text class="txt-lbl" y="3">A-02-02</text></g>
+      <g transform="translate(450, 042)"><use href="#label-box"/><text class="txt-lbl" y="3">A-02-03</text></g>
+
+      <!-- Level 2 Labels -->
+      <g transform="translate(90, 450)"><use href="#label-box"/><text class="txt-lbl" y="3">A-03-01</text></g>
+      <g transform="translate(270, 346)"><use href="#label-box"/><text class="txt-lbl" y="3">A-03-02</text></g>
+      <g transform="translate(450, 242)"><use href="#label-box"/><text class="txt-lbl" y="3">A-03-03</text></g>
+
+      <!-- Level 1 Labels -->
+      <g transform="translate(90, 650)"><use href="#label-box"/><text class="txt-lbl" y="3">A-04-01</text></g>
+      <g transform="translate(270, 546)"><use href="#label-box"/><text class="txt-lbl" y="3">A-04-02</text></g>
+      <g transform="translate(450, 442)"><use href="#label-box"/><text class="txt-lbl" y="3">A-04-03</text></g>
+    </g>
+
+    <!-- SPACER TIES BETWEEN ROWS -->
+    <g id="row-spacers" transform="translate(100, 460)">
+      <line x1="50" y1="30" x2="480" y2="-190" class="rack-accent" />
+      <line x1="230" y1="-74" x2="660" y2="-294" class="rack-accent" />
+      <line x1="410" y1="-178" x2="840" y2="-398" class="rack-accent" />
+    </g>
+  </g>
+
+  <!-- DIMENSIONS AND ANNOTATIONS -->
+  <g id="projections-and-dimensions">
+    <!-- Frame Height Dimension (Left Side) -->
+    <line x1="200" y1="480" x2="200" y2="920" class="dim-line" />
+    <path d="M 195,480 L 205,480 M 195,920 L 205,920" class="dim-line" />
+    <text transform="translate(185, 730) rotate(-90)" class="txt-main" text-anchor="middle">3000mm FRAME HEIGHT</text>
+
+    <!-- Bay Depth Dimension (Bottom Left) -->
+    <line x1="230" y1="970" x2="275" y2="996" class="dim-line" />
+    <path d="M 232,965 L 226,973 M 278,991 L 272,1000" class="dim-line" />
+    <text transform="translate(210, 1000)" class="txt-main">1000mm<tspan x="0" dy="14">BAY DEPTH</tspan></text>
+
+    <!-- Beam Span Dimension (Bottom Center) -->
+    <line x1="320" y1="1010" x2="480" y2="918" class="dim-line" />
+    <path d="M 316,1005 L 324,1015 M 476,913 L 484,923" class="dim-line" />
+    <text transform="translate(410, 985) rotate(-30)" class="txt-main" text-anchor="middle">1200mm BEAM SPAN</text>
+  </g>
+
+  <!-- BLUEPRINT TECHNICAL DATA BLOCK (BOTTOM RIGHT) -->
+  <g id="title-block" transform="translate(560, 960)">
+    <!-- Outer Border Box -->
+    <rect x="0" y="0" width="310" height="110" fill="none" stroke="#ff9130" stroke-width="1.5" />
+    
+    <!-- Dividing Grid Lines -->
+    <line x1="0" y1="45" x2="310" y2="45" stroke="#ff9130" stroke-width="1" />
+    <line x1="0" y1="75" x2="310" y2="75" stroke="#ff9130" stroke-width="1" />
+    <line x1="155" y1="45" x2="155" y2="110" stroke="#ff9130" stroke-width="1" />
+
+    <!-- Title-block text -->
+    <text x="160" y="30" fill="#ff9130" font-family="Arial, sans-serif" font-size="14" font-weight="bold">PALLET RACKING</text>
+    <text x="160" y="44" fill="#ff9130" font-family="Arial, sans-serif" font-size="14" font-weight="bold">SCHEMATIC</text>
+    <text x="6" y="62" fill="#ff9130" font-family="Arial, sans-serif" font-size="9">SCALE: NTS</text>
+    <text x="160" y="62" fill="#ff9130" font-family="Arial, sans-serif" font-size="9">DATE: [Current Date]</text>
+    <text x="6" y="92" fill="#ff9130" font-family="Arial, sans-serif" font-size="9">DATE:</text>
+    <text x="160" y="92" fill="#ff9130" font-family="Arial, sans-serif" font-size="9">DRAWN BY:</text>
+  </g>
+</svg>

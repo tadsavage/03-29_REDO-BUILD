@@ -811,6 +811,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 68a055a894873464db9f07d38a458bb9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3285586067217182336}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 68a055a894873464db9f07d38a458bb9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1631914095309897615}
   m_SourcePrefab: {fileID: 100100000, guid: 68a055a894873464db9f07d38a458bb9, type: 3}
 --- !u!4 &637866141485232201 stripped
 Transform:
@@ -917,6 +920,19 @@ MonoBehaviour:
   - {fileID: 1809165329143034417}
   - {fileID: 4353188198484200267}
   lowDetailVisual: {fileID: 0}
+--- !u!114 &1631914095309897615
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5775947584798496265}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eba3c4696952143489cd0167030ddea3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Warehouse.GhostRack
+  _doubleClickTimeWindow: 0.3
 --- !u!4 &8054883120651986937 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -5538985617230279519, guid: 68a055a894873464db9f07d38a458bb9, type: 3}
