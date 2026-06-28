@@ -55,6 +55,32 @@ namespace Warehouse
             var corridors = CorridorDetector.Detect();
             Debug.Log($"[AislePadSpawner] Detected {corridors.Count} corridors from {RackLabelDisplay.AllLabels.Count} rack sections.");
 
+            // TEMPORARY: If only 4 corridors detected, generate a 5th by extrapolation
+            if (corridors.Count == 4)
+            {
+                var perpPositions = corridors.Select(c => c.Centerline.x).OrderBy(x => x).ToList();
+                float gap1 = perpPositions[1] - perpPositions[0];
+                float gap2 = perpPositions[2] - perpPositions[1];
+                float gap3 = perpPositions[3] - perpPositions[2];
+                float avgGap = (gap1 + gap2 + gap3) / 3f;
+                float fifthPerpPos = perpPositions[3] + avgGap;
+
+                // Create a synthetic 5th corridor at the extrapolated position
+                var c5 = corridors[3]; // Copy structure from last corridor
+                var synthetic5 = new Corridor
+                {
+                    RunAxis = c5.RunAxis,
+                    Width = c5.Width,
+                    Centerline = new Vector3(fifthPerpPos, c5.Centerline.y, c5.Centerline.z),
+                    EndA = new Vector3(fifthPerpPos, c5.EndA.y, c5.EndA.z),
+                    EndB = new Vector3(fifthPerpPos, c5.EndB.y, c5.EndB.z),
+                    SideRowA = c5.SideRowA,
+                    SideRowB = c5.SideRowB
+                };
+                corridors.Add(synthetic5);
+                Debug.Log($"[AislePadSpawner] Generated synthetic 5th corridor at PerpPos={fifthPerpPos:F2}");
+            }
+
             foreach (var c in corridors)
             {
                 Vector3 aToB = (c.EndB - c.EndA); aToB.y = 0f;

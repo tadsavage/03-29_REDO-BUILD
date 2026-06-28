@@ -20,6 +20,7 @@ public class RackLabelDisplay : MonoBehaviour
     private void OnEnable()
     {
         if (!_allLabels.Contains(this)) _allLabels.Add(this);
+        Debug.Log($"[RackLabelDisplay] Loaded at position {transform.position}, Perp(Z)={transform.position.z:F2}");
         UpdateDisplay();
     }
 
