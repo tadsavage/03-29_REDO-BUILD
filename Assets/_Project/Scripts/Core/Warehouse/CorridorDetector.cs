@@ -23,7 +23,6 @@ namespace Warehouse
             var all = RackLabelDisplay.AllLabels.Where(l => l != null).ToList();
             if (all.Count < 1) return new List<Corridor>();
 
-            Debug.Log($"[CorridorDetector] Starting detection with {all.Count} rack sections");
 
             // Dominant horizontal axis = the one with the larger spread → rows run along it.
             float spreadX = all.Max(l => l.transform.position.x) - all.Min(l => l.transform.position.x);
@@ -31,7 +30,6 @@ namespace Warehouse
             bool runAlongX = spreadX >= spreadZ;
             Vector3 runAxis = runAlongX ? Vector3.right : Vector3.forward;
 
-            Debug.Log($"[CorridorDetector] SpreadX={spreadX:F2}, SpreadZ={spreadZ:F2} → rows run along {(runAlongX ? "X" : "Z")}");
 
             float Perp(RackLabelDisplay l) => runAlongX ? l.transform.position.z : l.transform.position.x;
             float Along(RackLabelDisplay l) => runAlongX ? l.transform.position.x : l.transform.position.z;
@@ -39,7 +37,6 @@ namespace Warehouse
             // Bin sections into rows by their perpendicular coordinate.
             var rows = new List<Row>();
             var perpPositions = all.Select(Perp).Distinct().OrderBy(x => x).ToList();
-            Debug.Log($"[CorridorDetector] Distinct Perp positions found: {string.Join(", ", perpPositions.Select(p => p.ToString("F2")))}");
 
             foreach (var s in all.OrderBy(Perp))
             {
@@ -51,22 +48,15 @@ namespace Warehouse
             }
             rows = rows.OrderBy(r => r.Perp).ToList();
 
-            Debug.Log($"[CorridorDetector] Binned into {rows.Count} rows (RowBinSize={RowBinSize}):");
-            for (int i = 0; i < rows.Count; i++)
-            {
-                Debug.Log($"  Row {i}: Perp={rows[i].Perp:F2}, Sections={rows[i].Sections.Count}");
-            }
 
             float groundY = all.Min(l => l.transform.position.y);
             var corridors = new List<Corridor>();
 
             // Between-row corridors.
-            Debug.Log($"[CorridorDetector] Checking gaps between rows (MinWalkway={MinWalkway}, MaxWalkway={MaxWalkway}):");
             for (int i = 0; i < rows.Count - 1; i++)
             {
                 float gap = rows[i + 1].Perp - rows[i].Perp;
                 bool passes = gap >= MinWalkway && gap <= MaxWalkway;
-                Debug.Log($"  Gap between Row {i} (Perp={rows[i].Perp:F2}) and Row {i+1} (Perp={rows[i+1].Perp:F2}): {gap:F2}m → {(passes ? "ACCEPTED" : "REJECTED")}");
                 if (!passes) continue;
                 corridors.Add(MakeCorridor(rows[i], rows[i + 1], runAlongX, runAxis, groundY, Along));
             }
@@ -74,12 +64,10 @@ namespace Warehouse
             // One-sided end aisles (outside the first and last row).
             if (rows.Count > 0)
             {
-                Debug.Log($"[CorridorDetector] Adding end aisles...");
                 corridors.Add(MakeEndCorridor(rows.First(), -1, runAlongX, runAxis, groundY, Along));
                 corridors.Add(MakeEndCorridor(rows.Last(), +1, runAlongX, runAxis, groundY, Along));
             }
 
-            Debug.Log($"[CorridorDetector] Total corridors detected: {corridors.Count}");
             return corridors;
         }
 

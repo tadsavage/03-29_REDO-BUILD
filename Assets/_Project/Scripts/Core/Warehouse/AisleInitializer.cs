@@ -18,10 +18,10 @@ namespace Warehouse
         public static List<RackLocation> InitializeAisle(
             List<RackLabelDisplay> sections,
             int aisleNumber,
-            AisleSide workerSide,
             List<LevelConfig> levelConfigs,
             Vector3? corridorCenter = null,
-            Vector3? travelDir = null)
+            Vector3? travelDir = null,
+            Vector2? chevronPos2D = null)
         {
             var result = new List<RackLocation>();
             if (sections == null || sections.Count == 0) return result;
@@ -41,10 +41,8 @@ namespace Warehouse
                 .OrderBy(v => v)
                 .ToList();
 
-            // ── Which world direction is the worker (aisle) side? Used to cull interior labels. ──
-            Vector3 runDir = runAlongX ? Vector3.right : Vector3.forward;
-            Vector3 rightOfRun = Vector3.Cross(Vector3.up, runDir).normalized;
-            Vector3 workerSideDir = (workerSide == AisleSide.Right) ? rightOfRun : -rightOfRun;
+            // ── World run direction (not used anymore since travelDir is always provided) ──
+            // Left for reference: runDir is the direction along the aisle run (X or Z axis)
 
             foreach (var section in sections)
             {
@@ -66,26 +64,17 @@ namespace Warehouse
                 section.UpdateDisplay();
                 foreach (var tmp in section.GetComponentsInChildren<TMPro.TextMeshPro>(true))
                 {
-                    tmp.enabled = true;
-                    // Fit the name on one line of the label cube (was overflowing/wrapping at the
-                    // prefab's size 2). Auto-size shrinks to fit; no-wrap keeps it on one line.
-                    tmp.enableWordWrapping = false;
-                    tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 0.4f;
-                    tmp.fontSizeMax = 1.5f;
+                    if (tmp != null)
+                    {
+                        tmp.enableAutoSizing = true;
+                        tmp.fontSizeMin = 0.4f;
+                        tmp.fontSizeMax = 1.5f;
+                    }
                 }
 
-                // Cull interior faces — keep only the labels facing this aisle. With a corridor
-                // centre, "this aisle" = the face pointing toward the walkway centre (so each
-                // Use the travel direction if provided (points INTO the aisle).
-                // Labels should face inward along the travel direction.
-                Vector3 keepDir = travelDir.HasValue
-                    ? travelDir.Value
-                    : (corridorCenter.HasValue
-                        ? new Vector3(corridorCenter.Value.x - section.transform.position.x, 0f,
-                                      corridorCenter.Value.z - section.transform.position.z).normalized
-                        : workerSideDir);
-                CullInteriorLabels(section, keepDir);
+                // Enable labels based on which ones face the chevron (distance comparison)
+                if (chevronPos2D.HasValue)
+                    EnableLabelsBasedOnDistance(section, chevronPos2D.Value);
 
                 result.Add(new RackLocation
                 {
@@ -104,7 +93,7 @@ namespace Warehouse
             }
 
             Debug.Log($"[AisleInitializer] Aisle {aisleNumber:D2}: {levelKeys.Count} levels × {posKeys.Count} positions " +
-                      $"→ {result.Count} locations (run along {(runAlongX ? "X" : "Z")}, worker side {workerSide}).");
+                      $"→ {result.Count} locations (run along {(runAlongX ? "X" : "Z")}).");
             return result;
         }
 
@@ -139,29 +128,61 @@ namespace Warehouse
         }
 
         /// <summary>
-        /// Disable the label faces (cube + TMP GameObject) that point AWAY from the worker aisle,
-        /// leaving only the outside/aisle-facing labels enabled. A label's outward direction is its
-        /// horizontal offset from the section centre; faces whose outward direction agrees with the
-        /// worker-side direction are kept, the rest are turned off.
+        /// Enable the two labels on whichever side (front OR rear) is closest to the chevron, and
+        /// disable the opposite side — never a mix of front/rear. Only one side of a rack ever shows.
+        /// The enabled side's TextMeshPro elements are turned on so they render the stamped name.
+        /// Skips racks already made live (IsRackLive flag prevents re-processing).
         /// </summary>
-        private static void CullInteriorLabels(RackLabelDisplay section, Vector3 keepDir)
+        private static void EnableLabelsBasedOnDistance(RackLabelDisplay section, Vector2 chevronPos2D)
         {
-            Vector3 center = section.transform.position;
-            foreach (var tmp in section.GetComponentsInChildren<TMPro.TextMeshPro>(true))
+            // Hands-off: already-live racks are owned by this system and must not be re-toggled.
+            if (section.IsRackLive) return;
+
+            var rackTransform = section.transform;
+
+            // Label container children. NOTE: the prefab names these with DOTS, not underscores.
+            Transform frontL = rackTransform.Find("LabelFront.L");
+            Transform frontR = rackTransform.Find("LabelFront.R");
+            Transform rearL  = rackTransform.Find("LabelRear.L");
+            Transform rearR  = rackTransform.Find("LabelRear.R");
+
+            if (frontL == null || rearL == null)
             {
-                // The face direction comes from the TMP's own world position (it carries the
-                // ±front/rear offset), but we toggle the whole label CONTAINER — the cube parent
-                // that holds both the white backing and the text — so both turn off together.
-                Vector3 outward = tmp.transform.position - center;
-                outward.y = 0f;
+                Debug.LogWarning($"[AisleInitializer] '{section.name}' is missing label children " +
+                                 "(expected LabelFront.L / LabelRear.L). Cannot enable labels.");
+                return;
+            }
 
-                var face = tmp.gameObject;
-                var parent = tmp.transform.parent;
-                if (parent != null && parent != section.transform) face = parent.gameObject;
+            // Which side faces the chevron? Compare flat (X,Z) distance of the left label on each side.
+            float frontDist = Vector2.Distance(new Vector2(frontL.position.x, frontL.position.z), chevronPos2D);
+            float rearDist  = Vector2.Distance(new Vector2(rearL.position.x, rearL.position.z), chevronPos2D);
+            bool enableFront = frontDist < rearDist;
 
-                if (outward.sqrMagnitude < 0.0001f) { face.SetActive(true); continue; } // centred, keep
-                bool facesAisle = Vector3.Dot(outward.normalized, keepDir) > 0f;
-                face.SetActive(facesAisle);
+            // Enable both labels on the facing side; disable both on the far side (no mixing).
+            SetLabelSide(frontL, enableFront);
+            SetLabelSide(frontR, enableFront);
+            SetLabelSide(rearL, !enableFront);
+            SetLabelSide(rearR, !enableFront);
+
+            // Mark this rack live so nothing (including this code) re-processes it by accident.
+            section.IsRackLive = true;
+        }
+
+        /// <summary>
+        /// Activate/deactivate a single label container. When enabling, also make sure the child
+        /// TextMeshPro element is active and enabled so it actually renders the stamped name.
+        /// </summary>
+        private static void SetLabelSide(Transform container, bool enabled)
+        {
+            if (container == null) return;
+            container.gameObject.SetActive(enabled);
+            if (!enabled) return;
+
+            var tmp = container.GetComponentInChildren<TMPro.TextMeshPro>(true);
+            if (tmp != null)
+            {
+                tmp.gameObject.SetActive(true);
+                tmp.enabled = true;
             }
         }
 
@@ -213,6 +234,4 @@ namespace Warehouse
         public LocationType Type;       // Pick or Reserve
         public string Designation;      // "1","2" (pick) or "A","B" (reserve) — filled by the modal
     }
-
-    public enum AisleSide { Left, Right }
 }

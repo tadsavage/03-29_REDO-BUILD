@@ -54,7 +54,6 @@ namespace Warehouse
             _pads.Clear();
 
             var corridors = CorridorDetector.Detect();
-            Debug.Log($"[AislePadSpawner] Detected {corridors.Count} corridors from {RackLabelDisplay.AllLabels.Count} rack sections.");
 
             // TEMPORARY: If only 4 corridors detected, generate a 5th by extrapolation
             if (corridors.Count == 4)

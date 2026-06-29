@@ -15,8 +15,7 @@ using Warehouse;
 /// renders nothing, which is why the first attempt was invisible.
 ///
 /// Level rules (per Tad 2026-06-28): locations &lt;= 80" can be Pick OR Reserve (player chooses);
-/// locations &gt; 80" are ALWAYS Reserve and locked (out of human reach). Side select is which side
-/// of the aisle the order selector pulls from.
+/// locations &gt; 80" are ALWAYS Reserve and locked (out of human reach).
 /// </summary>
 public class AisleInitializationModal
 {
@@ -73,21 +72,21 @@ public class AisleInitializationModal
     private readonly Action<bool> _onClosed; // true = initialized, false = cancelled
     private readonly Vector3? _corridorCenter; // when opened from a chevron: cull labels toward the walkway
     private readonly Vector3 _travelDir; // the direction worker travels into the aisle (from chevron)
+    private readonly Vector2? _chevronPos2D; // flat (X, Z) position of the chevron that opened this modal
     private bool _closed;
     private DraggableWindow _drag;           // drag by the blueprint area
 
     private TextField _aisleField;
-    private RadioButton _leftRadio, _rightRadio;
-    private AisleSide _selectedSide = AisleSide.Right;
     private readonly List<LevelRow> _levelRows = new();
 
     public AisleInitializationModal(VisualElement root, List<RackLabelDisplay> sections, Action<bool> onClosed,
-        Vector3? corridorCenter = null, Vector3? travelDir = null)
+        Vector3? corridorCenter = null, Vector3? travelDir = null, Vector2? chevronPos2D = null)
     {
         _sections = sections;
         _onClosed = onClosed;
         _corridorCenter = corridorCenter;
         _travelDir = travelDir ?? Vector3.forward;
+        _chevronPos2D = chevronPos2D;
 
         _overlay = BuildOverlay();
         root.Add(_overlay);
@@ -120,7 +119,7 @@ public class AisleInitializationModal
         art.style.position = Position.Absolute;
         art.style.top = 0; art.style.bottom = 0; art.style.right = 0;
         art.style.width = ArtWidth;
-        art.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit;
+        art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
         art.pickingMode = PickingMode.Position; // acts as the drag handle
 
         // Prefer the SVG however its importer generated it (VectorImage / Sprite); fall back to PNG.
@@ -136,7 +135,6 @@ public class AisleInitializationModal
         overlay.Add(modal);
 
         BuildAisleField(modal);
-        BuildSideSelect(modal);
         BuildLevelColumn(modal);
         BuildButtons(modal);
 
@@ -164,73 +162,6 @@ public class AisleInitializationModal
         modal.Add(_aisleField);
     }
 
-    private void BuildSideSelect(VisualElement modal)
-    {
-        var prompt = MakeLabel("Workers will pull\nfrom which side:", 22, ColOrange);
-        prompt.style.position = Position.Absolute;
-        prompt.style.left = 18;
-        prompt.style.top = 95;
-        prompt.style.whiteSpace = WhiteSpace.Normal;
-        modal.Add(prompt);
-
-        // Left option: orange arrow pointing LEFT (◄———) with the radio at the tail (right end).
-        var leftRow = BuildArrowRadio(AisleSide.Left, out _leftRadio);
-        leftRow.style.position = Position.Absolute;
-        leftRow.style.left = 28;
-        leftRow.style.top = 160;
-        modal.Add(leftRow);
-
-        // Right option: orange arrow pointing RIGHT (○———►) with the radio at the tail (left end).
-        var rightRow = BuildArrowRadio(AisleSide.Right, out _rightRadio);
-        rightRow.style.position = Position.Absolute;
-        rightRow.style.left = 28;
-        rightRow.style.top = 200;
-        modal.Add(rightRow);
-
-        SyncRadios(_selectedSide);
-    }
-
-    private VisualElement BuildArrowRadio(AisleSide side, out RadioButton radio)
-    {
-        bool pointLeft = side == AisleSide.Left;
-
-        var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.alignItems = Align.Center;
-
-        // Arrowhead — default font (Lilita lacks these glyphs), orange.
-        var head = new Label(pointLeft ? "◄" : "►"); // ◄ / ►
-        head.style.color = ColOrange;
-        head.style.fontSize = 26;
-
-        // Shaft — a solid orange bar.
-        var shaft = new VisualElement();
-        shaft.style.height = 5;
-        shaft.style.width = 70;
-        shaft.style.backgroundColor = ColOrange;
-        shaft.style.marginLeft = shaft.style.marginRight = 4;
-        shaft.style.alignSelf = Align.Center;
-
-        radio = new RadioButton();
-        radio.style.color = ColOrange;
-        var capturedSide = side;
-        radio.RegisterValueChangedCallback(evt =>
-        {
-            if (evt.newValue) { _selectedSide = capturedSide; SyncRadios(capturedSide); }
-        });
-
-        // ◄———○  for Left (head, shaft, radio) ;  ○———►  for Right (radio, shaft, head)
-        if (pointLeft) { row.Add(head); row.Add(shaft); row.Add(radio); }
-        else           { row.Add(radio); row.Add(shaft); row.Add(head); }
-
-        return row;
-    }
-
-    private void SyncRadios(AisleSide side)
-    {
-        _leftRadio?.SetValueWithoutNotify(side == AisleSide.Left);
-        _rightRadio?.SetValueWithoutNotify(side == AisleSide.Right);
-    }
 
     private void BuildLevelColumn(VisualElement modal)
     {
@@ -247,7 +178,7 @@ public class AisleInitializationModal
         var column = new VisualElement();
         column.style.position = Position.Absolute;
         column.style.left = 16;
-        column.style.top = 250;
+        column.style.top = 95;
         column.style.width = GutterWidth - 28;
         column.style.bottom = 95;            // stop above the button bar
         column.style.justifyContent = Justify.SpaceBetween;
@@ -334,7 +265,7 @@ public class AisleInitializationModal
             configs.Add(new LevelConfig { LevelNumber = r.LevelNumber, Type = type, Designation = designation });
         }
 
-        var locations = AisleInitializer.InitializeAisle(_sections, aisle, _selectedSide, configs, _corridorCenter, _travelDir);
+        var locations = AisleInitializer.InitializeAisle(_sections, aisle, configs, _corridorCenter, _travelDir, _chevronPos2D);
         WarehouseLocationsRegistry.Instance.AddLocations(locations);
 
         UIToast.Show($"Aisle {aisle:D2} initialized — {locations.Count} locations.", 2f);
@@ -399,7 +330,7 @@ public class AisleInitializationModal
     /// <summary>Find the shared HUD UIDocument root (the one whose tree contains "TopBar").</summary>
     public static VisualElement FindHudRoot()
     {
-        foreach (var d in UnityEngine.Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+        foreach (var d in UnityEngine.Object.FindObjectsByType<UIDocument>())
         {
             if (d.rootVisualElement != null && d.rootVisualElement.Q("TopBar") != null)
                 return d.rootVisualElement;
