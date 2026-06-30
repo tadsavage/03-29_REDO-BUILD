@@ -196,6 +196,7 @@ public override bool IsPlacementState => true;
                 _indicator.ClearAll();
                 _costUI.Hide();
 
+                _dragCells.Clear();
                 _preview.BeginSelectionCells();
                 return;
             }
@@ -405,9 +406,6 @@ public override bool IsPlacementState => true;
         int endY = currentCell.y;
 
         _indicatorBuffer.Clear();
-
-        _preview.EndSelectionCells();
-        _preview.BeginSelectionCells();
 
         for (int x = startX; stepX > 0 ? x <= endX : x >= endX; x += stepX)
         {

@@ -114,6 +114,39 @@ Save files are stored at `Application.dataPath + "/_Saves/"` (inside the project
 
 **AudioManager** — singleton MonoBehaviour that persists across scenes. Sound effects are defined in a `SoundDefinition` ScriptableObject and played by name: `AudioManager.Play("soundName")`. Music plays probabilistically on an interval with fade-in/fade-out.
 
+### Racking/Aisle Initialization System (`Assets/_Project/Scripts/Racking/`)
+
+**Status: BUILT 2026-06-29** — Core system complete; chevrons spawning, positioning/rotation fixed, adjacency detection working.
+
+**Overview:** Player places rack prefabs → system auto-detects adjacent racks (via local X-axis) → groups into collections → spawns 4 chevrons per aisle (one at each corner: first/last bay, left/right side) → player right-clicks chevron to rotate (set aisle travel direction) → double-clicks to open setup UI → enters aisle #/level designations → system instantiates real racks with location labels (AA-BB-LC format) → chevrons deleted.
+
+**Key Components:**
+
+- **RackPlacedEvent** — Static event fired when rack placed in build mode. Listened to by RackCollectionDetector.
+- **RackCollectionDetector** — Detects adjacent racks by projecting distance vector onto existing rack's local X-axis (transform.right). Groups into `RackCollection` objects. Fires `OnCollectionCreated`/`OnCollectionAdded` events. ADJACENCY_THRESHOLD = 1.5f.
+- **RackCollection** — MonoBehaviour grouping adjacent racks. Tracks `Racks` list, `Initialized` state, collection center/bounds for chevron placement.
+- **ChevronSpawner** — Listens to `OnCollectionCreated`, spawns exactly 4 chevrons per aisle (Left_Front, Left_Rear, Right_Front, Right_Rear) at first and last rack Z positions. Position: Y=1.15f (on ground), Rotation: 90° on X-axis (Quaternion.Euler(90,0,0) to make horizontal). Uses _chevronSprite and _chevronMaterial from RackingSystemManager.
+- **ChevronController** — MonoBehaviour on each chevron. Right-click rotates 180° (toggles _currentRotation between 0/180). Double-click fires `OnChevronSelected`, calls `RackSetupUI.SetSelectedChevron(this)`.
+- **RackSetupUI** — Modal UI receiving selected chevron. Collects aisle # (01-99) and level designations (Pick/Reserve by height ≥80"). On submit, calls `AisleInitializer.HandleSetupSubmit()`.
+- **LocationNameGenerator** — Static utility. `GenerateAisleLocations()` creates AA-BB-LC names (Aisle-Bay-Level-Column) for all racks in collections. Determines even/odd sides from chevron rotation: rotation < 90° = first collection even bays (02,04,06...), other side odd (01,03,05...). Level indices 0-1 → "0","1"; 2-5 → "A"-"D" (pick/reserve tiers).
+- **AisleInitializer** — Orchestrates initialization. On RackSetupUI submit: generates location names, instantiates real racks from `PlacedObject.data.prefab` (NOT a serialized field), assigns locations to TMP labels on each rack, disables non-aisle-facing label groups (determined by chevron rotation), marks collections initialized, deletes all chevrons.
+- **RackingSystemManager** — Scene orchestrator. In Awake(), adds RackCollectionDetector/ChevronSpawner/AisleInitializer components and configures them via `SetSprite()`/`SetMaterial()`/`SetHeight()` setters with values from Inspector fields (Real Rack Material, Chevron Sprite, Chevron Material).
+
+**Modifications to Existing Code:**
+- **PlaceCommand.Execute()** — Added `if (_data != null && _data.category == "Racking") RackPlacedEvent.Fire(_instance);`
+- **DragPlaceCommand.Execute()** — Added same RackPlacedEvent.Fire() inside `if (placed != null)` loop for multi-place.
+
+**Setup Checklist:**
+- [ ] RackingSystemManager GameObject in scene
+- [ ] Configure Inspector fields: Real Rack Material, Chevron Sprite, Chevron Material
+- [ ] Rack ObjDataSO must have category == "Racking" and prefab reference
+- [ ] Test workflow: place racks → collections detected → chevrons spawn at first/last bays → right-click rotate → double-click open UI → submit → racks instantiate with labels
+
+**Known Issues:**
+- Adjacency detection uses local X-axis via dot product projection — works for any global orientation but threshold may need tuning if rack spacing varies.
+- Two-sided aisle detection (SpawnChevronPair) logic may need refinement based on gameplay testing.
+- Location naming + label assignment not yet end-to-end tested in full workflow.
+
 ### Editor Tools (`Assets/10. Editor/`)
 
 - **ObjDataRegistryEditor** — custom Inspector for `ObjDataRegistry`

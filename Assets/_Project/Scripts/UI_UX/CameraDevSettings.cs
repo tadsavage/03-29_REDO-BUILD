@@ -2,32 +2,29 @@ using UnityEngine;
 
 /// <summary>
 /// Single persistent source of truth for player camera feel — move speed, zoom speed,
-/// focal-height (Q/E) speed, and orbit/pitch sensitivity. Backed by PlayerPrefs so it survives
-/// scene reloads and editor restarts. FreeLookCamera reads from here instead of its own
-/// Inspector-serialized fields (which is the "something else" that kept drifting/overwriting
-/// values); the Tools window's Dev Settings panel is the only place these get edited.
+/// and orbit/pitch sensitivity. Backed by PlayerPrefs so it survives scene reloads and editor
+/// restarts. FreeLookCamera reads from here instead of its own Inspector-serialized fields
+/// (which is the "something else" that kept drifting/overwriting values); the Tools window's
+/// Dev Settings panel is the only place these get edited.
 /// </summary>
 public static class CameraDevSettings
 {
     private const string KeyMoveSpeed         = "DevCam_MoveSpeed";
     private const string KeyZoomSpeed         = "DevCam_ZoomSpeed";
-    private const string KeyFocalHeightSpeed  = "DevCam_FocalHeightSpeed";
     private const string KeyPitchSensitivity  = "DevCam_PitchSensitivity";
     private const string KeyOrbitSensitivity  = "DevCam_OrbitSensitivity";
     private const string KeyMinCameraHeight   = "DevCam_MinCameraHeight";
 
     private const int   DefaultMoveSpeed        = 8;
     private const float DefaultZoomSpeed        = 4f;
-    private const int   DefaultFocalHeightSpeed = 3;
     private const float DefaultPitchSensitivity = 0.15f;
     private const float DefaultOrbitSensitivity = 0.25f;
-    // Foundations sit at Y=1.15 — 0.5m clearance above that keeps the camera from clipping
-    // through the floor when zoomed/pitched low toward a focal point near foundation height.
-    private const float DefaultMinCameraHeight  = 1.65f;
+    // Minimum camera world Y position — prevents clipping through the ground
+    // when zooming/pitching low.
+    private const float DefaultMinCameraHeight  = 2f;
 
     public const int   MoveSpeedMin = 1,  MoveSpeedMax = 15;
     public const float ZoomSpeedMin = 1f, ZoomSpeedMax = 5f;
-    public const int   FocalHeightSpeedMin = 1, FocalHeightSpeedMax = 5;
     public const float PitchSensitivityMin = 0f, PitchSensitivityMax = 2f;
     public const float OrbitSensitivityMin = 0f, OrbitSensitivityMax = 2f;
     public const float MinCameraHeightMin = 0f, MinCameraHeightMax = 5f;
@@ -46,12 +43,6 @@ public static class CameraDevSettings
     {
         get => Mathf.Clamp(PlayerPrefs.GetFloat(KeyZoomSpeed, DefaultZoomSpeed), ZoomSpeedMin, ZoomSpeedMax);
         set { PlayerPrefs.SetFloat(KeyZoomSpeed, Mathf.Clamp(value, ZoomSpeedMin, ZoomSpeedMax)); OnChanged?.Invoke(); }
-    }
-
-    public static int FocalHeightSpeed
-    {
-        get => Mathf.Clamp(PlayerPrefs.GetInt(KeyFocalHeightSpeed, DefaultFocalHeightSpeed), FocalHeightSpeedMin, FocalHeightSpeedMax);
-        set { PlayerPrefs.SetInt(KeyFocalHeightSpeed, Mathf.Clamp(value, FocalHeightSpeedMin, FocalHeightSpeedMax)); OnChanged?.Invoke(); }
     }
 
     public static float PitchSensitivity

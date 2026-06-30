@@ -543,9 +543,6 @@ public class ToolsWindowController : MonoBehaviour
             group.Add(BuildFloatSettingRow("Zoom Speed",
                 CameraDevSettings.ZoomSpeedMin, CameraDevSettings.ZoomSpeedMax,
                 () => CameraDevSettings.ZoomSpeed, v => CameraDevSettings.ZoomSpeed = v));
-            group.Add(BuildIntSettingRow("Focal Height Speed",
-                CameraDevSettings.FocalHeightSpeedMin, CameraDevSettings.FocalHeightSpeedMax,
-                () => CameraDevSettings.FocalHeightSpeed, v => CameraDevSettings.FocalHeightSpeed = v));
             group.Add(BuildFloatSettingRow("Pitch Sensitivity",
                 CameraDevSettings.PitchSensitivityMin, CameraDevSettings.PitchSensitivityMax,
                 () => CameraDevSettings.PitchSensitivity, v => CameraDevSettings.PitchSensitivity = v));

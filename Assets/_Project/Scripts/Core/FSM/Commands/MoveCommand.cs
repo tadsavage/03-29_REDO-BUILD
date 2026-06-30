@@ -370,7 +370,7 @@ public class MoveCommand : PlacementCommandBase
         // Tell NavMesh to update if it's a modifier-based object or if we replaced foundations
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || IsFoundation(_data) || _replaced.Count > 0)
         {
-            NavMeshManager.Instance.MarkDirty();
+            NavMeshManager.Instance?.MarkDirty();
         }
 }
 }

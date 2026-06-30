@@ -66,6 +66,12 @@ public class PlaceCommand : PlacementCommandBase
 
         _instance.SetActive(true);
 
+        // Fire RackPlacedEvent if this is a racking object
+        if (_data != null && _data.category == "Racking")
+        {
+            RackPlacedEvent.Fire(_instance);
+        }
+
         // --- Door↔Wall mutual replacement ---
         // Doors (replacesWalls) remove overlapping walls (canBeReplacedByDoor).
         // Walls (canBeReplacedByDoor) remove overlapping doors (replacesWalls) — entire
@@ -195,7 +201,7 @@ public class PlaceCommand : PlacementCommandBase
 
         // NavMesh: foundations, grounds, floors, pathfinding-clear, stairs all need a bake
         if (NeedsNavMesh(_data) || _disabledFloors.Count > 0)
-            NavMeshManager.Instance.MarkDirty();
+            NavMeshManager.Instance?.MarkDirty();
 
         PublishBuildEvent(GameEvents.Build.OnObjectPlaced, _instance.GetComponent<PlacedObject>());
     }
@@ -289,7 +295,7 @@ public class PlaceCommand : PlacementCommandBase
             _grid.UpdateStackPositions(_root + o);
 
         if (NeedsNavMesh(_data) || revealedFloor)
-            NavMeshManager.Instance.MarkDirty();
+            NavMeshManager.Instance?.MarkDirty();
     }
 
     public override void Redo()
@@ -400,7 +406,7 @@ public class PlaceCommand : PlacementCommandBase
             FloatingMoneyText.Show(_instance.transform.position + Vector3.up * 1.5f, -_data.cost);
 
         if (NeedsNavMesh(_data))
-            NavMeshManager.Instance.MarkDirty();
+            NavMeshManager.Instance?.MarkDirty();
 
         PublishBuildEvent(GameEvents.Build.OnObjectPlaced, _instance.GetComponent<PlacedObject>());
     }

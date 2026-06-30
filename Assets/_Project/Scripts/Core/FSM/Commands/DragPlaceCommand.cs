@@ -73,6 +73,12 @@ public class DragPlaceCommand : PlacementCommandBase
                 _money.Deduct(_data.cost);
                 _money.AddHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
 
+                // Fire RackPlacedEvent if this is a racking object
+                if (_data != null && _data.category == "Racking")
+                {
+                    RackPlacedEvent.Fire(placed);
+                }
+
                 foreach (var o in _offsets)
                     _grid.UpdateStackPositions(cell + o);
             }
@@ -122,7 +128,7 @@ public class DragPlaceCommand : PlacementCommandBase
 
         bool isGround = IsGround(_data);
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs || isGround)
-            NavMeshManager.Instance.MarkDirty();
+            NavMeshManager.Instance?.MarkDirty();
 
         PublishBuildEvent(GameEvents.Build.OnObjectPlaced);
     }
@@ -258,7 +264,7 @@ public class DragPlaceCommand : PlacementCommandBase
 
         bool isGround2 = IsGround(_data);
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround2)
-            NavMeshManager.Instance.MarkDirty();
+            NavMeshManager.Instance?.MarkDirty();
 
         PublishBuildEvent(GameEvents.Build.OnObjectPlaced);
     }
