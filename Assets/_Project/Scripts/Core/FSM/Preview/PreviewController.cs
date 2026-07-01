@@ -47,6 +47,10 @@ public class PreviewController : MonoBehaviour
 
     [SerializeField] private Material _ghostMaterial;
 
+    /// <summary>The orange-transparent preview material, so other systems (e.g. the racking
+    /// system, which keeps placed racks ghosted until an aisle is initialized) can reuse it.</summary>
+    public Material GhostMaterial => _ghostMaterial;
+
     private bool _multiMode;
     private bool _deleteMode;
     private bool _isMovePreviewMode;

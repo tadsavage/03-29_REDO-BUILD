@@ -130,6 +130,13 @@ public class RackSetupUI : MonoBehaviour
             return;
         }
 
+        // No duplicate aisle numbers — another collection already claimed this one.
+        if (AisleRegistry.IsUsed(aisleNum))
+        {
+            ShowValidationError($"Aisle {aisleNum:D2} is already in use");
+            return;
+        }
+
         // Build level designations
         var levelDesignations = new string[6];
         for (int i = 0; i < 6; i++)

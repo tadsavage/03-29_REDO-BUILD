@@ -70,6 +70,13 @@ public class BuildingHighlighter : MonoBehaviour
 
     private void ApplyHighlight(Material highlightMat, Color? color)
     {
+        // Leave ghosted (preview) racks untouched. The highlighter cached this object's REAL
+        // materials in Awake — before RackGhost swapped in the ghost material — so highlighting
+        // (and its restore) would reveal the real material and undo the ghost. Skip entirely
+        // while ghosted; the rack keeps its orange-transparent preview look on hover.
+        var ghost = GetComponent<RackGhost>();
+        if (ghost != null && ghost.IsGhosted) return;
+
         if (_rendererData.Count == 0) CacheRenderers();
 
         if (color.HasValue)

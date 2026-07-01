@@ -41,6 +41,15 @@ public class RackCollection : MonoBehaviour
         return _racks.Contains(rack);
     }
 
+    /// <summary>Removes a rack (e.g. when the player deletes it). Returns true if it was present.</summary>
+    public bool RemoveRack(GameObject rack)
+    {
+        bool removed = _racks.Remove(rack);
+        if (removed)
+            UpdateBounds();
+        return removed;
+    }
+
     private void UpdateBounds()
     {
         if (_racks.Count == 0) return;

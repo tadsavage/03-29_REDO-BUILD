@@ -30,6 +30,13 @@ public class RackingSystemManager : MonoBehaviour
         _chevronSpawner.SetSprite(_chevronSprite);
         _chevronSpawner.SetMaterial(_chevronMaterial);
 
+        // Both detection and chevron placement work in grid-cell space — give them the grid.
+        var grid = FindFirstObjectByType<PlacementGrid>();
+        if (grid == null)
+            Debug.LogError("RackingSystemManager: no PlacementGrid found in scene — rack collection detection will not work.");
+        _collectionDetector.SetGrid(grid);
+        _chevronSpawner.SetGrid(grid);
+
         // Configure aisle initializer with material
         _aisleInitializer.SetMaterial(_realRackMaterial);
     }

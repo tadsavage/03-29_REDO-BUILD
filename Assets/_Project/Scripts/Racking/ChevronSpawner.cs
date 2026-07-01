@@ -2,209 +2,255 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// Listens for RackCollections being created and spawns chevrons.
-/// - 1 collection = 2 chevrons (left & right)
-/// - 2 parallel collections = 3 chevrons (left, middle, right)
+/// Places chevrons around each uninitialized rack collection — but only on the OPEN sides.
+/// A side blocked by an adjacent parallel collection (back-to-back racking) gets no chevrons,
+/// so two adjacent rows each get 2 chevrons on their outer face rather than 8 crammed between them.
+///
+/// Each open side gets 2 chevrons (one at each end of the run). The two chevrons on a side are a
+/// team (flip together, green together). Everything is recomputed whenever ANY collection changes,
+/// because placing/removing a neighbour can block or open a side.
 /// </summary>
 public class ChevronSpawner : MonoBehaviour
 {
     [Header("Chevron Configuration")]
     [SerializeField] private Sprite _chevronSprite;
     [SerializeField] private Material _chevronMaterial;
-    [SerializeField] private float _chevronHeight = 0.1f;
-    [SerializeField] private Vector3 _chevronScale = new(1f, 1f, 1f);
+    [SerializeField] private float _chevronY = 1.15f;
 
     public void SetSprite(Sprite sprite) => _chevronSprite = sprite;
     public void SetMaterial(Material material) => _chevronMaterial = material;
-    public void SetHeight(float height) => _chevronHeight = height;
+    public void SetHeight(float height) => _chevronY = height;
+    public void SetGrid(PlacementGrid grid) => _grid = grid;
 
     private RackCollectionDetector _detector;
-    private Dictionary<RackCollection, List<GameObject>> _chevronsByCollection = new();
-    private const float PARALLEL_COLLECTION_THRESHOLD = 5f; // Max distance to consider parallel
+    private PlacementGrid _grid;
+    private Material _selectedMaterial; // green highlight, built lazily from _chevronMaterial
+
+    // Slot keys — two sides ("neg" = perpMin-1, "pos" = perpMax+1), each with a Start and End chevron.
+    private const string NegStart = "Neg_Start", NegEnd = "Neg_End", PosStart = "Pos_Start", PosEnd = "Pos_End";
+
+    private readonly Dictionary<RackCollection, Dictionary<string, GameObject>> _chevrons = new();
+    private readonly Dictionary<RackCollection, ChevronGroup> _groups = new();
 
     private void Start()
     {
         _detector = GetComponent<RackCollectionDetector>();
         if (_detector != null)
         {
-            Debug.Log("ChevronSpawner.Start() running");
-            _detector.OnCollectionCreated += HandleCollectionCreated;
-            _detector.OnCollectionAdded += HandleCollectionAdded;
+            _detector.OnCollectionCreated += _ => RefreshAll();
+            _detector.OnCollectionAdded += _ => RefreshAll();
+            _detector.OnCollectionMerged += HandleMerged;
+            _detector.OnCollectionRemoved += HandleRemoved;
         }
     }
 
-    private void HandleCollectionCreated(RackCollection collection)
+    private void HandleMerged(RackCollection survivor, RackCollection absorbed)
     {
-        Debug.Log($"ChevronSpawner.HandleCollectionCreated() - spawning chevrons for collection");
-        // Check for parallel collections
-        var parallelCollection = FindParallelCollection(collection);
+        DeleteChevrons(absorbed);
+        RefreshAll();
+    }
 
-        if (parallelCollection != null && !parallelCollection.Initialized)
+    private void HandleRemoved(RackCollection collection)
+    {
+        DeleteChevrons(collection);
+        RefreshAll(); // a neighbour may have just re-opened
+    }
+
+    /// <summary>Refresh every uninitialized collection — a change to one can block/open another's side.</summary>
+    private void RefreshAll()
+    {
+        if (_detector == null) return;
+        foreach (var collection in _detector.GetUninitializedCollections())
+            RefreshChevrons(collection);
+    }
+
+    private void RefreshChevrons(RackCollection collection)
+    {
+        if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+        if (collection == null || _grid == null || collection.Racks.Count == 0) return;
+
+        // Union of every cell the collection occupies.
+        var cells = new HashSet<Vector2Int>();
+        foreach (var rack in collection.Racks)
+            if (rack != null)
+                foreach (var c in RackGridUtil.GetCells(rack, _grid))
+                    cells.Add(c);
+        if (cells.Count == 0) return;
+
+        int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
+        foreach (var c in cells)
         {
-            // Create 3 chevrons (left, middle, right)
-            SpawnChevronPair(collection, parallelCollection);
+            if (c.x < minX) minX = c.x;
+            if (c.x > maxX) maxX = c.x;
+            if (c.y < minY) minY = c.y;
+            if (c.y > maxY) maxY = c.y;
+        }
+
+        bool runAlongY = (maxY - minY) >= (maxX - minX);
+        Vector3 runWorldDir = runAlongY ? Vector3.forward : Vector3.right;
+
+        int alongMin = runAlongY ? minY : minX;
+        int alongMax = runAlongY ? maxY : maxX;
+        int perpMin = runAlongY ? minX : minY;
+        int perpMax = runAlongY ? maxX : maxY;
+
+        int negPerp = perpMin - 1; // one side of the run
+        int posPerp = perpMax + 1; // the other side
+
+        // A side is open only if nothing (no other rack row) sits along it.
+        bool negOpen = !IsSideBlocked(negPerp, alongMin, alongMax, runAlongY);
+        bool posOpen = !IsSideBlocked(posPerp, alongMin, alongMax, runAlongY);
+
+        // Point all chevrons down the run (flat arrow lies along +Z, so yaw from +Z to the run).
+        float yaw = Vector3.SignedAngle(Vector3.forward, runWorldDir, Vector3.up);
+        Quaternion facing = Quaternion.AngleAxis(yaw, Vector3.up) * Quaternion.Euler(90f, 0f, 0f);
+
+        if (!_chevrons.TryGetValue(collection, out var slots))
+        {
+            slots = new Dictionary<string, GameObject>();
+            _chevrons[collection] = slots;
+        }
+        if (!_groups.TryGetValue(collection, out var group))
+        {
+            group = new ChevronGroup();
+            _groups[collection] = group;
+        }
+
+        // (slotKey, cell, open)
+        ApplySlot(collection, slots, NegStart, MakeCell(runAlongY, alongMin, negPerp), negOpen, facing, "neg");
+        ApplySlot(collection, slots, NegEnd,   MakeCell(runAlongY, alongMax, negPerp), negOpen, facing, "neg");
+        ApplySlot(collection, slots, PosStart, MakeCell(runAlongY, alongMin, posPerp), posOpen, facing, "pos");
+        ApplySlot(collection, slots, PosEnd,   MakeCell(runAlongY, alongMax, posPerp), posOpen, facing, "pos");
+
+        // Rebuild side-teams from whatever chevrons currently exist, then re-apply green.
+        var negTeam = ControllersFor(slots, NegStart, NegEnd);
+        var posTeam = ControllersFor(slots, PosStart, PosEnd);
+
+        var selectedMat = GetSelectedMaterial();
+        foreach (var c in negTeam) { c.SetSideTeam(negTeam); c.SetGroup(group); c.SetSideKey("neg"); c.SetSelectionMaterials(_chevronMaterial, selectedMat); }
+        foreach (var c in posTeam) { c.SetSideTeam(posTeam); c.SetGroup(group); c.SetSideKey("pos"); c.SetSelectionMaterials(_chevronMaterial, selectedMat); }
+
+        group.SetSide("neg", negTeam);
+        group.SetSide("pos", posTeam);
+        group.ApplyColors();
+    }
+
+    private void ApplySlot(RackCollection collection, Dictionary<string, GameObject> slots,
+        string key, Vector2Int cell, bool open, Quaternion facing, string sideKey)
+    {
+        if (open)
+        {
+            if (!slots.TryGetValue(key, out var go) || go == null)
+            {
+                go = CreateChevron(collection, key);
+                slots[key] = go;
+            }
+
+            Vector3 world = _grid.GetCellCenter(cell);
+            world.y = _chevronY;
+            go.transform.position = world;
+
+            var controller = go.GetComponent<ChevronController>();
+            if (controller != null) controller.SetBaseFacing(facing);
         }
         else
         {
-            // Create 2 chevrons (left, right)
-            SpawnChevronSingle(collection);
-        }
-    }
-
-    private void HandleCollectionAdded(RackCollection collection)
-    {
-        // A rack was added to existing collection - update chevron positions
-        UpdateChevronPosition(collection);
-    }
-
-    private RackCollection FindParallelCollection(RackCollection newCollection)
-    {
-        var uninitialized = _detector.GetUninitializedCollections();
-
-        foreach (var other in uninitialized)
-        {
-            if (other == newCollection) continue;
-
-            // Check if parallel (different X range but similar Z range)
-            float zDistance = Mathf.Abs(newCollection.CollectionCenter.z - other.CollectionCenter.z);
-
-            if (zDistance < PARALLEL_COLLECTION_THRESHOLD)
+            if (slots.TryGetValue(key, out var go))
             {
-                return other;
+                if (go != null) Destroy(go);
+                slots.Remove(key);
             }
         }
-
-        return null;
     }
 
-    private void SpawnChevronSingle(RackCollection collection)
+    private List<ChevronController> ControllersFor(Dictionary<string, GameObject> slots, string a, string b)
     {
-        Debug.Log($"SpawnChevronSingle() - spawning chevrons at first and last bay");
-
-        if (collection.Racks.Count == 0) return;
-
-        // Get first and last rack positions
-        Vector3 firstRackPos = collection.Racks[0].transform.position;
-        Vector3 lastRackPos = collection.Racks[collection.Racks.Count - 1].transform.position;
-
-        float leftX = collection.CollectionBounds.min.x - 2f;
-        float rightX = collection.CollectionBounds.max.x + 2f;
-
-        // Spawn chevrons at first bay (front) and last bay (back)
-        var leftFront = SpawnChevron(new Vector3(leftX, _chevronHeight, firstRackPos.z), collection, "Left_Front");
-        var rightFront = SpawnChevron(new Vector3(rightX, _chevronHeight, firstRackPos.z), collection, "Right_Front");
-        var leftRear = SpawnChevron(new Vector3(leftX, _chevronHeight, lastRackPos.z), collection, "Left_Rear");
-        var rightRear = SpawnChevron(new Vector3(rightX, _chevronHeight, lastRackPos.z), collection, "Right_Rear");
-
-        if (!_chevronsByCollection.ContainsKey(collection))
-            _chevronsByCollection[collection] = new();
-
-        _chevronsByCollection[collection].Add(leftFront);
-        _chevronsByCollection[collection].Add(rightFront);
-        _chevronsByCollection[collection].Add(leftRear);
-        _chevronsByCollection[collection].Add(rightRear);
+        var list = new List<ChevronController>(2);
+        if (slots.TryGetValue(a, out var ga) && ga != null)
+        {
+            var c = ga.GetComponent<ChevronController>();
+            if (c != null) list.Add(c);
+        }
+        if (slots.TryGetValue(b, out var gb) && gb != null)
+        {
+            var c = gb.GetComponent<ChevronController>();
+            if (c != null) list.Add(c);
+        }
+        return list;
     }
 
-    private void SpawnChevronPair(RackCollection collection1, RackCollection collection2)
+    /// <summary>True if any rack sits along the given side line (so it's not open for travel).</summary>
+    private bool IsSideBlocked(int perp, int alongMin, int alongMax, bool runAlongY)
     {
-        // For two parallel collections, spawn at first and last bay of each side
-        if (collection1.Racks.Count == 0 || collection2.Racks.Count == 0) return;
-
-        Vector3 firstRack1 = collection1.Racks[0].transform.position;
-        Vector3 lastRack1 = collection1.Racks[collection1.Racks.Count - 1].transform.position;
-        Vector3 firstRack2 = collection2.Racks[0].transform.position;
-        Vector3 lastRack2 = collection2.Racks[collection2.Racks.Count - 1].transform.position;
-
-        float leftX = collection1.CollectionBounds.min.x - 2f;
-        float rightX = collection2.CollectionBounds.max.x + 2f;
-
-        // Spawn at first and last bay on each side
-        var leftFront = SpawnChevron(new Vector3(leftX, _chevronHeight, firstRack1.z), collection1, "Left_Front");
-        var leftRear = SpawnChevron(new Vector3(leftX, _chevronHeight, lastRack1.z), collection1, "Left_Rear");
-        var rightFront = SpawnChevron(new Vector3(rightX, _chevronHeight, firstRack2.z), collection2, "Right_Front");
-        var rightRear = SpawnChevron(new Vector3(rightX, _chevronHeight, lastRack2.z), collection2, "Right_Rear");
-
-        if (!_chevronsByCollection.ContainsKey(collection1))
-            _chevronsByCollection[collection1] = new();
-        if (!_chevronsByCollection.ContainsKey(collection2))
-            _chevronsByCollection[collection2] = new();
-
-        _chevronsByCollection[collection1].Add(leftFront);
-        _chevronsByCollection[collection1].Add(leftRear);
-        _chevronsByCollection[collection2].Add(rightFront);
-        _chevronsByCollection[collection2].Add(rightRear);
+        for (int a = alongMin; a <= alongMax; a++)
+        {
+            var objs = _grid.GetObjectsInCell(MakeCell(runAlongY, a, perp));
+            if (objs == null) continue;
+            foreach (var e in objs)
+                if (e.data != null && e.data.category == "Racking")
+                    return true;
+        }
+        return false;
     }
 
-    private GameObject SpawnChevron(Vector3 position, RackCollection collection, string side)
+    private static Vector2Int MakeCell(bool runAlongY, int along, int perp)
     {
-        var chevronGO = new GameObject($"Chevron_{side}_{collection.name}");
-        Debug.Log($"SpawnChevron() - created GameObject: {chevronGO.name}");
+        return runAlongY ? new Vector2Int(perp, along) : new Vector2Int(along, perp);
+    }
 
-        // Position at Y=1.15 (on top of ground) instead of _chevronHeight
-        Vector3 adjustedPos = new Vector3(position.x, 1.15f, position.z);
-        chevronGO.transform.position = adjustedPos;
+    private GameObject CreateChevron(RackCollection collection, string slot)
+    {
+        var chevronGO = new GameObject($"Chevron_{slot}_{collection.name}");
 
-        // Rotate 90° on X-axis to make it horizontal instead of vertical
-        chevronGO.transform.rotation = Quaternion.Euler(90, 0, 0);
+        chevronGO.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        chevronGO.transform.localScale = Vector3.one * 0.7f; // 30% smaller
+        // Parent under the collection so chevrons are destroyed with it (no orphans).
+        chevronGO.transform.parent = collection.transform;
 
-        Debug.Log($"SpawnChevron() - ChevronSpawner transform: {transform}, parent: {transform.parent}");
-        chevronGO.transform.parent = transform;
-        Debug.Log($"SpawnChevron() - chevron parent set to: {chevronGO.transform.parent}, active: {chevronGO.activeSelf}");
-
-        // Add sprite renderer
         var spriteRenderer = chevronGO.AddComponent<SpriteRenderer>();
         spriteRenderer.sprite = _chevronSprite;
         spriteRenderer.material = _chevronMaterial;
-        Debug.Log($"SpawnChevron() - added SpriteRenderer. Sprite: {_chevronSprite != null}, Material: {_chevronMaterial != null}");
 
-        // Add box collider
         var collider = chevronGO.AddComponent<BoxCollider>();
-        collider.size = new Vector3(1f, 0.1f, 1f);
+        collider.center = Vector3.zero;
+        collider.size = new Vector3(2f, 2f, 0.5f);
         collider.isTrigger = false;
 
-        // Add chevron controller
         var controller = chevronGO.AddComponent<ChevronController>();
         controller.Initialize(collection);
 
-        // Add a temporary debug component to track destruction
-        var debugComponent = chevronGO.AddComponent<DestroyDebugger>();
-
-        Debug.Log($"SpawnChevron() - created chevron at position {position}");
         return chevronGO;
     }
 
-    private void UpdateChevronPosition(RackCollection collection)
+    private Material GetSelectedMaterial()
     {
-        if (!_chevronsByCollection.TryGetValue(collection, out var chevrons))
-            return;
-
-        // Update position to center of collection
-        Vector3 center = collection.CollectionCenter;
-        foreach (var chevron in chevrons)
+        if (_selectedMaterial == null && _chevronMaterial != null)
         {
-            if (chevron != null)
-                chevron.transform.position = new Vector3(chevron.transform.position.x, _chevronHeight, center.z);
+            _selectedMaterial = new Material(_chevronMaterial);
+            Color green = new Color(0.15f, 1f, 0.2f, 1f);
+
+            if (_selectedMaterial.HasProperty("_Color")) _selectedMaterial.SetColor("_Color", green);
+            if (_selectedMaterial.HasProperty("_BaseColor")) _selectedMaterial.SetColor("_BaseColor", green);
+            if (_selectedMaterial.HasProperty("_EmissionColor")) _selectedMaterial.SetColor("_EmissionColor", green * 2f);
+            _selectedMaterial.color = green;
         }
+        return _selectedMaterial;
     }
 
     public void DeleteChevrons(RackCollection collection)
     {
-        if (_chevronsByCollection.TryGetValue(collection, out var chevrons))
+        if (_chevrons.TryGetValue(collection, out var slots))
         {
-            foreach (var chevron in chevrons)
-            {
-                if (chevron != null)
-                    Destroy(chevron);
-            }
-            _chevronsByCollection.Remove(collection);
+            foreach (var kv in slots)
+                if (kv.Value != null) Destroy(kv.Value);
+            _chevrons.Remove(collection);
         }
+        _groups.Remove(collection);
     }
 
     public void DeleteAllChevrons(params RackCollection[] collections)
     {
         foreach (var collection in collections)
-        {
             DeleteChevrons(collection);
-        }
     }
 }

@@ -116,6 +116,8 @@ Save files are stored at `Application.dataPath + "/_Saves/"` (inside the project
 
 ### Racking/Aisle Initialization System (`Assets/_Project/Scripts/Racking/`)
 
+> **📎 Skill:** When working on this system, use the **`racking-system`** skill (`.claude/skills/racking-system/`) — it captures the load-bearing conventions (grid-cell adjacency, chevron facing = `Vector3.forward` reference, side-teams, ghost lifecycle, delete cleanup) and the known deferred gaps. Auto-triggers on racking/chevron/aisle tasks, or invoke `/racking-system`.
+
 **Status: BUILT 2026-06-29** — Core system complete; chevrons spawning, positioning/rotation fixed, adjacency detection working.
 
 **Overview:** Player places rack prefabs → system auto-detects adjacent racks (via local X-axis) → groups into collections → spawns 4 chevrons per aisle (one at each corner: first/last bay, left/right side) → player right-clicks chevron to rotate (set aisle travel direction) → double-clicks to open setup UI → enters aisle #/level designations → system instantiates real racks with location labels (AA-BB-LC format) → chevrons deleted.

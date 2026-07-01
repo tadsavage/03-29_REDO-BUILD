@@ -64,8 +64,8 @@ public class AisleInitializer : MonoBehaviour
             _selectedChevron.CurrentRotation
         );
 
-        // Instantiate real racks and replace preview
-        InstantiateRealRacks(collectionsToInitialize, locations, setupData.levelDesignations);
+        // Commit the racks: un-ghost them in place and label them (no re-instantiation).
+        CommitRealRacks(collectionsToInitialize, locations, setupData.levelDesignations);
 
         // Configure labels (only aisle-facing side)
         ConfigureLabels(collectionsToInitialize, _selectedChevron.CurrentRotation);
@@ -75,6 +75,9 @@ public class AisleInitializer : MonoBehaviour
         {
             collection.Initialize();
         }
+
+        // Claim this aisle number so no other collection can reuse it.
+        AisleRegistry.Register(setupData.aisleNumber);
 
         // Delete all chevrons for this aisle
         _chevronSpawner.DeleteAllChevrons(collectionsToInitialize.ToArray());
@@ -125,7 +128,7 @@ public class AisleInitializer : MonoBehaviour
         return "Side"; // One-sided aisle
     }
 
-    private void InstantiateRealRacks(List<RackCollection> collections, List<LocationNameGenerator.LocationName> locations, string[] levelDesignations)
+    private void CommitRealRacks(List<RackCollection> collections, List<LocationNameGenerator.LocationName> locations, string[] levelDesignations)
     {
         int locationIndex = 0;
 
@@ -133,46 +136,15 @@ public class AisleInitializer : MonoBehaviour
         {
             foreach (var rackGO in collection.Racks)
             {
-                // Get the PlacedObject to access the real prefab from ObjDataSO
-                var placedObj = rackGO.GetComponent<PlacedObject>();
-                if (placedObj == null || placedObj.data == null)
-                {
-                    Debug.LogError($"Rack {rackGO.name} has no PlacedObject or ObjDataSO!");
-                    continue;
-                }
+                if (rackGO == null) continue;
 
-                // Get the real prefab from ObjDataSO
-                GameObject realPrefab = placedObj.data.prefab;
-                if (realPrefab == null)
-                {
-                    Debug.LogError($"ObjDataSO for {rackGO.name} has no prefab reference!");
-                    continue;
-                }
+                // Un-ghost in place: restore the rack's real materials. Keeps the existing
+                // PlacedObject / grid registration intact (re-instantiating would lose it).
+                var ghost = rackGO.GetComponent<RackGhost>();
+                if (ghost != null) ghost.RestoreReal();
 
-                Vector3 previewPos = rackGO.transform.position;
-                Quaternion previewRot = rackGO.transform.rotation;
-
-                // Destroy the orange preview
-                Destroy(rackGO);
-
-                // Instantiate real rack at same position
-                var realRack = Instantiate(
-                    realPrefab,
-                    previewPos,
-                    previewRot,
-                    collection.transform
-                );
-                realRack.name = $"Rack_{collection.name}_{collection.Racks.IndexOf(rackGO)}";
-
-                // Apply real material
-                var renderers = realRack.GetComponentsInChildren<Renderer>();
-                foreach (var r in renderers)
-                {
-                    r.material = _realRackMaterial;
-                }
-
-                // Assign location names to labels
-                AssignLocationsToLabels(realRack, locations, locationIndex, levelDesignations);
+                // Assign location names to labels on this rack.
+                AssignLocationsToLabels(rackGO, locations, locationIndex, levelDesignations);
                 locationIndex += 12; // 6 levels × 2 positions per rack
             }
         }

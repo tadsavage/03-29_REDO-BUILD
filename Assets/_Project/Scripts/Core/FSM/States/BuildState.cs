@@ -392,6 +392,10 @@ public override bool IsPlacementState => true;
     private void HandleDragPlacement(Vector2Int currentCell)
     {
         _dragCells.Clear();
+        // Clear the VISUAL ghosts too, not just the logical drag set — otherwise ghosts
+        // for cells that drop out of a shrinking drag stay active (the preview only ever
+        // grows and gets "stuck" at the drag's furthest extent). Pooled, so no churn.
+        _preview.ClearMultiGhosts();
 
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
         Vector2Int stride = GetStride(offsets);
