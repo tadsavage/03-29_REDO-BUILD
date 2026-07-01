@@ -13,6 +13,11 @@ public class PlacedObject : MonoBehaviour
     public int rotation;
     public string customData;
 
+    // True once this rack has been committed to a real aisle via RackSetupUI submit.
+    // Safeguard for future systems (inventory, task assignment, etc.) that should only
+    // touch racks that are part of an initialized aisle — not orange ghost placeholders.
+    public bool isRackLive;
+
     private void OnEnable()
     {
         // Prevent registration if this object is a child of another PlacedObject.

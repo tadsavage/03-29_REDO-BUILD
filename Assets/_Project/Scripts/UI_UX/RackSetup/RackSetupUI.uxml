@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi:schemaLocation="UnityEngine.UIElements UnityEngine.UIElements.xsd UnityEditor.UIElements UnityEditor.UIElements.xsd" xsi:noNamespaceSchemaLocation="UnityEngine.UIElements.xsd">
+    <Style src="RackSetupUI.uss" />
     <!-- Overlay -->
     <ui:VisualElement class="rsu-overlay" name="Overlay">
         <!-- Modal -->
@@ -19,49 +20,25 @@
                     <ui:Label class="rsu-help-text" name="AisleHelpText" text="Enter 01-99" />
                 </ui:VisualElement>
 
-                <!-- Levels Section -->
+                <!-- Levels Section — only reachable bays (anchor ≤ 80") are configurable. -->
                 <ui:VisualElement class="rsu-section" name="LevelsSection">
                     <ui:Label class="rsu-section-label" text="Level Configuration" />
 
-                    <!-- Level 1 -->
+                    <!-- Level 1 (0" anchor) -->
                     <ui:VisualElement class="rsu-level-row" name="Level1Row">
                         <ui:Label class="rsu-level-label" text="Level 1:" />
                         <ui:DropdownField name="Level1Dropdown" class="rsu-dropdown" />
                     </ui:VisualElement>
 
-                    <!-- Level 2 -->
+                    <!-- Level 2 (48" anchor) -->
                     <ui:VisualElement class="rsu-level-row" name="Level2Row">
                         <ui:Label class="rsu-level-label" text="Level 2:" />
                         <ui:DropdownField name="Level2Dropdown" class="rsu-dropdown" />
                     </ui:VisualElement>
-
-                    <!-- Level 3 -->
-                    <ui:VisualElement class="rsu-level-row" name="Level3Row">
-                        <ui:Label class="rsu-level-label" text="Level 3:" />
-                        <ui:DropdownField name="Level3Dropdown" class="rsu-dropdown" />
-                    </ui:VisualElement>
-
-                    <!-- Level 4 -->
-                    <ui:VisualElement class="rsu-level-row" name="Level4Row">
-                        <ui:Label class="rsu-level-label" text="Level 4:" />
-                        <ui:DropdownField name="Level4Dropdown" class="rsu-dropdown" />
-                    </ui:VisualElement>
-
-                    <!-- Level 5 -->
-                    <ui:VisualElement class="rsu-level-row" name="Level5Row">
-                        <ui:Label class="rsu-level-label" text="Level 5:" />
-                        <ui:DropdownField name="Level5Dropdown" class="rsu-dropdown" />
-                    </ui:VisualElement>
-
-                    <!-- Level 6 -->
-                    <ui:VisualElement class="rsu-level-row" name="Level6Row">
-                        <ui:Label class="rsu-level-label" text="Level 6:" />
-                        <ui:DropdownField name="Level6Dropdown" class="rsu-dropdown" />
-                    </ui:VisualElement>
                 </ui:VisualElement>
 
                 <!-- Help Text -->
-                <ui:Label class="rsu-info-text" name="InfoText" text="Levels above 80&quot; are reserved for storage and cannot be changed." />
+                <ui:Label class="rsu-info-text" name="InfoText" text="Only reachable levels (≤ 80&quot;) are configurable. Higher levels are always Reserve." />
             </ui:ScrollView>
 
             <!-- Footer -->

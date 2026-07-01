@@ -31,6 +31,10 @@ public class ChevronController : MonoBehaviour
     private Material _normalMat;
     private Material _selectedMat;
 
+    // Tracks per-chevron hover so we only call Show/Hide on the tooltip on transitions,
+    // not every frame — avoids re-positioning fights between multiple chevrons.
+    private bool _wasHovered;
+
     public event Action<ChevronController> OnChevronSelected;
 
     public RackCollection Collection => _collection;
@@ -69,7 +73,16 @@ public class ChevronController : MonoBehaviour
 
     private void Update()
     {
-        if (!IsPointerOverChevron()) return;
+        bool hovered = IsPointerOverChevron();
+
+        // Tooltip on hover — "R-click to change dir. Dbl.-click to enter Aisle setup"
+        if (hovered && !_wasHovered)
+            ChevronTooltipUI.Ensure().Show(Mouse.current.position.ReadValue());
+        else if (!hovered && _wasHovered)
+            ChevronTooltipUI.Ensure().Hide();
+        _wasHovered = hovered;
+
+        if (!hovered) return;
 
         if (Mouse.current.rightButton.wasReleasedThisFrame)
         {
@@ -81,6 +94,17 @@ public class ChevronController : MonoBehaviour
         {
             Select();
             HandleDoubleClick();
+        }
+    }
+
+    private void OnDisable()
+    {
+        // Prevent a stale tooltip if this chevron is destroyed mid-hover (e.g. on commit).
+        if (_wasHovered)
+        {
+            var t = ChevronTooltipUI.Ensure();
+            if (t != null) t.Hide();
+            _wasHovered = false;
         }
     }
 
@@ -150,11 +174,17 @@ public class ChevronController : MonoBehaviour
         AudioManager.Play("ValidPlace");
         OnChevronSelected?.Invoke(this);
 
-        var setupUI = FindObjectOfType<RackSetupUI>();
+        // Include inactive: modal is hidden between openings, and default FindObjectOfType
+        // skips inactive GOs — that's the bug that made double-click "do nothing".
+        var setupUI = FindFirstObjectByType<RackSetupUI>(FindObjectsInactive.Include);
         if (setupUI != null)
         {
             setupUI.SetSelectedChevron(this);
             setupUI.Open();
+        }
+        else
+        {
+            Debug.LogError("ChevronController.OpenSetup: no RackSetupUI found in scene. RackingSystemManager should auto-create one on Awake.");
         }
     }
 }
