@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using TMPro;
 
 /// <summary>
 /// Handles the complete aisle initialization workflow:
@@ -14,6 +15,9 @@ public class AisleInitializer : MonoBehaviour
 {
     [Header("Rack Configuration")]
     [SerializeField] private Material _realRackMaterial;
+    // Path used when _realRackMaterial isn't wired via the RackingSystemManager Inspector.
+    // Keeps commit working without an Editor round-trip.
+    private const string DEFAULT_LIVE_MATERIAL_PATH = "Assets/_Project/Materials/AA_LowPolyCommon.mat";
 
     private RackCollectionDetector _collectionDetector;
     private ChevronSpawner _chevronSpawner;
@@ -27,7 +31,9 @@ public class AisleInitializer : MonoBehaviour
         _collectionDetector = GetComponent<RackCollectionDetector>();
         _chevronSpawner = GetComponent<ChevronSpawner>();
 
-        _setupUI = FindObjectOfType<RackSetupUI>();
+        // Modal starts inactive (only opens on chevron double-click) — include inactive
+        // in the search so we still bind OnSubmit at startup.
+        _setupUI = FindFirstObjectByType<RackSetupUI>(FindObjectsInactive.Include);
         if (_setupUI != null)
         {
             _setupUI.OnSubmit += HandleSetupSubmit;
@@ -86,6 +92,7 @@ public class AisleInitializer : MonoBehaviour
         _selectedChevron = null;
 
         Debug.Log($"Aisle {setupData.aisleNumber} initialized with {collectionsToInitialize.Count} collection(s)");
+        UIToast.Show($"Aisle {setupData.aisleNumber:D2} has been initialized successfully!");
     }
 
     private List<RackCollection> DetermineCollectionsToInitialize(ChevronController chevron)
@@ -131,6 +138,7 @@ public class AisleInitializer : MonoBehaviour
     private void CommitRealRacks(List<RackCollection> collections, List<LocationNameGenerator.LocationName> locations, string[] levelDesignations)
     {
         int locationIndex = 0;
+        var liveMat = ResolveLiveMaterial();
 
         foreach (var collection in collections)
         {
@@ -143,10 +151,40 @@ public class AisleInitializer : MonoBehaviour
                 var ghost = rackGO.GetComponent<RackGhost>();
                 if (ghost != null) ghost.RestoreReal();
 
+                // Swap non-label renderers to the live material (AA_LowPolyCommon by default).
+                if (liveMat != null) ApplyLiveMaterial(rackGO, liveMat);
+
+                // Flag the rack as part of a committed aisle — safeguard for future
+                // systems (inventory, task assignment) that should skip ghost placeholders.
+                var placed = rackGO.GetComponent<PlacedObject>();
+                if (placed != null) placed.isRackLive = true;
+
                 // Assign location names to labels on this rack.
                 AssignLocationsToLabels(rackGO, locations, locationIndex, levelDesignations);
                 locationIndex += 12; // 6 levels × 2 positions per rack
             }
+        }
+    }
+
+    private Material ResolveLiveMaterial()
+    {
+        if (_realRackMaterial != null) return _realRackMaterial;
+#if UNITY_EDITOR
+        _realRackMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(DEFAULT_LIVE_MATERIAL_PATH);
+#endif
+        return _realRackMaterial;
+    }
+
+    private static void ApplyLiveMaterial(GameObject rackGO, Material liveMat)
+    {
+        foreach (var r in rackGO.GetComponentsInChildren<Renderer>(true))
+        {
+            if (r == null) continue;
+            if (r.GetComponent<TMP_Text>() != null) continue; // never touch text meshes
+
+            var array = new Material[r.sharedMaterials.Length];
+            for (int i = 0; i < array.Length; i++) array[i] = liveMat;
+            r.sharedMaterials = array;
         }
     }
 

@@ -1,16 +1,16 @@
 {
     "saveName": "quicksave",
-    "money": 969300,
-    "spentToday": 287285,
+    "money": 968549,
+    "spentToday": 288716,
     "cameraData": {
         "focusPoint": {
-            "x": 29.95517349243164,
+            "x": 26.34156036376953,
             "y": 3.058685779571533,
-            "z": -40.0
+            "z": -30.603927612304689
         },
         "distance": 15.730001449584961,
-        "pitch": 34.950069427490237,
-        "yaw": 3569.970703125
+        "pitch": 40.200069427490237,
+        "yaw": 3586.720703125
     },
     "placedObjects": [
         {
@@ -15946,6 +15946,90 @@
             "customData": ""
         },
         {
+            "id": 34,
+            "x": 76,
+            "y": 24,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 76,
+            "y": 25,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 77,
+            "y": 24,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 77,
+            "y": 25,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 78,
+            "y": 24,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 78,
+            "y": 25,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 74,
+            "y": 32,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 74,
+            "y": 33,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 75,
+            "y": 32,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 75,
+            "y": 33,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 76,
+            "y": 32,
+            "rot": 0,
+            "customData": ""
+        },
+        {
+            "id": 34,
+            "x": 76,
+            "y": 33,
+            "rot": 0,
+            "customData": ""
+        },
+        {
             "id": 77,
             "x": 34,
             "y": 15,
@@ -19052,90 +19136,6 @@
             "y": 13,
             "rot": 1,
             "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 76,
-            "y": 24,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 76,
-            "y": 25,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 77,
-            "y": 24,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 77,
-            "y": 25,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 78,
-            "y": 24,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 78,
-            "y": 25,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 74,
-            "y": 32,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 74,
-            "y": 33,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 75,
-            "y": 32,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 75,
-            "y": 33,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 76,
-            "y": 32,
-            "rot": 0,
-            "customData": ""
-        },
-        {
-            "id": 34,
-            "x": 76,
-            "y": 33,
-            "rot": 0,
-            "customData": ""
         }
     ],
     "devSettings": [
@@ -19166,6 +19166,30 @@
         {
             "key": "AiNavigation.volumeAt30m",
             "val": "0.1"
+        },
+        {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.15"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
         },
         {
             "key": "VehicleThrottleAudio.hearingDistance",
@@ -19206,30 +19230,6 @@
         {
             "key": "VehicleThrottleAudio.honkProbability",
             "val": "0.1"
-        },
-        {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.15"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
         },
         {
             "key": "Gate_Open_Close.rot_down",
@@ -19298,7 +19298,7 @@
     ],
     "toolsWindowX": 12.0,
     "toolsWindowY": 50.0,
-    "guidanceLinesVisible": true,
+    "guidanceLinesVisible": false,
     "waypointsVisible": true,
     "hoverPopupEnabled": false,
     "employeeRecords": [
@@ -19846,9 +19846,9 @@
     "formerEmployees": [],
     "gameVolume": 0.4020000100135803,
     "musicVolume": 0.02800000086426735,
-    "graphicsPreset": "Ultra",
+    "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
-    "screenWidth": 2560,
-    "screenHeight": 1440
+    "screenWidth": 1920,
+    "screenHeight": 1080
 }
