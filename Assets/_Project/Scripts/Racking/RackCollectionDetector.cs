@@ -74,6 +74,12 @@ public class RackCollectionDetector : MonoBehaviour
         if (_aisleInitializer != null && _aisleInitializer.TryCommitStackedRack(rackGO))
             return;
 
+        // Placed facing an already-finalized aisle (within 5 cells, unobstructed)? Then it's that
+        // aisle's OTHER side — commit it live immediately as the opposite bay parity, no ghost /
+        // collection / chevron / setup UI.
+        if (_aisleInitializer != null && _aisleInitializer.TryCommitSecondSide(rackGO))
+            return;
+
         // Keep the rack as an orange-transparent planning placeholder until its aisle is set up.
         ApplyGhost(rackGO);
 

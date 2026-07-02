@@ -106,6 +106,34 @@ public class LocationNameGenerator
         return bays;
     }
 
+    /// <summary>
+    /// Level char honoring the aisle's per-level Pick/Reserve scheme:
+    /// - a PICK level uses its numeric index ("0","1","2"…)
+    /// - a RESERVE level uses a letter, lettered in bottom-up order among reserve levels — the
+    ///   FIRST reserve (lowest index) is "A", the next reserve "B", etc.
+    /// So Reserve at level 0 = "A" (not "@"), and a Pick sitting above a Reserve keeps its numeric
+    /// index. <paramref name="designations"/> is the length-6 array from setup (null → fallback:
+    /// levels 0-1 pick, 2+ reserve).
+    /// </summary>
+    public static string LevelChar(int levelIndex, string[] designations)
+    {
+        if (!IsReserveLevel(levelIndex, designations))
+            return levelIndex.ToString();
+
+        int reservesBelow = 0;
+        for (int i = 0; i < levelIndex; i++)
+            if (IsReserveLevel(i, designations)) reservesBelow++;
+
+        return ((char)('A' + reservesBelow)).ToString();
+    }
+
+    private static bool IsReserveLevel(int levelIndex, string[] designations)
+    {
+        if (designations == null) return levelIndex >= 2;              // fallback scheme
+        if (levelIndex < designations.Length) return designations[levelIndex] == "Reserve";
+        return true;                                                   // above configured array = reserve
+    }
+
     private static string ConvertLevelToChar(int levelIndex, string designation)
     {
         if (designation == "Pick")

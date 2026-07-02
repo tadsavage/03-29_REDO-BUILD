@@ -338,7 +338,9 @@ public class DeleteState : PlacementStateBase
                     {
                         if (entry.instance.GetComponent<EmployeeIdentity>() != null) continue; // employees: terminate, not delete
                         var ebd = entry.instance.GetComponent<BuildingData>();
-                        if (ebd != null && IsFoundationData(ebd.Data) && !FoundationIsClearToDelete(ebd)) continue; // foundation with stuff on it
+                        // Drag-delete NEVER eats foundations/grounds — it's far too easy to swipe one
+                        // up by accident. Deleting a foundation is a deliberate single-click action.
+                        if (ebd != null && IsFoundationData(ebd.Data)) continue;
                         var h = entry.instance.GetComponent<BuildingHighlighter>();
                         if (h != null) { newTargets.Add(h); break; }
                     }
