@@ -26,6 +26,12 @@ public class PlacedObject : MonoBehaviour
     public int rackBay = -1;
     public int rackLevelIndex = -1; // 0 = ground/first level
 
+    // World-space horizontal direction pointing toward the aisle (the labeled face) for a committed
+    // rack. Stored so the aisle side is deterministic and doesn't have to be re-derived from the
+    // rack's live label states: stacked racks inherit it from the rack below, and a moved/rotated
+    // rack re-hides the correct face from it. Vector3.zero = unset (legacy / not yet committed).
+    public Vector3 rackAisleFacing = Vector3.zero;
+
     private void OnEnable()
     {
         // Prevent registration if this object is a child of another PlacedObject.

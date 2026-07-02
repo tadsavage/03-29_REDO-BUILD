@@ -80,6 +80,11 @@ public class RackCollectionDetector : MonoBehaviour
         if (_aisleInitializer != null && _aisleInitializer.TryCommitSecondSide(rackGO))
             return;
 
+        // Placed IN LINE with a finalized aisle (continuing its row)? Then it's an extension of
+        // that aisle — commit it live and continue/renumber the bays, no ghost / chevron / setup UI.
+        if (_aisleInitializer != null && _aisleInitializer.TryCommitExtension(rackGO))
+            return;
+
         // Keep the rack as an orange-transparent planning placeholder until its aisle is set up.
         ApplyGhost(rackGO);
 
@@ -109,25 +114,73 @@ public class RackCollectionDetector : MonoBehaviour
         if (deleted.data.category != "Racking") return;
 
         var go = deleted.gameObject;
+
+        // Collection bookkeeping. Only racks that went through the ghost/collection flow are
+        // members — second-side and stacked racks commit live WITHOUT a collection — so a null
+        // collection here is normal and must NOT skip the aisle-recycle check below.
         var collection = FindCollectionByRack(go);
-        if (collection == null) return;
-
-        collection.RemoveRack(go);
-
-        if (collection.Racks.Count == 0)
+        if (collection != null)
         {
-            // Emptied — retire the collection. Chevrons are children of it, so they
-            // die with it (this is what stops chevrons orphaning in the scene).
-            _activeCollections.Remove(collection);
-            OnCollectionRemoved?.Invoke(collection);
-            if (collection != null)
+            collection.RemoveRack(go);
+
+            if (collection.Racks.Count == 0)
+            {
+                // Emptied — retire the collection. Chevrons are children of it, so they
+                // die with it (this is what stops chevrons orphaning in the scene).
+                _activeCollections.Remove(collection);
+                OnCollectionRemoved?.Invoke(collection);
                 Destroy(collection.gameObject);
+            }
+            else if (!collection.Initialized)
+            {
+                // Still has racks and not yet set up — reposition chevrons to the new extent.
+                OnCollectionAdded?.Invoke(collection);
+            }
         }
-        else if (!collection.Initialized)
+
+        // Free the aisle number for reuse once this aisle's LAST committed rack is gone.
+        RecycleAisleIfEmpty(deleted);
+    }
+
+    // Racks whose delete event has fired but whose GameObjects are still finishing their
+    // destruction animation (they stay active/registered for ~1s). Tracked so the "any rack
+    // left in this aisle?" scan excludes them — otherwise drag-deleting a whole aisle at once
+    // (all delete events fire before any rack is actually gone) would never see the aisle empty.
+    private readonly HashSet<PlacedObject> _deletingRacks = new();
+
+    /// <summary>
+    /// Releases the deleted rack's aisle number from <see cref="AisleRegistry"/> once no live rack
+    /// still carries it — so a fully-deleted aisle's number can be reused. Scans the registry rather
+    /// than collection state because an aisle's racks span its collection PLUS second-side/stacked
+    /// racks that were committed live without one.
+    /// </summary>
+    private void RecycleAisleIfEmpty(PlacedObject deleted)
+    {
+        int aisle = deleted.rackAisle;
+        if (aisle < 0) return;
+
+        _deletingRacks.Add(deleted);
+        _deletingRacks.RemoveWhere(p => p == null); // prune racks whose destruction has completed
+
+        if (!AnyLiveRackInAisle(aisle))
         {
-            // Still has racks and not yet set up — reposition chevrons to the new extent.
-            OnCollectionAdded?.Invoke(collection);
+            AisleRegistry.Unregister(aisle);
+            Debug.Log($"Aisle {aisle:D2} fully deleted — number recycled for reuse.");
         }
+    }
+
+    /// <summary>True if any registered live rack (other than those mid-deletion) still belongs to
+    /// the given aisle.</summary>
+    private bool AnyLiveRackInAisle(int aisle)
+    {
+        foreach (var po in PlacedObjectRegistry.All)
+        {
+            if (po == null) continue;
+            if (!po.isRackLive || po.rackAisle != aisle) continue;
+            if (_deletingRacks.Contains(po)) continue;
+            return true;
+        }
+        return false;
     }
 
     private void ApplyGhost(GameObject rackGO)

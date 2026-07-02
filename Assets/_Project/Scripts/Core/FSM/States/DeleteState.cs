@@ -284,6 +284,23 @@ public class DeleteState : PlacementStateBase
     private static bool IsFoundationData(ObjDataSO d)
         => d != null && (d.category == "Foundation" || d.category == "Grounds");
 
+    // True if any rack (category "Racking") sits anywhere in the drag rectangle. Drives the QoL
+    // exception that spares foundations during a rack swipe (see UpdateDragDelete).
+    private bool DragCapturesRack(List<Vector2Int> footprint)
+    {
+        foreach (var cell in footprint)
+        {
+            var objs = _grid.GetObjectsInCell(cell);
+            if (objs == null) continue;
+            foreach (var entry in objs)
+            {
+                if (entry.instance == null || entry.data == null) continue;
+                if (entry.data.category == "Racking") return true;
+            }
+        }
+        return false;
+    }
+
     // A foundation may only be deleted when nothing but its own floor tiles sits anywhere in its
     // footprint. A wall / pallet / door / prop blocks the delete so the player has to clear it
     // first — this stops the foundation (and everything on it) from being bulldozed by accident
@@ -320,7 +337,13 @@ public class DeleteState : PlacementStateBase
         Vector2Int b = _grid.WorldToCell(dragEndWorld);
 
         List<Vector2Int> footprint = GetRectangleCells(a, b);
-        
+
+        // Rack QoL exception: when a drag-delete captures ANY rack, spare the foundations/grounds
+        // under the swipe so you can bulldoze a run of racking without having to rebuild the
+        // foundation beneath it. If the drag caught NO racks, foundations delete per the normal
+        // rules (they become ordinary drag targets like anything else).
+        bool dragHasRack = DragCapturesRack(footprint);
+
         // 1. Collect new targets using Grid data instead of Physics Raycasts
         HashSet<BuildingHighlighter> newTargets = new HashSet<BuildingHighlighter>();
 
@@ -338,9 +361,10 @@ public class DeleteState : PlacementStateBase
                     {
                         if (entry.instance.GetComponent<EmployeeIdentity>() != null) continue; // employees: terminate, not delete
                         var ebd = entry.instance.GetComponent<BuildingData>();
-                        // Drag-delete NEVER eats foundations/grounds — it's far too easy to swipe one
-                        // up by accident. Deleting a foundation is a deliberate single-click action.
-                        if (ebd != null && IsFoundationData(ebd.Data)) continue;
+                        // Foundations/grounds are spared ONLY when this drag is also deleting racks
+                        // (see dragHasRack above) — so a rack swipe leaves the foundation intact and
+                        // never highlights it yellow.
+                        if (ebd != null && IsFoundationData(ebd.Data) && dragHasRack) continue;
                         var h = entry.instance.GetComponent<BuildingHighlighter>();
                         if (h != null) { newTargets.Add(h); break; }
                     }

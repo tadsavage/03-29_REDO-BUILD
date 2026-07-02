@@ -35,6 +35,9 @@ public class MoveState : PlacementStateBase
 
     private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
 
+    private AisleInitializer _aisleInitializer;
+    private AisleInitializer aisleInitializer => _aisleInitializer != null ? _aisleInitializer : _aisleInitializer = Object.FindAnyObjectByType<AisleInitializer>();
+
     // ---------------------------------------------------------
     // SELECTED OBJECT DATA
     // ---------------------------------------------------------
@@ -450,6 +453,12 @@ Vector2Int newRoot = hitCell - _selectionDelta;
         );
 
         _preview.ResetMoveGhostState();
+
+        // A committed aisle rack that was moved/rotated must re-hide its away face — the labels
+        // travelled with it, so a rotate would otherwise leave the hidden face pointing at the aisle.
+        // Uses the rack's STORED aisle-facing direction, so it's correct regardless of new rotation.
+        if (_data != null && _data.category == "Racking")
+            aisleInitializer?.ReapplyRackFaces(_obj);
 
         // Clear selection
         _obj = null;

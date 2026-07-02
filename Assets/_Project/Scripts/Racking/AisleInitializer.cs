@@ -83,6 +83,12 @@ public class AisleInitializer : MonoBehaviour
         var liveMat = ResolveLiveMaterial();
         if (liveMat != null) ApplyLiveMaterial(rackGO, liveMat);
 
+        // Inherit the aisle-facing world direction from the rack below (stored at its own commit),
+        // so this doesn't depend on the below rack's live label states. Fall back to reading them
+        // for legacy racks committed before the field existed.
+        Vector3 aisleFacing = RackFacingOf(belowPO, below);
+        newPO.rackAisleFacing = aisleFacing;
+
         // Level char honors the aisle's Pick/Reserve scheme (registered at setup): picks numeric,
         // reserves lettered bottom-up. Post-init stacks look it up by aisle number.
         string levelChar = LocationNameGenerator.LevelChar(level, AisleRegistry.GetDesignations(aisle));
@@ -90,7 +96,7 @@ public class AisleInitializer : MonoBehaviour
 
         // Show the same face as the rack below, matched by WORLD side — robust to the stacked
         // rack's rotation and to prefab label-naming variants (e.g. the yellow rack's groups).
-        ConfigureFaces(rackGO, BelowAisleDir(below));
+        ConfigureFaces(rackGO, aisleFacing);
 
         Debug.Log($"Stacked rack committed: aisle {aisle:D2} bay {bay:D2} level {levelChar} — appended to existing aisle, no chevrons/UI.");
         return true;
@@ -146,6 +152,7 @@ public class AisleInitializer : MonoBehaviour
 
         // Aisle-facing side = toward the facing rack.
         Vector3 aisleDir = facing.transform.position - rackGO.transform.position; aisleDir.y = 0f;
+        newPO.rackAisleFacing = aisleDir.sqrMagnitude > 0.0001f ? aisleDir.normalized : aisleDir;
         ConfigureFaces(rackGO, aisleDir);
 
         Debug.Log($"Second-side rack committed: aisle {aisle:D2} bay {newBay:D2} (paired across from bay {facingPO.rackBay:D2}), live, no chevron/UI.");
@@ -512,7 +519,10 @@ public class AisleInitializer : MonoBehaviour
         // Ground is level 0 — its char honors the aisle's Pick/Reserve scheme (Reserve at level 0 = "A").
         string levelChar = LocationNameGenerator.LevelChar(0, AisleRegistry.GetDesignations(aisle));
         SetRackLabels(rackGO, aisle, bay, levelChar, TravelPositionResolver(rackGO, travelDir));
-        ConfigureFaces(rackGO, GroundAisleDir(rackGO, travelDir, chevron, chevronPos));
+
+        Vector3 aisleFacing = GroundAisleDir(rackGO, travelDir, chevron, chevronPos);
+        if (placed != null) placed.rackAisleFacing = aisleFacing.sqrMagnitude > 0.0001f ? aisleFacing.normalized : aisleFacing;
+        ConfigureFaces(rackGO, aisleFacing);
     }
 
     private Material ResolveLiveMaterial()
@@ -566,15 +576,47 @@ public class AisleInitializer : MonoBehaviour
         return worldPos => Vector3.Dot(worldPos, travelDir) <= mid ? 0 : 1;
     }
 
-    /// <summary>Enables only the labels on the aisle-facing side (offset·aisleDir > 0); hides the rest.</summary>
+    /// <summary>
+    /// Enables the labels on the aisle-facing face and ALWAYS disables the opposite face — enable
+    /// the rear labels ⇒ disable the front labels, and vice versa. A rack has exactly two label
+    /// faces: front (+local Z / transform.forward) and rear (−forward); the L/R position columns are
+    /// spread along local X. We classify each label by the sign of its offset along the rack's OWN
+    /// forward axis (unambiguous front vs rear, pivot-proof and prefab-agnostic), then pick which
+    /// face fronts the aisle with a single dot(forward, aisleDir). This is deliberately NOT a
+    /// per-label projection of the full offset onto aisleDir: the two columns are ~1.38 units apart
+    /// in X, so any run-axis component in aisleDir (e.g. the "across from" second-side case) could
+    /// flip an individual label and leave a back-face label showing.
+    /// </summary>
     private void ConfigureFaces(GameObject rackGO, Vector3 aisleDir)
     {
-        Vector3 center = rackGO.transform.position;
+        Transform rt = rackGO.transform;
+        Vector3 fwd = rt.forward; fwd.y = 0f;
+        fwd = fwd.sqrMagnitude > 0.0001f ? fwd.normalized : Vector3.forward;
+        aisleDir.y = 0f;
+
+        // Which physical face points toward the aisle: front (+forward) or rear (−forward).
+        bool frontFacesAisle = Vector3.Dot(fwd, aisleDir) >= 0f;
+
+        Vector3 center = rt.position;
         foreach (var tmp in rackGO.GetComponentsInChildren<TMPro.TextMeshPro>(true))
         {
             Vector3 d = tmp.transform.position - center; d.y = 0f;
-            tmp.gameObject.SetActive(Vector3.Dot(d, aisleDir) > 0f);
+            bool isFront = Vector3.Dot(d, fwd) >= 0f;      // the face this label sits on
+            // Toggle the whole label GROUP object (e.g. LabelRear.L), not just its inner TMP_Label
+            // child — disabling the group turns off the label and its nested text together, which
+            // is what actually hides the unused face.
+            LabelGroupUnderRoot(tmp.transform, rt).gameObject.SetActive(isFront == frontFacesAisle);
         }
+    }
+
+    /// <summary>The label-group object for a TMP: the ancestor that is a direct child of the rack
+    /// root (falls back to the TMP's own object if it's already a direct child). Disabling this hides
+    /// the group and its nested text in one shot.</summary>
+    private static Transform LabelGroupUnderRoot(Transform label, Transform root)
+    {
+        Transform t = label;
+        while (t.parent != null && t.parent != root) t = t.parent;
+        return t;
     }
 
     /// <summary>Horizontal direction toward the aisle for a ground rack: the lateral (perpendicular
@@ -591,6 +633,29 @@ public class AisleInitializer : MonoBehaviour
         return f.sqrMagnitude > 0.0001f ? f.normalized : Vector3.forward;
     }
 
+    /// <summary>The committed aisle-facing direction of a rack: the stored value if present,
+    /// else re-derived from its live labels (legacy racks committed before the field existed).</summary>
+    private Vector3 RackFacingOf(PlacedObject po, GameObject go)
+    {
+        if (po != null && po.rackAisleFacing.sqrMagnitude > 0.0001f) return po.rackAisleFacing;
+        return BelowAisleDir(go);
+    }
+
+    /// <summary>
+    /// Re-hides the away face of a committed rack using its STORED aisle-facing direction. Call this
+    /// after a rack is moved/rotated so the correct face stays hidden (a rotate would otherwise leave
+    /// the previously-hidden face pointing at the aisle). No-op for racks that aren't live aisle racks
+    /// or have no stored facing.
+    /// </summary>
+    public void ReapplyRackFaces(GameObject rackGO)
+    {
+        if (rackGO == null) return;
+        var po = rackGO.GetComponent<PlacedObject>();
+        if (po == null || !po.isRackLive) return;
+        if (po.rackAisleFacing.sqrMagnitude < 0.0001f) return;
+        ConfigureFaces(rackGO, po.rackAisleFacing);
+    }
+
     /// <summary>Aisle-facing face normal of the rack below, from where its still-active labels sit.</summary>
     private Vector3 BelowAisleDir(GameObject below)
     {
@@ -602,6 +667,293 @@ public class AisleInitializer : MonoBehaviour
             sum += Vector3.Dot(tmp.transform.position - below.transform.position, fwd);
 
         return sum >= 0f ? fwd : -fwd;
+    }
+
+    // ============================================================================================
+    // IN-LINE EXTENSION of an already-finalized aisle (continuing its row of bays)
+    // --------------------------------------------------------------------------------------------
+    // A fresh ground rack placed IN LINE with (same row, same run axis as) a finalized aisle — past
+    // the last bay, or dragged beyond the collection — is a CONTINUATION of that aisle, not a new
+    // one. It commits live immediately (no ghost / chevron / setup UI), exactly like a rack stacked
+    // on top. Two numbering cases:
+    //   • Appended at the high-bay end  → just take the next bay up (ascending).
+    //   • Prepended at the low-bay end   → bays can't go below 01/02, so RENUMBER the WHOLE aisle
+    //     from the new start. If the aisle is two-sided, both sides renumber together (by physical
+    //     position along travel) so the two rows stay paired and the pick path isn't scrambled.
+    // ============================================================================================
+
+    public bool TryCommitExtension(GameObject rackGO)
+    {
+        if (rackGO == null) return false;
+        if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+        if (_grid == null) return false;
+
+        var newPO = rackGO.GetComponent<PlacedObject>();
+        if (newPO == null || newPO.data == null || newPO.data.category != "Racking") return false;
+
+        var anchor = FindExtendableAisleRack(rackGO);
+        if (anchor == null) return false;
+        var anchorPO = anchor.GetComponent<PlacedObject>();
+        if (anchorPO == null || anchorPO.rackAisle < 0) return false;
+
+        int aisle = anchorPO.rackAisle;
+        Vector3 facing = RackFacing(anchorPO);          // same row → same aisle-facing side
+        Vector3 travelDir = TravelDirFromRack(anchor);  // aisle's bay-ascending direction
+
+        // Commit live in place — same treatment as a stacked rack.
+        var ghost = rackGO.GetComponent<RackGhost>();
+        if (ghost != null) ghost.RestoreReal();
+        var liveMat = ResolveLiveMaterial();
+        if (liveMat != null) ApplyLiveMaterial(rackGO, liveMat);
+
+        newPO.isRackLive = true;
+        newPO.rackAisle = aisle;
+        newPO.rackLevelIndex = 0;
+        newPO.rackAisleFacing = facing.sqrMagnitude > 0.0001f ? facing.normalized : facing;
+
+        if (IsPrependEnd(rackGO, aisle, newPO.rackAisleFacing, travelDir))
+        {
+            // Low-bay end: can't number below 01/02 — renumber the whole aisle from the new start.
+            newPO.rackBay = 0; // placeholder; RenumberAisle assigns real bays for every rack
+            RenumberAisle(aisle);
+            Debug.Log($"Extension rack PREPENDED to aisle {aisle:D2} — whole aisle renumbered.");
+        }
+        else
+        {
+            // High-bay end: just continue ascending on this side (parity preserved by +2).
+            int side = SideKey(newPO.rackAisleFacing);
+            int maxBay = MaxBayOnSide(aisle, side, rackGO);
+            int newBay = maxBay >= 1 ? maxBay + 2 : (anchorPO.rackBay % 2 == 0 ? 2 : 1);
+            newPO.rackBay = newBay;
+            string levelChar = LocationNameGenerator.LevelChar(0, AisleRegistry.GetDesignations(aisle));
+            SetRackLabels(rackGO, aisle, newBay, levelChar, TravelPositionResolver(rackGO, travelDir));
+            ConfigureFaces(rackGO, newPO.rackAisleFacing);
+            Debug.Log($"Extension rack APPENDED to aisle {aisle:D2} as bay {newBay:D2}.");
+        }
+        return true;
+    }
+
+    /// <summary>Nearest finalized GROUND rack that <paramref name="rackGO"/> continues IN LINE: same
+    /// run axis, same row line (near-zero lateral offset), within 5 cells along the run, and nothing
+    /// racking in between. That's what marks a continuation vs. a separate/parallel aisle.</summary>
+    private GameObject FindExtendableAisleRack(GameObject rackGO)
+    {
+        float cell = _grid.CellSize;
+        Vector3 p = rackGO.transform.position;
+        Vector3 runAxis = rackGO.transform.right; runAxis.y = 0f;
+        runAxis = runAxis.sqrMagnitude > 0.0001f ? runAxis.normalized : Vector3.right;
+        Vector3 lat = rackGO.transform.forward; lat.y = 0f;
+        lat = lat.sqrMagnitude > 0.0001f ? lat.normalized : Vector3.forward;
+
+        GameObject best = null; float bestAlong = float.MaxValue;
+        foreach (var po in PlacedObjectRegistry.All)
+        {
+            if (po == null || !po.isRackLive || po.rackAisle < 0) continue;
+            if (po.data == null || po.data.category != "Racking") continue;
+            if (po.rackLevelIndex != 0) continue;
+            var go = po.gameObject;
+            if (go == rackGO) continue;
+            if (!RackGridUtil.SameAxis(rackGO, go)) continue;
+
+            Vector3 d = go.transform.position - p; d.y = 0f;
+            float lateral = Vector3.Dot(d, lat);
+            if (Mathf.Abs(lateral) > 0.6f * cell) continue;      // must share the row line, not be across
+            float aalong = Mathf.Abs(Vector3.Dot(d, runAxis));
+            if (aalong < 0.5f * cell || aalong > 5f * cell) continue;
+            if (IsRackingBetween(p, go.transform.position, rackGO, go)) continue;
+            if (aalong < bestAlong) { bestAlong = aalong; best = go; }
+        }
+        return best;
+    }
+
+    /// <summary>True if the new rack sits BEFORE the aisle's current lowest bay on its own side
+    /// (travel-projection less than the existing minimum) — i.e. a prepend that needs renumbering.</summary>
+    private bool IsPrependEnd(GameObject rackGO, int aisle, Vector3 facing, Vector3 travelDir)
+    {
+        int side = SideKey(facing);
+        float newProj = Vector3.Dot(rackGO.transform.position, travelDir);
+        float minProj = float.MaxValue;
+        foreach (var po in PlacedObjectRegistry.All)
+        {
+            if (po == null || !po.isRackLive || po.rackAisle != aisle) continue;
+            if (po.data == null || po.data.category != "Racking" || po.rackLevelIndex != 0) continue;
+            if (po.gameObject == rackGO) continue;
+            if (SideKey(RackFacing(po)) != side) continue;
+            float pr = Vector3.Dot(po.transform.position, travelDir);
+            if (pr < minProj) minProj = pr;
+        }
+        if (minProj == float.MaxValue) return false;
+        return newProj < minProj - 0.01f;
+    }
+
+    /// <summary>
+    /// Wipes and regenerates every location name in an aisle. Bays are assigned by PHYSICAL POSITION
+    /// along the aisle's travel direction (slot k → odd side 2k+1, even side 2k+2), with a single
+    /// origin/pitch shared by both sides, so racks directly across from each other always get a
+    /// paired bay number (N / N±1) and the pick path stays intact. Every level of every column is
+    /// relabelled bottom-up. Used when a rack is prepended below bay 01/02.
+    /// </summary>
+    private void RenumberAisle(int aisle)
+    {
+        var racks = GetAisleRacks(aisle);
+        var ground = new List<PlacedObject>();
+        foreach (var po in racks) if (po.rackLevelIndex == 0) ground.Add(po);
+        if (ground.Count == 0) return;
+
+        var designations = AisleRegistry.GetDesignations(aisle);
+        Vector3 travelDir = AisleTravelDir(ground);
+
+        // Shared origin (aisle start) + bay pitch across BOTH sides.
+        float minProj = float.MaxValue;
+        foreach (var g in ground)
+        {
+            float pr = Vector3.Dot(g.transform.position, travelDir);
+            if (pr < minProj) minProj = pr;
+        }
+        float pitch = BayPitch(ground, travelDir);
+
+        // Each side keeps its parity (the side that was even stays even), read from a rack that still
+        // has a real bay (skip the just-added placeholder with bay 0).
+        var sideParity = new Dictionary<int, int>(); // sideKey -> bay%2 (0 even, 1 odd)
+        foreach (var g in ground)
+        {
+            int sk = SideKey(RackFacing(g));
+            if (!sideParity.ContainsKey(sk) && g.rackBay >= 1)
+                sideParity[sk] = g.rackBay % 2;
+        }
+
+        foreach (var g in ground)
+        {
+            int sk = SideKey(RackFacing(g));
+            int parity = sideParity.TryGetValue(sk, out var pv) ? pv : 1; // 0 even, 1 odd
+            int slot = Mathf.RoundToInt((Vector3.Dot(g.transform.position, travelDir) - minProj) / pitch);
+            int bay = 2 * slot + (parity == 0 ? 2 : 1);
+            RelabelColumn(g, racks, aisle, bay, travelDir, designations);
+        }
+    }
+
+    /// <summary>Relabels a whole vertical column: ground gets the new bay + travel-ordered positions,
+    /// then each stacked level above (same cell) inherits the bay and its position from below.</summary>
+    private void RelabelColumn(PlacedObject groundPO, List<PlacedObject> allRacks, int aisle, int bay, Vector3 travelDir, string[] designations)
+    {
+        var groundGO = groundPO.gameObject;
+        groundPO.rackBay = bay;
+        string lc0 = LocationNameGenerator.LevelChar(0, designations);
+        SetRackLabels(groundGO, aisle, bay, lc0, TravelPositionResolver(groundGO, travelDir));
+        ConfigureFaces(groundGO, RackFacing(groundPO));
+
+        Vector2Int cell = _grid.WorldToCell(groundGO.transform.position);
+        var stack = new List<PlacedObject>();
+        foreach (var po in allRacks)
+        {
+            if (po == groundPO || po.rackLevelIndex <= 0) continue;
+            if (_grid.WorldToCell(po.transform.position) != cell) continue;
+            stack.Add(po);
+        }
+        stack.Sort((a, b) => a.rackLevelIndex.CompareTo(b.rackLevelIndex));
+
+        GameObject below = groundGO;
+        foreach (var s in stack)
+        {
+            s.rackBay = bay;
+            string lc = LocationNameGenerator.LevelChar(s.rackLevelIndex, designations);
+            AssignStackedRackLabels(s.gameObject, below, aisle, bay, lc);
+            ConfigureFaces(s.gameObject, RackFacing(s));
+            below = s.gameObject;
+        }
+    }
+
+    /// <summary>Bay-ascending travel direction for the aisle, from an already-labelled rack.</summary>
+    private Vector3 AisleTravelDir(List<PlacedObject> ground)
+    {
+        foreach (var g in ground)
+        {
+            if (g.rackBay < 1) continue;
+            Vector3 t = TravelDirFromRack(g.gameObject);
+            if (t.sqrMagnitude > 0.0001f) return t;
+        }
+        Vector3 r = ground[0].gameObject.transform.right; r.y = 0f;
+        return r.sqrMagnitude > 0.0001f ? r.normalized : Vector3.right;
+    }
+
+    /// <summary>
+    /// Physical spacing between adjacent bays along travel = the rack's footprint span along its run
+    /// axis (in cells) × cell size. Derived from the footprint, NOT from inter-rack gaps: two rows
+    /// of a 2-sided aisle share a travel-projection when directly across, and any slight misalignment
+    /// between them would otherwise collapse a gap-based pitch and explode the slot numbers.
+    /// </summary>
+    private float BayPitch(List<PlacedObject> ground, Vector3 travelDir)
+    {
+        foreach (var g in ground)
+        {
+            if (g.data == null) continue;
+            int alongCells = AlongRunCells(g);
+            if (alongCells > 0) return alongCells * _grid.CellSize;
+        }
+        return _grid.CellSize * 2f; // full-bay default
+    }
+
+    /// <summary>How many grid cells a rack spans along its own run axis (footprint width).</summary>
+    private int AlongRunCells(PlacedObject po)
+    {
+        if (po == null || po.data == null) return 0;
+        float rotDeg = RackGridUtil.RotationStep(po.gameObject) * 90f;
+        var offsets = po.data.GetFootprintOffsets(-rotDeg);
+        if (offsets == null || offsets.Length == 0) return Mathf.Max(1, po.data.footprint.x);
+
+        // Run axis in grid space is the rack's local X → footprint extent along cell X for a
+        // 0/180° rack, along cell Y for a 90/270° rack. Use whichever matches the run orientation.
+        int step = RackGridUtil.RotationStep(po.gameObject);
+        bool runAlongCellX = (step % 2) == 0;
+        int min = int.MaxValue, max = int.MinValue;
+        foreach (var o in offsets)
+        {
+            int v = runAlongCellX ? o.x : o.y;
+            if (v < min) min = v;
+            if (v > max) max = v;
+        }
+        return (max - min) + 1;
+    }
+
+    private List<PlacedObject> GetAisleRacks(int aisle)
+    {
+        var list = new List<PlacedObject>();
+        foreach (var po in PlacedObjectRegistry.All)
+        {
+            if (po == null || !po.isRackLive || po.rackAisle != aisle) continue;
+            if (po.data == null || po.data.category != "Racking") continue;
+            list.Add(po);
+        }
+        return list;
+    }
+
+    private int MaxBayOnSide(int aisle, int sideKey, GameObject exclude)
+    {
+        int max = -1;
+        foreach (var po in GetAisleRacks(aisle))
+        {
+            if (po.rackLevelIndex != 0 || po.gameObject == exclude) continue;
+            if (SideKey(RackFacing(po)) != sideKey) continue;
+            if (po.rackBay > max) max = po.rackBay;
+        }
+        return max;
+    }
+
+    /// <summary>A quantized key for which SIDE of an aisle a rack is on, from its aisle-facing
+    /// direction. Opposite-facing rows get distinct keys.</summary>
+    private int SideKey(Vector3 facing)
+    {
+        facing.y = 0f;
+        if (facing.sqrMagnitude < 0.0001f) return 0;
+        facing.Normalize();
+        return Mathf.RoundToInt(facing.x) * 10 + Mathf.RoundToInt(facing.z);
+    }
+
+    private Vector3 RackFacing(PlacedObject po)
+    {
+        if (po == null) return Vector3.forward;
+        if (po.rackAisleFacing.sqrMagnitude > 0.0001f) return po.rackAisleFacing;
+        return BelowAisleDir(po.gameObject);
     }
 
 }
