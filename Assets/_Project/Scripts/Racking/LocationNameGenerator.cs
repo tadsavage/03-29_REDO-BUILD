@@ -82,7 +82,7 @@ public class LocationNameGenerator
         return chevronRotation < 90f;
     }
 
-    private static List<int> GenerateBayNumbers(int rackCount, bool isEvenSide)
+    public static List<int> GenerateBayNumbers(int rackCount, bool isEvenSide)
     {
         var bays = new List<int>();
 

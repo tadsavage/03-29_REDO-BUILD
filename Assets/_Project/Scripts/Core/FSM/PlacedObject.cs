@@ -18,6 +18,14 @@ public class PlacedObject : MonoBehaviour
     // touch racks that are part of an initialized aisle — not orange ghost placeholders.
     public bool isRackLive;
 
+    // Racking location metadata, set when a rack is committed to an aisle. Lets a rack
+    // placed directly on top of a live rack inherit its aisle + bay and just increment the
+    // level (vertical stacking = more levels), without going through the chevron/setup UI.
+    // -1 = not part of an initialized aisle yet.
+    public int rackAisle = -1;
+    public int rackBay = -1;
+    public int rackLevelIndex = -1; // 0 = ground/first level
+
     private void OnEnable()
     {
         // Prevent registration if this object is a child of another PlacedObject.

@@ -18,7 +18,13 @@ attempt — do NOT resurrect `CorridorDetector`/`AislePad`/`GhostRack` from the 
 4. Right-click a chevron → flips that whole **side team** (both chevrons on that side) to set travel direction.
 5. Click a chevron → its **side team turns green** = "armed" for this collection (one green side per collection).
 6. Double-click a chevron → opens `RackSetupUI` (aisle number + level Pick/Reserve designations).
-7. Submit → racks un-ghost (real materials back) + get AA-BB-LC location labels; chevrons deleted; collection marked Initialized.
+7. Submit → racks un-ghost (real materials back) + get **AA-BB-LP** location labels; chevrons deleted; collection marked Initialized.
+8. **Add more racks ON TOP of a finalized (live) rack** → NO chevrons/UI/ghost; it commits instantly as the next LEVEL of the same bay (see "Vertical stacking" below).
+
+## Location name format — `AA-BB-LP` (Aisle-Bay-Level-**Position**)
+- `AA` aisle (01-99), `BB` bay, `L` level char, `P` position (column) 0/1.
+- Level char: index `0,1` → numeric `"0"/"1"` (pickable); index `2+` → `"A","B","C"…` (reserve). `ConvertLevelToChar`'s reserve branch is `'A' + (levelIndex-2)` — so passing "Reserve" for level 1 yields `@` (ASCII 64). Levels 0-1 must use the "Pick" designation. `PICK_LEVELS = 2` is the boundary.
+- **Position is a VERTICAL COLUMN** — a whole stack shares one position number; only the level climbs. Ground positions ascend in the chevron/travel direction; stacked levels inherit each column's position from the rack directly below.
 
 ## File map (all in `Assets/_Project/Scripts/Racking/` unless noted)
 - `RackPlacedEvent.cs` — static event fired by `PlaceCommand`/`DragPlaceCommand` for category=="Racking".
@@ -29,9 +35,11 @@ attempt — do NOT resurrect `CorridorDetector`/`AislePad`/`GhostRack` from the 
 - `ChevronController.cs` — per-chevron click handling: side-flip, green selection, double-click→setup.
 - `ChevronGroup.cs` — one selected (green) side-team per collection.
 - `RackGhost.cs` — caches real materials, swaps to ghost, `RestoreReal()` on commit. Skips TMP labels.
-- `LocationNameGenerator.cs` — AA-BB-LC name generation.
-- `AisleInitializer.cs` — on setup submit: `CommitRealRacks` (un-ghost in place + labels), delete chevrons, mark initialized.
-- `RackingSystemManager.cs` — scene orchestrator; Awake adds the components, feeds them the `PlacementGrid`, sprite, materials.
+- `LocationNameGenerator.cs` — `AA-BB-LP` names; `GenerateBayNumbers(count, isEvenSide)` is `public` (even side 02,04,06…; odd 01,03,05…); `GetLocationName(...)`.
+- `AisleInitializer.cs` — on submit `CommitAndLabelAisle`: split each collection into GROUND racks (bays) vs UPPER racks (levels), label via **world-geometry** (never group names), delete chevrons, mark initialized. Also `TryCommitStackedRack` (public) for on-top placement.
+- `RackingSystemManager.cs` — scene orchestrator; Awake adds the components, feeds them the `PlacementGrid`, sprite, materials; auto-creates the `RackSetupUI` UIDocument.
+- `UI_UX/RackSetup/RackSetupUI.{cs,uxml,uss}` — the aisle-config modal (aisle # + level Pick/Reserve). Blueprint bg auto-loads from `Assets/_Project/Resources/RackBlueprint.png`.
+- `PlacedObject.cs` (Core/FSM) — carries `isRackLive` + `rackAisle`/`rackBay`/`rackLevelIndex` (−1 = not in an aisle) so stacked racks can inherit identity.
 - `PreviewController.cs` (Core/FSM/Preview) — owns the ghost material; exposes `GhostMaterial`.
 
 ## Rack footprints (from the assets)
@@ -54,10 +62,19 @@ attempt — do NOT resurrect `CorridorDetector`/`AislePad`/`GhostRack` from the 
 - **Chevron collider:** Center (0,0,0), Size (2,2,0.5), not trigger. Chevron transform scale 0.7 (30% smaller).
 - **Delete cleanup:** `RackCollectionDetector` subscribes to `GameEvents.Build.OnObjectDeleted` (via `EventManager.Instance.Subscribe<PlacedObject>`, namespace `GameCore.Events`). On a "Racking" delete: remove from collection; empty → destroy collection (chevrons die with it); else reposition chevrons.
 
+## Labeling, setup UI & stacking (2026-07-01 — the load-bearing stuff for names)
+- **Rack prefab labels = 4 TMP groups.** Orange prefabs name them `LabelFront.L/.R`, `LabelRear.L/.R` (each with one `TMP_Label` child); **NO parent `LabelFront`/`LabelRear` object exists** — old `transform.Find("LabelFront")` was a silent no-op. `Rack-FullYellow48` names them `LabelFront.L.002` and MIRRORS the layout. Front labels at local +Z (~0.65), Rear at −Z; `L` high local X (~0.04), `R` low (~−1.34). Front-face normal = `transform.forward`.
+- **Labeling is 100% WORLD-GEOMETRY — never key off group names.** `SetRackLabels` iterates `GetComponentsInChildren<TextMeshPro>(true)` and sets each via a resolver; `ConfigureFaces(rackGO, aisleDir)` enables only labels whose world offset·aisleDir > 0 (toggles the TMP GameObject). This is what makes yellow/half/any prefab work. **Do NOT reintroduce name-based label lookups.**
+  - Ground position resolver = `TravelPositionResolver` (split labels' projection onto travelDir at the midpoint → earlier column = pos 0). Travel dir = `ground[1].pos − ground[0].pos` (bay N→N+1), so positions ascend with the chevron. Aisle dir = lateral (⊥ run) part of direction to chevron (`GroundAisleDir`).
+  - Stacked position resolver = `InheritPositionFromBelow` (nearest below-label in world X/Z → same column number, rotation-proof). Aisle dir = below rack's active-label face normal (`BelowAisleDir`).
+- **Vertical stacking = append level, not new aisle.** `RackCollectionDetector.HandleRackPlaced` calls `AisleInitializer.TryCommitStackedRack` FIRST; if the rack sits on a live rack (`FindLiveRackBelow`, height-aware via grid stack) it commits instantly — no ghost/chevron/UI — inheriting aisle+bay, level = below+1. `RackPlacedEvent` fires BEFORE the rack is added to the grid stack, so `GetObjectsInCell` returns the rack below. Grid cell entries are the struct `PlacementGrid.PlacedObject` (`.instance`/`.data`), distinct from the MonoBehaviour.
+- **One-shot init of a pre-built multi-level structure is height-aware.** `CommitAndLabelAisle` splits each collection into GROUND racks (lowest per column, via `WorldToCell`+Y — stacked racks share a cell) vs UPPER; only ground racks are numbered as bays, upper racks committed bottom-up through `TryCommitStackedRack`. Without this, all levels count as bays and the numbering "wraps" bottom→top.
+- **RackSetupUI reliability (all three bit us):** (1) UXML root MUST declare `xmlns:xsi` if it uses `xsi:` attributes, else the whole file parses to an EMPTY VisualTreeAsset (panel renders nothing — Unity only warns). (2) The auto-created UIDocument must have `visualTreeAsset` set BEFORE its first enable (create GO inactive → set asset → SetActive), or the tree clones empty. (3) Toggle modal visibility via the overlay's **`display` style**, NOT `GameObject.SetActive` — an inactive UIDocument sharing a PanelSettings keeps rendering.
+
 ## Known gaps / deferred (don't assume these work)
 - **Undo-of-delete won't re-detect** — `DeleteCommand.Undo` fires `Build.OnObjectPlaced`, not `RackPlacedEvent`, so an undone rack won't rejoin/recreate its collection+chevrons.
 - **Save/load while ghosted** — ghosted racks save as plain racks and reload without ghost/collection/chevron state.
-- **Bay naming counts stacked racks** — `LocationNameGenerator` uses `collection.Racks.Count`, which includes vertically stacked bays → over-counts bays on multi-level racks.
+- **Bay naming counts stacked racks** — FIXED: `CommitAndLabelAisle` numbers only ground racks as bays and treats stacked racks as levels (see "One-shot init" above).
 - **No warehouse-DB write on submit** — only names + labels are generated; wire a real location/inventory DB when one exists.
 - **Parallel/back-to-back aisles** — now handled: parallel rows stay SEPARATE collections, each chevroned only on its open outer side. NOT yet done: linking the two facing rows of ONE walkway into a shared aisle number, and the aisle-used **on-screen toast** (uniqueness check works but only Debug.LogWarnings).
 - **Adjacency ambiguity for single racks** — if the player places one rack of row A, then one rack of row B *before* extending A, A is still a "point" so B merges into it. The normal drag-a-row-then-drag-the-next workflow avoids this.
@@ -69,5 +86,5 @@ attempt — do NOT resurrect `CorridorDetector`/`AislePad`/`GhostRack` from the 
 - Game-camera capture fails (URP); use Scene View capture instead.
 
 ## Cross-references
-- Deep session notes: memory files `racking-collection-chevron-rewrite-2026-06-30`, `racking-aisle-system-2026-06-29`.
+- Deep session notes: memory files `racking-setup-ui-stacking-naming-2026-07-01` (setup UI + stacking + geometry labeling), `racking-collection-chevron-rewrite-2026-06-30`, `racking-aisle-system-2026-06-29`.
 - Main project doc: the "Racking/Aisle Initialization System" section in `CLAUDE.md`.

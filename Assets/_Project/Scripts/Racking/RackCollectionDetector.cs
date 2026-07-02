@@ -20,6 +20,7 @@ public class RackCollectionDetector : MonoBehaviour
 {
     private readonly List<RackCollection> _activeCollections = new();
     private PlacementGrid _grid;
+    private AisleInitializer _aisleInitializer;
     private Material _ghostMaterial;
     private EventManager _eventManager;
     private bool _subscribedToDeletes;
@@ -65,6 +66,13 @@ public class RackCollectionDetector : MonoBehaviour
     private void HandleRackPlaced(GameObject rackGO)
     {
         if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+
+        // Placed directly on top of an already-live rack? That's a VERTICAL extension of an
+        // existing aisle — not a new one. Commit it in place (no ghost, no collection, no
+        // chevrons, no setup UI): it inherits aisle+bay from below and bumps the level.
+        if (_aisleInitializer == null) _aisleInitializer = GetComponent<AisleInitializer>();
+        if (_aisleInitializer != null && _aisleInitializer.TryCommitStackedRack(rackGO))
+            return;
 
         // Keep the rack as an orange-transparent planning placeholder until its aisle is set up.
         ApplyGhost(rackGO);

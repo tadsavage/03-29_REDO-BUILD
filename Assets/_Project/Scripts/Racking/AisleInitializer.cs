@@ -19,10 +19,15 @@ public class AisleInitializer : MonoBehaviour
     // Keeps commit working without an Editor round-trip.
     private const string DEFAULT_LIVE_MATERIAL_PATH = "Assets/_Project/Materials/AA_LowPolyCommon.mat";
 
+    // Levels below this index are pickable (numeric level char "0","1"); levels at/above it
+    // are reserves ("A","B","C"...). Must match LocationNameGenerator.ConvertLevelToChar.
+    private const int PICK_LEVELS = 2;
+
     private RackCollectionDetector _collectionDetector;
     private ChevronSpawner _chevronSpawner;
     private ChevronController _selectedChevron;
     private RackSetupUI _setupUI;
+    private PlacementGrid _grid;
 
     public void SetMaterial(Material material) => _realRackMaterial = material;
 
@@ -45,6 +50,132 @@ public class AisleInitializer : MonoBehaviour
         _selectedChevron = chevron;
     }
 
+    /// <summary>
+    /// If <paramref name="rackGO"/> was placed directly on top of an already-live rack, this
+    /// is a VERTICAL extension of an existing aisle — not a new aisle. Commit it immediately:
+    /// no chevrons, no setup UI, no orange ghost. It inherits the aisle + bay of the rack below
+    /// and takes the next level up. Upper levels are reserves (picks are only reachable at the
+    /// bottom). Returns true if it was handled as a stack, so the caller can skip collection
+    /// detection entirely.
+    /// </summary>
+    public bool TryCommitStackedRack(GameObject rackGO)
+    {
+        if (rackGO == null) return false;
+        if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+        if (_grid == null) return false;
+
+        var below = FindLiveRackBelow(rackGO);
+        if (below == null) return false;
+
+        var belowPO = below.GetComponent<PlacedObject>();
+        var newPO = rackGO.GetComponent<PlacedObject>();
+        if (belowPO == null || newPO == null) return false;
+
+        int aisle = belowPO.rackAisle;
+        int bay = belowPO.rackBay;
+        int level = belowPO.rackLevelIndex + 1;
+
+        newPO.rackAisle = aisle;
+        newPO.rackBay = bay;
+        newPO.rackLevelIndex = level;
+        newPO.isRackLive = true;
+
+        // Live right away. Un-ghost if it was placed as a planning ghost pre-init, then match
+        // the committed racks below (material + labels).
+        var stackGhost = rackGO.GetComponent<RackGhost>();
+        if (stackGhost != null) stackGhost.RestoreReal();
+        var liveMat = ResolveLiveMaterial();
+        if (liveMat != null) ApplyLiveMaterial(rackGO, liveMat);
+
+        // Levels 0-1 are pickable and use the numeric level char ("0","1"); levels 2+ are
+        // reserves ("A","B","C"...). This mirrors LocationNameGenerator.ConvertLevelToChar,
+        // whose Reserve branch assumes level >= 2 — passing "Reserve" for level 1 produced
+        // '@' (the char just before 'A'). That was the stacked-level-1 naming bug.
+        string designation = level < PICK_LEVELS ? "Pick" : "Reserve";
+        AssignStackedRackLabels(rackGO, below, aisle, bay, level, designation);
+
+        // Show the same face as the rack below, matched by WORLD side — robust to the stacked
+        // rack's rotation and to prefab label-naming variants (e.g. the yellow rack's groups).
+        ConfigureFaces(rackGO, BelowAisleDir(below));
+
+        Debug.Log($"Stacked rack committed: aisle {aisle:D2} bay {bay:D2} level {level} (Reserve) — appended to existing aisle, no chevrons/UI.");
+        return true;
+    }
+
+    /// <summary>
+    /// The topmost live racking object in the newly-placed rack's root cell. RackPlacedEvent
+    /// fires before the new rack is added to the grid stack, but we still skip the rack itself
+    /// defensively (drag-place adds to the grid before firing).
+    /// </summary>
+    private GameObject FindLiveRackBelow(GameObject rackGO)
+    {
+        Vector2Int cell = _grid.WorldToCell(rackGO.transform.position);
+        var objects = _grid.GetObjectsInCell(cell);
+        if (objects == null) return null;
+
+        float myY = rackGO.transform.position.y;
+        GameObject below = null;  float belowY = float.NegativeInfinity;  // highest rack strictly under myY
+        GameObject topAny = null; float topAnyY = float.NegativeInfinity;  // highest live rack overall
+
+        foreach (var entry in objects)
+        {
+            if (entry.instance == null || entry.data == null) continue;
+            if (entry.instance == rackGO) continue;
+            if (entry.data.category != "Racking") continue;
+            var po = entry.instance.GetComponent<PlacedObject>();
+            if (po == null || !po.isRackLive) continue;
+
+            float oy = entry.instance.transform.position.y;
+            if (oy > topAnyY) { topAnyY = oy; topAny = entry.instance; }
+            if (oy < myY - 0.05f && oy > belowY) { belowY = oy; below = entry.instance; }
+        }
+
+        // Prefer the rack directly under this one's height (init: everything already positioned);
+        // fall back to the topmost live rack when the new rack's Y isn't finalized yet (post-init
+        // placement fires RackPlacedEvent before the stack Y is applied).
+        return below != null ? below : topAny;
+    }
+
+    /// <summary>
+    /// Writes a single level's location names onto a rack's four label groups: the left column
+    /// (position 0) on both faces, the right column (position 1) on both faces. ConfigureRackLabels
+    /// then hides whichever face doesn't front the aisle.
+    /// </summary>
+    /// <summary>
+    /// Labels a stacked rack. The LEVEL comes from levelIndex, but the POSITION (column) is a
+    /// vertical property: each label inherits the position digit of whichever label on the rack
+    /// BELOW sits physically beneath it (nearest in world X/Z). That keeps a column's position
+    /// consistent all the way up and follows the chevron direction the ground level established —
+    /// even if the stacked rack was placed at a different rotation than the rack below it (which
+    /// is what made an earlier version read positions in reverse, e.g. …-11 then …-10).
+    /// </summary>
+    private void AssignStackedRackLabels(GameObject rackGO, GameObject below, int aisle, int bay, int levelIndex, string designation)
+    {
+        string levelChar = LocationNameGenerator.GetLocationName(aisle, bay, levelIndex, designation, 0).level;
+        SetRackLabels(rackGO, aisle, bay, levelChar, worldPos => InheritPositionFromBelow(worldPos, below));
+    }
+
+    /// <summary>Position digit of the below rack's label nearest (in world X/Z) to worldPos.</summary>
+    private int InheritPositionFromBelow(Vector3 worldPos, GameObject below)
+    {
+        int bestPos = 0;
+        float bestDist = float.MaxValue;
+        var target = new Vector2(worldPos.x, worldPos.z);
+
+        foreach (var tmp in below.GetComponentsInChildren<TMPro.TextMeshPro>())
+        {
+            string txt = tmp.text;
+            if (string.IsNullOrEmpty(txt)) continue;
+            char last = txt[txt.Length - 1];
+            if (last < '0' || last > '9') continue;
+
+            Vector3 bp = tmp.transform.position;
+            float dist = (new Vector2(bp.x, bp.z) - target).sqrMagnitude;
+            if (dist < bestDist) { bestDist = dist; bestPos = last - '0'; }
+        }
+        return bestPos;
+    }
+
     private void HandleSetupSubmit(RackSetupData setupData)
     {
         if (_selectedChevron == null || _selectedChevron.Collection == null)
@@ -62,19 +193,10 @@ public class AisleInitializer : MonoBehaviour
             return;
         }
 
-        // Generate location names for all collections
-        var locations = LocationNameGenerator.GenerateAisleLocations(
-            setupData.aisleNumber,
-            collectionsToInitialize.ToArray(),
-            setupData.levelDesignations,
-            _selectedChevron.CurrentRotation
-        );
-
-        // Commit the racks: un-ghost them in place and label them (no re-instantiation).
-        CommitRealRacks(collectionsToInitialize, locations, setupData.levelDesignations);
-
-        // Configure labels (only aisle-facing side)
-        ConfigureLabels(collectionsToInitialize, _selectedChevron.CurrentRotation);
+        // Un-ghost, number, and label the whole aisle. Only GROUND racks (the lowest in each
+        // vertical column) become bays; racks stacked above them become higher LEVELS of the
+        // same bay — so a pre-built multi-level structure names correctly at one-shot init.
+        CommitAndLabelAisle(collectionsToInitialize, setupData.aisleNumber, _selectedChevron);
 
         // Mark collections as initialized
         foreach (var collection in collectionsToInitialize)
@@ -135,35 +257,116 @@ public class AisleInitializer : MonoBehaviour
         return "Side"; // One-sided aisle
     }
 
-    private void CommitRealRacks(List<RackCollection> collections, List<LocationNameGenerator.LocationName> locations, string[] levelDesignations)
+    /// <summary>
+    /// Commits and labels every rack in the aisle. GROUND racks (the lowest rack in each vertical
+    /// column) are numbered as bays; racks stacked above them are committed as higher LEVELS of the
+    /// same bay via TryCommitStackedRack. This is what lets a fully pre-built multi-level structure
+    /// name correctly when it's all initialized in one shot — not just when levels are added later.
+    /// </summary>
+    private void CommitAndLabelAisle(List<RackCollection> collections, int aisleNumber, ChevronController chevron)
     {
-        int locationIndex = 0;
+        if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+
+        float chevronRotation = chevron != null ? chevron.CurrentRotation : 0f;
+        bool firstCollectionEven = chevronRotation < 90f; // mirrors LocationNameGenerator's side rule
+        Vector3 chevronPos = chevron != null ? chevron.transform.position : Vector3.zero;
         var liveMat = ResolveLiveMaterial();
 
-        foreach (var collection in collections)
+        for (int colIndex = 0; colIndex < collections.Count; colIndex++)
         {
-            foreach (var rackGO in collection.Racks)
+            var collection = collections[colIndex];
+            bool isEvenSide = (colIndex == 0) ? firstCollectionEven : !firstCollectionEven;
+
+            var groundRacks = GetGroundRacks(collection);
+            var bayNumbers = LocationNameGenerator.GenerateBayNumbers(groundRacks.Count, isEvenSide);
+            Vector3 travelDir = ComputeTravelDir(groundRacks);
+
+            // Ground level (0): number as bays; position order follows the travel direction.
+            for (int i = 0; i < groundRacks.Count; i++)
             {
-                if (rackGO == null) continue;
-
-                // Un-ghost in place: restore the rack's real materials. Keeps the existing
-                // PlacedObject / grid registration intact (re-instantiating would lose it).
-                var ghost = rackGO.GetComponent<RackGhost>();
-                if (ghost != null) ghost.RestoreReal();
-
-                // Swap non-label renderers to the live material (AA_LowPolyCommon by default).
-                if (liveMat != null) ApplyLiveMaterial(rackGO, liveMat);
-
-                // Flag the rack as part of a committed aisle — safeguard for future
-                // systems (inventory, task assignment) that should skip ghost placeholders.
-                var placed = rackGO.GetComponent<PlacedObject>();
-                if (placed != null) placed.isRackLive = true;
-
-                // Assign location names to labels on this rack.
-                AssignLocationsToLabels(rackGO, locations, locationIndex, levelDesignations);
-                locationIndex += 12; // 6 levels × 2 positions per rack
+                int bay = i < bayNumbers.Count ? bayNumbers[i] : (isEvenSide ? 2 + i * 2 : 1 + i * 2);
+                CommitGroundRack(groundRacks[i], aisleNumber, bay, travelDir, chevron, chevronPos, liveMat);
             }
+
+            // Stacked racks: commit bottom-up so each finds a committed rack directly below it.
+            foreach (var upper in GetUpperRacksAscending(collection))
+                TryCommitStackedRack(upper);
         }
+    }
+
+    /// <summary>The lowest rack in each vertical column, in collection order (≈ travel order,
+    /// which drives the bay numbering).</summary>
+    private List<GameObject> GetGroundRacks(RackCollection collection)
+    {
+        var result = new List<GameObject>();
+        foreach (var rack in collection.Racks)
+            if (rack != null && IsGroundRack(rack, collection))
+                result.Add(rack);
+        return result;
+    }
+
+    private List<GameObject> GetUpperRacksAscending(RackCollection collection)
+    {
+        var upper = new List<GameObject>();
+        foreach (var rack in collection.Racks)
+            if (rack != null && !IsGroundRack(rack, collection))
+                upper.Add(rack);
+        upper.Sort((a, b) => a.transform.position.y.CompareTo(b.transform.position.y));
+        return upper;
+    }
+
+    /// <summary>True when no other rack in the collection shares this rack's cell at a lower height.</summary>
+    private bool IsGroundRack(GameObject rack, RackCollection collection)
+    {
+        if (_grid == null) return true;
+        Vector2Int cell = _grid.WorldToCell(rack.transform.position);
+        float y = rack.transform.position.y;
+        foreach (var other in collection.Racks)
+        {
+            if (other == null || other == rack) continue;
+            if (_grid.WorldToCell(other.transform.position) != cell) continue;
+            if (other.transform.position.y < y - 0.05f) return false;
+        }
+        return true;
+    }
+
+    /// <summary>Travel direction down the run, derived from the ordered ground racks (bay N → N+1).</summary>
+    private Vector3 ComputeTravelDir(List<GameObject> groundRacks)
+    {
+        if (groundRacks.Count >= 2)
+        {
+            Vector3 d = groundRacks[1].transform.position - groundRacks[0].transform.position;
+            d.y = 0f;
+            if (d.sqrMagnitude > 0.0001f) return d.normalized;
+        }
+        if (groundRacks.Count >= 1)
+        {
+            Vector3 r = groundRacks[0].transform.right; // run axis (local X) fallback for a single bay
+            r.y = 0f;
+            if (r.sqrMagnitude > 0.0001f) return r.normalized;
+        }
+        return Vector3.right;
+    }
+
+    private void CommitGroundRack(GameObject rackGO, int aisle, int bay, Vector3 travelDir,
+                                  ChevronController chevron, Vector3 chevronPos, Material liveMat)
+    {
+        var ghost = rackGO.GetComponent<RackGhost>();
+        if (ghost != null) ghost.RestoreReal();
+        if (liveMat != null) ApplyLiveMaterial(rackGO, liveMat);
+
+        var placed = rackGO.GetComponent<PlacedObject>();
+        if (placed != null)
+        {
+            placed.isRackLive = true;
+            placed.rackAisle = aisle;
+            placed.rackBay = bay;
+            placed.rackLevelIndex = 0;
+        }
+
+        string levelChar = LocationNameGenerator.GetLocationName(aisle, bay, 0, "Pick", 0).level;
+        SetRackLabels(rackGO, aisle, bay, levelChar, TravelPositionResolver(rackGO, travelDir));
+        ConfigureFaces(rackGO, GroundAisleDir(rackGO, travelDir, chevron, chevronPos));
     }
 
     private Material ResolveLiveMaterial()
@@ -188,96 +391,71 @@ public class AisleInitializer : MonoBehaviour
         }
     }
 
-    private void AssignLocationsToLabels(GameObject rackGO, List<LocationNameGenerator.LocationName> locations, int startIndex, string[] levelDesignations)
+    // ---- Geometry-based labeling (prefab-agnostic: Orange, Yellow, Half, etc.) ----
+    // We deliberately do NOT key off label-group NAMES. The yellow rack prefab names its groups
+    // differently ("LabelFront.L.002") and even mirrors them, so name lookups silently failed and
+    // left its default "A-01-01" text. Everything below keys off world geometry instead.
+
+    /// <summary>Sets every label to AA-BB-L{pos}, where pos = positionOf(that label's world pos).</summary>
+    private void SetRackLabels(GameObject rackGO, int aisle, int bay, string levelChar, System.Func<Vector3, int> positionOf)
     {
-        // Get all label groups (Front/Rear × Left/Right)
-        var labelFrontL = rackGO.transform.Find("LabelFront.L");
-        var labelFrontR = rackGO.transform.Find("LabelFront.R");
-        var labelRearL = rackGO.transform.Find("LabelRear.L");
-        var labelRearR = rackGO.transform.Find("LabelRear.R");
-
-        // Assign location names to each label
-        int locIndex = startIndex;
-
-        AssignLocationToLabelGroup(labelFrontL, locations, ref locIndex, levelDesignations);
-        AssignLocationToLabelGroup(labelFrontR, locations, ref locIndex, levelDesignations);
-        AssignLocationToLabelGroup(labelRearL, locations, ref locIndex, levelDesignations);
-        AssignLocationToLabelGroup(labelRearR, locations, ref locIndex, levelDesignations);
-    }
-
-    private void AssignLocationToLabelGroup(Transform labelGroup, List<LocationNameGenerator.LocationName> locations, ref int locIndex, string[] levelDesignations)
-    {
-        if (labelGroup == null) return;
-
-        var tmpLabels = labelGroup.GetComponentsInChildren<TMPro.TextMeshPro>();
-
-        foreach (var label in tmpLabels)
+        foreach (var tmp in rackGO.GetComponentsInChildren<TMPro.TextMeshPro>(true))
         {
-            if (locIndex < locations.Count)
-            {
-                label.text = locations[locIndex].fullName;
-                locIndex++;
-            }
+            int pos = positionOf(tmp.transform.position);
+            tmp.text = $"{aisle:D2}-{bay:D2}-{levelChar}{pos}";
         }
     }
 
-    private void ConfigureLabels(List<RackCollection> collections, float chevronRotation)
+    /// <summary>Ground resolver: the column earlier along travelDir is position 0.</summary>
+    private System.Func<Vector3, int> TravelPositionResolver(GameObject rackGO, Vector3 travelDir)
     {
-        // Determine which side faces the aisle based on chevron rotation
-        bool labelFrontFacesAisle = chevronRotation < 90f;
-
-        foreach (var collection in collections)
+        float minP = float.MaxValue, maxP = float.MinValue;
+        foreach (var tmp in rackGO.GetComponentsInChildren<TMPro.TextMeshPro>(true))
         {
-            foreach (var rackGO in collection.Racks)
-            {
-                ConfigureRackLabels(rackGO, labelFrontFacesAisle);
-            }
+            float p = Vector3.Dot(tmp.transform.position, travelDir);
+            if (p < minP) minP = p;
+            if (p > maxP) maxP = p;
+        }
+        float mid = (minP + maxP) * 0.5f;
+        return worldPos => Vector3.Dot(worldPos, travelDir) <= mid ? 0 : 1;
+    }
+
+    /// <summary>Enables only the labels on the aisle-facing side (offset·aisleDir > 0); hides the rest.</summary>
+    private void ConfigureFaces(GameObject rackGO, Vector3 aisleDir)
+    {
+        Vector3 center = rackGO.transform.position;
+        foreach (var tmp in rackGO.GetComponentsInChildren<TMPro.TextMeshPro>(true))
+        {
+            Vector3 d = tmp.transform.position - center; d.y = 0f;
+            tmp.gameObject.SetActive(Vector3.Dot(d, aisleDir) > 0f);
         }
     }
 
-    private void ConfigureRackLabels(GameObject rackGO, bool frontFacesAisle)
+    /// <summary>Horizontal direction toward the aisle for a ground rack: the lateral (perpendicular
+    /// to the run) part of the direction to the selected chevron.</summary>
+    private Vector3 GroundAisleDir(GameObject rackGO, Vector3 travelDir, ChevronController chevron, Vector3 chevronPos)
     {
-        // Enable/disable label groups based on which side faces the aisle
-        var labelFront = rackGO.transform.Find("LabelFront");
-        var labelRear = rackGO.transform.Find("LabelRear");
-
-        if (frontFacesAisle)
+        if (chevron != null)
         {
-            // Disable rear labels
-            if (labelRear != null)
-            {
-                labelRear.gameObject.SetActive(false);
-                var rearLabels = labelRear.GetComponentsInChildren<TMPro.TextMeshPro>();
-                foreach (var label in rearLabels)
-                    label.enabled = false;
-            }
-            // Enable front labels
-            if (labelFront != null)
-            {
-                labelFront.gameObject.SetActive(true);
-                var frontLabels = labelFront.GetComponentsInChildren<TMPro.TextMeshPro>();
-                foreach (var label in frontLabels)
-                    label.enabled = true;
-            }
+            Vector3 toChev = chevronPos - rackGO.transform.position; toChev.y = 0f;
+            Vector3 lateral = toChev - Vector3.Project(toChev, travelDir);
+            if (lateral.sqrMagnitude > 0.0001f) return lateral.normalized;
         }
-        else
-        {
-            // Disable front labels
-            if (labelFront != null)
-            {
-                labelFront.gameObject.SetActive(false);
-                var frontLabels = labelFront.GetComponentsInChildren<TMPro.TextMeshPro>();
-                foreach (var label in frontLabels)
-                    label.enabled = false;
-            }
-            // Enable rear labels
-            if (labelRear != null)
-            {
-                labelRear.gameObject.SetActive(true);
-                var rearLabels = labelRear.GetComponentsInChildren<TMPro.TextMeshPro>();
-                foreach (var label in rearLabels)
-                    label.enabled = true;
-            }
-        }
+        Vector3 f = rackGO.transform.forward; f.y = 0f;
+        return f.sqrMagnitude > 0.0001f ? f.normalized : Vector3.forward;
     }
+
+    /// <summary>Aisle-facing face normal of the rack below, from where its still-active labels sit.</summary>
+    private Vector3 BelowAisleDir(GameObject below)
+    {
+        Vector3 fwd = below.transform.forward; fwd.y = 0f;
+        fwd = fwd.sqrMagnitude > 0.0001f ? fwd.normalized : Vector3.forward;
+
+        float sum = 0f;
+        foreach (var tmp in below.GetComponentsInChildren<TMPro.TextMeshPro>(false)) // active only
+            sum += Vector3.Dot(tmp.transform.position - below.transform.position, fwd);
+
+        return sum >= 0f ? fwd : -fwd;
+    }
+
 }

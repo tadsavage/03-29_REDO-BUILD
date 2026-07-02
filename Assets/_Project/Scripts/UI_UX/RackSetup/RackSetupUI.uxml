@@ -1,50 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi:schemaLocation="UnityEngine.UIElements UnityEngine.UIElements.xsd UnityEditor.UIElements UnityEditor.UIElements.xsd" xsi:noNamespaceSchemaLocation="UnityEngine.UIElements.xsd">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Style src="RackSetupUI.uss" />
     <!-- Overlay -->
     <ui:VisualElement class="rsu-overlay" name="Overlay">
         <!-- Modal -->
         <ui:VisualElement class="rsu-modal" name="Modal">
-            <!-- Title Bar -->
-            <ui:VisualElement class="rsu-title-bar" name="TitleBar">
-                <ui:Label class="rsu-title" name="Title" text="Aisle Configuration" />
-                <ui:Button name="CloseButton" class="rsu-close" text="✕" />
-            </ui:VisualElement>
 
-            <!-- Content -->
-            <ui:ScrollView class="rsu-content" name="Content">
-                <!-- Aisle Number Section -->
-                <ui:VisualElement class="rsu-section" name="AisleSection">
-                    <ui:Label class="rsu-section-label" text="Aisle Number" />
-                    <ui:TextField name="AisleInput" class="rsu-text-field" />
-                    <ui:Label class="rsu-help-text" name="AisleHelpText" text="Enter 01-99" />
+            <!-- Faded blueprint background (image assigned in RackSetupUI.cs) -->
+            <ui:VisualElement class="rsu-blueprint" name="Blueprint" picking-mode="Ignore" />
+
+            <!-- Close button (top-right corner) -->
+            <ui:Button name="CloseButton" class="rsu-close" text="✕" />
+
+            <!-- Left-side control column overlaid on the blueprint -->
+            <ui:VisualElement class="rsu-controls" name="ControlColumn">
+
+                <!-- Aisle Number -->
+                <ui:VisualElement class="rsu-aisle-row" name="AisleSection">
+                    <ui:Label class="rsu-aisle-label" text="AISLE:" />
+                    <ui:TextField name="AisleInput" class="rsu-aisle-field" max-length="2" />
                 </ui:VisualElement>
 
-                <!-- Levels Section — only reachable bays (anchor ≤ 80") are configurable. -->
-                <ui:VisualElement class="rsu-section" name="LevelsSection">
-                    <ui:Label class="rsu-section-label" text="Level Configuration" />
+                <!-- Levels — only reachable bays (bottom two) are configurable. -->
+                <ui:VisualElement class="rsu-levels" name="LevelsSection">
 
-                    <!-- Level 1 (0" anchor) -->
+                    <!-- Level 2 (upper reachable) -->
+                    <ui:VisualElement class="rsu-level-row" name="Level2Row">
+                        <ui:Label class="rsu-level-label" text="Level 2:" />
+                        <ui:DropdownField name="Level2Dropdown" class="rsu-dropdown" />
+                    </ui:VisualElement>
+
+                    <!-- Level 1 (floor) -->
                     <ui:VisualElement class="rsu-level-row" name="Level1Row">
                         <ui:Label class="rsu-level-label" text="Level 1:" />
                         <ui:DropdownField name="Level1Dropdown" class="rsu-dropdown" />
                     </ui:VisualElement>
 
-                    <!-- Level 2 (48" anchor) -->
-                    <ui:VisualElement class="rsu-level-row" name="Level2Row">
-                        <ui:Label class="rsu-level-label" text="Level 2:" />
-                        <ui:DropdownField name="Level2Dropdown" class="rsu-dropdown" />
-                    </ui:VisualElement>
                 </ui:VisualElement>
 
-                <!-- Help Text -->
-                <ui:Label class="rsu-info-text" name="InfoText" text="Only reachable levels (≤ 80&quot;) are configurable. Higher levels are always Reserve." />
-            </ui:ScrollView>
+                <!-- Footer -->
+                <ui:VisualElement class="rsu-footer" name="Footer">
+                    <ui:Button name="CancelButton" class="rsu-btn rsu-btn-cancel" text="Cancel" />
+                    <ui:Button name="SubmitButton" class="rsu-btn rsu-btn-submit" text="Submit" />
+                </ui:VisualElement>
 
-            <!-- Footer -->
-            <ui:VisualElement class="rsu-footer" name="Footer">
-                <ui:Button name="CancelButton" class="rsu-btn rsu-btn-cancel" text="Cancel" />
-                <ui:Button name="SubmitButton" class="rsu-btn rsu-btn-submit" text="Confirm" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

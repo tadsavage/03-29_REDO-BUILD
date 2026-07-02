@@ -84,16 +84,23 @@ public class RackingSystemManager : MonoBehaviour
         }
 
         var go = new GameObject("RackSetupUI (Auto)");
+
+        // Configure while INACTIVE, then enable. UIDocument clones its visual tree on its
+        // FIRST enable — if we add it active and assign visualTreeAsset afterward, that first
+        // clone already happened against a null asset and the panel stays permanently empty.
+        // So: set the asset while inactive, then SetActive(true) so the first enable clones
+        // correctly. RackSetupUI then initializes and hides ITSELF via the overlay's display
+        // style (it stays active so the panel renders reliably when actually opened). The USS
+        // auto-applies via <Style src> in the UXML.
+        go.SetActive(false);
+
         var doc = go.AddComponent<UIDocument>();
         doc.panelSettings = _rackSetupPanelSettings;
         doc.visualTreeAsset = _rackSetupUxml;
         doc.sortingOrder = 150; // above TopBar (20), below the tooltip (200)
 
-        if (_rackSetupUss != null)
-            doc.rootVisualElement.styleSheets.Add(_rackSetupUss);
-
         _rackSetupUI = go.AddComponent<RackSetupUI>();
-        go.SetActive(false); // modal — hidden until a chevron opens it
+        go.SetActive(true);
         Debug.Log("RackingSystemManager: auto-created RackSetupUI");
     }
 

@@ -51,10 +51,18 @@ public class RackSetupUI : MonoBehaviour
         // retry after SetActive(true), by which point the root is guaranteed to exist.
         if (_doc.rootVisualElement == null) return;
 
+        // The root can exist but be EMPTY when visualTreeAsset is assigned after the
+        // UIDocument's first OnEnable (the RackingSystemManager auto-create path). If we
+        // latched _initialized here we'd bind against elements that don't exist yet and
+        // never re-run. Wait until the real UXML content is actually present.
+        if (_doc.rootVisualElement.Q<VisualElement>("Overlay") == null) return;
+
         _aisleInitializer = FindFirstObjectByType<AisleInitializer>();
 
         InitializeUI();
         BindInputs();
+        Hide(); // start hidden — visibility is driven by display, NOT GameObject active-state
+                // (an inactive UIDocument sharing a PanelSettings can still render on screen)
         _initialized = true;
     }
 
@@ -78,6 +86,28 @@ public class RackSetupUI : MonoBehaviour
         _submitButton = root.Q<Button>("SubmitButton");
         _cancelButton = root.Q<Button>("CancelButton");
         _closeButton = root.Q<Button>("CloseButton");
+
+        ApplyBlueprintBackground(root);
+    }
+
+    /// <summary>
+    /// Loads the faded blueprint schematic into the modal background. Drop the image at
+    /// Assets/_Project/Resources/RackBlueprint.png and it auto-loads in editor AND builds.
+    /// The USS handles the fade (.rsu-blueprint opacity); this just assigns the texture.
+    /// </summary>
+    private void ApplyBlueprintBackground(VisualElement root)
+    {
+        var blueprint = root.Q<VisualElement>("Blueprint");
+        if (blueprint == null) return;
+
+        Texture2D tex = Resources.Load<Texture2D>("RackBlueprint");
+#if UNITY_EDITOR
+        if (tex == null)
+            tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/_Project/Resources/RackBlueprint.png");
+#endif
+        if (tex != null)
+            blueprint.style.backgroundImage = new StyleBackground(tex);
     }
 
     private void BindInputs()
@@ -162,16 +192,18 @@ public class RackSetupUI : MonoBehaviour
 
     private void CloseUI()
     {
-        gameObject.SetActive(false);
+        Hide();
     }
 
+    /// <summary>
+    /// Shows the modal. The GameObject stays active the whole time; visibility is toggled
+    /// via the overlay's display style. This is deliberate — driving visibility with
+    /// SetActive() is unreliable here because an inactive UIDocument that shares a
+    /// PanelSettings can remain attached to the panel and keep rendering on screen.
+    /// </summary>
     public void Open()
     {
-        gameObject.SetActive(true);
-
-        // First activation: OnEnable may have run before UIDocument built its root, so
-        // element queries returned null. Retry now — SetActive(true) has already forced
-        // the panel to build.
+        // Safety: in case OnEnable ran before the tree existed, ensure we're initialized.
         TryInitialize();
 
         // Reset dropdowns to "Pick" every time the modal opens — otherwise a previous
@@ -182,10 +214,22 @@ public class RackSetupUI : MonoBehaviour
                 _levelDropdowns[i].value = "Pick";
         }
         if (_aisleInput != null)
-        {
             _aisleInput.SetValueWithoutNotify(string.Empty);
+
+        Show();
+
+        if (_aisleInput != null)
             _aisleInput.Focus();
-        }
+    }
+
+    private void Show()
+    {
+        if (_overlay != null) _overlay.style.display = DisplayStyle.Flex;
+    }
+
+    private void Hide()
+    {
+        if (_overlay != null) _overlay.style.display = DisplayStyle.None;
     }
 }
 
