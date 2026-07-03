@@ -7,18 +7,22 @@
 /* ── FONT ALIAS ──────────────────────────────────────── */
 .tools-window Label,
 .tools-window Button {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
 }
 
 /* ── OVERLAY ROOT ────────────────────────────────────── */
 .tools-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    picking-mode: ignore;
 }
 
 /* ── WINDOW PANEL ────────────────────────────────────── */
 .tools-window {
+    /* Hidden by default so the panel doesn't render in the Editor Game view
+       when not in Play mode (UIDocument draws its source asset in edit mode,
+       and Start()'s hide only runs in Play). At runtime Start()/Show()/Hide()
+       set `display` inline, which overrides this USS rule. */
+    display: none;
     position: absolute;
     top: 50px;
     left: 12px;
@@ -44,11 +48,11 @@
     border-bottom-color: rgba(92, 155, 196, 0.35);
     border-top-left-radius: 15px;
     border-top-right-radius: 15px;
-    cursor: move;
+    cursor: move-arrow;
 }
 
 .tools-title {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 20px;
     color: #CFE2F0;
 }
@@ -84,7 +88,7 @@
     border-bottom-color: transparent;
     border-radius: 0;
     background-color: transparent;
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 18px;
     -unity-text-align: middle-center;
     padding: 0;
@@ -152,7 +156,7 @@
 }
 
 .plt-s-heading {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 14px;
     color: rgba(232, 168, 80, 0.55);
     margin-bottom: 11px;
@@ -203,7 +207,7 @@
     height: 51px;
 }
 .plt-dropdown .unity-base-field__label {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 20px;
     color: #CFE2F0;
     min-width: 120px;
@@ -261,7 +265,7 @@
     border-bottom-color: #2C5E82;
     border-radius: 10px;
     color: #FFFFFF;
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 20px;
     -unity-text-align: middle-center;
     transition: background-color 0.1s;
@@ -292,7 +296,7 @@
 .dev-s-green { border-left-color: #50D890; }
 
 .dev-s-heading {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 35px;
     -unity-text-align: middle-center;
     margin-bottom: 12px;
@@ -327,12 +331,12 @@
     margin-bottom: 4px;
 }
 .dev-pill-val {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 24px;
     color: #CFE2F0;
     overflow: hidden;
     white-space: nowrap;
-    -unity-text-overflow: ellipsis;
+    text-overflow: ellipsis;
 }
 
 /* Action buttons */
@@ -350,7 +354,7 @@
     margin-bottom: 0;
     padding-left: 16px;
     padding-right: 16px;
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 18px;
     -unity-text-align: middle-center;
     color: rgba(10, 8, 25, 0.92);
@@ -398,7 +402,7 @@
 }
 
 .ds-group-title {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 20px;
     color: rgba(220, 240, 255, 0.9);
     margin-bottom: 11px;
@@ -426,7 +430,7 @@
 }
 
 .ds-global-title {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 20px;
     color: rgba(220, 240, 255, 0.9);
     margin-bottom: 11px;
@@ -461,7 +465,7 @@
 }
 
 .ds-slider-value {
-    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
     font-size: 15px;
     color: #7ECCE8;
     -unity-text-align: middle-right;

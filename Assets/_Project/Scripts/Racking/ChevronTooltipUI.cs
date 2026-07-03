@@ -78,7 +78,7 @@ public class ChevronTooltipUI : MonoBehaviour
     {
         // Reuse whatever PanelSettings other UI documents in the scene are using so the
         // scaling / DPI matches. If nothing is found, Unity provides a default asset.
-        var existing = FindFirstObjectByType<UIDocument>();
+        var existing = FindAnyObjectByType<UIDocument>();
         return existing != null ? existing.panelSettings : null;
     }
 

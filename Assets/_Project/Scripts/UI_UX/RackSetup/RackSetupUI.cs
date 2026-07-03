@@ -57,7 +57,7 @@ public class RackSetupUI : MonoBehaviour
         // never re-run. Wait until the real UXML content is actually present.
         if (_doc.rootVisualElement.Q<VisualElement>("Overlay") == null) return;
 
-        _aisleInitializer = FindFirstObjectByType<AisleInitializer>();
+        _aisleInitializer = FindAnyObjectByType<AisleInitializer>();
 
         InitializeUI();
         BindInputs();

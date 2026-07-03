@@ -32,6 +32,17 @@ public class PlacedObject : MonoBehaviour
     // rack re-hides the correct face from it. Vector3.zero = unset (legacy / not yet committed).
     public Vector3 rackAisleFacing = Vector3.zero;
 
+    // World-space horizontal TRAVEL direction of the aisle (down the run, the chevron-arrow
+    // direction) — the axis along which the position columns count up (pos 0 → pos 1). Persisted
+    // through save/load (encoded into customData) so labels can be redrawn deterministically after
+    // a load without a chevron present. Vector3.zero = unset.
+    public Vector3 rackTravelDir = Vector3.zero;
+
+    // The resolved level character actually shown on this rack's labels ("0","1","A","B"…). Stored
+    // so a loaded rack can redraw its labels without re-deriving from the per-aisle Pick/Reserve
+    // designations (which are runtime-only and lost on load). Empty = unset.
+    public string rackLevelChar = "";
+
     private void OnEnable()
     {
         // Prevent registration if this object is a child of another PlacedObject.

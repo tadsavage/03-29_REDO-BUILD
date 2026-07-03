@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// Marks a ShippingDoor as a dockable slot for trucks.
@@ -90,8 +91,35 @@ public class DockSlot : MonoBehaviour
         _lightController = GetComponentInChildren<DockLightController>(true);
     }
 
-    private void OnEnable()  => All.Add(this);
-    private void OnDisable() => All.Remove(this);
+    private void OnEnable()
+    {
+        All.Add(this);
+        RenumberAll();
+    }
+
+    private void OnDisable()
+    {
+        All.Remove(this);
+        RenumberAll();
+    }
+
+    /// <summary>
+    /// Assigns sequential door numbers (1..N) to every registered dock, ordered by yard
+    /// position (X, then Z). Self-contained: does NOT require a TruckYardManager / guard
+    /// shack in the scene, so doors number themselves as soon as they're placed or loaded.
+    /// Called on every dock register/unregister and by DockNumberingService on placement
+    /// events (the latter catches ghost-placed doors whose final position is only settled
+    /// after OnEnable has already run).
+    /// </summary>
+    public static void RenumberAll()
+    {
+        int n = 1;
+        foreach (var dock in All.OrderBy(d => d.transform.position.x)
+                                .ThenBy(d => d.transform.position.z))
+        {
+            dock.DoorNumber = n++;
+        }
+    }
 
     public void Claim()   => IsOccupied = true;
     public void Release() => IsOccupied = false;

@@ -41,7 +41,7 @@ public class RackingSystemManager : MonoBehaviour
         _chevronSpawner.SetSprite(_chevronSprite);
         _chevronSpawner.SetMaterial(_chevronMaterial);
 
-        var grid = FindFirstObjectByType<PlacementGrid>();
+        var grid = FindAnyObjectByType<PlacementGrid>();
         if (grid == null)
             Debug.LogError("RackingSystemManager: no PlacementGrid found in scene — rack collection detection will not work.");
         _collectionDetector.SetGrid(grid);
@@ -59,7 +59,7 @@ public class RackingSystemManager : MonoBehaviour
     /// </summary>
     private void EnsureRackSetupUI()
     {
-        _rackSetupUI = FindFirstObjectByType<RackSetupUI>(FindObjectsInactive.Include);
+        _rackSetupUI = FindAnyObjectByType<RackSetupUI>(FindObjectsInactive.Include);
         if (_rackSetupUI != null) return;
 
 #if UNITY_EDITOR
@@ -72,7 +72,7 @@ public class RackingSystemManager : MonoBehaviour
         if (_rackSetupPanelSettings == null)
         {
             // Reuse any existing UIDocument's PanelSettings so scaling / DPI matches.
-            var existingDoc = FindFirstObjectByType<UIDocument>();
+            var existingDoc = FindAnyObjectByType<UIDocument>();
             if (existingDoc != null) _rackSetupPanelSettings = existingDoc.panelSettings;
         }
 

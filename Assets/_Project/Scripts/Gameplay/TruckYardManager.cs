@@ -221,16 +221,10 @@ public class TruckYardManager : MonoBehaviour
         _guard.Init(posted, exitPost, gateStop, checkRear1, checkRear2);
     }
 
-    private void AssignDoorNumbers()
-    {
-        var sorted = DockSlot.All
-            .OrderBy(d => d.transform.position.x)
-            .ThenBy(d  => d.transform.position.z)
-            .ToList();
-
-        for (int i = 0; i < sorted.Count; i++)
-            sorted[i].DoorNumber = i + 1;
-    }
+    // Numbering now lives in DockSlot.RenumberAll so it works with or without a guard shack
+    // (see DockNumberingService). Kept here so the guard shack's own Start/placement hooks
+    // still drive a renumber; both paths produce identical results.
+    private void AssignDoorNumbers() => DockSlot.RenumberAll();
 
     private void OnTruckExited()
     {

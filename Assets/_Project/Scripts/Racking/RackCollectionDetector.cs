@@ -65,7 +65,7 @@ public class RackCollectionDetector : MonoBehaviour
 
     private void HandleRackPlaced(GameObject rackGO)
     {
-        if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+        if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
 
         // Placed directly on top of an already-live rack? That's a VERTICAL extension of an
         // existing aisle — not a new one. Commit it in place (no ghost, no collection, no

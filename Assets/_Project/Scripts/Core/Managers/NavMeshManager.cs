@@ -126,6 +126,8 @@ public class NavMeshManager : MonoBehaviour
             else
                 NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
 
+            RemoveInvalidSources(sources);
+
             AddFloorNavMeshSources(sources, surface.defaultArea);
             AddStairRampSources(sources);
             AddDockTopNavMeshSources(sources, surface.defaultArea);
@@ -175,6 +177,31 @@ public class NavMeshManager : MonoBehaviour
             // freshly-baked NavMesh tiles. This is what actually reconnects the dock links.
             link.UpdateLink();
             count++;
+        }
+    }
+
+    private void RemoveInvalidSources(List<NavMeshBuildSource> sources)
+    {
+        if (sources == null) return;
+        for (int i = sources.Count - 1; i >= 0; i--)
+        {
+            var src = sources[i];
+            
+            // Filter out null source objects for meshes/terrains
+            if (src.sourceObject == null && (src.shape == NavMeshBuildSourceShape.Mesh || src.shape == NavMeshBuildSourceShape.Terrain))
+            {
+                sources.RemoveAt(i);
+                continue;
+            }
+
+            if (src.shape == NavMeshBuildSourceShape.Mesh && src.sourceObject != null)
+            {
+                string name = src.sourceObject.name;
+                if (name.Contains("TextMeshPro") || name.Contains("TextMesh Pro") || name.Contains("TextMesh") || name == "TextMeshPro Mesh")
+                {
+                    sources.RemoveAt(i);
+                }
+            }
         }
     }
 
@@ -528,6 +555,8 @@ public class NavMeshManager : MonoBehaviour
                     NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
                 else
                     NavMeshBuilder.CollectSources(worldBounds, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
+
+                RemoveInvalidSources(sources);
 
                 AddFloorNavMeshSources(sources, surface.defaultArea);
                 AddStairRampSources(sources);

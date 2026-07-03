@@ -186,14 +186,26 @@ public class DeleteState : PlacementStateBase
                 return;
             }
 
-            // Don't bulldoze a foundation that still has a wall / pallet / prop on it — make the
-            // player clear it off first. Deleting a clear foundation takes all its floor tiles too.
-            if (IsFoundationData(bd.Data) && !FoundationIsClearToDelete(bd))
+            if (IsFoundationData(bd.Data))
             {
-                ClearHover();
-                AudioManager.Play("InvalidPlace");
-                UIToast.Show("Clear everything off the foundation before deleting it");
-                return;
+                // Deleting on a CUSTOM tile (pedestrian/MHE/ship lane, etc.) reverts just that cell
+                // back to the foundation's default tile — the foundation stays. Only a click on the
+                // DEFAULT tile falls through to actually delete the foundation (and all its tiles).
+                if (TryRevertCustomTile(bd, cell))
+                {
+                    ClearHover();
+                    return;
+                }
+
+                // Don't bulldoze a foundation that still has a wall / pallet / prop on it — make the
+                // player clear it off first. Deleting a clear foundation takes all its floor tiles too.
+                if (!FoundationIsClearToDelete(bd))
+                {
+                    ClearHover();
+                    AudioManager.Play("InvalidPlace");
+                    UIToast.Show("Clear everything off the foundation before deleting it");
+                    return;
+                }
             }
 
             // IMPORTANT: Clear highlight before deleting/disabling
@@ -283,6 +295,53 @@ public class DeleteState : PlacementStateBase
 
     private static bool IsFoundationData(ObjDataSO d)
         => d != null && (d.category == "Foundation" || d.category == "Grounds");
+
+    // If the top visible floor tile in `cell` (a foundation cell) is a CUSTOM tile rather than the
+    // foundation's default, swap it back to the default tile and return true — the foundation is
+    // left in place. Returns false when the tile is already the default (or there's nothing to
+    // revert), so the caller proceeds to delete the foundation itself.
+    private bool TryRevertCustomTile(BuildingData foundation, Vector2Int cell)
+    {
+        var def = foundation?.Data?.defaultFloorTile;
+        if (def == null) return false;
+
+        // Guard against a raycast cell that drifted onto a neighbour — only act inside this
+        // foundation's own footprint.
+        if (!FoundationCoversCell(foundation, cell)) return false;
+
+        var objs = _grid.GetObjectsInCell(cell);
+        if (objs == null) return false;
+
+        ObjDataSO topFloor = null;
+        for (int i = objs.Count - 1; i >= 0; i--)
+        {
+            var e = objs[i];
+            if (e.instance != null && e.instance.activeSelf && e.data != null && e.data.isFloor)
+            {
+                topFloor = e.data;
+                break;
+            }
+        }
+
+        // Already the default (or no floor at all) → let the foundation delete proceed.
+        if (topFloor == null || topFloor.id == def.id) return false;
+
+        // Replace the custom tile with the default one on just this cell. Reuses PlaceCommand's
+        // floor-swap path, so it's undoable and refunds the cost difference.
+        var offsets = def.GetFootprintOffsets(0f);
+        _fsm.History.Push(new PlaceCommand(_grid, _finalizer, cell, offsets, def, 0f, _money));
+        AudioManager.Play("Delete");
+        return true;
+    }
+
+    private static bool FoundationCoversCell(BuildingData foundation, Vector2Int cell)
+    {
+        if (foundation?.Offsets == null) return false;
+        var root = foundation.RootCell;
+        foreach (var o in foundation.Offsets)
+            if (root + o == cell) return true;
+        return false;
+    }
 
     // True if any rack (category "Racking") sits anywhere in the drag rectangle. Drives the QoL
     // exception that spares foundations during a rack swipe (see UpdateDragDelete).

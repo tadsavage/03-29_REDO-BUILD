@@ -13,6 +13,10 @@ using System;
 public class ChevronController : MonoBehaviour
 {
     private RackCollection _collection;
+    // For a COMBINED chevron sitting in the corridor between two facing rack rows, this is the
+    // OTHER row. Non-null only on the two centered combined chevrons; null for normal side chevrons.
+    // When set, double-click setup initializes BOTH collections as one two-sided aisle.
+    private RackCollection _secondaryCollection;
     private float _currentRotation = 0f; // 0 or 180 — travel-direction flip for this side
     // Flat resting orientation the spawner assigned (points down the run). Flipping
     // spins 180° about the vertical axis FROM this base so the chevron stays flat.
@@ -38,7 +42,11 @@ public class ChevronController : MonoBehaviour
     public event Action<ChevronController> OnChevronSelected;
 
     public RackCollection Collection => _collection;
+    public RackCollection SecondaryCollection => _secondaryCollection;
     public float CurrentRotation => _currentRotation;
+
+    /// <summary>Sets/clears the second row this chevron represents (combined corridor chevron).</summary>
+    public void SetSecondaryCollection(RackCollection secondary) => _secondaryCollection = secondary;
 
     public void Initialize(RackCollection collection)
     {
@@ -176,7 +184,7 @@ public class ChevronController : MonoBehaviour
 
         // Include inactive: modal is hidden between openings, and default FindObjectOfType
         // skips inactive GOs — that's the bug that made double-click "do nothing".
-        var setupUI = FindFirstObjectByType<RackSetupUI>(FindObjectsInactive.Include);
+        var setupUI = FindAnyObjectByType<RackSetupUI>(FindObjectsInactive.Include);
         if (setupUI != null)
         {
             setupUI.SetSelectedChevron(this);

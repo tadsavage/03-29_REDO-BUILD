@@ -328,7 +328,15 @@ public class PlacementSystem : MonoBehaviour
             obj.x = entry.gridX;
             obj.y = entry.gridY;
             obj.rot = entry.rotation;
-            obj.customData = entry.customData;
+
+            // Committed aisle racks carry their location metadata (aisle/bay/level/facing/travel) only
+            // in memory on the PlacedObject — the save format persists customData, so encode that
+            // metadata into it. Without this, loaded racks revert to their prefab default label.
+            if (entry.isRackLive && entry.data.category == "Racking")
+                obj.customData = RackSaveCodec.Encode(entry);
+            else
+                obj.customData = entry.customData;
+
             save.placedObjects.Add(obj);
         }
 
@@ -448,6 +456,12 @@ public class PlacementSystem : MonoBehaviour
         grid.RebuildFromRegistry();
         ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
 
+        // Refresh rack labels: PlacedObject fields are restored but TMP text isn't.
+        // Must happen before yard floors are populated (which triggers NavMesh bake).
+        var aisleInit = FindAnyObjectByType<AisleInitializer>();
+        if (aisleInit != null)
+            aisleInit.RefreshAllRackLabelsAfterLoad();
+
         // Apply saved dev-settings to all matching scene components
         if (save.devSettings != null && save.devSettings.Count > 0)
             ApplyDevSettings(save.devSettings);
@@ -484,6 +498,14 @@ public class PlacementSystem : MonoBehaviour
         // ClearAll) still saw those about-to-be-destroyed objects.
         grid.RebuildFromRegistry();
         ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
+
+        // Refresh rack labels again (they were refreshed earlier, but grid rebuild may have
+        // changed the registry state — ensure labels match the final registry state).
+        var aisleInit = FindAnyObjectByType<AisleInitializer>();
+        if (aisleInit != null)
+        {
+            aisleInit.RefreshAllRackLabelsAfterLoad();
+        }
 
         // Yard floor tiles aren't saved to disk (BuildSaveData skips id 200 — see comment
         // there), so they must be regenerated on every load, not just the initial scene
@@ -614,6 +636,13 @@ public class PlacementSystem : MonoBehaviour
         }
         po.Initialize(so, x, y, rot);
         po.customData = customData;
+
+        // Restore committed-rack metadata (aisle/bay/level/facing/travel) encoded into customData on
+        // save. Labels themselves are redrawn later in RefreshAllRackLabelsAfterLoad once every rack
+        // exists; here we just get the structured fields back so isRackLive/aisle logic works.
+        if (so.category == "Racking" && RackSaveCodec.IsRackData(customData))
+            RackSaveCodec.RestoreOnto(po, customData);
+
         go.GetComponent<MHEOperatorSlot>()?.NotifyPlaced();
 
         EnsureEmployeeComponents(go, so);

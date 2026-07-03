@@ -19,7 +19,6 @@ public class AisleInitializer : MonoBehaviour
     // Keeps commit working without an Editor round-trip.
     private const string DEFAULT_LIVE_MATERIAL_PATH = "Assets/_Project/Materials/AA_LowPolyCommon.mat";
 
-    private RackCollectionDetector _collectionDetector;
     private ChevronSpawner _chevronSpawner;
     private ChevronController _selectedChevron;
     private RackSetupUI _setupUI;
@@ -29,12 +28,11 @@ public class AisleInitializer : MonoBehaviour
 
     private void Start()
     {
-        _collectionDetector = GetComponent<RackCollectionDetector>();
         _chevronSpawner = GetComponent<ChevronSpawner>();
 
         // Modal starts inactive (only opens on chevron double-click) — include inactive
         // in the search so we still bind OnSubmit at startup.
-        _setupUI = FindFirstObjectByType<RackSetupUI>(FindObjectsInactive.Include);
+        _setupUI = FindAnyObjectByType<RackSetupUI>(FindObjectsInactive.Include);
         if (_setupUI != null)
         {
             _setupUI.OnSubmit += HandleSetupSubmit;
@@ -57,7 +55,7 @@ public class AisleInitializer : MonoBehaviour
     public bool TryCommitStackedRack(GameObject rackGO)
     {
         if (rackGO == null) return false;
-        if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+        if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
         if (_grid == null) return false;
 
         var below = FindLiveRackBelow(rackGO);
@@ -92,6 +90,10 @@ public class AisleInitializer : MonoBehaviour
         // Level char honors the aisle's Pick/Reserve scheme (registered at setup): picks numeric,
         // reserves lettered bottom-up. Post-init stacks look it up by aisle number.
         string levelChar = LocationNameGenerator.LevelChar(level, AisleRegistry.GetDesignations(aisle));
+        newPO.rackLevelChar = levelChar;
+        // Inherit the run/travel direction from the rack below so the position columns stay
+        // consistent all the way up and this survives save/load.
+        newPO.rackTravelDir = belowPO.rackTravelDir;
         AssignStackedRackLabels(rackGO, below, aisle, bay, levelChar);
 
         // Show the same face as the rack below, matched by WORLD side — robust to the stacked
@@ -113,7 +115,7 @@ public class AisleInitializer : MonoBehaviour
     public bool TryCommitSecondSide(GameObject rackGO)
     {
         if (rackGO == null) return false;
-        if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+        if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
         if (_grid == null) return false;
 
         var newPO = rackGO.GetComponent<PlacedObject>();
@@ -148,6 +150,8 @@ public class AisleInitializer : MonoBehaviour
         // by nearest-XZ here: the facing row faces the opposite way, so its columns don't overlap.)
         string levelChar = LocationNameGenerator.LevelChar(0, AisleRegistry.GetDesignations(aisle));
         Vector3 travelDir = TravelDirFromRack(facing);
+        newPO.rackLevelChar = levelChar;
+        newPO.rackTravelDir = travelDir.sqrMagnitude > 0.0001f ? travelDir.normalized : travelDir;
         SetRackLabels(rackGO, aisle, newBay, levelChar, TravelPositionResolver(rackGO, travelDir));
 
         // Aisle-facing side = toward the facing rack.
@@ -371,42 +375,14 @@ public class AisleInitializer : MonoBehaviour
 
     private List<RackCollection> DetermineCollectionsToInitialize(ChevronController chevron)
     {
-        var collections = new List<RackCollection>();
-        var allUninitialized = _collectionDetector.GetUninitializedCollections();
-
-        // Determine which chevron type this is (left, middle, right)
-        string chevronType = DetermineChevronType(chevron);
-
-        if (chevronType == "Middle")
-        {
-            // Both collections in the aisle
-            collections.AddRange(allUninitialized);
-        }
-        else
-        {
-            // Single-sided aisle
-            collections.Add(chevron.Collection);
-        }
-
+        // A COMBINED corridor chevron carries a secondary collection — it sets up BOTH facing rows as
+        // one two-sided aisle. A normal side chevron sets up only its own collection. (The old
+        // "any-two-uninitialized ⇒ init all" heuristic is gone: the spawner now spawns the combined
+        // chevron explicitly, so which collections pair is decided there, not guessed here.)
+        var collections = new List<RackCollection> { chevron.Collection };
+        if (chevron.SecondaryCollection != null && chevron.SecondaryCollection != chevron.Collection)
+            collections.Add(chevron.SecondaryCollection);
         return collections;
-    }
-
-    private string DetermineChevronType(ChevronController chevron)
-    {
-        // Determine if this is left, middle, or right chevron
-        // Middle chevron is positioned between two collections
-        // Left/right are positioned outside single collections
-
-        var allUninitialized = _collectionDetector.GetUninitializedCollections();
-        if (allUninitialized.Count < 2)
-            return "Single"; // Only one collection exists
-
-        // Check if another uninitialized collection exists
-        var other = allUninitialized.Find(c => c != chevron.Collection);
-        if (other != null)
-            return "Middle"; // Two collections, likely middle chevron
-
-        return "Side"; // One-sided aisle
     }
 
     /// <summary>
@@ -417,7 +393,7 @@ public class AisleInitializer : MonoBehaviour
     /// </summary>
     private void CommitAndLabelAisle(List<RackCollection> collections, int aisleNumber, ChevronController chevron)
     {
-        if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+        if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
 
         float chevronRotation = chevron != null ? chevron.CurrentRotation : 0f;
         bool firstCollectionEven = chevronRotation < 90f; // mirrors LocationNameGenerator's side rule
@@ -430,8 +406,15 @@ public class AisleInitializer : MonoBehaviour
             bool isEvenSide = (colIndex == 0) ? firstCollectionEven : !firstCollectionEven;
 
             var groundRacks = GetGroundRacks(collection);
+
+            // Travel direction is the CHEVRON'S arrow (the golden rule the player set) — NOT the
+            // order the racks were dragged/placed. Order the ground racks along it so bay 1 is at the
+            // chevron's start end and the position columns count up in the travel direction. (Both
+            // sides of a two-sided aisle use the same chevron direction, so bays pair across.)
+            Vector3 travelDir = ChevronTravelDir(chevron, groundRacks);
+            SortAlong(groundRacks, travelDir);
+
             var bayNumbers = LocationNameGenerator.GenerateBayNumbers(groundRacks.Count, isEvenSide);
-            Vector3 travelDir = ComputeTravelDir(groundRacks);
 
             // Ground level (0): number as bays; position order follows the travel direction.
             for (int i = 0; i < groundRacks.Count; i++)
@@ -444,6 +427,33 @@ public class AisleInitializer : MonoBehaviour
             foreach (var upper in GetUpperRacksAscending(collection))
                 TryCommitStackedRack(upper);
         }
+    }
+
+    /// <summary>
+    /// The aisle's travel direction = the selected chevron's arrow. The RUN AXIS comes from the
+    /// rack geometry (unambiguous — the line the racks form), and the SIGN comes from the chevron's
+    /// arrow (transform.up points down the run in the travel direction, flipped 180° by the player's
+    /// right-click). This is the golden rule: bay 1 sits at the chevron's start end regardless of
+    /// which rack was placed first. Falls back to raw geometry only when there's no chevron.
+    /// </summary>
+    private Vector3 ChevronTravelDir(ChevronController chevron, List<GameObject> groundRacks)
+    {
+        Vector3 runAxis = ComputeTravelDir(groundRacks); // along the run; sign = placement order
+        if (chevron != null)
+        {
+            Vector3 arrow = chevron.transform.up; arrow.y = 0f; // chevron arrow = its local +Y
+            float d = Vector3.Dot(arrow, runAxis);
+            if (Mathf.Abs(d) > 0.01f)
+                return d >= 0f ? runAxis : -runAxis; // keep the run axis, flip its sign to the arrow
+        }
+        return runAxis;
+    }
+
+    /// <summary>Orders racks by their projection along <paramref name="dir"/> (earliest first).</summary>
+    private static void SortAlong(List<GameObject> racks, Vector3 dir)
+    {
+        racks.Sort((a, b) =>
+            Vector3.Dot(a.transform.position, dir).CompareTo(Vector3.Dot(b.transform.position, dir)));
     }
 
     /// <summary>The lowest rack in each vertical column, in collection order (≈ travel order,
@@ -507,6 +517,9 @@ public class AisleInitializer : MonoBehaviour
         if (ghost != null) ghost.RestoreReal();
         if (liveMat != null) ApplyLiveMaterial(rackGO, liveMat);
 
+        // Ground is level 0 — its char honors the aisle's Pick/Reserve scheme (Reserve at level 0 = "A").
+        string levelChar = LocationNameGenerator.LevelChar(0, AisleRegistry.GetDesignations(aisle));
+
         var placed = rackGO.GetComponent<PlacedObject>();
         if (placed != null)
         {
@@ -514,10 +527,10 @@ public class AisleInitializer : MonoBehaviour
             placed.rackAisle = aisle;
             placed.rackBay = bay;
             placed.rackLevelIndex = 0;
+            placed.rackLevelChar = levelChar;
+            placed.rackTravelDir = travelDir.sqrMagnitude > 0.0001f ? travelDir.normalized : travelDir;
         }
 
-        // Ground is level 0 — its char honors the aisle's Pick/Reserve scheme (Reserve at level 0 = "A").
-        string levelChar = LocationNameGenerator.LevelChar(0, AisleRegistry.GetDesignations(aisle));
         SetRackLabels(rackGO, aisle, bay, levelChar, TravelPositionResolver(rackGO, travelDir));
 
         Vector3 aisleFacing = GroundAisleDir(rackGO, travelDir, chevron, chevronPos);
@@ -656,6 +669,44 @@ public class AisleInitializer : MonoBehaviour
         ConfigureFaces(rackGO, po.rackAisleFacing);
     }
 
+    /// <summary>
+    /// Redraws rack labels after loading a save. Racks come back from SpawnFromSave with their
+    /// structured fields restored (aisle/bay/level/facing/travel, via RackSaveCodec) but the TMP
+    /// text still at the prefab default. This rewrites each live rack's labels and face visibility
+    /// deterministically from those stored fields — no chevron or neighbour lookups required.
+    /// </summary>
+    public void RefreshAllRackLabelsAfterLoad()
+    {
+        foreach (var po in PlacedObjectRegistry.All)
+        {
+            if (po == null || !po.isRackLive) continue;
+            if (po.data == null || po.data.category != "Racking") continue;
+            if (po.rackAisle < 0 || po.rackBay < 0 || po.rackLevelIndex < 0) continue;
+
+            var go = po.gameObject;
+
+            // Level char was persisted (per-aisle Pick/Reserve designations are runtime-only and
+            // lost on load); fall back to the designation scheme only if it wasn't stored.
+            string levelChar = !string.IsNullOrEmpty(po.rackLevelChar)
+                ? po.rackLevelChar
+                : LocationNameGenerator.LevelChar(po.rackLevelIndex, AisleRegistry.GetDesignations(po.rackAisle));
+
+            // Travel direction was persisted so the position columns land the same way they did at
+            // commit; fall back to the rack's run axis if missing (legacy saves).
+            Vector3 travel = po.rackTravelDir;
+            if (travel.sqrMagnitude < 0.0001f)
+            {
+                travel = go.transform.right; travel.y = 0f;
+                if (travel.sqrMagnitude < 0.0001f) travel = Vector3.right;
+            }
+
+            SetRackLabels(go, po.rackAisle, po.rackBay, levelChar, TravelPositionResolver(go, travel.normalized));
+
+            if (po.rackAisleFacing.sqrMagnitude > 0.0001f)
+                ConfigureFaces(go, po.rackAisleFacing);
+        }
+    }
+
     /// <summary>Aisle-facing face normal of the rack below, from where its still-active labels sit.</summary>
     private Vector3 BelowAisleDir(GameObject below)
     {
@@ -685,7 +736,7 @@ public class AisleInitializer : MonoBehaviour
     public bool TryCommitExtension(GameObject rackGO)
     {
         if (rackGO == null) return false;
-        if (_grid == null) _grid = FindFirstObjectByType<PlacementGrid>();
+        if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
         if (_grid == null) return false;
 
         var newPO = rackGO.GetComponent<PlacedObject>();
@@ -726,6 +777,8 @@ public class AisleInitializer : MonoBehaviour
             int newBay = maxBay >= 1 ? maxBay + 2 : (anchorPO.rackBay % 2 == 0 ? 2 : 1);
             newPO.rackBay = newBay;
             string levelChar = LocationNameGenerator.LevelChar(0, AisleRegistry.GetDesignations(aisle));
+            newPO.rackLevelChar = levelChar;
+            newPO.rackTravelDir = travelDir.sqrMagnitude > 0.0001f ? travelDir.normalized : travelDir;
             SetRackLabels(rackGO, aisle, newBay, levelChar, TravelPositionResolver(rackGO, travelDir));
             ConfigureFaces(rackGO, newPO.rackAisleFacing);
             Debug.Log($"Extension rack APPENDED to aisle {aisle:D2} as bay {newBay:D2}.");
@@ -839,6 +892,8 @@ public class AisleInitializer : MonoBehaviour
         var groundGO = groundPO.gameObject;
         groundPO.rackBay = bay;
         string lc0 = LocationNameGenerator.LevelChar(0, designations);
+        groundPO.rackLevelChar = lc0;
+        groundPO.rackTravelDir = travelDir.sqrMagnitude > 0.0001f ? travelDir.normalized : travelDir;
         SetRackLabels(groundGO, aisle, bay, lc0, TravelPositionResolver(groundGO, travelDir));
         ConfigureFaces(groundGO, RackFacing(groundPO));
 
@@ -857,6 +912,8 @@ public class AisleInitializer : MonoBehaviour
         {
             s.rackBay = bay;
             string lc = LocationNameGenerator.LevelChar(s.rackLevelIndex, designations);
+            s.rackLevelChar = lc;
+            s.rackTravelDir = groundPO.rackTravelDir;
             AssignStackedRackLabels(s.gameObject, below, aisle, bay, lc);
             ConfigureFaces(s.gameObject, RackFacing(s));
             below = s.gameObject;

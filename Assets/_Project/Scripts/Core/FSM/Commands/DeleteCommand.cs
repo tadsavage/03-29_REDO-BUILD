@@ -27,6 +27,19 @@ public class DeleteCommand : PlacementCommandBase
     private readonly List<GameObject> _attachedFloors = new();
     private int _attachedFloorsRefundTotal;
 
+    // Inactive floor tiles that were REPLACED on the foundation (the player dropped a custom tile
+    // over the foundation's default tile — the default is disabled but stays in the grid at
+    // foundation height). If left in the grid these get revealed as floating orphans when the
+    // foundation is deleted. Cleared from the grid on Execute (no refund — already refunded at
+    // swap time, and they stay inactive/invisible), re-added on Undo.
+    private readonly List<GameObject> _hiddenFoundationFloors = new();
+
+    // Floor tiles whose local Y is above this sit ON the foundation slab (default + any custom
+    // replacements) rather than on the ground plane (the free yard tile). Used to tell the two
+    // apart when deleting: slab tiles go with the foundation, the yard tile is revealed. Foundation
+    // objHeight ≈ 1.06, so this lands ≈ 0.53 — well above the yard tile (~0.02).
+    private readonly float _onFoundationY;
+
     private bool _wasContaminated;
 
     private static bool IsGround(ObjDataSO d) => d != null && (d.category == "Foundation" || d.category == "Grounds");
@@ -49,11 +62,17 @@ public class DeleteCommand : PlacementCommandBase
         _data = bd.Data;
         _root = bd.RootCell;
         _offsets = bd.Offsets;
+        _onFoundationY = (_data != null ? _data.objHeight : 1f) * 0.5f;
 
-        // If deleting a foundation, find every floor tile sitting in its footprint — these are
-        // deleted (sunk) with it. The ground-plane yard tile is excluded automatically: it's
-        // disabled (inactive) the moment a ground is placed over it (PlacementFinalizer), and
-        // this scan only collects ACTIVE isFloor entries.
+        // If deleting a foundation, collect every floor tile sitting ON its slab — these go with it.
+        // Two kinds, split by whether they're currently visible:
+        //   • ACTIVE tiles (the one visible tile per cell — default OR a custom pedestrian/lane the
+        //     player dropped) → sink + refund (see _attachedFloors handling in Execute).
+        //   • INACTIVE tiles (a default tile that a custom tile replaced — still in the grid at
+        //     foundation height, just disabled) → clear from the grid silently (_hiddenFoundationFloors).
+        //     These are the floating "ghost tile" orphans if left behind.
+        // The free ground-plane yard tile is EXCLUDED here (its Y is ~0, below _onFoundationY): it was
+        // only disabled when the foundation went down and must be REVEALED again, not deleted.
         if (IsGround(_data))
         {
             if (_offsets == null)
@@ -70,18 +89,20 @@ public class DeleteCommand : PlacementCommandBase
                     if (objs == null) continue;
                     foreach (var entry in objs)
                     {
-                        // Deleting a foundation takes EVERY floor tile in its footprint with it —
-                        // not just the default ones. Players REPLACE floor tiles (pedestrian,
-                        // shipping-lane, etc.), so a defaultFloorTile-only match left the replaced
-                        // tiles floating in the hole — stuck (can't delete floors, can't place a
-                        // new foundation over them). Grabbing all isFloor tiles empties the cells
-                        // cleanly so a new foundation can go down.
-                        if (entry.data != null && entry.data.isFloor
-                            && entry.instance != null && entry.instance.activeSelf)
-                        {
-                            if (seen.Add(entry.instance))
-                                _attachedFloors.Add(entry.instance);
-                        }
+                        if (entry.data == null || !entry.data.isFloor || entry.instance == null)
+                            continue;
+
+                        // Ground-plane yard tile — revealed, not deleted. Skip it.
+                        if (entry.instance.transform.position.y <= _onFoundationY)
+                            continue;
+
+                        if (!seen.Add(entry.instance))
+                            continue;
+
+                        if (entry.instance.activeSelf)
+                            _attachedFloors.Add(entry.instance);          // visible slab tile → sink + refund
+                        else
+                            _hiddenFoundationFloors.Add(entry.instance);  // replaced/hidden default → clear silently
                     }
                 }
             }
@@ -147,6 +168,26 @@ public class DeleteCommand : PlacementCommandBase
             effect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed);
         }
 
+        // 1.5 Clear any REPLACED default tiles (disabled, still in the grid at foundation height)
+        //     out of the grid so step 2/4 doesn't reveal them as floating orphans. They stay
+        //     inactive/invisible; Undo re-adds them to the grid to restore the prior state.
+        foreach (var floor in _hiddenFoundationFloors)
+        {
+            if (floor == null) continue;
+            var po = floor.GetComponent<PlacedObject>();
+            var data = po != null ? po.data : floor.GetComponent<BuildingData>()?.Data;
+            var bd = floor.GetComponent<BuildingData>();
+            if (bd != null)
+            {
+                foreach (var fo in bd.Offsets)
+                    _grid.RemoveStackObject(bd.RootCell + fo, floor, data);
+            }
+            else
+            {
+                _grid.RemoveStackObject(_grid.WorldToCell(floor.transform.position), floor, data);
+            }
+        }
+
         // 2. Remove primary object from grid; for foundations only, queue any yard floor tiles
         //    that were hidden beneath it to be re-enabled once the destruction animation finishes
         //    (see step 4 — revealing them now would overlap the still-visible, still-sinking
@@ -165,6 +206,9 @@ public class DeleteCommand : PlacementCommandBase
                     {
                         if (entry.data?.isFloor != true) continue;
                         if (entry.instance == null || entry.instance.activeSelf) continue;
+                        // Only the ground-plane yard tile is revealed. An elevated hidden tile would
+                        // float where the foundation was — those are cleared in step 1.5 instead.
+                        if (entry.instance.transform.position.y > _onFoundationY) continue;
                         if (!_reEnabledFloors.Contains(entry.instance))
                             _reEnabledFloors.Add(entry.instance);
                     }
@@ -306,6 +350,26 @@ public class DeleteCommand : PlacementCommandBase
                 int refund = Mathf.RoundToInt(po.data.cost * _money.SellBackRate);
                 _money.Deduct(refund, po.data.category);
                 _money.AddHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
+            }
+        }
+
+        // 3b. Re-add the replaced/hidden default tiles to the grid (they stay inactive — they were
+        //     disabled when a custom tile was dropped over them; restoring them keeps the pre-delete
+        //     state so a further undo of that custom placement can reveal them correctly).
+        foreach (var floor in _hiddenFoundationFloors)
+        {
+            if (floor == null) continue;
+            var po = floor.GetComponent<PlacedObject>();
+            var data = po != null ? po.data : floor.GetComponent<BuildingData>()?.Data;
+            var bd = floor.GetComponent<BuildingData>();
+            if (bd != null)
+            {
+                foreach (var fo in bd.Offsets)
+                    _grid.AddStackObject(bd.RootCell + fo, floor, data);
+            }
+            else
+            {
+                _grid.AddStackObject(_grid.WorldToCell(floor.transform.position), floor, data);
             }
         }
 
