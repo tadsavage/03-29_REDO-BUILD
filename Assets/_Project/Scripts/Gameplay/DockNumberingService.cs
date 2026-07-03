@@ -10,7 +10,7 @@ using GameCore.Events;
 /// on its prefab default ("99"). This service bootstraps itself after scene load and renumbers
 /// via the build events, so doors number themselves even before a guard shack is ever placed.
 ///
-/// It complements <see cref="DockSlot.RenumberAll"/> (which also runs on dock register/
+/// It complements <see cref="DockSlot.AssignDoorNumbers"/> (which also runs on dock register/
 /// unregister): the events fire AFTER a ghost-placed door reaches its final position, which
 /// is when the position-based sort is actually correct.
 /// </summary>
@@ -46,10 +46,10 @@ public class DockNumberingService : MonoBehaviour
         em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnObjectChanged);
         _subscribed = true;
 
-        DockSlot.RenumberAll();   // initial pass for anything already present
+        DockSlot.AssignDoorNumbers();   // initial pass for anything already present
     }
 
-    private void OnObjectChanged(string eventId, PlacedObject placedObj) => DockSlot.RenumberAll();
+    private void OnObjectChanged(string eventId, PlacedObject placedObj) => DockSlot.AssignDoorNumbers();
 
     private void OnDestroy()
     {

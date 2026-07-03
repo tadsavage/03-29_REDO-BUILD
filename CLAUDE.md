@@ -193,6 +193,18 @@ Big pass that got the double-click→setup→commit→label flow actually workin
 - Bay sequencing still assumes `collection.Racks` insertion order matches physical travel order (worked in testing; revisit if bays ever come out of order).
 - The "workers pull from which side" arrows from the old lost UI were intentionally left out of the rebuilt panel (chevron right-click already sets direction).
 
+### Dock Doors & Shipping Lanes (`Assets/_Project/Scripts/Gameplay/`)
+
+> **📎 Skill:** Use the **`lane_setup`** skill (`.claude/skills/lane_setup/`) for this system.
+
+**Status: BUILT 2026-07-03, confirmed working in-game.** Two self-bootstrapping, always-on services — no scene wiring, no guard shack, no manager to configure (each spawns a hidden `DontDestroyOnLoad` object via `[RuntimeInitializeOnLoadMethod(AfterSceneLoad)]`).
+
+**Door numbering — `DockSlot.AssignDoorNumbers()`:** every `ShippingDoor` (carries a `DockSlot`, registered in static `DockSlot.All`) gets a **permanent** number shown via `DoorNumberDisplay`. Numbers **never renumber existing doors** — each is persisted in `PlacedObject.customData` (saved/restored), a newly placed door takes the **lowest free** number (5th door → "5"), and deleting a door frees its number for reuse (gap-fill, like aisle numbers). This stability is load-bearing: trucks, lane names, and employee/inventory destinations all reference door numbers, so we only add/remove, never rename (a manual double-click rename UI can come later). `DockNumberingService` drives it on placement/deletion events + a 1s heartbeat (catches save-loads, which bypass `PlaceCommand`); `TruckYardManager` also delegates to it. (Previously numbering lived only on the guard-shack's `TruckYardManager` and broke with no guard shack — decoupled 2026-07-02.)
+
+**Shipping-lane naming — `LaneNamingService`:** names every shipping lane `<doorNumber><letter>` (e.g. `1A`, `2C`) — one name per lane, globally unique = one exact place in the warehouse. A **lane = one row of `Flr-ShipLane` tiles (id 35, `isFloor`)** running out from a door in the door's facing/depth direction (~5-8 tiles); lanes sit side-by-side along the wall. The `Flr-ShipLane` prefab has a child **`LaneNo`** (TMP) that both displays the name and self-identifies a lane tile (never hard-code id 35 — look for the `LaneNo` child). Algorithm: assign each tile to its **nearest door** → group **per door** → wall axis from **that door's `transform.forward`** (`wallIsZ = |fwd.x| >= |fwd.z|`) → group the door's tiles into lanes by wall-coord cell → letter A.. with **A = lowest wall coordinate**. Per-door grouping + facing-derived axis is essential because docks can sit on opposite walls (verified: one at grid x=67 facing −X, another at x=36 facing +X). Recomputes on placement/deletion + 1s heartbeat.
+
+**Gotcha:** the Unity MCP bridge drops on every recompile and can't compile while the Editor is in Play mode — stop Play first; verify compiles via `%LOCALAPPDATA%/Unity/Editor/Editor.log` (`error CS`). Lane tiles are runtime/save-driven (absent from the edit-mode scene).
+
 ### Editor Tools (`Assets/10. Editor/`)
 
 - **ObjDataRegistryEditor** — custom Inspector for `ObjDataRegistry`
@@ -227,6 +239,15 @@ This is a warehouse simulation game with a serious logistics core and a whimsica
 ## IDEAS
 
 Ideas and planned systems. These range from fully thought-out to early sparks.
+
+### Lighting System (NEXT — starting 2026-07-03)
+> **Status: on deck.** Tad's next feature, and "probably the last thing I need to add before we get into core game." Not started — no code yet.
+
+**Real-time lighting (NOT baked)** delivered as purchasable, placeable **light fixtures**:
+- Fixtures are normal placeable objects (`ObjDataSO` + prefab with a real-time `Light`, a `cost`, category, etc.) placed through the usual Build/FSM flow.
+- Placed lights **illuminate the warehouse**; lit areas improve worker **safety** and **accuracy**, unlit areas degrade them.
+- Enables the **night shift** to work safely — a dark warehouse at night without lights is unsafe/inaccurate.
+- Should feed the employee stat/economy systems (safety & accuracy already exist as concepts). When building: confirm fixture types/costs, how "lit vs unlit" is measured per cell/area (light range/intensity → coverage), and how coverage maps to the safety/accuracy numbers.
 
 ### The Rat System
 > **Status: Deferred.** Rats are intentionally being held until the core gameplay loop is solid. Do not implement until employee AI, inventory, and the basic simulation loop are all functional. The foundation has to come first.
@@ -571,6 +592,8 @@ F1–F4 were rebound to the number row to free up F-keys and make room for **5**
 Things that need to be built, in rough priority order. Move items here as they come up and remove them when done.
 
 **Detailed gameplay loop design:** See `GAMEPLAY_LOOP_DESIGN.md` for complete mechanics, phasing, and technical architecture.
+
+**NEXT UP — Lighting System (real-time fixtures)** — see [IDEAS → Lighting System](#lighting-system-next--starting-2026-07-03). Purchasable/placeable light fixtures with real-time lights that illuminate the warehouse and affect worker safety/accuracy; enables safe night-shift work. Tad's last building-block feature before the core loop.
 
 **Phase 1: Receiving & Putaway (Data layer DONE — UI/Services NEXT)**
 - [x] Pallet data structure and InventoryService — COMPLETE

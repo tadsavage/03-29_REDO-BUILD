@@ -71,6 +71,7 @@ public class DockSlot : MonoBehaviour
 
     private DoorNumberDisplay   _numberDisplay;
     private DockLightController _lightController;
+    private PlacedObject        _placed;
 
     public DockLightController LightController => _lightController;
 
@@ -78,46 +79,83 @@ public class DockSlot : MonoBehaviour
     public int DoorNumber
     {
         get => _doorNumber;
-        set
+        private set
         {
             _doorNumber = value;
             if (_numberDisplay != null) _numberDisplay.Number = value;
         }
     }
 
+    // A door's number is persisted in its PlacedObject.customData (doors don't use customData for
+    // anything else) so it survives save/load and never changes once assigned. 0 = none yet.
+    private int PersistedNumber =>
+        (_placed != null && int.TryParse(_placed.customData, out int n) && n > 0) ? n : 0;
+
+    private void SetNumber(int n, bool persist)
+    {
+        DoorNumber = n;
+        if (persist && _placed != null) _placed.customData = n.ToString();
+    }
+
     private void Awake()
     {
         _numberDisplay   = GetComponentInChildren<DoorNumberDisplay>(true);
         _lightController = GetComponentInChildren<DockLightController>(true);
+        _placed          = GetComponent<PlacedObject>();
     }
 
     private void OnEnable()
     {
         All.Add(this);
-        RenumberAll();
+        AssignDoorNumbers();
     }
 
     private void OnDisable()
     {
         All.Remove(this);
-        RenumberAll();
+        AssignDoorNumbers();
     }
 
     /// <summary>
-    /// Assigns sequential door numbers (1..N) to every registered dock, ordered by yard
-    /// position (X, then Z). Self-contained: does NOT require a TruckYardManager / guard
-    /// shack in the scene, so doors number themselves as soon as they're placed or loaded.
-    /// Called on every dock register/unregister and by DockNumberingService on placement
-    /// events (the latter catches ghost-placed doors whose final position is only settled
-    /// after OnEnable has already run).
+    /// Assigns door numbers WITHOUT ever renumbering existing doors. A door that already has a
+    /// number — persisted in customData, whether restored from a save or assigned earlier this
+    /// session — keeps it; only doors with no number yet get one, taking the LOWEST currently
+    /// unused number. So adding a 5th door to 1-4 gives it "5", and deleting door 2 frees the
+    /// number 2 for the next door placed to reuse (same recycling as aisle numbers). This is
+    /// critical: trucks, shipping-lane names, and employee/inventory destinations all reference
+    /// door numbers and must stay stable mid-game — we only ever add or remove, never rename (a
+    /// manual rename UI can come later). Self-contained (no guard shack needed); also runs from
+    /// DockNumberingService on placement/load so ghost-placed and save-restored doors (whose
+    /// customData is only set after OnEnable) get numbered once everything is settled.
     /// </summary>
-    public static void RenumberAll()
+    public static void AssignDoorNumbers()
     {
-        int n = 1;
-        foreach (var dock in All.OrderBy(d => d.transform.position.x)
-                                .ThenBy(d => d.transform.position.z))
+        var used = new HashSet<int>();
+        var unnumbered = new List<DockSlot>();
+        foreach (var d in All)
         {
-            dock.DoorNumber = n++;
+            if (d == null) continue;
+            int p = d.PersistedNumber;
+            if (p > 0) { d.SetNumber(p, false); used.Add(p); }
+            else unnumbered.Add(d);
+        }
+
+        // Deterministic order for doors that don't have a number yet (fresh placements, plus the
+        // one-time bootstrap of a save made before numbers were persisted): by position, X then Z —
+        // matching the original numbering order so existing docks keep the numbers they had.
+        unnumbered.Sort((a, b) =>
+        {
+            int cx = a.transform.position.x.CompareTo(b.transform.position.x);
+            return cx != 0 ? cx : a.transform.position.z.CompareTo(b.transform.position.z);
+        });
+
+        // Each new door claims the lowest free number (gap-fill = reuse deleted doors' numbers).
+        foreach (var d in unnumbered)
+        {
+            int n = 1;
+            while (used.Contains(n)) n++;
+            used.Add(n);
+            d.SetNumber(n, true);
         }
     }
 
