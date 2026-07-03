@@ -302,35 +302,56 @@ public class DeleteState : PlacementStateBase
     // revert), so the caller proceeds to delete the foundation itself.
     private bool TryRevertCustomTile(BuildingData foundation, Vector2Int cell)
     {
+        if (!TryBuildRevertCommand(foundation, cell, out var cmd)) return false;
+        _fsm.History.Push(cmd);
+        AudioManager.Play("Delete");
+        return true;
+    }
+
+    // The top floor of a foundation cell, for delete purposes:
+    //   BareOrDefault    — nothing on it, or the foundation's own default tile → deleting the
+    //                      foundation is allowed here.
+    //   CustomRevertable — a custom tile AND the foundation has a default configured → revert it.
+    //   CustomNoDefault  — a custom tile but NO default is configured → can't revert, but must NOT
+    //                      delete the foundation either (leave it alone).
+    private enum CellFloorKind { BareOrDefault, CustomRevertable, CustomNoDefault }
+
+    private CellFloorKind ClassifyFoundationCell(BuildingData foundation, Vector2Int cell)
+    {
         var def = foundation?.Data?.defaultFloorTile;
-        if (def == null) return false;
-
-        // Guard against a raycast cell that drifted onto a neighbour — only act inside this
-        // foundation's own footprint.
-        if (!FoundationCoversCell(foundation, cell)) return false;
-
-        var objs = _grid.GetObjectsInCell(cell);
-        if (objs == null) return false;
 
         ObjDataSO topFloor = null;
-        for (int i = objs.Count - 1; i >= 0; i--)
-        {
-            var e = objs[i];
-            if (e.instance != null && e.instance.activeSelf && e.data != null && e.data.isFloor)
+        var objs = _grid.GetObjectsInCell(cell);
+        if (objs != null)
+            for (int i = objs.Count - 1; i >= 0; i--)
             {
-                topFloor = e.data;
-                break;
+                var e = objs[i];
+                if (e.instance != null && e.instance.activeSelf && e.data != null && e.data.isFloor)
+                {
+                    topFloor = e.data;
+                    break;
+                }
             }
-        }
 
-        // Already the default (or no floor at all) → let the foundation delete proceed.
-        if (topFloor == null || topFloor.id == def.id) return false;
+        if (topFloor == null) return CellFloorKind.BareOrDefault;
+        if (def != null && topFloor.id == def.id) return CellFloorKind.BareOrDefault;
+        return def != null ? CellFloorKind.CustomRevertable : CellFloorKind.CustomNoDefault;
+    }
 
-        // Replace the custom tile with the default one on just this cell. Reuses PlaceCommand's
-        // floor-swap path, so it's undoable and refunds the cost difference.
+    // Builds (but does not push) the swap-to-default command for a foundation cell whose top tile is
+    // a revertable custom floor. Reuses PlaceCommand's floor-swap path, so it's undoable and refunds
+    // the cost difference. False when the tile is already default / bare / has no default configured,
+    // or the cell isn't inside this foundation's footprint.
+    private bool TryBuildRevertCommand(BuildingData foundation, Vector2Int cell, out PlaceCommand cmd)
+    {
+        cmd = null;
+        var def = foundation?.Data?.defaultFloorTile;
+        if (def == null) return false;
+        if (!FoundationCoversCell(foundation, cell)) return false;
+        if (ClassifyFoundationCell(foundation, cell) != CellFloorKind.CustomRevertable) return false;
+
         var offsets = def.GetFootprintOffsets(0f);
-        _fsm.History.Push(new PlaceCommand(_grid, _finalizer, cell, offsets, def, 0f, _money));
-        AudioManager.Play("Delete");
+        cmd = new PlaceCommand(_grid, _finalizer, cell, offsets, def, 0f, _money);
         return true;
     }
 
@@ -356,6 +377,22 @@ public class DeleteState : PlacementStateBase
                 if (entry.instance == null || entry.data == null) continue;
                 if (entry.data.category == "Racking") return true;
             }
+        }
+        return false;
+    }
+
+    // True if the drag covers any non-default (custom) floor tile sitting on a foundation. When it
+    // does, every foundation in the drag is spared (see spareFoundations) — the player is stripping
+    // tiles back to default, not demolishing slabs.
+    private bool DragCapturesCustomFloor(List<Vector2Int> footprint)
+    {
+        foreach (var cell in footprint)
+        {
+            var f = FindFoundationInCell(cell);
+            if (f == null) continue;
+            var kind = ClassifyFoundationCell(f, cell);
+            if (kind == CellFloorKind.CustomRevertable || kind == CellFloorKind.CustomNoDefault)
+                return true;
         }
         return false;
     }
@@ -389,6 +426,9 @@ public class DeleteState : PlacementStateBase
     }
 
     private readonly HashSet<BuildingHighlighter> _lastDragTargets = new();
+    // Cells the current drag will revert to their foundation's default tile (custom tile removed but
+    // the foundation kept) — parallel to _dragTargets, which are the objects that get fully deleted.
+    private readonly List<Vector2Int> _revertCells = new();
 
     private void UpdateDragDelete(Vector3 dragEndWorld)
     {
@@ -403,8 +443,15 @@ public class DeleteState : PlacementStateBase
         // rules (they become ordinary drag targets like anything else).
         bool dragHasRack = DragCapturesRack(footprint);
 
+        // If the drag captures ANY non-default (custom) floor tile, protect EVERY foundation under
+        // the swipe — exactly like the rack exception (dragHasRack): the player is stripping tiles,
+        // not demolishing slabs. Custom tiles still revert to their default; no foundation is deleted.
+        bool dragHasCustomTile = DragCapturesCustomFloor(footprint);
+        bool spareFoundations = dragHasRack || dragHasCustomTile;
+
         // 1. Collect new targets using Grid data instead of Physics Raycasts
         HashSet<BuildingHighlighter> newTargets = new HashSet<BuildingHighlighter>();
+        _revertCells.Clear();
 
         foreach (var cell in footprint)
         {
@@ -420,10 +467,22 @@ public class DeleteState : PlacementStateBase
                     {
                         if (entry.instance.GetComponent<EmployeeIdentity>() != null) continue; // employees: terminate, not delete
                         var ebd = entry.instance.GetComponent<BuildingData>();
-                        // Foundations/grounds are spared ONLY when this drag is also deleting racks
-                        // (see dragHasRack above) — so a rack swipe leaves the foundation intact and
-                        // never highlights it yellow.
-                        if (ebd != null && IsFoundationData(ebd.Data) && dragHasRack) continue;
+
+                        if (ebd != null && IsFoundationData(ebd.Data))
+                        {
+                            // Always revert a custom tile back to default (the whole point of the drag).
+                            if (ClassifyFoundationCell(ebd, cell) == CellFloorKind.CustomRevertable)
+                                _revertCells.Add(cell);
+                            // Only a bare/default foundation cell in a drag with NO custom tiles (and no
+                            // racks) is an actual delete target; otherwise the foundation is spared.
+                            else if (!spareFoundations)
+                            {
+                                var hf = entry.instance.GetComponent<BuildingHighlighter>();
+                                if (hf != null) newTargets.Add(hf);
+                            }
+                            break;
+                        }
+
                         var h = entry.instance.GetComponent<BuildingHighlighter>();
                         if (h != null) { newTargets.Add(h); break; }
                     }
@@ -459,6 +518,16 @@ public class DeleteState : PlacementStateBase
         if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
             _fsm.History.BeginBatch();
+
+            // Reverts first: swap each flagged cell's custom tile back to the foundation's default
+            // (the foundation stays). Rebuilt here so the command reflects final grid state.
+            foreach (var cell in _revertCells)
+            {
+                var foundation = FindFoundationInCell(cell);
+                if (foundation != null && TryBuildRevertCommand(foundation, cell, out var revert))
+                    _fsm.History.AddToBatch(revert);
+            }
+
             foreach (var h in _dragTargets)
             {
                 if (h != null)
@@ -476,6 +545,7 @@ public class DeleteState : PlacementStateBase
 
             _dragTargets.Clear();
             _lastDragTargets.Clear();
+            _revertCells.Clear();
             _isDragging = false;
             _indicator.ClearAll();
         }

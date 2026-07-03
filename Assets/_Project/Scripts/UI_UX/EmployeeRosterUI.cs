@@ -107,7 +107,7 @@ public class EmployeeRosterUI : MonoBehaviour
 
     private void Update()
     {
-        if (!_enableHotkey) return;
+        if (!_enableHotkey || UIModalGuard.IsCapturing) return;
         if (Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
             Toggle();
     }

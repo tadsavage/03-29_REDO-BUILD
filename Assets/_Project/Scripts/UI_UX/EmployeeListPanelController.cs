@@ -100,7 +100,7 @@ public class EmployeeListPanelController : MonoBehaviour
 
     private void Update()
     {
-        if (!_enableHotkey) return;
+        if (!_enableHotkey || UIModalGuard.IsCapturing) return;
         if (Keyboard.current != null && Keyboard.current.digit4Key.wasPressedThisFrame)
             Toggle();
     }

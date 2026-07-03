@@ -271,6 +271,7 @@ public class PlacementSystem : MonoBehaviour
             save.cameraData = freeLookCamera.GetState();
 
         save.devSettings = CollectDevSettings();
+        save.laneConfigs = LaneConfigRegistry.Export();
 
         if (ToolsWindowController.Instance != null)
         {
@@ -378,6 +379,7 @@ public class PlacementSystem : MonoBehaviour
         moneyService.SetMoney(save.money);
         moneyService.SetSpentToday(save.spentToday);
         ApplySavedSettings(save);
+        LaneConfigRegistry.Import(save.laneConfigs);
 
         if (save.cameraData != null && freeLookCamera != null)
             freeLookCamera.SetState(save.cameraData);

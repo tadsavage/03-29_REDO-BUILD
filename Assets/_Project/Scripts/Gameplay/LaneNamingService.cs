@@ -9,7 +9,10 @@ using GameCore.Events;
 ///
 /// A shipping lane is one ROW of Flr-ShipLane tiles running out from the dock wall (the tiles of a
 /// row share a coordinate along the wall and extend in depth). Each lane:
-///   • figures out its OWN closest door → that door's number is the leading digit, and
+///   • is OWNED by exactly one door, and that ownership is STICKY — locked into each tile's
+///     PlacedObject.customData the first time it's assigned, so a door placed nearby later can never
+///     steal already-owned lanes (only unowned/orphaned tiles get a fresh owner). The owning door's
+///     number is the leading digit. Deleting a door releases (orphans) its lanes for reassignment.
 ///   • is lettered A, B, C… among the lanes that share a door, ordered along the wall so that A is
 ///     on the same side as the highest-numbered door (image-left with the current dock).
 ///
@@ -88,12 +91,68 @@ public class LaneNamingService : MonoBehaviour
         return t != null ? t.GetComponent<TMP_Text>() : null;
     }
 
-    private struct Tile { public TMP_Text label; public Vector3 pos; }
+    private struct Tile { public PlacedObject po; public TMP_Text label; public Vector3 pos; public Vector2Int cell; }
+
+    /// <summary>
+    /// The addressable "spot" a lane tile represents: door number + lane letter + slot index, where
+    /// slot 1 is the tile NEAREST the door (so slot order == truck load order / FIFO). Purely derived
+    /// from world geometry every Recompute; the pallet/inventory layer maps a pallet's grid cell to
+    /// one of these to answer "what spot is pallet X in?". Name format mirrors racks: e.g. "1A-03".
+    /// </summary>
+    public struct LaneSlot
+    {
+        public int DoorNumber;
+        public string Lane;    // "A", "B", …
+        public int Slot;       // 1-based, counted out from the door
+        public Vector2Int Cell;
+        public string Name => $"{DoorNumber}{Lane}-{Slot}";
+    }
+
+    // cell → slot, rebuilt fresh each Recompute. Static so the plain-C# InventoryService (no scene
+    // reference to this hidden singleton) can query addresses directly.
+    private static readonly Dictionary<Vector2Int, LaneSlot> _slotByCell = new();
+
+    /// <summary>Lane address for a grid cell, or false if that cell isn't a lane tile.</summary>
+    public static bool TryGetSlot(Vector2Int cell, out LaneSlot slot) => _slotByCell.TryGetValue(cell, out slot);
+
+    /// <summary>Address string ("1A-03") for a cell, or null if it isn't a lane tile.</summary>
+    public static string AddressAt(Vector2Int cell) => _slotByCell.TryGetValue(cell, out var s) ? s.Name : null;
+
+    /// <summary>All slots in a given lane (door number + letter), ordered slot 1..N out from the door.</summary>
+    public static List<LaneSlot> GetLane(int doorNumber, string lane)
+        => _slotByCell.Values
+            .Where(s => s.DoorNumber == doorNumber && s.Lane == lane)
+            .OrderBy(s => s.Slot)
+            .ToList();
+
+    // Depth (units out from the dock wall) that a lane may extend and still "belong" to a door. Used
+    // only to pick an owner for a brand-new (unowned) lane tile — see ChooseDoorForNewTile.
+    private const float MaxLaneDepth = 12f;
+
+    // A lane tile's owning door NUMBER is persisted in its PlacedObject.customData (lane tiles use
+    // customData for nothing else) so it survives save/load and, critically, never gets stolen by a
+    // door placed nearby later — same rule as door numbers themselves. 0 = not yet owned.
+    private static int OwnerNumber(PlacedObject po)
+        => (po != null && int.TryParse(po.customData, out int n) && n > 0) ? n : 0;
+
+    private static void SetOwner(PlacedObject po, int number)
+    {
+        if (po == null) return;
+        string s = number.ToString();
+        if (po.customData != s) po.customData = s; // only write on change to avoid churn/dirtying
+    }
 
     public void Recompute()
     {
+        _slotByCell.Clear(); // rebuilt from scratch below; source of truth is live geometry
+
         var doors = DockSlot.All;
         if (doors == null || doors.Count == 0) return;
+
+        // Fast lookup of a door by its (stable) number — how owned tiles find their door back.
+        var doorByNumber = new Dictionary<int, DockSlot>();
+        foreach (var d in doors)
+            if (d != null && d.DoorNumber > 0) doorByNumber[d.DoorNumber] = d;
 
         // Collect lane tiles (self-identified by their LaneNo label).
         var tiles = new List<Tile>();
@@ -101,21 +160,70 @@ public class LaneNamingService : MonoBehaviour
         {
             if (po == null || !po.gameObject.activeInHierarchy) continue;
             var label = FindLaneLabel(po.gameObject);
-            if (label != null) tiles.Add(new Tile { label = label, pos = po.transform.position });
+            if (label != null)
+                tiles.Add(new Tile
+                {
+                    po = po,
+                    label = label,
+                    pos = po.transform.position,
+                    cell = new Vector2Int(po.gridX, po.gridY)
+                });
         }
         if (tiles.Count == 0) return;
 
         if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
         float cell = _grid != null ? _grid.CellSize : 1.33f;
 
-        // 1. Each lane tile belongs to its nearest door. Group tiles PER DOOR first — critical when
-        //    doors sit on different/opposite walls (e.g. x=36 vs x=67): two pads can occupy the same
-        //    wall-coordinate, so a global grouping would wrongly merge them into one lane.
+        // 1. Resolve each tile's owner door NUMBER, in strict priority order:
+        //    (a) its OWN persisted owner — sticky, never re-stolen by a nearer door (the lock);
+        //    (b) ADJACENCY — a fresh tile that physically touches an already-owned lane tile joins
+        //        THAT pad. This is what makes extending a dock's lane block grow the existing pad
+        //        instead of getting grabbed by whatever door happens to be closest (the door-5 tiles
+        //        that got picked up by door 7 bug). Propagates outward so a whole strip of new tiles
+        //        laid against a pad all join it;
+        //    (c) only a tile touching NO existing lane tile falls back to the nearest door it faces.
+        //    Ownership is then persisted so it locks. (Per-door grouping below is also critical when
+        //    doors sit on different/opposite walls — two pads can share a wall-coordinate.)
+        var ownerByCell = new Dictionary<Vector2Int, int>();
+        var unassigned = new List<Tile>();
+        foreach (var t in tiles)
+        {
+            int owner = OwnerNumber(t.po);
+            if (owner > 0 && doorByNumber.ContainsKey(owner)) ownerByCell[t.cell] = owner; // (a)
+            else unassigned.Add(t);
+        }
+
+        // (b) Grow ownership from owned tiles to touching unowned tiles until a pass changes nothing.
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (int i = unassigned.Count - 1; i >= 0; i--)
+            {
+                var t = unassigned[i];
+                if (!TryGetAdjacentOwner(ownerByCell, t.cell, out int adjOwner)) continue;
+                ownerByCell[t.cell] = adjOwner;
+                SetOwner(t.po, adjOwner);
+                unassigned.RemoveAt(i);
+                changed = true;
+            }
+        }
+
+        // (c) Isolated tiles (touching no pad) pick the nearest door they face.
+        foreach (var t in unassigned)
+        {
+            var door = ChooseDoorForNewTile(doors, t.pos, cell);
+            if (door == null) continue;
+            ownerByCell[t.cell] = door.DoorNumber;
+            SetOwner(t.po, door.DoorNumber);
+        }
+
+        // Group tiles under their resolved owner door.
         var tilesByDoor = new Dictionary<DockSlot, List<Tile>>();
         foreach (var t in tiles)
         {
-            var door = NearestDoor(doors, t.pos);
-            if (door == null) continue;
+            if (!ownerByCell.TryGetValue(t.cell, out int ownerNum)) continue;
+            if (!doorByNumber.TryGetValue(ownerNum, out var door)) continue;
             if (!tilesByDoor.TryGetValue(door, out var list)) tilesByDoor[door] = list = new List<Tile>();
             list.Add(t);
         }
@@ -132,6 +240,9 @@ public class LaneNamingService : MonoBehaviour
             Vector3 fwd = door.transform.forward;
             bool wallIsZ = Mathf.Abs(fwd.x) >= Mathf.Abs(fwd.z); // door faces along X → lanes separate along Z
             float Wall(Vector3 p) => wallIsZ ? p.z : p.x;
+            // Depth = distance out from the door along its facing; slot 1 = smallest depth (nearest door).
+            Vector3 depthAxis = new Vector3(fwd.x, 0f, fwd.z).normalized;
+            float Depth(Vector3 p) => Vector3.Dot(p - door.transform.position, depthAxis);
 
             var lanes = new Dictionary<int, List<Tile>>();
             foreach (var t in group)
@@ -147,25 +258,85 @@ public class LaneNamingService : MonoBehaviour
 
             for (int i = 0; i < keys.Count; i++)
             {
-                string name = door.DoorNumber.ToString() + IndexToLetters(i);
-                foreach (var t in lanes[keys[i]])
-                    if (t.label != null) t.label.text = name;
+                string letter = IndexToLetters(i);
+                string laneName = door.DoorNumber.ToString() + letter;
+
+                // Order this lane's tiles by depth so slot 1 is nearest the door (== load order), and
+                // publish each tile's addressable spot keyed by its grid cell for the inventory layer.
+                var laneTiles = lanes[keys[i]];
+                laneTiles.Sort((a, b) => Depth(a.pos).CompareTo(Depth(b.pos)));
+                int lastIndex = laneTiles.Count - 1;
+                for (int s = 0; s < laneTiles.Count; s++)
+                {
+                    var t = laneTiles[s];
+                    int slot = s + 1;
+                    _slotByCell[t.cell] = new LaneSlot
+                    {
+                        DoorNumber = door.DoorNumber,
+                        Lane = letter,
+                        Slot = slot,
+                        Cell = t.cell
+                    };
+
+                    if (t.label == null) continue;
+
+                    // Only the two ENTRY tiles carry a label: slot 1 = Lane In (nearest door), slot N =
+                    // Lane Out (far end). They read "<lane>-<slot>" (e.g. 1A-1, 1A-6). Every interior
+                    // tile's label is hidden so the lane isn't cluttered with the name on every cell.
+                    bool isEntry = (s == 0 || s == lastIndex);
+                    if (isEntry)
+                    {
+                        t.label.enabled = true;
+                        t.label.text = $"{laneName}-{slot}";
+                    }
+                    else
+                    {
+                        t.label.enabled = false;
+                    }
+                }
             }
         }
     }
 
-    private static DockSlot NearestDoor(List<DockSlot> doors, Vector3 pos)
+    private static readonly Vector2Int[] Neighbors4 =
+        { new Vector2Int(1, 0), new Vector2Int(-1, 0), new Vector2Int(0, 1), new Vector2Int(0, -1) };
+
+    // True if any orthogonally-adjacent cell is already owned; returns that owner door number.
+    private static bool TryGetAdjacentOwner(Dictionary<Vector2Int, int> ownerByCell, Vector2Int cell, out int owner)
     {
-        DockSlot best = null;
-        float bestSqr = float.MaxValue;
+        foreach (var d in Neighbors4)
+            if (ownerByCell.TryGetValue(cell + d, out owner)) return true;
+        owner = 0;
+        return false;
+    }
+
+    // Picks the owner for a lane tile that has none yet. A lane extends OUT from the door it serves,
+    // so the right owner is the door the tile sits most directly IN FRONT of (smallest lateral offset
+    // from the door's centerline), among doors it's actually in front of and within lane reach. Only
+    // if the tile is in front of no door do we fall back to plain nearest-by-distance. This is more
+    // correct than raw distance (a door off to the side but a hair closer can't claim a lane that
+    // clearly runs out from a different door), and it's what makes the first-time assignment land on
+    // the intended door before ownership locks it in.
+    private static DockSlot ChooseDoorForNewTile(List<DockSlot> doors, Vector3 pos, float cell)
+    {
+        DockSlot bestFront = null; float bestLateral = float.MaxValue;
+        DockSlot bestAny   = null; float bestDist    = float.MaxValue;
         foreach (var d in doors)
         {
             if (d == null) continue;
-            Vector3 dp = d.transform.position;
-            float sqr = (dp.x - pos.x) * (dp.x - pos.x) + (dp.z - pos.z) * (dp.z - pos.z);
-            if (sqr < bestSqr) { bestSqr = sqr; best = d; }
+            Vector3 rel = pos - d.transform.position; rel.y = 0f;
+            float dist = rel.sqrMagnitude;
+            if (dist < bestDist) { bestDist = dist; bestAny = d; }
+
+            Vector3 fwd = d.transform.forward; fwd.y = 0f;
+            Vector3 right = d.transform.right; right.y = 0f;
+            fwd.Normalize(); right.Normalize();
+            float depth   = Vector3.Dot(rel, fwd);            // + = out into the yard, in front of door
+            float lateral = Mathf.Abs(Vector3.Dot(rel, right)); // sideways offset from door centerline
+            if (depth >= -cell && depth <= MaxLaneDepth && lateral < bestLateral)
+            { bestLateral = lateral; bestFront = d; }
         }
-        return best;
+        return bestFront != null ? bestFront : bestAny;
     }
 
     // 0→A, 1→B … 25→Z, 26→AA … (Excel-style; only ever single letters in practice).

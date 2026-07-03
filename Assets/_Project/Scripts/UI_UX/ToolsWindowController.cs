@@ -183,7 +183,7 @@ public class ToolsWindowController : MonoBehaviour
 
     private void Update()
     {
-        if (Keyboard.current.digit1Key.wasPressedThisFrame)
+        if (!UIModalGuard.IsCapturing && Keyboard.current.digit1Key.wasPressedThisFrame)
         {
             if (_visible && IsTabActive("dev")) Hide();
             else Show("dev");

@@ -225,11 +225,13 @@ public class RackSetupUI : MonoBehaviour
     private void Show()
     {
         if (_overlay != null) _overlay.style.display = DisplayStyle.Flex;
+        UIModalGuard.Push(this); // suppress number-key panel hotkeys while typing the aisle number
     }
 
     private void Hide()
     {
         if (_overlay != null) _overlay.style.display = DisplayStyle.None;
+        UIModalGuard.Pop(this);
     }
 }
 

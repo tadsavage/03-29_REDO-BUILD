@@ -146,7 +146,7 @@ public class HiringBoardUI : MonoBehaviour
 
     private void Update()
     {
-        if (!_enableHotkey) return;
+        if (!_enableHotkey || UIModalGuard.IsCapturing) return;
         if (Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
             Toggle();
     }

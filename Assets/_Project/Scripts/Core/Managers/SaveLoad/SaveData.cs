@@ -18,6 +18,9 @@ public class SaveData
 
     public List<EmployeeRecord> employeeRecords = new();
 
+    // Per-lane operational config (max stack, usage, FIFO/LIFO). Empty in older saves.
+    public List<LaneConfigEntry> laneConfigs = new();
+
     // Former employees (terminated / resigned) — kept on file for rehire, union reinstatement,
     // and HR history. Populated from FormerEmployeeArchive. Absent in older saves (empty list).
     public List<EmployeeRecord> formerEmployees = new();

@@ -154,7 +154,7 @@ public class TopBarUI : MonoBehaviour
 
     private void Update()
     {
-        if (Keyboard.current.digit5Key.wasPressedThisFrame)
+        if (!UIModalGuard.IsCapturing && Keyboard.current.digit5Key.wasPressedThisFrame)
             _shiftManagerPanel?.Toggle();
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)

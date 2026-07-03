@@ -37,6 +37,9 @@ public class PalletBuilder : MonoBehaviour
     [SerializeField] private int totalCases;
     public int CurrentLoadCost { get; private set; }
 
+    /// <summary>Number of cases currently built on this pallet (used by inventory tracking).</summary>
+    public int TotalCases => totalCases;
+
     [System.Serializable]
     public struct BuildSettings
     {
