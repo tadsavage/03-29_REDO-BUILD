@@ -89,18 +89,6 @@ public class RaycastController : MonoBehaviour
     {
         _isPointerOverUI = CheckIfPointerOverUI();
 
-        if (_isPointerOverUI && _enabled && Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
-            var eventData = new UnityEngine.EventSystems.PointerEventData(EventSystem.current);
-            eventData.position = Mouse.current.position.ReadValue();
-            EventSystem.current.RaycastAll(eventData, results);
-            foreach (var res in results)
-            {
-                //Debug.Log($"[RaycastController] Blocked by UI: {res.gameObject.name} (Module: {res.module.GetType().Name})", res.gameObject);
-            }
-        }
-
         if (!_enabled || _isPointerOverUI)
         {
             HasHit = false;

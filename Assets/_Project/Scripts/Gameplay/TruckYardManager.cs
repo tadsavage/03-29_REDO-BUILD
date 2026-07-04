@@ -154,7 +154,12 @@ public class TruckYardManager : MonoBehaviour
     }
 
     public void SpawnNextTruck()
-{
+    {
+        SpawnNextTruck(null);
+    }
+
+    public void SpawnNextTruck(GameCore.Inventory.ShipmentData shipment)
+    {
         if (truckPrefab == null) { Debug.LogError("[TruckYardManager] Truck Prefab not assigned."); return; }
         if (_spawnPoint == null) { Debug.LogError("[TruckYardManager] SpawnPoint child missing from guard shack."); return; }
 
@@ -166,7 +171,7 @@ public class TruckYardManager : MonoBehaviour
         }
 
         var go  = Instantiate(truckPrefab, _spawnPoint.position, _spawnPoint.rotation);
-        go.name = $"Truck→Door{dock.DoorNumber}";
+        go.name = shipment != null ? $"Truck→PO_{shipment.ShipmentId.Substring(0,8)}" : $"Truck→Door{dock.DoorNumber}";
 
         var ctrl = go.GetComponent<TruckController>() ?? go.AddComponent<TruckController>();
 
@@ -177,6 +182,12 @@ public class TruckYardManager : MonoBehaviour
 
         ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited);
         ctrl.OnClearedGate += () => OnTruckClearedGate(ctrl);
+        
+        if (shipment != null)
+        {
+            ctrl.LoadShipment(shipment);
+        }
+        
         ctrl.AssignAndGo(dock);
 
         if (_gateStop != null)

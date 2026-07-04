@@ -587,6 +587,140 @@ F1–F4 were rebound to the number row to free up F-keys and make room for **5**
 
 ---
 
+## Core Gameplay Loop (Active Development 2026-07-03)
+
+**COMPLETE PALLET/CASE LIFECYCLE:** Vendor PO → Inbound → Putaway → Replenishment → Order Selection → Shipping → Invoicing
+
+**See:** `GAMEPLAY_LOOP_SPECIFICATION.md` in memory for full design. This is the definitive spec Tad authored.
+
+### Dummy Data (MVP Testing)
+
+**SKU:** 035-12345 (Dummy Item)
+- Description: Generic Cases
+- Ti/Hi: 1/1 (one case per pallet)
+- Weight: 50 lbs/case
+- Cost: TBD / case
+- Sell Price: Cost + margin
+
+**Trailer:**
+- Capacity: 12 pallets
+- Layout: 2 front + 10 middle (side-by-side) + 2 rear (equidistant)
+- No physics on pallets (visual only in trailer)
+
+**Chep Pallet Prefab:**
+- Visual representation (loaded cases)
+- 12 instances per inbound trailer
+
+### The 6 Chunks (Implementation Order)
+
+**CHUNK 1: INBOUND PROCESS — data/event backbone BUILT 2026-07-03, not yet compile-verified (Unity Editor wasn't connected via MCP this session — open the Editor and check for `error CS` before relying on this).**
+
+**What's built:**
+- `WorkQueueSystem` (`Assets/_Project/Scripts/Core/Labor/WorkQueueSystem.cs`) — the critical-path task queue every chunk depends on. `WorkTask` (Id, Type, RequiredRole, PalletId, Description, Status: Pending/Assigned/Complete). `CreateTask()`, `GetPendingTasksForRole()`, `TryClaimNextTask()` (FIFO claim), `CompleteTask()`. Registered as an `IService` in `GameContext.Awake()` alongside the other services. `WorkTaskType` enum has stubs for all 6 chunks (Receive/Putaway/Replenish/OrderSelect/Load) even though only Putaway is produced today.
+- `LoadIDGenerator` (`Assets/_Project/Scripts/Core/Labor/LoadIDGenerator.cs`) — static utility, generates unique 10-digit numeric Load IDs (dedup via a `HashSet` of issued IDs).
+- `PalletData.LoadId` — new settable string property (null for pallets created before Load IDs existed, e.g. hand-placed in the Editor via `PalletInventoryTracker`).
+- `InventoryService.ReceivePalletWithLoadId(skuId, quantity, shelfLifeDays)` — new method, parallels the existing `ReceiveShipment`/`RegisterPhysicalPallet` but assigns a Load ID and drops the pallet at receiving staging (0,0).
+- `ReceivingService` (`Assets/_Project/Scripts/Core/Labor/ReceivingService.cs`) — static bridge: `ProcessReceiving(ShipmentData)` walks a shipment's line items, calls `ReceivePalletWithLoadId` for each (one pallet per line item, matching `TruckController.LoadShipment`'s existing distribution), then creates a `Putaway` WorkTask per pallet targeted at `EmployeeRole.ReachTruckOperator`. Marks the shipment `Received`. Guards against double-processing via `shipment.Status != InTransit`.
+- **Wired into `TruckController`:** when a docked truck's existing `unloadDuration` timer (7s, already there — the visual pallets from `LoadShipment` were already spawned on dock) expires, `TruckController.Update()`'s `Docked` case now calls `ReceivingService.ProcessReceiving(AssignedShipment)` right before `BeginDeparture()`. This is the full inbound loop: PO (`ShipmentService.CreatePurchaseOrder`, already existed) → truck spawns/docks (already existed) → **NEW:** pallets get Load IDs + inventory records + Putaway tasks queued, right as the truck starts to leave.
+
+**Deliberately NOT built this pass (prototype-first, per Tad's "small chunks" approach):**
+- No Dock Stocker offload animation or Receiver clipboard/RF-gun animation — the truck's pre-existing unload timer stands in for physical offload. Animations are explicitly Tad's domain to drive later ("deeply involved" per his spec, especially for Order Selection in Chunk 4).
+- No employee actually consumes a WorkTask yet — `WorkQueueSystem` only tracks task existence/status. Chunk 2 (Putaway) is what makes a Reach Truck Operator actually claim and act on these tasks.
+- Guard-assigns-PO-to-trailer step is implicit (PO creates and spawns its own truck via `ShipmentService`/`TruckYardManager`) rather than a separate guard interaction.
+
+**Next up: CHUNK 2 (Putaway)** — `PutawayLogic` (Pick vs Reserve based on order demand), `PickSlot`/`ReserveSlot` components on rack cells, and the first real employee-claims-a-WorkTask flow (Reach Truck Operator consumes the Putaway tasks this chunk now produces).
+
+**CHUNK 2 (Offload / dock-stocker) — BUILT 2026-07-03, scripted-choreography first pass, NOT yet compile- or play-verified.** Moves all 12 pallets off a docked trailer into staging lanes with a manned dock stocker.
+- **`TrailerOffloadController`** (`Assets/_Project/Scripts/Core/Labor/TrailerOffloadController.cs`) — self-bootstrapping service (hidden `DontDestroyOnLoad` object, like the other dock services). Polls (0.5s) for a `TruckController.AwaitingOffload` truck **plus** an idle, manned dock stocker (an `MHEOperatorSlot` whose `CurrentOperator.Record.role == DockStockerOperator`). On a match it `ClaimForOffload()`s the truck, **commandeers the DS** (disables its patrol `AiNavigation` + `NavMeshAgent` so the controller drives the transform directly — same scripted style as `TruckController`'s yard route; the operator rides along as a DS child), then per pallet: line up behind it → drive forks under → lift the `Forks` child by `ForkLiftHeight` (reparent pallet to forks) → reverse out onto the dock → 180° spin → drive forks-first to the next open Inbound/Both lane slot → lower → drop → `RegisterPhysicalPallet` + assign Load ID + file a `Putaway` `WorkTask`. When all 12 are done it restores the DS (re-enable agent/nav, warp, resume patrol) and `CompleteOffload()`s the truck so it departs.
+- **Movement is scripted transform choreography** (chosen over NavMesh — Tad's call — for frame-precise fork alignment and to avoid fighting the patrol AI that owns the agent). Trade-off: no obstacle avoidance on the dock→lane hop.
+- **All geometry is TUNABLE constants at the top of the file** (`DriveSpeed`, `TurnSpeed`, `ForkLiftHeight=0.5`, `ForkEngageDistance`, `LineUpBackDistance`, `BackOutExtra`, `LaneStackStep`, `InvertTrailerAxis`, `ForkChildName="Forks"`). Because the controller is a hidden bootstrapped object there's no Inspector — **these are code constants tuned over chat and recompiled**; the maneuver's directions/distances are educated guesses and WILL need iteration in-game (esp. `InvertTrailerAxis` — flip it first if the DS drives away from the trailer). Promote to a scene component with `[SerializeField]`s if live slider tuning becomes worth it.
+- **`TruckController` dock lifecycle reworked:** a docked truck no longer departs on the old fixed `unloadDuration` timer. It now sets `AwaitingOffload` and waits in `Docked` until `CompleteOffload()` is called, OR until `offloadFallbackTimeout` (45s) elapses **unclaimed** — the fallback path does the old bulk `ReceivingService.ProcessReceiving` + departs so a missing/unmanned DS can't wedge the dock. New public API on `TruckController`: `AwaitingOffload`, `DockedAt`, `LoadContainer`, `ClaimForOffload()`, `CompleteOffload()`.
+- **Receiving/putaway-task creation moved to per-pallet-on-drop** (was bulk-on-dock-timer in Chunk 1). Each staged pallet gets its own inventory record + Load ID + Putaway task as it lands in the lane. The bulk `ReceivingService.ProcessReceiving` now only runs on the no-DS fallback path.
+- **`LaneNamingService.AllLanes()`** added — returns every distinct `(door, lane-letter)` pair, so the controller can scan for the first Inbound/Both lane (`InventoryService.LaneAcceptsPutaway`) with a free slot (`TryGetNextFreeSlot`). Reminder: lanes default to `LaneUsage.Both` until a setup UI says otherwise, so any placed `Flr-ShipLane` tiles already accept inbound putaway.
+- **Prerequisites to actually see it run:** (1) a dock stocker placed on the dock with a hired **DockStockerOperator** aboard (the existing hire/auto-board flow boards them — the controller needs the slot OCCUPIED, so if the operator is still walking over it just waits); (2) at least one row of `Flr-ShipLane` tiles placed as the staging lane; (3) the `palletVisualPrefab`/`Ghost While Docked Renderers` Inspector assignments from Chunk 1 done so there are pallets to move. Spawn a truck with the InboundTest panel and watch.
+
+**Manual test tool — `InboundTestPanel`** (`Assets/_Project/Scripts/UI_UX/InboundTestPanel.cs`, added 2026-07-03): self-bootstrapping DEBUG-only OnGUI overlay (top-left, y=50 to clear the TopBar, always on in Play mode) with a button that calls `ShipmentService.CreatePurchaseOrder` with a 12-line-item test PO (SKU `035-12345`) — same hotkey pattern as the P key. Lets you watch the whole inbound loop live: truck spawns → gate queue → guard inspection (trailer doors open via existing `GuardController` behavior) → drives to dock → sits `Docked` with its pre-built cargo → `ReceivingService` fires as the timer ends → departs. The panel also lists live `ShipmentService.PendingShipments` (status flips `InTransit`→`Received`) and `WorkQueueSystem.Tasks` (the Putaway tasks created per pallet) so you can confirm Load IDs/receiving worked without reading the console. Remove or gate behind a build flag before shipping — not intended as a real gameplay UI.
+
+**Visible cargo — built 2026-07-03, needs ONE manual Inspector step before it'll show anything.** Previously the trailer's `Trailer/LorryTrailer/Load` container had **zero `PalletBuilder` children** — `TruckController.LoadShipment()` always hit its "no PalletBuilder components found" branch and silently returned, so no cargo ever rendered regardless of SKU data. Also nothing anywhere ever called `InventoryService.LoadSkuDatabase()`, so `GetSkuData()` always returned null even for real SKUs. Fixed both:
+- Created `Assets/_Project/Resources/Inventory/SKUs/SKU_035-12345.asset` (a real `SkuData` asset — Ti/Hi 1/1, non-perishable, `_casePrefab` pointing at the existing `Cs_Reg_Brn.prefab`). Placed under `Resources/` specifically so it's loadable at runtime (the other 99 Excel-imported SKUs live outside `Resources` and still aren't loaded — separate follow-up if they need real case visuals too).
+- `GameContext.Awake()` now calls `inventoryService.LoadSkuDatabase(Resources.LoadAll<SkuData>("Inventory/SKUs"))` right after `inventoryService.Initialize()` — this call never existed anywhere before.
+- `TruckController.LoadShipment()` rewritten: no longer searches for pre-existing `PalletBuilder`s. It now **procedurally instantiates a new `[SerializeField] palletVisualPrefab`** 12 times under `Load`, in 2 rows of 6 (`SlotLocalPosition()` — row 0 = left at `-palletLateralOffset`, row 1 = right at `+palletLateralOffset`, columns spaced by `palletRowSpacing` centered on the Load anchor), cycling through the shipment's line items so a 12x-same-SKU test shipment fills every slot. Each instance gets its `PlacedObject`/`BuildingData` stripped (same reasoning `PalletBuilder.Build()` already applies to the cases it spawns — otherwise 12 phantom (0,0) registry entries per truck) before resolving `SkuData.CasePrefab` and calling `PalletBuilder.Build(deductMoney: false)`.
+- **`driverDoorOpenAngle`/`passengerDoorOpenAngle`** (new tunable fields, default ±170°) replace the old hardcoded ±65° swing — a proper "barn door" opening (doors rest flat against the trailer side) instead of just ajar, per Tad's ask.
+
+**⚠️ `palletVisualPrefab` is a new field, currently unassigned — deliberately left for a manual step rather than hand-edited via YAML.** `ChepStack.prefab` (the intended value) is itself a multi-layer nested prefab variant chain; hand-deriving its correct root `fileID` for a raw YAML reference was judged too risky to guess blind without Editor confirmation. **To finish this: open `Truck_SavageDev.prefab`, select the root TruckController component, and drag `Assets/_Project/Prefabs/Inventory/ChepStack.prefab` into the new "Pallet Visual Prefab" field.** Until that's set, `LoadShipment()` logs a clear warning and leaves the trailer empty rather than failing silently. `palletLateralOffset`/`palletRowSpacing` are now **both 0.35** (tightened 2026-07-03 from 0.75/1.6 — the old spread clipped through the trailer edges); `LoadShipment` also now finds the `Load` container via the `Trailer/LorryTrailer/Load` path OR a recursive `FindDeepChild(transform,"Load")` fallback (the container is inside the nested trailer FBX so the exact path can drift), and every pallet is childed under that `Load` object.
+
+**Docked finishing touches (2026-07-03) — barn doors open while docked + trailer ghosts:**
+- Door open angle raised to **±185°** (`driverDoorOpenAngle`/`passengerDoorOpenAngle`, was ±170) — full flat "barn door" swing so a docked dock-stocker can reach the cargo and it's visible from inside the warehouse.
+- `OnDocked()` now calls `OpenTrailerDoors()` + `SetDockedGhost(true)`; `BeginDeparture()` calls `SetDockedGhost(false)` + `CloseTrailerDoors()`. (Previously the doors only opened during the guard's gate inspection, then closed before docking — so a docked trailer was sealed.)
+- **`SetDockedGhost`** swaps a set of assigned renderers to `Resources/Materials/GhostLoweredWall.mat` (the same see-through material lowered walls use) while docked, restoring each renderer's original `sharedMaterials` on departure. Handles multi-slot renderers and is idempotent. Original materials cached per-renderer in `_originalMaterials`.
+- **⚠️ Second manual Inspector step (same reasoning as `palletVisualPrefab`): the new `_ghostWhileDockedRenderers` (Renderer[]) field is unassigned.** The trailer mesh + left/right Savage decal objects live inside the binary `Truck_SavageDev.fbx`, so their exact child names/`fileID`s aren't extractable from YAML to wire blind. **Assign it: open `Truck_SavageDev.prefab`, and drag the trailer mesh renderer + the two Savage decal renderers into the TruckController's "Ghost While Docked Renderers" list.** Until assigned, docking still opens the doors but the trailer stays solid (no ghost).
+
+**CHUNK 2: PUTAWAY PROCESS**
+- Work queue: "Put pallet [Load ID] away"
+- Reach Truck Operator drives pallet jack
+- Determines Pick Slot vs Reserve based on order demand
+- Sets down pallet, updates location
+- Inventory system updated
+
+**CHUNK 3: REPLENISHMENT PROCESS**
+- Pick slot monitored for occupancy
+- Threshold: <2 cases remaining
+- Work queue: "Replenish [location]"
+- Reach Truck Operator fills from reserve
+- Pick slot stays stocked
+
+**CHUNK 4: ORDER SELECTION PROCESS**
+- Customer order arrives (e.g., 12 pallets)
+- Empty outbound trailer backed into assigned door
+- Order assigned to door/trailer/staging lane
+- Work queue: "Order [ID] ready for selection"
+- Order Selector picks cases (hand animation)
+- Max 2 pallets per selector jack
+- Cases placed on jack, staged to outbound lane
+- Inventory updated (staging lane location)
+
+**CHUNK 5: SHIPPING PROCESS**
+- Work queue: "Load order [ID]"
+- Loader animation (walking + placing)
+- Pallets moved from staging to trailer
+- Trailer status: "Ready to depart"
+- Driver departs (visual: trailer exits yard)
+- Order status: "Shipped"
+- Triggers invoicing
+
+**CHUNK 6: INVOICING PROCESS**
+- Customer charged: Cost of Goods + $1/case handling fee
+- Revenue credited to MoneyService + FinanceCategory (Sales)
+- Order marked "Invoiced"
+- Daily summary updated
+
+### Work Queue System (Cross-Cutting)
+
+All actions driven by work queue entries:
+- Signals employees via events
+- Tracks task progress
+- Auto-closes when complete
+- Prioritization: TBD (FIFO initially)
+
+### Key Components (TBD During Architecture Review)
+
+- `POSystem` — Purchase order creation/tracking
+- `TrailerArrivalEvent` — PO match, signals dock
+- `ReceiverAnimationService` — Clipboard + RF gun
+- `LoadIDGenerator` — 10-digit pallet IDs
+- `InventoryEntity` — Pallet in system (SKU, qty, load ID, location)
+- `WorkQueueSystem` — Task queuing + assignment
+- `PickSlot` — Component on rack cells; replenishment triggers
+- `ReserveSlot` — Component on reserve racks
+- `OutboundTrailerAssignment` — Trailer ↔ Door ↔ Staging Lane
+- `OrderSelectionTask` — Order picking progress
+- `OrderSelectorAnimation` — Hand-picking + jack load
+- `OutboundStagingLane` — Per-door staging zone
+- `LoaderTask` + `LoaderAnimation` — Loading animation
+- `InvoicingService` — Calculate charges, credit revenue
+
+---
+
 ## TODO
 
 Things that need to be built, in rough priority order. Move items here as they come up and remove them when done.

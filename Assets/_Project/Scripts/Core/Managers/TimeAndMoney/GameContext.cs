@@ -5,6 +5,7 @@ using GameCore.Services;
 using GameCore.Economy;
 using GameCore.Events;
 using GameCore.Build;
+using GameCore.Inventory;
 
 [DefaultExecutionOrder(-100)]
 public class GameContext : MonoBehaviour
@@ -54,6 +55,9 @@ public class GameContext : MonoBehaviour
         var economyService = new EconomyService();
         var payrollService = new PayrollService();
         var inventoryService = new InventoryService();
+        var orderService = new GameCore.Inventory.OrderService();
+        var shipmentService = new GameCore.Inventory.ShipmentService();
+        var workQueueSystem = new GameCore.Labor.WorkQueueSystem();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
@@ -61,6 +65,9 @@ public class GameContext : MonoBehaviour
         ServiceLocator.Register<EconomyService>(economyService);
         ServiceLocator.Register<PayrollService>(payrollService);
         ServiceLocator.Register<InventoryService>(inventoryService);
+        ServiceLocator.Register<GameCore.Inventory.OrderService>(orderService);
+        ServiceLocator.Register<GameCore.Inventory.ShipmentService>(shipmentService);
+        ServiceLocator.Register<GameCore.Labor.WorkQueueSystem>(workQueueSystem);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
@@ -68,6 +75,15 @@ public class GameContext : MonoBehaviour
         economyService.Initialize();
         payrollService.Initialize();
         inventoryService.Initialize();
+        orderService.Initialize();
+        shipmentService.Initialize();
+        workQueueSystem.Initialize();
+
+        // Load every SkuData asset that lives under a Resources folder (currently just the dummy
+        // test SKU) so InventoryService.GetSkuData / TruckController.LoadShipment can resolve a
+        // CasePrefab. The 99 Excel-imported SKUs live outside Resources and aren't picked up here —
+        // that's a separate follow-up if/when those need real case visuals too.
+        inventoryService.LoadSkuDatabase(Resources.LoadAll<SkuData>("Inventory/SKUs"));
 
         // Wire timeDriver to use refactored TimeService
         timeDriver.Initialize(TimeService);

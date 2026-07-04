@@ -125,6 +125,15 @@ public class LaneNamingService : MonoBehaviour
             .OrderBy(s => s.Slot)
             .ToList();
 
+    /// <summary>Every distinct (door, lane-letter) pair that currently has tiles, so callers can scan
+    /// for a lane matching some criteria (e.g. the first Inbound/Both lane with a free slot).</summary>
+    public static List<(int door, string lane)> AllLanes()
+        => _slotByCell.Values
+            .Select(s => (s.DoorNumber, s.Lane))
+            .Distinct()
+            .OrderBy(x => x.DoorNumber).ThenBy(x => x.Lane)
+            .ToList();
+
     // Depth (units out from the dock wall) that a lane may extend and still "belong" to a door. Used
     // only to pick an owner for a brand-new (unowned) lane tile — see ChooseDoorForNewTile.
     private const float MaxLaneDepth = 12f;

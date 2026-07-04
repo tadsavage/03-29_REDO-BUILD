@@ -19,6 +19,7 @@ public class SkuData : ScriptableObject
     [SerializeField] private int _tiCount; // Units per case tier (from Excel)
     [SerializeField] private int _hiCount; // Units per pallet layer (from Excel)
     [SerializeField] private float _caseWeight; // Weight in lbs (from Excel)
+    [SerializeField] private GameObject _casePrefab; // Prefab of the case to spawn on pallets
 
     public string SkuId => _skuId;
     public string SkuName => _skuName;
@@ -32,6 +33,7 @@ public class SkuData : ScriptableObject
     public int TiCount => _tiCount; // Units per case
     public int HiCount => _hiCount; // Units per pallet layer
     public float CaseWeight => _caseWeight;
+    public GameObject CasePrefab => _casePrefab;
 
     /// <summary>Gross profit per unit = selling price - unit cost.</summary>
     public int GrossProfitPerUnit => _sellingPrice - _unitCost;

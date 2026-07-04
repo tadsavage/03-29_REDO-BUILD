@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 4631194881021806680}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.182, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -42,12 +42,12 @@ NavMeshObstacle:
   m_Enabled: 1
   serializedVersion: 3
   m_Shape: 1
-  m_Extents: {x: 0.125, y: 0.75, z: 0.125}
+  m_Extents: {x: 0.125, y: 0.5, z: 0.125}
   m_MoveThreshold: 0.1
   m_Carve: 1
   m_CarveOnlyStationary: 1
-  m_Center: {x: -0.46, y: 0.7, z: 0}
-  m_TimeToStationary: 0.5
+  m_Center: {x: -0.5, y: 0.5, z: 0}
+  m_TimeToStationary: 0.25
 --- !u!1 &6530193254735877996
 GameObject:
   m_ObjectHideFlags: 0
@@ -219,12 +219,12 @@ NavMeshObstacle:
   m_Enabled: 1
   serializedVersion: 3
   m_Shape: 1
-  m_Extents: {x: 0.175, y: 0.75, z: 0.125}
+  m_Extents: {x: 0.175, y: 0.5, z: 0.125}
   m_MoveThreshold: 0.1
   m_Carve: 1
   m_CarveOnlyStationary: 1
-  m_Center: {x: 0.51, y: 0.2, z: 0}
-  m_TimeToStationary: 0.5
+  m_Center: {x: 0.475, y: 0.5, z: 0}
+  m_TimeToStationary: 0.25
 --- !u!1001 &4496536467341486305
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -235,7 +235,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 9255e5c03b648904ebb0e71279213a32, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 1.325
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9255e5c03b648904ebb0e71279213a32, type: 3}
       propertyPath: m_LocalPosition.y
@@ -285,6 +285,10 @@ PrefabInstance:
       propertyPath: m_StaticShadowCaster
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: 9255e5c03b648904ebb0e71279213a32, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: e711b9fd6c1eb314ea8c0be6abf7d855, type: 2}
     - target: {fileID: -3274816007795753049, guid: 9255e5c03b648904ebb0e71279213a32, type: 3}
       propertyPath: m_Layer
       value: 6
@@ -367,7 +371,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7228764392808065882, guid: 9255e5c03b648904ebb0e71279213a32, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1.0931
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7803233369086250453, guid: 9255e5c03b648904ebb0e71279213a32, type: 3}
       propertyPath: m_LocalRotation.w
@@ -456,8 +460,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.3275952, y: 9, z: 2.5295463}
-  m_Center: {x: -0.0017976165, y: 4.5, z: -0.072645605}
+  m_Size: {x: 1.296549, y: 9.02801, z: 1.8631868}
+  m_Center: {x: 0.013725579, y: 4.514005, z: -0.016419888}
 --- !u!114 &2356426034615229032
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -503,6 +507,13 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  isRackLive: 0
+  rackAisle: -1
+  rackBay: -1
+  rackLevelIndex: -1
+  rackAisleFacing: {x: 0, y: 0, z: 0}
+  rackTravelDir: {x: 0, y: 0, z: 0}
+  rackLevelChar: 
 --- !u!114 &8856086861396445414
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -543,7 +554,7 @@ MonoBehaviour:
   m_OverrideGenerateLinks: 0
   m_GenerateLinks: 1
   m_IgnoreFromBuild: 0
-  m_ApplyToChildren: 1
+  m_ApplyToChildren: 0
   m_AffectedAgents: ffffffff
 --- !u!4 &4173800472953999114 stripped
 Transform:

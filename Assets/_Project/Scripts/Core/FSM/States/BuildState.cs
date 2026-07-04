@@ -19,37 +19,37 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class BuildState : PlacementStateBase
 {
-    private readonly PlacementActions _actions;
-    private readonly PreviewController _preview;
-    private readonly PlacementValidator _validator;
-    private readonly PlacementFinalizer _finalizer;
-    private new readonly PlacementGrid _grid;
-    private readonly PlacementStateMachine _fsm;
-    private readonly RaycastController _raycast;
-    private readonly CellIndicatorController _indicator;
-    private readonly MoneyService _money;
-    private readonly PreviewCostUI _costUI;
-    private readonly BuildMenuUI _buildMenuUI;
-    private TopBarUI _topBarUI;
+    protected readonly PlacementActions _actions;
+    protected readonly PreviewController _preview;
+    protected readonly PlacementValidator _validator;
+    protected readonly PlacementFinalizer _finalizer;
+    protected new readonly PlacementGrid _grid;
+    protected readonly PlacementStateMachine _fsm;
+    protected readonly RaycastController _raycast;
+    protected readonly CellIndicatorController _indicator;
+    protected readonly MoneyService _money;
+    protected readonly PreviewCostUI _costUI;
+    protected readonly BuildMenuUI _buildMenuUI;
+    protected TopBarUI _topBarUI;
 
-    private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
+    protected TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
 
-    private ObjDataSO _currentData;
+    protected ObjDataSO _currentData;
 
-    private bool _placeRequested;
-    private bool _rotateRequested;
-    private float _currentRotation;
+    protected bool _placeRequested;
+    protected bool _rotateRequested;
+    protected float _currentRotation;
 
-    private bool _isDragging;
-    private Vector2Int _dragStartCell;
-    private readonly List<Vector2Int> _dragCells = new();
+    protected bool _isDragging;
+    protected Vector2Int _dragStartCell;
+    protected readonly List<Vector2Int> _dragCells = new();
 
-    private readonly List<Vector2Int> _indicatorBuffer = new();
-    private readonly List<Vector2Int> _footprintBuffer = new();
+    protected readonly List<Vector2Int> _indicatorBuffer = new();
+    protected readonly List<Vector2Int> _footprintBuffer = new();
 
     // Objects ghosted with the orange-line shader during hover to show they will be replaced
-    private readonly Dictionary<Renderer, Material[]> _replacementOriginalMaterials = new();
-    private Material _ghostReplaceOrangeMat;
+    protected readonly Dictionary<Renderer, Material[]> _replacementOriginalMaterials = new();
+    protected Material _ghostReplaceOrangeMat;
 
 public override bool IsPlacementState => true;
     public ObjDataSO CurrentData => _currentData;
@@ -389,7 +389,7 @@ public override bool IsPlacementState => true;
     // ---------------------------------------------------------
     // DRAG PLACEMENT
     // ---------------------------------------------------------
-    private void HandleDragPlacement(Vector2Int currentCell)
+    protected virtual void HandleDragPlacement(Vector2Int currentCell)
     {
         _dragCells.Clear();
         // Clear the VISUAL ghosts too, not just the logical drag set — otherwise ghosts
@@ -473,8 +473,8 @@ public override bool IsPlacementState => true;
         }
     }
 
-    private void EndDragPlacement()
-    {
+    protected virtual void EndDragPlacement()
+{
         if (_dragCells.Count == 0)
         {
             AudioManager.Play("InvalidPlace");
@@ -556,7 +556,7 @@ public override bool IsPlacementState => true;
         return new Vector2Int(width, height);
     }
 
-    private bool IsFootprintValid(Vector2Int root)
+    protected bool IsFootprintValid(Vector2Int root)
     {
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
@@ -626,6 +626,13 @@ public override bool IsPlacementState => true;
     /// </summary>
     private Vector2Int SnapToReplaceTarget(Vector2Int root, Vector2Int[] offsets, ObjDataSO data)
     {
+        // Only snap when the hovered cell genuinely CAN'T take the door as-is — mirrors
+        // SnapFootprintToHover's guard ("only activates when the default origin is INVALID").
+        // Without this, a door hovered over any open, perfectly valid cell would get silently
+        // kidnapped onto an unrelated wall the moment ANY of its 4 neighbours had one — the
+        // "door won't place where I click" / "shoved left/right/front/back" bug.
+        if (_validator.IsValidPlacement(root, offsets, data)) return root;
+
         if (HasReplaceableTarget(root, offsets, data)) return root;
 
         Vector2Int[] dirs = { new(0,1), new(0,-1), new(1,0), new(-1,0) };

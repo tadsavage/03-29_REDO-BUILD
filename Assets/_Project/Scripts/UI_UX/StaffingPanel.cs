@@ -29,7 +29,7 @@ public class StaffingPanel : ITopBarPanel
 
     private void LoadLilitaFont()
     {
-        _lilita = Resources.Load<Font>("Fonts/Lilita One");
+        _lilita = Resources.Load<Font>("LilitaOne-Regular");
         if (_lilita == null)
         {
             Debug.LogWarning("[StaffingPanel] Lilita One font not found in Resources");

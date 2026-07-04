@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
+using GameCore.Inventory;
 using UnityEngine.UIElements;
 using GameCore.Services;
 

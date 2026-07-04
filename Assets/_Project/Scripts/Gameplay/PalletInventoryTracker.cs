@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using GameCore.Inventory;
 using GameCore.Services;
 using GameCore.Events;
 

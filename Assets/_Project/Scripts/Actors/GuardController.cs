@@ -264,7 +264,7 @@ public class GuardController : MonoBehaviour
 
     private bool HasArrived()
     {
-        if (_agent == null) return true;
+        if (_agent == null || !_agent.isOnNavMesh) return true;
         if (!_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance)
         {
             if (!_agent.hasPath || _agent.velocity.sqrMagnitude < 0.01f)
