@@ -1,4 +1,5 @@
 using GameCore.Economy;
+using GameCore.Inventory;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
@@ -9,8 +10,23 @@ public class PalletBuilder : MonoBehaviour
     public GameObject casePrefab;
     [Range(0.1f, 3.0f)] public float maxTotalHeight = 1.0f;
 
+    [Header("Optimizer Link")]
+    [Tooltip("SKU whose CaseLength/Width/Height drive PalletOptimizer.OptimizeLoad — see the " +
+             "'Auto-Compute Ti/Hi' button in the Pallet Builder inspector. Optional: leave null " +
+             "to keep using the manual Ti/Hi override below untouched.")]
+    public SkuData linkedSku;
+
+    [Header("Optimizer Results (Read Only)")]
+    [SerializeField] private string optimizerPatternDescription;
+    [SerializeField] private float optimizerUtilizationPercent;
+    [SerializeField] private float optimizerTotalHeightMeters;
+    [SerializeField] private float optimizerTargetHeightMeters;
+
     [Header("Pallet Config")]
-    public Vector3 palletDimensions = new Vector3(1.0f, 0.15f, 1.22f); // W, H, L
+    // Real 40"x48" GMA pallet (1.016m x 1.2192m) with a 0.16m deck height — matches
+    // PalletOptimizer's own constants and SkuData.PltHeight's "+0.16f" term, so the Ti/Hi the
+    // optimizer computes and what actually renders here agree to the millimeter.
+    public Vector3 palletDimensions = new Vector3(1.016f, 0.16f, 1.2192f); // W, H, L
 
     [Header("Spacing Settings")]
     [Tooltip("Minimum horizontal distance between cases.")]
@@ -56,6 +72,12 @@ public class PalletBuilder : MonoBehaviour
 
     private MoneyService _moneyService;
     private PlacedObject _placedObject;
+
+    // Saved once when GhostCases() first ghosts this pallet's cases (cargo, unreceived) so
+    // RestoreCaseMaterial() can put the real material back once the pallet is actually received.
+    // Only the first case's material is kept — every case on a pallet uses the same case prefab/material.
+    private Material _originalCaseMaterial;
+    public Material OriginalCaseMaterial => _originalCaseMaterial;
 
     private struct CasePlacement
     {
@@ -174,6 +196,38 @@ public class PalletBuilder : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Computes Ti (cases per layer) and Hi (layers) from linkedSku's real case dimensions via
+    /// PalletOptimizer, targeting whichever rack tier (1m/1.8m) that case height belongs to, and
+    /// applies the result as a manual Ti/Hi override so Build() renders exactly that layout. Does
+    /// NOT write back to linkedSku itself — see PalletBuilderEditor's "Submit to Master Record"
+    /// button for that (a separate, explicit step so previewing a layout never silently mutates
+    /// the SKU's committed data).
+    /// </summary>
+    public PalletOptimizer.PalletResult ComputeOptimalTiHi()
+    {
+        if (linkedSku == null)
+        {
+            Debug.LogWarning("PalletBuilder: no linkedSku assigned, cannot auto-compute Ti/Hi.");
+            return default;
+        }
+
+        optimizerTargetHeightMeters = PalletOptimizer.DetermineTargetPalletHeight(linkedSku.CaseHeight);
+        var result = PalletOptimizer.OptimizeLoad(
+            linkedSku.CaseLength * 100f,
+            linkedSku.CaseWidth * 100f,
+            linkedSku.CaseHeight * 100f,
+            optimizerTargetHeightMeters);
+
+        useTiHiOverride = true;
+        manualTi = result.CasesPerLayer;
+        manualHi = result.Layers;
+        optimizerPatternDescription = result.LayerPatternDescription;
+        optimizerUtilizationPercent = result.VolumeUtilization;
+        optimizerTotalHeightMeters = result.TotalHeightMeters;
+        return result;
+    }
+
     [ContextMenu("Build Pallet")]
     public void Build() => Build(true);
 
@@ -266,7 +320,12 @@ public class PalletBuilder : MonoBehaviour
 
         for (int h = 0; h < layers; h++)
         {
-            float yPos = palletDim.y + (h * (caseDim.y + verticalGap));
+            // Position the case so its CENTER is at the calculated Y. Case prefabs have their
+            // origin at their mesh center, not at the bottom, so we offset by half the height
+            // to place the bottom of the case at the correct stacking height.
+            // CRITICAL FIX (2026-07-05): Add verticalGap above the pallet before the first case
+            // so ground-level cases sit ON TOP of the pallet with a small gap, not sinking into it.
+            float yPos = palletDim.y + verticalGap + (caseDim.y / 2f) + (h * (caseDim.y + verticalGap));
             
             int count = 0;
             foreach (var placement in _bestLayerPattern)
@@ -321,6 +380,51 @@ public class PalletBuilder : MonoBehaviour
         //Debug.Log($"Pallet Built: {casesPerLayer} Ti x {layers} Hi = {totalCases} total cases. State Saved.");
     }
 
+    /// <summary>
+    /// Ghosts every case on this pallet (all renderers/submesh slots under the "PalletLoad" child
+    /// Build() creates — NOT the pallet base itself) to <paramref name="ghostMaterial"/>. Saves the
+    /// first case's original material as <see cref="OriginalCaseMaterial"/> the first time this runs,
+    /// so <see cref="RestoreCaseMaterial"/> can put it back once the pallet is actually received.
+    /// </summary>
+    public void GhostCases(Material ghostMaterial)
+    {
+        if (ghostMaterial == null) return;
+
+        var loadObj = transform.Find("PalletLoad");
+        if (loadObj == null) return;
+
+        var renderers = loadObj.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0) return;
+
+        if (_originalCaseMaterial == null && renderers[0].sharedMaterials.Length > 0)
+            _originalCaseMaterial = renderers[0].sharedMaterials[0];
+
+        foreach (var r in renderers)
+        {
+            var ghosts = new Material[r.sharedMaterials.Length];
+            for (int m = 0; m < ghosts.Length; m++) ghosts[m] = ghostMaterial;
+            r.sharedMaterials = ghosts;
+        }
+    }
+
+    /// <summary>Restores every case's material to what GhostCases() saved. Called once this pallet is
+    /// actually received (see ReceiverReceivingWorkflow). No-op if never ghosted.</summary>
+    public void RestoreCaseMaterial()
+    {
+        if (_originalCaseMaterial == null) return;
+
+        var loadObj = transform.Find("PalletLoad");
+        if (loadObj == null) return;
+
+        var renderers = loadObj.GetComponentsInChildren<Renderer>(true);
+        foreach (var r in renderers)
+        {
+            var solids = new Material[r.sharedMaterials.Length];
+            for (int m = 0; m < solids.Length; m++) solids[m] = _originalCaseMaterial;
+            r.sharedMaterials = solids;
+        }
+    }
+
     public void ToggleUI()
     {
         if (!Application.isPlaying) return;
@@ -347,134 +451,47 @@ public class PalletBuilder : MonoBehaviour
         ToggleUI();
     }
 
+    /// <summary>Delegates to <see cref="PalletOptimizer.PackLayer"/> — the same search used by the
+    /// Editor's Ti/Hi calculator — so what actually renders here always matches what that tool
+    /// recommends. See PalletOptimizer for the packing strategy (recursive guillotine split,
+    /// maximizing surface coverage rather than favoring a fixed orientation).</summary>
     private void CalculateBestLayer(float pW, float pL, float cW, float cL)
     {
         _bestLayerPattern.Clear();
-        float g = spaceBetweenCases;
 
-        // Strategy 1: Uniform Orientation A (cW || pW)
-        List<CasePlacement> patternA = GetUniformPattern(pW, pL, cW, cL, 0f, g);
-        
-        // Strategy 2: Uniform Orientation B (cL || pW)
-        List<CasePlacement> patternB = GetUniformPattern(pW, pL, cL, cW, 90f, g);
+        var result = PalletOptimizer.PackLayer(pW, pL, cW, cL, spaceBetweenCases);
 
-        // Strategy 3: Split Block (Lengthwise split)
-        List<CasePlacement> patternC = GetSplitPattern(pW, pL, cW, cL, true, g);
-
-        // Strategy 4: Split Block (Widthwise split)
-        List<CasePlacement> patternD = GetSplitPattern(pW, pL, cW, cL, false, g);
-
-        // Pick best
-        List<CasePlacement> best = patternA;
-        if (patternB.Count > best.Count) best = patternB;
-        if (patternC.Count > best.Count) best = patternC;
-        if (patternD.Count > best.Count) best = patternD;
-
-        _bestLayerPattern = best;
-    }
-
-    private List<CasePlacement> GetUniformPattern(float pW, float pL, float iW, float iL, float rot, float g)
-    {
-        List<CasePlacement> pattern = new List<CasePlacement>();
-        int countW = Mathf.FloorToInt((pW + g) / (iW + g));
-        int countL = Mathf.FloorToInt((pL + g) / (iL + g));
-
-        if (countW <= 0 || countL <= 0) return pattern;
-
-        float totalW = (countW * iW) + ((countW - 1) * g);
-        float totalL = (countL * iL) + ((countL - 1) * g);
-        float startX = -totalW / 2f + (iW / 2f);
-        float startZ = -totalL / 2f + (iL / 2f);
-
-        for (int l = 0; l < countL; l++)
+        // PackLayer returns slots anchored to one corner of the pW x pL region; re-center them
+        // around the pallet's own origin to match every other position in this class.
+        float halfW = pW / 2f;
+        float halfL = pL / 2f;
+        foreach (var slot in result.Slots)
         {
-            for (int w = 0; w < countW; w++)
+            _bestLayerPattern.Add(new CasePlacement
             {
-                pattern.Add(new CasePlacement {
-                    position = new Vector3(startX + w * (iW + g), 0, startZ + l * (iL + g)),
-                    rotation = rot
-                });
-            }
+                position = new Vector3(slot.x - halfW, 0, slot.z - halfL),
+                rotation = slot.rotationDegrees
+            });
         }
-        return pattern;
     }
 
-    private List<CasePlacement> GetSplitPattern(float pW, float pL, float cW, float cL, bool splitLength, float g)
+    public static Vector3 GetPrefabDimensions(GameObject prefab)
     {
-        List<CasePlacement> bestPattern = new List<CasePlacement>();
-        
-        float dimToSplit = splitLength ? pL : pW;
-        float fixedDim = splitLength ? pW : pL;
-
-        // Iterate through split points based on case dimensions
-        // Try every possible row count for orientation 1
-        int maxRows = Mathf.FloorToInt((dimToSplit + g) / (cL + g));
-        
-        for (int rowsA = 1; rowsA < maxRows; rowsA++)
-        {
-            float splitPoint = (rowsA * cL) + ((rowsA - 1) * g);
-            float remaining = dimToSplit - splitPoint - g;
-            
-            if (remaining < cW) continue; // Must fit at least one sideways case
-
-            List<CasePlacement> current = new List<CasePlacement>();
-            
-            // Block A: rowsA of cL cases
-            if (splitLength)
-                current.AddRange(GetUniformPattern(pW, splitPoint, cW, cL, 0f, g, -pL/2f + splitPoint/2f, true));
-            else
-                current.AddRange(GetUniformPattern(splitPoint, pL, cW, cL, 0f, g, -pW/2f + splitPoint/2f, false));
-
-            // Block B: cases in 'remaining' dimension, oriented sideways
-            if (splitLength)
-                current.AddRange(GetUniformPattern(pW, remaining, cL, cW, 90f, g, pL/2f - remaining/2f, true));
-            else
-                current.AddRange(GetUniformPattern(remaining, pL, cL, cW, 90f, g, pW/2f - remaining/2f, false));
-
-            if (current.Count > bestPattern.Count) bestPattern = current;
-        }
-
-        return bestPattern;
-    }
-
-    // Helper for split blocks that supports offset centers
-    private List<CasePlacement> GetUniformPattern(float pW, float pL, float iW, float iL, float rot, float g, float offset, bool isOffsetL)
-    {
-        List<CasePlacement> pattern = new List<CasePlacement>();
-        int countW = Mathf.FloorToInt((pW + g) / (iW + g));
-        int countL = Mathf.FloorToInt((pL + g) / (iL + g));
-
-        if (countW <= 0 || countL <= 0) return pattern;
-
-        float totalW = (countW * iW) + ((countW - 1) * g);
-        float totalL = (countL * iL) + ((countL - 1) * g);
-        
-        float startX = isOffsetL ? (-totalW / 2f + iW / 2f) : offset;
-        float startZ = isOffsetL ? offset : (-totalL / 2f + iL / 2f);
-
-        for (int l = 0; l < countL; l++)
-        {
-            for (int w = 0; w < countW; w++)
-            {
-                pattern.Add(new CasePlacement {
-                    position = new Vector3(
-                        isOffsetL ? startX + w * (iW + g) : startX, 
-                        0, 
-                        isOffsetL ? startZ : startZ + l * (iL + g)
-                    ),
-                    rotation = rot
-                });
-            }
-        }
-        return pattern;
-    }
-
-    private Vector3 GetPrefabDimensions(GameObject prefab)
-    {
+        Vector3 rawSize = new Vector3(1, 1, 1);
         MeshFilter mf = prefab.GetComponentInChildren<MeshFilter>();
-        if (mf != null && mf.sharedMesh != null) return mf.sharedMesh.bounds.size;
-        BoxCollider bc = prefab.GetComponentInChildren<BoxCollider>();
-        if (bc != null) return bc.size;
-        return new Vector3(1, 1, 1);
+        if (mf != null && mf.sharedMesh != null)
+            rawSize = mf.sharedMesh.bounds.size;
+        else
+        {
+            BoxCollider bc = prefab.GetComponentInChildren<BoxCollider>();
+            if (bc != null) rawSize = bc.size;
+        }
+
+        // Normalize so the result is always (width, height, length):
+        // Assume Y is height (vertical), and between X and Z, pick the larger as length.
+        // This handles cases where the mesh was authored with different orientations.
+        float xz_min = Mathf.Min(rawSize.x, rawSize.z);
+        float xz_max = Mathf.Max(rawSize.x, rawSize.z);
+        return new Vector3(xz_min, rawSize.y, xz_max);  // (width, height, length)
     }
 }

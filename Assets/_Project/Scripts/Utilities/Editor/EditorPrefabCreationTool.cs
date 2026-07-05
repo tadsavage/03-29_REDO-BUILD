@@ -54,7 +54,7 @@ public class EditorPrefabCreationTool : EditorWindow
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    [MenuItem("Tools/Create Prefab")]
+    [MenuItem("Tools/Inventory Tools/Create Prefab")]
     public static void Open()
     {
         var w = GetWindow<EditorPrefabCreationTool>("Prefab Creator");
