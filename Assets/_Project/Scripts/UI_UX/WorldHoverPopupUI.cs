@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using GameCore.Inventory;
 using GameCore.Services;
+using System.Linq;
 
 public class WorldHoverPopupUI : MonoBehaviour
 {
@@ -142,6 +143,13 @@ public class WorldHoverPopupUI : MonoBehaviour
             return;
         }
 
+        // Check for shift+click to open New Item panel with this SKU
+        if (Keyboard.current.shiftKey.isPressed && Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            OpenNewItemPanelForSku(palletData.ItemNumber);
+            return;
+        }
+
         bool isNewTarget = !_isHovering || !_isPalletMode || palletData != _pendingPalletData;
 
         _pendingPalletData = palletData;
@@ -166,6 +174,16 @@ public class WorldHoverPopupUI : MonoBehaviour
 
         if (_isVisible)
             FollowCursor();
+    }
+
+    private void OpenNewItemPanelForSku(string skuId)
+    {
+        var newItemPanel = UnityEngine.Object.FindAnyObjectByType<TopBarUI>();
+        if (newItemPanel == null) return;
+
+        // Access via reflection or through a helper method
+        // For now, we'll need to add a public method to TopBarUI to handle this
+        newItemPanel.SendMessage("OpenNewItemPanelWithSku", skuId, SendMessageOptions.DontRequireReceiver);
     }
 
     // ---------------------------------------------------------
@@ -246,8 +264,8 @@ public class WorldHoverPopupUI : MonoBehaviour
                 _palletInfoPanel.Add(heightLbl);
             }
 
-            // Pick slot assignment
-            var pickSlotStr = GetPickSlotAssignment(pallet.CurrentLocation);
+            // Pick slot assignment (check if SKU has a slot assigned globally)
+            var pickSlotStr = GetPickSlotForSku(pallet.ItemNumber);
             var pickLbl = new Label($"Pick Slot: {pickSlotStr}");
             pickLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
             pickLbl.style.fontSize = 12;
@@ -264,13 +282,16 @@ public class WorldHoverPopupUI : MonoBehaviour
         _isVisible = true;
     }
 
-    private string GetPickSlotAssignment(Vector2Int location)
+    private string GetPickSlotForSku(string skuId)
     {
-        // Try to get pick slot from SlotRegistry (static)
-        var address = LaneNamingService.AddressAt(location) ?? location.ToString();
-        if (SlotRegistry.TryGet(address, out var slot))
-            return address;
-        return "None assigned";
+        // Check if this SKU has a pick slot assigned globally
+        var slots = SlotAssignmentService.GetSlotsForSku(skuId);
+        if (slots.Any())
+        {
+            // Show all assigned slots
+            return string.Join(", ", slots);
+        }
+        return "Unassigned";
     }
 
     public void HideImmediate()

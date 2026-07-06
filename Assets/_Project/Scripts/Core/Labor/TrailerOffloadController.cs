@@ -155,10 +155,11 @@ namespace GameCore.Labor
 
             Debug.Log($"[TrailerOffload] Offloading {pallets.Count} pallets from {truck.name} (door {doorNumber}) with dock stocker {ds.name}.");
 
-            foreach (var pallet in pallets)
+            for (int i = 0; i < pallets.Count; i++)
             {
+                var pallet = pallets[i];
                 if (pallet == null) continue;
-                yield return OffloadOnePallet(ds, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv);
+                yield return OffloadOnePallet(ds, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, i);
             }
 
             // ── Restore the DS to patrol ──
@@ -182,7 +183,7 @@ namespace GameCore.Labor
         private IEnumerator OffloadOnePallet(Transform ds, Transform forks, float forkRestY,
                                              TruckController truck, Transform pallet, Vector3 into,
                                              float openingLong, int doorNumber, Vector3 doorPos,
-                                             InventoryService inv)
+                                             InventoryService inv, int palletIndex = 0)
         {
             Vector3 P = pallet.position;
             Vector3 palletWorldScale = pallet.lossyScale; // preserve visual size across the reparenting
@@ -261,7 +262,7 @@ namespace GameCore.Labor
             // 13. File the inventory master record + Receive task for this pallet. It stays ghosted
             //     (see TruckController.LoadShipment) until a Receiver processes it — Putaway is
             //     created afterward, by ReceiverReceivingWorkflow, not here.
-            RegisterAndQueue(inv, truck, cell, pallet);
+            RegisterAndQueue(inv, truck, cell, pallet, palletIndex);
         }
 
         // ── Movement primitives (scripted transform choreography) ────────────────────────────────
@@ -525,11 +526,13 @@ namespace GameCore.Labor
             downLane = slots.Count > 1 ? Flat(exitW - entryW) : Flat(entryW - doorPos);
         }
 
-        private void RegisterAndQueue(InventoryService inv, TruckController truck, Vector2Int cell, Transform pallet)
+        private void RegisterAndQueue(InventoryService inv, TruckController truck, Vector2Int cell, Transform pallet, int palletIndex = 0)
         {
-            string sku = (truck.AssignedShipment != null && truck.AssignedShipment.LineItems.Count > 0)
-                ? truck.AssignedShipment.LineItems[0].SkuId
-                : "PHYS";
+            string sku = "PHYS";
+            if (truck.AssignedShipment != null && truck.AssignedShipment.LineItems.Count > palletIndex)
+            {
+                sku = truck.AssignedShipment.LineItems[palletIndex].SkuId;
+            }
 
             var data = inv.RegisterPhysicalPallet(cell, sku, 1); // dummy SKU = 1 case/pallet
 

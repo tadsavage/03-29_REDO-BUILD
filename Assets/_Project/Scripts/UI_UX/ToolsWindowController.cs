@@ -476,17 +476,6 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         foreach (var (type, target) in groups)
         {
-            // Insert New Item Setup section before PalletBuilder
-            if (type.Name == "PalletBuilder")
-            {
-                var newItemSetup = BuildNewItemSetupSection();
-                if (newItemSetup != null)
-                {
-                    _settingsGroups["NewItemSetup"] = newItemSetup;
-                    _contentSettings.Add(newItemSetup);
-                }
-            }
-
             var group = BuildScriptGroup(type, target);
             if (group != null)
             {
@@ -1006,113 +995,6 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // New Item Setup section (redesigned 2026-07-05)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private VisualElement BuildNewItemSetupSection()
-    {
-        var group = new VisualElement();
-        group.AddToClassList("ds-group");
-
-        var title = new Label("New Item");
-        title.AddToClassList("ds-group-title");
-        title.style.color = new Color(1f, 1f, 1f, 1f); // White
-        title.style.fontSize = 44; // Double size
-        group.Add(title);
-
-        // ── Current Section ─────────────────────────────────────────────────
-        var currentLbl = new Label("Current");
-        currentLbl.AddToClassList("ds-label");
-        currentLbl.style.marginTop = 8;
-        group.Add(currentLbl);
-
-        // Ti value
-        var tiRow = new VisualElement(); tiRow.AddToClassList("ds-row");
-        tiRow.Add(new Label("TI:") { style = { minWidth = 40 } });
-        tiRow.Add(new Label("—") { style = { flexGrow = 1 } });
-        group.Add(tiRow);
-
-        // Hi value
-        var hiRow = new VisualElement(); hiRow.AddToClassList("ds-row");
-        hiRow.Add(new Label("HI:") { style = { minWidth = 40 } });
-        hiRow.Add(new Label("—") { style = { flexGrow = 1 } });
-        group.Add(hiRow);
-
-        // Palette Height
-        var pltHeightRow = new VisualElement(); pltHeightRow.AddToClassList("ds-row");
-        pltHeightRow.Add(new Label("Palette Height:") { style = { minWidth = 40 } });
-        pltHeightRow.Add(new Label("— m") { style = { flexGrow = 1 } });
-        group.Add(pltHeightRow);
-
-        // Recommended Location Height
-        var recHeightRow = new VisualElement(); recHeightRow.AddToClassList("ds-row");
-        recHeightRow.Add(new Label("Rec. Location Height:") { style = { minWidth = 40 } });
-        recHeightRow.Add(new Label("— m") { style = { flexGrow = 1 } });
-        group.Add(recHeightRow);
-
-        // Slots Available
-        var slotsRow = new VisualElement(); slotsRow.AddToClassList("ds-row");
-        slotsRow.Add(new Label("Slots Available:") { style = { minWidth = 40 } });
-        slotsRow.Add(new Label("0") { style = { flexGrow = 1 } });
-        group.Add(slotsRow);
-
-        // ── Slot Assignment ─────────────────────────────────────────────────
-        var assignLbl = new Label("Slot Assignment");
-        assignLbl.AddToClassList("ds-label");
-        assignLbl.style.marginTop = 12;
-        group.Add(assignLbl);
-
-        // Aisle dropdown
-        var aisleRow = new VisualElement(); aisleRow.AddToClassList("ds-row");
-        aisleRow.Add(new Label("Aisle") { style = { minWidth = 40 } });
-        var aisleDropdown = new DropdownField(new System.Collections.Generic.List<string> { "—" }, "—");
-        aisleDropdown.style.flexGrow = 1;
-        aisleRow.Add(aisleDropdown);
-        group.Add(aisleRow);
-
-        // Bay dropdown
-        var bayRow = new VisualElement(); bayRow.AddToClassList("ds-row");
-        bayRow.Add(new Label("Bay") { style = { minWidth = 40 } });
-        var bayDropdown = new DropdownField(new System.Collections.Generic.List<string> { "—" }, "—");
-        bayDropdown.style.flexGrow = 1;
-        bayRow.Add(bayDropdown);
-        group.Add(bayRow);
-
-        // Position dropdown
-        var posRow = new VisualElement(); posRow.AddToClassList("ds-row");
-        posRow.Add(new Label("Position") { style = { minWidth = 40 } });
-        var posDropdown = new DropdownField(new System.Collections.Generic.List<string> { "—" }, "—");
-        posDropdown.style.flexGrow = 1;
-        posRow.Add(posDropdown);
-        group.Add(posRow);
-
-        // ── Action Buttons ──────────────────────────────────────────────────
-        var buttonsRow = new VisualElement();
-        buttonsRow.style.flexDirection = FlexDirection.Row;
-        buttonsRow.style.marginTop = 12;
-
-        // Assign Pick Slot (Orange)
-        var assignBtn = new Button { text = "Assign Pick Slot" };
-        assignBtn.AddToClassList("dev-btn");
-        assignBtn.AddToClassList("dev-btn-gold");
-        assignBtn.style.flexGrow = 1;
-        assignBtn.clicked += () => AssignPickSlot(aisleDropdown, bayDropdown, posDropdown);
-        buttonsRow.Add(assignBtn);
-
-        // Go to Pick (Blue)
-        var goBtn = new Button { text = "Go to Pick" };
-        goBtn.AddToClassList("dev-btn");
-        goBtn.AddToClassList("dev-btn-teal");
-        goBtn.style.flexGrow = 1;
-        goBtn.clicked += () => GoToPickSlot(aisleDropdown, bayDropdown, posDropdown);
-        buttonsRow.Add(goBtn);
-
-        group.Add(buttonsRow);
-
-        return group;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // Custom PalletBuilder section (redesigned 2026-07-05)
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -1307,41 +1189,6 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 #endif
         UIToast.Show($"✓ Ti={pb.manualTi} Hi={pb.manualHi} submitted to {pb.linkedSku.ItemDescription}");
         Debug.Log($"[PalletBuilder] Submitted Ti={pb.manualTi} Hi={pb.manualHi} to SKU {pb.linkedSku.ItemNumber}");
-    }
-
-    private void AssignPickSlot(DropdownField aisle, DropdownField bay, DropdownField pos)
-    {
-        if (aisle == null || bay == null || pos == null) return;
-        var aisleStr = aisle.value;
-        var bayStr = bay.value;
-        var posStr = pos.value;
-        if (aisleStr == "—" || bayStr == "—" || posStr == "—")
-        {
-            UIToast.Show("Please select Aisle, Bay, and Position.");
-            return;
-        }
-        UIToast.Show($"✓ Pick slot assigned: {aisleStr}-{bayStr}-{posStr}");
-        Debug.Log($"[Dev Settings] Assigned pick slot: {aisleStr}-{bayStr}-{posStr}");
-    }
-
-    private void GoToPickSlot(DropdownField aisle, DropdownField bay, DropdownField pos)
-    {
-        if (aisle == null || bay == null || pos == null) return;
-        var cam = Camera.main;
-        if (cam == null) return;
-
-        var aisleStr = aisle.value;
-        var bayStr = bay.value;
-        if (aisleStr == "—" || bayStr == "—")
-        {
-            UIToast.Show("Please select Aisle and Bay.");
-            return;
-        }
-
-        // TODO: Implement camera navigation to pick slot
-        // For now, just show a toast
-        UIToast.Show($"Camera would navigate to pick slot: {aisleStr}-{bayStr}");
-        Debug.Log($"[Dev Settings] Navigate to pick: {aisleStr}-{bayStr}");
     }
 
     // ─────────────────────────────────────────────────────────────────────────

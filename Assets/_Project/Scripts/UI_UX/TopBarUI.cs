@@ -47,6 +47,7 @@ public class TopBarUI : MonoBehaviour
     private StaffingPanel _staffingPanel;               // "Headcount" — employees by shift and role
     private ShiftManagerPanel _shiftManagerPanel;       // "5" key — define named shifts (first draft, UI only)
     private SlotAssignmentPanel _slotAssignmentPanel;   // "6" key — assign SKUs to rack Pick slots
+    private NewItemPanel _newItemPanel;                 // "8" key — assign pick slots to received items
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
 
@@ -90,6 +91,7 @@ public class TopBarUI : MonoBehaviour
         _staffingPanel    = new StaffingPanel(root);
         _shiftManagerPanel = new ShiftManagerPanel(root, _timeService);
         _slotAssignmentPanel = new SlotAssignmentPanel(root);
+        _newItemPanel = new NewItemPanel(root);
 
         _money.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_capitalPanel));
         _hourly.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_breakdownPanel));
@@ -154,13 +156,24 @@ public class TopBarUI : MonoBehaviour
         Refresh();
     }
 
+    public void OpenNewItemPanelWithSku(string skuId)
+    {
+        _newItemPanel?.ShowWithSku(skuId);
+    }
+
     private void Update()
     {
+        // Update panels that need periodic refresh
+        _newItemPanel?.Update();
+
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit5Key.wasPressedThisFrame)
             _shiftManagerPanel?.Toggle();
 
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit6Key.wasPressedThisFrame)
             _slotAssignmentPanel?.Toggle();
+
+        if (!UIModalGuard.IsCapturing && Keyboard.current.digit8Key.wasPressedThisFrame)
+            _newItemPanel?.Toggle();
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
