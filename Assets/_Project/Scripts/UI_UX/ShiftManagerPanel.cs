@@ -21,8 +21,10 @@ using UnityEngine.UIElements;
 /// Day-of-week index here is Sun=0..Sat=6 (matches the mockup's left-to-right day order).
 /// EmployeeWorkSchedule elsewhere uses Mon=0..Sun=6 — these will need reconciling when this
 /// system is actually wired into gameplay.
+///
+/// Implements IUIPanel for keybinding exclusivity via UIKeyBindingManager.
 /// </summary>
-public class ShiftManagerPanel
+public class ShiftManagerPanel : IUIPanel
 {
     private static readonly string[] DayNames = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
     private const int Closed = -1;
@@ -48,8 +50,9 @@ public class ShiftManagerPanel
     private static readonly Color ColCellEven   = new Color(36f / 255f, 48f / 255f, 62f / 255f, 0.65f);
     private static readonly Color ColCellOdd    = new Color(30f / 255f, 40f / 255f, 52f / 255f, 0.65f);
     private static readonly Color ColTodayTint  = new Color(0.85f, 0.70f, 0.30f, 0.55f);
-    private static readonly Color ColError      = new Color(1f, 0.25f, 0.25f, 0.66f);
-    private static readonly Color ColErrorBorder = new Color(0.85f, 0.10f, 0.10f, 1f);
+    private static readonly Color ColCharcoal  = new Color(0x40 / 255f, 0x40 / 255f, 0x40 / 255f, 0.75f); // charcoal black, semi-transparent
+    private static readonly Color ColError      = ColCharcoal; // Use charcoal instead of red
+    private static readonly Color ColErrorBorder = ColCharcoal; // Use charcoal instead of red
     private static readonly Color ColFireRed    = new Color(0xC1 / 255f, 0x27 / 255f, 0x2D / 255f, 1f);
     private static readonly Color ColFireRedEdge = new Color(0x7A / 255f, 0x16 / 255f, 0x1A / 255f, 1f);
     private static readonly Color ColFireRedHover = new Color(0xD8 / 255f, 0x3A / 255f, 0x40 / 255f, 1f);
@@ -106,6 +109,7 @@ public class ShiftManagerPanel
     private readonly ITimeService _timeService;
     private Action _confirmYesAction;
     private bool _visible;
+    private bool _hasChanges;
 
     public ShiftManagerPanel(VisualElement root, ITimeService timeService)
     {
@@ -118,6 +122,9 @@ public class ShiftManagerPanel
     }
 
     public bool IsVisible => _visible;
+    /// <summary>IUIPanel implementation: true if this panel is currently visible.</summary>
+    public bool IsOpen => _visible;
+
     public void Toggle() { if (_visible) TryClose(); else Show(); }
 
     public void Show()
@@ -125,8 +132,11 @@ public class ShiftManagerPanel
         _visible = true;
         _overlay.style.display = DisplayStyle.Flex;
         _overlay.pickingMode = PickingMode.Position;
+        _hasChanges = false;
         RefreshDayNumbers();
     }
+
+    private void MarkChanged() => _hasChanges = true;
 
     private void RefreshDayNumbers()
     {
@@ -147,7 +157,7 @@ public class ShiftManagerPanel
         if (_overlay.parent != null) _overlay.RemoveFromHierarchy();
     }
 
-    private void Hide()
+    public void Hide()
     {
         _visible = false;
         _overlay.style.display = DisplayStyle.None;
@@ -157,12 +167,19 @@ public class ShiftManagerPanel
 
     private void TryClose()
     {
+        if (!_hasChanges)
+        {
+            Hide();
+            return;
+        }
+
         if (!ValidateAll(out string error))
         {
             UIToast.Show(error, 2.5f);
             return;
         }
         UIToast.Show("Shift schedule saved.", 1.5f);
+        _hasChanges = false;
         Hide();
     }
 
@@ -269,7 +286,9 @@ public class ShiftManagerPanel
         overlay.style.alignItems = Align.Center;
 
         modal = new VisualElement { name = "shift-mgr-modal" };
-        modal.style.marginTop = 30;
+        modal.style.position = Position.Absolute;
+        modal.style.left = 100;
+        modal.style.top = 100;
         modal.style.backgroundColor = new StyleColor(ColBg);
         modal.style.borderTopWidth = 3; modal.style.borderBottomWidth = 3;
         modal.style.borderLeftWidth = 3; modal.style.borderRightWidth = 3;
@@ -313,6 +332,19 @@ public class ShiftManagerPanel
         closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
         closeButton.style.color = new StyleColor(ColSubtleText);
         closeButton.style.borderTopWidth = closeButton.style.borderBottomWidth = 1;
+
+        // Add red hover effect like other close buttons
+        closeButton.RegisterCallback<PointerEnterEvent>(_ =>
+        {
+            closeButton.style.backgroundColor = new StyleColor(new Color(0xE6 / 255f, 0x50 / 255f, 0x50 / 255f, 0.3f));
+            closeButton.style.color = new StyleColor(Color.white);
+        });
+        closeButton.RegisterCallback<PointerLeaveEvent>(_ =>
+        {
+            closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
+            closeButton.style.color = new StyleColor(ColSubtleText);
+        });
+
         titleBar.Add(closeButton);
         modal.Add(titleBar);
 
@@ -485,6 +517,7 @@ public class ShiftManagerPanel
     // ── Per-shift block: name field + Enter Info / Remove + Start row + End row ─
     private void AddShift(string defaultName)
     {
+        MarkChanged();
         var shift = new ShiftRow();
         for (int d = 0; d < 7; d++) { shift.Start[d] = NotSet; shift.End[d] = NotSet; }
 
@@ -539,6 +572,7 @@ public class ShiftManagerPanel
         {
             shift.NamePlaceholder.style.display = string.IsNullOrEmpty(evt.newValue) ? DisplayStyle.Flex : DisplayStyle.None;
             UpdateTimeRowLabels(shift);
+            MarkChanged();
         });
 
         nameWrap.Add(shift.NameField);
@@ -598,6 +632,7 @@ public class ShiftManagerPanel
 
     private void RemoveShift(ShiftRow shift, VisualElement block)
     {
+        MarkChanged();
         _shifts.Remove(shift);
         block.RemoveFromHierarchy();
     }
@@ -692,14 +727,8 @@ public class ShiftManagerPanel
 
             row.Add(cellWrapper);
 
-            // Thin blue separator between days — stretches to match the dropdown's height.
-            if (d < 6)
-            {
-                var separator = new VisualElement();
-                separator.style.width = SeparatorWidth;
-                separator.style.backgroundColor = new StyleColor(ColLabelCell);
-                row.Add(separator);
-            }
+            // Separator between days — removed (no visual dividers needed)
+            // if (d < 6) { ... }
         }
         return row;
     }
@@ -723,6 +752,7 @@ public class ShiftManagerPanel
             return;
         }
 
+        MarkChanged();
         int oldVal = shift.Start[day];
         int newVal = ParseTime(evt.newValue);
         shift.Start[day] = newVal;
@@ -755,6 +785,7 @@ public class ShiftManagerPanel
             return;
         }
 
+        MarkChanged();
         int oldVal = shift.End[day];
         int newVal = ParseTime(evt.newValue);
         shift.End[day] = newVal;

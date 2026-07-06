@@ -31,6 +31,10 @@ public static class FinanceCategory
     public const string MHECosts       = "MHE Costs";
     public const string PalletLeaseRepair = "Pallet Lease and Repair";
     public const string Transportation = "Transportation";
+    // Wholesale cost of the actual product coming in — charged the moment a Receiver processes a
+    // pallet (quantity x SkuData.UnitCost). Lump sum for now; per Tad, break out by category/vendor
+    // later.
+    public const string PurchasedGoods = "Purchased Goods";
 
     // ── MHE vehicle GL lines (sub-detail under MHE Costs — see ForGLLine) ───
     public const string ReachTruckGL   = "Reach Truck";
@@ -50,6 +54,7 @@ public static class FinanceCategory
 
     public static readonly string[] ExpenseOrder =
     {
+        PurchasedGoods,
         LeaseMortgage, Wages, ContractLabor, LossPrevention, Sanitation, Maintenance,
         MHECosts, PalletLeaseRepair, Transportation,
         Bribes, Insurance, Electricity, Garbage, Groundskeeping,

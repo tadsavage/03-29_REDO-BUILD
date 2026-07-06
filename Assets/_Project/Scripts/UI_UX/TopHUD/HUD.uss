@@ -146,3 +146,18 @@
     -unity-text-align: middle-left;
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
 }
+
+/* ── EMPLOYEE INFO PANEL ──────────────────────────────────────── */
+#employee-close-btn:hover {
+    background-color: rgb(230, 80, 80) !important;
+}
+
+#employee-actions {
+    margin-top: 20px;
+    font-size: 16px;
+}
+
+#employee-actions .unity-base-popup-field__text {
+    font-size: 16px;
+    color: #FFFFFF;
+}

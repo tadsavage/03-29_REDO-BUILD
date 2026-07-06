@@ -9,19 +9,13 @@
             <ui:Label name="row-id" text="WHSE 001" class="row-id"/>
         </ui:VisualElement>
 
-        <!-- Role icon -->
-        <ui:VisualElement name="employee-role-icon" class="role-icon"/>
-
         <!-- Locate button -->
         <ui:Button name="row-location-btn" text="Locate" class="row-location-btn"/>
 
         <!-- Task label -->
         <ui:Label name="row-task" text="ToBeImplemented" class="row-task"/>
 
-        <!-- Performance label -->
-        <ui:Label name="row-performance" text="-- CPH" class="row-performance"/>
-
-        <!-- Mini stat bars (fatigue + morale) -->
+        <!-- Mini stat bars (fatigue, safety, morale, skill) -->
         <ui:VisualElement class="minibars-column">
             <ui:VisualElement class="minibar-row">
                 <ui:VisualElement class="minibar-bg">
@@ -30,12 +24,28 @@
             </ui:VisualElement>
             <ui:VisualElement class="minibar-row">
                 <ui:VisualElement class="minibar-bg">
+                    <ui:VisualElement name="row-safety-fill" class="minibar-fill safety-fill"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="minibar-row">
+                <ui:VisualElement class="minibar-bg">
                     <ui:VisualElement name="row-morale-fill" class="minibar-fill morale-fill"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="minibar-row">
+                <ui:VisualElement class="minibar-bg">
+                    <ui:VisualElement name="row-skill-fill" class="minibar-fill skill-fill"/>
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
 
+        <!-- Performance label -->
+        <ui:Label name="row-performance" text="-- CPH" class="row-performance"/>
+
         <!-- Shift label -->
         <ui:Label name="row-shift" text="Day" class="row-shift"/>
+
+        <!-- Role icon (hidden in list rows) -->
+        <ui:VisualElement name="row-role-icon" class="row-role-icon" style="display: none;"/>
     </ui:VisualElement>
 </ui:UXML>

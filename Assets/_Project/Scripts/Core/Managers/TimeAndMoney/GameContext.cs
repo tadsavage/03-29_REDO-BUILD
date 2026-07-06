@@ -58,6 +58,7 @@ public class GameContext : MonoBehaviour
         var orderService = new GameCore.Inventory.OrderService();
         var shipmentService = new GameCore.Inventory.ShipmentService();
         var workQueueSystem = new GameCore.Labor.WorkQueueSystem();
+        var shipmentReceivingCoordinator = new GameCore.Inventory.ShipmentReceivingCoordinator();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
@@ -68,6 +69,7 @@ public class GameContext : MonoBehaviour
         ServiceLocator.Register<GameCore.Inventory.OrderService>(orderService);
         ServiceLocator.Register<GameCore.Inventory.ShipmentService>(shipmentService);
         ServiceLocator.Register<GameCore.Labor.WorkQueueSystem>(workQueueSystem);
+        ServiceLocator.Register<GameCore.Inventory.ShipmentReceivingCoordinator>(shipmentReceivingCoordinator);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
@@ -78,12 +80,18 @@ public class GameContext : MonoBehaviour
         orderService.Initialize();
         shipmentService.Initialize();
         workQueueSystem.Initialize();
+        shipmentReceivingCoordinator.Initialize();
 
         // Load every SkuData asset that lives under a Resources folder (currently just the dummy
         // test SKU) so InventoryService.GetSkuData / TruckController.LoadShipment can resolve a
         // CasePrefab. The 99 Excel-imported SKUs live outside Resources and aren't picked up here —
         // that's a separate follow-up if/when those need real case visuals too.
         inventoryService.LoadSkuDatabase(Resources.LoadAll<SkuData>("Inventory/SKUs"));
+
+        // Defensive reset in case a same-process "New Game"/reload path ever re-runs GameContext.Awake()
+        // without a full domain reload — SlotAssignmentService is in-memory only (see its own doc
+        // comment) and would otherwise leak assignments from a previous session into a new one.
+        SlotAssignmentService.ClearAll();
 
         // Wire timeDriver to use refactored TimeService
         timeDriver.Initialize(TimeService);

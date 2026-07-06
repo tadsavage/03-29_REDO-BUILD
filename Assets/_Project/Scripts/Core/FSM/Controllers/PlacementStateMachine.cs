@@ -255,6 +255,15 @@ if (_currentState != _idleState)
 
         if (_raycast.HitObject != null)
         {
+            // Check for pallet first
+            var palletData = _raycast.HitObject.GetComponentInParent<GameCore.Inventory.PalletData>();
+            if (palletData != null)
+            {
+                _hoverUI.TickHoverPallet(true, palletData, _raycast.RawHitPoint, Camera.main);
+                return;
+            }
+
+            // Then check for building
             var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
             if (bd != null && bd.Data != null)
             {
@@ -270,7 +279,7 @@ if (_currentState != _idleState)
             }
         }
 
-        // No hit or no building → hide popup
+        // No hit or no building/pallet → hide popup
         _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
     }
 

@@ -23,8 +23,23 @@ public class UIBootstrapper : MonoBehaviour
     [Header("State Machine")]
     [SerializeField] private PlacementStateMachine _fsm;
 
+    [Header("UI Management")]
+    [Tooltip("(Optional) Assign an existing UIKeyBindingManager, or leave empty to auto-create one.")]
+    [SerializeField] private UIKeyBindingManager _keyBindingManager;
+
     private void Awake()
     {
+        // Ensure UIKeyBindingManager exists for keybinding exclusivity
+        if (_keyBindingManager == null)
+        {
+            _keyBindingManager = FindAnyObjectByType<UIKeyBindingManager>();
+            if (_keyBindingManager == null)
+            {
+                var go = new GameObject("UIKeyBindingManager");
+                _keyBindingManager = go.AddComponent<UIKeyBindingManager>();
+            }
+        }
+
         // Delay initialization if splash screen is active
         SplashScreenController splash = GetComponent<SplashScreenController>();
         if (splash != null && splash.ShouldPlaySplash)

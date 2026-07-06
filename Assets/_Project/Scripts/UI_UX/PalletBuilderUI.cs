@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
 using System.Globalization;
+using GameCore.Inventory;
 
 [RequireComponent(typeof(UIDocument))]
 public class PalletBuilderUI : MonoBehaviour
@@ -20,8 +21,8 @@ public class PalletBuilderUI : MonoBehaviour
     private Button _buildButton;
     private Button _closeButton;
 
-    private List<ObjDataSO> _availablePrefabs = new();
-    private List<string> _prefabNames = new();
+    private List<SkuData> _availableSkus = new();
+    private List<string> _skuNames = new();
 
     public void Initialize(PalletBuilder builder)
     {
@@ -76,29 +77,36 @@ public class PalletBuilderUI : MonoBehaviour
     private void PopulatePrefabDropdown()
     {
         if (_prefabDropdown == null) return;
-        _availablePrefabs.Clear();
-        _prefabNames.Clear();
+        _availableSkus.Clear();
+        _skuNames.Clear();
 
-        var buildMenu = FindAnyObjectByType<BuildMenuUI>();
-        if (buildMenu == null || buildMenu.registry == null) return;
+        // Load all SKU assets from Resources/Inventory/SKUs
+        var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+        if (skus == null || skus.Length == 0)
+        {
+            Debug.LogWarning("[PalletBuilderUI] No SKU data found in Resources/Inventory/SKUs");
+            return;
+        }
 
         int selectedIndex = 0;
-        foreach (var so in buildMenu.registry.buttonSOs)
+        foreach (var sku in skus)
         {
-            if (so != null && so.category == "Inventory" && so.prefab != null && !so.objName.Contains("Chep"))
+            if (sku != null && sku.Prefab != null)
             {
-                _availablePrefabs.Add(so);
-                _prefabNames.Add(so.objName);
+                _availableSkus.Add(sku);
+                string label = $"{sku.ItemNumber} - {sku.ItemDescription}";
+                _skuNames.Add(label);
 
-                if (targetBuilder != null && targetBuilder.casePrefab == so.prefab)
+                // Match against current case prefab to set selected index
+                if (targetBuilder != null && targetBuilder.casePrefab == sku.Prefab)
                 {
-                    selectedIndex = _prefabNames.Count - 1;
+                    selectedIndex = _skuNames.Count - 1;
                 }
             }
         }
 
-        _prefabDropdown.choices = _prefabNames;
-        if (_prefabNames.Count > 0)
+        _prefabDropdown.choices = _skuNames;
+        if (_skuNames.Count > 0)
         {
             _prefabDropdown.index = selectedIndex;
         }
@@ -134,12 +142,12 @@ public class PalletBuilderUI : MonoBehaviour
         _manualTiField.value = targetBuilder.manualTi.ToString();
         _manualHiField.value = targetBuilder.manualHi.ToString();
 
-        // Update dropdown index if prefab changed externally
+        // Update dropdown index if case prefab changed externally
         if (_prefabDropdown != null && targetBuilder.casePrefab != null)
         {
-            for (int i = 0; i < _availablePrefabs.Count; i++)
+            for (int i = 0; i < _availableSkus.Count; i++)
             {
-                if (_availablePrefabs[i].prefab == targetBuilder.casePrefab)
+                if (_availableSkus[i].Prefab == targetBuilder.casePrefab)
                 {
                     _prefabDropdown.index = i;
                     break;
@@ -152,9 +160,13 @@ public class PalletBuilderUI : MonoBehaviour
     {
         if (targetBuilder == null) return;
 
-        if (_prefabDropdown != null && _prefabDropdown.index >= 0 && _prefabDropdown.index < _availablePrefabs.Count)
+        // Set case prefab from selected SKU
+        if (_prefabDropdown != null && _prefabDropdown.index >= 0 && _prefabDropdown.index < _availableSkus.Count)
         {
-            targetBuilder.casePrefab = _availablePrefabs[_prefabDropdown.index].prefab;
+            var selectedSku = _availableSkus[_prefabDropdown.index];
+            targetBuilder.casePrefab = selectedSku.Prefab;
+            // Also link the SKU so the user can auto-compute Ti/Hi from case dimensions
+            targetBuilder.linkedSku = selectedSku;
         }
 
         if (float.TryParse(_maxHeightField.value, NumberStyles.Float, CultureInfo.InvariantCulture, out float h))

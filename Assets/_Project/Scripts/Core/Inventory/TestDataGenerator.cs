@@ -27,7 +27,7 @@ public class TestDataGenerator : MonoBehaviour
 
         if (_allSkus.Length == 0)
         {
-            Debug.LogError("[TestDataGenerator] No SKU data found. Run Warehouse > Import SKUs from Excel first.");
+            Debug.LogError("[TestDataGenerator] No SKU data found. Create SkuData assets under Assets/_Project/Resources/Inventory/SKUs.");
             return;
         }
 
@@ -53,7 +53,7 @@ public class TestDataGenerator : MonoBehaviour
             var lineItem = new ShipmentLineItem(
                 skuId: sku.SkuId,
                 quantity: quantity,
-                unitCost: sku.UnitCost,
+                unitCost: Mathf.RoundToInt(sku.BuyValue),
                 shelfLifeDays: shelfLifeDays
             );
             shipment.LineItems.Add(lineItem);
@@ -85,8 +85,8 @@ public class TestDataGenerator : MonoBehaviour
             var lineItem = new OrderLineItem(
                 skuId: sku.SkuId,
                 quantityNeeded: quantity,
-                unitCost: sku.UnitCost,
-                sellingPrice: sku.SellingPrice
+                unitCost: Mathf.RoundToInt(sku.BuyValue),
+                sellingPrice: Mathf.RoundToInt(sku.SellValue)
             );
             order.LineItems.Add(lineItem);
         }

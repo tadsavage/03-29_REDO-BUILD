@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GameCore.Inventory;
 using GameCore.Services;
 using UnityEngine;
 
@@ -19,13 +20,28 @@ namespace GameCore.Labor
         public string Description { get; }
         public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Pending;
 
-        public WorkTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description)
+        /// <summary>Where the pallet/work starts and ends, as human location labels (e.g. "STG1A",
+        /// a reserve/pick address, or a door). Either may be null — some task types have no "from"
+        /// (Receive, Selection) or no resolved "to" yet. Purely for readouts (the InboundTest queue
+        /// view); nothing routes off these today.</summary>
+        public string FromLocation { get; }
+        public string ToLocation { get; }
+
+        /// <summary>The storage area (Grocery, Perishable, or Frozen) of the item being worked on,
+        /// pulled from the SKU's StorageArea. Used for routing/display and downstream employee specialization.</summary>
+        public PalletData.AreaCategory Area { get; }
+
+        public WorkTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
+            string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery)
         {
             TaskId = Guid.NewGuid().ToString();
             Type = type;
             RequiredRole = requiredRole;
             PalletId = palletId;
             Description = description;
+            FromLocation = fromLocation;
+            ToLocation = toLocation;
+            Area = area;
         }
     }
 
@@ -51,12 +67,13 @@ namespace GameCore.Labor
 
         public void Shutdown() => _tasks.Clear();
 
-        public WorkTask CreateTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description)
+        public WorkTask CreateTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
+            string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery)
         {
-            var task = new WorkTask(type, requiredRole, palletId, description);
+            var task = new WorkTask(type, requiredRole, palletId, description, fromLocation, toLocation, area);
             _tasks.Add(task);
             OnTaskCreated?.Invoke(task);
-            Debug.Log($"[WorkQueueSystem] + {description} (role: {requiredRole.DisplayName()})");
+            Debug.Log($"[WorkQueueSystem] + {description} (role: {requiredRole.DisplayName()}, area: {area})");
             return task;
         }
 
@@ -68,6 +85,16 @@ namespace GameCore.Labor
         {
             task = _tasks.FirstOrDefault(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Pending);
             if (task == null) return false;
+            task.Status = WorkTaskStatus.Assigned;
+            return true;
+        }
+
+        /// <summary>Claims a specific already-known task (e.g. one a caller picked by proximity
+        /// rather than FIFO order — see ReceivingTaskDriver's nearest-pallet selection). Returns
+        /// false without side effects if it's no longer Pending (already claimed by someone else).</summary>
+        public bool TryClaimSpecificTask(WorkTask task)
+        {
+            if (task == null || task.Status != WorkTaskStatus.Pending) return false;
             task.Status = WorkTaskStatus.Assigned;
             return true;
         }

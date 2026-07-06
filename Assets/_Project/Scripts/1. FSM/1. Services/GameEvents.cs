@@ -53,5 +53,22 @@ namespace GameCore.Events
             public const string OnGameResumed = "GameState.OnGameResumed";
             public const string OnSceneLoaded = "GameState.OnSceneLoaded";
         }
+
+        /// <summary>Inventory system events.</summary>
+        public static class Inventory
+        {
+            public const string OnPalletReceived = "Inventory.OnPalletReceived";
+            public const string OnPalletMoved = "Inventory.OnPalletMoved";
+            public const string OnShipmentFullyReceived = "Inventory.OnShipmentFullyReceived";
+            public const string OnSpoilageDetected = "Inventory.OnSpoilageDetected";
+        }
+
+        /// <summary>Dock system events.</summary>
+        public static class Dock
+        {
+            public const string OnShipmentReadyToDeparture = "Dock.OnShipmentReadyToDeparture";
+            public const string OnDoorOpened = "Dock.OnDoorOpened";
+            public const string OnDoorClosed = "Dock.OnDoorClosed";
+        }
     }
 }

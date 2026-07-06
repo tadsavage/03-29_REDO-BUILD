@@ -616,6 +616,13 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  isRackLive: 0
+  rackAisle: -1
+  rackBay: -1
+  rackLevelIndex: -1
+  rackAisleFacing: {x: 0, y: 0, z: 0}
+  rackTravelDir: {x: 0, y: 0, z: 0}
+  rackLevelChar: 
 --- !u!65 &5344421176333260333
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -647,7 +654,7 @@ NavMeshObstacle:
   m_Enabled: 1
   serializedVersion: 3
   m_Shape: 1
-  m_Extents: {x: 0.445, y: 0.5, z: 0.25}
+  m_Extents: {x: 0.51, y: 0.5, z: 0.25}
   m_MoveThreshold: 0.1
   m_Carve: 1
   m_CarveOnlyStationary: 1

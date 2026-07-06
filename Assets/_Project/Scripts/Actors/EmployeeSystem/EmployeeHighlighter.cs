@@ -49,8 +49,8 @@ public class EmployeeHighlighter : MonoBehaviour
     public static bool HasInstance => _instance != null;
 
     [Header("Outline look")]
-    [Tooltip("Outline colour. Default is the UI accent blue #5C9BC4.")]
-    [SerializeField] private Color _outlineColor = new Color(0.361f, 0.608f, 0.769f, 1f);
+    [Tooltip("Outline colour. Bright bluish-gray for high visibility.")]
+    [SerializeField] private Color _outlineColor = new Color(0.706f, 0.784f, 0.851f, 1f);
 
     [Tooltip("Outline thickness in world units. ~0.05 reads as 'medium-thick' on a ~1.8m character.")]
     [SerializeField, Range(0f, 0.2f)] private float _outlineWidth = 0.05f;

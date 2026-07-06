@@ -5,11 +5,12 @@
     right: 0;
     bottom: 0;
     background-color: rgba(10, 15, 22, 0.45);
-    align-items: center;
-    justify-content: center;
 }
 
 .hb-modal {
+    position: absolute;
+    left: 100px;
+    top: 100px;
     width: 1120px;
     background-color: rgba(20, 28, 38, 0.82);
     border-width: 3px;

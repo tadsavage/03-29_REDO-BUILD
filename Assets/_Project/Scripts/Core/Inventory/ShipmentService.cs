@@ -40,9 +40,9 @@ namespace GameCore.Inventory
             shipment.LineItems.AddRange(items);
             
             _pendingShipments.Add(shipment);
-            
-            Debug.Log($"[ShipmentService] Created PO {shipment.ShipmentId} for {supplierName} with {items.Count} items.");
-            
+
+            Debug.Log($"[ShipmentService] Created PO {shipment.PONumber} for {supplierName} with {items.Count} items.");
+
             // For now, spawn immediately if possible
             TrySpawnTruck(shipment);
         }
@@ -50,11 +50,11 @@ namespace GameCore.Inventory
         private void TrySpawnTruck(ShipmentData shipment)
         {
             if (_yardManager == null) _yardManager = Object.FindAnyObjectByType<TruckYardManager>();
-            
+
             if (_yardManager != null)
             {
                 _yardManager.SpawnNextTruck(shipment);
-                Debug.Log($"[ShipmentService] Spawned truck for shipment {shipment.ShipmentId}");
+                Debug.Log($"[ShipmentService] Spawned truck for PO {shipment.PONumber}");
             }
             else
             {

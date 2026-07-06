@@ -1,6 +1,8 @@
 // METADATA file_path: Assets/3. UI/7. EmployeeUI/EmployeeRosterUI.cs
 using System;
 using System.Collections.Generic;
+using GameCore.Labor;
+using GameCore.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
@@ -16,9 +18,10 @@ using UnityEngine.InputSystem;
 ///
 /// Uses its own UIDocument. Assign EmployeeRoster.uxml as the Source Asset and a
 /// RoleIconLibrary in the inspector.
+/// Implements IUIPanel for keybinding exclusivity via UIKeyBindingManager.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
-public class EmployeeRosterUI : MonoBehaviour
+public class EmployeeRosterUI : MonoBehaviour, IUIPanel
 {
     public static EmployeeRosterUI Instance { get; private set; }
 
@@ -41,7 +44,7 @@ public class EmployeeRosterUI : MonoBehaviour
     private VisualElement  _overlay;
     private VisualElement  _list;
     private Button         _close;
-    private Label          _count;
+    private Label          _summaryText;
     private DropdownField  _filter;
     private DraggableWindow _dragger;   // drag-by-title-bar + reset-on-X
 
@@ -62,6 +65,10 @@ public class EmployeeRosterUI : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+
+        // Register with UIKeyBindingManager for keybinding exclusivity (key 3)
+        if (UIKeyBindingManager.Instance != null)
+            UIKeyBindingManager.Instance.RegisterUI(3, this);
     }
 
     private void OnEnable()
@@ -73,7 +80,7 @@ public class EmployeeRosterUI : MonoBehaviour
         _overlay = root.Q<VisualElement>("er-overlay");
         _list    = root.Q<VisualElement>("er-list");
         _close   = root.Q<Button>("er-close");
-        _count   = root.Q<Label>("er-count");
+        _summaryText = root.Q<Label>("er-summary-text");
         _filter  = root.Q<DropdownField>("er-filter");
 
         // Red X → close AND reset position to the original spot next time.
@@ -109,7 +116,13 @@ public class EmployeeRosterUI : MonoBehaviour
     {
         if (!_enableHotkey || UIModalGuard.IsCapturing) return;
         if (Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
-            Toggle();
+        {
+            // Route through UIKeyBindingManager for exclusivity
+            if (UIKeyBindingManager.Instance != null)
+                UIKeyBindingManager.Instance.ToggleUI(3);
+            else
+                Toggle();  // Fallback if manager not available
+        }
     }
 
     private void TrySubscribe()
@@ -144,6 +157,10 @@ public class EmployeeRosterUI : MonoBehaviour
     }
 
     public bool IsOpen => _overlay != null && _overlay.style.display == DisplayStyle.Flex;
+
+    // IUIPanel interface wrappers
+    void IUIPanel.Show() => Open();
+    void IUIPanel.Hide() => Close();
 
     // ── Filter choices ──────────────────────────────────────────────────────────
     private List<string> BuildFilterChoices()
@@ -189,7 +206,37 @@ public class EmployeeRosterUI : MonoBehaviour
                 _list.Add(BuildCard(e));
         }
 
-        if (_count != null) _count.text = $"{people.Count}";
+        UpdateSummaryText(people.Count, sel);
+    }
+
+    private void UpdateSummaryText(int count, string filterSelection)
+    {
+        if (_summaryText == null) return;
+
+        string summaryLabel = "Total Employees";
+        if (!string.IsNullOrEmpty(filterSelection))
+        {
+            if (filterSelection.StartsWith(RolePrefix))
+            {
+                string roleName = filterSelection.Substring(RolePrefix.Length);
+                summaryLabel = $"Total {roleName}";
+            }
+            else
+            {
+                summaryLabel = filterSelection switch
+                {
+                    SortNameAZ => "Total Employees",
+                    SortMoraleLo => "Total Employees",
+                    SortMoraleHi => "Total Employees",
+                    SortFatigue => "Total Employees",
+                    SortSkill => "Total Employees",
+                    SortId => "Total Employees",
+                    _ => "Total Employees"
+                };
+            }
+        }
+
+        _summaryText.text = $"{summaryLabel}: {count}";
     }
 
     private void ApplyFilterSort(List<EmployeeIdentity> people, string sel)
@@ -250,10 +297,21 @@ public class EmployeeRosterUI : MonoBehaviour
         left.Add(StatRow("MORALE",  r.morale,  "er-morale",  "er-morale-fill"));
         left.Add(StatRow("SKILL",   r.skill,   "er-skill",   "er-skill-fill"));
 
+        var levelRow = new VisualElement();
+        levelRow.style.flexDirection = FlexDirection.Row;
+        levelRow.style.justifyContent = Justify.SpaceBetween;
+        levelRow.style.marginTop = 4;
+
         var level = new Label($"LVL {Mathf.Max(1, r.skillLevel)}");
         level.AddToClassList("er-level");
-        left.Add(level);
+        levelRow.Add(level);
 
+        var currentAction = new Label(GetCurrentActionText(r));
+        currentAction.AddToClassList("er-level");
+        currentAction.style.marginLeft = 60;
+        levelRow.Add(currentAction);
+
+        left.Add(levelRow);
         body.Add(left);
 
         // ── Right: photo + current task ───────────────────────────────────────
@@ -287,11 +345,21 @@ public class EmployeeRosterUI : MonoBehaviour
         // ── Actions dropdown ──────────────────────────────────────────────────
         var actions = new DropdownField();
         actions.AddToClassList("er-actions");
-        actions.choices = new List<string> { "Actions...", "Terminate" };
+
+        // Build action choices (Patrol, role-specific assignment, Ask OT, Send Home, Terminate)
+        var choices = new List<string> { "Actions...", "Patrol" };
+        var roleAssignment = r.role.RoleSpecificAssignment();
+        if (roleAssignment.HasValue)
+            choices.Add(roleAssignment.Value.DisplayName());
+        choices.Add("Ask to Work OT");
+        choices.Add("Send Home");
+        choices.Add("Terminate");
+
+        actions.choices = choices;
         actions.index = 0;
         actions.RegisterValueChangedCallback(evt =>
         {
-            if (evt.newValue == "Terminate") TerminateEmployee(identity);
+            OnRosterActionSelected(evt.newValue, identity);
             actions.SetValueWithoutNotify("Actions...");
         });
         card.Add(actions);
@@ -329,6 +397,43 @@ public class EmployeeRosterUI : MonoBehaviour
     }
 
     // ── Actions ───────────────────────────────────────────────────────────────
+    private void OnRosterActionSelected(string action, EmployeeIdentity identity)
+    {
+        if (identity == null || identity.Record == null) return;
+
+        if (action == "Terminate")
+        {
+            TerminateEmployee(identity);
+            return;
+        }
+
+        if (action == "Patrol")
+        {
+            EmployeeAssignmentService.Assign(identity, EmployeeAssignment.Patrol);
+            return;
+        }
+
+        if (action == "Ask to Work OT")
+        {
+            EmployeeOvertimeService.AskToWorkOvertime(identity);
+            return;
+        }
+
+        if (action == "Send Home")
+        {
+            EmployeeOvertimeService.SendHome(identity);
+            return;
+        }
+
+        // Check for role-specific assignment
+        var roleAssignment = identity.Record.role.RoleSpecificAssignment();
+        if (roleAssignment.HasValue && action == roleAssignment.Value.DisplayName())
+        {
+            EmployeeAssignmentService.Assign(identity, roleAssignment.Value);
+            return;
+        }
+    }
+
     private void TerminateEmployee(EmployeeIdentity identity)
     {
         if (identity == null || identity.Record == null) return;
@@ -361,6 +466,62 @@ public class EmployeeRosterUI : MonoBehaviour
         var lbl = new Label(msg);
         lbl.AddToClassList("er-empty");
         return lbl;
+    }
+
+    private static string GetCurrentActionText(EmployeeRecord record)
+    {
+        if (record == null) return "—";
+
+        // Check if employee is currently operating a vehicle
+        var mheSlots = FindObjectsByType<MHEOperatorSlot>();
+        foreach (var slot in mheSlots)
+        {
+            if (slot.CurrentOperator != null && slot.CurrentOperator.Record.employeeId == record.employeeId)
+            {
+                // Get the vehicle type from the slot's data
+                var placedObj = slot.GetComponent<PlacedObject>();
+                if (placedObj != null && placedObj.data != null)
+                {
+                    return $"Operating {placedObj.data.name}";
+                }
+                return "Operating Vehicle";
+            }
+        }
+
+        // Check if employee has an active work task
+        if (ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) && workQueue != null)
+        {
+            var tasks = workQueue.Tasks;
+            foreach (var task in tasks)
+            {
+                if (task.Status == WorkTaskStatus.Assigned && task.RequiredRole == record.role)
+                {
+                    // This is a simple check - in a real system you'd track which specific employee is assigned
+                    return task.Type switch
+                    {
+                        WorkTaskType.Receive => "Receiving",
+                        WorkTaskType.Putaway => "Putting Away",
+                        WorkTaskType.Replenish => "Replenishing",
+                        WorkTaskType.OrderSelect => "Selecting Order",
+                        WorkTaskType.Load => "Loading",
+                        _ => task.Type.ToString()
+                    };
+                }
+            }
+        }
+
+        // Show their assignment if they don't have an active task.
+        // Vehicle assignments (DriveReach, DriveDockstalker) only show when actively operating.
+        // Until then, show as "Patrolling" instead.
+        return record.currentAssignment switch
+        {
+            EmployeeAssignment.Patrol => "Patrolling",
+            EmployeeAssignment.DriveReach => "Patrolling",      // Will show "Operating Reach Truck" if actually in one
+            EmployeeAssignment.DriveDockstalker => "Patrolling", // Will show "Operating Dockstalker" if actually in one
+            EmployeeAssignment.OrderSelection => "Order Selection",
+            EmployeeAssignment.ReceiveInbound => "Receive Inbound",
+            _ => "Patrolling"
+        };
     }
 
     private static Sprite LoadAvatar(EmployeeRecord record)

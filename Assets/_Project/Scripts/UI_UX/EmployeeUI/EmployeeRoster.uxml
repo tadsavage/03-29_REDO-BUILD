@@ -6,9 +6,10 @@
 
             <ui:VisualElement class="er-title-bar">
                 <ui:Label text="EMPLOYEE ROSTER" class="er-title"/>
-                <ui:Label name="er-count" text="0" class="er-count"/>
                 <ui:Button name="er-close" text="✕" class="er-close"/>
             </ui:VisualElement>
+            <ui:VisualElement style="height: 1px; background-color: rgba(92,155,196,0.35); margin: 0; flex-shrink: 0;"/>
+
 
             <ui:VisualElement class="er-filter-row">
                 <ui:Label text="SORT / FILTER" class="er-filter-label"/>
@@ -18,6 +19,10 @@
             <ui:ScrollView name="er-scroll" mode="Vertical" class="er-scroll">
                 <ui:VisualElement name="er-list" class="er-list"/>
             </ui:ScrollView>
+
+            <ui:VisualElement name="er-summary-box" class="er-summary-box">
+                <ui:Label name="er-summary-text" text="Total Employees: 0" class="er-summary-text"/>
+            </ui:VisualElement>
 
         </ui:VisualElement>
     </ui:VisualElement>

@@ -27,6 +27,27 @@ public class RollupDoorController : MonoBehaviour
     private Vector3 _initialLocalPos;
     private Coroutine _moveCoroutine;
 
+    // Set true while a truck is docked at this door (TruckController.OnDocked/BeginDeparture) so the
+    // door can't be swiped shut by unrelated OnTriggerExit noise — a dock stocker or receiver walking
+    // back out through the doorway mid-unload, or the trailer's own multiple colliders momentarily
+    // clipping the trigger boundary, were both closing the door out from under a truck that never
+    // left. Resizing the trigger collider can't fix this — it's an ordering problem (any exit closes
+    // it), not a coverage problem — so it's driven explicitly instead.
+    private bool _forcedOpen;
+
+    /// <summary>Holds the door open (or opens it immediately) and ignores further OnTriggerExit closes
+    /// until released. Call with false once the truck actually departs — the truck's own exit through
+    /// the trigger will then close it normally.</summary>
+    public void SetForcedOpen(bool forced)
+    {
+        _forcedOpen = forced;
+        if (forced)
+        {
+            if (_moveCoroutine != null) StopCoroutine(_moveCoroutine);
+            _moveCoroutine = StartCoroutine(MoveDoor(endY));
+        }
+    }
+
     private void Awake()
     {
         if (doorPanel == null)
@@ -76,6 +97,8 @@ public class RollupDoorController : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
+        if (_forcedOpen) return; // a truck is still docked here — ignore unrelated exits
+
         // Triggers when the object leaves the box collider
         if (_moveCoroutine != null) StopCoroutine(_moveCoroutine);
         _moveCoroutine = StartCoroutine(MoveDoor(startY));

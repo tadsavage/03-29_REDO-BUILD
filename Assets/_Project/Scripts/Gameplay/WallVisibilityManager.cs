@@ -8,6 +8,7 @@ public class WallVisibilityManager : MonoBehaviour
 
     [Header("Visibility Settings")]
     [Tooltip("The height of the foundation/floor surface.")]
+    [Range(0f, 1.5f)]
     [SerializeField] private float foundationHeight = 1.06f;
 
     [Tooltip("The amount of wall that stays visible above the foundation in 'Cut' mode.")]

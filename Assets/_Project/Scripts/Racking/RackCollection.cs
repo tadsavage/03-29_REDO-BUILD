@@ -1,6 +1,5 @@
 using UnityEngine;
 using System.Collections.Generic;
-using System;
 
 /// <summary>
 /// Represents a collection of adjacent racks placed on the same X-axis.
@@ -14,8 +13,6 @@ public class RackCollection : MonoBehaviour
 
     private Vector3 _collectionCenter;
     private Bounds _collectionBounds;
-
-    public event Action OnCollectionCreated;
 
     public List<GameObject> Racks => _racks;
     public bool Initialized => _initialized;

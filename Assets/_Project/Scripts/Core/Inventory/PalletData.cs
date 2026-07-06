@@ -1,52 +1,103 @@
 using UnityEngine;
-using System;
 
 namespace GameCore.Inventory
 {
     /// <summary>
-    /// Represents a single pallet of inventory in the warehouse.
-    /// A pallet holds a quantity of a single SKU and tracks its location and age.
+    /// The physical pallet data component. Attached to the pallet GameObject AFTER receiving is complete.
+    ///
+    /// This is separate from PalletMasterRecord (the inventory system's overhead record): PalletData
+    /// is only present on solid, received pallets. If a pallet has no PalletData script, it's ghosted
+    /// and awaiting receiving.
+    ///
+    /// PalletData holds:
+    /// - LoadId: the 10-digit "license plate" (master key linking to PalletMasterRecord)
+    /// - Item info: SKU, case quantity, expiration date
+    /// - Metadata: area/category, status, icon for UI display
+    /// - Current grid location
     /// </summary>
-    [System.Serializable]
-    public class PalletData
+    public class PalletData : MonoBehaviour
     {
-        public string PalletId { get; private set; }
-        /// <summary>10-digit "license plate" assigned at receiving. Null for pallets registered before
-        /// Load IDs existed (e.g. hand-placed in the Editor) or created outside ReceivePalletWithLoadId.</summary>
-        public string LoadId { get; set; }
-        public string SkuId { get; set; }
-        public int Quantity { get; set; }
-        public Vector2Int CurrentLocation { get; set; } // Grid cell where pallet is stored
-        public int ReceivedDayNumber { get; set; } // In-game day number when received
-        public int ExpirationDayNumber { get; set; } // -1 if non-perishable
-        public bool IsContaminated { get; set; }
+        [SerializeField] private string _loadId;
+        [SerializeField] private string _itemNumber; // SKU
+        [SerializeField] private int _caseQuantity;
+        [SerializeField] private int _expirationDay = -1; // In-game day; -1 = non-perishable
 
-        public PalletData(string skuId, int quantity, Vector2Int location, int receivedDay, int expirationDay)
+        [SerializeField] private AreaCategory _area;
+        [SerializeField] private Sprite _iconSprite;
+
+        [SerializeField] private Vector2Int _currentLocation;
+        [SerializeField] private PalletStatus _status = PalletStatus.Shippable;
+
+        public string LoadId => _loadId;
+        public string ItemNumber => _itemNumber;
+        public int CaseQuantity => _caseQuantity;
+        public int ExpirationDay => _expirationDay;
+
+        public AreaCategory Area => _area;
+        public Sprite IconSprite => _iconSprite;
+
+        public Vector2Int CurrentLocation => _currentLocation;
+        public PalletStatus Status => _status;
+
+        /// <summary>Initialize pallet data (called when receiving completes and this component is added).</summary>
+        public void Initialize(string loadId, string itemNumber, int caseQuantity, int expirationDay,
+                               AreaCategory area, Sprite iconSprite, Vector2Int location)
         {
-            PalletId = System.Guid.NewGuid().ToString();
-            SkuId = skuId;
-            Quantity = quantity;
-            CurrentLocation = location;
-            ReceivedDayNumber = receivedDay;
-            ExpirationDayNumber = expirationDay;
-            IsContaminated = false;
+            _loadId = loadId;
+            _itemNumber = itemNumber;
+            _caseQuantity = caseQuantity;
+            _expirationDay = expirationDay;
+            _area = area;
+            _iconSprite = iconSprite;
+            _currentLocation = location;
+            _status = PalletStatus.Shippable; // Default on creation
         }
 
-        /// <summary>Check if this pallet has expired based on current day number.</summary>
+        /// <summary>Update pallet location (called when pallet is moved).</summary>
+        public void SetLocation(Vector2Int newLocation)
+        {
+            _currentLocation = newLocation;
+        }
+
+        /// <summary>Update pallet status (QA hold, lost, on reserve, etc.).</summary>
+        public void SetStatus(PalletStatus newStatus)
+        {
+            _status = newStatus;
+        }
+
+        /// <summary>Reduce case quantity (called during order picking).</summary>
+        public void ReduceQuantity(int amount)
+        {
+            _caseQuantity = Mathf.Max(0, _caseQuantity - amount);
+        }
+
+        /// <summary>Check if this pallet is expired based on current day number.</summary>
         public bool IsExpired(int currentDayNumber)
         {
-            return ExpirationDayNumber >= 0 && currentDayNumber > ExpirationDayNumber;
+            return _expirationDay >= 0 && currentDayNumber > _expirationDay;
         }
 
         /// <summary>Check if this pallet is expiring soon (within 2 days).</summary>
-        public bool IsExpiringsoon(int currentDayNumber, int daysUntilWarning = 2)
+        public bool IsExpiringSoon(int currentDayNumber, int daysUntilWarning = 2)
         {
-            return ExpirationDayNumber >= 0
-                && currentDayNumber > ExpirationDayNumber - daysUntilWarning
-                && currentDayNumber <= ExpirationDayNumber;
+            return _expirationDay >= 0
+                && currentDayNumber > _expirationDay - daysUntilWarning
+                && currentDayNumber <= _expirationDay;
         }
 
-        /// <summary>Age in days since received.</summary>
-        public int AgeInDays(int currentDayNumber) => Mathf.Max(0, currentDayNumber - ReceivedDayNumber);
+        public enum AreaCategory
+        {
+            Grocery,
+            Perishable,
+            Frozen
+        }
+
+        public enum PalletStatus
+        {
+            Shippable,    // Live, ready to move/pick
+            QAHold,       // Under quality inspection
+            Lost,         // System can't locate it
+            OnReserve     // Reserved for specific order
+        }
     }
 }

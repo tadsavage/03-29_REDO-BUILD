@@ -23,7 +23,12 @@ namespace GameCore.Inventory
         // Events
         public static event System.Action<OrderData> OnOrderArrived;
         public static event System.Action<OrderData> OnOrderFulfilled;
+
+        // Reserved for order cancellation (TODO: Phase 2 "Partial-order handling — backorder, split,
+        // cancel") — no CancelOrder() method exists yet to raise it, so it's legitimately unused today.
+#pragma warning disable CS0067
         public static event System.Action<OrderData> OnOrderCancelled;
+#pragma warning restore CS0067
 
         public IReadOnlyList<OrderData> ActiveOrders => _activeOrders;
 

@@ -55,6 +55,21 @@ public class AiNavigation : MonoBehaviour
     private bool _seekingEquipment;
     private EmployeeIdentity _operatorIdentity;
 
+    // Generic position seeking (e.g. ReceivingTaskDriver walking to a pallet) — same shape as
+    // equipment seeking above, but for an arbitrary world position + arrival callback instead of
+    // an MHEOperatorSlot to board.
+    private Vector3 _taskTargetPosition;
+    private System.Action _onTaskArrived;
+    private bool _seekingTask;
+
+    // Set true by the task driver once SeekPosition's arrival callback hands the agent off to a
+    // stationary task (e.g. ReceiverReceivingWorkflow's 5-second fill bar). Without this, the
+    // generic waypoint-progression fallback below (for agents with no AgentAnimation) sees
+    // remainingDistance sitting at ~0 the instant _seekingTask is cancelled on arrival and
+    // immediately calls GoToRandomWaypoint() the same frame — the agent walks to the task
+    // position and then walks away before the task even starts.
+    private bool _taskBusy;
+
     // Auto-rebake: fires when agent has no waypoints (? visible) or is stuck for too long.
     private float   _noWaypointRebakeTimer;
     private float   _stuckRebakeTimer;
@@ -70,6 +85,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     /// they have a real destination even though it didn't come from the Worker waypoint patrol,
     /// so NoWaypointIndicator must not treat this as "nowhere to go".</summary>
     public bool IsSeekingEquipment => _seekingEquipment;
+    /// <summary>True while the agent is walking toward a generic task position (SeekPosition) — same
+    /// reasoning as IsSeekingEquipment: it has a real destination outside the normal waypoint patrol.</summary>
+    public bool IsSeekingTask => _seekingTask;
 
     /// <summary>True while the agent is playing the Climbing animation at a ledge.</summary>
     public bool IsTraversingLedgeUp   { get; private set; }
@@ -318,6 +336,46 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         _targetEquipment = null;
     }
 
+    /// <summary>
+    /// Walk to an arbitrary world position and invoke a callback on arrival. Used by
+    /// ReceivingTaskDriver to send a dynamically-assigned Receiver to a pallet — deliberately
+    /// generic (no MHEOperatorSlot) since the destination isn't equipment to board. Movement stays
+    /// owned by THIS agent (not a second NavMeshAgent driver) to avoid fighting over the shared
+    /// updatePosition=false transform sync — see the comment on that field in Awake().
+    /// </summary>
+    public void SeekPosition(Vector3 position, System.Action onArrived)
+    {
+        if (agent == null || !agent.isActiveAndEnabled) { onArrived?.Invoke(); return; }
+        if (_seekingTask) return; // already seeking a task position
+
+        _taskTargetPosition = position;
+        _onTaskArrived = onArrived;
+        _seekingTask = true;
+        // Same reasoning as SeekEquipment: an employee walking to a receive task never went through
+        // the Worker-waypoint patrol bootstrap, so without this the off-mesh-link/dock-climb logic
+        // (which gates on `initialized`) would never even try to path them up onto the dock.
+        initialized = true;
+        SetDestinationSnapped(position);
+    }
+
+    /// <summary>Cancel an in-progress SeekPosition (e.g. assignment changed mid-walk).</summary>
+    public void CancelSeekPosition()
+    {
+        _seekingTask = false;
+        _onTaskArrived = null;
+    }
+
+    /// <summary>Marks the agent as busy with a stationary task (e.g. receiving a pallet) so the
+    /// generic waypoint-progression fallback doesn't send it off to a random waypoint while it's
+    /// supposed to be standing still. Callers must clear this when the task ends.</summary>
+    public void SetTaskBusy(bool busy) => _taskBusy = busy;
+
+    /// <summary>True while a task driver (e.g. ReceivingTaskDriver) has claimed this agent for a
+    /// stationary task. AgentAnimation's own arrival handler (WaitAtWaypointRoutine) checks this
+    /// too — it has an independent "arrived → wander after idleDelay" loop that doesn't go through
+    /// this class's Update() at all, so it needed the same guard separately.</summary>
+    public bool IsTaskBusy => _taskBusy;
+
     /// <summary>Cancels any in-progress equipment seeking and resumes the normal waypoint
     /// patrol loop. Used by EmployeeAssignmentService when a Worker's assignment changes
     /// to Patrol — does NOT vacate an MHE slot the operator may be riding; the caller is
@@ -326,6 +384,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     public void Patrol()
     {
         if (_seekingEquipment) CancelEquipmentSeeking();
+        if (_seekingTask) CancelSeekPosition();
         GoToRandomWaypoint();
     }
 
@@ -599,6 +658,23 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             }
         }
 
+        // ── Task seeking (employee walks toward a generic task position, e.g. a pallet) ──────────
+        if (_seekingTask)
+        {
+            if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathComplete
+                && agent.remainingDistance <= 1.0f)
+            {
+                var callback = _onTaskArrived;
+                CancelSeekPosition();
+                callback?.Invoke();
+            }
+            else if (agent.pathStatus == NavMeshPathStatus.PathInvalid && !agent.pathPending)
+            {
+                Debug.LogWarning($"[AiNavigation] {name} cannot reach task position at {_taskTargetPosition} (path invalid) — abandoning task seek.");
+                CancelSeekPosition();
+            }
+        }
+
         // SAFETY: agent.updatePosition stays false for the entire lifetime (set in Awake).
         // LateUpdate drives transform + Rigidbody from agent.nextPosition.
         // Never set updatePosition=true — it re-introduces the Rigidbody reset fight.
@@ -708,7 +784,8 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // endpoint is not mistakenly declared "arrived" and given a new destination.
         if (_agentAnimation == null)
         {
-            if (!agent.pathPending
+            if (!_taskBusy
+                && !agent.pathPending
                 && agent.remainingDistance <= agent.stoppingDistance + 0.1f
                 && agent.pathStatus == NavMeshPathStatus.PathComplete)
                 GoToRandomWaypoint();
@@ -760,9 +837,11 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // stuck waving at the dock edge instead of climbing up) or the normal patrol waypoint.
         Vector3? targetPos = _seekingEquipment && _targetEquipment != null
             ? _targetEquipment.transform.position
-            : ((waypoints != null && currentIndex >= 0 && currentIndex < waypoints.Length)
-                ? waypoints[currentIndex].position
-                : (Vector3?)null);
+            : _seekingTask
+                ? _taskTargetPosition
+                : ((waypoints != null && currentIndex >= 0 && currentIndex < waypoints.Length)
+                    ? waypoints[currentIndex].position
+                    : (Vector3?)null);
         if (targetPos == null) { _ledgeCheckTimer = 0f; return; }
 
         // Target is on a different height level than the agent → needs a ledge.
@@ -972,6 +1051,8 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         {
             if (_seekingEquipment && _targetEquipment != null)
                 SetDestinationSnapped(_targetEquipment.transform.position);
+            else if (_seekingTask)
+                SetDestinationSnapped(_taskTargetPosition);
             else if (waypoints != null && waypoints.Length > 0 && waypoints[currentIndex] != null)
                 SetDestinationSnapped(waypoints[currentIndex].position);
         }

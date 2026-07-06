@@ -74,6 +74,15 @@ public class AisleInitializer : MonoBehaviour
         newPO.rackLevelIndex = level;
         newPO.isRackLive = true;
 
+        // Position the stacked rack at the correct world Y: below's Y + below's height.
+        // Formula: new_Y = below.Y + 0.17 (pallet) + (HI * case_height)
+        // For racks, we use objHeight directly (already includes the pallet thickness + cases).
+        float belowHeight = belowPO.data != null ? belowPO.data.objHeight : 1.5f; // fallback 1.5m
+        float newY = below.transform.position.y + belowHeight;
+        Vector3 newPos = rackGO.transform.position;
+        newPos.y = newY;
+        rackGO.transform.position = newPos;
+
         // Live right away. Un-ghost if it was placed as a planning ghost pre-init, then match
         // the committed racks below (material + labels).
         var stackGhost = rackGO.GetComponent<RackGhost>();

@@ -171,7 +171,7 @@ public class TruckYardManager : MonoBehaviour
         }
 
         var go  = Instantiate(truckPrefab, _spawnPoint.position, _spawnPoint.rotation);
-        go.name = shipment != null ? $"Truck→PO_{shipment.ShipmentId.Substring(0,8)}" : $"Truck→Door{dock.DoorNumber}";
+        go.name = shipment != null ? $"Truck→PO_{shipment.PONumber}" : $"Truck→Door{dock.DoorNumber}";
 
         var ctrl = go.GetComponent<TruckController>() ?? go.AddComponent<TruckController>();
 

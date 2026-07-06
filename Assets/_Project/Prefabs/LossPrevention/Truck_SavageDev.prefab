@@ -944,12 +944,12 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 3.1934948, y: 2.9338856, z: 9.60549}
-  m_Center: {x: -0.12186081, y: 1.540404, z: -2.5442114}
+  m_Size: {x: 3.1934948, y: 2.9338856, z: 10.154435}
+  m_Center: {x: -0.12186081, y: 1.540404, z: -2.818687}
 --- !u!114 &7377325742704344903
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1266,7 +1266,8 @@ MonoBehaviour:
   - {fileID: 7450438075093202094}
   - {fileID: 4605729260442322392}
   - {fileID: 6862289632569870454}
-  palletVisualPrefab: {fileID: 8178270212256399326, guid: c9e261ced86632640995fa7d9216844d, type: 3}
+  palletVisualPrefab: {fileID: 6533443037926444852, guid: 2b0e11584e4164345b36e2bd56b720b8, type: 3}
+  _casesOriginalMaterial: []
   palletLateralOffset: 0.6
   palletRowSpacing: 1.25
   _state: 0

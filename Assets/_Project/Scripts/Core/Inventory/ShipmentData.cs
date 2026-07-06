@@ -6,13 +6,13 @@ using UnityEngine;
 namespace GameCore.Inventory
 {
     /// <summary>
-    /// Represents an inbound shipment from a supplier.
+    /// Represents an inbound shipment (Purchase Order) from a supplier.
     /// Contains list of SKUs arriving, and metadata for tracking and billing.
     /// </summary>
     [System.Serializable]
     public class ShipmentData
     {
-        public string ShipmentId { get; private set; }
+        public string PONumber { get; private set; }
         public string SupplierId { get; set; }
         public string SupplierName { get; set; }
         public int ArrivalDayNumber { get; set; }
@@ -22,20 +22,49 @@ namespace GameCore.Inventory
 
         public ShipmentData(string supplierId, string supplierName, int arrivalDay, int arrivalMinute)
         {
-            ShipmentId = System.Guid.NewGuid().ToString();
+            PONumber = PONumberGenerator.GetNextPONumber();
             SupplierId = supplierId;
             SupplierName = supplierName;
             ArrivalDayNumber = arrivalDay;
             ArrivalTimeMinute = arrivalMinute;
         }
 
-        /// <summary>Total units across all line items.</summary>
+        /// <summary>Total units across all line items (expected).</summary>
         public int TotalUnits => LineItems.Sum(item => item.Quantity);
 
-        /// <summary>Total cost of shipment (before markup).</summary>
+        /// <summary>Total units actually received across all line items.</summary>
+        public int TotalReceivedUnits => LineItems.Sum(item => item.ReceivedQuantity);
+
+        /// <summary>Total cost of shipment at expected quantity.</summary>
         public int TotalCost => LineItems.Sum(item => item.Quantity * item.UnitCost);
 
-        public enum ShipmentStatus { InTransit, Received, Cancelled, Delayed }
+        /// <summary>Total cost of shipment based on actual received quantity (for invoicing).</summary>
+        public int TotalReceivedCost => LineItems.Sum(item => item.TotalReceivedCost);
+
+        /// <summary>Total overage across all line items (positive = more received than expected).</summary>
+        public int TotalOverage => LineItems.Sum(item => item.Overage);
+
+        /// <summary>Total shortage across all line items (positive = less received than expected).</summary>
+        public int TotalShortage => LineItems.Sum(item => item.Shortage);
+
+        /// <summary>Check if all line items have been fully received.</summary>
+        public bool IsFullyReceived => LineItems.Count > 0 && LineItems.All(item => item.ReceivedQuantity >= item.Quantity);
+
+        /// <summary>Update received quantity for a specific line item SKU. Picks the first line
+        /// item for that SKU that ISN'T already fully received — a shipment with multiple pallets
+        /// of the same SKU (the common case: one line item per pallet) has multiple line items
+        /// sharing a SkuId, and always filling the first match would leave every other one stuck
+        /// at 0 forever, so IsFullyReceived would never become true even once every pallet is in.</summary>
+        public void UpdateReceivedQuantity(string skuId, int additionalQuantity)
+        {
+            var lineItem = LineItems.FirstOrDefault(li => li.SkuId == skuId && li.ReceivedQuantity < li.Quantity);
+            if (lineItem != null)
+            {
+                lineItem.ReceivedQuantity = Mathf.Min(lineItem.ReceivedQuantity + additionalQuantity, lineItem.Quantity);
+            }
+        }
+
+        public enum ShipmentStatus { InTransit, Receiving, Received, Departed, Cancelled, Delayed }
     }
 
     /// <summary>A single line item in a shipment (SKU + qty + pricing).</summary>
@@ -43,18 +72,31 @@ namespace GameCore.Inventory
     public class ShipmentLineItem
     {
         public string SkuId { get; set; }
-        public int Quantity { get; set; }
+        public int Quantity { get; set; } // Expected quantity
+        public int ReceivedQuantity { get; set; } // Actual quantity received (updated as pallets are received)
         public int UnitCost { get; set; } // Cost per unit (what we paid supplier)
         public int ShelfLifeDays { get; set; } // -1 if non-perishable
+
+        /// <summary>Which trailer floor position (0..11) this line item's pallet occupies, and
+        /// which vertical tier (0 = floor, 1 = stacked on top of tier 0's pallet at that same
+        /// slot). -1 = unset — TruckController.LoadShipment falls back to its legacy fixed
+        /// 12-slot round-robin cycle when a shipment's line items don't carry this. Set by
+        /// RandomDeliveryGenerator, which is the only producer of real slot/tier assignments today.</summary>
+        public int FloorSlotIndex { get; set; } = -1;
+        public int PalletTier { get; set; } = 0;
 
         public ShipmentLineItem(string skuId, int quantity, int unitCost, int shelfLifeDays)
         {
             SkuId = skuId;
             Quantity = quantity;
+            ReceivedQuantity = 0;
             UnitCost = unitCost;
             ShelfLifeDays = shelfLifeDays;
         }
 
         public int TotalCost => Quantity * UnitCost;
+        public int TotalReceivedCost => ReceivedQuantity * UnitCost;
+        public int Overage => ReceivedQuantity - Quantity;
+        public int Shortage => Quantity - ReceivedQuantity;
     }
 }

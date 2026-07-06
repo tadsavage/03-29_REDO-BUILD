@@ -5,8 +5,8 @@
         <ui:VisualElement name="employee-modal" picking-mode="Ignore" class="modal-panel">
             <!-- Title bar -->
             <ui:VisualElement class="title-bar">
-                <ui:Label text="EMPLOYEES" class="title-label"/>
-                <ui:Label name="employee-count" text="(0)" class="count-label"/>
+                <ui:Label text="EMPLOYEE STATS" class="title-label"/>
+                <ui:Label name="employee-count" text="(0)" class="count-label" style="display: none;"/>
                 <ui:Button name="close-button" text="✕" class="close-button"/>
             </ui:VisualElement>
 

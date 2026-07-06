@@ -90,7 +90,7 @@ public class LaneSetupUI : MonoBehaviour
         if (tex != null)
         {
             icon.style.backgroundImage = new StyleBackground(tex);
-            icon.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit;
+            icon.style.backgroundSize = new StyleBackgroundSize(new BackgroundSize(BackgroundSizeType.Contain));
             header.Add(icon);
         }
 

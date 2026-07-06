@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
+using GameCore.Inventory;
+using GameCore.Services;
 
 public class WorldHoverPopupUI : MonoBehaviour
 {
@@ -9,6 +11,8 @@ public class WorldHoverPopupUI : MonoBehaviour
     private Label _title;
     private Label _cost;
     private Label _hourlyCost;
+    private Image _iconImage; // For pallet icons
+    private VisualElement _palletInfoPanel;
     private Vector2 _smoothPos;
     private PlacementStateMachine _fsm;
 
@@ -18,10 +22,14 @@ public class WorldHoverPopupUI : MonoBehaviour
     private bool  _isHovering    = false;
     private bool  _isVisible     = false;
 
-    // Pending data
+    // Pending data (building)
     private string _pendingName;
     private int    _pendingCost;
     private int    _pendingHourlyCost;
+
+    // Pending data (pallet)
+    private PalletData _pendingPalletData;
+    private bool _isPalletMode;
 
     // OPTIMIZATION: reuse allocation to avoid GC spikes in Tick/Update
     private StyleTranslate _cachedTranslateStyle = new StyleTranslate();
@@ -51,11 +59,15 @@ public class WorldHoverPopupUI : MonoBehaviour
         _title      = _popup.Q<Label>("HoverTitle");
         _cost       = _popup.Q<Label>("HoverCost");
         _hourlyCost = _popup.Q<Label>("HoverHourlyCost");
+        _iconImage  = _popup.Q<Image>("HoverIcon");
+        _palletInfoPanel = _popup.Q<VisualElement>("PalletInfoPanel");
 
         _popup.pickingMode = PickingMode.Ignore;
         if (_title      != null) _title.pickingMode      = PickingMode.Ignore;
         if (_cost       != null) _cost.pickingMode       = PickingMode.Ignore;
         if (_hourlyCost != null) _hourlyCost.pickingMode = PickingMode.Ignore;
+        if (_iconImage  != null) _iconImage.pickingMode  = PickingMode.Ignore;
+        if (_palletInfoPanel != null) _palletInfoPanel.pickingMode = PickingMode.Ignore;
 
         HideImmediate();
     }
@@ -63,7 +75,7 @@ public class WorldHoverPopupUI : MonoBehaviour
     public void SetFSM(PlacementStateMachine fsm) => _fsm = fsm;
 
     // ---------------------------------------------------------
-    // MAIN UPDATE
+    // MAIN UPDATE - Building/Object hover
     // ---------------------------------------------------------
     public void TickHover(bool hovering, string name, int cost, int hourlyCost,
                           Vector3 worldPos, Camera cam)
@@ -82,7 +94,7 @@ public class WorldHoverPopupUI : MonoBehaviour
             return;
         }
 
-        bool isNewTarget = !_isHovering
+        bool isNewTarget = !_isHovering || _isPalletMode
             || name != _pendingName
             || cost != _pendingCost
             || hourlyCost != _pendingHourlyCost;
@@ -90,19 +102,21 @@ public class WorldHoverPopupUI : MonoBehaviour
         _pendingName      = name;
         _pendingCost      = cost;
         _pendingHourlyCost = hourlyCost;
+        _pendingPalletData = null;
+        _isPalletMode = false;
 
         if (isNewTarget)
         {
             _isHovering = true;
             _hoverTimer = 0f;
             _popup.style.opacity = 1f;
-            Show(_pendingName, _pendingCost, _pendingHourlyCost);
+            ShowBuilding(_pendingName, _pendingCost, _pendingHourlyCost);
         }
         else
         {
             _hoverTimer += Time.deltaTime;
             if (!_isVisible && _hoverTimer >= _hoverDelay)
-                Show(_pendingName, _pendingCost, _pendingHourlyCost);
+                ShowBuilding(_pendingName, _pendingCost, _pendingHourlyCost);
         }
 
         if (_isVisible)
@@ -110,9 +124,54 @@ public class WorldHoverPopupUI : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // VISUALS
+    // PALLET HOVER
     // ---------------------------------------------------------
-    private void Show(string name, int cost, int hourlyCost)
+    public void TickHoverPallet(bool hovering, PalletData palletData, Vector3 worldPos, Camera cam)
+    {
+        if (!IsEnabled) { HideImmediate(); return; }
+
+        // Only show in IdleState
+        if (_fsm != null && !(_fsm.CurrentState is IdleState))
+        { HideImmediate(); return; }
+
+        if (!hovering || palletData == null)
+        {
+            _isHovering = false;
+            _hoverTimer = 0f;
+            HideImmediate();
+            return;
+        }
+
+        bool isNewTarget = !_isHovering || !_isPalletMode || palletData != _pendingPalletData;
+
+        _pendingPalletData = palletData;
+        _pendingName = null;
+        _pendingCost = 0;
+        _pendingHourlyCost = 0;
+        _isPalletMode = true;
+
+        if (isNewTarget)
+        {
+            _isHovering = true;
+            _hoverTimer = 0f;
+            _popup.style.opacity = 1f;
+            ShowPallet(_pendingPalletData);
+        }
+        else
+        {
+            _hoverTimer += Time.deltaTime;
+            if (!_isVisible && _hoverTimer >= _hoverDelay)
+                ShowPallet(_pendingPalletData);
+        }
+
+        if (_isVisible)
+            FollowCursor();
+    }
+
+    // ---------------------------------------------------------
+    // VISUALS - Building
+    // ---------------------------------------------------------
+    private void ShowBuilding(string name, int cost, int hourlyCost)
     {
         if (_popup == null || _title == null || _cost == null || _hourlyCost == null) return;
 
@@ -120,10 +179,98 @@ public class WorldHoverPopupUI : MonoBehaviour
         _cost.text       = $"Cost: ${cost:N0}";
         _hourlyCost.text = $"Hourly: ${hourlyCost:N0}/hr";
 
+        // Hide pallet-specific elements
+        if (_iconImage != null) _iconImage.style.display = DisplayStyle.None;
+        if (_palletInfoPanel != null) _palletInfoPanel.style.display = DisplayStyle.None;
+
         _popup.style.opacity = 1f;
         _popup.style.display = DisplayStyle.Flex;
         _popup.AddToClassList("show");
         _isVisible = true;
+    }
+
+    // ---------------------------------------------------------
+    // VISUALS - Pallet
+    // ---------------------------------------------------------
+    private void ShowPallet(PalletData pallet)
+    {
+        if (_popup == null || pallet == null) return;
+
+        // Get SKU data for additional info
+        InventoryService inventory = null;
+        ServiceLocator.TryGet<InventoryService>(out inventory);
+        var sku = inventory?.GetSkuData(pallet.ItemNumber);
+
+        // Set title to item description
+        if (_title != null)
+            _title.text = sku?.ItemDescription ?? pallet.ItemNumber;
+
+        // Set icon (postage stamp, upper-right corner)
+        if (_iconImage != null)
+        {
+            _iconImage.sprite = pallet.IconSprite;
+            _iconImage.style.display = pallet.IconSprite != null ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        // Build pallet info text
+        if (_palletInfoPanel != null)
+        {
+            _palletInfoPanel.Clear();
+            _palletInfoPanel.style.display = DisplayStyle.Flex;
+
+            // Wholesale cost
+            if (sku != null)
+            {
+                var wholesaleLbl = new Label($"Wholesale: ${sku.BuyValue:N0}");
+                wholesaleLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                wholesaleLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(wholesaleLbl);
+
+                // Retail cost
+                var retailLbl = new Label($"Retail: ${sku.SellValue:N0}");
+                retailLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                retailLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(retailLbl);
+
+                // Ti x Hi
+                var tiHiLbl = new Label($"Ti×Hi: {sku.Ti}×{sku.Hi}");
+                tiHiLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                tiHiLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(tiHiLbl);
+
+                // Pallet height
+                float palletHeight = sku.PltHeight;
+                var heightLbl = new Label($"Height: {palletHeight:F2}m");
+                heightLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                heightLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(heightLbl);
+            }
+
+            // Pick slot assignment
+            var pickSlotStr = GetPickSlotAssignment(pallet.CurrentLocation);
+            var pickLbl = new Label($"Pick Slot: {pickSlotStr}");
+            pickLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            pickLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(pickLbl);
+        }
+
+        // Hide building-specific elements
+        if (_cost != null) _cost.style.display = DisplayStyle.None;
+        if (_hourlyCost != null) _hourlyCost.style.display = DisplayStyle.None;
+
+        _popup.style.opacity = 1f;
+        _popup.style.display = DisplayStyle.Flex;
+        _popup.AddToClassList("show");
+        _isVisible = true;
+    }
+
+    private string GetPickSlotAssignment(Vector2Int location)
+    {
+        // Try to get pick slot from SlotRegistry (static)
+        var address = LaneNamingService.AddressAt(location) ?? location.ToString();
+        if (SlotRegistry.TryGet(address, out var slot))
+            return address;
+        return "None assigned";
     }
 
     public void HideImmediate()

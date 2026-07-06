@@ -20,30 +20,33 @@ namespace GameCore.Inventory
     /// 6. Shutdown() at game end
     ///
     /// EVENTS PUBLISHED:
-    /// - OnPalletReceived(PalletData) — new pallet added to inventory
-    /// - OnPalletMoved(PalletData, Vector2Int from, Vector2Int to) — pallet location changed
-    /// - OnPalletPartialPicked(PalletData, int quantityRemoved) — order pick reduced quantity
-    /// - OnPalletDestroyed(PalletData) — pallet removed from inventory (empty or contaminated)
-    /// - OnSpoilageDetected(PalletData) — pallet marked contaminated
+    /// - OnPalletReceived(PalletMasterRecord) — new pallet added to inventory
+    /// - OnPalletMoved(PalletMasterRecord, Vector2Int from, Vector2Int to) — pallet location changed
+    /// - OnPalletPartialPicked(PalletMasterRecord, int quantityRemoved) — order pick reduced quantity
+    /// - OnPalletDestroyed(PalletMasterRecord) — pallet removed from inventory (empty or contaminated)
+    /// - OnSpoilageDetected(PalletMasterRecord) — pallet marked contaminated
     /// </summary>
     public class InventoryService : IService
     {
-        private readonly Dictionary<string, PalletData> _palletsByID = new();
+        private readonly Dictionary<string, PalletMasterRecord> _palletsByID = new();
         private readonly Dictionary<Vector2Int, List<string>> _palletsByLocation = new();
         private readonly Dictionary<string, SkuData> _skuDataCache = new();
         private EventManager _eventManager;
         private SimulationTimeService _timeService;
 
         // Events
-        public static event System.Action<PalletData> OnPalletReceived;
-        public static event System.Action<PalletData, Vector2Int, Vector2Int> OnPalletMoved;
-        public static event System.Action<PalletData, int> OnPalletPartialPicked;
-        public static event System.Action<PalletData> OnPalletDestroyed;
-        public static event System.Action<PalletData> OnSpoilageDetected;
+        public static event System.Action<PalletMasterRecord> OnPalletReceived;
+        public static event System.Action<PalletMasterRecord, Vector2Int, Vector2Int> OnPalletMoved;
+        public static event System.Action<PalletMasterRecord, int> OnPalletPartialPicked;
+        public static event System.Action<PalletMasterRecord> OnPalletDestroyed;
+        public static event System.Action<PalletMasterRecord> OnSpoilageDetected;
 
         // Debug/diagnostic
-        public IReadOnlyDictionary<string, PalletData> AllPallets => _palletsByID;
+        public IReadOnlyDictionary<string, PalletMasterRecord> AllPallets => _palletsByID;
         public IReadOnlyDictionary<Vector2Int, List<string>> PalletsByLocation => _palletsByLocation;
+
+        /// <summary>Every SKU currently loaded (see LoadSkuDatabase). Used by Slotting UI's SKU dropdowns.</summary>
+        public IEnumerable<SkuData> AllSkus => _skuDataCache.Values;
 
         // ============ LIFECYCLE ============
 
@@ -88,15 +91,15 @@ namespace GameCore.Inventory
         // ============ PALLET OPERATIONS ============
 
         /// <summary>Receive a new shipment and create pallets for each SKU.</summary>
-        public List<PalletData> ReceiveShipment(List<(string skuId, int quantity, int expirationDayOffset)> items)
+        public List<PalletMasterRecord> ReceiveShipment(List<(string skuId, int quantity, int expirationDayOffset)> items)
         {
-            var created = new List<PalletData>();
+            var created = new List<PalletMasterRecord>();
             int currentDay = _timeService?.Day ?? 0;
 
             foreach (var (skuId, quantity, expirationOffset) in items)
             {
                 int expirationDay = expirationOffset >= 0 ? currentDay + expirationOffset : -1;
-                var pallet = new PalletData(skuId, quantity, Vector2Int.zero, currentDay, expirationDay);
+                var pallet = new PalletMasterRecord(skuId, quantity, Vector2Int.zero, currentDay, expirationDay);
                 _palletsByID[pallet.PalletId] = pallet;
 
                 // Initially in receiving staging (0,0) — will be putaway by employee
@@ -119,11 +122,11 @@ namespace GameCore.Inventory
         /// ReceiveShipment uses, awaiting a Putaway work task. Called by ReceivingService when a truck's
         /// dock timer completes.
         /// </summary>
-        public PalletData ReceivePalletWithLoadId(string skuId, int quantity, int shelfLifeDays)
+        public PalletMasterRecord ReceivePalletWithLoadId(string skuId, int quantity, int shelfLifeDays)
         {
             int currentDay = _timeService?.Day ?? 0;
             int expirationDay = shelfLifeDays >= 0 ? currentDay + shelfLifeDays : -1;
-            var pallet = new PalletData(skuId, quantity, Vector2Int.zero, currentDay, expirationDay)
+            var pallet = new PalletMasterRecord(skuId, quantity, Vector2Int.zero, currentDay, expirationDay)
             {
                 LoadId = GameCore.Labor.LoadIDGenerator.Generate()
             };
@@ -144,10 +147,10 @@ namespace GameCore.Inventory
         /// ReceiveShipment (which drops pallets at the receiving placeholder), this records the pallet at
         /// its real cell immediately. Called by PalletInventoryTracker as pallets are placed/loaded.
         /// </summary>
-        public PalletData RegisterPhysicalPallet(Vector2Int cell, string skuId, int quantity)
+        public PalletMasterRecord RegisterPhysicalPallet(Vector2Int cell, string skuId, int quantity)
         {
             int currentDay = _timeService?.Day ?? 0;
-            var pallet = new PalletData(skuId, quantity, cell, currentDay, -1);
+            var pallet = new PalletMasterRecord(skuId, quantity, cell, currentDay, -1);
             _palletsByID[pallet.PalletId] = pallet;
             if (!_palletsByLocation.ContainsKey(cell))
                 _palletsByLocation[cell] = new List<string>();
@@ -221,7 +224,7 @@ namespace GameCore.Inventory
         // ============ INVENTORY QUERIES ============
 
         /// <summary>Look up a single pallet by id, or null if not tracked.</summary>
-        public PalletData GetPallet(string palletId)
+        public PalletMasterRecord GetPallet(string palletId)
             => _palletsByID.TryGetValue(palletId, out var p) ? p : null;
 
         /// <summary>Get total units of a SKU across all locations.</summary>
@@ -233,10 +236,10 @@ namespace GameCore.Inventory
         }
 
         /// <summary>Get all pallets at a specific location.</summary>
-        public List<PalletData> GetPalletsAtLocation(Vector2Int location)
+        public List<PalletMasterRecord> GetPalletsAtLocation(Vector2Int location)
         {
             if (!_palletsByLocation.TryGetValue(location, out var palletIds))
-                return new List<PalletData>();
+                return new List<PalletMasterRecord>();
 
             return palletIds
                 .Where(id => _palletsByID.ContainsKey(id))
@@ -245,7 +248,7 @@ namespace GameCore.Inventory
         }
 
         /// <summary>Get all pallets for a specific SKU.</summary>
-        public List<PalletData> GetPalletsBySku(string skuId)
+        public List<PalletMasterRecord> GetPalletsBySku(string skuId)
         {
             return _palletsByID.Values
                 .Where(p => p.SkuId == skuId && !p.IsContaminated)
@@ -254,7 +257,7 @@ namespace GameCore.Inventory
         }
 
         /// <summary>Get all non-contaminated pallets at receiving staging (0,0).</summary>
-        public List<PalletData> GetReceivingPallets()
+        public List<PalletMasterRecord> GetReceivingPallets()
         {
             return GetPalletsAtLocation(Vector2Int.zero)
                 .Where(p => !p.IsContaminated)
@@ -344,9 +347,9 @@ namespace GameCore.Inventory
         }
 
         /// <summary>All pallets currently sitting in a lane, ordered slot 1..N out from the door.</summary>
-        public List<PalletData> GetPalletsInLane(int doorNumber, string lane)
+        public List<PalletMasterRecord> GetPalletsInLane(int doorNumber, string lane)
         {
-            var result = new List<PalletData>();
+            var result = new List<PalletMasterRecord>();
             foreach (var slot in LaneNamingService.GetLane(doorNumber, lane))
                 foreach (var pallet in GetPalletsAtLocation(slot.Cell))
                     result.Add(pallet);
@@ -406,7 +409,7 @@ namespace GameCore.Inventory
         /// The next pallet that would be picked from a lane, honoring its Usage (must allow picking) and
         /// its FIFO/LIFO order. False if the lane is Receiving-only or empty.
         /// </summary>
-        public bool TryGetNextPick(int doorNumber, string lane, out PalletData pallet, out LaneNamingService.LaneSlot slot, out int tier)
+        public bool TryGetNextPick(int doorNumber, string lane, out PalletMasterRecord pallet, out LaneNamingService.LaneSlot slot, out int tier)
         {
             pallet = null; slot = default; tier = 0;
             if (!LaneAllowsPicking(doorNumber, lane)) return false;
@@ -426,7 +429,7 @@ namespace GameCore.Inventory
         /// Pick units from the lane's next pallet per its FIFO/LIFO order. Returns the pallet picked from
         /// (may now be empty/destroyed), or null if the lane can't be picked or is empty.
         /// </summary>
-        public PalletData PickNextFromLane(int doorNumber, string lane, int quantity)
+        public PalletMasterRecord PickNextFromLane(int doorNumber, string lane, int quantity)
         {
             if (!TryGetNextPick(doorNumber, lane, out var pallet, out _, out _)) return null;
             PickFromPallet(pallet.PalletId, quantity);

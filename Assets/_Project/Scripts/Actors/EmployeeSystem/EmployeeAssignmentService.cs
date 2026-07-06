@@ -18,6 +18,15 @@ public static class EmployeeAssignmentService
     {
         if (identity == null || identity.Record == null) return;
 
+        // Leaving ReceiveInbound for anything else must strip the RF gun/clipboard and stop the
+        // work-queue polling loop — done centrally here so every other branch below (including a
+        // failed DriveReach/DriveDockstalker attempt) doesn't have to remember it individually.
+        if (assignment != EmployeeAssignment.ReceiveInbound)
+        {
+            ReceivingEquipmentService.Unequip(identity);
+            RemoveReceivingDriver(identity);
+        }
+
         switch (assignment)
         {
             case EmployeeAssignment.Patrol:
@@ -33,6 +42,9 @@ public static class EmployeeAssignmentService
                 // No order/picking system exists yet — record the intent and stop there.
                 SetAssignment(identity, assignment);
                 break;
+            case EmployeeAssignment.ReceiveInbound:
+                AssignReceiving(identity);
+                break;
         }
     }
 
@@ -44,6 +56,32 @@ public static class EmployeeAssignmentService
         identity.GetComponent<AiNavigation>()?.Patrol();
 
         SetAssignment(identity, EmployeeAssignment.Patrol);
+    }
+
+    private static void AssignReceiving(EmployeeIdentity identity)
+    {
+        // Boarded operators must vacate before receiving.
+        identity.AssignedSlot?.VacateOperator();
+
+        // Equip RF gun and clipboard
+        ReceivingEquipmentService.Equip(identity);
+
+        // Drives the actual claim-task/walk-to-pallet/receive loop; stays patrolling between tasks.
+        if (identity.GetComponent<GameCore.Actors.ReceivingTaskDriver>() == null)
+            identity.gameObject.AddComponent<GameCore.Actors.ReceivingTaskDriver>();
+
+        identity.GetComponent<AiNavigation>()?.Patrol();
+
+        SetAssignment(identity, EmployeeAssignment.ReceiveInbound);
+    }
+
+    private static void RemoveReceivingDriver(EmployeeIdentity identity)
+    {
+        var driver = identity.GetComponent<GameCore.Actors.ReceivingTaskDriver>();
+        if (driver != null) Object.Destroy(driver);
+
+        var workflow = identity.GetComponent<GameCore.Labor.ReceiverReceivingWorkflow>();
+        if (workflow != null) Object.Destroy(workflow);
     }
 
     private static void AssignDrive(EmployeeIdentity identity, EmployeeAssignment assignment, ObjDataSO targetData)

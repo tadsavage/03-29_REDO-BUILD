@@ -37,7 +37,9 @@ public class LaneNamingService : MonoBehaviour
 
     // Per spec: within a door, the lane with the LOWEST grid-Y (lowest wall coordinate) is "A",
     // then ascending (B, C, …). Set true only if a differently-oriented dock needs the reverse.
-    private const bool LetterFromHighWallCoord = false;
+    // static readonly (not const) so flipping this doesn't fold the "if" below into
+    // compiler-detected unreachable code — it's a real runtime toggle, just left off by default.
+    private static readonly bool LetterFromHighWallCoord = false;
 
     private bool _subscribed;
     private bool _dirty = true;

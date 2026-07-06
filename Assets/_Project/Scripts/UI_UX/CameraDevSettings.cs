@@ -25,8 +25,8 @@ public static class CameraDevSettings
 
     public const int   MoveSpeedMin = 1,  MoveSpeedMax = 15;
     public const float ZoomSpeedMin = 1f, ZoomSpeedMax = 5f;
-    public const float PitchSensitivityMin = 0f, PitchSensitivityMax = 2f;
-    public const float OrbitSensitivityMin = 0f, OrbitSensitivityMax = 2f;
+    public const float PitchSensitivityMin = 0f, PitchSensitivityMax = 0.5f;
+    public const float OrbitSensitivityMin = 0f, OrbitSensitivityMax = 1f;
     public const float MinCameraHeightMin = 0f, MinCameraHeightMax = 5f;
 
     /// <summary>Fired whenever any setting changes, so live camera instances re-pull values

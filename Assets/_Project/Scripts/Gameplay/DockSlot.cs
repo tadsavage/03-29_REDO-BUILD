@@ -69,11 +69,22 @@ public class DockSlot : MonoBehaviour
 
     // ── Cached child components ───────────────────────────────────────────────
 
-    private DoorNumberDisplay   _numberDisplay;
-    private DockLightController _lightController;
-    private PlacedObject        _placed;
+    private DoorNumberDisplay      _numberDisplay;
+    private DockLightController    _lightController;
+    private PlacedObject           _placed;
+    private RollupDoorController[] _rollupDoors;
 
     public DockLightController LightController => _lightController;
+
+    /// <summary>Holds this door's rollup panel(s) open (or releases them) for the duration a truck is
+    /// docked here — see RollupDoorController.SetForcedOpen for why this can't just be left to the
+    /// trigger collider alone. ShippingDoor can carry more than one RollupDoorController.</summary>
+    public void SetDoorForcedOpen(bool forced)
+    {
+        if (_rollupDoors == null) return;
+        foreach (var door in _rollupDoors)
+            door?.SetForcedOpen(forced);
+    }
 
     private int _doorNumber;
     public int DoorNumber
@@ -102,6 +113,7 @@ public class DockSlot : MonoBehaviour
         _numberDisplay   = GetComponentInChildren<DoorNumberDisplay>(true);
         _lightController = GetComponentInChildren<DockLightController>(true);
         _placed          = GetComponent<PlacedObject>();
+        _rollupDoors     = GetComponentsInChildren<RollupDoorController>(true);
     }
 
     private void OnEnable()

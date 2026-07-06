@@ -10,6 +10,7 @@ public enum EmployeeAssignment
     DriveReach,
     DriveDockstalker,
     OrderSelection,
+    ReceiveInbound,
 }
 
 public static class EmployeeAssignmentExtensions
@@ -21,6 +22,7 @@ public static class EmployeeAssignmentExtensions
         EmployeeAssignment.DriveReach       => "Drive Reach",
         EmployeeAssignment.DriveDockstalker => "Drive Dockstalker",
         EmployeeAssignment.OrderSelection   => "Order Selection",
+        EmployeeAssignment.ReceiveInbound   => "Go Receive Inbound",
         _                                   => assignment.ToString()
     };
 
@@ -36,6 +38,7 @@ public static class EmployeeAssignmentExtensions
         EmployeeRole.DockStockerOperator  => EmployeeAssignment.DriveDockstalker,
         EmployeeRole.Loader               => EmployeeAssignment.DriveDockstalker,
         EmployeeRole.OrderSelector        => EmployeeAssignment.OrderSelection,
+        EmployeeRole.Receiver             => EmployeeAssignment.ReceiveInbound,
         _                                 => null
     };
 }

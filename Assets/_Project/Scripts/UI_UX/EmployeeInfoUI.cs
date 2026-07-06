@@ -26,6 +26,7 @@ public class EmployeeInfoUI : MonoBehaviour
     // Only Terminate closes the card.
     private DropdownField _actionsDropdown;
     private const string ActionDefault     = "Actions...";
+    private const string ActionLocate      = "Locate";
     private const string ActionPatrol      = "Patrol";
     private const string ActionAskOvertime = "Ask to Work OT";
     private const string ActionSendHome    = "Send Home";
@@ -116,7 +117,21 @@ public class EmployeeInfoUI : MonoBehaviour
         _skillLevelLabel = _panel.Q<Label>("skill-level");
 
         if (_closeButton != null)
+        {
             _closeButton.clicked += Hide;
+
+            // Red hover effect on close button
+            _closeButton.RegisterCallback<PointerEnterEvent>(_ =>
+            {
+                _closeButton.style.backgroundColor = new StyleColor(new Color(0xE6 / 255f, 0x50 / 255f, 0x50 / 255f, 0.3f));
+                _closeButton.style.color = new StyleColor(Color.white);
+            });
+            _closeButton.RegisterCallback<PointerLeaveEvent>(_ =>
+            {
+                _closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
+                _closeButton.style.color = new StyleColor(new Color(0x8A / 255f, 0xAA / 255f, 0xBB / 255f, 1f));
+            });
+        }
 
         // ────────── Dragging Setup ──────────
         if (_panel.childCount > 0)
@@ -138,9 +153,19 @@ public class EmployeeInfoUI : MonoBehaviour
         _actionsDropdown = new DropdownField { name = "employee-actions" };
         _actionsDropdown.choices = new List<string> { ActionDefault };
         _actionsDropdown.SetValueWithoutNotify(ActionDefault);
-        _actionsDropdown.style.marginTop    = 10;
+        _actionsDropdown.style.marginTop    = 20;
         _actionsDropdown.style.marginLeft   = 2;
         _actionsDropdown.style.marginRight  = 2;
+        _actionsDropdown.style.fontSize = 16;
+        _actionsDropdown.style.color = Color.white;
+
+        var dropdownText = _actionsDropdown.Q(className: "unity-base-popup-field__text");
+        if (dropdownText != null)
+        {
+            dropdownText.style.fontSize = 16;
+            dropdownText.style.color = Color.white;
+        }
+
         _actionsDropdown.RegisterValueChangedCallback(OnActionSelected);
         _panel.Add(_actionsDropdown);
 
@@ -333,7 +358,7 @@ public class EmployeeInfoUI : MonoBehaviour
         evt.StopPropagation();
     }
 
-    /// <summary>Rebuilds the dropdown's choices for the currently displayed employee: Patrol +
+    /// <summary>Rebuilds the dropdown's choices for the currently displayed employee: Locate + Patrol +
     /// Terminate are universal, plus one role-specific assignment (Drive Reach / Drive
     /// Dockstalker / Order Selection) if EmployeeRoleExtensions.RoleSpecificAssignment returns
     /// one for _displayRole.</summary>
@@ -341,7 +366,7 @@ public class EmployeeInfoUI : MonoBehaviour
     {
         if (_actionsDropdown == null) return;
 
-        var choices = new List<string> { ActionDefault, ActionPatrol };
+        var choices = new List<string> { ActionDefault, ActionLocate, ActionPatrol };
         var roleAssignment = _displayRole.RoleSpecificAssignment();
         if (roleAssignment.HasValue)
             choices.Add(roleAssignment.Value.DisplayName());
@@ -355,7 +380,7 @@ public class EmployeeInfoUI : MonoBehaviour
 
     /// <summary>Actions dropdown handler. Terminate runs the full HR/termination process and,
     /// because the person no longer works here, closes this info card. Every other action
-    /// routes to EmployeeAssignmentService and does NOT close the card.</summary>
+    /// routes to EmployeeAssignmentService or EmployeeHighlighter and does NOT close the card.</summary>
     private void OnActionSelected(ChangeEvent<string> evt)
     {
         string selected = evt.newValue;
@@ -367,6 +392,12 @@ public class EmployeeInfoUI : MonoBehaviour
 
         var id = _currentIdentity;
         if (id == null || id.Record == null) return;
+
+        if (selected == ActionLocate)
+        {
+            EmployeeHighlighter.Instance.FocusAndHighlight(id);
+            return;
+        }
 
         if (selected == ActionTerminate)
         {

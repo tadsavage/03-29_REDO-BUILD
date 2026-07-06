@@ -13,10 +13,11 @@ using UnityEngine.InputSystem;
 /// pattern. Assign the HiringBoard.uxml as the UIDocument Source Asset and a
 /// RoleIconLibrary in the inspector.
 ///
-/// Open via HiringBoardUI.Instance?.Open() — or press H in play mode (temporary).
+/// Open via HiringBoardUI.Instance?.Open() — or press 2 in play mode.
+/// Implements IUIPanel for keybinding exclusivity via UIKeyBindingManager.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
-public class HiringBoardUI : MonoBehaviour
+public class HiringBoardUI : MonoBehaviour, IUIPanel
 {
     // ─── Singleton ────────────────────────────────────────────────────────────
     public static HiringBoardUI Instance { get; private set; }
@@ -65,6 +66,10 @@ public class HiringBoardUI : MonoBehaviour
             return;
         }
         Instance = this;
+
+        // Register with UIKeyBindingManager for keybinding exclusivity (key 2)
+        if (UIKeyBindingManager.Instance != null)
+            UIKeyBindingManager.Instance.RegisterUI(2, this);
     }
 
     private void OnEnable()
@@ -148,7 +153,13 @@ public class HiringBoardUI : MonoBehaviour
     {
         if (!_enableHotkey || UIModalGuard.IsCapturing) return;
         if (Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
-            Toggle();
+        {
+            // Route through UIKeyBindingManager for exclusivity
+            if (UIKeyBindingManager.Instance != null)
+                UIKeyBindingManager.Instance.ToggleUI(2);
+            else
+                Toggle();  // Fallback if manager not available
+        }
     }
 
     private void TrySubscribe()
@@ -186,6 +197,10 @@ public class HiringBoardUI : MonoBehaviour
     }
 
     public bool IsOpen => _overlay != null && _overlay.style.display == DisplayStyle.Flex;
+
+    // IUIPanel interface wrappers
+    void IUIPanel.Show() => Open();
+    void IUIPanel.Hide() => Close();
 
     // ─── List building ─────────────────────────────────────────────────────────
     private void RebuildList()

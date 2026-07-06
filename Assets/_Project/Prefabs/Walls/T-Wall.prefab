@@ -116,8 +116,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.3300002, y: 9, z: 1.3296485}
-  m_Center: {x: -1.327, y: 4.5, z: 0.0011291802}
+  m_Size: {x: 1.5, y: 9, z: 1.5}
+  m_Center: {x: 0, y: 4.5, z: 0}
 --- !u!114 &5387478215180858281
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -163,6 +163,13 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  isRackLive: 0
+  rackAisle: -1
+  rackBay: -1
+  rackLevelIndex: -1
+  rackAisleFacing: {x: 0, y: 0, z: 0}
+  rackTravelDir: {x: 0, y: 0, z: 0}
+  rackLevelChar: 
 --- !u!208 &4456780831407801892
 NavMeshObstacle:
   m_ObjectHideFlags: 0

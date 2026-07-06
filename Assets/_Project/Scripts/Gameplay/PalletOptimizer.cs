@@ -217,9 +217,9 @@ public static class PalletOptimizer
     /// <returns>A PalletResult containing the optimized layout data.</returns>
     public static PalletResult OptimizeLoad(float caseLengthCm, float caseWidthCm, float caseHeightCm, float maxPalletHeightMeters)
     {
-        // 1. Standard 40" x 48" pallet in meters
-        float palletWidthM = 1.016f;
-        float palletLengthM = 1.2192f;
+        // 1. Standard GMA pallet (40" x 48") in meters — world X = 48" (long), world Z = 40" (short).
+        float palletWidthM = 1.2192f;  // World X axis = 48" (long side)
+        float palletLengthM = 1.016f;  // World Z axis = 40" (short side)
         float palletBaseHeightM = 0.16f; // Standard pallet thickness
 
         // 2. Convert case dimensions from cm to meters
@@ -244,6 +244,7 @@ public static class PalletOptimizer
         }
 
         // 5. Pack a single layer, maximizing surface coverage — see PackLayer for the search strategy.
+        // regionWidth = 48" (world X), regionLength = 40" (world Z)
         var layer = PackLayer(palletWidthM, palletLengthM, cWid, cLen);
 
         // 6. Calculate final totals and metrics

@@ -46,6 +46,7 @@ public class TopBarUI : MonoBehaviour
     private ShiftStatusPanel _shiftStatusPanel;         // "Time" — hours left in shift + overtime count
     private StaffingPanel _staffingPanel;               // "Headcount" — employees by shift and role
     private ShiftManagerPanel _shiftManagerPanel;       // "5" key — define named shifts (first draft, UI only)
+    private SlotAssignmentPanel _slotAssignmentPanel;   // "6" key — assign SKUs to rack Pick slots
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
 
@@ -88,6 +89,7 @@ public class TopBarUI : MonoBehaviour
         _shiftStatusPanel = new ShiftStatusPanel(root, _timeService);
         _staffingPanel    = new StaffingPanel(root);
         _shiftManagerPanel = new ShiftManagerPanel(root, _timeService);
+        _slotAssignmentPanel = new SlotAssignmentPanel(root);
 
         _money.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_capitalPanel));
         _hourly.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_breakdownPanel));
@@ -156,6 +158,9 @@ public class TopBarUI : MonoBehaviour
     {
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit5Key.wasPressedThisFrame)
             _shiftManagerPanel?.Toggle();
+
+        if (!UIModalGuard.IsCapturing && Keyboard.current.digit6Key.wasPressedThisFrame)
+            _slotAssignmentPanel?.Toggle();
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
@@ -495,5 +500,6 @@ public class TopBarUI : MonoBehaviour
         _shiftStatusPanel?.Dispose();
         _staffingPanel?.Dispose();
         _shiftManagerPanel?.Dispose();
+        _slotAssignmentPanel?.Dispose();
     }
 }

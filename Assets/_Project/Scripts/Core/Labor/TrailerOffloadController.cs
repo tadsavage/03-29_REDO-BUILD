@@ -101,7 +101,7 @@ namespace GameCore.Labor
             var slot = FindAvailableDockStocker();
             if (slot == null) return; // no manned DS free — truck keeps waiting (falls back after its timeout)
 
-            StartCoroutine(OffloadRoutine(truck, slot, inv, queue));
+            StartCoroutine(OffloadRoutine(truck, slot, inv));
         }
 
         private MHEOperatorSlot FindAvailableDockStocker()
@@ -117,7 +117,7 @@ namespace GameCore.Labor
             return null;
         }
 
-        private IEnumerator OffloadRoutine(TruckController truck, MHEOperatorSlot slot, InventoryService inv, WorkQueueSystem queue)
+        private IEnumerator OffloadRoutine(TruckController truck, MHEOperatorSlot slot, InventoryService inv)
         {
             truck.ClaimForOffload();
             _busySlots.Add(slot);
@@ -158,7 +158,7 @@ namespace GameCore.Labor
             foreach (var pallet in pallets)
             {
                 if (pallet == null) continue;
-                yield return OffloadOnePallet(ds, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, queue);
+                yield return OffloadOnePallet(ds, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv);
             }
 
             // ── Restore the DS to patrol ──
@@ -182,7 +182,7 @@ namespace GameCore.Labor
         private IEnumerator OffloadOnePallet(Transform ds, Transform forks, float forkRestY,
                                              TruckController truck, Transform pallet, Vector3 into,
                                              float openingLong, int doorNumber, Vector3 doorPos,
-                                             InventoryService inv, WorkQueueSystem queue)
+                                             InventoryService inv)
         {
             Vector3 P = pallet.position;
             Vector3 palletWorldScale = pallet.lossyScale; // preserve visual size across the reparenting
@@ -220,7 +220,7 @@ namespace GameCore.Labor
             if (!TryFindLaneTarget(inv, doorNumber, doorPos, out int door, out string laneLetter, out var cell, out int tier))
             {
                 Debug.LogWarning($"[TrailerOffload] No free Inbound/Both staging-lane slot for door {doorNumber} — dropping pallet where the DS stands.");
-                DropPallet(pallet, ds.position, 0, palletWorldScale);
+                DropPallet(pallet, ds.position, 0, palletWorldScale, ds.rotation);
                 yield break;
             }
 
@@ -250,13 +250,18 @@ namespace GameCore.Labor
             //     tier*LaneStackStep is the stack-top offset and matches DropPallet's final Y, so the
             //     pallet now comes to rest exactly where the forks leave it.
             if (forks != null) yield return LiftForks(forks, forkRestY + tier * LaneStackStep);
-            DropPallet(pallet, targetW, tier, palletWorldScale);
+            // Rotate pallet 90 degrees additionally so product sits correctly
+            Quaternion laneRotation = Quaternion.LookRotation(Flat(downLane));
+            Quaternion rotatedPlacement = laneRotation * Quaternion.Euler(0f, 90f, 0f);
+            DropPallet(pallet, targetW, tier, palletWorldScale, rotatedPlacement);
             // 12. Reverse straight back OUT of the lane to the entry pivot (never across the lanes) —
             //     cab-first, forks trailing, no spin.
             yield return DriveTailFirst(ds, entryPivot);
 
-            // 13. File the receiving record + Putaway task for this pallet.
-            RegisterAndQueue(inv, queue, truck, cell);
+            // 13. File the inventory master record + Receive task for this pallet. It stays ghosted
+            //     (see TruckController.LoadShipment) until a Receiver processes it — Putaway is
+            //     created afterward, by ReceiverReceivingWorkflow, not here.
+            RegisterAndQueue(inv, truck, cell, pallet);
         }
 
         // ── Movement primitives (scripted transform choreography) ────────────────────────────────
@@ -360,20 +365,111 @@ namespace GameCore.Labor
             Vector3 lp = forks.localPosition; lp.y = y; forks.localPosition = lp;
         }
 
-        private void DropPallet(Transform pallet, Vector3 laneWorld, int tier, Vector3 worldScale)
+        private void DropPallet(Transform pallet, Vector3 laneWorld, int tier, Vector3 worldScale, Quaternion rotation)
         {
             pallet.SetParent(null, worldPositionStays: true);
-            // Drop onto the dock foundation surface (LaneSurfaceY), NOT the grid-plane Y that
-            // GetCellCenter reports — otherwise the pallet sinks into the mesh. Stack upward per tier.
-            pallet.position = new Vector3(laneWorld.x, LaneSurfaceY + tier * LaneStackStep, laneWorld.z);
-            pallet.rotation = Quaternion.identity;
+
+            // Calculate target Y: For tier 0, sit on the dock surface. For tier > 0, find the
+            // actual height of the pallet already in this cell and stack on top of it.
+            Vector2Int cell = _grid.WorldToCell(laneWorld);
+            float targetY = LaneSurfaceY;
+
+            if (tier > 0 && ServiceLocator.TryGet<InventoryService>(out var inv) && inv != null)
+            {
+                // Find the highest pallet already registered in this cell
+                var palletsInCell = inv.GetPalletsAtLocation(cell);
+                float maxHeightInCell = 0f;
+
+                foreach (var palletData in palletsInCell)
+                {
+                    // Find the pallet's GameObject to measure its actual height
+                    var link = PalletMasterLink.Find(palletData.PalletId);
+                    var palletGO = link?.gameObject;
+                    if (palletGO != null)
+                    {
+                        // Measure actual height from mesh bounds
+                        Bounds? meshBounds = null;
+                        var renderers = palletGO.GetComponentsInChildren<MeshRenderer>();
+                        if (renderers.Length > 0)
+                        {
+                            meshBounds = renderers[0].bounds;
+                            foreach (var r in renderers)
+                                if (r.bounds.max.y > meshBounds.Value.max.y)
+                                    meshBounds = r.bounds;
+                        }
+
+                        float palletTop = meshBounds?.max.y ??
+                                         CalculatePalletHeightFromChildren(palletGO);
+
+                        if (palletTop > maxHeightInCell)
+                            maxHeightInCell = palletTop;
+                    }
+                }
+
+                // Stack on top of the highest pallet found
+                targetY = maxHeightInCell > 0f ? maxHeightInCell + 0.01f : LaneSurfaceY;
+            }
+
+            pallet.position = new Vector3(laneWorld.x, targetY, laneWorld.z);
             pallet.localScale = worldScale; // parent is null now, so local == world scale
+
+            // NOTE: Cases are already rotated 90 degrees in TruckController when built in the trailer,
+            // so we don't need to rotate them again here. They arrive at the staging lane correctly oriented.
+            // (Previously we rotated here, but that caused jank — the trailer rotation fix handles it now.)
+
+            // Fix case Y positioning: PalletBuilder positioned cases with gaps during build.
+            // Now that the pallet is at its final position, move cases to sit directly on the pallet
+            // surface (local Y = 0.16m, the pallet deck height).
+            var palletLoad = pallet.Find("PalletLoad");
+            if (palletLoad != null)
+            {
+                const float palletDeckHeight = 0.16f;
+
+                // Collect all case positions and find the minimum Y to determine layer offset
+                float minCaseY = float.MaxValue;
+                var cases = new List<Transform>();
+                for (int i = 0; i < palletLoad.childCount; i++)
+                {
+                    var child = palletLoad.GetChild(i);
+                    cases.Add(child);
+                    if (child.localPosition.y < minCaseY)
+                        minCaseY = child.localPosition.y;
+                }
+
+                // If cases exist, adjust them so the lowest layer sits on the pallet deck
+                if (cases.Count > 0 && minCaseY != float.MaxValue)
+                {
+                    float yOffset = minCaseY - palletDeckHeight;
+                    foreach (var caseTransform in cases)
+                    {
+                        var pos = caseTransform.localPosition;
+                        pos.y -= yOffset;  // Shift all cases down so minimum Y = pallet deck height
+                        caseTransform.localPosition = pos;
+                    }
+                }
+            }
 
             // Now that the pallet is staged (unparented from the forks) it's a static obstacle other
             // agents should path around — turn its NavMesh Obstacle back on. (Left off while carried so
             // it didn't carve the navmesh as it rode along on the forks.)
             var obstacle = pallet.GetComponentInChildren<NavMeshObstacle>(true);
             if (obstacle != null) obstacle.enabled = true;
+        }
+
+        /// <summary>
+        /// Calculate pallet's actual height by measuring all child renderers' world-space bounds.
+        /// Returns the maximum Y coordinate (top of the tallest child).
+        /// </summary>
+        private static float CalculatePalletHeightFromChildren(GameObject pallet)
+        {
+            float maxY = 0f;
+            var renderers = pallet.GetComponentsInChildren<MeshRenderer>();
+            foreach (var r in renderers)
+            {
+                if (r.bounds.max.y > maxY)
+                    maxY = r.bounds.max.y;
+            }
+            return maxY > 0f ? maxY : 0f;
         }
 
         // ── Lane targeting + inventory/task creation ─────────────────────────────────────────────
@@ -429,18 +525,19 @@ namespace GameCore.Labor
             downLane = slots.Count > 1 ? Flat(exitW - entryW) : Flat(entryW - doorPos);
         }
 
-        private void RegisterAndQueue(InventoryService inv, WorkQueueSystem queue, TruckController truck, Vector2Int cell)
+        private void RegisterAndQueue(InventoryService inv, TruckController truck, Vector2Int cell, Transform pallet)
         {
             string sku = (truck.AssignedShipment != null && truck.AssignedShipment.LineItems.Count > 0)
                 ? truck.AssignedShipment.LineItems[0].SkuId
                 : "PHYS";
 
             var data = inv.RegisterPhysicalPallet(cell, sku, 1); // dummy SKU = 1 case/pallet
-            data.LoadId = LoadIDGenerator.Generate();
 
-            string address = LaneNamingService.AddressAt(cell) ?? cell.ToString();
-            queue.CreateTask(WorkTaskType.Putaway, EmployeeRole.ReachTruckOperator, data.PalletId,
-                $"Putaway pallet [{data.LoadId}] staged at {address}");
+            // LoadId is a "license plate" assigned AT RECEIVING (ReceiverReceivingWorkflow), not here —
+            // this pallet is still ghosted/unreceived the moment it lands in the lane.
+            PalletMasterLink.Attach(pallet.gameObject, data.PalletId);
+
+            ReceivingService.CreateReceiveTaskForPallet(data);
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────────────────────

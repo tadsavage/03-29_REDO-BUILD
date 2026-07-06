@@ -23,10 +23,9 @@ public class PalletBuilder : MonoBehaviour
     [SerializeField] private float optimizerTargetHeightMeters;
 
     [Header("Pallet Config")]
-    // Real 40"x48" GMA pallet (1.016m x 1.2192m) with a 0.16m deck height — matches
-    // PalletOptimizer's own constants and SkuData.PltHeight's "+0.16f" term, so the Ti/Hi the
-    // optimizer computes and what actually renders here agree to the millimeter.
-    public Vector3 palletDimensions = new Vector3(1.016f, 0.16f, 1.2192f); // W, H, L
+    // Real 40"x48" GMA pallet with a 0.16m deck height — world X axis = 48" (long), world Z axis = 40" (short).
+    // X = 1.2192m (48"), H = 0.16m, Z = 1.016m (40"). Matches PalletOptimizer and SkuData.PltHeight.
+    public Vector3 palletDimensions = new Vector3(1.2192f, 0.16f, 1.016f); // W(48"), H, L(40")
 
     [Header("Spacing Settings")]
     [Tooltip("Minimum horizontal distance between cases.")]
@@ -320,12 +319,15 @@ public class PalletBuilder : MonoBehaviour
 
         for (int h = 0; h < layers; h++)
         {
-            // Position the case so its CENTER is at the calculated Y. Case prefabs have their
-            // origin at their mesh center, not at the bottom, so we offset by half the height
-            // to place the bottom of the case at the correct stacking height.
-            // CRITICAL FIX (2026-07-05): Add verticalGap above the pallet before the first case
-            // so ground-level cases sit ON TOP of the pallet with a small gap, not sinking into it.
-            float yPos = palletDim.y + verticalGap + (caseDim.y / 2f) + (h * (caseDim.y + verticalGap));
+            // Position the case so its CENTER is at the calculated Y. Case prefabs may have their
+            // mesh origin offset from the prefab center (some authored with center-origin, some with
+            // bottom-origin, some with top-origin). GetMeshYOffset() detects this and returns the
+            // Y-offset to add so the mesh ends up at the right height.
+            // CRITICAL FIX (2026-07-05): First layer sits directly on pallet deck with NO gap.
+            // Higher layers are spaced by verticalGap. This ensures cases sit flush on the pallet
+            // in the trailer, preventing jarring snaps when dropped into staging lanes.
+            float meshYOffset = usePrefabBounds ? GetMeshYOffset(casePrefab) : 0f;
+            float yPos = palletDim.y + (caseDim.y / 2f) + meshYOffset + (h * (caseDim.y + verticalGap));
             
             int count = 0;
             foreach (var placement in _bestLayerPattern)
@@ -493,5 +495,17 @@ public class PalletBuilder : MonoBehaviour
         float xz_min = Mathf.Min(rawSize.x, rawSize.z);
         float xz_max = Mathf.Max(rawSize.x, rawSize.z);
         return new Vector3(xz_min, rawSize.y, xz_max);  // (width, height, length)
+    }
+
+    /// <summary>Returns the Y-offset of the case prefab's mesh center from its prefab origin.
+    /// Used to correct cases where the mesh is authored with bottom-origin (offset > 0, mesh sits
+    /// above origin → would clip into pallet) or top-origin (offset < 0, mesh sits below origin
+    /// → would float above correct height). Most cases have center-origin (offset ≈ 0).</summary>
+    public static float GetMeshYOffset(GameObject prefab)
+    {
+        MeshFilter mf = prefab.GetComponentInChildren<MeshFilter>();
+        if (mf != null && mf.sharedMesh != null)
+            return mf.sharedMesh.bounds.center.y;
+        return 0f;
     }
 }

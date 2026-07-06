@@ -105,7 +105,7 @@ public class NoWaypointIndicator : MonoBehaviour
         // An operator walking toward MHE equipment to board it has a real destination — just
         // not one that came from the Worker waypoint patrol — so it must not count as "nowhere
         // to go" and trigger the wave/stuck alert for the entire approach.
-        bool noWaypoints = !_aiNav.HasEnoughWaypoints && !_aiNav.IsSeekingEquipment;
+        bool noWaypoints = !_aiNav.HasEnoughWaypoints && !_aiNav.IsSeekingEquipment && !_aiNav.IsSeekingTask;
 
         // ── Stuck detection ───────────────────────────────────────────────────
         // Only run when the agent HAS enough waypoints — an agent with 0–1 waypoints

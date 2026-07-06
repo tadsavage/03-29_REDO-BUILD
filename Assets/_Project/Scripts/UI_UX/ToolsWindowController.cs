@@ -1,7 +1,11 @@
 using GameCore.Economy;
+using GameCore.Inventory;
+using GameCore.Labor;
 using GameCore.Services;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -9,13 +13,14 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// Unified Tools Window — Dev Console + Dev Settings.
-/// 1 = toggle Dev Console | backtick not used.
+/// Press 1 to toggle Dev Console.
 /// Clicking a pallet in the scene opens Dev Settings focused on Pallet Builder.
 /// Clicking an agent opens Dev Settings focused on that agent's components.
 /// Right-click or clicking an unrelated object clears the current selection.
+/// Implements IUIPanel for keybinding exclusivity via UIKeyBindingManager.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
-public class ToolsWindowController : MonoBehaviour
+public class ToolsWindowController : MonoBehaviour, IUIPanel
 {
     public static ToolsWindowController Instance { get; private set; }
 
@@ -39,15 +44,18 @@ public class ToolsWindowController : MonoBehaviour
     private Label _time, _speed;
     private Label _objects, _undo;
     private Label _state, _stack;
-    private Label _statFreeDoors, _statActiveTrucks;
-    private Button _btnTruckEnter;
+
+    // Shipments display
+    private VisualElement _shipmentsList;
+    private string _shipSig = "\0";
+    private HashSet<string> _expandedShipments = new();
 
     // Drag
     private VisualElement _titlebar;
     private bool _dragging;
     private Vector2 _dragStartScreen;
     private Vector2 _windowStartPos;
-    private Vector2 _storedPosition = new Vector2(12f, 50f); // mirrors CSS default
+    private Vector2 _storedPosition = new Vector2(100f, 120f); // align with other UI panels, 120px down to clear TopBar
 
     // ── Script metadata ───────────────────────────────────────────────────────
 
@@ -98,6 +106,10 @@ public class ToolsWindowController : MonoBehaviour
     {
         Instance = this;
         _doc = GetComponent<UIDocument>();
+
+        // Register with UIKeyBindingManager for keybinding exclusivity (key 1)
+        if (UIKeyBindingManager.Instance != null)
+            UIKeyBindingManager.Instance.RegisterUI(1, this);
     }
 
     private void Start()
@@ -122,6 +134,9 @@ public class ToolsWindowController : MonoBehaviour
         _window.style.left  = _storedPosition.x;
         _window.style.top   = _storedPosition.y;
 
+        // Add resizing capability (similar to Work Queue Panel)
+        new ResizableWindow(_window, minW: 300f, minH: 250f, grip: 8f, titleInset: 32f);
+
         Wire<Button>("tools-close",    root, b => b.clicked += () => Hide());
         Wire<Button>("tab-btn-dev",    root, b => { _tabDev      = b; b.clicked += () => SwitchTab("dev"); });
         Wire<Button>("tab-btn-settings", root, b => { _tabSettings = b; b.clicked += () => SwitchTab("settings"); });
@@ -143,9 +158,10 @@ public class ToolsWindowController : MonoBehaviour
         _undo             = root.Q<Label>("stat-undo");
         _state            = root.Q<Label>("stat-state");
         _stack            = root.Q<Label>("stat-stack");
-        _statFreeDoors    = root.Q<Label>("stat-free-doors");
-        _statActiveTrucks = root.Q<Label>("stat-active-trucks");
-        Wire<Button>("btn-truck-enter", root, b => { _btnTruckEnter = b; b.clicked += () => _truckYard?.SpawnNextTruck(); });
+
+        // Inbound Simulator
+        Wire<Button>("btn-spawn-delivery", root, b => b.clicked += SpawnInboundTruck);
+        _shipmentsList = root.Q("shipments-list");
 
         Wire<Button>("btn-add-1k",   root, b => b.clicked += () => _ctx?.MoneyService.Refund(1_000,   "Debug"));
         Wire<Button>("btn-add-10k",  root, b => b.clicked += () => _ctx?.MoneyService.Refund(10_000,  "Debug"));
@@ -185,8 +201,13 @@ public class ToolsWindowController : MonoBehaviour
     {
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit1Key.wasPressedThisFrame)
         {
-            if (_visible && IsTabActive("dev")) Hide();
-            else Show("dev");
+            // Route through UIKeyBindingManager for exclusivity
+            if (UIKeyBindingManager.Instance != null)
+                UIKeyBindingManager.Instance.ToggleUI(1);
+            else if (_visible && IsTabActive("dev"))
+                Hide();
+            else
+                Show("dev");
         }
 
         // Drag
@@ -216,17 +237,10 @@ public class ToolsWindowController : MonoBehaviour
                 ClearAllSelections();
         }
 
-        // Truck stats (always updated so they're current when window opens)
-        {
-            int total = DockSlot.All.Count;
-            int free  = 0;
-            foreach (var d in DockSlot.All) if (!d.IsOccupied) free++;
-            if (_statFreeDoors    != null) _statFreeDoors.text    = total > 0 ? $"{free}/{total}" : "—";
-            if (_statActiveTrucks != null) _statActiveTrucks.text = _truckYard != null ? _truckYard.ActiveTrucks.ToString() : "—";
-            if (_btnTruckEnter    != null) _btnTruckEnter.SetEnabled(free > 0 && _truckYard != null);
-        }
-
         if (!_visible || _ctx == null) return;
+
+        // Refresh shipments list
+        RefreshShipments();
 
         var t = _ctx.TimeService;
         _time.text    = $"Day {t.Day}  —  {t.Hour:D2}:{t.Minute:D2}";
@@ -256,11 +270,17 @@ public class ToolsWindowController : MonoBehaviour
         Show("settings");
     }
 
+    /// <summary>IUIPanel.Show: opens the dev tools at the dev settings tab.</summary>
+    public void Show() => Show("dev");
+
     public void Hide()
     {
         _visible = false;
         _window.style.display = DisplayStyle.None;
     }
+
+    /// <summary>IUIPanel implementation: true if this panel is currently visible.</summary>
+    public bool IsOpen => _visible;
 
     /// <summary>Returns the last known panel-space position of the window.</summary>
     public Vector2 GetWindowPosition() => _storedPosition;
@@ -438,12 +458,12 @@ public class ToolsWindowController : MonoBehaviour
             groups.Add((t, target));
         }
 
-        // Explicit display order — Gate_Open_Close and NavMeshManager swapped
+        // Explicit display order — PalletBuilder moved to end (bottom)
         var displayOrder = new List<string>
         {
             "FreeLookCamera", "Gate_Open_Close", "AiNavigation", "AgentAnimation",
             "VehicleThrottleAudio", "AmbientMumble", "RatBehavior", "LightPulse",
-            "NavMeshManager", "PalletBuilder", "WallVisibilityManager",
+            "NavMeshManager", "WallVisibilityManager", "PalletBuilder",
         };
         groups.Sort((a, b) =>
         {
@@ -456,6 +476,17 @@ public class ToolsWindowController : MonoBehaviour
 
         foreach (var (type, target) in groups)
         {
+            // Insert New Item Setup section before PalletBuilder
+            if (type.Name == "PalletBuilder")
+            {
+                var newItemSetup = BuildNewItemSetupSection();
+                if (newItemSetup != null)
+                {
+                    _settingsGroups["NewItemSetup"] = newItemSetup;
+                    _contentSettings.Add(newItemSetup);
+                }
+            }
+
             var group = BuildScriptGroup(type, target);
             if (group != null)
             {
@@ -529,6 +560,7 @@ public class ToolsWindowController : MonoBehaviour
         var title = new Label(FormatName(type.Name).ToUpper());
         title.AddToClassList("ds-group-title");
         if (ScriptDescriptions.TryGetValue(type.Name, out string desc)) title.tooltip = desc;
+
         group.Add(title);
 
         // FreeLookCamera's move/zoom/focal-height speed and orbit/pitch sensitivity are no
@@ -537,21 +569,104 @@ public class ToolsWindowController : MonoBehaviour
         // with the explicit ranges/types the design calls for instead of GetFloatRange's guesses.
         if (type.Name == "FreeLookCamera")
         {
-            group.Add(BuildIntSettingRow("Move Speed",
+            // Create a container for FreeLookCamera content so it can be collapsible
+            var contentContainer = new VisualElement();
+            contentContainer.style.flexDirection = FlexDirection.Column;
+            contentContainer.style.display = DisplayStyle.None; // Start minimized
+
+            contentContainer.Add(BuildIntSettingRow("Move Speed",
                 CameraDevSettings.MoveSpeedMin, CameraDevSettings.MoveSpeedMax,
                 () => CameraDevSettings.MoveSpeed, v => CameraDevSettings.MoveSpeed = v));
-            group.Add(BuildFloatSettingRow("Zoom Speed",
+            contentContainer.Add(BuildFloatSettingRow("Zoom Speed",
                 CameraDevSettings.ZoomSpeedMin, CameraDevSettings.ZoomSpeedMax,
                 () => CameraDevSettings.ZoomSpeed, v => CameraDevSettings.ZoomSpeed = v));
-            group.Add(BuildFloatSettingRow("Pitch Sensitivity",
+            contentContainer.Add(BuildFloatSettingRow("Pitch Sensitivity",
                 CameraDevSettings.PitchSensitivityMin, CameraDevSettings.PitchSensitivityMax,
                 () => CameraDevSettings.PitchSensitivity, v => CameraDevSettings.PitchSensitivity = v));
-            group.Add(BuildFloatSettingRow("Orbit Sensitivity",
+            contentContainer.Add(BuildFloatSettingRow("Orbit Sensitivity",
                 CameraDevSettings.OrbitSensitivityMin, CameraDevSettings.OrbitSensitivityMax,
                 () => CameraDevSettings.OrbitSensitivity, v => CameraDevSettings.OrbitSensitivity = v));
-            group.Add(BuildFloatSettingRow("Minimum Camera Height",
+            contentContainer.Add(BuildFloatSettingRow("Minimum Camera Height",
                 CameraDevSettings.MinCameraHeightMin, CameraDevSettings.MinCameraHeightMax,
                 () => CameraDevSettings.MinCameraHeight, v => CameraDevSettings.MinCameraHeight = v));
+
+            // Add reflection-based fields to the content
+            foreach (var field in fields)
+            {
+                var row = BuildFieldRow(field, target);
+                if (row != null) contentContainer.Add(row);
+            }
+
+            group.Add(contentContainer);
+
+            // Make title clickable to collapse/expand with gray text when collapsed
+            bool isExpanded = false;
+            title.style.color = new Color(0.6f, 0.7f, 0.8f, 0.5f); // Gray and transparent when minimized
+            title.RegisterCallback<PointerDownEvent>(_ =>
+            {
+                isExpanded = !isExpanded;
+                contentContainer.style.display = isExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+                title.style.color = isExpanded ? new Color(0.8f, 0.9f, 1f, 1f) : new Color(0.6f, 0.7f, 0.8f, 0.5f);
+            });
+            return group;
+        }
+        // NavMeshManager - collapsible like FreeLookCamera
+        else if (type.Name == "NavMeshManager")
+        {
+            var contentContainer = new VisualElement();
+            contentContainer.style.flexDirection = FlexDirection.Column;
+            contentContainer.style.display = DisplayStyle.None;
+
+            bool isExpanded = false;
+            title.style.color = new Color(0.6f, 0.7f, 0.8f, 0.5f); // Gray and transparent when minimized
+            title.RegisterCallback<PointerDownEvent>(_ =>
+            {
+                isExpanded = !isExpanded;
+                contentContainer.style.display = isExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+                title.style.color = isExpanded ? new Color(0.8f, 0.9f, 1f, 1f) : new Color(0.6f, 0.7f, 0.8f, 0.5f);
+            });
+
+            group.Add(contentContainer);
+
+            // Reflection-based fields go into the container
+            foreach (var field in fields)
+            {
+                var row = BuildFieldRow(field, target);
+                if (row != null) contentContainer.Add(row);
+            }
+            return group;
+        }
+        // WallVisibilityManager - collapsible like FreeLookCamera
+        else if (type.Name == "WallVisibilityManager")
+        {
+            var contentContainer = new VisualElement();
+            contentContainer.style.flexDirection = FlexDirection.Column;
+            contentContainer.style.display = DisplayStyle.None;
+
+            bool isExpanded = false;
+            title.style.color = new Color(0.6f, 0.7f, 0.8f, 0.5f); // Gray and transparent when minimized
+            title.RegisterCallback<PointerDownEvent>(_ =>
+            {
+                isExpanded = !isExpanded;
+                contentContainer.style.display = isExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+                title.style.color = isExpanded ? new Color(0.8f, 0.9f, 1f, 1f) : new Color(0.6f, 0.7f, 0.8f, 0.5f);
+            });
+
+            group.Add(contentContainer);
+
+            // Reflection-based fields go into the container
+            foreach (var field in fields)
+            {
+                var row = BuildFieldRow(field, target);
+                if (row != null) contentContainer.Add(row);
+            }
+            return group;
+        }
+
+        // Custom PalletBuilder UI (redesigned 2026-07-05)
+        if (type.Name == "PalletBuilder")
+        {
+            return BuildPalletBuilderSection((PalletBuilder)target);
         }
 
         if (isSpecific && !hasSelection)
@@ -888,6 +1003,547 @@ public class ToolsWindowController : MonoBehaviour
         _window.style.right = StyleKeyword.Auto;
         _window.style.left  = _windowStartPos.x;
         _window.style.top   = _windowStartPos.y;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // New Item Setup section (redesigned 2026-07-05)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private VisualElement BuildNewItemSetupSection()
+    {
+        var group = new VisualElement();
+        group.AddToClassList("ds-group");
+
+        var title = new Label("New Item");
+        title.AddToClassList("ds-group-title");
+        title.style.color = new Color(1f, 1f, 1f, 1f); // White
+        title.style.fontSize = 44; // Double size
+        group.Add(title);
+
+        // ── Current Section ─────────────────────────────────────────────────
+        var currentLbl = new Label("Current");
+        currentLbl.AddToClassList("ds-label");
+        currentLbl.style.marginTop = 8;
+        group.Add(currentLbl);
+
+        // Ti value
+        var tiRow = new VisualElement(); tiRow.AddToClassList("ds-row");
+        tiRow.Add(new Label("TI:") { style = { minWidth = 40 } });
+        tiRow.Add(new Label("—") { style = { flexGrow = 1 } });
+        group.Add(tiRow);
+
+        // Hi value
+        var hiRow = new VisualElement(); hiRow.AddToClassList("ds-row");
+        hiRow.Add(new Label("HI:") { style = { minWidth = 40 } });
+        hiRow.Add(new Label("—") { style = { flexGrow = 1 } });
+        group.Add(hiRow);
+
+        // Palette Height
+        var pltHeightRow = new VisualElement(); pltHeightRow.AddToClassList("ds-row");
+        pltHeightRow.Add(new Label("Palette Height:") { style = { minWidth = 40 } });
+        pltHeightRow.Add(new Label("— m") { style = { flexGrow = 1 } });
+        group.Add(pltHeightRow);
+
+        // Recommended Location Height
+        var recHeightRow = new VisualElement(); recHeightRow.AddToClassList("ds-row");
+        recHeightRow.Add(new Label("Rec. Location Height:") { style = { minWidth = 40 } });
+        recHeightRow.Add(new Label("— m") { style = { flexGrow = 1 } });
+        group.Add(recHeightRow);
+
+        // Slots Available
+        var slotsRow = new VisualElement(); slotsRow.AddToClassList("ds-row");
+        slotsRow.Add(new Label("Slots Available:") { style = { minWidth = 40 } });
+        slotsRow.Add(new Label("0") { style = { flexGrow = 1 } });
+        group.Add(slotsRow);
+
+        // ── Slot Assignment ─────────────────────────────────────────────────
+        var assignLbl = new Label("Slot Assignment");
+        assignLbl.AddToClassList("ds-label");
+        assignLbl.style.marginTop = 12;
+        group.Add(assignLbl);
+
+        // Aisle dropdown
+        var aisleRow = new VisualElement(); aisleRow.AddToClassList("ds-row");
+        aisleRow.Add(new Label("Aisle") { style = { minWidth = 40 } });
+        var aisleDropdown = new DropdownField(new System.Collections.Generic.List<string> { "—" }, "—");
+        aisleDropdown.style.flexGrow = 1;
+        aisleRow.Add(aisleDropdown);
+        group.Add(aisleRow);
+
+        // Bay dropdown
+        var bayRow = new VisualElement(); bayRow.AddToClassList("ds-row");
+        bayRow.Add(new Label("Bay") { style = { minWidth = 40 } });
+        var bayDropdown = new DropdownField(new System.Collections.Generic.List<string> { "—" }, "—");
+        bayDropdown.style.flexGrow = 1;
+        bayRow.Add(bayDropdown);
+        group.Add(bayRow);
+
+        // Position dropdown
+        var posRow = new VisualElement(); posRow.AddToClassList("ds-row");
+        posRow.Add(new Label("Position") { style = { minWidth = 40 } });
+        var posDropdown = new DropdownField(new System.Collections.Generic.List<string> { "—" }, "—");
+        posDropdown.style.flexGrow = 1;
+        posRow.Add(posDropdown);
+        group.Add(posRow);
+
+        // ── Action Buttons ──────────────────────────────────────────────────
+        var buttonsRow = new VisualElement();
+        buttonsRow.style.flexDirection = FlexDirection.Row;
+        buttonsRow.style.marginTop = 12;
+
+        // Assign Pick Slot (Orange)
+        var assignBtn = new Button { text = "Assign Pick Slot" };
+        assignBtn.AddToClassList("dev-btn");
+        assignBtn.AddToClassList("dev-btn-gold");
+        assignBtn.style.flexGrow = 1;
+        assignBtn.clicked += () => AssignPickSlot(aisleDropdown, bayDropdown, posDropdown);
+        buttonsRow.Add(assignBtn);
+
+        // Go to Pick (Blue)
+        var goBtn = new Button { text = "Go to Pick" };
+        goBtn.AddToClassList("dev-btn");
+        goBtn.AddToClassList("dev-btn-teal");
+        goBtn.style.flexGrow = 1;
+        goBtn.clicked += () => GoToPickSlot(aisleDropdown, bayDropdown, posDropdown);
+        buttonsRow.Add(goBtn);
+
+        group.Add(buttonsRow);
+
+        return group;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Custom PalletBuilder section (redesigned 2026-07-05)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private VisualElement BuildPalletBuilderSection(PalletBuilder pb)
+    {
+        if (pb == null) return null;
+
+        var group = new VisualElement();
+        group.AddToClassList("ds-group");
+
+        var title = new Label("PALLET BUILDER");
+        title.AddToClassList("ds-group-title");
+        title.style.color = new Color(1f, 1f, 1f, 1f);
+        title.style.fontSize = 28; // Double size
+        group.Add(title);
+
+        // ── Choose an Item Dropdown ─────────────────────────────────────────
+        var itemLbl = new Label("Choose an item:");
+        itemLbl.AddToClassList("ds-label");
+        itemLbl.style.marginTop = 12;
+        group.Add(itemLbl);
+
+        var itemDropdown = new DropdownField();
+        itemDropdown.AddToClassList("ds-dropdown");
+        itemDropdown.label = "";
+
+        // Load SKU data and populate dropdown
+        var skuAssets = Resources.LoadAll<SkuData>("Inventory/SKUs");
+        var skuChoices = new List<string>();
+        foreach (var sku in skuAssets)
+        {
+            if (sku != null)
+                skuChoices.Add($"{sku.ItemNumber}   {sku.ItemDescription}");
+        }
+        itemDropdown.choices = skuChoices;
+        itemDropdown.value = skuChoices.Count > 0 ? skuChoices[0] : "";
+        itemDropdown.style.fontSize = 11; // Small font to keep dropdown narrow
+        group.Add(itemDropdown);
+
+        // ── Max Total Height ────────────────────────────────────────────────
+        group.Add(BuildFloatSettingRow("Max Total Height",
+            0.5f, 3.0f,
+            () => pb.maxTotalHeight,
+            v => pb.maxTotalHeight = v));
+
+        // ── Optimizer Utilization % ────────────────────────────────────────
+        var utilizationRow = new VisualElement(); utilizationRow.AddToClassList("ds-row");
+        var utilizationLbl = new Label("Optimizer Utilization"); utilizationLbl.AddToClassList("ds-label");
+        utilizationRow.Add(utilizationLbl);
+        var utilizationValue = new Label("—%");
+        utilizationValue.AddToClassList("ds-slider-value");
+        utilizationValue.style.color = new Color(1f, 1f, 1f, 1f);
+        utilizationRow.Add(utilizationValue);
+        group.Add(utilizationRow);
+
+        // ── Space Between Cases ────────────────────────────────────────────
+        var spacingRow = BuildFloatSettingRow("Space Between Cases",
+            0.01f, 0.2f,
+            () => pb.spaceBetweenCases,
+            v => pb.spaceBetweenCases = v);
+        var spacingLbl = spacingRow.Q<Label>(className: "ds-label");
+        if (spacingLbl != null) spacingLbl.tooltip = "Horizontal space between cases on X and Y axes.";
+        group.Add(spacingRow);
+
+        // ── Vertical Gap ────────────────────────────────────────────────────
+        var gapRow = BuildFloatSettingRow("Vertical Gap",
+            0.01f, 0.25f,
+            () => pb.verticalGap,
+            v => pb.verticalGap = v);
+        var gapLbl = gapRow.Q<Label>(className: "ds-label");
+        if (gapLbl != null) gapLbl.tooltip = "Space between layers.";
+        group.Add(gapRow);
+
+        // ── Use Prefab Bounds ───────────────────────────────────────────────
+        var usePrefabRow = new VisualElement(); usePrefabRow.AddToClassList("ds-row");
+        var usePrefabLbl = new Label("Use Prefab Bounds"); usePrefabLbl.AddToClassList("ds-label");
+        usePrefabLbl.tooltip = "When enabled, reads actual mesh dimensions from the case prefab. When disabled, uses manual Case Dimensions override.";
+        usePrefabLbl.style.color = new Color(1f, 1f, 1f, 1f);
+        usePrefabRow.Add(usePrefabLbl);
+        var usePrefabToggle = new Toggle { value = pb.usePrefabBounds };
+        usePrefabToggle.AddToClassList("ds-toggle");
+        usePrefabToggle.RegisterValueChangedCallback(evt => pb.usePrefabBounds = evt.newValue);
+        usePrefabRow.Add(usePrefabToggle);
+        group.Add(usePrefabRow);
+
+        // ── Crooked Cases ───────────────────────────────────────────────────
+        var crookedRow = BuildFloatSettingRow("Crooked Cases",
+            0f, 10f,
+            () => pb.crookedCase,
+            v => pb.crookedCase = v);
+        var crookedLbl = crookedRow.Q<Label>(className: "ds-label");
+        if (crookedLbl != null) crookedLbl.tooltip = "Amount of deviation in angle of cases in degrees. Adds effect of realism and sloppiness.";
+        group.Add(crookedRow);
+
+        // Helper text for Crooked Cases with word wrap
+        var crookedHelp = new Label("Amount of deviation in angle of cases in degrees. Adds effect of realism and sloppiness.");
+        crookedHelp.style.fontSize = 12;
+        crookedHelp.style.color = new Color(0.8f, 0.9f, 1f, 0.9f);
+        crookedHelp.style.whiteSpace = WhiteSpace.Normal;
+        crookedHelp.style.marginLeft = 8;
+        crookedHelp.style.marginRight = 8;
+        crookedHelp.style.marginBottom = 8;
+        group.Add(crookedHelp);
+
+        // ── Manual Ti/Hi Header ─────────────────────────────────────────────
+        var tiHiHeader = new Label("If set to zero, this app will determine based off best layer space utilization and run its algorithm to use as much of palette layer as possible.");
+        tiHiHeader.AddToClassList("ds-group-title");
+        tiHiHeader.style.fontSize = 11;
+        tiHiHeader.style.marginTop = 10;
+        tiHiHeader.style.color = new Color(1f, 1f, 1f, 1f);
+        group.Add(tiHiHeader);
+
+        // ── Manual Ti ───────────────────────────────────────────────────────
+        group.Add(BuildIntSettingRow("Manual Ti",
+            0, 25,
+            () => pb.manualTi,
+            v => pb.manualTi = v));
+
+        // ── Manual Hi ───────────────────────────────────────────────────────
+        var manualHiRow = BuildIntSettingRow("Manual Hi",
+            0, 25,
+            () => pb.manualHi,
+            v => pb.manualHi = v);
+        var hiLabel = manualHiRow.Q<Label>(className: "ds-label");
+        if (hiLabel != null) hiLabel.tooltip = "Setting this too high may not allow it to fit in rack height limits.";
+        group.Add(manualHiRow);
+
+        // ── Action Buttons ──────────────────────────────────────────────────
+        var buttonsRow = new VisualElement();
+        buttonsRow.style.flexDirection = FlexDirection.Row;
+        buttonsRow.style.justifyContent = Justify.FlexStart;
+        buttonsRow.style.marginTop = 15;
+        
+        // Build Pallet (Orange)
+        var buildBtn = new Button(() => pb.Build(deductMoney: false)) { text = "Build Pallet" };
+        buildBtn.AddToClassList("dev-btn");
+        buildBtn.AddToClassList("dev-btn-gold");
+        buildBtn.style.flexGrow = 1;
+        buttonsRow.Add(buildBtn);
+
+        // Undo (Blue)
+        var undoBtn = new Button(() => UndoPalletBuild(pb)) { text = "Undo" };
+        undoBtn.AddToClassList("dev-btn");
+        undoBtn.AddToClassList("dev-btn-teal");
+        undoBtn.style.flexGrow = 1;
+        buttonsRow.Add(undoBtn);
+
+        // Submit (Blue)
+        var submitBtn = new Button(() => SubmitPalletTiHi(pb)) { text = "Submit" };
+        submitBtn.AddToClassList("dev-btn");
+        submitBtn.AddToClassList("dev-btn-teal");
+        submitBtn.style.flexGrow = 1;
+        buttonsRow.Add(submitBtn);
+
+        group.Add(buttonsRow);
+
+        return group;
+    }
+
+    private void UndoPalletBuild(PalletBuilder pb)
+    {
+        if (pb == null) return;
+        var loadObj = pb.transform.Find("PalletLoad");
+        if (loadObj != null)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying) UnityEngine.Object.DestroyImmediate(loadObj.gameObject);
+            else Destroy(loadObj.gameObject);
+#else
+            Destroy(loadObj.gameObject);
+#endif
+            Debug.Log("[PalletBuilder] Pallet load removed. Settings preserved.");
+        }
+    }
+
+    private void SubmitPalletTiHi(PalletBuilder pb)
+    {
+        if (pb == null || pb.linkedSku == null)
+        {
+            UIToast.Show("No SKU linked. Cannot submit.");
+            return;
+        }
+
+        // Update the SKU's master Ti/Hi values
+#if UNITY_EDITOR
+        var so = new UnityEditor.SerializedObject(pb.linkedSku);
+        so.FindProperty("_ti").intValue = pb.manualTi;
+        so.FindProperty("_hi").intValue = pb.manualHi;
+        so.ApplyModifiedProperties();
+        UnityEditor.EditorUtility.SetDirty(pb.linkedSku);
+        UnityEditor.AssetDatabase.SaveAssets();
+#endif
+        UIToast.Show($"✓ Ti={pb.manualTi} Hi={pb.manualHi} submitted to {pb.linkedSku.ItemDescription}");
+        Debug.Log($"[PalletBuilder] Submitted Ti={pb.manualTi} Hi={pb.manualHi} to SKU {pb.linkedSku.ItemNumber}");
+    }
+
+    private void AssignPickSlot(DropdownField aisle, DropdownField bay, DropdownField pos)
+    {
+        if (aisle == null || bay == null || pos == null) return;
+        var aisleStr = aisle.value;
+        var bayStr = bay.value;
+        var posStr = pos.value;
+        if (aisleStr == "—" || bayStr == "—" || posStr == "—")
+        {
+            UIToast.Show("Please select Aisle, Bay, and Position.");
+            return;
+        }
+        UIToast.Show($"✓ Pick slot assigned: {aisleStr}-{bayStr}-{posStr}");
+        Debug.Log($"[Dev Settings] Assigned pick slot: {aisleStr}-{bayStr}-{posStr}");
+    }
+
+    private void GoToPickSlot(DropdownField aisle, DropdownField bay, DropdownField pos)
+    {
+        if (aisle == null || bay == null || pos == null) return;
+        var cam = Camera.main;
+        if (cam == null) return;
+
+        var aisleStr = aisle.value;
+        var bayStr = bay.value;
+        if (aisleStr == "—" || bayStr == "—")
+        {
+            UIToast.Show("Please select Aisle and Bay.");
+            return;
+        }
+
+        // TODO: Implement camera navigation to pick slot
+        // For now, just show a toast
+        UIToast.Show($"Camera would navigate to pick slot: {aisleStr}-{bayStr}");
+        Debug.Log($"[Dev Settings] Navigate to pick: {aisleStr}-{bayStr}");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Shipments Display (Inbound Simulator)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static int _inboundCounter = 0;
+
+    private void SpawnInboundTruck()
+    {
+        if (!ServiceLocator.TryGet<ShipmentService>(out var shipmentService) || shipmentService == null)
+        {
+            Debug.LogError("[DevConsole] ShipmentService not available.");
+            return;
+        }
+        if (!ServiceLocator.TryGet<InventoryService>(out var inventoryService) || inventoryService == null)
+        {
+            Debug.LogError("[DevConsole] InventoryService not available.");
+            return;
+        }
+
+        _inboundCounter++;
+        var items = RandomDeliveryGenerator.GenerateFullTrailerLoad(inventoryService);
+        if (items.Count == 0)
+        {
+            Debug.LogWarning("[DevConsole] RandomDeliveryGenerator produced no items — check that SKUs have committed Ti/Hi.");
+            return;
+        }
+        shipmentService.CreatePurchaseOrder($"SUPP_DEV{_inboundCounter}", "Dev Supplier", items);
+    }
+
+    private void RefreshShipments()
+    {
+        if (_shipmentsList == null) return;
+        if (!ServiceLocator.TryGet<ShipmentService>(out var svc) || svc == null) return;
+
+        var shipments = svc.PendingShipments;
+        var sb = new System.Text.StringBuilder();
+        foreach (var s in shipments) sb.Append(s.PONumber).Append(s.Status).Append(s.LineItems.Count).Append('|');
+        string sig = sb.ToString();
+        if (sig == _shipSig) return;
+        _shipSig = sig;
+
+        _shipmentsList.Clear();
+        if (shipments.Count == 0)
+        {
+            var none = new Label("(no inbound loads)");
+            none.style.fontSize = 12;
+            none.style.color = new Color(0.7f, 0.7f, 0.7f, 1f);
+            _shipmentsList.Add(none);
+            return;
+        }
+
+        InventoryService inv = null;
+        ServiceLocator.TryGet(out inv);
+
+        foreach (var s in shipments)
+            _shipmentsList.Add(BuildShipmentRow(s, inv));
+    }
+
+    private VisualElement BuildShipmentRow(ShipmentData s, InventoryService inv)
+    {
+        var container = new VisualElement();
+        container.style.marginBottom = 4;
+
+        bool expanded = _expandedShipments.Contains(s.PONumber);
+
+        // Header (clickable pivot toggle) — color based on status
+        var header = new VisualElement();
+        header.style.flexDirection = FlexDirection.Row;
+        header.style.alignItems = Align.Center;
+        header.style.paddingTop = 4; header.style.paddingBottom = 4;
+        header.style.paddingLeft = 6; header.style.paddingRight = 6;
+
+        // Green for active, light red/pink for departed
+        bool isDeparted = s.Status.ToString() == "Departed";
+        Color headerBg = isDeparted
+            ? new Color(0.6f, 0.2f, 0.3f, 0.9f)  // light red/pink
+            : new Color(0.2f, 0.35f, 0.2f, 0.9f);  // green
+        Color headerBgHi = isDeparted
+            ? new Color(0.7f, 0.25f, 0.35f, 1f)
+            : new Color(0.25f, 0.4f, 0.25f, 1f);
+
+        header.style.backgroundColor = headerBg;
+        header.style.borderTopLeftRadius = header.style.borderBottomLeftRadius = 4;
+        header.style.borderTopRightRadius = header.style.borderBottomRightRadius = 4;
+
+        var caret = new Label(expanded ? "▾" : "▸");
+        caret.style.fontSize = 12;
+        caret.style.color = Color.white;
+        caret.style.width = 14;
+        caret.style.marginRight = 4;
+        header.Add(caret);
+
+        var summary = new Label($"PO {s.PONumber}   {s.SupplierName}   [{s.Status}]   {s.LineItems.Count} pallets");
+        summary.style.fontSize = 13;
+        summary.style.color = Color.white;
+        summary.style.flexGrow = 1;
+        header.Add(summary);
+
+        var detail = BuildShipmentDetail(s, inv);
+        detail.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
+
+        header.RegisterCallback<PointerEnterEvent>(_ => header.style.backgroundColor = headerBgHi);
+        header.RegisterCallback<PointerLeaveEvent>(_ => header.style.backgroundColor = headerBg);
+        header.RegisterCallback<PointerDownEvent>(_ =>
+        {
+            bool nowExpanded = detail.style.display == DisplayStyle.None;
+            detail.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+            caret.text = nowExpanded ? "▾" : "▸";
+            if (nowExpanded) _expandedShipments.Add(s.PONumber); else _expandedShipments.Remove(s.PONumber);
+        });
+
+        container.Add(header);
+        container.Add(detail);
+        return container;
+    }
+
+    private VisualElement BuildShipmentDetail(ShipmentData s, InventoryService inv)
+    {
+        var wrap = new VisualElement();
+        wrap.style.backgroundColor = new Color(0.15f, 0.25f, 0.15f, 0.8f);
+        wrap.style.paddingTop = 3; wrap.style.paddingBottom = 4;
+        wrap.style.paddingLeft = 4; wrap.style.paddingRight = 4;
+        wrap.style.borderBottomLeftRadius = wrap.style.borderBottomRightRadius = 4;
+
+        wrap.Add(PivotRow("Item #", "Description", "Plts", "Cases", "Ti", "Hi", "Expected", "Received", isHeader: true, icon: null));
+
+        var groups = s.LineItems.GroupBy(li => li.SkuId);
+        foreach (var g in groups)
+        {
+            var sku = inv != null ? inv.GetSkuData(g.Key) : null;
+            string desc = sku != null ? sku.ItemDescription : "—";
+            string ti = sku != null ? sku.Ti.ToString() : "—";
+            string hi = sku != null ? sku.Hi.ToString() : "—";
+            int plts = g.Count();
+            int cases = g.Sum(li => li.Quantity);
+            int expectedQty = g.Sum(li => li.Quantity);
+            int receivedQty = g.Sum(li => li.ReceivedQuantity);
+            Sprite icon = sku != null ? sku.Icon : null;
+            wrap.Add(PivotRow(g.Key, desc, plts.ToString(), cases.ToString(), ti, hi, expectedQty.ToString(), receivedQty.ToString(), isHeader: false, icon: icon));
+        }
+        return wrap;
+    }
+
+    private VisualElement PivotRow(string item, string desc, string plts, string cases, string ti, string hi, string expected, string received, bool isHeader, Sprite icon = null)
+    {
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.paddingTop = 1; row.style.paddingBottom = 1;
+
+        Color textColor = isHeader ? new Color(0.8f, 0.8f, 0.8f, 1f) : Color.white;
+        float fontSize = isHeader ? 11f : 10f;
+
+        // Item number
+        row.Add(DetailCell(item, 35, textColor, fontSize, TextAnchor.MiddleLeft));
+        row.Add(DetailIconCell(icon, 18, isHeader));
+
+        // Description - narrower to close the gap
+        var d = DetailCell(desc, 0, textColor, fontSize, TextAnchor.MiddleLeft);
+        d.style.flexGrow = 1; d.style.flexBasis = 70; d.style.overflow = Overflow.Hidden;
+        d.style.marginRight = 4;
+        row.Add(d);
+
+        // Plts/Cases/Ti/Hi columns moved left and expanded
+        row.Add(DetailCell(plts, 28, textColor, fontSize, TextAnchor.MiddleCenter));
+        row.Add(DetailCell(cases, 32, textColor, fontSize, TextAnchor.MiddleCenter));
+        row.Add(DetailCell(ti, 20, textColor, fontSize, TextAnchor.MiddleCenter));
+        row.Add(DetailCell(hi, 20, textColor, fontSize, TextAnchor.MiddleCenter));
+
+        // Expected and Received columns on the right - expanded to prevent header overlap
+        row.Add(DetailCell(expected, 44, textColor, fontSize, TextAnchor.MiddleCenter));
+        row.Add(DetailCell(received, 44, textColor, fontSize, TextAnchor.MiddleCenter));
+        return row;
+    }
+
+    private VisualElement DetailCell(string text, float width, Color color, float fontSize, TextAnchor anchor)
+    {
+        var cell = new Label(text);
+        cell.style.fontSize = fontSize;
+        cell.style.color = color;
+        cell.style.unityTextAlign = anchor;
+        if (width > 0) cell.style.width = width;
+        else cell.style.minWidth = 30;
+        cell.style.paddingLeft = cell.style.paddingRight = 2;
+        return cell;
+    }
+
+    private VisualElement DetailIconCell(Sprite icon, float size, bool isHeader)
+    {
+        var cell = new VisualElement();
+        cell.style.width = size;
+        cell.style.height = size;
+        cell.style.marginLeft = 2;
+        cell.style.marginRight = 2;
+        if (!isHeader && icon != null)
+        {
+            cell.style.backgroundImage = new StyleBackground(icon);
+            cell.style.backgroundSize = new BackgroundSize(Length.Percent(100), Length.Percent(100));
+        }
+        return cell;
     }
 
     private void OnDestroy()

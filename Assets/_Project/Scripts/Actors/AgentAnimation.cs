@@ -58,6 +58,19 @@ public class AgentAnimation : MonoBehaviour
     private Quaternion _pendingRotation;
     private bool       _hasPendingRotation;
 
+    // Set by a task driver (e.g. ReceiverReceivingWorkflow) to smoothly turn the agent to face a
+    // fixed world point and hold that heading — overrides the normal velocity/path-based heading in
+    // UpdateHeading while set. Must be cleared when the task ends, or the agent stays locked facing
+    // the old point and never resumes normal walk-facing.
+    private Vector3? _faceOverridePoint;
+
+    /// <summary>Smoothly turns the agent to face a world point (e.g. the pallet during receiving)
+    /// and holds that heading until ClearFaceOverride() is called.</summary>
+    public void FaceTowards(Vector3 worldPoint) => _faceOverridePoint = worldPoint;
+
+    /// <summary>Releases a facing override set by FaceTowards, resuming normal movement-based heading.</summary>
+    public void ClearFaceOverride() => _faceOverridePoint = null;
+
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     void Start()
@@ -134,7 +147,8 @@ public class AgentAnimation : MonoBehaviour
                     && _agent.pathStatus == NavMeshPathStatus.PathComplete;
 
         bool traversing = _navigation != null && _navigation.IsTraversingLink;
-        if (arrived && !_isWaiting && _everHadPath && !traversing)
+        bool taskBusy   = _navigation != null && _navigation.IsTaskBusy;
+        if (arrived && !_isWaiting && _everHadPath && !traversing && !taskBusy)
             StartCoroutine(WaitAtWaypointRoutine());
 
         // ── Visual heading ─────────────────────────────────────────────────────
@@ -222,6 +236,18 @@ public class AgentAnimation : MonoBehaviour
 
     private void UpdateHeading(bool arrived)
     {
+        if (_faceOverridePoint.HasValue)
+        {
+            Vector3 faceDir = _faceOverridePoint.Value - transform.position;
+            faceDir.y = 0f;
+            if (faceDir.sqrMagnitude > 0.0001f)
+            {
+                _pendingRotation    = Quaternion.RotateTowards(_pendingRotation, Quaternion.LookRotation(faceDir.normalized), turnSpeed * Time.deltaTime);
+                _hasPendingRotation = true;
+            }
+            return;
+        }
+
         Vector3 vel = _agent.velocity;
         vel.y = 0f;
 

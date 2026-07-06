@@ -12,9 +12,10 @@ using UnityEngine.InputSystem;
 ///
 /// Open via EmployeeListPanelController.Instance?.Open() — or press the 4 key in play mode.
 /// Wire in UIBootstrapper via [SerializeField] or FindObjectOfType.
+/// Implements IUIPanel for keybinding exclusivity via UIKeyBindingManager.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
-public class EmployeeListPanelController : MonoBehaviour
+public class EmployeeListPanelController : MonoBehaviour, IUIPanel
 {
     // ─── Singleton ────────────────────────────────────────────────────────────
     public static EmployeeListPanelController Instance { get; private set; }
@@ -91,6 +92,10 @@ public class EmployeeListPanelController : MonoBehaviour
             return;
         }
         Instance = this;
+
+        // Register with UIKeyBindingManager for keybinding exclusivity (key 4)
+        if (UIKeyBindingManager.Instance != null)
+            UIKeyBindingManager.Instance.RegisterUI(4, this);
     }
 
     private void OnDisable()
@@ -102,7 +107,13 @@ public class EmployeeListPanelController : MonoBehaviour
     {
         if (!_enableHotkey || UIModalGuard.IsCapturing) return;
         if (Keyboard.current != null && Keyboard.current.digit4Key.wasPressedThisFrame)
-            Toggle();
+        {
+            // Route through UIKeyBindingManager for exclusivity
+            if (UIKeyBindingManager.Instance != null)
+                UIKeyBindingManager.Instance.ToggleUI(4);
+            else
+                Toggle();  // Fallback if manager not available
+        }
     }
 
     private void OnEnable()
@@ -219,6 +230,13 @@ public class EmployeeListPanelController : MonoBehaviour
             Open();
     }
 
+    /// <summary>IUIPanel implementation: true if this panel is currently visible.</summary>
+    public bool IsOpen => _overlay != null && _overlay.style.display == DisplayStyle.Flex;
+
+    // IUIPanel interface wrappers
+    void IUIPanel.Show() => Open();
+    void IUIPanel.Hide() => Close();
+
     // ─── Registry subscription (lazy/retry) ──────────────────────────────────
     private void TrySubscribeToRegistry()
     {
@@ -334,11 +352,15 @@ public class EmployeeListPanelController : MonoBehaviour
         if (nameLabel != null) nameLabel.text = record.employeeName;
         if (idLabel != null) idLabel.text = record.employeeId;
 
-        // Mini bars
+        // Mini bars (fatigue, safety, morale, skill)
         var fatigueFill = row.Q<VisualElement>("row-fatigue-fill");
+        var safetyFill = row.Q<VisualElement>("row-safety-fill");
         var moraleFill = row.Q<VisualElement>("row-morale-fill");
+        var skillFill = row.Q<VisualElement>("row-skill-fill");
         if (fatigueFill != null) fatigueFill.style.width = Length.Percent(Mathf.Clamp(record.fatigue, 0f, 100f));
+        if (safetyFill != null) safetyFill.style.width = Length.Percent(Mathf.Clamp(record.safety, 0f, 100f));
         if (moraleFill != null) moraleFill.style.width = Length.Percent(Mathf.Clamp(record.morale, 0f, 100f));
+        if (skillFill != null) skillFill.style.width = Length.Percent(Mathf.Clamp(record.skill, 0f, 100f));
 
         // Shift label
         var shiftLabel = row.Q<Label>("row-shift");
@@ -695,10 +717,8 @@ public class EmployeeListPanelController : MonoBehaviour
     {
         if (identity == null) return;
 
-        if (_camera == null)
-            _camera = UnityEngine.Object.FindAnyObjectByType<FreeLookCamera>();
-
-        _camera?.FocusOn(identity.transform.position);
+        // Use EmployeeHighlighter to show outline and make camera follow
+        EmployeeHighlighter.Instance.FocusAndHighlight(identity);
 
         if (record != null)
             SelectRecord(record);

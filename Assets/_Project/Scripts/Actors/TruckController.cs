@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using GameCore.Services;
 
 /// <summary>
 /// Drives a truck through a simple scripted yard route using direct Transform movement.
@@ -98,6 +99,7 @@ public class TruckController : MonoBehaviour
     [Header("Cargo (CHUNK 1 test visual)")]
     [Tooltip("Prefab instantiated 12x under Trailer/LorryTrailer/Load to represent loaded pallets — assign ChepStack.prefab (Assets/_Project/Prefabs/Inventory/ChepStack.prefab) or any prefab with a PalletBuilder component.")]
     [SerializeField] private GameObject palletVisualPrefab;
+    [SerializeField] private Renderer[] _casesOriginalMaterial; // saved so the original material can be restored once pallets are received by a Receiver. If _casesGhostRenderers is assigned, this array is ignored.
     [Tooltip("Distance from trailer center to each row of 6 (left row at -offset, right row at +offset).")]
     [SerializeField] private float palletLateralOffset = 0.35f;
     [Tooltip("Spacing between the 6 pallets along the trailer's length, centered on the Load anchor.")]
@@ -179,6 +181,10 @@ private DockSlot        _dock;
     // Docked ghosting — the see-through material and each ghosted renderer's original materials,
     // so they can be restored on departure.
     private Material _ghostMaterial;
+
+    // Ghost material for cargo CASES (GhostCases()) — uses the same GhostLoweredWall as docked trailer walls
+    // so unreceived cases have a consistent see-through look.
+    private Material _cargoGhostMaterial;
     private readonly Dictionary<Renderer, Material[]> _originalMaterials = new();
 
     private void Awake()
@@ -191,6 +197,11 @@ private DockSlot        _dock;
         if (_ghostMaterial == null)
             Debug.LogWarning("[TruckController] GhostLoweredWall material not found at Resources/Materials/GhostLoweredWall — docked trailer won't turn see-through.");
 
+        _cargoGhostMaterial = Resources.Load<Material>("Materials/GhostLoweredWall");
+        if (_cargoGhostMaterial == null)
+            Debug.LogWarning("[TruckController] GhostLoweredWall material not found at Resources/Materials/GhostLoweredWall — unreceived cargo cases won't ghost correctly.");
+
+        
         _driverDoor = FindDeepChild(transform, "TrailerDoor.Driver");
         if (_driverDoor == null) _driverDoor = FindDeepChild(transform, "TrailerDoor");
 
@@ -288,65 +299,212 @@ private DockSlot        _dock;
 
         if (shipment.LineItems.Count == 0)
         {
-            Debug.LogWarning($"[TruckController] Shipment {shipment.ShipmentId} has no line items — trailer stays empty.");
+            Debug.LogWarning($"[TruckController] PO {shipment.PONumber} has no line items — trailer stays empty.");
             return;
         }
 
         var inventoryService = GameCore.Services.ServiceLocator.Get<GameCore.Inventory.InventoryService>();
 
-        // Fixed 12-slot layout regardless of line-item count: cycles through the shipment's line
-        // items so a single-SKU test shipment (e.g. 12x "035-12345") fills every slot.
+        // Two placement modes. If every line item carries real floor-slot/tier metadata (the
+        // RandomDeliveryGenerator path — one line item per physical pallet, tagged with which of
+        // the 12 floor positions it sits at and whether it's tier 0 or stacked tier 1), place each
+        // pallet exactly there, supporting double-stacking. Otherwise fall back to the legacy fixed
+        // 12-slot round-robin cycle (older callers that just hand over undifferentiated line items).
+        bool hasSlotMetadata = shipment.LineItems.Count > 0 && shipment.LineItems[0].FloorSlotIndex >= 0;
+
         int built = 0;
-        for (int i = 0; i < PalletSlotCount; i++)
+        if (hasSlotMetadata)
         {
-            var item = shipment.LineItems[i % shipment.LineItems.Count];
-            var sku = inventoryService?.GetSkuData(item.SkuId);
-
-            var instance = Instantiate(palletVisualPrefab);
-            instance.transform.SetParent(loadParent);
-            instance.transform.localPosition = SlotLocalPosition(i);
-            instance.transform.localRotation = Quaternion.identity;
-            instance.name = $"Pallet_{i:D2}";
-
-            // palletVisualPrefab is normally a build-menu placeable item (PlacedObject/BuildingData)
-            // — as cargo it must not self-register in the world registry at (0,0), same reasoning
-            // PalletBuilder.Build() already applies to the individual cases it spawns below.
-            var po = instance.GetComponent<PlacedObject>();
-            if (po != null) { po.enabled = false; Destroy(po); }
-            var bd = instance.GetComponent<BuildingData>();
-            if (bd != null) Destroy(bd);
-
-            var builder = instance.GetComponentInChildren<PalletBuilder>();
-            if (builder == null)
+            for (int i = 0; i < shipment.LineItems.Count; i++)
             {
-                Debug.LogWarning($"[TruckController] palletVisualPrefab has no PalletBuilder — pallet {i} shows as an empty base.");
-                continue;
+                var item = shipment.LineItems[i];
+                var sku = inventoryService?.GetSkuData(item.SkuId);
+                if (BuildOnePallet(loadParent, sku, item.SkuId, item.FloorSlotIndex, item.PalletTier, i))
+                    built++;
             }
-
-            if (sku != null && sku.CasePrefab != null)
+        }
+        else
+        {
+            for (int i = 0; i < PalletSlotCount; i++)
             {
-                builder.casePrefab = sku.CasePrefab;
-                builder.Build(deductMoney: false);
-                built++;
-            }
-            else
-            {
-                Debug.LogWarning($"[TruckController] Missing SkuData or CasePrefab for SKU: {item.SkuId} — pallet {i} left empty.");
+                var item = shipment.LineItems[i % shipment.LineItems.Count];
+                var sku = inventoryService?.GetSkuData(item.SkuId);
+                if (BuildOnePallet(loadParent, sku, item.SkuId, i, 0, i))
+                    built++;
             }
         }
 
-        Debug.Log($"[TruckController] Shipment {shipment.ShipmentId} loaded. {built}/{PalletSlotCount} pallets populated with cargo.");
+        Debug.Log($"[TruckController] PO {shipment.PONumber} loaded. {built} pallet(s) populated with cargo.");
+    }
+
+    /// <summary>Instantiates and builds one cargo pallet at the given floor slot/tier. Returns
+    /// true if it got real cargo (SkuData + case prefab), false if it was left as an empty base.</summary>
+    private bool BuildOnePallet(Transform loadParent, GameCore.Inventory.SkuData sku, string skuId, int floorSlot, int tier, int uniqueIndex)
+    {
+        var instance = Instantiate(palletVisualPrefab);
+        instance.transform.SetParent(loadParent);
+        instance.transform.localPosition = SlotLocalPosition(floorSlot, tier, sku);
+        instance.transform.localRotation = Quaternion.identity;
+        instance.name = $"Pallet_{uniqueIndex:D2}_Slot{floorSlot}_Tier{tier}";
+
+        // palletVisualPrefab is normally a build-menu placeable item (PlacedObject/BuildingData)
+        // — as cargo it must not self-register in the world registry at (0,0), same reasoning
+        // PalletBuilder.Build() already applies to the individual cases it spawns below.
+        var po = instance.GetComponent<PlacedObject>();
+        if (po != null) { po.enabled = false; Destroy(po); }
+        var bd = instance.GetComponent<BuildingData>();
+        if (bd != null) Destroy(bd);
+
+        var builder = instance.GetComponentInChildren<PalletBuilder>();
+        if (builder == null)
+        {
+            Debug.LogWarning($"[TruckController] palletVisualPrefab has no PalletBuilder — slot {floorSlot} tier {tier} shows as an empty base.");
+            return false;
+        }
+
+        if (sku == null || sku.Prefab == null)
+        {
+            Debug.LogWarning($"[TruckController] Missing SkuData or CasePrefab for SKU: {skuId} — slot {floorSlot} tier {tier} left empty.");
+            return false;
+        }
+
+        builder.casePrefab = sku.Prefab;
+
+        // Cargo pallets must reflect the SKU's real, PalletOptimizer-verified Ti/Hi (the master
+        // record) — not PalletBuilder's own independent auto-layout guess — so the trailer
+        // visually shows the same load the inventory/putaway systems believe is there. If a SKU
+        // was never run through the optimizer (Ti/Hi still 0), fall back to PalletBuilder's own
+        // height-based auto-layout rather than building an empty pallet.
+        if (sku.Ti > 0 && sku.Hi > 0)
+        {
+            builder.useTiHiOverride = true;
+            builder.manualTi = sku.Ti;
+            builder.manualHi = sku.Hi;
+        }
+        builder.Build(deductMoney: false);
+
+        // FIX FLOATING CASES: Right after building, reposition cases so they sit on the pallet deck,
+        // not floating above it. Same fix applied in TrailerOffloadController.DropPallet() but we
+        // apply it here too so cases are positioned correctly from the moment they're built in the trailer.
+        var palletLoad = instance.transform.Find("PalletLoad");
+        if (palletLoad != null)
+        {
+            const float palletDeckHeight = 0.16f;
+            float minCaseY = float.MaxValue;
+            var casesList = new System.Collections.Generic.List<Transform>();
+
+            for (int i = 0; i < palletLoad.childCount; i++)
+            {
+                var child = palletLoad.GetChild(i);
+                casesList.Add(child);
+                if (child.localPosition.y < minCaseY)
+                    minCaseY = child.localPosition.y;
+            }
+
+            // Shift all cases down so the lowest sits at pallet deck height
+            if (casesList.Count > 0 && minCaseY != float.MaxValue)
+            {
+                float yOffset = minCaseY - palletDeckHeight;
+                foreach (var caseTransform in casesList)
+                {
+                    var pos = caseTransform.localPosition;
+                    pos.y -= yOffset;
+                    caseTransform.localPosition = pos;
+                }
+            }
+
+            // FIX CASE ORIENTATION: Zero out the default 90-degree Y rotation on PalletLoad
+            // so cases align properly with the pallet direction.
+            palletLoad.localRotation = Quaternion.identity;
+        }
+
+        // Cargo pallets are unreceived inventory — their CASES (not the pallet base) must read
+        // as "ghosted" the moment they're built and stay that way through the dock-stocker
+        // offload. PalletBuilder.GhostCases saves each pallet's original case material so
+        // ReceiverReceivingWorkflow can restore it once a Receiver actually processes the pallet.
+        if (_cargoGhostMaterial != null)
+            builder.GhostCases(_cargoGhostMaterial);
+
+        // CRITICAL FIX (2026-07-05): Each cargo pallet needs its own PalletData component with the
+        // correct SKU so the hover tooltip shows the right item. Without this, all pallets resolve
+        // to the same parent PalletData and show "stuck" on one item (e.g., "soy sauce" forever).
+        var palletData = instance.GetComponent<GameCore.Inventory.PalletData>();
+        if (palletData == null)
+            palletData = instance.AddComponent<GameCore.Inventory.PalletData>();
+
+        // Initialize PalletData with the cargo SKU info. LoadId is left empty — it will be assigned
+        // when the pallet is actually received by a Receiver. CaseQuantity estimated from Ti x Hi.
+        int estimatedCases = (sku.Ti > 0 && sku.Hi > 0) ? (sku.Ti * sku.Hi) : 0;
+        var gameCtx = FindAnyObjectByType<GameContext>();
+        int currentDay = gameCtx != null ? gameCtx.TimeService.Day : 0;
+        int expirationDay = sku.ShelfLifeDays >= 0 ? currentDay + sku.ShelfLifeDays : -1;
+        palletData.Initialize(
+            loadId: "",  // Will be assigned during receiving
+            itemNumber: skuId,
+            caseQuantity: estimatedCases,
+            expirationDay: expirationDay,
+            area: sku.StorageArea,
+            iconSprite: sku.Icon,
+            location: Vector2Int.zero  // Will be set when pallet is actually placed in warehouse
+        );
+
+        // Add a trigger BoxCollider that encapsulates the entire pallet (pallet base + all cases).
+        // Sized to match pallet dimensions: 48" (1.2192m) × 40" (1.016m) × dynamic height.
+        // Height = pallet base (0.16m) + stacked cases (caseHeight × Hi) + small top padding.
+        var collider = instance.AddComponent<BoxCollider>();
+        float palletHeight = 0.16f + (sku.CaseHeight * sku.Hi) + 0.05f;  // +0.05m padding
+        collider.size = new Vector3(1.2192f, palletHeight, 1.016f);  // (W, H, L)
+        collider.center = new Vector3(0, palletHeight / 2f, 0);  // Center vertically on the pallet
+        collider.isTrigger = true;  // Non-physics trigger for raycasts and collision detection
+
+        // Add a kinematic Rigidbody for simple stacking physics.
+        // Kinematic means: affected by gravity (pallets rest on each other naturally),
+        // but not active physics simulation (no forces applied, cheap to run).
+        // Can be switched to dynamic (isKinematic = false) later for full physics interaction.
+        var rb = instance.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;  // Kinematic ignores gravity, but pallets will still rest on each other via collider stacking
+        rb.constraints = RigidbodyConstraints.FreezeRotation;  // Prevent unwanted rotation
+
+        return true;
     }
 
     /// <summary>2 rows of 6, equidistant along the trailer's length, centered on the Load anchor —
-    /// left row at -palletLateralOffset, right row at +palletLateralOffset.</summary>
-    private Vector3 SlotLocalPosition(int slotIndex)
+    /// left row at -palletLateralOffset, right row at +palletLateralOffset. Tier 1 (a pallet
+    /// double-stacked on top of tier 0 at the same floor slot) sits at Y = sku.PltHeight, since
+    /// tier 0 and tier 1 at a given slot are always the same SKU (RandomDeliveryGenerator never
+    /// mixes SKUs within one stack) — tier 0's own total pallet height IS that offset.</summary>
+    private Vector3 SlotLocalPosition(int slotIndex, int tier, GameCore.Inventory.SkuData sku)
     {
         int row = slotIndex / PalletsPerRow;   // 0 = left, 1 = right
         int col = slotIndex % PalletsPerRow;   // 0..5 along the trailer length
         float x = row == 0 ? -palletLateralOffset : palletLateralOffset;
         float z = (col - (PalletsPerRow - 1) / 2f) * palletRowSpacing;
-        return new Vector3(x, 0f, z);
+
+        // CRITICAL FIX: Calculate total loaded pallet height (pallet + cases), not just pallet deck height.
+        // Tier 0 sits at Y=0. Tier 1+ is positioned at (tier * total_pallet_height).
+        float y = 0f;
+        if (tier > 0 && sku != null)
+        {
+            // Total pallet height = pallet deck (0.16m) + cases stacked on top
+            // Cases height = Hi (layers) * (caseHeight + verticalGap) with one less gap
+            const float palletDeckHeight = 0.16f;
+            const float verticalGapBetweenLayers = 0.025f;
+
+            // Case height comes from the SKU's case prefab dimensions
+            float caseHeight = sku.CaseHeight;
+            int numLayers = sku.Hi > 0 ? sku.Hi : 1;  // Default to 1 layer if not set
+
+            // Calculate total case stack height: each layer is caseHeight tall, gaps between them
+            float casesStackHeight = (numLayers * caseHeight) + ((numLayers - 1) * verticalGapBetweenLayers);
+
+            // Total height = pallet + cases + small buffer to prevent clipping when stacking
+            const float stackingBuffer = 0.01f;  // 1cm buffer between stacked pallets
+            float totalLoadedHeight = palletDeckHeight + casesStackHeight + stackingBuffer;
+            y = tier * totalLoadedHeight;
+        }
+
+        return new Vector3(x, y, z);
     }
 
     /// <summary>
@@ -438,9 +596,8 @@ private DockSlot        _dock;
                 }
                 else if (!_offloadClaimed && _dockedTime >= offloadFallbackTimeout)
                 {
-                    // Nobody came to offload it — fall back to the old bulk receive so the dock frees up.
-                    if (AssignedShipment != null)
-                        GameCore.Labor.ReceivingService.ProcessReceiving(AssignedShipment);
+                    // Nobody came to offload it — just depart. Ghosted pallets that were created
+                    // remain in staging as work queue tasks for receivers to claim.
                     BeginDeparture();
                 }
                 break;
@@ -737,13 +894,25 @@ private DockSlot        _dock;
         OpenTrailerDoors();
         SetDockedGhost(true);
 
+        // Hold the warehouse-side rollup door open for the whole docked duration — its own trigger
+        // collider can't tell "truck still here" from "dock stocker/receiver just walked out", so it
+        // was swinging shut mid-unload. See RollupDoorController.SetForcedOpen.
+        _dock.SetDoorForcedOpen(true);
+
         Debug.Log($"[TruckController] {name} docked at door {_dock.DoorNumber}. Awaiting offload.");
     }
 
     private void BeginDeparture()
     {
         _dock.LightController?.SetOccupied(false);
+        // Release the rollup door's forced-open hold — the truck's own exit through the trigger will
+        // close it normally as it drives out.
+        _dock.SetDoorForcedOpen(false);
         _dock.Release();
+
+        // Mark shipment as Departed
+        if (AssignedShipment != null)
+            AssignedShipment.Status = GameCore.Inventory.ShipmentData.ShipmentStatus.Departed;
 
         // Solid trailer + closed doors again before it drives off.
         SetDockedGhost(false);

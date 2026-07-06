@@ -458,22 +458,78 @@ public class BuildMenuUI : MonoBehaviour
         var fallbackPopup = new VisualElement { name = "WorldHoverPopup" };
         fallbackPopup.AddToClassList("world-hover-popup");
         fallbackPopup.pickingMode = PickingMode.Ignore;
+        // 30% bigger overall
+        fallbackPopup.style.paddingLeft = 20;
+        fallbackPopup.style.paddingRight = 20;
+        fallbackPopup.style.paddingTop = 16;
+        fallbackPopup.style.paddingBottom = 16;
+
+        // Main content container (flex row: text on left, icon on right)
+        var contentContainer = new VisualElement();
+        contentContainer.style.flexDirection = FlexDirection.Row;
+        contentContainer.style.justifyContent = Justify.SpaceBetween;
+        contentContainer.style.alignItems = Align.FlexStart;
+        contentContainer.style.marginBottom = 8;
+
+        // Left side: text content
+        var textContainer = new VisualElement();
+        textContainer.style.flexDirection = FlexDirection.Column;
+        textContainer.style.flexGrow = 1;
 
         var titleLabel = new Label { name = "HoverTitle", text = "" };
         titleLabel.AddToClassList("world-hover-title");
+        titleLabel.style.fontSize = 18; // 30% bigger
         titleLabel.pickingMode = PickingMode.Ignore;
 
         var costLabel = new Label { name = "HoverCost", text = "" };
         costLabel.AddToClassList("world-hover-cost");
+        costLabel.style.fontSize = 14;
         costLabel.pickingMode = PickingMode.Ignore;
 
         var hourlyLabel = new Label { name = "HoverHourlyCost", text = "" };
         hourlyLabel.AddToClassList("world-hover-hourlyCost");
+        hourlyLabel.style.fontSize = 14;
         hourlyLabel.pickingMode = PickingMode.Ignore;
 
-        fallbackPopup.Add(titleLabel);
-        fallbackPopup.Add(costLabel);
-        fallbackPopup.Add(hourlyLabel);
+        textContainer.Add(titleLabel);
+        textContainer.Add(costLabel);
+        textContainer.Add(hourlyLabel);
+
+        // Right side: icon (postage stamp style, upper-right corner)
+        var iconImage = new Image { name = "HoverIcon" };
+        iconImage.style.width = 80;
+        iconImage.style.height = 80;
+        iconImage.style.marginLeft = 12;
+        iconImage.style.borderTopWidth = 2;
+        iconImage.style.borderRightWidth = 2;
+        iconImage.style.borderBottomWidth = 2;
+        iconImage.style.borderLeftWidth = 2;
+        iconImage.style.borderTopColor = new Color(0.5f, 0.7f, 0.9f, 1f);
+        iconImage.style.borderRightColor = new Color(0.5f, 0.7f, 0.9f, 1f);
+        iconImage.style.borderBottomColor = new Color(0.5f, 0.7f, 0.9f, 1f);
+        iconImage.style.borderLeftColor = new Color(0.5f, 0.7f, 0.9f, 1f);
+        iconImage.style.borderTopLeftRadius = new Length(6, LengthUnit.Pixel);
+        iconImage.style.borderTopRightRadius = new Length(6, LengthUnit.Pixel);
+        iconImage.style.borderBottomLeftRadius = new Length(6, LengthUnit.Pixel);
+        iconImage.style.borderBottomRightRadius = new Length(6, LengthUnit.Pixel);
+        iconImage.style.backgroundColor = new Color(0.1f, 0.15f, 0.2f, 0.8f);
+        iconImage.scaleMode = ScaleMode.ScaleToFit;
+        iconImage.pickingMode = PickingMode.Ignore;
+        iconImage.style.display = DisplayStyle.None;
+        iconImage.style.flexShrink = 0;
+
+        contentContainer.Add(textContainer);
+        contentContainer.Add(iconImage);
+
+        fallbackPopup.Add(contentContainer);
+
+        // Pallet info panel (hidden by default, shown for pallets)
+        var palletInfoPanel = new VisualElement { name = "PalletInfoPanel" };
+        palletInfoPanel.style.flexDirection = FlexDirection.Column;
+        palletInfoPanel.style.display = DisplayStyle.None;
+        palletInfoPanel.pickingMode = PickingMode.Ignore;
+
+        fallbackPopup.Add(palletInfoPanel);
 
         // Add to the root (full-screen overlay) so it floats freely over everything
         _root.Add(fallbackPopup);
