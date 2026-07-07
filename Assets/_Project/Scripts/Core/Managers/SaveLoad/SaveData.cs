@@ -25,6 +25,13 @@ public class SaveData
     // and HR history. Populated from FormerEmployeeArchive. Absent in older saves (empty list).
     public List<EmployeeRecord> formerEmployees = new();
 
+    // ── DOCK & INVENTORY PERSISTENCE ──────────────────────────────────────────
+    // Snapshots of transient state that needs to survive save/load.
+    public DockPersistenceData dock = new();
+    public InventoryPersistenceData inventory = new();
+    public EconomyPersistenceData economy = new();
+    public WorkQueuePersistenceData workQueue = new();
+
     // ── Game settings captured per-save ──────────────────────────────────────
     // Sentinel defaults (-1 / empty) mean "not stored in this file" so that
     // loading an OLD save does not overwrite the player's current settings.

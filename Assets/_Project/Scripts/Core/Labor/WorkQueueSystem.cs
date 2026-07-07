@@ -19,6 +19,7 @@ namespace GameCore.Labor
         public string PalletId { get; }
         public string Description { get; }
         public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Pending;
+        public int? AssignedToEmployeeGuid { get; set; }  // for persistence and tracking
 
         /// <summary>Where the pallet/work starts and ends, as human location labels (e.g. "STG1A",
         /// a reserve/pick address, or a door). Either may be null — some task types have no "from"
@@ -106,6 +107,27 @@ namespace GameCore.Labor
             task.Status = WorkTaskStatus.Complete;
             OnTaskCompleted?.Invoke(task);
             _tasks.Remove(task);
+        }
+
+        // ============ PERSISTENCE (SAVE/LOAD) ============
+
+        /// <summary>Get all tasks for persistence.</summary>
+        public List<WorkTask> GetAllTasks()
+        {
+            return new List<WorkTask>(_tasks);
+        }
+
+        /// <summary>Clear all tasks (used before restoring from save).</summary>
+        public void ClearAllTasks()
+        {
+            _tasks.Clear();
+        }
+
+        /// <summary>Register a task restored from save.</summary>
+        public void RegisterRestoredTask(WorkTask task)
+        {
+            if (task != null)
+                _tasks.Add(task);
         }
     }
 }

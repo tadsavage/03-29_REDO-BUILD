@@ -21,6 +21,7 @@ namespace GameCore.Inventory
         public string SkuId { get; set; }
         public int Quantity { get; set; }
         public Vector2Int CurrentLocation { get; set; } // Grid cell where pallet is stored
+        public float WorldHeightY { get; set; } // World Y position (height); used to restore pallet at correct elevation on load
         public int ReceivedDayNumber { get; set; } // In-game day number when received
         public int ExpirationDayNumber { get; set; } // -1 if non-perishable
         public bool IsContaminated { get; set; }

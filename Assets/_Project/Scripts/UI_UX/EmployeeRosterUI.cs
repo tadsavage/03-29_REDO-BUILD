@@ -100,6 +100,10 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
 
         TrySubscribe();
         Close();
+
+        // Re-register with UIKeyBindingManager in case it was created after Awake
+        if (UIKeyBindingManager.Instance != null)
+            UIKeyBindingManager.Instance.RegisterUI(3, this);
     }
 
     private void OnDisable()

@@ -115,6 +115,9 @@ public class TruckController : MonoBehaviour
     private bool  _offloadClaimed;
     private bool  _offloadComplete;
 
+    /// <summary>Current state of the truck (for persistence and debugging).</summary>
+    public TruckState CurrentState => _state;
+
     /// <summary>True while docked and still waiting for a dock stocker to start offloading it.</summary>
     public bool AwaitingOffload => _state == TruckState.Docked && !_offloadClaimed && !_offloadComplete;
 

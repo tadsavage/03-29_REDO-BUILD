@@ -48,6 +48,7 @@ public class UIKeyBindingManager : MonoBehaviour
         }
 
         _uiPanels[keyNumber] = panel;
+        Debug.Log($"[UIKeyBindingManager] Registered {panel.GetType().Name} for key {keyNumber}");
     }
 
     /// <summary>Unregister a UI panel from its keybinding.</summary>
@@ -72,7 +73,13 @@ public class UIKeyBindingManager : MonoBehaviour
         }
 
         IUIPanel panel = _uiPanels[keyNumber];
-        if (panel == null) return;
+        if (panel == null)
+        {
+            Debug.LogWarning($"[UIKeyBindingManager] Panel for key {keyNumber} is null!");
+            return;
+        }
+
+        Debug.Log($"[UIKeyBindingManager] ToggleUI key {keyNumber}: {panel.GetType().Name}");
 
         // If this panel is already open, close it
         if (_currentOpenKey == keyNumber && panel.IsOpen)
