@@ -1,7 +1,7 @@
 {
     "saveName": "quicksave",
-    "money": 287515,
-    "spentToday": 98499,
+    "money": 287388,
+    "spentToday": 98626,
     "cameraData": {
         "focusPoint": {
             "x": -7.508676528930664,
@@ -9046,10 +9046,6 @@
             "val": "0.1"
         },
         {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
-        },
-        {
             "key": "VehicleThrottleAudio.hearingDistance",
             "val": "25"
         },
@@ -9088,6 +9084,42 @@
         {
             "key": "VehicleThrottleAudio.honkProbability",
             "val": "0.1"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.15"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
         },
         {
             "key": "FreeLookCamera.pitchMin",
@@ -9130,42 +9162,6 @@
             "val": "40"
         },
         {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.15"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
-        {
             "key": "Gate_Open_Close.rot_down",
             "val": "0"
         },
@@ -9176,13 +9172,17 @@
         {
             "key": "Gate_Open_Close.arm_speed",
             "val": "80"
+        },
+        {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
         }
     ],
     "toolsWindowX": 37.314842224121097,
     "toolsWindowY": 61.65044403076172,
-    "guidanceLinesVisible": true,
-    "waypointsVisible": true,
-    "hoverPopupEnabled": true,
+    "guidanceLinesVisible": false,
+    "waypointsVisible": false,
+    "hoverPopupEnabled": false,
     "employeeRecords": [
         {
             "employeeGuid": "cef9e025-3166-447f-97d1-f7c0c35bff5c",
@@ -9223,10 +9223,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -13.962504386901856,
-            "posY": 1.1233117580413819,
-            "posZ": 3.9044573307037355,
-            "rotY": 99.400634765625,
+            "posX": -13.962499618530274,
+            "posY": 1.125009536743164,
+            "posZ": 4.939104080200195,
+            "rotY": 21.501745223999025,
             "hasSavedPosition": true
         },
         {
@@ -9268,10 +9268,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -13.49886703491211,
-            "posY": 1.125009536743164,
-            "posZ": 4.159680366516113,
-            "rotY": 355.2646789550781,
+            "posX": -13.9143705368042,
+            "posY": 1.112159013748169,
+            "posZ": 0.3357003927230835,
+            "rotY": 7.77851676940918,
             "hasSavedPosition": true
         },
         {
@@ -9313,10 +9313,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -13.552007675170899,
-            "posY": 1.114823341369629,
-            "posZ": 0.8981319665908814,
-            "rotY": 3.641852617263794,
+            "posX": -13.731141090393067,
+            "posY": 1.1359177827835084,
+            "posZ": -3.274435520172119,
+            "rotY": 138.18655395507813,
             "hasSavedPosition": true
         },
         {
@@ -9358,10 +9358,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -11.609625816345215,
-            "posY": 1.1407310962677003,
-            "posZ": -5.796716690063477,
-            "rotY": 347.2330017089844,
+            "posX": -14.416871070861817,
+            "posY": 1.1248093843460084,
+            "posZ": 4.730656147003174,
+            "rotY": 264.89654541015627,
             "hasSavedPosition": true
         },
         {
@@ -9403,10 +9403,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -13.970660209655762,
-            "posY": 1.1328483819961548,
-            "posZ": -3.2789206504821779,
-            "rotY": 174.42379760742188,
+            "posX": -14.746464729309082,
+            "posY": 1.1192253828048707,
+            "posZ": 4.243021488189697,
+            "rotY": 226.26531982421876,
             "hasSavedPosition": true
         },
         {
@@ -9448,10 +9448,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -13.549720764160157,
-            "posY": 1.1148401498794556,
-            "posZ": 0.2537330687046051,
-            "rotY": 1.903851866722107,
+            "posX": -13.830880165100098,
+            "posY": 1.125009536743164,
+            "posZ": 4.395975112915039,
+            "rotY": 19.85434341430664,
             "hasSavedPosition": true
         }
     ],
@@ -9510,21 +9510,21 @@
                 "dockedAtDoorNumber": -1,
                 "state": "Idle",
                 "cargoLoadIds": [],
-                "dockedTime": 2130.991455078125
+                "dockedTime": 10.78077507019043
             },
             {
                 "truckId": "Truck_SavageDev(Clone)",
                 "dockedAtDoorNumber": -1,
                 "state": "Idle",
                 "cargoLoadIds": [],
-                "dockedTime": 2130.991455078125
+                "dockedTime": 10.78077507019043
             },
             {
                 "truckId": "Truck_SavageDev(Clone)",
                 "dockedAtDoorNumber": -1,
                 "state": "Idle",
                 "cargoLoadIds": [],
-                "dockedTime": 2130.991455078125
+                "dockedTime": 10.78077507019043
             }
         ],
         "palletsInLanes": []
@@ -9534,9 +9534,9 @@
     },
     "economy": {
         "money": {
-            "capital": 287515,
-            "spentToday": 98499,
-            "spentTodayHourlyOnly": 5949,
+            "capital": 287388,
+            "spentToday": 98626,
+            "spentTodayHourlyOnly": 6076,
             "spentTodayByObjectCategory": {
                 "items": [
                     {
@@ -9607,23 +9607,23 @@
                 "items": [
                     {
                         "key": "Doors",
-                        "value": 0.6833364367485046
+                        "value": 0.5166698098182678
                     },
                     {
                         "key": "Groundskeeping",
-                        "value": 0.8166847229003906
+                        "value": 0.4833517074584961
                     },
                     {
                         "key": "Walls",
-                        "value": 0.06667447090148926
+                        "value": 0.9000080823898315
                     },
                     {
                         "key": "Loss Prevention",
-                        "value": 0.16665375232696534
+                        "value": 0.33332034945487978
                     },
                     {
                         "key": "Barriers",
-                        "value": 0.7833437919616699
+                        "value": 0.11667726188898087
                     },
                     {
                         "key": "Racking",
@@ -9635,11 +9635,11 @@
                     },
                     {
                         "key": "Reach Truck",
-                        "value": 0.4333302974700928
+                        "value": 0.09999668598175049
                     },
                     {
                         "key": "Transportation",
-                        "value": 0.5
+                        "value": 0.0
                     }
                 ]
             }
@@ -9661,9 +9661,9 @@
     },
     "gameVolume": 0.4020000100135803,
     "musicVolume": 0.02800000086426735,
-    "graphicsPreset": "Ultra",
+    "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
-    "screenWidth": 2560,
-    "screenHeight": 1223
+    "screenWidth": 1920,
+    "screenHeight": 1080
 }
