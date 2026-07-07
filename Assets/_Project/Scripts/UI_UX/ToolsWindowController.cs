@@ -112,6 +112,13 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             UIKeyBindingManager.Instance.RegisterUI(1, this);
     }
 
+    private void OnEnable()
+    {
+        // Re-register with UIKeyBindingManager in case it was created after Awake
+        if (UIKeyBindingManager.Instance != null)
+            UIKeyBindingManager.Instance.RegisterUI(1, this);
+    }
+
     private void Start()
     {
         _ctx       = FindAnyObjectByType<GameContext>();

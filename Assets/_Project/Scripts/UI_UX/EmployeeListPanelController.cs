@@ -201,6 +201,10 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
         TrySubscribeToRegistry();
 
         Close();
+
+        // Re-register with UIKeyBindingManager in case it was created after Awake
+        if (UIKeyBindingManager.Instance != null)
+            UIKeyBindingManager.Instance.RegisterUI(4, this);
     }
 
     // ─── Open / Close ─────────────────────────────────────────────────────────

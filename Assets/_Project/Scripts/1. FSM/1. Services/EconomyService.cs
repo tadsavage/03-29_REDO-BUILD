@@ -247,5 +247,38 @@ namespace GameCore.Economy
                 _hourlyByGLLine[glLine] = current + placed.data.hourlyCost;
             }
         }
+
+        // ============ PERSISTENCE (SAVE/LOAD) ============
+
+        /// <summary>Get hourly costs by GL_Line for persistence.</summary>
+        public System.Collections.Generic.Dictionary<string, int> GetHourlyByGLLine()
+        {
+            return new System.Collections.Generic.Dictionary<string, int>(_hourlyByGLLine);
+        }
+
+        /// <summary>Get fractional costs by GL_Line for persistence.</summary>
+        public System.Collections.Generic.Dictionary<string, float> GetFractionalByGLLine()
+        {
+            return new System.Collections.Generic.Dictionary<string, float>(_fractionalByGLLine);
+        }
+
+        /// <summary>Restore hourly costs from save.</summary>
+        public void RestoreHourlyState(System.Collections.Generic.Dictionary<string, int> hourly, System.Collections.Generic.Dictionary<string, float> fractional)
+        {
+            _hourlyByGLLine.Clear();
+            _fractionalByGLLine.Clear();
+
+            if (hourly != null)
+            {
+                foreach (var kvp in hourly)
+                    _hourlyByGLLine[kvp.Key] = kvp.Value;
+            }
+
+            if (fractional != null)
+            {
+                foreach (var kvp in fractional)
+                    _fractionalByGLLine[kvp.Key] = kvp.Value;
+            }
+        }
     }
 }

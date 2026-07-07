@@ -40,6 +40,7 @@ namespace GameCore.Inventory
         public static event System.Action<PalletMasterRecord, int> OnPalletPartialPicked;
         public static event System.Action<PalletMasterRecord> OnPalletDestroyed;
         public static event System.Action<PalletMasterRecord> OnSpoilageDetected;
+        public static event System.Action OnInventoryRestored;
 
         // Debug/diagnostic
         public IReadOnlyDictionary<string, PalletMasterRecord> AllPallets => _palletsByID;
@@ -480,6 +481,39 @@ namespace GameCore.Inventory
                 if (sku != null)
                     _skuDataCache[sku.SkuId] = sku;
             }
+        }
+
+        // ============ PERSISTENCE (SAVE/LOAD) ============
+
+        /// <summary>Get all pallets currently in inventory for saving.</summary>
+        public List<PalletMasterRecord> GetAllPallets()
+        {
+            return _palletsByID.Values.ToList();
+        }
+
+        /// <summary>Get a pallet by its Load ID (the 10-digit identifier assigned at receiving).</summary>
+        public PalletMasterRecord GetPalletByLoadId(string loadId)
+        {
+            if (string.IsNullOrEmpty(loadId)) return null;
+            return _palletsByID.Values.FirstOrDefault(p => p.LoadId == loadId);
+        }
+
+        /// <summary>Clear all pallets (used before restoring from save).</summary>
+        public void ClearAllPallets()
+        {
+            _palletsByID.Clear();
+            _palletsByLocation.Clear();
+        }
+
+        /// <summary>Register a pallet directly (used when restoring from save).</summary>
+        public void RegisterPalletDirect(PalletMasterRecord pallet)
+        {
+            if (pallet == null) return;
+
+            _palletsByID[pallet.PalletId] = pallet;
+            if (!_palletsByLocation.ContainsKey(pallet.CurrentLocation))
+                _palletsByLocation[pallet.CurrentLocation] = new List<string>();
+            _palletsByLocation[pallet.CurrentLocation].Add(pallet.PalletId);
         }
     }
 }

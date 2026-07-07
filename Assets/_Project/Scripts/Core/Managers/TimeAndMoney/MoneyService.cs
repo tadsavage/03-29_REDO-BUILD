@@ -462,5 +462,37 @@ namespace GameCore.Economy
                 ? detail
                 : new System.Collections.Generic.Dictionary<string, int>();
         }
+
+        // ============ PERSISTENCE (SAVE/LOAD) ============
+
+        /// <summary>Get the hourly-only spending (for persistence).</summary>
+        public int GetSpentTodayHourlyOnly()
+        {
+            return _spentTodayUpkeep + _spentTodayWages;
+        }
+
+        /// <summary>Get spending broken down by object category (for persistence).</summary>
+        public System.Collections.Generic.Dictionary<string, int> GetSpentTodayByCategory()
+        {
+            return new System.Collections.Generic.Dictionary<string, int>(_spentTodayByObjectCategory);
+        }
+
+        /// <summary>Set hourly-only spending from save (for persistence).</summary>
+        public void SetSpentTodayHourlyOnly(int amount)
+        {
+            _spentTodayUpkeep = amount / 2;
+            _spentTodayWages = amount - _spentTodayUpkeep;
+        }
+
+        /// <summary>Set spending by category from save (for persistence).</summary>
+        public void SetSpentTodayByCategory(System.Collections.Generic.Dictionary<string, int> dict)
+        {
+            _spentTodayByObjectCategory.Clear();
+            if (dict != null)
+            {
+                foreach (var kvp in dict)
+                    _spentTodayByObjectCategory[kvp.Key] = kvp.Value;
+            }
+        }
     }
 }

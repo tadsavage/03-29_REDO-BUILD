@@ -30,6 +30,7 @@ namespace GameCore.Economy
         // detailKey) overload that records per-role wage breakdown for FinancialBreakdownPanel.
         private MoneyService _moneyService;
         private EventManager _eventManager;
+        private System.Collections.Generic.HashSet<string> _employeesPaidToday = new();
 
         public void Initialize()
         {
@@ -92,7 +93,30 @@ namespace GameCore.Economy
                 _moneyService.RemoveCapital(wage, topCategory, detailKey);
                 record.totalWagesPaid += wage;
 
+                // Track that this employee was paid (for save/load prevention of double-payment)
+                if (!string.IsNullOrEmpty(record.employeeGuid))
+                    _employeesPaidToday.Add(record.employeeGuid);
+
                 _moneyService.RecordWageSpend(wage);
+            }
+        }
+
+        // ============ PERSISTENCE (SAVE/LOAD) ============
+
+        /// <summary>Get list of employee GUIDs already paid in this in-game day.</summary>
+        public System.Collections.Generic.List<string> GetEmployeesPaidToday()
+        {
+            return new System.Collections.Generic.List<string>(_employeesPaidToday);
+        }
+
+        /// <summary>Restore the list of employees already paid today (prevents double-payment on load).</summary>
+        public void RestorePaidList(System.Collections.Generic.List<string> employeeGuids)
+        {
+            _employeesPaidToday.Clear();
+            if (employeeGuids != null)
+            {
+                foreach (var guid in employeeGuids)
+                    _employeesPaidToday.Add(guid);
             }
         }
     }

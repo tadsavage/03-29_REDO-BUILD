@@ -18,9 +18,9 @@ public class UIToast : MonoBehaviour
             enabled = false;
             return;
         }
-        // Toasts must sit ABOVE every other panel (RackSetupUI=150, tooltip=200, etc.) so a
-        // warning like "aisle number already in use" is never hidden behind a modal.
-        doc.sortingOrder = 1000;
+        // Toasts must sit ABOVE every other panel so warnings are always visible
+        // Set to maximum to ensure visibility above all modals (NewItemPanel, RackSetupUI, etc.)
+        doc.sortingOrder = 999999;
         var root = doc.rootVisualElement;
         if (root == null)
         {

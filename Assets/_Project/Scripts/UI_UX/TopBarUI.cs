@@ -93,6 +93,13 @@ public class TopBarUI : MonoBehaviour
         _slotAssignmentPanel = new SlotAssignmentPanel(root);
         _newItemPanel = new NewItemPanel(root);
 
+        // Register shift manager with UIKeyBindingManager for keybinding support (key 5)
+        if (UIKeyBindingManager.Instance != null)
+        {
+            UIKeyBindingManager.Instance.RegisterUI(5, _shiftManagerPanel);
+            // Note: SlotAssignmentPanel doesn't implement IUIPanel yet, can be accessed via UI button
+        }
+
         _money.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_capitalPanel));
         _hourly.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_breakdownPanel));
         _spent.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_spentTodayPanel));

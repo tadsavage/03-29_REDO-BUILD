@@ -371,11 +371,24 @@ public class PlacementSystem : MonoBehaviour
         if (EmployeePhotoBooth.Instance != null)
             EmployeePhotoBooth.Instance.PrunePortraits();
 
+        // ── DOCK & INVENTORY PERSISTENCE ──────────────────────────────────────
+        // Snapshot all transient state that needs to survive load
+        save.dock = DockPersistenceService.Snapshot();
+        save.inventory = InventoryPersistenceService.Snapshot();
+        save.economy = EconomyPersistenceService.Snapshot();
+        save.workQueue = WorkQueuePersistenceService.Snapshot();
+
         return save;
     }
 
     private void ApplySaveData(SaveData save)
     {
+        // ── RESTORE ECONOMY & INVENTORY ──────────────────────────────────────
+        // Restore these BEFORE cleared all objects, so systems are ready to process restored state
+        EconomyPersistenceService.Restore(save.economy);
+        InventoryPersistenceService.Restore(save.inventory);
+        WorkQueuePersistenceService.Restore(save.workQueue);
+
         moneyService.SetMoney(save.money);
         moneyService.SetSpentToday(save.spentToday);
         ApplySavedSettings(save);
@@ -457,6 +470,19 @@ public class PlacementSystem : MonoBehaviour
 
         grid.RebuildFromRegistry();
         ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
+
+        // ── INSTANTIATE PALLET VISUALS ──────────────────────────────────────
+        // Inventory data was restored, but the 3D meshes weren't instantiated.
+        // Create visual pallet prefabs for all restored pallets so they appear in the world.
+        InventoryPersistenceService.InstantiateRestoredPalletVisuals();
+
+        // ── RESTORE DOCK STATE ──────────────────────────────────────────────
+        // After all placed objects are restored (trucks, staging lanes are now in scene)
+        DockPersistenceService.Restore(save.dock);
+
+        // Rebuild grid AGAIN after pallet visuals are instantiated, since they now affect cell occupancy
+        // (This ensures the placement grid knows about restored pallets in lanes)
+        grid.RebuildFromRegistry();
 
         // Refresh rack labels: PlacedObject fields are restored but TMP text isn't.
         // Must happen before yard floors are populated (which triggers NavMesh bake).
