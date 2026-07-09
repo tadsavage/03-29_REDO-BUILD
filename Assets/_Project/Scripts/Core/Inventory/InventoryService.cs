@@ -108,10 +108,13 @@ namespace GameCore.Inventory
                     _palletsByLocation[pallet.CurrentLocation] = new List<string>();
                 _palletsByLocation[pallet.CurrentLocation].Add(pallet.PalletId);
 
+                // Set the world Y position based on stack height at receiving location
+                pallet.WorldHeightY = CalculateWorldHeightForPalletAtLocation(pallet.CurrentLocation, pallet.PalletId);
+
                 created.Add(pallet);
                 OnPalletReceived?.Invoke(pallet);
 
-                Debug.Log($"[InventoryService] Received pallet {pallet.PalletId}: {quantity} × {skuId}");
+                Debug.Log($"[InventoryService] Received pallet {pallet.PalletId}: {quantity} × {skuId} (Y={pallet.WorldHeightY:F2})");
             }
 
             return created;
@@ -137,8 +140,11 @@ namespace GameCore.Inventory
                 _palletsByLocation[pallet.CurrentLocation] = new List<string>();
             _palletsByLocation[pallet.CurrentLocation].Add(pallet.PalletId);
 
+            // Set the world Y position based on stack height at receiving location
+            pallet.WorldHeightY = CalculateWorldHeightForPalletAtLocation(pallet.CurrentLocation, pallet.PalletId);
+
             OnPalletReceived?.Invoke(pallet);
-            Debug.Log($"[InventoryService] Received pallet {pallet.PalletId} (Load ID {pallet.LoadId}): {quantity} x {skuId}");
+            Debug.Log($"[InventoryService] Received pallet {pallet.PalletId} (Load ID {pallet.LoadId}): {quantity} x {skuId} (Y={pallet.WorldHeightY:F2})");
             return pallet;
         }
 
@@ -156,6 +162,10 @@ namespace GameCore.Inventory
             if (!_palletsByLocation.ContainsKey(cell))
                 _palletsByLocation[cell] = new List<string>();
             _palletsByLocation[cell].Add(pallet.PalletId);
+
+            // Set the world Y position based on stack height at the cell
+            pallet.WorldHeightY = CalculateWorldHeightForPalletAtLocation(cell, pallet.PalletId);
+
             OnPalletReceived?.Invoke(pallet);
             return pallet;
         }
@@ -180,8 +190,12 @@ namespace GameCore.Inventory
                 _palletsByLocation[newLocation] = new List<string>();
             _palletsByLocation[newLocation].Add(palletId);
 
+            // CRITICAL: Calculate and store the world Y position based on stack height
+            // The pallet goes on top of any existing pallets at this location
+            pallet.WorldHeightY = CalculateWorldHeightForPalletAtLocation(newLocation, palletId);
+
             OnPalletMoved?.Invoke(pallet, oldLocation, newLocation);
-            Debug.Log($"[InventoryService] Moved pallet {palletId} from {oldLocation} to {newLocation}");
+            Debug.Log($"[InventoryService] Moved pallet {palletId} from {oldLocation} to {newLocation} (Y={pallet.WorldHeightY:F2})");
 
             return true;
         }
@@ -505,6 +519,43 @@ namespace GameCore.Inventory
             _palletsByLocation.Clear();
         }
 
+        /// <summary>
+        /// Calculate the world Y position for a pallet at a given cell location.
+        /// This accounts for stacking: the pallet sits on top of all other pallets already at this location.
+        /// Base ground level is 1.15; each pallet height is added from its SKU's PltHeight.
+        /// </summary>
+        private float CalculateWorldHeightForPalletAtLocation(Vector2Int location, string palletId)
+        {
+            const float groundLevel = 1.15f;
+            float stackHeight = groundLevel;
+
+            // Sum the heights of all OTHER pallets at this location (not including the one being placed)
+            if (_palletsByLocation.TryGetValue(location, out var palletIds))
+            {
+                foreach (var id in palletIds)
+                {
+                    if (id == palletId) continue; // Skip the pallet being placed
+
+                    if (_palletsByID.TryGetValue(id, out var otherPallet))
+                    {
+                        var sku = GetSkuData(otherPallet.SkuId);
+                        if (sku != null)
+                        {
+                            stackHeight += sku.PltHeight;
+                        }
+                        else
+                        {
+                            // Fallback: assume a standard pallet height if SKU data not found
+                            stackHeight += 1.0f;
+                            Debug.LogWarning($"[InventoryService] SKU {otherPallet.SkuId} not found, using default pallet height 1.0m");
+                        }
+                    }
+                }
+            }
+
+            return stackHeight;
+        }
+
         /// <summary>Register a pallet directly (used when restoring from save).</summary>
         public void RegisterPalletDirect(PalletMasterRecord pallet)
         {
@@ -514,6 +565,19 @@ namespace GameCore.Inventory
             if (!_palletsByLocation.ContainsKey(pallet.CurrentLocation))
                 _palletsByLocation[pallet.CurrentLocation] = new List<string>();
             _palletsByLocation[pallet.CurrentLocation].Add(pallet.PalletId);
+        }
+
+        /// <summary>
+        /// Recalculate WorldHeightY for all pallets based on their current stack order.
+        /// Called after restore to ensure pallets are positioned correctly even if restored in different order.
+        /// </summary>
+        public void RecalculateAllPalletHeights()
+        {
+            foreach (var pallet in _palletsByID.Values)
+            {
+                pallet.WorldHeightY = CalculateWorldHeightForPalletAtLocation(pallet.CurrentLocation, pallet.PalletId);
+            }
+            Debug.Log($"[InventoryService] Recalculated heights for {_palletsByID.Count} pallets.");
         }
     }
 }

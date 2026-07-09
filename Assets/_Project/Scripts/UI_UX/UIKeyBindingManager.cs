@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// Manages exclusive keybinding UIs (keys 1-7).
@@ -66,6 +67,8 @@ public class UIKeyBindingManager : MonoBehaviour
     /// <summary>Toggle a UI panel: close others, open this one. If already open, close it.</summary>
     public void ToggleUI(int keyNumber)
     {
+        Debug.Log($"[UIKeyBindingManager.ToggleUI] Called with keyNumber={keyNumber}, registered panels: {string.Join(", ", _uiPanels.Keys)}");
+
         if (!_uiPanels.ContainsKey(keyNumber))
         {
             Debug.LogWarning($"[UIKeyBindingManager] No UI registered for key {keyNumber}.");
@@ -79,7 +82,7 @@ public class UIKeyBindingManager : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[UIKeyBindingManager] ToggleUI key {keyNumber}: {panel.GetType().Name}");
+        Debug.Log($"[UIKeyBindingManager] ToggleUI key {keyNumber}: {panel.GetType().Name}, IsOpen={panel.IsOpen}");
 
         // If this panel is already open, close it
         if (_currentOpenKey == keyNumber && panel.IsOpen)

@@ -69,6 +69,9 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("Physical height of this object in meters. Used to compute total stack height in a cell.")]
     public float objHeight = 1f;
 
+    [Tooltip("World-space Y offset applied to this object when placed. Use this for objects like fixtures that need to spawn above ground level.")]
+    public float worldYOffset = 0f;
+
     [Header("Auto-Floor")]
     [Tooltip("For Foundation objects: floor tile automatically placed on top when this foundation is placed. Leave null for non-foundation objects.")]
     public ObjDataSO defaultFloorTile;

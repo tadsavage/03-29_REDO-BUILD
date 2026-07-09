@@ -231,5 +231,21 @@ namespace GameCore.Economy
             get => _timeScale;
             set => SetTimeScale(value);
         }
+
+        // ============ PERSISTENCE (SAVE/LOAD) ============
+
+        /// <summary>Restore time from save state (hour/minute/day + fractional accumulator).</summary>
+        public void RestoreTime(int day, int hour, int minute, float fractionalMinutes = 0f)
+        {
+            _currentDay = day;
+            _currentHour = hour;
+            _currentMinute = minute;
+            _fractionalMinutes = fractionalMinutes;
+
+            // Set previous to same values so no false transitions fire on next Tick
+            _previousDay = day;
+            _previousHour = hour;
+            _previousMinute = minute;
+        }
     }
 }

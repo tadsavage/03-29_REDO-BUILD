@@ -325,6 +325,13 @@ namespace SaveLoadSystem
                 return;
             }
 
+            // First: QUICKSAVE slot
+            VisualElement quicksaveSlot = saveSlotTemplate.Instantiate();
+            slotContainer.Add(quicksaveSlot);
+            slotElements.Add(quicksaveSlot);
+            BindQuicksaveSlot(quicksaveSlot);
+
+            // Then: regular slots 0-7
             SaveMetadata[] allMeta = SaveManager.Instance.GetAllMetadata();
 
             for (int i = 0; i < SaveManager.MAX_SLOTS; i++)
@@ -333,6 +340,129 @@ namespace SaveLoadSystem
                 slotContainer.Add(slotRoot);
                 slotElements.Add(slotRoot);
                 BindSlot(slotRoot, i, allMeta[i]);
+            }
+        }
+
+        /// <summary>
+        /// Bind the QUICKSAVE slot (shown at the top, special handling).
+        /// </summary>
+        private void BindQuicksaveSlot(VisualElement slotRoot)
+        {
+            Label indexLabel = slotRoot.Q<Label>("slot-index-label");
+            VisualElement thumbImage = slotRoot.Q<VisualElement>("thumbnail-image");
+            TextField nameField = slotRoot.Q<TextField>("save-name-field");
+            Label tsLabel = slotRoot.Q<Label>("timestamp-label");
+            Button actionBtn = slotRoot.Q<Button>("action-button");
+            Button deleteBtn = slotRoot.Q<Button>("delete-button");
+            VisualElement emptyOverlay = slotRoot.Q<VisualElement>("empty-slot-overlay");
+
+            indexLabel.text = "QUICKSAVE";
+
+            // Check if quicksave file exists
+            string quicksavePath = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave.json");
+            bool hasQuicksave = System.IO.File.Exists(quicksavePath);
+
+            if (!hasQuicksave)
+            {
+                emptyOverlay.style.display = DisplayStyle.Flex;
+                thumbImage.style.display = DisplayStyle.None;
+                nameField.style.display = DisplayStyle.None;
+                tsLabel.style.display = DisplayStyle.None;
+                deleteBtn.style.display = DisplayStyle.None;
+
+                if (currentMode == SaveLoadMode.Save)
+                {
+                    actionBtn.text = "QUICKSAVE";
+                    actionBtn.SetEnabled(true);
+                    actionBtn.clicked += () =>
+                    {
+                        // Quicksave from menu
+                        if (SaveManager.Instance != null)
+                        {
+                            SaveManager.Instance.SaveToSlot(-1, "QUICKSAVE");
+                        }
+                    };
+                }
+                else
+                {
+                    actionBtn.text = "EMPTY";
+                    actionBtn.SetEnabled(false);
+                }
+            }
+            else
+            {
+                emptyOverlay.style.display = DisplayStyle.None;
+                thumbImage.style.display = DisplayStyle.Flex;
+                nameField.style.display = DisplayStyle.Flex;
+                tsLabel.style.display = DisplayStyle.Flex;
+                deleteBtn.style.display = DisplayStyle.Flex;
+
+                // Load thumbnail
+                string thumbPath = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave_thumb.png");
+                if (System.IO.File.Exists(thumbPath))
+                {
+                    Texture2D thumb = SaveThumbnailCapture.LoadThumbnailFromDisk(thumbPath);
+                    if (thumb != null)
+                    {
+                        thumbImage.style.backgroundImage = new StyleBackground(thumb);
+                        loadedThumbnails[-1] = thumb;
+                    }
+                }
+
+                // Get quicksave timestamp
+                System.IO.FileInfo fileInfo = new System.IO.FileInfo(quicksavePath);
+                nameField.value = "QUICKSAVE";
+                nameField.isReadOnly = (currentMode == SaveLoadMode.Load);
+                nameField.maxLength = 24;
+                tsLabel.text = fileInfo.LastWriteTime.ToString("MMM dd, yyyy  h:mm tt").ToUpper();
+
+                if (currentMode == SaveLoadMode.Save)
+                {
+                    actionBtn.text = "OVERWRITE";
+                    actionBtn.clicked += () =>
+                    {
+                        if (SaveManager.Instance != null)
+                        {
+                            SaveManager.Instance.SaveToSlot(-1, "QUICKSAVE");
+                        }
+                    };
+                }
+                else
+                {
+                    actionBtn.text = "LOAD";
+                    actionBtn.clicked += () =>
+                    {
+                        if (SaveManager.Instance != null)
+                        {
+                            SaveManager.Instance.LoadFromSlot(-1);
+                        }
+                        Close();
+                    };
+
+                    // QoL: click anywhere on row to load
+                    slotRoot.RegisterCallback<ClickEvent>(evt =>
+                    {
+                        var target = evt.target as VisualElement;
+                        if (IsDescendantOrSelf(target, deleteBtn)) return;
+                        if (IsDescendantOrSelf(target, actionBtn)) return;
+                        if (SaveManager.Instance != null)
+                        {
+                            SaveManager.Instance.LoadFromSlot(-1);
+                        }
+                        Close();
+                    });
+                }
+                actionBtn.SetEnabled(true);
+
+                // Delete button for quicksave
+                deleteBtn.clicked += () =>
+                {
+                    string qs = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave.json");
+                    string qst = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave_thumb.png");
+                    if (System.IO.File.Exists(qs)) System.IO.File.Delete(qs);
+                    if (System.IO.File.Exists(qst)) System.IO.File.Delete(qst);
+                    RefreshSlotsSafe();
+                };
             }
         }
 

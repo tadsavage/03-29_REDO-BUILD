@@ -14,9 +14,9 @@ namespace GameCore.Inventory
     [System.Serializable]
     public class PalletMasterRecord
     {
-        public string PalletId { get; private set; }
+        public string PalletId { get; set; }
         /// <summary>10-digit "license plate" assigned at receiving. Null for pallets registered before
-        /// Load IDs existed (e.g. hand-placed in the Editor) or created outside ReceivePalletWithLoadId.</summary>
+/// Load IDs existed (e.g. hand-placed in the Editor) or created outside ReceivePalletWithLoadId.</summary>
         public string LoadId { get; set; }
         public string SkuId { get; set; }
         public int Quantity { get; set; }

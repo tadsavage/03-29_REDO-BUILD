@@ -231,7 +231,12 @@ public class PreviewController : MonoBehaviour
 
     private Vector3 CalculateTargetPos(Vector3 pos, Vector2Int cell, ObjDataSO data)
     {
-        if (data != null && !IsGround(data) && !_deleteMode)
+        // If worldYOffset is set, use it as absolute height (for fixtures like lights)
+        if (data != null && data.worldYOffset > 0)
+        {
+            pos.y = data.worldYOffset;
+        }
+        else if (data != null && !IsGround(data) && !_deleteMode)
         {
             // Doors/walls that replace each other sit at the foundation+floor level,
             // not on top of the existing wall/door. Skip replaced-object heights.
@@ -240,6 +245,7 @@ public class PreviewController : MonoBehaviour
                 : _grid.GetStackHeight(cell);
             pos.y += height;
         }
+
         return pos;
     }
 

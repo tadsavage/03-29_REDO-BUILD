@@ -61,10 +61,18 @@ namespace SaveLoadSystem
 
         /// <summary>
         /// Saves game state + thumbnail to the given slot.
-        /// Does NOT interfere with quicksave (F5/F9).
+        /// If slotIndex == -1, saves to quicksave instead of a numbered slot.
+        /// Does NOT interfere with in-game quicksave (F5/F9) — that uses SaveSystem directly.
         /// </summary>
         public void SaveToSlot(int slotIndex, string saveName)
         {
+            // Handle quicksave specially
+            if (slotIndex == -1)
+            {
+                SaveQuicksave(saveName);
+                return;
+            }
+
             if (slotIndex < 0 || slotIndex >= MAX_SLOTS)
             {
                 Debug.LogError($"[SaveManager] Invalid slot: {slotIndex}");
@@ -110,10 +118,17 @@ namespace SaveLoadSystem
 
         /// <summary>
         /// Loads game state from slot. Returns false if empty/missing.
-        /// Does NOT interfere with quicksave (F5/F9).
+        /// If slotIndex == -1, loads from quicksave instead of a numbered slot.
+        /// Does NOT interfere with in-game quicksave (F5/F9) — that uses SaveSystem directly.
         /// </summary>
         public bool LoadFromSlot(int slotIndex)
         {
+            // Handle quicksave specially
+            if (slotIndex == -1)
+            {
+                return LoadQuicksave();
+            }
+
             if (slotIndex < 0 || slotIndex >= MAX_SLOTS) return false;
 
             SaveMetadata metadata = metadataCollection.slots[slotIndex];
@@ -159,6 +174,46 @@ namespace SaveLoadSystem
             if (metadata == null) return null;
             if (string.IsNullOrEmpty(metadata.thumbnailFileName)) return null;
             return Path.Combine(saveFolderPath, metadata.thumbnailFileName);
+        }
+
+        // ========== QUICKSAVE HANDLING ==========
+
+        private void SaveQuicksave(string saveName)
+        {
+            string gameDataJson = SerializeGameState();
+            string dataPath = Path.Combine(saveFolderPath, "quicksave.json");
+            File.WriteAllText(dataPath, gameDataJson);
+
+            string thumbPath = Path.Combine(saveFolderPath, "quicksave_thumb.png");
+            if (thumbnailCapture == null)
+            {
+                Debug.LogError("[SaveManager] thumbnailCapture is not assigned — quicksave aborted.");
+                return;
+            }
+
+            thumbnailCapture.CaptureThumbnail(saveFolderPath, "quicksave_thumb.png", (tex) =>
+            {
+                if (tex != null) Destroy(tex);
+                Debug.Log("[SaveManager] Quicksaved successfully");
+                OnSaveCompleted?.Invoke(-1);
+            });
+        }
+
+        private bool LoadQuicksave()
+        {
+            string quicksavePath = Path.Combine(saveFolderPath, "quicksave.json");
+            if (!File.Exists(quicksavePath))
+            {
+                Debug.LogError("[SaveManager] Quicksave file not found");
+                return false;
+            }
+
+            string gameDataJson = File.ReadAllText(quicksavePath);
+            DeserializeGameState(gameDataJson);
+
+            Debug.Log("[SaveManager] Loaded quicksave");
+            OnLoadCompleted?.Invoke(-1);
+            return true;
         }
 
         // ========== SERIALIZATION BRIDGE ==========

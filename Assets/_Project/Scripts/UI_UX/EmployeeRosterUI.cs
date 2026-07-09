@@ -121,11 +121,18 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         if (!_enableHotkey || UIModalGuard.IsCapturing) return;
         if (Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
         {
+            Debug.Log("[EmployeeRosterUI] Digit3Key triggered, calling ToggleUI(3)");
             // Route through UIKeyBindingManager for exclusivity
             if (UIKeyBindingManager.Instance != null)
+            {
+                Debug.Log("[EmployeeRosterUI] UIKeyBindingManager.Instance found, calling ToggleUI(3)");
                 UIKeyBindingManager.Instance.ToggleUI(3);
+            }
             else
+            {
+                Debug.LogWarning("[EmployeeRosterUI] UIKeyBindingManager.Instance is null, falling back to direct toggle");
                 Toggle();  // Fallback if manager not available
+            }
         }
     }
 

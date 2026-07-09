@@ -1,5 +1,8 @@
 using GameCore.Economy;
 using GameCore.Services;
+using GameCore.Labor;
+using GameCore.Inventory;
+using GameCore.Persistence;
 using SaveLoadSystem;
 using System.Collections;
 using System.Collections.Generic;
@@ -310,6 +313,115 @@ public class PlacementSystem : MonoBehaviour
         else
             save.graphicsPreset = PlayerPrefs.GetString("GraphicsPresetName", "Ultra");
 
+        // ── ECONOMY PERSISTENCE ──────────────────────────────────────────────
+        // Snapshot hourly costs by GL_Line and fractional accumulators
+        if (ServiceLocator.TryGet(out EconomyService economyService))
+        {
+            save.economy = new EconomySnapshot();
+
+            // Snapshot hourly costs per GL_Line
+            var hourlyByGLLine = economyService.GetHourlyByGLLine();
+            if (hourlyByGLLine != null)
+            {
+                foreach (var kvp in hourlyByGLLine)
+                {
+                    save.economy.hourlyByGLLine.Add(new EconomyGLLineEntry
+                    {
+                        glLine = kvp.Key,
+                        hourlyAmount = kvp.Value
+                    });
+                }
+            }
+
+            // Snapshot fractional accumulators
+            var fractionalByGLLine = economyService.GetFractionalByGLLine();
+            if (fractionalByGLLine != null)
+            {
+                foreach (var kvp in fractionalByGLLine)
+                {
+                    save.economy.fractionalByGLLine.Add(new EconomyFractionalEntry
+                    {
+                        glLine = kvp.Key,
+                        fractionalRemainder = kvp.Value
+                    });
+                }
+            }
+        }
+
+        // ── TIME PERSISTENCE ────────────────────────────────────────────────
+        // Snapshot current hour/minute/day so time resumes from same point on load
+        save.time = new TimeSnapshot();
+        SimulationTimeService timeService = null;
+        if (!ServiceLocator.TryGet(out timeService))
+        {
+            // Fallback: try to get from GameContext directly
+            var ctx = Object.FindAnyObjectByType<GameContext>();
+            if (ctx != null)
+                timeService = ctx.TimeService;
+        }
+
+        if (timeService != null)
+        {
+            save.time.hour = timeService.Hour;
+            save.time.minute = timeService.Minute;
+            save.time.day = timeService.Day;
+            save.time.fractionalMinutes = 0f;
+        }
+
+        // ── WORK QUEUE PERSISTENCE ──────────────────────────────────────────
+        // Snapshot all pending work tasks so employees can resume assigned work
+        if (ServiceLocator.TryGet(out WorkQueueSystem workQueueSystem))
+        {
+            save.workQueue = new List<WorkTaskSnapshot>();
+            foreach (var task in workQueueSystem.GetAllTasks())
+            {
+                if (task == null) continue;
+                save.workQueue.Add(new WorkTaskSnapshot
+                {
+                    taskId = task.TaskId,
+                    type = (int)task.Type,
+                    requiredRole = (int)task.RequiredRole,
+                    palletId = task.PalletId,
+                    description = task.Description,
+                    status = (int)task.Status,
+                    assignedToEmployeeGuid = task.AssignedToEmployeeGuid ?? -1,
+                    fromLocation = task.FromLocation,
+                    toLocation = task.ToLocation,
+                    area = (int)task.Area
+                });
+            }
+        }
+
+        // ── PALLET PERSISTENCE ──────────────────────────────────────────────
+        // Snapshot all pallets with their XYZ coordinates for exact restoration
+        if (ServiceLocator.TryGet(out InventoryService inventoryService))
+        {
+            var allPallets = inventoryService.GetAllPallets();
+            save.pallets = new List<PalletSnapshot>();
+
+            foreach (var palletRecord in allPallets)
+            {
+                if (palletRecord == null) continue;
+
+                save.pallets.Add(new PalletSnapshot
+                {
+                    palletId = palletRecord.PalletId,
+                    loadId = palletRecord.LoadId,
+                    skuId = palletRecord.SkuId,
+                    quantity = palletRecord.Quantity,
+                    receivedDayNumber = palletRecord.ReceivedDayNumber,
+                    expirationDayNumber = palletRecord.ExpirationDayNumber,
+                    isContaminated = palletRecord.IsContaminated,
+                    locationX = palletRecord.CurrentLocation.x,  // **XYZ: Grid X**
+                    locationY = palletRecord.CurrentLocation.y,  // **XYZ: Grid Y**
+                    worldHeightY = palletRecord.WorldHeightY     // **XYZ: World Height**
+                });
+            }
+
+            if (save.pallets.Count > 0)
+                Debug.Log($"[PlacementSystem] Saved {save.pallets.Count} pallets");
+        }
+
         foreach (var entry in PlacedObjectRegistry.All)
         {
             // Yard floor tiles (id 200) aren't saved individually — they make up the vast
@@ -371,26 +483,130 @@ public class PlacementSystem : MonoBehaviour
         if (EmployeePhotoBooth.Instance != null)
             EmployeePhotoBooth.Instance.PrunePortraits();
 
-        // ── DOCK & INVENTORY PERSISTENCE ──────────────────────────────────────
-        // Snapshot all transient state that needs to survive load
-        save.dock = DockPersistenceService.Snapshot();
-        save.inventory = InventoryPersistenceService.Snapshot();
-        save.economy = EconomyPersistenceService.Snapshot();
-        save.workQueue = WorkQueuePersistenceService.Snapshot();
-
         return save;
     }
 
     private void ApplySaveData(SaveData save)
     {
-        // ── RESTORE ECONOMY & INVENTORY ──────────────────────────────────────
-        // Restore these BEFORE cleared all objects, so systems are ready to process restored state
-        EconomyPersistenceService.Restore(save.economy);
-        InventoryPersistenceService.Restore(save.inventory);
-        WorkQueuePersistenceService.Restore(save.workQueue);
-
         moneyService.SetMoney(save.money);
         moneyService.SetSpentToday(save.spentToday);
+
+        // ── RESTORE ECONOMY STATE ────────────────────────────────────────────
+        // Restore hourly costs and fractional accumulators so economy continues from saved state
+        if (ServiceLocator.TryGet(out EconomyService economyService) && save.economy != null)
+        {
+            // Convert snapshot lists back to dictionaries
+            var hourlyByGLLine = new Dictionary<string, int>();
+            if (save.economy.hourlyByGLLine != null)
+            {
+                foreach (var entry in save.economy.hourlyByGLLine)
+                    hourlyByGLLine[entry.glLine] = entry.hourlyAmount;
+            }
+
+            var fractionalByGLLine = new Dictionary<string, float>();
+            if (save.economy.fractionalByGLLine != null)
+            {
+                foreach (var entry in save.economy.fractionalByGLLine)
+                    fractionalByGLLine[entry.glLine] = entry.fractionalRemainder;
+            }
+
+            economyService.RestoreHourlyState(hourlyByGLLine, fractionalByGLLine);
+        }
+
+        // ── RESTORE TIME STATE ──────────────────────────────────────────────
+        // Restore hour/minute/day so time resumes from saved point
+        SimulationTimeService timeService = null;
+        if (!ServiceLocator.TryGet(out timeService))
+        {
+            // Fallback: try to get from GameContext directly
+            var ctx = Object.FindAnyObjectByType<GameContext>();
+            if (ctx != null)
+                timeService = ctx.TimeService;
+        }
+
+        if (timeService != null && save.time != null)
+        {
+            timeService.RestoreTime(save.time.day, save.time.hour, save.time.minute, save.time.fractionalMinutes);
+        }
+
+        // ── RESTORE PALLET STATE ─────────────────────────────────────────────
+        // Restore all pallets with their XYZ coordinates to exact saved locations
+        if (ServiceLocator.TryGet(out InventoryService inventoryService))
+        {
+            Debug.Log($"[PlacementSystem] Clearing pallets before restore...");
+            inventoryService.ClearAllPallets();
+
+            if (save.pallets != null && save.pallets.Count > 0)
+            {
+                Debug.Log($"[PlacementSystem] Restoring {save.pallets.Count} pallets from save file");
+
+                foreach (var palletSnap in save.pallets)
+                {
+                    if (palletSnap == null) continue;
+
+                    // Reconstruct PalletMasterRecord from snapshot
+                    var restored = new PalletMasterRecord(
+                        palletSnap.skuId,
+                        palletSnap.quantity,
+                        new Vector2Int(palletSnap.locationX, palletSnap.locationY),  // **XYZ: Grid coords**
+                        palletSnap.receivedDayNumber,
+                        palletSnap.expirationDayNumber
+                    );
+
+                    // Restore all fields (LoadId is the identifier, PalletId is preserved for tasks)
+                    restored.PalletId = palletSnap.palletId;
+                    restored.LoadId = palletSnap.loadId;  // **10-digit license plate**
+restored.IsContaminated = palletSnap.isContaminated;
+                    restored.WorldHeightY = palletSnap.worldHeightY;  // **XYZ: World height**
+
+                    inventoryService.RegisterPalletDirect(restored);
+                }
+
+                var finalCount = inventoryService.GetAllPallets().Count;
+                Debug.Log($"[PlacementSystem] Restore complete: {finalCount} pallets now in InventoryService");
+            }
+            else
+            {
+                Debug.Log($"[PlacementSystem] No pallets in save file to restore");
+            }
+        }
+
+        // ── RESTORE WORK QUEUE STATE ─────────────────────────────────────────
+        // Restore all pending work tasks so employees can continue assigned work
+        if (ServiceLocator.TryGet(out WorkQueueSystem workQueueSystem) && save.workQueue != null && save.workQueue.Count > 0)
+        {
+            workQueueSystem.ClearAllTasks();
+            foreach (var snapshot in save.workQueue)
+            {
+                if (snapshot == null) continue;
+
+                // Reconstruct WorkTask from snapshot
+                var task = new GameCore.Labor.WorkTask(
+                    (GameCore.Labor.WorkTaskType)snapshot.type,
+                    (EmployeeRole)snapshot.requiredRole,
+                    snapshot.palletId,
+                    snapshot.description,
+                    snapshot.fromLocation,
+                    snapshot.toLocation,
+                    (GameCore.Inventory.PalletData.AreaCategory)snapshot.area
+                );
+
+                // Restore the task's original TaskId and status via reflection
+                var taskIdField = task.GetType().GetProperty("TaskId");
+                if (taskIdField != null && taskIdField.CanWrite)
+                {
+                    // If the property is read-only, we'll need a different approach
+                    // For now, just register the task with its new ID
+                }
+
+                // Set status and assignment
+                task.Status = (GameCore.Labor.WorkTaskStatus)snapshot.status;
+                task.AssignedToEmployeeGuid = snapshot.assignedToEmployeeGuid == -1 ? null : (int?)snapshot.assignedToEmployeeGuid;
+
+                workQueueSystem.RegisterRestoredTask(task);
+            }
+        }
+
         ApplySavedSettings(save);
         LaneConfigRegistry.Import(save.laneConfigs);
 
@@ -474,15 +690,20 @@ public class PlacementSystem : MonoBehaviour
         // ── INSTANTIATE PALLET VISUALS ──────────────────────────────────────
         // Inventory data was restored, but the 3D meshes weren't instantiated.
         // Create visual pallet prefabs for all restored pallets so they appear in the world.
-        InventoryPersistenceService.InstantiateRestoredPalletVisuals();
+        InventoryPersistenceService.InstantiateRestoredPalletVisuals(grid);
 
-        // ── RESTORE DOCK STATE ──────────────────────────────────────────────
+        // TODO: Re-implement dock persistence when persistence layer is rebuilt
+// ── RESTORE DOCK STATE ──────────────────────────────────────────────
         // After all placed objects are restored (trucks, staging lanes are now in scene)
-        DockPersistenceService.Restore(save.dock);
+        // DockPersistenceService.Restore(save.dock);
 
         // Rebuild grid AGAIN after pallet visuals are instantiated, since they now affect cell occupancy
         // (This ensures the placement grid knows about restored pallets in lanes)
         grid.RebuildFromRegistry();
+
+        // ── INSTANTIATE PALLET VISUALS ──────────────────────────────────────
+        // (Second call ensures pallets are visible before any subsequent systems run)
+        // InventoryPersistenceService.InstantiateRestoredPalletVisuals();
 
         // Refresh rack labels: PlacedObject fields are restored but TMP text isn't.
         // Must happen before yard floors are populated (which triggers NavMesh bake).

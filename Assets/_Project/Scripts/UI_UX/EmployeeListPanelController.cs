@@ -86,16 +86,35 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
     // ─── Unity lifecycle ──────────────────────────────────────────────────────
     private void Awake()
     {
+        Debug.Log("[EmployeeListPanelController.Awake] Called");
         if (Instance != null && Instance != this)
         {
+            Debug.Log("[EmployeeListPanelController.Awake] Instance already exists, destroying this one");
             Destroy(gameObject);
             return;
         }
         Instance = this;
+        Debug.Log("[EmployeeListPanelController.Awake] Set as Instance");
 
         // Register with UIKeyBindingManager for keybinding exclusivity (key 4)
         if (UIKeyBindingManager.Instance != null)
+        {
+            Debug.Log("[EmployeeListPanelController.Awake] Registering with UIKeyBindingManager for key 4");
             UIKeyBindingManager.Instance.RegisterUI(4, this);
+        }
+        else
+        {
+            Debug.LogWarning("[EmployeeListPanelController.Awake] UIKeyBindingManager.Instance is null!");
+        }
+    }
+
+    private void Start()
+    {
+        if (UIKeyBindingManager.Instance != null)
+        {
+            Debug.Log("[EmployeeListPanelController.Start] Registering with UIKeyBindingManager for key 4");
+            UIKeyBindingManager.Instance.RegisterUI(4, this);
+        }
     }
 
     private void OnDisable()
@@ -106,13 +125,30 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
     private void Update()
     {
         if (!_enableHotkey || UIModalGuard.IsCapturing) return;
+
+        // Debug all keys pressed this frame
+        if (Keyboard.current != null)
+        {
+            if (Keyboard.current.digit1Key.wasPressedThisFrame) Debug.Log("[EmployeeListPanelController.Update] digit1Key detected!");
+            if (Keyboard.current.digit2Key.wasPressedThisFrame) Debug.Log("[EmployeeListPanelController.Update] digit2Key detected!");
+            if (Keyboard.current.digit3Key.wasPressedThisFrame) Debug.Log("[EmployeeListPanelController.Update] digit3Key detected!");
+            if (Keyboard.current.digit4Key.wasPressedThisFrame) Debug.Log("[EmployeeListPanelController.Update] digit4Key detected!");
+        }
+
         if (Keyboard.current != null && Keyboard.current.digit4Key.wasPressedThisFrame)
         {
+            Debug.Log("[EmployeeListPanelController] Digit4Key triggered, calling ToggleUI(4)");
             // Route through UIKeyBindingManager for exclusivity
             if (UIKeyBindingManager.Instance != null)
+            {
+                Debug.Log("[EmployeeListPanelController] UIKeyBindingManager.Instance found, calling ToggleUI(4)");
                 UIKeyBindingManager.Instance.ToggleUI(4);
+            }
             else
+            {
+                Debug.LogWarning("[EmployeeListPanelController] UIKeyBindingManager.Instance is null, falling back to direct toggle");
                 Toggle();  // Fallback if manager not available
+            }
         }
     }
 

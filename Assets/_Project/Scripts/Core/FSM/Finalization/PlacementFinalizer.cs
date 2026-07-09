@@ -74,7 +74,15 @@ public class PlacementFinalizer : MonoBehaviour
         }
 
         Vector3 pos = _grid.GetCellCenter(root);
+        bool useWorldYOffset = false;
 
+        // If worldYOffset is set, use it as absolute height (for fixtures like lights)
+        if (data.worldYOffset > 0)
+        {
+            pos.y = data.worldYOffset;
+            useWorldYOffset = true;
+            Debug.Log($"[PlacementFinalizer] {data.objName}: Using worldYOffset={data.worldYOffset}, pos.y={pos.y}");
+        }
         // For prefabs that carry a NavMeshAgent (humanoid workers, forklifts, etc.):
         // spawn at the ACTUAL stack height of this cell rather than y=0.
         // GetCellCenter always returns y=0, but the agent needs to start at the
@@ -82,11 +90,18 @@ public class PlacementFinalizer : MonoBehaviour
         // NavMeshAgent finds the correct NavMesh surface on its first frame.
         // If the floor NavMesh hasn't been baked yet AiNavigation.OnNavMeshBaked()
         // will re-snap once the bake completes.
-        if (data.prefab != null && data.prefab.GetComponent<NavMeshAgent>() != null)
+        else if (data.prefab != null && data.prefab.GetComponent<NavMeshAgent>() != null)
             pos.y = _grid.GetStackHeight(root);
 
         GameObject instance = Instantiate(data.prefab, pos, Quaternion.Euler(0f, rotation, 0f));
         instance.name = data.objName;
+
+        // If worldYOffset was used, re-apply after instantiation to override any prefab pivot offsets
+        if (useWorldYOffset)
+        {
+            instance.transform.position = new Vector3(instance.transform.position.x, data.worldYOffset, instance.transform.position.z);
+            Debug.Log($"[PlacementFinalizer] {data.objName}: Re-applied worldYOffset after instantiate. Now at Y={instance.transform.position.y}");
+        }
 
         // Parent Foundations to a shared parent GameObject (performance optimization: one parent collider for all)
         if (data.category == "Foundation")
@@ -102,8 +117,9 @@ public class PlacementFinalizer : MonoBehaviour
 
         // For freshly placed NavMesh agents: set transform position directly — don't
         // call Warp because the NavMesh may not be baked yet at this moment.
+        // SKIP if worldYOffset was used — don't let the agent override absolute positioning
         var agent = instance.GetComponent<NavMeshAgent>();
-        if (agent != null && agent.isActiveAndEnabled)
+        if (agent != null && agent.isActiveAndEnabled && !useWorldYOffset)
         {
             if (agent.isOnNavMesh)
                 agent.Warp(pos);
@@ -136,12 +152,14 @@ public class PlacementFinalizer : MonoBehaviour
         // For mobile agents, set Y from the actual renderer bounds of floor tiles in the cell.
         // objHeight is the tile's physical thickness (0.05f), not its elevation (1.06f),
         // so the stacking math would leave the agent at Y≈0 — fix that here.
-        if (instance.GetComponent<NavMeshAgent>() != null)
+        // Skip this if worldYOffset was set — fixtures like lights use absolute positioning.
+        if (instance.GetComponent<NavMeshAgent>() != null && !useWorldYOffset)
         {
             float floorTopY = GetFloorTopY(_grid, root);
             instance.transform.position = new Vector3(pos.x, floorTopY, pos.z);
         }
 
+        Debug.Log($"[PlacementFinalizer] {data.objName}: Returning instance at Y={instance.transform.position.y} (useWorldYOffset={useWorldYOffset})");
         return instance;
     }
 

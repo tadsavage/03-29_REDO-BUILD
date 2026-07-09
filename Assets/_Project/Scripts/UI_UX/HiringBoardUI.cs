@@ -60,16 +60,35 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
     // ─── Unity lifecycle ──────────────────────────────────────────────────────
     private void Awake()
     {
+        Debug.Log("[HiringBoardUI.Awake] Called");
         if (Instance != null && Instance != this)
         {
+            Debug.Log("[HiringBoardUI.Awake] Instance already exists, destroying this one");
             Destroy(gameObject);
             return;
         }
         Instance = this;
+        Debug.Log("[HiringBoardUI.Awake] Set as Instance");
 
         // Register with UIKeyBindingManager for keybinding exclusivity (key 2)
         if (UIKeyBindingManager.Instance != null)
+        {
+            Debug.Log("[HiringBoardUI.Awake] Registering with UIKeyBindingManager for key 2");
             UIKeyBindingManager.Instance.RegisterUI(2, this);
+        }
+        else
+        {
+            Debug.LogWarning("[HiringBoardUI.Awake] UIKeyBindingManager.Instance is null!");
+        }
+    }
+
+    private void Start()
+    {
+        if (UIKeyBindingManager.Instance != null)
+        {
+            Debug.Log("[HiringBoardUI.Start] Registering with UIKeyBindingManager for key 2");
+            UIKeyBindingManager.Instance.RegisterUI(2, this);
+        }
     }
 
     private void OnEnable()
@@ -156,13 +175,30 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
     private void Update()
     {
         if (!_enableHotkey || UIModalGuard.IsCapturing) return;
+
+        // Debug all keys pressed this frame
+        if (Keyboard.current != null)
+        {
+            if (Keyboard.current.digit1Key.wasPressedThisFrame) Debug.Log("[HiringBoardUI.Update] digit1Key detected!");
+            if (Keyboard.current.digit2Key.wasPressedThisFrame) Debug.Log("[HiringBoardUI.Update] digit2Key detected!");
+            if (Keyboard.current.digit3Key.wasPressedThisFrame) Debug.Log("[HiringBoardUI.Update] digit3Key detected!");
+            if (Keyboard.current.digit4Key.wasPressedThisFrame) Debug.Log("[HiringBoardUI.Update] digit4Key detected!");
+        }
+
         if (Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
         {
+            Debug.Log("[HiringBoardUI] Digit2Key triggered, calling ToggleUI(2)");
             // Route through UIKeyBindingManager for exclusivity
             if (UIKeyBindingManager.Instance != null)
+            {
+                Debug.Log("[HiringBoardUI] UIKeyBindingManager.Instance found, calling ToggleUI(2)");
                 UIKeyBindingManager.Instance.ToggleUI(2);
+            }
             else
+            {
+                Debug.LogWarning("[HiringBoardUI] UIKeyBindingManager.Instance is null, falling back to direct toggle");
                 Toggle();  // Fallback if manager not available
+            }
         }
     }
 
