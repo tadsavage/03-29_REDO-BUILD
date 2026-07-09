@@ -29,10 +29,10 @@ namespace GameCore.Persistence
             if (!ServiceLocator.TryGet<InventoryService>(out var inventoryService)) return;
 
             // Load resources
-            var palletPrefab = Resources.Load<GameObject>("Inventory/ChepStack");
+            var palletPrefab = Resources.Load<GameObject>("ChepEmpty");
             if (palletPrefab == null)
             {
-                Debug.LogError("[InventoryPersistenceService] ChepStack prefab not found in Resources/Inventory/");
+                Debug.LogError("[InventoryPersistenceService] ChepEmpty prefab not found in Resources/");
                 return;
             }
 
@@ -43,21 +43,55 @@ namespace GameCore.Persistence
             Debug.Log($"[InventoryPersistenceService] Instantiating visuals for {allPallets.Count} pallets...");
 
             Transform container = GameObject.Find("PlacedObjectsContainer")?.transform;
+            if (container == null)
+                Debug.LogWarning("[InventoryPersistenceService] PlacedObjectsContainer not found!");
 
+            int instantiated = 0;
             foreach (var record in allPallets)
             {
                 if (record == null) continue;
 
-                // 1. Instantiate at Grid X/Y + WorldHeightY
+                // 1. Calculate correct world Y for pallet (accounting for stacking)
                 Vector3 worldPos = grid.GetCellCenter(record.CurrentLocation);
-                worldPos.y = record.WorldHeightY;
+                var sku = inventoryService.GetSkuData(record.SkuId);
+
+                // Use saved WorldHeightY if available, otherwise calculate from grid
+                if (record.WorldHeightY > 0f)
+                {
+                    worldPos.y = record.WorldHeightY;
+                }
+                else
+                {
+                    // Fall back to calculation based on existing pallets in this cell
+                    var existingInCell = grid.GetObjectsInCell(record.CurrentLocation);
+                    if (existingInCell == null || existingInCell.Count == 0)
+                    {
+                        worldPos.y = PalletHeightCalculator.CalculateGroundLevelY(sku);
+                    }
+                    else
+                    {
+                        float highestTop = 0f;
+                        foreach (var obj in existingInCell)
+                        {
+                            if (obj.instance != null)
+                            {
+                                highestTop = Mathf.Max(highestTop,
+                                    PalletHeightCalculator.GetPalletTop(obj.instance.transform.position.y, sku));
+                            }
+                        }
+                        worldPos.y = highestTop > 0f
+                            ? PalletHeightCalculator.CalculateStackedY(highestTop, sku)
+                            : PalletHeightCalculator.CalculateGroundLevelY(sku);
+                    }
+                }
 
                 GameObject go = Object.Instantiate(palletPrefab, worldPos, Quaternion.identity, container);
                 go.name = $"RestoredPallet_{record.SkuId}_{record.PalletId.Substring(0, 5)}";
+                instantiated++;
+                Debug.Log($"[InventoryPersistenceService] Instantiated pallet at {record.CurrentLocation} (worldY={worldPos.y:F2})");
 
                 // 2. Configure PalletBuilder
                 var builder = go.GetComponentInChildren<PalletBuilder>();
-                var sku = inventoryService.GetSkuData(record.SkuId);
                 if (builder != null && sku != null)
                 {
                     builder.casePrefab = sku.Prefab;
@@ -87,6 +121,8 @@ namespace GameCore.Persistence
                     data.Initialize(record.LoadId, record.SkuId, record.Quantity, record.ExpirationDayNumber, area, icon, record.CurrentLocation);
                 }
             }
+
+            Debug.Log($"[InventoryPersistenceService] Successfully instantiated {instantiated}/{allPallets.Count} pallets.");
         }
     }
 }

@@ -78,6 +78,7 @@ public class SavedObject
     public int y;    // Grid Y
     public int rot;  // Rotation index (0–3)
     public string customData;
+    public float worldY;  // World Y (absolute height) — used for stacked pallets on dock
 }
 
 [System.Serializable]

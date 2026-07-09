@@ -1,0 +1,44 @@
+name: data-persistence
+title: Data Persistence Through Save/Load
+description: |
+  Master save/load systems for complex data (pallets, objects, world state) with correct 3D positioning and stacking.
+
+  Covers the full save/load pipeline, 3D coordinate handling, stacking math, and debugging persistence issues.
+
+keywords:
+  - save
+  - load
+  - persistence
+  - JSON serialization
+  - stacking
+  - 3D positioning
+  - coordinate systems
+  - debugging
+
+triggers:
+  - pattern: "save|load|persist|serializ|stack"
+    context: "game state, data, world"
+  - pattern: "Y position|height|ground level"
+    context: "3D objects, stacking"
+  - pattern: "not appearing|data missing|restore"
+    context: "save/load"
+
+applicable_files:
+  - path: "Assets/**/*SaveData.cs"
+  - path: "Assets/**/*PlacementSystem.cs"
+  - path: "Assets/**/*Persistence*.cs"
+  - path: "Assets/**/*PalletHeightCalculator.cs"
+
+provides:
+  - "Complete save/load architecture overview"
+  - "Y-position calculation patterns (ground level & stacking)"
+  - "Load-bearing conventions for data persistence"
+  - "Common task templates (save new type, handle stacking, debug issues)"
+  - "Gotchas and solutions from real implementation"
+  - "Testing checklist"
+  - "Files to modify by change type"
+
+references:
+  - "Memory: pallet-persistence-system.md"
+  - "CLAUDE.md: Architecture → Save System"
+  - "Skills: lane_setup, racking-system"

@@ -110,6 +110,23 @@ Stores the root cell, rotation (degrees), footprint offsets, and data reference 
 
 Save files are stored at `Application.dataPath + "/_Saves/"` (inside the project's `Assets` folder — intentional for this prototype).
 
+#### Dock Product (Pallet) Persistence — 2026-07-09
+
+**Status: COMPLETE** — Pallets on dock now saved/loaded with correct Y positioning for stacking.
+
+**System:** Pallets are saved with absolute world Y coordinate (`SavedObject.worldY`) to restore at correct elevations accounting for stacking.
+
+**Key Classes:**
+- **PalletHeightCalculator** — Calculates correct Y positions: ground level = foundation(1.06m) + floor(0.06m) + gap(0.015m) + pallet(0.16m) + cases. Stacked = pallet_below_top + pallet(0.16m) + gap(0.015m) + cases.
+- **PalletPlacementHelper** — Utility to calculate Y for a pallet at a grid cell, checking for existing pallets in that cell.
+- **InventoryPersistenceService** — Instantiates ChepEmpty prefab for inventory-data pallets, uses PalletHeightCalculator for correct positioning.
+
+**SaveData.SavedObject** now has `float worldY` field to store absolute height.
+
+**Load Path:** PlacementSystem.SpawnFromSave() uses saved worldY if > 0, otherwise calculates from grid.
+
+**Testing:** Place/stack pallets → F5 (save) → Restart editor → F9 (load) → pallets should appear at correct stacking heights. Console logs show instantiation count and positions.
+
 ### Audio
 
 **AudioManager** — singleton MonoBehaviour that persists across scenes. Sound effects are defined in a `SoundDefinition` ScriptableObject and played by name: `AudioManager.Play("soundName")`. Music plays probabilistically on an interval with fade-in/fade-out.

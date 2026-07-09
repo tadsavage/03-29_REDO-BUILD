@@ -441,6 +441,7 @@ public class PlacementSystem : MonoBehaviour
             obj.x = entry.gridX;
             obj.y = entry.gridY;
             obj.rot = entry.rotation;
+            obj.worldY = entry.transform.position.y;  // Save absolute Y for stacked pallets
 
             // Committed aisle racks carry their location metadata (aisle/bay/level/facing/travel) only
             // in memory on the PlacedObject — the save format persists customData, so encode that
@@ -646,7 +647,7 @@ restored.IsContaminated = palletSnap.isContaminated;
             // too would duplicate them with regenerated identities. New saves don't store
             // employees as placed objects at all (see BuildSaveData).
             if (so.category == "Worker" || so.category == "Staff") continue;
-            SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData);
+            SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData, objSave.worldY);
         }
 
         // Lower number restores first. Grounds/Foundations/floors must exist in the grid
@@ -688,8 +689,11 @@ restored.IsContaminated = palletSnap.isContaminated;
         ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
 
         // ── INSTANTIATE PALLET VISUALS ──────────────────────────────────────
-        // Inventory data was restored, but the 3D meshes weren't instantiated.
-        // Create visual pallet prefabs for all restored pallets so they appear in the world.
+        // Pallets can be created two ways:
+        // 1. PlacedObjects placed through build menu (saved via PlacementSystem)
+        // 2. Inventory data from ReceivingService (need ChepStack instantiation)
+        // The second type only has data records, not GameObjects, so we instantiate visuals.
+        // Y position is now calculated correctly accounting for stacking.
         InventoryPersistenceService.InstantiateRestoredPalletVisuals(grid);
 
         // TODO: Re-implement dock persistence when persistence layer is rebuilt
@@ -858,15 +862,22 @@ restored.IsContaminated = palletSnap.isContaminated;
         // ---------------------------------------------------------
     // LOAD GAME SPAWNING
     // ---------------------------------------------------------
-    public PlacedObject SpawnFromSave(ObjDataSO so, int x, int y, int rot, string customData = "")
+    public PlacedObject SpawnFromSave(ObjDataSO so, int x, int y, int rot, string customData = "", float worldY = 0f)
     {
         EnsureContainer();
         Vector2Int root = new Vector2Int(x, y);
         float rotationDeg = rot * 90f;
 
+        // Use saved worldY if provided (for stacked pallets), otherwise calculate from grid
         float stackY = 0f;
-        if (so.isStackable)
+        if (worldY > 0f)
+        {
+            stackY = worldY - grid.GetCellCenter(root).y;
+        }
+        else if (so.isStackable)
+        {
             stackY = grid.GetStackHeight(root);
+        }
 
         Vector3 worldPos = grid.GetCellCenter(root);
         worldPos.y += stackY;
