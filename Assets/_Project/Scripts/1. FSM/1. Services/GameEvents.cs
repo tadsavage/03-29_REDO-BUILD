@@ -70,5 +70,11 @@ namespace GameCore.Events
             public const string OnDoorOpened = "Dock.OnDoorOpened";
             public const string OnDoorClosed = "Dock.OnDoorClosed";
         }
+
+        /// <summary>Placement system events (grid positions, heights, object tracking).</summary>
+        public static class Placement
+        {
+            public const string OnPlacedObjectHeightChanged = "Placement.OnPlacedObjectHeightChanged";
+        }
     }
 }

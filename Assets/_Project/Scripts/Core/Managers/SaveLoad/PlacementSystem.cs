@@ -403,6 +403,16 @@ public class PlacementSystem : MonoBehaviour
             {
                 if (palletRecord == null) continue;
 
+                // Check if pallet is in a staging lane using LaneNamingService
+                // Returns e.g., "1A-03" if in a lane, null otherwise
+                string laneAddress = LaneNamingService.AddressAt(palletRecord.CurrentLocation);
+                string laneId = null;
+                if (!string.IsNullOrEmpty(laneAddress))
+                {
+                    // Extract just the lane ID ("1A" from "1A-03")
+                    laneId = laneAddress.Split('-')[0];
+                }
+
                 save.pallets.Add(new PalletSnapshot
                 {
                     palletId = palletRecord.PalletId,
@@ -414,13 +424,21 @@ public class PlacementSystem : MonoBehaviour
                     isContaminated = palletRecord.IsContaminated,
                     locationX = palletRecord.CurrentLocation.x,  // **XYZ: Grid X**
                     locationY = palletRecord.CurrentLocation.y,  // **XYZ: Grid Y**
-                    worldHeightY = palletRecord.WorldHeightY     // **XYZ: World Height**
+                    worldHeightY = palletRecord.WorldHeightY,    // **XYZ: World Height**
+                    stagingLaneId = laneId  // e.g., "1A", "2B", or null if in storage
                 });
             }
 
             if (save.pallets.Count > 0)
                 Debug.Log($"[PlacementSystem] Saved {save.pallets.Count} pallets");
         }
+
+        // ── DOCK PALLET VISUAL PERSISTENCE ────────────────────────────────────
+        // Literal world-transform capture of every live pallet GameObject (root + built cases).
+        // See PalletPersistenceService for why this replaced the old SKU/Ti-Hi-driven
+        // reconstruction. Pallets are excluded from the generic placedObjects loop below (see the
+        // "Inventory" category skip there) so they aren't captured twice.
+        save.dockPallets = GameCore.Persistence.PalletPersistenceService.CaptureAll();
 
         foreach (var entry in PlacedObjectRegistry.All)
         {
@@ -436,12 +454,17 @@ public class PlacementSystem : MonoBehaviour
             // load AND double-spawns them — that's the "strangers appear after load" bug.
             if (entry.GetComponent<EmployeeIdentity>() != null) continue;
 
+            // Pallets are captured above by PalletPersistenceService (exact world transform +
+            // cases) — skip them here so they aren't saved twice under two different schemes.
+            if (entry.data.category == "Inventory") continue;
+
             SavedObject obj = new SavedObject();
             obj.id = entry.data.id;
             obj.x = entry.gridX;
             obj.y = entry.gridY;
             obj.rot = entry.rotation;
-            obj.worldY = entry.transform.position.y;  // Save absolute Y for stacked pallets
+            // Prefer the explicitly-recorded worldSpaceYHeight if set; otherwise use current transform Y
+            obj.worldY = entry.worldSpaceYHeight > 0f ? entry.worldSpaceYHeight : entry.transform.position.y;
 
             // Committed aisle racks carry their location metadata (aisle/bay/level/facing/travel) only
             // in memory on the PlacedObject — the save format persists customData, so encode that
@@ -557,8 +580,9 @@ public class PlacementSystem : MonoBehaviour
                     // Restore all fields (LoadId is the identifier, PalletId is preserved for tasks)
                     restored.PalletId = palletSnap.palletId;
                     restored.LoadId = palletSnap.loadId;  // **10-digit license plate**
-restored.IsContaminated = palletSnap.isContaminated;
+                    restored.IsContaminated = palletSnap.isContaminated;
                     restored.WorldHeightY = palletSnap.worldHeightY;  // **XYZ: World height**
+                    restored.StagingLaneId = palletSnap.stagingLaneId;  // Lane ID if on dock, null if in storage
 
                     inventoryService.RegisterPalletDirect(restored);
                 }
@@ -647,6 +671,13 @@ restored.IsContaminated = palletSnap.isContaminated;
             // too would duplicate them with regenerated identities. New saves don't store
             // employees as placed objects at all (see BuildSaveData).
             if (so.category == "Worker" || so.category == "Staff") continue;
+
+            // Skip pallet placements — pallets (category "Inventory") aren't written into
+            // save.placedObjects at all anymore (see the matching skip in BuildSaveData above) and
+            // are restored separately by PalletPersistenceService.RestoreAll below, which also
+            // rebuilds their cases at exact captured transforms. This `continue` only matters for
+            // OLDER save files that still have Inventory entries in placedObjects.
+            if (so.category == "Inventory") continue;
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData, objSave.worldY);
         }
 
@@ -689,25 +720,16 @@ restored.IsContaminated = palletSnap.isContaminated;
         ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
 
         // ── INSTANTIATE PALLET VISUALS ──────────────────────────────────────
-        // Pallets can be created two ways:
-        // 1. PlacedObjects placed through build menu (saved via PlacementSystem)
-        // 2. Inventory data from ReceivingService (need ChepStack instantiation)
-        // The second type only has data records, not GameObjects, so we instantiate visuals.
-        // Y position is now calculated correctly accounting for stacking.
-        InventoryPersistenceService.InstantiateRestoredPalletVisuals(grid);
-
-        // TODO: Re-implement dock persistence when persistence layer is rebuilt
-// ── RESTORE DOCK STATE ──────────────────────────────────────────────
-        // After all placed objects are restored (trucks, staging lanes are now in scene)
-        // DockPersistenceService.Restore(save.dock);
+        // Literal world-transform restore (exact position/rotation + exact case transforms) —
+        // see PalletPersistenceService. Replaces the old InventoryPersistenceService SKU/Ti-Hi
+        // reconstruction (still present in the codebase, unused, kept for reference/rollback).
+        // Must run after save.pallets has restored PalletMasterRecords above, since a received
+        // pallet's PalletData is rebuilt from that record's SKU/quantity/expiration.
+        GameCore.Persistence.PalletPersistenceService.RestoreAll(save.dockPallets, grid);
 
         // Rebuild grid AGAIN after pallet visuals are instantiated, since they now affect cell occupancy
         // (This ensures the placement grid knows about restored pallets in lanes)
         grid.RebuildFromRegistry();
-
-        // ── INSTANTIATE PALLET VISUALS ──────────────────────────────────────
-        // (Second call ensures pallets are visible before any subsequent systems run)
-        // InventoryPersistenceService.InstantiateRestoredPalletVisuals();
 
         // Refresh rack labels: PlacedObject fields are restored but TMP text isn't.
         // Must happen before yard floors are populated (which triggers NavMesh bake).
@@ -896,6 +918,7 @@ restored.IsContaminated = palletSnap.isContaminated;
         }
         po.Initialize(so, x, y, rot);
         po.customData = customData;
+        po.worldSpaceYHeight = worldPos.y; // Restore world-space Y for stacked objects
 
         // Restore committed-rack metadata (aisle/bay/level/facing/travel) encoded into customData on
         // save. Labels themselves are redrawn later in RefreshAllRackLabelsAfterLoad once every rack

@@ -12,6 +12,7 @@ public class PlacedObject : MonoBehaviour
     public int gridY;
     public int rotation;
     public string customData;
+    public float worldSpaceYHeight = 0f; // World Y position for objects that need vertical height tracking (e.g., stacked pallets)
 
     // True once this rack has been committed to a real aisle via RackSetupUI submit.
     // Safeguard for future systems (inventory, task assignment, etc.) that should only
@@ -80,5 +81,18 @@ public class PlacedObject : MonoBehaviour
         rotation = rot;
 
         transform.rotation = Quaternion.Euler(0, rot * 90f, 0);
+    }
+
+    /// <summary>
+    /// Updates the world-space Y height for this placed object (e.g., when a pallet is moved or stacked).
+    /// Call this after the object's final Y position is determined.
+    /// </summary>
+    public void UpdateWorldHeight(float newWorldY)
+    {
+        if (Mathf.Abs(worldSpaceYHeight - newWorldY) < 0.001f)
+            return; // No meaningful change
+
+        worldSpaceYHeight = newWorldY;
+        // TODO: Fire GameEvents.Placement.OnPlacedObjectHeightChanged event when event system is available
     }
 }

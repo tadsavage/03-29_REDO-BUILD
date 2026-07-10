@@ -12,26 +12,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
   m_Name: Round Light
   m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
-  id: 914
+  id: 915
   objName: Round Light
   cost: 250
   hourlyCost: 2
   category: Flavor
-  GL_Line: Light
-  prefab: {fileID: 7119468726559088651, guid: 53b60aaba1dd77d46ba7568ff5d02d7c, type: 3}
+  GL_Line: 
+  prefab: {fileID: 5293183407346180535, guid: de8c852e56f32ec4dafa48d569398745, type: 3}
   icon: {fileID: 2800000, guid: cf133dd2b936400408eae8efe0f214dc, type: 3}
   ignorePlacementRules: 1
   isFloor: 0
   canBeReplacedByDoor: 0
   replacesWalls: 0
-  ClearsGridAfterPlacement: 0
+  ClearsGridAfterPlacement: 1
   pathfindingClear: 0
   navArea: 0
-  allowedAgents: 0
+  allowedAgents: 5
   CanUseStairs: 0
   isStackable: 0
-  objHeight: 1
-  worldYOffset: 9
+  objHeight: 1.55
+  worldYOffset: 0
   defaultFloorTile: {fileID: 0}
   footprint: {x: 1, y: 1}
   customShapeOffsets: []

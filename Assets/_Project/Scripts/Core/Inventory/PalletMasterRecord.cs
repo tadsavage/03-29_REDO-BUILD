@@ -25,6 +25,7 @@ namespace GameCore.Inventory
         public int ReceivedDayNumber { get; set; } // In-game day number when received
         public int ExpirationDayNumber { get; set; } // -1 if non-perishable
         public bool IsContaminated { get; set; }
+        public string StagingLaneId { get; set; } // Lane ID (e.g., "2A", "2B") if pallet is on dock, null if in storage
 
         public PalletMasterRecord(string skuId, int quantity, Vector2Int location, int receivedDay, int expirationDay)
         {

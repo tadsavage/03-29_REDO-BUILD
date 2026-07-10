@@ -8,11 +8,11 @@ namespace GameCore.Inventory
     /// </summary>
     public static class PalletHeightCalculator
     {
-        // Constants
-        private const float CHEP_PALLET_HEIGHT = 0.16f;     // Chep pallet base height
-        private const float FLOOR_TILE_HEIGHT = 0.06f;      // Standard floor tile height
-        private const float FOUNDATION_HEIGHT = 1.06f;      // Warehouse floor foundation height
-        private const float GAP_BETWEEN_OBJECTS = 0.015f;   // Anti-melting gap
+        // Constants — tuned per warehouse geometry (2026-07-09)
+        private const float CHEP_PALLET_HEIGHT = 0.1f;      // ChepEmpty base height
+        private const float FLOOR_TILE_HEIGHT = 0.0f;       // Included in foundation height
+        private const float FOUNDATION_HEIGHT = 1.15f;      // Dock/ground level (foundation ground face)
+        private const float GAP_BETWEEN_OBJECTS = 0.02f;    // Anti-clipping grace space
 
         /// <summary>
         /// Calculate world Y for a pallet at ground level (on dock/staging lane).

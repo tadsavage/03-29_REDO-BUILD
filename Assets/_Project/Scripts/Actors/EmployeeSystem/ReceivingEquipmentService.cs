@@ -18,7 +18,7 @@ public static class ReceivingEquipmentService
 
     private static readonly Vector3 RfGunLocalPosition = new Vector3(0f, 0.175f, 0.08f);
     private static readonly Vector3 RfGunLocalEuler = new Vector3(-90f, 0f, -180f);
-    private static readonly Vector3 RfGunLocalScale = new Vector3(1.5f, 1.5f, 1.5f);
+    private static readonly Vector3 RfGunLocalScale = new Vector3(0.01f, 0.01f, 0.01f);  // Prefab scale is 100, so 0.01 × 100 = 1
 
     private static Dictionary<EmployeeIdentity, ReceivingEquipment> _equippedEmployees = new();
 

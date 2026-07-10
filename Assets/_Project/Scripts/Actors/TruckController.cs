@@ -353,8 +353,17 @@ private DockSlot        _dock;
         // palletVisualPrefab is normally a build-menu placeable item (PlacedObject/BuildingData)
         // — as cargo it must not self-register in the world registry at (0,0), same reasoning
         // PalletBuilder.Build() already applies to the individual cases it spawns below.
+        //
+        // IMPORTANT (2026-07-09, pallet persistence rework): PlacedObject is DISABLED, not
+        // destroyed. Disabling still unregisters it from PlacedObjectRegistry via OnDisable (same
+        // effect as before) but keeps the component — and critically its `data` field (the
+        // ObjDataSO identity, already baked into the prefab) — alive for the whole truck ride.
+        // TrailerOffloadController.RegisterAndQueue re-enables it once the pallet has a real grid
+        // cell, and PalletPersistenceService reads `data.id` at save time to know which prefab to
+        // re-instantiate on load. Destroying it (the old behavior) lost that identity permanently,
+        // which is part of why dock pallets could never rebuild correctly after a save/load.
         var po = instance.GetComponent<PlacedObject>();
-        if (po != null) { po.enabled = false; Destroy(po); }
+        if (po != null) po.enabled = false;
         var bd = instance.GetComponent<BuildingData>();
         if (bd != null) Destroy(bd);
 

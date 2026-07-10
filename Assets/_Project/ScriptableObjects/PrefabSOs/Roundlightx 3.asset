@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48e6ddb63eaf8464395b1df4eb81baa0, type: 3}
+  m_Name: Roundlightx 3
+  m_EditorClassIdentifier: Assembly-CSharp::ObjDataSO
+  id: 916
+  objName: Roundlightx 3
+  cost: 500
+  hourlyCost: 3
+  category: Flavor
+  GL_Line: 
+  prefab: {fileID: 6917759794363701142, guid: ef3f2326595c42c4183c0be0dd1f5683, type: 3}
+  icon: {fileID: 2800000, guid: 5e3cc14677d7c0e4982bb90cfa79f446, type: 3}
+  ignorePlacementRules: 1
+  isFloor: 0
+  canBeReplacedByDoor: 0
+  replacesWalls: 0
+  ClearsGridAfterPlacement: 1
+  pathfindingClear: 0
+  navArea: 0
+  allowedAgents: 5
+  CanUseStairs: 0
+  isStackable: 0
+  objHeight: 1.55
+  worldYOffset: 0
+  defaultFloorTile: {fileID: 0}
+  footprint: {x: 1, y: 1}
+  customShapeOffsets: []

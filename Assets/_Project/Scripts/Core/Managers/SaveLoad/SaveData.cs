@@ -41,6 +41,14 @@ public class SaveData
     // All pallets with their locations, SKUs, quantities, and expiration. Absent in older saves.
     public List<PalletSnapshot> pallets = new();
 
+    // ── DOCK PALLET VISUAL PERSISTENCE (2026-07-09) ─────────────────────────
+    // Literal capture of every dock/lane pallet GameObject (ChepEmpty root + built cases): exact
+    // world position/rotation and every case's exact local transform. Separate from `pallets`
+    // above (which is InventoryService's data-only record — SKU/quantity/location bookkeeping,
+    // no visuals). This is what PalletPersistenceService reads/writes; see that class for why the
+    // old SKU/Ti-Hi-driven visual reconstruction (InventoryPersistenceService) was unreliable.
+    public List<DockPalletSnapshot> dockPallets = new();
+
     // ── Game settings captured per-save ──────────────────────────────────────
     // Sentinel defaults (-1 / empty) mean "not stored in this file" so that
     // loading an OLD save does not overwrite the player's current settings.
@@ -144,4 +152,42 @@ public class PalletSnapshot
     public int locationX;                    // Grid cell X
     public int locationY;                    // Grid cell Y
     public float worldHeightY;               // World Y elevation (for stacking)
+
+    // Staging lane (if pallet is on dock, e.g., "2A", "2B", null if in storage)
+    public string stagingLaneId;             // Lane ID or null if in racks
+}
+
+/// <summary>
+/// Literal world-transform capture of one dock/lane pallet GameObject, used by
+/// PalletPersistenceService. See that class for the capture/restore logic.
+/// </summary>
+[System.Serializable]
+public class DockPalletSnapshot
+{
+    // Identity: which ObjDataSO/prefab this pallet root actually is (e.g. "A Chep" id=1,
+    // "StackPlts" id=64). Resolved via ObjDataRegistry, NOT Resources.Load — avoids the
+    // ambiguous-duplicate-"ChepEmpty"-in-multiple-Resources-folders problem.
+    public int objDataId = -1;
+
+    // Exact world transform at save time. Restored VERBATIM (not re-derived from grid cell +
+    // rotation index) so a pallet dropped at a non-grid-perfect angle still restores exactly.
+    public Vector3 worldPosition;
+    public Quaternion worldRotation;
+    public float worldSpaceYHeight;
+
+    // Optional link back to InventoryService's PalletMasterRecord (data-only bookkeeping — SKU,
+    // quantity, expiration — lives in `SaveData.pallets`/PalletSnapshot, restored separately).
+    // Empty string = this pallet isn't tracked by InventoryService (e.g. a decorative/manually
+    // placed empty pallet via the build menu).
+    public string inventoryPalletId = "";
+    // Empty = still ghosted/unreceived (PalletMasterLink only). Non-empty = received/solid
+    // (gets a real PalletData component on restore).
+    public string loadId = "";
+
+    // Cases built on this pallet (the "PalletLoad" child's children). All cases on one pallet
+    // share the same prefab (PalletBuilder.casePrefab), so one objDataId covers every entry in
+    // casePositions/caseRotations. -1 + empty lists = pallet has no cases (bare pallet).
+    public int caseObjDataId = -1;
+    public List<Vector3> casePositions = new();
+    public List<Quaternion> caseRotations = new();
 }

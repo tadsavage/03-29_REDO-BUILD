@@ -1010,7 +1010,9 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 3b82d0eda4ab9954f999b361834cc1e3, type: 2}
     - {fileID: 11400000, guid: e9cb0baa6949c8442a608bb29b60704b, type: 2}
     - {fileID: 11400000, guid: 1375a4aee6861794b90af74ee6407320, type: 2}
+    - {fileID: 0}
     - {fileID: 11400000, guid: 3b0e7f8e255c3914a919b8bb2f8bf703, type: 2}
+    - {fileID: 11400000, guid: d71a88c405d1cc84380692be81a829f1, type: 2}
   - id: Floors
     displayName: Floors
     icon: {fileID: 2800000, guid: c5115ad79fe5fae4f9920426f82e6864, type: 3}
@@ -3961,7 +3963,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.01
-  far clip plane: 250
+  far clip plane: 150
   field of view: 60
   orthographic: 0
   orthographic size: 5
@@ -4019,7 +4021,7 @@ MonoBehaviour:
   pitchMin: 15
   pitchMax: 80
   defaultPitch: 45
-  minDistance: 0
+  minDistance: 0.5
   maxDistance: 45
   defaultDistance: 15
   xMin: -40
@@ -10836,20 +10838,20 @@ MonoBehaviour:
   moon: {fileID: 0}
   skyboxBlendMaterial: {fileID: 2100000, guid: 1cf6f4c6e6e0518419839d3f5448dd99, type: 2}
   sunYaw: 170
-  sunriseHour: 6.5
-  sunsetHour: 19
+  sunriseHour: 5
+  sunsetHour: 21
   twilightHours: 1.25
   maxSunIntensity: 1.25
   noonSunColor: {r: 1, g: 0.96, b: 0.88, a: 1}
   horizonSunColor: {r: 1, g: 0.55, b: 0.25, a: 1}
   moonIntensity: 0.15
   moonColor: {r: 0.55, g: 0.62, b: 0.85, a: 1}
-  dayExposure: 1.1
-  nightExposure: 0.35
+  dayExposure: 1
+  nightExposure: 0.5
   dayAmbient: {r: 0.62, g: 0.64, b: 0.66, a: 1}
   nightAmbient: {r: 0.1, g: 0.13, b: 0.22, a: 1}
   controlAmbient: 1
-  globalBrightness: 1.12
+  globalBrightness: 1
 --- !u!4 &1706856163
 Transform:
   m_ObjectHideFlags: 0

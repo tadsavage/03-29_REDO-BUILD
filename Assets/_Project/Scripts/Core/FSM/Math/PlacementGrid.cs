@@ -194,6 +194,18 @@ public class PlacementGrid : MonoBehaviour
             // not the actual floor elevation, so stacking math would put them at ~Y=0.
             if (entry.instance.GetComponent<NavMeshAgent>() != null) continue;
 
+            // Pallets (Inventory category) own their exact world-space Y — computed per-pallet by
+            // PalletHeightCalculator at offload-drop time (accounting for actual case-stack height)
+            // and restored verbatim from the save's worldHeightY (PalletMasterRecord.WorldHeightY /
+            // PlacedObject.worldSpaceYHeight). ObjDataSO.objHeight for a pallet is a flat placeholder
+            // (0.165 for every pallet regardless of how many cases it's actually carrying) — letting
+            // the generic stacking math below reposition a pallet using that flat height silently
+            // collapses real, per-pallet stack heights into a uniform fake stack the next time ANY
+            // grid rebuild runs (every save load, plus several live rebuild call sites). Confirmed via
+            // in-editor test 2026-07-09: a saved stack at worldY 1.150/2.179 was clobbered to a
+            // uniform 1.110/1.275 (exactly objHeight=0.165 apart) by this method. Skip entirely.
+            if (entry.data.category == "Inventory") continue;
+
             // Foundations always stay at y=0.
             // Objects that ignore rules or clear grid stay at y=0, unless they are floors or grounds.
             if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
