@@ -365,6 +365,16 @@
 /* Economy = orange; Time + World = blue; Danger = red; Trucks = green */
 .dev-btn-gold   { background-color: #E8A850; border-bottom-color: #A06010; }
 .dev-btn-amber  { background-color: #4C90C0; border-bottom-color: #2C5E82; color: #FFFFFF; }
+
+/* Inbound Simulator: three equal-width buttons stacked vertically. */
+.dev-inbound-actions { flex-direction: column; align-items: flex-start; margin-top: 2px; }
+.dev-btn-stacked { width: 260px; margin-right: 0; margin-bottom: 6px; }
+.dev-btn-blue  { background-color: #2F80C8; border-bottom-color: #1B5A94; color: #FFFFFF; }
+.dev-btn-red   { background-color: #C1272D; border-bottom-color: #8A1B1E; color: #FFFFFF; }
+.dev-btn-blue:hover   { background-color: #3D93DB; }
+.dev-btn-red:hover    { background-color: #D63A40; }
+.dev-btn-blue:active  { background-color: #245F97; border-bottom-width: 1px; translate: 0 1px; }
+.dev-btn-red:active   { background-color: #97181D; border-bottom-width: 1px; translate: 0 1px; }
 .dev-btn-teal   { background-color: #5C9BC4; border-bottom-color: #3A6E94; color: #FFFFFF; }
 .dev-btn-danger { background-color: #E05252; border-bottom-color: #981010; color: #FFFFFF; }
 .dev-btn-green  { background-color: #3DAA6A; border-bottom-color: #1E6E40; color: #FFFFFF; }

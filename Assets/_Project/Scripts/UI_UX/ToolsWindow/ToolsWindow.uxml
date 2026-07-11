@@ -14,8 +14,10 @@
                 <ui:VisualElement name="tab-content-dev" class="tab-content">
                     <ui:VisualElement class="dev-section dev-s-green">
                         <ui:Label text="INBOUND SIMULATOR" class="dev-s-heading"/>
-                        <ui:VisualElement class="dev-actions">
-                            <ui:Button name="btn-spawn-delivery" text="SPAWN INBOUND TRUCK" class="dev-btn dev-btn-green"/>
+                        <ui:VisualElement class="dev-inbound-actions">
+                            <ui:Button name="btn-spawn-delivery" text="SPAWN INBOUND TRUCK" class="dev-btn dev-btn-green dev-btn-stacked"/>
+                            <ui:Button name="btn-create-test-pallets" text="CREATE TEST PALLETS" class="dev-btn dev-btn-blue dev-btn-stacked"/>
+                            <ui:Button name="btn-clear-scene" text="CLEAR SCENE" class="dev-btn dev-btn-red dev-btn-stacked"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="shipments-list" style="margin-top: 10px;"/>
                     </ui:VisualElement>

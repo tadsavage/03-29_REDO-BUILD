@@ -50,7 +50,8 @@ namespace GameCore.Labor
         // above it by LaneStackStep (= one pallet's height). Assumes lanes are on the standard dock
         // height — if lanes ever sit at other heights this should become a downward raycast instead.
         private const float  LaneSurfaceY       = 1.15f;  // dock foundation top the lanes rest on
-        private const float  LaneStackStep      = 0.9f;   // pallet height — vertical offset per stacked pallet in a cell
+        private const float  LaneStackStep      = 0.9f;   // pallet height — cosmetic fork-lower offset per stacked tier
+        private const float  StackGap           = 0.02f;  // small anti-clip gap between a stacked pallet's base and the case-top below it
         private const bool   InvertTrailerAxis  = false;  // flip if the DS drives AWAY from the trailer instead of into it
 
         // Where the pallet sits ON the forks while carried (local to the Forks transform). The pallet
@@ -221,7 +222,7 @@ namespace GameCore.Labor
             if (!TryFindLaneTarget(inv, doorNumber, doorPos, out int door, out string laneLetter, out var cell, out int tier))
             {
                 Debug.LogWarning($"[TrailerOffload] No free Inbound/Both staging-lane slot for door {doorNumber} — dropping pallet where the DS stands.");
-                DropPallet(pallet, ds.position, 0, palletWorldScale, ds.rotation);
+                DropPallet(pallet, ds.position, LaneSurfaceY, palletWorldScale, ds.rotation);
                 yield break;
             }
 
@@ -244,21 +245,23 @@ namespace GameCore.Labor
             //     (aim so the PALLET — offset ahead on the forks — lands on the tile, not the DS root).
             Vector3 palletOffset = pallet.position - ds.position; palletOffset.y = 0f;
             yield return DriveForksFirst(ds, targetXZ - palletOffset);
-            // 11. Register the pallet to InventoryService FIRST so DropPallet can see it and calculate
-            //     correct stacking height. (Must happen before DropPallet so GetPalletsAtLocation finds it.)
+            // 11. Register the pallet to InventoryService FIRST so it has a master record + link, THEN
+            //     compute where it lands. dropBaseY is derived from the pallets ALREADY SETTLED in this
+            //     cell, explicitly EXCLUDING this pallet (which is still up on the forks) — see
+            //     ComputeDropBaseY. This one value is the single source of truth: it positions the pallet
+            //     AND is recorded as its saved height, so the visual and the record can never disagree.
             RegisterAndQueue(inv, truck, cell, pallet, palletIndex);
+            float dropBaseY = ComputeDropBaseY(cell, pallet.gameObject);
 
-            // 12. Slowly lower the forks to the TOP of whatever's already stacked here — NOT the floor —
-            //     then unparent the pallet onto the lane surface. Lowering to forkRestY every time drove
-            //     a stacked pallet down through the pallet below it (toward its pivot), and DropPallet
-            //     then snapped it back up to LaneSurfaceY + tier*LaneStackStep — that snap read as jank.
-            //     tier*LaneStackStep is the stack-top offset and matches DropPallet's final Y, so the
-            //     pallet now comes to rest exactly where the forks leave it.
+            // 12. Lower the forks toward the stack (cosmetic — DropPallet sets the exact final Y), then
+            //     unparent the pallet onto the lane at dropBaseY.
             if (forks != null) yield return LiftForks(forks, forkRestY + tier * LaneStackStep);
             // Rotate pallet 90 degrees additionally so product sits correctly
             Quaternion laneRotation = Quaternion.LookRotation(Flat(downLane));
             Quaternion rotatedPlacement = laneRotation * Quaternion.Euler(0f, 90f, 0f);
-            DropPallet(pallet, targetW, tier, palletWorldScale, rotatedPlacement);
+            DropPallet(pallet, targetW, dropBaseY, palletWorldScale, rotatedPlacement);
+            // 12b. Record the authoritative base-Y everywhere the pallet's height is tracked.
+            RecordPalletHeight(pallet.gameObject, dropBaseY, inv);
             // 13. Reverse straight back OUT of the lane to the entry pivot (never across the lanes) —
             //     cab-first, forks trailing, no spin.
             yield return DriveTailFirst(ds, entryPivot);
@@ -365,52 +368,14 @@ namespace GameCore.Labor
             Vector3 lp = forks.localPosition; lp.y = y; forks.localPosition = lp;
         }
 
-        private void DropPallet(Transform pallet, Vector3 laneWorld, int tier, Vector3 worldScale, Quaternion rotation)
+        private void DropPallet(Transform pallet, Vector3 laneWorld, float baseY, Vector3 worldScale, Quaternion rotation)
         {
             pallet.SetParent(null, worldPositionStays: true);
 
-            // Calculate target Y: For tier 0, sit on the dock surface. For tier > 0, find the
-            // actual height of the pallet already in this cell and stack on top of it.
-            Vector2Int cell = _grid.WorldToCell(laneWorld);
-            float targetY = LaneSurfaceY;
-
-            if (tier > 0 && ServiceLocator.TryGet<InventoryService>(out var inv) && inv != null)
-            {
-                // Find the highest pallet already registered in this cell
-                var palletsInCell = inv.GetPalletsAtLocation(cell);
-                float maxHeightInCell = 0f;
-
-                foreach (var palletData in palletsInCell)
-                {
-                    // Find the pallet's GameObject to measure its actual height
-                    var link = PalletMasterLink.Find(palletData.PalletId);
-                    var palletGO = link?.gameObject;
-                    if (palletGO != null)
-                    {
-                        // Measure actual height from mesh bounds
-                        Bounds? meshBounds = null;
-                        var renderers = palletGO.GetComponentsInChildren<MeshRenderer>();
-                        if (renderers.Length > 0)
-                        {
-                            meshBounds = renderers[0].bounds;
-                            foreach (var r in renderers)
-                                if (r.bounds.max.y > meshBounds.Value.max.y)
-                                    meshBounds = r.bounds;
-                        }
-
-                        float palletTop = meshBounds?.max.y ??
-                                         CalculatePalletHeightFromChildren(palletGO);
-
-                        if (palletTop > maxHeightInCell)
-                            maxHeightInCell = palletTop;
-                    }
-                }
-
-                // Stack on top of the highest pallet found
-                targetY = maxHeightInCell > 0f ? maxHeightInCell + 0.01f : LaneSurfaceY;
-            }
-
-            pallet.position = new Vector3(laneWorld.x, targetY, laneWorld.z);
+            // baseY is precomputed by ComputeDropBaseY (self-excluded, authoritative). Just place the
+            // pallet there — no re-measuring here (re-measuring used to include this very pallet while it
+            // was still up on the forks, which stacked it on top of ITSELF and sent it climbing ~3m).
+            pallet.position = new Vector3(laneWorld.x, baseY, laneWorld.z);
             pallet.localScale = worldScale; // parent is null now, so local == world scale
 
             // NOTE: Cases are already rotated 90 degrees in TruckController when built in the trailer,
@@ -457,19 +422,16 @@ namespace GameCore.Labor
         }
 
         /// <summary>
-        /// Calculate pallet's actual height by measuring all child renderers' world-space bounds.
-        /// Returns the maximum Y coordinate (top of the tallest child).
+        /// World-space top (max renderer bounds Y) of a settled pallet + its cases. Used to stack the
+        /// next pallet on top of it. 0 if the object has no renderers.
         /// </summary>
-        private static float CalculatePalletHeightFromChildren(GameObject pallet)
+        private static float MeasureTopY(GameObject go)
         {
             float maxY = 0f;
-            var renderers = pallet.GetComponentsInChildren<MeshRenderer>();
+            var renderers = go.GetComponentsInChildren<MeshRenderer>();
             foreach (var r in renderers)
-            {
-                if (r.bounds.max.y > maxY)
-                    maxY = r.bounds.max.y;
-            }
-            return maxY > 0f ? maxY : 0f;
+                if (r.bounds.max.y > maxY) maxY = r.bounds.max.y;
+            return maxY;
         }
 
         // ── Lane targeting + inventory/task creation ─────────────────────────────────────────────
@@ -539,31 +501,20 @@ namespace GameCore.Labor
             // this pallet is still ghosted/unreceived the moment it lands in the lane.
             PalletMasterLink.Attach(pallet.gameObject, data.PalletId);
 
-            // ── Snapshot the pallet's BASE position (not case-top) into BOTH systems ──
-            // worldSpaceYHeight must be the PALLET BASE Y, not the pallet+cases Y. This is critical
-            // for save/load: when we restore from JSON, we place the pallet at this Y, then the cases
-            // rebuild as children at their correct local offsets. If worldSpaceYHeight includes cases,
-            // the pallet will float in air on load.
-            float palletBaseY = CalculatePalletBaseY(cell);
-
-            // Store in PalletMasterRecord (for save/load via InventoryService)
-            data.WorldHeightY = palletBaseY;
-
-            // Store in PlacedObject (for PlacementSystem / PalletPersistenceService).
-            // PlacedObject was only DISABLED (not destroyed) when this pallet became cargo in
-            // TruckController.BuildOnePallet, so `.data` (the ObjDataSO identity) survived the
-            // whole truck ride intact — re-enabling it here re-registers it with
-            // PlacedObjectRegistry now that it finally has a real grid cell. Do NOT write the
-            // pallet GUID into `customData` — that field belongs to PalletBuilder's own
-            // SaveBuildState()/LoadBuildState() JSON (case prefab id + Ti/Hi); stomping it here was
-            // silently corrupting that state. The inventory link is carried separately via
-            // PalletMasterLink (attached above), which PalletPersistenceService reads directly.
+            // Re-enable the pallet's PlacedObject now that it has a real grid cell. It was only
+            // DISABLED (not destroyed) when this pallet became cargo in TruckController.BuildOnePallet,
+            // so `.data` (the ObjDataSO identity) survived the whole truck ride intact — re-enabling it
+            // here re-registers it with PlacedObjectRegistry. Do NOT write the pallet GUID into
+            // `customData` — that field belongs to PalletBuilder's own SaveBuildState()/LoadBuildState()
+            // JSON (case prefab id + Ti/Hi); the inventory link rides separately via PalletMasterLink
+            // (attached above). The pallet's height (worldSpaceYHeight + PalletMasterRecord.WorldHeightY)
+            // is written later, once the pallet is actually dropped, by RecordPalletHeight — a single
+            // source of truth so the record can never disagree with where the pallet visually lands.
             var placed = pallet.gameObject.GetComponent<PlacedObject>();
             if (placed != null)
             {
                 placed.gridX = cell.x;
                 placed.gridY = cell.y;
-                placed.worldSpaceYHeight = palletBaseY;
                 placed.enabled = true;
 
                 // BuildingData was destroyed while this pallet was cargo — recreate it now that
@@ -577,7 +528,7 @@ namespace GameCore.Labor
                     bd.Initialize(cell, rotDeg, offsets, placed.data);
                 }
 
-                Debug.Log($"[TrailerOffload] Registered pallet {data.PalletId} at grid cell ({cell.x}, {cell.y}), palletBaseY={palletBaseY:F3}");
+                Debug.Log($"[TrailerOffload] Registered pallet {data.PalletId} at grid cell ({cell.x}, {cell.y}).");
             }
             else
             {
@@ -588,41 +539,62 @@ namespace GameCore.Labor
         }
 
         /// <summary>
-        /// Calculate the pallet's BASE Y position (not including cases) for this grid cell.
-        /// Looks at what's already in the cell via PlacementGrid and stacks on top if needed.
+        /// Authoritative base-Y for a pallet about to be dropped in <paramref name="cell"/>. Ground =
+        /// LaneSurfaceY; stacked = the top of the highest pallet ALREADY SETTLED in the cell + a small
+        /// gap. The pallet being dropped (<paramref name="selfGO"/>) is EXCLUDED — it's still up on the
+        /// forks, so measuring it would stack it on top of itself and send the stack climbing (the
+        /// "pallets float ~3m up" bug). This is the SINGLE source of truth: the same value positions the
+        /// pallet AND is recorded as its saved height, so the visual and the record can't drift apart.
         /// </summary>
-        private float CalculatePalletBaseY(Vector2Int cell)
+        private float ComputeDropBaseY(Vector2Int cell, GameObject selfGO)
         {
-            const float PALLET_HEIGHT = 0.165f;
-            const float DOCK_SURFACE_Y = 1.15f;
-
-            if (_grid == null) return DOCK_SURFACE_Y;
-
-            // Get all objects currently in this cell from the PlacementGrid
-            var objectsInCell = _grid.GetObjectsInCell(cell);
-            if (objectsInCell == null || objectsInCell.Count == 0)
-                return DOCK_SURFACE_Y; // Empty cell: pallet sits on dock surface
-
-            // Find the highest object's top Y by checking bounds of all renderers
-            float maxTopY = DOCK_SURFACE_Y;
-            foreach (var gridObj in objectsInCell)
+            float baseY = LaneSurfaceY;
+            if (ServiceLocator.TryGet<InventoryService>(out var inv) && inv != null)
             {
-                if (gridObj.instance == null) continue;
-
-                // Measure the actual height of this object via its renderers
-                var renderers = gridObj.instance.GetComponentsInChildren<MeshRenderer>();
-                if (renderers.Length > 0)
+                float highestTop = 0f;
+                foreach (var rec in inv.GetPalletsAtLocation(cell))
                 {
-                    foreach (var r in renderers)
-                    {
-                        if (r.bounds.max.y > maxTopY)
-                            maxTopY = r.bounds.max.y;
-                    }
+                    var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
+                    if (go == null || go == selfGO) continue; // skip self (on the forks) + unmeasurable
+                    float top = MeasureTopY(go);
+                    if (top > highestTop) highestTop = top;
                 }
+                if (highestTop > 0f) baseY = highestTop + StackGap;
+            }
+            return baseY;
+        }
+
+        /// <summary>
+        /// Write the authoritative base-Y everywhere the pallet's height is tracked (its PlacedObject and
+        /// its InventoryService master record), so save/load and any later height query all agree with
+        /// where the pallet actually sits. Save/load of dock pallets is literal-transform (see
+        /// PalletPersistenceService), so the transform is what really matters — but keeping these fields
+        /// in sync avoids future confusion.
+        /// </summary>
+        private void RecordPalletHeight(GameObject palletGO, float baseY, InventoryService inv)
+        {
+            var placed = palletGO.GetComponent<PlacedObject>();
+            if (placed != null)
+            {
+                placed.worldSpaceYHeight = baseY;
+
+                // CRITICAL for save/load: register the pallet in PlacedObjectRegistry now.
+                // RegisterAndQueue enabled its PlacedObject WHILE it was still parented to the dock
+                // stocker's forks (a PlacedObject ancestor), so OnEnable's "skip if child of a
+                // PlacedObject" guard silently skipped registration — and DropPallet's SetParent(null)
+                // doesn't re-fire OnEnable. The pallet was therefore never in the registry, so
+                // PalletPersistenceService.CaptureAll saved ZERO dock pallets (dockPallets=0 → no pallets
+                // appear after loading). Now that DropPallet has unparented it onto the lane, register it
+                // explicitly (Register is a HashSet add — idempotent and safe if already present).
+                PlacedObjectRegistry.Register(placed);
             }
 
-            // Stack this pallet's base on top of the highest object + pallet height
-            return maxTopY + PALLET_HEIGHT;
+            var link = palletGO.GetComponent<PalletMasterLink>();
+            if (link != null && inv != null)
+            {
+                var rec = inv.GetPallet(link.PalletId);
+                if (rec != null) rec.WorldHeightY = baseY;
+            }
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────────────────────

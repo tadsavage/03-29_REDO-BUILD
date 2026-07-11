@@ -187,7 +187,12 @@ public class DockPalletSnapshot
     // Cases built on this pallet (the "PalletLoad" child's children). All cases on one pallet
     // share the same prefab (PalletBuilder.casePrefab), so one objDataId covers every entry in
     // casePositions/caseRotations. -1 + empty lists = pallet has no cases (bare pallet).
+    // caseObjDataId is often -1 because case prefabs usually AREN'T registered build-menu ObjData;
+    // in that case restore falls back to the SKU's own case prefab, resolved via `skuId` below.
     public int caseObjDataId = -1;
+    // SKU whose case prefab these cases were built from (SkuData.Prefab). Loaded at runtime from
+    // Resources, so it's a reliable fallback for resolving the case prefab when caseObjDataId = -1.
+    public string skuId = "";
     public List<Vector3> casePositions = new();
     public List<Quaternion> caseRotations = new();
 }

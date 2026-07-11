@@ -30,6 +30,7 @@ namespace GameCore.Persistence
     /// </summary>
     public static class PalletPersistenceService
     {
+        // (cases now resolve their prefab from the SKU when not a registered ObjData — see RestoreCases)
         /// <summary>
         /// Scans PlacedObjectRegistry for every live pallet (category "Inventory" + a PalletBuilder
         /// component) and captures its exact world transform plus every case's exact local
@@ -39,6 +40,7 @@ namespace GameCore.Persistence
         {
             var result = new List<DockPalletSnapshot>();
             var registry = FindRegistry();
+            ServiceLocator.TryGet<InventoryService>(out var inv);
 
             foreach (var entry in PlacedObjectRegistry.All)
             {
@@ -57,11 +59,21 @@ namespace GameCore.Persistence
                 };
 
                 var link = entry.GetComponent<PalletMasterLink>();
-                if (link != null) snap.inventoryPalletId = link.PalletId ?? "";
+                if (link != null)
+                {
+                    snap.inventoryPalletId = link.PalletId ?? "";
+                    // SKU id from the master record — lets restore resolve the case prefab from the SKU
+                    // even when the case prefab isn't a registered ObjData (caseObjDataId == -1).
+                    var rec = inv?.GetPallet(link.PalletId);
+                    if (rec != null) snap.skuId = rec.SkuId ?? "";
+                }
 
                 var pdata = entry.GetComponent<PalletData>();
                 if (pdata != null)
+                {
                     snap.loadId = pdata.LoadId ?? "";
+                    if (string.IsNullOrEmpty(snap.skuId)) snap.skuId = pdata.ItemNumber ?? "";
+                }
 
                 var loadObj = entry.transform.Find("PalletLoad");
                 if (loadObj != null && builder.casePrefab != null && loadObj.childCount > 0)
@@ -149,7 +161,7 @@ namespace GameCore.Persistence
                         grid.AddStackObject(cell + o, go, so);
                 }
 
-                RestoreCases(go, snap, registry);
+                RestoreCases(go, snap, registry, inv);
                 RestoreInventoryLink(go, snap, inv, cell);
 
                 restored++;
@@ -158,15 +170,28 @@ namespace GameCore.Persistence
             Debug.Log($"[PalletPersistenceService] Restored {restored}/{snapshots.Count} dock pallets.");
         }
 
-        private static void RestoreCases(GameObject palletGO, DockPalletSnapshot snap, ObjDataRegistry registry)
+        private static void RestoreCases(GameObject palletGO, DockPalletSnapshot snap, ObjDataRegistry registry, InventoryService inv)
         {
-            if (snap.caseObjDataId < 0 || snap.casePositions == null || snap.casePositions.Count == 0)
+            if (snap.casePositions == null || snap.casePositions.Count == 0)
                 return;
 
-            var caseSo = registry.GetByID(snap.caseObjDataId);
-            if (caseSo == null || caseSo.prefab == null)
+            // Resolve the case prefab. Cases usually AREN'T registered build-menu items, so
+            // caseObjDataId is typically -1 — in that case fall back to the SKU's own case prefab
+            // (SkuData.Prefab, loaded from Resources), which is exactly what these cases were built from.
+            GameObject casePrefab = null;
+            if (snap.caseObjDataId >= 0)
             {
-                Debug.LogWarning($"[PalletPersistenceService] Unknown case objDataId={snap.caseObjDataId} on pallet '{palletGO.name}' — cases skipped.");
+                var caseSo = registry.GetByID(snap.caseObjDataId);
+                if (caseSo != null) casePrefab = caseSo.prefab;
+            }
+            if (casePrefab == null && !string.IsNullOrEmpty(snap.skuId) && inv != null)
+            {
+                var sku = inv.GetSkuData(snap.skuId);
+                if (sku != null) casePrefab = sku.Prefab;
+            }
+            if (casePrefab == null)
+            {
+                Debug.LogWarning($"[PalletPersistenceService] Could not resolve case prefab for pallet '{palletGO.name}' (caseObjDataId={snap.caseObjDataId}, skuId='{snap.skuId}') — {snap.casePositions.Count} cases skipped.");
                 return;
             }
 
@@ -184,7 +209,7 @@ namespace GameCore.Persistence
             int count = Mathf.Min(snap.casePositions.Count, snap.caseRotations.Count);
             for (int i = 0; i < count; i++)
             {
-                var caseGO = Object.Instantiate(caseSo.prefab, loadObj.transform);
+                var caseGO = Object.Instantiate(casePrefab, loadObj.transform);
                 caseGO.transform.localPosition = snap.casePositions[i];
                 caseGO.transform.localRotation = snap.caseRotations[i];
 
@@ -199,7 +224,7 @@ namespace GameCore.Persistence
             }
 
             var builder = palletGO.GetComponent<PalletBuilder>();
-            if (builder != null) builder.casePrefab = caseSo.prefab;
+            if (builder != null) builder.casePrefab = casePrefab;
         }
 
         private static void RestoreInventoryLink(GameObject palletGO, DockPalletSnapshot snap, InventoryService inv, Vector2Int cell)

@@ -96,10 +96,25 @@ public class PalletInventoryTracker : MonoBehaviour
             }
             else
             {
-                string sku = po.data != null ? po.data.name : "PHYS";
-                int qty = po.GetComponent<PalletBuilder>()?.TotalCases ?? 1;
-                var pallet = inv.RegisterPhysicalPallet(cell, sku, Mathf.Max(1, qty));
-                _linked[po] = pallet.PalletId;
+                // Already tracked elsewhere? Offload pallets (TrailerOffloadController) register their
+                // OWN PalletMasterRecord and tag the GameObject with a PalletMasterLink. Adopt that
+                // existing record instead of creating a DUPLICATE via RegisterPhysicalPallet — otherwise
+                // every offloaded pallet spawns a phantom second record (wrong SKU = the ObjData name
+                // "A Chep", no loadId, and a bogus "stacked" WorldHeightY because CalculateWorldHeight
+                // sees the real pallet already in the cell). Those phantoms are what corrupted the save
+                // (42 records / 21 real pallets) and made stacking look broken.
+                var existing = po.GetComponent<PalletMasterLink>();
+                if (existing != null && !string.IsNullOrEmpty(existing.PalletId) && inv.GetPallet(existing.PalletId) != null)
+                {
+                    _linked[po] = existing.PalletId;
+                }
+                else
+                {
+                    string sku = po.data != null ? po.data.name : "PHYS";
+                    int qty = po.GetComponent<PalletBuilder>()?.TotalCases ?? 1;
+                    var pallet = inv.RegisterPhysicalPallet(cell, sku, Mathf.Max(1, qty));
+                    _linked[po] = pallet.PalletId;
+                }
             }
         }
     }

@@ -168,6 +168,8 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         // Inbound Simulator
         Wire<Button>("btn-spawn-delivery", root, b => b.clicked += SpawnInboundTruck);
+        Wire<Button>("btn-create-test-pallets", root, b => b.clicked += CreateTestPallets);
+        Wire<Button>("btn-clear-scene", root, b => b.clicked += ClearScene);
         _shipmentsList = root.Q("shipments-list");
 
         Wire<Button>("btn-add-1k",   root, b => b.clicked += () => _ctx?.MoneyService.Refund(1_000,   "Debug"));
@@ -1203,6 +1205,21 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     // ─────────────────────────────────────────────────────────────────────────
 
     private static int _inboundCounter = 0;
+
+    // Debug shortcut: drop 14 test pallets (7 + 7 stacked) straight into a lane as ghosted/unreceived
+    // inventory, skipping the whole truck arrive→dock→offload wait. A Receiver still has to receive
+    // them, so the simulation stays real for data-persistence testing. See TestPalletSpawner.
+    private void CreateTestPallets()
+    {
+        TestPalletSpawner.SpawnStackedTestPallets(14); // a truck's worth per click; fills lanes then doors
+    }
+
+    // Debug shortcut: wipe every dock pallet + all inventory + pallet work tasks, leaving employees,
+    // equipment, walls, racks, floors, and lanes exactly where they are. Clean slate for a fresh test.
+    private void ClearScene()
+    {
+        TestPalletSpawner.ClearDockAndInventory();
+    }
 
     private void SpawnInboundTruck()
     {
