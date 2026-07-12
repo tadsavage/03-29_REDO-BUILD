@@ -76,22 +76,19 @@ public class PlacementFinalizer : MonoBehaviour
         Vector3 pos = _grid.GetCellCenter(root);
         bool useWorldYOffset = false;
 
-        // If worldYOffset is set, use it as absolute height (for fixtures like lights)
-        if (data.worldYOffset > 0)
+        // Determine base height - use the actual visual surface height (foundation/floor)
+        // rather than the logical stack height, which can be inaccurate if SO values 
+        // don't match mesh bounds.
+        float baseHeight = GetFloorTopY(_grid, root);
+        pos.y = baseHeight;
+
+        // Apply worldYOffset as a relative additive offset
+        if (data.worldYOffset != 0)
         {
-            pos.y = data.worldYOffset;
+            pos.y += data.worldYOffset;
             useWorldYOffset = true;
-            Debug.Log($"[PlacementFinalizer] {data.objName}: Using worldYOffset={data.worldYOffset}, pos.y={pos.y}");
+            Debug.Log($"[PlacementFinalizer] {data.objName}: Applied relative worldYOffset={data.worldYOffset}, pos.y={pos.y}");
         }
-        // For prefabs that carry a NavMeshAgent (humanoid workers, forklifts, etc.):
-        // spawn at the ACTUAL stack height of this cell rather than y=0.
-        // GetCellCenter always returns y=0, but the agent needs to start at the
-        // walkable surface height (e.g. ~1.06 on a Foundation floor) so the
-        // NavMeshAgent finds the correct NavMesh surface on its first frame.
-        // If the floor NavMesh hasn't been baked yet AiNavigation.OnNavMeshBaked()
-        // will re-snap once the bake completes.
-        else if (data.prefab != null && data.prefab.GetComponent<NavMeshAgent>() != null)
-            pos.y = _grid.GetStackHeight(root);
 
         GameObject instance = Instantiate(data.prefab, pos, Quaternion.Euler(0f, rotation, 0f));
         instance.name = data.objName;
@@ -99,8 +96,8 @@ public class PlacementFinalizer : MonoBehaviour
         // If worldYOffset was used, re-apply after instantiation to override any prefab pivot offsets
         if (useWorldYOffset)
         {
-            instance.transform.position = new Vector3(instance.transform.position.x, data.worldYOffset, instance.transform.position.z);
-            Debug.Log($"[PlacementFinalizer] {data.objName}: Re-applied worldYOffset after instantiate. Now at Y={instance.transform.position.y}");
+            instance.transform.position = new Vector3(instance.transform.position.x, pos.y, instance.transform.position.z);
+            Debug.Log($"[PlacementFinalizer] {data.objName}: Re-applied worldYOffset (relative) after instantiate. Now at Y={instance.transform.position.y}");
         }
 
         // Parent Foundations to a shared parent GameObject (performance optimization: one parent collider for all)

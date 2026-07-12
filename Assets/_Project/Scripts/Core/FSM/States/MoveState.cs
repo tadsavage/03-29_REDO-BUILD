@@ -50,6 +50,7 @@ public class MoveState : PlacementStateBase
     private float _originalRotation;
 
     private bool _hasSelection;
+    private bool _justSelectedThisFrame;
 
     // ---------------------------------------------------------
     // OFFSET‑AWARE SELECTION
@@ -191,8 +192,6 @@ public class MoveState : PlacementStateBase
     // ---------------------------------------------------------
     private void TrySelectObject()
     {
-        _raycast.Tick();
-
         // Must hit an object and not be over UI
         if (_raycast.HitObject == null || _raycast.IsPointerOverUI)
             return;
@@ -200,19 +199,33 @@ public class MoveState : PlacementStateBase
         if (!Mouse.current.leftButton.wasPressedThisFrame)
             return;
 
-        // Try to get BuildingData directly from the hit object (mesh)
-        var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
-
-        // Fallback to the top object in the hit cell (grid data)
-        if (bd == null)
+        // Apply "Trace to Top" for selection - priority to grid data for clicking.
+        // If we hit the floor or a foundation, check if there's a stackable object on top of it.
+        GameObject target = _raycast.HitObject;
+        var hitBD = target.GetComponentInParent<BuildingData>();
+        if (hitBD == null || hitBD.Data.isFloor || hitBD.Data.category == "Foundation" || hitBD.Data.category == "Grounds")
         {
-            GameObject trueTop = _grid.GetTopObject(_raycast.HitCell);
-            if (trueTop != null) bd = trueTop.GetComponent<BuildingData>();
+            GameObject top = _grid.GetTopObject(_raycast.HitCell);
+            if (top != null) target = top;
         }
 
+        var bd = target.GetComponentInParent<BuildingData>();
+
         // Validate we found a movable object; floor tiles can only be replaced, not moved
-        if (bd == null || bd.Data == null || bd.Data.ClearsGridAfterPlacement || bd.Data.isFloor)
+        if (bd == null || bd.Data == null || bd.Data.isFloor)
             return;
+
+        // -----------------------------------------------------
+        // MOVE PROTECTION
+        // -----------------------------------------------------
+        // Block manual movement of Racking and Inventory items (Pallets).
+        // Racks should only be deleted or added to.
+        // Inventory must be moved via MHE.
+        if (bd.Data.category == "Inventory" || bd.Data.category == "Racking")
+        {
+            AudioManager.Play("InvalidPlace");
+            return;
+        }
 
         ClearHoverHighlight();
 
@@ -244,9 +257,16 @@ public class MoveState : PlacementStateBase
             _grid.RemoveStackObject(cell, _obj, _data);
         }
 
-        // Pick up any floor tiles ABOVE the foundation (Y > foundation.Y).
-        // Yard tiles below stay in place.
-        GatherRiderTiles(foundationY);
+        // -----------------------------------------------------
+        // RIDER TILES (Foundation Travel)
+        // -----------------------------------------------------
+        // Only foundations/grounds carry "rider" tiles (like floor patterns) 
+        // with them when moved. Flavor items (lights), racks, and vehicles 
+        // should never pick up the floor beneath them.
+        if (_data != null && (_data.category == "Foundation" || _data.category == "Grounds"))
+        {
+            GatherRiderTiles(foundationY);
+        }
 
         // Reveal underlying yard tiles (or other hidden floor tiles) under the picked up foundation
         if (_data != null && (_data.category == "Foundation" || _data.category == "Grounds"))
@@ -297,6 +317,7 @@ public class MoveState : PlacementStateBase
 
         _obj.SetActive(false);
         _hasSelection = true;
+        _justSelectedThisFrame = true;
     }
 
     // ---------------------------------------------------------
@@ -304,6 +325,7 @@ public class MoveState : PlacementStateBase
     // ---------------------------------------------------------
     public override void Update()
     {
+        _justSelectedThisFrame = false;
         _raycast.Tick();
 
         if (_raycast.IsPointerOverUI)
@@ -397,7 +419,7 @@ public class MoveState : PlacementStateBase
     // ---------------------------------------------------------
     private void OnConfirmMove(InputAction.CallbackContext ctx)
     {
-        if (!_hasSelection || _raycast.IsPointerOverUI)
+        if (!_hasSelection || _justSelectedThisFrame || _raycast.IsPointerOverUI)
             return;
 
         Vector2Int hitCell = _raycast.HitCell;
@@ -505,23 +527,31 @@ Vector2Int newRoot = hitCell - _selectionDelta;
         BuildingHighlighter newHighlighter = null;
         bool isValid = true;
 
-        if (_raycast.HitObject != null && !_raycast.IsPointerOverUI)
+        // Apply "Trace to Top" - if hitting a stack but not the top, select the top.
+        GameObject target = _raycast.HitObject;
+        var hitBD = target != null ? target.GetComponentInParent<BuildingData>() : null;
+        if (hitBD == null || hitBD.Data.isFloor || hitBD.Data.category == "Foundation" || hitBD.Data.category == "Grounds")
         {
-            // Try to get BuildingData directly from the hit mesh
-            var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
+            GameObject top = _grid.GetTopObject(_raycast.HitCell);
+            if (top != null) target = top;
+        }
 
-            // Fallback to top object in cell
-            if (bd == null)
+        BuildingData bd = target != null ? target.GetComponentInParent<BuildingData>() : null;
+
+        if (bd != null && bd.Data != null && !bd.Data.isFloor)
+        {
+            newHighlighter = bd.GetComponentInParent<BuildingHighlighter>();
+            string cat = bd.Data.category;
+
+            // Racks and Inventory (Pallets) are not movable.
+            // Highlight them red immediately on hover.
+            if (cat == "Racking" || cat == "Inventory")
             {
-                GameObject topObj = _grid.GetTopObject(_raycast.HitCell);
-                if (topObj != null) bd = topObj.GetComponent<BuildingData>();
+                isValid = false;
             }
-
-            if (bd != null && bd.Data != null && !bd.Data.ClearsGridAfterPlacement && !bd.Data.isFloor)
+            else
             {
-                newHighlighter = bd.GetComponent<BuildingHighlighter>();
-                
-                // Check if the object is currently in a valid position
+                // Normal objects check validity (usually true for already placed objects)
                 isValid = _validator.IsValidPlacement(bd.RootCell, bd.Offsets, bd.Data, bd.gameObject);
             }
         }
@@ -584,4 +614,61 @@ Vector2Int newRoot = hitCell - _selectionDelta;
             _hoveredHighlighter = null;
         }
     }
+
+    private bool IsObjectOccupied(BuildingData bd)
+    {
+        if (bd == null || bd.Offsets == null) return false;
+
+        // 1. Flavor items (Lights, Props) are never blocked by occupation.
+        if (bd.Data != null && bd.Data.category == "Flavor") return false;
+
+        // 2. Procedural Content Check (Pallets)
+        // If a rack has inventory (cases) on it, it cannot be moved.
+        var pb = bd.GetComponent<PalletBuilder>();
+        if (pb != null && pb.TotalCases > 0) return true;
+
+        // 3. Grid Stack Check (Racks/Stacks)
+        float myY = bd.gameObject.transform.position.y;
+        foreach (var o in bd.Offsets)
+        {
+            Vector2Int cell = bd.RootCell + o;
+            var cellObjs = _grid.GetObjectsInCell(cell);
+            if (cellObjs == null) continue;
+
+            foreach (var entry in cellObjs)
+            {
+                // Skip the object itself
+                if (entry.instance != null && entry.instance != bd.gameObject)
+                {
+                    if (entry.data != null && !entry.data.isFloor)
+                    {
+                        string cat = entry.data.category;
+                        
+                        // Ignore environment/utility categories that don't represent "contents"
+                        if (cat == "Foundation" || cat == "Grounds" || cat == "Floor" || 
+                            cat == "Ground" || cat == "Flavor" || cat == "Walls")
+                        {
+                            continue;
+                        }
+
+                        // Ignore dynamic agents (Workers, Vehicles) - they'll just move out of the way.
+                        // We check for components instead of categories for these.
+                        if (entry.instance.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
+                        {
+                            continue;
+                        }
+
+                        // For everything else (Racking, Inventory/Pallets):
+                        // Only block if the other object is HIGHER than us (sitting on top).
+                        if (entry.instance.transform.position.y > myY + 0.05f)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
 }

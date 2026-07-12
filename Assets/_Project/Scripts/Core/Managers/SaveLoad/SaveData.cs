@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using GameCore.Inventory;
 using UnityEngine;
 
 [System.Serializable]
@@ -20,6 +21,12 @@ public class SaveData
 
     // Per-lane operational config (max stack, usage, FIFO/LIFO). Empty in older saves.
     public List<LaneConfigEntry> laneConfigs = new();
+
+    // Pick-slot -> SKU assignments from the Slotting UI (SlotAssignmentService). Empty in older saves.
+    public List<SlotAssignmentEntry> slotAssignments = new();
+
+    // Player-defined shift templates from the Shift Manager UI (ShiftDefinitionRegistry). Empty in older saves.
+    public List<ShiftDefinitionSnapshot> shiftDefinitions = new();
 
     // Former employees (terminated / resigned) — kept on file for rehire, union reinstatement,
     // and HR history. Populated from FormerEmployeeArchive. Absent in older saves (empty list).

@@ -304,8 +304,11 @@ public class PlacementGrid : MonoBehaviour
 
             bool isGround = IsGround(entry.data);
 
-            // ignorePlacementRules and ClearsGridAfterPlacement do NOT add height, but floors and grounds always DO if they have a height.
-            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
+            // Stackable objects (like Racks) always contribute to height, even if 
+            // they clear the grid for other objects (like pallets).
+            bool isStackable = entry.data != null && entry.data.isStackable;
+
+            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround && !isStackable)
                 continue;
 
             if (isGround)
@@ -373,7 +376,10 @@ public class PlacementGrid : MonoBehaviour
 
             bool isGround = IsGround(entry.data);
 
-            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
+            // Stackable objects (like Racks) always contribute to height.
+            bool isStackable = entry.data != null && entry.data.isStackable;
+
+            if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround && !isStackable)
                 continue;
 
             if (isGround)

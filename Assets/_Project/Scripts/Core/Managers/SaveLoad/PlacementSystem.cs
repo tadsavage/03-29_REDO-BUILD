@@ -55,30 +55,37 @@ public class PlacementSystem : MonoBehaviour
             quicksaveTimer -= Time.deltaTime;
 
         // Quicksave (F5)
-        if (Keyboard.current.f5Key.isPressed && quicksaveTimer <= 0f)
+        if (Keyboard.current.f5Key.wasPressedThisFrame && quicksaveTimer <= 0f)
         {
-            SaveGame("quicksave");
-            quicksaveTimer = quicksaveCooldown;
-            AudioManager.Play("UI_Save");
-            UIToast.Show("Quick-save successful");
-
-            if (thumbnailCapture != null)
+            if (SaveLoadSystem.SaveManager.Instance != null)
             {
-                string saveDir = System.IO.Path.Combine(Application.dataPath, "_Saves");
-                thumbnailCapture.CaptureThumbnail(saveDir, "quicksave_thumb.png", tex =>
-                {
-                    if (tex != null) Destroy(tex);
-                });
+                SaveLoadSystem.SaveManager.Instance.SaveToSlot(-1, "quicksave");
+                quicksaveTimer = quicksaveCooldown;
+            }
+            else
+            {
+                SaveGame("quicksave");
+                quicksaveTimer = quicksaveCooldown;
+                AudioManager.Play("UI_Save");
+                UIToast.Show("Quick-save successful");
             }
         }
 
         // Quickload (F9)
         if (Keyboard.current.f9Key.wasPressedThisFrame && quicksaveTimer <= 0f)
         {
-            LoadGame();
-            quicksaveTimer = quicksaveCooldown;
-            AudioManager.Play("UI_Load");
-            UIToast.Show("Quick-load successful");
+            if (SaveLoadSystem.SaveManager.Instance != null)
+            {
+                SaveLoadSystem.SaveManager.Instance.LoadFromSlot(-1);
+                quicksaveTimer = quicksaveCooldown;
+            }
+            else
+            {
+                LoadGame();
+                quicksaveTimer = quicksaveCooldown;
+                AudioManager.Play("UI_Load");
+                UIToast.Show("Quick-load successful");
+            }
         }
 
         // Save/Load window (F6)
@@ -173,7 +180,15 @@ public class PlacementSystem : MonoBehaviour
         Vector2Int cell = new Vector2Int(x, y);
         Vector3 worldPos = grid.GetCellCenter(cell);
 
+        // Mobile agents need visual surface correction (e.g. sit on foundation meshes)
         bool hasAgent = so.prefab.GetComponent<UnityEngine.AI.NavMeshAgent>() != null;
+        if (hasAgent)
+        {
+            worldPos.y = PlacementFinalizer.GetFloorTopY(grid, cell);
+            if (so.worldYOffset != 0)
+                worldPos.y += so.worldYOffset;
+        }
+
         GameObject go = Instantiate(so.prefab, worldPos,
                                     Quaternion.Euler(0f, rot * 90f, 0f),
                                     hasAgent ? null : _objectsContainer);
@@ -275,6 +290,8 @@ public class PlacementSystem : MonoBehaviour
 
         save.devSettings = CollectDevSettings();
         save.laneConfigs = LaneConfigRegistry.Export();
+        save.slotAssignments = SlotAssignmentService.Export();
+        save.shiftDefinitions = ShiftDefinitionRegistry.Export();
 
         if (ToolsWindowController.Instance != null)
         {
@@ -634,6 +651,8 @@ public class PlacementSystem : MonoBehaviour
 
         ApplySavedSettings(save);
         LaneConfigRegistry.Import(save.laneConfigs);
+        SlotAssignmentService.Import(save.slotAssignments);
+        ShiftDefinitionRegistry.Import(save.shiftDefinitions);
 
         if (save.cameraData != null && freeLookCamera != null)
             freeLookCamera.SetState(save.cameraData);
@@ -960,7 +979,10 @@ public class PlacementSystem : MonoBehaviour
         if (go.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
         {
             float floorTopY = PlacementFinalizer.GetFloorTopY(grid, root);
-            go.transform.position = new Vector3(worldPos.x, floorTopY, worldPos.z);
+            float targetY = floorTopY;
+            if (so.worldYOffset != 0) targetY += so.worldYOffset;
+
+            go.transform.position = new Vector3(worldPos.x, targetY, worldPos.z);
             var navAgent = go.GetComponent<UnityEngine.AI.NavMeshAgent>();
             if (navAgent != null && navAgent.isActiveAndEnabled && navAgent.isOnNavMesh)
                 navAgent.Warp(go.transform.position);
@@ -993,16 +1015,22 @@ public class PlacementSystem : MonoBehaviour
         PlacedObjectRegistry.Clear();
         grid.InitializeGrid();
     }
-private void OnSlotSaveCompleted(int slotIndex)
+    private void OnSlotSaveCompleted(int slotIndex)
     {
         AudioManager.Play("UI_Save");
-        UIToast.Show($"Saved to Slot {slotIndex + 1}");
+        if (slotIndex == -1)
+            UIToast.Show("Quick-save successful");
+        else
+            UIToast.Show($"Saved to Slot {slotIndex + 1}");
     }
 
     private void OnSlotLoadCompleted(int slotIndex)
     {
         AudioManager.Play("UI_Load");
-        UIToast.Show($"Loaded Slot {slotIndex + 1}");
+        if (slotIndex == -1)
+            UIToast.Show("Quick-load successful");
+        else
+            UIToast.Show($"Loaded Slot {slotIndex + 1}");
     }
 
     private void OnDestroy()

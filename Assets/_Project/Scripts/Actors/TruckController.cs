@@ -381,6 +381,7 @@ private DockSlot        _dock;
         }
 
         builder.casePrefab = sku.Prefab;
+        builder.linkedSku = sku; // CRITICAL: Link the SKU so PalletBuilder knows its real dimensions
 
         // Cargo pallets must reflect the SKU's real, PalletOptimizer-verified Ti/Hi (the master
         // record) — not PalletBuilder's own independent auto-layout guess — so the trailer
@@ -401,7 +402,7 @@ private DockSlot        _dock;
         var palletLoad = instance.transform.Find("PalletLoad");
         if (palletLoad != null)
         {
-            const float palletDeckHeight = 0.16f;
+            const float palletDeckHeight = 0.165f;
             float minCaseY = float.MaxValue;
             var casesList = new System.Collections.Generic.List<Transform>();
 

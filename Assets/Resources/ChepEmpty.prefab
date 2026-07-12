@@ -158,6 +158,7 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  worldSpaceYHeight: 0
   isRackLive: 0
   rackAisle: -1
   rackBay: -1
@@ -177,20 +178,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be155a786131ec148a4ae28dc0e34747, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PalletBuilder
-  casePrefab: {fileID: 4982046648412487193, guid: e719df8cff57e454c8851257747651b2, type: 3}
+  casePrefab: {fileID: 1634059182047114412, guid: 353a2574d5d1433468599715825ead4b, type: 3}
   maxTotalHeight: 1
+  linkedSku: {fileID: 11400000, guid: 859bcac9b8db4ff89da404c9ede6c7c1, type: 2}
+  optimizerPatternDescription: 
+  optimizerUtilizationPercent: 0
+  optimizerTotalHeightMeters: 0
+  optimizerTargetHeightMeters: 0
   palletDimensions: {x: 1, y: 0.15, z: 1.25}
   spaceBetweenCases: 0.02
-  verticalGap: 0.015
+  verticalGap: 0
   usePrefabBounds: 1
   caseDimensions: {x: 0.5, y: 0.25, z: 0.24}
-  crookedCase: 6
+  crookedCase: 5
   useTiHiOverride: 0
   manualTi: 6
   manualHi: 3
-  casesPerLayer: 0
-  layers: 0
-  totalCases: 0
+  casesPerLayer: 8
+  layers: 9
+  totalCases: 72
 --- !u!208 &-5247649293904965746
 NavMeshObstacle:
   m_ObjectHideFlags: 0

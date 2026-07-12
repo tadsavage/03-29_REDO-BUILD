@@ -117,8 +117,64 @@ public class ShiftManagerPanel : IUIPanel
         _overlay = Build(out _modal, out _shiftsContainer, out _confirmBlocker, out _confirmMessage);
         root.Add(_overlay);
         Hide();
+    }
 
-        AddShift("Day Shift");
+    /// <summary>Rebuilds the panel from ShiftDefinitionRegistry — the source of truth is the
+    /// registry, not the panel's own UI state, so this always reflects whatever was last
+    /// committed (including a just-restored save file). Called on every Show() rather than only
+    /// in the constructor, since the panel instance is long-lived but a save/load can happen at
+    /// any point after construction, well after this instance's own _shifts would otherwise be stale.
+    /// Falls back to a single default "Day Shift" if the registry is empty (fresh session).</summary>
+    private void LoadFromRegistry()
+    {
+        _shiftsContainer.Clear();
+        _shifts.Clear();
+
+        if (ShiftDefinitionRegistry.All.Count == 0)
+        {
+            AddShift("Day Shift");
+            _hasChanges = false;
+            return;
+        }
+
+        foreach (var def in ShiftDefinitionRegistry.All)
+        {
+            AddShift(def.Name);
+            var shift = _shifts[_shifts.Count - 1];
+            shift.NameField.SetValueWithoutNotify(def.Name);
+            shift.NamePlaceholder.style.display = string.IsNullOrEmpty(def.Name) ? DisplayStyle.Flex : DisplayStyle.None;
+            UpdateTimeRowLabels(shift);
+
+            for (int d = 0; d < 7; d++)
+            {
+                shift.Start[d] = def.Start[d];
+                shift.End[d] = def.End[d];
+                shift.StartDropdowns[d].SetValueWithoutNotify(DisplayForTime(def.Start[d]));
+                shift.EndDropdowns[d].SetValueWithoutNotify(DisplayForTime(def.End[d]));
+            }
+            RefreshRowColors(shift);
+        }
+        _hasChanges = false;
+    }
+
+    private static string DisplayForTime(int val) => val == Closed ? "Closed" : val == NotSet ? "" : FormatTime(val);
+
+    /// <summary>Pushes the panel's current shift list into ShiftDefinitionRegistry so
+    /// PlacementSystem can snapshot it on the next save.</summary>
+    private void CommitToRegistry()
+    {
+        var list = new List<ShiftDefinitionRegistry.ShiftDefinition>();
+        foreach (var shift in _shifts)
+        {
+            var def = new ShiftDefinitionRegistry.ShiftDefinition { Name = shift.NameField.value?.Trim() };
+            for (int d = 0; d < 7; d++)
+            {
+                def.Start[d] = shift.Start[d];
+                def.End[d] = shift.End[d];
+            }
+            list.Add(def);
+        }
+        ShiftDefinitionRegistry.ReplaceAll(list);
     }
 
     public bool IsVisible => _visible;
@@ -132,7 +188,7 @@ public class ShiftManagerPanel : IUIPanel
         _visible = true;
         _overlay.style.display = DisplayStyle.Flex;
         _overlay.pickingMode = PickingMode.Position;
-        _hasChanges = false;
+        LoadFromRegistry();
         RefreshDayNumbers();
     }
 
@@ -178,6 +234,7 @@ public class ShiftManagerPanel : IUIPanel
             UIToast.Show(error, 2.5f);
             return;
         }
+        CommitToRegistry();
         UIToast.Show("Shift schedule saved.", 1.5f);
         _hasChanges = false;
         Hide();
@@ -627,6 +684,7 @@ public class ShiftManagerPanel : IUIPanel
         }
 
         shift.NameField.SetValueWithoutNotify(name);
+        CommitToRegistry();
         UIToast.Show($"\"{name}\" shift info saved.", 1.5f);
     }
 

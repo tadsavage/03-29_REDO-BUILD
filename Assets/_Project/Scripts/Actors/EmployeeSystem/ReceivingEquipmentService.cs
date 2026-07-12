@@ -12,13 +12,13 @@ public static class ReceivingEquipmentService
     // 2026-07-05) by nudging the live-instantiated prop until it sat correctly in the palm, then
     // reading the exact numbers back off the Inspector. These are absolute values, not offsets —
     // set directly onto the prop's transform below, not added on top of the prefab's own pivot.
-    private static readonly Vector3 ClipboardLocalPosition = new Vector3(0.072f, 0.18f, 0.045f);
-    private static readonly Vector3 ClipboardLocalEuler = new Vector3(0f, 98.672f, 90f);
-    private static readonly Vector3 ClipboardLocalScale = new Vector3(1.4f, 1.4f, 1.4f);
+    private static readonly Vector3 ClipboardLocalPosition = new Vector3(0.035f, 0.248f, 0.087f);
+    private static readonly Vector3 ClipboardLocalEuler = new Vector3(11.683f, -6.183f, 89.448f);
+    private static readonly Vector3 ClipboardLocalScale = new Vector3(1f, 1f, 1f);
 
     private static readonly Vector3 RfGunLocalPosition = new Vector3(0f, 0.175f, 0.08f);
     private static readonly Vector3 RfGunLocalEuler = new Vector3(-90f, 0f, -180f);
-    private static readonly Vector3 RfGunLocalScale = new Vector3(0.01f, 0.01f, 0.01f);  // Prefab scale is 100, so 0.01 × 100 = 1
+    private static readonly Vector3 RfGunLocalScale = new Vector3(1f, 1f, 1f);
 
     private static Dictionary<EmployeeIdentity, ReceivingEquipment> _equippedEmployees = new();
 

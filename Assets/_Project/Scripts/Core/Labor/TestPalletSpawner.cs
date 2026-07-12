@@ -35,7 +35,7 @@ namespace GameCore.Labor
         /// that door, then move on to the next door — until the whole dock is full. Returns how many
         /// pallets were actually created this click.
         /// </summary>
-        public static int SpawnStackedTestPallets(int batchSize = 14)
+        public static int SpawnStackedTestPallets(int batchSize = 10)
         {
             var grid = Object.FindAnyObjectByType<PlacementGrid>();
             if (grid == null) { Debug.LogError("[TestPalletSpawner] No PlacementGrid in scene."); return 0; }
@@ -46,10 +46,12 @@ namespace GameCore.Labor
             if (palletPrefab == null)
             { Debug.LogError("[TestPalletSpawner] Could not resolve the Inventory pallet prefab (ChepEmpty) from ObjDataRegistry."); return 0; }
 
-            // A SKU with committed Ti/Hi and a real case prefab — same eligibility rule the truck
-            // delivery generator uses. Without one there are no cases to build.
-            var sku = inv.AllSkus.FirstOrDefault(s => s != null && s.Ti > 0 && s.Hi > 0 && s.Prefab != null);
-            if (sku == null)
+            // All eligible SKUs with committed Ti/Hi and a real case prefab.
+            var validSkus = inv.AllSkus
+                .Where(s => s != null && s.Ti > 0 && s.Hi > 0 && s.Prefab != null)
+                .ToList();
+
+            if (validSkus.Count == 0)
             { Debug.LogError("[TestPalletSpawner] No SKU with committed Ti/Hi + case prefab found — run the Pallet Optimizer batch first."); return 0; }
 
             var ghostMat = Resources.Load<Material>(GhostMaterialPath);
@@ -67,6 +69,10 @@ namespace GameCore.Labor
             foreach (var cell in openTierSlots)
             {
                 if (made >= batchSize) break;
+
+                // Randomly pick a SKU for each pallet in the assortment.
+                var sku = validSkus[Random.Range(0, validSkus.Count)];
+
                 // Sits on whatever's already in this cell (measured live), or the lane surface if empty —
                 // so consecutive tiers of the same cell stack, and a partly-filled cell from a prior
                 // click continues stacking correctly.
@@ -167,14 +173,14 @@ namespace GameCore.Labor
             return go;
         }
 
-        // Shift cases so the lowest sits on the pallet deck (0.16m) and zero PalletLoad's default 90°
+        // Shift cases so the lowest sits on the pallet deck (0.165m) and zero PalletLoad's default 90°
         // spin — identical to TruckController.BuildOnePallet's post-build fix.
         private static void ReseatCasesOnDeck(Transform palletRoot)
         {
             var palletLoad = palletRoot.Find("PalletLoad");
             if (palletLoad == null) return;
 
-            const float palletDeckHeight = 0.16f;
+            const float palletDeckHeight = 0.165f;
             float minCaseY = float.MaxValue;
             for (int i = 0; i < palletLoad.childCount; i++)
                 minCaseY = Mathf.Min(minCaseY, palletLoad.GetChild(i).localPosition.y);

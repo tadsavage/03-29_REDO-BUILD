@@ -75,10 +75,24 @@ namespace GameCore.Persistence
                     if (string.IsNullOrEmpty(snap.skuId)) snap.skuId = pdata.ItemNumber ?? "";
                 }
 
+                // If no SKU found yet, check the builder's own linkedSku reference (closes the loop for built pallets)
+                if (string.IsNullOrEmpty(snap.skuId) && builder.linkedSku != null)
+                {
+                    snap.skuId = builder.linkedSku.SkuId;
+                }
+
                 var loadObj = entry.transform.Find("PalletLoad");
                 if (loadObj != null && builder.casePrefab != null && loadObj.childCount > 0)
                 {
                     snap.caseObjDataId = ResolveObjDataId(builder.casePrefab, registry);
+
+                    // If we have cases but still no SKU id, try to resolve it from the case prefab itself
+                    if (string.IsNullOrEmpty(snap.skuId))
+                    {
+                        var matchedSku = MatchPrefabToSku(builder.casePrefab);
+                        if (matchedSku != null) snap.skuId = matchedSku.SkuId;
+                    }
+
                     for (int i = 0; i < loadObj.childCount; i++)
                     {
                         var c = loadObj.GetChild(i);
@@ -224,7 +238,23 @@ namespace GameCore.Persistence
             }
 
             var builder = palletGO.GetComponent<PalletBuilder>();
-            if (builder != null) builder.casePrefab = casePrefab;
+            if (builder != null)
+            {
+                builder.casePrefab = casePrefab;
+                // Closed-loop persistence: restore the linkedSku reference so any future save 
+                // (like a quicksave) knows what product this is.
+                if (builder.linkedSku == null && inv != null)
+                {
+                    builder.linkedSku = MatchPrefabToSku(casePrefab);
+                }
+            }
+        }
+
+        private static SkuData MatchPrefabToSku(GameObject prefab)
+        {
+            if (prefab == null) return null;
+            var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+            return skus.FirstOrDefault(s => s != null && s.Prefab == prefab);
         }
 
         private static void RestoreInventoryLink(GameObject palletGO, DockPalletSnapshot snap, InventoryService inv, Vector2Int cell)

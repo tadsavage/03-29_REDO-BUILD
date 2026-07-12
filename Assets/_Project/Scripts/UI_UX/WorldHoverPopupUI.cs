@@ -328,6 +328,132 @@ public class WorldHoverPopupUI : MonoBehaviour
         _popup.style.translate = _cachedTranslateStyle;
     }
 
+    // ---------------------------------------------------------
+    // PALLET BUILDER HOVER (built but not yet received pallets)
+    // ---------------------------------------------------------
+    /// <summary>Drives the hover tooltip for a pallet built via PalletBuilder that has no
+    /// PalletData yet. Resolves the SKU from the builder and shows item number, description,
+    /// and case count. Also handles shift+click to open the Pallet Builder UI.</summary>
+    public void TickHoverPalletBuilder(bool hovering, PalletBuilder builder, Vector3 worldPos, Camera cam)
+    {
+        if (!IsEnabled) { HideImmediate(); return; }
+
+        // Only show in IdleState
+        if (_fsm != null && !(_fsm.CurrentState is IdleState))
+        { HideImmediate(); return; }
+
+        if (!hovering || builder == null)
+        {
+            _isHovering = false;
+            _hoverTimer = 0f;
+            HideImmediate();
+            return;
+        }
+
+        // Resolve SKU from the builder (uses DockPalletUtility which checks linkedSku, casePrefab, etc.)
+        var sku = GameCore.Labor.DockPalletUtility.GetSkuForPallet(builder.gameObject);
+        if (sku == null)
+        {
+            // Can't determine the item — hide the tooltip
+            _isHovering = false;
+            _hoverTimer = 0f;
+            HideImmediate();
+            return;
+        }
+
+        // Build a pseudo-data holder so we can reuse ShowPallet's rendering logic
+        _pendingPalletData = null;
+        _pendingName = null;
+        _pendingCost = 0;
+        _pendingHourlyCost = 0;
+        _isPalletMode = true;
+
+        bool isNewTarget = !_isHovering || !_isPalletMode || sku != _pendingPalletBuilderSku;
+        _pendingPalletBuilderSku = sku;
+
+        if (isNewTarget)
+        {
+            _isHovering = true;
+            _hoverTimer = 0f;
+            _popup.style.opacity = 1f;
+            ShowPalletBuilder(sku, builder.TotalCases);
+        }
+        else
+        {
+            _hoverTimer += Time.deltaTime;
+            if (!_isVisible && _hoverTimer >= _hoverDelay)
+                ShowPalletBuilder(sku, builder.TotalCases);
+        }
+
+        if (_isVisible)
+            FollowCursor();
+    }
+
+    private SkuData _pendingPalletBuilderSku;
+
+    /// <summary>Renders the pallet tooltip using SkuData + case count (for built-but-unreceived pallets).</summary>
+    private void ShowPalletBuilder(SkuData sku, int caseQty)
+    {
+        if (_popup == null || sku == null) return;
+
+        // Set title to item description
+        if (_title != null)
+            _title.text = sku.ItemDescription;
+
+        // Set icon
+        if (_iconImage != null)
+        {
+            _iconImage.sprite = sku.Icon;
+            _iconImage.style.display = sku.Icon != null ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        // Build pallet info text
+        if (_palletInfoPanel != null)
+        {
+            _palletInfoPanel.Clear();
+            _palletInfoPanel.style.display = DisplayStyle.Flex;
+
+            // Item number
+            var itemNumLbl = new Label($"Item #: {sku.ItemNumber}");
+            itemNumLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            itemNumLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(itemNumLbl);
+
+            // Case quantity
+            var caseQtyLbl = new Label($"Case Qty: {caseQty}");
+            caseQtyLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            caseQtyLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(caseQtyLbl);
+
+            // Wholesale cost
+            var wholesaleLbl = new Label($"Wholesale: ${sku.BuyValue:N0}");
+            wholesaleLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            wholesaleLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(wholesaleLbl);
+
+            // Retail cost
+            var retailLbl = new Label($"Retail: ${sku.SellValue:N0}");
+            retailLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            retailLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(retailLbl);
+
+            // Ti x Hi
+            var tiHiLbl = new Label($"Ti×Hi: {sku.Ti}×{sku.Hi}");
+            tiHiLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            tiHiLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(tiHiLbl);
+        }
+
+        // Hide building-specific elements
+        if (_cost != null) _cost.style.display = DisplayStyle.None;
+        if (_hourlyCost != null) _hourlyCost.style.display = DisplayStyle.None;
+
+        _popup.style.opacity = 1f;
+        _popup.style.display = DisplayStyle.Flex;
+        _popup.AddToClassList("show");
+        _isVisible = true;
+    }
+
     // Legacy entry point kept for any code that still calls it
     public void SetWorldPosition(Vector3 worldPos, Camera cam) => FollowCursor();
 }

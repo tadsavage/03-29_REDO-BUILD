@@ -10,10 +10,6 @@ namespace GameCore.Inventory
     /// slots physically EXIST); the UI is responsible for only assigning addresses SlotRegistry
     /// currently reports, and for clearing an assignment once SlotRegistry stops reporting that
     /// address (rack deleted).
-    ///
-    /// In-memory only for now — not persisted to save files. Lost on domain reload / app restart,
-    /// same known limitation as ShiftManagerPanel's schedules. A future Export()/Import() pair (same
-    /// shape as LaneConfigRegistry's) is the natural follow-up once a save slot exists for it.
     /// </summary>
     public static class SlotAssignmentService
     {
@@ -36,5 +32,34 @@ namespace GameCore.Inventory
             => _skuByAddress.Where(kv => kv.Value == skuId).Select(kv => kv.Key).ToList();
 
         public static IReadOnlyDictionary<string, string> AllAssignments => _skuByAddress;
+
+        /// <summary>Flatten all assignments for saving.</summary>
+        public static List<SlotAssignmentEntry> Export()
+        {
+            var list = new List<SlotAssignmentEntry>();
+            foreach (var kv in _skuByAddress)
+                list.Add(new SlotAssignmentEntry { address = kv.Key, skuId = kv.Value });
+            return list;
+        }
+
+        /// <summary>Restore saved assignments (replaces current state).</summary>
+        public static void Import(List<SlotAssignmentEntry> entries)
+        {
+            _skuByAddress.Clear();
+            if (entries == null) return;
+            foreach (var e in entries)
+            {
+                if (string.IsNullOrEmpty(e.address) || string.IsNullOrEmpty(e.skuId)) continue;
+                _skuByAddress[e.address] = e.skuId;
+            }
+        }
+    }
+
+    /// <summary>Serializable form of one slot assignment, for JSON save/load.</summary>
+    [System.Serializable]
+    public class SlotAssignmentEntry
+    {
+        public string address;
+        public string skuId;
     }
 }

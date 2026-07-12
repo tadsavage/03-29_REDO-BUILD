@@ -250,15 +250,19 @@ namespace GameCore.Labor
             //     cell, explicitly EXCLUDING this pallet (which is still up on the forks) — see
             //     ComputeDropBaseY. This one value is the single source of truth: it positions the pallet
             //     AND is recorded as its saved height, so the visual and the record can never disagree.
-            RegisterAndQueue(inv, truck, cell, pallet, palletIndex);
+            // Align the pallet lengthwise with the staging lane direction — no extra rotation.
+            // The pallet's long axis (world X = 48") should run parallel to the lane, matching how
+            // TestPalletSpawner and PalletPersistenceService place pallets.
+            Quaternion laneRotation = Quaternion.LookRotation(Flat(downLane));
+            Quaternion rotatedPlacement = laneRotation;
+
+            RegisterAndQueue(inv, truck, cell, pallet, rotatedPlacement, palletIndex);
             float dropBaseY = ComputeDropBaseY(cell, pallet.gameObject);
 
             // 12. Lower the forks toward the stack (cosmetic — DropPallet sets the exact final Y), then
             //     unparent the pallet onto the lane at dropBaseY.
             if (forks != null) yield return LiftForks(forks, forkRestY + tier * LaneStackStep);
-            // Rotate pallet 90 degrees additionally so product sits correctly
-            Quaternion laneRotation = Quaternion.LookRotation(Flat(downLane));
-            Quaternion rotatedPlacement = laneRotation * Quaternion.Euler(0f, 90f, 0f);
+            
             DropPallet(pallet, targetW, dropBaseY, palletWorldScale, rotatedPlacement);
             // 12b. Record the authoritative base-Y everywhere the pallet's height is tracked.
             RecordPalletHeight(pallet.gameObject, dropBaseY, inv);
@@ -376,6 +380,7 @@ namespace GameCore.Labor
             // pallet there — no re-measuring here (re-measuring used to include this very pallet while it
             // was still up on the forks, which stacked it on top of ITSELF and sent it climbing ~3m).
             pallet.position = new Vector3(laneWorld.x, baseY, laneWorld.z);
+            pallet.rotation = rotation; // FIX: Apply authoritative rotation
             pallet.localScale = worldScale; // parent is null now, so local == world scale
 
             // NOTE: Cases are already rotated 90 degrees in TruckController when built in the trailer,
@@ -384,11 +389,16 @@ namespace GameCore.Labor
 
             // Fix case Y positioning: PalletBuilder positioned cases with gaps during build.
             // Now that the pallet is at its final position, move cases to sit directly on the pallet
-            // surface (local Y = 0.16m, the pallet deck height).
+            // surface (local Y = 0.165m, the pallet deck height).
             var palletLoad = pallet.Find("PalletLoad");
             if (palletLoad != null)
             {
-                const float palletDeckHeight = 0.16f;
+                // FIX CASE ORIENTATION: Zero out the default 90-degree Y rotation on PalletLoad
+                // so cases align properly with the pallet direction. This is identical to 
+                // TestPalletSpawner and critical for persistence.
+                palletLoad.localRotation = Quaternion.identity;
+
+                const float palletDeckHeight = 0.165f;
 
                 // Collect all case positions and find the minimum Y to determine layer offset
                 float minCaseY = float.MaxValue;
@@ -487,7 +497,7 @@ namespace GameCore.Labor
             downLane = slots.Count > 1 ? Flat(exitW - entryW) : Flat(entryW - doorPos);
         }
 
-        private void RegisterAndQueue(InventoryService inv, TruckController truck, Vector2Int cell, Transform pallet, int palletIndex = 0)
+        private void RegisterAndQueue(InventoryService inv, TruckController truck, Vector2Int cell, Transform pallet, Quaternion rotation, int palletIndex = 0)
         {
             string sku = "PHYS";
             if (truck.AssignedShipment != null && truck.AssignedShipment.LineItems.Count > palletIndex)
@@ -523,7 +533,7 @@ namespace GameCore.Labor
                 if (bd == null) bd = pallet.gameObject.AddComponent<BuildingData>();
                 if (placed.data != null)
                 {
-                    float rotDeg = pallet.eulerAngles.y;
+                    float rotDeg = rotation.eulerAngles.y;
                     Vector2Int[] offsets = placed.data.GetFootprintOffsets(-rotDeg);
                     bd.Initialize(cell, rotDeg, offsets, placed.data);
                 }

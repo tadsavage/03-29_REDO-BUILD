@@ -101,7 +101,7 @@ public class RaycastController : MonoBehaviour
 
         // DYNAMIC FILTER: Get dynamic layer mask filters based on current wall visibility state
         LayerMask dynamicGroundMask = _groundMask;
-        LayerMask dynamicObjectMask = Physics.DefaultRaycastLayers; // Standard default layout mask matches everything
+        LayerMask dynamicObjectMask = Physics.DefaultRaycastLayers;
 
         if (WallVisibilityManager.Instance != null)
         {
@@ -110,22 +110,72 @@ public class RaycastController : MonoBehaviour
         }
         else
         {
-            // Manual fallback if your scene manager instance hasn't loaded yet
             dynamicGroundMask = _groundMask & ~_wallLayer;
             dynamicObjectMask = Physics.DefaultRaycastLayers & ~_wallLayer;
         }
 
         // ---------------------------------------------------------
-        // 1. Ground raycast (grid placement) using dynamic filter mask
+        // 1. Detection Pass
         // ---------------------------------------------------------
-        if (Physics.Raycast(ray, out RaycastHit hit, 999f, dynamicGroundMask))
+        bool objectHit = Physics.Raycast(ray, out RaycastHit objHit, 500f, dynamicObjectMask);
+        bool groundHit = Physics.Raycast(ray, out RaycastHit hit, 999f, dynamicGroundMask);
+
+        HasHit = objectHit || groundHit;
+
+        if (HasHit)
         {
-            RawHitPoint = hit.point;   // ⭐ continuous world position
-            HitPoint = _grid.GetCellCenter(_grid.WorldToCell(hit.point)); // snapped
-            HasHit = true;
-            HitPoint = hit.point;
-            HitCell = _grid.WorldToCell(hit.point);
-            HitObject = hit.collider.gameObject;
+            // ---------------------------------------------------------
+            // 2. Position & Grid Mapping
+            // ---------------------------------------------------------
+            // HitPoint (Visuals): We use the nearest thing hit (object or ground) 
+            // to ensure the laser/cursor looks like it's touching the surface.
+            RaycastHit primaryHit = objectHit ? objHit : hit;
+            RawHitPoint = primaryHit.point;
+            HitPoint = primaryHit.point;
+
+            // HitCell (Logic): To prevent "Perspective Jumping", we ALWAYS derive 
+            // the grid cell from the ground/floor hit if it exists. 
+            //
+            // EXPLANATION: If you click the top of a 10m pole, the ray hits the 
+            // pole at (0,10,0) but the ground BEHIND it at (10,0,0). If we used 
+            // the pole's Y for the cell, the object would "snap" to the ground 10m 
+            // away the moment you pick it up (and the ray shoots through). 
+            // By always using the ground for cell mapping, the "anchor" remains 
+            // stable regardless of whether an object is present or not.
+            if (groundHit)
+            {
+                HitCell = _grid.WorldToCell(hit.point);
+            }
+            else
+            {
+                HitCell = _grid.WorldToCell(primaryHit.point);
+            }
+
+            // ---------------------------------------------------------
+            // 3. Selection Logic (Standard Hit)
+            // ---------------------------------------------------------
+            GameObject actualHit = objectHit ? objHit.collider.gameObject : hit.collider.gameObject;
+
+            // We no longer "Trace to Top" inside the raycast itself. 
+            // Instead, we return the physical object hit. 
+            // States (Delete, Move, etc.) can use _grid.GetTopObject(HitCell) 
+            // if they wish to redirect selection to the top of a stack.
+            // This allows for individual highlighting of items within a stack.
+            if (objectHit)
+            {
+                HitObject = actualHit;
+            }
+            else if (groundHit)
+            {
+                // If we only hit the ground, check if there's an object in that cell 
+                // to act as a fallback selection.
+                GameObject top = _grid.GetTopObject(HitCell);
+                HitObject = top != null ? top : actualHit;
+            }
+            else
+            {
+                HitObject = actualHit;
+            }
 
             if (AllowPlacementEvents && HitCell != _lastHitCell)
                 AudioManager.Play("NewCell");
@@ -134,40 +184,8 @@ public class RaycastController : MonoBehaviour
         }
         else
         {
-            HasHit = false;
-        }
-
-        // ---------------------------------------------------------
-        // 2. Object raycast (now uses dynamic filter mask to ignore lowered walls!)
-        // ---------------------------------------------------------
-        if (Physics.Raycast(ray, out RaycastHit objHit, 500f, dynamicObjectMask))
-        {
-            var hitGO = objHit.collider.gameObject;
-            // If we hit a parent collider (like "Foundations"), query the grid to get the actual object
-            if (hitGO.GetComponent<BuildingData>() == null && hitGO.name == "Foundations")
-            {
-                var cellObjs = _grid.GetObjectsInCell(HitCell);
-                if (cellObjs != null && cellObjs.Count > 0)
-                {
-                    // Return topmost object (skip floor tiles)
-                    for (int i = cellObjs.Count - 1; i >= 0; i--)
-                    {
-                        if (cellObjs[i].data != null && !cellObjs[i].data.isFloor && cellObjs[i].instance != null)
-                        {
-                            HitObject = cellObjs[i].instance;
-                            return;
-                        }
-                    }
-                }
-                HitObject = null;
-            }
-            else
-            {
-                HitObject = hitGO;
-            }
-        }
-        else
             HitObject = null;
+        }
 
         if (AllowPlacementEvents)
             DrawRay(ray);

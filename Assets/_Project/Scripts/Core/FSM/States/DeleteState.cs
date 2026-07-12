@@ -224,7 +224,6 @@ public class DeleteState : PlacementStateBase
 
         BuildingHighlighter newHover = null;
 
-        // RESPONSIVENESS FIX: Check HitObject directly first (like MoveState)
         if (_raycast.HitObject != null)
         {
             var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();

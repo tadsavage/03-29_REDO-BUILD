@@ -333,11 +333,22 @@ public class MoveCommand : PlacementCommandBase
             HideUnderlyingFloors(to, toOffsets);
 
         // Immediate position at cell center as a baseline
-        _instance.transform.position = _grid.GetCellCenter(to);
+        Vector3 targetPos = _grid.GetCellCenter(to);
 
         // If it has an agent, disable it temporarily so UpdateStackPositions sets transform.position directly
         // rather than using agent.Warp which might fail if not near a navmesh
         var agent = _instance.GetComponent<UnityEngine.AI.NavMeshAgent>();
+
+        // Mobile agents need visual surface correction (e.g. sit on foundation meshes) to prevent sinking
+        if (agent != null)
+        {
+            targetPos.y = PlacementFinalizer.GetFloorTopY(_grid, to);
+            if (_data != null && _data.worldYOffset != 0)
+                targetPos.y += _data.worldYOffset;
+        }
+
+        _instance.transform.position = targetPos;
+
         bool wasAgentEnabled = agent != null && agent.enabled;
         if (agent != null) agent.enabled = false;
 

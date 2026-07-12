@@ -8,6 +8,8 @@ public class BuildingHighlighter : MonoBehaviour
     [SerializeField] private Color invalidColor = new Color(1.0f, 0.2f, 0.2f, 0.5f);
     [SerializeField] private Color deleteColor = new Color(1.0f, 0.9f, 0.0f, 0.5f); // Updated to Yellow
 
+    private bool _isHighlighted;
+
     private readonly List<RendererData> _rendererData = new();
     private MaterialPropertyBlock _mpb;
     private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
@@ -70,14 +72,21 @@ public class BuildingHighlighter : MonoBehaviour
 
     private void ApplyHighlight(Material highlightMat, Color? color)
     {
-        // Leave ghosted (preview) racks untouched. The highlighter cached this object's REAL
-        // materials in Awake — before RackGhost swapped in the ghost material — so highlighting
-        // (and its restore) would reveal the real material and undo the ghost. Skip entirely
-        // while ghosted; the rack keeps its orange-transparent preview look on hover.
-        var ghost = GetComponent<RackGhost>();
-        if (ghost != null && ghost.IsGhosted) return;
+        // For dynamic objects (Pallets with changing cases), we need to refresh the renderer list.
+        // However, we MUST only cache when we are NOT currently highlighted.
+        // If we cache while the red highlight is active, the "original" materials will be saved as RED,
+        // causing the highlight to get stuck forever as shown in your image.
+        bool isPallet = GetComponent<PalletBuilder>() != null;
 
-        if (_rendererData.Count == 0) CacheRenderers();
+        if (highlightMat != null)
+        {
+            // Only cache if empty or if starting a new highlight session on a dynamic object.
+            if (_rendererData.Count == 0 || (isPallet && !_isHighlighted))
+            {
+                CacheRenderers();
+            }
+            _isHighlighted = true;
+        }
 
         if (color.HasValue)
         {
@@ -90,7 +99,6 @@ public class BuildingHighlighter : MonoBehaviour
             
             if (highlightMat != null)
             {
-                // Create a temporary array of the highlight material for each submesh
                 Material[] mats = new Material[data.originalMaterials.Length];
                 for (int i = 0; i < mats.Length; i++) mats[i] = highlightMat;
                 
@@ -102,6 +110,11 @@ public class BuildingHighlighter : MonoBehaviour
                 data.renderer.sharedMaterials = data.originalMaterials;
                 data.renderer.SetPropertyBlock(null);
             }
+        }
+
+        if (highlightMat == null)
+        {
+            _isHighlighted = false;
         }
     }
 }

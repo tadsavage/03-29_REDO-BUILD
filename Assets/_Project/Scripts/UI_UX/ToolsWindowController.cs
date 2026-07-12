@@ -1033,13 +1033,55 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         // Load SKU data and populate dropdown
         var skuAssets = Resources.LoadAll<SkuData>("Inventory/SKUs");
         var skuChoices = new List<string>();
+        var skuMap = new Dictionary<string, SkuData>();
         foreach (var sku in skuAssets)
         {
             if (sku != null)
-                skuChoices.Add($"{sku.ItemNumber}   {sku.ItemDescription}");
+            {
+                var display = $"{sku.ItemNumber}   {sku.ItemDescription}";
+                skuChoices.Add(display);
+                skuMap[display] = sku;
+            }
         }
         itemDropdown.choices = skuChoices;
-        itemDropdown.value = skuChoices.Count > 0 ? skuChoices[0] : "";
+
+        // Pre-select the pallet's current SKU (from linkedSku, PalletMasterLink, or PalletData)
+        string currentDisplay = "";
+        if (pb.linkedSku != null)
+        {
+            currentDisplay = $"{pb.linkedSku.ItemNumber}   {pb.linkedSku.ItemDescription}";
+        }
+        else
+        {
+            var resolvedSku = DockPalletUtility.GetSkuForPallet(pb.gameObject);
+            if (resolvedSku != null)
+                currentDisplay = $"{resolvedSku.ItemNumber}   {resolvedSku.ItemDescription}";
+        }
+
+        if (!string.IsNullOrEmpty(currentDisplay) && skuChoices.Contains(currentDisplay))
+            itemDropdown.value = currentDisplay;
+        else
+            itemDropdown.value = skuChoices.Count > 0 ? skuChoices[0] : "";
+
+        // Wire dropdown to update linkedSku and casePrefab when the user changes selection
+        itemDropdown.RegisterValueChangedCallback(evt =>
+        {
+            if (skuMap.TryGetValue(evt.newValue, out var selectedSku))
+            {
+                pb.linkedSku = selectedSku;
+                pb.casePrefab = selectedSku.Prefab;
+                pb.SaveBuildState();
+            }
+        });
+
+        // Apply the initial selection if pb.linkedSku is null but we resolved one from the dropdown
+        if (pb.linkedSku == null && skuMap.TryGetValue(itemDropdown.value, out var initialSku))
+        {
+            pb.linkedSku = initialSku;
+            pb.casePrefab = initialSku.Prefab;
+            pb.SaveBuildState();
+        }
+
         itemDropdown.style.fontSize = 11; // Small font to keep dropdown narrow
         group.Add(itemDropdown);
 
@@ -1047,7 +1089,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         group.Add(BuildFloatSettingRow("Max Total Height",
             0.5f, 3.0f,
             () => pb.maxTotalHeight,
-            v => pb.maxTotalHeight = v));
+            v => { pb.maxTotalHeight = v; pb.SaveBuildState(); }));
 
         // ── Optimizer Utilization % ────────────────────────────────────────
         var utilizationRow = new VisualElement(); utilizationRow.AddToClassList("ds-row");
@@ -1063,7 +1105,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         var spacingRow = BuildFloatSettingRow("Space Between Cases",
             0.01f, 0.2f,
             () => pb.spaceBetweenCases,
-            v => pb.spaceBetweenCases = v);
+            v => { pb.spaceBetweenCases = v; pb.SaveBuildState(); });
         var spacingLbl = spacingRow.Q<Label>(className: "ds-label");
         if (spacingLbl != null) spacingLbl.tooltip = "Horizontal space between cases on X and Y axes.";
         group.Add(spacingRow);
@@ -1072,7 +1114,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         var gapRow = BuildFloatSettingRow("Vertical Gap",
             0.01f, 0.25f,
             () => pb.verticalGap,
-            v => pb.verticalGap = v);
+            v => { pb.verticalGap = v; pb.SaveBuildState(); });
         var gapLbl = gapRow.Q<Label>(className: "ds-label");
         if (gapLbl != null) gapLbl.tooltip = "Space between layers.";
         group.Add(gapRow);
@@ -1085,7 +1127,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         usePrefabRow.Add(usePrefabLbl);
         var usePrefabToggle = new Toggle { value = pb.usePrefabBounds };
         usePrefabToggle.AddToClassList("ds-toggle");
-        usePrefabToggle.RegisterValueChangedCallback(evt => pb.usePrefabBounds = evt.newValue);
+        usePrefabToggle.RegisterValueChangedCallback(evt => { pb.usePrefabBounds = evt.newValue; pb.SaveBuildState(); });
         usePrefabRow.Add(usePrefabToggle);
         group.Add(usePrefabRow);
 
@@ -1137,8 +1179,9 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         buttonsRow.style.justifyContent = Justify.FlexStart;
         buttonsRow.style.marginTop = 15;
         
-        // Build Pallet (Orange)
-        var buildBtn = new Button(() => pb.Build(deductMoney: false)) { text = "Build Pallet" };
+        // Build All Dock Pallets (Orange) — rebuilds every pallet of this SKU on the dock,
+        // then recalculates all Y positions.
+        var buildBtn = new Button(() => BuildAllDockPallets(pb)) { text = "Build All" };
         buildBtn.AddToClassList("dev-btn");
         buildBtn.AddToClassList("dev-btn-gold");
         buildBtn.style.flexGrow = 1;
@@ -1160,6 +1203,28 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         group.Add(buttonsRow);
 
+        // ── Dock-Wide Action Buttons ─────────────────────────────────────────
+        var dockButtonsRow = new VisualElement();
+        dockButtonsRow.style.flexDirection = FlexDirection.Row;
+        dockButtonsRow.style.justifyContent = Justify.FlexStart;
+        dockButtonsRow.style.marginTop = 8;
+
+        // Fix Rotations (Red) — rotates all dock pallets -90° on Y to correct the old offload bug
+        var fixRotBtn = new Button(() => DockPalletUtility.RotateAllDockPallets(-90f)) { text = "Fix Rot -90°" };
+        fixRotBtn.AddToClassList("dev-btn");
+        fixRotBtn.style.flexGrow = 1;
+        fixRotBtn.style.backgroundColor = new Color(0.7f, 0.2f, 0.2f, 1f);
+        dockButtonsRow.Add(fixRotBtn);
+
+        // Recalc Heights (Teal) — recalculates all Y positions for dock pallets
+        var recalcBtn = new Button(() => DockPalletUtility.RecalculateAllDockYPositions()) { text = "Recalc Y" };
+        recalcBtn.AddToClassList("dev-btn");
+        recalcBtn.AddToClassList("dev-btn-teal");
+        recalcBtn.style.flexGrow = 1;
+        dockButtonsRow.Add(recalcBtn);
+
+        group.Add(dockButtonsRow);
+
         return group;
     }
 
@@ -1177,6 +1242,23 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 #endif
             Debug.Log("[PalletBuilder] Pallet load removed. Settings preserved.");
         }
+    }
+
+    /// <summary>Rebuilds every dock pallet that matches the selected SKU, applying the template
+    /// pallet's Ti/Hi and spacing settings. After rebuilding, recalculates all dock Y positions.</summary>
+    private void BuildAllDockPallets(PalletBuilder pb)
+    {
+        if (pb == null || pb.linkedSku == null)
+        {
+            UIToast.Show("No SKU linked. Select an item from the dropdown first.");
+            return;
+        }
+
+        int count = DockPalletUtility.RebuildAllDockPalletsWithSku(pb);
+        if (count > 0)
+            UIToast.Show($"Rebuilt {count} pallet(s) on the dock. Y positions recalculated.");
+        else
+            UIToast.Show("No matching pallets found on the dock for this SKU.");
     }
 
     private void SubmitPalletTiHi(PalletBuilder pb)
@@ -1211,7 +1293,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     // them, so the simulation stays real for data-persistence testing. See TestPalletSpawner.
     private void CreateTestPallets()
     {
-        TestPalletSpawner.SpawnStackedTestPallets(14); // a truck's worth per click; fills lanes then doors
+        TestPalletSpawner.SpawnStackedTestPallets(10); // 10 pallets at a time per user request
     }
 
     // Debug shortcut: wipe every dock pallet + all inventory + pallet work tasks, leaving employees,

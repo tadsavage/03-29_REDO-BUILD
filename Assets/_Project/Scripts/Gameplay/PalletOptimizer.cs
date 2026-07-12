@@ -220,7 +220,7 @@ public static class PalletOptimizer
         // 1. Standard GMA pallet (40" x 48") in meters — world X = 48" (long), world Z = 40" (short).
         float palletWidthM = 1.2192f;  // World X axis = 48" (long side)
         float palletLengthM = 1.016f;  // World Z axis = 40" (short side)
-        float palletBaseHeightM = 0.16f; // Standard pallet thickness
+        float palletBaseHeightM = 0.165f; // Standard pallet thickness
 
         // 2. Convert case dimensions from cm to meters
         float cLen = caseLengthCm / 100f;
@@ -231,7 +231,7 @@ public static class PalletOptimizer
         float maxCargoHeight = maxPalletHeightMeters - palletBaseHeightM;
         if (maxCargoHeight <= 0)
         {
-            Debug.LogError("[PalletOptimizer] Maximum pallet height must be greater than the pallet base height (0.16m).");
+            Debug.LogError("[PalletOptimizer] Maximum pallet height must be greater than the pallet base height (0.165m).");
             return new PalletResult();
         }
 

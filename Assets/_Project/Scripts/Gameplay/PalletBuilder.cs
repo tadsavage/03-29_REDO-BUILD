@@ -23,15 +23,15 @@ public class PalletBuilder : MonoBehaviour
     [SerializeField] private float optimizerTargetHeightMeters;
 
     [Header("Pallet Config")]
-    // Real 40"x48" GMA pallet with a 0.16m deck height — world X axis = 48" (long), world Z axis = 40" (short).
-    // X = 1.2192m (48"), H = 0.16m, Z = 1.016m (40"). Matches PalletOptimizer and SkuData.PltHeight.
-    public Vector3 palletDimensions = new Vector3(1.2192f, 0.16f, 1.016f); // W(48"), H, L(40")
+    // Real 40"x48" GMA pallet with a 0.165m deck height — world X axis = 48" (long), world Z axis = 40" (short).
+    // X = 1.2192m (48"), H = 0.165m, Z = 1.016m (40"). Matches PalletOptimizer and SkuData.PltHeight.
+    public Vector3 palletDimensions = new Vector3(1.2192f, 0.165f, 1.016f); // W(48"), H, L(40")
 
     [Header("Spacing Settings")]
     [Tooltip("Minimum horizontal distance between cases.")]
     [Range(0.01f, 0.2f)] public float spaceBetweenCases = 0.05f;
     [Tooltip("Fixed vertical gap between layers.")]
-    [Range(0.01f, 0.25f)] public float verticalGap = 0.025f;
+    [Range(0.0f, 0.25f)] public float verticalGap = 0.0f;
 
     [Header("Case Overrides")]
     public bool usePrefabBounds = true;
@@ -59,11 +59,14 @@ public class PalletBuilder : MonoBehaviour
     public struct BuildSettings
     {
         public int caseDataID;
+        public int linkedSkuID; // Added to restore linkedSku
         public float maxHeight;
         public float spaceBetween;
         public float vertGap;
         public float crooked;
         public bool useOverride;
+        public bool usePrefabBounds; // Added for persistence
+        public Vector3 caseDimensions; // Added for persistence
         public int manualTi;
         public int manualHi;
         public int totalLoadCost;
@@ -110,17 +113,26 @@ public class PalletBuilder : MonoBehaviour
         BuildSettings settings = new BuildSettings
         {
             caseDataID = (casePrefab != null) ? GetCaseID(casePrefab) : -1,
+            linkedSkuID = (linkedSku != null) ? GetSkuID(linkedSku) : -1,
             maxHeight = maxTotalHeight,
             spaceBetween = spaceBetweenCases,
             vertGap = verticalGap,
             crooked = crookedCase,
             useOverride = useTiHiOverride,
+            usePrefabBounds = usePrefabBounds,
+            caseDimensions = caseDimensions,
             manualTi = manualTi,
             manualHi = manualHi,
             totalLoadCost = CurrentLoadCost
         };
 
         _placedObject.customData = JsonUtility.ToJson(settings);
+    }
+
+    private int GetSkuID(SkuData sku)
+    {
+        // SKUs in this project typically use their ItemNumber as ID
+        return sku != null ? sku.ItemNumber : -1;
     }
 
     private int GetCaseID(GameObject prefab)
@@ -156,7 +168,6 @@ public class PalletBuilder : MonoBehaviour
         
         if (string.IsNullOrEmpty(_placedObject.customData))
         {
-            //Debug.Log($"PalletBuilder: No custom build data on {_placedObject.name}");
             return;
         }
 
@@ -169,25 +180,37 @@ public class PalletBuilder : MonoBehaviour
             verticalGap = settings.vertGap;
             crookedCase = settings.crooked;
             useTiHiOverride = settings.useOverride;
+            usePrefabBounds = settings.usePrefabBounds;
+            caseDimensions = settings.caseDimensions;
             manualTi = settings.manualTi;
             manualHi = settings.manualHi;
             CurrentLoadCost = settings.totalLoadCost;
 
-            if (settings.caseDataID != -1)
+            var registry = FindRegistry();
+            if (settings.caseDataID != -1 && registry != null)
             {
-                var registry = FindRegistry();
-                if (registry != null)
+                var so = registry.GetByID(settings.caseDataID);
+                if (so != null) casePrefab = so.prefab;
+            }
+
+            // Restore linkedSku from ID
+            if (settings.linkedSkuID != -1)
+            {
+                var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+                foreach (var sku in skus)
                 {
-                    var so = registry.GetByID(settings.caseDataID);
-                    if (so != null) 
+                    if (sku.ItemNumber == settings.linkedSkuID)
                     {
-                        casePrefab = so.prefab;
+                        linkedSku = sku;
+                        // CRITICAL: If casePrefab is still null (likely because it's not a buildable building SO),
+                        // restore it from the SKU's prefab so Build() can instantiate it.
+                        if (casePrefab == null) casePrefab = sku.Prefab;
+                        break;
                     }
                 }
             }
 
             Build(deductMoney: false);
-            //Debug.Log($"PalletBuilder: Restored built state for {_placedObject.name}");
         }
         catch (System.Exception e)
         {
@@ -241,7 +264,17 @@ public class PalletBuilder : MonoBehaviour
         // 1. Determine Dimensions
         Vector3 palletDim = palletDimensions;
         Vector3 caseDim = caseDimensions;
-        if (usePrefabBounds) caseDim = GetPrefabDimensions(casePrefab);
+
+        // CRITICAL FIX: Prioritize linkedSku dimensions as they are the source of truth
+        // for logistics data. Mesh bounds can be unreliable if the prefab is scaled or rotated.
+        if (linkedSku != null)
+        {
+            caseDim = new Vector3(linkedSku.CaseWidth, linkedSku.CaseHeight, linkedSku.CaseLength);
+        }
+        else if (usePrefabBounds) 
+        {
+            caseDim = GetPrefabDimensions(casePrefab);
+        }
 
         // 2. Calculate Best Layer Pattern
         CalculateBestLayer(palletDim.x, palletDim.z, caseDim.x, caseDim.z);
@@ -326,8 +359,10 @@ public class PalletBuilder : MonoBehaviour
             // CRITICAL FIX (2026-07-05): First layer sits directly on pallet deck with NO gap.
             // Higher layers are spaced by verticalGap. This ensures cases sit flush on the pallet
             // in the trailer, preventing jarring snaps when dropped into staging lanes.
-            float meshYOffset = usePrefabBounds ? GetMeshYOffset(casePrefab) : 0f;
-            float yPos = palletDim.y + (caseDim.y / 2f) + meshYOffset + (h * (caseDim.y + verticalGap));
+            // Since all prefabs have pivots at the bottom, we hardcode the offset to zero and
+            // simplify the math. yPos is now simply the height of the pallet deck plus
+            // the height of previous layers.
+            float yPos = palletDim.y + (h * (caseDim.y + verticalGap));
             
             int count = 0;
             foreach (var placement in _bestLayerPattern)
@@ -409,22 +444,35 @@ public class PalletBuilder : MonoBehaviour
         }
     }
 
-    /// <summary>Restores every case's material to what GhostCases() saved. Called once this pallet is
-    /// actually received (see ReceiverReceivingWorkflow). No-op if never ghosted.</summary>
+    /// <summary>Restores every case's material to what they were on the original prefab. Called once
+    /// this pallet is actually received (see ReceiverReceivingWorkflow). No-op if casePrefab
+    /// is missing or PalletLoad not found.</summary>
     public void RestoreCaseMaterial()
     {
-        if (_originalCaseMaterial == null) return;
-
         var loadObj = transform.Find("PalletLoad");
-        if (loadObj == null) return;
+        if (loadObj == null || casePrefab == null) return;
 
-        var renderers = loadObj.GetComponentsInChildren<Renderer>(true);
-        foreach (var r in renderers)
+        // Cache the prefab's renderer layout once to avoid repeated GetComponents calls.
+        Renderer[] prefabRenderers = casePrefab.GetComponentsInChildren<Renderer>(true);
+        
+        // Iterate through each case instance (direct child of PalletLoad).
+        foreach (Transform caseInstance in loadObj)
         {
-            var solids = new Material[r.sharedMaterials.Length];
-            for (int m = 0; m < solids.Length; m++) solids[m] = _originalCaseMaterial;
-            r.sharedMaterials = solids;
+            // Each instance was created from the prefab, so its GetComponentsInChildren order
+            // will match the prefab's order.
+            Renderer[] instanceRenderers = caseInstance.GetComponentsInChildren<Renderer>(true);
+            
+            // Map materials from prefab to instance by renderer index. This correctly restores
+            // multi-renderer cases (e.g. child objects for Tape, Labels, etc.) and
+            // multi-material submesh slots.
+            for (int i = 0; i < instanceRenderers.Length && i < prefabRenderers.Length; i++)
+            {
+                instanceRenderers[i].sharedMaterials = prefabRenderers[i].sharedMaterials;
+            }
         }
+        
+        // Clear the sentinel so ReceiverReceivingWorkflow doesn't try to restore again.
+        _originalCaseMaterial = null;
     }
 
     public void ToggleUI()
@@ -480,18 +528,30 @@ public class PalletBuilder : MonoBehaviour
     public static Vector3 GetPrefabDimensions(GameObject prefab)
     {
         Vector3 rawSize = new Vector3(1, 1, 1);
+        Vector3 localScale = Vector3.one;
         MeshFilter mf = prefab.GetComponentInChildren<MeshFilter>();
         if (mf != null && mf.sharedMesh != null)
+        {
             rawSize = mf.sharedMesh.bounds.size;
+            localScale = mf.transform.localScale;
+        }
         else
         {
             BoxCollider bc = prefab.GetComponentInChildren<BoxCollider>();
-            if (bc != null) rawSize = bc.size;
+            if (bc != null)
+            {
+                rawSize = bc.size;
+                localScale = bc.transform.localScale;
+            }
         }
+
+        // Apply local scale to the raw bounds to get the actual world-space size
+        rawSize.x *= localScale.x;
+        rawSize.y *= localScale.y;
+        rawSize.z *= localScale.z;
 
         // Normalize so the result is always (width, height, length):
         // Assume Y is height (vertical), and between X and Z, pick the larger as length.
-        // This handles cases where the mesh was authored with different orientations.
         float xz_min = Mathf.Min(rawSize.x, rawSize.z);
         float xz_max = Mathf.Max(rawSize.x, rawSize.z);
         return new Vector3(xz_min, rawSize.y, xz_max);  // (width, height, length)
@@ -505,7 +565,10 @@ public class PalletBuilder : MonoBehaviour
     {
         MeshFilter mf = prefab.GetComponentInChildren<MeshFilter>();
         if (mf != null && mf.sharedMesh != null)
-            return mf.sharedMesh.bounds.center.y;
+        {
+            // Must also account for the mesh transform's local scale
+            return mf.sharedMesh.bounds.center.y * mf.transform.localScale.y;
+        }
         return 0f;
     }
 }

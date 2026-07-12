@@ -28,7 +28,7 @@ public class PreviewController : MonoBehaviour
     [SerializeField] private float moveSmoothSpeed = 0.25f;
 
     [Header("Hover Settings")]
-    [SerializeField] private float offsetMovePreview = .5f;
+    [SerializeField] private float offsetMovePreview = 0f;
 
     public float OffsetMovePreview => offsetMovePreview;
     public float MoveSmoothTime => moveSmoothTime;
@@ -38,8 +38,8 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     // FACTORIO-STYLE HIGHLIGHTS (SUBTLE TINTS)
     // ---------------------------------------------------------
-    private static readonly Color HighlightGreen = new(0.9f, 1.0f, 0.9f, 0.4f);
-    private static readonly Color HighlightRed = new(1.0f, 0.9f, 0.9f, 0.4f);
+    private static readonly Color HighlightGreen = new(0.2f, 1.0f, 0.2f, 0.5f);
+    private static readonly Color HighlightRed = new(1.0f, 0.2f, 0.2f, 0.5f);
 
     private MaterialPropertyBlock _highlightMPB;
     private MaterialPropertyBlock _restoreMPB;
@@ -231,21 +231,37 @@ public class PreviewController : MonoBehaviour
 
     private Vector3 CalculateTargetPos(Vector3 pos, Vector2Int cell, ObjDataSO data)
     {
-        // If worldYOffset is set, use it as absolute height (for fixtures like lights)
-        if (data != null && data.worldYOffset > 0)
+        // Start with the raw input Y (could be floor 0 or a raycast hit point)
+        float targetY = pos.y;
+
+        if (data != null && !IsGround(data) && !_deleteMode)
         {
-            pos.y = data.worldYOffset;
-        }
-        else if (data != null && !IsGround(data) && !_deleteMode)
-        {
-            // Doors/walls that replace each other sit at the foundation+floor level,
-            // not on top of the existing wall/door. Skip replaced-object heights.
-            float height = (data.replacesWalls || data.canBeReplacedByDoor)
+            // Determine logical heights
+            float stackHeight = (data.replacesWalls || data.canBeReplacedByDoor)
                 ? _grid.GetStackHeightIgnoringWalls(cell)
                 : _grid.GetStackHeight(cell);
-            pos.y += height;
+            
+            float visualHeight = PlacementFinalizer.GetFloorTopY(_grid, cell);
+
+            // The ghost should snap to the HIGHEST surface available in that cell.
+            // If there's a foundation (visualHeight) and a rack (stackHeight),
+            // it must sit on the rack.
+            targetY = Mathf.Max(targetY, stackHeight, visualHeight);
+
+            // Special Case: Agents (Workers/Vehicles) should usually sit on the floor surface,
+            // not float on top of racks.
+            bool isAgent = data.prefab != null && data.prefab.GetComponent<UnityEngine.AI.NavMeshAgent>() != null;
+            if (isAgent)
+            {
+                targetY = visualHeight;
+            }
         }
 
+        // Apply any manual world offset from the data
+        if (data != null && data.worldYOffset != 0)
+            targetY += data.worldYOffset;
+
+        pos.y = targetY;
         return pos;
     }
 

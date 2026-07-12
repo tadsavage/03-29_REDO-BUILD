@@ -263,6 +263,16 @@ if (_currentState != _idleState)
                 return;
             }
 
+            // Check for a PalletBuilder (built-but-unreceived pallet) — shows the same
+            // pallet tooltip (item number, description, case qty) by resolving the SKU
+            // from the builder's linkedSku, casePrefab, or case children.
+            var palletBuilder = _raycast.HitObject.GetComponentInParent<PalletBuilder>();
+            if (palletBuilder != null)
+            {
+                _hoverUI.TickHoverPalletBuilder(true, palletBuilder, _raycast.RawHitPoint, Camera.main);
+                return;
+            }
+
             // Then check for building
             var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
             if (bd != null && bd.Data != null)
