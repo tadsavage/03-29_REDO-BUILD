@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using GameCore.Inventory;
 using GameCore.Services;
+using GameCore.Labor;
 
 namespace GameCore.Persistence
 {
@@ -146,6 +147,17 @@ namespace GameCore.Persistence
                 GameObject go = Object.Instantiate(so.prefab, snap.worldPosition, snap.worldRotation, container);
                 go.name = so.objName;
 
+                // Ensure a trigger BoxCollider exists for the hover popup. If the prefab is missing one
+                // (rare, but possible with ambiguous prefab variants), add a minimal fallback.
+                // The actual bounds will be recalculated after cases are restored (see RecalculateColliderForRestoredPallet).
+                var col = go.GetComponent<BoxCollider>();
+                if (col == null)
+                {
+                    col = go.AddComponent<BoxCollider>();
+                    col.isTrigger = true;
+                    Debug.LogWarning($"[PalletPersistenceService] Restored pallet '{go.name}' (prefab '{so.objName}') had no BoxCollider — added a fallback. Bounds will be recalculated after cases load.");
+                }
+
                 var po = go.GetComponent<PlacedObject>();
                 if (po == null)
                 {
@@ -177,6 +189,10 @@ namespace GameCore.Persistence
 
                 RestoreCases(go, snap, registry, inv);
                 RestoreInventoryLink(go, snap, inv, cell);
+
+                // After cases are restored, recalculate the collider to encompass all cases + pallet base.
+                // This ensures the hover popup trigger matches the visual bounds pre- and post-save/load.
+                RecalculateColliderForRestoredPallet(go);
 
                 restored++;
             }
@@ -269,6 +285,8 @@ namespace GameCore.Persistence
                 return;
             }
 
+            LoadIDGenerator.Seed(snap.loadId); // prevent future collisions with this restored ID
+
             // Received/solid — reconstruct PalletData from whatever InventoryService already
             // restored into its PalletMasterRecord (SKU, quantity, expiration). save.pallets is
             // restored before dockPallets in PlacementSystem.ApplySaveData, so this lookup should
@@ -305,6 +323,49 @@ namespace GameCore.Persistence
 
             var all = Resources.FindObjectsOfTypeAll<ObjDataRegistry>();
             return all.Length > 0 ? all[0] : null;
+        }
+
+        private static void RecalculateColliderForRestoredPallet(GameObject palletGO)
+        {
+            // Calculate bounds encompassing the pallet deck + all restored cases.
+            // This ensures the hover popup trigger matches what the user sees visually.
+            var loadObj = palletGO.transform.Find("PalletLoad");
+            var col = palletGO.GetComponent<BoxCollider>();
+            if (col == null) return; // No collider to recalculate
+
+            Bounds bounds = new Bounds(palletGO.transform.position, Vector3.zero);
+            bool boundsSet = false;
+
+            // Include all case renderers
+            if (loadObj != null)
+            {
+                foreach (var renderer in loadObj.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (!boundsSet)
+                    {
+                        bounds = renderer.bounds;
+                        boundsSet = true;
+                    }
+                    else
+                    {
+                        bounds.Encapsulate(renderer.bounds);
+                    }
+                }
+            }
+
+            // If no cases found, just cover the pallet base (fallback)
+            if (!boundsSet)
+            {
+                bounds = new Bounds(palletGO.transform.position, new Vector3(1f, 0.16f, 1.25f));
+            }
+
+            // Convert world bounds to local space relative to the pallet root
+            Vector3 localCenter = palletGO.transform.worldToLocalMatrix.MultiplyPoint(bounds.center);
+            Vector3 localSize = bounds.size;
+
+            col.center = localCenter;
+            col.size = localSize;
+            col.isTrigger = true;
         }
     }
 }

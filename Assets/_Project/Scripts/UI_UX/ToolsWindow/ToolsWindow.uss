@@ -396,7 +396,7 @@
    ═══════════════════════════════════════════════════════ */
 
 .ds-group {
-    margin: 8px 10px 0 10px;
+    margin: 4px 10px 0 10px;
     background-color: rgba(0, 0, 0, 0.22);
     border-radius: 10px;
     border-left-width: 3px;
@@ -405,7 +405,7 @@
     border-right-width: 1px;
     border-bottom-width: 1px;
     border-color: rgba(92, 155, 196, 0.22);
-    padding: 12px 15px 15px 15px;
+    padding: 6px 10px 8px 10px;
     transition: opacity 0.2s;
 }
 
@@ -415,21 +415,21 @@
 
 .ds-group-title {
     -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
-    font-size: 20px;
+    font-size: 16px;
     color: rgba(220, 240, 255, 0.9);
-    margin-bottom: 11px;
+    margin-bottom: 6px;
     -unity-text-align: middle-center;
 }
 
 .ds-hint {
-    font-size: 14px;
+    font-size: 12px;
     color: rgba(185, 210, 230, 0.35);
     -unity-text-align: middle-center;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
 }
 
 .ds-global-section {
-    margin: 8px 10px 0 10px;
+    margin: 4px 10px 0 10px;
     background-color: rgba(0, 0, 0, 0.22);
     border-radius: 10px;
     border-left-width: 3px;
@@ -438,14 +438,14 @@
     border-right-width: 1px;
     border-bottom-width: 1px;
     border-color: rgba(92, 155, 196, 0.22);
-    padding: 12px 15px;
+    padding: 6px 10px;
 }
 
 .ds-global-title {
     -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
-    font-size: 20px;
+    font-size: 16px;
     color: rgba(220, 240, 255, 0.9);
-    margin-bottom: 11px;
+    margin-bottom: 6px;
     -unity-text-align: middle-center;
 }
 
@@ -453,12 +453,12 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
 }
 
 .ds-label {
     flex: 1;
-    font-size: 18px;
+    font-size: 14px;
     color: #CFE2F0;
     margin-right: 10px;
 }
@@ -478,60 +478,60 @@
 
 .ds-slider-value {
     -unity-font-definition: url("project://database/Assets/Plugins/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
-    font-size: 15px;
+    font-size: 12px;
     color: #7ECCE8;
     -unity-text-align: middle-right;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .ds-slider-wrap {
     position: relative;
-    height: 43px;
+    height: 24px;
     flex-direction: row;
     align-items: center;
 }
 
 .ds-track-bg {
     position: absolute;
-    left: 14px;
-    right: 14px;
-    height: 10px;
-    border-radius: 5px;
+    left: 10px;
+    right: 10px;
+    height: 6px;
+    border-radius: 3px;
     background-color: rgba(92, 155, 196, 0.1);
     border-width: 1px;
     border-color: rgba(92, 155, 196, 0.2);
     top: 50%;
-    translate: 0 -5px;
+    translate: 0 -3px;
 }
 
 .ds-track-fill {
     position: absolute;
-    left: 14px;
-    height: 10px;
-    border-radius: 5px;
+    left: 10px;
+    height: 6px;
+    border-radius: 3px;
     background-color: #5C9BC4;
     top: 50%;
-    translate: 0 -5px;
+    translate: 0 -3px;
     min-width: 0;
 }
 
 .ds-thumb {
     position: absolute;
-    width: 28px;
-    height: 28px;
-    border-radius: 14px;
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
     background-color: #5C9BC4;
-    border-width: 3px;
+    border-width: 2px;
     border-color: rgba(12, 18, 26, 1);
     top: 50%;
-    translate: -14px -14px;
+    translate: -9px -9px;
 }
 .ds-thumb:hover {
     background-color: #7ECCE8;
-    width: 30px;
-    height: 30px;
-    border-radius: 15px;
-    translate: -15px -15px;
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    translate: -10px -10px;
 }
 
 .ds-slider-overlay {
@@ -545,21 +545,21 @@
 .ds-slider-overlay .unity-base-slider__dragger {
     background-color: transparent;
     border-width: 0;
-    width: 28px;
-    height: 43px;
+    width: 18px;
+    height: 24px;
     top: 0;
     border-radius: 0;
 }
 .ds-slider-overlay:focus { border-width: 0; }
 
 .ds-toggle {
-    height: 34px;
-    width: 61px;
+    height: 28px;
+    width: 50px;
 }
 
 .ds-field {
     flex: 1.4;
-    height: 48px;
+    height: 32px;
 }
 .ds-field .unity-base-text-field__input {
     background-color: rgba(20, 32, 46, 0.6);
@@ -567,7 +567,7 @@
     border-color: rgba(92, 155, 196, 0.35);
     color: #DCF0FF;
     border-radius: 6px;
-    font-size: 18px;
+    font-size: 14px;
     padding-left: 12px;
     -unity-text-align: middle-left;
 }

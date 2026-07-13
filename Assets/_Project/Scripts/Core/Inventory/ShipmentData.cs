@@ -29,6 +29,19 @@ namespace GameCore.Inventory
             ArrivalTimeMinute = arrivalMinute;
         }
 
+        /// <summary>Restore-only constructor — reconstructs a shipment with its original saved
+        /// PONumber instead of minting a new one via PONumberGenerator. Used by
+        /// ShipmentService.Import when restoring from a save file.</summary>
+        internal ShipmentData(string poNumber, string supplierId, string supplierName, int arrivalDay, int arrivalMinute, ShipmentStatus status)
+        {
+            PONumber = poNumber;
+            SupplierId = supplierId;
+            SupplierName = supplierName;
+            ArrivalDayNumber = arrivalDay;
+            ArrivalTimeMinute = arrivalMinute;
+            Status = status;
+        }
+
         /// <summary>Total units across all line items (expected).</summary>
         public int TotalUnits => LineItems.Sum(item => item.Quantity);
 
@@ -98,5 +111,32 @@ namespace GameCore.Inventory
         public int TotalReceivedCost => ReceivedQuantity * UnitCost;
         public int Overage => ReceivedQuantity - Quantity;
         public int Shortage => Quantity - ReceivedQuantity;
+    }
+
+    /// <summary>JSON-serializable snapshot of a ShipmentData for save/load. ShipmentData itself uses
+    /// auto-properties (JsonUtility can't serialize those directly), so this plain-field mirror is
+    /// what actually goes in SaveData — see ShipmentService.Export()/Import().</summary>
+    [System.Serializable]
+    public class ShipmentSnapshot
+    {
+        public string poNumber;
+        public string supplierId;
+        public string supplierName;
+        public int arrivalDayNumber;
+        public int arrivalTimeMinute;
+        public int status; // (int)ShipmentData.ShipmentStatus
+        public List<ShipmentLineItemSnapshot> lineItems = new();
+    }
+
+    [System.Serializable]
+    public class ShipmentLineItemSnapshot
+    {
+        public string skuId;
+        public int quantity;
+        public int receivedQuantity;
+        public int unitCost;
+        public int shelfLifeDays;
+        public int floorSlotIndex;
+        public int palletTier;
     }
 }

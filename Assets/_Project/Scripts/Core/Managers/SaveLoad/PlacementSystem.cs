@@ -293,6 +293,11 @@ public class PlacementSystem : MonoBehaviour
         save.slotAssignments = SlotAssignmentService.Export();
         save.shiftDefinitions = ShiftDefinitionRegistry.Export();
 
+        if (ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipmentService))
+            save.shipments = shipmentService.Export();
+        if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderService))
+            save.orders = orderService.Export();
+
         if (ToolsWindowController.Instance != null)
         {
             var pos = ToolsWindowController.Instance.GetWindowPosition();
@@ -597,6 +602,7 @@ public class PlacementSystem : MonoBehaviour
                     // Restore all fields (LoadId is the identifier, PalletId is preserved for tasks)
                     restored.PalletId = palletSnap.palletId;
                     restored.LoadId = palletSnap.loadId;  // **10-digit license plate**
+                    LoadIDGenerator.Seed(palletSnap.loadId); // prevent future collisions with this restored ID
                     restored.IsContaminated = palletSnap.isContaminated;
                     restored.WorldHeightY = palletSnap.worldHeightY;  // **XYZ: World height**
                     restored.StagingLaneId = palletSnap.stagingLaneId;  // Lane ID if on dock, null if in storage
@@ -653,6 +659,11 @@ public class PlacementSystem : MonoBehaviour
         LaneConfigRegistry.Import(save.laneConfigs);
         SlotAssignmentService.Import(save.slotAssignments);
         ShiftDefinitionRegistry.Import(save.shiftDefinitions);
+
+        if (ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipmentService))
+            shipmentService.Import(save.shipments);
+        if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderService))
+            orderService.Import(save.orders);
 
         if (save.cameraData != null && freeLookCamera != null)
             freeLookCamera.SetState(save.cameraData);

@@ -28,6 +28,12 @@ public class SaveData
     // Player-defined shift templates from the Shift Manager UI (ShiftDefinitionRegistry). Empty in older saves.
     public List<ShiftDefinitionSnapshot> shiftDefinitions = new();
 
+    // Pending inbound shipments (Purchase Orders) from ShipmentService. Empty in older saves.
+    public List<ShipmentSnapshot> shipments = new();
+
+    // Active customer orders from OrderService. Empty in older saves.
+    public List<OrderSnapshot> orders = new();
+
     // Former employees (terminated / resigned) — kept on file for rehire, union reinstatement,
     // and HR history. Populated from FormerEmployeeArchive. Absent in older saves (empty list).
     public List<EmployeeRecord> formerEmployees = new();

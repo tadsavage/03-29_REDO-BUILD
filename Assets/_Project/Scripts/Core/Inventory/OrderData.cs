@@ -34,6 +34,22 @@ namespace GameCore.Inventory
             CreatedTimeMinute = createdMinute;
         }
 
+        /// <summary>Restore-only constructor — reconstructs an order with its original saved
+        /// OrderId instead of minting a new GUID. Used by OrderService.Import when restoring
+        /// from a save file.</summary>
+        internal OrderData(string orderId, string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute, OrderStatus status, OrderPaymentMethod paymentMethod)
+        {
+            OrderId = orderId;
+            CustomerId = customerId;
+            CustomerName = customerName;
+            DeliveryAddress = deliveryAddress;
+            CreatedDayNumber = createdDay;
+            DueDay = dueDay;
+            CreatedTimeMinute = createdMinute;
+            Status = status;
+            PaymentMethod = paymentMethod;
+        }
+
         /// <summary>Total units across all line items.</summary>
         public int TotalUnits => LineItems.Sum(item => item.QuantityNeeded);
 
@@ -91,5 +107,33 @@ namespace GameCore.Inventory
 
         /// <summary>Gross profit for this line item.</summary>
         public int TotalProfit => TotalRevenue - (QuantityNeeded * UnitCost);
+    }
+
+    /// <summary>JSON-serializable snapshot of an OrderData for save/load. OrderData itself uses
+    /// auto-properties (JsonUtility can't serialize those directly), so this plain-field mirror is
+    /// what actually goes in SaveData — see OrderService.Export()/Import().</summary>
+    [System.Serializable]
+    public class OrderSnapshot
+    {
+        public string orderId;
+        public string customerId;
+        public string customerName;
+        public string deliveryAddress;
+        public int createdDayNumber;
+        public int dueDay;
+        public int createdTimeMinute;
+        public int status; // (int)OrderData.OrderStatus
+        public int paymentMethod; // (int)OrderData.OrderPaymentMethod
+        public List<OrderLineItemSnapshot> lineItems = new();
+    }
+
+    [System.Serializable]
+    public class OrderLineItemSnapshot
+    {
+        public string skuId;
+        public int quantityNeeded;
+        public int quantityPicked;
+        public int unitCost;
+        public int sellingPrice;
     }
 }

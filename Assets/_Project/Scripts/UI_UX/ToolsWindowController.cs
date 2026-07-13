@@ -100,6 +100,11 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     // Name of the type to scroll to on next settings open
     private string _pendingScrollTarget;
 
+    // Undo state for PalletBuilder
+    private int _prevManualTi = -1;
+    private int _prevManualHi = -1;
+    private PalletBuilder _undoPbReference;
+
     // ─────────────────────────────────────────────────────────────────────────
 
     private void Awake()
@@ -240,7 +245,11 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         if (_visible && IsTabActive("settings") && !UIInputGuard.IsPointerOverUIToolkit())
         {
             if (Mouse.current.leftButton.wasPressedThisFrame)
-                TrySelectObjectForSettings(clearUnmatched: true);
+            {
+                // Shift-click specifically targets PalletBuilder and forces a rebuild
+                bool isShift = Keyboard.current.shiftKey.isPressed;
+                TrySelectObjectForSettings(clearUnmatched: !isShift);
+            }
 
             if (Mouse.current.rightButton.wasPressedThisFrame)
                 ClearAllSelections();
@@ -273,10 +282,12 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     /// </summary>
     public void OpenForPallet(PalletBuilder pb)
     {
+        Debug.Log($"[ToolsWindow] OpenForPallet called for: {pb.gameObject.name}");
         _selectedComponents["PalletBuilder"] = pb;
         _pendingScrollTarget = "PalletBuilder";
         RebuildSettings();
         Show("settings");
+        Debug.Log($"[ToolsWindow] OpenForPallet complete - dropdown should now show {(pb.linkedSku != null ? pb.linkedSku.ItemNumber.ToString() : "unknown")}");
     }
 
     /// <summary>IUIPanel.Show: opens the dev tools at the dev settings tab.</summary>
@@ -367,10 +378,22 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
     private void RebuildSettings()
     {
+        Debug.Log("[ToolsWindow] ===== RebuildSettings START =====");
         _settingsBuilt = false;
         _settingsGroups.Clear();
-        _contentSettings?.Clear();
+        if (_contentSettings != null)
+        {
+            Debug.Log($"[ToolsWindow] Before clear: {_contentSettings.childCount} children");
+            _contentSettings.Clear();
+            Debug.Log($"[ToolsWindow] After clear: {_contentSettings.childCount} children");
+        }
+        else
+        {
+            Debug.LogError("[ToolsWindow] _contentSettings is NULL!");
+            return;
+        }
         BuildDevSettingsUI();
+        Debug.Log("[ToolsWindow] ===== RebuildSettings COMPLETE =====");
     }
 
     private void BuildDevSettingsUI()
@@ -488,11 +511,13 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             var group = BuildScriptGroup(type, target);
             if (group != null)
             {
+                Debug.Log($"[ToolsWindow] Adding group: {type.Name}");
                 _settingsGroups[type.Name] = group;
                 _contentSettings.Add(group);
             }
         }
 
+        Debug.Log($"[ToolsWindow] BuildDevSettingsUI complete. Added {_settingsGroups.Count} groups. Setting _settingsBuilt = true");
         _settingsBuilt = true;
     }
 
@@ -710,11 +735,33 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         if (!Physics.Raycast(ray, out RaycastHit hit)) return;
 
         var go = hit.collider.gameObject;
-        // Search from the hierarchy root downward so we catch all components on
-        // the agent regardless of which child collider was actually hit.
         var searchRoot = go.transform.root.gameObject;
+        bool isShift = Keyboard.current.shiftKey.isPressed;
         bool anyChanged = false;
 
+        // Special case: if shift-clicking an object, try to extract SKU and apply to current PalletBuilder
+        if (isShift && _selectedComponents.TryGetValue("PalletBuilder", out var currentPb) && currentPb != null)
+        {
+            var pb = (PalletBuilder)currentPb;
+            // Try to find a SKU from the hit object or its children
+            SkuData foundSku = DockPalletUtility.GetSkuForPallet(go);
+            if (foundSku == null) 
+            {
+                // Try matching by prefab name directly if it's just a loose case
+                foundSku = MatchObjectToSku(go);
+            }
+
+            if (foundSku != null && pb.linkedSku != foundSku)
+            {
+                Debug.Log($"[ToolsWindow] Shift-click transfer: Applying SKU {foundSku.ItemNumber} to {pb.gameObject.name}");
+                pb.linkedSku = foundSku;
+                pb.casePrefab = foundSku.Prefab;
+                pb.SaveBuildState();
+                anyChanged = true;
+            }
+        }
+
+        // Standard selection logic
         foreach (var typeName in ObjectSpecificTypes)
         {
             MonoBehaviour found = null;
@@ -723,6 +770,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
             if (found != null)
             {
+                if (_selectedComponents.ContainsKey(typeName) && _selectedComponents[typeName] == found) continue;
                 _selectedComponents[typeName] = found;
                 anyChanged = true;
             }
@@ -734,6 +782,25 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         }
 
         if (anyChanged) RebuildSettings();
+    }
+
+    private SkuData MatchObjectToSku(GameObject go)
+    {
+        // Try matching the object itself
+        var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+        string cleanName = go.name.Replace("(Clone)", "").Trim();
+        foreach (var sku in skus)
+        {
+            if (sku.Prefab != null && sku.Prefab.name == cleanName) return sku;
+        }
+        // Try children
+        foreach (Transform child in go.transform)
+        {
+            string cName = child.name.Replace("(Clone)", "").Trim();
+            foreach (var sku in skus)
+                if (sku.Prefab != null && sku.Prefab.name == cName) return sku;
+        }
+        return null;
     }
 
     private void ClearAllSelections()
@@ -1013,117 +1080,153 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         var group = new VisualElement();
         group.AddToClassList("ds-group");
+        group.style.paddingTop = 2;
+        group.style.paddingBottom = 2;
 
         var title = new Label("PALLET BUILDER");
         title.AddToClassList("ds-group-title");
-        title.style.color = new Color(1f, 1f, 1f, 1f);
-        title.style.fontSize = 28; // Double size
+        title.style.fontSize = 20;
+        title.style.marginBottom = 4;
         group.Add(title);
 
-        // ── Choose an Item Dropdown ─────────────────────────────────────────
-        var itemLbl = new Label("Choose an item:");
-        itemLbl.AddToClassList("ds-label");
-        itemLbl.style.marginTop = 12;
-        group.Add(itemLbl);
+        // ── SKU Display with Preview (Half-Half Layout) ──────────────────
+        var skuRow = new VisualElement();
+        skuRow.style.flexDirection = FlexDirection.Row;
+        skuRow.style.marginBottom = 4;
+        skuRow.style.height = 70;
 
-        var itemDropdown = new DropdownField();
-        itemDropdown.AddToClassList("ds-dropdown");
-        itemDropdown.label = "";
+        // Left side: SKU info (50%)
+        var skuInfoContainer = new VisualElement();
+        skuInfoContainer.style.flexGrow = 1;
+        skuInfoContainer.style.flexBasis = Length.Percent(50);
+        skuInfoContainer.style.flexDirection = FlexDirection.Column;
 
-        // Load SKU data and populate dropdown
-        var skuAssets = Resources.LoadAll<SkuData>("Inventory/SKUs");
-        var skuChoices = new List<string>();
-        var skuMap = new Dictionary<string, SkuData>();
-        foreach (var sku in skuAssets)
+        var skuLbl = new Label("Selected Item:");
+        skuLbl.style.fontSize = 11;
+        skuLbl.style.color = new Color(0.7f, 0.7f, 0.7f, 1f);
+        skuInfoContainer.Add(skuLbl);
+
+        var skuValue = new Label("");
+        skuValue.style.color = new Color(0.9f, 0.95f, 1f, 1f);
+        skuValue.style.fontSize = 12;
+        skuValue.style.whiteSpace = WhiteSpace.Normal;
+        skuValue.style.unityFontStyleAndWeight = FontStyle.Bold;
+        skuInfoContainer.Add(skuValue);
+
+        skuRow.Add(skuInfoContainer);
+
+        // Right side: Case preview image (50%)
+        var previewContainer = new VisualElement();
+        previewContainer.style.flexGrow = 1;
+        previewContainer.style.flexBasis = Length.Percent(50);
+        previewContainer.style.height = 65;
+        previewContainer.style.borderBottomColor = new Color(0.5f, 0.8f, 1f, 1f); // Light blue border
+        previewContainer.style.borderTopColor = new Color(0.5f, 0.8f, 1f, 1f);
+        previewContainer.style.borderLeftColor = new Color(0.5f, 0.8f, 1f, 1f);
+        previewContainer.style.borderRightColor = new Color(0.5f, 0.8f, 1f, 1f);
+        previewContainer.style.borderBottomWidth = 1;
+        previewContainer.style.borderTopWidth = 1;
+        previewContainer.style.borderLeftWidth = 1;
+        previewContainer.style.borderRightWidth = 1;
+        previewContainer.style.marginLeft = 4;
+        previewContainer.style.backgroundColor = new Color(0.1f, 0.15f, 0.2f, 0.5f);
+
+        var casePreview = new Image();
+        casePreview.style.flexGrow = 1;
+        casePreview.scaleMode = ScaleMode.ScaleToFit;
+        previewContainer.Add(casePreview);
+
+        skuRow.Add(previewContainer);
+        group.Add(skuRow);
+
+        // Resolve current SKU
+        SkuData currentSku = pb.linkedSku;
+        if (currentSku == null) currentSku = DockPalletUtility.GetSkuForPallet(pb.gameObject);
+
+        if (currentSku != null)
         {
-            if (sku != null)
+            skuValue.text = $"{currentSku.ItemNumber}\n{currentSku.ItemDescription}";
+            
+            // Try to get a better preview than the icon if possible
+            if (currentSku.Icon != null)
+                casePreview.sprite = currentSku.Icon;
+
+#if UNITY_EDITOR
+            if (currentSku.Prefab != null)
             {
-                var display = $"{sku.ItemNumber}   {sku.ItemDescription}";
-                skuChoices.Add(display);
-                skuMap[display] = sku;
+                var tex = UnityEditor.AssetPreview.GetAssetPreview(currentSku.Prefab);
+                if (tex != null) casePreview.image = tex;
             }
-        }
-        itemDropdown.choices = skuChoices;
-
-        // Pre-select the pallet's current SKU (from linkedSku, PalletMasterLink, or PalletData)
-        string currentDisplay = "";
-        if (pb.linkedSku != null)
-        {
-            currentDisplay = $"{pb.linkedSku.ItemNumber}   {pb.linkedSku.ItemDescription}";
+#endif
         }
         else
         {
-            var resolvedSku = DockPalletUtility.GetSkuForPallet(pb.gameObject);
-            if (resolvedSku != null)
-                currentDisplay = $"{resolvedSku.ItemNumber}   {resolvedSku.ItemDescription}";
+            skuValue.text = "No SKU Selected";
         }
 
-        if (!string.IsNullOrEmpty(currentDisplay) && skuChoices.Contains(currentDisplay))
-            itemDropdown.value = currentDisplay;
-        else
-            itemDropdown.value = skuChoices.Count > 0 ? skuChoices[0] : "";
-
-        // Wire dropdown to update linkedSku and casePrefab when the user changes selection
-        itemDropdown.RegisterValueChangedCallback(evt =>
-        {
-            if (skuMap.TryGetValue(evt.newValue, out var selectedSku))
-            {
-                pb.linkedSku = selectedSku;
-                pb.casePrefab = selectedSku.Prefab;
-                pb.SaveBuildState();
-            }
-        });
-
-        // Apply the initial selection if pb.linkedSku is null but we resolved one from the dropdown
-        if (pb.linkedSku == null && skuMap.TryGetValue(itemDropdown.value, out var initialSku))
-        {
-            pb.linkedSku = initialSku;
-            pb.casePrefab = initialSku.Prefab;
-            pb.SaveBuildState();
-        }
-
-        itemDropdown.style.fontSize = 11; // Small font to keep dropdown narrow
-        group.Add(itemDropdown);
-
-        // ── Max Total Height ────────────────────────────────────────────────
-        group.Add(BuildFloatSettingRow("Max Total Height",
-            0.5f, 3.0f,
+        // ── Settings Rows (Compacted) ───────────────────────────────────────
+        
+        // Max Total Height
+        var heightRow = BuildFloatSettingRow("Max Total Height", 0.5f, 2.5f,
             () => pb.maxTotalHeight,
-            v => { pb.maxTotalHeight = v; pb.SaveBuildState(); }));
+            v => { pb.maxTotalHeight = v; pb.SaveBuildState(); });
+        heightRow.style.marginBottom = 2;
+        heightRow.Q<Label>(className: "ds-label").tooltip = "Target maximum height for the pallet load (meters). Range: 0.5 - 2.5m";
+        group.Add(heightRow);
 
-        // ── Optimizer Utilization % ────────────────────────────────────────
+        // Optimizer Utilization %
         var utilizationRow = new VisualElement(); utilizationRow.AddToClassList("ds-row");
+        utilizationRow.style.marginBottom = 2;
         var utilizationLbl = new Label("Optimizer Utilization"); utilizationLbl.AddToClassList("ds-label");
+        utilizationLbl.tooltip = "Efficiency: Total case footprint area / Pallet footprint (40\"x48\")";
         utilizationRow.Add(utilizationLbl);
         var utilizationValue = new Label("—%");
         utilizationValue.AddToClassList("ds-slider-value");
-        utilizationValue.style.color = new Color(1f, 1f, 1f, 1f);
+        utilizationValue.style.color = new Color(0.6f, 1f, 0.6f, 1f);
+
+        // Calculate utilization: (CasesPerLayer * CaseArea) / PalletArea
+        float utilPercent = 0f;
+        if (currentSku != null)
+        {
+            float caseArea = currentSku.CaseLength * currentSku.CaseWidth;
+            float palletArea = 1.016f * 1.2192f; // 40" x 48"
+            int cpl = pb.manualTi > 0 ? pb.manualTi : pb.TotalCases / Mathf.Max(1, pb.manualHi); // fallback if not auto
+            // If we don't have a count yet, we'll try to get it from the last build
+            var currentLoad = pb.transform.Find("PalletLoad");
+            int actualCpl = 0;
+            if (currentLoad != null && currentLoad.childCount > 0)
+            {
+                var firstLayerY = currentLoad.GetChild(0).localPosition.y;
+                foreach (Transform child in currentLoad)
+                    if (Mathf.Abs(child.localPosition.y - firstLayerY) < 0.01f) actualCpl++;
+                utilPercent = (actualCpl * caseArea / palletArea) * 100f;
+            }
+        }
+        utilizationValue.text = $"{utilPercent:F0}%";
         utilizationRow.Add(utilizationValue);
         group.Add(utilizationRow);
 
-        // ── Space Between Cases ────────────────────────────────────────────
-        var spacingRow = BuildFloatSettingRow("Space Between Cases",
-            0.01f, 0.2f,
+        // Space Between Cases
+        var spacingRow = BuildFloatSettingRow("Space Between Cases", 0.01f, 0.2f,
             () => pb.spaceBetweenCases,
             v => { pb.spaceBetweenCases = v; pb.SaveBuildState(); });
-        var spacingLbl = spacingRow.Q<Label>(className: "ds-label");
-        if (spacingLbl != null) spacingLbl.tooltip = "Horizontal space between cases on X and Y axes.";
+        spacingRow.style.marginBottom = 2;
+        spacingRow.Q<Label>(className: "ds-label").tooltip = "Minimum horizontal gap between cases on a layer.";
         group.Add(spacingRow);
 
-        // ── Vertical Gap ────────────────────────────────────────────────────
-        var gapRow = BuildFloatSettingRow("Vertical Gap",
-            0.01f, 0.25f,
+        // Vertical Gap
+        var gapRow = BuildFloatSettingRow("Vertical Gap", 0f, 0.05f,
             () => pb.verticalGap,
             v => { pb.verticalGap = v; pb.SaveBuildState(); });
-        var gapLbl = gapRow.Q<Label>(className: "ds-label");
-        if (gapLbl != null) gapLbl.tooltip = "Space between layers.";
+        gapRow.style.marginBottom = 2;
+        gapRow.Q<Label>(className: "ds-label").tooltip = "Vertical space between stacked layers (meters). Range: 0 - 0.05m";
         group.Add(gapRow);
 
-        // ── Use Prefab Bounds ───────────────────────────────────────────────
+        // Use Prefab Bounds
         var usePrefabRow = new VisualElement(); usePrefabRow.AddToClassList("ds-row");
+        usePrefabRow.style.marginBottom = 2;
         var usePrefabLbl = new Label("Use Prefab Bounds"); usePrefabLbl.AddToClassList("ds-label");
-        usePrefabLbl.tooltip = "When enabled, reads actual mesh dimensions from the case prefab. When disabled, uses manual Case Dimensions override.";
-        usePrefabLbl.style.color = new Color(1f, 1f, 1f, 1f);
+        usePrefabLbl.tooltip = "ON: Use actual 3D model dimensions. OFF: Use manual dimensions from SKU master data.";
         usePrefabRow.Add(usePrefabLbl);
         var usePrefabToggle = new Toggle { value = pb.usePrefabBounds };
         usePrefabToggle.AddToClassList("ds-toggle");
@@ -1131,99 +1234,90 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         usePrefabRow.Add(usePrefabToggle);
         group.Add(usePrefabRow);
 
-        // ── Crooked Cases ───────────────────────────────────────────────────
-        var crookedRow = BuildFloatSettingRow("Crooked Cases",
-            0f, 10f,
+        // Crooked Cases
+        var crookedRow = BuildFloatSettingRow("Crooked Cases", 0f, 10f,
             () => pb.crookedCase,
             v => pb.crookedCase = v);
-        var crookedLbl = crookedRow.Q<Label>(className: "ds-label");
-        if (crookedLbl != null) crookedLbl.tooltip = "Amount of deviation in angle of cases in degrees. Adds effect of realism and sloppiness.";
+        crookedRow.style.marginBottom = 2;
+        crookedRow.Q<Label>(className: "ds-label").tooltip = "Adds random rotation deviation for a more natural, hand-stacked look.";
         group.Add(crookedRow);
 
-        // Helper text for Crooked Cases with word wrap
-        var crookedHelp = new Label("Amount of deviation in angle of cases in degrees. Adds effect of realism and sloppiness.");
-        crookedHelp.style.fontSize = 12;
-        crookedHelp.style.color = new Color(0.8f, 0.9f, 1f, 0.9f);
-        crookedHelp.style.whiteSpace = WhiteSpace.Normal;
-        crookedHelp.style.marginLeft = 8;
-        crookedHelp.style.marginRight = 8;
-        crookedHelp.style.marginBottom = 8;
-        group.Add(crookedHelp);
+        // ── Ti / Hi (Compacted) ─────────────────────────────────────────────
+        int curTi = 0, curHi = 0;
+        var load = pb.transform.Find("PalletLoad");
+        if (load != null && load.childCount > 0)
+        {
+            var layersSet = new HashSet<float>();
+            foreach (Transform t in load) layersSet.Add(Mathf.Round(t.localPosition.y * 100f) / 100f);
+            curHi = layersSet.Count;
+            if (curHi > 0)
+            {
+                float bottomY = layersSet.Min();
+                foreach (Transform t in load)
+                    if (Mathf.Abs(t.localPosition.y - bottomY) < 0.01f) curTi++;
+            }
+        }
 
-        // ── Manual Ti/Hi Header ─────────────────────────────────────────────
-        var tiHiHeader = new Label("If set to zero, this app will determine based off best layer space utilization and run its algorithm to use as much of palette layer as possible.");
-        tiHiHeader.AddToClassList("ds-group-title");
-        tiHiHeader.style.fontSize = 11;
-        tiHiHeader.style.marginTop = 10;
-        tiHiHeader.style.color = new Color(1f, 1f, 1f, 1f);
-        group.Add(tiHiHeader);
-
-        // ── Manual Ti ───────────────────────────────────────────────────────
-        group.Add(BuildIntSettingRow("Manual Ti",
-            0, 25,
+        var tiRow = BuildIntSettingRow($"Ti (Current: {curTi})", 0, 30,
             () => pb.manualTi,
-            v => pb.manualTi = v));
+            v => { if (pb.manualTi != v) { _prevManualTi = pb.manualTi; _prevManualHi = pb.manualHi; _undoPbReference = pb; } pb.manualTi = v; });
+        tiRow.style.marginBottom = 2;
+        tiRow.Q<Label>(className: "ds-label").tooltip = "Cases per layer. 0 = auto-calculate.";
+        group.Add(tiRow);
 
-        // ── Manual Hi ───────────────────────────────────────────────────────
-        var manualHiRow = BuildIntSettingRow("Manual Hi",
-            0, 25,
+        var hiRow = BuildIntSettingRow($"Hi (Current: {curHi})", 0, 30,
             () => pb.manualHi,
-            v => pb.manualHi = v);
-        var hiLabel = manualHiRow.Q<Label>(className: "ds-label");
-        if (hiLabel != null) hiLabel.tooltip = "Setting this too high may not allow it to fit in rack height limits.";
-        group.Add(manualHiRow);
+            v => { if (pb.manualHi != v) { _prevManualTi = pb.manualTi; _prevManualHi = pb.manualHi; _undoPbReference = pb; } pb.manualHi = v; });
+        hiRow.style.marginBottom = 2;
+        hiRow.Q<Label>(className: "ds-label").tooltip = "Number of layers. 0 = auto-calculate.";
+        group.Add(hiRow);
 
-        // ── Action Buttons ──────────────────────────────────────────────────
-        var buttonsRow = new VisualElement();
-        buttonsRow.style.flexDirection = FlexDirection.Row;
-        buttonsRow.style.justifyContent = Justify.FlexStart;
-        buttonsRow.style.marginTop = 15;
-        
-        // Build All Dock Pallets (Orange) — rebuilds every pallet of this SKU on the dock,
-        // then recalculates all Y positions.
-        var buildBtn = new Button(() => BuildAllDockPallets(pb)) { text = "Build All" };
-        buildBtn.AddToClassList("dev-btn");
-        buildBtn.AddToClassList("dev-btn-gold");
-        buildBtn.style.flexGrow = 1;
-        buttonsRow.Add(buildBtn);
+        // ── Buttons (Compacted) ─────────────────────────────────────────────
+        var btnRow = new VisualElement();
+        btnRow.style.flexDirection = FlexDirection.Row;
+        btnRow.style.marginTop = 6;
+        btnRow.style.height = 32;
 
-        // Undo (Blue)
-        var undoBtn = new Button(() => UndoPalletBuild(pb)) { text = "Undo" };
-        undoBtn.AddToClassList("dev-btn");
-        undoBtn.AddToClassList("dev-btn-teal");
-        undoBtn.style.flexGrow = 1;
-        buttonsRow.Add(undoBtn);
+        var buildAll = new Button(() => BuildAllDockPallets(pb)) { text = "Build All" };
+        buildAll.AddToClassList("dev-btn"); buildAll.AddToClassList("dev-btn-gold");
+        buildAll.style.flexGrow = 1; buildAll.style.marginRight = 2;
+        btnRow.Add(buildAll);
 
-        // Submit (Blue)
+        var undoBtn = new Button(() => {
+            if (_undoPbReference == pb && _prevManualTi != -1) {
+                pb.manualTi = _prevManualTi; pb.manualHi = _prevManualHi;
+                RebuildSettings();
+                UIToast.Show("Restored previous Ti/Hi");
+            }
+        }) { text = "Undo" };
+        undoBtn.AddToClassList("dev-btn"); undoBtn.AddToClassList("dev-btn-teal");
+        undoBtn.style.flexGrow = 1; undoBtn.style.marginRight = 2;
+        btnRow.Add(undoBtn);
+
         var submitBtn = new Button(() => SubmitPalletTiHi(pb)) { text = "Submit" };
-        submitBtn.AddToClassList("dev-btn");
-        submitBtn.AddToClassList("dev-btn-teal");
+        submitBtn.AddToClassList("dev-btn"); submitBtn.AddToClassList("dev-btn-teal");
         submitBtn.style.flexGrow = 1;
-        buttonsRow.Add(submitBtn);
+        btnRow.Add(submitBtn);
 
-        group.Add(buttonsRow);
+        group.Add(btnRow);
 
-        // ── Dock-Wide Action Buttons ─────────────────────────────────────────
-        var dockButtonsRow = new VisualElement();
-        dockButtonsRow.style.flexDirection = FlexDirection.Row;
-        dockButtonsRow.style.justifyContent = Justify.FlexStart;
-        dockButtonsRow.style.marginTop = 8;
+        // Helper buttons row
+        var helperRow = new VisualElement();
+        helperRow.style.flexDirection = FlexDirection.Row;
+        helperRow.style.marginTop = 4;
+        helperRow.style.height = 28;
 
-        // Fix Rotations (Red) — rotates all dock pallets -90° on Y to correct the old offload bug
-        var fixRotBtn = new Button(() => DockPalletUtility.RotateAllDockPallets(-90f)) { text = "Fix Rot -90°" };
-        fixRotBtn.AddToClassList("dev-btn");
-        fixRotBtn.style.flexGrow = 1;
-        fixRotBtn.style.backgroundColor = new Color(0.7f, 0.2f, 0.2f, 1f);
-        dockButtonsRow.Add(fixRotBtn);
+        var fixRot = new Button(() => DockPalletUtility.RotateAllDockPallets(-90f)) { text = "Fix Rot" };
+        fixRot.AddToClassList("dev-btn"); fixRot.style.flexGrow = 1; fixRot.style.marginRight = 2;
+        fixRot.style.backgroundColor = new Color(0.6f, 0.2f, 0.2f, 1f);
+        helperRow.Add(fixRot);
 
-        // Recalc Heights (Teal) — recalculates all Y positions for dock pallets
-        var recalcBtn = new Button(() => DockPalletUtility.RecalculateAllDockYPositions()) { text = "Recalc Y" };
-        recalcBtn.AddToClassList("dev-btn");
-        recalcBtn.AddToClassList("dev-btn-teal");
-        recalcBtn.style.flexGrow = 1;
-        dockButtonsRow.Add(recalcBtn);
+        var recalcY = new Button(() => DockPalletUtility.RecalculateAllDockYPositions()) { text = "Recalc Y" };
+        recalcY.AddToClassList("dev-btn"); recalcY.AddToClassList("dev-btn-teal");
+        recalcY.style.flexGrow = 1;
+        helperRow.Add(recalcY);
 
-        group.Add(dockButtonsRow);
+        group.Add(helperRow);
 
         return group;
     }

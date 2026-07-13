@@ -477,7 +477,12 @@ public class PalletBuilder : MonoBehaviour
 
     public void ToggleUI()
     {
-        if (!Application.isPlaying) return;
+        if (!Application.isPlaying)
+        {
+            Debug.Log("[PalletBuilder] ToggleUI called but not playing");
+            return;
+        }
+        Debug.Log($"[PalletBuilder] ToggleUI: Calling OpenForPallet for {gameObject.name}");
         ToolsWindowController.Instance?.OpenForPallet(this);
     }
 
@@ -491,13 +496,22 @@ public class PalletBuilder : MonoBehaviour
         // Only allow bringing up the Pallet Builder UI if the state machine is in IdleState
         var fsm = FindAnyObjectByType<PlacementStateMachine>();
         if (fsm != null && !(fsm.CurrentState is IdleState))
+        {
+            Debug.Log($"[PalletBuilder] OnMouseDown blocked: FSM state is {fsm.CurrentState?.GetType().Name ?? "unknown"}, not IdleState");
             return;
+        }
 
         // Require Shift + Left Click — plain left click is reserved for future selection
         bool shiftHeld = Keyboard.current != null
             && (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
-        if (!shiftHeld) return;
 
+        if (!shiftHeld)
+        {
+            Debug.Log($"[PalletBuilder] OnMouseDown: Shift not held");
+            return;
+        }
+
+        Debug.Log($"[PalletBuilder] OnMouseDown: Shift-click detected on {gameObject.name}, calling ToggleUI()");
         ToggleUI();
     }
 

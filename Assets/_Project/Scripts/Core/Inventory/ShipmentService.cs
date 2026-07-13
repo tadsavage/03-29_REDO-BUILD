@@ -61,5 +61,70 @@ namespace GameCore.Inventory
                 Debug.LogError("[ShipmentService] Cannot spawn truck: TruckYardManager not found in scene.");
             }
         }
+
+        /// <summary>Flatten all pending shipments for saving.</summary>
+        public List<ShipmentSnapshot> Export()
+        {
+            var list = new List<ShipmentSnapshot>();
+            foreach (var s in _pendingShipments)
+            {
+                var snap = new ShipmentSnapshot
+                {
+                    poNumber = s.PONumber,
+                    supplierId = s.SupplierId,
+                    supplierName = s.SupplierName,
+                    arrivalDayNumber = s.ArrivalDayNumber,
+                    arrivalTimeMinute = s.ArrivalTimeMinute,
+                    status = (int)s.Status
+                };
+                foreach (var li in s.LineItems)
+                {
+                    snap.lineItems.Add(new ShipmentLineItemSnapshot
+                    {
+                        skuId = li.SkuId,
+                        quantity = li.Quantity,
+                        receivedQuantity = li.ReceivedQuantity,
+                        unitCost = li.UnitCost,
+                        shelfLifeDays = li.ShelfLifeDays,
+                        floorSlotIndex = li.FloorSlotIndex,
+                        palletTier = li.PalletTier
+                    });
+                }
+                list.Add(snap);
+            }
+            return list;
+        }
+
+        /// <summary>Restores pending shipments from a save file. Deliberately does NOT call
+        /// TrySpawnTruck — truck/dock state isn't persisted yet (see the Trucks phase in the
+        /// save-load-persistence-gap-architecture memory), so a restored shipment just becomes
+        /// data again; no new truck is dispatched for it. Wiring an actual truck back up to a
+        /// restored shipment is the Trucks phase's job, not this one's.</summary>
+        public void Import(List<ShipmentSnapshot> entries)
+        {
+            _pendingShipments.Clear();
+            if (entries == null) return;
+
+            foreach (var snap in entries)
+            {
+                if (snap == null) continue;
+
+                var shipment = new ShipmentData(snap.poNumber, snap.supplierId, snap.supplierName, snap.arrivalDayNumber, snap.arrivalTimeMinute, (ShipmentData.ShipmentStatus)snap.status);
+                foreach (var liSnap in snap.lineItems)
+                {
+                    var li = new ShipmentLineItem(liSnap.skuId, liSnap.quantity, liSnap.unitCost, liSnap.shelfLifeDays)
+                    {
+                        ReceivedQuantity = liSnap.receivedQuantity,
+                        FloorSlotIndex = liSnap.floorSlotIndex,
+                        PalletTier = liSnap.palletTier
+                    };
+                    shipment.LineItems.Add(li);
+                }
+                _pendingShipments.Add(shipment);
+            }
+
+            if (_pendingShipments.Count > 0)
+                Debug.Log($"[ShipmentService] Restored {_pendingShipments.Count} pending shipment(s).");
+        }
 }
 }

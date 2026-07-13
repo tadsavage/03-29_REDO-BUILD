@@ -112,6 +112,71 @@ namespace GameCore.Inventory
                 Debug.LogWarning($"[OrderService] Order {order.OrderId} is OVERDUE!");
             }
         }
+
+        /// <summary>Flatten all active orders for saving. _assignedTasks is intentionally not
+        /// persisted — nothing in the codebase writes to it yet (reserved for future picking-task
+        /// assignment tracking), so there's nothing real to snapshot.</summary>
+        public List<OrderSnapshot> Export()
+        {
+            var list = new List<OrderSnapshot>();
+            foreach (var o in _activeOrders)
+            {
+                var snap = new OrderSnapshot
+                {
+                    orderId = o.OrderId,
+                    customerId = o.CustomerId,
+                    customerName = o.CustomerName,
+                    deliveryAddress = o.DeliveryAddress,
+                    createdDayNumber = o.CreatedDayNumber,
+                    dueDay = o.DueDay,
+                    createdTimeMinute = o.CreatedTimeMinute,
+                    status = (int)o.Status,
+                    paymentMethod = (int)o.PaymentMethod
+                };
+                foreach (var li in o.LineItems)
+                {
+                    snap.lineItems.Add(new OrderLineItemSnapshot
+                    {
+                        skuId = li.SkuId,
+                        quantityNeeded = li.QuantityNeeded,
+                        quantityPicked = li.QuantityPicked,
+                        unitCost = li.UnitCost,
+                        sellingPrice = li.SellingPrice
+                    });
+                }
+                list.Add(snap);
+            }
+            return list;
+        }
+
+        /// <summary>Restores active orders from a save file. Deliberately does NOT fire
+        /// OnOrderArrived — that event exists to notify UI/employees of a genuinely NEW order,
+        /// and a restored order isn't new.</summary>
+        public void Import(List<OrderSnapshot> entries)
+        {
+            _activeOrders.Clear();
+            _assignedTasks.Clear();
+            if (entries == null) return;
+
+            foreach (var snap in entries)
+            {
+                if (snap == null) continue;
+
+                var order = new OrderData(snap.orderId, snap.customerId, snap.customerName, snap.deliveryAddress, snap.createdDayNumber, snap.dueDay, snap.createdTimeMinute, (OrderData.OrderStatus)snap.status, (OrderData.OrderPaymentMethod)snap.paymentMethod);
+                foreach (var liSnap in snap.lineItems)
+                {
+                    var li = new OrderLineItem(liSnap.skuId, liSnap.quantityNeeded, liSnap.unitCost, liSnap.sellingPrice)
+                    {
+                        QuantityPicked = liSnap.quantityPicked
+                    };
+                    order.LineItems.Add(li);
+                }
+                _activeOrders.Add(order);
+            }
+
+            if (_activeOrders.Count > 0)
+                Debug.Log($"[OrderService] Restored {_activeOrders.Count} active order(s).");
+        }
     }
 
     /// <summary>
