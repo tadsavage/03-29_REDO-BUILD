@@ -105,18 +105,20 @@ namespace GameCore.Labor
                 destroyed++;
             }
 
-            // 2. Clear the inventory ledger + all pallet-related work tasks.
+            // 2. Clear the inventory ledger + all pallet-related work tasks + the test PO list.
             if (ServiceLocator.TryGet<InventoryService>(out var inv) && inv != null)
                 inv.ClearAllPallets();
             if (ServiceLocator.TryGet<WorkQueueSystem>(out var queue) && queue != null)
                 queue.ClearAllTasks();
+            if (ServiceLocator.TryGet<ShipmentService>(out var shipmentService) && shipmentService != null)
+                shipmentService.ClearAll();
 
             // 3. Grid + economy resync now that the pallets are gone (deferred one frame would be safer,
             //    but Destroy's OnDisable already unregisters each pallet synchronously here).
             grid?.RebuildFromRegistry();
             ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
 
-            Debug.Log($"[TestPalletSpawner] Cleared dock: destroyed {destroyed} pallet objects, wiped inventory + work queue. Scene objects untouched.");
+            Debug.Log($"[TestPalletSpawner] Cleared dock: destroyed {destroyed} pallet objects, wiped inventory + work queue + PO list. Scene objects untouched.");
             return destroyed;
         }
 

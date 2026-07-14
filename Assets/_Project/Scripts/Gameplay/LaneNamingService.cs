@@ -110,6 +110,35 @@ public class LaneNamingService : MonoBehaviour
         public string Name => $"{DoorNumber}{Lane}-{Slot}";
     }
 
+    // ── Lane Geometry ─────────────────────────────────────────────────────────────────────────────
+    // How far beyond the last slot the exit staging point is placed (metres).
+    private const float ExitPointOffset = 2f;
+
+    /// <summary>
+    /// World-space geometry for one lane, computed each <see cref="Recompute"/> pass.
+    /// Used by the Reach Truck Operator to navigate to the correct entry side and to drive
+    /// forks-first in a straight line along the lane axis.
+    /// </summary>
+    public struct LaneGeometry
+    {
+        /// <summary>Staging point 2 m beyond the far end of the lane (exit/open-floor side).
+        /// The RTO navigates here via NavMesh, then drives forks-first into the lane.</summary>
+        public Vector3 ExitPoint;
+        /// <summary>World position of slot 1 (nearest the dock/door).</summary>
+        public Vector3 EntryPoint;
+        /// <summary>Unit vector pointing FROM the dock wall OUTWARD through the lane (slot 1 → slot N direction).</summary>
+        public Vector3 DepthAxis;
+        /// <summary>Total number of slots in this lane.</summary>
+        public int SlotCount;
+    }
+
+    // Lane key ("1C") → geometry, rebuilt each Recompute.
+    private static readonly Dictionary<string, LaneGeometry> _laneGeoByKey = new();
+
+    // Cell → world position, rebuilt each Recompute. Lets callers map a LaneSlot.Cell
+    // to a world-space grab target without re-scanning PlacedObjectRegistry.
+    private static readonly Dictionary<Vector2Int, Vector3> _worldPosByCell = new();
+
     // cell → slot, rebuilt fresh each Recompute. Static so the plain-C# InventoryService (no scene
     // reference to this hidden singleton) can query addresses directly.
     private static readonly Dictionary<Vector2Int, LaneSlot> _slotByCell = new();
@@ -136,6 +165,50 @@ public class LaneNamingService : MonoBehaviour
             .OrderBy(x => x.DoorNumber).ThenBy(x => x.Lane)
             .ToList();
 
+    // ── Lane Geometry API ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Exit-point geometry for a lane (door + letter). Returns false if the lane has no tiles
+    /// or <see cref="Recompute"/> has not yet run for it.</summary>
+    public static bool TryGetLaneGeometry(int doorNumber, string lane, out LaneGeometry geo)
+        => _laneGeoByKey.TryGetValue(LaneConfigRegistry.Key(doorNumber, lane), out geo);
+
+    /// <summary>World position of a lane tile by its grid cell. Returns false if the cell is not
+    /// a known lane tile.</summary>
+    public static bool TryGetSlotWorldPos(Vector2Int cell, out Vector3 worldPos)
+        => _worldPosByCell.TryGetValue(cell, out worldPos);
+
+    /// <summary>
+    /// Parses a lane slot address of the form "{digits}{letters}-{digits}" (e.g. "1C-3")
+    /// into its components. Returns false if the string doesn't match the expected format.
+    /// </summary>
+    public static bool TryParseLaneAddress(string address,
+        out int    doorNumber,
+        out string laneLetter,
+        out int    slotNumber)
+    {
+        doorNumber = 0;
+        laneLetter = null;
+        slotNumber = 0;
+
+        if (string.IsNullOrEmpty(address)) return false;
+
+        int dash = address.IndexOf('-');
+        if (dash < 0) return false;
+
+        string prefix = address.Substring(0, dash);
+
+        // Identify boundary between leading digits (door) and trailing letters (lane).
+        int numEnd = 0;
+        while (numEnd < prefix.Length && char.IsDigit(prefix[numEnd])) numEnd++;
+
+        if (numEnd == 0 || numEnd >= prefix.Length) return false; // no digits or no letters
+
+        if (!int.TryParse(prefix.Substring(0, numEnd), out doorNumber)) return false;
+        laneLetter = prefix.Substring(numEnd);
+
+        return int.TryParse(address.Substring(dash + 1), out slotNumber);
+    }
+
     // Depth (units out from the dock wall) that a lane may extend and still "belong" to a door. Used
     // only to pick an owner for a brand-new (unowned) lane tile — see ChooseDoorForNewTile.
     private const float MaxLaneDepth = 12f;
@@ -155,7 +228,9 @@ public class LaneNamingService : MonoBehaviour
 
     public void Recompute()
     {
-        _slotByCell.Clear(); // rebuilt from scratch below; source of truth is live geometry
+        _slotByCell.Clear();    // rebuilt from scratch below; source of truth is live geometry
+        _laneGeoByKey.Clear();
+        _worldPosByCell.Clear();
 
         var doors = DockSlot.All;
         if (doors == null || doors.Count == 0) return;
@@ -304,6 +379,25 @@ public class LaneNamingService : MonoBehaviour
                     {
                         t.label.enabled = false;
                     }
+                }
+
+                // ── World positions + exit geometry (for RTO lane entry) ───────────────────────
+                foreach (var t in laneTiles)
+                    _worldPosByCell[t.cell] = t.pos;
+
+                if (laneTiles.Count > 0)
+                {
+                    string laneKey = LaneConfigRegistry.Key(door.DoorNumber, letter);
+                    // ExitPoint: 2 m past the far-end slot, along the depth direction (away from dock).
+                    Vector3 exitPt = laneTiles[lastIndex].pos + depthAxis * ExitPointOffset;
+                    exitPt.y = laneTiles[0].pos.y; // keep floor level
+                    _laneGeoByKey[laneKey] = new LaneGeometry
+                    {
+                        ExitPoint  = exitPt,
+                        EntryPoint = laneTiles[0].pos,
+                        DepthAxis  = depthAxis,
+                        SlotCount  = laneTiles.Count
+                    };
                 }
             }
         }

@@ -48,6 +48,7 @@ public class PlacementStateMachine : MonoBehaviour
     private CellIndicatorController _indicator;
     private RaycastController _raycast;
     private BuildMenuUI _buildMenuUI;
+    private TopBarUI _topBar;
 
     // Hover popup (assigned by UIBootstrapper)
     private WorldHoverPopupUI _hoverUI;
@@ -103,6 +104,7 @@ public class PlacementStateMachine : MonoBehaviour
         PlacementFinalizer finalizer = FindAnyObjectByType<PlacementFinalizer>();
         PlacementGrid grid = FindAnyObjectByType<PlacementGrid>();
         _buildMenuUI = FindAnyObjectByType<BuildMenuUI>();
+        _topBar = FindAnyObjectByType<TopBarUI>();
 
         if (_raycast != null) _raycast.EnableRay();
 
@@ -199,9 +201,13 @@ public class PlacementStateMachine : MonoBehaviour
                 // We don't call raycast.Tick() again here because IdleState already did it.
                 HandleIdleHover(tickRaycast: false);
 
-                // Shift + Left Click on a pallet opens PalletBuilder UI (plain left click is reserved for future selection)
-                bool _shiftHeld = Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
-                if (Mouse.current.leftButton.wasPressedThisFrame && _shiftHeld && !_raycast.IsPointerOverUI)
+                // Ctrl + Left Click on a pallet opens PalletBuilder UI. Shift+Click is reserved for
+                // Slot Assignment — this used to be bound to Shift and directly duplicated
+                // PalletBuilder.OnMouseDown's own click handling (which is Ctrl-gated), so the two
+                // disagreed about which modifier opened the panel. This IS the actual reason
+                // Shift+Click kept opening Pallet Builder even after OnMouseDown was fixed.
+                bool _ctrlHeld = Keyboard.current.leftCtrlKey.isPressed || Keyboard.current.rightCtrlKey.isPressed;
+                if (Mouse.current.leftButton.wasPressedThisFrame && _ctrlHeld && !_raycast.IsPointerOverUI)
                 {
                     if (_raycast.HitObject != null)
                     {
@@ -210,6 +216,24 @@ public class PlacementStateMachine : MonoBehaviour
                         {
                             _hoverUI.HideImmediate();
                             pb.ToggleUI();
+                        }
+                    }
+                }
+
+                // Shift + Left Click on a live rack opens the Slot Assignment panel, scoped to that
+                // rack's aisle — symmetric with Ctrl+Click opening Pallet Builder for a pallet.
+                bool _shiftHeld = Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
+                if (Mouse.current.leftButton.wasPressedThisFrame && _shiftHeld && !_raycast.IsPointerOverUI)
+                {
+                    if (_raycast.HitObject != null)
+                    {
+                        var rackPo = _raycast.HitObject.GetComponentInParent<PlacedObject>();
+                        if (rackPo != null && rackPo.isRackLive && rackPo.data != null
+                            && rackPo.data.category == "Racking" && rackPo.rackAisle >= 0
+                            && _topBar != null && _topBar.SlotAssignmentPanel != null)
+                        {
+                            _hoverUI.HideImmediate();
+                            _topBar.SlotAssignmentPanel.ShowForAisle(rackPo.rackAisle);
                         }
                     }
                 }

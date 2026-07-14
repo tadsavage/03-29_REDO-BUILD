@@ -49,6 +49,17 @@ namespace GameCore.Inventory
         public int Ti => _ti;
         public int Hi => _hi;
 
+        /// <summary>Runtime-safe Ti/Hi update — lets the dock (the actual, physical case layout
+        /// on a pallet) become the new master spec for future pallets of this SKU. Works in a
+        /// build, not just the Editor (unlike the Editor-only SerializedObject-based "Submit"
+        /// button in ToolsWindowController, which still separately persists to the asset on disk
+        /// when running in-editor).</summary>
+        public void SetTiHi(int ti, int hi)
+        {
+            _ti = ti;
+            _hi = hi;
+        }
+
         public GameObject Prefab => _prefab;
         public Sprite Icon => _icon;
 

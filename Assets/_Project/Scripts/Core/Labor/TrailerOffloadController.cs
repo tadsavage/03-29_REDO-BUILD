@@ -499,27 +499,21 @@ namespace GameCore.Labor
 
         private void RegisterAndQueue(InventoryService inv, TruckController truck, Vector2Int cell, Transform pallet, Quaternion rotation, int palletIndex = 0)
         {
-            string sku = "PHYS";
-            if (truck.AssignedShipment != null && truck.AssignedShipment.LineItems.Count > palletIndex)
-            {
-                sku = truck.AssignedShipment.LineItems[palletIndex].SkuId;
-            }
+            // CRITICAL FIX (2026-07-09): Don't guess the SKU from the shipment list using the 
+            // spatial-sort index. TruckController.BuildOnePallet already attached PalletData with 
+            // the correct SKU and case quantity (Ti * Hi) — read those directly from the pallet
+            // so we're byte-for-byte consistent with TestPalletSpawner.
+            var pdata = pallet.gameObject.GetComponent<PalletData>();
+            string skuId = (pdata != null && !string.IsNullOrEmpty(pdata.ItemNumber)) ? pdata.ItemNumber : "PHYS";
+            int quantity = (pdata != null) ? pdata.CaseQuantity : 1;
 
-            var data = inv.RegisterPhysicalPallet(cell, sku, 1); // dummy SKU = 1 case/pallet
+            var data = inv.RegisterPhysicalPallet(cell, skuId, quantity);
 
             // LoadId is a "license plate" assigned AT RECEIVING (ReceiverReceivingWorkflow), not here —
             // this pallet is still ghosted/unreceived the moment it lands in the lane.
             PalletMasterLink.Attach(pallet.gameObject, data.PalletId);
 
-            // Re-enable the pallet's PlacedObject now that it has a real grid cell. It was only
-            // DISABLED (not destroyed) when this pallet became cargo in TruckController.BuildOnePallet,
-            // so `.data` (the ObjDataSO identity) survived the whole truck ride intact — re-enabling it
-            // here re-registers it with PlacedObjectRegistry. Do NOT write the pallet GUID into
-            // `customData` — that field belongs to PalletBuilder's own SaveBuildState()/LoadBuildState()
-            // JSON (case prefab id + Ti/Hi); the inventory link rides separately via PalletMasterLink
-            // (attached above). The pallet's height (worldSpaceYHeight + PalletMasterRecord.WorldHeightY)
-            // is written later, once the pallet is actually dropped, by RecordPalletHeight — a single
-            // source of truth so the record can never disagree with where the pallet visually lands.
+            // Re-enable the pallet's PlacedObject now that it has a real grid cell.
             var placed = pallet.gameObject.GetComponent<PlacedObject>();
             if (placed != null)
             {
@@ -527,8 +521,10 @@ namespace GameCore.Labor
                 placed.gridY = cell.y;
                 placed.enabled = true;
 
-                // BuildingData was destroyed while this pallet was cargo — recreate it now that
-                // the pallet has a real cell/rotation, same as PlacementSystem.SpawnFromSave does.
+                // Sync the PalletData location so the hover popup works immediately
+                if (pdata != null) pdata.Initialize(pdata.LoadId, pdata.ItemNumber, pdata.CaseQuantity, pdata.ExpirationDay, pdata.Area, pdata.IconSprite, cell);
+
+                // BuildingData was destroyed while this pallet was cargo — recreate it now.
                 var bd = pallet.gameObject.GetComponent<BuildingData>();
                 if (bd == null) bd = pallet.gameObject.AddComponent<BuildingData>();
                 if (placed.data != null)
@@ -538,7 +534,7 @@ namespace GameCore.Labor
                     bd.Initialize(cell, rotDeg, offsets, placed.data);
                 }
 
-                Debug.Log($"[TrailerOffload] Registered pallet {data.PalletId} at grid cell ({cell.x}, {cell.y}).");
+                Debug.Log($"[TrailerOffload] Registered pallet {data.PalletId} (SKU {skuId}, Qty {quantity}) at grid cell ({cell.x}, {cell.y}).");
             }
             else
             {

@@ -102,7 +102,27 @@ namespace GameCore.Persistence
                     }
                 }
 
+                // Ground truth: recompute Ti/Hi from the actual physical case layout right now,
+                // rather than trusting manualTi/manualHi (which can silently drift from reality —
+                // see PalletBuilder.ComputeTiHiFromLayout). This becomes the pallet's Ti/Hi on
+                // restore (RestoreAll below) AND propagates forward into the linked SKU's master
+                // record so future pallets of this SKU use whatever the player actually built here —
+                // the "dock configures future deliveries" logistics design.
+                PalletBuilder.ComputeTiHiFromLayout(entry.transform, out snap.capturedTi, out snap.capturedHi);
+                if (snap.capturedHi > 0 && !string.IsNullOrEmpty(snap.skuId))
+                {
+                    var liveSku = inv?.GetSkuData(snap.skuId);
+                    if (liveSku != null) liveSku.SetTiHi(snap.capturedTi, snap.capturedHi);
+                }
+
                 result.Add(snap);
+
+                // DIAGNOSTIC (temporary — remove once the Ti/Hi + lane-order save/load bug is
+                // confirmed/fixed): one line per pallet at capture time, so it can be diffed
+                // against the matching RESTORE line for the same objDataId/skuId/position next load.
+                Debug.Log($"[PalletPersistenceService] CAPTURE '{entry.gameObject.name}' objDataId={snap.objDataId} " +
+                          $"skuId='{snap.skuId}' cases={snap.casePositions.Count} ti={snap.capturedTi} hi={snap.capturedHi} " +
+                          $"pos={snap.worldPosition} rot={snap.worldRotation.eulerAngles}");
             }
 
             if (result.Count > 0)
@@ -190,9 +210,33 @@ namespace GameCore.Persistence
                 RestoreCases(go, snap, registry, inv);
                 RestoreInventoryLink(go, snap, inv, cell);
 
+                // Force the restored pallet's Ti/Hi to the ground truth captured at save time —
+                // NEVER leave it at whatever the fresh prefab instance's default manualTi/manualHi
+                // happens to be. Also re-propagate to the live SkuData in case this Editor session
+                // never ran CaptureAll() before (e.g. app just launched straight into a load).
+                var restoredBuilder = go.GetComponent<PalletBuilder>();
+                if (restoredBuilder != null && snap.capturedHi > 0)
+                {
+                    restoredBuilder.manualTi = snap.capturedTi;
+                    restoredBuilder.manualHi = snap.capturedHi;
+                    restoredBuilder.useTiHiOverride = true;
+
+                    var liveSku = inv?.GetSkuData(snap.skuId);
+                    if (liveSku != null) liveSku.SetTiHi(snap.capturedTi, snap.capturedHi);
+                }
+
                 // After cases are restored, recalculate the collider to encompass all cases + pallet base.
                 // This ensures the hover popup trigger matches the visual bounds pre- and post-save/load.
                 RecalculateColliderForRestoredPallet(go);
+
+                // DIAGNOSTIC (temporary — remove once the Ti/Hi + lane-order save/load bug is
+                // confirmed/fixed): mirrors the CAPTURE line's format so the two can be diffed
+                // directly — same objDataId/skuId/pos should mean same case count.
+                var restoredLoad = go.transform.Find("PalletLoad");
+                int restoredCaseCount = restoredLoad != null ? restoredLoad.childCount : 0;
+                Debug.Log($"[PalletPersistenceService] RESTORE '{go.name}' objDataId={snap.objDataId} " +
+                          $"skuId='{snap.skuId}' cases={restoredCaseCount} (snapshot had {snap.casePositions.Count}) " +
+                          $"ti={snap.capturedTi} hi={snap.capturedHi} pos={go.transform.position} rot={go.transform.eulerAngles}");
 
                 restored++;
             }
@@ -278,34 +322,33 @@ namespace GameCore.Persistence
             if (string.IsNullOrEmpty(snap.inventoryPalletId))
                 return;
 
-            if (string.IsNullOrEmpty(snap.loadId))
-            {
-                // Still ghosted/unreceived — just the tag link, no PalletData component.
-                PalletMasterLink.Attach(palletGO, snap.inventoryPalletId);
-                return;
-            }
+            // CRITICAL FIX (2026-07-09): Re-attach the PalletMasterLink immediately.
+            PalletMasterLink.Attach(palletGO, snap.inventoryPalletId);
 
-            LoadIDGenerator.Seed(snap.loadId); // prevent future collisions with this restored ID
-
-            // Received/solid — reconstruct PalletData from whatever InventoryService already
-            // restored into its PalletMasterRecord (SKU, quantity, expiration). save.pallets is
-            // restored before dockPallets in PlacementSystem.ApplySaveData, so this lookup should
-            // succeed; fall back to sane defaults if the record is somehow missing.
+            // Reconstruct the PalletData component. We do this for EVERY pallet, including
+            // unreceived/ghosted ones (loadId is empty). This ensures the hover tooltip
+            // and other logic work immediately after load.
             PalletMasterRecord record = inv?.GetAllPallets().FirstOrDefault(p => p.PalletId == snap.inventoryPalletId);
             SkuData sku = (inv != null && record != null) ? inv.GetSkuData(record.SkuId) : null;
+            
+            // If the record isn't in InventoryService yet, try resolving from the snapshot's SKU id
+            if (sku == null && !string.IsNullOrEmpty(snap.skuId) && inv != null)
+                sku = inv.GetSkuData(snap.skuId);
 
-            var pdata = palletGO.AddComponent<PalletData>();
+            var pdata = palletGO.GetComponent<PalletData>();
+            if (pdata == null) pdata = palletGO.AddComponent<PalletData>();
+
             var area = sku != null ? sku.StorageArea : PalletData.AreaCategory.Grocery;
             var icon = sku != null ? sku.Icon : null;
-            int qty = record != null ? record.Quantity : 0;
+            int qty = record != null ? record.Quantity : (sku != null ? sku.Ti * sku.Hi : 1);
             int exp = record != null ? record.ExpirationDayNumber : -1;
-            string skuId = record != null ? record.SkuId : "";
-            pdata.Initialize(snap.loadId, skuId, qty, exp, area, icon, cell);
+            string skuId = record != null ? record.SkuId : (snap.skuId ?? "");
+            string loadId = snap.loadId ?? "";
 
-            // PalletData restored → this pallet is solid, no ghosted-cases material to reapply
-            // (PalletMasterLink is optional for solid pallets, but attach it too so anything that
-            // looks pallets up by PalletMasterLink.Find still finds it).
-            PalletMasterLink.Attach(palletGO, snap.inventoryPalletId);
+            if (!string.IsNullOrEmpty(loadId))
+                LoadIDGenerator.Seed(loadId);
+
+            pdata.Initialize(loadId, skuId, qty, exp, area, icon, cell);
         }
 
         private static int ResolveObjDataId(GameObject prefab, ObjDataRegistry registry)
@@ -333,35 +376,48 @@ namespace GameCore.Persistence
             var col = palletGO.GetComponent<BoxCollider>();
             if (col == null) return; // No collider to recalculate
 
-            Bounds bounds = new Bounds(palletGO.transform.position, Vector3.zero);
+            // Renderer.bounds is always WORLD-axis-aligned. BoxCollider.size/center are LOCAL-space
+            // (rotated by the transform when Unity resolves the actual collision volume) — for any
+            // pallet rotated 90/270 degrees, directly assigning a world AABB's size to col.size swaps
+            // the X/Z extents into the wrong local axis, producing an oversized/warped collider that
+            // can physically swallow raycast clicks meant for a neighboring pallet. Fix: transform
+            // every renderer bounds' 8 corners into the pallet's LOCAL space and take the local AABB.
+            var worldToLocal = palletGO.transform.worldToLocalMatrix;
+            Vector3 localMin = Vector3.positiveInfinity;
+            Vector3 localMax = Vector3.negativeInfinity;
             bool boundsSet = false;
 
-            // Include all case renderers
             if (loadObj != null)
             {
                 foreach (var renderer in loadObj.GetComponentsInChildren<Renderer>(true))
                 {
-                    if (!boundsSet)
+                    Bounds b = renderer.bounds;
+                    for (int i = 0; i < 8; i++)
                     {
-                        bounds = renderer.bounds;
+                        Vector3 corner = new Vector3(
+                            (i & 1) == 0 ? b.min.x : b.max.x,
+                            (i & 2) == 0 ? b.min.y : b.max.y,
+                            (i & 4) == 0 ? b.min.z : b.max.z);
+                        Vector3 local = worldToLocal.MultiplyPoint(corner);
+                        localMin = Vector3.Min(localMin, local);
+                        localMax = Vector3.Max(localMax, local);
                         boundsSet = true;
-                    }
-                    else
-                    {
-                        bounds.Encapsulate(renderer.bounds);
                     }
                 }
             }
 
-            // If no cases found, just cover the pallet base (fallback)
-            if (!boundsSet)
+            Vector3 localCenter, localSize;
+            if (boundsSet)
             {
-                bounds = new Bounds(palletGO.transform.position, new Vector3(1f, 0.16f, 1.25f));
+                localCenter = (localMin + localMax) * 0.5f;
+                localSize = localMax - localMin;
             }
-
-            // Convert world bounds to local space relative to the pallet root
-            Vector3 localCenter = palletGO.transform.worldToLocalMatrix.MultiplyPoint(bounds.center);
-            Vector3 localSize = bounds.size;
+            else
+            {
+                // No cases found — just cover the pallet base (fallback, already in local space).
+                localCenter = Vector3.zero;
+                localSize = new Vector3(1f, 0.16f, 1.25f);
+            }
 
             col.center = localCenter;
             col.size = localSize;

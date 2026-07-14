@@ -143,13 +143,6 @@ public class WorldHoverPopupUI : MonoBehaviour
             return;
         }
 
-        // Check for shift+click to open New Item panel with this SKU
-        if (Keyboard.current.shiftKey.isPressed && Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            OpenNewItemPanelForSku(palletData.ItemNumber);
-            return;
-        }
-
         bool isNewTarget = !_isHovering || !_isPalletMode || palletData != _pendingPalletData;
 
         _pendingPalletData = palletData;
@@ -174,16 +167,6 @@ public class WorldHoverPopupUI : MonoBehaviour
 
         if (_isVisible)
             FollowCursor();
-    }
-
-    private void OpenNewItemPanelForSku(string skuId)
-    {
-        var newItemPanel = UnityEngine.Object.FindAnyObjectByType<TopBarUI>();
-        if (newItemPanel == null) return;
-
-        // Access via reflection or through a helper method
-        // For now, we'll need to add a public method to TopBarUI to handle this
-        newItemPanel.SendMessage("OpenNewItemPanelWithSku", skuId, SendMessageOptions.DontRequireReceiver);
     }
 
     // ---------------------------------------------------------

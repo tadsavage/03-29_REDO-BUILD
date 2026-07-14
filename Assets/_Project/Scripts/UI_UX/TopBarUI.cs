@@ -47,6 +47,7 @@ public class TopBarUI : MonoBehaviour
     private StaffingPanel _staffingPanel;               // "Headcount" — employees by shift and role
     private ShiftManagerPanel _shiftManagerPanel;       // "5" key — define named shifts (first draft, UI only)
     private SlotAssignmentPanel _slotAssignmentPanel;   // "6" key — assign SKUs to rack Pick slots
+    public SlotAssignmentPanel SlotAssignmentPanel => _slotAssignmentPanel;
     private NewItemPanel _newItemPanel;                 // "8" key — assign pick slots to received items
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)

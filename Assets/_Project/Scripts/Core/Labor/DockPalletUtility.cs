@@ -178,7 +178,7 @@ namespace GameCore.Labor
                 if (builder == null) continue;
 
                 // Capture material state before rebuild
-                bool wasGhosted = IsPalletGhosted(palletGO);
+                bool wasGhosted = IsPalletGhosted(palletGO, ghostMat);
 
                 // Apply template settings
                 builder.casePrefab = sku.Prefab;
@@ -314,13 +314,20 @@ namespace GameCore.Labor
             Debug.Log($"[DockPalletUtility] Rotated {rotated} dock pallet(s) by {angleY}° on Y.");
         }
 
-        /// <summary>Returns true if the pallet is still ghosted/unreceived (no PalletData or
-        /// PalletData with an empty LoadId).</summary>
-        private static bool IsPalletGhosted(GameObject palletGO)
+        /// <summary>Returns true if the pallet's cases are CURRENTLY rendered with the ghost
+        /// material — checked directly against the actual renderer material, not inferred from
+        /// PalletData presence. The old PalletData-based check treated any pallet without a
+        /// PalletData component (e.g. one built directly via the Pallet Builder tool, never routed
+        /// through the shipment/receiving pipeline) as "ghosted" even when it was solid the whole
+        /// time, which force-applied the ghost material to solid pallets on every rebuild.</summary>
+        private static bool IsPalletGhosted(GameObject palletGO, Material ghostMat)
         {
-            var pdata = palletGO.GetComponent<PalletData>();
-            if (pdata == null) return true;
-            return string.IsNullOrEmpty(pdata.LoadId);
+            if (ghostMat == null) return false;
+            var loadObj = palletGO.transform.Find("PalletLoad");
+            if (loadObj == null) return false;
+            var renderer = loadObj.GetComponentInChildren<Renderer>();
+            if (renderer == null || renderer.sharedMaterials.Length == 0) return false;
+            return renderer.sharedMaterials[0] == ghostMat;
         }
 
         private static Material LoadGhostMaterial()

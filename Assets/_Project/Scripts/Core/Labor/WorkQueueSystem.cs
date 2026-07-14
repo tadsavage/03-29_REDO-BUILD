@@ -22,11 +22,16 @@ namespace GameCore.Labor
         public int? AssignedToEmployeeGuid { get; set; }  // for persistence and tracking
 
         /// <summary>Where the pallet/work starts and ends, as human location labels (e.g. "STG1A",
-        /// a reserve/pick address, or a door). Either may be null — some task types have no "from"
-        /// (Receive, Selection) or no resolved "to" yet. Purely for readouts (the InboundTest queue
-        /// view); nothing routes off these today.</summary>
+        /// a reserve/pick address, or a door). FromLocation is immutable once set at creation.
+        /// ToLocation starts null for Putaway tasks and is assigned by PutawayLogic at RTO pickup
+        /// via <see cref="AssignToLocation"/>.</summary>
         public string FromLocation { get; }
-        public string ToLocation { get; }
+        public string ToLocation { get; private set; }
+
+        /// <summary>Assigns (or updates) the TO location. Used by PutawayLogic to lock the
+        /// destination at RTO pickup time — the task is created with ToLocation null and filled
+        /// in the moment the RTO physically claims the pallet.</summary>
+        public void AssignToLocation(string address) => ToLocation = address;
 
         /// <summary>The storage area (Grocery, Perishable, or Frozen) of the item being worked on,
         /// pulled from the SKU's StorageArea. Used for routing/display and downstream employee specialization.</summary>

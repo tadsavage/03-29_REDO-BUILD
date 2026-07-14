@@ -208,4 +208,12 @@ public class DockPalletSnapshot
     public string skuId = "";
     public List<Vector3> casePositions = new();
     public List<Quaternion> caseRotations = new();
+
+    // Ground-truth Ti (cases per layer) / Hi (layer count), computed from the ACTUAL case layout
+    // at capture time (PalletBuilder.ComputeTiHiFromLayout) — not read from manualTi/manualHi or
+    // any SkuData master value, both of which can silently drift from what's physically on the
+    // dock. Applied back onto the restored PalletBuilder's manualTi/manualHi on load so the
+    // "Current" reading in the dev panel and the editable value can never disagree again.
+    public int capturedTi = 0;
+    public int capturedHi = 0;
 }

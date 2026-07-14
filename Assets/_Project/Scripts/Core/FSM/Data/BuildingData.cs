@@ -45,6 +45,17 @@ public class BuildingData : MonoBehaviour
             return;
         }
 
+        // 1a. Racking — no obstacle or modifier; agents navigate the aisle freely and
+        //     the RTO drives into rack lanes directly during putaway.
+        if (Data.category == "Racking")
+        {
+            if (TryGetComponent<NavMeshObstacle>(out var rackObstacle))
+                DestroyImmediate(rackObstacle);
+            if (TryGetComponent<NavMeshModifier>(out var rackModifier))
+                DestroyImmediate(rackModifier);
+            return;
+        }
+
         // 2. Walkable surfaces (Floors, Foundations, Stairs, etc.)
         bool isWalkableSurface = Data.pathfindingClear || Data.isFloor || Data.ignorePlacementRules
                               || Data.isStackable || Data.CanUseStairs

@@ -112,6 +112,14 @@ public class PlacementFinalizer : MonoBehaviour
             instance.transform.SetParent(foundationsParent.transform);
         }
 
+        // Parent all rack objects under RackingSystemManager for testing visibility.
+        if (data.category == "Racking")
+        {
+            var rackingManager = Object.FindAnyObjectByType<RackingSystemManager>();
+            if (rackingManager != null)
+                instance.transform.SetParent(rackingManager.transform, worldPositionStays: true);
+        }
+
         // For freshly placed NavMesh agents: set transform position directly — don't
         // call Warp because the NavMesh may not be baked yet at this moment.
         // SKIP if worldYOffset was used — don't let the agent override absolute positioning

@@ -246,13 +246,13 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         {
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
-                // Shift-click specifically targets PalletBuilder and forces a rebuild
-                bool isShift = Keyboard.current.shiftKey.isPressed;
-                TrySelectObjectForSettings(clearUnmatched: !isShift);
+                // Ctrl-click specifically targets PalletBuilder and forces a rebuild
+                bool isCtrl = Keyboard.current.ctrlKey.isPressed;
+                TrySelectObjectForSettings(clearUnmatched: !isCtrl);
             }
-
-            if (Mouse.current.rightButton.wasPressedThisFrame)
-                ClearAllSelections();
+            // Right-click is reserved for camera control while Dev Settings is open — it must
+            // NOT clear/rebuild the panel (that used to fire on every camera-orbit right-click,
+            // silently swapping in an arbitrary "first found" PalletBuilder).
         }
 
         if (!_visible || _ctx == null) return;
@@ -282,12 +282,10 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     /// </summary>
     public void OpenForPallet(PalletBuilder pb)
     {
-        Debug.Log($"[ToolsWindow] OpenForPallet called for: {pb.gameObject.name}");
         _selectedComponents["PalletBuilder"] = pb;
         _pendingScrollTarget = "PalletBuilder";
         RebuildSettings();
         Show("settings");
-        Debug.Log($"[ToolsWindow] OpenForPallet complete - dropdown should now show {(pb.linkedSku != null ? pb.linkedSku.ItemNumber.ToString() : "unknown")}");
     }
 
     /// <summary>IUIPanel.Show: opens the dev tools at the dev settings tab.</summary>
@@ -297,6 +295,17 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     {
         _visible = false;
         _window.style.display = DisplayStyle.None;
+    }
+
+    /// <summary>Call after a save loads (or any full-scene teardown/rebuild) — every pallet/vehicle
+    /// GameObject the player had previously ctrl-clicked gets destroyed and recreated, but
+    /// _selectedComponents held onto the old (now-destroyed) references. Left uncleared, the panel
+    /// falls back to "first PalletBuilder FindObjectsByType happens to return" whenever it's opened
+    /// before a fresh click, which reads as "stuck on [some arbitrary item]" after every load.</summary>
+    public void ClearSelections()
+    {
+        _selectedComponents.Clear();
+        if (_settingsBuilt) RebuildSettings();
     }
 
     /// <summary>IUIPanel implementation: true if this panel is currently visible.</summary>
@@ -378,22 +387,15 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
     private void RebuildSettings()
     {
-        Debug.Log("[ToolsWindow] ===== RebuildSettings START =====");
         _settingsBuilt = false;
         _settingsGroups.Clear();
-        if (_contentSettings != null)
-        {
-            Debug.Log($"[ToolsWindow] Before clear: {_contentSettings.childCount} children");
-            _contentSettings.Clear();
-            Debug.Log($"[ToolsWindow] After clear: {_contentSettings.childCount} children");
-        }
-        else
+        if (_contentSettings == null)
         {
             Debug.LogError("[ToolsWindow] _contentSettings is NULL!");
             return;
         }
+        _contentSettings.Clear();
         BuildDevSettingsUI();
-        Debug.Log("[ToolsWindow] ===== RebuildSettings COMPLETE =====");
     }
 
     private void BuildDevSettingsUI()
@@ -511,13 +513,11 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             var group = BuildScriptGroup(type, target);
             if (group != null)
             {
-                Debug.Log($"[ToolsWindow] Adding group: {type.Name}");
                 _settingsGroups[type.Name] = group;
                 _contentSettings.Add(group);
             }
         }
 
-        Debug.Log($"[ToolsWindow] BuildDevSettingsUI complete. Added {_settingsGroups.Count} groups. Setting _settingsBuilt = true");
         _settingsBuilt = true;
     }
 
@@ -736,24 +736,23 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         var go = hit.collider.gameObject;
         var searchRoot = go.transform.root.gameObject;
-        bool isShift = Keyboard.current.shiftKey.isPressed;
+        bool isCtrl = Keyboard.current.ctrlKey.isPressed;
         bool anyChanged = false;
 
-        // Special case: if shift-clicking an object, try to extract SKU and apply to current PalletBuilder
-        if (isShift && _selectedComponents.TryGetValue("PalletBuilder", out var currentPb) && currentPb != null)
+        // Special case: ctrl-clicking a LOOSE item (not a pallet itself — e.g. a case sitting on
+        // a shelf) transfers its SKU onto the currently-open PalletBuilder. Ctrl-clicking a pallet
+        // directly is a select/open gesture already handled by PalletBuilder.OnMouseDown — running
+        // the transfer there too would let this method's own (separate) raycast silently overwrite
+        // whichever pallet OnMouseDown just opened if the two raycasts ever disagree (e.g. two
+        // pallets' colliders overlapping), which is what caused the "stuck on one SKU" bug.
+        bool hitOwnPallet = searchRoot.GetComponentInChildren<PalletBuilder>() != null;
+        if (isCtrl && !hitOwnPallet && _selectedComponents.TryGetValue("PalletBuilder", out var currentPb) && currentPb != null)
         {
             var pb = (PalletBuilder)currentPb;
-            // Try to find a SKU from the hit object or its children
-            SkuData foundSku = DockPalletUtility.GetSkuForPallet(go);
-            if (foundSku == null) 
-            {
-                // Try matching by prefab name directly if it's just a loose case
-                foundSku = MatchObjectToSku(go);
-            }
+            SkuData foundSku = DockPalletUtility.GetSkuForPallet(go) ?? MatchObjectToSku(go);
 
             if (foundSku != null && pb.linkedSku != foundSku)
             {
-                Debug.Log($"[ToolsWindow] Shift-click transfer: Applying SKU {foundSku.ItemNumber} to {pb.gameObject.name}");
                 pb.linkedSku = foundSku;
                 pb.casePrefab = foundSku.Prefab;
                 pb.SaveBuildState();
@@ -761,9 +760,16 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             }
         }
 
-        // Standard selection logic
+        // Standard selection logic — PalletBuilder is excluded here on purpose: it has its own
+        // dedicated Ctrl+Click handler (PalletBuilder.OnMouseDown -> OpenForPallet). This loop used
+        // to have no modifier gate at all, so ANY click (plain left-click, or a Shift+Click meant
+        // for the Slot Assignment panel) that happened to land on a pallet would silently reselect
+        // and rebuild the Pallet Builder section — that's what looked like "shift-click still opens
+        // it" and "plain click switches items."
         foreach (var typeName in ObjectSpecificTypes)
         {
+            if (typeName == "PalletBuilder") continue;
+
             MonoBehaviour found = null;
             foreach (var mb in searchRoot.GetComponentsInChildren<MonoBehaviour>(true))
                 if (mb.GetType().Name == typeName) { found = mb; break; }
@@ -801,13 +807,6 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
                 if (sku.Prefab != null && sku.Prefab.name == cName) return sku;
         }
         return null;
-    }
-
-    private void ClearAllSelections()
-    {
-        if (_selectedComponents.Count == 0) return;
-        _selectedComponents.Clear();
-        RebuildSettings();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -939,12 +938,29 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         var slider = new SliderInt(min, max) { value = val };
         slider.AddToClassList("ds-slider-overlay");
+        // Live visual feedback (fill bar + number) updates on every drag tick — cheap, no side
+        // effects. The setter can be expensive (e.g. Ti/Hi triggers a full pallet rebuild + toast)
+        // and used to fire on every tick too, which made dragging janky/hard to control.
+        //
+        // Committing only on pointer-up turned out to be unreliable: SliderInt's internal drag
+        // manipulator captures the pointer and routes PointerUpEvent in a way a listener on this
+        // element never reliably caught, even registered with TrickleDown. So this debounces
+        // instead — the setter only fires ~200ms after the LAST value-changed event, which in
+        // practice lands right after the player releases the mouse (no more ticks arrive once
+        // they let go), without depending on any slider-internal event-routing details.
+        IVisualElementScheduledItem commitTimer = null;
         slider.RegisterValueChangedCallback(evt =>
         {
-            setter(evt.newValue);
             float p = max > min ? Mathf.Clamp01((float)(evt.newValue - min) / (max - min)) : 0f;
             SetSliderVisuals(fill, thumb, p);
             vLabel.text = evt.newValue.ToString();
+
+            commitTimer?.Pause();
+            int committedValue = evt.newValue;
+            // StartingIn, not ExecuteLater — ExecuteLater only reschedules an item that has
+            // already fired once; it does not delay a first run (see CLAUDE.md's own note on
+            // this exact gotcha, hit twice before in this codebase already).
+            commitTimer = slider.schedule.Execute(() => setter(committedValue)).StartingIn(200);
         });
         wrap.Add(slider); col.Add(wrap);
         row.Add(col);
@@ -1038,12 +1054,29 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         _spent.text   = $"${m.SpentToday:N0}";
     }
 
+    /// <summary>"Clear Scene" button — lives in the Inbound Simulator section, so its job is
+    /// resetting DOCK/INVENTORY test state, not the whole warehouse. Previously destroyed every
+    /// PlacedObjectRegistry entry unconditionally, which included employees (they carry a
+    /// PlacedObject too, for the hover popup) and every placed building/rack/wall — a much bigger
+    /// blast radius than intended. Now scoped to category "Inventory" (pallets) only, plus the
+    /// underlying InventoryService records and ShipmentService PO list those pallets came from.
+    /// Employees, buildings, racks, equipment, and money are never touched by this.</summary>
     private void ClearAll()
     {
         foreach (var obj in PlacedObjectRegistry.GetSnapshot())
-            if (obj != null) Destroy(obj.gameObject);
+        {
+            if (obj == null || obj.data == null) continue;
+            if (obj.data.category != "Inventory") continue;
+            Destroy(obj.gameObject);
+        }
         _grid?.RebuildFromRegistry();
         ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
+
+        if (ServiceLocator.TryGet<ShipmentService>(out var shipmentService))
+            shipmentService.ClearAll();
+
+        if (ServiceLocator.TryGet<InventoryService>(out var inventoryService))
+            inventoryService.ClearAllPallets();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1073,6 +1106,34 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     // ─────────────────────────────────────────────────────────────────────────
     // Custom PalletBuilder section (redesigned 2026-07-05)
     // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Applies a Ti/Hi slider drag and immediately validates it against what PHYSICALLY
+    /// fits. Before this, dragging the slider only ever set manualTi/manualHi — useTiHiOverride
+    /// was never turned on anywhere in this UI, so Build() took its auto-calculate branch and
+    /// silently ignored the slider entirely; the number shown could disagree with the pallet
+    /// forever. Now every drag turns override on, rebuilds for real, and PalletBuilder.Build()'s
+    /// own self-correction (see the Ti/Hi ground-truth work) snaps manualTi/manualHi back down to
+    /// what actually fit if the requested count was unachievable — surfaced here as a toast so the
+    /// player knows why the slider just moved on its own.</summary>
+    private void ApplyTiHiChange(PalletBuilder pb, int requestedTi, int requestedHi)
+    {
+        if (pb.manualTi != requestedTi || pb.manualHi != requestedHi)
+        {
+            _prevManualTi = pb.manualTi;
+            _prevManualHi = pb.manualHi;
+            _undoPbReference = pb;
+        }
+
+        pb.useTiHiOverride = true;
+        pb.manualTi = requestedTi;
+        pb.manualHi = requestedHi;
+        pb.Build(deductMoney: false);
+
+        if (pb.manualTi != requestedTi || pb.manualHi != requestedHi)
+            UIToast.Show($"Only {pb.manualTi} × {pb.manualHi} actually fits on this pallet — adjusted from {requestedTi} × {requestedHi}.");
+
+        RebuildSettings();
+    }
 
     private VisualElement BuildPalletBuilderSection(PalletBuilder pb)
     {
@@ -1147,15 +1208,37 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         {
             skuValue.text = $"{currentSku.ItemNumber}\n{currentSku.ItemDescription}";
             
-            // Try to get a better preview than the icon if possible
+            // Show the icon immediately — the prefab preview below is async and often isn't
+            // ready yet on the first request for a given prefab this session.
             if (currentSku.Icon != null)
                 casePreview.sprite = currentSku.Icon;
 
 #if UNITY_EDITOR
             if (currentSku.Prefab != null)
             {
-                var tex = UnityEditor.AssetPreview.GetAssetPreview(currentSku.Prefab);
-                if (tex != null) casePreview.image = tex;
+                var prefabForPreview = currentSku.Prefab;
+                var tex = UnityEditor.AssetPreview.GetAssetPreview(prefabForPreview);
+                if (tex != null)
+                {
+                    casePreview.image = tex;
+                }
+                else
+                {
+                    // AssetPreview.GetAssetPreview() renders asynchronously and returns null while
+                    // Unity is still generating the thumbnail — this is what showed the icon
+                    // instead of the case image on the first ctrl-click of a session. Poll until
+                    // it's actually ready, then swap it in without a full panel rebuild.
+                    void PollForPreview()
+                    {
+                        if (casePreview.panel == null) return; // panel rebuilt/closed since — stop polling
+                        var t = UnityEditor.AssetPreview.GetAssetPreview(prefabForPreview);
+                        if (t != null)
+                            casePreview.image = t;
+                        else if (UnityEditor.AssetPreview.IsLoadingAssetPreview(prefabForPreview.GetInstanceID()))
+                            _contentSettings.schedule.Execute(PollForPreview).ExecuteLater(100);
+                    }
+                    _contentSettings.schedule.Execute(PollForPreview).ExecuteLater(100);
+                }
             }
 #endif
         }
@@ -1174,38 +1257,6 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         heightRow.Q<Label>(className: "ds-label").tooltip = "Target maximum height for the pallet load (meters). Range: 0.5 - 2.5m";
         group.Add(heightRow);
 
-        // Optimizer Utilization %
-        var utilizationRow = new VisualElement(); utilizationRow.AddToClassList("ds-row");
-        utilizationRow.style.marginBottom = 2;
-        var utilizationLbl = new Label("Optimizer Utilization"); utilizationLbl.AddToClassList("ds-label");
-        utilizationLbl.tooltip = "Efficiency: Total case footprint area / Pallet footprint (40\"x48\")";
-        utilizationRow.Add(utilizationLbl);
-        var utilizationValue = new Label("—%");
-        utilizationValue.AddToClassList("ds-slider-value");
-        utilizationValue.style.color = new Color(0.6f, 1f, 0.6f, 1f);
-
-        // Calculate utilization: (CasesPerLayer * CaseArea) / PalletArea
-        float utilPercent = 0f;
-        if (currentSku != null)
-        {
-            float caseArea = currentSku.CaseLength * currentSku.CaseWidth;
-            float palletArea = 1.016f * 1.2192f; // 40" x 48"
-            int cpl = pb.manualTi > 0 ? pb.manualTi : pb.TotalCases / Mathf.Max(1, pb.manualHi); // fallback if not auto
-            // If we don't have a count yet, we'll try to get it from the last build
-            var currentLoad = pb.transform.Find("PalletLoad");
-            int actualCpl = 0;
-            if (currentLoad != null && currentLoad.childCount > 0)
-            {
-                var firstLayerY = currentLoad.GetChild(0).localPosition.y;
-                foreach (Transform child in currentLoad)
-                    if (Mathf.Abs(child.localPosition.y - firstLayerY) < 0.01f) actualCpl++;
-                utilPercent = (actualCpl * caseArea / palletArea) * 100f;
-            }
-        }
-        utilizationValue.text = $"{utilPercent:F0}%";
-        utilizationRow.Add(utilizationValue);
-        group.Add(utilizationRow);
-
         // Space Between Cases
         var spacingRow = BuildFloatSettingRow("Space Between Cases", 0.01f, 0.2f,
             () => pb.spaceBetweenCases,
@@ -1222,18 +1273,6 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         gapRow.Q<Label>(className: "ds-label").tooltip = "Vertical space between stacked layers (meters). Range: 0 - 0.05m";
         group.Add(gapRow);
 
-        // Use Prefab Bounds
-        var usePrefabRow = new VisualElement(); usePrefabRow.AddToClassList("ds-row");
-        usePrefabRow.style.marginBottom = 2;
-        var usePrefabLbl = new Label("Use Prefab Bounds"); usePrefabLbl.AddToClassList("ds-label");
-        usePrefabLbl.tooltip = "ON: Use actual 3D model dimensions. OFF: Use manual dimensions from SKU master data.";
-        usePrefabRow.Add(usePrefabLbl);
-        var usePrefabToggle = new Toggle { value = pb.usePrefabBounds };
-        usePrefabToggle.AddToClassList("ds-toggle");
-        usePrefabToggle.RegisterValueChangedCallback(evt => { pb.usePrefabBounds = evt.newValue; pb.SaveBuildState(); });
-        usePrefabRow.Add(usePrefabToggle);
-        group.Add(usePrefabRow);
-
         // Crooked Cases
         var crookedRow = BuildFloatSettingRow("Crooked Cases", 0f, 10f,
             () => pb.crookedCase,
@@ -1243,34 +1282,80 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         group.Add(crookedRow);
 
         // ── Ti / Hi (Compacted) ─────────────────────────────────────────────
-        int curTi = 0, curHi = 0;
-        var load = pb.transform.Find("PalletLoad");
-        if (load != null && load.childCount > 0)
+        PalletBuilder.ComputeTiHiFromLayout(pb.transform, out int curTi, out int curHi);
+
+        if (curHi > 0 && (pb.manualTi != curTi || pb.manualHi != curHi))
         {
-            var layersSet = new HashSet<float>();
-            foreach (Transform t in load) layersSet.Add(Mathf.Round(t.localPosition.y * 100f) / 100f);
-            curHi = layersSet.Count;
-            if (curHi > 0)
-            {
-                float bottomY = layersSet.Min();
-                foreach (Transform t in load)
-                    if (Mathf.Abs(t.localPosition.y - bottomY) < 0.01f) curTi++;
-            }
+            pb.manualTi = curTi;
+            pb.manualHi = curHi;
+            pb.useTiHiOverride = true;
+            pb.linkedSku?.SetTiHi(curTi, curHi);
+            pb.SaveBuildState();
         }
 
         var tiRow = BuildIntSettingRow($"Ti (Current: {curTi})", 0, 30,
             () => pb.manualTi,
-            v => { if (pb.manualTi != v) { _prevManualTi = pb.manualTi; _prevManualHi = pb.manualHi; _undoPbReference = pb; } pb.manualTi = v; });
+            v => ApplyTiHiChange(pb, requestedTi: v, requestedHi: pb.manualHi));
         tiRow.style.marginBottom = 2;
         tiRow.Q<Label>(className: "ds-label").tooltip = "Cases per layer. 0 = auto-calculate.";
         group.Add(tiRow);
 
         var hiRow = BuildIntSettingRow($"Hi (Current: {curHi})", 0, 30,
             () => pb.manualHi,
-            v => { if (pb.manualHi != v) { _prevManualTi = pb.manualTi; _prevManualHi = pb.manualHi; _undoPbReference = pb; } pb.manualHi = v; });
+            v => ApplyTiHiChange(pb, requestedTi: pb.manualTi, requestedHi: v));
         hiRow.style.marginBottom = 2;
         hiRow.Q<Label>(className: "ds-label").tooltip = "Number of layers. 0 = auto-calculate.";
         group.Add(hiRow);
+
+        // Optimizer Layer Utilization %
+        var utilizationRow = new VisualElement(); utilizationRow.AddToClassList("ds-row");
+        utilizationRow.style.marginBottom = 2;
+        var utilizationLbl = new Label("Optimizer Layer Utilization"); utilizationLbl.AddToClassList("ds-label");
+        utilizationLbl.tooltip = "Efficiency: Total case footprint area / Pallet footprint (40\"x48\")";
+        utilizationRow.Add(utilizationLbl);
+        var utilizationValue = new Label("—%");
+        utilizationValue.AddToClassList("ds-slider-value");
+        utilizationValue.style.color = new Color(0.6f, 1f, 0.6f, 1f);
+
+        // Calculate utilization: (CasesPerLayer * CaseArea) / PalletArea
+        float utilPercent = 0f;
+        if (currentSku != null)
+        {
+            float caseArea = currentSku.CaseLength * currentSku.CaseWidth;
+            float palletArea = 1.016f * 1.2192f; // 40" x 48"
+            
+            var currentLoad = pb.transform.Find("PalletLoad");
+            int actualCpl = 0;
+            if (currentLoad != null && currentLoad.childCount > 0)
+            {
+                var firstLayerY = currentLoad.GetChild(0).localPosition.y;
+                foreach (Transform child in currentLoad)
+                    if (Mathf.Abs(child.localPosition.y - firstLayerY) < 0.01f) actualCpl++;
+                utilPercent = (actualCpl * caseArea / palletArea) * 100f;
+            }
+        }
+        utilizationValue.text = $"{utilPercent:F0}%";
+        utilizationRow.Add(utilizationValue);
+        group.Add(utilizationRow);
+
+        // Total Pallet Height
+        float caseHeight = currentSku != null ? currentSku.CaseHeight : pb.caseDimensions.y;
+        float totalPltHeight = 0.165f + (curHi * caseHeight);
+
+        var totalHeightRow = new VisualElement(); totalHeightRow.AddToClassList("ds-row");
+        totalHeightRow.style.marginBottom = 6;
+        var totalHeightLbl = new Label("Total Pallet Height"); totalHeightLbl.AddToClassList("ds-label");
+        totalHeightRow.Add(totalHeightLbl);
+        var totalHeightValue = new Label($"{totalPltHeight:F2}m");
+        totalHeightValue.AddToClassList("ds-slider-value");
+
+        // Color Logic: <1m Green, 1m-1.8m Orange, >1.8m Red
+        if (totalPltHeight < 1.0f) totalHeightValue.style.color = new Color(0.31f, 0.78f, 0.39f); // Green
+        else if (totalPltHeight <= 1.8f) totalHeightValue.style.color = new Color(0.93f, 0.79f, 0.16f); // Orange
+        else totalHeightValue.style.color = new Color(0.86f, 0.24f, 0.24f); // Red
+
+        totalHeightRow.Add(totalHeightValue);
+        group.Add(totalHeightRow);
 
         // ── Buttons (Compacted) ─────────────────────────────────────────────
         var btnRow = new VisualElement();
@@ -1334,7 +1419,6 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 #else
             Destroy(loadObj.gameObject);
 #endif
-            Debug.Log("[PalletBuilder] Pallet load removed. Settings preserved.");
         }
     }
 
@@ -1373,7 +1457,6 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         UnityEditor.AssetDatabase.SaveAssets();
 #endif
         UIToast.Show($"✓ Ti={pb.manualTi} Hi={pb.manualHi} submitted to {pb.linkedSku.ItemDescription}");
-        Debug.Log($"[PalletBuilder] Submitted Ti={pb.manualTi} Hi={pb.manualHi} to SKU {pb.linkedSku.ItemNumber}");
     }
 
     // ─────────────────────────────────────────────────────────────────────────

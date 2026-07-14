@@ -44,11 +44,9 @@ namespace GameCore.Inventory
         /// </summary>
         public static float CalculateCaseStackHeight(SkuData sku)
         {
-            if (sku == null || sku.Prefab == null) return 0f;
+            if (sku == null) return 0f;
 
-            // Get case prefab dimensions
-            var caseDims = PalletBuilder.GetPrefabDimensions(sku.Prefab);
-            float caseHeight = caseDims.y;
+            float caseHeight = sku.CaseHeight;
             int layers = Mathf.Max(1, sku.Hi);
 
             return caseHeight * layers;

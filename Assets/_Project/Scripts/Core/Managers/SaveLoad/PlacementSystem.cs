@@ -774,6 +774,11 @@ public class PlacementSystem : MonoBehaviour
         // Restore Tools Window position
         ToolsWindowController.Instance?.SetWindowPosition(save.toolsWindowX, save.toolsWindowY);
 
+        // Every pallet/vehicle GameObject the player had previously selected via ctrl-click was just
+        // destroyed and recreated above — drop any stale selection referencing the old instances so
+        // the panel doesn't fall back to an arbitrary "first found" item on next open.
+        ToolsWindowController.Instance?.ClearSelections();
+
         // Restore guidance lines
         foreach (var g in Object.FindObjectsByType<NavAgentGuidance>())
             g.showGuidanceLine = save.guidanceLinesVisible;
@@ -955,6 +960,14 @@ public class PlacementSystem : MonoBehaviour
         // exists; here we just get the structured fields back so isRackLive/aisle logic works.
         if (so.category == "Racking" && RackSaveCodec.IsRackData(customData))
             RackSaveCodec.RestoreOnto(po, customData);
+
+        // Parent all rack objects under RackingSystemManager for testing visibility.
+        if (so.category == "Racking")
+        {
+            var rackingManager = Object.FindAnyObjectByType<RackingSystemManager>();
+            if (rackingManager != null)
+                go.transform.SetParent(rackingManager.transform, worldPositionStays: true);
+        }
 
         go.GetComponent<MHEOperatorSlot>()?.NotifyPlaced();
 

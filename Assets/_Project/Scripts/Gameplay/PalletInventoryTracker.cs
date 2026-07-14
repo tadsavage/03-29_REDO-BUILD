@@ -114,6 +114,15 @@ public class PalletInventoryTracker : MonoBehaviour
                     int qty = po.GetComponent<PalletBuilder>()?.TotalCases ?? 1;
                     var pallet = inv.RegisterPhysicalPallet(cell, sku, Mathf.Max(1, qty));
                     _linked[po] = pallet.PalletId;
+
+                    // Attach a real PalletMasterLink, not just this tracker's own in-memory map —
+                    // without it, PalletPersistenceService.CaptureAll() sees no PalletMasterLink on
+                    // this pallet, saves it with an empty inventoryPalletId, and on the next load
+                    // RestoreInventoryLink() skips attaching one too — so the pallet comes back
+                    // link-less every time and gets phantom-registered again on the next heartbeat.
+                    // That repeat phantom-registration (each with the wrong generic SKU name) is
+                    // what corrupted saves in the past ("42 records / 21 real pallets").
+                    PalletMasterLink.Attach(po.gameObject, pallet.PalletId);
                 }
             }
         }

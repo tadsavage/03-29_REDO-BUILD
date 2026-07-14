@@ -34,7 +34,6 @@ public class PalletBuilder : MonoBehaviour
     [Range(0.0f, 0.25f)] public float verticalGap = 0.0f;
 
     [Header("Case Overrides")]
-    public bool usePrefabBounds = true;
     public Vector3 caseDimensions = new Vector3(0.5f, 0.25f, 0.24f); // W, H, L
 
     [Header("Aesthetic Settings")]
@@ -65,7 +64,6 @@ public class PalletBuilder : MonoBehaviour
         public float vertGap;
         public float crooked;
         public bool useOverride;
-        public bool usePrefabBounds; // Added for persistence
         public Vector3 caseDimensions; // Added for persistence
         public int manualTi;
         public int manualHi;
@@ -119,7 +117,6 @@ public class PalletBuilder : MonoBehaviour
             vertGap = verticalGap,
             crooked = crookedCase,
             useOverride = useTiHiOverride,
-            usePrefabBounds = usePrefabBounds,
             caseDimensions = caseDimensions,
             manualTi = manualTi,
             manualHi = manualHi,
@@ -180,7 +177,6 @@ public class PalletBuilder : MonoBehaviour
             verticalGap = settings.vertGap;
             crookedCase = settings.crooked;
             useTiHiOverride = settings.useOverride;
-            usePrefabBounds = settings.usePrefabBounds;
             caseDimensions = settings.caseDimensions;
             manualTi = settings.manualTi;
             manualHi = settings.manualHi;
@@ -271,10 +267,6 @@ public class PalletBuilder : MonoBehaviour
         {
             caseDim = new Vector3(linkedSku.CaseWidth, linkedSku.CaseHeight, linkedSku.CaseLength);
         }
-        else if (usePrefabBounds) 
-        {
-            caseDim = GetPrefabDimensions(casePrefab);
-        }
 
         // 2. Calculate Best Layer Pattern
         CalculateBestLayer(palletDim.x, palletDim.z, caseDim.x, caseDim.z);
@@ -340,8 +332,9 @@ public class PalletBuilder : MonoBehaviour
         {
 #if UNITY_EDITOR
             if (!Application.isPlaying) DestroyImmediate(obj);
-            else Destroy(obj);
+            else { obj.transform.SetParent(null); Destroy(obj); }
 #else
+            obj.transform.SetParent(null);
             Destroy(obj);
 #endif
         }
@@ -352,10 +345,7 @@ public class PalletBuilder : MonoBehaviour
 
         for (int h = 0; h < layers; h++)
         {
-            // Position the case so its CENTER is at the calculated Y. Case prefabs may have their
-            // mesh origin offset from the prefab center (some authored with center-origin, some with
-            // bottom-origin, some with top-origin). GetMeshYOffset() detects this and returns the
-            // Y-offset to add so the mesh ends up at the right height.
+            // Position the case so its base is at the calculated Y.
             // CRITICAL FIX (2026-07-05): First layer sits directly on pallet deck with NO gap.
             // Higher layers are spaced by verticalGap. This ensures cases sit flush on the pallet
             // in the trailer, preventing jarring snaps when dropped into staging lanes.
@@ -414,7 +404,28 @@ public class PalletBuilder : MonoBehaviour
 
         SaveBuildState();
 
-        //Debug.Log($"Pallet Built: {casesPerLayer} Ti x {layers} Hi = {totalCases} total cases. State Saved.");
+        // Self-correct: useTiHiOverride can request more cases than physically fit — PackLayer's
+        // _bestLayerPattern silently caps the instantiation loop above at what's actually
+        // achievable without exceeding 100% layer utilization, so manualTi/casesPerLayer/totalCases
+        // can end up describing a count that was never really built. Recompute from the ACTUAL
+        // case layout (same ground-truth read PalletPersistenceService uses at save time) and snap
+        // manualTi/manualHi down to it — otherwise the unachievable requested number keeps
+        // resurfacing (save/load, "Submit to Master", future deliveries of this SKU all treat
+        // manualTi as ground truth).
+        if (useTiHiOverride)
+        {
+            ComputeTiHiFromLayout(transform, out int actualTi, out int actualHi);
+            if (actualHi > 0 && (actualTi != manualTi || actualHi != manualHi))
+            {
+                manualTi = actualTi;
+                manualHi = actualHi;
+                casesPerLayer = actualTi;
+                layers = actualHi;
+                totalCases = actualTi * actualHi;
+                linkedSku?.SetTiHi(actualTi, actualHi);
+                SaveBuildState();
+            }
+        }
     }
 
     /// <summary>
@@ -477,12 +488,7 @@ public class PalletBuilder : MonoBehaviour
 
     public void ToggleUI()
     {
-        if (!Application.isPlaying)
-        {
-            Debug.Log("[PalletBuilder] ToggleUI called but not playing");
-            return;
-        }
-        Debug.Log($"[PalletBuilder] ToggleUI: Calling OpenForPallet for {gameObject.name}");
+        if (!Application.isPlaying) return;
         ToolsWindowController.Instance?.OpenForPallet(this);
     }
 
@@ -491,27 +497,42 @@ public class PalletBuilder : MonoBehaviour
         ToolsWindowController.Instance?.Hide();
     }
 
+    /// <summary>Computes the ACTUAL Ti (cases per layer) / Hi (layer count) from a pallet's real,
+    /// physical case layout — grouping cases under "PalletLoad" by Y position. This is the ground
+    /// truth: what's physically stacked on the dock, not whatever a SkuData asset or a stale
+    /// manualTi/manualHi field claims. Shared by the dev panel's live display and
+    /// PalletPersistenceService's save-time capture so the two can never drift apart.</summary>
+    public static void ComputeTiHiFromLayout(Transform palletRoot, out int ti, out int hi)
+    {
+        ti = 0; hi = 0;
+        var loadObj = palletRoot.Find("PalletLoad");
+        if (loadObj == null || loadObj.childCount == 0) return;
+
+        var casesByLayer = new Dictionary<float, int>();
+        float firstLayerY = float.NaN;
+        foreach (Transform caseTransform in loadObj)
+        {
+            float layerY = Mathf.Round(caseTransform.localPosition.y * 100f) / 100f;
+            if (float.IsNaN(firstLayerY)) firstLayerY = layerY;
+            if (!casesByLayer.ContainsKey(layerY)) casesByLayer[layerY] = 0;
+            casesByLayer[layerY]++;
+        }
+        hi = casesByLayer.Count;
+        if (hi > 0) ti = casesByLayer[firstLayerY];
+    }
+
     private void OnMouseDown()
     {
         // Only allow bringing up the Pallet Builder UI if the state machine is in IdleState
         var fsm = FindAnyObjectByType<PlacementStateMachine>();
-        if (fsm != null && !(fsm.CurrentState is IdleState))
-        {
-            Debug.Log($"[PalletBuilder] OnMouseDown blocked: FSM state is {fsm.CurrentState?.GetType().Name ?? "unknown"}, not IdleState");
-            return;
-        }
+        if (fsm != null && !(fsm.CurrentState is IdleState)) return;
 
-        // Require Shift + Left Click — plain left click is reserved for future selection
-        bool shiftHeld = Keyboard.current != null
-            && (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
+        // Require Ctrl + Left Click — Shift+Click is reserved for Slot Assignment.
+        bool ctrlHeld = Keyboard.current != null
+            && (Keyboard.current.leftCtrlKey.isPressed || Keyboard.current.rightCtrlKey.isPressed);
+        if (!ctrlHeld) return;
 
-        if (!shiftHeld)
-        {
-            Debug.Log($"[PalletBuilder] OnMouseDown: Shift not held");
-            return;
-        }
-
-        Debug.Log($"[PalletBuilder] OnMouseDown: Shift-click detected on {gameObject.name}, calling ToggleUI()");
+        Debug.Log($"[PalletBuilder] Selected: {gameObject.name} (SKU: {(linkedSku != null ? linkedSku.ItemNumber.ToString() : "none")})");
         ToggleUI();
     }
 
@@ -537,52 +558,5 @@ public class PalletBuilder : MonoBehaviour
                 rotation = slot.rotationDegrees
             });
         }
-    }
-
-    public static Vector3 GetPrefabDimensions(GameObject prefab)
-    {
-        Vector3 rawSize = new Vector3(1, 1, 1);
-        Vector3 localScale = Vector3.one;
-        MeshFilter mf = prefab.GetComponentInChildren<MeshFilter>();
-        if (mf != null && mf.sharedMesh != null)
-        {
-            rawSize = mf.sharedMesh.bounds.size;
-            localScale = mf.transform.localScale;
-        }
-        else
-        {
-            BoxCollider bc = prefab.GetComponentInChildren<BoxCollider>();
-            if (bc != null)
-            {
-                rawSize = bc.size;
-                localScale = bc.transform.localScale;
-            }
-        }
-
-        // Apply local scale to the raw bounds to get the actual world-space size
-        rawSize.x *= localScale.x;
-        rawSize.y *= localScale.y;
-        rawSize.z *= localScale.z;
-
-        // Normalize so the result is always (width, height, length):
-        // Assume Y is height (vertical), and between X and Z, pick the larger as length.
-        float xz_min = Mathf.Min(rawSize.x, rawSize.z);
-        float xz_max = Mathf.Max(rawSize.x, rawSize.z);
-        return new Vector3(xz_min, rawSize.y, xz_max);  // (width, height, length)
-    }
-
-    /// <summary>Returns the Y-offset of the case prefab's mesh center from its prefab origin.
-    /// Used to correct cases where the mesh is authored with bottom-origin (offset > 0, mesh sits
-    /// above origin → would clip into pallet) or top-origin (offset < 0, mesh sits below origin
-    /// → would float above correct height). Most cases have center-origin (offset ≈ 0).</summary>
-    public static float GetMeshYOffset(GameObject prefab)
-    {
-        MeshFilter mf = prefab.GetComponentInChildren<MeshFilter>();
-        if (mf != null && mf.sharedMesh != null)
-        {
-            // Must also account for the mesh transform's local scale
-            return mf.sharedMesh.bounds.center.y * mf.transform.localScale.y;
-        }
-        return 0f;
     }
 }

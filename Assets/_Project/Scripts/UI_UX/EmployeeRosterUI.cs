@@ -346,8 +346,8 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         }
         var taskName = new Label(r.role.DisplayName());  // current task (role for now)
         taskName.AddToClassList("er-task-name");
-        taskBar.Add(taskIcon);
         taskBar.Add(taskName);
+        taskBar.Add(taskIcon);
         right.Add(taskBar);
 
         body.Add(right);

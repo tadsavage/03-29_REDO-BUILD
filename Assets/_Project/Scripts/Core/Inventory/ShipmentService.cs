@@ -30,6 +30,14 @@ namespace GameCore.Inventory
             _pendingShipments.Clear();
         }
 
+        /// <summary>Wipes the PO list without tearing down the service — used by the Dev Console's
+        /// "Clear Scene" button so leftover test POs don't keep spawning trucks against a scene
+        /// that's just been wiped.</summary>
+        public void ClearAll()
+        {
+            _pendingShipments.Clear();
+        }
+
         /// <summary>Creates a new Purchase Order and schedules a truck arrival.</summary>
         public void CreatePurchaseOrder(string supplierId, string supplierName, List<ShipmentLineItem> items)
         {

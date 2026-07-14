@@ -66,6 +66,7 @@ public class SlotAssignmentPanel
     private PickSlotOverlayController _overlayController;
     private bool _visible;
     private List<SkuData> _skuChoices = new();
+    private readonly Dictionary<int, VisualElement> _aisleHeaders = new();
 
     public SlotAssignmentPanel(VisualElement root)
     {
@@ -86,6 +87,18 @@ public class SlotAssignmentPanel
         RebuildLocationView();
         RebuildSkuDropdown();
         RebuildSkuView();
+    }
+
+    /// <summary>Opens on the By Location tab, scrolled to the given aisle — used by Shift+Click on
+    /// a rack (PlacementStateMachine) so the player lands directly on that rack's slots instead of
+    /// scrolling through the whole list. Symmetric with Ctrl+Click opening Pallet Builder scoped to
+    /// the clicked pallet.</summary>
+    public void ShowForAisle(int aisle)
+    {
+        Show();
+        SelectTab(location: true);
+        if (_aisleHeaders.TryGetValue(aisle, out var header))
+            _locationScroll.schedule.Execute(() => _locationScroll.ScrollTo(header)).ExecuteLater(16);
     }
 
     public void Hide()
@@ -266,6 +279,7 @@ public class SlotAssignmentPanel
         PruneOrphanedAssignments();
 
         _locationScroll.Clear();
+        _aisleHeaders.Clear();
 
         var byAisle = SlotRegistry.PickSlots
             .OrderBy(s => s.Aisle).ThenBy(s => s.Bay).ThenBy(s => s.Position)
@@ -281,6 +295,7 @@ public class SlotAssignmentPanel
             header.style.paddingLeft = 6; header.style.paddingTop = 3; header.style.paddingBottom = 3;
             header.style.marginTop = 6;
             _locationScroll.Add(header);
+            _aisleHeaders[aisleGroup.Key] = header;
 
             foreach (var slot in aisleGroup)
             {

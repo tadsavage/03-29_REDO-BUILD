@@ -574,13 +574,21 @@ public class AisleInitializer : MonoBehaviour
     // differently ("LabelFront.L.002") and even mirrors them, so name lookups silently failed and
     // left its default "A-01-01" text. Everything below keys off world geometry instead.
 
-    /// <summary>Sets every label to AA-BB-L{pos}, where pos = positionOf(that label's world pos).</summary>
+    /// <summary>Sets every label to AA-BB-L{pos}, where pos = positionOf(that label's world pos).
+    /// Also renames the sibling <c>Location</c> child (if present) to the same address so it can
+    /// be found by name at runtime for putaway targeting.</summary>
     private void SetRackLabels(GameObject rackGO, int aisle, int bay, string levelChar, System.Func<Vector3, int> positionOf)
     {
         foreach (var tmp in rackGO.GetComponentsInChildren<TMPro.TextMeshPro>(true))
         {
             int pos = positionOf(tmp.transform.position);
-            tmp.text = $"{aisle:D2}-{bay:D2}-{levelChar}{pos}";
+            string address = $"{aisle:D2}-{bay:D2}-{levelChar}{pos}";
+            tmp.text = address;
+
+            // Rename the sibling Location child to match (e.g. LabelFront.L/Location → "01-02-A0").
+            var location = tmp.transform.parent?.Find("Location");
+            if (location != null)
+                location.name = address;
         }
     }
 

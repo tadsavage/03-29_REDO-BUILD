@@ -888,11 +888,14 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  worldSpaceYHeight: 0
   isRackLive: 0
   rackAisle: -1
   rackBay: -1
   rackLevelIndex: -1
   rackAisleFacing: {x: 0, y: 0, z: 0}
+  rackTravelDir: {x: 0, y: 0, z: 0}
+  rackLevelChar: 
 --- !u!114 &7512288930252507186
 MonoBehaviour:
   m_ObjectHideFlags: 0
