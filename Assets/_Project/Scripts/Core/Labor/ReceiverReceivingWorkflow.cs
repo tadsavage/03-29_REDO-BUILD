@@ -358,10 +358,17 @@ namespace GameCore.Labor
         {
             if (_workQueue == null) return;
 
+            // RULE: Pallet must have real material (SKU) and quantity > 0 to be eligible for putaway.
+            var sku = _inventoryService?.GetSkuData(_palletMasterRecord.SkuId);
+            if (sku == null || _palletMasterRecord.Quantity <= 0)
+            {
+                Debug.LogWarning($"[ReceiverReceivingWorkflow] Skipping Putaway task for pallet {_palletMasterRecord.PalletId} — no valid material or zero quantity.");
+                return;
+            }
+
             string address = LaneNamingService.AddressAt(_palletMasterRecord.CurrentLocation)
                               ?? _palletMasterRecord.CurrentLocation.ToString();
 
-            var sku = _inventoryService?.GetSkuData(_palletMasterRecord.SkuId);
             var area = sku != null ? sku.StorageArea : PalletData.AreaCategory.Grocery;
 
             _workQueue.CreateTask(

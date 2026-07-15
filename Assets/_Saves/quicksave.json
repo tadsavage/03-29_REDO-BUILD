@@ -1,16 +1,16 @@
 {
     "saveName": "slot_save",
-    "money": 177067,
-    "spentToday": 46764,
+    "money": 171614,
+    "spentToday": 52217,
     "cameraData": {
         "focusPoint": {
-            "x": 5.655959129333496,
+            "x": 7.495012283325195,
             "y": 1.166677474975586,
-            "z": -7.521264553070068
+            "z": -7.468842029571533
         },
-        "distance": 19.303678512573243,
-        "pitch": 27.65013313293457,
-        "yaw": 10867.6943359375
+        "distance": 23.28367805480957,
+        "pitch": 38.65000915527344,
+        "yaw": 10841.150390625
     },
     "placedObjects": [
         {
@@ -3811,34 +3811,18 @@
             "y": 0,
             "rot": 0,
             "customData": "",
+            "worldY": 0.004999999888241291
+        },
+        {
+            "id": 69,
+            "x": 0,
+            "y": 0,
+            "rot": 0,
+            "customData": "",
             "worldY": 0.0
         }
     ],
     "devSettings": [
-        {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.5"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
         {
             "key": "PalletBuilder.maxTotalHeight",
             "val": "1"
@@ -3877,7 +3861,7 @@
         },
         {
             "key": "PalletBuilder.manualHi",
-            "val": "4"
+            "val": "6"
         },
         {
             "key": "PalletBuilder.casesPerLayer",
@@ -3885,11 +3869,75 @@
         },
         {
             "key": "PalletBuilder.layers",
-            "val": "4"
+            "val": "6"
         },
         {
             "key": "PalletBuilder.totalCases",
-            "val": "32"
+            "val": "48"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
+        },
+        {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.15"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
         },
         {
             "key": "VehicleThrottleAudio.hearingDistance",
@@ -3932,32 +3980,8 @@
             "val": "0.5"
         },
         {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
+            "key": "NavMeshManager._debounceTime",
             "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
-        },
-        {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
         },
         {
             "key": "FreeLookCamera.pitchMin",
@@ -4010,27 +4034,11 @@
         {
             "key": "Gate_Open_Close.arm_speed",
             "val": "80"
-        },
-        {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
         }
     ],
     "toolsWindowX": 100.5,
     "toolsWindowY": 120.0,
-    "guidanceLinesVisible": true,
+    "guidanceLinesVisible": false,
     "waypointsVisible": true,
     "hoverPopupEnabled": true,
     "employeeRecords": [
@@ -4051,7 +4059,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 18.950000762939454,
-            "totalWagesPaid": 273.0,
+            "totalWagesPaid": 432.0,
             "hireDateIso": "2026-07-13",
             "separationDateIso": "",
             "shift": 0,
@@ -4073,10 +4081,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 17.529020309448243,
-            "posY": 1.166677474975586,
-            "posZ": -13.455798149108887,
-            "rotY": 335.4944152832031,
+            "posX": 7.657262325286865,
+            "posY": 1.1379516124725342,
+            "posZ": -16.320737838745118,
+            "rotY": 105.41842651367188,
             "hasSavedPosition": true
         },
         {
@@ -4096,7 +4104,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 15.010000228881836,
-            "totalWagesPaid": 15.0,
+            "totalWagesPaid": 145.0,
             "hireDateIso": "2026-07-14",
             "separationDateIso": "",
             "shift": 0,
@@ -4118,10 +4126,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 1.4876930713653565,
+            "posX": 0.7125817537307739,
             "posY": 1.125009536743164,
-            "posZ": -15.139219284057618,
-            "rotY": 126.76947021484375,
+            "posZ": -18.505704879760743,
+            "rotY": 271.103515625,
             "hasSavedPosition": true
         },
         {
@@ -4141,7 +4149,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 21.020000457763673,
-            "totalWagesPaid": 0.0,
+            "totalWagesPaid": 181.0,
             "hireDateIso": "2026-07-14",
             "separationDateIso": "",
             "shift": 0,
@@ -4163,10 +4171,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 16.555662155151368,
-            "posY": 1.166677474975586,
-            "posZ": -10.61821174621582,
-            "rotY": 230.58004760742188,
+            "posX": 2.3476877212524416,
+            "posY": 1.152401328086853,
+            "posZ": -14.818008422851563,
+            "rotY": 105.61912536621094,
             "hasSavedPosition": true
         }
     ],
@@ -4262,7 +4270,7 @@
     "shiftDefinitions": [],
     "shipments": [
         {
-            "poNumber": "100317",
+            "poNumber": "100334",
             "supplierId": "SUPP_DEV1",
             "supplierName": "Dev Supplier",
             "arrivalDayNumber": 16,
@@ -4270,22 +4278,13 @@
             "status": 0,
             "lineItems": [
                 {
-                    "skuId": "482913",
-                    "quantity": 40,
+                    "skuId": "856320",
+                    "quantity": 60,
                     "receivedQuantity": 0,
-                    "unitCost": 18,
+                    "unitCost": 12,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 0,
                     "palletTier": 0
-                },
-                {
-                    "skuId": "482913",
-                    "quantity": 40,
-                    "receivedQuantity": 0,
-                    "unitCost": 18,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 1
                 },
                 {
                     "skuId": "615873",
@@ -4297,49 +4296,31 @@
                     "palletTier": 0
                 },
                 {
-                    "skuId": "482913",
-                    "quantity": 40,
+                    "skuId": "856320",
+                    "quantity": 60,
                     "receivedQuantity": 0,
-                    "unitCost": 18,
+                    "unitCost": 12,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 2,
                     "palletTier": 0
                 },
                 {
-                    "skuId": "482913",
-                    "quantity": 40,
+                    "skuId": "517634",
+                    "quantity": 36,
                     "receivedQuantity": 0,
-                    "unitCost": 18,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 1
-                },
-                {
-                    "skuId": "215678",
-                    "quantity": 40,
-                    "receivedQuantity": 0,
-                    "unitCost": 19,
+                    "unitCost": 30,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 3,
                     "palletTier": 0
                 },
                 {
-                    "skuId": "482913",
-                    "quantity": 40,
+                    "skuId": "983721",
+                    "quantity": 210,
                     "receivedQuantity": 0,
-                    "unitCost": 18,
+                    "unitCost": 45,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 4,
                     "palletTier": 0
-                },
-                {
-                    "skuId": "482913",
-                    "quantity": 40,
-                    "receivedQuantity": 0,
-                    "unitCost": 18,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 1
                 },
                 {
                     "skuId": "517634",
@@ -4360,58 +4341,76 @@
                     "palletTier": 0
                 },
                 {
-                    "skuId": "615873",
-                    "quantity": 48,
+                    "skuId": "732408",
+                    "quantity": 60,
                     "receivedQuantity": 0,
-                    "unitCost": 18,
+                    "unitCost": 42,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 7,
                     "palletTier": 0
                 },
                 {
-                    "skuId": "482913",
-                    "quantity": 40,
-                    "receivedQuantity": 0,
-                    "unitCost": 18,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 8,
-                    "palletTier": 0
-                },
-                {
-                    "skuId": "482913",
-                    "quantity": 40,
-                    "receivedQuantity": 0,
-                    "unitCost": 18,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 8,
-                    "palletTier": 1
-                },
-                {
-                    "skuId": "215678",
-                    "quantity": 40,
-                    "receivedQuantity": 0,
-                    "unitCost": 19,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 9,
-                    "palletTier": 0
-                },
-                {
                     "skuId": "615873",
                     "quantity": 48,
                     "receivedQuantity": 0,
                     "unitCost": 18,
                     "shelfLifeDays": -1,
+                    "floorSlotIndex": 8,
+                    "palletTier": 0
+                },
+                {
+                    "skuId": "856320",
+                    "quantity": 60,
+                    "receivedQuantity": 0,
+                    "unitCost": 12,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 9,
+                    "palletTier": 0
+                },
+                {
+                    "skuId": "856320",
+                    "quantity": 60,
+                    "receivedQuantity": 0,
+                    "unitCost": 12,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 9,
+                    "palletTier": 1
+                },
+                {
+                    "skuId": "856320",
+                    "quantity": 60,
+                    "receivedQuantity": 0,
+                    "unitCost": 12,
+                    "shelfLifeDays": -1,
                     "floorSlotIndex": 10,
                     "palletTier": 0
                 },
                 {
-                    "skuId": "482913",
-                    "quantity": 40,
+                    "skuId": "856320",
+                    "quantity": 60,
                     "receivedQuantity": 0,
-                    "unitCost": 18,
+                    "unitCost": 12,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 10,
+                    "palletTier": 1
+                },
+                {
+                    "skuId": "732408",
+                    "quantity": 60,
+                    "receivedQuantity": 0,
+                    "unitCost": 42,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 11,
                     "palletTier": 0
+                },
+                {
+                    "skuId": "732408",
+                    "quantity": 60,
+                    "receivedQuantity": 0,
+                    "unitCost": 42,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 11,
+                    "palletTier": 1
                 }
             ]
         }
@@ -4725,7 +4724,7 @@
             },
             {
                 "glLine": "Transportation",
-                "hourlyAmount": 605
+                "hourlyAmount": 660
             },
             {
                 "glLine": "Reach Truck",
@@ -4739,7 +4738,7 @@
         "fractionalByGLLine": [
             {
                 "glLine": "Walls",
-                "fractionalRemainder": 0.43333256244659426
+                "fractionalRemainder": 0.2333318591117859
             },
             {
                 "glLine": "Doors",
@@ -4747,23 +4746,23 @@
             },
             {
                 "glLine": "Dock Stocker",
-                "fractionalRemainder": 0.8000013828277588
+                "fractionalRemainder": 0.6000055074691773
             },
             {
                 "glLine": "Groundskeeping",
-                "fractionalRemainder": 0.849740743637085
+                "fractionalRemainder": 0.6497365236282349
             },
             {
                 "glLine": "Racking",
-                "fractionalRemainder": 0.8994814157485962
+                "fractionalRemainder": 0.09947311878204346
             },
             {
                 "glLine": "Loss Prevention",
-                "fractionalRemainder": 0.333118200302124
+                "fractionalRemainder": 0.33311474323272707
             },
             {
                 "glLine": "Flavor",
-                "fractionalRemainder": 0.0666666030883789
+                "fractionalRemainder": 0.46666663885116579
             },
             {
                 "glLine": "Light",
@@ -4775,13 +4774,13 @@
             },
             {
                 "glLine": "Reach Truck",
-                "fractionalRemainder": 0.1333245038986206
+                "fractionalRemainder": 0.33332034945487978
             }
         ]
     },
     "time": {
-        "hour": 14,
-        "minute": 29,
+        "hour": 20,
+        "minute": 17,
         "day": 16,
         "fractionalMinutes": 0.0
     },

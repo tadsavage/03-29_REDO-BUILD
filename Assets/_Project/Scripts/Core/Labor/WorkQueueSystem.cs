@@ -19,7 +19,7 @@ namespace GameCore.Labor
         public string PalletId { get; }
         public string Description { get; }
         public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Pending;
-        public int? AssignedToEmployeeGuid { get; set; }  // for persistence and tracking
+        public string AssignedToEmployeeGuid { get; set; }  // for persistence and tracking
 
         /// <summary>Where the pallet/work starts and ends, as human location labels (e.g. "STG1A",
         /// a reserve/pick address, or a door). FromLocation is immutable once set at creation.
@@ -76,6 +76,24 @@ namespace GameCore.Labor
         public WorkTask CreateTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
             string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery)
         {
+            // RULE: Putaway tasks can only be created for pallets that have been fully received (have PalletData).
+            // They must also have a valid FromLocation (staging lane).
+            if (type == WorkTaskType.Putaway)
+            {
+                if (string.IsNullOrEmpty(fromLocation) || fromLocation == "STG" || fromLocation.Contains("(0, 0)"))
+                {
+                    Debug.LogWarning($"[WorkQueueSystem] Denying Putaway task for {palletId} - invalid FromLocation: '{fromLocation}'");
+                    return null;
+                }
+
+                var link = PalletMasterLink.Find(palletId);
+                if (link == null || link.GetComponent<PalletData>() == null)
+                {
+                    Debug.LogWarning($"[WorkQueueSystem] Denying Putaway task for {palletId} - pallet not fully received or physical link missing.");
+                    return null;
+                }
+            }
+
             var task = new WorkTask(type, requiredRole, palletId, description, fromLocation, toLocation, area);
             _tasks.Add(task);
             OnTaskCreated?.Invoke(task);
@@ -87,21 +105,23 @@ namespace GameCore.Labor
             => _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Pending).ToList();
 
         /// <summary>Claims the oldest pending task for a role (FIFO). Marks it Assigned.</summary>
-        public bool TryClaimNextTask(EmployeeRole role, out WorkTask task)
+        public bool TryClaimNextTask(EmployeeRole role, string employeeGuid, out WorkTask task)
         {
             task = _tasks.FirstOrDefault(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Pending);
             if (task == null) return false;
             task.Status = WorkTaskStatus.Assigned;
+            task.AssignedToEmployeeGuid = employeeGuid;
             return true;
         }
 
         /// <summary>Claims a specific already-known task (e.g. one a caller picked by proximity
         /// rather than FIFO order — see ReceivingTaskDriver's nearest-pallet selection). Returns
         /// false without side effects if it's no longer Pending (already claimed by someone else).</summary>
-        public bool TryClaimSpecificTask(WorkTask task)
+        public bool TryClaimSpecificTask(WorkTask task, string employeeGuid)
         {
             if (task == null || task.Status != WorkTaskStatus.Pending) return false;
             task.Status = WorkTaskStatus.Assigned;
+            task.AssignedToEmployeeGuid = employeeGuid;
             return true;
         }
 

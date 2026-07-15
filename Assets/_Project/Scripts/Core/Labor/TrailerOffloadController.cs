@@ -70,6 +70,7 @@ namespace GameCore.Labor
         private const float ForkAxisSign = -1f;
 
         private static TrailerOffloadController _instance;
+        private static readonly Dictionary<Vector2Int, int> _pendingDrops = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -223,6 +224,11 @@ namespace GameCore.Labor
             {
                 Debug.LogWarning($"[TrailerOffload] No free Inbound/Both staging-lane slot for door {doorNumber} — dropping pallet where the DS stands.");
                 DropPallet(pallet, ds.position, LaneSurfaceY, palletWorldScale, ds.rotation);
+                
+                // CRITICAL: Even if it's not in a lane, it must be registered to the inventory service
+                // so the Receiver can find it, and it must have a CurrentLocation (even if it's (0,0) or stand-still).
+                // We use (0,0) as the "no slot" fallback.
+                RegisterAndQueue(inv, truck, Vector2Int.zero, pallet, ds.rotation, palletIndex);
                 yield break;
             }
 
@@ -257,6 +263,14 @@ namespace GameCore.Labor
             Quaternion rotatedPlacement = laneRotation;
 
             RegisterAndQueue(inv, truck, cell, pallet, rotatedPlacement, palletIndex);
+            
+            // Clear the reservation now that the pallet is registered in InventoryService
+            if (_pendingDrops.ContainsKey(cell))
+            {
+                _pendingDrops[cell]--;
+                if (_pendingDrops[cell] <= 0) _pendingDrops.Remove(cell);
+            }
+
             float dropBaseY = ComputeDropBaseY(cell, pallet.gameObject);
 
             // 12. Lower the forks toward the stack (cosmetic — DropPallet sets the exact final Y), then
@@ -473,9 +487,14 @@ namespace GameCore.Labor
                 foreach (var s in byFar)
                 {
                     int stacked = inv.GetPalletsAtLocation(s.Cell).Count;
-                    if (stacked < maxH)
+                    int pending = _pendingDrops.TryGetValue(s.Cell, out int p) ? p : 0;
+                    
+                    if (stacked + pending < maxH)
                     {
-                        door = d; laneLetter = lane; cell = s.Cell; tier = stacked;
+                        door = d; laneLetter = lane; cell = s.Cell; tier = stacked + pending;
+                        
+                        // Reserve the slot immediately so other stockers don't target it
+                        _pendingDrops[cell] = pending + 1;
                         return true;
                     }
                 }
@@ -561,7 +580,13 @@ namespace GameCore.Labor
                 foreach (var rec in inv.GetPalletsAtLocation(cell))
                 {
                     var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
-                    if (go == null || go == selfGO) continue; // skip self (on the forks) + unmeasurable
+                    if (go == null || go == selfGO) continue; 
+                    
+                    // CRITICAL FIX: Skip any pallet that is currently being carried (has a parent).
+                    // This prevents measuring the pallet on the current (or any other) stocker's forks,
+                    // which is the root cause of "stacking to the ceiling."
+                    if (go.transform.parent != null) continue;
+
                     float top = MeasureTopY(go);
                     if (top > highestTop) highestTop = top;
                 }

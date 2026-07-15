@@ -60,7 +60,7 @@ public class InboundTestPanel : MonoBehaviour
     private static readonly Color ColQueueHeaderText = new Color(1f, 0.96f, 0.55f, 1f);   // paler yellow for headings
 
     // Work-queue column widths (header & data rows share these so columns line up).
-    private const float WPallet = 96f, WItem = 72f, WArea = 70f, WPri = 48f, WRole = 52f, WTask = 90f, WFrom = 96f, WTo = 96f;
+    private const float WPallet = 86f, WItem = 68f, WArea = 60f, WPri = 36f, WRole = 42f, WTask = 80f, WFrom = 86f, WTo = 86f, WOperator = 90f;
 
     private UIDocument _doc;
     private VisualElement _window;
@@ -75,7 +75,7 @@ public class InboundTestPanel : MonoBehaviour
     private string _queueSig = "";
 
     // Work queue sorting
-    private enum SortColumn { Pallet, Item, Area, Priority, Role, Task, From, To }
+    private enum SortColumn { Pallet, Item, Area, Priority, Role, Task, From, To, Operator }
     private SortColumn _sortColumn = SortColumn.Pallet;
     private bool _sortAscending = true;
 
@@ -423,6 +423,7 @@ public class InboundTestPanel : MonoBehaviour
         AddSortableHeaderCell(row, "Task",      WTask,   SortColumn.Task);
         AddSortableHeaderCell(row, "From",      WFrom,   SortColumn.From);
         AddSortableHeaderCell(row, "To",        WTo,     SortColumn.To);
+        AddSortableHeaderCell(row, "Operator",  WOperator, SortColumn.Operator);
         return row;
     }
 
@@ -485,7 +486,17 @@ public class InboundTestPanel : MonoBehaviour
             case SortColumn.To:
                 tasks.Sort((a, b) => CompareString(a.ToLocation, b.ToLocation));
                 break;
+            case SortColumn.Operator:
+                tasks.Sort((a, b) => CompareString(GetOperatorName(a.AssignedToEmployeeGuid), GetOperatorName(b.AssignedToEmployeeGuid)));
+                break;
         }
+    }
+
+    private string GetOperatorName(string guid)
+    {
+        if (string.IsNullOrEmpty(guid)) return "—";
+        var emp = EmployeeRegistry.Instance?.GetByGuid(guid);
+        return emp != null ? emp.Record?.employeeName : "???";
     }
 
     private int CompareString(string a, string b)
@@ -582,6 +593,7 @@ public class InboundTestPanel : MonoBehaviour
         row.Add(QueueCell(task,   WTask,   ColQueueText, false, TextAnchor.MiddleLeft));
         row.Add(QueueCell(from,   WFrom,   ColQueueText, false, TextAnchor.MiddleLeft));
         row.Add(QueueCell(to,     WTo,     ColQueueText, false, TextAnchor.MiddleLeft));
+        row.Add(QueueCell(GetOperatorName(t.AssignedToEmployeeGuid), WOperator, ColQueueText, false, TextAnchor.MiddleLeft));
         return row;
     }
 

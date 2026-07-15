@@ -142,7 +142,13 @@ public class BuildingData : MonoBehaviour
         if (_obstacle == null) _obstacle = gameObject.AddComponent<NavMeshObstacle>();
 
         _obstacle.shape = NavMeshObstacleShape.Box;
-        _obstacle.carving = true;
+
+        // RULE: Inventory objects (pallets) should not carve the NavMesh. 
+        // This prevents "octagonal holes" in the staging lanes and racks.
+        // They still act as obstacles for RVO/steering avoidance.
+        bool isInventory = Data != null && Data.category == "Inventory";
+        _obstacle.carving = !isInventory;
+        
         _obstacle.carveOnlyStationary = true;
 
         // 0.75f factor leaves a gap at cell boundaries wide enough for agents (>= 2× AgentRadius).

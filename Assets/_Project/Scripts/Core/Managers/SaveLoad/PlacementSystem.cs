@@ -406,7 +406,7 @@ public class PlacementSystem : MonoBehaviour
                     palletId = task.PalletId,
                     description = task.Description,
                     status = (int)task.Status,
-                    assignedToEmployeeGuid = task.AssignedToEmployeeGuid ?? -1,
+                    assignedToEmployeeGuid = task.AssignedToEmployeeGuid,
                     fromLocation = task.FromLocation,
                     toLocation = task.ToLocation,
                     area = (int)task.Area
@@ -649,7 +649,7 @@ public class PlacementSystem : MonoBehaviour
 
                 // Set status and assignment
                 task.Status = (GameCore.Labor.WorkTaskStatus)snapshot.status;
-                task.AssignedToEmployeeGuid = snapshot.assignedToEmployeeGuid == -1 ? null : (int?)snapshot.assignedToEmployeeGuid;
+                task.AssignedToEmployeeGuid = snapshot.assignedToEmployeeGuid;
 
                 workQueueSystem.RegisterRestoredTask(task);
             }

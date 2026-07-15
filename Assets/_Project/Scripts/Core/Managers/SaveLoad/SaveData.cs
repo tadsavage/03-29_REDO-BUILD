@@ -141,7 +141,7 @@ public class WorkTaskSnapshot
     public string palletId;
     public string description;
     public int status;                       // WorkTaskStatus as int enum
-    public int assignedToEmployeeGuid;       // (nullable → -1 if null)
+    public string assignedToEmployeeGuid;    // (nullable)
     public string fromLocation;
     public string toLocation;
     public int area;                         // PalletData.AreaCategory as int enum

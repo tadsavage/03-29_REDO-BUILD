@@ -155,7 +155,12 @@ namespace GameCore.Actors
             }
 
             if (bestTask == null) return false;
-            if (!_workQueue.TryClaimSpecificTask(bestTask)) return false; // lost a race to another receiver
+
+            var identity = GetComponent<EmployeeIdentity>();
+            string guid = identity?.Record?.employeeGuid;
+            if (string.IsNullOrEmpty(guid)) return false;
+
+            if (!_workQueue.TryClaimSpecificTask(bestTask, guid)) return false; // lost a race to another receiver
 
             task = bestTask;
             palletTransform = bestTransform;

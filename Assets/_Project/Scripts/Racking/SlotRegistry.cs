@@ -170,7 +170,9 @@ public class SlotRegistry : MonoBehaviour
         slot.Bay = bay;
         slot.LevelChar = levelChar;
         slot.Position = position;
-        slot.IsPick = char.IsDigit(levelChar[0]);
+
+        // RULE: Only Level 0 is a Pick slot. All other levels (1, 2, A, B...) are Reserves.
+        slot.IsPick = (levelChar == "0");
         return true;
     }
 }

@@ -63,6 +63,14 @@ namespace GameCore.Labor
             if (!IsGhostedPallet(palletGO))
                 return;
 
+            // RULE: Receiving only happens in staging lanes. If the pallet is placed in a rack
+            // (or anywhere else not a lane), ignore it.
+            if (LaneNamingService.AddressAt(new Vector2Int(palletGO.gridX, palletGO.gridY)) == null)
+            {
+                Debug.Log($"[ReceivingService] Ignoring ghosted pallet placed at ({palletGO.gridX}, {palletGO.gridY}) - not a recognized lane.");
+                return;
+            }
+
             // Get the pallet's master record from inventory
             var cell = new Vector2Int(palletGO.gridX, palletGO.gridY);
             var palletsAtCell = _inventoryService.GetPalletsAtLocation(cell);

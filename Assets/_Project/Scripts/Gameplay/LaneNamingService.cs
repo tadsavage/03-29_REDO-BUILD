@@ -201,10 +201,10 @@ public class LaneNamingService : MonoBehaviour
         int numEnd = 0;
         while (numEnd < prefix.Length && char.IsDigit(prefix[numEnd])) numEnd++;
 
-        if (numEnd == 0 || numEnd >= prefix.Length) return false; // no digits or no letters
+        if (numEnd == 0) return false; // no digits at all
 
         if (!int.TryParse(prefix.Substring(0, numEnd), out doorNumber)) return false;
-        laneLetter = prefix.Substring(numEnd);
+        laneLetter = prefix.Substring(numEnd); // might be empty string, which is fine
 
         return int.TryParse(address.Substring(dash + 1), out slotNumber);
     }
