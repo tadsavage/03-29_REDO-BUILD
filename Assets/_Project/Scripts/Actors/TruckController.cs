@@ -133,6 +133,30 @@ public class TruckController : MonoBehaviour
     /// <summary>Called by the offload controller once every pallet is off — lets the truck depart.</summary>
     public void CompleteOffload() => _offloadComplete = true;
 
+    // ── Persistence read-only state ──────────────────────────────────────────────
+
+    /// <summary>True if this truck is in any departure/exit state and should NOT be saved.</summary>
+    public bool IsDeparting =>
+        _state == TruckState.DepartToApproach ||
+        _state == TruckState.ToLeaveNoTurn   ||
+        _state == TruckState.ToExit          ||
+        _state == TruckState.Exiting;
+
+    /// <summary>The dock slot claimed by this truck regardless of current state (set at AssignAndGo time).</summary>
+    public DockSlot AssignedDock => _dock;
+
+    /// <summary>Seconds the truck has been in the Docked state (used by offload fall-back timer).</summary>
+    public float DockedTime => _dockedTime;
+
+    /// <summary>True if a dock stocker has claimed this truck for offloading.</summary>
+    public bool OffloadClaimed => _offloadClaimed;
+
+    /// <summary>True if the dock stocker has fully finished offloading the trailer.</summary>
+    public bool OffloadComplete => _offloadComplete;
+
+    /// <summary>True if the trailer barn doors are currently open.</summary>
+    public bool DoorsOpen => _doorsOpen;
+
     // ── Route waypoints (world positions, injected by TruckYardManager) ──────────
 private DockSlot        _dock;
     private GuardController  _guard;
@@ -535,6 +559,345 @@ private DockSlot        _dock;
     public void ForceDeparture()
     {
         if (_state == TruckState.Docked) BeginDeparture();
+    }
+
+    // ── Persistence API ───────────────────────────────────────────────────────────
+
+    /// <summary>Assigns the shipment reference without spawning cargo — used by
+    /// TruckPersistenceService to re-link a restored truck to its PO.</summary>
+    public void SetShipment(GameCore.Inventory.ShipmentData shipment)
+    {
+        AssignedShipment = shipment;
+    }
+
+    /// <summary>
+    /// Captures every pallet currently under the Load container into snapshots, recording
+    /// the SKU, slot/tier position, and exact case transforms.  Called by
+    /// TruckPersistenceService before the game is saved.
+    /// </summary>
+    public List<TrailerPalletSnapshot> CaptureTrailerPallets()
+    {
+        var result = new List<TrailerPalletSnapshot>();
+        var loadParent = LoadContainer;
+        if (loadParent == null) return result;
+
+        for (int i = 0; i < loadParent.childCount; i++)
+        {
+            var pallet  = loadParent.GetChild(i);
+            var snap    = new TrailerPalletSnapshot();
+
+            ParseSlotAndTierFromName(pallet.name, out snap.floorSlot, out snap.palletTier);
+
+            var pd      = pallet.GetComponent<GameCore.Inventory.PalletData>();
+            var builder = pallet.GetComponentInChildren<PalletBuilder>();
+            snap.skuId  = (pd != null && !string.IsNullOrEmpty(pd.ItemNumber)) ? pd.ItemNumber
+                        : (builder?.linkedSku != null ? builder.linkedSku.SkuId : "");
+
+            if (builder != null)
+            {
+                snap.capturedTi = builder.manualTi;
+                snap.capturedHi = builder.manualHi;
+            }
+
+            var palletLoad = pallet.Find("PalletLoad");
+            if (palletLoad != null)
+            {
+                for (int j = 0; j < palletLoad.childCount; j++)
+                {
+                    snap.caseLocalPositions.Add(palletLoad.GetChild(j).localPosition);
+                    snap.caseLocalRotations.Add(palletLoad.GetChild(j).localRotation);
+                }
+            }
+
+            result.Add(snap);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Restores this truck from a save snapshot. Must be called AFTER <see cref="Init"/> has
+    /// been called (so waypoints are wired up) and after the dock slot has been found.
+    /// Sets world transform, claims the dock, rebuilds trailer cargo, applies all docked
+    /// visual side-effects, then sets the state machine to the saved state.
+    /// </summary>
+    public void RestoreFromSnapshot(TruckSnapshot snap, DockSlot dock)
+    {
+        var restoredState = (TruckState)snap.truckState;
+
+        // ── Dock assignment ────────────────────────────────────────────────────────
+        if (dock != null && !dock.IsOccupied)
+        {
+            _dock = dock;
+            _dock.Claim();
+        }
+
+        // ── Transform ─────────────────────────────────────────────────────────────
+        _groundY = snap.worldPosition.y;
+        transform.SetPositionAndRotation(snap.worldPosition, snap.worldRotation);
+
+        // ── Offload flags ──────────────────────────────────────────────────────────
+        _dockedTime      = snap.dockedTime;
+        _offloadClaimed  = snap.offloadClaimed;
+        _offloadComplete = snap.offloadComplete;
+
+        // ── Rebuild trailer cargo ──────────────────────────────────────────────────
+        if (snap.trailerPallets != null && snap.trailerPallets.Count > 0)
+            RestoreTrailerPallets(snap.trailerPallets);
+
+        // ── Per-state path re-initialisation ─────────────────────────────────────
+        // Some states need path data that was computed on first entry (Bezier params,
+        // straight-reverse start/target). Re-derive it from the restored transform so
+        // the Update loop doesn't consume zero-initialised vectors.
+        switch (restoredState)
+        {
+            case TruckState.Queuing:
+                // The yard manager will call SetQueueSlot after this returns.
+                _currentTarget = snap.worldPosition;
+                _useBezier     = false;
+                break;
+
+            case TruckState.GuardCheck:
+                // Guard state is transient and isn't worth re-entering on restore.
+                // Treat it as already cleared — advance straight into the yard.
+                GuardClearedToEnter();
+                return;   // state already changed by GuardClearedToEnter
+
+            case TruckState.ToEnterNoTurn:
+                _currentTarget = _gateEnterNoTurn ?? ApproachPoint();
+                _useBezier     = false;
+                break;
+
+            case TruckState.ToApproach:
+                _currentTarget = ApproachPoint();
+                _useBezier     = false;
+                break;
+
+            case TruckState.ToBackup:
+                // Re-derive the Bezier from current position toward BackupPoint.
+                if (_dock != null) BeginApproachToBackupCurve();
+                return;   // state already set by BeginApproachToBackupCurve
+
+            case TruckState.WaitingAtBackup:
+                // Reset the wait timer to 0 — BeginStraightReverse runs next frame.
+                _stateTimer    = 0f;
+                _currentTarget = _dock != null ? BackupPoint() : snap.worldPosition;
+                _useBezier     = false;
+                break;
+
+            case TruckState.Reversing:
+                // Mid-straight-reverse: put back into WaitingAtBackup so the path is
+                // cleanly re-derived from the current (restored) position.
+                _stateTimer = 0f;
+                _useBezier  = false;
+                _state      = TruckState.WaitingAtBackup;
+                return;
+
+            case TruckState.ReversingToDock:
+                // Snap to the dock — the truck was almost there anyway.
+                if (_dock != null)
+                {
+                    transform.SetPositionAndRotation(_dock.DockPosition, _dock.DockRotation);
+                    _groundY = _dock.DockPosition.y;
+                }
+                restoredState = TruckState.Docked;
+                ApplyDockedSideEffects();
+                break;
+
+            case TruckState.Docked:
+                ApplyDockedSideEffects();
+                break;
+
+            // Departing states should never be restored (TruckPersistenceService skips them),
+            // but handle defensively — demote to Docked so the truck doesn't immediately leave.
+            case TruckState.DepartToApproach:
+            case TruckState.ToLeaveNoTurn:
+            case TruckState.ToExit:
+            case TruckState.Exiting:
+                restoredState = TruckState.Docked;
+                ApplyDockedSideEffects();
+                break;
+        }
+
+        _state = restoredState;
+        Debug.Log($"[TruckController] Restored: PO={snap.poNumber} state={restoredState} door={snap.assignedDoorNumber} pallets={snap.trailerPallets?.Count ?? 0}");
+    }
+
+    // Applies all visual/controller side-effects that OnDocked() normally sets up.
+    // Called from RestoreFromSnapshot when restoring any Docked-equivalent state.
+    private void ApplyDockedSideEffects()
+    {
+        OpenTrailerDoors();
+        SetDockedGhost(true);
+        _dock?.LightController?.SetOccupied(true);
+        _dock?.SetDoorForcedOpen(true);
+        _dockedTime     = Mathf.Max(0f, _dockedTime);
+        _offloadClaimed  = _offloadClaimed;
+        _offloadComplete = _offloadComplete;
+    }
+
+    /// <summary>
+    /// Rebuilds the trailer's Load container from saved pallet snapshots.
+    /// Inlines pallet construction (rather than delegating to BuildOnePallet) so we
+    /// hold a direct reference to each new instance and can replace its PalletLoad with
+    /// the exact saved case transforms without relying on child-index heuristics.
+    /// </summary>
+    private void RestoreTrailerPallets(List<TrailerPalletSnapshot> palletSnaps)
+    {
+        if (palletVisualPrefab == null)
+        {
+            Debug.LogWarning($"[TruckController] Cannot restore trailer pallets on '{name}' — palletVisualPrefab not assigned.");
+            return;
+        }
+        var loadParent = LoadContainer;
+        if (loadParent == null)
+        {
+            Debug.LogWarning($"[TruckController] Cannot restore trailer pallets on '{name}' — Load container not found.");
+            return;
+        }
+
+        // DestroyImmediate here so the children list is empty before we start adding new
+        // ones — using Destroy (deferred) could leave old children in the hierarchy during
+        // this method's execution, making child-count indexing unreliable.
+        for (int i = loadParent.childCount - 1; i >= 0; i--)
+            DestroyImmediate(loadParent.GetChild(i).gameObject);
+
+        var inventoryService = GameCore.Services.ServiceLocator.Get<GameCore.Inventory.InventoryService>();
+        var gameCtx = FindAnyObjectByType<GameContext>();
+        int currentDay = gameCtx != null ? gameCtx.TimeService.Day : 0;
+
+        for (int i = 0; i < palletSnaps.Count; i++)
+        {
+            var palletSnap = palletSnaps[i];
+            if (palletSnap == null) continue;
+
+            var sku = inventoryService?.GetSkuData(palletSnap.skuId);
+
+            // ── Instantiate pallet root ──────────────────────────────────────
+            var instance = Instantiate(palletVisualPrefab);
+            instance.transform.SetParent(loadParent);
+            instance.transform.localPosition = SlotLocalPosition(palletSnap.floorSlot, palletSnap.palletTier, sku);
+            instance.transform.localRotation = Quaternion.identity;
+            instance.name = $"Pallet_{i:D2}_Slot{palletSnap.floorSlot}_Tier{palletSnap.palletTier}";
+
+            // Cargo pallets must not register in the build-menu grid (same as BuildOnePallet).
+            var po = instance.GetComponent<PlacedObject>();
+            if (po != null) po.enabled = false;
+            var bd = instance.GetComponent<BuildingData>();
+            if (bd != null) Destroy(bd);
+
+            // ── Rebuild PalletLoad ───────────────────────────────────────────
+            var builder = instance.GetComponentInChildren<PalletBuilder>();
+
+            bool hasSavedCases = palletSnap.caseLocalPositions != null &&
+                                  palletSnap.caseLocalPositions.Count > 0 &&
+                                  sku?.Prefab != null;
+
+            if (hasSavedCases)
+            {
+                // Remove any pre-existing PalletLoad (from the prefab's baked state or
+                // an auto-build triggered by PalletBuilder.Start).
+                var existingLoad = instance.transform.Find("PalletLoad");
+                if (existingLoad != null) DestroyImmediate(existingLoad.gameObject);
+
+                var loadObj = new GameObject("PalletLoad");
+                loadObj.transform.SetParent(instance.transform, false);
+                loadObj.transform.localPosition = Vector3.zero;
+                loadObj.transform.localRotation = Quaternion.identity;
+
+                int caseCount = Mathf.Min(palletSnap.caseLocalPositions.Count,
+                                          palletSnap.caseLocalRotations.Count);
+                for (int j = 0; j < caseCount; j++)
+                {
+                    var caseGO = Instantiate(sku.Prefab, loadObj.transform);
+                    caseGO.transform.localPosition = palletSnap.caseLocalPositions[j];
+                    caseGO.transform.localRotation = palletSnap.caseLocalRotations[j];
+
+                    var casePo = caseGO.GetComponent<PlacedObject>();
+                    if (casePo != null) { casePo.enabled = false; Destroy(casePo); }
+                    var caseBd = caseGO.GetComponent<BuildingData>();
+                    if (caseBd != null) Destroy(caseBd);
+                }
+
+                if (builder != null)
+                {
+                    builder.casePrefab = sku.Prefab;
+                    builder.linkedSku  = sku;
+                    if (palletSnap.capturedTi > 0 && palletSnap.capturedHi > 0)
+                    {
+                        builder.useTiHiOverride = true;
+                        builder.manualTi = palletSnap.capturedTi;
+                        builder.manualHi = palletSnap.capturedHi;
+                    }
+                }
+            }
+            else if (builder != null && sku != null)
+            {
+                // No exact case snapshots — fall back to a fresh Ti/Hi build.
+                builder.casePrefab = sku.Prefab;
+                builder.linkedSku  = sku;
+                if ((palletSnap.capturedTi > 0 && palletSnap.capturedHi > 0) ||
+                    (sku.Ti > 0 && sku.Hi > 0))
+                {
+                    builder.useTiHiOverride = true;
+                    builder.manualTi = palletSnap.capturedTi > 0 ? palletSnap.capturedTi : sku.Ti;
+                    builder.manualHi = palletSnap.capturedHi > 0 ? palletSnap.capturedHi : sku.Hi;
+                }
+                builder.Build(deductMoney: false);
+            }
+
+            // Ghost all cases — this is cargo on the trailer, not yet received.
+            if (_cargoGhostMaterial != null && builder != null)
+                builder.GhostCases(_cargoGhostMaterial);
+
+            // ── PalletData component ─────────────────────────────────────────
+            var palletData = instance.GetComponent<GameCore.Inventory.PalletData>();
+            if (palletData == null)
+                palletData = instance.AddComponent<GameCore.Inventory.PalletData>();
+
+            int estimatedCases = (sku != null && sku.Ti > 0 && sku.Hi > 0) ? (sku.Ti * sku.Hi) : 0;
+            int expirationDay  = sku != null && sku.ShelfLifeDays >= 0
+                                 ? currentDay + sku.ShelfLifeDays : -1;
+            palletData.Initialize(
+                loadId:        "",
+                itemNumber:    palletSnap.skuId,
+                caseQuantity:  estimatedCases,
+                expirationDay: expirationDay,
+                area:          sku?.StorageArea ?? GameCore.Inventory.PalletData.AreaCategory.Grocery,
+                iconSprite:    sku?.Icon,
+                location:      Vector2Int.zero
+            );
+
+            // ── Physics components ───────────────────────────────────────────
+            var col = instance.GetComponent<BoxCollider>();
+            if (col == null) col = instance.AddComponent<BoxCollider>();
+            float palletHeight = sku != null ? 0.16f + (sku.CaseHeight * sku.Hi) + 0.05f : 0.5f;
+            col.size   = new Vector3(1.2192f, palletHeight, 1.016f);
+            col.center = new Vector3(0f, palletHeight / 2f, 0f);
+            col.isTrigger = true;
+
+            var rb = instance.GetComponent<Rigidbody>();
+            if (rb == null) rb = instance.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity  = false;
+            rb.constraints = RigidbodyConstraints.FreezeRotation;
+        }
+
+        Debug.Log($"[TruckController] Restored {palletSnaps.Count} trailer pallet(s) on '{name}'.");
+    }
+
+    // ── Shared name-parsing helper ────────────────────────────────────────────────
+    private static void ParseSlotAndTierFromName(string name, out int slot, out int tier)
+    {
+        slot = 0; tier = 0;
+        if (string.IsNullOrEmpty(name)) return;
+        var parts = name.Split('_');
+        foreach (var p in parts)
+        {
+            if (p.StartsWith("Slot", System.StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(p.Substring(4), out int s)) slot = s;
+            if (p.StartsWith("Tier", System.StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(p.Substring(4), out int t)) tier = t;
+        }
     }
 
     // ── Route points (computed per-door from DockSlot offsets) ───────────────────

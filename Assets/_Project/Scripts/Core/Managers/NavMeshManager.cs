@@ -200,10 +200,34 @@ public class NavMeshManager : MonoBehaviour
                 if (name.Contains("TextMeshPro") || name.Contains("TextMesh Pro") || name.Contains("TextMesh") || name == "TextMeshPro Mesh")
                 {
                     sources.RemoveAt(i);
+                    continue;
                 }
+            }
+
+            // Exclude ChepAnchorFront/Rear and their children from the bake.
+            // These are used for positioning/anchoring and should never carve the NavMesh,
+            // as they block MHE (Reach Trucks) from completing putaways.
+            if (src.component != null && IsInsideChepAnchor(src.component.transform))
+            {
+                sources.RemoveAt(i);
+                continue;
             }
         }
     }
+
+    private bool IsInsideChepAnchor(Transform t)
+    {
+        while (t != null)
+        {
+            string name = t.name;
+            if (name.Contains("ChepAnchorFront") || name.Contains("ChepAnchorRear"))
+                return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
+    private const string RackingCategory = "Racking";
 
     private List<NavMeshBuildMarkup> BuildMarkups(List<NavMeshModifier> modifiers)
     {
@@ -227,6 +251,17 @@ public class NavMeshManager : MonoBehaviour
                     ignoreFromBuild = mod.ignoreFromBuild
                 });
         }
+
+        // Auto-exclude all rack objects. Racks are instantiated at runtime from prefabs
+        // so they can never appear in _alwaysExclude (which requires scene-instance references).
+        // Marking the root excludes the entire rack hierarchy during CollectSources.
+        foreach (var placed in PlacedObjectRegistry.All)
+        {
+            if (placed == null || placed.gameObject == null) continue;
+            if (placed.data == null || placed.data.category != RackingCategory) continue;
+            markups.Add(new NavMeshBuildMarkup { root = placed.transform, ignoreFromBuild = true });
+        }
+
         return markups;
     }
 
@@ -525,20 +560,7 @@ public class NavMeshManager : MonoBehaviour
                 _lastModifierUpdate = Time.realtimeSinceStartup;
             }
 
-            var markups = new List<NavMeshBuildMarkup>();
-            foreach (var mod in _modifierCache)
-            {
-                if (mod != null && mod.isActiveAndEnabled)
-                {
-                    markups.Add(new NavMeshBuildMarkup
-                    {
-                        root = mod.transform,
-                        overrideArea = mod.overrideArea,
-                        area = mod.area,
-                        ignoreFromBuild = mod.ignoreFromBuild
-                    });
-                }
-            }
+            var markups = BuildMarkups(_modifierCache);
 
             foreach (var surface in _surfaces)
             {

@@ -193,20 +193,24 @@ namespace GameCore.Actors
             List<LaneNamingService.LaneSlot> slots = LaneNamingService.GetLane(door, lane);
             if (slots.Count == 0) return false;
 
+            // Iterate from the exit end of the lane inward.
             for (int i = slots.Count - 1; i >= 0; i--)
             {
                 List<PalletMasterRecord> pallets = _inventoryService?.GetPalletsAtLocation(slots[i].Cell);
                 if (pallets == null || pallets.Count == 0) continue;
 
-                // Found the most accessible occupied slot.
+                // Found the exit-most occupied slot.
                 PalletMasterRecord topmost = pallets[pallets.Count - 1];
                 
-                // If the pallet we want isn't at the top, it's blocked.
-                if (topmost.PalletId != targetPalletId) return false;
+                // If the pallet we want is the topmost one at the exit end, it's accessible.
+                if (topmost.PalletId == targetPalletId)
+                {
+                    PalletMasterLink link = PalletMasterLink.Find(targetPalletId);
+                    return link != null && link.GetComponent<PalletData>() != null;
+                }
 
-                // If it is at the top, it must be received.
-                PalletMasterLink link = PalletMasterLink.Find(targetPalletId);
-                return link != null && link.GetComponent<PalletData>() != null;
+                // If we found a different pallet closer to the exit than our target, we are blocked.
+                return false;
             }
             return false;
         }
@@ -558,9 +562,6 @@ namespace GameCore.Actors
             List<LaneNamingService.LaneSlot> slots = LaneNamingService.GetLane(door, lane);
             if (slots.Count == 0) return null;
 
-            Vector3 exitPos = Vector3.zero;
-            LaneNamingService.TryGetSlotWorldPos(slots[slots.Count - 1].Cell, out exitPos);
-
             for (int i = slots.Count - 1; i >= 0; i--)
             {
                 List<PalletMasterRecord> pallets = _inventoryService?.GetPalletsAtLocation(slots[i].Cell);
@@ -573,9 +574,13 @@ namespace GameCore.Actors
                 // RULE: Wait for the palette on top to be received.
                 if (link.GetComponent<PalletData>() == null) return null;
 
-                // Verify pallet is physically near lane exit.
-                // INCREASED: 5m was too short for 10m+ lanes; 20m ensures we find the pallet anywhere in the lane.
-                if (Vector3.Distance(link.transform.position, exitPos) > 20.0f) continue;
+                // Verify pallet is physically near the slot it's assigned to.
+                // We compare to the specific slot's position rather than the lane's final exit point,
+                // as a long lane might put the first few pallets > 20m from the exit.
+                if (LaneNamingService.TryGetSlotWorldPos(slots[i].Cell, out var slotWorldPos))
+                {
+                    if (Vector3.Distance(link.transform.position, slotWorldPos) > 5.0f) continue;
+                }
 
                 palletId = topmost.PalletId;
                 return link.transform;

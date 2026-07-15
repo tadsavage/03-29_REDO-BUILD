@@ -123,6 +123,60 @@ public class TruckYardManager : MonoBehaviour
     /// <summary>GS_Main — the guard-shack body a fired employee faces while waving. Null if missing.</summary>
     public Vector3? GuardShackMain => Pos(DeepFind(transform, "GS_Main"));
 
+    // ── Persistence API ───────────────────────────────────────────────────────
+
+    /// <summary>The truck prefab used to spawn trucks. Exposed for TruckPersistenceService.</summary>
+    public GameObject TruckPrefab => truckPrefab;
+
+    /// <summary>Gate-stop waypoint position (Null if guard shack absent).</summary>
+    public Vector3? GateStopPosition => _gateStop != null ? (Vector3?)_gateStop.position : null;
+
+    /// <summary>GateEnterNoTurn waypoint position.</summary>
+    public Vector3? GateEnterNoTurnPosition => _gateEnterNoTurn != null ? (Vector3?)_gateEnterNoTurn.position : null;
+
+    /// <summary>GateLeaveNoTurn waypoint position.</summary>
+    public Vector3? GateLeaveNoTurnPosition => _gateLeaveNoTurn != null ? (Vector3?)_gateLeaveNoTurn.position : null;
+
+    /// <summary>Exit-point waypoint position.</summary>
+    public Vector3? ExitWaypointPosition => _exitPoint != null ? (Vector3?)_exitPoint.position : null;
+
+    /// <summary>The guard controller at the gate. May be null if no guard is present.</summary>
+    public GuardController Guard => _guard;
+
+    /// <summary>
+    /// Wires a restored truck into this yard manager — injects waypoints and callbacks,
+    /// subscribes to the gate-clear event, increments the active-truck counter, and
+    /// optionally queues the truck in the gate queue (for trucks saved mid-queue).
+    /// Call this for every truck restored by TruckPersistenceService before calling
+    /// <see cref="FinalizeGateQueue"/> once all trucks have been registered.
+    /// </summary>
+    /// <param name="ctrl">The freshly-restored truck.</param>
+    /// <param name="addToGateQueue">True if the truck was in Queuing/GuardCheck state at
+    /// save time and should be added back to the physical gate queue.</param>
+    public void RegisterRestoredTruck(TruckController ctrl, bool addToGateQueue)
+    {
+        ctrl.Init(
+            GateStopPosition,
+            GateEnterNoTurnPosition,
+            GateLeaveNoTurnPosition,
+            ExitWaypointPosition,
+            _guard,
+            OnTruckExited
+        );
+
+        ctrl.OnClearedGate += () => OnTruckClearedGate(ctrl);
+        _activeTrucks++;
+
+        if (addToGateQueue)
+            _gateQueue.Add(ctrl);
+    }
+
+    /// <summary>
+    /// Re-lays the gate queue after all restored trucks have been registered via
+    /// <see cref="RegisterRestoredTruck"/>. Assigns correct slot positions to all queued trucks.
+    /// </summary>
+    public void FinalizeGateQueue() => LayoutQueue();
+
     private static Vector3? Pos(Transform t) => t != null ? (Vector3?)t.position : null;
 
     private static Transform DeepFind(Transform parent, string childName)

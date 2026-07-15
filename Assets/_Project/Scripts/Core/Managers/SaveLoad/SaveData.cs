@@ -62,6 +62,12 @@ public class SaveData
     // old SKU/Ti-Hi-driven visual reconstruction (InventoryPersistenceService) was unreliable.
     public List<DockPalletSnapshot> dockPallets = new();
 
+    // ── TRUCK YARD PERSISTENCE ───────────────────────────────────────────────
+    // All trucks currently in the yard — their route state, world transform, assigned dock,
+    // linked PO, offload progress, and the pallets still riding on the trailer. Absent in
+    // older saves (empty list → yard starts empty, which was the old behaviour).
+    public List<TruckSnapshot> trucks = new();
+
     // ── Game settings captured per-save ──────────────────────────────────────
     // Sentinel defaults (-1 / empty) mean "not stored in this file" so that
     // loading an OLD save does not overwrite the player's current settings.
@@ -216,4 +222,89 @@ public class DockPalletSnapshot
     // "Current" reading in the dev panel and the editable value can never disagree again.
     public int capturedTi = 0;
     public int capturedHi = 0;
+}
+
+/// <summary>
+/// Serializable snapshot of one truck currently in the yard. Captures everything needed to
+/// restore the truck at the exact state it was saved in — route position, assigned dock,
+/// linked PO, offload progress, and all pallets still riding on the trailer.
+/// </summary>
+[System.Serializable]
+public class TruckSnapshot
+{
+    /// <summary>PO number that links this truck back to a <see cref="ShipmentSnapshot"/> in
+    /// <see cref="SaveData.shipments"/>. Empty if the truck has no assigned shipment.</summary>
+    public string poNumber;
+
+    /// <summary>Door number of the <see cref="DockSlot"/> claimed by this truck. -1 = not yet
+    /// assigned (possible if truck is still queuing before it picks a free dock).</summary>
+    public int assignedDoorNumber = -1;
+
+    /// <summary><see cref="TruckController.TruckState"/> cast to int.</summary>
+    public int truckState;
+
+    /// <summary>Exact world position at save time.</summary>
+    public Vector3 worldPosition;
+
+    /// <summary>Exact world rotation at save time.</summary>
+    public Quaternion worldRotation;
+
+    /// <summary>How long (seconds) the truck has been in the Docked state. Used so the
+    /// fall-back offload timer picks up from where it left off rather than resetting to zero.</summary>
+    public float dockedTime;
+
+    /// <summary>True if a dock stocker has claimed this truck for offloading.</summary>
+    public bool offloadClaimed;
+
+    /// <summary>True if the dock stocker has fully offloaded the trailer.</summary>
+    public bool offloadComplete;
+
+    /// <summary>True if the trailer barn doors were open at save time (docked trucks).</summary>
+    public bool doorsOpen;
+
+    /// <summary>Saved position index in the gate queue (0 = front). Only meaningful when
+    /// <see cref="truckState"/> is Queuing or GuardCheck. Used to restore queue order.</summary>
+    public int gateQueueIndex;
+
+    /// <summary>Pallets still physically on the trailer at save time. Excludes any pallets
+    /// that have already been offloaded to a staging lane (those are captured by
+    /// PalletPersistenceService). Pallets that were on a dock stocker's forks at save time
+    /// are also folded in here so they restore on the truck instead of being lost.</summary>
+    public List<TrailerPalletSnapshot> trailerPallets = new();
+}
+
+/// <summary>
+/// One pallet still on a truck's trailer at save time. Captures the slot/tier position within
+/// the Load container (so it can be re-placed at the exact same local offset) plus the SKU
+/// identity and every case's exact local transform (for pixel-perfect visual restoration).
+/// </summary>
+[System.Serializable]
+public class TrailerPalletSnapshot
+{
+    /// <summary>SKU identifier — used to resolve <c>SkuData</c> (case prefab, dimensions,
+    /// Ti/Hi) on restore.</summary>
+    public string skuId;
+
+    /// <summary>Floor slot index (0-11) encoding which of the 12 positions in the trailer
+    /// this pallet occupies. Matches the <c>SlotN</c> fragment in the pallet's GameObject
+    /// name (e.g. "Pallet_02_Slot5_Tier0" → floorSlot=5).</summary>
+    public int floorSlot;
+
+    /// <summary>Vertical tier: 0 = floor level, 1 = stacked on top of the tier-0 pallet at
+    /// the same slot. Matches the <c>TierN</c> fragment in the pallet's name.</summary>
+    public int palletTier;
+
+    /// <summary>Ground-truth Ti (cases-per-layer) captured from the actual built layout at
+    /// save time. 0 = not yet computed / SKU never optimised.</summary>
+    public int capturedTi;
+
+    /// <summary>Ground-truth Hi (layer count) captured at save time. 0 = not yet computed.</summary>
+    public int capturedHi;
+
+    /// <summary>Local-space position of each case child under PalletLoad. Parallel array with
+    /// <see cref="caseLocalRotations"/>.</summary>
+    public List<Vector3> caseLocalPositions = new();
+
+    /// <summary>Local-space rotation of each case child under PalletLoad.</summary>
+    public List<Quaternion> caseLocalRotations = new();
 }

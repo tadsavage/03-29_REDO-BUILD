@@ -811,6 +811,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 00af90a2ed3222f4b86ce38f5eb805f3, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4455455949019519764}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 00af90a2ed3222f4b86ce38f5eb805f3, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -4393034854267532670}
   m_SourcePrefab: {fileID: 100100000, guid: 00af90a2ed3222f4b86ce38f5eb805f3, type: 3}
 --- !u!4 &4152962875303006661 stripped
 Transform:
@@ -888,11 +891,14 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  worldSpaceYHeight: 0
   isRackLive: 0
   rackAisle: -1
   rackBay: -1
   rackLevelIndex: -1
   rackAisleFacing: {x: 0, y: 0, z: 0}
+  rackTravelDir: {x: 0, y: 0, z: 0}
+  rackLevelChar: 
 --- !u!114 &4455455949019519764
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -912,6 +918,26 @@ MonoBehaviour:
   - {fileID: 675157842047938264}
   - {fileID: 7326706763735461277}
   lowDetailVisual: {fileID: 0}
+--- !u!114 &-4393034854267532670
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6100913867597237476}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifier
+  m_SerializedVersion: 0
+  m_OverrideArea: 0
+  m_Area: 0
+  m_OverrideGenerateLinks: 0
+  m_GenerateLinks: 0
+  m_IgnoreFromBuild: 1
+  m_ApplyToChildren: 1
+  m_AffectedAgents: ffffffff
 --- !u!4 &6137190173608023789 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 954772969757009752, guid: 00af90a2ed3222f4b86ce38f5eb805f3, type: 3}

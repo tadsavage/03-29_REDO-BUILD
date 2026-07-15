@@ -361,6 +361,7 @@ GameObject:
   - component: {fileID: 894282299918833025}
   - component: {fileID: 349279629250712024}
   - component: {fileID: 8360487380794472156}
+  - component: {fileID: 7591947614646059432}
   m_Layer: 0
   m_Name: DS_FULL
   m_TagString: Untagged
@@ -779,6 +780,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MHEOperatorSlot
   _operatorAnchor: {fileID: 8226973680266631542}
   _operatorDriveController: {fileID: 9100000, guid: e92cc716c193c174ba4050b60da02324, type: 2}
+--- !u!114 &7591947614646059432
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3389889987695447165}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifier
+  m_SerializedVersion: 0
+  m_OverrideArea: 0
+  m_Area: 0
+  m_OverrideGenerateLinks: 0
+  m_GenerateLinks: 0
+  m_IgnoreFromBuild: 1
+  m_ApplyToChildren: 1
+  m_AffectedAgents: ffffffff
 --- !u!1 &6245394892165333976
 GameObject:
   m_ObjectHideFlags: 0

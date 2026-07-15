@@ -462,6 +462,13 @@ public class PlacementSystem : MonoBehaviour
         // "Inventory" category skip there) so they aren't captured twice.
         save.dockPallets = GameCore.Persistence.PalletPersistenceService.CaptureAll();
 
+        // ── TRUCK YARD PERSISTENCE ─────────────────────────────────────────────
+        // Snapshot every truck that is still in the yard (not yet departed). Departing trucks
+        // are skipped and their PO is stamped Departed here so they don't respawn next load.
+        // Any pallets on a dock stocker's forks are folded back into the truck's snapshot so
+        // they restore on the trailer rather than disappearing.
+        save.trucks = GameCore.Persistence.TruckPersistenceService.CaptureAll();
+
         foreach (var entry in PlacedObjectRegistry.All)
         {
             // Yard floor tiles (id 200) aren't saved individually — they make up the vast
@@ -536,6 +543,13 @@ public class PlacementSystem : MonoBehaviour
     {
         moneyService.SetMoney(save.money);
         moneyService.SetSpentToday(save.spentToday);
+
+        // ── RESET TRUCK YARD ─────────────────────────────────────────────────
+        // Destroy all live trucks and release dock slots BEFORE ClearAll() wipes the
+        // ShippingDoor placed objects (which DockSlot.Release references). Trucks are NOT
+        // in PlacedObjectRegistry, so ClearAll() doesn't touch them.
+        var yardManager = Object.FindAnyObjectByType<TruckYardManager>();
+        yardManager?.ResetYard();
 
         // ── RESTORE ECONOMY STATE ────────────────────────────────────────────
         // Restore hourly costs and fractional accumulators so economy continues from saved state
@@ -760,6 +774,23 @@ public class PlacementSystem : MonoBehaviour
         // Rebuild grid AGAIN after pallet visuals are instantiated, since they now affect cell occupancy
         // (This ensures the placement grid knows about restored pallets in lanes)
         grid.RebuildFromRegistry();
+
+        // ── RESTORE TRUCK YARD ───────────────────────────────────────────────
+        // Respawn all saved trucks at their exact saved transforms. DockSlots are already
+        // live in DockSlot.All (spawned above by the placedObjects loop), so door lookups
+        // work correctly here. Any trucks that were departing at save time were not captured
+        // (their PO was stamped Departed by TruckPersistenceService.CaptureAll instead).
+        // Re-find the yard manager here: the old instance referenced in `yardManager` above
+        // was destroyed by ClearAll() (guard shack is a PlacedObject) and a fresh one was
+        // spawned in the SpawnFromSave loop above.
+        if (save.trucks != null && save.trucks.Count > 0)
+        {
+            var freshYardManager = Object.FindAnyObjectByType<TruckYardManager>();
+            if (freshYardManager != null)
+                GameCore.Persistence.TruckPersistenceService.RestoreAll(save.trucks, freshYardManager);
+            else
+                Debug.LogWarning("[PlacementSystem] TruckYardManager not found after scene restore — trucks not restored.");
+        }
 
         // Refresh rack labels: PlacedObject fields are restored but TMP text isn't.
         // Must happen before yard floors are populated (which triggers NavMesh bake).

@@ -325,6 +325,7 @@ GameObject:
   - component: {fileID: 6676750412034380189}
   - component: {fileID: 3972582223790366199}
   - component: {fileID: 3769956370802025769}
+  - component: {fileID: -2809056225464826133}
   m_Layer: 0
   m_Name: PltJack_FULL
   m_TagString: Untagged
@@ -518,6 +519,14 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  worldSpaceYHeight: 0
+  isRackLive: 0
+  rackAisle: -1
+  rackBay: -1
+  rackLevelIndex: -1
+  rackAisleFacing: {x: 0, y: 0, z: 0}
+  rackTravelDir: {x: 0, y: 0, z: 0}
+  rackLevelChar: 
 --- !u!54 &-6706777722881327581
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -729,6 +738,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d249d02c39d2a6447b8cfcce4acaf211, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MHEAutoOperatorOnPlacement
+--- !u!114 &-2809056225464826133
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7153508595185007600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifier
+  m_SerializedVersion: 0
+  m_OverrideArea: 0
+  m_Area: 0
+  m_OverrideGenerateLinks: 0
+  m_GenerateLinks: 0
+  m_IgnoreFromBuild: 1
+  m_ApplyToChildren: 1
+  m_AffectedAgents: ffffffff
 --- !u!1001 &378573340676538193
 PrefabInstance:
   m_ObjectHideFlags: 0
