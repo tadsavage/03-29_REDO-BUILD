@@ -111,7 +111,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     // off navigation immediately rather than waiting for the 60-frame polling cycle.
     private void OnNavMeshBaked()
     {
-        if (agent == null || !agent.isActiveAndEnabled) return;
+        if (agent == null || !agent.isActiveAndEnabled || _parked) return;
 
         _cachedLedges = null;  // foundations may have been placed since last bake
         FindWaypoints();
@@ -242,8 +242,11 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
         else
         {
-            if (agent.isActiveAndEnabled) agent.isStopped = false;
-            GoToRandomWaypoint();
+            if (agent.isActiveAndEnabled && agent.isOnNavMesh)
+            {
+                agent.isStopped = false;
+                GoToRandomWaypoint();
+            }
         }
     }
 
@@ -270,7 +273,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         var mheIndicator = GetComponent<NoWaypointIndicator>();
         if (mheIndicator != null) { mheIndicator.ForceClear(); mheIndicator.enabled = false; }
 
-        if (agent != null && agent.isActiveAndEnabled)
+        if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
             agent.isStopped = false;
             GoToRandomWaypoint();

@@ -292,6 +292,7 @@ public class PlacementSystem : MonoBehaviour
         save.laneConfigs = LaneConfigRegistry.Export();
         save.slotAssignments = SlotAssignmentService.Export();
         save.shiftDefinitions = ShiftDefinitionRegistry.Export();
+        save.locationStatuses = LocationStatusRegistry.Export();
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipmentService))
             save.shipments = shipmentService.Export();
@@ -495,6 +496,15 @@ public class PlacementSystem : MonoBehaviour
             // Prefer the explicitly-recorded worldSpaceYHeight if set; otherwise use current transform Y
             obj.worldY = entry.worldSpaceYHeight > 0f ? entry.worldSpaceYHeight : entry.transform.position.y;
 
+            // Mobile objects (MHE/Vehicles): capture exact world position and rotation so they resume
+            // exactly where they were instead of snapping back to their placement cell center.
+            if (entry.data.category == "MHE" || entry.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
+            {
+                obj.hasTransform = true;
+                obj.pos = entry.transform.position;
+                obj.rotation = entry.transform.rotation;
+            }
+
             // Committed aisle racks carry their location metadata (aisle/bay/level/facing/travel) only
             // in memory on the PlacedObject — the save format persists customData, so encode that
             // metadata into it. Without this, loaded racks revert to their prefab default label.
@@ -522,6 +532,24 @@ public class PlacementSystem : MonoBehaviour
                 rec.posZ = t.position.z;
                 rec.rotY = t.eulerAngles.y;
                 rec.hasSavedPosition = true;
+
+                // MHE boarding — record which vehicle (by stable grid cell) this operator was
+                // riding, if any, so RestoreBoarding can re-seat them on load.
+                if (ident.AssignedSlot != null)
+                {
+                    var vehiclePo = ident.AssignedSlot.GetComponent<PlacedObject>();
+                    if (vehiclePo != null)
+                    {
+                        rec.hasBoardedVehicle = true;
+                        rec.boardedVehicleGridX = vehiclePo.gridX;
+                        rec.boardedVehicleGridY = vehiclePo.gridY;
+                        Vector3 vPos = vehiclePo.transform.position;
+                        rec.boardedVehicleWorldX = vPos.x;
+                        rec.boardedVehicleWorldY = vPos.y;
+                        rec.boardedVehicleWorldZ = vPos.z;
+                    }
+                }
+
                 save.employeeRecords.Add(rec);
             }
         }
@@ -530,6 +558,11 @@ public class PlacementSystem : MonoBehaviour
         // Only snapshot if an archive exists, so saving never spawns one needlessly.
         if (FormerEmployeeArchive.HasInstance)
             save.formerEmployees = FormerEmployeeArchive.Instance.Snapshot();
+
+        // ── MHE OPERATOR CARRIED-PALLET PERSISTENCE ──────────────────────────
+        // Any pallet currently riding an operator's forks/anchor mid-task (mid-putaway on a Reach
+        // Truck, or the rare late-stage Dock Stocker carry) — see MHEOperatorPersistenceService.
+        save.carriedPallets = GameCore.Persistence.MHEOperatorPersistenceService.CaptureAll();
 
         // Trim portrait PNGs for anyone no longer in the active character database (e.g. unhired
         // candidates that cycled off the hiring board) so the Portraits folder can't grow unbounded.
@@ -673,6 +706,7 @@ public class PlacementSystem : MonoBehaviour
         LaneConfigRegistry.Import(save.laneConfigs);
         SlotAssignmentService.Import(save.slotAssignments);
         ShiftDefinitionRegistry.Import(save.shiftDefinitions);
+        LocationStatusRegistry.Import(save.locationStatuses);
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipmentService))
             shipmentService.Import(save.shipments);
@@ -722,7 +756,7 @@ public class PlacementSystem : MonoBehaviour
             // rebuilds their cases at exact captured transforms. This `continue` only matters for
             // OLDER save files that still have Inventory entries in placedObjects.
             if (so.category == "Inventory") continue;
-            SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData, objSave.worldY);
+            SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData, objSave.worldY, objSave.hasTransform, objSave.pos, objSave.rotation);
         }
 
         // Lower number restores first. Grounds/Foundations/floors must exist in the grid
@@ -734,6 +768,17 @@ public class PlacementSystem : MonoBehaviour
             if (so.category == "Foundation" || so.category == "Grounds" || so.isFloor) return 0;
             return 1;
         }
+
+        // Re-sync ShippingDoor numbers from their just-restored customData BEFORE trucks try to
+        // match doors by number below. Each door's DockSlot.OnEnable() fires synchronously inside
+        // Instantiate() above — BEFORE SpawnFromSave has a chance to write objSave.customData onto
+        // its PlacedObject a few lines later — so DockSlot.AssignDoorNumbers() runs once per door
+        // with an empty customData and hands out fresh sequential numbers instead of each door's
+        // real saved number. That mismatch made TruckPersistenceService's door-number lookup fail
+        // for otherwise-correctly-docked trucks, orphaning them (no dock claimed) forever after.
+        // Now that every door's customData is the correct restored value, re-running this fixes
+        // DockSlot.DoorNumber to match before anything below depends on it.
+        DockSlot.AssignDoorNumbers();
 
         // Rebuild the employee set from the save UNCONDITIONALLY — even when the save has zero
         // employees. Destroy whatever employees are currently in the scene, then respawn exactly
@@ -758,7 +803,7 @@ public class PlacementSystem : MonoBehaviour
             Object.Destroy(ident.gameObject);
         }
 
-        StartCoroutine(RespawnEmployeesAfterDestroyFlush(save.employeeRecords ?? new List<EmployeeRecord>()));
+        StartCoroutine(RespawnEmployeesAfterDestroyFlush(save.employeeRecords ?? new List<EmployeeRecord>(), save.carriedPallets));
 
         grid.RebuildFromRegistry();
         ServiceLocator.Get<EconomyService>()?.RebuildFromRegistry();
@@ -871,7 +916,7 @@ public class PlacementSystem : MonoBehaviour
     // deferred OnDestroy → Unregister(guid) completes first and frees the saved GUIDs.
     // Spawning in the same frame as Destroy() lets the old Unregister wipe the new
     // employees (shared GUIDs), leaving the registry empty.
-    private IEnumerator RespawnEmployeesAfterDestroyFlush(List<EmployeeRecord> records)
+    private IEnumerator RespawnEmployeesAfterDestroyFlush(List<EmployeeRecord> records, List<CarriedPalletSnapshot> carriedPallets)
     {
         yield return null; // wait one frame for Destroy() → Unregister to flush
 
@@ -887,6 +932,12 @@ public class PlacementSystem : MonoBehaviour
             if (rec != null && !string.IsNullOrEmpty(rec.employeeGuid))
                 spawner.SpawnEmployee(rec.Clone());
         }
+
+        // ── RESTORE MHE BOARDING + IN-PROGRESS CARRIED PALLETS ───────────────
+        // Runs after every employee AND every vehicle (spawned earlier, synchronously, by the
+        // placedObjects loop) exists. Boarding first (carried-pallet restore needs AssignedSlot).
+        GameCore.Persistence.MHEOperatorPersistenceService.RestoreBoarding(records);
+        GameCore.Persistence.MHEOperatorPersistenceService.RestoreCarriedPallets(carriedPallets, grid);
     }
 
     // ---------------------------------------------------------
@@ -950,7 +1001,8 @@ public class PlacementSystem : MonoBehaviour
         // ---------------------------------------------------------
     // LOAD GAME SPAWNING
     // ---------------------------------------------------------
-    public PlacedObject SpawnFromSave(ObjDataSO so, int x, int y, int rot, string customData = "", float worldY = 0f)
+    public PlacedObject SpawnFromSave(ObjDataSO so, int x, int y, int rot, string customData = "", float worldY = 0f, 
+                                      bool hasTransform = false, Vector3 pos = default, Quaternion rotation = default)
     {
         EnsureContainer();
         Vector2Int root = new Vector2Int(x, y);
@@ -970,9 +1022,16 @@ public class PlacementSystem : MonoBehaviour
         Vector3 worldPos = grid.GetCellCenter(root);
         worldPos.y += stackY;
 
+        // Mobile objects: use exact saved position/rotation if available.
+        if (hasTransform)
+        {
+            worldPos = pos;
+            rotationDeg = rotation.eulerAngles.y;
+        }
+
         bool hasAgent = so.prefab.GetComponent<UnityEngine.AI.NavMeshAgent>() != null;
         GameObject go = Instantiate(so.prefab, worldPos,
-                                    Quaternion.Euler(0f, rotationDeg, 0f),
+                                    hasTransform ? rotation : Quaternion.Euler(0f, rotationDeg, 0f),
                                     hasAgent ? null : _objectsContainer);
 
         PlacedObject po = go.GetComponent<PlacedObject>();
@@ -985,6 +1044,13 @@ public class PlacementSystem : MonoBehaviour
         po.Initialize(so, x, y, rot);
         po.customData = customData;
         po.worldSpaceYHeight = worldPos.y; // Restore world-space Y for stacked objects
+
+        if (hasTransform)
+        {
+            po.hasSavedTransform = true;
+            po.savedWorldPos = pos;
+            po.savedWorldRot = rotation;
+        }
 
         // Restore committed-rack metadata (aisle/bay/level/facing/travel) encoded into customData on
         // save. Labels themselves are redrawn later in RefreshAllRackLabelsAfterLoad once every rack
@@ -1026,18 +1092,24 @@ public class PlacementSystem : MonoBehaviour
             grid.AddStackObject(c, go, so);
         }
 
-        // For mobile agents (vehicles, humanoids): the isStackable-gated stackY above is for
-        // stacked ITEMS (pallets/boxes), not this — without it, a NavMeshAgent-bearing prefab
-        // restored from a save lands at the grid-cell-center height (~0) instead of the actual
-        // floor/foundation surface, visibly clipped into the ground. Mirrors the same
-        // correction PlacementFinalizer.FinalizePlacement already applies for fresh placements.
+        // For mobile agents (vehicles, humanoids): use exact saved position if available.
+        // Otherwise, apply floor-height correction for fresh placements.
         if (go.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
         {
-            float floorTopY = PlacementFinalizer.GetFloorTopY(grid, root);
-            float targetY = floorTopY;
-            if (so.worldYOffset != 0) targetY += so.worldYOffset;
+            if (hasTransform)
+            {
+                go.transform.position = pos;
+                go.transform.rotation = rotation;
+            }
+            else
+            {
+                float floorTopY = PlacementFinalizer.GetFloorTopY(grid, root);
+                float targetY = floorTopY;
+                if (so.worldYOffset != 0) targetY += so.worldYOffset;
 
-            go.transform.position = new Vector3(worldPos.x, targetY, worldPos.z);
+                go.transform.position = new Vector3(worldPos.x, targetY, worldPos.z);
+            }
+
             var navAgent = go.GetComponent<UnityEngine.AI.NavMeshAgent>();
             if (navAgent != null && navAgent.isActiveAndEnabled && navAgent.isOnNavMesh)
                 navAgent.Warp(go.transform.position);

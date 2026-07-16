@@ -25,6 +25,11 @@ public class SaveData
     // Pick-slot -> SKU assignments from the Slotting UI (SlotAssignmentService). Empty in older saves.
     public List<SlotAssignmentEntry> slotAssignments = new();
 
+    // Reserved/Occupied status per rack slot (LocationStatusRegistry) — without this, every
+    // completed putaway's "this slot is full" status (and any in-progress Reserved destination)
+    // silently reset to Available on reload. Empty in older saves.
+    public List<LocationStatusEntry> locationStatuses = new();
+
     // Player-defined shift templates from the Shift Manager UI (ShiftDefinitionRegistry). Empty in older saves.
     public List<ShiftDefinitionSnapshot> shiftDefinitions = new();
 
@@ -68,6 +73,12 @@ public class SaveData
     // older saves (empty list → yard starts empty, which was the old behaviour).
     public List<TruckSnapshot> trucks = new();
 
+    // ── MHE OPERATOR CARRIED-PALLET PERSISTENCE ──────────────────────────────
+    // Any pallet physically riding an MHE operator's forks/anchor at save time (mid-putaway on a
+    // Reach Truck, or the rare late-stage Dock Stocker carry after the pallet already has an
+    // InventoryService record). See MHEOperatorPersistenceService. Absent in older saves.
+    public List<CarriedPalletSnapshot> carriedPallets = new();
+
     // ── Game settings captured per-save ──────────────────────────────────────
     // Sentinel defaults (-1 / empty) mean "not stored in this file" so that
     // loading an OLD save does not overwrite the player's current settings.
@@ -106,6 +117,11 @@ public class SavedObject
     public int rot;  // Rotation index (0–3)
     public string customData;
     public float worldY;  // World Y (absolute height) — used for stacked pallets on dock
+
+    // Absolute transform for mobile objects (vehicles)
+    public bool hasTransform;
+    public Vector3 pos;
+    public Quaternion rotation;
 }
 
 [System.Serializable]
@@ -285,6 +301,17 @@ public class TrailerPalletSnapshot
     /// Ti/Hi) on restore.</summary>
     public string skuId;
 
+    // Embedded SkuData fields for robust recovery (matches DockPalletSnapshot)
+    public string itemDescription = "";
+    public float  caseLength;
+    public float  caseWidth;
+    public float  caseHeight;
+    public float  caseWeight;
+    public float  buyValue;
+    public float  sellValue;
+    public int    storageArea;
+    public int    shelfLifeDays = -1;
+
     /// <summary>Floor slot index (0-11) encoding which of the 12 positions in the trailer
     /// this pallet occupies. Matches the <c>SlotN</c> fragment in the pallet's GameObject
     /// name (e.g. "Pallet_02_Slot5_Tier0" → floorSlot=5).</summary>
@@ -306,5 +333,46 @@ public class TrailerPalletSnapshot
     public List<Vector3> caseLocalPositions = new();
 
     /// <summary>Local-space rotation of each case child under PalletLoad.</summary>
+    public List<Quaternion> caseLocalRotations = new();
+}
+
+/// <summary>
+/// One pallet physically riding an MHE operator's forks/carry-anchor at save time — mid-putaway
+/// on a Reach Truck (the common case: wide window, always has a real InventoryService record and
+/// a WorkTask with a known destination) or, rarely, still on a Dock Stocker's forks after
+/// <c>RegisterAndQueue</c> already gave it a record but before <c>DropPallet</c> unparented it.
+/// See MHEOperatorPersistenceService for capture/restore. Pallets that are still raw, unreceived
+/// trailer cargo (no InventoryService record yet) are NOT captured here — those are folded back
+/// into the truck's own TrailerPalletSnapshot list by TruckPersistenceService instead.
+/// </summary>
+[System.Serializable]
+public class CarriedPalletSnapshot
+{
+    /// <summary>GUID of the operator who was carrying this pallet — links it back to an
+    /// EmployeeRecord (and, via that record's boardedVehicleGridX/Y, the vehicle) on restore.</summary>
+    public string employeeGuid;
+
+    /// <summary>Name of the vehicle-hierarchy child the pallet was parented to (e.g. "Forks" or
+    /// "PalletAnchor") — restore re-parents onto the same-named child on the resumed vehicle.</summary>
+    public string carrierAnchorName;
+
+    /// <summary>Local position/rotation relative to the carrier anchor at save time.</summary>
+    public Vector3 localPosition;
+    public Quaternion localRotation;
+
+    /// <summary>Which ObjDataSO/prefab this pallet root is — resolved via ObjDataRegistry, same
+    /// pattern as DockPalletSnapshot.</summary>
+    public int objDataId = -1;
+
+    /// <summary>InventoryService PalletMasterRecord id (PalletMasterLink.PalletId). Always
+    /// non-empty for a captured carried pallet — see class summary.</summary>
+    public string inventoryPalletId = "";
+    public string loadId = "";
+    public string skuId = "";
+
+    public int capturedTi;
+    public int capturedHi;
+
+    public List<Vector3> caseLocalPositions = new();
     public List<Quaternion> caseLocalRotations = new();
 }

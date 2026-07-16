@@ -132,9 +132,11 @@ namespace GameCore.Persistence
             ServiceLocator.TryGet<ShipmentService>(out var shipmentSvc);
 
             // Restore trucks, accumulating gate-queue trucks sorted by saved queue index.
+            // CRITICAL: Sort by gateQueueIndex so they are registered in the correct order!
+            var sortedSnaps = snapshots.OrderBy(s => s.gateQueueIndex).ToList();
             var queuedTrucks = new List<(TruckController ctrl, int queueIndex)>();
 
-            foreach (var snap in snapshots)
+            foreach (var snap in sortedSnaps)
             {
                 if (snap == null) continue;
                 var ctrl = RestoreOneTruck(snap, yardManager, shipmentSvc);
@@ -179,6 +181,17 @@ namespace GameCore.Persistence
 
             if (dock == null && snap.assignedDoorNumber > 0)
                 Debug.LogWarning($"[TruckPersistenceService] Could not find DockSlot for door {snap.assignedDoorNumber} — truck may not dock correctly.");
+
+            // Orphan debris: no PO to reference and no dock to claim. These accumulated from an
+            // earlier restore bug (a door-numbering race — now fixed — could orphan a legitimately
+            // docked truck from its dock on load; once orphaned it can never depart cleanly, so it
+            // and its dead PO reference just got re-saved and re-restored every cycle). A truck with
+            // neither has nothing left to resume — drop it instead of resurrecting a dead truck.
+            if (string.IsNullOrEmpty(snap.poNumber) && dock == null)
+            {
+                Debug.LogWarning($"[TruckPersistenceService] Dropping orphaned truck snapshot (no PO, no dock, state={(TruckController.TruckState)snap.truckState}) — nothing to resume.");
+                return null;
+            }
 
             // Instantiate at the exact saved transform.
             var go = Object.Instantiate(prefab, snap.worldPosition, snap.worldRotation);
@@ -241,8 +254,13 @@ namespace GameCore.Persistence
                 {
                     if (child == null) continue;
                     var pd = child.GetComponent<GameCore.Inventory.PalletData>();
-                    // Unreceived pallet (empty LoadId) = came directly from a trailer.
-                    if (pd != null && string.IsNullOrEmpty(pd.LoadId))
+                    // Unreceived pallet (empty LoadId) = came directly from a trailer. Excludes
+                    // anything that already has a PalletMasterLink — that means
+                    // TrailerOffloadController.RegisterAndQueue already gave it a real
+                    // InventoryService record, so MHEOperatorPersistenceService owns capturing it
+                    // (and resuming/staging it) instead of folding it back onto the trailer.
+                    if (pd != null && string.IsNullOrEmpty(pd.LoadId)
+                        && child.GetComponent<GameCore.Inventory.PalletMasterLink>() == null)
                     {
                         map[child] = offloadTruck;
                         Debug.Log($"[TruckPersistenceService] Fork-carried pallet '{child.name}' found on DS '{slot.name}' — will be returned to trailer.");
@@ -267,6 +285,21 @@ namespace GameCore.Persistence
 
             snap.skuId = (pd != null && !string.IsNullOrEmpty(pd.ItemNumber)) ? pd.ItemNumber
                        : (builder?.linkedSku != null ? builder.linkedSku.SkuId : "");
+
+            // Capture fallback SkuData fields for robust recovery
+            if (builder != null && builder.linkedSku != null)
+            {
+                var sku = builder.linkedSku;
+                snap.itemDescription = sku.ItemDescription;
+                snap.caseLength = sku.CaseLength;
+                snap.caseWidth = sku.CaseWidth;
+                snap.caseHeight = sku.CaseHeight;
+                snap.caseWeight = sku.CaseWeight;
+                snap.buyValue = sku.BuyValue;
+                snap.sellValue = sku.SellValue;
+                snap.storageArea = (int)sku.StorageArea;
+                snap.shelfLifeDays = sku.ShelfLifeDays;
+            }
 
             if (builder != null)
             {

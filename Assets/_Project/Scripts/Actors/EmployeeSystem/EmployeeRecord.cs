@@ -95,6 +95,17 @@ public class EmployeeRecord
     public float rotY;
     public bool  hasSavedPosition;
 
+    // ─── MHE boarding (save/restore of operator↔vehicle pairing) ──────────────
+    // Captured at save time from EmployeeIdentity.AssignedSlot's PlacedObject grid cell — the
+    // vehicle's grid cell is stable across save/load (it's restored to the exact same cell via
+    // the normal placedObjects pipeline), so it doubles as a durable vehicle identifier without
+    // needing a new GUID system. hasBoardedVehicle false / grid -1,-1 = was on-foot at save time.
+    public bool hasBoardedVehicle;
+    public int  boardedVehicleGridX = -1;
+    public int  boardedVehicleGridY = -1;
+    public float boardedVehicleWorldX, boardedVehicleWorldY, boardedVehicleWorldZ;
+
+
     // ─── Constructor ──────────────────────────────────────────────────────────
     public EmployeeRecord()
     {

@@ -199,12 +199,23 @@ public class TruckYardManager : MonoBehaviour
             dock.Release();
         }
         
-        var trucks = Object.FindObjectsByType<TruckController>();
+        // Find EVERY truck in the scene, even those that lost their controller or identity
+        var trucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None);
         foreach (var t in trucks)
         {
-            Destroy(t.gameObject);
+            if (t != null && t.gameObject != null) DestroyImmediate(t.gameObject);
         }
-        
+
+        // Cleanup any orphaned "(Clone)" trucks or named instances that might be missing the script
+        var allGOs = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+        foreach (var go in allGOs)
+        {
+            if (go == null) continue;
+            if (go.name.Contains("Truck_SavageDev") || go.name.Contains("Truck→Door") || go.name.Contains("Truck→PO_"))
+            {
+                DestroyImmediate(go);
+            }
+        }
     }
 
     public void SpawnNextTruck()

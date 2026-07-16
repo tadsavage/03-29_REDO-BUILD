@@ -139,6 +139,8 @@ public class RackCollectionDetector : MonoBehaviour
         }
 
         // Free the aisle number for reuse once this aisle's LAST committed rack is gone.
+        // Also cleanup mid-deletion set of nulls before check
+        _deletingRacks.RemoveWhere(p => p == null);
         RecycleAisleIfEmpty(deleted);
     }
 
@@ -160,7 +162,6 @@ public class RackCollectionDetector : MonoBehaviour
         if (aisle < 0) return;
 
         _deletingRacks.Add(deleted);
-        _deletingRacks.RemoveWhere(p => p == null); // prune racks whose destruction has completed
 
         if (!AnyLiveRackInAisle(aisle))
         {

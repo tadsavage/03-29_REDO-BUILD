@@ -108,10 +108,7 @@ namespace GameCore.Actors
             var op = _operatorSlot.CurrentOperator;
             if (op?.Record == null || op.Record.role != EmployeeRole.ReachTruckOperator) return;
 
-            if (_workQueue        == null) ServiceLocator.TryGet(out _workQueue);
-            if (_putawayLogic     == null) ServiceLocator.TryGet(out _putawayLogic);
-            if (_inventoryService == null) ServiceLocator.TryGet(out _inventoryService);
-
+            ResolveServices();
             if (_workQueue == null) return;
 
             _pollTimer -= Time.deltaTime;
@@ -294,6 +291,19 @@ namespace GameCore.Actors
             // 6. Leg 1 Back-out -------------------------------------------------------------------
             yield return ReverseToPoint(transform, exitPoint);
 
+            // 7-9. Leg 2 rack travel + putdown — shared with ResumeDeliverToRack (a save/load
+            // mid-carry restores the pallet already seated on the forks with toAddress already
+            // known, so it re-enters here directly instead of repeating the lane pickup above).
+            yield return DeliverPalletToRack(pallet, palletId, toAddress, task, obstacle);
+        }
+
+        /// <summary>
+        /// Steps 7-9 of the putaway sequence: drive to the rack, extend forks to the slot, release
+        /// the pallet, complete the task. Factored out so a save/load mid-carry can resume directly
+        /// here (see ResumeDeliverToRack) without repeating the lane pickup (steps 1-6).
+        /// </summary>
+        private IEnumerator DeliverPalletToRack(Transform pallet, string palletId, string toAddress, WorkTask task, NavMeshObstacle obstacle)
+        {
             // 7. Leg 2 Rack Travel ----------------------------------------------------------------
             Transform locApproach = FindLocApproachAnchor(toAddress);
             if (locApproach == null)
@@ -326,7 +336,7 @@ namespace GameCore.Actors
                 yield return LiftForksToWorldY(_forks, locationTr.position.y + ForkRackClearance);
 
             Debug.Log($"[ReachTruckOperator] Extending forks to {toAddress}. Target distance: {Vector3.Distance(pallet.position, locationTr.position):F2}m");
-            
+
             bool varianceMet = false;
             float extended   = 0f;
             while (extended < MaxForkExtend)
@@ -384,6 +394,48 @@ namespace GameCore.Actors
             }
 
             Restore();
+        }
+
+        // ── Save/load resume entry points ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Called by MHEOperatorPersistenceService right after a save/load restores this operator's
+        /// vehicle and re-seats a pallet on its forks/anchor mid-putaway. The task's ToLocation was
+        /// already resolved and saved BEFORE the pallet was picked up (see PutawayRoutine step 5),
+        /// so this skips straight to the rack-delivery leg instead of re-deriving anything.
+        /// </summary>
+        public void ResumeDeliverToRack(WorkTask task, Transform pallet)
+        {
+            if (task == null || pallet == null || string.IsNullOrEmpty(task.ToLocation)) return;
+            ResolveServices();
+
+            Commandeer();
+            _busy = true;
+            NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
+            Debug.Log($"[ReachTruckOperator] '{name}' RESUMING task {task.TaskId} — delivering '{task.PalletId}' to {task.ToLocation}.");
+            StartCoroutine(DeliverPalletToRack(pallet, task.PalletId, task.ToLocation, task, obstacle));
+        }
+
+        /// <summary>
+        /// Called by MHEOperatorPersistenceService when this operator has an Assigned task but
+        /// hadn't picked up the pallet yet at save time (ToLocation still null) — nothing physical
+        /// happened, so the full routine re-derives everything from the lane exactly like a fresh
+        /// claim would.
+        /// </summary>
+        public void ResumeTask(WorkTask task)
+        {
+            if (task == null) return;
+            ResolveServices();
+
+            _busy = true;
+            StartCoroutine(PutawayRoutine(task));
+        }
+
+        private void ResolveServices()
+        {
+            if (_workQueue        == null) ServiceLocator.TryGet(out _workQueue);
+            if (_putawayLogic     == null) ServiceLocator.TryGet(out _putawayLogic);
+            if (_inventoryService == null) ServiceLocator.TryGet(out _inventoryService);
         }
 
         private IEnumerator AbortRoutine(WorkTask task, string palletId, string reservedAddress)

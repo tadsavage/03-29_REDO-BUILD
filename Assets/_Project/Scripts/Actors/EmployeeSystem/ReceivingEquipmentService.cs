@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.AI.Navigation;
 using System.Collections.Generic;
 
 /// <summary>
@@ -79,6 +80,13 @@ public static class ReceivingEquipmentService
 
         var clipboardInstance = Object.Instantiate(clipboardPrefab, rightHand);
         var rfGunInstance = Object.Instantiate(rfGunPrefab, leftHand);
+
+        // Ensure props are excluded from NavMesh baking. Without this, Unity tries to include
+        // their meshes in the bake, which fails because these meshes are not marked as readable.
+        var clipMod = clipboardInstance.AddComponent<NavMeshModifier>();
+        clipMod.ignoreFromBuild = true;
+        var gunMod = rfGunInstance.AddComponent<NavMeshModifier>();
+        gunMod.ignoreFromBuild = true;
 
         clipboardInstance.name = "_Clipboard";
         rfGunInstance.name = "_Scan_Gun";

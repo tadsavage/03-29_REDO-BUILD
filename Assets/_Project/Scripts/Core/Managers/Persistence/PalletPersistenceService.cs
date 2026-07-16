@@ -48,6 +48,13 @@ namespace GameCore.Persistence
                 if (entry == null || entry.data == null) continue;
                 if (entry.data.category != "Inventory") continue;
 
+                // Pallets currently riding an MHE operator's forks/anchor (mid-putaway on a Reach
+                // Truck, most commonly) are captured and restored by MHEOperatorPersistenceService
+                // instead — it needs to re-parent them onto the resumed vehicle and hand them off
+                // to the operator's resume routine, which this literal-world-transform path can't
+                // do (it always instantiates as a free-standing pallet under PlacedObjectsContainer).
+                if (entry.GetComponentInParent<MHEOperatorSlot>() != null) continue;
+
                 var builder = entry.GetComponent<PalletBuilder>();
                 if (builder == null) continue; // not a pallet root (shouldn't happen for category Inventory, but be defensive)
 
@@ -66,13 +73,21 @@ namespace GameCore.Persistence
                     // SKU id from the master record — lets restore resolve the case prefab from the SKU
                     // even when the case prefab isn't a registered ObjData (caseObjDataId == -1).
                     var rec = inv?.GetPallet(link.PalletId);
-                    if (rec != null) snap.skuId = rec.SkuId ?? "";
+                    if (rec != null)
+                    {
+                        snap.skuId = rec.SkuId ?? "";
+                        // Fallback to record LoadId if PalletData is missing or empty
+                        snap.loadId = rec.LoadId ?? "";
+                    }
                 }
 
                 var pdata = entry.GetComponent<PalletData>();
                 if (pdata != null)
                 {
-                    snap.loadId = pdata.LoadId ?? "";
+                    // Prioritize what's physically on the PalletData component if it exists
+                    if (!string.IsNullOrEmpty(pdata.LoadId))
+                        snap.loadId = pdata.LoadId;
+                    
                     if (string.IsNullOrEmpty(snap.skuId)) snap.skuId = pdata.ItemNumber ?? "";
                 }
 
@@ -325,15 +340,40 @@ namespace GameCore.Persistence
             // CRITICAL FIX (2026-07-09): Re-attach the PalletMasterLink immediately.
             PalletMasterLink.Attach(palletGO, snap.inventoryPalletId);
 
-            // Reconstruct the PalletData component. We do this for EVERY pallet, including
-            // unreceived/ghosted ones (loadId is empty). This ensures the hover tooltip
-            // and other logic work immediately after load.
             PalletMasterRecord record = inv?.GetAllPallets().FirstOrDefault(p => p.PalletId == snap.inventoryPalletId);
             SkuData sku = (inv != null && record != null) ? inv.GetSkuData(record.SkuId) : null;
             
             // If the record isn't in InventoryService yet, try resolving from the snapshot's SKU id
             if (sku == null && !string.IsNullOrEmpty(snap.skuId) && inv != null)
                 sku = inv.GetSkuData(snap.skuId);
+
+            string loadId = snap.loadId ?? "";
+            // Fallback to record LoadId if snapshot is missing it (fixes missing Load IDs on load)
+            if (string.IsNullOrEmpty(loadId) && record != null && !string.IsNullOrEmpty(record.LoadId))
+            {
+                loadId = record.LoadId;
+            }
+
+            // GHOST VS SOLID RESTORATION (2026-07-10)
+            // If we have no loadId from either snapshot or master record, this pallet is still 
+            // awaiting receiving (ghosted). Do NOT add PalletData (the indicator for "Received")
+            // and apply the ghost material to its cases instead.
+            if (string.IsNullOrEmpty(loadId))
+            {
+                var builder = palletGO.GetComponent<PalletBuilder>();
+                if (builder != null)
+                {
+                    var ghostMat = Resources.Load<Material>("Materials/GhostLoweredWall");
+                    if (ghostMat != null)
+                        builder.GhostCases(ghostMat);
+                }
+                
+                // Remove any PalletData that might have come from the prefab by accident
+                var staleData = palletGO.GetComponent<PalletData>();
+                if (staleData != null) Object.Destroy(staleData);
+                
+                return;
+            }
 
             var pdata = palletGO.GetComponent<PalletData>();
             if (pdata == null) pdata = palletGO.AddComponent<PalletData>();
@@ -343,7 +383,6 @@ namespace GameCore.Persistence
             int qty = record != null ? record.Quantity : (sku != null ? sku.Ti * sku.Hi : 1);
             int exp = record != null ? record.ExpirationDayNumber : -1;
             string skuId = record != null ? record.SkuId : (snap.skuId ?? "");
-            string loadId = snap.loadId ?? "";
 
             if (!string.IsNullOrEmpty(loadId))
                 LoadIDGenerator.Seed(loadId);

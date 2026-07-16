@@ -140,7 +140,12 @@ public class TruckController : MonoBehaviour
         _state == TruckState.DepartToApproach ||
         _state == TruckState.ToLeaveNoTurn   ||
         _state == TruckState.ToExit          ||
-        _state == TruckState.Exiting;
+        _state == TruckState.Exiting         ||
+        // Idle only ever occurs mid-ShrinkAndDestroy (StartExiting/ToExit both set it right before
+        // starting that coroutine) — it's always "about to be destroyed," never a resumable state.
+        // A save landing in that exact window previously captured a state=Idle/door=-1/PO="" ghost
+        // that got re-restored every load thereafter with nothing left to resume.
+        _state == TruckState.Idle;
 
     /// <summary>The dock slot claimed by this truck regardless of current state (set at AssignAndGo time).</summary>
     public DockSlot AssignedDock => _dock;
@@ -593,6 +598,21 @@ private DockSlot        _dock;
             snap.skuId  = (pd != null && !string.IsNullOrEmpty(pd.ItemNumber)) ? pd.ItemNumber
                         : (builder?.linkedSku != null ? builder.linkedSku.SkuId : "");
 
+            // Capture fallback SkuData fields for robust recovery
+            if (builder != null && builder.linkedSku != null)
+            {
+                var sku = builder.linkedSku;
+                snap.itemDescription = sku.ItemDescription;
+                snap.caseLength = sku.CaseLength;
+                snap.caseWidth = sku.CaseWidth;
+                snap.caseHeight = sku.CaseHeight;
+                snap.caseWeight = sku.CaseWeight;
+                snap.buyValue = sku.BuyValue;
+                snap.sellValue = sku.SellValue;
+                snap.storageArea = (int)sku.StorageArea;
+                snap.shelfLifeDays = sku.ShelfLifeDays;
+            }
+
             if (builder != null)
             {
                 snap.capturedTi = builder.manualTi;
@@ -623,6 +643,7 @@ private DockSlot        _dock;
     public void RestoreFromSnapshot(TruckSnapshot snap, DockSlot dock)
     {
         var restoredState = (TruckState)snap.truckState;
+        Debug.Log($"[TruckController.RestoreFromSnapshot] START - state={restoredState}, doorsOpen={snap.doorsOpen}, offloadClaimed={snap.offloadClaimed}, offloadComplete={snap.offloadComplete}");
 
         // ── Dock assignment ────────────────────────────────────────────────────────
         if (dock != null && !dock.IsOccupied)
@@ -637,8 +658,19 @@ private DockSlot        _dock;
 
         // ── Offload flags ──────────────────────────────────────────────────────────
         _dockedTime      = snap.dockedTime;
-        _offloadClaimed  = snap.offloadClaimed;
-        _offloadComplete = snap.offloadComplete;
+        // Never trust a saved "claimed" flag — the dock stocker coroutine that was driving the
+        // offload does not survive a save/reload, and any pallet it was carrying got folded back
+        // into this snapshot's trailerPallets specifically so the offload can restart cleanly.
+        // Leaving this true would wedge the truck forever: TrailerOffloadController only scans for
+        // AwaitingOffload trucks (Docked && !_offloadClaimed), and the fallback departure timer is
+        // also gated on !_offloadClaimed — so a stuck "claimed" truck never gets un-stuck.
+        _offloadClaimed  = false;
+        Debug.Log($"[TruckController.RestoreFromSnapshot] Reset offloadClaimed: false (was {snap.offloadClaimed})");
+        // Also reset offloadComplete so the truck can resume offloading on load. If offloading was
+        // already complete and the truck was waiting to depart, it will transition to Docked and wait
+        // for the fallback timeout or a normal departure trigger, which is correct behavior.
+        _offloadComplete = false;
+        Debug.Log($"[TruckController.RestoreFromSnapshot] Reset offloadComplete: false (was {snap.offloadComplete})");
 
         // ── Rebuild trailer cargo ──────────────────────────────────────────────────
         if (snap.trailerPallets != null && snap.trailerPallets.Count > 0)
@@ -719,7 +751,8 @@ private DockSlot        _dock;
         }
 
         _state = restoredState;
-        Debug.Log($"[TruckController] Restored: PO={snap.poNumber} state={restoredState} door={snap.assignedDoorNumber} pallets={snap.trailerPallets?.Count ?? 0}");
+        Debug.Log($"[TruckController.RestoreFromSnapshot] END - state={restoredState} door={snap.assignedDoorNumber} pallets={snap.trailerPallets?.Count ?? 0}");
+        Debug.Log($"[TruckController.RestoreFromSnapshot] Final door state: _doorsOpen={_doorsOpen}, AwaitingOffload={AwaitingOffload}");
     }
 
     // Applies all visual/controller side-effects that OnDocked() normally sets up.
@@ -727,6 +760,7 @@ private DockSlot        _dock;
     private void ApplyDockedSideEffects()
     {
         OpenTrailerDoors();
+        Debug.Log($"[TruckController.ApplyDockedSideEffects] Doors opened: _doorsOpen={_doorsOpen}");
         SetDockedGhost(true);
         _dock?.LightController?.SetOccupied(true);
         _dock?.SetDoorForcedOpen(true);
@@ -772,6 +806,14 @@ private DockSlot        _dock;
 
             var sku = inventoryService?.GetSkuData(palletSnap.skuId);
 
+            // ── Resolve Case Prefab ──────────────────────────────────────────
+            // If SKU is missing or a "PHYS" dummy, fall back to Resources or the snapshot's embedded fields
+            GameObject casePrefab = sku?.Prefab;
+            if (casePrefab == null && !string.IsNullOrEmpty(palletSnap.skuId))
+            {
+                casePrefab = Resources.Load<GameObject>($"Inventory/Prefabs/Cases/Case_{palletSnap.skuId}");
+            }
+
             // ── Instantiate pallet root ──────────────────────────────────────
             var instance = Instantiate(palletVisualPrefab);
             instance.transform.SetParent(loadParent);
@@ -790,7 +832,7 @@ private DockSlot        _dock;
 
             bool hasSavedCases = palletSnap.caseLocalPositions != null &&
                                   palletSnap.caseLocalPositions.Count > 0 &&
-                                  sku?.Prefab != null;
+                                  casePrefab != null;
 
             if (hasSavedCases)
             {
@@ -808,7 +850,7 @@ private DockSlot        _dock;
                                           palletSnap.caseLocalRotations.Count);
                 for (int j = 0; j < caseCount; j++)
                 {
-                    var caseGO = Instantiate(sku.Prefab, loadObj.transform);
+                    var caseGO = Instantiate(casePrefab, loadObj.transform);
                     caseGO.transform.localPosition = palletSnap.caseLocalPositions[j];
                     caseGO.transform.localRotation = palletSnap.caseLocalRotations[j];
 
@@ -820,7 +862,7 @@ private DockSlot        _dock;
 
                 if (builder != null)
                 {
-                    builder.casePrefab = sku.Prefab;
+                    builder.casePrefab = casePrefab;
                     builder.linkedSku  = sku;
                     if (palletSnap.capturedTi > 0 && palletSnap.capturedHi > 0)
                     {
@@ -1280,11 +1322,15 @@ private DockSlot        _dock;
 
     private void BeginDeparture()
     {
-        _dock.LightController?.SetOccupied(false);
+        // Defensive null-guard: a truck should always have a claimed dock by the time it departs,
+        // but an orphaned restore (dock lookup failed) previously left this null and threw here
+        // every frame forever (the truck never actually left). Null-conditional so a bad restore
+        // degrades to "truck leaves without releasing a dock" instead of an infinite NRE loop.
+        _dock?.LightController?.SetOccupied(false);
         // Release the rollup door's forced-open hold — the truck's own exit through the trigger will
         // close it normally as it drives out.
-        _dock.SetDoorForcedOpen(false);
-        _dock.Release();
+        _dock?.SetDoorForcedOpen(false);
+        _dock?.Release();
 
         // Mark shipment as Departed
         if (AssignedShipment != null)
@@ -1345,8 +1391,14 @@ private DockSlot        _dock;
     /// <summary>Passenger-side rear trailer door (the guard faces this during inspection).</summary>
     public Transform PassengerDoor => _passDoor;
 
-    public void OpenTrailerDoors()  { _doorsOpen = true; }
-    public void CloseTrailerDoors() { _doorsOpen = false; }
+    public void OpenTrailerDoors()  {
+        Debug.Log($"[TruckController.OpenTrailerDoors] Opening doors");
+        _doorsOpen = true;
+    }
+    public void CloseTrailerDoors() {
+        Debug.Log($"[TruckController.CloseTrailerDoors] Closing doors");
+        _doorsOpen = false;
+    }
 
     private void UpdateDoors()
     {

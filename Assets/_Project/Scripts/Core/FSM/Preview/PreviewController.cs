@@ -393,6 +393,7 @@ public class PreviewController : MonoBehaviour
         {
             typeof(NoWaypointIndicator),
             typeof(NavAgentGuidance),
+            typeof(MHEOperatorSlot),
             typeof(AiNavigation),
             typeof(UnityEngine.AI.NavMeshAgent),
             typeof(Rigidbody),

@@ -13,6 +13,13 @@ public class PlacedObject : MonoBehaviour
     public int rotation;
     public string customData;
     public float worldSpaceYHeight = 0f; // World Y position for objects that need vertical height tracking (e.g., stacked pallets)
+    // Absolute world-space position and rotation at save time. Only used for mobile objects
+    // (vehicles, agents) to resume exactly where they were instead of snapping back to their
+    // original placement cell. Stored in PlacedObject for unified capture.
+    public bool hasSavedTransform;
+    public Vector3 savedWorldPos;
+    public Quaternion savedWorldRot;
+
 
     // True once this rack has been committed to a real aisle via RackSetupUI submit.
     // Safeguard for future systems (inventory, task assignment, etc.) that should only

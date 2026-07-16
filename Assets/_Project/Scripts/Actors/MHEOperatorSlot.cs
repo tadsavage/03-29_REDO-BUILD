@@ -54,6 +54,10 @@ public class MHEOperatorSlot : MonoBehaviour
     {
         MHEPlacementEvent.BroadcastEquipmentPlaced(this);
     }
+    private void Start()
+    {
+    }
+
 
     // The vehicle's own (large, parent-optimized) BoxCollider sits in front of the much smaller
     // operator collider in any raycast, so EmployeeClickHandler on the operator itself almost

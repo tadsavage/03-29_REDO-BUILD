@@ -1,3 +1,5 @@
+using GameCore.Persistence;
+
 using UnityEngine;
 
 /// <summary>
@@ -244,6 +246,16 @@ public class EmployeeSpawner : MonoBehaviour
             ApplyFixedAvatar(identity, fixedAvatar);
         else if (_useModularAvatars)
             ApplyModularAvatar(identity);
+
+        // Resume dynamic assignments (e.g. ReceiveInbound) on load. Must happen AFTER modular
+        // avatar swaps because some equipment (like the clipboard) anchors to specific hand bones
+        // which don't exist until the avatar is applied.
+        if (record.hasSavedPosition && record.currentAssignment != EmployeeAssignment.Patrol)
+        {
+            // The identity already has the record from identity.ApplyRecord above, so Assign
+            // will correctly trigger the assignment logic (Equip gun/clipboard, add TaskDriver).
+            EmployeeAssignmentService.Assign(identity, record.currentAssignment);
+        }
 
         // Fresh ReachTruckOperator/DockStockerOperator/Loader attempt to board an existing MHE.
         // Equipment must be placed manually via the build menu first — this system no longer auto-creates

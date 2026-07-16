@@ -13,6 +13,12 @@ using TMPro;
 /// </summary>
 public class AisleInitializer : MonoBehaviour
 {
+    private void Awake()
+    {
+        // Ensure AisleRegistry is fresh at the start of a session.
+        AisleRegistry.Clear();
+    }
+
     [Header("Rack Configuration")]
     [SerializeField] private Material _realRackMaterial;
     // Path used when _realRackMaterial isn't wired via the RackingSystemManager Inspector.

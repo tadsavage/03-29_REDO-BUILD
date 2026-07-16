@@ -57,10 +57,22 @@ namespace GameCore.Inventory
 
         private void TrySpawnTruck(ShipmentData shipment)
         {
+            if (shipment == null || shipment.Status == ShipmentData.ShipmentStatus.Received || shipment.Status == ShipmentData.ShipmentStatus.Departed) return;
+
             if (_yardManager == null) _yardManager = Object.FindAnyObjectByType<TruckYardManager>();
 
             if (_yardManager != null)
             {
+                // Check if a truck for this PO already exists in the scene to prevent duplicates
+                var existing = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+                    .Any(t => t != null && t.AssignedShipment != null && t.AssignedShipment.PONumber == shipment.PONumber);
+
+                if (existing)
+                {
+                    Debug.Log($"[ShipmentService] Truck for PO {shipment.PONumber} already in yard — skipping duplicate spawn.");
+                    return;
+                }
+
                 _yardManager.SpawnNextTruck(shipment);
                 Debug.Log($"[ShipmentService] Spawned truck for PO {shipment.PONumber}");
             }
