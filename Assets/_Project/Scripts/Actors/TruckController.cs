@@ -782,11 +782,38 @@ private DockSlot        _dock;
             Debug.LogWarning($"[TruckController] Cannot restore trailer pallets on '{name}' — palletVisualPrefab not assigned.");
             return;
         }
-        var loadParent = LoadContainer;
+
+        // FIX: Explicitly find via the known path first to avoid finding stale/duplicate Load containers
+        var loadParent = transform.Find("Trailer/LorryTrailer/Load");
+        if (loadParent == null)
+            loadParent = FindDeepChild(transform, "Load");
+
         if (loadParent == null)
         {
             Debug.LogWarning($"[TruckController] Cannot restore trailer pallets on '{name}' — Load container not found.");
             return;
+        }
+
+        // FIX: Clean up ALL Load containers in the trailer hierarchy to prevent orphaned duplicates.
+        // This handles cases where nested prefabs or prefab misalignment left multiple Load objects.
+        var allTrailers = transform.Find("Trailer");
+        if (allTrailers != null)
+        {
+            foreach (Transform child in allTrailers)
+            {
+                if (child != null && child.name == "LorryTrailer")
+                {
+                    var allLoads = child.GetComponentsInChildren<Transform>();
+                    foreach (var load in allLoads)
+                    {
+                        if (load != null && load.name == "Load" && load != loadParent)
+                        {
+                            Debug.LogWarning($"[TruckController] Found duplicate Load container — destroying it to prevent empty trailers.");
+                            DestroyImmediate(load.gameObject);
+                        }
+                    }
+                }
+            }
         }
 
         // DestroyImmediate here so the children list is empty before we start adding new
@@ -794,6 +821,8 @@ private DockSlot        _dock;
         // this method's execution, making child-count indexing unreliable.
         for (int i = loadParent.childCount - 1; i >= 0; i--)
             DestroyImmediate(loadParent.GetChild(i).gameObject);
+
+        Debug.Log($"[TruckController] Cleared Load container '{loadParent.name}' on {name}. Preparing to restore {palletSnaps.Count} pallet(s).");
 
         var inventoryService = GameCore.Services.ServiceLocator.Get<GameCore.Inventory.InventoryService>();
         var gameCtx = FindAnyObjectByType<GameContext>();

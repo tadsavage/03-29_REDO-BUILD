@@ -193,8 +193,18 @@ namespace GameCore.Persistence
                 return null;
             }
 
-            // Instantiate at the exact saved transform.
-            var go = Object.Instantiate(prefab, snap.worldPosition, snap.worldRotation);
+            // FIX: Clamp the truck's Y position to 0 if it's suspiciously high (e.g., at spawn height 1.15).
+            // Trucks should stay at ground level except during their scripted route. If Y is far from 0,
+            // it's likely a stale spawn position that wasn't properly updated during dock.
+            Vector3 restorePos = snap.worldPosition;
+            if (restorePos.y > 0.5f)  // anything higher than ~0.5m is abnormal
+            {
+                Debug.LogWarning($"[TruckPersistenceService] Truck Y position is {restorePos.y}m (expected ~0). Resetting to ground level.");
+                restorePos.y = 0f;
+            }
+
+            // Instantiate at the exact saved transform (or corrected position).
+            var go = Object.Instantiate(prefab, restorePos, snap.worldRotation);
             go.name = string.IsNullOrEmpty(snap.poNumber)
                 ? $"Truck→Door{snap.assignedDoorNumber}"
                 : $"Truck→PO_{snap.poNumber}";
