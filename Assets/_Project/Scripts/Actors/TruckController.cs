@@ -162,6 +162,17 @@ public class TruckController : MonoBehaviour
     /// <summary>True if the trailer barn doors are currently open.</summary>
     public bool DoorsOpen => _doorsOpen;
 
+    // ── Persistence movement state (2026-07-15) ──────────────────────────────────
+    // Exposed so departing trucks can resume their exact path on load.
+    public Vector3 CurrentTarget => _currentTarget;
+    public bool    UseBezier     => _useBezier;
+    public Vector3 BzP0          => _bzP0;
+    public Vector3 BzP1          => _bzP1;
+    public Vector3 BzP2          => _bzP2;
+    public Vector3 BzP3          => _bzP3;
+    public float   BzT           => _bzT;
+    public float   BzArcLen      => _bzArcLen;
+
     // ── Route waypoints (world positions, injected by TruckYardManager) ──────────
 private DockSlot        _dock;
     private GuardController  _guard;
@@ -672,6 +683,18 @@ private DockSlot        _dock;
         _offloadComplete = false;
         Debug.Log($"[TruckController.RestoreFromSnapshot] Reset offloadComplete: false (was {snap.offloadComplete})");
 
+        // ── Restore movement state (2026-07-15) ──────────────────────────────────
+        // Captured from departing or mid-maneuver trucks so they resume exactly 
+        // where they left off.
+        _currentTarget = snap.currentTarget;
+        _useBezier     = snap.useBezier;
+        _bzP0          = snap.bzP0;
+        _bzP1          = snap.bzP1;
+        _bzP2          = snap.bzP2;
+        _bzP3          = snap.bzP3;
+        _bzT           = snap.bzT;
+        _bzArcLen      = snap.bzArcLen;
+
         // ── Rebuild trailer cargo ──────────────────────────────────────────────────
         if (snap.trailerPallets != null && snap.trailerPallets.Count > 0)
             RestoreTrailerPallets(snap.trailerPallets);
@@ -686,6 +709,8 @@ private DockSlot        _dock;
                 // The yard manager will call SetQueueSlot after this returns.
                 _currentTarget = snap.worldPosition;
                 _useBezier     = false;
+                // Force clearedGate to false on restore so it follows the queue logic
+                _clearedGate   = false;
                 break;
 
             case TruckState.GuardCheck:
@@ -739,14 +764,17 @@ private DockSlot        _dock;
                 ApplyDockedSideEffects();
                 break;
 
-            // Departing states should never be restored (TruckPersistenceService skips them),
-            // but handle defensively — demote to Docked so the truck doesn't immediately leave.
             case TruckState.DepartToApproach:
             case TruckState.ToLeaveNoTurn:
             case TruckState.ToExit:
+                // Resumes driving toward the currentTarget (or following the restored Bezier).
+                break;
+
             case TruckState.Exiting:
-                restoredState = TruckState.Docked;
-                ApplyDockedSideEffects();
+            case TruckState.Idle:
+                // If saved while already exiting/shrinking, just finish the cleanup.
+                restoredState = TruckState.Idle;
+                StartCoroutine(ShrinkAndDestroy(exitShrinkTime));
                 break;
         }
 

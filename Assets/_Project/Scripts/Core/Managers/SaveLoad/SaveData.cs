@@ -282,6 +282,18 @@ public class TruckSnapshot
     /// <see cref="truckState"/> is Queuing or GuardCheck. Used to restore queue order.</summary>
     public int gateQueueIndex;
 
+    /// <summary>Target position the truck is currently driving toward.</summary>
+    public Vector3 currentTarget;
+
+    /// <summary>True if the truck is currently mid-Bezier curve.</summary>
+    public bool useBezier;
+
+    /// <summary>Bezier control points and progress — used to resume curved maneuvers (corners, 
+    /// reverse-to-dock, departures) pixel-perfectly on load.</summary>
+    public Vector3 bzP0, bzP1, bzP2, bzP3;
+    public float bzT;
+    public float bzArcLen;
+
     /// <summary>Pallets still physically on the trailer at save time. Excludes any pallets
     /// that have already been offloaded to a staging lane (those are captured by
     /// PalletPersistenceService). Pallets that were on a dock stocker's forks at save time

@@ -10,9 +10,8 @@ namespace GameCore.Persistence
     /// Handles save/load persistence for all trucks currently in the yard.
     ///
     /// Capture rules:
-    /// • Trucks departing (DepartToApproach, ToLeaveNoTurn, ToExit, Exiting) are NOT saved —
-    ///   they're treated as already gone, and their PO is stamped Received/Departed so it
-    ///   doesn't respawn a new truck on the next play session.
+    /// • Trucks departing (DepartToApproach, ToLeaveNoTurn, ToExit, Exiting) are now saved 
+    ///   so they can finish their departure route on reload for visual consistency.
     /// • Pallets physically on a dock stocker's forks at save time are folded back into the
     ///   carrying truck's <see cref="TruckSnapshot.trailerPallets"/> list so they reappear on
     ///   the trailer on load (the user said "return to trailer at original position").
@@ -36,9 +35,9 @@ namespace GameCore.Persistence
         // ── Capture ───────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Scans all TruckControllers in the scene, skips departing trucks (marking their PO
-        /// received), folds fork-carried pallets back into the owning truck's snapshot, and
-        /// returns the complete list of truck snapshots to save.
+        /// Scans all TruckControllers in the scene, captures their full route and cargo state, 
+        /// folds fork-carried pallets back into the owning truck's snapshot, and returns 
+        /// the complete list of truck snapshots to save.
         /// </summary>
         public static List<TruckSnapshot> CaptureAll()
         {
@@ -56,20 +55,6 @@ namespace GameCore.Persistence
             {
                 if (truck == null) continue;
 
-                // ── Departing trucks: skip & stamp PO ────────────────────────────
-                if (truck.IsDeparting)
-                {
-                    var dep = truck.AssignedShipment;
-                    if (dep != null &&
-                        dep.Status != ShipmentData.ShipmentStatus.Received &&
-                        dep.Status != ShipmentData.ShipmentStatus.Departed)
-                    {
-                        dep.Status = ShipmentData.ShipmentStatus.Departed;
-                        Debug.Log($"[TruckPersistenceService] Departing truck — PO {dep.PONumber} stamped Departed, not saved.");
-                    }
-                    continue;
-                }
-
                 var snap = new TruckSnapshot
                 {
                     poNumber           = truck.AssignedShipment?.PONumber ?? "",
@@ -82,6 +67,16 @@ namespace GameCore.Persistence
                     offloadComplete    = truck.OffloadComplete,
                     doorsOpen          = truck.DoorsOpen,
                     gateQueueIndex     = 0,  // assigned below for queuing trucks
+
+                    // Movement state (resumes mid-route maneuvers on load)
+                    currentTarget      = truck.CurrentTarget,
+                    useBezier          = truck.UseBezier,
+                    bzP0               = truck.BzP0,
+                    bzP1               = truck.BzP1,
+                    bzP2               = truck.BzP2,
+                    bzP3               = truck.BzP3,
+                    bzT                = truck.BzT,
+                    bzArcLen           = truck.BzArcLen
                 };
 
                 // Capture pallets still on the trailer
@@ -129,24 +124,38 @@ namespace GameCore.Persistence
                 return;
             }
 
+            // Ensure the guard and waypoints are ready BEFORE restoring trucks
+            yardManager.SpawnGuard();
+
             ServiceLocator.TryGet<ShipmentService>(out var shipmentSvc);
 
             // Restore trucks, accumulating gate-queue trucks sorted by saved queue index.
-            // CRITICAL: Sort by gateQueueIndex so they are registered in the correct order!
             var sortedSnaps = snapshots.OrderBy(s => s.gateQueueIndex).ToList();
             var queuedTrucks = new List<(TruckController ctrl, int queueIndex)>();
 
             foreach (var snap in sortedSnaps)
             {
                 if (snap == null) continue;
-                var ctrl = RestoreOneTruck(snap, yardManager, shipmentSvc);
+                
+                // 1. Instantiate the truck shell
+                var ctrl = CreateTruckShell(snap, yardManager, shipmentSvc);
                 if (ctrl == null) continue;
 
                 var savedState = (TruckController.TruckState)snap.truckState;
                 bool isQueuing = savedState == TruckController.TruckState.Queuing ||
                                  savedState == TruckController.TruckState.GuardCheck;
 
+                // 2. Init waypoints and subscribe to events BEFORE state restoration
                 yardManager.RegisterRestoredTruck(ctrl, addToGateQueue: isQueuing);
+
+                // 3. Rebuild cargo and state machine — this may trigger events subscribed above
+                // (e.g. GuardCheck state immediately calling GuardClearedToEnter).
+                // Find the DockSlot matching the saved door number for the controller.
+                DockSlot dock = null;
+                if (snap.assignedDoorNumber > 0)
+                    dock = DockSlot.All.FirstOrDefault(d => d.DoorNumber == snap.assignedDoorNumber);
+
+                ctrl.RestoreFromSnapshot(snap, dock);
 
                 if (isQueuing)
                     queuedTrucks.Add((ctrl, snap.gateQueueIndex));
@@ -159,76 +168,39 @@ namespace GameCore.Persistence
             Debug.Log($"[TruckPersistenceService] Restored {snapshots.Count} truck(s) to yard.");
         }
 
-        // ── Private helpers ────────────────────────────────────────────────────────
-
         /// <summary>
-        /// Spawns one truck prefab at the saved transform, wires it, re-links the shipment,
-        /// and calls RestoreFromSnapshot. Returns the controller or null on failure.
+        /// Instantiates the truck prefab and links the shipment, but does NOT call RestoreFromSnapshot.
+        /// Used by RestoreAll to allow Init/Subscription before state restoration.
         /// </summary>
-        private static TruckController RestoreOneTruck(TruckSnapshot snap, TruckYardManager yardManager, ShipmentService shipmentSvc)
+        private static TruckController CreateTruckShell(TruckSnapshot snap, TruckYardManager yardManager, ShipmentService shipmentSvc)
         {
             var prefab = yardManager.TruckPrefab;
-            if (prefab == null)
-            {
-                Debug.LogError("[TruckPersistenceService] TruckYardManager.TruckPrefab is null — cannot restore truck.");
-                return null;
-            }
+            if (prefab == null) return null;
 
-            // Find the DockSlot matching the saved door number.
-            DockSlot dock = null;
-            if (snap.assignedDoorNumber > 0)
-                dock = DockSlot.All.FirstOrDefault(d => d.DoorNumber == snap.assignedDoorNumber);
+            if (string.IsNullOrEmpty(snap.poNumber) && snap.assignedDoorNumber <= 0) return null;
 
-            if (dock == null && snap.assignedDoorNumber > 0)
-                Debug.LogWarning($"[TruckPersistenceService] Could not find DockSlot for door {snap.assignedDoorNumber} — truck may not dock correctly.");
-
-            // Orphan debris: no PO to reference and no dock to claim. These accumulated from an
-            // earlier restore bug (a door-numbering race — now fixed — could orphan a legitimately
-            // docked truck from its dock on load; once orphaned it can never depart cleanly, so it
-            // and its dead PO reference just got re-saved and re-restored every cycle). A truck with
-            // neither has nothing left to resume — drop it instead of resurrecting a dead truck.
-            if (string.IsNullOrEmpty(snap.poNumber) && dock == null)
-            {
-                Debug.LogWarning($"[TruckPersistenceService] Dropping orphaned truck snapshot (no PO, no dock, state={(TruckController.TruckState)snap.truckState}) — nothing to resume.");
-                return null;
-            }
-
-            // FIX: Clamp the truck's Y position to 0 if it's suspiciously high (e.g., at spawn height 1.15).
-            // Trucks should stay at ground level except during their scripted route. If Y is far from 0,
-            // it's likely a stale spawn position that wasn't properly updated during dock.
             Vector3 restorePos = snap.worldPosition;
-            if (restorePos.y > 0.5f)  // anything higher than ~0.5m is abnormal
-            {
-                Debug.LogWarning($"[TruckPersistenceService] Truck Y position is {restorePos.y}m (expected ~0). Resetting to ground level.");
-                restorePos.y = 0f;
-            }
+            if (restorePos.y > 0.5f) restorePos.y = 0f;
 
-            // Instantiate at the exact saved transform (or corrected position).
             var go = Object.Instantiate(prefab, restorePos, snap.worldRotation);
+            go.transform.rotation = snap.worldRotation;
+
             go.name = string.IsNullOrEmpty(snap.poNumber)
                 ? $"Truck→Door{snap.assignedDoorNumber}"
                 : $"Truck→PO_{snap.poNumber}";
 
             var ctrl = go.GetComponent<TruckController>() ?? go.AddComponent<TruckController>();
 
-            // Re-link the assigned shipment BEFORE RestoreFromSnapshot so any logic that
-            // reads AssignedShipment (e.g. BeginDeparture marking it Departed) sees the real PO.
             if (!string.IsNullOrEmpty(snap.poNumber) && shipmentSvc != null)
             {
                 var shipment = shipmentSvc.PendingShipments.FirstOrDefault(s => s.PONumber == snap.poNumber);
-                if (shipment != null)
-                    ctrl.SetShipment(shipment);
-                else
-                    Debug.LogWarning($"[TruckPersistenceService] Shipment PO '{snap.poNumber}' not found in ShipmentService — truck has no PO reference.");
+                if (shipment != null) ctrl.SetShipment(shipment);
             }
 
-            // Restore full state (transform is overwritten by snapshot values inside this call,
-            // so the Instantiate position is only a fallback).
-            ctrl.RestoreFromSnapshot(snap, dock);
-
-            Debug.Log($"[TruckPersistenceService] Restored '{go.name}' | state={(TruckController.TruckState)snap.truckState} | door={snap.assignedDoorNumber}");
             return ctrl;
         }
+
+        // ── Private helpers ────────────────────────────────────────────────────────
 
         /// <summary>
         /// Builds a map: pallet transform currently on a dock stocker's forks → the truck being

@@ -488,6 +488,10 @@ public class PlacementSystem : MonoBehaviour
             // cases) — skip them here so they aren't saved twice under two different schemes.
             if (entry.data.category == "Inventory") continue;
 
+            // Trucks are handled separately by TruckPersistenceService. Capture them there and
+            // skip them here to prevent duplicate "boilerplate" clones on load.
+            if (entry.GetComponent<TruckController>() != null) continue;
+
             SavedObject obj = new SavedObject();
             obj.id = entry.data.id;
             obj.x = entry.gridX;
@@ -525,6 +529,13 @@ public class PlacementSystem : MonoBehaviour
             foreach (var ident in EmployeeRegistry.Instance.All)
             {
                 if (ident == null || ident.Record == null) continue;
+
+                // System-managed identities (Guard, vehicle operators) should NOT be saved in
+                // the roster — they are recreated by their owning objects (GuardShack, RT, DS).
+                // Saving them here causes duplication because the recreated shack/vehicle will
+                // spawn a second one on load.
+                if (ident.SystemManaged) continue;
+
                 var rec = ident.Record.Clone();
                 var t = ident.transform;
                 rec.posX = t.position.x;
@@ -756,6 +767,12 @@ public class PlacementSystem : MonoBehaviour
             // rebuilds their cases at exact captured transforms. This `continue` only matters for
             // OLDER save files that still have Inventory entries in placedObjects.
             if (so.category == "Inventory") continue;
+
+            // Skip truck placements from OLDER saves — trucks are restored from snapshots
+            // separately. Restoring them here as placed objects creates a generic clone
+            // that stacks on the correct restored instance.
+            if (so.prefab != null && so.prefab.GetComponent<TruckController>() != null) continue;
+
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData, objSave.worldY, objSave.hasTransform, objSave.pos, objSave.rotation);
         }
 
@@ -799,8 +816,12 @@ public class PlacementSystem : MonoBehaviour
         var existingEmployees = Object.FindObjectsByType<EmployeeIdentity>();
         foreach (var ident in existingEmployees)
         {
-            if (ident.SystemManaged) continue;
-            Object.Destroy(ident.gameObject);
+            // Destroy EVERY employee identity, including system-managed ones (Guard, etc).
+            // This ensures a clean slate. The owning objects (Shack, Vehicles) are about
+            // to be destroyed by ClearAll() and will recreate their managed employees
+            // when they are re-spawned later in the load cycle.
+            if (ident != null && ident.gameObject != null)
+                Object.Destroy(ident.gameObject);
         }
 
         StartCoroutine(RespawnEmployeesAfterDestroyFlush(save.employeeRecords ?? new List<EmployeeRecord>(), save.carriedPallets));

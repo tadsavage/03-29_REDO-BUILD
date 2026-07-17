@@ -143,6 +143,8 @@ public class TruckYardManager : MonoBehaviour
     /// <summary>The guard controller at the gate. May be null if no guard is present.</summary>
     public GuardController Guard => _guard;
 
+    private readonly Dictionary<TruckController, System.Action> _clearedGateHandlers = new();
+
     /// <summary>
     /// Wires a restored truck into this yard manager — injects waypoints and callbacks,
     /// subscribes to the gate-clear event, increments the active-truck counter, and
@@ -164,11 +166,23 @@ public class TruckYardManager : MonoBehaviour
             OnTruckExited
         );
 
-        ctrl.OnClearedGate += () => OnTruckClearedGate(ctrl);
+        // Remove old handler if present using the dictionary lookup (lambdas aren't equal otherwise)
+        if (_clearedGateHandlers.TryGetValue(ctrl, out var oldHandler))
+        {
+            ctrl.OnClearedGate -= oldHandler;
+        }
+        
+        System.Action handler = () => OnTruckClearedGate(ctrl);
+        _clearedGateHandlers[ctrl] = handler;
+        ctrl.OnClearedGate += handler;
+
         _activeTrucks++;
 
         if (addToGateQueue)
-            _gateQueue.Add(ctrl);
+        {
+            if (!_gateQueue.Contains(ctrl))
+                _gateQueue.Add(ctrl);
+        }
     }
 
     /// <summary>
@@ -194,6 +208,7 @@ public class TruckYardManager : MonoBehaviour
     {
         _activeTrucks = 0;
         _gateQueue.Clear();
+        _guard = null;
         foreach (var dock in DockSlot.All)
         {
             dock.Release();
@@ -206,12 +221,13 @@ public class TruckYardManager : MonoBehaviour
             if (t != null && t.gameObject != null) DestroyImmediate(t.gameObject);
         }
 
-        // Cleanup any orphaned "(Clone)" trucks or named instances that might be missing the script
+        // Cleanup any orphaned "(Clone)" trucks, named instances, OR GUARDS that might be missing scripts
         var allGOs = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         foreach (var go in allGOs)
         {
             if (go == null) continue;
-            if (go.name.Contains("Truck_SavageDev") || go.name.Contains("Truck→Door") || go.name.Contains("Truck→PO_"))
+            string n = go.name;
+            if (n.Contains("Truck_SavageDev") || n.Contains("Truck→Door") || n.Contains("Truck→PO_") || n == "Guard")
             {
                 DestroyImmediate(go);
             }
@@ -266,7 +282,7 @@ public class TruckYardManager : MonoBehaviour
 
     // ── Private ───────────────────────────────────────────────────────────────
 
-    private void SpawnGuard()
+    public void SpawnGuard()
     {
         if (guardPrefab == null)
         {
@@ -279,21 +295,43 @@ public class TruckYardManager : MonoBehaviour
             return;
         }
 
+        // Search for existing guard in the scene first
+        var existingGuards = Object.FindObjectsByType<GuardController>(FindObjectsSortMode.None);
+        GuardController foundGuard = null;
+        
+        if (existingGuards.Length > 0)
+        {
+            foundGuard = existingGuards[0];
+            Debug.Log($"[TruckYardManager] Found existing guard '{foundGuard.name}' — ensuring initialized.");
+            
+            // Clean up any extra duplicates that might have leaked from previous bugs
+            for (int i = 1; i < existingGuards.Length; i++)
+            {
+                if (existingGuards[i] != null && existingGuards[i].gameObject != null)
+                    DestroyImmediate(existingGuards[i].gameObject);
+            }
+        }
+
         var posted     = _guardAnchors.Find("Posted");
         var exitPost   = _guardAnchors.Find("ExitPost");
         var gateStop   = _guardAnchors.Find("GateStop");
         var checkRear1 = _guardAnchors.Find("CheckRear1");
         var checkRear2 = _guardAnchors.Find("CheckRear2");
 
-        if (posted == null)
+        if (posted == null || gateStop == null)
         {
-            Debug.LogWarning("[TruckYardManager] 'GuardAnchors/Posted' not found — guard not spawned.");
+            Debug.LogWarning("[TruckYardManager] Required guard anchors (Posted/GateStop) missing — guard disabled.");
             return;
         }
 
-        var go = Instantiate(guardPrefab, posted.position, posted.rotation);
-        go.name = "Guard";
-        _guard  = go.GetComponent<GuardController>() ?? go.AddComponent<GuardController>();
+        if (foundGuard == null)
+        {
+            var go = Instantiate(guardPrefab, posted.position, posted.rotation);
+            go.name = "Guard";
+            foundGuard = go.GetComponent<GuardController>() ?? go.AddComponent<GuardController>();
+        }
+
+        _guard = foundGuard;
         _guard.Init(posted, exitPost, gateStop, checkRear1, checkRear2);
     }
 

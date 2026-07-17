@@ -944,7 +944,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -995,6 +995,10 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  worldSpaceYHeight: 0
+  hasSavedTransform: 0
+  savedWorldPos: {x: 0, y: 0, z: 0}
+  savedWorldRot: {x: 0, y: 0, z: 0, w: 0}
   isRackLive: 0
   rackAisle: -1
   rackBay: -1
