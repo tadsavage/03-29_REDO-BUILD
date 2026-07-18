@@ -668,7 +668,11 @@ private DockSlot        _dock;
         transform.SetPositionAndRotation(snap.worldPosition, snap.worldRotation);
 
         // ── Offload flags ──────────────────────────────────────────────────────────
-        _dockedTime      = snap.dockedTime;
+        // Reset docked time to 0 if the truck was previously claimed or if it's currently 
+        // docked. This gives the offload controllers time to re-scan and re-claim the 
+        // truck after a load, rather than immediately hitting the offloadFallbackTimeout.
+        _dockedTime = 0f;
+        
         // Never trust a saved "claimed" flag — the dock stocker coroutine that was driving the
         // offload does not survive a save/reload, and any pallet it was carrying got folded back
         // into this snapshot's trailerPallets specifically so the offload can restart cleanly.
@@ -676,7 +680,8 @@ private DockSlot        _dock;
         // AwaitingOffload trucks (Docked && !_offloadClaimed), and the fallback departure timer is
         // also gated on !_offloadClaimed — so a stuck "claimed" truck never gets un-stuck.
         _offloadClaimed  = false;
-        Debug.Log($"[TruckController.RestoreFromSnapshot] Reset offloadClaimed: false (was {snap.offloadClaimed})");
+        Debug.Log($"[TruckController.RestoreFromSnapshot] Reset offloadClaimed: false (was {snap.offloadClaimed}) and reset dockedTime: 0 (was {snap.dockedTime})");
+        
         // Also reset offloadComplete so the truck can resume offloading on load. If offloading was
         // already complete and the truck was waiting to depart, it will transition to Docked and wait
         // for the fallback timeout or a normal departure trigger, which is correct behavior.
@@ -792,9 +797,7 @@ private DockSlot        _dock;
         SetDockedGhost(true);
         _dock?.LightController?.SetOccupied(true);
         _dock?.SetDoorForcedOpen(true);
-        _dockedTime     = Mathf.Max(0f, _dockedTime);
-        _offloadClaimed  = _offloadClaimed;
-        _offloadComplete = _offloadComplete;
+        _dockedTime = 0f;
     }
 
     /// <summary>
@@ -1065,15 +1068,27 @@ private DockSlot        _dock;
                 _dockedTime += Time.deltaTime;
                 if (_offloadComplete)
                 {
-                    // Dock stocker finished pulling all 12 pallets — receiving/putaway tasks were
-                    // created per-pallet as they were staged, so no bulk receive here.
+                    // Dock stocker finished pulling all pallets.
                     BeginDeparture();
                 }
                 else if (!_offloadClaimed && _dockedTime >= offloadFallbackTimeout)
                 {
-                    // Nobody came to offload it — just depart. Ghosted pallets that were created
-                    // remain in staging as work queue tasks for receivers to claim.
-                    BeginDeparture();
+                    // Fallback departure: only happens if the truck is empty or the player 
+                    // hasn't assigned anyone to it for a long time. 
+                    // CRITICAL FIX: If there are still pallets on the trailer, we should 
+                    // NOT depart automatically just because of a timer (user request: 
+                    // "trailer should never depart until they're fully unloaded").
+                    var container = LoadContainer;
+                    if (container == null || container.childCount == 0)
+                    {
+                        BeginDeparture();
+                    }
+                    else
+                    {
+                        // Pallets remain — wait for a dock stocker. Reset timer slightly 
+                        // to prevent log spam or immediate re-check.
+                        _dockedTime = offloadFallbackTimeout - 5f; 
+                    }
                 }
                 break;
 

@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+
 using GameCore.Inventory;
 using GameCore.Labor;
 using GameCore.Services;
@@ -120,6 +122,31 @@ namespace GameCore.Actors
 
         private void TryClaimAndStart()
         {
+            // Self-healing: release any task stuck in Assigned whose claiming operator/coroutine
+            // died mid-task without completing or aborting it — otherwise it's permanently
+            // invisible (GetPendingTasksForRole only returns Pending, and "resume mine" below
+            // only matches the exact same guid), silently swallowing pallets that are physically
+            // accessible. Cheap no-op when nothing is actually stale.
+            _workQueue.ReleaseStaleAssignments();
+
+            string guid = _operatorSlot.CurrentOperator?.Record?.employeeGuid;
+            if (string.IsNullOrEmpty(guid)) return;
+
+            // FIRST: Check if this operator already has an Assigned task that they should be working on.
+            // This handles manual assignments or tasks that were assigned but not yet active.
+            WorkTask alreadyAssigned = _workQueue.Tasks.FirstOrDefault(t => 
+                t.RequiredRole == EmployeeRole.ReachTruckOperator && 
+                t.Status == WorkTaskStatus.Assigned && 
+                t.AssignedToEmployeeGuid == guid);
+
+            if (alreadyAssigned != null)
+            {
+                Debug.Log($"[ReachTruckOperator] '{name}' resuming already assigned task {alreadyAssigned.TaskId}");
+                _busy = true;
+                StartCoroutine(PutawayRoutine(alreadyAssigned));
+                return;
+            }
+
             var pending = _workQueue.GetPendingTasksForRole(EmployeeRole.ReachTruckOperator);
             if (pending.Count == 0) return;
 
@@ -132,7 +159,8 @@ namespace GameCore.Actors
                 // CRITICAL: Reach Trucks ONLY do Putaway. They MUST NOT claim Receive tasks (which are for Receivers).
                 if (t.Type != WorkTaskType.Putaway) continue;
                 
-                if (string.IsNullOrEmpty(t.FromLocation) || t.FromLocation == "STG" || t.FromLocation.Contains("(0, 0)"))
+                if (string.IsNullOrEmpty(t.FromLocation) || t.FromLocation == "STG" ||
+                    t.FromLocation.Contains("(") || t.FromLocation.Contains(")"))
                 {
                     Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} has invalid FromLocation '{t.FromLocation}'. Skipping.");
                     continue;
@@ -172,9 +200,6 @@ namespace GameCore.Actors
 
             if (best == null) return;
             
-            string guid = _operatorSlot.CurrentOperator?.Record?.employeeGuid;
-            if (string.IsNullOrEmpty(guid)) return;
-
             if (!_workQueue.TryClaimSpecificTask(best, guid)) return;
 
             _busy = true;
@@ -271,6 +296,10 @@ namespace GameCore.Actors
             pallet.SetParent(carrier, worldPositionStays: false);
             pallet.localPosition = Vector3.zero;
             pallet.localRotation = Quaternion.identity;
+
+            // CRITICAL: Move the pallet to a transit location in InventoryService.
+            // This removes it from the staging lane slot, allowing other RTOs to access the pallet behind it.
+            _inventoryService?.MovePallet(palletId, new Vector2Int(-1, -1));
 
             NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
             if (obstacle != null) obstacle.enabled = false;

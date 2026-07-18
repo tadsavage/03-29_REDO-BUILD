@@ -21,6 +21,15 @@ namespace GameCore.Labor
         public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Pending;
         public string AssignedToEmployeeGuid { get; set; }  // for persistence and tracking
 
+        /// <summary>Time.realtimeSinceStartup when this task was last claimed (Status set to
+        /// Assigned). Used by <see cref="WorkQueueSystem.ReleaseStaleAssignments"/> to detect a
+        /// claim whose owning coroutine died without ever calling CompleteTask/reverting to
+        /// Pending (GameObject disabled mid-routine, employee fired/vehicle destroyed mid-task,
+        /// an uncaught exception) — that task would otherwise be permanently invisible to every
+        /// operator (GetPendingTasksForRole only returns Pending; the "resume mine" check only
+        /// matches the exact same guid).</summary>
+        public float AssignedAtRealtime { get; set; }
+
         /// <summary>Where the pallet/work starts and ends, as human location labels (e.g. "STG1A",
         /// a reserve/pick address, or a door). FromLocation is immutable once set at creation.
         /// ToLocation starts null for Putaway tasks and is assigned by PutawayLogic at RTO pickup
@@ -80,7 +89,13 @@ namespace GameCore.Labor
             // They must also have a valid FromLocation (staging lane).
             if (type == WorkTaskType.Putaway)
             {
-                if (string.IsNullOrEmpty(fromLocation) || fromLocation == "STG" || fromLocation.Contains("(0, 0)"))
+                // Reject any raw Vector2Int.ToString() leak ("(4, 7)"), not just the (0,0) origin
+                // case — LaneNamingService.AddressAt() falls back to that format whenever a lane's
+                // geometry hasn't (re)computed yet for the pallet's cell, and a task created with
+                // that FromLocation baked in is permanently unparseable (WorkTask.FromLocation is
+                // immutable) and therefore permanently unclaimable by any Reach Truck Operator.
+                if (string.IsNullOrEmpty(fromLocation) || fromLocation == "STG" ||
+                    fromLocation.Contains("(") || fromLocation.Contains(")"))
                 {
                     Debug.LogWarning($"[WorkQueueSystem] Denying Putaway task for {palletId} - invalid FromLocation: '{fromLocation}'");
                     return null;
@@ -111,6 +126,7 @@ namespace GameCore.Labor
             if (task == null) return false;
             task.Status = WorkTaskStatus.Assigned;
             task.AssignedToEmployeeGuid = employeeGuid;
+            task.AssignedAtRealtime = Time.realtimeSinceStartup;
             return true;
         }
 
@@ -122,6 +138,7 @@ namespace GameCore.Labor
             if (task == null || task.Status != WorkTaskStatus.Pending) return false;
             task.Status = WorkTaskStatus.Assigned;
             task.AssignedToEmployeeGuid = employeeGuid;
+            task.AssignedAtRealtime = Time.realtimeSinceStartup;
             return true;
         }
 
@@ -132,6 +149,29 @@ namespace GameCore.Labor
             task.Status = WorkTaskStatus.Complete;
             OnTaskCompleted?.Invoke(task);
             _tasks.Remove(task);
+        }
+
+        /// <summary>
+        /// Self-healing sweep: any task still Assigned long after a routine could plausibly take
+        /// (default 90s — a full putaway leg is normally well under 30s) gets released back to
+        /// Pending so it becomes claimable again. Guards against a claim whose owning
+        /// operator/coroutine died mid-task without ever calling CompleteTask or reverting to
+        /// Pending itself — see the doc comment on WorkTask.AssignedAtRealtime. Cheap to call
+        /// from any consumer's own poll loop (e.g. ReachTruckOperator already polls once/second).
+        /// </summary>
+        public void ReleaseStaleAssignments(float maxAgeSeconds = 90f)
+        {
+            float now = Time.realtimeSinceStartup;
+            foreach (var t in _tasks)
+            {
+                if (t.Status != WorkTaskStatus.Assigned) continue;
+                if (now - t.AssignedAtRealtime < maxAgeSeconds) continue;
+
+                Debug.LogWarning($"[WorkQueueSystem] Releasing stale Assigned task {t.TaskId} " +
+                    $"({t.Description}) — claimed by '{t.AssignedToEmployeeGuid}' {now - t.AssignedAtRealtime:F0}s ago with no completion. Reverting to Pending.");
+                t.Status = WorkTaskStatus.Pending;
+                t.AssignedToEmployeeGuid = null;
+            }
         }
 
         // ============ PERSISTENCE (SAVE/LOAD) ============

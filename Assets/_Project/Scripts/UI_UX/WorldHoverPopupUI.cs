@@ -253,6 +253,13 @@ public class WorldHoverPopupUI : MonoBehaviour
             pickLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
             pickLbl.style.fontSize = 12;
             _palletInfoPanel.Add(pickLbl);
+
+            // Load ID
+            var loadIdStr = string.IsNullOrEmpty(pallet.LoadId) ? "N/A" : pallet.LoadId;
+            var loadIdLbl = new Label($"Load ID: {loadIdStr}");
+            loadIdLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            loadIdLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(loadIdLbl);
         }
 
         // Hide building-specific elements
@@ -359,13 +366,13 @@ public class WorldHoverPopupUI : MonoBehaviour
             _isHovering = true;
             _hoverTimer = 0f;
             _popup.style.opacity = 1f;
-            ShowPalletBuilder(sku, builder.TotalCases);
+            ShowPalletBuilder(sku, builder.TotalCases, builder);
         }
         else
         {
             _hoverTimer += Time.deltaTime;
             if (!_isVisible && _hoverTimer >= _hoverDelay)
-                ShowPalletBuilder(sku, builder.TotalCases);
+                ShowPalletBuilder(sku, builder.TotalCases, builder);
         }
 
         if (_isVisible)
@@ -375,7 +382,7 @@ public class WorldHoverPopupUI : MonoBehaviour
     private SkuData _pendingPalletBuilderSku;
 
     /// <summary>Renders the pallet tooltip using SkuData + case count (for built-but-unreceived pallets).</summary>
-    private void ShowPalletBuilder(SkuData sku, int caseQty)
+    private void ShowPalletBuilder(SkuData sku, int caseQty, PalletBuilder builder = null)
     {
         if (_popup == null || sku == null) return;
 
@@ -401,6 +408,24 @@ public class WorldHoverPopupUI : MonoBehaviour
             itemNumLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
             itemNumLbl.style.fontSize = 12;
             _palletInfoPanel.Add(itemNumLbl);
+
+            // Load ID (if available via MasterLink)
+            if (builder != null)
+            {
+                var link = builder.GetComponent<PalletMasterLink>();
+                if (link != null)
+                {
+                    ServiceLocator.TryGet<InventoryService>(out var inventory);
+                    var record = inventory?.GetPallet(link.PalletId);
+                    if (record != null && !string.IsNullOrEmpty(record.LoadId))
+                    {
+                        var loadIdLbl = new Label($"Load ID: {record.LoadId}");
+                        loadIdLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                        loadIdLbl.style.fontSize = 12;
+                        _palletInfoPanel.Add(loadIdLbl);
+                    }
+                }
+            }
 
             // Case quantity
             var caseQtyLbl = new Label($"Case Qty: {caseQty}");
