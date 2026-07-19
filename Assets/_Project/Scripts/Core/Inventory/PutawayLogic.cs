@@ -151,18 +151,17 @@ namespace GameCore.Inventory
 
         // ============ PICK SLOT CHECK ============
 
-        /// <summary>True if no pallet is recorded at the pick slot's rack grid cell (qty < 1 case).
-        /// Also ensures the slot is Available (not already Reserved by another RTO).</summary>
+        /// <summary>True if the pick slot's address is Available (not Reserved/Occupied by another
+        /// putaway). NOTE: occupancy must be checked via <see cref="LocationStatusRegistry"/> (keyed
+        /// by exact slot address) and NOT via InventoryService.GetPalletsAtLocation(rack grid cell) —
+        /// a rack bay's grid cell is shared by both Positions (0/1) and every stacked level, so a
+        /// cell-based check falsely marks an entire bay "occupied" the instant any ONE of its slots
+        /// receives a pallet, starving every other slot in that bay. (This was a real bug — see
+        /// putaway-reachtruck-livelock-fix memory / CLAUDE.md 2026-07-18 session.)</summary>
         private bool IsPickSlotEmpty(SlotRegistry.Slot pickSlot)
         {
             if (pickSlot.Rack == null) return false;
-
-            // If the slot is already Reserved or Occupied, it's not "empty" for a new putaway.
-            if (!LocationStatusRegistry.IsAvailable(pickSlot.Address)) return false;
-
-            var cell = new Vector2Int(pickSlot.Rack.gridX, pickSlot.Rack.gridY);
-            var pallets = _inventoryService?.GetPalletsAtLocation(cell);
-            return pallets == null || pallets.Count == 0;
+            return LocationStatusRegistry.IsAvailable(pickSlot.Address);
         }
 
         // ============ RESERVE PROXIMITY SEARCH ============
@@ -194,51 +193,34 @@ namespace GameCore.Inventory
         }
 
         /// <summary>Searches Available reserve slots within a bay radius on a specific aisle side,
-        /// ordered by distance from the bay origin. Also verifies no physical pallet exists via InventoryService.</summary>
+        /// ordered by distance from the bay origin. Availability is per exact slot address via
+        /// LocationStatusRegistry — do not additionally gate on InventoryService.GetPalletsAtLocation
+        /// (rack grid cell), which is shared by every Position/level in a bay and would falsely mark
+        /// the whole bay occupied after just one slot is filled.</summary>
         private string SearchReserveInRadius(int aisle, int position, int bayOrigin, int radius)
         {
-            var candidates = SlotRegistry.ReserveSlots
+            return SlotRegistry.ReserveSlots
                 .Where(s => s.Aisle == aisle
                          && s.Position == position
                          && Mathf.Abs(s.Bay - bayOrigin) <= radius
+                         && s.Rack != null
                          && LocationStatusRegistry.IsAvailable(s.Address))
-                .OrderBy(s => Mathf.Abs(s.Bay - bayOrigin));
-
-            foreach (var s in candidates)
-            {
-                if (IsSlotPhysicallyEmpty(s)) return s.Address;
-            }
-
-            return null;
+                .OrderBy(s => Mathf.Abs(s.Bay - bayOrigin))
+                .Select(s => s.Address)
+                .FirstOrDefault();
         }
 
-        /// <summary>Returns the first Available reserve on a specific aisle+side, ordered by bay.
-        /// Also verifies no physical pallet exists via InventoryService.</summary>
+        /// <summary>Returns the first Available reserve on a specific aisle+side, ordered by bay.</summary>
         private string SearchAllReserveInAisleSide(int aisle, int position)
         {
-            var candidates = SlotRegistry.ReserveSlots
+            return SlotRegistry.ReserveSlots
                 .Where(s => s.Aisle == aisle
                          && s.Position == position
+                         && s.Rack != null
                          && LocationStatusRegistry.IsAvailable(s.Address))
-                .OrderBy(s => s.Bay);
-
-            foreach (var s in candidates)
-            {
-                if (IsSlotPhysicallyEmpty(s)) return s.Address;
-            }
-
-            return null;
-        }
-
-        /// <summary>True if the slot has no pallets registered in InventoryService.</summary>
-        private bool IsSlotPhysicallyEmpty(SlotRegistry.Slot slot)
-        {
-            if (slot.Rack == null) return false;
-            var cell = new Vector2Int(slot.Rack.gridX, slot.Rack.gridY);
-            var pallets = _inventoryService?.GetPalletsAtLocation(cell);
-            // RULE: Slot is empty if it has no pallets OR if the pallets it has are not at this slot's grid height.
-            // But for now, we assume one pallet per rack cell (column) for simplicity or check counts.
-            return pallets == null || pallets.Count == 0;
+                .OrderBy(s => s.Bay)
+                .Select(s => s.Address)
+                .FirstOrDefault();
         }
 
         /// <summary>Searches aisles alternating outward from the pick slot's aisle
@@ -332,7 +314,7 @@ namespace GameCore.Inventory
             // Compute the nearest aisle by XZ proximity — the aisle whose racks are closest
             // to the RTO's current position is the most convenient carry path to the dock.
             var allReserves = SlotRegistry.ReserveSlots
-                .Where(s => LocationStatusRegistry.IsAvailable(s.Address) && s.Rack != null && IsSlotPhysicallyEmpty(s))
+                .Where(s => LocationStatusRegistry.IsAvailable(s.Address) && s.Rack != null)
                 .ToList();
 
             if (allReserves.Count == 0)

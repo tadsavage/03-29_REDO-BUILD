@@ -32,6 +32,10 @@ public class WorldHoverPopupUI : MonoBehaviour
     private PalletData _pendingPalletData;
     private bool _isPalletMode;
 
+    // Pending data (location)
+    private LocationData _pendingLocationData;
+    private bool _isLocationMode;
+
     // OPTIMIZATION: reuse allocation to avoid GC spikes in Tick/Update
     private StyleTranslate _cachedTranslateStyle = new StyleTranslate();
 
@@ -104,7 +108,9 @@ public class WorldHoverPopupUI : MonoBehaviour
         _pendingCost      = cost;
         _pendingHourlyCost = hourlyCost;
         _pendingPalletData = null;
+        _pendingLocationData = null;
         _isPalletMode = false;
+        _isLocationMode = false;
 
         if (isNewTarget)
         {
@@ -149,7 +155,9 @@ public class WorldHoverPopupUI : MonoBehaviour
         _pendingName = null;
         _pendingCost = 0;
         _pendingHourlyCost = 0;
+        _pendingLocationData = null;
         _isPalletMode = true;
+        _isLocationMode = false;
 
         if (isNewTarget)
         {
@@ -163,6 +171,53 @@ public class WorldHoverPopupUI : MonoBehaviour
             _hoverTimer += Time.deltaTime;
             if (!_isVisible && _hoverTimer >= _hoverDelay)
                 ShowPallet(_pendingPalletData);
+        }
+
+        if (_isVisible)
+            FollowCursor();
+    }
+
+    // ---------------------------------------------------------
+    // LOCATION HOVER
+    // ---------------------------------------------------------
+    public void TickHoverLocation(bool hovering, LocationData locationData, Vector3 worldPos, Camera cam)
+    {
+        if (!IsEnabled) { HideImmediate(); return; }
+
+        // Only show in IdleState
+        if (_fsm != null && !(_fsm.CurrentState is IdleState))
+        { HideImmediate(); return; }
+
+        if (!hovering || locationData == null)
+        {
+            _isHovering = false;
+            _hoverTimer = 0f;
+            HideImmediate();
+            return;
+        }
+
+        bool isNewTarget = !_isHovering || !_isLocationMode || locationData != _pendingLocationData;
+
+        _pendingLocationData = locationData;
+        _pendingPalletData = null;
+        _pendingName = null;
+        _pendingCost = 0;
+        _pendingHourlyCost = 0;
+        _isPalletMode = false;
+        _isLocationMode = true;
+
+        if (isNewTarget)
+        {
+            _isHovering = true;
+            _hoverTimer = 0f;
+            _popup.style.opacity = 1f;
+            ShowLocation(_pendingLocationData);
+        }
+        else
+        {
+            _hoverTimer += Time.deltaTime;
+            if (!_isVisible && _hoverTimer >= _hoverDelay)
+                ShowLocation(_pendingLocationData);
         }
 
         if (_isVisible)
@@ -222,6 +277,18 @@ public class WorldHoverPopupUI : MonoBehaviour
             // Wholesale cost
             if (sku != null)
             {
+                // Item Number
+                var itemNumLbl = new Label($"Item #: {sku.ItemNumber}");
+                itemNumLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                itemNumLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(itemNumLbl);
+
+                // Case Quantity
+                var caseQtyLbl = new Label($"Cases: {pallet.CaseQuantity}");
+                caseQtyLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                caseQtyLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(caseQtyLbl);
+
                 var wholesaleLbl = new Label($"Wholesale: ${sku.BuyValue:N0}");
                 wholesaleLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
                 wholesaleLbl.style.fontSize = 12;
@@ -260,6 +327,102 @@ public class WorldHoverPopupUI : MonoBehaviour
             loadIdLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
             loadIdLbl.style.fontSize = 12;
             _palletInfoPanel.Add(loadIdLbl);
+        }
+
+        // Hide building-specific elements
+        if (_cost != null) _cost.style.display = DisplayStyle.None;
+        if (_hourlyCost != null) _hourlyCost.style.display = DisplayStyle.None;
+
+        _popup.style.opacity = 1f;
+        _popup.style.display = DisplayStyle.Flex;
+        _popup.AddToClassList("show");
+        _isVisible = true;
+    }
+
+    // ---------------------------------------------------------
+    // VISUALS - Location
+    // ---------------------------------------------------------
+    private void ShowLocation(LocationData location)
+    {
+        if (_popup == null || location == null) return;
+
+        // Set title to slot address
+        if (_title != null)
+            _title.text = $"Location: {location.Address}";
+
+        // Hide icon for locations
+        if (_iconImage != null) _iconImage.style.display = DisplayStyle.None;
+
+        // Build location info text
+        if (_palletInfoPanel != null)
+        {
+            _palletInfoPanel.Clear();
+            _palletInfoPanel.style.display = DisplayStyle.Flex;
+
+            // Type (Pick/Reserve)
+            var typeLbl = new Label($"Type: {location.Type}");
+            typeLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            typeLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(typeLbl);
+
+            // Height (Level)
+            var rackPO = location.GetComponentInParent<PlacedObject>();
+            if (rackPO != null && rackPO.rackLevelIndex >= 0)
+            {
+                var levelLbl = new Label($"Level: {rackPO.rackLevelIndex} ({(location.WorldPosition.y):F2}m)");
+                levelLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                levelLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(levelLbl);
+            }
+            else
+            {
+                var heightLbl = new Label($"Height: {location.WorldPosition.y:F2}m");
+                heightLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                heightLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(heightLbl);
+            }
+
+            // Status
+            var statusLbl = new Label($"Status: {location.Status}");
+            statusLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            statusLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(statusLbl);
+
+            // Assignment / SKU
+            if (!string.IsNullOrEmpty(location.SkuId))
+            {
+                InventoryService inventory = null;
+                ServiceLocator.TryGet<InventoryService>(out inventory);
+                var sku = inventory?.GetSkuData(location.SkuId);
+
+                var assignedLbl = new Label($"SKU: {location.SkuId}");
+                assignedLbl.style.color = Color.yellow;
+                assignedLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(assignedLbl);
+
+                if (sku != null)
+                {
+                    var descLbl = new Label(sku.ItemDescription);
+                    descLbl.style.color = Color.white;
+                    descLbl.style.fontSize = 11;
+                    _palletInfoPanel.Add(descLbl);
+                }
+
+                if (location.Quantity > 0)
+                {
+                    var qtyLbl = new Label($"Stock: {location.Quantity} cases");
+                    qtyLbl.style.color = Color.white;
+                    qtyLbl.style.fontSize = 11;
+                    _palletInfoPanel.Add(qtyLbl);
+                }
+            }
+            else
+            {
+                var unassignedLbl = new Label("Unassigned / Empty");
+                unassignedLbl.style.color = new Color(0.5f, 0.5f, 0.5f, 1f);
+                unassignedLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(unassignedLbl);
+            }
         }
 
         // Hide building-specific elements

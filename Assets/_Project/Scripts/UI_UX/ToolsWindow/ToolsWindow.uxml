@@ -21,6 +21,30 @@
                         </ui:VisualElement>
                         <ui:VisualElement name="shipments-list" style="margin-top: 10px;"/>
                     </ui:VisualElement>
+                    <!-- ── CAPACITY REPORT ── -->
+                    <ui:VisualElement class="dev-section dev-s-blue">
+                        <ui:Label text="CAPACITY REPORT" class="dev-s-heading"/>
+                        <ui:VisualElement class="dev-capacity-table">
+                            <ui:VisualElement class="dev-capacity-row dev-capacity-header">
+                                <ui:Label text="" class="dev-capacity-label"/>
+                                <ui:Label text="TOTAL" class="dev-capacity-val dev-capacity-header-text"/>
+                                <ui:Label text="UTILIZED" class="dev-capacity-val dev-capacity-header-text"/>
+                                <ui:Label text="AVAILABLE" class="dev-capacity-val dev-capacity-header-text"/>
+                            </ui:VisualElement>
+                            <ui:VisualElement class="dev-capacity-row">
+                                <ui:Label text="RESERVE" class="dev-capacity-label"/>
+                                <ui:Label name="cap-res-total" text="0" class="dev-capacity-val"/>
+                                <ui:Label name="cap-res-util" text="0" class="dev-capacity-val"/>
+                                <ui:Label name="cap-res-avail" text="0" class="dev-capacity-val"/>
+                            </ui:VisualElement>
+                            <ui:VisualElement class="dev-capacity-row">
+                                <ui:Label text="PICKSLOTS" class="dev-capacity-label"/>
+                                <ui:Label name="cap-pick-total" text="0" class="dev-capacity-val"/>
+                                <ui:Label name="cap-pick-util" text="0" class="dev-capacity-val"/>
+                                <ui:Label name="cap-pick-avail" text="0" class="dev-capacity-val"/>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                     <ui:VisualElement class="dev-section dev-s-gold">
                         <ui:Label text="ECONOMY" class="dev-s-heading"/>
                         <ui:VisualElement class="dev-pills">

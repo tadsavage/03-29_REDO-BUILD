@@ -117,8 +117,10 @@ public class RaycastController : MonoBehaviour
         // ---------------------------------------------------------
         // 1. Detection Pass
         // ---------------------------------------------------------
-        bool objectHit = Physics.Raycast(ray, out RaycastHit objHit, 500f, dynamicObjectMask);
-        bool groundHit = Physics.Raycast(ray, out RaycastHit hit, 999f, dynamicGroundMask);
+        // We use QueryTriggerInteraction.Collide so we can hit pallet box colliders (which are triggers)
+        // even when they are inside rack shelves or other obstacles.
+        bool objectHit = Physics.Raycast(ray, out RaycastHit objHit, 500f, dynamicObjectMask, QueryTriggerInteraction.Collide);
+        bool groundHit = Physics.Raycast(ray, out RaycastHit hit, 999f, dynamicGroundMask, QueryTriggerInteraction.Ignore);
 
         HasHit = objectHit || groundHit;
 

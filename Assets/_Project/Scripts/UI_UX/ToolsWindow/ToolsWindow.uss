@@ -379,6 +379,14 @@
 .dev-btn-danger { background-color: #E05252; border-bottom-color: #981010; color: #FFFFFF; }
 .dev-btn-green  { background-color: #3DAA6A; border-bottom-color: #1E6E40; color: #FFFFFF; }
 
+/* Capacity Report */
+.dev-capacity-table { margin-top: 5px; }
+.dev-capacity-row { flex-direction: row; align-items: center; margin-bottom: 4px; }
+.dev-capacity-header { border-bottom-width: 1px; border-bottom-color: rgba(255, 255, 255, 0.1); padding-bottom: 4px; margin-bottom: 8px; }
+.dev-capacity-label { width: 100px; font-size: 18px; color: #CFE2F0; -unity-text-align: middle-left; }
+.dev-capacity-val { flex: 1; font-size: 18px; color: #FFFFFF; -unity-text-align: middle-center; }
+.dev-capacity-header-text { font-size: 18px; color: rgba(185, 210, 230, 0.45); }
+
 .dev-btn-gold:hover   { background-color: #F0B860; }
 .dev-btn-amber:hover  { background-color: #5BA6D8; }
 .dev-btn-teal:hover   { background-color: #6AAED8; }

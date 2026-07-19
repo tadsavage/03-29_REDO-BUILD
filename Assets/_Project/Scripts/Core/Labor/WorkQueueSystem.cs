@@ -16,7 +16,7 @@ namespace GameCore.Labor
         public string TaskId { get; }
         public WorkTaskType Type { get; }
         public EmployeeRole RequiredRole { get; }
-        public string PalletId { get; }
+        public string PalletId { get; set; }
         public string Description { get; }
         public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Pending;
         public string AssignedToEmployeeGuid { get; set; }  // for persistence and tracking

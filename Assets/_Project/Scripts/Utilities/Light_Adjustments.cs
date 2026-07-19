@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class Light_Adjustments : MonoBehaviour
 {
@@ -72,6 +73,12 @@ public class Light_Adjustments : MonoBehaviour
 
     private void OnMouseDown()
     {
+        // Require Shift + left click to toggle lights, so a plain left click never triggers it
+        var keyboard = Keyboard.current;
+        bool shiftHeld = keyboard != null && (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
+        if (!shiftHeld)
+            return;
+
         // Only allow toggling if the state machine is in IdleState
         var fsm = FindAnyObjectByType<PlacementStateMachine>();
         if (fsm != null && !(fsm.CurrentState is IdleState))

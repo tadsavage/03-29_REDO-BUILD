@@ -24,16 +24,16 @@
                 <!-- Levels — only reachable bays (bottom two) are configurable. -->
                 <ui:VisualElement class="rsu-levels" name="LevelsSection">
 
-                    <!-- Level 2 (upper reachable) -->
-                    <ui:VisualElement class="rsu-level-row" name="Level2Row">
-                        <ui:Label class="rsu-level-label" text="Level 2:" />
-                        <ui:DropdownField name="Level2Dropdown" class="rsu-dropdown" />
-                    </ui:VisualElement>
-
                     <!-- Level 1 (floor) -->
                     <ui:VisualElement class="rsu-level-row" name="Level1Row">
                         <ui:Label class="rsu-level-label" text="Level 1:" />
                         <ui:DropdownField name="Level1Dropdown" class="rsu-dropdown" />
+                    </ui:VisualElement>
+
+                    <!-- Level 2 (upper reachable) -->
+                    <ui:VisualElement class="rsu-level-row" name="Level2Row">
+                        <ui:Label class="rsu-level-label" text="Level 2:" />
+                        <ui:DropdownField name="Level2Dropdown" class="rsu-dropdown" />
                     </ui:VisualElement>
 
                 </ui:VisualElement>

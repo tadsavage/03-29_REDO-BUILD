@@ -20,6 +20,8 @@ public class SlotRegistry : MonoBehaviour
 {
     private static SlotRegistry _instance;
 
+    public static event System.Action OnRegistryChanged;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
@@ -147,6 +149,8 @@ public class SlotRegistry : MonoBehaviour
                 _slotsByAddress[slot.Address] = slot;
             }
         }
+
+        OnRegistryChanged?.Invoke();
     }
 
     // Address format is "AA-BB-Lp" — aisle, bay, then one level-char + one position digit run

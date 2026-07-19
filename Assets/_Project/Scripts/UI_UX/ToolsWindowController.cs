@@ -45,6 +45,10 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     private Label _objects, _undo;
     private Label _state, _stack;
 
+    // Capacity Report labels
+    private Label _capResTotal, _capResUtil, _capResAvail;
+    private Label _capPickTotal, _capPickUtil, _capPickAvail;
+
     // Shipments display
     private VisualElement _shipmentsList;
     private string _shipSig = "\0";
@@ -171,6 +175,14 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         _state            = root.Q<Label>("stat-state");
         _stack            = root.Q<Label>("stat-stack");
 
+        // Capacity Report
+        _capResTotal      = root.Q<Label>("cap-res-total");
+        _capResUtil       = root.Q<Label>("cap-res-util");
+        _capResAvail      = root.Q<Label>("cap-res-avail");
+        _capPickTotal     = root.Q<Label>("cap-pick-total");
+        _capPickUtil      = root.Q<Label>("cap-pick-util");
+        _capPickAvail     = root.Q<Label>("cap-pick-avail");
+
         // Inbound Simulator
         Wire<Button>("btn-spawn-delivery", root, b => b.clicked += SpawnInboundTruck);
         Wire<Button>("btn-create-test-pallets", root, b => b.clicked += CreateTestPallets);
@@ -195,8 +207,13 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         if (_ctx != null)
             _ctx.MoneyService.OnMoneyChanged += RefreshEconomy;
 
+        SlotRegistry.OnRegistryChanged += RefreshCapacityReport;
+        LocationStatusRegistry.OnStatusChanged += RefreshCapacityReport;
+        InventoryService.OnPalletMoved += (r, f, t) => RefreshCapacityReport();
+
         SwitchTab("dev");
         RefreshEconomy();
+        RefreshCapacityReport();
         ApplySavedGlobalSettings();
     }
 
@@ -1052,6 +1069,41 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         _balance.text = $"${m.CurrentCapital:N0}";
         _hourly.text  = $"${m.TotalHourlyCost:N0}/hr";
         _spent.text   = $"${m.SpentToday:N0}";
+    }
+
+    private void RefreshCapacityReport()
+    {
+        if (_capResTotal == null) return;
+
+        int resTotal = 0, resUtil = 0, resAvail = 0;
+        int pickTotal = 0, pickUtil = 0, pickAvail = 0;
+
+        foreach (var slot in SlotRegistry.AllSlots)
+        {
+            bool isPick = slot.IsPick;
+            bool isAvailable = LocationStatusRegistry.IsAvailable(slot.Address);
+            
+            if (isPick)
+            {
+                pickTotal++;
+                if (isAvailable) pickAvail++;
+                else pickUtil++;
+            }
+            else
+            {
+                resTotal++;
+                if (isAvailable) resAvail++;
+                else resUtil++;
+            }
+        }
+
+        _capResTotal.text  = resTotal.ToString();
+        _capResUtil.text   = resUtil.ToString();
+        _capResAvail.text  = resAvail.ToString();
+
+        _capPickTotal.text = pickTotal.ToString();
+        _capPickUtil.text  = pickUtil.ToString();
+        _capPickAvail.text = pickAvail.ToString();
     }
 
     /// <summary>"Clear Scene" button — lives in the Inbound Simulator section, so its job is

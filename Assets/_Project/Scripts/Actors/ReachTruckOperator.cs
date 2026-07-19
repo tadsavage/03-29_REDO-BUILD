@@ -28,10 +28,11 @@ namespace GameCore.Actors
         private const float FaceThreshold       = 2f;
         private const float TaskPollInterval    = 1f;
 
-        private const float PalletHalfHeight    = 0.08f;
+        private const float PalletHalfHeight    = 0.085f;
+        private const float ForkBladeHeightOffset = 0.08f;
         private const float ForkTravelHeight    = 0.4f;
-        private const float ForkRackClearance   = 0.12f;
-        private const float ForkDepositDrop     = 0.05f;
+        private const float ForkRackClearance   = 0.15f;
+        private const float ForkDepositDrop     = 0.12f;
 
         private const float MaxLaneInsertTravel = 8f;
 
@@ -88,6 +89,14 @@ namespace GameCore.Actors
         // palletId → earliest Time.time it may be re-claimed. Populated when a putaway can't find any
         // rack destination, so the truck doesn't livelock re-picking an un-storable pallet.
         private readonly Dictionary<string, float> _blockedUntil = new Dictionary<string, float>();
+
+        // The carried pallet's resting pose, captured just before pickup. ANY abort that un-parents the
+        // pallet (including the rack-delivery legs in DeliverPalletToRack) restores it to this pose so a
+        // failed putaway drops the pallet exactly where it started instead of stranding it at the forks'
+        // elevated carry height — which would otherwise ratchet it higher on every re-pick attempt.
+        private bool       _carryOriginValid;
+        private Vector3    _carryOriginPos;
+        private Quaternion _carryOriginRot;
 
         // ── Unity Lifecycle ───────────────────────────────────────────────────────────────────────
 
@@ -254,6 +263,7 @@ namespace GameCore.Actors
         private IEnumerator PutawayRoutine(WorkTask task)
         {
             Commandeer();
+            _carryOriginValid = false; // no pallet on the forks yet — the carry pose becomes valid at pickup.
             Debug.Log($"[ReachTruckOperator] '{name}' STARTING task {task.TaskId} for pallet {task.PalletId} from {task.FromLocation}");
 
             // 1. Resolve Lane ----------------------------------------------------------------------
@@ -267,23 +277,25 @@ namespace GameCore.Actors
 
             Vector3 exitPoint = new Vector3(geo.ExitPoint.x, transform.position.y, geo.ExitPoint.z);
 
-            // 2. Find the target pallet — BEFORE driving or lifting anything. FindExitPallet only reads
-            //    inventory, so we can confirm the pallet (and next, a destination) without touching it.
-            Transform pallet = FindExitPallet(door, lane, out string palletId);
-            if (pallet == null || palletId != task.PalletId)
+            // 2. Find the target pallet — BEFORE driving or lifting anything.
+            // REVISION (Substitution): If the target pallet is buried, we can substitute with the
+            // physically accessible pallet at the front of the same lane.
+            Transform pallet = FindExitPallet(door, lane, out string actualPalletId);
+            if (pallet == null)
             {
-                Debug.LogWarning($"[ReachTruckOperator] Target pallet {task.PalletId} is no longer accessible at lane {door}{lane}. Aborting.");
+                Debug.LogWarning($"[ReachTruckOperator] Lane {door}{lane} is empty or unreceived. Aborting.");
                 yield return AbortRoutine(task, null, null);
                 yield break;
             }
 
-            // 3. Resolve AND reserve the rack destination BEFORE the physical pickup. THIS is the fix
-            //    for the "stairwell": the old flow lifted the pallet first and only then searched for a
-            //    slot — when none existed, the abort dropped the pallet at the lifted fork height, so
-            //    every retry raised it another notch and it climbed like stairs. Now, if the building
-            //    is full we never touch the pallet: park it in the lane, block it from immediate
-            //    re-claim so the truck doesn't livelock, and bail. (Limbo proximity uses the pallet's
-            //    own XZ since the truck hasn't driven over yet.)
+            if (actualPalletId != task.PalletId)
+            {
+                Debug.Log($"[ReachTruckOperator] Substitution: target {task.PalletId} buried — picking accessible {actualPalletId} from same lane.");
+                task.PalletId = actualPalletId;
+            }
+
+            // 3. Resolve AND reserve the rack destination BEFORE the physical pickup.
+            string palletId = task.PalletId;
             Vector2 approachXZ = new Vector2(pallet.position.x, pallet.position.z);
             string toAddress = _putawayLogic?.AssignPutawayDestination(palletId, approachXZ);
             if (string.IsNullOrEmpty(toAddress))
@@ -299,7 +311,14 @@ namespace GameCore.Actors
             // "resume delivery vs. restart" decision off task.ToLocation ⇔ a carried-pallet snapshot;
             // setting it before pickup would misroute a save taken in this pre-pickup window.
 
-            EnsureUnderContainer(pallet, InventoryContainerName);
+            // DELIBERATELY NOT re-parenting the pallet under the Inventory container here. Doing so at
+            // claim time — while the pallet is still physically resting in the lane cell — made
+            // TrailerOffloadController.ComputeDropBaseY (which skips any PARENTED pallet, treating a
+            // parent as "on a carrier") measure the cell as empty, so the next dock stocker dropped its
+            // pallet on top of this one at ground Y (two pallets in the same cell on the deepest lane
+            // slot). The pallet now stays unparented while it rests, and only becomes a child of the
+            // Inventory container once it is actually placed at the rack (see the completion leg in
+            // DeliverPalletToRack). Between claim and pickup it is parented to the carrier at seating.
 
             // 4. Drive to the lane exit, then resolve the pallet's grab anchors.
             yield return DriveToPoint(transform, exitPoint);
@@ -318,8 +337,12 @@ namespace GameCore.Actors
 
             // Capture the pallet's original resting pose so ANY post-pickup abort restores it exactly
             // rather than stranding it wherever the forks are (belt-and-suspenders vs. the stairwell).
+            // Mirrored onto fields so the rack-delivery legs (DeliverPalletToRack) can restore it too.
             Vector3    originalPalletPos = pallet.position;
             Quaternion originalPalletRot = pallet.rotation;
+            _carryOriginPos   = originalPalletPos;
+            _carryOriginRot   = originalPalletRot;
+            _carryOriginValid = true;
 
             // ── Closed-loop acquire (staging → square-up → short insert → verify → retry) ─────────
             // WHY this shape (and NOT a single long DriveForksFirst into the pallet): the old open-loop
@@ -350,7 +373,7 @@ namespace GameCore.Actors
                 yield return FaceForks(transform, -outward);
                 // 3. Lift to the pallet's fork-pocket height (correct even for a top-of-stack pallet).
                 if (_forks != null)
-                    yield return LiftForksToWorldY(_forks, pallet.position.y + PalletHalfHeight);
+                    yield return LiftForksToWorldY(_forks, pallet.position.y + PalletHalfHeight - ForkBladeHeightOffset);
                 // 4. Short, capped, self-correcting insert. Reports whether the fork grab-point actually
                 //    reached the pallet within _grabVariance — the checkpoint you asked for.
                 bool ok = false;
@@ -367,9 +390,7 @@ namespace GameCore.Actors
             if (!grabbed)
             {
                 Debug.LogWarning($"[ReachTruckOperator] Could not seat {palletId} after {MaxGrabAttempts} attempts — restoring it and aborting.");
-                pallet.SetParent(null, worldPositionStays: true);
-                pallet.position = originalPalletPos;
-                pallet.rotation = originalPalletRot;
+                ReleaseCarriedPalletToOrigin(pallet);
                 _putawayLogic?.CancelPutaway(toAddress);
                 yield return AbortRoutine(task, palletId, toAddress);
                 yield break;
@@ -378,9 +399,13 @@ namespace GameCore.Actors
             Transform carrier = _palletAnchor != null ? _palletAnchor : (_forks != null ? _forks : transform);
 
             // RULE: Parent the pallet to the PalletAnchor.
-            // Snapping to local zero ensures the pallet is perfectly centered on the forks' intended carry point.
+            // Snapping to local offset ensures the pallet is perfectly centered on the forks' intended carry point,
+            // compensating for the model's visual blade offset and the desired 0.085m fork-pocket height.
             pallet.SetParent(carrier, worldPositionStays: false);
-            pallet.localPosition = Vector3.zero;
+            
+            float anchorY = _palletAnchor != null ? _palletAnchor.localPosition.y : 0f;
+            float verticalOffset = (ForkBladeHeightOffset - PalletHalfHeight) - anchorY;
+            pallet.localPosition = new Vector3(0, verticalOffset, 0);
             pallet.localRotation = Quaternion.identity;
 
             // Get the cell we're picking from BEFORE we move the pallet
@@ -456,7 +481,7 @@ namespace GameCore.Actors
             if (locApproach == null)
             {
                 Debug.LogWarning($"[ReachTruckOperator] Approach anchor not found for {toAddress}.");
-                pallet.SetParent(null, worldPositionStays: true);
+                ReleaseCarriedPalletToOrigin(pallet);
                 if (obstacle != null) obstacle.enabled = true;
                 yield return AbortRoutine(task, palletId, toAddress);
                 yield break;
@@ -471,7 +496,7 @@ namespace GameCore.Actors
             if (locationTr == null)
             {
                 Debug.LogWarning($"[ReachTruckOperator] Location {toAddress} not found.");
-                pallet.SetParent(null, worldPositionStays: true);
+                ReleaseCarriedPalletToOrigin(pallet);
                 if (obstacle != null) obstacle.enabled = true;
                 yield return AbortRoutine(task, palletId, toAddress);
                 yield break;
@@ -497,14 +522,15 @@ namespace GameCore.Actors
                 extended += _forkExtendSpeed * Time.deltaTime;
 
                 float xzDist = new Vector2(pallet.position.x - locationTr.position.x, pallet.position.z - locationTr.position.z).magnitude;
-                if (xzDist <= _placeVariance) { varianceMet = true; break; }
+                // Tighten the drop variance to 0.05m to minimize visual "snapping" when the pallet is released.
+                if (xzDist <= 0.05f) { varianceMet = true; break; }
                 yield return null;
             }
 
             if (!varianceMet)
             {
                 Debug.LogWarning($"[ReachTruckOperator] MISS! Variance {new Vector2(pallet.position.x - locationTr.position.x, pallet.position.z - locationTr.position.z).magnitude:F2}m > {_placeVariance}m. Aborting.");
-                pallet.SetParent(null, worldPositionStays: true);
+                ReleaseCarriedPalletToOrigin(pallet);
                 if (obstacle != null) obstacle.enabled = true;
                 yield return AbortRoutine(task, palletId, toAddress);
                 yield break;
@@ -515,8 +541,14 @@ namespace GameCore.Actors
                 yield return LiftForks(_forks, _forks.localPosition.y - ForkDepositDrop);
 
             pallet.SetParent(null, worldPositionStays: true);
-            pallet.position = new Vector3(locationTr.position.x, pallet.position.y, locationTr.position.z);
+            pallet.position = locationTr.position;
+            // Now — and ONLY now, with the pallet physically placed at the rack and off the forks — move
+            // it under the Inventory container (its organizational home). Deferring the re-parent to this
+            // point (instead of at claim time) is what keeps a still-resting, claimed pallet unparented so
+            // ComputeDropBaseY can see it and stack the next drop on top of it correctly.
+            EnsureUnderContainer(pallet, InventoryContainerName);
             if (obstacle != null) obstacle.enabled = true;
+            _carryOriginValid = false; // pallet is safely placed — the captured lane pose is no longer a fallback.
 
             var locationData = locationTr.GetComponent<LocationData>();
             if (locationData != null)
@@ -549,7 +581,8 @@ namespace GameCore.Actors
 
             if (_forks != null)
             {
-                yield return RetractForks(_forks, _forkRestLocalZ);
+                // Slowly retract the forks to the mast for better visual fidelity (approx 0.6m/s).
+                yield return RetractForks(_forks, _forkRestLocalZ, _forkExtendSpeed * 0.4f);
                 yield return LiftForks(_forks, _forkRestLocalY);
             }
 
@@ -611,6 +644,25 @@ namespace GameCore.Actors
             return false;
         }
 
+        /// <summary>
+        /// Un-parents the carried pallet and restores it to the resting pose captured at pickup
+        /// (<see cref="_carryOriginPos"/>/<see cref="_carryOriginRot"/>). When no valid origin was
+        /// captured — e.g. a save/load resume that re-seated the pallet mid-carry — it falls back to
+        /// leaving the pallet at its current world pose. This is what prevents a failed rack-delivery
+        /// abort from stranding the pallet at the forks' elevated carry height, which would otherwise
+        /// ratchet it higher (and further out) on every subsequent re-pick attempt.
+        /// </summary>
+        private void ReleaseCarriedPalletToOrigin(Transform pallet)
+        {
+            if (pallet == null) return;
+            pallet.SetParent(null, worldPositionStays: true);
+            if (_carryOriginValid)
+            {
+                pallet.position = _carryOriginPos;
+                pallet.rotation = _carryOriginRot;
+            }
+        }
+
         private IEnumerator AbortRoutine(WorkTask task, string palletId, string reservedAddress)
         {
             Debug.Log($"[ReachTruckOperator] ABORTING task. Pallet: {palletId}, Location: {reservedAddress}");
@@ -620,7 +672,7 @@ namespace GameCore.Actors
             // If holding a pallet, retract and re-enable obstacle
             if (_forks != null)
             {
-                yield return RetractForks(_forks, _forkRestLocalZ);
+                yield return RetractForks(_forks, _forkRestLocalZ, -1f);
                 yield return LiftForks(_forks, _forkRestLocalY);
             }
 
@@ -643,6 +695,7 @@ namespace GameCore.Actors
             }
 
             Restore();
+            _carryOriginValid = false; // routine is over — don't let a stale carry pose leak into the next task.
         }
 
         private void Commandeer()
@@ -824,11 +877,12 @@ namespace GameCore.Actors
             yield return LiftForks(forks, targetLocalY);
         }
 
-        private IEnumerator RetractForks(Transform forks, float targetLocalZ)
+        private IEnumerator RetractForks(Transform forks, float targetLocalZ, float speedOverride = -1f)
         {
+            float speed = speedOverride > 0f ? speedOverride : _forkExtendSpeed;
             while (Mathf.Abs(forks.localPosition.z - targetLocalZ) > 0.005f)
             {
-                forks.localPosition = new Vector3(forks.localPosition.x, forks.localPosition.y, Mathf.MoveTowards(forks.localPosition.z, targetLocalZ, _forkExtendSpeed * Time.deltaTime));
+                forks.localPosition = new Vector3(forks.localPosition.x, forks.localPosition.y, Mathf.MoveTowards(forks.localPosition.z, targetLocalZ, speed * Time.deltaTime));
                 yield return null;
             }
             forks.localPosition = new Vector3(forks.localPosition.x, forks.localPosition.y, targetLocalZ);
@@ -889,7 +943,35 @@ namespace GameCore.Actors
             return Vector3.Dot(front.position, depthAxis) >= Vector3.Dot(rear.position, depthAxis) ? front : rear;
         }
 
-        private static Transform FindLocationTransform(string address) => GameObject.Find(address)?.transform;
+        private static Transform FindLocationTransform(string address)
+        {
+            // The addressable location is the slot GameObject that actually carries a LocationData
+            // component AND the LocApproachAnchor child — it lives NESTED under the rack's active
+            // aisle-facing label group (LabelFront.*/LabelRear.*), NOT as the bare direct child of the
+            // rack root. That bare same-named direct child has no LocationData and no anchor, so
+            // resolving it (the old slot.Rack.transform.Find(address)) made FindLocApproachAnchor return
+            // null and every rack delivery abort at "approach anchor not found" — dropping the carried
+            // pallet back into its lane and looping forever between the two stacked pallets. Locate the
+            // LocationData-bearing descendant named `address`, preferring the one on the ACTIVE face
+            // (AisleInitializer deactivates the far face's label group entirely).
+            if (SlotRegistry.TryGet(address, out var slot) && slot.Rack != null)
+            {
+                LocationData fallback = null;
+                foreach (LocationData ld in slot.Rack.GetComponentsInChildren<LocationData>(true))
+                {
+                    if (ld.name != address) continue;
+                    if (ld.gameObject.activeInHierarchy) return ld.transform; // active aisle face — the real one
+                    fallback ??= ld;                                          // remember an inactive match just in case
+                }
+                if (fallback != null) return fallback.transform;
+
+                // Last resort within the rack: the bare direct child (no anchor, but preserves prior behaviour).
+                Transform direct = slot.Rack.transform.Find(address);
+                if (direct != null) return direct;
+            }
+            // Fallback to global search if SlotRegistry lookup fails
+            return GameObject.Find(address)?.transform;
+        }
         private static Transform FindLocApproachAnchor(string address) => FindLocationTransform(address)?.Find(LocApproachAnchorName);
 
         private static void EnsureUnderContainer(Transform obj, string containerName)

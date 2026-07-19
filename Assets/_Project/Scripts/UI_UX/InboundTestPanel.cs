@@ -26,6 +26,9 @@ public class InboundTestPanel : MonoBehaviour
 {
     private static InboundTestPanel _instance;
 
+    /// <summary>Singleton accessor so external systems (e.g. the Tab close-all handler) can reach the panel.</summary>
+    public static InboundTestPanel Instance => _instance;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
@@ -124,6 +127,16 @@ public class InboundTestPanel : MonoBehaviour
         if (_window == null) return;
         bool visible = _window.resolvedStyle.display != DisplayStyle.None;
         _window.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
+    }
+
+    /// <summary>True when the work queue window is currently shown.</summary>
+    public bool IsVisible => _window != null && _window.resolvedStyle.display != DisplayStyle.None;
+
+    /// <summary>Hides the work queue window (used by the Tab close-all handler).</summary>
+    public void Hide()
+    {
+        if (_window == null) return;
+        _window.style.display = DisplayStyle.None;
     }
 
     // Borrow the HUD's PanelSettings so we scale with the rest of the UI; wait until one exists.

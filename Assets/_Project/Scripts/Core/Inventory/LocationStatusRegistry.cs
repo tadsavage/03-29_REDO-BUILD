@@ -13,6 +13,10 @@ namespace GameCore.Inventory
     {
         private static readonly Dictionary<string, LocationStatus> _statusByAddress = new();
 
+        public static event System.Action OnStatusChanged;
+
+        private static void Notify() => OnStatusChanged?.Invoke();
+
         // ============ QUERIES ============
 
         /// <summary>Returns the status of a slot. Defaults to <see cref="LocationStatus.Available"/>
@@ -28,25 +32,39 @@ namespace GameCore.Inventory
 
         /// <summary>Explicitly set a slot's status.</summary>
         public static void Set(string address, LocationStatus status)
-            => _statusByAddress[address] = status;
+        {
+            _statusByAddress[address] = status;
+            Notify();
+        }
 
         /// <summary>Lock a slot for an in-progress putaway task.</summary>
         public static void Reserve(string address)
-            => Set(address, LocationStatus.Reserved);
+        {
+            Set(address, LocationStatus.Reserved);
+        }
 
         /// <summary>Mark a slot as occupied once a putaway completes and the pallet is released.</summary>
         public static void MarkOccupied(string address)
-            => Set(address, LocationStatus.Occupied);
+        {
+            Set(address, LocationStatus.Occupied);
+        }
 
         /// <summary>Return a slot to Available (e.g. task cancelled, or pallet removed from slot).</summary>
         public static void Release(string address)
         {
             if (_statusByAddress.ContainsKey(address))
+            {
                 _statusByAddress.Remove(address); // untracked == Available
+                Notify();
+            }
         }
 
         /// <summary>Clear all tracked statuses (use before restoring from save).</summary>
-        public static void ClearAll() => _statusByAddress.Clear();
+        public static void ClearAll()
+        {
+            _statusByAddress.Clear();
+            Notify();
+        }
 
         // ============ PERSISTENCE ============
 
@@ -69,6 +87,7 @@ namespace GameCore.Inventory
                 if (string.IsNullOrEmpty(e.address)) continue;
                 _statusByAddress[e.address] = (LocationStatus)e.status;
             }
+            Notify();
         }
     }
 

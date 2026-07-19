@@ -1,5 +1,6 @@
 using GameCore.Build;
 using GameCore.Economy;
+using GameCore.Inventory;
 using GameCore.Services;
 using System.Collections.Generic;
 using UnityEngine;
@@ -220,13 +221,27 @@ public class PlacementStateMachine : MonoBehaviour
                     }
                 }
 
-                // Shift + Left Click on a live rack opens the Slot Assignment panel, scoped to that
-                // rack's aisle — symmetric with Ctrl+Click opening Pallet Builder for a pallet.
+                // Shift + Left Click: toggle lights OR open Slot Assignment on racks
                 bool _shiftHeld = Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
                 if (Mouse.current.leftButton.wasPressedThisFrame && _shiftHeld && !_raycast.IsPointerOverUI)
                 {
                     if (_raycast.HitObject != null)
                     {
+                        // Check if it's a light fixture — toggle all lights to match the clicked light's new state
+                        var light = _raycast.HitObject.GetComponentInParent<Light>();
+                        if (light != null)
+                        {
+                            bool newState = !light.enabled;
+                            var allLights = FindObjectsByType<Light_Adjustments>();
+                            foreach (var lightAdj in allLights)
+                            {
+                                lightAdj.SetState(newState);
+                            }
+                            _hoverUI.HideImmediate();
+                            return;
+                        }
+
+                        // Otherwise, check if it's a live rack — open Slot Assignment panel
                         var rackPo = _raycast.HitObject.GetComponentInParent<PlacedObject>();
                         if (rackPo != null && rackPo.isRackLive && rackPo.data != null
                             && rackPo.data.category == "Racking" && rackPo.rackAisle >= 0
@@ -267,6 +282,45 @@ if (_currentState != _idleState)
             {
                 ReturnToPrevious();
             }
+        }
+
+        // -----------------------------------------------------
+        // CLOSE ALL UI PANELS (TAB)
+        // -----------------------------------------------------
+        if (Keyboard.current.tabKey.wasPressedThisFrame)
+        {
+            // ShiftManagerPanel (key 5) needs special handling: TryClose saves changes if dirty
+            var shiftManager = _topBar != null ? _topBar.ShiftManagerPanel : null;
+            if (shiftManager != null && shiftManager.IsOpen)
+            {
+                shiftManager.TryClose();
+                return; // Exit early since ShiftManager's TryClose handles hiding
+            }
+
+            // Close all other keybinding UIs (1-4, 6-7)
+            var uiManager = UIKeyBindingManager.Instance;
+            if (uiManager != null)
+                uiManager.CloseAll();
+
+            // Close EmployeeInfoUI if open (opens when clicking an employee)
+            var employeeInfoUI = FindObjectOfType<EmployeeInfoUI>();
+            if (employeeInfoUI != null && employeeInfoUI.IsVisible)
+                employeeInfoUI.Hide();
+
+            // Close SlotAssignmentPanel if open
+            var slotAssignmentPanel = _topBar != null ? _topBar.SlotAssignmentPanel : null;
+            if (slotAssignmentPanel != null && slotAssignmentPanel.IsVisible)
+                slotAssignmentPanel.Hide();
+
+            // Close the Work Queue window (InboundTestPanel, key 7) if open
+            var workQueuePanel = InboundTestPanel.Instance;
+            if (workQueuePanel != null && workQueuePanel.IsVisible)
+                workQueuePanel.Hide();
+
+            // Close NewItemPanel (key 8) if open
+            var newItemPanel = _topBar != null ? _topBar.NewItemPanel : null;
+            if (newItemPanel != null && newItemPanel.IsVisible)
+                newItemPanel.Hide();
         }
     }
 
@@ -309,6 +363,14 @@ if (_currentState != _idleState)
                     _raycast.RawHitPoint,
                     Camera.main
                 );
+                return;
+            }
+
+            // Check for LocationData (Rack slot)
+            var locationData = _raycast.HitObject.GetComponentInParent<LocationData>();
+            if (locationData != null)
+            {
+                _hoverUI.TickHoverLocation(true, locationData, _raycast.RawHitPoint, Camera.main);
                 return;
             }
         }

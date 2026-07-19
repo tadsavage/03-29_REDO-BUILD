@@ -221,7 +221,7 @@ public class ShiftManagerPanel : IUIPanel
         HideConfirmation();
     }
 
-    private void TryClose()
+    public void TryClose()
     {
         if (!_hasChanges)
         {

@@ -172,6 +172,8 @@ public class LocationRegistry : MonoBehaviour
                     : (ownRenderer != null && ownRenderer.bounds.size.sqrMagnitude > 0.001f
                         ? ownRenderer.bounds.center
                         : label.transform.position);
+                // Use the label's own Z position, not the renderer bounds Z (which includes label thickness).
+                faceCenter.z = label.transform.position.z;
                 data.transform.position = faceCenter;
 
                 // Always re-initialise identity in case the label text changed.
