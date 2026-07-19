@@ -137,13 +137,24 @@ namespace GameCore.Labor
             Transform forks = FindDeepChild(ds, ForkChildName);
             float forkRestY = forks != null ? forks.localPosition.y : 0f;
 
-            // Cargo pallets, ordered nearest-the-rear-opening first so the DS never drives through one.
+            // Cargo pallets, ordered so the DS (a) never drives through a still-loaded stack to reach a
+            // deeper one, and (b) NEVER grabs a bottom pallet while another is resting on top of it.
             Vector3 into = TrailerIntoDir(truck);
             var pallets = new List<Transform>();
             var load = truck.LoadContainer;
             if (load != null)
                 foreach (Transform child in load) pallets.Add(child);
-            pallets.Sort((a, b) => Vector3.Dot(a.position, into).CompareTo(Vector3.Dot(b.position, into)));
+            pallets.Sort((a, b) =>
+            {
+                float la = Vector3.Dot(a.position, into);
+                float lb = Vector3.Dot(b.position, into);
+                // Different columns (depth into the trailer differs meaningfully) → nearest the rear
+                // opening first, so the DS clears near stacks before driving deeper.
+                if (Mathf.Abs(la - lb) > 0.25f) return la.CompareTo(lb);
+                // Same column — stacked pallets share XZ, differ only in height. Take the TOP one FIRST.
+                // Grabbing the bottom first is what left the upper pallet "hanging" mid-air.
+                return b.position.y.CompareTo(a.position.y);
+            });
 
             // Longitudinal position (projected onto `into`) of the rear-most pallet — a proxy for the
             // trailer opening. The pickup pivots sit PivotFrontDistance in front of this, on the dock.
@@ -280,6 +291,14 @@ namespace GameCore.Labor
             DropPallet(pallet, targetW, dropBaseY, palletWorldScale, rotatedPlacement);
             // 12b. Record the authoritative base-Y everywhere the pallet's height is tracked.
             RecordPalletHeight(pallet.gameObject, dropBaseY, inv);
+
+            // DIAGNOSTIC: exact landing of every offloaded pallet so a tower/mis-stack can be read
+            // straight from the Editor.log (cell, stack tier, computed base-Y, final world position,
+            // and how many pallets the inventory now believes are in this cell).
+            int nowInCell = inv.GetPalletsAtLocation(cell).Count;
+            Debug.Log($"[TrailerOffload][DROP] pallet#{palletIndex} → door {door} lane {laneLetter} cell ({cell.x},{cell.y}) " +
+                      $"tier={tier} dropBaseY={dropBaseY:F2} finalPos={pallet.position} cellCount(now)={nowInCell} " +
+                      $"cellCenter={targetW}");
             // 13. Reverse straight back OUT of the lane to the entry pivot (never across the lanes) —
             //     cab-first, forks trailing, no spin.
             yield return DriveTailFirst(ds, entryPivot);
@@ -461,11 +480,20 @@ namespace GameCore.Labor
         // ── Lane targeting + inventory/task creation ─────────────────────────────────────────────
 
         // Finds the next open staging slot, restricted to the lanes owned by the truck's dock DOOR
-        // (so a truck at door 2 stages in door 2's lanes, not the globally-first lane). Within a lane it
-        // fills from the FAR end (the reach-truck/exit end) back toward the door (the dock-stocker/entry
-        // end): the lanes are FIFO flow-through — first pallet in ends up deepest so the reach truck at
-        // the far end picks it first. Returns the lane identity too so the drop maneuver can route in via
-        // the entry. doorNumber <= 0 falls back to any door.
+        // (so a truck at door 2 stages in door 2's lanes, not the globally-first lane).
+        //
+        // FILL RULE (matches the physical constraint — the DS enters a lane from ONE end and CANNOT
+        // drive through a pallet): walk in from the ENTRY (the end nearest the dock door) toward the far
+        // end and stop at the first OCCUPIED slot, because the DS can't pass it. The chosen drop is the
+        // DEEPEST reachable slot with room:
+        //   • empty slots are passable — keep walking deeper;
+        //   • the first occupied slot is the frontier: if it still has room under MaxStackHeight, STACK
+        //     on it ("position 6 holds one → room on top for one more"); either way, STOP — never route
+        //     past it to a deeper open slot ("position 6 holds two → drop in 5", never drive through 6).
+        // On a fresh lane this still fills far-end-first (FIFO flow-through for the reach truck at the
+        // exit), but it can no longer drive through pallets left by an earlier batch/other truck.
+        // Returns the lane identity so the drop maneuver can route in via the entry. doorNumber <= 0
+        // falls back to any door.
         private bool TryFindLaneTarget(InventoryService inv, int doorNumber, Vector3 doorPos,
                                        out int door, out string laneLetter, out Vector2Int cell, out int tier)
         {
@@ -479,24 +507,44 @@ namespace GameCore.Labor
                 var slots = LaneNamingService.GetLane(d, lane);
                 if (slots.Count == 0) continue;
 
-                // FIFO flow-through: fill from the EXIT end (far from the door) back toward the ENTRY end
-                // (nearest the door) so the reach truck at the exit picks the first-placed pallet first.
-                // Slot order in `slots` may run either way relative to the door, so order by distance
-                // from the door DESCENDING (far first).
-                var byFar = slots.OrderByDescending(s => (_grid.GetCellCenter(s.Cell) - doorPos).sqrMagnitude);
-                foreach (var s in byFar)
+                // Order ENTRY→FAR: entry = the end nearest the dock door (where the DS drives in).
+                var entryToFar = slots.OrderBy(s => (_grid.GetCellCenter(s.Cell) - doorPos).sqrMagnitude).ToList();
+
+                int chosenIndex = -1;
+                int chosenTier  = 0;
+                for (int idx = 0; idx < entryToFar.Count; idx++)
                 {
+                    var s = entryToFar[idx];
                     int stacked = inv.GetPalletsAtLocation(s.Cell).Count;
                     int pending = _pendingDrops.TryGetValue(s.Cell, out int p) ? p : 0;
-                    
-                    if (stacked + pending < maxH)
+                    int count   = stacked + pending;
+
+                    if (count == 0)
                     {
-                        door = d; laneLetter = lane; cell = s.Cell; tier = stacked + pending;
-                        
-                        // Reserve the slot immediately so other stockers don't target it
-                        _pendingDrops[cell] = pending + 1;
-                        return true;
+                        // Empty and reachable — remember it as the deepest reachable slot, keep going.
+                        chosenIndex = idx; chosenTier = 0;
+                        continue;
                     }
+
+                    // Occupied slot: the DS cannot drive PAST it. It's the frontier.
+                    if (count < maxH)
+                    {
+                        // Room on top — stack HERE (this is the "one more on top" case).
+                        chosenIndex = idx; chosenTier = count;
+                    }
+                    // Full or partial, we can't go deeper. Stop.
+                    break;
+                }
+
+                if (chosenIndex >= 0)
+                {
+                    var chosen = entryToFar[chosenIndex];
+                    door = d; laneLetter = lane; cell = chosen.Cell; tier = chosenTier;
+
+                    // Reserve the slot immediately so other stockers don't target it.
+                    int pv = _pendingDrops.TryGetValue(cell, out int existing) ? existing : 0;
+                    _pendingDrops[cell] = pv + 1;
+                    return true;
                 }
             }
             return false;

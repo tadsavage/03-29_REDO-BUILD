@@ -472,7 +472,7 @@ public class InboundTestPanel : MonoBehaviour
                 tasks.Sort((a, b) => a.Area.CompareTo(b.Area));
                 break;
             case SortColumn.Priority:
-                tasks.Sort((a, b) => CompareInt(100, 100)); // all same priority
+                tasks.Sort((a, b) => CompareInt(a.Priority, b.Priority));
                 break;
             case SortColumn.Role:
                 tasks.Sort((a, b) => a.RequiredRole.CompareTo(b.RequiredRole));
@@ -588,7 +588,7 @@ public class InboundTestPanel : MonoBehaviour
         row.Add(QueueCell(pallet, WPallet, ColQueueText, false, TextAnchor.MiddleLeft));
         row.Add(QueueCell(item,   WItem,   ColQueueText, false, TextAnchor.MiddleLeft));
         row.Add(QueueCell(area,   WArea,   ColQueueText, false, TextAnchor.MiddleCenter));
-        row.Add(QueueCell("100",  WPri,    ColQueueText, false, TextAnchor.MiddleCenter));
+        row.Add(QueueCell(t.Priority.ToString(), WPri, ColQueueText, false, TextAnchor.MiddleCenter));
         row.Add(QueueCell(role,   WRole,   ColQueueText, false, TextAnchor.MiddleCenter));
         row.Add(QueueCell(task,   WTask,   ColQueueText, false, TextAnchor.MiddleLeft));
         row.Add(QueueCell(from,   WFrom,   ColQueueText, false, TextAnchor.MiddleLeft));

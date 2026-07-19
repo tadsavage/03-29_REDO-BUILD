@@ -46,8 +46,16 @@ namespace GameCore.Labor
         /// pulled from the SKU's StorageArea. Used for routing/display and downstream employee specialization.</summary>
         public PalletData.AreaCategory Area { get; }
 
+        /// <summary>Lower value = more urgent = claimed first. Default 100 (every task is currently
+        /// created at the same priority — this exists so claim ordering is real data instead of a
+        /// hardcoded UI string, and so a future "rush this pallet" feature has somewhere to write to).</summary>
+        public int Priority { get; }
+
+        public const int DefaultPriority = 100;
+
         public WorkTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
-            string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery)
+            string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery,
+            int priority = DefaultPriority)
         {
             TaskId = Guid.NewGuid().ToString();
             Type = type;
@@ -57,6 +65,7 @@ namespace GameCore.Labor
             FromLocation = fromLocation;
             ToLocation = toLocation;
             Area = area;
+            Priority = priority;
         }
     }
 
@@ -83,7 +92,8 @@ namespace GameCore.Labor
         public void Shutdown() => _tasks.Clear();
 
         public WorkTask CreateTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
-            string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery)
+            string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery,
+            int priority = WorkTask.DefaultPriority)
         {
             // RULE: Putaway tasks can only be created for pallets that have been fully received (have PalletData).
             // They must also have a valid FromLocation (staging lane).
@@ -109,7 +119,7 @@ namespace GameCore.Labor
                 }
             }
 
-            var task = new WorkTask(type, requiredRole, palletId, description, fromLocation, toLocation, area);
+            var task = new WorkTask(type, requiredRole, palletId, description, fromLocation, toLocation, area, priority);
             _tasks.Add(task);
             OnTaskCreated?.Invoke(task);
             Debug.Log($"[WorkQueueSystem] + {description} (role: {requiredRole.DisplayName()}, area: {area})");

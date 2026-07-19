@@ -689,6 +689,27 @@ F1–F4 were rebound to the number row to free up F-keys and make room for **5**
 - Sets down pallet, updates location
 - Inventory system updated
 
+#### 2026-07-18 Session — Reach-truck putaway "stairwell" livelock fixed; capacity issue still open
+
+**IN PROGRESS — code changes committed/pushed on branch `PreRack_2ndAttempt`, NOT yet play-verified.** Continue here on the other machine.
+
+**Symptom Tad reported:** reach truck picking up from a staging lane would, at ~the 4th/5th slot in, drive deeper and deeper and "nudge the pallet up like a stairwell" until it floated in space. I mis-diagnosed it TWICE as an approach/aim bug (rewrote the fork-insert drive) before pulling `Editor.log` telemetry, which showed the truth:
+
+**Actual root cause = a no-rack-space LIVELOCK, not the drive.** Log sequence: 8 pallets put away fine, then `[PutawayLogic] Limbo fallback: no Available reserve slots in the entire building` (warehouse full; those SKUs also had *no pick slot assigned*, so all flooded reserve). Then the RTO **physically picked up** the pallet and only AFTER it was on the forks did `PutawayLogic.AssignPutawayDestination` return null → the abort did `SetParent(null, worldPositionStays:true)`, dropping the pallet at the lifted fork height (+~0.08m). Re-queue → re-pick → +0.08m per loop = the stairwell climb. Two tasks for the same exit slot also churned against each other.
+
+**Fixes applied to `ReachTruckOperator.cs`:**
+1. **Resolve + reserve the rack destination BEFORE the physical pickup** (moved `AssignPutawayDestination` ahead of the drive/lift). No destination → the pallet is never touched: park it in the lane, block it, bail.
+2. **`_blockedUntil` dict + `NoDestinationBackoff` (15s)** — a pallet that found no destination isn't re-claimed immediately (checked in BOTH claim paths in `TryClaimAndStart`: the `alreadyAssigned` resume and the pending loop). Kills the livelock; retries every 15s in case space frees.
+3. **Every post-pickup abort restores the pallet's captured original pose** (`originalPalletPos/Rot`) and calls `CancelPutaway(toAddress)` to release the reserved slot → a pallet is never left floating.
+4. **`task.AssignToLocation(toAddress)` is stamped only AFTER the pallet is seated on the forks** — preserves the save/load contract (`MHEOperatorPersistenceService` routes `ResumeDeliverToRack` vs `ResumeTask` off `task.ToLocation` ⇔ a carried-pallet snapshot; stamping it pre-pickup would misroute a save taken in that window).
+- Kept an earlier **closed-loop acquire** rewrite (homing to a staging point 0.6m in front → square up → short capped `InsertToGrab` with retry). It WORKS (the 8 successes went through it) and is more robust than the old open-loop `DriveForksFirst`+`DriveToGrab`, which are now **dead code** in this file. Not the bug, but fine to keep.
+
+**STILL OPEN — the real blocker to actually finish Chunk 2:** running out of reserve slots after only **8** pallets is suspiciously low for the rack setup in Tad's screenshots. Next step: determine whether `SlotRegistry.ReserveSlots` is under-registering, `LocationStatusRegistry` is marking most slots unavailable, or pick slots simply aren't assigned (Slot Assignment panel = key **`6`**). Confirm via `Editor.log` after a run.
+
+**Bridge/verification note (important, wasted time this session):** the Unity MCP bridge here (CodeMaestro executor) supports `manage_editor` / `manage_scene` / `find_gameobjects` / resources, but **`read_console`, `manage_console`, `execute_code`, `validate_script`, `refresh_unity` all fail** ("Unknown/unsupported command" or "No Unity Editor instances found"). To verify compiles/runtime: read `%LOCALAPPDATA%/Unity/Editor/Editor.log` from disk (grep `error CS`, `[ReachTruckOperator]`, `[PutawayLogic]`, `[TrailerOffload]`), and compare `Library/ScriptAssemblies/Assembly-CSharp.dll` mtime vs the source `.cs` mtime to confirm a build actually happened.
+
+**Also changed `TrailerOffloadController.cs` (dock stocker) same session, also unverified in-play:** (a) trailer grab order is now depth-then-Y-descending so it takes the **top** of a stack first (was leaving top pallets hanging); (b) lane-fill `TryFindLaneTarget` rewritten to **walk in from the entry and stop at the first occupied slot** (stack the frontier if it has room, else the slot before it) so the DS can't route *through* occupied lane positions.
+
 **CHUNK 3: REPLENISHMENT PROCESS**
 - Pick slot monitored for occupancy
 - Threshold: <2 cases remaining

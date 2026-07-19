@@ -34,6 +34,11 @@ namespace GameCore.Actors
         private const float ForkDepositDrop     = 0.05f;
 
         private const float MaxLaneInsertTravel = 8f;
+
+        /// <summary>How long a pallet is skipped for re-claim after a putaway couldn't find any rack
+        /// destination (warehouse full). Stops the pick-up→no-space→strand→re-pick livelock from
+        /// hammering every poll while still retrying periodically in case space frees up.</summary>
+        private const float NoDestinationBackoff = 15f;
         
         /// <summary>Safety cap on fork extension. Increased to 5.0 to reach center of deep racks.</summary>
         private const float MaxForkExtend       = 5.0f;
@@ -79,6 +84,10 @@ namespace GameCore.Actors
 
         private float _pollTimer;
         private bool  _busy;
+
+        // palletId → earliest Time.time it may be re-claimed. Populated when a putaway can't find any
+        // rack destination, so the truck doesn't livelock re-picking an un-storable pallet.
+        private readonly Dictionary<string, float> _blockedUntil = new Dictionary<string, float>();
 
         // ── Unity Lifecycle ───────────────────────────────────────────────────────────────────────
 
@@ -134,10 +143,13 @@ namespace GameCore.Actors
 
             // FIRST: Check if this operator already has an Assigned task that they should be working on.
             // This handles manual assignments or tasks that were assigned but not yet active.
-            WorkTask alreadyAssigned = _workQueue.Tasks.FirstOrDefault(t => 
-                t.RequiredRole == EmployeeRole.ReachTruckOperator && 
-                t.Status == WorkTaskStatus.Assigned && 
+            WorkTask alreadyAssigned = _workQueue.Tasks.FirstOrDefault(t =>
+                t.RequiredRole == EmployeeRole.ReachTruckOperator &&
+                t.Status == WorkTaskStatus.Assigned &&
                 t.AssignedToEmployeeGuid == guid);
+
+            if (alreadyAssigned != null && IsPalletBlocked(alreadyAssigned.PalletId))
+                return; // this operator's assigned pallet has no rack space yet — wait out the backoff
 
             if (alreadyAssigned != null)
             {
@@ -150,15 +162,18 @@ namespace GameCore.Actors
             var pending = _workQueue.GetPendingTasksForRole(EmployeeRole.ReachTruckOperator);
             if (pending.Count == 0) return;
 
-            WorkTask best    = null;
-            int      bestSlot = -1;
-            float    bestSqr  = float.PositiveInfinity;
+            // Selection rule: lowest WorkTask.Priority wins (lower = more urgent); ties keep whichever
+            // candidate was found first, which is the earliest-created task since GetPendingTasksForRole
+            // preserves WorkQueueSystem's creation order — i.e. FIFO within a priority tier. Proximity/
+            // lane-slot-number scoring was deliberately removed: pick order should be driven by priority
+            // only, not by which lane happens to be closest to this particular truck.
+            WorkTask best = null;
 
             foreach (var t in pending)
             {
                 // CRITICAL: Reach Trucks ONLY do Putaway. They MUST NOT claim Receive tasks (which are for Receivers).
                 if (t.Type != WorkTaskType.Putaway) continue;
-                
+
                 if (string.IsNullOrEmpty(t.FromLocation) || t.FromLocation == "STG" ||
                     t.FromLocation.Contains("(") || t.FromLocation.Contains(")"))
                 {
@@ -167,39 +182,20 @@ namespace GameCore.Actors
                 }
 
                 if (!TryParseLaneName(t.FromLocation, out int d, out string l)) continue;
-                if (!LaneNamingService.TryGetLaneGeometry(d, l, out var g)) continue;
+                if (!LaneNamingService.TryGetLaneGeometry(d, l, out _)) continue;
 
                 // RULE: Only claim tasks for pallets that are currently accessible (topmost and received).
                 if (!IsPalletAccessible(t.PalletId, d, l)) continue;
 
-                // PRIORITY 1: Highest slot number (exit end) across all lanes.
-                // We extract the slot number from the task's FromLocation if possible.
-                int slot = 0;
-                if (LaneNamingService.TryParseLaneAddress(t.FromLocation.StartsWith("STG") ? t.FromLocation.Substring(3) : t.FromLocation, out _, out _, out int s))
-                {
-                    slot = s;
-                }
+                // Skip pallets that recently found no rack destination (warehouse full) — retried after backoff.
+                if (IsPalletBlocked(t.PalletId)) continue;
 
-                if (slot > bestSlot)
-                {
-                    bestSlot = slot;
+                if (best == null || t.Priority < best.Priority)
                     best = t;
-                    bestSqr = (new Vector3(g.ExitPoint.x, transform.position.y, g.ExitPoint.z) - transform.position).sqrMagnitude;
-                }
-                else if (slot == bestSlot)
-                {
-                    // PRIORITY 2: If slot numbers are equal (or both zero), pick the closest lane exit.
-                    float sqr = (new Vector3(g.ExitPoint.x, transform.position.y, g.ExitPoint.z) - transform.position).sqrMagnitude;
-                    if (sqr < bestSqr)
-                    {
-                        bestSqr = sqr;
-                        best = t;
-                    }
-                }
             }
 
             if (best == null) return;
-            
+
             if (!_workQueue.TryClaimSpecificTask(best, guid)) return;
 
             _busy = true;
@@ -210,31 +206,49 @@ namespace GameCore.Actors
         /// A pallet is accessible if it is the topmost pallet in the first slot (from exit) 
         /// that contains pallets in its staging lane, and it has been received (has PalletData).
         /// </summary>
-        private bool IsPalletAccessible(string targetPalletId, int door, string lane)
+        /// <summary>
+        /// Finds the ONE pallet pickable from this lane right now: the topmost pallet in the exit-most
+        /// occupied slot, provided it's been received (has PalletData). Anything behind or beneath it is
+        /// blocked. This is the single source of truth shared by claim-time accessibility
+        /// (IsPalletAccessible) and the routine's physical pickup (FindExitPallet) so the two can NEVER
+        /// disagree — a prior divergence (an extra slot-world-position distance gate that only the pickup
+        /// path applied) let the truck claim a task then instantly abort it as "no longer accessible",
+        /// looping forever in place. We deliberately do NOT gate on the pallet's distance from its
+        /// COMPUTED slot centre: the forks drive to the pallet's own child anchors, so pickup always
+        /// targets the pallet's real transform wherever it physically sits. Returns null (palletId null)
+        /// if the lane is empty or its exit-most pallet hasn't been received yet.
+        /// </summary>
+        private PalletMasterLink FindExitAccessiblePallet(int door, string lane, out string palletId)
         {
+            palletId = null;
             List<LaneNamingService.LaneSlot> slots = LaneNamingService.GetLane(door, lane);
-            if (slots.Count == 0) return false;
+            if (slots.Count == 0) return null;
 
-            // Iterate from the exit end of the lane inward.
+            // Iterate from the exit end of the lane inward; the first occupied slot is the only reachable one.
             for (int i = slots.Count - 1; i >= 0; i--)
             {
                 List<PalletMasterRecord> pallets = _inventoryService?.GetPalletsAtLocation(slots[i].Cell);
                 if (pallets == null || pallets.Count == 0) continue;
 
-                // Found the exit-most occupied slot.
                 PalletMasterRecord topmost = pallets[pallets.Count - 1];
-                
-                // If the pallet we want is the topmost one at the exit end, it's accessible.
-                if (topmost.PalletId == targetPalletId)
-                {
-                    PalletMasterLink link = PalletMasterLink.Find(targetPalletId);
-                    return link != null && link.GetComponent<PalletData>() != null;
-                }
+                PalletMasterLink   link    = PalletMasterLink.Find(topmost.PalletId);
+                if (link == null) return null;
 
-                // If we found a different pallet closer to the exit than our target, we are blocked.
-                return false;
+                // RULE: the exit-most pallet must be received before an RTO can take it.
+                if (link.GetComponent<PalletData>() == null) return null;
+
+                palletId = topmost.PalletId;
+                return link;
             }
-            return false;
+            return null;
+        }
+
+        /// <summary>True if <paramref name="targetPalletId"/> is the exit-most reachable, received pallet
+        /// in the lane — i.e. this task can be claimed AND physically executed right now.</summary>
+        private bool IsPalletAccessible(string targetPalletId, int door, string lane)
+        {
+            FindExitAccessiblePallet(door, lane, out string exitId);
+            return exitId != null && exitId == targetPalletId;
         }
 
         private IEnumerator PutawayRoutine(WorkTask task)
@@ -253,13 +267,9 @@ namespace GameCore.Actors
 
             Vector3 exitPoint = new Vector3(geo.ExitPoint.x, transform.position.y, geo.ExitPoint.z);
 
-            // 2. Drive to Lane Exit ---------------------------------------------------------------
-            yield return DriveToPoint(transform, exitPoint);
-
-            // 3. Find Pallet ----------------------------------------------------------------------
+            // 2. Find the target pallet — BEFORE driving or lifting anything. FindExitPallet only reads
+            //    inventory, so we can confirm the pallet (and next, a destination) without touching it.
             Transform pallet = FindExitPallet(door, lane, out string palletId);
-            
-            // Safety: Double check if the pallet we found matches our task.
             if (pallet == null || palletId != task.PalletId)
             {
                 Debug.LogWarning($"[ReachTruckOperator] Target pallet {task.PalletId} is no longer accessible at lane {door}{lane}. Aborting.");
@@ -267,57 +277,165 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // 3. Resolve AND reserve the rack destination BEFORE the physical pickup. THIS is the fix
+            //    for the "stairwell": the old flow lifted the pallet first and only then searched for a
+            //    slot — when none existed, the abort dropped the pallet at the lifted fork height, so
+            //    every retry raised it another notch and it climbed like stairs. Now, if the building
+            //    is full we never touch the pallet: park it in the lane, block it from immediate
+            //    re-claim so the truck doesn't livelock, and bail. (Limbo proximity uses the pallet's
+            //    own XZ since the truck hasn't driven over yet.)
+            Vector2 approachXZ = new Vector2(pallet.position.x, pallet.position.z);
+            string toAddress = _putawayLogic?.AssignPutawayDestination(palletId, approachXZ);
+            if (string.IsNullOrEmpty(toAddress))
+            {
+                Debug.LogWarning($"[ReachTruckOperator] No rack destination for {palletId} (warehouse full) — leaving it in lane {door}{lane}, retrying in {NoDestinationBackoff:F0}s.");
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                if (task != null) task.Status = WorkTaskStatus.Pending;
+                Restore();
+                yield break;
+            }
+            // NOTE: the slot is now RESERVED (LocationStatusRegistry), but we deliberately do NOT stamp
+            // task.ToLocation until the pallet is physically on the forks (below). Save/load keys the
+            // "resume delivery vs. restart" decision off task.ToLocation ⇔ a carried-pallet snapshot;
+            // setting it before pickup would misroute a save taken in this pre-pickup window.
+
             EnsureUnderContainer(pallet, InventoryContainerName);
 
-            // 4. Pickup Sequence ------------------------------------------------------------------
+            // 4. Drive to the lane exit, then resolve the pallet's grab anchors.
+            yield return DriveToPoint(transform, exitPoint);
+
             Transform anchorFront = FindDeepChild(pallet, ChepAnchorFrontName);
             Transform anchorRear  = FindDeepChild(pallet, ChepAnchorRearName);
             Transform exitAnchor  = PickExitFacingAnchor(anchorFront, anchorRear, geo.DepthAxis);
-            
+
             if (exitAnchor == null)
             {
                 Debug.LogWarning($"[ReachTruckOperator] Pallet {palletId} missing anchors.");
-                yield return AbortRoutine(task, palletId, null);
+                _putawayLogic?.CancelPutaway(toAddress);
+                yield return AbortRoutine(task, palletId, toAddress);
                 yield break;
             }
 
-            yield return DriveForksFirst(transform, exitAnchor.position);
-            yield return FaceForks(transform, Flat(pallet.position - transform.position));
+            // Capture the pallet's original resting pose so ANY post-pickup abort restores it exactly
+            // rather than stranding it wherever the forks are (belt-and-suspenders vs. the stairwell).
+            Vector3    originalPalletPos = pallet.position;
+            Quaternion originalPalletRot = pallet.rotation;
 
-            if (_forks != null)
-                yield return LiftForksToWorldY(_forks, pallet.position.y + PalletHalfHeight);
+            // ── Closed-loop acquire (staging → square-up → short insert → verify → retry) ─────────
+            // WHY this shape (and NOT a single long DriveForksFirst into the pallet): the old open-loop
+            // drive covered the WHOLE lane depth in one fork-first motion, so a small heading error had
+            // the whole depth to accumulate into a terminal lateral miss — worse the deeper the pallet,
+            // which is exactly why it failed at the 4th slot in and either rammed the pallet up/away or
+            // abandoned it mid-air. Here the long travel is a HOMING move to an exact staging point just
+            // in front of the pallet (MoveTowards converges with zero drift at any distance), and the
+            // only fork-first motion is a SHORT insert from that squared-up point, so its drift is
+            // negligible regardless of lane depth. If an insert still misses grab variance we back off
+            // and retry from a freshly measured pose; if it truly can't seat, we abort cleanly and leave
+            // the pallet where it sits — never floating.
+            const int   MaxGrabAttempts = 3;
+            const float StagingGap      = 0.6f;   // stage this far in FRONT of the pallet before inserting
+            bool grabbed = false;
 
-            yield return DriveToGrab(pallet);
+            for (int attempt = 0; attempt < MaxGrabAttempts && !grabbed; attempt++)
+            {
+                // Re-measure every attempt — outward = from the pallet toward the lane exit (the side the
+                // truck inserts from), derived from the exit point so there's no axis-sign guesswork.
+                Vector3 outward = Flat(exitPoint - pallet.position);
+                Vector3 anchorPos = exitAnchor.position;
+                Vector3 stagingPoint = new Vector3(anchorPos.x, transform.position.y, anchorPos.z) + outward * StagingGap;
+
+                // 1. Coarse: home exactly onto the staging point (no heading-dependent drift).
+                yield return DriveToPoint(transform, stagingPoint);
+                // 2. Square up: forks point straight into the lane, down the pallet's centre line.
+                yield return FaceForks(transform, -outward);
+                // 3. Lift to the pallet's fork-pocket height (correct even for a top-of-stack pallet).
+                if (_forks != null)
+                    yield return LiftForksToWorldY(_forks, pallet.position.y + PalletHalfHeight);
+                // 4. Short, capped, self-correcting insert. Reports whether the fork grab-point actually
+                //    reached the pallet within _grabVariance — the checkpoint you asked for.
+                bool ok = false;
+                yield return InsertToGrab(pallet, StagingGap + 1.5f, r => ok = r);
+                grabbed = ok;
+
+                if (!grabbed)
+                {
+                    Debug.LogWarning($"[ReachTruckOperator] Grab attempt {attempt + 1}/{MaxGrabAttempts} for {palletId} missed variance. Backing off to re-measure.");
+                    yield return ReverseToPoint(transform, stagingPoint);
+                }
+            }
+
+            if (!grabbed)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] Could not seat {palletId} after {MaxGrabAttempts} attempts — restoring it and aborting.");
+                pallet.SetParent(null, worldPositionStays: true);
+                pallet.position = originalPalletPos;
+                pallet.rotation = originalPalletRot;
+                _putawayLogic?.CancelPutaway(toAddress);
+                yield return AbortRoutine(task, palletId, toAddress);
+                yield break;
+            }
 
             Transform carrier = _palletAnchor != null ? _palletAnchor : (_forks != null ? _forks : transform);
-            
-            // RULE: Parent the pallet to the PalletAnchor. 
+
+            // RULE: Parent the pallet to the PalletAnchor.
             // Snapping to local zero ensures the pallet is perfectly centered on the forks' intended carry point.
             pallet.SetParent(carrier, worldPositionStays: false);
             pallet.localPosition = Vector3.zero;
             pallet.localRotation = Quaternion.identity;
 
+            // Get the cell we're picking from BEFORE we move the pallet
+            var pickupCell = new Vector2Int(pallet.GetComponent<PlacedObject>()?.gridX ?? 0,
+                                             pallet.GetComponent<PlacedObject>()?.gridY ?? 0);
+
+            // Disable NavMesh obstacle and modifier to stop carving
+            NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
+            if (obstacle != null) obstacle.enabled = false;
+
+            // Also disable NavMeshModifier (via reflection since it may not be in imports)
+            var modifierType = System.Type.GetType("UnityEngine.AI.NavMeshModifier, Assembly-CSharp");
+            if (modifierType == null)
+                modifierType = System.Type.GetType("UnityEngine.AI.NavMeshModifier");
+            if (modifierType != null)
+            {
+                var modifier = pallet.GetComponent(modifierType);
+                if (modifier != null)
+                {
+                    modifierType.GetProperty("enabled").SetValue(modifier, false);
+                }
+            }
+
             // CRITICAL: Move the pallet to a transit location in InventoryService.
             // This removes it from the staging lane slot, allowing other RTOs to access the pallet behind it.
             _inventoryService?.MovePallet(palletId, new Vector2Int(-1, -1));
 
-            NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
-            if (obstacle != null) obstacle.enabled = false;
-
-            // 5. Assign Destination ---------------------------------------------------------------
-            Vector2 pickupXZ = new Vector2(transform.position.x, transform.position.z);
-            string toAddress = _putawayLogic?.AssignPutawayDestination(palletId, pickupXZ);
-            if (string.IsNullOrEmpty(toAddress))
+            // Check if the pickup cell is now completely empty (no other pallets, top or bottom)
+            var remaining = _inventoryService?.GetPalletsAtLocation(pickupCell);
+            if (remaining != null && remaining.Count == 0)
             {
-                Debug.LogWarning($"[ReachTruckOperator] No putaway destination for {palletId}.");
-                pallet.SetParent(null, worldPositionStays: true);
-                if (obstacle != null) obstacle.enabled = true;
-                yield return AbortRoutine(task, palletId, null);
-                yield break;
+                // Cell is empty — immediately destroy all NavMesh components in that cell to clear carving.
+                // This auto-clears the NavMesh without needing an explicit rebake, making the cell instantly walkable.
+                DestroyObstaclesInCell(pickupCell);
             }
+            else if (obstacle != null)
+            {
+                // Cell still has other pallets — queue this pallet's obstacle for batched cleanup
+                GameCore.Services.NavMeshRebuildQueue.QueueRebuild(obstacle);
+            }
+
+            // Cargo-in-transit convention (same as TruckController/MHEOperatorPersistenceService):
+            // disable PlacedObject while it rides. Its gridX/gridY still hold the ORIGINAL staging-lane
+            // cell — without disabling it, PalletInventoryTracker's 1s heartbeat treats that stale cell
+            // as ground truth and reverts InventoryService's CurrentLocation right back to the lane the
+            // instant this pallet is placed anywhere else, permanently poisoning that lane's exit slot
+            // for every subsequent putaway (this was the root cause of the RTO stalling after ~2 tasks).
+            PlacedObject palletPO = pallet.GetComponent<PlacedObject>();
+            if (palletPO != null) palletPO.enabled = false;
+
+            // Now that the pallet is physically seated on the forks, stamp the (already-reserved)
+            // destination onto the task — this is the point where save/load should resume delivery.
             task.AssignToLocation(toAddress);
 
-            // 6. Leg 1 Back-out -------------------------------------------------------------------
+            // 5. Leg 1 Back-out — destination was resolved + reserved before pickup (step 3).
             yield return ReverseToPoint(transform, exitPoint);
 
             // 7-9. Leg 2 rack travel + putdown — shared with ResumeDeliverToRack (a save/load
@@ -386,6 +504,8 @@ namespace GameCore.Actors
             if (!varianceMet)
             {
                 Debug.LogWarning($"[ReachTruckOperator] MISS! Variance {new Vector2(pallet.position.x - locationTr.position.x, pallet.position.z - locationTr.position.z).magnitude:F2}m > {_placeVariance}m. Aborting.");
+                pallet.SetParent(null, worldPositionStays: true);
+                if (obstacle != null) obstacle.enabled = true;
                 yield return AbortRoutine(task, palletId, toAddress);
                 yield break;
             }
@@ -411,6 +531,17 @@ namespace GameCore.Actors
             if (rackPO != null) toGrid = new Vector2Int(rackPO.gridX, rackPO.gridY);
             else if (SlotRegistry.TryGet(toAddress, out var toSlot) && toSlot.Rack != null)
                 toGrid = new Vector2Int(toSlot.Rack.gridX, toSlot.Rack.gridY);
+
+            // Re-enable the pallet's PlacedObject now that it has a real resting cell (toGrid), writing
+            // that cell in FIRST so PalletInventoryTracker's next heartbeat sees it already agreeing with
+            // InventoryService instead of reverting CompletePutaway's move back to the stale lane cell.
+            PlacedObject palletPO = pallet.GetComponent<PlacedObject>();
+            if (palletPO != null)
+            {
+                palletPO.gridX = toGrid.x;
+                palletPO.gridY = toGrid.y;
+                palletPO.enabled = true;
+            }
 
             _putawayLogic?.CompletePutaway(palletId, toAddress, toGrid);
             _workQueue?.CompleteTask(task.TaskId);
@@ -467,6 +598,19 @@ namespace GameCore.Actors
             if (_inventoryService == null) ServiceLocator.TryGet(out _inventoryService);
         }
 
+        /// <summary>True while <paramref name="palletId"/> is in its post-"no rack space" backoff and
+        /// should not be re-claimed yet. Expired entries are cleared on read.</summary>
+        private bool IsPalletBlocked(string palletId)
+        {
+            if (string.IsNullOrEmpty(palletId)) return false;
+            if (_blockedUntil.TryGetValue(palletId, out float until))
+            {
+                if (Time.time < until) return true;
+                _blockedUntil.Remove(palletId);
+            }
+            return false;
+        }
+
         private IEnumerator AbortRoutine(WorkTask task, string palletId, string reservedAddress)
         {
             Debug.Log($"[ReachTruckOperator] ABORTING task. Pallet: {palletId}, Location: {reservedAddress}");
@@ -483,8 +627,19 @@ namespace GameCore.Actors
             if (!string.IsNullOrEmpty(palletId))
             {
                 var link = PalletMasterLink.Find(palletId);
-                if (link != null && link.TryGetComponent<NavMeshObstacle>(out var obstacle))
-                    obstacle.enabled = true;
+                if (link != null)
+                {
+                    if (link.TryGetComponent<NavMeshObstacle>(out var obstacle))
+                        obstacle.enabled = true;
+
+                    // Defensive re-enable for every abort path: the pallet was disabled at pickup (see
+                    // PutawayRoutine) and still holds its ORIGINAL staging-lane gridX/gridY, so re-enabling
+                    // here lets PalletInventoryTracker's heartbeat resync InventoryService's CurrentLocation
+                    // back to that lane cell instead of leaving the pallet stuck at the transit sentinel
+                    // (-1,-1) forever. Idempotent no-op if a caller already re-enabled it.
+                    if (link.TryGetComponent<PlacedObject>(out var po))
+                        po.enabled = true;
+                }
             }
 
             Restore();
@@ -514,7 +669,7 @@ namespace GameCore.Actors
             Vector3 to = flat - t.position; to.y = 0f;
             if (to.magnitude <= ArriveThreshold) { t.position = flat; yield break; }
             yield return RotateTo(t, to);
-            while (Vector3.Distance(Flat(t.position), Flat(target)) > ArriveThreshold)
+            while (PlanarDist(t.position, target) > ArriveThreshold)
             {
                 t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
                 yield return null;
@@ -522,18 +677,54 @@ namespace GameCore.Actors
             t.position = flat;
         }
 
+        // Forks-first insertion drive. Two design points here are load-bearing and MUST NOT be
+        // reverted to a plain "drive t.forward until PlanarDist <= threshold" loop:
+        //
+        //  1. TERMINATION IS BY FORWARD PROJECTION, NOT RADIUS. We stop when the target is no longer
+        //     ahead of the forks along the drive axis (Dot(remaining, forkDir) <= ArriveThreshold),
+        //     not when the truck is within a 0.15m circle of the point. A radius test is unreachable
+        //     the moment the straight-line lateral miss exceeds the radius — which happens naturally
+        //     as the pallet gets deeper (miss ≈ depth·sin(aimError)). That made the loop spin forever
+        //     and ram the truck through the stack ("hanging in space"), and it got worse the deeper
+        //     the pallet sat. Projection always terminates because it only cares about depth reached.
+        //
+        //  2. WE CONTINUOUSLY STEER toward the anchor while driving, so a residual aim error (up to
+        //     FaceThreshold) can't accumulate into a lateral miss over a long lane. Without this the
+        //     forks arrive off-centre on deep pallets and the subsequent grab never satisfies its
+        //     variance, ramming instead of picking.
+        //
+        //  3. A hard travel cap (MaxLaneInsertTravel) is a final backstop so nothing here can ever
+        //     drive to infinity again, mirroring DriveToGrab.
         private IEnumerator DriveForksFirst(Transform t, Vector3 target)
         {
             Vector3 flat = new Vector3(target.x, t.position.y, target.z);
             Vector3 to = flat - t.position; to.y = 0f;
             if (to.magnitude <= ArriveThreshold) { t.position = flat; yield break; }
             if (to.sqrMagnitude > 0.01f) yield return FaceForks(t, to);
-            while (Vector3.Distance(Flat(t.position), Flat(target)) > ArriveThreshold)
+
+            Vector3 startPos = t.position;
+            while (true)
             {
+                Vector3 remaining = flat - t.position; remaining.y = 0f;
+                Vector3 forkDir = (t.forward * _forkAxisSign);
+
+                // Stop once the target has reached / passed the fork plane (depth reached).
+                if (Vector3.Dot(remaining, forkDir) <= ArriveThreshold) break;
+
+                // Hard backstop: never drive past the lane insertion limit, whatever the aim.
+                if (Vector3.Distance(startPos, t.position) >= MaxLaneInsertTravel) break;
+
+                // Gentle lateral correction so heading error can't compound with depth. Gated to
+                // avoid jitter/spin when we're already essentially on-axis and close.
+                if (remaining.sqrMagnitude > 0.04f)
+                {
+                    Quaternion want = Quaternion.LookRotation(BodyForwardForForks(remaining.normalized));
+                    t.rotation = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * Time.deltaTime);
+                }
+
                 t.position += t.forward * _forkAxisSign * DriveSpeed * Time.deltaTime;
                 yield return null;
             }
-            t.position = flat;
         }
 
         private IEnumerator FaceForks(Transform t, Vector3 worldForkDir)
@@ -563,7 +754,7 @@ namespace GameCore.Actors
         private IEnumerator ReverseToPoint(Transform t, Vector3 target)
         {
             Vector3 flat = new Vector3(target.x, t.position.y, target.z);
-            while (Vector3.Distance(Flat(t.position), Flat(target)) > ArriveThreshold)
+            while (PlanarDist(t.position, target) > ArriveThreshold)
             {
                 t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
                 yield return null;
@@ -582,6 +773,39 @@ namespace GameCore.Actors
                 transform.position += transform.forward * _forkAxisSign * DriveSpeed * Time.deltaTime;
                 yield return null;
             }
+        }
+
+        /// <summary>
+        /// Short, capped, self-correcting fork insert used by the closed-loop acquire. Creeps forward
+        /// from an already-squared-up staging pose, continuously nudging the heading so the fork tracks
+        /// the pallet pivot, and stops the instant the fork grab-point is within <see cref="_grabVariance"/>
+        /// of the pallet on the XZ plane. Reports success/failure through <paramref name="onDone"/> so the
+        /// caller can retry from a fresh pose instead of blindly parenting a mis-aligned pallet. The travel
+        /// cap (<paramref name="maxTravel"/>) guarantees it can never drive through the pallet — a miss
+        /// simply ends the creep and returns false.
+        /// </summary>
+        private IEnumerator InsertToGrab(Transform pallet, float maxTravel, System.Action<bool> onDone)
+        {
+            Vector3 origin = transform.position;
+            bool got = false;
+            while (Vector3.Distance(origin, transform.position) < maxTravel)
+            {
+                Vector3 forkPos = _forks != null ? _forks.position : transform.position;
+                float xzDist = new Vector2(forkPos.x - pallet.position.x, forkPos.z - pallet.position.z).magnitude;
+                if (xzDist <= _grabVariance) { got = true; break; }
+
+                // Gentle heading correction so the fork keeps tracking the pallet pivot over the insert.
+                Vector3 want = pallet.position - transform.position; want.y = 0f;
+                if (want.sqrMagnitude > 0.04f)
+                {
+                    Quaternion wantRot = Quaternion.LookRotation(BodyForwardForForks(want.normalized));
+                    transform.rotation = Quaternion.RotateTowards(transform.rotation, wantRot, TurnSpeed * Time.deltaTime);
+                }
+
+                transform.position += transform.forward * _forkAxisSign * DriveSpeed * Time.deltaTime;
+                yield return null;
+            }
+            onDone?.Invoke(got);
         }
 
         private IEnumerator LiftForks(Transform forks, float targetLocalY)
@@ -611,8 +835,22 @@ namespace GameCore.Actors
         }
 
         private Vector3 BodyForwardForForks(Vector3 worldForkDir) => worldForkDir * _forkAxisSign;
+
+        // NOTE: Flat() NORMALIZES — it returns a unit DIRECTION with Y zeroed, for feeding rotation
+        // helpers (FaceForks/RotateTo). Do NOT use it inside a distance check: normalizing both
+        // positions collapses them onto the unit sphere, so far-from-origin points (the whole
+        // warehouse) read as ~0 apart and drive loops exit instantly = teleport/snap. Use PlanarDist
+        // for "how far apart are these two points on the XZ plane".
         private static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude > 1e-6f ? v.normalized : Vector3.forward; }
         private static Vector2 FlatV2(Vector3 v) => new Vector2(v.x, v.z);
+
+        /// <summary>Horizontal (XZ) distance between two world points, ignoring Y. Non-normalizing —
+        /// this is the correct measure for "have we arrived at the target" in the drive coroutines.</summary>
+        private static float PlanarDist(Vector3 a, Vector3 b)
+        {
+            float dx = a.x - b.x, dz = a.z - b.z;
+            return Mathf.Sqrt(dx * dx + dz * dz);
+        }
 
         private static bool TryParseLaneName(string raw, out int door, out string lane)
         {
@@ -639,34 +877,8 @@ namespace GameCore.Actors
 
         private Transform FindExitPallet(int door, string lane, out string palletId)
         {
-            palletId = null;
-            List<LaneNamingService.LaneSlot> slots = LaneNamingService.GetLane(door, lane);
-            if (slots.Count == 0) return null;
-
-            for (int i = slots.Count - 1; i >= 0; i--)
-            {
-                List<PalletMasterRecord> pallets = _inventoryService?.GetPalletsAtLocation(slots[i].Cell);
-                if (pallets == null || pallets.Count == 0) continue;
-
-                PalletMasterRecord topmost = pallets[pallets.Count - 1];
-                PalletMasterLink   link    = PalletMasterLink.Find(topmost.PalletId);
-                if (link == null) continue;
-
-                // RULE: Wait for the palette on top to be received.
-                if (link.GetComponent<PalletData>() == null) return null;
-
-                // Verify pallet is physically near the slot it's assigned to.
-                // We compare to the specific slot's position rather than the lane's final exit point,
-                // as a long lane might put the first few pallets > 20m from the exit.
-                if (LaneNamingService.TryGetSlotWorldPos(slots[i].Cell, out var slotWorldPos))
-                {
-                    if (Vector3.Distance(link.transform.position, slotWorldPos) > 5.0f) continue;
-                }
-
-                palletId = topmost.PalletId;
-                return link.transform;
-            }
-            return null;
+            PalletMasterLink link = FindExitAccessiblePallet(door, lane, out palletId);
+            return link != null ? link.transform : null;
         }
 
         private static Transform PickExitFacingAnchor(Transform front, Transform rear, Vector3 depthAxis)
@@ -692,6 +904,35 @@ namespace GameCore.Actors
         {
             foreach (Transform child in parent) { if (child.name == childName) return child; Transform found = FindDeepChild(child, childName); if (found != null) return found; }
             return null;
+        }
+
+        /// <summary>
+        /// When a cell becomes completely empty (no pallets, top or bottom), immediately destroy
+        /// all NavMesh components (obstacle + modifier) in that cell. This auto-clears the NavMesh
+        /// carving and triggers an immediate rebake, making the cell instantly walkable for MHE.
+        /// </summary>
+        private void DestroyObstaclesInCell(Vector2Int cell)
+        {
+            var modifierType = System.Type.GetType("UnityEngine.AI.NavMeshModifier, Assembly-CSharp");
+            if (modifierType == null)
+                modifierType = System.Type.GetType("UnityEngine.AI.NavMeshModifier");
+
+            foreach (var po in PlacedObjectRegistry.All)
+            {
+                if (po == null || po.gameObject == null) continue;
+                if (po.gridX != cell.x || po.gridY != cell.y) continue;
+
+                var obstacle = po.GetComponent<NavMeshObstacle>();
+                if (obstacle != null) Destroy(obstacle);
+
+                if (modifierType != null)
+                {
+                    var modifier = po.GetComponent(modifierType);
+                    if (modifier != null) Destroy(modifier);
+                }
+            }
+
+            Debug.Log($"[ReachTruckOperator] Cell ({cell.x}, {cell.y}) is now empty — destroyed all NavMesh components for immediate rebake.");
         }
     }
 }

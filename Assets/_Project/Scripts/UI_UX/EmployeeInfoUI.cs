@@ -43,6 +43,7 @@ public class EmployeeInfoUI : MonoBehaviour
     private Label _moraleValue;
     private Label _skillValue;
     private Label _skillLevelLabel;
+    private Label _statusLabel;
 
     // Runtime-only display data for record-based Show() path.
     // Avoids reusing (and potentially corrupting) a serialized asset-instance _employeeData.
@@ -115,6 +116,7 @@ public class EmployeeInfoUI : MonoBehaviour
         _moraleValue = _panel.Q<Label>("morale-value");
         _skillValue = _panel.Q<Label>("skill-value");
         _skillLevelLabel = _panel.Q<Label>("skill-level");
+        _statusLabel = _panel.Q<Label>("employee-status");
 
         if (_closeButton != null)
         {
@@ -153,18 +155,12 @@ public class EmployeeInfoUI : MonoBehaviour
         _actionsDropdown = new DropdownField { name = "employee-actions" };
         _actionsDropdown.choices = new List<string> { ActionDefault };
         _actionsDropdown.SetValueWithoutNotify(ActionDefault);
+        
+        // Styling is largely handled by HUD.uss (#employee-actions), but we set
+        // structural margins here to ensure consistency with the appended panel flow.
         _actionsDropdown.style.marginTop    = 20;
         _actionsDropdown.style.marginLeft   = 2;
         _actionsDropdown.style.marginRight  = 2;
-        _actionsDropdown.style.fontSize = 16;
-        _actionsDropdown.style.color = Color.white;
-
-        var dropdownText = _actionsDropdown.Q(className: "unity-base-popup-field__text");
-        if (dropdownText != null)
-        {
-            dropdownText.style.fontSize = 16;
-            dropdownText.style.color = Color.white;
-        }
 
         _actionsDropdown.RegisterValueChangedCallback(OnActionSelected);
         _panel.Add(_actionsDropdown);
@@ -600,7 +596,44 @@ public class EmployeeInfoUI : MonoBehaviour
         if (_skillLevelLabel != null)
             _skillLevelLabel.text = $"LVL {_employeeData.skillLevel}";
 
+        RefreshStatus();
         RefreshActionsDropdown();
+    }
+
+    private void RefreshStatus()
+    {
+        if (_statusLabel == null) return;
+
+        // If we have a live scene object, use its record for the most accurate current state.
+        // Otherwise fallback to the display data's record if possible.
+        var record = _currentIdentity != null ? _currentIdentity.Record : _employeeData.ExportToRecord();
+        if (record == null)
+        {
+            _statusLabel.text = "OFF-DUTY";
+            return;
+        }
+
+        string statusText = "";
+
+        // Check for suspension/termination first as they override current tasks.
+        if (record.status == EmploymentStatus.Suspended || record.status == EmploymentStatus.Terminated)
+        {
+            statusText = "Being walked out boohoo!";
+        }
+        else
+        {
+            statusText = record.currentAssignment switch
+            {
+                EmployeeAssignment.ReceiveInbound   => "Receiving inbound",
+                EmployeeAssignment.DriveDockstalker => "Operating DS",
+                EmployeeAssignment.DriveReach       => "Operating RT",
+                EmployeeAssignment.Patrol           => "Patrolling",
+                EmployeeAssignment.OrderSelection   => "Selecting orders",
+                _                                   => record.currentAssignment.ToString()
+            };
+        }
+
+        _statusLabel.text = statusText;
     }
 
     private void SetBar(VisualElement bar, Label valueLabel, float pct, string format)

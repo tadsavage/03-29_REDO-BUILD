@@ -147,6 +147,8 @@
                 </ui:VisualElement>
                 <!-- Skill Level -->
                 <ui:Label name="skill-level" text="LVL 3" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;); font-size: 22px; color: rgb(150, 190, 220); -unity-text-align: middle-center; margin-top: 6px;"/>
+                <!-- Current Action Status -->
+                <ui:Label name="employee-status" text="PATROLLING" style="-unity-font-definition: url(&quot;project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&amp;guid=b0b25c7081699704f917d02e28f31692&amp;type=3#LilitaOne-Regular&quot;); font-size: 15px; color: rgb(160, 175, 185); -unity-text-align: middle-center; -unity-font-style: bold-italic; margin-top: 8px; margin-bottom: 2px; text-overflow: ellipsis; white-space: nowrap;"/>
             </ui:VisualElement>
             <!-- Close button (last child — renders on top of everything) -->
             <ui:Button name="employee-close-btn" text="✕" style="position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; background-color: rgb(200, 60, 60); color: rgb(255, 255, 255); font-size: 18px; -unity-font-style: bold; border-radius: 16px; border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; -unity-text-align: middle-center; padding: 0; transition: background-color 0.1s ease;"/>

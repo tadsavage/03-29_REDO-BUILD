@@ -157,7 +157,19 @@
     font-size: 16px;
 }
 
+#employee-status {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-style: bold-italic;
+    color: rgb(110, 130, 140); /* Classy dark gray-blue */
+    font-size: 20px;
+    -unity-text-align: middle-center;
+    margin-top: 8px;
+    margin-bottom: 2px;
+}
+
 #employee-actions .unity-base-popup-field__text {
-    font-size: 16px;
-    color: #FFFFFF;
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    -unity-font-style: bold-italic;
+    color: rgb(30, 38, 46); /* Dark Gray matching panel background */
+    font-size: 20px;
 }

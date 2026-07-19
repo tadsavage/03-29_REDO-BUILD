@@ -13,6 +13,7 @@ public class ModularAvatarRig : MonoBehaviour
     private Animator _source;   // worker Animator (AgentAnimation writes its bools)
     private Animator _self;     // this avatar's own Animator
     private AnimatorControllerParameter[] _params;
+    private System.Collections.Generic.HashSet<int> _selfHashes; // params the avatar's own controller actually has
 
     private Transform _sampleBone;   // a leg bone, for the one-shot diagnostic
     private float _diagT; private bool _diagDone;
@@ -36,9 +37,19 @@ public class ModularAvatarRig : MonoBehaviour
     {
         if (_source == null || _self == null || _params == null || !_self.isInitialized) return;
 
+        // Build the set of parameter hashes the avatar's OWN controller actually has, once the avatar
+        // Animator is initialized. Forwarding a hash the target lacks spams "Parameter 'Hash …' does not
+        // exist" every frame for every mismatched param — so we only mirror parameters present on BOTH.
+        if (_selfHashes == null)
+        {
+            _selfHashes = new System.Collections.Generic.HashSet<int>();
+            foreach (var sp in _self.parameters) _selfHashes.Add(sp.nameHash);
+        }
+
         for (int i = 0; i < _params.Length; i++)
         {
             var p = _params[i];
+            if (!_selfHashes.Contains(p.nameHash)) continue; // avatar controller doesn't have this param — skip silently
             switch (p.type)
             {
                 case AnimatorControllerParameterType.Bool:  _self.SetBool(p.nameHash,    _source.GetBool(p.nameHash));    break;

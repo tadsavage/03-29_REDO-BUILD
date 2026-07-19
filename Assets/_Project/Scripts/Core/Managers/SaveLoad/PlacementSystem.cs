@@ -410,7 +410,8 @@ public class PlacementSystem : MonoBehaviour
                     assignedToEmployeeGuid = task.AssignedToEmployeeGuid,
                     fromLocation = task.FromLocation,
                     toLocation = task.ToLocation,
-                    area = (int)task.Area
+                    area = (int)task.Area,
+                    priority = task.Priority
                 });
             }
         }
@@ -694,7 +695,8 @@ public class PlacementSystem : MonoBehaviour
                     snapshot.description,
                     snapshot.fromLocation,
                     snapshot.toLocation,
-                    (GameCore.Inventory.PalletData.AreaCategory)snapshot.area
+                    (GameCore.Inventory.PalletData.AreaCategory)snapshot.area,
+                    snapshot.priority
                 );
 
                 // Restore the task's original TaskId and status via reflection
