@@ -46,9 +46,10 @@ namespace GameCore.Labor
         /// pulled from the SKU's StorageArea. Used for routing/display and downstream employee specialization.</summary>
         public PalletData.AreaCategory Area { get; }
 
-        /// <summary>Lower value = more urgent = claimed first. Default 100 (every task is currently
-        /// created at the same priority — this exists so claim ordering is real data instead of a
-        /// hardcoded UI string, and so a future "rush this pallet" feature has somewhere to write to).</summary>
+        /// <summary>Higher value = more urgent = claimed first (see ReachTruckOperator.TryClaimAndStart).
+        /// Default 100 for Putaway; Replenish tasks default to 250 (ReplenishmentService.ReplenishPriority)
+        /// since an empty pick slot blocks order picking and should jump the queue ahead of routine
+        /// putaways. Exists so claim ordering is real data instead of a hardcoded UI string.</summary>
         public int Priority { get; }
 
         public const int DefaultPriority = 100;

@@ -258,6 +258,42 @@ namespace GameCore.Labor
             yield return DriveTailFirst(ds, entryPivot);
             // 9. Spin so the forks (and the carried pallet) face straight down the lane — forks FIRST.
             yield return FaceForks(ds, downLane);
+
+            // 9b. STACKING CHECK: If the target cell already has a pallet, raise forks to stack on top.
+            // While stopped at the pivot, check if we're stacking this pallet on top of another.
+            float forkStackHeight = forkRestY; // default: rest position if cell is empty
+            if (ServiceLocator.TryGet<InventoryService>(out var invStack) && invStack != null)
+            {
+                var palletsInCell = invStack.GetPalletsAtLocation(cell);
+                if (palletsInCell != null && palletsInCell.Count > 0)
+                {
+                    // Cell has at least one pallet — find the highest one and calculate its actual height
+                    float highestPalletHeight = 0f;
+                    foreach (var rec in palletsInCell)
+                    {
+                        var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
+                        if (go == null || go == pallet.gameObject) continue;
+                        if (go.transform.parent != null) continue; // skip carried pallets
+
+                        // Measure actual pallet HEIGHT: visual top minus base position
+                        float palletTop = MeasureTopY(go);
+                        float palletBase = go.transform.position.y;
+                        float palletHeight = palletTop - palletBase;
+
+                        if (palletHeight > highestPalletHeight)
+                            highestPalletHeight = palletHeight;
+                    }
+
+                    if (highestPalletHeight > 0f)
+                    {
+                        // Raise forks to: pallet height
+                        forkStackHeight = highestPalletHeight;
+                        Debug.Log($"[TrailerOffload] Stacking: pallet height={highestPalletHeight:F3}m, raising forks to {forkStackHeight:F3}m");
+                        yield return LiftForks(forks, forkStackHeight);
+                    }
+                }
+            }
+
             // 10. Drive forward down the lane until the carried pallet's XZ lines up over the target tile
             //     (aim so the PALLET — offset ahead on the forks — lands on the tile, not the DS root).
             Vector3 palletOffset = pallet.position - ds.position; palletOffset.y = 0f;
@@ -287,7 +323,7 @@ namespace GameCore.Labor
             // 12. Lower the forks toward the stack (cosmetic — DropPallet sets the exact final Y), then
             //     unparent the pallet onto the lane at dropBaseY.
             if (forks != null) yield return LiftForks(forks, forkRestY + tier * LaneStackStep);
-            
+
             DropPallet(pallet, targetW, dropBaseY, palletWorldScale, rotatedPlacement);
             // 12b. Record the authoritative base-Y everywhere the pallet's height is tracked.
             RecordPalletHeight(pallet.gameObject, dropBaseY, inv);

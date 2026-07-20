@@ -30,7 +30,8 @@ namespace GameCore.Actors
 
         private const float PalletHalfHeight    = 0.085f;
         private const float ForkBladeHeightOffset = 0.08f;
-        private const float ForkTravelHeight    = 0.4f;
+        private const float ForkTravelHeight    = 0.5f;
+        private const float ForkGrabProximity  = 0.15f;
         private const float ForkRackClearance   = 0.15f;
         private const float ForkDepositDrop     = 0.12f;
 
@@ -43,6 +44,7 @@ namespace GameCore.Actors
         
         /// <summary>Safety cap on fork extension. Increased to 5.0 to reach center of deep racks.</summary>
         private const float MaxForkExtend       = 5.0f;
+
 
         private const string ForkChildName          = "Forks";
         private const string PalletAnchorChildName  = "PalletAnchor";
@@ -164,42 +166,53 @@ namespace GameCore.Actors
             {
                 Debug.Log($"[ReachTruckOperator] '{name}' resuming already assigned task {alreadyAssigned.TaskId}");
                 _busy = true;
-                StartCoroutine(PutawayRoutine(alreadyAssigned));
+                if (alreadyAssigned.Type == WorkTaskType.Replenish)
+                    StartCoroutine(ReplenishRoutine(alreadyAssigned));
+                else
+                    StartCoroutine(PutawayRoutine(alreadyAssigned));
                 return;
             }
 
             var pending = _workQueue.GetPendingTasksForRole(EmployeeRole.ReachTruckOperator);
             if (pending.Count == 0) return;
 
-            // Selection rule: lowest WorkTask.Priority wins (lower = more urgent); ties keep whichever
-            // candidate was found first, which is the earliest-created task since GetPendingTasksForRole
-            // preserves WorkQueueSystem's creation order — i.e. FIFO within a priority tier. Proximity/
-            // lane-slot-number scoring was deliberately removed: pick order should be driven by priority
-            // only, not by which lane happens to be closest to this particular truck.
+            // Selection rule: highest WorkTask.Priority wins (higher = more urgent — Replenish defaults
+            // to 250, Putaway to 100, an empty pick slot blocks picking so it jumps the queue); ties keep
+            // whichever candidate was found first, which is the earliest-created task since
+            // GetPendingTasksForRole preserves WorkQueueSystem's creation order — i.e. FIFO within a
+            // priority tier. Proximity/lane-slot-number scoring was deliberately removed: pick order
+            // should be driven by priority only, not by which lane happens to be closest to this truck.
             WorkTask best = null;
 
             foreach (var t in pending)
             {
-                // CRITICAL: Reach Trucks ONLY do Putaway. They MUST NOT claim Receive tasks (which are for Receivers).
-                if (t.Type != WorkTaskType.Putaway) continue;
+                // CRITICAL: Reach Trucks do Putaway (staging lane -> rack) and Replenish (reserve ->
+                // pick slot). They MUST NOT claim Receive/OrderSelect/Load tasks (other roles).
+                if (t.Type != WorkTaskType.Putaway && t.Type != WorkTaskType.Replenish) continue;
 
-                if (string.IsNullOrEmpty(t.FromLocation) || t.FromLocation == "STG" ||
-                    t.FromLocation.Contains("(") || t.FromLocation.Contains(")"))
+                if (t.Type == WorkTaskType.Putaway)
                 {
-                    Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} has invalid FromLocation '{t.FromLocation}'. Skipping.");
-                    continue;
+                    if (string.IsNullOrEmpty(t.FromLocation) || t.FromLocation == "STG" ||
+                        t.FromLocation.Contains("(") || t.FromLocation.Contains(")"))
+                    {
+                        Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} has invalid FromLocation '{t.FromLocation}'. Skipping.");
+                        continue;
+                    }
+
+                    if (!TryParseLaneName(t.FromLocation, out int d, out string l)) continue;
+                    if (!LaneNamingService.TryGetLaneGeometry(d, l, out _)) continue;
+
+                    // RULE: Only claim tasks for pallets that are currently accessible (topmost and received).
+                    if (!IsPalletAccessible(t.PalletId, d, l)) continue;
                 }
-
-                if (!TryParseLaneName(t.FromLocation, out int d, out string l)) continue;
-                if (!LaneNamingService.TryGetLaneGeometry(d, l, out _)) continue;
-
-                // RULE: Only claim tasks for pallets that are currently accessible (topmost and received).
-                if (!IsPalletAccessible(t.PalletId, d, l)) continue;
+                // Replenish tasks already know both endpoints (rack addresses resolved and reserved
+                // by ReplenishmentService at creation) — no lane/accessibility check needed here.
 
                 // Skip pallets that recently found no rack destination (warehouse full) — retried after backoff.
                 if (IsPalletBlocked(t.PalletId)) continue;
 
-                if (best == null || t.Priority < best.Priority)
+                // Higher Priority value wins (Replenish defaults to 250, Putaway to 100).
+                if (best == null || t.Priority > best.Priority)
                     best = t;
             }
 
@@ -208,7 +221,10 @@ namespace GameCore.Actors
             if (!_workQueue.TryClaimSpecificTask(best, guid)) return;
 
             _busy = true;
-            StartCoroutine(PutawayRoutine(best));
+            if (best.Type == WorkTaskType.Replenish)
+                StartCoroutine(ReplenishRoutine(best));
+            else
+                StartCoroutine(PutawayRoutine(best));
         }
 
         /// <summary>
@@ -344,46 +360,53 @@ namespace GameCore.Actors
             _carryOriginRot   = originalPalletRot;
             _carryOriginValid = true;
 
-            // ── Closed-loop acquire (staging → square-up → short insert → verify → retry) ─────────
-            // WHY this shape (and NOT a single long DriveForksFirst into the pallet): the old open-loop
-            // drive covered the WHOLE lane depth in one fork-first motion, so a small heading error had
-            // the whole depth to accumulate into a terminal lateral miss — worse the deeper the pallet,
-            // which is exactly why it failed at the 4th slot in and either rammed the pallet up/away or
-            // abandoned it mid-air. Here the long travel is a HOMING move to an exact staging point just
-            // in front of the pallet (MoveTowards converges with zero drift at any distance), and the
-            // only fork-first motion is a SHORT insert from that squared-up point, so its drift is
-            // negligible regardless of lane depth. If an insert still misses grab variance we back off
-            // and retry from a freshly measured pose; if it truly can't seat, we abort cleanly and leave
-            // the pallet where it sits — never floating.
-            const int   MaxGrabAttempts = 3;
-            const float StagingGap      = 0.6f;   // stage this far in FRONT of the pallet before inserting
+            // ── Closed-loop acquire (chassis aligns with ChepAnchorFront -- forks alone extend) ───
+            // The CHASSIS drives to align its transform with the pallet's exit-facing ChepAnchorFront
+            // (z = 2.5), then stops. From that parked pose the FORKS ALONE extend forward until the
+            // pallet's PalletAnchor is within ForkGrabProximity (0.15m) of the truck's PalletAnchor.
+            // If grab fails, back off and retry; if it truly can't seat after retries, abort cleanly.
+            const int MaxGrabAttempts = 3;
             bool grabbed = false;
 
             for (int attempt = 0; attempt < MaxGrabAttempts && !grabbed; attempt++)
             {
-                // Re-measure every attempt — outward = from the pallet toward the lane exit (the side the
-                // truck inserts from), derived from the exit point so there's no axis-sign guesswork.
+                Debug.Log($"[ReachTruckOperator] Grab attempt {attempt + 1}/{MaxGrabAttempts} starting for pallet {palletId}");
+                // Re-measure every attempt to ensure accurate positioning for retry
                 Vector3 outward = Flat(exitPoint - pallet.position);
-                Vector3 anchorPos = exitAnchor.position;
-                Vector3 stagingPoint = new Vector3(anchorPos.x, transform.position.y, anchorPos.z) + outward * StagingGap;
 
-                // 1. Coarse: home exactly onto the staging point (no heading-dependent drift).
-                yield return DriveToPoint(transform, stagingPoint);
+                // 1. Park the chassis so its transform aligns with the pallet's exit-facing anchor
+                //    (ChepAnchorFront at z=2.5 or ChepAnchorRear at z=-2.5, depending on entry direction)
+                Debug.Log($"[ReachTruckOperator] Driving to exitAnchor: {exitAnchor.position}");
+                yield return DriveToPoint(transform, exitAnchor.position);
+
                 // 2. Square up: forks point straight into the lane, down the pallet's centre line.
+                Debug.Log($"[ReachTruckOperator] Facing forks toward: {-outward}");
                 yield return FaceForks(transform, -outward);
+
                 // 3. Lift to the pallet's fork-pocket height (correct even for a top-of-stack pallet).
                 if (_forks != null)
-                    yield return LiftForksToWorldY(_forks, pallet.position.y + PalletHalfHeight - ForkBladeHeightOffset);
-                // 4. Short, capped, self-correcting insert. Reports whether the fork grab-point actually
-                //    reached the pallet within _grabVariance — the checkpoint you asked for.
+                {
+                    float targetY = pallet.position.y + PalletHalfHeight;
+                    Debug.Log($"[ReachTruckOperator] Lifting forks to Y={targetY}");
+                    yield return LiftForksToWorldY(_forks, targetY);
+                }
+                else
+                {
+                    Debug.LogWarning($"[ReachTruckOperator] Forks are NULL!");
+                }
+
+                // 4. Extend the forks alone the rest of the way in. Reports whether the pallet's
+                //    PalletAnchor actually reached the truck's PalletAnchor within ForkGrabProximity.
+                Debug.Log($"[ReachTruckOperator] Starting InsertToGrab for {palletId}");
                 bool ok = false;
-                yield return InsertToGrab(pallet, StagingGap + 1.5f, r => ok = r);
+                yield return InsertToGrab(pallet, r => ok = r);
                 grabbed = ok;
+                Debug.Log($"[ReachTruckOperator] InsertToGrab result: {grabbed}");
 
                 if (!grabbed)
                 {
-                    Debug.LogWarning($"[ReachTruckOperator] Grab attempt {attempt + 1}/{MaxGrabAttempts} for {palletId} missed variance. Backing off to re-measure.");
-                    yield return ReverseToPoint(transform, stagingPoint);
+                    Debug.LogWarning($"[ReachTruckOperator] Grab attempt {attempt + 1}/{MaxGrabAttempts} for {palletId} missed proximity. Backing off to re-measure.");
+                    yield return ReverseToPoint(transform, exitAnchor.position);
                 }
             }
 
@@ -459,6 +482,14 @@ namespace GameCore.Actors
             // Now that the pallet is physically seated on the forks, stamp the (already-reserved)
             // destination onto the task — this is the point where save/load should resume delivery.
             task.AssignToLocation(toAddress);
+
+            // Retract the forks back to rest and raise to travel height before backing out -- clears
+            // the load from the lane below/behind it so the reverse leg can't snag a neighbouring stack.
+            if (_forks != null)
+            {
+                yield return RetractForks(_forks, _forkRestLocalZ);
+                yield return LiftForks(_forks, ForkTravelHeight);
+            }
 
             // 5. Leg 1 Back-out — destination was resolved + reserved before pickup (step 3).
             yield return ReverseToPoint(transform, exitPoint);
@@ -589,6 +620,174 @@ namespace GameCore.Actors
             Restore();
         }
 
+        // ── Replenishment (reserve -> pick slot) ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Physical sequence for a Replenish task: extract the FIFO-oldest reserve pallet already
+        /// resolved by ReplenishmentService (task.PalletId/FromLocation/ToLocation are all known up
+        /// front — no lane search, no destination resolution) and deliver it to the empty pick slot.
+        /// The "pickup" leg pulls FROM a rack address (see PickupFromReserve, the mirror image of a
+        /// rack putdown); the "delivery" leg reuses DeliverPalletToRack verbatim since placing a
+        /// pallet at a pick-slot address is physically identical to placing it at a reserve address.
+        /// </summary>
+        private IEnumerator ReplenishRoutine(WorkTask task)
+        {
+            Commandeer();
+            _carryOriginValid = false;
+            string reserveAddress = task.FromLocation;
+            string pickAddress    = task.ToLocation;
+            string palletId       = task.PalletId;
+
+            Debug.Log($"[ReachTruckOperator] '{name}' STARTING replenish task {task.TaskId}: {palletId} {reserveAddress} -> {pickAddress}");
+
+            var link = PalletMasterLink.Find(palletId);
+            Transform pallet = link != null ? link.transform : null;
+
+            LocationData reserveLoc = FindLocationTransform(reserveAddress)?.GetComponent<LocationData>();
+            LocationData pickLoc    = FindLocationTransform(pickAddress)?.GetComponent<LocationData>();
+
+            if (pallet == null || reserveLoc == null || pickLoc == null)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] Replenish: missing pallet ({pallet != null}), reserveLoc ({reserveLoc != null}) or pickLoc ({pickLoc != null}). Aborting.");
+                pickLoc?.Release();
+                // Nothing physically moved — revert the reserve slot's lock using its own still-intact fields.
+                if (reserveLoc != null) reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
+                if (task != null) task.Status = WorkTaskStatus.Pending;
+                Restore();
+                yield break;
+            }
+
+            // Capture the pallet's resting pose for abort-safety, same convention as PutawayRoutine.
+            _carryOriginPos   = pallet.position;
+            _carryOriginRot   = pallet.rotation;
+            _carryOriginValid = true;
+
+            bool grabbed = false;
+            yield return PickupFromReserve(reserveAddress, pallet, r => grabbed = r);
+
+            if (!grabbed)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] Replenish: could not extract {palletId} from {reserveAddress}. Reverting reservations.");
+                pickLoc.Release();
+                reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
+                if (task != null) task.Status = WorkTaskStatus.Pending;
+                _carryOriginValid = false;
+                Restore();
+                yield break;
+            }
+
+            // Extraction succeeded — the reserve slot is now physically empty. NOTE: if the delivery
+            // leg below fails, the pallet drops back at this reserve position (ReleaseCarriedPalletToOrigin)
+            // but this LocationData stays cleared/Available — a rare double-failure edge case (both the
+            // extraction AND a static-address delivery would have to fail) accepted for now rather than
+            // adding a success callback to the shared DeliverPalletToRack just to guard it.
+            reserveLoc.Release();
+
+            // Cargo-in-transit convention shared with PutawayRoutine: disable NavMeshObstacle/Modifier
+            // and PlacedObject while carried, and park InventoryService at the transit sentinel until
+            // delivery lands it on the pick slot's cell.
+            NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
+            if (obstacle != null) obstacle.enabled = false;
+
+            var modifierType = System.Type.GetType("UnityEngine.AI.NavMeshModifier, Assembly-CSharp")
+                                ?? System.Type.GetType("UnityEngine.AI.NavMeshModifier");
+            if (modifierType != null)
+            {
+                var modifier = pallet.GetComponent(modifierType);
+                if (modifier != null) modifierType.GetProperty("enabled").SetValue(modifier, false);
+            }
+
+            _inventoryService?.MovePallet(palletId, new Vector2Int(-1, -1));
+
+            PlacedObject palletPO = pallet.GetComponent<PlacedObject>();
+            if (palletPO != null) palletPO.enabled = false;
+
+            // Retract to rest and raise to carry/travel height before driving off to the pick slot.
+            if (_forks != null)
+            {
+                yield return RetractForks(_forks, _forkRestLocalZ);
+                yield return LiftForks(_forks, ForkTravelHeight);
+            }
+
+            // Delivery leg is physically identical to a normal putaway rack delivery.
+            yield return DeliverPalletToRack(pallet, palletId, pickAddress, task, obstacle);
+        }
+
+        /// <summary>
+        /// Extracts a pallet already resting at a reserve rack address: drives to the slot's approach
+        /// anchor, faces it, lifts forks to the pallet's fork-pocket height, extends forks in until
+        /// the truck's PalletAnchor is within ForkGrabProximity of the pallet, parents the pallet to
+        /// the forks, lifts it clear of the shelf, and reports success. On failure the forks are
+        /// retracted and the pallet is left untouched at the reserve slot.
+        /// </summary>
+        private IEnumerator PickupFromReserve(string reserveAddress, Transform pallet, System.Action<bool> onDone)
+        {
+            if (_forks == null || _palletAnchor == null)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] Replenish: missing forks or palletAnchor.");
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            Transform locApproach = FindLocApproachAnchor(reserveAddress);
+            if (locApproach == null)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] Replenish: approach anchor not found for {reserveAddress}.");
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            yield return RotateTo(transform, Flat(locApproach.position - transform.position));
+            yield return LiftForks(_forks, ForkTravelHeight);
+            yield return DriveToPoint(transform, locApproach.position);
+
+            Transform locationTr = FindLocationTransform(reserveAddress);
+            if (locationTr == null)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] Replenish: location transform not found for {reserveAddress}.");
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            yield return FaceForks(transform, Flat(locationTr.position - transform.position));
+            yield return LiftForksToWorldY(_forks, locationTr.position.y + ForkRackClearance);
+
+            _forks.localPosition = new Vector3(_forks.localPosition.x, _forks.localPosition.y, _forkRestLocalZ);
+
+            bool got = false;
+            float extended = 0f;
+            while (extended < MaxForkExtend)
+            {
+                float dist = Vector3.Distance(pallet.position, _palletAnchor.position);
+                if (dist <= ForkGrabProximity) { got = true; break; }
+
+                Vector3 lp = _forks.localPosition;
+                lp.z += _forkAxisSign * _forkExtendSpeed * Time.deltaTime;
+                _forks.localPosition = lp;
+                extended += _forkExtendSpeed * Time.deltaTime;
+                yield return null;
+            }
+
+            if (!got)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] Replenish: could not reach pallet at {reserveAddress} within {ForkGrabProximity}m.");
+                _forks.localPosition = new Vector3(_forks.localPosition.x, _forks.localPosition.y, _forkRestLocalZ);
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            // Seat the pallet on the forks (same snap-to-carry-pose used by the lane pickup).
+            pallet.SetParent(_palletAnchor, worldPositionStays: false);
+            float verticalOffset = (ForkBladeHeightOffset - PalletHalfHeight) - _palletAnchor.localPosition.y;
+            pallet.localPosition = new Vector3(0, verticalOffset, 0);
+            pallet.localRotation = Quaternion.identity;
+
+            // Lift a little to clear the shelf lip before the caller retracts.
+            yield return LiftForks(_forks, _forks.localPosition.y + ForkRackClearance);
+
+            onDone?.Invoke(true);
+        }
+
         // ── Save/load resume entry points ─────────────────────────────────────────────────────────
 
         /// <summary>
@@ -666,7 +865,18 @@ namespace GameCore.Actors
         private IEnumerator AbortRoutine(WorkTask task, string palletId, string reservedAddress)
         {
             Debug.Log($"[ReachTruckOperator] ABORTING task. Pallet: {palletId}, Location: {reservedAddress}");
-            _putawayLogic?.CancelPutaway(reservedAddress);
+
+            // Release the reserved destination. Prefer the LocationData instance (keeps its own
+            // serialized _status field in sync) over PutawayLogic.CancelPutaway, which only touches
+            // the separate LocationStatusRegistry dictionary and would otherwise leave the component's
+            // local field stuck on Reserved forever (a stranded slot ReplenishmentService/PutawayLogic
+            // would never see as Available again).
+            if (!string.IsNullOrEmpty(reservedAddress))
+            {
+                var locData = FindLocationTransform(reservedAddress)?.GetComponent<LocationData>();
+                if (locData != null) locData.Release();
+                else _putawayLogic?.CancelPutaway(reservedAddress);
+            }
             if (task != null) task.Status = WorkTaskStatus.Pending;
 
             // If holding a pallet, retract and re-enable obstacle
@@ -829,35 +1039,58 @@ namespace GameCore.Actors
         }
 
         /// <summary>
-        /// Short, capped, self-correcting fork insert used by the closed-loop acquire. Creeps forward
-        /// from an already-squared-up staging pose, continuously nudging the heading so the fork tracks
-        /// the pallet pivot, and stops the instant the fork grab-point is within <see cref="_grabVariance"/>
-        /// of the pallet on the XZ plane. Reports success/failure through <paramref name="onDone"/> so the
-        /// caller can retry from a fresh pose instead of blindly parenting a mis-aligned pallet. The travel
-        /// cap (<paramref name="maxTravel"/>) guarantees it can never drive through the pallet — a miss
-        /// simply ends the creep and returns false.
+        /// Extends the forks alone toward the pallet -- the chassis has already parked at the exit
+        /// anchor (see the caller) and does not move again here. Retracts to rest first so every
+        /// attempt starts from a clean pose, then advances _forks.localPosition.z until the pallet's
+        /// PalletAnchor is within <see cref="ForkGrabProximity"/> (0.15m) of the truck's PalletAnchor,
+        /// capped by <see cref="MaxForkExtend"/> so it can never reach through the pallet. Reports
+        /// success/failure through <paramref name="onDone"/> so the caller can retry from a fresh
+        /// pose instead of blindly parenting a mis-aligned pallet.
         /// </summary>
-        private IEnumerator InsertToGrab(Transform pallet, float maxTravel, System.Action<bool> onDone)
+        private IEnumerator InsertToGrab(Transform pallet, System.Action<bool> onDone)
         {
-            Vector3 origin = transform.position;
-            bool got = false;
-            while (Vector3.Distance(origin, transform.position) < maxTravel)
+            if (_forks == null || _palletAnchor == null)
             {
-                Vector3 forkPos = _forks != null ? _forks.position : transform.position;
-                float xzDist = new Vector2(forkPos.x - pallet.position.x, forkPos.z - pallet.position.z).magnitude;
-                if (xzDist <= _grabVariance) { got = true; break; }
+                Debug.LogWarning($"[InsertToGrab] Missing forks={_forks} or palletAnchor={_palletAnchor}");
+                onDone?.Invoke(false);
+                yield break;
+            }
 
-                // Gentle heading correction so the fork keeps tracking the pallet pivot over the insert.
-                Vector3 want = pallet.position - transform.position; want.y = 0f;
-                if (want.sqrMagnitude > 0.04f)
+            // Start every attempt from a clean, fully-retracted pose -- the chassis has already
+            // parked at the exit anchor (see the caller) and does not move again from here.
+            _forks.localPosition = new Vector3(_forks.localPosition.x, _forks.localPosition.y, _forkRestLocalZ);
+
+            bool got = false;
+            float extended = 0f;
+            float initialDist = Vector3.Distance(pallet.position, _palletAnchor.position);
+            Debug.Log($"[InsertToGrab] Starting grab: initial distance = {initialDist:F3}m, threshold = {ForkGrabProximity:F3}m, pallet={pallet.name}, forkAnchor={_palletAnchor.name}");
+
+            while (extended < MaxForkExtend)
+            {
+                // Measure distance between pallet's root transform and truck's PalletAnchor
+                float dist = Vector3.Distance(pallet.position, _palletAnchor.position);
+                if (dist <= ForkGrabProximity)
                 {
-                    Quaternion wantRot = Quaternion.LookRotation(BodyForwardForForks(want.normalized));
-                    transform.rotation = Quaternion.RotateTowards(transform.rotation, wantRot, TurnSpeed * Time.deltaTime);
+                    Debug.Log($"[InsertToGrab] Grab successful at distance {dist:F3}m after extending {extended:F3}m");
+                    got = true;
+                    break;
                 }
 
-                transform.position += transform.forward * _forkAxisSign * DriveSpeed * Time.deltaTime;
+                Vector3 lp = _forks.localPosition;
+                lp.z += _forkAxisSign * _forkExtendSpeed * Time.deltaTime;
+                _forks.localPosition = lp;
+                extended += _forkExtendSpeed * Time.deltaTime;
                 yield return null;
             }
+
+            if (!got)
+                Debug.LogWarning($"[InsertToGrab] Grab failed - reached max extend {MaxForkExtend}m without achieving proximity. Final distance: {Vector3.Distance(pallet.position, _palletAnchor.position):F3}m");
+
+            // Miss -- retract so a retry (or the reverse-and-backoff caller) doesn't drag the
+            // forks around still extended.
+            if (!got)
+                _forks.localPosition = new Vector3(_forks.localPosition.x, _forks.localPosition.y, _forkRestLocalZ);
+
             onDone?.Invoke(got);
         }
 
@@ -873,8 +1106,9 @@ namespace GameCore.Actors
 
         private IEnumerator LiftForksToWorldY(Transform forks, float targetWorldY)
         {
-            float targetLocalY = forks.parent != null ? forks.parent.InverseTransformPoint(new Vector3(forks.position.x, targetWorldY, forks.position.z)).y : targetWorldY;
-            yield return LiftForks(forks, targetLocalY);
+            Transform reference = _palletAnchor != null ? _palletAnchor : forks;
+            float deltaY = targetWorldY - reference.position.y;
+            yield return LiftForks(forks, forks.localPosition.y + deltaY);
         }
 
         private IEnumerator RetractForks(Transform forks, float targetLocalZ, float speedOverride = -1f)
