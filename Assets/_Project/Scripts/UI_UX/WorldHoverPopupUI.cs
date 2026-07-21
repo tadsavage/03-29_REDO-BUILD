@@ -227,13 +227,19 @@ public class WorldHoverPopupUI : MonoBehaviour
     // ---------------------------------------------------------
     // VISUALS - Building
     // ---------------------------------------------------------
-    private void ShowBuilding(string name, int cost, int hourlyCost)
+private void ShowBuilding(string name, int cost, int hourlyCost)
     {
         if (_popup == null || _title == null || _cost == null || _hourlyCost == null) return;
 
         _title.text      = name;
-        _cost.text       = $"Cost: ${cost:N0}";
-        _hourlyCost.text = $"Hourly: ${hourlyCost:N0}/hr";
+        _cost.text       = $"Purchase Cost\n${cost:N0}";
+        _hourlyCost.text = $"Hourly Cost\n${hourlyCost:N0}/hr";
+
+        // Re-show cost/hourly-cost -- ShowPallet/ShowLocation hide these same Label elements,
+        // and without resetting display here they'd stay hidden forever after the first
+        // pallet or location hover (only the title would ever show again).
+        _cost.style.display = DisplayStyle.Flex;
+        _hourlyCost.style.display = DisplayStyle.Flex;
 
         // Hide pallet-specific elements
         if (_iconImage != null) _iconImage.style.display = DisplayStyle.None;
@@ -342,90 +348,77 @@ public class WorldHoverPopupUI : MonoBehaviour
     // ---------------------------------------------------------
     // VISUALS - Location
     // ---------------------------------------------------------
-    private void ShowLocation(LocationData location)
+private void ShowLocation(LocationData location)
     {
         if (_popup == null || location == null) return;
 
-        // Set title to slot address
+        // Title: the slot address itself, e.g. "01-12-B0".
         if (_title != null)
-            _title.text = $"Location: {location.Address}";
+            _title.text = location.Address;
 
-        // Hide icon for locations
         if (_iconImage != null) _iconImage.style.display = DisplayStyle.None;
 
-        // Build location info text
         if (_palletInfoPanel != null)
         {
             _palletInfoPanel.Clear();
             _palletInfoPanel.style.display = DisplayStyle.Flex;
 
-            // Type (Pick/Reserve)
-            var typeLbl = new Label($"Type: {location.Type}");
+            bool isPick = location.Type == LocationType.Pick;
+
+            var typeLbl = new Label($"Type: {(isPick ? "Pickslot" : "Reserve")}");
             typeLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
             typeLbl.style.fontSize = 12;
             _palletInfoPanel.Add(typeLbl);
 
-            // Height (Level)
-            var rackPO = location.GetComponentInParent<PlacedObject>();
-            if (rackPO != null && rackPO.rackLevelIndex >= 0)
+            int heightInches = Mathf.RoundToInt(location.WorldPosition.y * 39.3701f);
+            var heightLbl = new Label($"Height: {heightInches}\"");
+            heightLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+            heightLbl.style.fontSize = 12;
+            _palletInfoPanel.Add(heightLbl);
+
+            if (isPick)
             {
-                var levelLbl = new Label($"Level: {rackPO.rackLevelIndex} ({(location.WorldPosition.y):F2}m)");
-                levelLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-                levelLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(levelLbl);
-            }
-            else
-            {
-                var heightLbl = new Label($"Height: {location.WorldPosition.y:F2}m");
-                heightLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-                heightLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(heightLbl);
-            }
+                // Pick slots report assignment state, not the reserve-style physical status --
+                // "Assigned" means a SKU has been designated to this pick face (SlotAssignmentService),
+                // regardless of whether a pallet currently sits on it.
+                bool assigned = SlotAssignmentService.TryGetSku(location.Address, out string sku) && !string.IsNullOrEmpty(sku);
 
-            // Status
-            var statusLbl = new Label($"Status: {location.Status}");
-            statusLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-            statusLbl.style.fontSize = 12;
-            _palletInfoPanel.Add(statusLbl);
+                var statusLbl = new Label($"Status: {(assigned ? "Assigned" : "Available")}");
+                statusLbl.style.color = assigned ? Color.yellow : new Color(0.8f, 0.9f, 1f, 1f);
+                statusLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(statusLbl);
 
-            // Assignment / SKU
-            if (!string.IsNullOrEmpty(location.SkuId))
-            {
-                InventoryService inventory = null;
-                ServiceLocator.TryGet<InventoryService>(out inventory);
-                var sku = inventory?.GetSkuData(location.SkuId);
-
-                var assignedLbl = new Label($"SKU: {location.SkuId}");
-                assignedLbl.style.color = Color.yellow;
-                assignedLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(assignedLbl);
-
-                if (sku != null)
+                if (assigned)
                 {
-                    var descLbl = new Label(sku.ItemDescription);
-                    descLbl.style.color = Color.white;
-                    descLbl.style.fontSize = 11;
-                    _palletInfoPanel.Add(descLbl);
-                }
-
-                if (location.Quantity > 0)
-                {
-                    var qtyLbl = new Label($"Stock: {location.Quantity} cases");
-                    qtyLbl.style.color = Color.white;
-                    qtyLbl.style.fontSize = 11;
-                    _palletInfoPanel.Add(qtyLbl);
+                    ServiceLocator.TryGet<InventoryService>(out var inventory);
+                    var skuData = inventory?.GetSkuData(sku);
+                    string desc = skuData != null ? skuData.ItemDescription : "";
+                    var itemLbl = new Label(string.IsNullOrEmpty(desc) ? sku : $"{sku} {desc}");
+                    itemLbl.style.color = Color.white;
+                    itemLbl.style.fontSize = 12;
+                    _palletInfoPanel.Add(itemLbl);
                 }
             }
             else
             {
-                var unassignedLbl = new Label("Unassigned / Empty");
-                unassignedLbl.style.color = new Color(0.5f, 0.5f, 0.5f, 1f);
-                unassignedLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(unassignedLbl);
+                string statusText;
+                switch (location.Status)
+                {
+                    case LocationStatus.QAHold:   statusText = "On Hold";  break;
+                    case LocationStatus.Reserved: statusText = "Reserved"; break;
+                    case LocationStatus.Available: statusText = "Available"; break;
+                    case LocationStatus.Occupied:  statusText = "Occupied";  break;
+                    case LocationStatus.Problem:   statusText = "Problem";   break;
+                    default: statusText = location.Status.ToString(); break;
+                }
+
+                var statusLbl = new Label($"Status: {statusText}");
+                statusLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
+                statusLbl.style.fontSize = 12;
+                _palletInfoPanel.Add(statusLbl);
             }
         }
 
-        // Hide building-specific elements
         if (_cost != null) _cost.style.display = DisplayStyle.None;
         if (_hourlyCost != null) _hourlyCost.style.display = DisplayStyle.None;
 

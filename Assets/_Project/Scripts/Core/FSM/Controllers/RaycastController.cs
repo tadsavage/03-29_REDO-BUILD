@@ -36,6 +36,10 @@ public class RaycastController : MonoBehaviour
     public Vector2Int HitCell { get; private set; }
     public GameObject HitObject { get; private set; }
     public Vector3 RawHitPoint { get; private set; }
+    // Exposed so other systems (e.g. the hover tooltip) can run their own supplementary
+    // RaycastAll along the SAME ray/mask without duplicating the wall-visibility mask logic.
+    public Ray CurrentRay { get; private set; }
+    public LayerMask CurrentObjectMask { get; private set; }
 
     private bool _isPointerOverUI;
     public bool IsPointerOverUI => _isPointerOverUI;
@@ -113,6 +117,8 @@ public class RaycastController : MonoBehaviour
             dynamicGroundMask = _groundMask & ~_wallLayer;
             dynamicObjectMask = Physics.DefaultRaycastLayers & ~_wallLayer;
         }
+        CurrentRay = ray;
+        CurrentObjectMask = dynamicObjectMask;
 
         // ---------------------------------------------------------
         // 1. Detection Pass

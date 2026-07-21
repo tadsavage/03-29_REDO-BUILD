@@ -37,6 +37,7 @@ public class LocationRegistry : MonoBehaviour
     // ── Static Dictionary ────────────────────────────────────────────────────────────────
 
     private static readonly Dictionary<string, LocationData> _byAddress = new();
+    private static readonly HashSet<string> _reconciledPalletIds = new();
 
     /// <summary>Retrieve the <see cref="LocationData"/> for a slot address. Returns false if
     /// the slot has not yet been registered (rack not yet placed / not yet live).</summary>
@@ -110,13 +111,16 @@ public class LocationRegistry : MonoBehaviour
     ///
     /// For every live rack with exactly 2 active TMP labels:
     ///   1. Look up each label's address in <see cref="SlotRegistry"/>.
-    ///   2. Find or create a child GameObject named after that address on the rack root.
-    ///   3. Ensure a <see cref="LocationData"/> component exists and is initialised.
-    ///   4. Snap the child's position to the label's world position (slot face at shelf height).
+    ///   2. Find the hardcoded <see cref="LocationData"/> child authored under that label's
+    ///      parent transform (sibling of the TMP label, e.g. LabelFront.L/Location) — found by
+    ///      component type, not name, since Initialize() renames the GameObject to the address.
+    ///   3. Fall back to generating a loose location object only if the rack prefab has none.
     ///
     /// Locations whose parent rack has been removed are pruned from the dictionary.
-    /// Existing <see cref="LocationData"/> state (status, inventory) is preserved on recompute
-    /// — only the identity and world position are refreshed.
+    /// Existing <see cref="LocationData"/> state (status, inventory) is preserved on recompute —
+    /// only identity is refreshed. A hardcoded location's authored transform is never moved; it's
+    /// the pallet-parenting / fork-approach anchor point and must stay exactly where it was placed
+    /// in the prefab.
     /// </summary>
     public void Recompute()
     {
@@ -141,42 +145,43 @@ public class LocationRegistry : MonoBehaviour
                 if (!SlotRegistry.TryGet(address, out var slot)) continue;
                 LocationType type = slot.IsPick ? LocationType.Pick : LocationType.Reserve;
 
-                // Find or create the location child on the rack root.
-                Transform locTransform = po.transform.Find(address);
-                LocationData data;
+                // The hardcoded Location child lives as a sibling of the label under the same
+                // per-position parent (e.g. LabelFront.L / LabelFront.R). Search by component
+                // type rather than transform.Find(address): Find only checks direct children of
+                // the rack root, missing this one level deeper, and the object isn't named
+                // `address` until Initialize() runs on it below.
+                LocationData data = label.transform.parent != null
+                    ? label.transform.parent.GetComponentInChildren<LocationData>(true)
+                    : null;
 
-                if (locTransform == null)
+                if (data == null)
                 {
-                    // First time this slot has been seen — create the location object.
+                    // No hardcoded slot on this rack prefab — fall back to a generated location,
+                    // positioned from the label's true face position. The label GameObjects sit
+                    // at localPosition (0,0,0), so transform.position gives the rack corner;
+                    // Renderer.bounds.center reads the mesh vertices in world space and gives the
+                    // correct face-centre regardless of pivot placement.
                     var go = new GameObject(address);
                     go.transform.SetParent(po.transform, worldPositionStays: false);
                     data = go.AddComponent<LocationData>();
-                    Debug.Log($"[LocationRegistry] Created location '{address}' on rack '{po.name}'.");
-                }
-                else
-                {
-                    // Already exists — retrieve or add the component without resetting state.
-                    data = locTransform.GetComponent<LocationData>();
-                    if (data == null)
-                        data = locTransform.gameObject.AddComponent<LocationData>();
+
+                    var parentRenderer = label.transform.parent?.GetComponent<Renderer>();
+                    var ownRenderer    = label.GetComponent<Renderer>();
+                    Vector3 faceCenter = parentRenderer != null
+                        ? parentRenderer.bounds.center
+                        : (ownRenderer != null && ownRenderer.bounds.size.sqrMagnitude > 0.001f
+                            ? ownRenderer.bounds.center
+                            : label.transform.position);
+                    // Use the label's own Z position, not the renderer bounds Z (which includes label thickness).
+                    faceCenter.z = label.transform.position.z;
+                    data.transform.position = faceCenter;
+
+                    Debug.Log($"[LocationRegistry] Created location '{address}' on rack '{po.name}' (no hardcoded slot found).");
                 }
 
-                // Snap the location child to the label's true face position. The label GameObjects
-                // sit at localPosition (0,0,0), so transform.position gives the rack corner.
-                // Renderer.bounds.center reads the mesh vertices in world space and gives the
-                // correct face-centre regardless of pivot placement.
-                var parentRenderer = label.transform.parent?.GetComponent<Renderer>();
-                var ownRenderer    = label.GetComponent<Renderer>();
-                Vector3 faceCenter = parentRenderer != null
-                    ? parentRenderer.bounds.center
-                    : (ownRenderer != null && ownRenderer.bounds.size.sqrMagnitude > 0.001f
-                        ? ownRenderer.bounds.center
-                        : label.transform.position);
-                // Use the label's own Z position, not the renderer bounds Z (which includes label thickness).
-                faceCenter.z = label.transform.position.z;
-                data.transform.position = faceCenter;
-
-                // Always re-initialise identity in case the label text changed.
+                // Always re-initialise identity in case the label text changed. Position is left
+                // untouched for hardcoded slots — their authored transform is the anchor everything
+                // else (putaway parenting, fork approach) targets.
                 data.Initialize(address, type);
 
                 _byAddress[address] = data;
@@ -190,6 +195,49 @@ public class LocationRegistry : MonoBehaviour
         {
             _byAddress.Remove(key);
             LocationStatusRegistry.Release(key); // free the slot in the status registry too
+        }
+
+        ReconcilePhysicalOccupancy();
+    }
+
+    /// <summary>
+    /// Restored reserve/pick pallets never call <see cref="LocationData.Occupy"/> -- only a live
+    /// Reach Truck delivery (DeliverPalletToRack) does. Without this, a pallet restored from a
+    /// save sits physically on a shelf but its slot reads Available forever, so
+    /// ReplenishmentService can never find it as reserve stock. Runs once per pallet id (tracked
+    /// in _reconciledPalletIds), not every heartbeat -- a pallet that doesn't match a slot now
+    /// (e.g. still in staging) won't match later either; putaway/replenishment already call
+    /// Occupy() directly when they place one for real.
+    /// </summary>
+    private static void ReconcilePhysicalOccupancy()
+    {
+        if (_byAddress.Count == 0) return; // rack registry not populated yet -- try again next heartbeat
+        if (!GameCore.Services.ServiceLocator.TryGet<InventoryService>(out var inv) || inv == null) return;
+
+        const float ToleranceSq = 0.25f * 0.25f;
+        foreach (var link in PalletMasterLink.All)
+        {
+            if (link == null || string.IsNullOrEmpty(link.PalletId)) continue;
+            if (_reconciledPalletIds.Contains(link.PalletId)) continue; // already resolved
+
+            var record = inv.GetPallet(link.PalletId);
+            if (record == null) continue;
+
+            LocationData nearest = null;
+            float bestSq = ToleranceSq;
+            foreach (var loc in _byAddress.Values)
+            {
+                float d = (loc.transform.position - link.transform.position).sqrMagnitude;
+                if (d < bestSq) { bestSq = d; nearest = loc; }
+            }
+
+            if (nearest == null) continue; // no slot at this position (yet) -- retry next heartbeat
+
+            // Only mark this pallet resolved once we've actually found its slot -- otherwise an
+            // early pass (before racks finish registering) would permanently skip it with no match.
+            _reconciledPalletIds.Add(link.PalletId);
+            if (nearest.IsAvailable)
+                nearest.Occupy(link.PalletId, record.SkuId, record.Quantity);
         }
     }
 }

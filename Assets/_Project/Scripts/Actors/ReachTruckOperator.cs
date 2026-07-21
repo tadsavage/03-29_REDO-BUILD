@@ -750,7 +750,11 @@ namespace GameCore.Actors
             }
 
             yield return FaceForks(transform, Flat(locationTr.position - transform.position));
-            yield return LiftForksToWorldY(_forks, locationTr.position.y + ForkRackClearance);
+            // PalletHalfHeight (0.085), not ForkRackClearance (0.15) -- ForkRackClearance exactly
+            // equals ForkGrabProximity below, so lifting the full clearance amount here left zero
+            // margin for any XZ residual and made the grab fail almost every time. ForkRackClearance
+            // is still used for the post-grab lift-clear a few lines down.
+            yield return LiftForksToWorldY(_forks, locationTr.position.y + PalletHalfHeight);
 
             _forks.localPosition = new Vector3(_forks.localPosition.x, _forks.localPosition.y, _forkRestLocalZ);
 

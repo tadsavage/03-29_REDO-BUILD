@@ -48,6 +48,9 @@ public class PlacementStateMachine : MonoBehaviour
     private PreviewController _preview;
     private CellIndicatorController _indicator;
     private RaycastController _raycast;
+    // Reusable buffer for the hover-tooltip's supplementary multi-hit raycast (avoids a
+    // per-frame array allocation from RaycastAll while hovering).
+    private readonly RaycastHit[] _hoverHitsBuffer = new RaycastHit[16];
     private BuildMenuUI _buildMenuUI;
     private TopBarUI _topBar;
 
@@ -327,34 +330,80 @@ if (_currentState != _idleState)
     /// <summary>
     /// Handles hover popup behavior ONLY in IdleState.
     /// </summary>
-    private void HandleIdleHover(bool tickRaycast = true)
+private void HandleIdleHover(bool tickRaycast = true)
     {
         if (tickRaycast) _raycast.Tick();
 
         if (_raycast.HitObject != null)
         {
-            // Check for pallet first
-            var palletData = _raycast.HitObject.GetComponentInParent<GameCore.Inventory.PalletData>();
-            if (palletData != null)
+            // Walk EVERY collider along the ray (closest first), not just the single closest
+            // hit -- a rack's own big trigger BoxCollider spans its whole footprint, so from
+            // most camera angles it sits in front of (closer to camera than) a pallet resting
+            // on one of its shelves or a label mounted on its face. A single-hit raycast would
+            // only ever find the rack shell and block anything behind it; this lets a more
+            // specific hit (pallet, rack slot/label) further along the same ray win instead.
+            int count = Physics.RaycastNonAlloc(_raycast.CurrentRay, _hoverHitsBuffer, 500f, _raycast.CurrentObjectMask, QueryTriggerInteraction.Collide);
+            System.Array.Sort(_hoverHitsBuffer, 0, count, Comparer<RaycastHit>.Create((a, b) => a.distance.CompareTo(b.distance)));
+
+            GameObject fallbackBuildingHit = null;
+
+            for (int i = 0; i < count; i++)
             {
-                _hoverUI.TickHoverPallet(true, palletData, _raycast.RawHitPoint, Camera.main);
-                return;
+                var go = _hoverHitsBuffer[i].collider.gameObject;
+                Vector3 hitPoint = _hoverHitsBuffer[i].point;
+
+                var palletData = go.GetComponentInParent<GameCore.Inventory.PalletData>();
+                if (palletData != null)
+                {
+                    _hoverUI.TickHoverPallet(true, palletData, hitPoint, Camera.main);
+                    return;
+                }
+
+                var palletBuilder = go.GetComponentInParent<PalletBuilder>();
+                if (palletBuilder != null)
+                {
+                    _hoverUI.TickHoverPalletBuilder(true, palletBuilder, hitPoint, Camera.main);
+                    return;
+                }
+
+                var locationData = go.GetComponentInParent<LocationData>();
+                if (locationData != null)
+                {
+                    _hoverUI.TickHoverLocation(true, locationData, hitPoint, Camera.main);
+                    return;
+                }
+
+                // Rack label hit -- resolve LocationData via the label's own address text. Must
+                // be the label's OWN direct child, not a deep GetComponentInChildren -- that
+                // would match ANY TMP label anywhere under a hit object (e.g. the rack's own big
+                // BoxCollider hits the rack root, which has every label on it as a descendant).
+                TMPro.TextMeshPro labelText = null;
+                foreach (Transform childT in go.transform)
+                {
+                    labelText = childT.GetComponent<TMPro.TextMeshPro>();
+                    if (labelText != null) break;
+                }
+                if (labelText != null && !string.IsNullOrWhiteSpace(labelText.text)
+                    && LocationRegistry.TryGet(labelText.text, out var labelLocationData))
+                {
+                    _hoverUI.TickHoverLocation(true, labelLocationData, hitPoint, Camera.main);
+                    return;
+                }
+
+                // Generic building fallback -- remember the FIRST (closest) one, but keep
+                // looking further down the ray in case a more specific hit is behind it.
+                // Racks are excluded: they only ever show their location/label tooltip (or
+                // nothing, when no label/pallet is under the cursor), never the generic one.
+                if (fallbackBuildingHit == null)
+                {
+                    var bd = go.GetComponentInParent<BuildingData>();
+                    if (bd != null && bd.Data != null && bd.Data.category != "Racking") fallbackBuildingHit = go;
+                }
             }
 
-            // Check for a PalletBuilder (built-but-unreceived pallet) — shows the same
-            // pallet tooltip (item number, description, case qty) by resolving the SKU
-            // from the builder's linkedSku, casePrefab, or case children.
-            var palletBuilder = _raycast.HitObject.GetComponentInParent<PalletBuilder>();
-            if (palletBuilder != null)
+            if (fallbackBuildingHit != null)
             {
-                _hoverUI.TickHoverPalletBuilder(true, palletBuilder, _raycast.RawHitPoint, Camera.main);
-                return;
-            }
-
-            // Then check for building
-            var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
-            if (bd != null && bd.Data != null)
-            {
+                var bd = fallbackBuildingHit.GetComponentInParent<BuildingData>();
                 _hoverUI.TickHover(
                     true,
                     bd.Data.objName,
@@ -363,14 +412,6 @@ if (_currentState != _idleState)
                     _raycast.RawHitPoint,
                     Camera.main
                 );
-                return;
-            }
-
-            // Check for LocationData (Rack slot)
-            var locationData = _raycast.HitObject.GetComponentInParent<LocationData>();
-            if (locationData != null)
-            {
-                _hoverUI.TickHoverLocation(true, locationData, _raycast.RawHitPoint, Camera.main);
                 return;
             }
         }
