@@ -13,7 +13,17 @@ public class ModularAvatarRig : MonoBehaviour
     private Animator _source;   // worker Animator (AgentAnimation writes its bools)
     private Animator _self;     // this avatar's own Animator
     private AnimatorControllerParameter[] _params;
-    private System.Collections.Generic.HashSet<int> _selfHashes; // params the avatar's own controller actually has
+    // Params the avatar's own controller actually has. Rebuilt every LateUpdate (Clear+refill,
+    // not reallocated) instead of cached once — a one-time cache went permanently stale for any
+    // operator who rode an MHE and returned to patrol: the mirror kept running (this component
+    // was never disabled) but silently stopped forwarding every parameter forever, leaving the
+    // visible avatar frozen in Idle while the logic-only worker Animator correctly read
+    // IsWalking=true. Root Unity mechanism unconfirmed (reflection unavailable to inspect it
+    // in-session), but replacing/reinitializing the component with the exact same live Animator
+    // references fixed it every time, and a stale one-shot cache was the only field that could
+    // explain a permanent divergence with no other state change involved. Rebuilding 6-7 hashes
+    // a frame is negligible; reusing the instance avoids per-frame GC.
+    private readonly System.Collections.Generic.HashSet<int> _selfHashes = new System.Collections.Generic.HashSet<int>();
 
     private Transform _sampleBone;   // a leg bone, for the one-shot diagnostic
     private float _diagT; private bool _diagDone;
@@ -37,14 +47,11 @@ public class ModularAvatarRig : MonoBehaviour
     {
         if (_source == null || _self == null || _params == null || !_self.isInitialized) return;
 
-        // Build the set of parameter hashes the avatar's OWN controller actually has, once the avatar
-        // Animator is initialized. Forwarding a hash the target lacks spams "Parameter 'Hash …' does not
-        // exist" every frame for every mismatched param — so we only mirror parameters present on BOTH.
-        if (_selfHashes == null)
-        {
-            _selfHashes = new System.Collections.Generic.HashSet<int>();
-            foreach (var sp in _self.parameters) _selfHashes.Add(sp.nameHash);
-        }
+        // Build the set of parameter hashes the avatar's OWN controller actually has. Forwarding a
+        // hash the target lacks spams "Parameter 'Hash …' does not exist" every frame for every
+        // mismatched param — so we only mirror parameters present on BOTH.
+        _selfHashes.Clear();
+        foreach (var sp in _self.parameters) _selfHashes.Add(sp.nameHash);
 
         for (int i = 0; i < _params.Length; i++)
         {

@@ -102,6 +102,17 @@ public class NoWaypointIndicator : MonoBehaviour
 
     private void Update()
     {
+        // A Receiver walking to a pallet (IsSeekingTask, handled below) OR actively receiving one —
+        // standing perfectly still for the full ~10s fill duration by design — must never show the
+        // stuck/no-waypoint wave. IsTaskBusy covers both: ReceivingTaskDriver sets it the moment a
+        // task is claimed and only clears it once the workflow truly has nothing left to do.
+        // ForceClear keeps the bubble/timers clean so nothing carries over once the task ends.
+        if (_aiNav.IsTaskBusy)
+        {
+            ForceClear();
+            return;
+        }
+
         // An operator walking toward MHE equipment to board it has a real destination — just
         // not one that came from the Worker waypoint patrol — so it must not count as "nowhere
         // to go" and trigger the wave/stuck alert for the entire approach.

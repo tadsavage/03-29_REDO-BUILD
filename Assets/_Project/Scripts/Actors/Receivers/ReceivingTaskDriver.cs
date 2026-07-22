@@ -46,6 +46,12 @@ namespace GameCore.Actors
         private bool _holdingNearDock;
         private float _holdTimer;
 
+        // The lane (door+letter, e.g. "1A") this receiver is currently working through. Sticky across
+        // claims so a lane empties from its EXIT end inward (position 6, then 5, 4, 3, 2, 1) instead of
+        // whichever pallet happens to be nearest — set the first time a lane is picked, cleared once
+        // that lane has no pending Receive tasks left, per Tad's spec.
+        private string _currentLaneKey;
+
         private void Awake()
         {
             _nav = GetComponent<AiNavigation>();
@@ -90,7 +96,7 @@ namespace GameCore.Actors
             if (_pollTimer > 0f) return;
             _pollTimer = TaskPollInterval;
 
-            if (!TryClaimNearestReceiveTask(out var task, out var palletTransform))
+            if (!TryClaimNextReceiveTask(out var task, out var palletTransform))
                 return;
 
             _holdingNearDock = false;
@@ -100,14 +106,16 @@ namespace GameCore.Actors
             _nav.SeekPosition(standPosition, () => _workflow.BeginReceivingAt(task, palletTransform));
         }
 
-        /// <summary>Claims the CLOSEST pending Receive task to this receiver's current position,
-        /// not the oldest (WorkQueueSystem.TryClaimNextTask is plain FIFO across the whole
-        /// warehouse). Without this, a receiver standing at a lane with two more pallets sitting
-        /// right in front of them would instead walk clear across the warehouse for an older
-        /// pending task from a different door — exactly the "wanders off instead of finishing
-        /// what's right there" behavior Tad reported 2026-07-05. Skips (and lets the normal
-        /// cleanup path handle) any task whose physical pallet is already gone.</summary>
-        private bool TryClaimNearestReceiveTask(out WorkTask task, out Transform palletTransform)
+        /// <summary>
+        /// Claims the next pending Receive task using exit-first, lane-sticky ordering (per Tad's
+        /// spec): stay in the lane already being worked and always take its EXIT-most (highest slot
+        /// number) pallet, so a six-position lane empties 6, 5, 4, 3, 2, 1 rather than in whatever
+        /// order tasks happen to be sitting in the queue. Only once the current lane has nothing
+        /// pending left does it pick a new lane — whichever one's own exit-most pallet is nearest to
+        /// this receiver — so it naturally moves to another door once its current one is drained.
+        /// Skips (and lets the normal cleanup path handle) any task whose physical pallet is gone.
+        /// </summary>
+        private bool TryClaimNextReceiveTask(out WorkTask task, out Transform palletTransform)
         {
             task = null;
             palletTransform = null;
@@ -115,10 +123,13 @@ namespace GameCore.Actors
             var pending = _workQueue.GetPendingTasksForRole(EmployeeRole.Receiver);
             if (pending.Count == 0) return false;
 
-            Vector3 myPos = transform.position;
-            float bestSqr = float.PositiveInfinity;
-            WorkTask bestTask = null;
-            Transform bestTransform = null;
+            // Resolve each candidate's physical pallet + lane slot up front. Same self-healing the
+            // old nearest-task claim did: a task whose physical pallet is gone gets completed here
+            // instead of piling up in the pending list forever.
+            var candidateTasks = new System.Collections.Generic.List<WorkTask>();
+            var candidateTransforms = new System.Collections.Generic.List<Transform>();
+            var candidateSlots = new System.Collections.Generic.List<LaneNamingService.LaneSlot>();
+            var candidateHasSlot = new System.Collections.Generic.List<bool>();
             System.Collections.Generic.List<WorkTask> orphaned = null;
 
             foreach (var candidate in pending)
@@ -126,23 +137,19 @@ namespace GameCore.Actors
                 var link = PalletMasterLink.Find(candidate.PalletId);
                 if (link == null)
                 {
-                    // Pallet's physical GameObject is gone but its task is still Pending. The old
-                    // FIFO claim path used to self-heal this (claim -> notice link is null ->
-                    // complete the task) — this nearest-task path replaced FIFO as the ONLY caller,
-                    // so nothing was doing that cleanup anymore and orphaned tasks piled up in the
-                    // pending list forever, silently skipped every poll. Enough of those (or the
-                    // wrong ones) starves real work: exactly the "dock full of product but the
-                    // receiver just stopped and wandered off" symptom Tad reported 2026-07-05.
                     (orphaned ??= new System.Collections.Generic.List<WorkTask>()).Add(candidate);
                     continue;
                 }
-                float sqr = (link.transform.position - myPos).sqrMagnitude;
-                if (sqr < bestSqr)
-                {
-                    bestSqr = sqr;
-                    bestTask = candidate;
-                    bestTransform = link.transform;
-                }
+
+                var po = link.GetComponent<PlacedObject>();
+                LaneNamingService.LaneSlot slot = default;
+                bool hasSlot = po != null && po.enabled
+                               && LaneNamingService.TryGetSlot(new Vector2Int(po.gridX, po.gridY), out slot);
+
+                candidateTasks.Add(candidate);
+                candidateTransforms.Add(link.transform);
+                candidateSlots.Add(slot);
+                candidateHasSlot.Add(hasSlot);
             }
 
             if (orphaned != null)
@@ -154,18 +161,83 @@ namespace GameCore.Actors
                 }
             }
 
-            if (bestTask == null) return false;
+            if (candidateTasks.Count == 0) return false;
+
+            int bestIndex = -1;
+
+            // 1. Stay in the lane already being worked, if it still has a pending pallet — always the
+            //    highest slot number (exit-most) among them.
+            if (_currentLaneKey != null)
+            {
+                for (int i = 0; i < candidateTasks.Count; i++)
+                {
+                    if (!candidateHasSlot[i] || LaneKey(candidateSlots[i]) != _currentLaneKey) continue;
+                    if (bestIndex < 0 || candidateSlots[i].Slot > candidateSlots[bestIndex].Slot) bestIndex = i;
+                }
+            }
+
+            // 2. Sticky lane is drained (or none chosen yet) — pick whichever lane's own exit-most
+            //    pallet is nearest to this receiver, then take THAT lane's exit-most task. Candidates
+            //    with no resolvable lane slot (shouldn't normally happen for staged pallets) fall back
+            //    to competing on raw nearest-distance, same as every other frontier candidate.
+            if (bestIndex < 0)
+            {
+                Vector3 myPos = transform.position;
+
+                // Per-lane frontier: index of the highest-slot candidate seen so far, keyed by lane.
+                var frontierKeys = new System.Collections.Generic.List<string>();
+                var frontierIndex = new System.Collections.Generic.List<int>();
+
+                for (int i = 0; i < candidateTasks.Count; i++)
+                {
+                    if (!candidateHasSlot[i]) continue;
+                    string key = LaneKey(candidateSlots[i]);
+                    int existing = frontierKeys.IndexOf(key);
+                    if (existing < 0)
+                    {
+                        frontierKeys.Add(key);
+                        frontierIndex.Add(i);
+                    }
+                    else if (candidateSlots[i].Slot > candidateSlots[frontierIndex[existing]].Slot)
+                    {
+                        frontierIndex[existing] = i;
+                    }
+                }
+
+                float bestSqr = float.PositiveInfinity;
+                string bestKey = null;
+                for (int f = 0; f < frontierIndex.Count; f++)
+                {
+                    int i = frontierIndex[f];
+                    float sqr = (candidateTransforms[i].position - myPos).sqrMagnitude;
+                    if (sqr < bestSqr) { bestSqr = sqr; bestIndex = i; bestKey = frontierKeys[f]; }
+                }
+
+                // Fallback: any candidate with no resolvable lane slot competes on raw distance too.
+                for (int i = 0; i < candidateTasks.Count; i++)
+                {
+                    if (candidateHasSlot[i]) continue;
+                    float sqr = (candidateTransforms[i].position - myPos).sqrMagnitude;
+                    if (sqr < bestSqr) { bestSqr = sqr; bestIndex = i; bestKey = null; }
+                }
+
+                if (bestIndex >= 0) _currentLaneKey = bestKey;
+            }
+
+            if (bestIndex < 0) return false;
 
             var identity = GetComponent<EmployeeIdentity>();
             string guid = identity?.Record?.employeeGuid;
             if (string.IsNullOrEmpty(guid)) return false;
 
-            if (!_workQueue.TryClaimSpecificTask(bestTask, guid)) return false; // lost a race to another receiver
+            if (!_workQueue.TryClaimSpecificTask(candidateTasks[bestIndex], guid)) return false; // lost a race
 
-            task = bestTask;
-            palletTransform = bestTransform;
+            task = candidateTasks[bestIndex];
+            palletTransform = candidateTransforms[bestIndex];
             return true;
         }
+
+        private static string LaneKey(LaneNamingService.LaneSlot slot) => $"{slot.DoorNumber}{slot.Lane}";
 
         private void HandleWorkflowComplete()
         {

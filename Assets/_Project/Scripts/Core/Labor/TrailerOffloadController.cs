@@ -46,11 +46,13 @@ namespace GameCore.Labor
         private const float  PivotFrontDistance = 2.0f;   // pickup/drop pivot sits this far in FRONT of the trailer opening / lane entry
         // Lane-drop height. PlacementGrid.GetCellCenter returns the grid PLANE Y (~0), but the staging
         // lanes physically sit on the dock foundation, so pallets dropped at the cell's Y sink into the
-        // mesh. LaneSurfaceY is that foundation top; the first pallet sits there, each stacked pallet
-        // above it by LaneStackStep (= one pallet's height). Assumes lanes are on the standard dock
-        // height — if lanes ever sit at other heights this should become a downward raycast instead.
+        // mesh. LaneSurfaceY is that foundation top; the first pallet sits there. Each stacked pallet
+        // above it sits on the ACTUAL measured top of the pallet below (ComputeDropBaseY, via
+        // MeasureTopY) + StackGap — never a fixed per-tier height, since pallet types vary in height
+        // (a wire-tote pallet is noticeably taller than a standard case pallet). Assumes lanes are on
+        // the standard dock height — if lanes ever sit at other heights this should become a downward
+        // raycast instead.
         private const float  LaneSurfaceY       = 1.15f;  // dock foundation top the lanes rest on
-        private const float  LaneStackStep      = 0.9f;   // pallet height — cosmetic fork-lower offset per stacked tier
         private const float  StackGap           = 0.02f;  // small anti-clip gap between a stacked pallet's base and the case-top below it
         private const bool   InvertTrailerAxis  = false;  // flip if the DS drives AWAY from the trailer instead of into it
 
@@ -103,7 +105,7 @@ namespace GameCore.Labor
             var slot = FindAvailableDockStocker();
             if (slot == null) return; // no manned DS free — truck keeps waiting (falls back after its timeout)
 
-            StartCoroutine(OffloadRoutine(truck, slot, inv));
+            StartCoroutine(OffloadRoutine(truck, slot, inv, queue));
         }
 
         private MHEOperatorSlot FindAvailableDockStocker()
@@ -119,7 +121,7 @@ namespace GameCore.Labor
             return null;
         }
 
-        private IEnumerator OffloadRoutine(TruckController truck, MHEOperatorSlot slot, InventoryService inv)
+        private IEnumerator OffloadRoutine(TruckController truck, MHEOperatorSlot slot, InventoryService inv, WorkQueueSystem queue)
         {
             truck.ClaimForOffload();
             _busySlots.Add(slot);
@@ -172,7 +174,7 @@ namespace GameCore.Labor
             {
                 var pallet = pallets[i];
                 if (pallet == null) continue;
-                yield return OffloadOnePallet(ds, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, i);
+                yield return OffloadOnePallet(ds, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, queue, i);
             }
 
             // ── Restore the DS to patrol ──
@@ -196,7 +198,7 @@ namespace GameCore.Labor
         private IEnumerator OffloadOnePallet(Transform ds, Transform forks, float forkRestY,
                                              TruckController truck, Transform pallet, Vector3 into,
                                              float openingLong, int doorNumber, Vector3 doorPos,
-                                             InventoryService inv, int palletIndex = 0)
+                                             InventoryService inv, WorkQueueSystem queue, int palletIndex = 0)
         {
             Vector3 P = pallet.position;
             Vector3 palletWorldScale = pallet.lossyScale; // preserve visual size across the reparenting
@@ -231,7 +233,7 @@ namespace GameCore.Labor
 
             // ── DROP OFF (enter the lane from its door-end entry, never across lanes) ──────
             // 7. Pick the next open Inbound/Both slot in one of THIS truck's dock-door lanes.
-            if (!TryFindLaneTarget(inv, doorNumber, doorPos, out int door, out string laneLetter, out var cell, out int tier))
+            if (!TryFindLaneTarget(inv, queue, doorNumber, doorPos, out int door, out string laneLetter, out var cell, out int tier))
             {
                 Debug.LogWarning($"[TrailerOffload] No free Inbound/Both staging-lane slot for door {doorNumber} — dropping pallet where the DS stands.");
                 DropPallet(pallet, ds.position, LaneSurfaceY, palletWorldScale, ds.rotation);
@@ -321,8 +323,15 @@ namespace GameCore.Labor
             float dropBaseY = ComputeDropBaseY(cell, pallet.gameObject);
 
             // 12. Lower the forks toward the stack (cosmetic — DropPallet sets the exact final Y), then
-            //     unparent the pallet onto the lane at dropBaseY.
-            if (forks != null) yield return LiftForks(forks, forkRestY + tier * LaneStackStep);
+            //     unparent the pallet onto the lane at dropBaseY. Target forkStackHeight (the REAL
+            //     measured height of the existing pallet, computed in the 9b stacking check above) —
+            //     NOT a fixed per-tier constant. A flat "one pallet height" guess undershoots any
+            //     pallet type taller than that guess (e.g. the wire-tote pallets, which measure well
+            //     over a standard case pallet), so the carried pallet visibly sank into and clipped
+            //     through the top of a taller stack before DropPallet snapped it to the correct final
+            //     Y a moment later. forkStackHeight already equals forkRestY when the cell is empty
+            //     (tier 0), so this covers both cases with one target.
+            if (forks != null) yield return LiftForks(forks, forkStackHeight);
 
             DropPallet(pallet, targetW, dropBaseY, palletWorldScale, rotatedPlacement);
             // 12b. Record the authoritative base-Y everywhere the pallet's height is tracked.
@@ -523,14 +532,15 @@ namespace GameCore.Labor
         // end and stop at the first OCCUPIED slot, because the DS can't pass it. The chosen drop is the
         // DEEPEST reachable slot with room:
         //   • empty slots are passable — keep walking deeper;
-        //   • the first occupied slot is the frontier: if it still has room under MaxStackHeight, STACK
-        //     on it ("position 6 holds one → room on top for one more"); either way, STOP — never route
-        //     past it to a deeper open slot ("position 6 holds two → drop in 5", never drive through 6).
+        //   • the first occupied slot is the frontier: if it still has room under MaxStackHeight AND its
+        //     current top pallet isn't already claimed for an in-flight Putaway, STACK on it ("position 6
+        //     holds one → room on top for one more"); either way, STOP — never route past it to a deeper
+        //     open slot ("position 6 holds two → drop in 5", never drive through 6).
         // On a fresh lane this still fills far-end-first (FIFO flow-through for the reach truck at the
         // exit), but it can no longer drive through pallets left by an earlier batch/other truck.
         // Returns the lane identity so the drop maneuver can route in via the entry. doorNumber <= 0
         // falls back to any door.
-        private bool TryFindLaneTarget(InventoryService inv, int doorNumber, Vector3 doorPos,
+        private bool TryFindLaneTarget(InventoryService inv, WorkQueueSystem queue, int doorNumber, Vector3 doorPos,
                                        out int door, out string laneLetter, out Vector2Int cell, out int tier)
         {
             door = 0; laneLetter = null; cell = default; tier = 0;
@@ -551,7 +561,8 @@ namespace GameCore.Labor
                 for (int idx = 0; idx < entryToFar.Count; idx++)
                 {
                     var s = entryToFar[idx];
-                    int stacked = inv.GetPalletsAtLocation(s.Cell).Count;
+                    var slotPallets = inv.GetPalletsAtLocation(s.Cell);
+                    int stacked = slotPallets.Count;
                     int pending = _pendingDrops.TryGetValue(s.Cell, out int p) ? p : 0;
                     int count   = stacked + pending;
 
@@ -562,13 +573,21 @@ namespace GameCore.Labor
                         continue;
                     }
 
-                    // Occupied slot: the DS cannot drive PAST it. It's the frontier.
-                    if (count < maxH)
+                    // Occupied slot: the DS cannot drive PAST it. It's the frontier. Room on top alone
+                    // isn't enough to stack here — a Reach Truck Operator locks in its Putaway target
+                    // (this cell's current top pallet) the instant it claims the task, but doesn't
+                    // physically remove it / update InventoryService until several seconds later after
+                    // the drive/grab animation. Stacking a new pallet on top during that window leaves it
+                    // floating in mid-air the moment the RTO drives off with the one underneath it — so
+                    // skip stacking (treat this slot as unusable, same as "full") whenever the current
+                    // top pallet already has an Assigned Putaway task in flight.
+                    bool topInFlight = stacked > 0 && IsPutawayInFlight(queue, slotPallets[stacked - 1].PalletId);
+                    if (count < maxH && !topInFlight)
                     {
                         // Room on top — stack HERE (this is the "one more on top" case).
                         chosenIndex = idx; chosenTier = count;
                     }
-                    // Full or partial, we can't go deeper. Stop.
+                    // Full, partial-but-in-flight, or otherwise blocked — we can't go deeper. Stop.
                     break;
                 }
 
@@ -582,6 +601,22 @@ namespace GameCore.Labor
                     _pendingDrops[cell] = pv + 1;
                     return true;
                 }
+            }
+            return false;
+        }
+
+        // True if a Putaway task for this pallet is currently claimed (Assigned) by a Reach Truck
+        // Operator — i.e. an RTO has already locked this pallet in as its pickup target and may be
+        // mid-drive toward it, even though InventoryService still shows the pallet sitting in its cell
+        // (that only updates once the RTO physically grabs it, well after claiming the task). Linear
+        // scan is fine here — called at most once per candidate slot per drop decision, not per frame.
+        private static bool IsPutawayInFlight(WorkQueueSystem queue, string palletId)
+        {
+            if (queue == null || string.IsNullOrEmpty(palletId)) return false;
+            foreach (var t in queue.Tasks)
+            {
+                if (t.Type == WorkTaskType.Putaway && t.Status == WorkTaskStatus.Assigned && t.PalletId == palletId)
+                    return true;
             }
             return false;
         }

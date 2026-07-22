@@ -134,8 +134,16 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 initialized = true;
         }
         else if (initialized && !agent.hasPath && !agent.pathPending
+                 && !_taskBusy && !_seekingTask && !_seekingEquipment
                  && waypoints != null && waypoints.Length > 0)
         {
+            // _taskBusy/_seekingTask guard: a Receiver standing still mid-task (walking to a pallet
+            // or actively receiving one for its full ~10s duration) has no path and no pending path —
+            // exactly what this branch used to treat as "idle, go patrol." Every NavMesh rebake in the
+            // ENTIRE warehouse fires this callback on every agent, so a receiver got silently yanked
+            // off to a random waypoint mid-receive the moment anything else nearby triggered a rebake,
+            // while the receiving animation/fill bar (which don't know navigation moved) kept running
+            // as if nothing happened — the "walks away while still receiving" bug.
             GoToRandomWaypoint();
         }
     }
@@ -449,7 +457,22 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     private void SnapToNavMeshSurface()
     {
         if (agent == null) return;
-        float[] yOffsets = { 1.0f, 0.5f, 0f, -0.5f, -1.0f };
+
+        // Only fall through to the NEGATIVE (below current height) offsets when the agent isn't
+        // already validly on a mesh. Every dock/floor surface has a ground-level (y≈0) NavMesh
+        // directly beneath it (for rats etc.), so once an agent is already correctly standing on
+        // the elevated surface, a routine rebake that transiently fails to re-sample its exact
+        // CURRENT height (offset 0f — e.g. right at a polygon edge) used to fall through to -0.5f/
+        // -1.0f, find that ground-level mesh, and Warp a perfectly-fine agent straight down through
+        // the floor. This is what caused a Receiver — the one agent that stands motionless through
+        // many rebake cycles in a row — to visibly sink to y=0 mid-animation. An agent that isn't
+        // on a mesh yet (freshly spawned/save-loaded, or genuinely knocked off) still gets the full
+        // range so it can find ANY nearby surface as a recovery fallback.
+        bool alreadyOnMesh = agent.isOnNavMesh;
+        float[] yOffsets = alreadyOnMesh
+            ? new[] { 1.0f, 0.5f, 0f }
+            : new[] { 1.0f, 0.5f, 0f, -0.5f, -1.0f };
+
         foreach (float offset in yOffsets)
         {
             Vector3 sample = new Vector3(transform.position.x, transform.position.y + offset, transform.position.z);
@@ -744,7 +767,10 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                     if (Mathf.Abs(hit.position.y - transform.position.y) < 1.0f)
                     {
                         agent.Warp(hit.position);
-                        if (waypoints != null && waypoints.Length > 0)
+                        // Same taskBusy/seeking guard as OnNavMeshBaked() — re-snapping onto the mesh
+                        // is always safe, but overwriting a Receiver's destination mid-task is not.
+                        if (!_taskBusy && !_seekingTask && !_seekingEquipment
+                            && waypoints != null && waypoints.Length > 0)
                             agent.SetDestination(waypoints[currentIndex].position);
                     }
                 }

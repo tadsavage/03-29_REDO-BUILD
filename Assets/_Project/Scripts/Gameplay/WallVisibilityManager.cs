@@ -205,7 +205,11 @@ public class WallVisibilityManager : MonoBehaviour
 
             // Only the fully Lowered stage uses the transparent material; Mid stays solid.
             if (_currentMode == WallVisibilityMode.Lowered)
+            {
                 SetWallMaterials(wall, true);
+                if (wall.mainCollider != null)
+                    HideFloatingObjectsAbove(wall.mainCollider);
+            }
         }
 
         if (_currentMode == WallVisibilityMode.Full) _dynamicallyFoundDecor.Clear();
@@ -260,8 +264,35 @@ public class WallVisibilityManager : MonoBehaviour
         {
             if (hit.gameObject == wallCollider.gameObject || hit.transform.IsChildOf(wallCollider.transform)) continue;
             Renderer r = hit.GetComponent<Renderer>() ?? hit.GetComponentInChildren<Renderer>();
-            if (r != null && r.enabled) { r.enabled = false; _dynamicallyFoundDecor.Add(r); }
+            if (r == null || !r.enabled || IsLightRenderer(r)) continue;
+
+            r.enabled = false;
+            _dynamicallyFoundDecor.Add(r);
         }
+    }
+
+    private static bool IsLightRenderer(Renderer candidate)
+    {
+        if (candidate == null) return false;
+
+        Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Transform rendererTransform = candidate.transform;
+
+        foreach (var sceneLight in sceneLights)
+        {
+            if (sceneLight == null) continue;
+
+            Transform lightTransform = sceneLight.transform;
+            if (rendererTransform == lightTransform
+                || rendererTransform.IsChildOf(lightTransform)
+                || lightTransform.IsChildOf(rendererTransform)
+                || (rendererTransform.parent != null && rendererTransform.parent == lightTransform.parent))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public LayerMask GetDynamicPlacementMask(LayerMask defaultBaseMask) => _currentMode == WallVisibilityMode.Full ? defaultBaseMask : (defaultBaseMask & ~wallLayer);
