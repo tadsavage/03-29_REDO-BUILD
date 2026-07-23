@@ -49,6 +49,8 @@ public class TopBarUI : MonoBehaviour
     public ShiftManagerPanel ShiftManagerPanel => _shiftManagerPanel;
     private SlotAssignmentPanel _slotAssignmentPanel;   // "6" key — assign SKUs to rack Pick slots
     public SlotAssignmentPanel SlotAssignmentPanel => _slotAssignmentPanel;
+    private WorkQueuePanel _workQueuePanel;             // "7" key — release orders to a staging lane / door
+    public WorkQueuePanel WorkQueuePanel => _workQueuePanel;
     private NewItemPanel _newItemPanel;                 // "8" key — assign pick slots to received items
     public NewItemPanel NewItemPanel => _newItemPanel;
     private SaveLoadWindowController _saveLoadController;
@@ -94,6 +96,7 @@ public class TopBarUI : MonoBehaviour
         _staffingPanel    = new StaffingPanel(root);
         _shiftManagerPanel = new ShiftManagerPanel(root, _timeService);
         _slotAssignmentPanel = new SlotAssignmentPanel(root);
+        _workQueuePanel = new WorkQueuePanel(root);
         _newItemPanel = new NewItemPanel(root);
 
         // Register shift manager with UIKeyBindingManager for keybinding support (key 5)
@@ -181,6 +184,9 @@ public class TopBarUI : MonoBehaviour
 
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit6Key.wasPressedThisFrame)
             _slotAssignmentPanel?.Toggle();
+
+        if (!UIModalGuard.IsCapturing && Keyboard.current.digit7Key.wasPressedThisFrame)
+            _workQueuePanel?.Toggle();
 
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit8Key.wasPressedThisFrame)
             _newItemPanel?.Toggle();
@@ -524,5 +530,6 @@ public class TopBarUI : MonoBehaviour
         _staffingPanel?.Dispose();
         _shiftManagerPanel?.Dispose();
         _slotAssignmentPanel?.Dispose();
+        _workQueuePanel?.Dispose();
     }
 }

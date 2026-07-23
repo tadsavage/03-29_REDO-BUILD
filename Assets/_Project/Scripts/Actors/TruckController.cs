@@ -160,6 +160,12 @@ public class TruckController : MonoBehaviour
     /// lets the truck depart.</summary>
     public void CompleteLoad() => _loadComplete = true;
 
+    /// <summary>Resets the docked idle clock (same "reset timer slightly" pattern the inbound
+    /// offload fallback already uses when pallets remain but no dock stocker is free yet) so
+    /// offloadFallbackTimeout doesn't force this outbound truck to depart empty while it's still
+    /// productively waiting — e.g. for its lane to reach the load-start pallet threshold.</summary>
+    public void KeepDockAlive() => _dockedTime = Mathf.Min(_dockedTime, offloadFallbackTimeout - 5f);
+
     // ── Persistence read-only state ──────────────────────────────────────────────
 
     /// <summary>True if this truck is in any departure/exit state and should NOT be saved.</summary>

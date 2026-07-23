@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using GameCore.Inventory;
 
 /// <summary>
 /// Incremental, case-by-case pallet builder for Order Selection — the outbound counterpart to
@@ -24,6 +26,7 @@ public class OutboundPalletBuilder : MonoBehaviour
     private int _currentPatternIndex;
     private float _currentLayerY;
     private float _nextLayerY;
+    private readonly Dictionary<string, int> _caseCountBySku = new();
 
     public int TotalCases { get; private set; }
 
@@ -99,6 +102,24 @@ public class OutboundPalletBuilder : MonoBehaviour
         _nextLayerY = _currentLayerY + caseDim.y;
         TotalCases++;
         FillFraction += 1f / Mathf.Max(1, ti * hi);
+
+        _caseCountBySku.TryGetValue(skuId, out int existing);
+        _caseCountBySku[skuId] = existing + 1;
+    }
+
+    /// <summary>Sale value of everything on this pallet: for each SKU present, its case count times
+    /// that SKU's SellingPrice on the given order, summed across all items (Tad's spec — Case Sale
+    /// Price x # of cases, repeated per item, added up for the pallet total).</summary>
+    public int CalculateSaleValue(OrderData order)
+    {
+        if (order == null) return 0;
+        int total = 0;
+        foreach (var kvp in _caseCountBySku)
+        {
+            var lineItem = order.LineItems.FirstOrDefault(li => li.SkuId == kvp.Key);
+            if (lineItem != null) total += kvp.Value * lineItem.SellingPrice;
+        }
+        return total;
     }
 
     private void RebuildPattern(Vector3 caseDim)

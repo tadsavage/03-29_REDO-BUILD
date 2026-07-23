@@ -60,25 +60,90 @@ namespace GameCore.Inventory
             _assignedTasks.Clear();
         }
 
-        /// <summary>Add a new order to the system and file the WorkTask that lets an Order Selector
-        /// pick it up. One task per ORDER (not per line item) — a single selector works the whole
+        /// <summary>Add a new order to the system and file its WorkTask in the Open status — not yet
+        /// claimable by an Order Selector until the player releases it to a staging lane via the
+        /// Work Queue panel (see ReleaseOrdersToLane), which is what actually routes it to a
+        /// door/lane. One task per ORDER (not per line item) — a single selector works the whole
         /// order continuously (walking between picks, building pallets) the same way a Receiver
         /// works a whole lane, rather than splitting one order across multiple claimants.</summary>
         public void ReceiveOrder(OrderData order)
         {
-            order.AssignedDoorNumber = DoorAssignmentService.AssignDoorForCustomer(order.CustomerId, _inventoryService);
-
             _activeOrders.Add(order);
             OnOrderArrived?.Invoke(order);
-            Debug.Log($"[OrderService] New Order received: {order.OrderId} from {order.CustomerName} -> Door {order.AssignedDoorNumber}");
+            Debug.Log($"[OrderService] New Order received: {order.OrderId} from {order.CustomerName} ({order.TotalUnits} units) — awaiting release to a staging lane.");
 
-            string doorNote = order.AssignedDoorNumber > 0 ? $"Door {order.AssignedDoorNumber}" : "no door yet";
-            _workQueue?.CreateTask(
+            var task = _workQueue?.CreateTask(
                 WorkTaskType.OrderSelect,
                 EmployeeRole.OrderSelector,
                 palletId: null, // no single pallet — the selector builds one/two FOR this order
-                description: $"Select order for {order.CustomerName} ({order.TotalUnits} units) -> {doorNote}",
+                description: $"Select order for {order.CustomerName} ({order.TotalUnits} units)",
                 orderId: order.OrderId);
+            if (task != null) task.Status = WorkTaskStatus.Open;
+        }
+
+        /// <summary>Releases a batch of still-Open orders — must all belong to the same customer —
+        /// to a specific staging lane: stamps AssignedDoorNumber/AssignedLane on each and flips each
+        /// order's WorkTask from Open to Available so Order Selectors can start claiming them. Fails
+        /// atomically (no partial changes) if any order isn't actually Open, the batch spans more
+        /// than one customer, or the lane is already owned by a different customer.</summary>
+        public bool ReleaseOrdersToLane(List<string> orderIds, int doorNumber, string lane)
+        {
+            if (_workQueue == null || orderIds == null || orderIds.Count == 0 || string.IsNullOrEmpty(lane)) return false;
+
+            var pairs = new List<(OrderData order, WorkTask task)>();
+            foreach (var id in orderIds)
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
+                var task = _workQueue.Tasks.FirstOrDefault(t => t.OrderId == id && t.Type == WorkTaskType.OrderSelect);
+                if (order == null || task == null || task.Status != WorkTaskStatus.Open) return false;
+                pairs.Add((order, task));
+            }
+
+            string customerId = pairs[0].order.CustomerId;
+            if (pairs.Any(p => p.order.CustomerId != customerId)) return false;
+            if (!StagingLaneAssignmentService.IsLaneAvailableFor(this, doorNumber, lane, customerId)) return false;
+
+            foreach (var (order, task) in pairs)
+            {
+                order.AssignedDoorNumber = doorNumber;
+                order.AssignedLane = lane;
+                task.Status = WorkTaskStatus.Available;
+            }
+
+            Debug.Log($"[OrderService] Released {pairs.Count} order(s) for {customerId} to {doorNumber}{lane}.");
+            return true;
+        }
+
+        /// <summary>Releases a batch of fully-Staged orders — same customer, same staging lane — to
+        /// a door for loading: sets each order's status to Loading and files ONE Load WorkTask
+        /// covering that whole lane, which TrailerLoadController claims and physically loads onto
+        /// the door's trailer. Fails (no changes) if any order isn't Staged, or the batch spans more
+        /// than one customer or lane.</summary>
+        public bool ReleaseOrdersToLoading(List<string> orderIds, int doorNumber)
+        {
+            if (_workQueue == null || orderIds == null || orderIds.Count == 0) return false;
+
+            var orders = orderIds.Select(id => _activeOrders.FirstOrDefault(o => o.OrderId == id)).ToList();
+            if (orders.Any(o => o == null || o.Status != OrderData.OrderStatus.Staged)) return false;
+
+            string customerId = orders[0].CustomerId;
+            string lane = orders[0].AssignedLane;
+            if (string.IsNullOrEmpty(lane)) return false;
+            if (orders.Any(o => o.CustomerId != customerId || o.AssignedLane != lane || o.AssignedDoorNumber != doorNumber)) return false;
+
+            foreach (var order in orders)
+                order.Status = OrderData.OrderStatus.Loading;
+
+            _workQueue.CreateTask(
+                WorkTaskType.Load,
+                EmployeeRole.Loader,
+                palletId: null,
+                description: $"Load {customerId} from {doorNumber}{lane} -> Door {doorNumber}",
+                fromLocation: $"{doorNumber}{lane}",
+                toLocation: doorNumber.ToString());
+
+            Debug.Log($"[OrderService] Released {orders.Count} order(s) for {customerId} at {doorNumber}{lane} to loading.");
+            return true;
         }
 
         /// <summary>Finds the next pending order that needs picking.</summary>
@@ -176,7 +241,8 @@ namespace GameCore.Inventory
                     createdTimeMinute = o.CreatedTimeMinute,
                     status = (int)o.Status,
                     paymentMethod = (int)o.PaymentMethod,
-                    assignedDoorNumber = o.AssignedDoorNumber
+                    assignedDoorNumber = o.AssignedDoorNumber,
+                    assignedLane = o.AssignedLane
                 };
                 foreach (var li in o.LineItems)
                 {
@@ -209,7 +275,8 @@ namespace GameCore.Inventory
 
                 var order = new OrderData(snap.orderId, snap.customerId, snap.customerName, snap.deliveryAddress, snap.createdDayNumber, snap.dueDay, snap.createdTimeMinute, (OrderData.OrderStatus)snap.status, (OrderData.OrderPaymentMethod)snap.paymentMethod)
                 {
-                    AssignedDoorNumber = snap.assignedDoorNumber
+                    AssignedDoorNumber = snap.assignedDoorNumber,
+                    AssignedLane = snap.assignedLane
                 };
                 foreach (var liSnap in snap.lineItems)
                 {

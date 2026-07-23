@@ -1559,9 +1559,9 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         shipmentService.CreatePurchaseOrder($"SUPP_DEV{_inboundCounter}", "Dev Supplier", items);
     }
 
-    // Debug shortcut: generate one small randomized customer order (random customer, 2-4 random
-    // SKUs, small quantities) and register it with OrderService — outbound analog of
-    // SpawnInboundTruck. See OrderGenerator.
+    // Debug shortcut: generate a batch of 3-5 randomized orders for one random customer (3-5 SKUs,
+    // 5-10 cases per line) and register them with OrderService, Open and awaiting release — outbound
+    // analog of SpawnInboundTruck. See OrderGenerator.
     private void CreateTestOrder()
     {
         if (_customerRegistry == null)
@@ -1585,13 +1585,16 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             return;
         }
 
-        var order = OrderGenerator.GenerateRandomOrder(_customerRegistry, inventoryService, timeService.Day, timeService.Minute);
-        if (order == null)
+        var orders = OrderGenerator.GenerateRandomOrdersForCustomer(_customerRegistry, inventoryService, timeService.Day, timeService.Minute);
+        if (orders.Count == 0)
         {
-            Debug.LogWarning("[DevConsole] OrderGenerator produced no order — check that the CustomerRegistry and SKU catalog aren't empty.");
+            Debug.LogWarning("[DevConsole] OrderGenerator produced no orders — check that the CustomerRegistry and SKU catalog aren't empty.");
             return;
         }
-        orderService.ReceiveOrder(order);
+        foreach (var order in orders)
+            orderService.ReceiveOrder(order);
+
+        UIToast.Show("Orders ready to be released");
     }
 
     // Debug shortcut: sends an outbound truck to the first door that currently has at least one

@@ -16,10 +16,15 @@ namespace GameCore.Labor
     /// the trailer, backs into the next open cargo slot (reusing TruckController's own 12-slot cargo
     /// layout), sets the pallet down, and backs out again.
     ///
-    /// Self-bootstrapping like TrailerOffloadController (no scene wiring). Polls for a docked truck
-    /// that's AwaitingLoad plus an idle, manned dock stocker, commandeers the DS the same way
-    /// (disabling its patrol AiNavigation + NavMeshAgent so this controller can move the transform
-    /// directly), runs the sequence, then restores the DS to patrol and tells the truck it may depart.
+    /// Self-bootstrapping like TrailerOffloadController (no scene wiring). Driven by an explicit
+    /// Load WorkTask (created by OrderService.ReleaseOrdersToLoading when the player releases a
+    /// customer's Staged orders to a door via the Work Queue panel) rather than any automatic
+    /// pallet-count threshold — polls for an Available Load task whose FromLocation ("3A") names a
+    /// lane with a docked, AwaitingLoad truck at that door, claims it, commandeers an idle manned
+    /// dock stocker the same way TrailerOffloadController does (disabling its patrol AiNavigation +
+    /// NavMeshAgent so this controller can move the transform directly), runs the sequence, then
+    /// restores the DS to patrol and tells the truck it may depart. A docked truck with no claimable
+    /// task yet just waits (KeepDockAlive) instead of timing out empty.
     ///
     /// The movement primitives (drive/face/lift helpers) are intentionally DUPLICATED from
     /// TrailerOffloadController rather than shared — that file is a delicate, heavily-tuned system,
@@ -77,15 +82,48 @@ namespace GameCore.Labor
             if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
             if (_grid == null) return;
 
-            TruckController truck = null;
+            // A docked outbound truck waits indefinitely for the player to release orders to its
+            // door via the Work Queue panel -- keep resetting the idle clock so it never times out
+            // and departs empty just because nobody has loaded it yet.
             foreach (var t in FindObjectsByType<TruckController>())
-                if (t.AwaitingLoad) { truck = t; break; }
-            if (truck == null) return;
+                if (t.AwaitingLoad) t.KeepDockAlive();
 
-            var slot = FindAvailableDockStocker();
-            if (slot == null) return; // no manned DS free — truck keeps waiting (falls back after its timeout)
+            if (!ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) || workQueue == null) return;
 
-            StartCoroutine(LoadRoutine(truck, slot));
+            foreach (var task in workQueue.GetPendingTasksForRole(EmployeeRole.Loader))
+            {
+                if (!TryParseLaneAddress(task.FromLocation, out int door, out string lane)) continue;
+
+                var truck = FindDockedOutboundTruck(door);
+                if (truck == null || !truck.AwaitingLoad) continue; // no trailer there (yet) -- try the next task
+
+                var slot = FindAvailableDockStocker();
+                if (slot == null) return; // no manned DS free anywhere right now -- try again next poll
+
+                string opGuid = slot.CurrentOperator?.Record?.employeeGuid;
+                if (!workQueue.TryClaimSpecificTask(task, opGuid)) continue;
+
+                StartCoroutine(LoadRoutine(truck, slot, task, door, lane));
+                return;
+            }
+        }
+
+        private static TruckController FindDockedOutboundTruck(int doorNumber)
+        {
+            foreach (var t in FindObjectsByType<TruckController>())
+                if (t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber) return t;
+            return null;
+        }
+
+        /// <summary>Splits a lane address like "3A" (WorkTask.FromLocation) back into door number
+        /// and lane letter. Lane letters are always a single trailing character (LaneNamingService),
+        /// so everything before the last character is the door number.</summary>
+        private static bool TryParseLaneAddress(string address, out int door, out string lane)
+        {
+            door = 0; lane = null;
+            if (string.IsNullOrEmpty(address) || address.Length < 2) return false;
+            lane = address.Substring(address.Length - 1);
+            return int.TryParse(address.Substring(0, address.Length - 1), out door);
         }
 
         private MHEOperatorSlot FindAvailableDockStocker()
@@ -99,13 +137,13 @@ namespace GameCore.Labor
                 if (!slot.IsOccupied || DockEquipmentCommandeerRegistry.IsCommandeered(slot)) continue;
                 var op = slot.CurrentOperator;
                 if (op == null || op.Record == null) continue;
-                if (op.Record.role != EmployeeRole.DockStockerOperator) continue;
+                if (op.Record.role != EmployeeRole.DockStockerOperator && op.Record.role != EmployeeRole.Loader) continue;
                 return slot;
             }
             return null;
         }
 
-        private IEnumerator LoadRoutine(TruckController truck, MHEOperatorSlot slot)
+        private IEnumerator LoadRoutine(TruckController truck, MHEOperatorSlot slot, WorkTask task, int doorNumber, string lane)
         {
             truck.ClaimForLoad();
             DockEquipmentCommandeerRegistry.Commandeer(slot);
@@ -122,12 +160,15 @@ namespace GameCore.Labor
             Transform forks = FindDeepChild(ds, ForkChildName);
             float forkRestY = forks != null ? forks.localPosition.y : 0f;
 
-            int doorNumber = truck.DockedAt != null ? truck.DockedAt.DoorNumber : -1;
-            var pallets = FindStagedPalletsAtDoor(doorNumber);
+            var pallets = FindStagedPalletsInLane(doorNumber, lane);
 
-            Debug.Log($"[TrailerLoad] Loading {pallets.Count} staged pallet(s) at door {doorNumber} onto {truck.name} with dock stocker {ds.name}.");
+            Debug.Log($"[TrailerLoad] Loading {pallets.Count} staged pallet(s) from lane {doorNumber}{lane} onto {truck.name} with dock stocker {ds.name}.");
+
+            ServiceLocator.TryGet<OrderService>(out var orderService);
+            ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
 
             var loadedOrderIds = new HashSet<string>();
+            int totalValue = 0;
             int startSlotIndex = truck.LoadContainer != null ? truck.LoadContainer.childCount : 0;
             for (int i = 0; i < pallets.Count; i++)
             {
@@ -142,15 +183,25 @@ namespace GameCore.Labor
                 }
 
                 if (!string.IsNullOrEmpty(pallet.OrderId)) loadedOrderIds.Add(pallet.OrderId);
+
+                var order = orderService?.ActiveOrders.FirstOrDefault(o => o.OrderId == pallet.OrderId);
+                if (order != null) totalValue += pallet.CalculateSaleValue(order);
+
                 yield return LoadOnePallet(ds, forks, forkRestY, truck, pallet, slotIndex);
             }
 
             // ── D2: bill and ship every order this truck just finished loading ──
-            if (ServiceLocator.TryGet<OrderService>(out var orderService) && orderService != null)
+            if (orderService != null)
             {
                 foreach (var orderId in loadedOrderIds)
                     orderService.ShipOrder(orderId);
             }
+
+            // One green "$" popup for the WHOLE load's value, hovering above the door -- same
+            // Mario-coin FloatingMoneyText effect already used for damage/spoilage refunds, per
+            // Tad's spec (a single total, not one per pallet).
+            if (totalValue > 0 && truck.DockedAt != null)
+                FloatingMoneyText.Show(truck.DockedAt.transform.position + Vector3.up * 2.5f, totalValue);
 
             // ── Restore the DS to patrol ──
             if (forks != null) SetForkLocalY(forks, forkRestY);
@@ -166,27 +217,32 @@ namespace GameCore.Labor
             }
 
             DockEquipmentCommandeerRegistry.Release(slot);
+            workQueue?.CompleteTask(task.TaskId);
             truck.CompleteLoad();
             Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol.");
         }
 
-        /// <summary>Every staged OutboundPalletBuilder whose current cell belongs to a lane at
-        /// doorNumber — mirrors how offload scopes its lane search to a door, just reading back
-        /// positions Order Selection already wrote instead of writing new ones. Excludes anything
-        /// still parented (mid-carry, either still riding a selector or already on another DS's
-        /// forks) since that pallet isn't actually staged yet/still.</summary>
-        private List<OutboundPalletBuilder> FindStagedPalletsAtDoor(int doorNumber)
+        /// <summary>Every staged OutboundPalletBuilder whose current cell belongs to this SPECIFIC
+        /// lane — mirrors how offload scopes its lane search to a door, just reading back positions
+        /// Order Selection already wrote instead of writing new ones. Excludes anything still
+        /// parented (mid-carry, either still riding a selector or already on another DS's forks)
+        /// since that pallet isn't actually staged yet/still.</summary>
+        private List<OutboundPalletBuilder> FindStagedPalletsInLane(int doorNumber, string lane)
         {
-            var result = new List<OutboundPalletBuilder>();
+            var found = new List<(OutboundPalletBuilder pallet, int slotIndex)>();
             foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
             {
                 if (pallet == null || pallet.transform.parent != null) continue;
                 var cell = _grid.WorldToCell(pallet.transform.position);
                 if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
-                if (slot.DoorNumber != doorNumber) continue;
-                result.Add(pallet);
+                if (slot.DoorNumber != doorNumber || slot.Lane != lane) continue;
+                found.Add((pallet, slot.Slot));
             }
-            return result;
+
+            // Farthest-from-door slot loads FIRST (e.g. 2A-6 before 2A-1) -- the mirror image of
+            // the door-outward staging fill order, per Tad's 2026-07-23 spec.
+            found.Sort((a, b) => b.slotIndex.CompareTo(a.slotIndex));
+            return found.Select(f => f.pallet).ToList();
         }
 
         private IEnumerator LoadOnePallet(Transform ds, Transform forks, float forkRestY,

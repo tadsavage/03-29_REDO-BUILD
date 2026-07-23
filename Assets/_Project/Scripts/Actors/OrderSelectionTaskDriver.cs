@@ -299,8 +299,8 @@ namespace GameCore.Actors
             Vector3? stagingPos = null;
             Vector3 depthAxis = Vector3.forward;
 
-            if (order.AssignedDoorNumber > 0
-                && _inventoryService.TryFindOutboundStagingSlot(order.AssignedDoorNumber, out var slot)
+            if (order.AssignedDoorNumber > 0 && !string.IsNullOrEmpty(order.AssignedLane)
+                && _inventoryService.TryFindStagingSlotInLane(order.AssignedDoorNumber, order.AssignedLane, out var slot)
                 && LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var pos))
             {
                 stagingPos = pos;
@@ -326,7 +326,7 @@ namespace GameCore.Actors
             }
             else
             {
-                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) has no open outbound staging slot at door {order.AssignedDoorNumber} — leaving pallet(s) in place for now.");
+                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) has no open slot in its assigned lane {order.AssignedDoorNumber}{order.AssignedLane} — leaving pallet(s) in place for now.");
                 UnparentAllPallets();
                 FinishOrderCleanup(task);
             }

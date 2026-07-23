@@ -5,42 +5,59 @@ using UnityEngine;
 namespace GameCore.Inventory
 {
     /// <summary>
-    /// Builds a randomized customer order: a random customer from the roster, 2-4 random SKUs,
-    /// small quantities per line. Outbound analog of RandomDeliveryGenerator. Deliberately small —
-    /// this is for exercising the Order Selection → staging → loading pipeline end-to-end before
-    /// real order-sizing/SLA-pressure tuning happens.
+    /// Builds a batch of randomized orders for ONE random customer — 3-5 orders, each 3-5 random
+    /// SKUs with 5-10 cases per line. Outbound analog of RandomDeliveryGenerator. One customer per
+    /// batch (rather than one per order) so the Work Queue panel's "release these to a lane" flow
+    /// has something realistic to group and release together — this is for exercising the Order
+    /// Selection → staging → loading pipeline end-to-end before real order-sizing/SLA-pressure
+    /// tuning happens.
     /// </summary>
     public static class OrderGenerator
     {
-        public const int MinLineItems = 2;
-        public const int MaxLineItems = 4; // inclusive
-        public const int MinQuantityPerLine = 1;
-        public const int MaxQuantityPerLine = 5; // inclusive
+        public const int MinOrdersPerBatch = 3;
+        public const int MaxOrdersPerBatch = 5; // inclusive
+        public const int MinLineItems = 3;
+        public const int MaxLineItems = 5; // inclusive
+        public const int MinQuantityPerLine = 5;
+        public const int MaxQuantityPerLine = 10; // inclusive
         public const int DefaultDueDaysOut = 2;
 
-        public static OrderData GenerateRandomOrder(CustomerRegistry customerRegistry, InventoryService inventoryService,
+        /// <summary>Picks one random customer and generates a batch of 3-5 orders for them.
+        /// Returns an empty list (logging why) if the registry/SKU catalog can't support it.</summary>
+        public static List<OrderData> GenerateRandomOrdersForCustomer(CustomerRegistry customerRegistry, InventoryService inventoryService,
             int currentDay, int currentMinute, System.Random rand = null)
         {
             rand ??= new System.Random();
-            if (customerRegistry == null || inventoryService == null) return null;
+            var orders = new List<OrderData>();
+            if (customerRegistry == null || inventoryService == null) return orders;
 
             var customer = customerRegistry.GetRandom();
             if (customer == null)
             {
                 Debug.LogWarning("[OrderGenerator] CustomerRegistry has no customers.");
-                return null;
+                return orders;
             }
 
-            // Only SKUs with a real sell price are orderable.
             var eligible = inventoryService.AllSkus.Where(s => s != null && s.SellValue > 0f).ToList();
             if (eligible.Count == 0)
             {
                 Debug.LogWarning("[OrderGenerator] No eligible SKUs found.");
-                return null;
+                return orders;
             }
 
-            int lineCount = Mathf.Min(eligible.Count, rand.Next(MinLineItems, MaxLineItems + 1));
-            var chosen = eligible.OrderBy(_ => rand.Next()).Take(lineCount).ToList();
+            int orderCount = rand.Next(MinOrdersPerBatch, MaxOrdersPerBatch + 1);
+            for (int i = 0; i < orderCount; i++)
+                orders.Add(BuildOrder(customer, eligible, currentDay, currentMinute, rand));
+
+            Debug.Log($"[OrderGenerator] Generated {orders.Count} order(s) for {customer.CompanyName}.");
+            return orders;
+        }
+
+        private static OrderData BuildOrder(CustomerData customer, List<SkuData> eligibleSkus,
+            int currentDay, int currentMinute, System.Random rand)
+        {
+            int lineCount = Mathf.Min(eligibleSkus.Count, rand.Next(MinLineItems, MaxLineItems + 1));
+            var chosen = eligibleSkus.OrderBy(_ => rand.Next()).Take(lineCount).ToList();
 
             var order = new OrderData(
                 customer.CustomerId,
@@ -60,7 +77,7 @@ namespace GameCore.Inventory
                     Mathf.RoundToInt(sku.SellValue)));
             }
 
-            Debug.Log($"[OrderGenerator] Generated order {order.OrderId} for {customer.CompanyName}: " +
+            Debug.Log($"[OrderGenerator] Order {order.OrderId} for {customer.CompanyName}: " +
                       $"{order.LineItems.Count} line items, {order.TotalUnits} total units, due day {order.DueDay}.");
             return order;
         }

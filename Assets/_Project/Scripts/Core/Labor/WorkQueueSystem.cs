@@ -8,7 +8,12 @@ using UnityEngine;
 namespace GameCore.Labor
 {
     public enum WorkTaskType { Receive, Putaway, Replenish, OrderSelect, Load }
-    public enum WorkTaskStatus { Pending, Assigned, Complete }
+
+    /// <summary>Open: exists but not yet claimable -- currently only OrderSelect tasks start here,
+    /// created "in limbo" until the player releases them to a staging lane via the Work Queue panel.
+    /// Available: claimable by an operator (every other task type's normal starting state, and what
+    /// an Open order task becomes once released). Assigned: claimed, in progress. Complete: done.</summary>
+    public enum WorkTaskStatus { Open, Available, Assigned, Complete }
 
     /// <summary>A single unit of warehouse work, targeted at one EmployeeRole.</summary>
     public class WorkTask
@@ -18,7 +23,7 @@ namespace GameCore.Labor
         public EmployeeRole RequiredRole { get; }
         public string PalletId { get; set; }
         public string Description { get; }
-        public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Pending;
+        public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Available;
         public string AssignedToEmployeeGuid { get; set; }  // for persistence and tracking
 
         /// <summary>Time.realtimeSinceStartup when this task was last claimed (Status set to
@@ -136,12 +141,12 @@ namespace GameCore.Labor
         }
 
         public List<WorkTask> GetPendingTasksForRole(EmployeeRole role)
-            => _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Pending).ToList();
+            => _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available).ToList();
 
-        /// <summary>Claims the oldest pending task for a role (FIFO). Marks it Assigned.</summary>
+        /// <summary>Claims the oldest available task for a role (FIFO). Marks it Assigned.</summary>
         public bool TryClaimNextTask(EmployeeRole role, string employeeGuid, out WorkTask task)
         {
-            task = _tasks.FirstOrDefault(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Pending);
+            task = _tasks.FirstOrDefault(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available);
             if (task == null) return false;
             task.Status = WorkTaskStatus.Assigned;
             task.AssignedToEmployeeGuid = employeeGuid;
@@ -151,10 +156,11 @@ namespace GameCore.Labor
 
         /// <summary>Claims a specific already-known task (e.g. one a caller picked by proximity
         /// rather than FIFO order — see ReceivingTaskDriver's nearest-pallet selection). Returns
-        /// false without side effects if it's no longer Pending (already claimed by someone else).</summary>
+        /// false without side effects if it's not Available (still Open, or already claimed by
+        /// someone else).</summary>
         public bool TryClaimSpecificTask(WorkTask task, string employeeGuid)
         {
-            if (task == null || task.Status != WorkTaskStatus.Pending) return false;
+            if (task == null || task.Status != WorkTaskStatus.Available) return false;
             task.Status = WorkTaskStatus.Assigned;
             task.AssignedToEmployeeGuid = employeeGuid;
             task.AssignedAtRealtime = Time.realtimeSinceStartup;
@@ -187,8 +193,8 @@ namespace GameCore.Labor
                 if (now - t.AssignedAtRealtime < maxAgeSeconds) continue;
 
                 Debug.LogWarning($"[WorkQueueSystem] Releasing stale Assigned task {t.TaskId} " +
-                    $"({t.Description}) — claimed by '{t.AssignedToEmployeeGuid}' {now - t.AssignedAtRealtime:F0}s ago with no completion. Reverting to Pending.");
-                t.Status = WorkTaskStatus.Pending;
+                    $"({t.Description}) — claimed by '{t.AssignedToEmployeeGuid}' {now - t.AssignedAtRealtime:F0}s ago with no completion. Reverting to Available.");
+                t.Status = WorkTaskStatus.Available;
                 t.AssignedToEmployeeGuid = null;
             }
         }

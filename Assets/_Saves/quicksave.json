@@ -1,16 +1,16 @@
 {
     "saveName": "slot_save",
-    "money": -130591,
-    "spentToday": 20302,
+    "money": -131743,
+    "spentToday": 21454,
     "cameraData": {
         "focusPoint": {
-            "x": 7.606565952301025,
-            "y": 0.0,
-            "z": -15.837481498718262
+            "x": -6.181280612945557,
+            "y": 1.0968503952026368,
+            "z": -16.357513427734376
         },
-        "distance": 31.149993896484376,
-        "pitch": 18.124008178710939,
-        "yaw": 3717.2373046875
+        "distance": 19.149993896484376,
+        "pitch": 41.22401809692383,
+        "yaw": 3721.7373046875
     },
     "placedObjects": [
         {
@@ -37695,42 +37695,42 @@
         },
         {
             "id": 28,
-            "x": 42,
+            "x": 39,
+            "y": 40,
+            "rot": 2,
+            "customData": "",
+            "worldY": 1.1448391675949097,
+            "hasTransform": true,
+            "pos": {
+                "x": 13.434365272521973,
+                "y": 1.166677474975586,
+                "z": 0.29926714301109316
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": -0.6732810735702515,
+                "z": 0.0,
+                "w": -0.7393867373466492
+            }
+        },
+        {
+            "id": 61,
+            "x": 45,
             "y": 43,
             "rot": 2,
             "customData": "",
             "worldY": 1.166677474975586,
             "hasTransform": true,
             "pos": {
-                "x": -13.523785591125489,
-                "y": 1.1448391675949097,
-                "z": -12.671616554260254
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.7002363801002502,
-                "z": 0.0,
-                "w": -0.7139111161231995
-            }
-        },
-        {
-            "id": 61,
-            "x": 43,
-            "y": 44,
-            "rot": 2,
-            "customData": "",
-            "worldY": 1.166677474975586,
-            "hasTransform": true,
-            "pos": {
-                "x": -6.4501729011535648,
+                "x": 1.8599333763122559,
                 "y": 1.166677474975586,
-                "z": -8.594141960144043
+                "z": -6.045217514038086
             },
             "rotation": {
                 "x": 0.0,
-                "y": -0.8414391875267029,
+                "y": -0.5660765767097473,
                 "z": 0.0,
-                "w": 0.5403518676757813
+                "w": -0.8243527412414551
             }
         },
         {
@@ -42775,42 +42775,42 @@
         },
         {
             "id": 28,
-            "x": 57,
-            "y": 42,
+            "x": 54,
+            "y": 40,
             "rot": 0,
             "customData": "",
             "worldY": 1.166677474975586,
             "hasTransform": true,
             "pos": {
-                "x": 5.905725002288818,
+                "x": 8.078397750854493,
                 "y": 1.166677474975586,
-                "z": -12.456886291503907
+                "z": -11.588665962219239
             },
             "rotation": {
                 "x": 0.0,
-                "y": -0.7306934595108032,
+                "y": 0.966038167476654,
                 "z": 0.0,
-                "w": -0.6827057003974915
+                "w": -0.2583995759487152
             }
         },
         {
             "id": 61,
-            "x": 63,
-            "y": 38,
+            "x": 55,
+            "y": 47,
             "rot": 0,
             "customData": "",
             "worldY": 1.166677474975586,
             "hasTransform": true,
             "pos": {
-                "x": 7.2686238288879398,
+                "x": 15.597023010253907,
                 "y": 1.166677474975586,
-                "z": -3.9619786739349367
+                "z": -0.34598708152770998
             },
             "rotation": {
                 "x": 0.0,
-                "y": 0.5661394000053406,
+                "y": 0.8056157231330872,
                 "z": 0.0,
-                "w": 0.8243095278739929
+                "w": -0.5924385190010071
             }
         }
     ],
@@ -42868,40 +42868,32 @@
             "val": "60"
         },
         {
-            "key": "Gate_Open_Close.rot_down",
-            "val": "0"
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
         },
         {
-            "key": "Gate_Open_Close.rot_up",
-            "val": "-85"
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
         },
         {
-            "key": "Gate_Open_Close.arm_speed",
-            "val": "80"
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
         },
         {
-            "key": "AmbientMumble.volume",
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
             "val": "0.5"
         },
         {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
         },
         {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.5"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
         },
         {
             "key": "VehicleThrottleAudio.hearingDistance",
@@ -42944,36 +42936,56 @@
             "val": "0.1"
         },
         {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.15"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
+        },
+        {
             "key": "NavMeshManager._debounceTime",
             "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
-            "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
-        },
-        {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
         },
         {
             "key": "FreeLookCamera.pitchMin",
@@ -43014,25 +43026,13 @@
         {
             "key": "FreeLookCamera.zMax",
             "val": "40"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
         }
     ],
     "toolsWindowX": 100.0,
     "toolsWindowY": 120.0,
-    "guidanceLinesVisible": true,
+    "guidanceLinesVisible": false,
     "waypointsVisible": false,
-    "hoverPopupEnabled": true,
+    "hoverPopupEnabled": false,
     "employeeRecords": [
         {
             "employeeGuid": "a3872dc8-fba1-4a66-9681-2545638c8052",
@@ -43051,7 +43051,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 21.06999969482422,
-            "totalWagesPaid": 4888.0,
+            "totalWagesPaid": 4920.0,
             "hireDateIso": "2026-07-18",
             "separationDateIso": "",
             "shift": 0,
@@ -43073,17 +43073,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -13.891715049743653,
-            "posY": 1.1448391675949097,
-            "posZ": -12.81952953338623,
-            "rotY": 345.79010009765627,
+            "posX": 13.783295631408692,
+            "posY": 1.166677474975586,
+            "posZ": 0.48767542839050295,
+            "rotY": 159.32363891601563,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 42,
-            "boardedVehicleGridY": 43,
-            "boardedVehicleWorldX": -13.523785591125489,
-            "boardedVehicleWorldY": 1.1448391675949097,
-            "boardedVehicleWorldZ": -12.671616554260254
+            "boardedVehicleGridX": 39,
+            "boardedVehicleGridY": 40,
+            "boardedVehicleWorldX": 13.434365272521973,
+            "boardedVehicleWorldY": 1.166677474975586,
+            "boardedVehicleWorldZ": 0.29926714301109316
         },
         {
             "employeeGuid": "7fc4b43e-83e2-4a7e-95ad-b66cdd1f4ce4",
@@ -43102,7 +43102,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 17.979999542236329,
-            "totalWagesPaid": 4140.0,
+            "totalWagesPaid": 4167.0,
             "hireDateIso": "2026-07-18",
             "separationDateIso": "",
             "shift": 0,
@@ -43124,17 +43124,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -6.65374755859375,
+            "posX": 2.0718560218811037,
             "posY": 1.166677474975586,
-            "posZ": -8.73566722869873,
-            "rotY": 68.80734252929688,
+            "posZ": -5.916528701782227,
+            "rotY": 252.3463134765625,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 43,
-            "boardedVehicleGridY": 44,
-            "boardedVehicleWorldX": -6.4501729011535648,
+            "boardedVehicleGridX": 45,
+            "boardedVehicleGridY": 43,
+            "boardedVehicleWorldX": 1.8599333763122559,
             "boardedVehicleWorldY": 1.166677474975586,
-            "boardedVehicleWorldZ": -8.594141960144043
+            "boardedVehicleWorldZ": -6.045217514038086
         },
         {
             "employeeGuid": "ae5031ba-1368-4f3d-99af-96c00898ef44",
@@ -43153,7 +43153,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 22.15999984741211,
-            "totalWagesPaid": 5060.0,
+            "totalWagesPaid": 5093.0,
             "hireDateIso": "2026-07-18",
             "separationDateIso": "",
             "shift": 0,
@@ -43175,10 +43175,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -2.3216350078582765,
+            "posX": -8.22740650177002,
             "posY": 1.1099998950958253,
-            "posZ": -10.213425636291504,
-            "rotY": 261.8407897949219,
+            "posZ": -11.174912452697754,
+            "rotY": 265.5301208496094,
             "hasSavedPosition": true,
             "hasBoardedVehicle": false,
             "boardedVehicleGridX": -1,
@@ -43204,7 +43204,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 16.690000534057618,
-            "totalWagesPaid": 1583.0,
+            "totalWagesPaid": 1608.0,
             "hireDateIso": "2026-07-21",
             "separationDateIso": "",
             "shift": 0,
@@ -43226,17 +43226,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 7.480566024780273,
+            "posX": 15.377224922180176,
             "posY": 1.166677474975586,
-            "posZ": -3.833322048187256,
-            "rotY": 252.35504150390626,
+            "posZ": -0.4607076644897461,
+            "rotY": 76.05262756347656,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 63,
-            "boardedVehicleGridY": 38,
-            "boardedVehicleWorldX": 7.2686238288879398,
+            "boardedVehicleGridX": 55,
+            "boardedVehicleGridY": 47,
+            "boardedVehicleWorldX": 15.597023010253907,
             "boardedVehicleWorldY": 1.166677474975586,
-            "boardedVehicleWorldZ": -3.9619786739349367
+            "boardedVehicleWorldZ": -0.34598708152770998
         },
         {
             "employeeGuid": "8e06d1d4-8095-43a4-ac51-78329988bb33",
@@ -43255,7 +43255,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 19.93000030517578,
-            "totalWagesPaid": 1890.0,
+            "totalWagesPaid": 1920.0,
             "hireDateIso": "2026-07-21",
             "separationDateIso": "",
             "shift": 0,
@@ -43277,17 +43277,68 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 6.280397415161133,
+            "posX": 8.030473709106446,
             "posY": 1.166677474975586,
-            "posZ": -12.32699966430664,
-            "rotY": 168.5711669921875,
+            "posZ": -11.982307434082032,
+            "rotY": 284.63226318359377,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 57,
-            "boardedVehicleGridY": 42,
-            "boardedVehicleWorldX": 5.905725002288818,
+            "boardedVehicleGridX": 54,
+            "boardedVehicleGridY": 40,
+            "boardedVehicleWorldX": 8.078397750854493,
             "boardedVehicleWorldY": 1.166677474975586,
-            "boardedVehicleWorldZ": -12.456886291503907
+            "boardedVehicleWorldZ": -11.588665962219239
+        },
+        {
+            "employeeGuid": "f120de40-e30a-4a87-9453-f04e7858bdb3",
+            "employeeName": "Sharon Walker",
+            "employeeId": "WHSE 445",
+            "employeeIdPrefix": "WHSE",
+            "gender": 2,
+            "role": 0,
+            "currentAssignment": 3,
+            "fatigue": 90.10101318359375,
+            "safety": 75.39619445800781,
+            "morale": 39.33627700805664,
+            "skill": 60.24217987060547,
+            "skillLevel": 4,
+            "avatarResourceKey": "Custom_f120de40-e30a-4a87-9453-f04e7858bdb3",
+            "jobIconResourceKey": "",
+            "status": 0,
+            "hourlyWage": 22.399999618530275,
+            "totalWagesPaid": 0.0,
+            "hireDateIso": "2026-07-23",
+            "separationDateIso": "",
+            "shift": 0,
+            "scheduledDaysMask": 0,
+            "isInjured": false,
+            "injuryDescription": "",
+            "injuryRecoveryDaysLeft": 0,
+            "workSchedule": {
+                "shiftsPerDay": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    3,
+                    3
+                ],
+                "overtimeDaysMask": 0,
+                "notes": "",
+                "effectiveDateIso": ""
+            },
+            "posX": -9.98399543762207,
+            "posY": 1.1099998950958253,
+            "posZ": -0.8234838843345642,
+            "rotY": 358.1905517578125,
+            "hasSavedPosition": true,
+            "hasBoardedVehicle": false,
+            "boardedVehicleGridX": -1,
+            "boardedVehicleGridY": -1,
+            "boardedVehicleWorldX": 0.0,
+            "boardedVehicleWorldY": 0.0,
+            "boardedVehicleWorldZ": 0.0
         }
     ],
     "laneConfigs": [],
@@ -43852,10 +43903,6 @@
         },
         {
             "address": "01-05-B0",
-            "status": 4
-        },
-        {
-            "address": "01-07-11",
             "status": 4
         },
         {
@@ -45271,7 +45318,7 @@
             },
             {
                 "glLine": "Racking",
-                "hourlyAmount": 190
+                "hourlyAmount": 268
             },
             {
                 "glLine": "Waypoints",
@@ -45289,739 +45336,50 @@
         "fractionalByGLLine": [
             {
                 "glLine": "Loss Prevention",
-                "fractionalRemainder": 0.7498918771743774
+                "fractionalRemainder": 0.6665578484535217
             },
             {
                 "glLine": "Doors",
-                "fractionalRemainder": 0.9500856399536133
+                "fractionalRemainder": 0.9834195375442505
             },
             {
                 "glLine": "Barriers",
-                "fractionalRemainder": 0.6501288414001465
+                "fractionalRemainder": 0.016796469688415529
             },
             {
                 "glLine": "Dock Stocker",
-                "fractionalRemainder": 0.0000776052474975586
+                "fractionalRemainder": 0.2000776082277298
             },
             {
                 "glLine": "Reach Truck",
-                "fractionalRemainder": 0.2331545352935791
+                "fractionalRemainder": 0.36648619174957278
             },
             {
                 "glLine": "Flavor",
-                "fractionalRemainder": 0.6328392028808594
+                "fractionalRemainder": 0.8995025157928467
             },
             {
                 "glLine": "Groundskeeping",
-                "fractionalRemainder": 0.0
+                "fractionalRemainder": 0.75
             },
             {
                 "glLine": "Racking",
-                "fractionalRemainder": 0.26737427711486819
+                "fractionalRemainder": 0.4007096290588379
             },
             {
                 "glLine": "Walls",
-                "fractionalRemainder": 0.9331238269805908
+                "fractionalRemainder": 0.9664554595947266
             }
         ]
     },
     "time": {
-        "hour": 22,
-        "minute": 37,
+        "hour": 23,
+        "minute": 48,
         "day": 8,
         "fractionalMinutes": 0.0
     },
     "workQueue": [],
     "pallets": [
-        {
-            "palletId": "33bf81ce-17b5-4e29-bfd1-30602e3a2e03",
-            "loadId": "5342831918",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 45,
-            "locationY": 33,
-            "worldHeightY": 2.0749998092651369,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "6c490abb-f99d-432d-9a7c-e14200121b3a",
-            "loadId": "2829895071",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 45,
-            "locationY": 33,
-            "worldHeightY": 2.999999761581421,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "52ce1e70-7e14-4835-a6f7-5d3df8eea3f5",
-            "loadId": "1692792509",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 45,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "ad1eec5b-aa0a-4216-bce3-ba62f925876f",
-            "loadId": "6055766046",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 57,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "383d1bee-33a9-43ed-9a0f-11f98b38a448",
-            "loadId": "6675666764",
-            "skuId": "347610",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 39,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "2addb290-d9c3-4959-ab0b-b4894dac47d9",
-            "loadId": "7412288404",
-            "skuId": "435689",
-            "quantity": 45,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 41,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "07af4e6c-1366-4db7-9581-5091f1c4fbd9",
-            "loadId": "6570432905",
-            "skuId": "347610",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 46,
-            "locationY": 33,
-            "worldHeightY": 3.306999683380127,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "33f193ed-ec8b-45b5-9a4c-2dc7225be31e",
-            "loadId": "1109871162",
-            "skuId": "435689",
-            "quantity": 45,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 46,
-            "locationY": 33,
-            "worldHeightY": 2.126999855041504,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "85119c84-2833-42b6-b42d-6f27d7a1b6b7",
-            "loadId": "0868078589",
-            "skuId": "903561",
-            "quantity": 24,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 55,
-            "locationY": 33,
-            "worldHeightY": 2.8400001525878908,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "c15cfe01-812f-4fb4-bbcd-1cf1cb580d9e",
-            "loadId": "1264153097",
-            "skuId": "347610",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 46,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "9c51649e-08e2-474d-a7cf-834174663998",
-            "loadId": "7884473656",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 47,
-            "locationY": 33,
-            "worldHeightY": 7.469999313354492,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "ffe1adc4-fbcb-4ab4-86d1-fe1f4620ba7c",
-            "loadId": "1494547622",
-            "skuId": "347610",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 49,
-            "locationY": 33,
-            "worldHeightY": 2.0749998092651369,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "61985dd0-ce8d-477b-a4ee-7012c970bf28",
-            "loadId": "9155705724",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 49,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "a6d714f2-5489-44a4-b82c-7ae6fde3699b",
-            "loadId": "8970149211",
-            "skuId": "347610",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 49,
-            "locationY": 33,
-            "worldHeightY": 4.23199987411499,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "2291445d-cafe-4547-82e4-239701d47b35",
-            "loadId": "3399256926",
-            "skuId": "435689",
-            "quantity": 45,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 48,
-            "locationY": 33,
-            "worldHeightY": 2.2309999465942385,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "3e254bcc-97b5-4ddd-bec8-cb93d7f5bca8",
-            "loadId": "0700195925",
-            "skuId": "347610",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 51,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "d5bf9d6c-0671-4fd5-9c53-41f6888cb93d",
-            "loadId": "3071580319",
-            "skuId": "903561",
-            "quantity": 24,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 48,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "e2ac1115-02c4-4402-b573-5c74aabe3971",
-            "loadId": "0068503761",
-            "skuId": "347610",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 50,
-            "locationY": 33,
-            "worldHeightY": 3.924999713897705,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "acf7d060-b82a-42c9-9f0b-803b8e8f3bf5",
-            "loadId": "3177809792",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 50,
-            "locationY": 33,
-            "worldHeightY": 2.0749998092651369,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "4155d79c-2c1b-4dfe-8a5d-b0018ee6c54c",
-            "loadId": "3148269429",
-            "skuId": "482913",
-            "quantity": 32,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 51,
-            "locationY": 33,
-            "worldHeightY": 3.9769997596740724,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "bd807379-115d-46b7-ac8a-de340d700803",
-            "loadId": "2741565301",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 51,
-            "locationY": 33,
-            "worldHeightY": 5.005999565124512,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "5be4aa8e-2bc4-45ca-a46a-bfd6fd5ed4e0",
-            "loadId": "6046601379",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 50,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "b6a8999d-5867-4d06-812e-f2748c9730be",
-            "loadId": "0204325649",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 50,
-            "locationY": 33,
-            "worldHeightY": 2.999999761581421,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "3ded55c2-7445-4af6-a67f-15d554d530c2",
-            "loadId": "3643838278",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 51,
-            "locationY": 33,
-            "worldHeightY": 6.855999946594238,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "1d8dad94-86d4-4cc6-8c73-651ba5539f2d",
-            "loadId": "0611156087",
-            "skuId": "638412",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 52,
-            "locationY": 33,
-            "worldHeightY": 4.484999656677246,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "a40b2614-1aac-462a-b3e4-90c34d17058a",
-            "loadId": "1900403147",
-            "skuId": "638412",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 43,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "e10a4924-ee76-40d5-a45b-18119f2d9108",
-            "loadId": "7240550448",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 52,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "c62a876d-d98a-4573-bde1-68e2655735b0",
-            "loadId": "5232527700",
-            "skuId": "482913",
-            "quantity": 32,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 53,
-            "locationY": 33,
-            "worldHeightY": 2.696000099182129,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "21b84796-c79a-4be8-a3e1-36d0aaee49f4",
-            "loadId": "9265207124",
-            "skuId": "638412",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 40,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "c63f50f8-b8dd-4b4f-8db5-de67d7f524a1",
-            "loadId": "8082762551",
-            "skuId": "638412",
-            "quantity": 52,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 39,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "a4981d15-2752-4a6c-9c74-623f4ae7138d",
-            "loadId": "9772140606",
-            "skuId": "482913",
-            "quantity": 32,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 42,
-            "worldHeightY": 2.9040000438690187,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "24bc7dc7-387f-4178-83b5-35a5a81a6cba",
-            "loadId": "4844915209",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 41,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "c99fd8a4-d2e3-43ad-b464-9a95d1f0052c",
-            "loadId": "6638376944",
-            "skuId": "864209",
-            "quantity": 35,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 52,
-            "locationY": 33,
-            "worldHeightY": 3.559999942779541,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "bd20d911-fab6-4f67-88ea-05df5583d535",
-            "loadId": "6364924393",
-            "skuId": "304759",
-            "quantity": 16,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 49,
-            "locationY": 33,
-            "worldHeightY": 4.0289998054504398,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "c6cc91b4-a40d-4ade-a404-bdf3e05b095c",
-            "loadId": "6178485073",
-            "skuId": "304759",
-            "quantity": 16,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 52,
-            "locationY": 33,
-            "worldHeightY": 2.0749998092651369,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "6d9638ba-0cb2-4f47-965d-419a4b25da45",
-            "loadId": "3283124561",
-            "skuId": "304759",
-            "quantity": 16,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 53,
-            "locationY": 33,
-            "worldHeightY": 7.008000373840332,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "81ac5309-5791-42fa-b5f0-28d5246b769a",
-            "loadId": "0388951376",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 42,
-            "worldHeightY": 2.0269999504089357,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "22c3e0a2-8597-4a4f-897e-8496f415ba4b",
-            "loadId": "8117095882",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 41,
-            "worldHeightY": 3.051999807357788,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "027274d4-861d-4ca7-a193-477e50e7b0fb",
-            "loadId": "1184145237",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 42,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "8e1ec3cc-c89c-4316-b398-37ebddf3ad9d",
-            "loadId": "6493368108",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 41,
-            "worldHeightY": 4.805999755859375,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "a0d32dd3-ee8d-477e-8868-05756af7026d",
-            "loadId": "4803707426",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 44,
-            "worldHeightY": 2.2309999465942385,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "89dfa571-09ff-455e-976b-a8f19b064430",
-            "loadId": "5522372578",
-            "skuId": "564219",
-            "quantity": 44,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 43,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "99a2739d-2f3b-4628-b86a-5cb8b5c9a842",
-            "loadId": "8194748080",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 44,
-            "worldHeightY": 3.1080000400543215,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "060dee3b-c4da-4a26-9fea-2c90713c8f73",
-            "loadId": "3318501961",
-            "skuId": "421698",
-            "quantity": 55,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 39,
-            "locationY": 33,
-            "worldHeightY": 2.126999855041504,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "4a54e79c-2926-46a9-becf-85611274060d",
-            "loadId": "7183540314",
-            "skuId": "564219",
-            "quantity": 44,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 44,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "3fa2e24c-8237-4416-9546-d6502331b378",
-            "loadId": "3999407595",
-            "skuId": "421698",
-            "quantity": 55,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 43,
-            "worldHeightY": 5.039999961853027,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "ecfa948b-2daf-472a-b083-268b0e742f4a",
-            "loadId": "0012618295",
-            "skuId": "564219",
-            "quantity": 44,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 46,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "2a446fed-79cc-4efb-b018-a7a89d07afbb",
-            "loadId": "7727453248",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 45,
-            "worldHeightY": 2.9040000438690187,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "cf033ab6-0519-49a1-b0bf-60f69a3503c9",
-            "loadId": "9390288287",
-            "skuId": "564219",
-            "quantity": 44,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 46,
-            "worldHeightY": 3.1080000400543215,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "3640cca6-4eb7-45bb-95a0-df8ab27cd0d8",
-            "loadId": "2627690614",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 45,
-            "worldHeightY": 4.861999988555908,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "7c19f817-8a31-4dcb-9be9-8332b6089c81",
-            "loadId": "2668254063",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 65,
-            "locationY": 46,
-            "worldHeightY": 2.2309999465942385,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "6895a870-7727-48e9-821e-b4358e27b587",
-            "loadId": "7341870818",
-            "skuId": "732408",
-            "quantity": 60,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 59,
-            "locationY": 33,
-            "worldHeightY": 1.149999976158142,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "a1449730-1c0c-4a02-85bb-e3e3a26be2d2",
-            "loadId": "0797224562",
-            "skuId": "564219",
-            "quantity": 44,
-            "receivedDayNumber": 4,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 41,
-            "locationY": 33,
-            "worldHeightY": 2.3299999237060549,
-            "stagingLaneId": ""
-        },
         {
             "palletId": "5507e1d5-03da-4e2e-b0dd-d36668e7918f",
             "loadId": "1226627353",
@@ -46030,9 +45388,9 @@
             "receivedDayNumber": 5,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 57,
+            "locationX": 56,
             "locationY": 33,
-            "worldHeightY": 2.0749998092651369,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46056,9 +45414,9 @@
             "receivedDayNumber": 5,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 41,
+            "locationX": 40,
             "locationY": 38,
-            "worldHeightY": 2.5349998474121095,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46082,9 +45440,9 @@
             "receivedDayNumber": 5,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 41,
+            "locationX": 40,
             "locationY": 38,
-            "worldHeightY": 4.896999835968018,
+            "worldHeightY": 2.126999855041504,
             "stagingLaneId": ""
         },
         {
@@ -46095,8 +45453,8 @@
             "receivedDayNumber": 5,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 43,
-            "locationY": 38,
+            "locationX": 39,
+            "locationY": 33,
             "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
@@ -46108,9 +45466,9 @@
             "receivedDayNumber": 5,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 41,
+            "locationX": 40,
             "locationY": 38,
-            "worldHeightY": 6.85099983215332,
+            "worldHeightY": 3.1039998531341554,
             "stagingLaneId": ""
         },
         {
@@ -46121,9 +45479,9 @@
             "receivedDayNumber": 5,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 47,
+            "locationX": 46,
             "locationY": 33,
-            "worldHeightY": 6.622999668121338,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46134,9 +45492,9 @@
             "receivedDayNumber": 5,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 43,
+            "locationX": 42,
             "locationY": 38,
-            "worldHeightY": 2.126999855041504,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46173,9 +45531,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 43,
+            "locationX": 42,
             "locationY": 38,
-            "worldHeightY": 4.184999942779541,
+            "worldHeightY": 2.126999855041504,
             "stagingLaneId": ""
         },
         {
@@ -46186,9 +45544,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 45,
+            "locationX": 44,
             "locationY": 38,
-            "worldHeightY": 8.660000801086426,
+            "worldHeightY": 4.225000381469727,
             "stagingLaneId": ""
         },
         {
@@ -46199,9 +45557,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 43,
+            "locationX": 42,
             "locationY": 38,
-            "worldHeightY": 6.650999546051025,
+            "worldHeightY": 3.5119998455047609,
             "stagingLaneId": ""
         },
         {
@@ -46212,9 +45570,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 59,
+            "locationX": 58,
             "locationY": 33,
-            "worldHeightY": 2.0269999504089357,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46238,9 +45596,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 47,
+            "locationX": 46,
             "locationY": 38,
-            "worldHeightY": 2.126999855041504,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46251,9 +45609,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 45,
+            "locationX": 44,
             "locationY": 38,
-            "worldHeightY": 2.8400001525878908,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46277,9 +45635,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 47,
+            "locationX": 46,
             "locationY": 38,
-            "worldHeightY": 4.414000034332275,
+            "worldHeightY": 2.126999855041504,
             "stagingLaneId": ""
         },
         {
@@ -46290,9 +45648,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 45,
+            "locationX": 44,
             "locationY": 38,
-            "worldHeightY": 5.840000152587891,
+            "worldHeightY": 2.8400001525878908,
             "stagingLaneId": ""
         },
         {
@@ -46329,9 +45687,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 47,
+            "locationX": 46,
             "locationY": 38,
-            "worldHeightY": 7.414000034332275,
+            "worldHeightY": 3.436999797821045,
             "stagingLaneId": ""
         },
         {
@@ -46342,9 +45700,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 53,
+            "locationX": 52,
             "locationY": 33,
-            "worldHeightY": 4.793000221252441,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46368,9 +45726,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 43,
+            "locationX": 42,
             "locationY": 33,
-            "worldHeightY": 1.9229999780654908,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46394,9 +45752,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 55,
+            "locationX": 54,
             "locationY": 38,
-            "worldHeightY": 1.149999976158142,
+            "worldHeightY": 2.126999855041504,
             "stagingLaneId": ""
         },
         {
@@ -46420,9 +45778,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 55,
+            "locationX": 54,
             "locationY": 38,
-            "worldHeightY": 2.126999855041504,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46433,9 +45791,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 49,
+            "locationX": 48,
             "locationY": 38,
-            "worldHeightY": 4.821999549865723,
+            "worldHeightY": 3.1039998531341554,
             "stagingLaneId": ""
         },
         {
@@ -46446,9 +45804,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 47,
+            "locationX": 46,
             "locationY": 33,
-            "worldHeightY": 4.465999603271484,
+            "worldHeightY": 2.2309999465942385,
             "stagingLaneId": ""
         },
         {
@@ -46472,7 +45830,7 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 55,
+            "locationX": 54,
             "locationY": 38,
             "worldHeightY": 3.1039998531341554,
             "stagingLaneId": ""
@@ -46485,9 +45843,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 49,
+            "locationX": 48,
             "locationY": 38,
-            "worldHeightY": 4.488999843597412,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46511,9 +45869,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 53,
+            "locationX": 52,
             "locationY": 38,
-            "worldHeightY": 3.1039998531341554,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46537,9 +45895,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 51,
+            "locationX": 50,
             "locationY": 33,
-            "worldHeightY": 4.9539995193481449,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46563,9 +45921,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 51,
+            "locationX": 50,
             "locationY": 38,
-            "worldHeightY": 1.149999976158142,
+            "worldHeightY": 2.077000141143799,
             "stagingLaneId": ""
         },
         {
@@ -46576,9 +45934,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 53,
+            "locationX": 52,
             "locationY": 38,
-            "worldHeightY": 2.126999855041504,
+            "worldHeightY": 3.1039998531341554,
             "stagingLaneId": ""
         },
         {
@@ -46589,9 +45947,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 53,
+            "locationX": 52,
             "locationY": 38,
-            "worldHeightY": 1.149999976158142,
+            "worldHeightY": 2.126999855041504,
             "stagingLaneId": ""
         },
         {
@@ -46615,9 +45973,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 49,
+            "locationX": 48,
             "locationY": 38,
-            "worldHeightY": 3.5119998455047609,
+            "worldHeightY": 2.126999855041504,
             "stagingLaneId": ""
         },
         {
@@ -46732,9 +46090,9 @@
             "receivedDayNumber": 7,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 51,
+            "locationX": 50,
             "locationY": 38,
-            "worldHeightY": 4.743000030517578,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -46758,9 +46116,9 @@
             "receivedDayNumber": 7,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 51,
+            "locationX": 50,
             "locationY": 38,
-            "worldHeightY": 5.670000076293945,
+            "worldHeightY": 3.05400013923645,
             "stagingLaneId": ""
         },
         {
@@ -46875,9 +46233,9 @@
             "receivedDayNumber": 7,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 61,
+            "locationX": 60,
             "locationY": 33,
-            "worldHeightY": 2.077000141143799,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -83567,15 +82925,15 @@
         {
             "objDataId": 1,
             "worldPosition": {
-                "x": -8.662500381469727,
-                "y": 3.109999895095825,
-                "z": -15.287498474121094
+                "x": -13.962499618530274,
+                "y": 1.1099998950958253,
+                "z": -21.912498474121095
             },
             "worldRotation": {
                 "x": 0.0,
-                "y": 1.0,
+                "y": 0.0,
                 "z": 0.0,
-                "w": 0.0
+                "w": 1.0
             },
             "worldSpaceYHeight": 1.149999976158142,
             "inventoryPalletId": "b434adac-ca93-4eb7-b6ca-4aa42f0c4775",
@@ -113529,9 +112887,9 @@
     "carriedPallets": [],
     "gameVolume": 0.4020000100135803,
     "musicVolume": 0.02800000086426735,
-    "graphicsPreset": "Good",
+    "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
     "screenWidth": 1920,
-    "screenHeight": 840
+    "screenHeight": 1080
 }

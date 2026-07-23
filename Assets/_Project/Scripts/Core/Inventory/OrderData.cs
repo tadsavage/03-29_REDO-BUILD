@@ -23,11 +23,16 @@ namespace GameCore.Inventory
         public OrderPaymentMethod PaymentMethod { get; set; } = OrderPaymentMethod.Prepaid;
         public int CreatedTimeMinute { get; set; } // When order arrived (for FIFO priority)
 
-        /// <summary>Outbound door this order is routed to ("guard shack" routing) — decided once,
-        /// at creation, by DoorAssignmentService, and never recomputed afterward so it can't drift
-        /// if the player adds/removes docks later. 0 = no outbound-capable door existed yet when
-        /// the order arrived.</summary>
+        /// <summary>Outbound door this order is staged at — set once, when the player releases this
+        /// order to a staging lane via the Work Queue panel (OrderService.ReleaseOrdersToLane). 0
+        /// until then; the order sits Open/unrouted in the meantime.</summary>
         public int AssignedDoorNumber { get; set; }
+
+        /// <summary>Lane letter ("A", "B"...) at AssignedDoorNumber this order is staged into, set
+        /// alongside AssignedDoorNumber by the same release action. Null until released. A staging
+        /// lane holds only one customer's orders at a time (StagingLaneAssignmentService) — every
+        /// order released to the same lane shares this value.</summary>
+        public string AssignedLane { get; set; }
 
         public OrderData(string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute)
         {
@@ -80,7 +85,7 @@ namespace GameCore.Inventory
         /// <summary>Days until due (negative if overdue).</summary>
         public int DaysUntilDue(int currentDay) => DueDay - currentDay;
 
-        public enum OrderStatus { Pending, PartiallyPicked, FullyPicked, Staged, Shipped, Cancelled, Backorder }
+        public enum OrderStatus { Pending, PartiallyPicked, FullyPicked, Staged, Loading, Shipped, Cancelled, Backorder }
         public enum OrderPaymentMethod { Prepaid, COD, Invoice }
     }
 
@@ -131,6 +136,7 @@ namespace GameCore.Inventory
         public int status; // (int)OrderData.OrderStatus
         public int paymentMethod; // (int)OrderData.OrderPaymentMethod
         public int assignedDoorNumber;
+        public string assignedLane;
         public List<OrderLineItemSnapshot> lineItems = new();
     }
 

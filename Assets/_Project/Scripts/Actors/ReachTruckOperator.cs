@@ -318,7 +318,7 @@ namespace GameCore.Actors
             {
                 Debug.LogWarning($"[ReachTruckOperator] No rack destination for {palletId} (warehouse full) — leaving it in lane {door}{lane}, retrying in {NoDestinationBackoff:F0}s.");
                 _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
-                if (task != null) task.Status = WorkTaskStatus.Pending;
+                if (task != null) task.Status = WorkTaskStatus.Available;
                 Restore();
                 yield break;
             }
@@ -652,7 +652,7 @@ namespace GameCore.Actors
                 pickLoc?.Release();
                 // Nothing physically moved — revert the reserve slot's lock using its own still-intact fields.
                 if (reserveLoc != null) reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
-                if (task != null) task.Status = WorkTaskStatus.Pending;
+                if (task != null) task.Status = WorkTaskStatus.Available;
                 Restore();
                 yield break;
             }
@@ -670,7 +670,7 @@ namespace GameCore.Actors
                 Debug.LogWarning($"[ReachTruckOperator] Replenish: could not extract {palletId} from {reserveAddress}. Reverting reservations.");
                 pickLoc.Release();
                 reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
-                if (task != null) task.Status = WorkTaskStatus.Pending;
+                if (task != null) task.Status = WorkTaskStatus.Available;
                 _carryOriginValid = false;
                 Restore();
                 yield break;
@@ -881,7 +881,7 @@ namespace GameCore.Actors
                 if (locData != null) locData.Release();
                 else _putawayLogic?.CancelPutaway(reservedAddress);
             }
-            if (task != null) task.Status = WorkTaskStatus.Pending;
+            if (task != null) task.Status = WorkTaskStatus.Available;
 
             // If holding a pallet, retract and re-enable obstacle
             if (_forks != null)
