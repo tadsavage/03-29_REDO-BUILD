@@ -54,9 +54,16 @@ namespace GameCore.Labor
 
         public const int DefaultPriority = 100;
 
+        /// <summary>OrderData.OrderId this task is for — OrderSelect tasks only. Unlike
+        /// Receive/Putaway/Replenish (which move one specific pallet, hence PalletId), an Order
+        /// Selector works across multiple SKUs/locations building pallets FOR an order, so there's
+        /// no single relevant PalletId at claim time — PalletId stays null for this task type and
+        /// the driver looks the real OrderData (LineItems, etc.) up from OrderService by this id.</summary>
+        public string OrderId { get; set; }
+
         public WorkTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
             string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery,
-            int priority = DefaultPriority)
+            int priority = DefaultPriority, string orderId = null)
         {
             TaskId = Guid.NewGuid().ToString();
             Type = type;
@@ -67,6 +74,7 @@ namespace GameCore.Labor
             ToLocation = toLocation;
             Area = area;
             Priority = priority;
+            OrderId = orderId;
         }
     }
 
@@ -94,7 +102,7 @@ namespace GameCore.Labor
 
         public WorkTask CreateTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
             string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery,
-            int priority = WorkTask.DefaultPriority)
+            int priority = WorkTask.DefaultPriority, string orderId = null)
         {
             // RULE: Putaway tasks can only be created for pallets that have been fully received (have PalletData).
             // They must also have a valid FromLocation (staging lane).
@@ -120,7 +128,7 @@ namespace GameCore.Labor
                 }
             }
 
-            var task = new WorkTask(type, requiredRole, palletId, description, fromLocation, toLocation, area, priority);
+            var task = new WorkTask(type, requiredRole, palletId, description, fromLocation, toLocation, area, priority, orderId);
             _tasks.Add(task);
             OnTaskCreated?.Invoke(task);
             Debug.Log($"[WorkQueueSystem] + {description} (role: {requiredRole.DisplayName()}, area: {area})");

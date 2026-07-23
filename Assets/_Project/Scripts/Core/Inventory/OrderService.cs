@@ -1,6 +1,7 @@
 using GameCore.Services;
 using GameCore.Events;
 using GameCore.Economy;
+using GameCore.Labor;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -19,10 +20,13 @@ namespace GameCore.Inventory
         private InventoryService _inventoryService;
         private SimulationTimeService _timeService;
         private EventManager _eventManager;
+        private WorkQueueSystem _workQueue;
+        private MoneyService _moneyService;
 
         // Events
         public static event System.Action<OrderData> OnOrderArrived;
         public static event System.Action<OrderData> OnOrderFulfilled;
+        public static event System.Action<OrderData> OnOrderShipped;
 
         // Reserved for order cancellation (TODO: Phase 2 "Partial-order handling — backorder, split,
         // cancel") — no CancelOrder() method exists yet to raise it, so it's legitimately unused today.
@@ -37,6 +41,8 @@ namespace GameCore.Inventory
             _inventoryService = ServiceLocator.Get<InventoryService>();
             _timeService = ServiceLocator.Get<SimulationTimeService>();
             _eventManager = EventManager.Instance;
+            _workQueue = ServiceLocator.Get<WorkQueueSystem>();
+            _moneyService = ServiceLocator.Get<MoneyService>();
 
             if (_eventManager != null)
             {
@@ -54,12 +60,25 @@ namespace GameCore.Inventory
             _assignedTasks.Clear();
         }
 
-        /// <summary>Add a new order to the system.</summary>
+        /// <summary>Add a new order to the system and file the WorkTask that lets an Order Selector
+        /// pick it up. One task per ORDER (not per line item) — a single selector works the whole
+        /// order continuously (walking between picks, building pallets) the same way a Receiver
+        /// works a whole lane, rather than splitting one order across multiple claimants.</summary>
         public void ReceiveOrder(OrderData order)
         {
+            order.AssignedDoorNumber = DoorAssignmentService.AssignDoorForCustomer(order.CustomerId, _inventoryService);
+
             _activeOrders.Add(order);
             OnOrderArrived?.Invoke(order);
-            Debug.Log($"[OrderService] New Order received: {order.OrderId} from {order.CustomerName}");
+            Debug.Log($"[OrderService] New Order received: {order.OrderId} from {order.CustomerName} -> Door {order.AssignedDoorNumber}");
+
+            string doorNote = order.AssignedDoorNumber > 0 ? $"Door {order.AssignedDoorNumber}" : "no door yet";
+            _workQueue?.CreateTask(
+                WorkTaskType.OrderSelect,
+                EmployeeRole.OrderSelector,
+                palletId: null, // no single pallet — the selector builds one/two FOR this order
+                description: $"Select order for {order.CustomerName} ({order.TotalUnits} units) -> {doorNote}",
+                orderId: order.OrderId);
         }
 
         /// <summary>Finds the next pending order that needs picking.</summary>
@@ -104,6 +123,31 @@ namespace GameCore.Inventory
             }
         }
 
+        /// <summary>Bills the customer for whatever actually shipped (SellingPrice x QuantityPicked
+        /// per line item — an order that hit B3's cubing cap partway through only bills for the
+        /// units that made it onto a pallet, never the full originally-requested amount) and marks
+        /// the order Shipped. Called once TrailerLoadController (D1) finishes loading a truck with
+        /// this order's staged pallet(s) — "billing at load time" per Tad's spec. Safe to call more
+        /// than once for the same order (a no-op after the first) so a bug upstream can't
+        /// double-charge the customer.</summary>
+        public void ShipOrder(string orderId)
+        {
+            var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
+            if (order == null)
+            {
+                Debug.LogWarning($"[OrderService] ShipOrder: no active order found for {orderId}.");
+                return;
+            }
+            if (order.Status == OrderData.OrderStatus.Shipped) return;
+
+            int revenue = order.LineItems.Sum(li => li.QuantityPicked * li.SellingPrice);
+            _moneyService?.AddCapital(revenue, FinanceCategory.CasePick);
+
+            order.Status = OrderData.OrderStatus.Shipped;
+            OnOrderShipped?.Invoke(order);
+            Debug.Log($"[OrderService] Order {orderId} ({order.CustomerName}) shipped — billed ${revenue} for {order.TotalUnitsPicked} unit(s).");
+        }
+
         private void OnDayChanged(string eventId, int newDay)
         {
             // Check for overdue orders
@@ -131,7 +175,8 @@ namespace GameCore.Inventory
                     dueDay = o.DueDay,
                     createdTimeMinute = o.CreatedTimeMinute,
                     status = (int)o.Status,
-                    paymentMethod = (int)o.PaymentMethod
+                    paymentMethod = (int)o.PaymentMethod,
+                    assignedDoorNumber = o.AssignedDoorNumber
                 };
                 foreach (var li in o.LineItems)
                 {
@@ -162,7 +207,10 @@ namespace GameCore.Inventory
             {
                 if (snap == null) continue;
 
-                var order = new OrderData(snap.orderId, snap.customerId, snap.customerName, snap.deliveryAddress, snap.createdDayNumber, snap.dueDay, snap.createdTimeMinute, (OrderData.OrderStatus)snap.status, (OrderData.OrderPaymentMethod)snap.paymentMethod);
+                var order = new OrderData(snap.orderId, snap.customerId, snap.customerName, snap.deliveryAddress, snap.createdDayNumber, snap.dueDay, snap.createdTimeMinute, (OrderData.OrderStatus)snap.status, (OrderData.OrderPaymentMethod)snap.paymentMethod)
+                {
+                    AssignedDoorNumber = snap.assignedDoorNumber
+                };
                 foreach (var liSnap in snap.lineItems)
                 {
                     var li = new OrderLineItem(liSnap.skuId, liSnap.quantityNeeded, liSnap.unitCost, liSnap.sellingPrice)

@@ -34,6 +34,8 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     private PlacementGrid _grid;
     private TruckYardManager _truckYard;
 
+    [SerializeField] private CustomerRegistry _customerRegistry;
+
     // Tabs (PLT BUILDER removed — pallet settings now live in Dev Settings)
     private Button _tabDev, _tabSettings;
     private VisualElement _contentDev, _contentSettings;
@@ -186,6 +188,8 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         // Inbound Simulator
         Wire<Button>("btn-spawn-delivery", root, b => b.clicked += SpawnInboundTruck);
         Wire<Button>("btn-create-test-pallets", root, b => b.clicked += CreateTestPallets);
+        Wire<Button>("btn-create-test-order", root, b => b.clicked += CreateTestOrder);
+        Wire<Button>("btn-spawn-outbound-truck", root, b => b.clicked += SpawnOutboundTruckDebug);
         Wire<Button>("btn-clear-scene", root, b => b.clicked += ClearScene);
         _shipmentsList = root.Q("shipments-list");
 
@@ -1553,6 +1557,72 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             return;
         }
         shipmentService.CreatePurchaseOrder($"SUPP_DEV{_inboundCounter}", "Dev Supplier", items);
+    }
+
+    // Debug shortcut: generate one small randomized customer order (random customer, 2-4 random
+    // SKUs, small quantities) and register it with OrderService — outbound analog of
+    // SpawnInboundTruck. See OrderGenerator.
+    private void CreateTestOrder()
+    {
+        if (_customerRegistry == null)
+        {
+            Debug.LogError("[DevConsole] No CustomerRegistry assigned on ToolsWindowController.");
+            return;
+        }
+        if (!ServiceLocator.TryGet<InventoryService>(out var inventoryService) || inventoryService == null)
+        {
+            Debug.LogError("[DevConsole] InventoryService not available.");
+            return;
+        }
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null)
+        {
+            Debug.LogError("[DevConsole] OrderService not available.");
+            return;
+        }
+        if (!ServiceLocator.TryGet<SimulationTimeService>(out var timeService) || timeService == null)
+        {
+            Debug.LogError("[DevConsole] SimulationTimeService not available.");
+            return;
+        }
+
+        var order = OrderGenerator.GenerateRandomOrder(_customerRegistry, inventoryService, timeService.Day, timeService.Minute);
+        if (order == null)
+        {
+            Debug.LogWarning("[DevConsole] OrderGenerator produced no order — check that the CustomerRegistry and SKU catalog aren't empty.");
+            return;
+        }
+        orderService.ReceiveOrder(order);
+    }
+
+    // Debug shortcut: sends an outbound truck to the first door that currently has at least one
+    // staged pallet waiting (found the same way TrailerLoadController itself finds them — scanning
+    // for un-parented OutboundPalletBuilder instances and reading back which door's lane they're
+    // sitting in). D1's "real" trigger (automatic, tied to order due dates) is a later polish pass;
+    // for now this mirrors every other milestone's debug-triggered testing.
+    private void SpawnOutboundTruckDebug()
+    {
+        if (_truckYard == null) { Debug.LogError("[DevConsole] TruckYardManager not found."); return; }
+        var grid = _grid != null ? _grid : FindAnyObjectByType<PlacementGrid>();
+        if (grid == null) { Debug.LogError("[DevConsole] PlacementGrid not found."); return; }
+
+        int? doorWithStaged = null;
+        foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
+        {
+            if (pallet == null || pallet.transform.parent != null) continue;
+            var cell = grid.WorldToCell(pallet.transform.position);
+            if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
+            doorWithStaged = slot.DoorNumber;
+            break;
+        }
+
+        if (!doorWithStaged.HasValue)
+        {
+            Debug.LogWarning("[DevConsole] No staged outbound pallets found at any door — nothing to send a truck for.");
+            return;
+        }
+
+        if (!_truckYard.SpawnOutboundTruck(doorWithStaged.Value))
+            Debug.LogWarning($"[DevConsole] Could not spawn outbound truck at door {doorWithStaged.Value} (door missing or already occupied).");
     }
 
     private void RefreshShipments()

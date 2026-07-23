@@ -107,6 +107,19 @@ namespace GameCore.Inventory
             LocationStatusRegistry.Release(_address);
         }
 
+        /// <summary>Removes `amount` units from this slot's current load (order picking). Clamped
+        /// so it can never go negative. Fully draining the slot releases it back to Available —
+        /// the same signal ReplenishmentService already scans for — instead of leaving a phantom
+        /// Occupied slot with 0 qty and no pallet.</summary>
+        public void Pick(int amount)
+        {
+            _quantity = Mathf.Max(0, _quantity - amount);
+            if (_quantity <= 0)
+            {
+                Release();
+            }
+        }
+
         /// <summary>
         /// Places the slot on hold without clearing inventory.
         /// Pass LocationStatus.QAHold or LocationStatus.Problem.

@@ -83,7 +83,6 @@ namespace GameCore.Labor
             _instance = go.AddComponent<TrailerOffloadController>();
         }
 
-        private readonly HashSet<MHEOperatorSlot> _busySlots = new();
         private PlacementGrid _grid;
         private float _nextScan;
 
@@ -112,7 +111,12 @@ namespace GameCore.Labor
         {
             foreach (var slot in FindObjectsByType<MHEOperatorSlot>())
             {
-                if (!slot.IsOccupied || _busySlots.Contains(slot)) continue;
+                // DockEquipmentCommandeerRegistry is shared with TrailerLoadController (outbound) —
+                // AiNavigation is already disabled from the moment an operator boards, whether idle
+                // or actively driven, so it can't be used as an "in use" signal; IsOccupied likewise
+                // stays true the whole time they're boarded. The registry is the only signal that
+                // actually distinguishes "boarded and idle" from "a controller is driving them right now".
+                if (!slot.IsOccupied || DockEquipmentCommandeerRegistry.IsCommandeered(slot)) continue;
                 var op = slot.CurrentOperator;
                 if (op == null || op.Record == null) continue;
                 if (op.Record.role != EmployeeRole.DockStockerOperator) continue;
@@ -124,7 +128,7 @@ namespace GameCore.Labor
         private IEnumerator OffloadRoutine(TruckController truck, MHEOperatorSlot slot, InventoryService inv, WorkQueueSystem queue)
         {
             truck.ClaimForOffload();
-            _busySlots.Add(slot);
+            DockEquipmentCommandeerRegistry.Commandeer(slot);
 
             Transform ds = slot.transform;
 
@@ -190,7 +194,7 @@ namespace GameCore.Labor
                 nav.GoToRandomWaypoint();
             }
 
-            _busySlots.Remove(slot);
+            DockEquipmentCommandeerRegistry.Release(slot);
             truck.CompleteOffload();
             Debug.Log($"[TrailerOffload] {truck.name} fully offloaded — released dock stocker to patrol.");
         }

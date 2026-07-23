@@ -411,7 +411,8 @@ public class PlacementSystem : MonoBehaviour
                     fromLocation = task.FromLocation,
                     toLocation = task.ToLocation,
                     area = (int)task.Area,
-                    priority = task.Priority
+                    priority = task.Priority,
+                    orderId = task.OrderId
                 });
             }
         }
@@ -710,6 +711,7 @@ public class PlacementSystem : MonoBehaviour
                 // Set status and assignment
                 task.Status = (GameCore.Labor.WorkTaskStatus)snapshot.status;
                 task.AssignedToEmployeeGuid = snapshot.assignedToEmployeeGuid;
+                task.OrderId = snapshot.orderId;
 
                 workQueueSystem.RegisterRestoredTask(task);
             }

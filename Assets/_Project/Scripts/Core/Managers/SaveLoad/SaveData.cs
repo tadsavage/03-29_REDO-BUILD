@@ -168,6 +168,7 @@ public class WorkTaskSnapshot
     public string toLocation;
     public int area;                         // PalletData.AreaCategory as int enum
     public int priority = GameCore.Labor.WorkTask.DefaultPriority; // older saves lack this key; field initializer covers it
+    public string orderId;                   // OrderSelect tasks only; null for everything else (older saves lack this key, deserializes to null either way)
 }
 
 [System.Serializable]

@@ -21,6 +21,14 @@
                         </ui:VisualElement>
                         <ui:VisualElement name="shipments-list" style="margin-top: 10px;"/>
                     </ui:VisualElement>
+                    <!-- ── OUTBOUND SIMULATOR ── -->
+                    <ui:VisualElement class="dev-section dev-s-gold">
+                        <ui:Label text="OUTBOUND SIMULATOR" class="dev-s-heading"/>
+                        <ui:VisualElement class="dev-inbound-actions">
+                            <ui:Button name="btn-create-test-order" text="CREATE TEST ORDER" class="dev-btn dev-btn-gold dev-btn-stacked"/>
+                            <ui:Button name="btn-spawn-outbound-truck" text="SPAWN OUTBOUND TRUCK" class="dev-btn dev-btn-gold dev-btn-stacked"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                     <!-- ── CAPACITY REPORT ── -->
                     <ui:VisualElement class="dev-section dev-s-blue">
                         <ui:Label text="CAPACITY REPORT" class="dev-s-heading"/>

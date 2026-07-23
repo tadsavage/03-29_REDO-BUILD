@@ -26,6 +26,10 @@ public static class EmployeeAssignmentService
             ReceivingEquipmentService.Unequip(identity);
             RemoveReceivingDriver(identity);
         }
+        if (assignment != EmployeeAssignment.OrderSelection)
+        {
+            RemoveOrderSelectionDriver(identity);
+        }
 
         switch (assignment)
         {
@@ -39,8 +43,7 @@ public static class EmployeeAssignmentService
                 AssignDrive(identity, assignment, GetEquipmentData(reach: false));
                 break;
             case EmployeeAssignment.OrderSelection:
-                // No order/picking system exists yet — record the intent and stop there.
-                SetAssignment(identity, assignment);
+                AssignOrderSelection(identity);
                 break;
             case EmployeeAssignment.ReceiveInbound:
                 AssignReceiving(identity);
@@ -82,6 +85,26 @@ public static class EmployeeAssignmentService
 
         var workflow = identity.GetComponent<GameCore.Labor.ReceiverReceivingWorkflow>();
         if (workflow != null) Object.Destroy(workflow);
+    }
+
+    private static void AssignOrderSelection(EmployeeIdentity identity)
+    {
+        // Boarded operators must vacate before selecting orders.
+        identity.AssignedSlot?.VacateOperator();
+
+        // Drives the actual claim-task/walk-to-pick loop; stays patrolling between tasks.
+        if (identity.GetComponent<GameCore.Actors.OrderSelectionTaskDriver>() == null)
+            identity.gameObject.AddComponent<GameCore.Actors.OrderSelectionTaskDriver>();
+
+        identity.GetComponent<AiNavigation>()?.Patrol();
+
+        SetAssignment(identity, EmployeeAssignment.OrderSelection);
+    }
+
+    private static void RemoveOrderSelectionDriver(EmployeeIdentity identity)
+    {
+        var driver = identity.GetComponent<GameCore.Actors.OrderSelectionTaskDriver>();
+        if (driver != null) Object.Destroy(driver);
     }
 
     private static void AssignDrive(EmployeeIdentity identity, EmployeeAssignment assignment, ObjDataSO targetData)

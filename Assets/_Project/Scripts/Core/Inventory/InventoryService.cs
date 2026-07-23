@@ -388,6 +388,42 @@ namespace GameCore.Inventory
             return false;
         }
 
+        /// <summary>
+        /// Next slot in a lane, scanned from the FAR end inward (mirror of TryGetNextFreeSlot's
+        /// door-outward scan) — outbound staging fills a lane back-to-front so the door-adjacent end
+        /// stays clear for as long as possible, matching Tad's "reverse to the last open stage lane
+        /// position" spec for how a selector backs a finished pallet in.
+        /// </summary>
+        public bool TryGetLastFreeSlot(int doorNumber, string lane, out LaneNamingService.LaneSlot slot)
+        {
+            int maxHeight = LaneConfigRegistry.Get(doorNumber, lane).MaxStackHeight;
+            var slots = LaneNamingService.GetLane(doorNumber, lane);
+            for (int i = slots.Count - 1; i >= 0; i--)
+            {
+                int stacked = _palletsByLocation.TryGetValue(slots[i].Cell, out var ids) ? ids.Count : 0;
+                if (stacked < maxHeight) { slot = slots[i]; return true; }
+            }
+            slot = default;
+            return false;
+        }
+
+        /// <summary>
+        /// First outbound-capable lane at the given door with an open slot (searched back-to-front
+        /// within each lane — see TryGetLastFreeSlot). False if the door has no outbound-usable lane,
+        /// or every outbound lane there is currently full.
+        /// </summary>
+        public bool TryFindOutboundStagingSlot(int doorNumber, out LaneNamingService.LaneSlot slot)
+        {
+            slot = default;
+            foreach (var (d, lane) in LaneNamingService.AllLanes())
+            {
+                if (d != doorNumber) continue;
+                if (!LaneAllowsPicking(d, lane)) continue;
+                if (TryGetLastFreeSlot(d, lane, out slot)) return true;
+            }
+            return false;
+        }
+
         // ── Usage gating (Receiving/Shipping/Both) ───────────────────────────────
         // Receiving = Inbound (pallets arrive here → putaway only), Shipping = Outbound (pallets leave
         // here → picking only), Both = either. A lane never used yet defaults to Both.

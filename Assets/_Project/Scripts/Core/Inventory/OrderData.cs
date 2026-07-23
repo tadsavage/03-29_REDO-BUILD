@@ -23,6 +23,12 @@ namespace GameCore.Inventory
         public OrderPaymentMethod PaymentMethod { get; set; } = OrderPaymentMethod.Prepaid;
         public int CreatedTimeMinute { get; set; } // When order arrived (for FIFO priority)
 
+        /// <summary>Outbound door this order is routed to ("guard shack" routing) — decided once,
+        /// at creation, by DoorAssignmentService, and never recomputed afterward so it can't drift
+        /// if the player adds/removes docks later. 0 = no outbound-capable door existed yet when
+        /// the order arrived.</summary>
+        public int AssignedDoorNumber { get; set; }
+
         public OrderData(string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute)
         {
             OrderId = System.Guid.NewGuid().ToString();
@@ -124,6 +130,7 @@ namespace GameCore.Inventory
         public int createdTimeMinute;
         public int status; // (int)OrderData.OrderStatus
         public int paymentMethod; // (int)OrderData.OrderPaymentMethod
+        public int assignedDoorNumber;
         public List<OrderLineItemSnapshot> lineItems = new();
     }
 

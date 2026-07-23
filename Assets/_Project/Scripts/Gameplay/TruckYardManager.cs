@@ -280,6 +280,53 @@ public class TruckYardManager : MonoBehaviour
         _activeTrucks++;
     }
 
+    /// <summary>
+    /// Spawns an OUTBOUND truck targeting a SPECIFIC door (unlike SpawnNextTruck, which takes
+    /// whichever free dock is available — an outbound pickup has to go to the door its order(s)
+    /// were staged at, per DoorAssignmentService's "guard shack" routing). Arrives empty (no
+    /// LoadShipment call) and is marked IsOutbound so TruckController's Docked-state fallback logic
+    /// waits to be loaded instead of reading "still empty" as "nothing to do, depart" the way an
+    /// inbound trailer does. Returns false (and spawns nothing) if that door doesn't exist or is
+    /// already occupied.
+    /// </summary>
+    public bool SpawnOutboundTruck(int doorNumber)
+    {
+        if (truckPrefab == null) { Debug.LogError("[TruckYardManager] Truck Prefab not assigned."); return false; }
+        if (_spawnPoint == null) { Debug.LogError("[TruckYardManager] SpawnPoint child missing from guard shack."); return false; }
+
+        var dock = FindDockByNumber(doorNumber);
+        if (dock == null)
+        {
+            Debug.LogWarning($"[TruckYardManager] Door {doorNumber} not found or already occupied — outbound truck not spawned.");
+            return false;
+        }
+
+        var go  = Instantiate(truckPrefab, _spawnPoint.position, _spawnPoint.rotation);
+        go.name = $"Truck→Outbound_Door{dock.DoorNumber}";
+
+        var ctrl = go.GetComponent<TruckController>() ?? go.AddComponent<TruckController>();
+
+        Vector3? gatePos     = _gateStop        != null ? (Vector3?)_gateStop.position        : null;
+        Vector3? enterNoTurn = _gateEnterNoTurn != null ? (Vector3?)_gateEnterNoTurn.position : null;
+        Vector3? leaveNoTurn = _gateLeaveNoTurn != null ? (Vector3?)_gateLeaveNoTurn.position : null;
+        Vector3? exitPos     = _exitPoint       != null ? (Vector3?)_exitPoint.position       : null;
+
+        ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited);
+        ctrl.OnClearedGate += () => OnTruckClearedGate(ctrl);
+
+        ctrl.SetOutbound();
+        ctrl.AssignAndGo(dock);
+
+        if (_gateStop != null)
+        {
+            _gateQueue.Add(ctrl);
+            LayoutQueue();
+        }
+
+        _activeTrucks++;
+        return true;
+    }
+
     // ── Private ───────────────────────────────────────────────────────────────
 
     public void SpawnGuard()
@@ -382,4 +429,7 @@ public class TruckYardManager : MonoBehaviour
         var free = DockSlot.All.Where(d => !d.IsOccupied).ToList();
         return free.Count == 0 ? null : free[Random.Range(0, free.Count)];
     }
+
+    private DockSlot FindDockByNumber(int doorNumber)
+        => DockSlot.All.FirstOrDefault(d => d.DoorNumber == doorNumber && !d.IsOccupied);
 }

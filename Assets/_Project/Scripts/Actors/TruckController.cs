@@ -115,11 +115,31 @@ public class TruckController : MonoBehaviour
     private bool  _offloadClaimed;
     private bool  _offloadComplete;
 
+    // ── Outbound loading (D1) handoff — mirrors the offload flags above, but for a
+    // truck that arrives EMPTY and gets pallets driven ONTO it instead of off of it. Kept as
+    // separate fields (not reused) so TrailerLoadController and TrailerOffloadController can never
+    // cross-claim each other's trucks even if a bug ever mixed up which list they scan.
+    private bool _isOutbound;
+    private bool _loadClaimed;
+    private bool _loadComplete;
+
     /// <summary>Current state of the truck (for persistence and debugging).</summary>
     public TruckState CurrentState => _state;
 
     /// <summary>True while docked and still waiting for a dock stocker to start offloading it.</summary>
-    public bool AwaitingOffload => _state == TruckState.Docked && !_offloadClaimed && !_offloadComplete;
+    public bool AwaitingOffload => !_isOutbound && _state == TruckState.Docked && !_offloadClaimed && !_offloadComplete;
+
+    /// <summary>True while an outbound (empty-arriving) truck is docked and still waiting for a dock
+    /// stocker to start loading it with staged pallets.</summary>
+    public bool AwaitingLoad => _isOutbound && _state == TruckState.Docked && !_loadClaimed && !_loadComplete;
+
+    /// <summary>True once this truck has been spawned for outbound pickup (arrives empty, gets loaded
+    /// at the dock) rather than inbound delivery (arrives full, gets offloaded).</summary>
+    public bool IsOutbound => _isOutbound;
+
+    /// <summary>Marks this truck as outbound — must be called before it reaches Docked (normally right
+    /// after AssignAndGo, by whichever spawn path is used for outbound pickups).</summary>
+    public void SetOutbound() => _isOutbound = true;
 
     /// <summary>The dock this truck is currently backed into (null unless docked).</summary>
     public DockSlot DockedAt => _state == TruckState.Docked ? _dock : null;
@@ -132,6 +152,13 @@ public class TruckController : MonoBehaviour
 
     /// <summary>Called by the offload controller once every pallet is off — lets the truck depart.</summary>
     public void CompleteOffload() => _offloadComplete = true;
+
+    /// <summary>Marks this outbound truck as being actively loaded so no other loader claims it.</summary>
+    public void ClaimForLoad() => _loadClaimed = true;
+
+    /// <summary>Called by the load controller once every staged pallet for this door is aboard —
+    /// lets the truck depart.</summary>
+    public void CompleteLoad() => _loadComplete = true;
 
     // ── Persistence read-only state ──────────────────────────────────────────────
 
@@ -309,8 +336,8 @@ private DockSlot        _dock;
             GuardClearedToEnter(); // no gate configured — skip straight into the yard
     }
 
-    private const int PalletSlotCount = 12;
-    private const int PalletsPerRow = 6;
+    internal const int PalletSlotCount = 12;
+    internal const int PalletsPerRow = 6;
 
     public void LoadShipment(GameCore.Inventory.ShipmentData shipment)
     {
@@ -527,7 +554,7 @@ private DockSlot        _dock;
     /// double-stacked on top of tier 0 at the same floor slot) sits at Y = sku.PltHeight, since
     /// tier 0 and tier 1 at a given slot are always the same SKU (RandomDeliveryGenerator never
     /// mixes SKUs within one stack) — tier 0's own total pallet height IS that offset.</summary>
-    private Vector3 SlotLocalPosition(int slotIndex, int tier, GameCore.Inventory.SkuData sku)
+    internal Vector3 SlotLocalPosition(int slotIndex, int tier, GameCore.Inventory.SkuData sku)
     {
         int row = slotIndex / PalletsPerRow;   // 0 = left, 1 = right
         int col = slotIndex % PalletsPerRow;   // 0..5 along the trailer length
@@ -1066,6 +1093,8 @@ private DockSlot        _dock;
 
             case TruckState.Docked:
                 _dockedTime += Time.deltaTime;
+                if (_isOutbound) { UpdateDockedOutbound(); break; }
+
                 if (_offloadComplete)
                 {
                     // Dock stocker finished pulling all pallets.
@@ -1073,10 +1102,10 @@ private DockSlot        _dock;
                 }
                 else if (!_offloadClaimed && _dockedTime >= offloadFallbackTimeout)
                 {
-                    // Fallback departure: only happens if the truck is empty or the player 
-                    // hasn't assigned anyone to it for a long time. 
-                    // CRITICAL FIX: If there are still pallets on the trailer, we should 
-                    // NOT depart automatically just because of a timer (user request: 
+                    // Fallback departure: only happens if the truck is empty or the player
+                    // hasn't assigned anyone to it for a long time.
+                    // CRITICAL FIX: If there are still pallets on the trailer, we should
+                    // NOT depart automatically just because of a timer (user request:
                     // "trailer should never depart until they're fully unloaded").
                     var container = LoadContainer;
                     if (container == null || container.childCount == 0)
@@ -1085,9 +1114,9 @@ private DockSlot        _dock;
                     }
                     else
                     {
-                        // Pallets remain — wait for a dock stocker. Reset timer slightly 
+                        // Pallets remain — wait for a dock stocker. Reset timer slightly
                         // to prevent log spam or immediate re-check.
-                        _dockedTime = offloadFallbackTimeout - 5f; 
+                        _dockedTime = offloadFallbackTimeout - 5f;
                     }
                 }
                 break;
@@ -1373,11 +1402,13 @@ private DockSlot        _dock;
     {
         _dock.LightController?.SetOccupied(true);
 
-        // Reset offload handoff — the truck now waits in Docked until a dock stocker offloads it
-        // (TrailerOffloadController) or the fallback timeout fires.
+        // Reset offload/load handoff — the truck now waits in Docked until a dock stocker offloads
+        // or loads it (TrailerOffloadController / TrailerLoadController) or the fallback timeout fires.
         _dockedTime      = 0f;
         _offloadClaimed  = false;
         _offloadComplete = false;
+        _loadClaimed     = false;
+        _loadComplete    = false;
 
         // Swing the barn doors fully open and ghost the trailer so the dock-stocker can reach the
         // product and it reads from inside the warehouse.
@@ -1389,7 +1420,24 @@ private DockSlot        _dock;
         // was swinging shut mid-unload. See RollupDoorController.SetForcedOpen.
         _dock.SetDoorForcedOpen(true);
 
-        Debug.Log($"[TruckController] {name} docked at door {_dock.DoorNumber}. Awaiting offload.");
+        Debug.Log($"[TruckController] {name} docked at door {_dock.DoorNumber}. Awaiting {(_isOutbound ? "load" : "offload")}.");
+    }
+
+    /// <summary>Outbound counterpart of the inbound Docked branch in Update(): waits for
+    /// TrailerLoadController to load staged pallets and call CompleteLoad(), or falls back to
+    /// departing anyway if unclaimed for too long (same self-preservation the inbound "no DS
+    /// available" case has) — unlike inbound, an outbound trailer STARTS empty and fills up, so
+    /// "still empty" is never a reason to leave early the way it is for offload.</summary>
+    private void UpdateDockedOutbound()
+    {
+        if (_loadComplete)
+        {
+            BeginDeparture();
+        }
+        else if (!_loadClaimed && _dockedTime >= offloadFallbackTimeout)
+        {
+            BeginDeparture();
+        }
     }
 
     private void BeginDeparture()
