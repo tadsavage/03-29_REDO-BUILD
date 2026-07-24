@@ -23,8 +23,9 @@ namespace GameCore.Labor
     /// lane with a docked, AwaitingLoad truck at that door, claims it, commandeers an idle manned
     /// dock stocker the same way TrailerOffloadController does (disabling its patrol AiNavigation +
     /// NavMeshAgent so this controller can move the transform directly), runs the sequence, then
-    /// restores the DS to patrol and tells the truck it may depart. A docked truck with no claimable
-    /// task yet just waits (KeepDockAlive) instead of timing out empty.
+    /// restores the DS to patrol — the truck itself stays docked, awaiting the player's close-out.
+    /// A docked truck with no claimable task yet just waits (KeepDockAlive) instead of timing out
+    /// empty.
     ///
     /// The movement primitives (drive/face/lift helpers) are intentionally DUPLICATED from
     /// TrailerOffloadController rather than shared — that file is a delicate, heavily-tuned system,
@@ -32,9 +33,12 @@ namespace GameCore.Labor
     /// Values are kept identical so both controllers move the same physical dock stockers at the same
     /// speed/feel.
     ///
-    /// Once every staged pallet for this truck's door is aboard, bills each distinct order
-    /// represented (SellingPrice x QuantityPicked per line item, via OrderService.ShipOrder — D2)
-    /// before releasing the dock stocker and flipping CompleteLoad().
+    /// Once every staged pallet for this truck's door is aboard, marks each distinct order
+    /// represented Loaded (OrderService.MarkOrderLoaded) and releases the dock stocker back to
+    /// patrol. Billing and the trailer's departure no longer happen automatically here — the player
+    /// closes Loaded orders out explicitly from the Work Queue panel (OrderService.CloseOutOrders),
+    /// which is what actually ships them and, once nothing else assigned to this door is still
+    /// Loading/Loaded, releases the trailer to depart.
     ///
     /// NOT handled yet: staged-pallet persistence (a saved/reloaded game won't remember what's
     /// staged), tier-stacked cargo (loaded pallets always go in flat, one per slot, matching
@@ -168,7 +172,6 @@ namespace GameCore.Labor
             ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
 
             var loadedOrderIds = new HashSet<string>();
-            int totalValue = 0;
             int startSlotIndex = truck.LoadContainer != null ? truck.LoadContainer.childCount : 0;
             for (int i = 0; i < pallets.Count; i++)
             {
@@ -184,24 +187,16 @@ namespace GameCore.Labor
 
                 if (!string.IsNullOrEmpty(pallet.OrderId)) loadedOrderIds.Add(pallet.OrderId);
 
-                var order = orderService?.ActiveOrders.FirstOrDefault(o => o.OrderId == pallet.OrderId);
-                if (order != null) totalValue += pallet.CalculateSaleValue(order);
-
                 yield return LoadOnePallet(ds, forks, forkRestY, truck, pallet, slotIndex);
             }
 
-            // ── D2: bill and ship every order this truck just finished loading ──
+            // Mark every order this truck just finished loading Loaded (not shipped/billed yet —
+            // that's the player's explicit close-out, see OrderService.CloseOutOrders).
             if (orderService != null)
             {
                 foreach (var orderId in loadedOrderIds)
-                    orderService.ShipOrder(orderId);
+                    orderService.MarkOrderLoaded(orderId);
             }
-
-            // One green "$" popup for the WHOLE load's value, hovering above the door -- same
-            // Mario-coin FloatingMoneyText effect already used for damage/spoilage refunds, per
-            // Tad's spec (a single total, not one per pallet).
-            if (totalValue > 0 && truck.DockedAt != null)
-                FloatingMoneyText.Show(truck.DockedAt.transform.position + Vector3.up * 2.5f, totalValue);
 
             // ── Restore the DS to patrol ──
             if (forks != null) SetForkLocalY(forks, forkRestY);
@@ -218,8 +213,7 @@ namespace GameCore.Labor
 
             DockEquipmentCommandeerRegistry.Release(slot);
             workQueue?.CompleteTask(task.TaskId);
-            truck.CompleteLoad();
-            Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol.");
+            Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol. Awaiting close-out to depart.");
         }
 
         /// <summary>Every staged OutboundPalletBuilder whose current cell belongs to this SPECIFIC

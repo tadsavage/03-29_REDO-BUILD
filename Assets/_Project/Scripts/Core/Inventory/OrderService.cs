@@ -117,8 +117,10 @@ namespace GameCore.Inventory
         /// <summary>Releases a batch of fully-Staged orders — same customer, same staging lane — to
         /// a door for loading: sets each order's status to Loading and files ONE Load WorkTask
         /// covering that whole lane, which TrailerLoadController claims and physically loads onto
-        /// the door's trailer. Fails (no changes) if any order isn't Staged, or the batch spans more
-        /// than one customer or lane.</summary>
+        /// the door's trailer. Summons an outbound trailer to the door first if one isn't already
+        /// sitting there — the player is assigning to a door, not to a specific truck, so there's no
+        /// separate "call a trailer" step. Fails (no changes) if any order isn't Staged, or the batch
+        /// spans more than one customer or lane.</summary>
         public bool ReleaseOrdersToLoading(List<string> orderIds, int doorNumber)
         {
             if (_workQueue == null || orderIds == null || orderIds.Count == 0) return false;
@@ -130,6 +132,11 @@ namespace GameCore.Inventory
             string lane = orders[0].AssignedLane;
             if (string.IsNullOrEmpty(lane)) return false;
             if (orders.Any(o => o.CustomerId != customerId || o.AssignedLane != lane || o.AssignedDoorNumber != doorNumber)) return false;
+
+            bool truckAtDoor = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+                .Any(t => t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber);
+            if (!truckAtDoor)
+                Object.FindAnyObjectByType<TruckYardManager>()?.SpawnOutboundTruck(doorNumber);
 
             foreach (var order in orders)
                 order.Status = OrderData.OrderStatus.Loading;
@@ -144,6 +151,67 @@ namespace GameCore.Inventory
 
             Debug.Log($"[OrderService] Released {orders.Count} order(s) for {customerId} at {doorNumber}{lane} to loading.");
             return true;
+        }
+
+        /// <summary>Marks an order Loaded once every pallet it staged has been physically carried onto
+        /// its assigned door's trailer — called by TrailerLoadController once its lane-wide load pass
+        /// finishes. Distinct from Shipped: billing and trailer departure now wait for the player's
+        /// explicit close-out (see CloseOutOrders) instead of firing the instant the AI finishes
+        /// stacking pallets.</summary>
+        public void MarkOrderLoaded(string orderId)
+        {
+            var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
+            if (order == null) return;
+            order.Status = OrderData.OrderStatus.Loaded;
+            Debug.Log($"[OrderService] Order {orderId} ({order.CustomerName}) loaded onto its trailer — awaiting close-out.");
+        }
+
+        /// <summary>Player-triggered close-out for a batch of fully-Loaded orders: bills and ships
+        /// each one (see ShipOrder), then — per door touched — releases that door's outbound trailer
+        /// to depart once nothing assigned there is still Loading/Loaded (not just the orders in this
+        /// batch; a door only clears once its whole load has been closed out). Fails (no changes) if
+        /// any order isn't actually Loaded.</summary>
+        public bool CloseOutOrders(List<string> orderIds)
+        {
+            if (orderIds == null || orderIds.Count == 0) return false;
+
+            var orders = orderIds.Select(id => _activeOrders.FirstOrDefault(o => o.OrderId == id)).ToList();
+            if (orders.Any(o => o == null || o.Status != OrderData.OrderStatus.Loaded)) return false;
+
+            var revenueByDoor = new Dictionary<int, int>();
+            foreach (var order in orders)
+            {
+                int doorNumber = order.AssignedDoorNumber;
+                int revenue = ShipOrder(order.OrderId);
+                revenueByDoor.TryGetValue(doorNumber, out int existing);
+                revenueByDoor[doorNumber] = existing + revenue;
+            }
+
+            foreach (var kvp in revenueByDoor)
+                TryReleaseDoorIfClear(kvp.Key, kvp.Value);
+
+            Debug.Log($"[OrderService] Closed out {orders.Count} order(s).");
+            return true;
+        }
+
+        /// <summary>Shows the closed-out batch's total sale value hovering over its door (same
+        /// "Mario-coin" FloatingMoneyText effect used elsewhere), then — if nothing assigned to this
+        /// door is still Loading/Loaded — releases the outbound trailer docked there so it can
+        /// depart. The other half of the manual close-out flow (see CloseOutOrders).</summary>
+        private void TryReleaseDoorIfClear(int doorNumber, int revenueJustBilled)
+        {
+            var truck = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+                .FirstOrDefault(t => t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber);
+
+            if (revenueJustBilled > 0 && truck != null)
+                FloatingMoneyText.Show(truck.DockedAt.transform.position + Vector3.up * 2.5f, revenueJustBilled);
+
+            bool stillPending = _activeOrders.Any(o => o.AssignedDoorNumber == doorNumber &&
+                (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded));
+            if (stillPending || truck == null) return;
+
+            truck.CompleteLoad();
+            Debug.Log($"[OrderService] Door {doorNumber}'s trailer cleared to depart — every order closed out.");
         }
 
         /// <summary>Finds the next pending order that needs picking.</summary>
@@ -191,19 +259,18 @@ namespace GameCore.Inventory
         /// <summary>Bills the customer for whatever actually shipped (SellingPrice x QuantityPicked
         /// per line item — an order that hit B3's cubing cap partway through only bills for the
         /// units that made it onto a pallet, never the full originally-requested amount) and marks
-        /// the order Shipped. Called once TrailerLoadController (D1) finishes loading a truck with
-        /// this order's staged pallet(s) — "billing at load time" per Tad's spec. Safe to call more
-        /// than once for the same order (a no-op after the first) so a bug upstream can't
-        /// double-charge the customer.</summary>
-        public void ShipOrder(string orderId)
+        /// the order Shipped. Called from CloseOutOrders once the player manually closes out a
+        /// Loaded order. Safe to call more than once for the same order (a no-op, returning 0, after
+        /// the first) so a bug upstream can't double-charge the customer. Returns the amount billed.</summary>
+        public int ShipOrder(string orderId)
         {
             var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
             if (order == null)
             {
                 Debug.LogWarning($"[OrderService] ShipOrder: no active order found for {orderId}.");
-                return;
+                return 0;
             }
-            if (order.Status == OrderData.OrderStatus.Shipped) return;
+            if (order.Status == OrderData.OrderStatus.Shipped) return 0;
 
             int revenue = order.LineItems.Sum(li => li.QuantityPicked * li.SellingPrice);
             _moneyService?.AddCapital(revenue, FinanceCategory.CasePick);
@@ -211,14 +278,30 @@ namespace GameCore.Inventory
             order.Status = OrderData.OrderStatus.Shipped;
             OnOrderShipped?.Invoke(order);
             Debug.Log($"[OrderService] Order {orderId} ({order.CustomerName}) shipped — billed ${revenue} for {order.TotalUnitsPicked} unit(s).");
+            return revenue;
         }
+
+        /// <summary>Late fee as a fraction of order cost — per Tad's original spec this varies by
+        /// difficulty. Difficulty is currently hardcoded to Clerk everywhere (GameContext.Awake()),
+        /// so there's no real selection to read from yet; once one exists, this should scale the
+        /// same way GameContext's startingCapital/sellBackRate already do rather than staying a
+        /// flat constant.</summary>
+        private const float LateFeePercentClerk = 0.25f;
 
         private void OnDayChanged(string eventId, int newDay)
         {
-            // Check for overdue orders
-            foreach (var order in _activeOrders.Where(o => o.IsOverdue(newDay)))
+            // Fine every order that just went overdue and hasn't already been charged — a one-time
+            // hit the day it first crosses its due date, not a recurring daily charge. Fires
+            // regardless of Status: an order still sitting unreleased in the Work Queue panel is
+            // just as late as one that's Staged or Loading — only Shipped/Cancelled orders are
+            // naturally excluded by IsOverdue not mattering to them anymore in practice.
+            foreach (var order in _activeOrders.Where(o => o.IsOverdue(newDay) && !o.HasBeenFined))
             {
-                Debug.LogWarning($"[OrderService] Order {order.OrderId} is OVERDUE!");
+                int fine = Mathf.RoundToInt(LateFeePercentClerk * order.TotalRevenue);
+                _moneyService?.RemoveCapital(fine, FinanceCategory.Fines);
+                order.HasBeenFined = true;
+
+                Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) is OVERDUE — fined ${fine} ({LateFeePercentClerk:P0} of ${order.TotalRevenue} order cost).");
             }
         }
 
@@ -242,7 +325,8 @@ namespace GameCore.Inventory
                     status = (int)o.Status,
                     paymentMethod = (int)o.PaymentMethod,
                     assignedDoorNumber = o.AssignedDoorNumber,
-                    assignedLane = o.AssignedLane
+                    assignedLane = o.AssignedLane,
+                    hasBeenFined = o.HasBeenFined
                 };
                 foreach (var li in o.LineItems)
                 {
@@ -276,7 +360,8 @@ namespace GameCore.Inventory
                 var order = new OrderData(snap.orderId, snap.customerId, snap.customerName, snap.deliveryAddress, snap.createdDayNumber, snap.dueDay, snap.createdTimeMinute, (OrderData.OrderStatus)snap.status, (OrderData.OrderPaymentMethod)snap.paymentMethod)
                 {
                     AssignedDoorNumber = snap.assignedDoorNumber,
-                    AssignedLane = snap.assignedLane
+                    AssignedLane = snap.assignedLane,
+                    HasBeenFined = snap.hasBeenFined
                 };
                 foreach (var liSnap in snap.lineItems)
                 {

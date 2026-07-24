@@ -8,20 +8,23 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// "Work Queue" panel — lets the player release Open orders to a staging lane (so Order Selectors
-/// can start picking them), and later release fully-Staged orders to a door (so a Loader/dock
-/// stocker starts loading them onto the waiting trailer). Bound to the "7" key (see TopBarUI), same
+/// can start picking them), release fully-Staged orders to a door (so a Loader/dock stocker starts
+/// loading them onto a trailer — summoned automatically if one isn't already there), and close out
+/// Loaded orders once they're aboard (bills them and, once nothing else assigned to that door is
+/// still Loading/Loaded, releases the trailer to depart). Bound to the "7" key (see TopBarUI), same
 /// programmatic UIToolkit shape/aesthetic as SlotAssignmentPanel (Lilita font, navy/blue palette,
 /// DraggableWindow).
 ///
 /// Rows are individual orders, grouped visually by customer (sorted by customer name). Each row's
 /// Status column reflects whichever status is currently authoritative for that order: its
 /// OrderSelect WorkTask's status (Open/Available/Assigned) while still being picked, or the order's
-/// own OrderStatus (Staged/Loading) once picking is done — see DeterminePhase. Only Open and Staged
-/// rows have an enabled checkbox; those are the two points where the player actually chooses
-/// something (a lane, then a door). The bottom bar is contextual: checking only Open rows shows a
-/// lane dropdown + Submit; checking only Staged rows shows a door dropdown + Submit; anything mixed
-/// (different phases, or more than one customer — a lane/trailer holds one customer at a time for
-/// now) disables submission with an explanatory message.
+/// own OrderStatus (Staged/Loading/Loaded) once picking is done — see DeterminePhase. Only Open,
+/// Staged, and Loaded rows have an enabled checkbox; those are the three points where the player
+/// actually chooses something (a lane, then a door, then to close out). The bottom bar is
+/// contextual: checking only Open rows shows a lane dropdown + Submit; checking only Staged rows
+/// shows a door dropdown + Assign; checking only Loaded rows shows a Close Out button; anything
+/// mixed (different phases, or more than one customer — a lane/trailer holds one customer at a time
+/// for now) disables submission with an explanatory message.
 /// </summary>
 public class WorkQueuePanel
 {
@@ -44,6 +47,7 @@ public class WorkQueuePanel
     private static readonly Color ColStatusAssigned  = new Color(0xF2 / 255f, 0xC2 / 255f, 0x5A / 255f, 1f);
     private static readonly Color ColStatusStaged    = new Color(0x7E / 255f, 0xD6 / 255f, 0x8A / 255f, 1f);
     private static readonly Color ColStatusLoading   = new Color(0x7E / 255f, 0xD6 / 255f, 0xC8 / 255f, 1f);
+    private static readonly Color ColStatusLoaded    = new Color(0x4C / 255f, 0xB8 / 255f, 0x6A / 255f, 1f);
 
     private static Font _lilita;
     private static Font LilitaFont()
@@ -67,8 +71,8 @@ public class WorkQueuePanel
         if (size > 0) el.style.fontSize = size;
     }
 
-    private enum RowPhase { Open, Available, Assigned, Staged, Loading }
-    private enum ActionMode { None, ReleaseToLane, ReleaseToLoading, Mixed }
+    private enum RowPhase { Open, Available, Assigned, Staged, Loading, Loaded }
+    private enum ActionMode { None, ReleaseToLane, ReleaseToLoading, CloseOut, Mixed }
 
     private readonly VisualElement _overlay;
     private readonly ScrollView _rowScroll;
@@ -278,7 +282,7 @@ public class WorkQueuePanel
 
         // Drop checked ids that no longer resolve to a still-actionable row (submitted, or picked
         // up by a selector concurrently) so their checkmark doesn't linger looking "stuck".
-        var stillActionable = rows.Where(r => r.phase == RowPhase.Open || r.phase == RowPhase.Staged)
+        var stillActionable = rows.Where(r => r.phase == RowPhase.Open || r.phase == RowPhase.Staged || r.phase == RowPhase.Loaded)
             .Select(r => r.order.OrderId).ToHashSet();
         _checkedOrderIds.RemoveWhere(id => !stillActionable.Contains(id));
 
@@ -304,6 +308,7 @@ public class WorkQueuePanel
 
     private RowPhase? DeterminePhase(OrderData order, WorkTask task)
     {
+        if (order.Status == OrderData.OrderStatus.Loaded) return RowPhase.Loaded;
         if (order.Status == OrderData.OrderStatus.Loading) return RowPhase.Loading;
         if (order.Status == OrderData.OrderStatus.Staged) return RowPhase.Staged;
         if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return null;
@@ -325,7 +330,7 @@ public class WorkQueuePanel
         row.style.paddingTop = 4; row.style.paddingBottom = 4; row.style.paddingLeft = 6;
         row.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColRowEven : ColRowOdd);
 
-        bool actionable = phase == RowPhase.Open || phase == RowPhase.Staged;
+        bool actionable = phase == RowPhase.Open || phase == RowPhase.Staged || phase == RowPhase.Loaded;
 
         var checkbox = new Toggle { value = _checkedOrderIds.Contains(order.OrderId) };
         checkbox.style.width = 26;
@@ -374,6 +379,7 @@ public class WorkQueuePanel
         RowPhase.Assigned => "Assigned",
         RowPhase.Staged => "Staged",
         RowPhase.Loading => "Loading",
+        RowPhase.Loaded => "Loaded",
         _ => "?",
     };
 
@@ -384,6 +390,7 @@ public class WorkQueuePanel
         RowPhase.Assigned => ColStatusAssigned,
         RowPhase.Staged => ColStatusStaged,
         RowPhase.Loading => ColStatusLoading,
+        RowPhase.Loaded => ColStatusLoaded,
         _ => ColSubtleText,
     };
 
@@ -411,7 +418,7 @@ public class WorkQueuePanel
 
         if (checkedOrders.Count == 0)
         {
-            SetBottomBar(ActionMode.None, "Check some Open orders to release them to a staging lane, or Staged orders to release them to a door for loading.", new List<string> { "—" });
+            SetBottomBar(ActionMode.None, "Check some Open orders to release them to a staging lane, Staged orders to release them to a door for loading, or Loaded orders to close them out.", new List<string> { "—" });
             return;
         }
 
@@ -456,33 +463,28 @@ public class WorkQueuePanel
             return;
         }
 
+        if (phases[0] == RowPhase.Loaded)
+        {
+            SetBottomBar(ActionMode.CloseOut, $"Close out {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} — bills them and releases the trailer once its whole load is closed out:", new List<string> { "Close Out" }, enableTarget: false);
+            return;
+        }
+
         if (phases[0] != RowPhase.Staged)
         {
             // A stray Available/Assigned/Loading row shouldn't be checkable at all (checkboxes are
             // disabled for those phases), but this guards the rare race where a row's phase changed
             // between the checkbox click and this rebuild instead of silently treating it as Staged.
-            SetBottomBar(ActionMode.Mixed, "That order isn't ready for either action right now — refreshing.", new List<string> { "—" });
+            SetBottomBar(ActionMode.Mixed, "That order isn't ready for any action right now — refreshing.", new List<string> { "—" });
             return;
         }
 
-        // Staged -> release to a door for loading. Only doors with a trailer currently sitting there.
-        var doorsWithTrucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
-            .Where(t => t.IsOutbound && t.DockedAt != null)
-            .Select(t => t.DockedAt.DoorNumber)
-            .Distinct()
-            .OrderBy(d => d)
-            .ToList();
-        _dropdownDoors = doorsWithTrucks;
-
-        if (doorsWithTrucks.Count == 0)
-        {
-            SetBottomBar(ActionMode.ReleaseToLoading, "No door currently has a trailer waiting.", new List<string> { "—" }, enableTarget: false, enableSubmit: false);
-        }
-        else
-        {
-            var choices = doorsWithTrucks.Select(d => $"Door {d}").ToList();
-            SetBottomBar(ActionMode.ReleaseToLoading, $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a door for loading:", choices);
-        }
+        // Staged -> release to a door for loading. The order is already tied to a door (set when it
+        // was released to its staging lane) — loading always targets that same door, so there's
+        // nothing left to pick; a trailer is summoned automatically on submit if one isn't already
+        // sitting there (see OrderService.ReleaseOrdersToLoading).
+        int targetDoor = checkedOrders[0].AssignedDoorNumber;
+        _dropdownDoors = new List<int> { targetDoor };
+        SetBottomBar(ActionMode.ReleaseToLoading, $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to Door {targetDoor} for loading:", new List<string> { $"Door {targetDoor}" });
     }
 
     private void SetBottomBar(ActionMode mode, string message, List<string> choices, bool enableTarget = true, bool enableSubmit = true)
@@ -495,8 +497,8 @@ public class WorkQueuePanel
         _targetDropdown.SetValueWithoutNotify(_targetDropdown.choices[0]);
         _targetDropdown.SetEnabled(enableTarget && mode != ActionMode.None && mode != ActionMode.Mixed);
 
-        _submitButton.text = mode == ActionMode.ReleaseToLoading ? "Assign" : "Submit Selection";
-        _submitButton.SetEnabled(enableSubmit && (mode == ActionMode.ReleaseToLane || mode == ActionMode.ReleaseToLoading) && choices.Count > 0 && choices[0] != "—");
+        _submitButton.text = mode == ActionMode.ReleaseToLoading ? "Assign" : mode == ActionMode.CloseOut ? "Close Out" : "Submit Selection";
+        _submitButton.SetEnabled(enableSubmit && (mode == ActionMode.ReleaseToLane || mode == ActionMode.ReleaseToLoading || mode == ActionMode.CloseOut) && choices.Count > 0 && choices[0] != "—");
         _submitButton.style.opacity = _submitButton.enabledSelf ? 1f : 0.5f;
     }
 
@@ -520,6 +522,10 @@ public class WorkQueuePanel
             int idx = _targetDropdown.index;
             if (idx < 0 || idx >= _dropdownDoors.Count) return;
             ok = orderService.ReleaseOrdersToLoading(orderIds, _dropdownDoors[idx]);
+        }
+        else if (_mode == ActionMode.CloseOut)
+        {
+            ok = orderService.CloseOutOrders(orderIds);
         }
         else return;
 

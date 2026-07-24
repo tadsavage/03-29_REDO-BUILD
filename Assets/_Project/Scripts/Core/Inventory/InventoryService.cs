@@ -374,18 +374,59 @@ namespace GameCore.Inventory
         /// <summary>
         /// Next slot in a lane that can still take a pallet — scanned from the door outward, and a slot
         /// counts as available until its stack reaches the lane's configured MaxStackHeight (so we fill a
-        /// slot's full stack before moving to the next one). False if every slot is full.
+        /// slot's full stack before moving to the next one). Also excludes any slot a live outbound
+        /// staging pallet is already sitting on (see OutboundOccupiedCells) so two different orders can't
+        /// be handed the same "free" slot and end up superimposed. False if every slot is full/occupied.
         /// </summary>
         public bool TryGetNextFreeSlot(int doorNumber, string lane, out LaneNamingService.LaneSlot slot)
         {
             int maxHeight = LaneConfigRegistry.Get(doorNumber, lane).MaxStackHeight;
-            foreach (var s in LaneNamingService.GetLane(doorNumber, lane))
+            var laneSlots = LaneNamingService.GetLane(doorNumber, lane);
+            var outboundOccupied = OutboundOccupiedCells(laneSlots);
+
+            foreach (var s in laneSlots)
             {
+                if (outboundOccupied.Contains(s.Cell)) continue;
                 int stacked = _palletsByLocation.TryGetValue(s.Cell, out var ids) ? ids.Count : 0;
                 if (stacked < maxHeight) { slot = s; return true; }
             }
             slot = default;
             return false;
+        }
+
+        // A staged order's second pallet sits ~1.2m from its sibling along the lane's depth axis (see
+        // OrderSelectionTaskDriver.PlacePalletsAtStagingSlot) — comfortably inside one cell (1.33m
+        // apart) of the next slot over. This cutoff just excludes pallets that aren't at this lane at all.
+        private const float OutboundClaimDistance = 2.5f;
+
+        /// <summary>Maps every live, dropped (unparented — a pallet still riding a selector doesn't
+        /// count) outbound staging pallet to whichever of this lane's slots it's physically nearest to.
+        /// OutboundPalletBuilder pallets are WIP/staged objects positioned directly in the world — they
+        /// are never added to _palletsByLocation, since they're not InventoryService-managed stock —
+        /// so without this, TryGetNextFreeSlot can't see them and keeps handing out the same slot to
+        /// every order staged into a lane.</summary>
+        private static HashSet<Vector2Int> OutboundOccupiedCells(List<LaneNamingService.LaneSlot> laneSlots)
+        {
+            var occupied = new HashSet<Vector2Int>();
+            if (laneSlots.Count == 0) return occupied;
+
+            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            {
+                if (pallet == null || pallet.transform.parent != null) continue;
+
+                Vector2Int nearestCell = default;
+                float nearestSqrDist = float.MaxValue;
+                foreach (var s in laneSlots)
+                {
+                    if (!LaneNamingService.TryGetSlotWorldPos(s.Cell, out var slotPos)) continue;
+                    float sqrDist = (pallet.transform.position - slotPos).sqrMagnitude;
+                    if (sqrDist < nearestSqrDist) { nearestSqrDist = sqrDist; nearestCell = s.Cell; }
+                }
+
+                if (nearestSqrDist < OutboundClaimDistance * OutboundClaimDistance)
+                    occupied.Add(nearestCell);
+            }
+            return occupied;
         }
 
         /// <summary>Next open slot in one SPECIFIC outbound lane (door-outward, same scan

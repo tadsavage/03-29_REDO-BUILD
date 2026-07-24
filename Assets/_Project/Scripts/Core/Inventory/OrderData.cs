@@ -34,6 +34,12 @@ namespace GameCore.Inventory
         /// order released to the same lane shares this value.</summary>
         public string AssignedLane { get; set; }
 
+        /// <summary>True once the late fee (E1) has been charged for this order. Fining is a
+        /// one-time event the day an order first goes overdue, not a recurring daily charge — this
+        /// flag is what stops OrderService.OnDayChanged from re-fining the same order every
+        /// subsequent day it remains unshipped.</summary>
+        public bool HasBeenFined { get; set; }
+
         public OrderData(string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute)
         {
             OrderId = System.Guid.NewGuid().ToString();
@@ -85,7 +91,7 @@ namespace GameCore.Inventory
         /// <summary>Days until due (negative if overdue).</summary>
         public int DaysUntilDue(int currentDay) => DueDay - currentDay;
 
-        public enum OrderStatus { Pending, PartiallyPicked, FullyPicked, Staged, Loading, Shipped, Cancelled, Backorder }
+        public enum OrderStatus { Pending, PartiallyPicked, FullyPicked, Staged, Loading, Loaded, Shipped, Cancelled, Backorder }
         public enum OrderPaymentMethod { Prepaid, COD, Invoice }
     }
 
@@ -137,6 +143,7 @@ namespace GameCore.Inventory
         public int paymentMethod; // (int)OrderData.OrderPaymentMethod
         public int assignedDoorNumber;
         public string assignedLane;
+        public bool hasBeenFined;
         public List<OrderLineItemSnapshot> lineItems = new();
     }
 

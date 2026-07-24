@@ -1,16 +1,16 @@
 {
     "saveName": "slot_save",
-    "money": -131743,
-    "spentToday": 21454,
+    "money": -144660,
+    "spentToday": 11565,
     "cameraData": {
         "focusPoint": {
-            "x": -6.181280612945557,
+            "x": 1.9376102685928345,
             "y": 1.0968503952026368,
-            "z": -16.357513427734376
+            "z": -10.25911808013916
         },
-        "distance": 19.149993896484376,
-        "pitch": 41.22401809692383,
-        "yaw": 3721.7373046875
+        "distance": 45.0,
+        "pitch": 35.73198699951172,
+        "yaw": 2720.4775390625
     },
     "placedObjects": [
         {
@@ -37695,26 +37695,6 @@
         },
         {
             "id": 28,
-            "x": 39,
-            "y": 40,
-            "rot": 2,
-            "customData": "",
-            "worldY": 1.1448391675949097,
-            "hasTransform": true,
-            "pos": {
-                "x": 13.434365272521973,
-                "y": 1.166677474975586,
-                "z": 0.29926714301109316
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": -0.6732810735702515,
-                "z": 0.0,
-                "w": -0.7393867373466492
-            }
-        },
-        {
-            "id": 61,
             "x": 45,
             "y": 43,
             "rot": 2,
@@ -37722,15 +37702,35 @@
             "worldY": 1.166677474975586,
             "hasTransform": true,
             "pos": {
-                "x": 1.8599333763122559,
+                "x": 16.89809226989746,
                 "y": 1.166677474975586,
-                "z": -6.045217514038086
+                "z": -1.874977946281433
             },
             "rotation": {
                 "x": 0.0,
-                "y": -0.5660765767097473,
+                "y": 0.36091142892837527,
                 "z": 0.0,
-                "w": -0.8243527412414551
+                "w": 0.9326000809669495
+            }
+        },
+        {
+            "id": 61,
+            "x": 46,
+            "y": 45,
+            "rot": 2,
+            "customData": "",
+            "worldY": 1.166677474975586,
+            "hasTransform": true,
+            "pos": {
+                "x": -2.503805637359619,
+                "y": 1.166677474975586,
+                "z": -7.928694725036621
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.8202563524246216,
+                "z": 0.0,
+                "w": -0.5719960331916809
             }
         },
         {
@@ -42775,42 +42775,42 @@
         },
         {
             "id": 28,
-            "x": 54,
-            "y": 40,
+            "x": 41,
+            "y": 42,
             "rot": 0,
             "customData": "",
             "worldY": 1.166677474975586,
             "hasTransform": true,
             "pos": {
-                "x": 8.078397750854493,
+                "x": -14.232151985168457,
                 "y": 1.166677474975586,
-                "z": -11.588665962219239
+                "z": -12.391045570373536
             },
             "rotation": {
                 "x": 0.0,
-                "y": 0.966038167476654,
+                "y": -0.6272786855697632,
                 "z": 0.0,
-                "w": -0.2583995759487152
+                "w": 0.7787949442863464
             }
         },
         {
             "id": 61,
-            "x": 55,
-            "y": 47,
+            "x": 49,
+            "y": 44,
             "rot": 0,
             "customData": "",
             "worldY": 1.166677474975586,
             "hasTransform": true,
             "pos": {
-                "x": 15.597023010253907,
+                "x": 1.988715410232544,
                 "y": 1.166677474975586,
-                "z": -0.34598708152770998
+                "z": -3.8481836318969728
             },
             "rotation": {
                 "x": 0.0,
-                "y": 0.8056157231330872,
+                "y": -0.3192565441131592,
                 "z": 0.0,
-                "w": -0.5924385190010071
+                "w": 0.9476683735847473
             }
         }
     ],
@@ -42866,6 +42866,30 @@
         {
             "key": "PalletBuilder.totalCases",
             "val": "60"
+        },
+        {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.5"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
         },
         {
             "key": "AiNavigation.footstepVolume",
@@ -42936,40 +42960,8 @@
             "val": "0.1"
         },
         {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.volume",
+            "key": "NavMeshManager._debounceTime",
             "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.15"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
         },
         {
             "key": "Gate_Open_Close.rot_down",
@@ -42984,8 +42976,16 @@
             "val": "80"
         },
         {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
         },
         {
             "key": "FreeLookCamera.pitchMin",
@@ -43030,7 +43030,7 @@
     ],
     "toolsWindowX": 100.0,
     "toolsWindowY": 120.0,
-    "guidanceLinesVisible": false,
+    "guidanceLinesVisible": true,
     "waypointsVisible": false,
     "hoverPopupEnabled": false,
     "employeeRecords": [
@@ -43051,7 +43051,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 21.06999969482422,
-            "totalWagesPaid": 4920.0,
+            "totalWagesPaid": 5260.0,
             "hireDateIso": "2026-07-18",
             "separationDateIso": "",
             "shift": 0,
@@ -43073,17 +43073,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 13.783295631408692,
+            "posX": 17.0291805267334,
             "posY": 1.166677474975586,
-            "posZ": 0.48767542839050295,
-            "rotY": 159.32363891601563,
+            "posZ": -1.5007238388061524,
+            "rotY": 116.99439239501953,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 39,
-            "boardedVehicleGridY": 40,
-            "boardedVehicleWorldX": 13.434365272521973,
+            "boardedVehicleGridX": 45,
+            "boardedVehicleGridY": 43,
+            "boardedVehicleWorldX": 16.89809226989746,
             "boardedVehicleWorldY": 1.166677474975586,
-            "boardedVehicleWorldZ": 0.29926714301109316
+            "boardedVehicleWorldZ": -1.874977946281433
         },
         {
             "employeeGuid": "7fc4b43e-83e2-4a7e-95ad-b66cdd1f4ce4",
@@ -43102,7 +43102,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 17.979999542236329,
-            "totalWagesPaid": 4167.0,
+            "totalWagesPaid": 4455.0,
             "hireDateIso": "2026-07-18",
             "separationDateIso": "",
             "shift": 0,
@@ -43124,17 +43124,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 2.0718560218811037,
+            "posX": -2.7175588607788088,
             "posY": 1.166677474975586,
-            "posZ": -5.916528701782227,
-            "rotY": 252.3463134765625,
+            "posZ": -8.054319381713868,
+            "rotY": 73.17120361328125,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 45,
-            "boardedVehicleGridY": 43,
-            "boardedVehicleWorldX": 1.8599333763122559,
+            "boardedVehicleGridX": 46,
+            "boardedVehicleGridY": 45,
+            "boardedVehicleWorldX": -2.503805637359619,
             "boardedVehicleWorldY": 1.166677474975586,
-            "boardedVehicleWorldZ": -6.045217514038086
+            "boardedVehicleWorldZ": -7.928694725036621
         },
         {
             "employeeGuid": "ae5031ba-1368-4f3d-99af-96c00898ef44",
@@ -43153,7 +43153,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 22.15999984741211,
-            "totalWagesPaid": 5093.0,
+            "totalWagesPaid": 5445.0,
             "hireDateIso": "2026-07-18",
             "separationDateIso": "",
             "shift": 0,
@@ -43175,10 +43175,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -8.22740650177002,
+            "posX": -1.4742112159729005,
             "posY": 1.1099998950958253,
-            "posZ": -11.174912452697754,
-            "rotY": 265.5301208496094,
+            "posZ": -4.983950614929199,
+            "rotY": 10.111089706420899,
             "hasSavedPosition": true,
             "hasBoardedVehicle": false,
             "boardedVehicleGridX": -1,
@@ -43204,7 +43204,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 16.690000534057618,
-            "totalWagesPaid": 1608.0,
+            "totalWagesPaid": 1876.0,
             "hireDateIso": "2026-07-21",
             "separationDateIso": "",
             "shift": 0,
@@ -43226,17 +43226,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 15.377224922180176,
+            "posX": 1.8060407638549805,
             "posY": 1.166677474975586,
-            "posZ": -0.4607076644897461,
-            "rotY": 76.05262756347656,
+            "posZ": -3.6805472373962404,
+            "rotY": 146.1562042236328,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 55,
-            "boardedVehicleGridY": 47,
-            "boardedVehicleWorldX": 15.597023010253907,
+            "boardedVehicleGridX": 49,
+            "boardedVehicleGridY": 44,
+            "boardedVehicleWorldX": 1.988715410232544,
             "boardedVehicleWorldY": 1.166677474975586,
-            "boardedVehicleWorldZ": -0.34598708152770998
+            "boardedVehicleWorldZ": -3.8481836318969728
         },
         {
             "employeeGuid": "8e06d1d4-8095-43a4-ac51-78329988bb33",
@@ -43255,7 +43255,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 19.93000030517578,
-            "totalWagesPaid": 1920.0,
+            "totalWagesPaid": 2240.0,
             "hireDateIso": "2026-07-21",
             "separationDateIso": "",
             "shift": 0,
@@ -43277,17 +43277,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 8.030473709106446,
+            "posX": -14.621794700622559,
             "posY": 1.166677474975586,
-            "posZ": -11.982307434082032,
-            "rotY": 284.63226318359377,
+            "posZ": -12.464726448059082,
+            "rotY": 356.9827880859375,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 54,
-            "boardedVehicleGridY": 40,
-            "boardedVehicleWorldX": 8.078397750854493,
+            "boardedVehicleGridX": 41,
+            "boardedVehicleGridY": 42,
+            "boardedVehicleWorldX": -14.232151985168457,
             "boardedVehicleWorldY": 1.166677474975586,
-            "boardedVehicleWorldZ": -11.588665962219239
+            "boardedVehicleWorldZ": -12.391045570373536
         },
         {
             "employeeGuid": "f120de40-e30a-4a87-9453-f04e7858bdb3",
@@ -43306,7 +43306,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 22.399999618530275,
-            "totalWagesPaid": 0.0,
+            "totalWagesPaid": 360.0,
             "hireDateIso": "2026-07-23",
             "separationDateIso": "",
             "shift": 0,
@@ -43328,10 +43328,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": -9.98399543762207,
+            "posX": -9.958292961120606,
             "posY": 1.1099998950958253,
-            "posZ": -0.8234838843345642,
-            "rotY": 358.1905517578125,
+            "posZ": -1.110680341720581,
+            "rotY": 212.01600646972657,
             "hasSavedPosition": true,
             "hasBoardedVehicle": false,
             "boardedVehicleGridX": -1,
@@ -43979,10 +43979,6 @@
         },
         {
             "address": "01-22-01",
-            "status": 4
-        },
-        {
-            "address": "01-13-A1",
             "status": 4
         },
         {
@@ -45280,7 +45276,360 @@
             ]
         }
     ],
-    "orders": [],
+    "orders": [
+        {
+            "orderId": "b26c3b7b-21d1-49c1-808e-41ca17237a1f",
+            "customerId": "Puff & Stuff Pastries",
+            "customerName": "Puff & Stuff Pastries",
+            "deliveryAddress": "Puff & Stuff Pastries Distribution Center",
+            "createdDayNumber": 9,
+            "dueDay": 11,
+            "createdTimeMinute": 34,
+            "status": 3,
+            "paymentMethod": 0,
+            "assignedDoorNumber": 1,
+            "assignedLane": "A",
+            "hasBeenFined": false,
+            "lineItems": [
+                {
+                    "skuId": "897034",
+                    "quantityNeeded": 6,
+                    "quantityPicked": 6,
+                    "unitCost": 12,
+                    "sellingPrice": 22
+                },
+                {
+                    "skuId": "732408",
+                    "quantityNeeded": 7,
+                    "quantityPicked": 7,
+                    "unitCost": 42,
+                    "sellingPrice": 65
+                },
+                {
+                    "skuId": "248905",
+                    "quantityNeeded": 10,
+                    "quantityPicked": 10,
+                    "unitCost": 22,
+                    "sellingPrice": 36
+                }
+            ]
+        },
+        {
+            "orderId": "f30e4ee1-ad55-42dc-9d93-ca1e6968aa9f",
+            "customerId": "Puff & Stuff Pastries",
+            "customerName": "Puff & Stuff Pastries",
+            "deliveryAddress": "Puff & Stuff Pastries Distribution Center",
+            "createdDayNumber": 9,
+            "dueDay": 11,
+            "createdTimeMinute": 34,
+            "status": 3,
+            "paymentMethod": 0,
+            "assignedDoorNumber": 1,
+            "assignedLane": "A",
+            "hasBeenFined": false,
+            "lineItems": [
+                {
+                    "skuId": "912457",
+                    "quantityNeeded": 8,
+                    "quantityPicked": 8,
+                    "unitCost": 20,
+                    "sellingPrice": 32
+                },
+                {
+                    "skuId": "148972",
+                    "quantityNeeded": 6,
+                    "quantityPicked": 6,
+                    "unitCost": 5,
+                    "sellingPrice": 12
+                },
+                {
+                    "skuId": "615873",
+                    "quantityNeeded": 7,
+                    "quantityPicked": 7,
+                    "unitCost": 18,
+                    "sellingPrice": 30
+                },
+                {
+                    "skuId": "864209",
+                    "quantityNeeded": 9,
+                    "quantityPicked": 9,
+                    "unitCost": 25,
+                    "sellingPrice": 40
+                }
+            ]
+        },
+        {
+            "orderId": "b8f16ab9-e69d-4563-a991-fdf8be97d65b",
+            "customerId": "Puff & Stuff Pastries",
+            "customerName": "Puff & Stuff Pastries",
+            "deliveryAddress": "Puff & Stuff Pastries Distribution Center",
+            "createdDayNumber": 9,
+            "dueDay": 11,
+            "createdTimeMinute": 34,
+            "status": 8,
+            "paymentMethod": 0,
+            "assignedDoorNumber": 1,
+            "assignedLane": "A",
+            "hasBeenFined": false,
+            "lineItems": [
+                {
+                    "skuId": "615873",
+                    "quantityNeeded": 10,
+                    "quantityPicked": 10,
+                    "unitCost": 18,
+                    "sellingPrice": 30
+                },
+                {
+                    "skuId": "897034",
+                    "quantityNeeded": 9,
+                    "quantityPicked": 9,
+                    "unitCost": 12,
+                    "sellingPrice": 22
+                },
+                {
+                    "skuId": "856320",
+                    "quantityNeeded": 8,
+                    "quantityPicked": 0,
+                    "unitCost": 12,
+                    "sellingPrice": 20
+                },
+                {
+                    "skuId": "304759",
+                    "quantityNeeded": 6,
+                    "quantityPicked": 6,
+                    "unitCost": 28,
+                    "sellingPrice": 45
+                }
+            ]
+        },
+        {
+            "orderId": "6eac9789-c1be-4708-8fdb-a8461b99c945",
+            "customerId": "Puff & Stuff Pastries",
+            "customerName": "Puff & Stuff Pastries",
+            "deliveryAddress": "Puff & Stuff Pastries Distribution Center",
+            "createdDayNumber": 9,
+            "dueDay": 11,
+            "createdTimeMinute": 34,
+            "status": 8,
+            "paymentMethod": 0,
+            "assignedDoorNumber": 1,
+            "assignedLane": "A",
+            "hasBeenFined": false,
+            "lineItems": [
+                {
+                    "skuId": "999999",
+                    "quantityNeeded": 5,
+                    "quantityPicked": 5,
+                    "unitCost": 20,
+                    "sellingPrice": 35
+                },
+                {
+                    "skuId": "983721",
+                    "quantityNeeded": 6,
+                    "quantityPicked": 0,
+                    "unitCost": 45,
+                    "sellingPrice": 72
+                },
+                {
+                    "skuId": "750426",
+                    "quantityNeeded": 6,
+                    "quantityPicked": 0,
+                    "unitCost": 22,
+                    "sellingPrice": 32
+                },
+                {
+                    "skuId": "732408",
+                    "quantityNeeded": 8,
+                    "quantityPicked": 8,
+                    "unitCost": 42,
+                    "sellingPrice": 65
+                },
+                {
+                    "skuId": "615873",
+                    "quantityNeeded": 5,
+                    "quantityPicked": 5,
+                    "unitCost": 18,
+                    "sellingPrice": 30
+                }
+            ]
+        },
+        {
+            "orderId": "f745b5cd-9ff6-407e-91c3-a55befdf3194",
+            "customerId": "Puff & Stuff Pastries",
+            "customerName": "Puff & Stuff Pastries",
+            "deliveryAddress": "Puff & Stuff Pastries Distribution Center",
+            "createdDayNumber": 9,
+            "dueDay": 11,
+            "createdTimeMinute": 34,
+            "status": 3,
+            "paymentMethod": 0,
+            "assignedDoorNumber": 1,
+            "assignedLane": "A",
+            "hasBeenFined": false,
+            "lineItems": [
+                {
+                    "skuId": "732408",
+                    "quantityNeeded": 6,
+                    "quantityPicked": 6,
+                    "unitCost": 42,
+                    "sellingPrice": 65
+                },
+                {
+                    "skuId": "912457",
+                    "quantityNeeded": 10,
+                    "quantityPicked": 10,
+                    "unitCost": 20,
+                    "sellingPrice": 32
+                },
+                {
+                    "skuId": "864209",
+                    "quantityNeeded": 8,
+                    "quantityPicked": 8,
+                    "unitCost": 25,
+                    "sellingPrice": 40
+                },
+                {
+                    "skuId": "215678",
+                    "quantityNeeded": 10,
+                    "quantityPicked": 10,
+                    "unitCost": 19,
+                    "sellingPrice": 30
+                }
+            ]
+        },
+        {
+            "orderId": "95636784-33dd-4945-96b2-31cc73596481",
+            "customerId": "Bramble & Bite Berry Co.",
+            "customerName": "Bramble & Bite Berry Co.",
+            "deliveryAddress": "Bramble & Bite Berry Co. Distribution Center",
+            "createdDayNumber": 9,
+            "dueDay": 11,
+            "createdTimeMinute": 27,
+            "status": 8,
+            "paymentMethod": 0,
+            "assignedDoorNumber": 2,
+            "assignedLane": "A",
+            "hasBeenFined": false,
+            "lineItems": [
+                {
+                    "skuId": "678132",
+                    "quantityNeeded": 9,
+                    "quantityPicked": 0,
+                    "unitCost": 18,
+                    "sellingPrice": 28
+                },
+                {
+                    "skuId": "912457",
+                    "quantityNeeded": 9,
+                    "quantityPicked": 9,
+                    "unitCost": 20,
+                    "sellingPrice": 32
+                },
+                {
+                    "skuId": "975031",
+                    "quantityNeeded": 9,
+                    "quantityPicked": 9,
+                    "unitCost": 16,
+                    "sellingPrice": 26
+                }
+            ]
+        },
+        {
+            "orderId": "66eb84b4-c1bc-4c6d-b6b9-8292dec5a298",
+            "customerId": "Bramble & Bite Berry Co.",
+            "customerName": "Bramble & Bite Berry Co.",
+            "deliveryAddress": "Bramble & Bite Berry Co. Distribution Center",
+            "createdDayNumber": 9,
+            "dueDay": 11,
+            "createdTimeMinute": 27,
+            "status": 8,
+            "paymentMethod": 0,
+            "assignedDoorNumber": 2,
+            "assignedLane": "A",
+            "hasBeenFined": false,
+            "lineItems": [
+                {
+                    "skuId": "750426",
+                    "quantityNeeded": 10,
+                    "quantityPicked": 0,
+                    "unitCost": 22,
+                    "sellingPrice": 32
+                },
+                {
+                    "skuId": "304759",
+                    "quantityNeeded": 8,
+                    "quantityPicked": 8,
+                    "unitCost": 28,
+                    "sellingPrice": 45
+                },
+                {
+                    "skuId": "649320",
+                    "quantityNeeded": 6,
+                    "quantityPicked": 6,
+                    "unitCost": 55,
+                    "sellingPrice": 85
+                },
+                {
+                    "skuId": "564219",
+                    "quantityNeeded": 8,
+                    "quantityPicked": 8,
+                    "unitCost": 22,
+                    "sellingPrice": 35
+                }
+            ]
+        },
+        {
+            "orderId": "89d1fee2-f591-49bb-b947-8d272c6de71c",
+            "customerId": "Bramble & Bite Berry Co.",
+            "customerName": "Bramble & Bite Berry Co.",
+            "deliveryAddress": "Bramble & Bite Berry Co. Distribution Center",
+            "createdDayNumber": 9,
+            "dueDay": 11,
+            "createdTimeMinute": 27,
+            "status": 8,
+            "paymentMethod": 0,
+            "assignedDoorNumber": 2,
+            "assignedLane": "A",
+            "hasBeenFined": false,
+            "lineItems": [
+                {
+                    "skuId": "856320",
+                    "quantityNeeded": 8,
+                    "quantityPicked": 0,
+                    "unitCost": 12,
+                    "sellingPrice": 20
+                },
+                {
+                    "skuId": "912457",
+                    "quantityNeeded": 9,
+                    "quantityPicked": 9,
+                    "unitCost": 20,
+                    "sellingPrice": 32
+                },
+                {
+                    "skuId": "215678",
+                    "quantityNeeded": 5,
+                    "quantityPicked": 5,
+                    "unitCost": 19,
+                    "sellingPrice": 30
+                },
+                {
+                    "skuId": "999999",
+                    "quantityNeeded": 10,
+                    "quantityPicked": 10,
+                    "unitCost": 20,
+                    "sellingPrice": 35
+                },
+                {
+                    "skuId": "903561",
+                    "quantityNeeded": 6,
+                    "quantityPicked": 6,
+                    "unitCost": 24,
+                    "sellingPrice": 40
+                }
+            ]
+        }
+    ],
     "formerEmployees": [],
     "economy": {
         "hourlyByGLLine": [
@@ -45336,15 +45685,15 @@
         "fractionalByGLLine": [
             {
                 "glLine": "Loss Prevention",
-                "fractionalRemainder": 0.6665578484535217
+                "fractionalRemainder": 0.4165508449077606
             },
             {
                 "glLine": "Doors",
-                "fractionalRemainder": 0.9834195375442505
+                "fractionalRemainder": 0.4834251403808594
             },
             {
                 "glLine": "Barriers",
-                "fractionalRemainder": 0.016796469688415529
+                "fractionalRemainder": 0.5168046951293945
             },
             {
                 "glLine": "Dock Stocker",
@@ -45352,30 +45701,30 @@
             },
             {
                 "glLine": "Reach Truck",
-                "fractionalRemainder": 0.36648619174957278
+                "fractionalRemainder": 0.3664693832397461
             },
             {
                 "glLine": "Flavor",
-                "fractionalRemainder": 0.8995025157928467
+                "fractionalRemainder": 0.8994688987731934
             },
             {
                 "glLine": "Groundskeeping",
-                "fractionalRemainder": 0.75
+                "fractionalRemainder": 0.0
             },
             {
                 "glLine": "Racking",
-                "fractionalRemainder": 0.4007096290588379
+                "fractionalRemainder": 0.40073204040527346
             },
             {
                 "glLine": "Walls",
-                "fractionalRemainder": 0.9664554595947266
+                "fractionalRemainder": 0.4664386510848999
             }
         ]
     },
     "time": {
-        "hour": 23,
-        "minute": 48,
-        "day": 8,
+        "hour": 11,
+        "minute": 33,
+        "day": 9,
         "fractionalMinutes": 0.0
     },
     "workQueue": [],
@@ -45475,7 +45824,7 @@
             "palletId": "6ac69aba-fbaa-4d3e-b121-49620cd671cb",
             "loadId": "5723611850",
             "skuId": "215678",
-            "quantity": 32,
+            "quantity": 17,
             "receivedDayNumber": 5,
             "expirationDayNumber": -1,
             "isContaminated": false,
@@ -45514,7 +45863,7 @@
             "palletId": "b638c9de-56ec-49df-b76b-e57cd2303aec",
             "loadId": "6103120829",
             "skuId": "897034",
-            "quantity": 45,
+            "quantity": 30,
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
@@ -45670,7 +46019,7 @@
             "palletId": "7c91404e-42cc-4a3f-a1a0-27cd1d92065a",
             "loadId": "4016503199",
             "skuId": "248905",
-            "quantity": 16,
+            "quantity": 6,
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
@@ -45696,7 +46045,7 @@
             "palletId": "b2a2d94f-cdde-4db7-85d4-ee0761277cf0",
             "loadId": "6258176932",
             "skuId": "975031",
-            "quantity": 48,
+            "quantity": 39,
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
@@ -45722,7 +46071,7 @@
             "palletId": "12cf027f-da8d-45b3-bd2d-e29c0dabc9bb",
             "loadId": "8030730431",
             "skuId": "649320",
-            "quantity": 60,
+            "quantity": 54,
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
@@ -45735,7 +46084,7 @@
             "palletId": "4b1e658c-7738-43e9-812b-d52666daa06f",
             "loadId": "5214428945",
             "skuId": "148972",
-            "quantity": 40,
+            "quantity": 34,
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
@@ -45755,19 +46104,6 @@
             "locationX": 54,
             "locationY": 38,
             "worldHeightY": 2.126999855041504,
-            "stagingLaneId": ""
-        },
-        {
-            "palletId": "d9a46c19-8891-4b97-a80a-3e9b990274ac",
-            "loadId": "8743580706",
-            "skuId": "912457",
-            "quantity": 36,
-            "receivedDayNumber": 6,
-            "expirationDayNumber": -1,
-            "isContaminated": false,
-            "locationX": 53,
-            "locationY": 33,
-            "worldHeightY": 3.611999988555908,
             "stagingLaneId": ""
         },
         {
@@ -45817,9 +46153,9 @@
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
-            "locationX": 49,
-            "locationY": 38,
-            "worldHeightY": 3.6409997940063478,
+            "locationX": 53,
+            "locationY": 33,
+            "worldHeightY": 5.922999858856201,
             "stagingLaneId": ""
         },
         {
@@ -45891,7 +46227,7 @@
             "palletId": "ba436240-089a-444c-a250-8c7411d5dad3",
             "loadId": "2499674027",
             "skuId": "999999",
-            "quantity": 36,
+            "quantity": 21,
             "receivedDayNumber": 6,
             "expirationDayNumber": -1,
             "isContaminated": false,
@@ -46151,7 +46487,7 @@
             "palletId": "12897745-ba5f-42a5-92f0-917b7a1157c2",
             "loadId": "4518088094",
             "skuId": "615873",
-            "quantity": 48,
+            "quantity": 26,
             "receivedDayNumber": 7,
             "expirationDayNumber": -1,
             "isContaminated": false,
@@ -46262,6 +46598,1384 @@
             "locationX": 55,
             "locationY": 33,
             "worldHeightY": 6.383000373840332,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "5ef380f7-0094-4bc1-ae74-c28f9d9f4808",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 33,
+            "worldHeightY": 2.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "dc041119-bbd4-402d-ab35-6bf5c9406526",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 40,
+            "locationY": 33,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "95d71259-469d-4963-985f-48fac7ade201",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 33,
+            "worldHeightY": 3.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "941f20c5-053d-430f-94e0-aa4b758ce8fa",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 45,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "807b01b8-7691-4748-9be2-dcf042985550",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 33,
+            "worldHeightY": 1.9229999780654908,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "7ca06989-3c4c-42d0-9045-c3c479e35f9f",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 45,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "b32a919b-109e-472f-9f37-e38bd974c223",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 46,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "8dd67e11-792a-4c68-85ce-7912b1690999",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 33,
+            "worldHeightY": 2.922999858856201,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "e37ddaea-2e8a-450a-85a2-ac4e540f34af",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 44,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "2d5c92a2-05ba-418b-b464-2df3cc6fa8dd",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 33,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "2797733a-743d-4fd8-b36e-3c5f4ecc0217",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 48,
+            "locationY": 33,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "7ab2564a-8e5a-4507-86e8-a8fb33e52215",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 43,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "299ca2ec-8c6b-40ba-952e-302f0aeae333",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 49,
+            "locationY": 33,
+            "worldHeightY": 2.5349998474121095,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "f4619e23-92a5-4035-b28c-3a6d9f152932",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 44,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "58deea2a-9d9e-412e-b22c-3c8b0c87c0b5",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 41,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "5263881a-247b-42e0-a349-3da0dcd8fa12",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 42,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "882b9af0-9890-4fa3-8dd5-9d22233b867b",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 53,
+            "locationY": 33,
+            "worldHeightY": 3.1039998531341554,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "1c7b6f28-cec7-4b6a-931c-dc75938f46c7",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 48,
+            "locationY": 33,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "3edad5a4-617f-4b0e-9fc0-e73ea1a96738",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 39,
+            "locationY": 33,
+            "worldHeightY": 2.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "0bc97d1e-32bb-40b2-97e3-a9ab88dd8ed3",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 49,
+            "locationY": 33,
+            "worldHeightY": 3.5349998474121095,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "c763f8e6-8eed-4054-8d10-97c7a1b2f663",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 41,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "d7760589-30f2-49f6-94e2-2ddbe76a7798",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 49,
+            "locationY": 33,
+            "worldHeightY": 4.534999847412109,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "5a3a1a6c-6244-41c0-9e09-fd77184750b0",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 39,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "8a07bd2c-6d34-424e-9d29-67afcc96d5ad",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 40,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "cd5fddad-e097-4818-9aae-abe44a761f34",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 33,
+            "worldHeightY": 3.2079999446868898,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "4fc8dfcd-f53a-4392-90bc-753c3408c9b6",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 52,
+            "locationY": 33,
+            "worldHeightY": 2.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "c33985a8-76ac-4f44-8053-e0586c913046",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 43,
+            "locationY": 33,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "c08750d1-817e-46d0-95dd-68c5aa0ac6fc",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 47,
+            "locationY": 33,
+            "worldHeightY": 5.390999794006348,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "4a487662-2208-46cb-8195-90d85670ba99",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 33,
+            "worldHeightY": 3.922999858856201,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "9e58d7b9-7810-4804-ac1a-21ee8166386e",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 33,
+            "worldHeightY": 4.208000183105469,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a8cab010-a7aa-4b15-809c-b02e406613fe",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 33,
+            "worldHeightY": 4.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a485e5f6-4bc9-4843-a446-9c26ccc18d5b",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 52,
+            "locationY": 33,
+            "worldHeightY": 3.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "09ba5084-6bd8-44e8-ade5-2120a581111b",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 46,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "d9c27e52-915e-4345-ba87-144c9b368354",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 33,
+            "worldHeightY": 5.208000183105469,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "c564b681-c176-4195-87f8-102bb9020714",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 44,
+            "worldHeightY": 3.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "bf29833c-9b5d-439e-b2b0-83046f0415a2",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 43,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "3cc542df-3d47-4a86-9822-87c1d7af25ab",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 33,
+            "worldHeightY": 5.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "69df79bb-00e2-435b-9277-6699e9ccdc38",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 42,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "3d457378-c24d-4c5b-ab78-320e84e77a22",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 52,
+            "locationY": 33,
+            "worldHeightY": 4.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "06136f38-b1d1-4383-a974-08486b765369",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 48,
+            "locationY": 33,
+            "worldHeightY": 3.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "3a97bf64-166e-4eb7-812e-17a050bd50dc",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 53,
+            "locationY": 33,
+            "worldHeightY": 4.104000091552734,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "64f4d151-0442-4142-8785-3c72484ed20e",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 33,
+            "worldHeightY": 2.8389999866485597,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "14c3a422-4719-47a6-a6d1-ded73f0f5fa5",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 59,
+            "locationY": 33,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "dd86cc6d-e95e-44d0-83ec-81e1799256eb",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 33,
+            "worldHeightY": 3.8389999866485597,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "545c96e6-60b2-49c1-a4ad-d60aebfa22e5",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 38,
+            "locationY": 33,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "84e1c937-d3ca-4849-85d1-5ba0f4f921d5",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 33,
+            "worldHeightY": 4.8389997482299809,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a761c469-0d61-438f-9cd5-aa2d54ab6c7a",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 42,
+            "worldHeightY": 3.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "17ae12d0-446e-4ecb-8e51-d99716090e3f",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 46,
+            "worldHeightY": 3.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "983956ee-6e0c-4fdf-bdbe-1349bb3d09d7",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 52,
+            "locationY": 33,
+            "worldHeightY": 5.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a0f5752b-7b0a-4a50-b641-68f77ce47c20",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 33,
+            "worldHeightY": 4.922999858856201,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "ef73b907-e231-47a8-bfc7-e50714b1f168",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 41,
+            "worldHeightY": 3.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "d21e34e9-cf00-49a3-9c28-b12301d7495a",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 57,
+            "locationY": 33,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "85c1ab4a-5a65-46c9-aa9e-5603cdb3ce61",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 8,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 54,
+            "locationY": 33,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "605b935a-6af5-4562-b20c-fcacc160b9da",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 33,
+            "worldHeightY": 6.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "36a6c3d6-9aea-49cc-934d-9ecfc277ac90",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 52,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 40,
+            "locationY": 33,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "ed5840fe-8833-4d32-8c1f-ad9ddc6b9583",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 33,
+            "worldHeightY": 7.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "633b3911-b19d-473b-9b9a-6894c74057c0",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 45,
+            "worldHeightY": 3.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "c7039e22-45f3-4e8a-81a6-3d4a77eb4a35",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 33,
+            "worldHeightY": 5.922999858856201,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "ef1db63d-04ee-4de8-b1eb-36c2221a676d",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 45,
+            "worldHeightY": 4.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "b94e1d13-0ffa-4276-a1a7-8d2d911d9f51",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 46,
+            "worldHeightY": 4.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "20f7b002-4d70-43ec-ad26-36892284594d",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 33,
+            "worldHeightY": 6.922999858856201,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "06add1fd-769b-43e8-93d7-552b6d73ff46",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 44,
+            "worldHeightY": 4.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a69e9bb2-e58e-46da-a5c6-72d8ed4f8f14",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 33,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "e86a1cd3-2b03-47db-8d89-ddf13f65d473",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 48,
+            "locationY": 33,
+            "worldHeightY": 4.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "fbfecaca-06a5-4a8d-9266-e0ca139de9a6",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 43,
+            "worldHeightY": 3.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a82bacd2-1ee2-458a-ab92-8a97b288de64",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 49,
+            "locationY": 33,
+            "worldHeightY": 5.534999847412109,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "3421f2fa-ec45-4292-85dc-a7ad4b427427",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 44,
+            "worldHeightY": 5.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "5fbd5e54-81c2-4875-9ef8-b6cd81160a4c",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 41,
+            "worldHeightY": 4.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "c0832169-34c9-4c0f-b9ca-ebb73b0778ea",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 42,
+            "worldHeightY": 4.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "d4ee9b0b-5d91-47f8-9abd-0686f3a1cc55",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 53,
+            "locationY": 33,
+            "worldHeightY": 5.104000091552734,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "349b3082-d5f9-4c53-bd49-73e7b6608581",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 48,
+            "locationY": 33,
+            "worldHeightY": 5.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "8a367fe3-e065-4f3f-883b-559b26b59b52",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 39,
+            "locationY": 33,
+            "worldHeightY": 3.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "67bb0d28-c9bf-4216-80bc-dd87f908f871",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 49,
+            "locationY": 33,
+            "worldHeightY": 6.534999847412109,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "d616a42c-e903-4769-9b1e-27b58bd78698",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 41,
+            "worldHeightY": 5.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "910d6703-99fe-479a-af13-afbdf16ce1ca",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 49,
+            "locationY": 33,
+            "worldHeightY": 7.534999847412109,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "6e4a5367-5982-48b8-a35e-066063103eb4",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 39,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "e52b485e-7672-468e-8a9f-9b656359e873",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 40,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "fc5f8ddf-acbb-46a7-9546-315f2a5ef9d7",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 33,
+            "worldHeightY": 6.208000183105469,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a5163697-ad31-4dc1-8a14-848efffada36",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 52,
+            "locationY": 33,
+            "worldHeightY": 6.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "72e13bb7-752e-4c95-9190-76a6cff26fb6",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 43,
+            "locationY": 33,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "f5dfd986-f8b0-4c70-a532-0c25163bef4d",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 47,
+            "locationY": 33,
+            "worldHeightY": 6.390999794006348,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "0b7312bd-a820-4d75-97f1-bfe54ed09ad4",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 33,
+            "worldHeightY": 7.922999858856201,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "6209aaf9-dcdc-4874-97f0-ed2e563ea21e",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 33,
+            "worldHeightY": 7.208000183105469,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "2fb60408-a3ab-4421-a673-8bc5acceec44",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 33,
+            "worldHeightY": 8.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a174276e-de38-4c3b-9853-327e090aa190",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 52,
+            "locationY": 33,
+            "worldHeightY": 7.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "bc462f41-f705-4daa-8d93-11a75d8b77f0",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 46,
+            "worldHeightY": 5.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "b088173f-1af1-4e12-bf69-e7a7f0484e6e",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 33,
+            "worldHeightY": 8.208000183105469,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "0a9f8bbb-cffc-4ba9-9088-36f89aebe81e",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 44,
+            "worldHeightY": 6.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "02dc610e-47e6-40c9-9ab2-5df25a864bcd",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 43,
+            "worldHeightY": 4.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "13a4926a-5ebf-462e-9452-e3f8473e01cf",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 33,
+            "worldHeightY": 9.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "42506b44-e6f9-4d3b-a24b-cb2b68d929aa",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 42,
+            "worldHeightY": 5.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "2b46a5be-a776-4bb5-a5a4-0b1d190fc8f5",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 52,
+            "locationY": 33,
+            "worldHeightY": 8.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "06cc2842-cc60-4d31-8d64-8f677d098078",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 46,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 48,
+            "locationY": 33,
+            "worldHeightY": 6.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "2f6effa2-9ec0-4ef7-bd10-369b3e632f34",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 53,
+            "locationY": 33,
+            "worldHeightY": 6.104000091552734,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "e1893271-678f-4b9f-b236-123556a59655",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 33,
+            "worldHeightY": 5.8389997482299809,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "b25e82c5-1132-4963-8b2e-b66cbd021cae",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 39,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 59,
+            "locationY": 33,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "d1bc36fd-bb66-47da-90de-8d96525c6744",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 33,
+            "worldHeightY": 6.8389997482299809,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "ef430298-0620-4a67-8b09-12e97a3b56ad",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 38,
+            "locationY": 33,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "76bdab3e-6608-4c51-b80b-222b425034b7",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 33,
+            "worldHeightY": 7.8389997482299809,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "96e3113f-4538-4a3d-b13b-d39e86d3a7e8",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 42,
+            "worldHeightY": 6.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "76250c4a-2236-4e81-8eb3-783ae1342edb",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 46,
+            "worldHeightY": 6.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "bb5d5f45-a11e-4561-b1b5-637e29c96b5c",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 52,
+            "locationY": 33,
+            "worldHeightY": 9.126999855041504,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "dba39694-241b-4474-97c1-41474804d2ad",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 33,
+            "worldHeightY": 8.92300033569336,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "7ce25897-03b3-42f0-aa7f-d9b79cafbadc",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 60,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 65,
+            "locationY": 41,
+            "worldHeightY": 6.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "90c63e75-c479-4904-b973-c39c9493ef9c",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 43,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 57,
+            "locationY": 33,
+            "worldHeightY": 2.1500000953674318,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "3beb5bfd-14bb-4c66-9245-2412e9fa69b4",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 54,
+            "receivedDayNumber": 9,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 54,
+            "locationY": 33,
+            "worldHeightY": 2.1500000953674318,
             "stagingLaneId": ""
         }
     ],
@@ -82504,15 +84218,15 @@
         {
             "objDataId": 1,
             "worldPosition": {
-                "x": -0.7124998569488525,
-                "y": 5.109999656677246,
-                "z": -15.287498474121094
+                "x": 4.587502956390381,
+                "y": 3.109999895095825,
+                "z": -21.912498474121095
             },
             "worldRotation": {
                 "x": 0.0,
-                "y": 1.0,
+                "y": 0.0,
                 "z": 0.0,
-                "w": 0.0
+                "w": 1.0
             },
             "worldSpaceYHeight": 2.397700071334839,
             "inventoryPalletId": "e9821979-896e-4f6a-8c32-f27240536305",
@@ -112883,7 +114597,108 @@
             "capturedHi": 6
         }
     ],
-    "trucks": [],
+    "trucks": [
+        {
+            "poNumber": "",
+            "assignedDoorNumber": 2,
+            "truckState": 9,
+            "worldPosition": {
+                "x": -4.687501430511475,
+                "y": 0.0,
+                "z": 12.51249885559082
+            },
+            "worldRotation": {
+                "x": 0.0,
+                "y": -8.742277657347586e-8,
+                "z": 0.0,
+                "w": -1.0
+            },
+            "dockedTime": 40.43330764770508,
+            "offloadClaimed": false,
+            "offloadComplete": false,
+            "doorsOpen": true,
+            "gateQueueIndex": 0,
+            "currentTarget": {
+                "x": -16.78750228881836,
+                "y": 0.0,
+                "z": 16.512500762939454
+            },
+            "useBezier": false,
+            "bzP0": {
+                "x": -16.156919479370118,
+                "y": 0.0,
+                "z": 16.51042938232422
+            },
+            "bzP1": {
+                "x": -7.17144775390625,
+                "y": 0.0,
+                "z": 15.01126766204834
+            },
+            "bzP2": {
+                "x": -4.6875,
+                "y": 0.0,
+                "z": 21.622173309326173
+            },
+            "bzP3": {
+                "x": -4.687501430511475,
+                "y": 0.0,
+                "z": 12.51249885559082
+            },
+            "bzT": 1.0005295276641846,
+            "bzArcLen": 18.219350814819337,
+            "trailerPallets": []
+        },
+        {
+            "poNumber": "",
+            "assignedDoorNumber": 1,
+            "truckState": 9,
+            "worldPosition": {
+                "x": -13.962498664855957,
+                "y": 0.0,
+                "z": 12.51249885559082
+            },
+            "worldRotation": {
+                "x": 0.0,
+                "y": -8.742277657347586e-8,
+                "z": 0.0,
+                "w": -1.0
+            },
+            "dockedTime": 40.43330764770508,
+            "offloadClaimed": false,
+            "offloadComplete": false,
+            "doorsOpen": true,
+            "gateQueueIndex": 0,
+            "currentTarget": {
+                "x": -26.0625,
+                "y": 0.0,
+                "z": 16.512500762939454
+            },
+            "useBezier": false,
+            "bzP0": {
+                "x": -25.442733764648439,
+                "y": 0.0,
+                "z": 16.510467529296876
+            },
+            "bzP1": {
+                "x": -16.445560455322267,
+                "y": 0.0,
+                "z": 15.03504753112793
+            },
+            "bzP2": {
+                "x": -13.962496757507325,
+                "y": 0.0,
+                "z": 21.629844665527345
+            },
+            "bzP3": {
+                "x": -13.962498664855957,
+                "y": 0.0,
+                "z": 12.51249885559082
+            },
+            "bzT": 1.0007153749465943,
+            "bzArcLen": 18.234691619873048,
+            "trailerPallets": []
+        }
+    ],
     "carriedPallets": [],
     "gameVolume": 0.4020000100135803,
     "musicVolume": 0.02800000086426735,
@@ -112891,5 +114706,5 @@
     "difficulty": 0,
     "resolutionIndex": 1,
     "screenWidth": 1920,
-    "screenHeight": 1080
+    "screenHeight": 840
 }

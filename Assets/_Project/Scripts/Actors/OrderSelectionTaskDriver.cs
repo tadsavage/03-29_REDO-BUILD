@@ -100,24 +100,25 @@ namespace GameCore.Actors
 
             if (!TryFindBestPickLocation(_currentOrder, out var location, out var lineItem, out int takeQty))
             {
-                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for any remaining line item — abandoning for now.");
-
-                // Leave any partial pallet(s) behind in the world (unparent, keep world position)
-                // instead of letting them keep riding along with us — a stalled pick job shouldn't
-                // silently follow the employee onto their next order and end up co-located with
-                // whatever fresh pallet they start there.
-                UnparentAllPallets();
-
-                // Clear our own references (task stays claimed/Assigned in the queue, not retried —
-                // see summary above) so the next claimed order starts with a fresh pallet instead of
-                // silently continuing to add cases onto this abandoned one.
-                _currentTask = null;
-                _currentOrder = null;
-                _pallets.Clear();
-
-                _taskInProgress = false;
-                _nav.SetTaskBusy(false);
-                _nav.Patrol();
+                // No reachable location for any remaining line item — genuinely out of stock, not a
+                // transient miss. Rather than stranding the WIP pallet wherever the selector happens
+                // to be standing (the old behavior — permanent aisle debris, and the WorkTask sat
+                // Assigned forever until the stale-assignment sweep freed it for another selector to
+                // re-claim and build a *second* pallet from scratch), deliver whatever was picked to
+                // staging via the normal path and mark the order Backorder so it's visibly distinct
+                // from a fully-Staged, truck-ready order.
+                int pickedSoFar = _pallets.Sum(p => p != null ? p.TotalCases : 0);
+                if (pickedSoFar > 0)
+                {
+                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for its remaining line item(s) — delivering {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits} picked units to staging as a backorder.");
+                    FinishOrder(OrderData.OrderStatus.Backorder);
+                }
+                else
+                {
+                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for any line item — marking backorder, nothing picked yet.");
+                    _currentOrder.Status = OrderData.OrderStatus.Backorder;
+                    FinishOrderCleanup(_currentTask);
+                }
                 return;
             }
 
@@ -291,17 +292,28 @@ namespace GameCore.Actors
         /// place if no staging slot is available right now (no door was assigned at creation, or
         /// every outbound lane at that door is currently full) rather than getting stuck; Phase D can
         /// revisit orders that landed here once loading exists.</summary>
-        private void FinishOrder()
+        private void FinishOrder(OrderData.OrderStatus completionStatus = OrderData.OrderStatus.Staged)
         {
             var task = _currentTask;
             var order = _currentOrder;
 
             Vector3? stagingPos = null;
             Vector3 depthAxis = Vector3.forward;
+            string failReason = null;
 
-            if (order.AssignedDoorNumber > 0 && !string.IsNullOrEmpty(order.AssignedLane)
-                && _inventoryService.TryFindStagingSlotInLane(order.AssignedDoorNumber, order.AssignedLane, out var slot)
-                && LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var pos))
+            if (order.AssignedDoorNumber <= 0 || string.IsNullOrEmpty(order.AssignedLane))
+            {
+                failReason = "order was never released to a staging lane (AssignedDoorNumber/AssignedLane unset — check the Work Queue panel release)";
+            }
+            else if (!_inventoryService.TryFindStagingSlotInLane(order.AssignedDoorNumber, order.AssignedLane, out var slot))
+            {
+                failReason = $"no open slot in {order.AssignedDoorNumber}{order.AssignedLane} (lane full, or its Usage doesn't allow outbound picking)";
+            }
+            else if (!LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var pos))
+            {
+                failReason = $"slot {order.AssignedDoorNumber}{order.AssignedLane}-{slot.Slot} resolved but has no computed world position yet (lane geometry not baked?)";
+            }
+            else
             {
                 stagingPos = pos;
                 if (LaneNamingService.TryGetLaneGeometry(slot.DoorNumber, slot.Lane, out var geo))
@@ -320,13 +332,14 @@ namespace GameCore.Actors
                     // where the goods physically are. TrailerLoadController (D1) finds pallets to
                     // load by scanning position, not by this status, but it's the signal a later
                     // pass (billing, UI) can use to know an order is truck-ready.
-                    order.Status = OrderData.OrderStatus.Staged;
+                    order.Status = completionStatus;
                     FinishOrderCleanup(task);
                 });
             }
             else
             {
-                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) has no open slot in its assigned lane {order.AssignedDoorNumber}{order.AssignedLane} — leaving pallet(s) in place for now.");
+                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) can't reach staging — {failReason}. Leaving pallet(s) where the selector currently stands.");
+                order.Status = completionStatus;
                 UnparentAllPallets();
                 FinishOrderCleanup(task);
             }
