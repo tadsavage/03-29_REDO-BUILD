@@ -88,6 +88,12 @@ namespace GameCore.Actors
         private float _pollTimer;
         private bool  _busy;
 
+        // Throttled state dump so a stalled truck is diagnosable without flooding the console —
+        // fires regardless of _busy/occupied/role so it can reveal exactly which precondition
+        // is blocking Update() from ever reaching TryClaimAndStart().
+        private float _diagTimer;
+        private const float DiagInterval = 5f;
+
         // palletId → earliest Time.time it may be re-claimed. Populated when a putaway can't find any
         // rack destination, so the truck doesn't livelock re-picking an un-storable pallet.
         private readonly Dictionary<string, float> _blockedUntil = new Dictionary<string, float>();
@@ -124,6 +130,13 @@ namespace GameCore.Actors
 
         private void Update()
         {
+            _diagTimer -= Time.deltaTime;
+            if (_diagTimer <= 0f)
+            {
+                _diagTimer = DiagInterval;
+                LogDiagnostics();
+            }
+
             if (_busy) return;
             if (!_operatorSlot.IsOccupied) return;
 
@@ -138,6 +151,30 @@ namespace GameCore.Actors
             _pollTimer = TaskPollInterval;
 
             TryClaimAndStart();
+        }
+
+        /// <summary>
+        /// Throttled snapshot of every precondition Update() checks before it will even attempt
+        /// TryClaimAndStart() — printed on a timer (not gated by _busy) so a truck that's silently
+        /// stuck (e.g. _busy stuck true after a save/load resume coroutine died) is diagnosable
+        /// instead of producing zero console output.
+        /// </summary>
+        private void LogDiagnostics()
+        {
+            string guid = _operatorSlot?.CurrentOperator?.Record?.employeeGuid;
+            bool occupied = _operatorSlot != null && _operatorSlot.IsOccupied;
+            var role = _operatorSlot?.CurrentOperator?.Record?.role;
+
+            int availablePutawayOrReplenish = _workQueue?.Tasks.Count(t =>
+                t.RequiredRole == EmployeeRole.ReachTruckOperator &&
+                t.Status == WorkTaskStatus.Available) ?? -1;
+
+            int assignedToMe = _workQueue?.Tasks.Count(t =>
+                t.AssignedToEmployeeGuid == guid && t.Status == WorkTaskStatus.Assigned) ?? -1;
+
+            Debug.Log($"[ReachTruckOperator] '{name}' diag: busy={_busy} occupied={occupied} " +
+                $"role={role} workQueueNull={_workQueue == null} " +
+                $"availablePutawayReplenish={availablePutawayOrReplenish} assignedToMe={assignedToMe}");
         }
 
         private void TryClaimAndStart()
@@ -160,7 +197,11 @@ namespace GameCore.Actors
                 t.AssignedToEmployeeGuid == guid);
 
             if (alreadyAssigned != null && IsPalletBlocked(alreadyAssigned.PalletId))
+            {
+                Debug.LogWarning($"[ReachTruckOperator] '{name}' assigned task {alreadyAssigned.TaskId} " +
+                    $"(pallet {alreadyAssigned.PalletId}) is backed off — no other tasks will be claimed until it clears.");
                 return; // this operator's assigned pallet has no rack space yet — wait out the backoff
+            }
 
             if (alreadyAssigned != null)
             {
@@ -174,7 +215,11 @@ namespace GameCore.Actors
             }
 
             var pending = _workQueue.GetPendingTasksForRole(EmployeeRole.ReachTruckOperator);
-            if (pending.Count == 0) return;
+            if (pending.Count == 0)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] '{name}' found no Available Putaway/Replenish tasks this poll.");
+                return;
+            }
 
             // Selection rule: highest WorkTask.Priority wins (higher = more urgent — Replenish defaults
             // to 250, Putaway to 100, an empty pick slot blocks picking so it jumps the queue); ties keep
