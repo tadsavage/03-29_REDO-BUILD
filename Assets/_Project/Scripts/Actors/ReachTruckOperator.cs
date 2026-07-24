@@ -199,11 +199,23 @@ namespace GameCore.Actors
                         continue;
                     }
 
-                    if (!TryParseLaneName(t.FromLocation, out int d, out string l)) continue;
-                    if (!LaneNamingService.TryGetLaneGeometry(d, l, out _)) continue;
+                    if (!TryParseLaneName(t.FromLocation, out int d, out string l))
+                    {
+                        Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} FromLocation '{t.FromLocation}' failed to parse as a lane name. Skipping.");
+                        continue;
+                    }
+                    if (!LaneNamingService.TryGetLaneGeometry(d, l, out _))
+                    {
+                        Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} lane {d}{l} has no resolved geometry yet. Skipping this poll.");
+                        continue;
+                    }
 
                     // RULE: Only claim tasks for pallets that are currently accessible (topmost and received).
-                    if (!IsPalletAccessible(t.PalletId, d, l)) continue;
+                    if (!IsPalletAccessible(t.PalletId, d, l))
+                    {
+                        Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} pallet {t.PalletId} is not the exit-most accessible pallet in lane {d}{l} (buried or not yet received). Skipping.");
+                        continue;
+                    }
                 }
                 // Replenish tasks already know both endpoints (rack addresses resolved and reserved
                 // by ReplenishmentService at creation) — no lane/accessibility check needed here.

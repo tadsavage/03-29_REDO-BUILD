@@ -38,6 +38,7 @@ public class WallVisibilityManager : MonoBehaviour
 
     private List<WallData> _trackedWalls = new();
     private List<Renderer> _dynamicallyFoundDecor = new();
+    private Dictionary<Renderer, Material[]> _ghostedLightOriginalMaterials = new();
     private WallVisibilityMode _currentMode = WallVisibilityMode.Full;
     private Coroutine _activeSlideCoroutine;
 
@@ -176,6 +177,7 @@ public class WallVisibilityManager : MonoBehaviour
                 SetRenderersEnabled(wall.renderers, true);
                 SetWallMaterials(wall, false);
                 foreach (var decor in _dynamicallyFoundDecor) if (decor != null) decor.enabled = true;
+                RestoreGhostedLights();
             }
             else if (_currentMode == WallVisibilityMode.Mid)
             {
@@ -211,6 +213,12 @@ public class WallVisibilityManager : MonoBehaviour
                     HideFloatingObjectsAbove(wall.mainCollider);
             }
         }
+
+        // Light fixtures (e.g. Round Light) are placed freely anywhere in the room —
+        // ignorePlacementRules means they aren't tied to any wall's footprint or collider,
+        // so find them directly by component instead of relying on a physics scan.
+        if (_currentMode == WallVisibilityMode.Lowered)
+            GhostAllLightFixtures();
 
         if (_currentMode == WallVisibilityMode.Full) _dynamicallyFoundDecor.Clear();
         if (_audioSource != null) _audioSource.Stop();
@@ -264,14 +272,63 @@ public class WallVisibilityManager : MonoBehaviour
         {
             if (hit.gameObject == wallCollider.gameObject || hit.transform.IsChildOf(wallCollider.transform)) continue;
             Renderer r = hit.GetComponent<Renderer>() ?? hit.GetComponentInChildren<Renderer>();
-            if (r == null || !r.enabled || IsLightRenderer(r)) continue;
+            if (r == null || !r.enabled || IsLightFixtureRenderer(r)) continue;
 
             r.enabled = false;
             _dynamicallyFoundDecor.Add(r);
         }
     }
 
-    private static bool IsLightRenderer(Renderer candidate)
+    // Finds every non-Directional Light in the scene and ghosts its housing mesh
+    // renderer(s) with the same transparent material used on lowered walls. Runs once
+    // per Lowered transition rather than per-wall, since fixtures like Round Light
+    // (ignorePlacementRules = true) can be placed anywhere in the room.
+    private void GhostAllLightFixtures()
+    {
+        Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var sceneLight in sceneLights)
+        {
+            if (sceneLight == null || sceneLight.type == LightType.Directional) continue;
+
+            Transform housingParent = sceneLight.transform.parent;
+            if (housingParent == null) continue;
+
+            Renderer[] housingRenderers = housingParent.GetComponentsInChildren<Renderer>(true);
+            foreach (var r in housingRenderers)
+            {
+                if (r != null && r.transform != sceneLight.transform)
+                    GhostLightRenderer(r);
+            }
+        }
+    }
+
+    // Applies the same transparent material used on lowered walls to a light fixture's
+    // renderer, remembering its original materials so RestoreGhostedLights() can revert it.
+    private void GhostLightRenderer(Renderer r)
+    {
+        if (r == null || loweredMaterial == null || _ghostedLightOriginalMaterials.ContainsKey(r)) return;
+
+        _ghostedLightOriginalMaterials[r] = r.sharedMaterials;
+        Material[] mats = new Material[r.sharedMaterials.Length];
+        for (int i = 0; i < mats.Length; i++) mats[i] = loweredMaterial;
+        r.sharedMaterials = mats;
+    }
+
+    // Restores the original materials on every light fixture renderer that was ghosted
+    // while walls were lowered.
+    private void RestoreGhostedLights()
+    {
+        foreach (var kvp in _ghostedLightOriginalMaterials)
+        {
+            if (kvp.Key != null) kvp.Key.sharedMaterials = kvp.Value;
+        }
+        _ghostedLightOriginalMaterials.Clear();
+    }
+
+    // True if this renderer belongs to a light fixture's housing (sibling of, parent of,
+    // or child of a Light component) — used by the per-wall decor scan to skip fixtures
+    // so GhostAllLightFixtures() is the single source of truth for ghosting them.
+    private static bool IsLightFixtureRenderer(Renderer candidate)
     {
         if (candidate == null) return false;
 

@@ -21,7 +21,7 @@ MonoBehaviour:
   prefab: {fileID: 6269753735943479528, guid: d812ef2dafadd5048abb007a456e4510, type: 3}
   icon: {fileID: 2800000, guid: 17c645385040c8c46a4e4b6bee3a5053, type: 3}
   ignorePlacementRules: 0
-  isFloor: 0
+  isFloor: 1
   canBeReplacedByDoor: 0
   replacesWalls: 0
   ClearsGridAfterPlacement: 0
@@ -31,6 +31,7 @@ MonoBehaviour:
   CanUseStairs: 0
   isStackable: 0
   objHeight: 1.06
+  worldYOffset: 0
   defaultFloorTile: {fileID: 11400000, guid: 76a165aafe95d134387cb2eef58db951, type: 2}
   footprint: {x: 2, y: 2}
   customShapeOffsets:

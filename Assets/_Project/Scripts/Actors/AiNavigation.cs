@@ -476,7 +476,10 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         foreach (float offset in yOffsets)
         {
             Vector3 sample = new Vector3(transform.position.x, transform.position.y + offset, transform.position.z);
-            if (NavMesh.SamplePosition(sample, out NavMeshHit hit, 0.5f, NavMesh.AllAreas))
+            // Restrict sampling to this agent's own allowed areas — NavMesh.AllAreas would also match
+            // the ground-level (y~0) layer baked under every dock/floor for non-human agents ("rats"),
+            // letting a human/MHE agent snap down onto that layer during an edge-case rebake.
+            if (NavMesh.SamplePosition(sample, out NavMeshHit hit, 0.5f, agent.areaMask))
             {
                 try { agent.Warp(hit.position); } catch { }
                 return;

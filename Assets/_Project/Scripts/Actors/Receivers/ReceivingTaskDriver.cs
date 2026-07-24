@@ -40,6 +40,7 @@ namespace GameCore.Actors
         private AiNavigation _nav;
         private ReceiverReceivingWorkflow _workflow;
         private WorkQueueSystem _workQueue;
+        private int _agentAreaMask = NavMesh.AllAreas;
 
         private float _pollTimer;
         private bool _taskInProgress;
@@ -58,6 +59,9 @@ namespace GameCore.Actors
             _workflow = GetComponent<ReceiverReceivingWorkflow>();
             if (_workflow == null)
                 _workflow = gameObject.AddComponent<ReceiverReceivingWorkflow>();
+
+            var agent = GetComponent<NavMeshAgent>();
+            if (agent != null) _agentAreaMask = agent.areaMask;
 
             _workflow.OnWorkflowComplete += HandleWorkflowComplete;
             ServiceLocator.TryGet(out _workQueue);
@@ -296,7 +300,7 @@ namespace GameCore.Actors
             {
                 Vector3 candidate = palletTransform.position + dir * StandoffDistance;
 
-                if (!NavMesh.SamplePosition(candidate, out var hit, NavSampleRadius, NavMesh.AllAreas))
+                if (!NavMesh.SamplePosition(candidate, out var hit, NavSampleRadius, _agentAreaMask))
                     continue; // not walkable at all — never pick this side
                 candidate = hit.position;
 
