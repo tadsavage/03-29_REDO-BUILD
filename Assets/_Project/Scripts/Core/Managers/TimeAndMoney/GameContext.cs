@@ -15,6 +15,10 @@ public class GameContext : MonoBehaviour
 
     [SerializeField] private TimeDriver timeDriver;
 
+    [Header("Auto-Load")]
+    [Tooltip("When enabled, quicksave.json is loaded automatically on Start when hitting Play directly. The main menu sets a FromMainMenu flag to override this with its own slot selection.")]
+    [SerializeField] private bool _autoLoadQuicksaveOnStart = true;
+
     [Header("Yard Floor")]
     [Tooltip("Zero-cost floor tile that fills the entire grid at the start of a new game.")]
     [SerializeField] private ObjDataSO _yardFloorTile;
@@ -138,8 +142,36 @@ public class GameContext : MonoBehaviour
         LoadingScreenManager.Instance?.SetProgress(0.25f);
 
         bool isNewGame = PlayerPrefs.GetInt("IsNewGame", 0) == 1;
+        bool fromMainMenu = PlayerPrefs.GetInt("FromMainMenu", 0) == 1;
+        int loadSlotIndex = PlayerPrefs.GetInt("LoadSlotIndex", -1);
+
+        // Consume the FromMainMenu flag immediately so it doesn't leak into
+        // subsequent direct-Play sessions.
+        PlayerPrefs.SetInt("FromMainMenu", 0);
+        PlayerPrefs.Save();
+
+        // When auto-load is enabled and we're NOT coming from the main menu
+        // (i.e. the user hit Play directly in the editor), force the quicksave
+        // path and ignore any stale PlayerPrefs from a previous session.
+        if (_autoLoadQuicksaveOnStart && !fromMainMenu)
+        {
+            if (isNewGame)
+            {
+                Debug.Log("[GameContext.Start] Auto-load: overriding stale IsNewGame flag (not from main menu).");
+                isNewGame = false;
+            }
+            if (loadSlotIndex >= 0)
+            {
+                Debug.Log($"[GameContext.Start] Auto-load: overriding stale LoadSlotIndex={loadSlotIndex} (not from main menu).");
+                loadSlotIndex = -1;
+            }
+        }
+
+        Debug.Log($"[GameContext.Start] FromMainMenu={fromMainMenu}, IsNewGame={isNewGame}, LoadSlotIndex={loadSlotIndex}");
+
         if (isNewGame)
         {
+            Debug.Log("[GameContext.Start] New game path: starting fresh.");
             PlayerPrefs.SetInt("IsNewGame", 0);
             PlayerPrefs.Save();
 
@@ -159,13 +191,22 @@ public class GameContext : MonoBehaviour
         }
         else
         {
-            int loadSlotIndex = PlayerPrefs.GetInt("LoadSlotIndex", -1);
+            // loadSlotIndex is -1 for the default continue/autosave case. Numbered slots
+            // (explicitly picked from Resume Shift) still go through SaveManager directly;
+            // everything else calls PlacementSystem.QuickLoad(), the exact same method F9
+            // uses, so boot-load can never diverge from in-game quickload.
             if (loadSlotIndex >= 0 && SaveManager.Instance != null)
+            {
+                Debug.Log($"[GameContext.Start] Loading from slot {loadSlotIndex} via SaveManager.");
                 SaveManager.Instance.LoadFromSlot(loadSlotIndex);
+            }
             else
             {
-                string saveName = PlayerPrefs.GetString("LastSaveName", "quicksave");
-                placement.LoadGame(saveName);
+                Debug.Log("[GameContext.Start] Loading quicksave via PlacementSystem.QuickLoad().");
+                if (placement != null)
+                    placement.QuickLoad();
+                else
+                    Debug.LogError("[GameContext.Start] PlacementSystem not found — cannot load quicksave.");
             }
 
             // Guarantee the yard-floor baseline even on load. The yard tiles are runtime-only

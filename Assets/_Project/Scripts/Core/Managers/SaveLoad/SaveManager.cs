@@ -132,7 +132,11 @@ namespace SaveLoadSystem
             if (slotIndex < 0 || slotIndex >= MAX_SLOTS) return false;
 
             SaveMetadata metadata = metadataCollection.slots[slotIndex];
-            if (metadata == null) return false;
+            if (metadata == null)
+            {
+                Debug.LogWarning($"[SaveManager] LoadFromSlot({slotIndex}): slot metadata is null — slot is empty.");
+                return false;
+            }
 
             string dataFilePath = Path.Combine(saveFolderPath, metadata.gameDataFileName);
             if (!File.Exists(dataFilePath))

@@ -106,6 +106,15 @@ public class WorkQueuePanel
     private SortColumn _sortColumn = SortColumn.Priority;
     private bool _sortAscending;
 
+    // ── Item filter (Excel-style autofilter on the Item# column) ──
+    private VisualElement _modal;
+    private Label _itemFilterHeaderLabel;
+    private Label _itemFilterHeaderIcon;
+    private VisualElement _itemFilterPopup;
+    private bool _itemFilterPopupVisible;
+    private bool _itemFilterActive;
+    private readonly HashSet<string> _itemFilterSelection = new();
+    private string _itemFilterSearchText = "";
 
     private string _liveSignature;
 
@@ -175,6 +184,7 @@ public class WorkQueuePanel
         overlay.style.alignItems = Align.Center;
 
         var modal = new VisualElement { name = "workqueue-modal" };
+        _modal = modal;
         modal.style.position = Position.Absolute;
         modal.style.left = 90;
         modal.style.top = 80;
@@ -266,7 +276,7 @@ public class WorkQueuePanel
         header.style.overflow = Overflow.Hidden;
         header.Add(HeaderCell("", CheckboxWidth));
         header.Add(HeaderCell("Palette ID", PaletteIdWidth, SortColumn.PaletteId));
-        header.Add(HeaderCell("Item#", ItemNumberWidth, SortColumn.ItemNumber));
+        header.Add(BuildItemFilterHeader());
         header.Add(HeaderCell("Area", AreaWidth, SortColumn.Area, marginLeft: 12f));
         header.Add(HeaderCell("Priority", PriorityWidth, SortColumn.Priority));
         header.Add(HeaderCell("Role", RoleWidth, SortColumn.Role));
@@ -401,7 +411,11 @@ public class WorkQueuePanel
         var taskRows = workQueue?.Tasks
             .Where(t => t.Type != WorkTaskType.OrderSelect && t.Status != WorkTaskStatus.Complete)
             .ToList() ?? new List<WorkTask>();
+        Debug.Log($"[WorkQueuePanel.RebuildRows] raw taskRows: {taskRows.Count}, filterActive={_itemFilterActive}");
         taskRows = SortTasks(taskRows);
+        if (_itemFilterActive)
+            taskRows = taskRows.Where(t => _itemFilterSelection.Contains(GetTaskItemNumber(t))).ToList();
+        Debug.Log($"[WorkQueuePanel.RebuildRows] taskRows after filter: {taskRows.Count} (filterActive={_itemFilterActive}, selectionCount={_itemFilterSelection.Count})");
 
         if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null)
         {
@@ -429,6 +443,9 @@ public class WorkQueuePanel
             if (phase.HasValue) rows.Add((order, phase.Value, task));
         }
         rows = SortOrders(rows);
+        if (_itemFilterActive)
+            rows = rows.Where(r => _itemFilterSelection.Contains(GetOrderItemNumber(r.order))).ToList();
+        Debug.Log($"[WorkQueuePanel.RebuildRows] orderRows after filter: {rows.Count} (filterActive={_itemFilterActive}, selectionCount={_itemFilterSelection.Count})");
 
         // Drop checked ids that no longer resolve to a still-actionable row (submitted, or picked
         // up by a selector concurrently) so their checkmark doesn't linger looking "stuck".
@@ -489,7 +506,7 @@ public class WorkQueuePanel
             SortColumn.Operator => rows.OrderBy(r => GetOperatorName(r.task?.AssignedToEmployeeGuid)),
             SortColumn.Customer => rows.OrderBy(r => r.order.CustomerName),
             SortColumn.Order => rows.OrderBy(r => r.order.OrderId),
-            SortColumn.ItemNumber => rows.OrderBy(r => r.order.LineItems.FirstOrDefault()?.SkuId ?? ""),
+            SortColumn.ItemNumber => rows.OrderBy(r => GetOrderItemNumber(r.order)),
             _ => rows.OrderBy(r => r.order.CreatedTimeMinute)
         };
         return (_sortAscending ? sorted : sorted.Reverse()).ToList();
@@ -497,12 +514,18 @@ public class WorkQueuePanel
 
     private static string GetTaskItemNumber(WorkTask task)
     {
-        if (string.IsNullOrEmpty(task.PalletId)) return "";
-        if (!ServiceLocator.TryGet<InventoryService>(out var inventory) || inventory == null) return "";
+        if (string.IsNullOrEmpty(task.PalletId)) return "\u2014";
+        if (!ServiceLocator.TryGet<InventoryService>(out var inventory) || inventory == null) return "\u2014";
         var pallet = inventory.GetPallet(task.PalletId);
-        if (pallet == null) return "";
+        if (pallet == null) return "\u2014";
         var sku = inventory.AllSkus.FirstOrDefault(s => s.SkuId == pallet.SkuId);
         return sku != null ? sku.ItemNumber.ToString() : pallet.SkuId;
+    }
+
+    /// <summary>Returns the item number displayed for an order row — matches BuildRow exactly.</summary>
+    private static string GetOrderItemNumber(OrderData order)
+    {
+        return order.LineItems.FirstOrDefault()?.SkuId ?? "\u2014";
     }
     private RowPhase? DeterminePhase(OrderData order, WorkTask task)
     {
@@ -531,16 +554,7 @@ public class WorkQueuePanel
 
         AddRowCell(row, "", CheckboxWidth, ColSubtleText);
 
-        string itemNumber = "—";
-        if (ServiceLocator.TryGet<InventoryService>(out var inventory) && inventory != null)
-        {
-            var pallet = inventory.GetPallet(task.PalletId);
-            if (pallet != null)
-            {
-                var sku = inventory.AllSkus.FirstOrDefault(s => s.SkuId == pallet.SkuId);
-                itemNumber = sku != null ? sku.ItemNumber.ToString() : pallet.SkuId;
-            }
-        }
+        string itemNumber = GetTaskItemNumber(task);
 
         AddRowCell(row, ShortId(task.PalletId), PaletteIdWidth, ColTitleText);
         AddRowCell(row, itemNumber, ItemNumberWidth, ColTitleText);
@@ -579,7 +593,7 @@ public class WorkQueuePanel
         });
         row.Add(checkbox);
 
-        string itemNumber = order.LineItems.FirstOrDefault()?.SkuId ?? "—";
+        string itemNumber = GetOrderItemNumber(order);
         string area = task != null ? AreaLabel(task.Area) : "—";
         string paletteId = task?.PalletId ?? "—";
         string role = task != null ? task.RequiredRole.DisplayName() : "—";
@@ -808,5 +822,407 @@ public class WorkQueuePanel
         lane = address.Length > 0 ? address.Substring(address.Length - 1) : "";
         string doorPart = address.Length > 1 ? address.Substring(0, address.Length - 1) : "0";
         return int.TryParse(doorPart, out int door) ? door : 0;
+    }
+
+    // ── Item# Autofilter (Excel-style dropdown) ──────────────────────────────
+
+    /// <summary>Builds the clickable Item# header that opens the filter dropdown.</summary>
+    private VisualElement BuildItemFilterHeader()
+    {
+        var container = new VisualElement();
+        container.style.flexShrink = 0;
+        container.style.width = ItemNumberWidth;
+        container.style.minWidth = ItemNumberWidth;
+        container.style.flexDirection = FlexDirection.Row;
+        container.style.alignItems = Align.Center;
+        container.style.paddingLeft = 0;
+        container.style.paddingRight = 0;
+
+        _itemFilterHeaderLabel = new Label("Item#");
+        ApplyFont(_itemFilterHeaderLabel, bold: true, size: 12);
+        _itemFilterHeaderLabel.style.color = new StyleColor(ColSubtleText);
+        _itemFilterHeaderLabel.style.flexGrow = 1;
+        container.Add(_itemFilterHeaderLabel);
+
+        _itemFilterHeaderIcon = new Label("\u25BC");
+        ApplyFont(_itemFilterHeaderIcon, size: 9);
+        _itemFilterHeaderIcon.style.color = new StyleColor(ColSubtleText);
+        _itemFilterHeaderIcon.style.marginLeft = 2;
+        container.Add(_itemFilterHeaderIcon);
+
+        container.RegisterCallback<ClickEvent>(_ => ToggleItemFilterPopup(container));
+        container.RegisterCallback<PointerEnterEvent>(_ =>
+        {
+            if (!_itemFilterActive)
+            {
+                _itemFilterHeaderLabel.style.color = new StyleColor(ColTitleText);
+                _itemFilterHeaderIcon.style.color = new StyleColor(ColTitleText);
+            }
+        });
+        container.RegisterCallback<PointerLeaveEvent>(_ => UpdateItemFilterHeaderAppearance());
+
+        UpdateItemFilterHeaderAppearance();
+        return container;
+    }
+
+    /// <summary>Updates the header label/icon color to reflect whether a filter is active.</summary>
+    private void UpdateItemFilterHeaderAppearance()
+    {
+        if (_itemFilterHeaderLabel == null) return;
+        var c = _itemFilterActive ? ColOrange : ColSubtleText;
+        _itemFilterHeaderLabel.style.color = new StyleColor(c);
+        _itemFilterHeaderIcon.style.color = new StyleColor(c);
+    }
+
+    /// <summary>Collects every unique item number displayed in the Item# column.</summary>
+    private List<string> CollectAllItemNumbers()
+    {
+        var items = new HashSet<string>();
+
+        int taskCount = 0;
+        if (ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) && workQueue != null)
+        {
+            foreach (var task in workQueue.Tasks)
+            {
+                if (task.Status == WorkTaskStatus.Complete) continue;
+                if (task.Type == WorkTaskType.OrderSelect) continue;
+                string itemNum = GetTaskItemNumber(task);
+                items.Add(itemNum);
+                taskCount++;
+            }
+        }
+
+        int orderCount = 0;
+        if (ServiceLocator.TryGet<OrderService>(out var orderService) && orderService != null)
+        {
+            foreach (var order in orderService.ActiveOrders)
+            {
+                items.Add(GetOrderItemNumber(order));
+                orderCount++;
+            }
+        }
+
+        Debug.Log($"[WorkQueuePanel.CollectAllItemNumbers] tasks={taskCount}, orders={orderCount}, uniqueItems={items.Count}: [{string.Join(", ", items)}]");
+
+        var sorted = items.ToList();
+        sorted.Sort(System.StringComparer.OrdinalIgnoreCase);
+        return sorted;
+    }
+
+    private void ToggleItemFilterPopup(VisualElement anchor)
+    {
+        if (_itemFilterPopupVisible)
+        {
+            CloseItemFilterPopup();
+            return;
+        }
+        OpenItemFilterPopup(anchor);
+    }
+
+    private void OpenItemFilterPopup(VisualElement anchor)
+    {
+        var allItems = CollectAllItemNumbers();
+
+        // On first open (no active filter), seed the selection with every item so all
+        // checkboxes start checked — matching Excel's default where everything is visible.
+        if (!_itemFilterActive)
+        {
+            _itemFilterSelection.Clear();
+            foreach (var item in allItems)
+                _itemFilterSelection.Add(item);
+        }
+
+        var anchorBounds = anchor.worldBound;
+        var modalBounds = _modal.worldBound;
+        float popupX = anchorBounds.x - modalBounds.x;
+        float popupY = anchorBounds.y + anchorBounds.height - modalBounds.y;
+
+        _itemFilterPopup = BuildItemFilterPopup(allItems, popupX, popupY);
+        _modal.Add(_itemFilterPopup);
+        _itemFilterPopupVisible = true;
+    }
+
+    private void CloseItemFilterPopup()
+    {
+        if (_itemFilterPopup == null) return;
+        _itemFilterPopup.RemoveFromHierarchy();
+        _itemFilterPopup = null;
+        _itemFilterPopupVisible = false;
+        _itemFilterSearchText = "";
+    }
+
+    private VisualElement BuildItemFilterPopup(List<string> allItems, float x, float y)
+    {
+        const float PopupWidth = 280f;
+        const float PopupMaxHeight = 420f;
+        const float ListMaxHeight = 220f;
+
+        // Full-modal click-catcher so clicking outside the panel closes the popup.
+        var clickCatcher = new VisualElement();
+        clickCatcher.style.position = Position.Absolute;
+        clickCatcher.style.left = 0; clickCatcher.style.top = 0;
+        clickCatcher.style.right = 0; clickCatcher.style.bottom = 0;
+        clickCatcher.style.backgroundColor = new StyleColor(Color.clear);
+        clickCatcher.RegisterCallback<ClickEvent>(e =>
+        {
+            e.StopPropagation();
+            CloseItemFilterPopup();
+        });
+
+        var panel = new VisualElement();
+        panel.style.position = Position.Absolute;
+        panel.style.left = x;
+        panel.style.top = y;
+        panel.style.width = PopupWidth;
+        panel.style.maxHeight = PopupMaxHeight;
+        panel.style.backgroundColor = new StyleColor(new Color(16f / 255f, 22f / 255f, 30f / 255f, 0.98f));
+        panel.style.borderTopWidth = panel.style.borderBottomWidth =
+            panel.style.borderLeftWidth = panel.style.borderRightWidth = 2;
+        panel.style.borderTopColor = panel.style.borderBottomColor =
+            panel.style.borderLeftColor = panel.style.borderRightColor = new StyleColor(ColBorder);
+        panel.style.borderTopLeftRadius = panel.style.borderTopRightRadius =
+            panel.style.borderBottomLeftRadius = panel.style.borderBottomRightRadius = 8;
+        panel.style.paddingTop = 8; panel.style.paddingBottom = 8;
+        panel.style.paddingLeft = 8; panel.style.paddingRight = 8;
+        panel.RegisterCallback<ClickEvent>(e => e.StopPropagation());
+        clickCatcher.Add(panel);
+
+        // ── Sort buttons ──
+        var sortAsc = new Button(() =>
+        {
+            _sortColumn = SortColumn.ItemNumber;
+            _sortAscending = true;
+            RebuildRows();
+            CloseItemFilterPopup();
+        }) { text = "\u2191 Sort Ascending" };
+        ApplyFont(sortAsc, size: 12);
+        StyleFilterButton(sortAsc);
+        panel.Add(sortAsc);
+
+        var sortDesc = new Button(() =>
+        {
+            _sortColumn = SortColumn.ItemNumber;
+            _sortAscending = false;
+            RebuildRows();
+            CloseItemFilterPopup();
+        }) { text = "\u2193 Sort Descending" };
+        ApplyFont(sortDesc, size: 12);
+        StyleFilterButton(sortDesc);
+        panel.Add(sortDesc);
+
+        AddSeparator(panel);
+
+        // ── Search field ──
+        var searchField = new TextField { value = _itemFilterSearchText };
+        ApplyFont(searchField, size: 12);
+        searchField.style.width = StyleKeyword.Auto;
+        searchField.style.marginBottom = 6;
+        searchField.style.color = new StyleColor(ColTitleText);
+        searchField.style.backgroundColor = new StyleColor(new Color(0x1A / 255f, 0x24 / 255f, 0x32 / 255f, 1f));
+        searchField.style.borderBottomWidth = 1;
+        searchField.style.borderBottomColor = new StyleColor(ColBorder);
+        searchField.style.borderTopWidth = searchField.style.borderLeftWidth = searchField.style.borderRightWidth = 0;
+        searchField.style.borderTopLeftRadius = searchField.style.borderTopRightRadius =
+            searchField.style.borderBottomLeftRadius = searchField.style.borderBottomRightRadius = 4;
+        searchField.RegisterValueChangedCallback(evt =>
+        {
+            _itemFilterSearchText = evt.newValue ?? "";
+            RefreshFilterCheckboxList(panel, allItems);
+        });
+        panel.Add(searchField);
+
+        // ── Select All toggle ──
+        var selectAllToggle = new Toggle { label = "Select All", value = true };
+        selectAllToggle.name = "select-all-toggle";
+        ApplyFont(selectAllToggle, size: 12);
+        selectAllToggle.style.color = new StyleColor(ColTitleText);
+        selectAllToggle.style.marginBottom = 4;
+        selectAllToggle.RegisterValueChangedCallback(evt =>
+        {
+            var visibleItems = FilterItemsBySearch(allItems, _itemFilterSearchText);
+            if (evt.newValue)
+            {
+                foreach (var item in visibleItems)
+                    _itemFilterSelection.Add(item);
+            }
+            else
+            {
+                foreach (var item in visibleItems)
+                    _itemFilterSelection.Remove(item);
+            }
+            _itemFilterActive = _itemFilterSelection.Count < allItems.Count;
+            RefreshFilterCheckboxList(panel, allItems);
+            UpdateItemFilterHeaderAppearance();
+            RebuildRows();
+        });
+        panel.Add(selectAllToggle);
+
+        // ── Item checkbox list ──
+        var itemScroll = new ScrollView
+        {
+            verticalScrollerVisibility = ScrollerVisibility.Auto,
+            horizontalScrollerVisibility = ScrollerVisibility.Hidden
+        };
+        itemScroll.style.maxHeight = ListMaxHeight;
+        itemScroll.style.marginBottom = 6;
+        itemScroll.name = "item-filter-list";
+        panel.Add(itemScroll);
+
+        PopulateFilterCheckboxList(itemScroll, allItems);
+
+        AddSeparator(panel);
+
+        // ── Bottom bar: Clear Filter + result count ──
+        var bottomRow = new VisualElement();
+        bottomRow.style.flexDirection = FlexDirection.Row;
+        bottomRow.style.alignItems = Align.Center;
+
+        var clearBtn = new Button(() =>
+        {
+            _itemFilterActive = false;
+            _itemFilterSelection.Clear();
+            foreach (var item in allItems)
+                _itemFilterSelection.Add(item);
+            RefreshFilterCheckboxList(panel, allItems);
+            UpdateItemFilterHeaderAppearance();
+            RebuildRows();
+        }) { text = "Clear Filter" };
+        ApplyFont(clearBtn, size: 11);
+        StyleFilterButton(clearBtn);
+        bottomRow.Add(clearBtn);
+
+        var countLabel = new Label();
+        ApplyFont(countLabel, size: 11);
+        countLabel.style.color = new StyleColor(ColSubtleText);
+        countLabel.style.marginLeft = 8;
+        countLabel.style.flexGrow = 1;
+        countLabel.style.unityTextAlign = TextAnchor.MiddleRight;
+        countLabel.name = "filter-count";
+        bottomRow.Add(countLabel);
+        panel.Add(bottomRow);
+
+        UpdateFilterCount(panel, allItems);
+
+        return clickCatcher;
+    }
+
+    private static void AddSeparator(VisualElement parent)
+    {
+        var sep = new VisualElement();
+        sep.style.height = 1;
+        sep.style.backgroundColor = new StyleColor(new Color(ColBorder.r, ColBorder.g, ColBorder.b, 0.4f));
+        sep.style.marginTop = 4; sep.style.marginBottom = 4;
+        parent.Add(sep);
+    }
+
+    private static void StyleFilterButton(Button b)
+    {
+        b.style.backgroundColor = new StyleColor(Color.clear);
+        b.style.color = new StyleColor(ColTitleText);
+        b.style.borderTopWidth = b.style.borderBottomWidth =
+            b.style.borderLeftWidth = b.style.borderRightWidth = 0;
+        b.style.borderTopLeftRadius = b.style.borderTopRightRadius =
+            b.style.borderBottomLeftRadius = b.style.borderBottomRightRadius = 4;
+        b.style.paddingTop = 4; b.style.paddingBottom = 4;
+        b.style.paddingLeft = 8; b.style.paddingRight = 8;
+        b.style.marginBottom = 2;
+        b.style.unityTextAlign = TextAnchor.MiddleLeft;
+        b.RegisterCallback<PointerEnterEvent>(_ => b.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.08f)));
+        b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(Color.clear));
+    }
+
+    private static List<string> FilterItemsBySearch(List<string> allItems, string search)
+    {
+        if (string.IsNullOrWhiteSpace(search)) return allItems;
+        return allItems.Where(i => i.IndexOf(search, System.StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+    }
+
+    /// <summary>Repopulates the checkbox scroll view and updates Select All / count.</summary>
+    private void RefreshFilterCheckboxList(VisualElement popupPanel, List<string> allItems)
+    {
+        var scroll = popupPanel.Q<ScrollView>("item-filter-list");
+        if (scroll != null)
+        {
+            scroll.Clear();
+            PopulateFilterCheckboxList(scroll, allItems);
+        }
+
+        var selectAll = popupPanel.Q<Toggle>("select-all-toggle");
+        if (selectAll != null)
+        {
+            var visibleItems = FilterItemsBySearch(allItems, _itemFilterSearchText);
+            bool allVisibleSelected = visibleItems.Count > 0 && visibleItems.All(i => _itemFilterSelection.Contains(i));
+            selectAll.SetValueWithoutNotify(allVisibleSelected);
+        }
+
+        UpdateFilterCount(popupPanel, allItems);
+    }
+
+    private void PopulateFilterCheckboxList(ScrollView scroll, List<string> allItems)
+    {
+        var visibleItems = FilterItemsBySearch(allItems, _itemFilterSearchText);
+
+        if (visibleItems.Count == 0)
+        {
+            var empty = new Label("No items match search.");
+            ApplyFont(empty, size: 11);
+            empty.style.color = new StyleColor(ColSubtleText);
+            empty.style.paddingLeft = 4;
+            empty.style.paddingTop = 4;
+            scroll.Add(empty);
+            return;
+        }
+
+        foreach (var item in visibleItems)
+        {
+            var toggle = new Toggle
+            {
+                label = item,
+                value = _itemFilterSelection.Contains(item)
+            };
+            ApplyFont(toggle, size: 12);
+            toggle.style.color = new StyleColor(ColTitleText);
+            toggle.style.paddingLeft = 4;
+            toggle.style.marginBottom = 2;
+            toggle.style.whiteSpace = WhiteSpace.NoWrap;
+
+            string capturedItem = item;
+            toggle.RegisterValueChangedCallback(evt =>
+            {
+                if (evt.newValue)
+                    _itemFilterSelection.Add(capturedItem);
+                else
+                    _itemFilterSelection.Remove(capturedItem);
+
+                _itemFilterActive = _itemFilterSelection.Count < allItems.Count;
+                UpdateItemFilterHeaderAppearance();
+
+                // Update Select All state without triggering its callback.
+                var selectAll = scroll.parent?.Q<Toggle>("select-all-toggle");
+                if (selectAll != null)
+                {
+                    var visItems = FilterItemsBySearch(allItems, _itemFilterSearchText);
+                    bool allVis = visItems.Count > 0 && visItems.All(i => _itemFilterSelection.Contains(i));
+                    selectAll.SetValueWithoutNotify(allVis);
+                }
+
+                UpdateFilterCount(scroll.parent, allItems);
+                RebuildRows();
+            });
+
+            scroll.Add(toggle);
+        }
+    }
+
+    private void UpdateFilterCount(VisualElement popupPanel, List<string> allItems)
+    {
+        var label = popupPanel?.Q<Label>("filter-count");
+        if (label == null) return;
+
+        int selected = _itemFilterSelection.Count;
+        int total = allItems.Count;
+        label.text = _itemFilterActive
+            ? $"{selected} of {total} selected"
+            : $"{total} items";
     }
 }

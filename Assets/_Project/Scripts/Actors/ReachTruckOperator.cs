@@ -335,7 +335,9 @@ namespace GameCore.Actors
 
         private IEnumerator PutawayRoutine(WorkTask task)
         {
-            Commandeer();
+            // NOTE: deliberately NOT Commandeer()'d here — the vehicle stays on its own
+            // NavMeshAgent (whatever patrol left it on) until the first long-distance leg below,
+            // which hands off to manual control itself once it arrives. See SeekViaNavMesh.
             _carryOriginValid = false; // no pallet on the forks yet — the carry pose becomes valid at pickup.
             Debug.Log($"[ReachTruckOperator] '{name}' STARTING task {task.TaskId} for pallet {task.PalletId} from {task.FromLocation}");
 
@@ -393,8 +395,12 @@ namespace GameCore.Actors
             // Inventory container once it is actually placed at the rack (see the completion leg in
             // DeliverPalletToRack). Between claim and pickup it is parented to the carrier at seating.
 
-            // 4. Drive to the lane exit, then resolve the pallet's grab anchors.
-            yield return DriveToPoint(transform, exitPoint);
+            // 4. Drive to the lane exit, then resolve the pallet's grab anchors. Long-distance leg
+            // (truck's current position, e.g. idle patrol somewhere else in the warehouse, -> the
+            // lane exit) -- hybrid system: use the vehicle's real NavMeshAgent for this open-floor
+            // travel (obstacle-aware, respects any NavMeshObstacle on a rack), then hand off to
+            // manual/Commandeer'd driving for the precision grab sequence below.
+            yield return SeekViaNavMesh(exitPoint);
 
             Transform anchorFront = FindDeepChild(pallet, ChepAnchorFrontName);
             Transform anchorRear  = FindDeepChild(pallet, ChepAnchorRearName);
@@ -575,9 +581,13 @@ namespace GameCore.Actors
                 yield break;
             }
 
-            yield return RotateTo(transform, Flat(locApproach.position - transform.position));
+            // Raise forks to travel height before the drive, regardless of which movement system
+            // covers it. Long-distance leg (lane exit, or a reserve slot just picked from -> the
+            // TARGET rack's approach anchor, possibly a different aisle) -- hybrid system: real
+            // NavMeshAgent travel via SeekViaNavMesh, then back to manual for the putdown below.
+            // (No pre-rotate needed here -- FaceForks right after arrival handles final orientation.)
             if (_forks != null) yield return LiftForks(_forks, ForkTravelHeight);
-            yield return DriveToPoint(transform, locApproach.position);
+            yield return SeekViaNavMesh(locApproach.position);
 
             // 8. Putdown Sequence ------------------------------------------------------------------
             Transform locationTr = FindLocationTransform(toAddress);
@@ -689,7 +699,9 @@ namespace GameCore.Actors
         /// </summary>
         private IEnumerator ReplenishRoutine(WorkTask task)
         {
-            Commandeer();
+            // NOTE: deliberately NOT Commandeer()'d here -- same reasoning as PutawayRoutine. The
+            // vehicle stays on its own NavMeshAgent until PickupFromReserve's SeekViaNavMesh leg
+            // hands off to manual control on arrival.
             _carryOriginValid = false;
             string reserveAddress = task.FromLocation;
             string pickAddress    = task.ToLocation;
@@ -794,9 +806,10 @@ namespace GameCore.Actors
                 yield break;
             }
 
-            yield return RotateTo(transform, Flat(locApproach.position - transform.position));
+            // Long-distance leg (truck's current position -> the RESERVE rack's approach anchor) --
+            // hybrid system: real NavMeshAgent travel, then back to manual for the extract below.
             yield return LiftForks(_forks, ForkTravelHeight);
-            yield return DriveToPoint(transform, locApproach.position);
+            yield return SeekViaNavMesh(locApproach.position);
 
             Transform locationTr = FindLocationTransform(reserveAddress);
             if (locationTr == null)
@@ -999,6 +1012,54 @@ namespace GameCore.Actors
                 yield return null;
             }
             t.position = flat;
+        }
+
+        /// <summary>
+        /// Hybrid movement -- the long-distance leg of a task (current position, e.g. mid-patrol
+        /// somewhere in the warehouse, -> a lane exit or a rack's approach anchor). Temporarily
+        /// re-enables this vehicle's OWN NavMeshAgent/AiNavigation (Commandeer() may have disabled
+        /// them for a PREVIOUS precision step) and drives via AiNavigation.SeekPosition -- real
+        /// pathfinding, obstacle avoidance, and NavMeshObstacle-awareness (e.g. a hand-authored
+        /// Carve=true obstacle on a rack), instead of a blind straight line. On arrival (or on
+        /// giving up -- unreachable target, timeout) it re-Commandeers (disables NavMeshAgent/
+        /// AiNavigation again) so the caller's next step can safely drive the transform directly
+        /// without the agent fighting it. Falls back to a direct DriveToPoint if no NavMeshAgent/
+        /// AiNavigation is present, or if SeekPosition can't reach the target at all.
+        /// </summary>
+        private IEnumerator SeekViaNavMesh(Vector3 target)
+        {
+            if (_vehicleNav == null || _vehicleAgent == null)
+            {
+                yield return DriveToPoint(transform, target);
+                yield break;
+            }
+
+            _vehicleNav.enabled = true;
+            _vehicleAgent.enabled = true;
+            if (_vehicleAgent.isOnNavMesh) _vehicleAgent.isStopped = false;
+            else _vehicleAgent.Warp(transform.position);
+
+            bool arrived = false;
+            _vehicleNav.SeekPosition(target, () => arrived = true);
+
+            float elapsed = 0f;
+            const float MaxSeekTime = 30f;
+            while (!arrived && _vehicleNav.IsSeekingTask && elapsed < MaxSeekTime)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            // Hand back to manual control regardless of outcome -- AiNavigation/SeekPosition already
+            // logs+cancels on an invalid path, and this guarantees the caller's next (precision)
+            // step never fights a still-active NavMeshAgent.
+            Commandeer();
+
+            if (!arrived)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] '{name}' SeekViaNavMesh: could not reach {target} via NavMesh (elapsed={elapsed:F1}s, timedOut={elapsed >= MaxSeekTime}) -- falling back to a direct drive.");
+                yield return DriveToPoint(transform, target);
+            }
         }
 
         // Forks-first insertion drive. Two design points here are load-bearing and MUST NOT be

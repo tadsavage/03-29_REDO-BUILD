@@ -429,16 +429,28 @@ public class NewItemPanel
         detailsRow.Add(detailLabel3);
 
         button.Add(detailsRow);
+        // Descendants ignore picking so any click within the row hits this button directly
+        // rather than a child Label/VisualElement swallowing it as its own separate target.
+        // Query<VisualElement>() includes the button itself (it IS a VisualElement), so the
+        // sweep below also set the button's OWN pickingMode to Ignore -- silently excluding
+        // the entire row from hit-testing no matter what event type its handler used. Confirmed
+        // live via Unity MCP: the constructed row Button had pickingMode=Ignore at runtime.
+        // Restore it explicitly after the sweep.
         button.Query<VisualElement>().ForEach(child => child.pickingMode = PickingMode.Ignore);
+        button.pickingMode = PickingMode.Position;
 
-
-        button.RegisterCallback<PointerDownEvent>(evt =>
+        // ClickEvent (not PointerDownEvent) -- it only fires after Unity's own press+release
+        // click gesture completes and releases this button's pointer capture. PointerDownEvent
+        // fires mid-gesture, and RebuildItemsList() below replaces every row (including this
+        // exact button) while the pointer was still captured by it, leaving a dangling capture
+        // that silently ate every subsequent click. Matches BuildSlottedItemButton's already-
+        // working pattern just below.
+        button.RegisterCallback<ClickEvent>(_ =>
         {
             _selectedItem = pallet;
             ResetDropdowns();
             RebuildItemsList();
             UpdateButtonStates();
-            evt.StopPropagation();
         });
 
         // Highlight if selected
@@ -657,23 +669,6 @@ public class NewItemPanel
         var choices = new List<string> { "— select aisle —" };
         choices.AddRange(aisles.Select(a => a.ToString("00")));
         _aisleDropdown.choices = choices;
-
-        _aisleDropdown.RegisterValueChangedCallback(evt =>
-        {
-            if (evt.newValue == "— select aisle —")
-            {
-                _selectedAisle = null;
-            }
-            else
-            {
-                _selectedAisle = evt.newValue;
-            }
-            _selectedBay = null;
-            _selectedPosition = null;
-            RebuildBayDropdown();
-            RebuildPositionDropdown();
-            UpdateButtonStates();
-        });
     }
 
     private void RebuildBayDropdown()
@@ -702,21 +697,6 @@ public class NewItemPanel
         var choices = new List<string> { "— select bay —" };
         choices.AddRange(bays.Select(b => b.ToString("00")));
         _bayDropdown.choices = choices;
-
-        _bayDropdown.RegisterValueChangedCallback(evt =>
-        {
-            if (evt.newValue == "— select bay —")
-            {
-                _selectedBay = null;
-            }
-            else
-            {
-                _selectedBay = evt.newValue;
-            }
-            _selectedPosition = null;
-            RebuildPositionDropdown();
-            UpdateButtonStates();
-        });
     }
 
     private void RebuildPositionDropdown()
@@ -748,12 +728,6 @@ public class NewItemPanel
         var choices = new List<string> { "— select position —" };
         choices.AddRange(positions);
         _positionDropdown.choices = choices;
-
-        _positionDropdown.RegisterValueChangedCallback(evt =>
-        {
-            _selectedPosition = evt.newValue == "— select position —" ? null : evt.newValue;
-            UpdateButtonStates();
-        });
     }
 
     private void UpdateButtonStates()
@@ -1099,6 +1073,17 @@ public class NewItemPanel
         ApplyFont(aisleDropdown, size: 12);
         aisleDropdown.style.width = Length.Percent(100);
         aisleDropdown.SetEnabled(false);
+        // Registered once here (not inside RebuildAisleDropdown) to avoid stacking a new
+        // duplicate callback every time the dropdown choices are rebuilt.
+        aisleDropdown.RegisterValueChangedCallback(evt =>
+        {
+            _selectedAisle = evt.newValue == "— select aisle —" ? null : evt.newValue;
+            _selectedBay = null;
+            _selectedPosition = null;
+            RebuildBayDropdown();
+            RebuildPositionDropdown();
+            UpdateButtonStates();
+        });
         aisleContainer.Add(aisleDropdown);
         dropdownRow.Add(aisleContainer);
 
@@ -1115,6 +1100,13 @@ public class NewItemPanel
         ApplyFont(bayDropdown, size: 12);
         bayDropdown.style.width = Length.Percent(100);
         bayDropdown.SetEnabled(false);
+        bayDropdown.RegisterValueChangedCallback(evt =>
+        {
+            _selectedBay = evt.newValue == "— select bay —" ? null : evt.newValue;
+            _selectedPosition = null;
+            RebuildPositionDropdown();
+            UpdateButtonStates();
+        });
         bayContainer.Add(bayDropdown);
         dropdownRow.Add(bayContainer);
 
@@ -1130,6 +1122,11 @@ public class NewItemPanel
         ApplyFont(positionDropdown, size: 12);
         positionDropdown.style.width = Length.Percent(100);
         positionDropdown.SetEnabled(false);
+        positionDropdown.RegisterValueChangedCallback(evt =>
+        {
+            _selectedPosition = evt.newValue == "— select position —" ? null : evt.newValue;
+            UpdateButtonStates();
+        });
         posContainer.Add(positionDropdown);
         dropdownRow.Add(posContainer);
 

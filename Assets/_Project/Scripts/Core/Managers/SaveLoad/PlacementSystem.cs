@@ -74,15 +74,11 @@ public class PlacementSystem : MonoBehaviour
         // Quickload (F9)
         if (Keyboard.current.f9Key.wasPressedThisFrame && quicksaveTimer <= 0f)
         {
-            if (SaveLoadSystem.SaveManager.Instance != null)
+            bool usedSaveManager = SaveLoadSystem.SaveManager.Instance != null;
+            QuickLoad();
+            quicksaveTimer = quicksaveCooldown;
+            if (!usedSaveManager)
             {
-                SaveLoadSystem.SaveManager.Instance.LoadFromSlot(-1);
-                quicksaveTimer = quicksaveCooldown;
-            }
-            else
-            {
-                LoadGame();
-                quicksaveTimer = quicksaveCooldown;
                 AudioManager.Play("UI_Load");
                 UIToast.Show("Quick-load successful");
             }
@@ -240,6 +236,24 @@ public class PlacementSystem : MonoBehaviour
     {
         lastSaveName = saveName;
         LoadGame();
+    }
+
+    /// <summary>
+    /// Loads exactly what F9 loads (the quicksave). Single source of truth so
+    /// "continue game" on boot can never diverge from the in-game quickload.
+    /// </summary>
+    public void QuickLoad()
+    {
+        if (SaveLoadSystem.SaveManager.Instance != null)
+        {
+            Debug.Log("[PlacementSystem.QuickLoad] Using SaveManager.LoadFromSlot(-1).");
+            SaveLoadSystem.SaveManager.Instance.LoadFromSlot(-1);
+        }
+        else
+        {
+            Debug.Log("[PlacementSystem.QuickLoad] SaveManager not found, falling back to SaveSystem.Load(\"quicksave\").");
+            LoadGame();
+        }
     }
 
     // ---------------------------------------------------------

@@ -317,6 +317,7 @@ public class MainMenuManager : MonoBehaviour
         _playerName = entered;
         PlayerPrefs.SetString("PlayerName", _playerName);
         PlayerPrefs.SetInt("IsNewGame", 1);
+        PlayerPrefs.SetInt("FromMainMenu", 1);
         PlayerPrefs.Save();
 
         // Welcome screen is now handled by WelcomeOverlayManager in the game scene
@@ -334,6 +335,7 @@ public class MainMenuManager : MonoBehaviour
         PlayerPrefs.SetInt("LoadSlotIndex", -1);
         PlayerPrefs.SetString("LastSaveName", "quicksave");
         PlayerPrefs.SetInt("IsNewGame", 0);
+        PlayerPrefs.SetInt("FromMainMenu", 1);
         PlayerPrefs.Save();
         LoadGameScene();
     }
@@ -519,6 +521,9 @@ public class MainMenuManager : MonoBehaviour
                 PlayerPrefs.SetInt("LoadSlotIndex", capturedIndex);
                 PlayerPrefs.SetString("LastSaveName", $"slot_{capturedIndex}");
             }
+            PlayerPrefs.SetInt("IsNewGame", 0);
+            PlayerPrefs.SetInt("FromMainMenu", 1);
+            PlayerPrefs.Save();
             LoadGameScene();
         }
 

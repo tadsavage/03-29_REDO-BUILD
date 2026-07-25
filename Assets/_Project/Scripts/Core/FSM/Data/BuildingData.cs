@@ -45,14 +45,15 @@ public class BuildingData : MonoBehaviour
             return;
         }
 
-        // 1a. Racking — no obstacle or modifier; agents navigate the aisle freely and
-        //     the RTO drives into rack lanes directly during putaway.
+        // 1a. Racking — leave whatever NavMeshObstacle/NavMeshModifier is authored on the prefab
+        //     alone (Tad is hand-configuring rack obstacles with Carve=true himself). This used to
+        //     unconditionally DestroyImmediate both components here so agents could navigate the
+        //     aisle freely and the RTO could drive into rack lanes directly during putaway --
+        //     removed at Tad's request 2026-07-26 after reverting the NavMesh-routing approach to
+        //     rack avoidance (see navmesh-rack-avoidance-abandoned memory). Still return early:
+        //     racks shouldn't fall through to the walkable-surface setup below.
         if (Data.category == "Racking")
         {
-            if (TryGetComponent<NavMeshObstacle>(out var rackObstacle))
-                DestroyImmediate(rackObstacle);
-            if (TryGetComponent<NavMeshModifier>(out var rackModifier))
-                DestroyImmediate(rackModifier);
             return;
         }
 

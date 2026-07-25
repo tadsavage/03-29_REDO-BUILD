@@ -132,13 +132,14 @@ namespace GameCore.Labor
 
             Transform ds = slot.transform;
 
-            // ── Commandeer the DS: silence its patrol AI so we own the transform ──
+            // ── Hybrid movement setup: capture pre-task state for the final restore, but do NOT
+            // silence the patrol AI here anymore. The vehicle stays on its own NavMeshAgent for the
+            // long-distance legs (see SeekViaNavMesh below); each precision step re-Commandeers
+            // (disables AiNavigation/NavMeshAgent) for itself right before it needs the transform. ──
             var nav   = ds.GetComponent<AiNavigation>();
             var agent = ds.GetComponent<NavMeshAgent>();
             bool navWas   = nav   != null && nav.enabled;
             bool agentWas = agent != null && agent.enabled;
-            if (agent != null) agent.enabled = false;
-            if (nav   != null) nav.enabled   = false;
 
             Transform forks = FindDeepChild(ds, ForkChildName);
             float forkRestY = forks != null ? forks.localPosition.y : 0f;
@@ -219,7 +220,11 @@ namespace GameCore.Labor
                           + Vector3.up * ds.position.y;                // keep the DS's drive height
 
             // 1. Pull up to the pivot at the trailer entry for this pallet's row (left/right).
-            yield return DriveTailFirst(ds, pivot);
+            // Long-distance leg (DS's current position, e.g. wherever it was patrolling before
+            // being claimed for this task -> the trailer pivot) -- hybrid system: real NavMeshAgent
+            // travel via SeekViaNavMesh (obstacle-aware, respects any NavMeshObstacle on a rack),
+            // then hand off to manual/precision driving for the grab sequence below.
+            yield return SeekViaNavMesh(ds, pivot);
             // 2. Rotate until the forks (on the DS's back) face straight into the trailer, down the row.
             yield return FaceForks(ds, into);
             // 3. Drive in forks-first: lower the forks to the chep pallet's pocket height once within 1m,
@@ -261,7 +266,9 @@ namespace GameCore.Labor
             Vector3 entryPivot = entryXZ - downLane * PivotFrontDistance;
 
             // 8. Pull up to a pivot just in front of the lane entry (outside the lane, door side).
-            yield return DriveTailFirst(ds, entryPivot);
+            // Long-distance leg (trailer/dock pivot -> a specific staging lane's entry, possibly a
+            // real cross-warehouse hop depending on layout) -- hybrid system, same as step 1.
+            yield return SeekViaNavMesh(ds, entryPivot);
             // 9. Spin so the forks (and the carried pallet) face straight down the lane — forks FIRST.
             yield return FaceForks(ds, downLane);
 
@@ -400,6 +407,58 @@ namespace GameCore.Labor
         // grabbed pallet straight out of the trailer/lane: the forks keep pointing where they came from,
         // no 180° spin. Body faces the direction of travel.
         private IEnumerator DriveTailFirst(Transform t, Vector3 target) => DriveInternal(t, target, forksLead: false);
+
+        /// <summary>
+        /// Hybrid movement -- the long-distance leg of an offload task (dock stocker's current
+        /// position, e.g. wherever it was patrolling before being claimed for this task, or the
+        /// trailer/dock pivot -> a specific staging lane's entry). Temporarily re-enables the dock
+        /// stocker's OWN NavMeshAgent/AiNavigation and drives via AiNavigation.SeekPosition -- real
+        /// pathfinding, obstacle avoidance, and NavMeshObstacle-awareness (e.g. a hand-authored
+        /// Carve=true obstacle on a rack) -- instead of a blind straight line. On arrival (or giving
+        /// up -- unreachable target, timeout) it disables both again so the caller's next precision
+        /// step can safely drive the transform directly without the agent fighting it. Falls back to
+        /// a direct DriveTailFirst if no NavMeshAgent/AiNavigation is present, or if SeekPosition
+        /// can't reach the target at all.
+        /// </summary>
+        private IEnumerator SeekViaNavMesh(Transform ds, Vector3 target)
+        {
+            var nav = ds.GetComponent<AiNavigation>();
+            var agent = ds.GetComponent<NavMeshAgent>();
+            if (nav == null || agent == null)
+            {
+                yield return DriveTailFirst(ds, target);
+                yield break;
+            }
+
+            nav.enabled = true;
+            agent.enabled = true;
+            if (agent.isOnNavMesh) agent.isStopped = false;
+            else agent.Warp(ds.position);
+
+            bool arrived = false;
+            nav.SeekPosition(target, () => arrived = true);
+
+            float elapsed = 0f;
+            const float MaxSeekTime = 30f;
+            while (!arrived && nav.IsSeekingTask && elapsed < MaxSeekTime)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            // Hand back to manual control regardless of outcome -- AiNavigation/SeekPosition
+            // already logs+cancels on an invalid path, and this guarantees the next (precision)
+            // step never fights a still-active NavMeshAgent.
+            if (agent.isActiveAndEnabled) agent.isStopped = true;
+            agent.enabled = false;
+            nav.enabled = false;
+
+            if (!arrived)
+            {
+                Debug.LogWarning($"[TrailerOffload] SeekViaNavMesh: could not reach {target} via NavMesh (elapsed={elapsed:F1}s, timedOut={elapsed >= MaxSeekTime}) -- falling back to a direct drive.");
+                yield return DriveTailFirst(ds, target);
+            }
+        }
 
         // Drives the DS toward a flat target each frame. forksLead=true → body faces so the rear forks
         // point along travel (BodyForwardForForks); forksLead=false → body faces travel directly, forks

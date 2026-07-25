@@ -28,7 +28,13 @@ public class DeleteState : PlacementStateBase
     private TopBarUI topBarUI => _topBarUI != null ? _topBarUI : _topBarUI = Object.FindAnyObjectByType<TopBarUI>();
     private WorldHoverPopupUI hoverUI => _hoverUI != null ? _hoverUI : _hoverUI = Object.FindAnyObjectByType<WorldHoverPopupUI>();
 
+    // Primary hover target — the object a click will actually delete (the foundation itself
+    // when hovering a foundation or one of its floor tiles, otherwise the hit object).
     private BuildingHighlighter _hover;
+    // Full set of highlighters currently tinted yellow. For a plain object this is just _hover.
+    // For a Foundation/Grounds object it also includes every floor tile riding on its footprint,
+    // so hovering the slab OR any tile on top of it highlights the whole unit together.
+    private readonly HashSet<BuildingHighlighter> _hoverGroup = new();
     private readonly List<BuildingHighlighter> _dragTargets = new();
 
     private bool _isDragging;
@@ -222,25 +228,28 @@ public class DeleteState : PlacementStateBase
     {
         _indicator.ShowCell(cell);
 
-        BuildingHighlighter newHover = null;
+        BuildingData targetBd = null;
 
         if (_raycast.HitObject != null)
         {
             var bd = _raycast.HitObject.GetComponentInParent<BuildingData>();
-            if (bd != null && bd.Data != null)
+            if (bd != null && bd.Data != null && bd.GetComponent<EmployeeIdentity>() == null)
             {
-                // Floor tiles are indestructible, and EMPLOYEES must be terminated (not deleted) —
-                // ignore both so the delete cursor never targets them.
-                if (bd.Data.isFloor || bd.GetComponent<EmployeeIdentity>() != null)
-                    bd = null;
-
-                if (bd != null)
-                    newHover = bd.GetComponent<BuildingHighlighter>();
+                if (bd.Data.isFloor)
+                {
+                    // Hit a floor tile — redirect selection to the foundation it's riding on (if any).
+                    // Floor tiles with no foundation underneath (e.g. the default yard tile) stay unselectable.
+                    targetBd = FindFoundationInCell(cell);
+                }
+                else
+                {
+                    targetBd = bd;
+                }
             }
         }
 
         // Fallback to grid lookup for safety
-        if (newHover == null)
+        if (targetBd == null)
         {
             var objs = _grid.GetObjectsInCell(cell);
             if (objs != null && objs.Count > 0)
@@ -253,20 +262,54 @@ public class DeleteState : PlacementStateBase
                     if (entry.instance != null)
                     {
                         if (entry.instance.GetComponent<EmployeeIdentity>() != null) continue; // employees: terminate, not delete
-                        newHover = entry.instance.GetComponent<BuildingHighlighter>();
+                        targetBd = entry.instance.GetComponent<BuildingData>();
                         break;
                     }
                 }
             }
         }
 
-        if (newHover != _hover)
+        BuildingHighlighter newHover = targetBd != null ? targetBd.GetComponent<BuildingHighlighter>() : null;
+
+        // Build the full highlight group: the target itself, plus — for a Foundation/Grounds
+        // target — every floor tile occupying its footprint cells, so the whole slab (foundation
+        // + tiles on top) highlights together regardless of which piece was actually raycast.
+        HashSet<BuildingHighlighter> newGroup = new HashSet<BuildingHighlighter>();
+        if (newHover != null)
         {
-            ClearHover();
-            _hover = newHover;
-            if (_hover)
-                _hover.HighlightDelete(true);
+            newGroup.Add(newHover);
+
+            if (IsFoundationData(targetBd.Data) && targetBd.Offsets != null)
+            {
+                var root = targetBd.RootCell;
+                foreach (var o in targetBd.Offsets)
+                {
+                    var footprintObjs = _grid.GetObjectsInCell(root + o);
+                    if (footprintObjs == null) continue;
+
+                    foreach (var entry in footprintObjs)
+                    {
+                        if (entry.instance == null || entry.data == null || !entry.data.isFloor) continue;
+                        var tileHighlighter = entry.instance.GetComponent<BuildingHighlighter>();
+                        if (tileHighlighter != null) newGroup.Add(tileHighlighter);
+                    }
+                }
+            }
         }
+
+        if (!newGroup.SetEquals(_hoverGroup))
+        {
+            foreach (var h in _hoverGroup)
+                if (h != null) h.HighlightDelete(false);
+
+            foreach (var h in newGroup)
+                if (h != null) h.HighlightDelete(true);
+
+            _hoverGroup.Clear();
+            foreach (var h in newGroup) _hoverGroup.Add(h);
+        }
+
+        _hover = newHover;
     }
 
     // Returns the BuildingData for the ground (Foundation or Grounds) in the given cell, or null if none.
@@ -286,9 +329,10 @@ public class DeleteState : PlacementStateBase
 
     private void ClearHover()
     {
-        if (_hover)
-            _hover.HighlightDelete(false);
+        foreach (var h in _hoverGroup)
+            if (h != null) h.HighlightDelete(false);
 
+        _hoverGroup.Clear();
         _hover = null;
     }
 
@@ -325,6 +369,7 @@ public class DeleteState : PlacementStateBase
             for (int i = objs.Count - 1; i >= 0; i--)
             {
                 var e = objs[i];
+                if (e.instance == foundation.gameObject) continue; // the foundation's own entry — never its own "floor"
                 if (e.instance != null && e.instance.activeSelf && e.data != null && e.data.isFloor)
                 {
                     topFloor = e.data;
@@ -448,8 +493,14 @@ public class DeleteState : PlacementStateBase
         bool dragHasCustomTile = DragCapturesCustomFloor(footprint);
         bool spareFoundations = dragHasRack || dragHasCustomTile;
 
-        // 1. Collect new targets using Grid data instead of Physics Raycasts
-        HashSet<BuildingHighlighter> newTargets = new HashSet<BuildingHighlighter>();
+        // 1. Collect new targets using Grid data instead of Physics Raycasts.
+        // newDeleteTargets = the actual objects a DeleteCommand will be built for on release.
+        // newHighlightTargets = everything that should tint yellow, which additionally includes
+        // every floor tile riding on a targeted foundation's footprint (visual only — the
+        // foundation's own DeleteCommand already removes its floor tiles, so they're never
+        // added to newDeleteTargets to avoid double-deleting them).
+        HashSet<BuildingHighlighter> newDeleteTargets = new HashSet<BuildingHighlighter>();
+        HashSet<BuildingHighlighter> newHighlightTargets = new HashSet<BuildingHighlighter>();
         _revertCells.Clear();
 
         foreach (var cell in footprint)
@@ -457,11 +508,13 @@ public class DeleteState : PlacementStateBase
             var objs = _grid.GetObjectsInCell(cell);
             if (objs != null && objs.Count > 0)
             {
-                // Walk from top down; floor tiles cannot be deleted so skip them
+                // Walk from top down; floor tiles cannot be deleted so skip them — EXCEPT
+                // Foundations/Grounds, which are also marked isFloor (they're the supporting
+                // surface) but must still be selectable as delete targets in their own right.
                 for (int i = objs.Count - 1; i >= 0; i--)
                 {
                     var entry = objs[i];
-                    if (entry.data != null && entry.data.isFloor) continue;
+                    if (entry.data != null && entry.data.isFloor && !IsFoundationData(entry.data)) continue;
                     if (entry.instance != null)
                     {
                         if (entry.instance.GetComponent<EmployeeIdentity>() != null) continue; // employees: terminate, not delete
@@ -477,13 +530,41 @@ public class DeleteState : PlacementStateBase
                             else if (!spareFoundations)
                             {
                                 var hf = entry.instance.GetComponent<BuildingHighlighter>();
-                                if (hf != null) newTargets.Add(hf);
+                                if (hf != null)
+                                {
+                                    newDeleteTargets.Add(hf);
+                                    newHighlightTargets.Add(hf);
+                                }
+
+                                // Highlight every floor tile riding on this foundation's footprint too,
+                                // so the whole slab (foundation + tiles) tints yellow together.
+                                if (ebd.Offsets != null)
+                                {
+                                    var root = ebd.RootCell;
+                                    foreach (var o in ebd.Offsets)
+                                    {
+                                        var footprintObjs = _grid.GetObjectsInCell(root + o);
+                                        if (footprintObjs == null) continue;
+
+                                        foreach (var fe in footprintObjs)
+                                        {
+                                            if (fe.instance == null || fe.data == null || !fe.data.isFloor || IsFoundationData(fe.data)) continue;
+                                            var th = fe.instance.GetComponent<BuildingHighlighter>();
+                                            if (th != null) newHighlightTargets.Add(th);
+                                        }
+                                    }
+                                }
                             }
                             break;
                         }
 
                         var h = entry.instance.GetComponent<BuildingHighlighter>();
-                        if (h != null) { newTargets.Add(h); break; }
+                        if (h != null)
+                        {
+                            newDeleteTargets.Add(h);
+                            newHighlightTargets.Add(h);
+                            break;
+                        }
                     }
                 }
             }
@@ -492,13 +573,13 @@ public class DeleteState : PlacementStateBase
         // 2. Only update highlights if the selection changed
         foreach (var h in _lastDragTargets)
         {
-            if (!newTargets.Contains(h))
+            if (!newHighlightTargets.Contains(h))
             {
                 if (h != null) h.HighlightDelete(false);
             }
         }
 
-        foreach (var h in newTargets)
+        foreach (var h in newHighlightTargets)
         {
             if (!_lastDragTargets.Contains(h))
             {
@@ -507,10 +588,10 @@ public class DeleteState : PlacementStateBase
         }
 
         _lastDragTargets.Clear();
-        foreach (var h in newTargets) _lastDragTargets.Add(h);
-        
+        foreach (var h in newHighlightTargets) _lastDragTargets.Add(h);
+
         _dragTargets.Clear();
-        _dragTargets.AddRange(newTargets);
+        _dragTargets.AddRange(newDeleteTargets);
 
         _indicator.ShowCells(footprint, cell => true);
 
@@ -527,11 +608,15 @@ public class DeleteState : PlacementStateBase
                     _fsm.History.AddToBatch(revert);
             }
 
+            // Clear every highlighted object first (includes floor-tile extras that ride along
+            // visually but aren't deleted directly — the foundation's DeleteCommand handles them).
+            foreach (var h in _lastDragTargets)
+                if (h != null) h.HighlightDelete(false);
+
             foreach (var h in _dragTargets)
             {
                 if (h != null)
                 {
-                    h.HighlightDelete(false);
                     var bd = h.GetComponent<BuildingData>();
                     if (bd != null)
                     {
@@ -552,13 +637,14 @@ public class DeleteState : PlacementStateBase
 
     private void ClearDragHighlights()
     {
-        foreach (var h in _dragTargets)
+        foreach (var h in _lastDragTargets)
         {
             if (h)
                 h.HighlightDelete(false);
         }
 
         _dragTargets.Clear();
+        _lastDragTargets.Clear();
     }
 
     private List<Vector2Int> GetRectangleCells(Vector2Int a, Vector2Int b)
