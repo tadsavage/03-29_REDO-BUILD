@@ -184,6 +184,13 @@ public class LocationRegistry : MonoBehaviour
                 // else (putaway parenting, fork approach) targets.
                 data.Initialize(address, type);
 
+                // Keep the Inspector-visible status honest: LocationStatusRegistry is the actual
+                // gatekeeper PutawayLogic queries, but some writers (PutawayLogic itself, and
+                // ReplenishmentService locking both ends of a replenish task) set it directly without
+                // going through this component's own Reserve()/Occupy()/Release(). Without this
+                // resync, a slot the registry has locked can display "Available" here indefinitely.
+                data.SyncStatusDisplay(LocationStatusRegistry.Get(address));
+
                 _byAddress[address] = data;
                 seen.Add(address);
             }

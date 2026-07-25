@@ -1,3 +1,4 @@
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -34,7 +35,7 @@ public class ResizableWindow
     /// <param name="titleInset">Height (px) of the title bar to keep clear of the side grips, so
     /// grabbing near the top corners still drags the window rather than resizing it.</param>
     public ResizableWindow(VisualElement panel, float minW = 240f, float minH = 180f,
-        float grip = 8f, float titleInset = 34f)
+        float grip = 8f, float titleInset = 34f, bool allowVerticalResize = true)
     {
         _panel = panel;
         _minW = minW;
@@ -43,8 +44,11 @@ public class ResizableWindow
 
         AddGrip(Edge.Right,       grip, titleInset);
         AddGrip(Edge.Left,        grip, titleInset);
-        AddGrip(Edge.Bottom,      grip, titleInset);
-        AddGrip(Edge.BottomRight, grip, titleInset);
+        if (allowVerticalResize)
+        {
+            AddGrip(Edge.Bottom,      grip, titleInset);
+            AddGrip(Edge.BottomRight, grip, titleInset);
+        }
     }
 
     private void AddGrip(Edge edge, float grip, float titleInset)
@@ -69,8 +73,13 @@ public class ResizableWindow
                 break;
         }
 
+        var cursor = edge == Edge.Bottom ? CreateBuiltInCursor(2) : CreateBuiltInCursor(3);
+        h.style.cursor = cursor;
+
         // Subtle discoverability highlight on hover (a faint royal-blue tint).
         var hot = new Color(0.35f, 0.55f, 0.95f, 0.35f);
+
+
         h.RegisterCallback<PointerEnterEvent>(_ => { if (!_resizing) h.style.backgroundColor = hot; });
         h.RegisterCallback<PointerLeaveEvent>(_ => { if (!_resizing) h.style.backgroundColor = Color.clear; });
 
@@ -80,6 +89,17 @@ public class ResizableWindow
 
         _panel.Add(h); // added after content → renders on top of the panel body
     }
+
+    private static StyleCursor CreateBuiltInCursor(int cursorId)
+    {
+        var cursor = new UnityEngine.UIElements.Cursor();
+        var field = typeof(UnityEngine.UIElements.Cursor).GetField("defaultCursorId", BindingFlags.Instance | BindingFlags.NonPublic);
+        if (field == null) return default;
+        object boxedCursor = cursor;
+        field.SetValue(boxedCursor, cursorId);
+        return new StyleCursor((UnityEngine.UIElements.Cursor)boxedCursor);
+    }
+
 
     private void OnDown(PointerDownEvent e, Edge edge, VisualElement grip)
     {

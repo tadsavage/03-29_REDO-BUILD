@@ -723,6 +723,27 @@ public class PlacementSystem : MonoBehaviour
         ShiftDefinitionRegistry.Import(save.shiftDefinitions);
         LocationStatusRegistry.Import(save.locationStatuses);
 
+        // A Reserved slot only stays meaningful while some WorkTask is still actively holding it (as
+        // its FromLocation/ToLocation) — a putaway captured mid-carry resumes via ResumeDeliverToRack
+        // using that exact ToLocation, and a Replenish task locks both ends at creation. If a Reserved
+        // address in the just-imported registry matches no surviving task, its owning coroutine died
+        // before this save (deleted vehicle, fired employee, domain reload) and nothing will ever
+        // release it — it would sit permanently "full" to PutawayLogic while its LocationData shows
+        // Available in the Inspector. Clean those up right after restoring the task list.
+        if (workQueueSystem != null)
+        {
+            var claimedAddresses = new HashSet<string>();
+            foreach (var t in workQueueSystem.Tasks)
+            {
+                if (t.Status == GameCore.Labor.WorkTaskStatus.Complete) continue;
+                if (!string.IsNullOrEmpty(t.ToLocation)) claimedAddresses.Add(t.ToLocation);
+                if (!string.IsNullOrEmpty(t.FromLocation)) claimedAddresses.Add(t.FromLocation);
+            }
+            int releasedCount = LocationStatusRegistry.ReleaseUnclaimedReservations(claimedAddresses);
+            if (releasedCount > 0)
+                Debug.Log($"[PlacementSystem] Released {releasedCount} orphaned Reserved location(s) on load with no matching in-progress task.");
+        }
+
         if (ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipmentService))
             shipmentService.Import(save.shipments);
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderService))

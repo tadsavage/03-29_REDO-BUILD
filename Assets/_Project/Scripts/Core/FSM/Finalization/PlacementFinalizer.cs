@@ -273,7 +273,11 @@ public class PlacementFinalizer : MonoBehaviour
             {
                 var entry = list[i];
 
-                if (entry.data == null || !entry.data.isFloor)
+                // Foundations and grounds can also be marked as floors for placement/stacking,
+                // but they are the supporting surface, not a replaceable floor tile. In particular,
+                // the foundation's auto-floor pass runs immediately after the foundation is added to
+                // the grid; treating it as a floor here disables the new foundation itself.
+                if (entry.data == null || !entry.data.isFloor || IsGround(entry.data))
                     continue;
 
                 if (entry.instance == null)

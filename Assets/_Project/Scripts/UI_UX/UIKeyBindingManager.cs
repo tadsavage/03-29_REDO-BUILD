@@ -14,7 +14,7 @@ using UnityEngine.InputSystem;
 ///   4 = Employee List (EmployeeListPanelController)
 ///   5 = Shift Manager (ShiftManagerPanel)
 ///   6 = Slot Assignment (SlotAssignmentPanel)
-///   7 = Inbound Test (InboundTestPanel)
+///   7 = Work Queue
 /// </summary>
 public class UIKeyBindingManager : MonoBehaviour
 {

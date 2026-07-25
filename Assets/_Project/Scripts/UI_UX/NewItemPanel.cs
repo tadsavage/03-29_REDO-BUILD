@@ -142,8 +142,8 @@ public class NewItemPanel
             _lastRefreshTime = now;
             if (_onNewItemTab)
             {
-                RefreshItemsNeedingSlots();
-                RebuildItemsList();
+                if (RefreshItemsNeedingSlots())
+                    RebuildItemsList();
             }
             else
             {
@@ -167,8 +167,9 @@ public class NewItemPanel
         ResetDropdowns();
     }
 
-    private void RefreshItemsNeedingSlots()
+    private bool RefreshItemsNeedingSlots()
     {
+        string previousSignature = string.Join("|", _itemsNeedingSlots.Select(p => p?.PalletId ?? ""));
         InventoryService inv = null;
         GameCore.Services.ServiceLocator.TryGet(out inv);
 
@@ -176,7 +177,7 @@ public class NewItemPanel
         {
             _itemsNeedingSlots.Clear();
             _skuChoices.Clear();
-            return;
+            return previousSignature.Length > 0;
         }
 
         // Get all unique SKUs that have been received
@@ -201,6 +202,9 @@ public class NewItemPanel
             if (pallet != null)
                 _itemsNeedingSlots.Add(pallet);
         }
+
+        string currentSignature = string.Join("|", _itemsNeedingSlots.Select(p => p?.PalletId ?? ""));
+        return currentSignature != previousSignature;
     }
 
     private void RefreshSlottedItems()
@@ -425,14 +429,16 @@ public class NewItemPanel
         detailsRow.Add(detailLabel3);
 
         button.Add(detailsRow);
+        button.Query<VisualElement>().ForEach(child => child.pickingMode = PickingMode.Ignore);
 
-        // Selection handler
-        button.RegisterCallback<ClickEvent>(_ =>
+
+        button.RegisterCallback<PointerDownEvent>(evt =>
         {
             _selectedItem = pallet;
             ResetDropdowns();
-            RebuildItemsList();  // Refresh visual state
+            RebuildItemsList();
             UpdateButtonStates();
+            evt.StopPropagation();
         });
 
         // Highlight if selected
@@ -963,8 +969,9 @@ public class NewItemPanel
             modal.style.borderBottomLeftRadius = modal.style.borderBottomRightRadius = 16;
         modal.style.paddingTop = 0; modal.style.paddingBottom = 14;
         modal.style.paddingLeft = 16; modal.style.paddingRight = 16;
-        modal.style.minWidth = 880;
-        modal.style.maxHeight = 1000;
+        modal.style.height = 760;
+        modal.style.minHeight = 700;
+        modal.style.maxHeight = StyleKeyword.None;
         modal.style.flexDirection = FlexDirection.Column;
 
         // Title bar
@@ -1051,10 +1058,14 @@ public class NewItemPanel
         // NEW ITEM TAB CONTENT
         newItemTabContent = new VisualElement();
         newItemTabContent.style.display = DisplayStyle.Flex;
-        newItemTabContent.style.flexDirection = FlexDirection.Column;
+        newItemTabContent.style.flexGrow = 1;
+        newItemTabContent.style.flexShrink = 1;
+        newItemTabContent.style.minHeight = 0;
 
         itemsScroll = new ScrollView();
-        itemsScroll.style.maxHeight = 400;
+        itemsScroll.style.height = 420;
+        itemsScroll.style.flexGrow = 0;
+        itemsScroll.style.flexShrink = 0;
         itemsScroll.style.marginBottom = 16;
         itemsScroll.style.borderBottomWidth = 1;
         itemsScroll.style.borderBottomColor = new StyleColor(ColBorder);
@@ -1072,7 +1083,8 @@ public class NewItemPanel
         var dropdownRow = new VisualElement();
         dropdownRow.style.flexDirection = FlexDirection.Row;
         dropdownRow.style.justifyContent = Justify.SpaceBetween;
-        dropdownRow.style.marginBottom = 12;
+        dropdownRow.style.flexShrink = 0;
+        dropdownRow.style.minHeight = 72;
 
         // Aisle
         var aisleContainer = new VisualElement();
@@ -1128,7 +1140,8 @@ public class NewItemPanel
         buttonRow.style.flexDirection = FlexDirection.Row;
         buttonRow.style.justifyContent = Justify.SpaceBetween;
         buttonRow.style.marginBottom = 0;
-        buttonRow.style.height = 48;
+        buttonRow.style.flexShrink = 0;
+        buttonRow.style.minHeight = 56;
 
         assignButton = StyleOrangeButton(new Button(OnAssignClicked) { text = "Assign Pick Slot" });
         assignButton.style.flexGrow = 1;

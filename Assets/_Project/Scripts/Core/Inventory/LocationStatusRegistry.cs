@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace GameCore.Inventory
 {
@@ -64,6 +65,32 @@ namespace GameCore.Inventory
         {
             _statusByAddress.Clear();
             Notify();
+        }
+
+        /// <summary>
+        /// Releases every currently-<see cref="LocationStatus.Reserved"/> slot whose address is not
+        /// in <paramref name="claimedAddresses"/>. A Reserved slot only stays meaningful while some
+        /// WorkTask is still actively holding it (as its FromLocation/ToLocation) — if that task is
+        /// gone (its owning coroutine died to a deleted vehicle, a fired employee, a domain reload,
+        /// or the reservation was made but its task didn't survive a save taken mid-carry), nothing
+        /// is left to ever call <see cref="MarkOccupied"/>/<see cref="Release"/> for it, so it stays
+        /// permanently "full" to PutawayLogic forever while its LocationData sits at Available in
+        /// the Inspector (LocationData is never touched by the <see cref="Reserve"/> this registry
+        /// does directly — see PutawayLogic.AssignPutawayDestination / ReplenishmentService.CreateReplenishTask).
+        /// Returns the number of slots released.
+        /// </summary>
+        public static int ReleaseUnclaimedReservations(ICollection<string> claimedAddresses)
+        {
+            var orphaned = _statusByAddress
+                .Where(kv => kv.Value == LocationStatus.Reserved && !claimedAddresses.Contains(kv.Key))
+                .Select(kv => kv.Key)
+                .ToList();
+
+            foreach (var address in orphaned)
+                _statusByAddress.Remove(address);
+
+            if (orphaned.Count > 0) Notify();
+            return orphaned.Count;
         }
 
         // ============ PERSISTENCE ============

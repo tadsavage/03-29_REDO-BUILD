@@ -315,10 +315,7 @@ if (_currentState != _idleState)
             if (slotAssignmentPanel != null && slotAssignmentPanel.IsVisible)
                 slotAssignmentPanel.Hide();
 
-            // Close the Work Queue window (InboundTestPanel, key 7) if open
-            var workQueuePanel = InboundTestPanel.Instance;
-            if (workQueuePanel != null && workQueuePanel.IsVisible)
-                workQueuePanel.Hide();
+            // The retained WorkQueuePanel is owned by TopBarUI and is closed by UIKeyBindingManager.
 
             // Close NewItemPanel (key 8) if open
             var newItemPanel = _topBar != null ? _topBar.NewItemPanel : null;

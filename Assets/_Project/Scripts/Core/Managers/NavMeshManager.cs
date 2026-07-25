@@ -349,6 +349,38 @@ public class NavMeshManager : MonoBehaviour
     //   • Ground cells    → merged into contiguous gridX RUNS per row. A single bounding box
     //                       would fill the hole under a building; one box per tile froze the
     //                       bake (~2,500 yard tiles). Runs do neither.
+    /// <summary>
+    /// Every grid cell currently occupied by a "Racking"-category object (root cell + rotated
+    /// footprint offsets, via <see cref="RackGridUtil.GetCells"/>). Used by
+    /// <see cref="AddFloorNavMeshSources"/> to withhold the walkable floor source under/through a
+    /// rack's own footprint. Racks themselves already contribute zero NavMesh geometry (see the
+    /// ignoreFromBuild markup in <see cref="BuildMarkups"/>), but the floor tile underneath was
+    /// still emitted as walkable regardless — so a forklift on general patrol (GoToRandomWaypoint,
+    /// not an active task) could path straight under a rack. This does NOT affect
+    /// putaway/replenishment: ReachTruckOperator.Commandeer() disables its NavMeshAgent for the
+    /// entire insert/retrieve sequence and drives by direct transform manipulation, never
+    /// consulting the NavMesh once a task starts driving. Re-scans the registry once per bake —
+    /// same cost profile as BuildMarkups()'s existing rack-markup loop just below, not the
+    /// per-frame hot path the _floorTopCache incremental cache was built to protect.
+    /// </summary>
+    private HashSet<Vector2Int> GetRackOccupiedCells()
+    {
+        var cells = new HashSet<Vector2Int>();
+        if (_grid == null) _grid = Object.FindAnyObjectByType<PlacementGrid>();
+        if (_grid == null) return cells;
+
+        foreach (var placed in PlacedObjectRegistry.All)
+        {
+            if (placed == null || placed.gameObject == null) continue;
+            if (placed.data == null || placed.data.category != RackingCategory) continue;
+
+            foreach (var cell in RackGridUtil.GetCells(placed.gameObject, _grid))
+                cells.Add(cell);
+        }
+
+        return cells;
+    }
+
     private void AddFloorNavMeshSources(List<NavMeshBuildSource> sources, int defaultArea)
     {
         var floorStartTime = Time.realtimeSinceStartup;
@@ -360,6 +392,7 @@ public class NavMeshManager : MonoBehaviour
         // NOTE: deliberately no early-return when this is empty — step 4 below still needs to
         // run on a fresh game (pure bare yard, zero real floors placed yet).
         var top = _floorTopCache;
+        var rackCells = GetRackOccupiedCells();
         //Debug.Log($"[NavMesh]    FloorTopCache has {top.Count} cells");
 
         // 2) Elevated cells → exact per-tile box. The box must be THICKER than the voxel size or
@@ -370,6 +403,11 @@ public class NavMeshManager : MonoBehaviour
         foreach (var kv in top)
         {
             var p = kv.Value;
+            // A rack occupies this cell -- withhold the walkable source entirely (elevated box
+            // below, or via never entering groundTiles for step 3's row-run) so patrol/task-transit
+            // driving can't path under it. See GetRackOccupiedCells for why putaway/replenish are
+            // unaffected.
+            if (rackCells.Contains(kv.Key)) continue;
             if (p.transform.position.y < 0.5f) { groundTiles.Add(p); continue; }
 
             var renderers = p.GetComponentsInChildren<Renderer>();
@@ -445,7 +483,9 @@ public class NavMeshManager : MonoBehaviour
                 List<int> xs = null;
                 for (int gx = 0; gx < _grid.Width; gx++)
                 {
-                    if (top.ContainsKey(new Vector2Int(gx, gy))) continue; // real floor covers it
+                    var cellKey = new Vector2Int(gx, gy);
+                    if (top.ContainsKey(cellKey)) continue; // real floor covers it
+                    if (rackCells.Contains(cellKey)) continue; // rack sits directly on bare yard, no floor tile placed
                     if (xs == null) { xs = new List<int>(); defaultRuns[gy] = xs; }
                     xs.Add(gx);
                 }

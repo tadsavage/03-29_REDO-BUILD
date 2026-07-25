@@ -46,10 +46,26 @@ public class WorkQueuePanel
     private static readonly Color ColStatusAvailable = new Color(0x8B / 255f, 0xC6 / 255f, 0xE8 / 255f, 1f);
     private static readonly Color ColStatusAssigned  = new Color(0xF2 / 255f, 0xC2 / 255f, 0x5A / 255f, 1f);
     private static readonly Color ColStatusStaged    = new Color(0x7E / 255f, 0xD6 / 255f, 0x8A / 255f, 1f);
-    private static readonly Color ColStatusLoading   = new Color(0x7E / 255f, 0xD6 / 255f, 0xC8 / 255f, 1f);
     private static readonly Color ColStatusLoaded    = new Color(0x4C / 255f, 0xB8 / 255f, 0x6A / 255f, 1f);
 
+    private static readonly Color ColStatusLoading   = new Color(0x7E / 255f, 0xD6 / 255f, 0xC8 / 255f, 1f);
+        private const float CheckboxWidth = 26f;
+        private const float PaletteIdWidth = 92f;
+        private const float ItemNumberWidth = 76f;
+        private const float AreaWidth = 82f;
+        private const float PriorityWidth = 62f;
+        private const float RoleWidth = 156f;
+        private const float TaskWidth = 96f;
+        private const float RoleTaskGap = 12f;
+        private const float StatusWidth = 88f;
+        private const float LocationWidth = 72f;
+        private const float OperatorWidth = 112f;
+        private const float CustomerWidth = 116f;
+        private const float OrderWidth = 104f;
     private static Font _lilita;
+
+
+
     private static Font LilitaFont()
     {
         if (_lilita != null) return _lilita;
@@ -86,11 +102,18 @@ public class WorkQueuePanel
     private ActionMode _mode = ActionMode.None;
 
     private bool _visible;
+    private enum SortColumn { PaletteId, ItemNumber, Area, Priority, Role, Task, Status, From, To, Operator, Customer, Order }
+    private SortColumn _sortColumn = SortColumn.Priority;
+    private bool _sortAscending;
+
+
+    private string _liveSignature;
 
     public WorkQueuePanel(VisualElement root)
     {
         _overlay = Build(out _rowScroll, out _bottomMessage, out _targetDropdown, out _submitButton);
         root.Add(_overlay);
+        _overlay.schedule.Execute(RefreshIfVisible).Every(250);
         Hide();
     }
 
@@ -101,9 +124,32 @@ public class WorkQueuePanel
     {
         _visible = true;
         _overlay.style.display = DisplayStyle.Flex;
-        _overlay.pickingMode = PickingMode.Position;
+        _liveSignature = null;
         RebuildRows();
     }
+    private void RefreshIfVisible()
+    {
+        if (!_visible) return;
+        string signature = BuildLiveSignature();
+        if (signature == _liveSignature) return;
+        _liveSignature = signature;
+        RebuildRows();
+    }
+
+    private static string BuildLiveSignature()
+    {
+        ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
+        ServiceLocator.TryGet<OrderService>(out var orderService);
+
+        string tasks = workQueue == null ? "" : string.Join("|", workQueue.Tasks
+            .Where(t => t.Status != WorkTaskStatus.Complete)
+            .Select(t => $"{t.TaskId}:{t.Status}:{t.PalletId}:{t.OrderId}:{t.AssignedToEmployeeGuid}:{t.FromLocation}:{t.ToLocation}"));
+        string orders = orderService == null ? "" : string.Join("|", orderService.ActiveOrders
+            .Select(o => $"{o.OrderId}:{o.Status}:{o.CustomerName}:{o.AssignedDoorNumber}:{o.AssignedLane}:{o.TotalUnitsPicked}"));
+        return tasks + "#" + orders;
+    }
+
+
 
     public void Hide()
     {
@@ -141,13 +187,30 @@ public class WorkQueuePanel
             modal.style.borderBottomLeftRadius = modal.style.borderBottomRightRadius = 16;
         modal.style.paddingTop = 14; modal.style.paddingBottom = 14;
         modal.style.paddingLeft = 16; modal.style.paddingRight = 16;
-        modal.style.minWidth = 700;
-        modal.style.maxHeight = 680;
+        modal.style.width = 1180;
+        modal.style.height = 680;
+        modal.style.minWidth = 900;
+        modal.style.minHeight = 260;
+        modal.style.maxHeight = StyleKeyword.None;
 
         // Title bar
         var titleBar = new VisualElement();
         titleBar.style.flexDirection = FlexDirection.Row;
+        titleBar.style.height = 58;
         titleBar.style.alignItems = Align.Center;
+
+        titleBar.style.width = StyleKeyword.Auto;
+        titleBar.style.alignSelf = Align.Stretch;
+        titleBar.style.marginTop = -14;
+
+        titleBar.style.flexShrink = 0;
+        titleBar.style.marginLeft = -16;
+        titleBar.style.marginRight = -16;
+        titleBar.style.paddingLeft = 16;
+        titleBar.style.paddingRight = 16;
+        titleBar.style.backgroundColor = new StyleColor(new Color(0x2B / 255f, 0x6C / 255f, 0x94 / 255f, 0.92f));
+        titleBar.style.borderBottomWidth = 2;
+        titleBar.style.borderBottomColor = new StyleColor(ColBorder);
         titleBar.style.marginBottom = 10;
 
         var titleSpacer = new VisualElement();
@@ -162,7 +225,21 @@ public class WorkQueuePanel
         titleBar.Add(title);
 
         var closeButton = new Button(Hide) { text = "✕" };
-        closeButton.style.width = 28; closeButton.style.height = 28;
+        ApplyFont(closeButton, bold: true, size: 20);
+        closeButton.style.width = 42;
+        closeButton.style.height = 42;
+        closeButton.style.minWidth = 42;
+        closeButton.style.minHeight = 42;
+        closeButton.style.marginTop = 0;
+        closeButton.style.marginBottom = 0;
+        closeButton.style.marginLeft = 0;
+        closeButton.style.marginRight = 0;
+        closeButton.style.paddingTop = 0;
+        closeButton.style.paddingBottom = 0;
+        closeButton.style.paddingLeft = 0;
+        closeButton.style.paddingRight = 0;
+        closeButton.style.alignSelf = Align.Center;
+        closeButton.style.unityTextAlign = TextAnchor.MiddleCenter;
         closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
         closeButton.style.color = new StyleColor(ColSubtleText);
         closeButton.RegisterCallback<PointerEnterEvent>(_ =>
@@ -179,27 +256,43 @@ public class WorkQueuePanel
         modal.Add(titleBar);
 
         new DraggableWindow(modal, titleBar, closeButton);
+        new ResizableWindow(modal, minW: 900f, minH: 260f, grip: 10f, titleInset: 42f, allowVerticalResize: false);
 
-        // Column header
+        // Column headers. The dark modal styling remains the new queue's visual shell;
+        // these columns expose the complete work-task record used by the old queue.
         var header = new VisualElement();
         header.style.flexDirection = FlexDirection.Row;
-        header.style.paddingLeft = 6; header.style.paddingBottom = 4;
-        header.Add(HeaderCell("", 26));
-        header.Add(HeaderCell("Customer", 170));
-        header.Add(HeaderCell("Order", 190));
-        header.Add(HeaderCell("Status", 110));
-        header.Add(HeaderCell("Operator", 140));
+        header.style.flexShrink = 0;
+        header.style.overflow = Overflow.Hidden;
+        header.Add(HeaderCell("", CheckboxWidth));
+        header.Add(HeaderCell("Palette ID", PaletteIdWidth, SortColumn.PaletteId));
+        header.Add(HeaderCell("Item#", ItemNumberWidth, SortColumn.ItemNumber));
+        header.Add(HeaderCell("Area", AreaWidth, SortColumn.Area, marginLeft: 12f));
+        header.Add(HeaderCell("Priority", PriorityWidth, SortColumn.Priority));
+        header.Add(HeaderCell("Role", RoleWidth, SortColumn.Role));
+        header.Add(HeaderCell("Task", TaskWidth, SortColumn.Task, marginLeft: RoleTaskGap));
+        header.Add(HeaderCell("Status", StatusWidth, SortColumn.Status));
+        header.Add(HeaderCell("From", LocationWidth, SortColumn.From));
+        header.Add(HeaderCell("To", LocationWidth, SortColumn.To));
+        header.Add(HeaderCell("Operator", OperatorWidth, SortColumn.Operator));
+        header.Add(HeaderCell("Customer", CustomerWidth, SortColumn.Customer));
+        header.Add(HeaderCell("Order", OrderWidth, SortColumn.Order));
         modal.Add(header);
 
-        rowScroll = new ScrollView();
-        rowScroll.style.maxHeight = 420;
-        rowScroll.style.marginBottom = 10;
+        rowScroll = new ScrollView
+        {
+            verticalScrollerVisibility = ScrollerVisibility.Auto,
+            horizontalScrollerVisibility = ScrollerVisibility.Hidden
+        };
+        rowScroll.style.flexGrow = 1;
+        rowScroll.style.maxHeight = 520;
+        rowScroll.style.overflow = Overflow.Hidden;
         modal.Add(rowScroll);
 
         // Bottom bar
         var bottomBar = new VisualElement();
         bottomBar.style.flexDirection = FlexDirection.Row;
-        bottomBar.style.alignItems = Align.Center;
+        bottomBar.style.alignItems = Align.FlexStart;
         bottomBar.style.borderTopWidth = 2;
         bottomBar.style.borderTopColor = new StyleColor(ColBorder);
         bottomBar.style.paddingTop = 10;
@@ -208,6 +301,10 @@ public class WorkQueuePanel
         ApplyFont(bottomMessage, size: 13);
         bottomMessage.style.color = new StyleColor(ColSubtleText);
         bottomMessage.style.flexGrow = 1;
+        bottomMessage.style.flexShrink = 1;
+        bottomMessage.style.minWidth = 0;
+        bottomMessage.style.whiteSpace = WhiteSpace.Normal;
+        bottomMessage.style.overflow = Overflow.Hidden;
         bottomBar.Add(bottomMessage);
 
         targetDropdown = new DropdownField(new List<string> { "—" }, 0);
@@ -225,14 +322,54 @@ public class WorkQueuePanel
         return overlay;
     }
 
-    private static Label HeaderCell(string text, float width)
+    private Button HeaderCell(string text, float width, SortColumn? sortColumn = null, float marginLeft = 0f)
     {
-        var l = new Label(text);
-        ApplyFont(l, bold: true, size: 12);
-        l.style.color = new StyleColor(ColSubtleText);
-        l.style.width = width;
-        return l;
+        var header = new Button();
+        ApplyFont(header, bold: true, size: 12);
+        header.style.color = new StyleColor(ColSubtleText);
+        header.style.flexShrink = 0;
+        header.style.width = width;
+        header.style.marginLeft = marginLeft;
+
+        header.style.minWidth = width;
+
+        header.style.paddingLeft = 0;
+        header.style.paddingRight = 0;
+        header.style.paddingTop = 0;
+        header.style.paddingBottom = 0;
+        header.style.backgroundColor = new StyleColor(Color.clear);
+        header.style.borderTopWidth = header.style.borderBottomWidth =
+            header.style.borderLeftWidth = header.style.borderRightWidth = 0;
+        header.style.unityTextAlign = TextAnchor.MiddleLeft;
+        header.text = text;
+
+        if (sortColumn.HasValue)
+        {
+            SortColumn column = sortColumn.Value;
+            header.clicked += () =>
+            {
+                if (_sortColumn == column) _sortAscending = !_sortAscending;
+                else
+                {
+                    _sortColumn = column;
+                    _sortAscending = true;
+                }
+                header.text = HeaderText(text, column);
+                RebuildRows();
+            };
+            header.RegisterCallback<PointerEnterEvent>(_ => header.style.color = new StyleColor(ColTitleText));
+            header.RegisterCallback<PointerLeaveEvent>(_ => header.style.color = new StyleColor(ColSubtleText));
+        }
+
+        return header;
     }
+
+    private string HeaderText(string text, SortColumn column)
+    {
+        if (_sortColumn != column) return text;
+        return text + (_sortAscending ? " ▲" : " ▼");
+    }
+
 
     private static Button StyleOrangeButton(Button b) => StyleButton(b, ColOrange, ColOrangeEdge, ColOrangeText, ColOrangeHover);
 
@@ -260,16 +397,29 @@ public class WorkQueuePanel
         if (!_visible) return;
         _rowScroll.Clear();
 
+        ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
+        var taskRows = workQueue?.Tasks
+            .Where(t => t.Type != WorkTaskType.OrderSelect && t.Status != WorkTaskStatus.Complete)
+            .ToList() ?? new List<WorkTask>();
+        taskRows = SortTasks(taskRows);
+
         if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null)
         {
-            var empty = new Label("OrderService not available.");
-            ApplyFont(empty, size: 13);
-            empty.style.color = new StyleColor(ColSubtleText);
-            _rowScroll.Add(empty);
+            foreach (var task in taskRows)
+                _rowScroll.Add(BuildTaskRow(task, _rowScroll.childCount));
+
+            if (taskRows.Count == 0)
+            {
+                var empty = new Label("No work in the queue. Generate some orders or inbound tasks to get started.");
+                ApplyFont(empty, size: 13);
+                empty.style.color = new StyleColor(ColSubtleText);
+                _rowScroll.Add(empty);
+            }
             RebuildBottomBar();
             return;
         }
-        ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
+
+        // Sorting helpers are declared below the row rebuild method.
 
         var rows = new List<(OrderData order, RowPhase phase, WorkTask task)>();
         foreach (var order in orderService.ActiveOrders)
@@ -278,7 +428,7 @@ public class WorkQueuePanel
             var phase = DeterminePhase(order, task);
             if (phase.HasValue) rows.Add((order, phase.Value, task));
         }
-        rows = rows.OrderBy(r => r.order.CustomerName).ThenBy(r => r.order.CreatedTimeMinute).ToList();
+        rows = SortOrders(rows);
 
         // Drop checked ids that no longer resolve to a still-actionable row (submitted, or picked
         // up by a selector concurrently) so their checkmark doesn't linger looking "stuck".
@@ -286,29 +436,76 @@ public class WorkQueuePanel
             .Select(r => r.order.OrderId).ToHashSet();
         _checkedOrderIds.RemoveWhere(id => !stillActionable.Contains(id));
 
-        if (rows.Count == 0)
+        foreach (var task in taskRows)
+            _rowScroll.Add(BuildTaskRow(task, _rowScroll.childCount));
+
+        if (rows.Count == 0 && taskRows.Count == 0)
         {
-            var empty = new Label("No orders in the queue. Generate some test orders to get started.");
+            var empty = new Label("No work in the queue. Generate some orders or inbound tasks to get started.");
             ApplyFont(empty, size: 13);
             empty.style.color = new StyleColor(ColSubtleText);
             _rowScroll.Add(empty);
         }
         else
         {
-            int i = 0;
             foreach (var (order, phase, task) in rows)
-            {
-                _rowScroll.Add(BuildRow(order, phase, task, i));
-                i++;
-            }
+                _rowScroll.Add(BuildRow(order, phase, task, _rowScroll.childCount));
         }
 
         RebuildBottomBar();
     }
 
+    // Sorting helpers are declared before DeterminePhase.
+    private List<WorkTask> SortTasks(List<WorkTask> tasks)
+    {
+        IEnumerable<WorkTask> sorted = _sortColumn switch
+        {
+            SortColumn.PaletteId => tasks.OrderBy(t => t.PalletId),
+            SortColumn.ItemNumber => tasks.OrderBy(GetTaskItemNumber),
+            SortColumn.Area => tasks.OrderBy(t => AreaLabel(t.Area)),
+            SortColumn.Priority => tasks.OrderBy(t => t.Priority),
+            SortColumn.Role => tasks.OrderBy(t => t.RequiredRole.DisplayName()),
+            SortColumn.Task => tasks.OrderBy(t => t.Type.ToString()),
+            SortColumn.Status => tasks.OrderBy(t => t.Status.ToString()),
+            SortColumn.From => tasks.OrderBy(t => t.FromLocation),
+            SortColumn.To => tasks.OrderBy(t => t.ToLocation),
+            SortColumn.Operator => tasks.OrderBy(t => GetOperatorName(t.AssignedToEmployeeGuid)),
+            _ => tasks.OrderByDescending(t => t.Priority).ThenBy(t => t.Type.ToString())
+        };
+        return (_sortAscending ? sorted : sorted.Reverse()).ToList();
+    }
+
+    private List<(OrderData order, RowPhase phase, WorkTask task)> SortOrders(List<(OrderData order, RowPhase phase, WorkTask task)> rows)
+    {
+        IEnumerable<(OrderData order, RowPhase phase, WorkTask task)> sorted = _sortColumn switch
+        {
+            SortColumn.Area => rows.OrderBy(r => r.task != null ? AreaLabel(r.task.Area) : ""),
+            SortColumn.Priority => rows.OrderBy(r => r.task?.Priority ?? 0),
+            SortColumn.Role => rows.OrderBy(r => r.task?.RequiredRole.DisplayName() ?? ""),
+            SortColumn.Task => rows.OrderBy(r => r.task?.Type.ToString() ?? "OrderSelect"),
+            SortColumn.Status => rows.OrderBy(r => PhaseLabel(r.phase)),
+            SortColumn.From => rows.OrderBy(r => r.task?.FromLocation ?? ""),
+            SortColumn.To => rows.OrderBy(r => r.task?.ToLocation ?? ""),
+            SortColumn.Operator => rows.OrderBy(r => GetOperatorName(r.task?.AssignedToEmployeeGuid)),
+            SortColumn.Customer => rows.OrderBy(r => r.order.CustomerName),
+            SortColumn.Order => rows.OrderBy(r => r.order.OrderId),
+            SortColumn.ItemNumber => rows.OrderBy(r => r.order.LineItems.FirstOrDefault()?.SkuId ?? ""),
+            _ => rows.OrderBy(r => r.order.CreatedTimeMinute)
+        };
+        return (_sortAscending ? sorted : sorted.Reverse()).ToList();
+    }
+
+    private static string GetTaskItemNumber(WorkTask task)
+    {
+        if (string.IsNullOrEmpty(task.PalletId)) return "";
+        if (!ServiceLocator.TryGet<InventoryService>(out var inventory) || inventory == null) return "";
+        var pallet = inventory.GetPallet(task.PalletId);
+        if (pallet == null) return "";
+        var sku = inventory.AllSkus.FirstOrDefault(s => s.SkuId == pallet.SkuId);
+        return sku != null ? sku.ItemNumber.ToString() : pallet.SkuId;
+    }
     private RowPhase? DeterminePhase(OrderData order, WorkTask task)
     {
-        if (order.Status == OrderData.OrderStatus.Loaded) return RowPhase.Loaded;
         if (order.Status == OrderData.OrderStatus.Loading) return RowPhase.Loading;
         if (order.Status == OrderData.OrderStatus.Staged) return RowPhase.Staged;
         if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return null;
@@ -322,18 +519,57 @@ public class WorkQueuePanel
         };
     }
 
-    private VisualElement BuildRow(OrderData order, RowPhase phase, WorkTask task, int rowIndex)
+    private VisualElement BuildTaskRow(WorkTask task, int rowIndex)
     {
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
         row.style.paddingTop = 4; row.style.paddingBottom = 4; row.style.paddingLeft = 6;
         row.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColRowEven : ColRowOdd);
+        row.style.flexShrink = 0;
+
+
+        AddRowCell(row, "", CheckboxWidth, ColSubtleText);
+
+        string itemNumber = "—";
+        if (ServiceLocator.TryGet<InventoryService>(out var inventory) && inventory != null)
+        {
+            var pallet = inventory.GetPallet(task.PalletId);
+            if (pallet != null)
+            {
+                var sku = inventory.AllSkus.FirstOrDefault(s => s.SkuId == pallet.SkuId);
+                itemNumber = sku != null ? sku.ItemNumber.ToString() : pallet.SkuId;
+            }
+        }
+
+        AddRowCell(row, ShortId(task.PalletId), PaletteIdWidth, ColTitleText);
+        AddRowCell(row, itemNumber, ItemNumberWidth, ColTitleText);
+        AddRowCell(row, AreaLabel(task.Area), AreaWidth, ColSubtleText, marginLeft: 12f);
+        AddRowCell(row, task.Priority.ToString(), PriorityWidth, ColTitleText);
+        AddRowCell(row, task.RequiredRole.DisplayName(), RoleWidth, ColSubtleText);
+        AddRowCell(row, task.Type.ToString(), TaskWidth, ColTitleText, marginLeft: RoleTaskGap);
+        AddRowCell(row, task.Status.ToString(), StatusWidth, ColStatusColor(task.Status), bold: true);
+        AddRowCell(row, task.FromLocation ?? "—", LocationWidth, ColSubtleText);
+        AddRowCell(row, task.ToLocation ?? "—", LocationWidth, ColSubtleText);
+        AddRowCell(row, GetOperatorName(task.AssignedToEmployeeGuid), OperatorWidth, ColTitleText);
+        AddRowCell(row, "—", CustomerWidth, ColSubtleText);
+        AddRowCell(row, "—", OrderWidth, ColSubtleText);
+        return row;
+    }
+
+    private VisualElement BuildRow(OrderData order, RowPhase phase, WorkTask task, int rowIndex)
+    {
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.paddingTop = 4; row.style.paddingBottom = 4; row.style.paddingLeft = 6;
+        row.style.flexShrink = 0;
+
+        row.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColRowEven : ColRowOdd);
 
         bool actionable = phase == RowPhase.Open || phase == RowPhase.Staged || phase == RowPhase.Loaded;
-
         var checkbox = new Toggle { value = _checkedOrderIds.Contains(order.OrderId) };
-        checkbox.style.width = 26;
+        checkbox.style.width = CheckboxWidth;
         checkbox.SetEnabled(actionable);
         checkbox.RegisterValueChangedCallback(evt =>
         {
@@ -343,34 +579,66 @@ public class WorkQueuePanel
         });
         row.Add(checkbox);
 
-        var customerLabel = new Label(order.CustomerName);
-        ApplyFont(customerLabel, size: 13);
-        customerLabel.style.width = 170;
-        customerLabel.style.color = new StyleColor(ColTitleText);
-        row.Add(customerLabel);
+        string itemNumber = order.LineItems.FirstOrDefault()?.SkuId ?? "—";
+        string area = task != null ? AreaLabel(task.Area) : "—";
+        string paletteId = task?.PalletId ?? "—";
+        string role = task != null ? task.RequiredRole.DisplayName() : "—";
+        string taskName = task != null ? task.Type.ToString() : "—";
+        string from = task?.FromLocation ?? "—";
+        string to = task?.ToLocation ?? "—";
+        string operatorName = phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "—";
 
-        string laneNote = !string.IsNullOrEmpty(order.AssignedLane) ? $" [{order.AssignedDoorNumber}{order.AssignedLane}]" : "";
-        var descLabel = new Label($"{order.OrderId.Substring(0, 8)} — {order.TotalUnits} units{laneNote}");
-        ApplyFont(descLabel, size: 12);
-        descLabel.style.width = 190;
-        descLabel.style.color = new StyleColor(ColSubtleText);
-        row.Add(descLabel);
-
-        var statusLabel = new Label(PhaseLabel(phase));
-        ApplyFont(statusLabel, bold: true, size: 13);
-        statusLabel.style.width = 110;
-        statusLabel.style.color = new StyleColor(PhaseColor(phase));
-        row.Add(statusLabel);
-
-        string operatorName = phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "";
-        var operatorLabel = new Label(operatorName);
-        ApplyFont(operatorLabel, size: 12);
-        operatorLabel.style.width = 140;
-        operatorLabel.style.color = new StyleColor(ColTitleText);
-        row.Add(operatorLabel);
-
+        AddRowCell(row, ShortId(paletteId), PaletteIdWidth, ColSubtleText);
+        AddRowCell(row, itemNumber, ItemNumberWidth, ColTitleText);
+        AddRowCell(row, area, AreaWidth, ColSubtleText, marginLeft: 12f);
+        AddRowCell(row, task != null ? task.Priority.ToString() : "—", PriorityWidth, ColTitleText);
+        AddRowCell(row, role, RoleWidth, ColSubtleText);
+        AddRowCell(row, taskName, TaskWidth, ColTitleText, marginLeft: RoleTaskGap);
+        AddRowCell(row, PhaseLabel(phase), StatusWidth, PhaseColor(phase), bold: true);
+        AddRowCell(row, from, LocationWidth, ColSubtleText);
+        AddRowCell(row, to, LocationWidth, ColSubtleText);
+        AddRowCell(row, operatorName, OperatorWidth, ColTitleText);
+        AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText);
+        AddRowCell(row, ShortId(order.OrderId), OrderWidth, ColSubtleText);
         return row;
     }
+
+    private static string AreaLabel(PalletData.AreaCategory area) => area switch
+    {
+        PalletData.AreaCategory.Grocery => "GRO",
+        PalletData.AreaCategory.Perishable => "PER",
+        PalletData.AreaCategory.Frozen => "FRO",
+        _ => area.ToString()
+    };
+
+    private static Color ColStatusColor(WorkTaskStatus status) => status switch
+    {
+        WorkTaskStatus.Open => ColStatusOpen,
+        WorkTaskStatus.Available => ColStatusAvailable,
+        WorkTaskStatus.Assigned => ColStatusAssigned,
+        WorkTaskStatus.Complete => ColStatusLoaded,
+        _ => ColSubtleText
+    };
+
+    private static Label AddRowCell(VisualElement row, string text, float width, Color color, bool bold = false, float marginLeft = 0f)
+    {
+        var label = new Label(text ?? "—");
+        ApplyFont(label, bold, 12);
+        label.style.width = width;
+        label.style.minWidth = width;
+        label.style.flexShrink = 0;
+        label.style.color = new StyleColor(color);
+        label.style.whiteSpace = WhiteSpace.NoWrap;
+        row.Add(label);
+        return label;
+    }
+
+    private static string ShortId(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "—";
+        return value.Length > 8 ? value.Substring(0, 8) : value;
+    }
+
 
     private static string PhaseLabel(RowPhase phase) => phase switch
     {

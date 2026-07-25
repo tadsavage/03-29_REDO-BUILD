@@ -74,6 +74,19 @@ namespace GameCore.Inventory
             gameObject.name = address;
         }
 
+        /// <summary>
+        /// Mirrors this component's displayed <see cref="_status"/> from <see cref="LocationStatusRegistry"/>
+        /// (the actual source of truth PutawayLogic queries) WITHOUT writing back into the registry.
+        /// Called by LocationRegistry's periodic recompute so the Inspector can never go stale relative
+        /// to the registry — some writers (PutawayLogic.AssignPutawayDestination/CompletePutaway,
+        /// ReplenishmentService.CreateReplenishTask) lock/release slots directly on the registry rather
+        /// than through this component's own Reserve()/Occupy()/Release() mutators.
+        /// </summary>
+        public void SyncStatusDisplay(LocationStatus status)
+        {
+            _status = status;
+        }
+
         // ── Mutation ─────────────────────────────────────────────────────────────────────
 
         /// <summary>Locks the slot for an incoming putaway (Available to Reserved).</summary>
