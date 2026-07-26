@@ -26,6 +26,14 @@ namespace GameCore.Inventory
         [SerializeField] private Sprite _iconSprite;
 
         [SerializeField] private Vector2Int _currentLocation;
+
+        /// <summary>Human-readable name of where this pallet physically is — a rack slot address
+        /// ("01-01-A0") once put away, or a staging-lane slot ("1A-3") while on the dock. This is
+        /// the field to cross-reference against a slot's LocationData.Address; the Vector2Int grid
+        /// cell above is ambiguous (a whole rack bay shares one cell across both positions and every
+        /// level) and unreadable at a glance.</summary>
+        [SerializeField] private string _locationName;
+
         [SerializeField] private PalletStatus _status = PalletStatus.Shippable;
 
         public string LoadId => _loadId;
@@ -37,6 +45,11 @@ namespace GameCore.Inventory
         public Sprite IconSprite => _iconSprite;
 
         public Vector2Int CurrentLocation => _currentLocation;
+
+        /// <summary>Human-readable location name — rack slot address ("01-01-A0") or staging-lane
+        /// slot ("1A-3"). Cross-references with LocationData.Address.</summary>
+        public string LocationName => _locationName;
+
         public PalletStatus Status => _status;
 
         /// <summary>Initialize pallet data (called when receiving completes and this component is added).</summary>
@@ -57,6 +70,15 @@ namespace GameCore.Inventory
         public void SetLocation(Vector2Int newLocation)
         {
             _currentLocation = newLocation;
+        }
+
+        /// <summary>Update pallet location AND its human-readable name together — a rack slot
+        /// address ("01-01-A0") or a staging-lane slot ("1A-3"). Prefer this over the Vector2Int-only
+        /// overload so the readable name can never drift out of sync with the grid cell.</summary>
+        public void SetLocation(Vector2Int newLocation, string locationName)
+        {
+            _currentLocation = newLocation;
+            _locationName    = locationName;
         }
 
         /// <summary>Update pallet status (QA hold, lost, on reserve, etc.).</summary>

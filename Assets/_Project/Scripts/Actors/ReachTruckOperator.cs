@@ -25,6 +25,12 @@ namespace GameCore.Actors
         private const float DriveSpeed          = 2.5f;
         private const float TurnSpeed           = 120f;
         private const float ArriveThreshold     = 0.15f;
+
+        /// <summary>Tolerance for the final chassis alignment onto a rack location's approach anchor,
+        /// run manually right before the fork sequence. Tighter than the general
+        /// <see cref="ArriveThreshold"/> because any residual offset here shows up directly as the
+        /// pallet entering the bay at an angle.</summary>
+        private const float PrecisePlaceThreshold = 0.10f;
         private const float FaceThreshold       = 2f;
         private const float TaskPollInterval    = 1f;
 
@@ -395,12 +401,21 @@ namespace GameCore.Actors
             // Inventory container once it is actually placed at the rack (see the completion leg in
             // DeliverPalletToRack). Between claim and pickup it is parented to the carrier at seating.
 
-            // 4. Drive to the lane exit, then resolve the pallet's grab anchors. Long-distance leg
-            // (truck's current position, e.g. idle patrol somewhere else in the warehouse, -> the
-            // lane exit) -- hybrid system: use the vehicle's real NavMeshAgent for this open-floor
-            // travel (obstacle-aware, respects any NavMeshObstacle on a rack), then hand off to
-            // manual/Commandeer'd driving for the precision grab sequence below.
-            yield return SeekViaNavMesh(exitPoint);
+            // ── PHASE: AI travel → staging-lane exit ──────────────────────────────────────────────
+            // Open-floor leg (truck's current position, e.g. mid-patrol anywhere in the warehouse →
+            // this lane's exit point). Real NavMeshAgent travel, so racks with a carving
+            // NavMeshObstacle are respected. Everything after this until we're back out of the lane
+            // is Manual (precision) work.
+            bool reachedLane = false;
+            yield return SeekViaNavMesh(exitPoint, $"putaway: → lane {door}{lane} exit", r => reachedLane = r);
+            if (!reachedLane)
+            {
+                // No path — do NOT plow through. Release the reserved slot and re-queue the task.
+                _putawayLogic?.CancelPutaway(toAddress);
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
 
             Transform anchorFront = FindDeepChild(pallet, ChepAnchorFrontName);
             Transform anchorRear  = FindDeepChild(pallet, ChepAnchorRearName);
@@ -581,13 +596,23 @@ namespace GameCore.Actors
                 yield break;
             }
 
-            // Raise forks to travel height before the drive, regardless of which movement system
-            // covers it. Long-distance leg (lane exit, or a reserve slot just picked from -> the
-            // TARGET rack's approach anchor, possibly a different aisle) -- hybrid system: real
-            // NavMeshAgent travel via SeekViaNavMesh, then back to manual for the putdown below.
-            // (No pre-rotate needed here -- FaceForks right after arrival handles final orientation.)
+            // ── PHASE: AI travel → target rack's approach anchor ──────────────────────────────────
+            // Open-floor leg (staging-lane exit, or a reserve slot just picked from → the TARGET
+            // rack's approach anchor, often a different aisle). Forks go to travel height first,
+            // then real NavMeshAgent travel; back to Manual for the putdown below.
+            // (No pre-rotate needed — FaceForks right after arrival sets the final orientation.)
             if (_forks != null) yield return LiftForks(_forks, ForkTravelHeight);
-            yield return SeekViaNavMesh(locApproach.position);
+
+            bool reachedRack = false;
+            yield return SeekViaNavMesh(locApproach.position, $"deliver: → location {toAddress} anchor", r => reachedRack = r);
+            if (!reachedRack)
+            {
+                // No path — do NOT plow through. Put the pallet back where it came from and abort.
+                ReleaseCarriedPalletToOrigin(pallet);
+                if (obstacle != null) obstacle.enabled = true;
+                yield return AbortRoutine(task, palletId, toAddress);
+                yield break;
+            }
 
             // 8. Putdown Sequence ------------------------------------------------------------------
             Transform locationTr = FindLocationTransform(toAddress);
@@ -600,6 +625,17 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // ── PRECISE FINAL ALIGNMENT (load-bearing — do not drop) ──────────────────────────────
+            // The NavMesh leg above only guarantees arrival within the MHE agent's stoppingDistance
+            // (1.0m) — AiNavigation's seek-arrival check fires at `remainingDistance <= 1.0`. Facing
+            // and extending from up to a metre off-centre is exactly why pallets went into the bay
+            // crooked and then visibly snapped square on release. So close the last metre manually,
+            // squaring the chassis onto the approach anchor's exact X/Z (DriveToPoint snaps to the
+            // target XZ on completion, so the residual error is zero, well inside the 0.1m ask).
+            // This is a short, local move entirely within the aisle — it cannot cut through racking.
+            yield return DriveToPoint(transform, locApproach.position, PrecisePlaceThreshold);
+
+            // Only NOW rotate to aim the forks at the location, from a correctly-centred position.
             yield return FaceForks(transform, Flat(locationTr.position - transform.position));
 
             if (_forks != null)
@@ -639,7 +675,16 @@ namespace GameCore.Actors
                 yield return LiftForks(_forks, _forks.localPosition.y - ForkDepositDrop);
 
             pallet.SetParent(null, worldPositionStays: true);
+
+            // Seat the pallet ON the location transform — BOTH position and rotation. Setting only
+            // position left the pallet holding whatever heading it had while riding the forks (i.e.
+            // the truck's heading at the moment of insertion), which is why put-away pallets sat at
+            // arbitrary angles in the bay instead of square to the rack. The location transform (the
+            // one authored as a child of the rack's label group) already carries the correct facing
+            // for its slot, so adopting its rotation squares the pallet to the rack every time,
+            // regardless of how the truck happened to be oriented on approach.
             pallet.position = locationTr.position;
+            pallet.rotation = locationTr.rotation;
             // Now — and ONLY now, with the pallet physically placed at the rack and off the forks — move
             // it under the Inventory container (its organizational home). Deferring the re-parent to this
             // point (instead of at claim time) is what keeps a still-resting, claimed pallet unparented so
@@ -648,11 +693,36 @@ namespace GameCore.Actors
             if (obstacle != null) obstacle.enabled = true;
             _carryOriginValid = false; // pallet is safely placed — the captured lane pose is no longer a fallback.
 
+            // Record the slot's CONTENTS, not just that it's occupied. Without a real Occupy() call
+            // the slot still reads "Occupied" in the Inspector (LocationRegistry mirrors status from
+            // LocationStatusRegistry, which CompletePutaway marks below) but with a blank Pallet Id /
+            // Sku Id / Quantity — an occupied-but-empty slot that nothing downstream can reason about.
+            // So resolve the record and fail LOUDLY rather than silently writing blanks.
             var locationData = locationTr.GetComponent<LocationData>();
-            if (locationData != null)
+            var record = _inventoryService?.GetPallet(palletId);
+            if (locationData == null)
             {
-                var record = _inventoryService?.GetPallet(palletId);
-                locationData.Occupy(palletId, record?.SkuId ?? string.Empty, record?.Quantity ?? 0);
+                Debug.LogError($"[ReachTruckOperator] '{name}': location '{toAddress}' resolved to " +
+                    $"'{locationTr.name}' which has NO LocationData component — slot contents cannot be " +
+                    $"recorded. It will show Occupied with empty contents.");
+            }
+            else if (record == null)
+            {
+                Debug.LogError($"[ReachTruckOperator] '{name}': no InventoryService record for pallet " +
+                    $"'{palletId}' — recording '{toAddress}' as occupied with unknown contents.");
+                locationData.Occupy(palletId, string.Empty, 0);
+            }
+            else
+            {
+                // ExpirationDayNumber is -1 for non-perishables; only surface a real date.
+                string expiry = record.ExpirationDayNumber >= 0
+                    ? record.ExpirationDayNumber.ToString()
+                    : null;
+                // LoadId is the human-readable "license plate" — it's what cross-references against
+                // the pallet's own PalletData.LoadId in the Inspector.
+                locationData.Occupy(palletId, record.SkuId, record.Quantity, expiry, record.LoadId);
+                Debug.Log($"[ReachTruckOperator] '{toAddress}' contents recorded: load={record.LoadId} " +
+                    $"sku={record.SkuId} qty={record.Quantity} expiry={(expiry ?? "n/a")} (palletId={palletId})");
             }
 
             // Resolve grid position robustly
@@ -672,6 +742,17 @@ namespace GameCore.Actors
                 palletPO.gridY = toGrid.y;
                 palletPO.enabled = true;
             }
+
+            // Keep the pallet's OWN PalletData in step with where it now physically lives. Without
+            // this its CurrentLocation stays pointing at the staging-lane cell it was received into,
+            // so the hover popup / any inspector read of a racked pallet reports a stale dock
+            // location forever. (TrailerOffloadController does the equivalent sync in
+            // RegisterAndQueue when it stages a pallet; the putaway path was missing it.)
+            // Record BOTH the grid cell and the readable slot address, so a pallet inspected in the
+            // scene names the exact slot it's in ("01-01-A0") rather than only an ambiguous grid
+            // cell — a whole rack bay shares one cell across both positions and every level.
+            var palletData = pallet.GetComponent<PalletData>();
+            if (palletData != null) palletData.SetLocation(toGrid, toAddress);
 
             _putawayLogic?.CompletePutaway(palletId, toAddress, toGrid);
             _workQueue?.CompleteTask(task.TaskId);
@@ -806,10 +887,19 @@ namespace GameCore.Actors
                 yield break;
             }
 
-            // Long-distance leg (truck's current position -> the RESERVE rack's approach anchor) --
-            // hybrid system: real NavMeshAgent travel, then back to manual for the extract below.
+            // ── PHASE: AI travel → reserve rack's approach anchor ─────────────────────────────────
+            // Open-floor leg (truck's current position → the RESERVE rack's approach anchor). Real
+            // NavMeshAgent travel; back to Manual for the extract below. On failure, report false to
+            // the caller (ReplenishRoutine reverts both slot reservations) rather than straight-lining.
             yield return LiftForks(_forks, ForkTravelHeight);
-            yield return SeekViaNavMesh(locApproach.position);
+
+            bool reachedReserve = false;
+            yield return SeekViaNavMesh(locApproach.position, $"replenish: → reserve {reserveAddress} anchor", r => reachedReserve = r);
+            if (!reachedReserve)
+            {
+                onDone?.Invoke(false);
+                yield break;
+            }
 
             Transform locationTr = FindLocationTransform(reserveAddress);
             if (locationTr == null)
@@ -818,6 +908,11 @@ namespace GameCore.Actors
                 onDone?.Invoke(false);
                 yield break;
             }
+
+            // Same precise final alignment as the delivery leg — the NavMesh arrival is only good to
+            // the MHE stoppingDistance (1.0m), and extracting from a metre off-centre is what makes
+            // the fork insertion miss and the pallet come out skewed.
+            yield return DriveToPoint(transform, locApproach.position, PrecisePlaceThreshold);
 
             yield return FaceForks(transform, Flat(locationTr.position - transform.position));
             // PalletHalfHeight (0.085), not ForkRackClearance (0.15) -- ForkRackClearance exactly
@@ -875,7 +970,9 @@ namespace GameCore.Actors
             if (task == null || pallet == null || string.IsNullOrEmpty(task.ToLocation)) return;
             ResolveServices();
 
-            Commandeer();
+            // Save/load restored this vehicle mid-carry with the pallet already on its forks. Start
+            // in Manual so nothing moves until DeliverPalletToRack's own AI leg takes over.
+            SetDriveMode(DriveMode.Manual, "resume mid-carry after save/load");
             _busy = true;
             NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
             Debug.Log($"[ReachTruckOperator] '{name}' RESUMING task {task.TaskId} — delivering '{task.PalletId}' to {task.ToLocation}.");
@@ -982,31 +1079,96 @@ namespace GameCore.Actors
             _carryOriginValid = false; // routine is over — don't let a stale carry pose leak into the next task.
         }
 
-        private void Commandeer()
+        // ── Drive-mode chokepoint ─────────────────────────────────────────────────────────────────
+        //
+        // WHO IS DRIVING THIS VEHICLE is explicit state, and SetDriveMode is the ONLY code allowed
+        // to flip it. Nothing else in this file may touch _vehicleNav.enabled / _vehicleAgent.enabled.
+        //
+        // Why this matters: AiNavigation.LateUpdate() writes transform.position = agent.nextPosition
+        // EVERY FRAME while its agent is enabled, and AiNavigation.Update() can re-issue a patrol
+        // destination on its own (GoToRandomWaypoint on a NavMesh rebake, the waypoint-progression
+        // fallback, the stuck-detector). So if the agent is live during a manual/precision step, the
+        // two systems fight over the transform frame-by-frame; if BOTH are off when a leg expects to
+        // move, the vehicle just sits there. Routing every transition through one method makes both
+        // states impossible to reach by accident, and logs the phase so a misbehaving run can be read
+        // straight from the console instead of guessed at.
+        private enum DriveMode
         {
-            if (_vehicleNav != null) { _vehicleNav.CancelSeekPosition(); _vehicleNav.enabled = false; }
-            if (_vehicleAgent != null) { _vehicleAgent.isStopped = true; _vehicleAgent.enabled = false; }
+            /// <summary>The vehicle's own NavMeshAgent/AiNavigation owns the transform — real
+            /// pathfinding, obstacle avoidance, NavMeshObstacle-aware (rack carving).</summary>
+            Ai,
+            /// <summary>This controller owns the transform directly (DriveToPoint/FaceForks/
+            /// InsertToGrab/fork extension). Precision work only, always short and local.</summary>
+            Manual
         }
 
+        private DriveMode _mode = DriveMode.Ai;
+
+        /// <summary>The ONLY method permitted to enable/disable _vehicleNav / _vehicleAgent.
+        /// <paramref name="phase"/> is a short human label for the console trail.</summary>
+        private void SetDriveMode(DriveMode mode, string phase)
+        {
+            // Deliberately NOT early-returning when _mode already equals `mode`: external code also
+            // toggles these components (MHEOperatorSlot boarding/vacating via AiNavigation.GoActive/
+            // GoIdle), so _mode can drift out of sync with the components' real enabled state. If we
+            // skipped the work on a "no change", a vehicle whose agent was disabled behind our back
+            // would silently never move on its next AI leg. Always reassert; only the log is gated.
+            bool changed = _mode != mode;
+            _mode = mode;
+
+            if (mode == DriveMode.Manual)
+            {
+                if (_vehicleNav != null) { _vehicleNav.CancelSeekPosition(); _vehicleNav.enabled = false; }
+                if (_vehicleAgent != null)
+                {
+                    if (_vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh) _vehicleAgent.isStopped = true;
+                    _vehicleAgent.enabled = false;
+                }
+            }
+            else
+            {
+                if (_vehicleAgent != null)
+                {
+                    _vehicleAgent.enabled = true;
+
+                    // ALWAYS Warp — this is a hard resync, not an optimization (do not re-add an
+                    // isOnNavMesh guard around it). The agent runs with updatePosition = false for
+                    // this project's whole lifetime (see AiNavigation.Awake), so its INTERNAL
+                    // simulated position only tracks the transform when something syncs them. Manual
+                    // phases here write transform.position directly and never touch nextPosition, so
+                    // by the time we hand back to AI the agent still believes it is wherever it was
+                    // when we last took over. Observed live: a truck physically 28m from its target
+                    // reported remainingDistance = 1.47 and drove AWAY from it, because
+                    // AiNavigation.LateUpdate was faithfully dragging the transform to a stale
+                    // simulation. The old code guarded this Warp on isOnNavMesh, which skipped it in
+                    // exactly the common case (agent already on-mesh), so the resync never happened.
+                    _vehicleAgent.Warp(transform.position);
+                    if (_vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh)
+                        _vehicleAgent.isStopped = false;
+                }
+                if (_vehicleNav != null) _vehicleNav.enabled = true;
+            }
+
+            if (changed)
+                Debug.Log($"[ReachTruckOperator] '{name}' drive mode → {mode} ({phase}) @ {transform.position}");
+        }
+
+        /// <summary>Hands the vehicle back to its normal patrol AI and ends the task (frees _busy).</summary>
         private void Restore()
         {
-            if (_vehicleAgent != null)
-            {
-                _vehicleAgent.enabled = true;
-                if (_vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh) { _vehicleAgent.Warp(transform.position); _vehicleAgent.isStopped = false; }
-            }
-            if (_vehicleNav != null) _vehicleNav.enabled = true;
+            SetDriveMode(DriveMode.Ai, "task complete — resuming patrol");
             _vehicleNav?.GoToRandomWaypoint();
             _busy = false;
         }
 
-        private IEnumerator DriveToPoint(Transform t, Vector3 target)
+        private IEnumerator DriveToPoint(Transform t, Vector3 target, float arriveThreshold = -1f)
         {
+            float threshold = arriveThreshold > 0f ? arriveThreshold : ArriveThreshold;
             Vector3 flat = new Vector3(target.x, t.position.y, target.z);
             Vector3 to = flat - t.position; to.y = 0f;
-            if (to.magnitude <= ArriveThreshold) { t.position = flat; yield break; }
+            if (to.magnitude <= threshold) { t.position = flat; yield break; }
             yield return RotateTo(t, to);
-            while (PlanarDist(t.position, target) > ArriveThreshold)
+            while (PlanarDist(t.position, target) > threshold)
             {
                 t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
                 yield return null;
@@ -1015,51 +1177,195 @@ namespace GameCore.Actors
         }
 
         /// <summary>
-        /// Hybrid movement -- the long-distance leg of a task (current position, e.g. mid-patrol
-        /// somewhere in the warehouse, -> a lane exit or a rack's approach anchor). Temporarily
-        /// re-enables this vehicle's OWN NavMeshAgent/AiNavigation (Commandeer() may have disabled
-        /// them for a PREVIOUS precision step) and drives via AiNavigation.SeekPosition -- real
-        /// pathfinding, obstacle avoidance, and NavMeshObstacle-awareness (e.g. a hand-authored
-        /// Carve=true obstacle on a rack), instead of a blind straight line. On arrival (or on
-        /// giving up -- unreachable target, timeout) it re-Commandeers (disables NavMeshAgent/
-        /// AiNavigation again) so the caller's next step can safely drive the transform directly
-        /// without the agent fighting it. Falls back to a direct DriveToPoint if no NavMeshAgent/
-        /// AiNavigation is present, or if SeekPosition can't reach the target at all.
+        /// AI leg of the hybrid drive: travel from wherever the vehicle is to <paramref name="target"/>
+        /// (a staging-lane exit, or a rack location's approach anchor) under the vehicle's OWN
+        /// NavMeshAgent, via <see cref="AiNavigation.SeekPosition"/> -- real pathfinding, agent
+        /// avoidance, and NavMeshObstacle-awareness (so a hand-authored Carve=true obstacle on a rack
+        /// is actually respected). Leaves the vehicle in <see cref="DriveMode.Manual"/> on return so
+        /// the caller's next precision step owns the transform.
+        ///
+        /// CRITICAL -- there is deliberately NO straight-line fallback on failure. An earlier version
+        /// fell back to DriveToPoint when the NavMesh leg failed or timed out, which silently drove
+        /// the vehicle straight THROUGH whatever was in the way (racks included) and looked exactly
+        /// like "the obstacle is being ignored." A pathing failure is now a hard, loud failure: this
+        /// returns false, the caller aborts/re-queues the task, and the console says which phase and
+        /// which target broke. A stuck truck with a clear log line is strictly better than a truck
+        /// ghosting through the racking.
         /// </summary>
-        private IEnumerator SeekViaNavMesh(Vector3 target)
+        /// <returns>True if the vehicle actually arrived; false if it could not path there.</returns>
+        private IEnumerator SeekViaNavMesh(Vector3 target, string phase, System.Action<bool> onDone)
         {
             if (_vehicleNav == null || _vehicleAgent == null)
             {
-                yield return DriveToPoint(transform, target);
+                Debug.LogError($"[ReachTruckOperator] '{name}' {phase}: no AiNavigation/NavMeshAgent on this vehicle — cannot do an AI travel leg.");
+                onDone?.Invoke(false);
                 yield break;
             }
 
-            _vehicleNav.enabled = true;
-            _vehicleAgent.enabled = true;
-            if (_vehicleAgent.isOnNavMesh) _vehicleAgent.isStopped = false;
-            else _vehicleAgent.Warp(transform.position);
+            SetDriveMode(DriveMode.Ai, $"AI leg → {phase}");
 
-            bool arrived = false;
-            _vehicleNav.SeekPosition(target, () => arrived = true);
-
-            float elapsed = 0f;
-            const float MaxSeekTime = 30f;
-            while (!arrived && _vehicleNav.IsSeekingTask && elapsed < MaxSeekTime)
+            // ── WAIT FOR THE AGENT TO REGISTER WITH THE NAVMESH (load-bearing — do not remove) ────
+            // SetDriveMode just re-enabled the NavMeshAgent. A freshly-enabled agent is NOT on the
+            // navmesh in the same frame — isOnNavMesh stays false until Unity's navigation update
+            // runs. That mattered enormously: AiNavigation.SeekPosition sets _seekingTask = true and
+            // THEN calls SetDestinationSnapped, which opens with
+            // `if (!agent.isOnNavMesh) return false;` — so the destination was silently never set
+            // while _seekingTask stayed true, and this method's wait loop then burned its entire 30s
+            // timeout waiting for an arrival that had never actually been requested. That is the
+            // "AI thing times out" Tad kept seeing (Editor.log: agentOnMesh=False on every failure,
+            // even though the same vehicles sample valid MHE navmesh under them a moment later).
+            const float MaxRegisterWait = 1f;
+            float registerWaited = 0f;
+            while (!_vehicleAgent.isOnNavMesh && registerWaited < MaxRegisterWait)
             {
-                elapsed += Time.deltaTime;
+                // Warp actively places the agent on the nearest navmesh; retry it as we wait rather
+                // than only trying once on a not-yet-registered agent (where it can no-op).
+                _vehicleAgent.Warp(transform.position);
+                registerWaited += Time.deltaTime;
                 yield return null;
             }
 
-            // Hand back to manual control regardless of outcome -- AiNavigation/SeekPosition already
-            // logs+cancels on an invalid path, and this guarantees the caller's next (precision)
-            // step never fights a still-active NavMeshAgent.
-            Commandeer();
+            if (!_vehicleAgent.isOnNavMesh)
+            {
+                Debug.LogError($"[ReachTruckOperator] '{name}' {phase}: agent could not register on the NavMesh " +
+                    $"at {transform.position} after {registerWaited:F2}s (agentType=MHE). No AI leg possible — aborting. " +
+                    $"Is there MHE-type navmesh under the vehicle?");
+                _vehicleNav.SetTaskBusy(false);
+                SetDriveMode(DriveMode.Manual, $"failed to register → {phase}");
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            // ── FLATTEN THE TARGET TO DRIVE HEIGHT (load-bearing — do not remove) ──────────────────
+            // A rack location's approach anchor sits at ITS OWN LEVEL's height: an upper-level slot's
+            // anchor is metres up in the air on the shelf (Editor.log showed real targets at Y=5.11
+            // and Y=7.11 while the floor is Y≈1.1). A forklift drives on the FLOOR, so handing that
+            // raw 3D point to SeekPosition is unpathable — SetDestinationSnapped's NavMesh.SamplePosition
+            // uses a 2m radius and can never reach floor navmesh 4–6m below, so the agent never
+            // arrives and the leg burns its full 30s timeout. (The manual DriveToPoint path never hit
+            // this because it silently rewrites target.y to the truck's own height; only the NavMesh
+            // leg was faithful to the anchor's altitude.) Take the anchor's XZ, drop it to the
+            // vehicle's drive height, then snap that to real navmesh.
+            Vector3 driveTarget = new Vector3(target.x, transform.position.y, target.z);
+            if (NavMesh.SamplePosition(driveTarget, out var groundHit, 4f, _vehicleAgent.areaMask))
+            {
+                driveTarget = groundHit.position;
+            }
+            else
+            {
+                Debug.LogWarning($"[ReachTruckOperator] '{name}' {phase}: no navmesh within 4m of the " +
+                    $"floor-projected target {driveTarget} (anchor was {target}) — pathing to it raw.");
+            }
+
+            // Clear any stale seek before starting a new one. AiNavigation.SeekPosition opens with
+            // `if (_seekingTask) return;` — it SILENTLY does nothing when a previous seek is still
+            // flagged: no destination set, no callback wired. This loop would then see IsSeekingTask
+            // still true with arrived never firing and burn the entire 30s timeout for a target it
+            // never even attempted. CancelSeekPosition is a cheap no-op when nothing is in flight.
+            _vehicleNav.CancelSeekPosition();
+
+            // Final hard resync immediately before issuing the destination, so the path is computed
+            // from where the vehicle ACTUALLY is rather than from a stale internal simulation (see
+            // the long note in SetDriveMode). Cheap, and it makes the leg independent of whatever
+            // sequence of manual/AI phases ran before it.
+            _vehicleAgent.Warp(transform.position);
+
+            // ── CLAIM THE AGENT FOR THIS LEG (load-bearing — do not remove) ───────────────────────
+            // AiNavigation.Update() has a waypoint-progression fallback for agents with no
+            // AgentAnimation — which is every Forklift-role vehicle — that fires
+            // GoToRandomWaypoint() as soon as `remainingDistance <= stoppingDistance + 0.1`. MHE
+            // stoppingDistance is 1.0, so that trips at 1.1, while the seek-arrival check in the
+            // same Update() requires `<= 1.0`. Any leg that lands in that 1.0–1.1 window gets its
+            // destination HIJACKED to a random patrol waypoint before arrival ever registers:
+            // _seekingTask stays true, the callback never fires, this loop times out at 30s, and the
+            // truck ends up somewhere random (Editor.log showed exactly that — failed lane-exit legs
+            // ending 30m+ away at arbitrary positions). SetTaskBusy is the public guard AiNavigation
+            // provides for precisely this ("so the generic waypoint-progression fallback doesn't send
+            // it off to a random waypoint"). Cleared in every exit path below.
+            _vehicleNav.SetTaskBusy(true);
+
+            bool arrived = false;
+            _vehicleNav.SeekPosition(driveTarget, () => arrived = true);
+
+            // Confirm the destination actually took. SetDestinationSnapped can still return false
+            // (target not sampleable, agent knocked off-mesh) while SeekPosition has already latched
+            // _seekingTask = true — which would otherwise hang this leg for the full 30s on a path
+            // that was never issued. One frame for the path request to register, then verify.
+            yield return null;
+            if (!arrived && !_vehicleAgent.pathPending && !_vehicleAgent.hasPath)
+            {
+                Debug.LogError($"[ReachTruckOperator] '{name}' {phase}: destination did not take — " +
+                    $"no path and none pending for driveTarget={driveTarget} (anchor={target}, " +
+                    $"from={transform.position}, onMesh={_vehicleAgent.isOnNavMesh}). Aborting leg immediately " +
+                    $"instead of waiting out the timeout.");
+                _vehicleNav.CancelSeekPosition();
+                _vehicleNav.SetTaskBusy(false);
+                SetDriveMode(DriveMode.Manual, $"no path issued → {phase}");
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            // ── RESILIENT WAIT (load-bearing — do not simplify back to a plain timer) ─────────────
+            // The leg must survive a NavMesh rebake. NavMeshManager.BakeSynchronous() swaps the mesh
+            // wholesale (RemoveData → navMeshData = newData → AddData), and rebakes fire on EVERY
+            // placement/deletion via MarkDirty() — pallets being put away constantly retrigger it.
+            // A swap knocks every agent off the mesh and silently drops its path: isOnNavMesh goes
+            // false, hasPath goes false, no arrival callback ever fires, and _seekingTask stays true.
+            // That is why legs were still burning the full 30s with agentOnMesh=False at the end even
+            // after the registration fix — the agent DID start on-mesh with a valid path, then lost
+            // both mid-travel. So re-establish rather than wait it out: warp back on when knocked
+            // off, and re-issue the destination when the path is gone.
+            float elapsed = 0f;
+            float sinceRecheck = 0f;
+            int reissues = 0;
+            const float MaxSeekTime = 30f;
+            const float RecheckInterval = 0.5f;
+            const int MaxReissues = 10;
+
+            while (!arrived && _vehicleNav.IsSeekingTask && elapsed < MaxSeekTime)
+            {
+                elapsed += Time.deltaTime;
+                sinceRecheck += Time.deltaTime;
+
+                if (sinceRecheck >= RecheckInterval)
+                {
+                    sinceRecheck = 0f;
+
+                    if (!_vehicleAgent.isOnNavMesh)
+                    {
+                        // Knocked off by a rebake — put it back and re-issue below.
+                        _vehicleAgent.Warp(transform.position);
+                    }
+                    else if (!_vehicleAgent.pathPending && !_vehicleAgent.hasPath && reissues < MaxReissues)
+                    {
+                        // On the mesh but the path evaporated (rebake dropped it). Re-issue.
+                        reissues++;
+                        Debug.LogWarning($"[ReachTruckOperator] '{name}' {phase}: path lost mid-leg " +
+                            $"(likely a NavMesh rebake) — re-issuing destination (attempt {reissues}/{MaxReissues}).");
+                        _vehicleNav.CancelSeekPosition();
+                        _vehicleNav.SeekPosition(driveTarget, () => arrived = true);
+                    }
+                }
+
+                yield return null;
+            }
+
+            // Release the agent claim and hand the transform back. The caller's next step is
+            // precision work and must not be fighting a live agent; an aborting caller needs a
+            // settled vehicle too.
+            _vehicleNav.SetTaskBusy(false);
+            SetDriveMode(DriveMode.Manual, arrived ? $"arrived → {phase}" : $"leg FAILED → {phase}");
 
             if (!arrived)
             {
-                Debug.LogWarning($"[ReachTruckOperator] '{name}' SeekViaNavMesh: could not reach {target} via NavMesh (elapsed={elapsed:F1}s, timedOut={elapsed >= MaxSeekTime}) -- falling back to a direct drive.");
-                yield return DriveToPoint(transform, target);
+                Debug.LogError($"[ReachTruckOperator] '{name}' {phase}: NO NAVMESH PATH. " +
+                    $"anchor={target} → driveTarget={driveTarget}, from={transform.position}, " +
+                    $"elapsed={elapsed:F1}s, timedOut={elapsed >= MaxSeekTime}, " +
+                    $"agentOnMesh={_vehicleAgent.isOnNavMesh}, pathStatus={(_vehicleAgent.isOnNavMesh ? _vehicleAgent.pathStatus.ToString() : "n/a")}. " +
+                    $"Refusing to straight-line through obstacles — aborting this leg.");
             }
+
+            onDone?.Invoke(arrived);
         }
 
         // Forks-first insertion drive. Two design points here are load-bearing and MUST NOT be

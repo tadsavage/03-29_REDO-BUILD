@@ -58,6 +58,12 @@ namespace GameCore.Labor
         // Event fired when this workflow completes (caller can return to patrol/poll for next task)
         public event System.Action OnWorkflowComplete;
 
+        /// <summary>True while this workflow actually has a pallet in hand. Exposed so the driver
+        /// that owns the "task in progress" flag can verify it against reality instead of trusting
+        /// that OnWorkflowComplete always lands — if the event is ever missed, the driver would
+        /// otherwise stay flagged busy forever and stop claiming work entirely.</summary>
+        public bool IsBusy => _state != ReceivingState.Idle;
+
         private void Awake()
         {
             if (_fillBar == null)

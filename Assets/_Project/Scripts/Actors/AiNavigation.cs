@@ -78,6 +78,37 @@ public class AiNavigation : MonoBehaviour
     private static float s_lastGlobalRebake = float.MinValue;
     private const  float k_RebakeTrigger  = 3.5f;
     private const  float k_RebakeCooldown = 25f;
+
+    // ── Unstick (walk-out) ───────────────────────────────────────────────────────────────────────
+    // Last-resort escape for an agent that is genuinely walled in — the classic case being a pallet
+    // dropped beside a standing receiver whose NavMeshObstacle carves the floor out from under them,
+    // leaving no navmesh within reach and therefore no path anywhere. Rather than teleport (which
+    // reads as a glitch) the agent physically WALKS to the nearest valid navmesh and a little past
+    // it, animation playing, then rejoins normal navigation.
+    private bool  _unsticking;
+    private float _offMeshSeconds;   // how long we've been off-mesh with nothing to snap to
+    private float _blockedSeconds;   // how long we've been on-mesh but unable to make progress
+
+    /// <summary>Seconds of being genuinely stuck before the walk-out kicks in. Long enough that
+    /// ordinary congestion (two agents shuffling past each other) resolves on its own first.</summary>
+    private const float StuckEscalateSeconds = 3f;
+    /// <summary>Radii tried in order when hunting for navmesh to snap back onto (off-mesh case).</summary>
+    private static readonly float[] k_RescueRadii = { 2f, 6f, 12f, 20f };
+    /// <summary>Ring radii probed when looking for a point OUTSIDE the pocket (walled-in case).</summary>
+    private static readonly float[] k_EscapeRadii = { 3f, 5f, 8f, 12f };
+    /// <summary>An escape target closer than this is assumed to still be inside the trap.</summary>
+    private const float MinEscapeDistance = 2.5f;
+    /// <summary>Extra distance walked PAST the recovered navmesh point, so the agent clears the
+    /// pocket it was trapped in instead of stopping right on its lip and re-trapping.</summary>
+    private const float UnstickOvershoot = 1f;
+    private const float UnstickWalkSpeed = 1.6f;
+    private const float UnstickTimeout   = 8f;
+
+    /// <summary>How long an agent must sit stationary at the end of a PARTIAL path before we accept
+    /// it as "arrived". A grace period rather than an instant call, so an agent still threading its
+    /// way along a partial route isn't cut short the moment it slows down.</summary>
+    private const float PartialSeekGraceSeconds = 1.5f;
+    private float _partialSeekSeconds;
 public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     /// <summary>True when there are at least 2 waypoints — enough for a return trip.</summary>
     public bool HasEnoughWaypoints => waypoints != null && waypoints.Length >= 2;
@@ -487,6 +518,163 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
     }
 
+    /// <summary>
+    /// Finds the nearest point THIS agent could legitimately stand on, widening the search until
+    /// something is found. Filters by the agent's own type + areaMask so a Human never gets rescued
+    /// onto MHE-only mesh (or vice versa) — NavMesh.AllAreas with the default agent type, which the
+    /// old recovery used, could hand back a point this agent can't actually occupy.
+    /// </summary>
+    private bool TryFindNavMeshNear(Vector3 origin, out Vector3 point, out float distance)
+    {
+        point = origin; distance = 0f;
+        if (agent == null) return false;
+
+        var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
+        foreach (float r in k_RescueRadii)
+        {
+            if (NavMesh.SamplePosition(origin, out NavMeshHit hit, r, filter))
+            {
+                point = hit.position;
+                distance = Vector3.Distance(origin, hit.position);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Finds somewhere to walk to that is genuinely OUT of the pocket the agent is trapped in.
+    ///
+    /// Needed because a walled-in agent is usually standing ON navmesh — the pocket is navmesh, it's
+    /// just an isolated island with no route off it. A plain SamplePosition therefore returns the
+    /// agent's own position (measured live: "walking out to &lt;same spot&gt; (0.00m to mesh)") and the
+    /// walk-out moves nobody. So instead: probe outward in a ring of directions for a point that is
+    /// both a real distance away AND currently UNREACHABLE by path — unreachable proves it is on the
+    /// far side of whatever is blocking us, which is exactly where we want to end up.
+    /// </summary>
+    private bool TryFindEscapePoint(Vector3 origin, out Vector3 point)
+    {
+        point = origin;
+        if (agent == null) return false;
+
+        var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
+        var path = new NavMeshPath();
+        const int Directions = 12;
+        Vector3 best = origin; float bestScore = -1f;
+
+        foreach (float radius in k_EscapeRadii)
+        {
+            for (int i = 0; i < Directions; i++)
+            {
+                float ang = (360f / Directions) * i * Mathf.Deg2Rad;
+                Vector3 probe = origin + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * radius;
+
+                if (!NavMesh.SamplePosition(probe, out NavMeshHit hit, 2f, filter)) continue;
+
+                float d = Vector3.Distance(origin, hit.position);
+                if (d < MinEscapeDistance) continue;   // too close — still inside the pocket
+
+                // Unreachable by path == on the other side of the blockage. That's the winner.
+                bool reachable = agent.isOnNavMesh
+                                 && NavMesh.CalculatePath(origin, hit.position, filter, path)
+                                 && path.status == NavMeshPathStatus.PathComplete;
+                if (!reachable) { point = hit.position; return true; }
+
+                // Otherwise keep the furthest reachable point as a fallback — walking there still
+                // gets us clear of a tight spot even if the mesh isn't actually severed.
+                if (d > bestScore) { bestScore = d; best = hit.position; }
+            }
+        }
+
+        if (bestScore > 0f) { point = best; return true; }
+        return false;
+    }
+
+    /// <summary>
+    /// Walks the agent out of a spot it cannot path from. Takes the transform over for the duration
+    /// (agent disabled so it can't fight us), moves in a straight line to the nearest valid navmesh
+    /// plus <see cref="UnstickOvershoot"/> beyond it, then warps back onto the mesh and resumes.
+    ///
+    /// Deliberately a straight walk rather than a teleport: the walk animation keeps playing (the
+    /// Animator is driven by velocity elsewhere, and we move the transform steadily), so it reads as
+    /// the worker stepping clear rather than snapping across the room. The move is short and local,
+    /// so walking through a carved pocket's edge is acceptable — that pocket is precisely what has
+    /// no navmesh to path around anyway.
+    /// </summary>
+    private IEnumerator UnstickWalkOut()
+    {
+        if (_unsticking) yield break;
+        _unsticking = true;
+        _offMeshSeconds = 0f;
+        _blockedSeconds = 0f;
+
+        Vector3 from = transform.position;
+
+        // Prefer a point genuinely OUTSIDE the pocket (handles the walled-in case, where the agent is
+        // standing on navmesh that happens to be an isolated island). Fall back to the plain
+        // nearest-navmesh snap, which is the right answer when we're simply off-mesh.
+        bool haveTarget = TryFindEscapePoint(from, out Vector3 target);
+        if (!haveTarget)
+            haveTarget = TryFindNavMeshNear(from, out target, out _);
+
+        if (!haveTarget)
+        {
+            Debug.LogError($"[AiNavigation] {name}: STUCK at {from} and no escape point found within " +
+                           $"{k_RescueRadii[k_RescueRadii.Length - 1]}m — cannot walk out.");
+            _unsticking = false;
+            yield break;
+        }
+
+        float dist = Vector3.Distance(from, target);
+
+        // Step a little past the recovered point so we clear the pocket rather than stopping on its lip.
+        Vector3 dir = target - from; dir.y = 0f;
+        Vector3 finalTarget = dir.sqrMagnitude > 0.01f
+            ? target + dir.normalized * UnstickOvershoot
+            : target;
+        if (NavMesh.SamplePosition(finalTarget, out NavMeshHit overshootHit, 2f,
+                new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask }))
+            finalTarget = overshootHit.position;
+
+        Debug.LogWarning($"[AiNavigation] {name}: stuck at {from} — walking out to {finalTarget} ({dist:F2}m to mesh).");
+
+        bool agentWas = agent.enabled;
+        agent.enabled = false;   // we own the transform for the duration
+
+        float elapsed = 0f;
+        while (Vector3.Distance(transform.position, finalTarget) > 0.1f && elapsed < UnstickTimeout)
+        {
+            elapsed += Time.deltaTime;
+            Vector3 next = Vector3.MoveTowards(transform.position, finalTarget, UnstickWalkSpeed * Time.deltaTime);
+            transform.position = next;
+            if (_rb != null) _rb.MovePosition(next);
+
+            Vector3 face = finalTarget - transform.position; face.y = 0f;
+            if (face.sqrMagnitude > 0.01f)
+                transform.rotation = Quaternion.RotateTowards(transform.rotation,
+                    Quaternion.LookRotation(face.normalized), 180f * Time.deltaTime);
+            yield return null;
+        }
+
+        agent.enabled = agentWas;
+        if (agent.isActiveAndEnabled)
+        {
+            agent.Warp(transform.position);
+            if (agent.isOnNavMesh)
+            {
+                agent.isStopped = false;
+                // Resume whatever the agent was doing. A task-seeking agent keeps its destination;
+                // otherwise fall back to the patrol loop.
+                if (_seekingTask) SetDestinationSnapped(_taskTargetPosition);
+                else if (_seekingEquipment && _targetEquipment != null) SetDestinationSnapped(_targetEquipment.transform.position);
+                else GoToRandomWaypoint();
+            }
+        }
+
+        Debug.Log($"[AiNavigation] {name}: walk-out complete at {transform.position} (onMesh={agent.isOnNavMesh}).");
+        _unsticking = false;
+    }
+
     private void SetupAgentType()
     {
         if (agent == null) return;
@@ -702,6 +890,44 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 Debug.LogWarning($"[AiNavigation] {name} cannot reach task position at {_taskTargetPosition} (path invalid) — abandoning task seek.");
                 CancelSeekPosition();
             }
+            else if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathPartial)
+            {
+                // PathPartial satisfied NEITHER branch above, so a seek to a target the agent can
+                // only PARTIALLY reach hung forever: never "arrived" (not PathComplete) and never
+                // cancelled (not PathInvalid). The caller's arrival callback therefore never fired
+                // and its own in-progress flag never cleared — that is how a Receiver ended up
+                // standing motionless inside a rack indefinitely (observed live: PathPartial with
+                // remainingDistance 0.14m).
+                //
+                // The agent has genuinely walked as far as the mesh allows, so once it stops moving
+                // at the end of that partial path, treat it as arrived. Being a metre or two short
+                // of an unreachable target is the best outcome available, and it lets the task
+                // proceed instead of deadlocking the whole receiver.
+                bool atEndOfReachable = agent.remainingDistance <= agent.stoppingDistance + 0.5f;
+                bool stoppedMoving    = agent.velocity.sqrMagnitude < 0.02f;
+
+                if (atEndOfReachable && stoppedMoving)
+                {
+                    _partialSeekSeconds += Time.deltaTime;
+                    if (_partialSeekSeconds >= PartialSeekGraceSeconds)
+                    {
+                        Debug.LogWarning($"[AiNavigation] {name}: task target {_taskTargetPosition} only " +
+                            $"partially reachable — stopped {agent.remainingDistance:F2}m short. Treating as arrived.");
+                        _partialSeekSeconds = 0f;
+                        var callback = _onTaskArrived;
+                        CancelSeekPosition();
+                        callback?.Invoke();
+                    }
+                }
+                else
+                {
+                    _partialSeekSeconds = 0f;   // still making progress along the partial path
+                }
+            }
+            else
+            {
+                _partialSeekSeconds = 0f;
+            }
         }
 
         // SAFETY: agent.updatePosition stays false for the entire lifetime (set in Awake).
@@ -762,23 +988,40 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (!agent.isOnNavMesh)
         {
             if (_traversingLink || agent.isOnOffMeshLink) return;
+            if (_unsticking) return; // the walk-out coroutine owns the transform right now
 
             if (Time.frameCount % 30 == 0)
             {
-                if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
+                // Progressive, agent-type-aware search. The old version sampled a fixed 2m with
+                // NavMesh.AllAreas and then REFUSED to warp unless the hit was within 1m vertically —
+                // so an agent that ended up further out, or that dropped to ground level while its
+                // navmesh sat ~1.15m above (seen live on a reach truck at y=0.02), could never
+                // recover and stayed frozen forever with no fallback at all.
+                if (TryFindNavMeshNear(transform.position, out Vector3 rescue, out float dist))
                 {
-                    if (Mathf.Abs(hit.position.y - transform.position.y) < 1.0f)
-                    {
-                        agent.Warp(hit.position);
-                        // Same taskBusy/seeking guard as OnNavMeshBaked() — re-snapping onto the mesh
-                        // is always safe, but overwriting a Receiver's destination mid-task is not.
-                        if (!_taskBusy && !_seekingTask && !_seekingEquipment
-                            && waypoints != null && waypoints.Length > 0)
-                            agent.SetDestination(waypoints[currentIndex].position);
-                    }
+                    agent.Warp(rescue);
+                    _offMeshSeconds = 0f;
+                    // Same taskBusy/seeking guard as OnNavMeshBaked() — re-snapping onto the mesh
+                    // is always safe, but overwriting a Receiver's destination mid-task is not.
+                    if (!_taskBusy && !_seekingTask && !_seekingEquipment
+                        && waypoints != null && waypoints.Length > 0)
+                        agent.SetDestination(waypoints[currentIndex].position);
+                }
+                else
+                {
+                    // Nothing reachable to snap to — this is the genuinely walled-in case (e.g. a
+                    // pallet's NavMeshObstacle carved the floor out from under a standing worker).
+                    // Escalate to physically walking out (fix #2).
+                    _offMeshSeconds += 30f * Time.deltaTime;
+                    if (_offMeshSeconds >= StuckEscalateSeconds)
+                        StartCoroutine(UnstickWalkOut());
                 }
             }
             return;
+        }
+        else
+        {
+            _offMeshSeconds = 0f;
         }
 
         // ── Arrival audio ────────────────────────────────────────────────────────
@@ -837,6 +1080,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // While a manual link traversal coroutine is running it drives the transform
         // itself (currently disabled, but guard anyway).
         if (_traversingLink) return;
+        // Same for the unstick walk-out — it owns the transform, and copying nextPosition over the
+        // top of it would drag the agent straight back into the pocket it is escaping.
+        if (_unsticking) return;
 
         Vector3 np = agent.nextPosition;
         transform.position = np;
@@ -1243,18 +1489,34 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                         _consecutiveStuckCount = 0;
                     }
                 }
+
+                // ── Walled-in escalation ──────────────────────────────────────────────────
+                // Distinct from the congestion case above. A rebake and a new destination both
+                // assume a route EXISTS and the agent is merely being jostled. When a pallet's
+                // NavMeshObstacle carves the floor around a standing worker, no route exists at
+                // all — the agent has a path it can never advance along, so it would sit here
+                // re-picking waypoints and re-baking forever. If it still hasn't moved after
+                // StuckEscalateSeconds, physically walk it out.
+                _blockedSeconds += Time.deltaTime;
+                if (_blockedSeconds >= StuckEscalateSeconds && !_unsticking)
+                {
+                    _blockedSeconds = 0f;
+                    StartCoroutine(UnstickWalkOut());
+                }
             }
             else
             {
                 _stuckRebakeTimer = 0f;
                 _stuckRefPos = transform.position;
                 _consecutiveStuckCount = 0;
+                _blockedSeconds = 0f;   // real progress — reset the walled-in timer
             }
         }
 else
         {
             _stuckRebakeTimer = 0f;
             _stuckRefPos = transform.position;
+            _blockedSeconds = 0f;
         }
     }
 

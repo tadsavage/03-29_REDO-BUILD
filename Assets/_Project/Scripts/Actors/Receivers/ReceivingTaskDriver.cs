@@ -44,6 +44,13 @@ namespace GameCore.Actors
 
         private float _pollTimer;
         private bool _taskInProgress;
+
+        /// <summary>How long _taskInProgress may disagree with the workflow's real state before the
+        /// watchdog in Update() treats it as a stuck flag and recovers. Generous enough to cover the
+        /// legitimate window between claiming a task and the workflow actually starting (the receiver
+        /// still has to walk to the pallet first).</summary>
+        private const float StuckFlagTimeout = 12f;
+        private float _stuckFlagSeconds;
         private bool _holdingNearDock;
         private float _holdTimer;
 
@@ -75,7 +82,39 @@ namespace GameCore.Actors
 
         private void Update()
         {
-            if (_taskInProgress || _nav == null) return;
+            if (_nav == null) return;
+
+            // ── Deadlock watchdog (self-healing) ──────────────────────────────────────────────────
+            // _taskInProgress is cleared by HandleWorkflowComplete, which relies on the workflow's
+            // OnWorkflowComplete event landing. If that event is ever missed — the workflow returns
+            // to Idle by some other path, the subscription isn't live at that instant, or the seek
+            // callback that starts it never fires — this flag sticks TRUE forever. Update() then
+            // returns on the very first line every frame: the receiver never claims another task,
+            // never patrols, and AiNavigation's taskBusy stays set so it won't re-dispatch her
+            // either. Observed live: a Receiver stood motionless inside a rack indefinitely with
+            // _taskInProgress=true while her workflow read Idle with no current task.
+            //
+            // So verify the flag against the workflow's real state rather than trusting it.
+            if (_taskInProgress && _workflow != null && !_workflow.IsBusy)
+            {
+                _stuckFlagSeconds += Time.deltaTime;
+                if (_stuckFlagSeconds >= StuckFlagTimeout)
+                {
+                    Debug.LogWarning($"[ReceivingTaskDriver] {name}: task flagged in-progress but the " +
+                        $"workflow is Idle — clearing the stale flag and resuming (deadlock recovered).");
+                    _stuckFlagSeconds = 0f;
+                    _taskInProgress = false;
+                    _holdingNearDock = false;
+                    _nav.SetTaskBusy(false);
+                    _nav.Patrol();
+                }
+            }
+            else
+            {
+                _stuckFlagSeconds = 0f;
+            }
+
+            if (_taskInProgress) return;
 
             if (_holdingNearDock)
             {

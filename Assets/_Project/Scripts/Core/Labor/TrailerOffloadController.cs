@@ -41,7 +41,9 @@ namespace GameCore.Labor
         private const float  ForkLiftHeight     = 1.0f;   // loaded fork rise (local Y) — carries the pallet ~1m up
         private const float  ForkLiftSpeed      = 0.6f;   // units/sec fork raise/lower
         private const float  ForkPickupMatchY   = 0f;     // fork local Y that matches the chep pallet's fork-pocket height
-        private const float  ForkLowerDistance  = 1.0f;   // start lowering the forks once this close (XZ) to the pallet
+        private const float  ForkLowerDistance  = 1.0f;   // (legacy) unused since the approach-lift rewrite
+        private const float  ForkRaiseDistance  = 1.5f;   // start raising the forks to the pallet's Y once this close (XZ)
+        private const float  PalletLiftClearance = 0.15f; // how far to lift a grabbed pallet off the deck before backing out
         private const float  GrabThreshold      = 0.2f;   // fork grab-point within this XZ of the pallet → seat it on the forks
         private const float  PivotFrontDistance = 2.0f;   // pickup/drop pivot sits this far in FRONT of the trailer opening / lane entry
         // Lane-drop height. PlacementGrid.GetCellCenter returns the grid PLANE Y (~0), but the staging
@@ -132,14 +134,13 @@ namespace GameCore.Labor
 
             Transform ds = slot.transform;
 
-            // ── Hybrid movement setup: capture pre-task state for the final restore, but do NOT
-            // silence the patrol AI here anymore. The vehicle stays on its own NavMeshAgent for the
-            // long-distance legs (see SeekViaNavMesh below); each precision step re-Commandeers
-            // (disables AiNavigation/NavMeshAgent) for itself right before it needs the transform. ──
+            // ── Commandeer the DS: silence its patrol AI so we own the transform ──
             var nav   = ds.GetComponent<AiNavigation>();
             var agent = ds.GetComponent<NavMeshAgent>();
             bool navWas   = nav   != null && nav.enabled;
             bool agentWas = agent != null && agent.enabled;
+            if (agent != null) agent.enabled = false;
+            if (nav   != null) nav.enabled   = false;
 
             Transform forks = FindDeepChild(ds, ForkChildName);
             float forkRestY = forks != null ? forks.localPosition.y : 0f;
@@ -220,22 +221,26 @@ namespace GameCore.Labor
                           + Vector3.up * ds.position.y;                // keep the DS's drive height
 
             // 1. Pull up to the pivot at the trailer entry for this pallet's row (left/right).
-            // Long-distance leg (DS's current position, e.g. wherever it was patrolling before
-            // being claimed for this task -> the trailer pivot) -- hybrid system: real NavMeshAgent
-            // travel via SeekViaNavMesh (obstacle-aware, respects any NavMeshObstacle on a rack),
-            // then hand off to manual/precision driving for the grab sequence below.
-            yield return SeekViaNavMesh(ds, pivot);
-            // 2. Rotate until the forks (on the DS's back) face straight into the trailer, down the row.
+            yield return DriveTailFirst(ds, pivot);
+            // 2. Rotate IN PLACE at the pivot — outside the trailer — so the forks face straight down
+            //    this pallet's row before any forward motion. All turning happens here; the drive-in
+            //    below no longer steers, so the DS never rotates once it is inside the trailer.
             yield return FaceForks(ds, into);
-            // 3. Drive in forks-first: lower the forks to the chep pallet's pocket height once within 1m,
-            //    and stop when the forks reach the pallet's XZ (real fork engagement).
+            // 2b. Drop the forks to rest height for the approach. They stay low until the DS is close
+            //     (see DriveInToGrab), then come up to meet this pallet's height.
+            if (forks != null) yield return LiftForks(forks, forkRestY);
+            // 3. Drive straight in, forks low; raise to the pallet's own Y within ForkRaiseDistance,
+            //    and stop when the fork carry point reaches the pallet.
             yield return DriveInToGrab(ds, forks, forkRestY, pallet, into);
-            // 4. Seat the pallet on the forks (fixed carry pose), then lift it ~1m.
+            // 4. Seat the pallet on the forks, then lift just enough to take its weight off the deck.
             Transform carrier = forks != null ? forks : ds;
             pallet.SetParent(carrier, worldPositionStays: false);
             pallet.localPosition = ForkCarryLocalPos;
             pallet.localRotation = Quaternion.Euler(ForkCarryLocalEuler);
-            if (forks != null) yield return LiftForks(forks, forkRestY + ForkLiftHeight);
+            // A short lift off the deck — NOT the old fixed `forkRestY + ForkLiftHeight` (1m), which
+            // yanked the load a metre up regardless of what height it was picked from. Relative to
+            // wherever the forks actually are now, so it behaves the same on any tier.
+            if (forks != null) yield return LiftForks(forks, forks.localPosition.y + PalletLiftClearance);
             // 5. Reverse straight back out to the pivot in front of the door (clear of the trailer) —
             //    cab-first, forks (and pallet) still pointing into the trailer, no spin.
             yield return DriveTailFirst(ds, pivot);
@@ -265,11 +270,15 @@ namespace GameCore.Labor
             Vector3 targetXZ = new Vector3(targetW.x, driveY, targetW.z);
             Vector3 entryPivot = entryXZ - downLane * PivotFrontDistance;
 
+            // 7b. Still parked at the trailer pivot: turn IN PLACE to face the way we're about to
+            //     travel, before setting off for the lane. DriveTailFirst would otherwise swing the
+            //     body around while already rolling, which reads as the DS slewing sideways across
+            //     the dock. Turn first, then drive straight.
+            yield return FaceDir(ds, entryPivot - ds.position);
             // 8. Pull up to a pivot just in front of the lane entry (outside the lane, door side).
-            // Long-distance leg (trailer/dock pivot -> a specific staging lane's entry, possibly a
-            // real cross-warehouse hop depending on layout) -- hybrid system, same as step 1.
-            yield return SeekViaNavMesh(ds, entryPivot);
-            // 9. Spin so the forks (and the carried pallet) face straight down the lane — forks FIRST.
+            yield return DriveTailFirst(ds, entryPivot);
+            // 9. Spin IN PLACE at the lane entry so the forks (and the carried pallet) face straight
+            //    down the lane at the slot we're driving into — forks FIRST.
             yield return FaceForks(ds, downLane);
 
             // 9b. STACKING CHECK: If the target cell already has a pallet, raise forks to stack on top.
@@ -369,9 +378,19 @@ namespace GameCore.Labor
         // travel cap keeps it from driving through the trailer if the pallet is somehow unreachable.
         private IEnumerator DriveInToGrab(Transform ds, Transform forks, float forkRestY, Transform pallet, Vector3 into)
         {
-            Quaternion face = Quaternion.LookRotation(Flat(BodyForwardForForks(into)));
             Vector3 start = ds.position;
             const float maxTravel = 8f;
+
+            // Fork local Y that puts the CARRY POINT (where the pallet actually seats) level with
+            // this pallet. Measured once here, before the forks move: the delta is world-vertical, so
+            // it maps 1:1 onto the forks' local Y. Measuring the forks' origin instead of the carry
+            // point would leave a fixed offset, showing as the pallet riding high or low on the tines.
+            float matchLocalY = forkRestY;
+            if (forks != null)
+            {
+                Vector3 carryPoint = forks.TransformPoint(ForkCarryLocalPos);
+                matchLocalY = forks.localPosition.y + (pallet.position.y - carryPoint.y);
+            }
 
             while (true)
             {
@@ -379,15 +398,20 @@ namespace GameCore.Labor
                 Vector3 gd = pallet.position - grab; gd.y = 0f;
                 if (gd.magnitude <= GrabThreshold) break;
 
+                // Forks travel LOW, then come up to meet the pallet's own height as the DS closes in
+                // — the way a real lift approaches a load. (The old code eased toward a FIXED
+                // `forkRestY + ForkPickupMatchY`, ignoring the pallet's height entirely, which was
+                // right only for a ground-tier pallet and made stacked ones snap onto the tines.)
                 Vector3 dsToP = pallet.position - ds.position; dsToP.y = 0f;
-                if (forks != null && dsToP.magnitude <= ForkLowerDistance)
+                if (forks != null && dsToP.magnitude <= ForkRaiseDistance)
                 {
                     Vector3 lp = forks.localPosition;
-                    lp.y = Mathf.MoveTowards(lp.y, forkRestY + ForkPickupMatchY, ForkLiftSpeed * Time.deltaTime);
+                    lp.y = Mathf.MoveTowards(lp.y, matchLocalY, ForkLiftSpeed * Time.deltaTime);
                     forks.localPosition = lp;
                 }
 
-                ds.rotation  = Quaternion.RotateTowards(ds.rotation, face, TurnSpeed * Time.deltaTime);
+                // Straight in only — NO steering. The DS was squared up at the pivot before entering
+                // (FaceForks at the call site), and rotating inside the trailer looked wrong.
                 ds.position += into * (DriveSpeed * Time.deltaTime);
 
                 if ((ds.position - start).magnitude >= maxTravel)
@@ -397,6 +421,11 @@ namespace GameCore.Labor
                 }
                 yield return null;
             }
+
+            // Guarantee exact pocket height before the pallet is seated — if the DS closed the last
+            // stretch faster than the forks could rise, finish the lift here rather than seating the
+            // pallet at a mismatched height (which is what produced the visible snap).
+            if (forks != null) yield return LiftForks(forks, matchLocalY);
         }
 
         // Drive to a flat target with the FORKS leading (load-first) — the body turns so its rear forks
@@ -407,58 +436,6 @@ namespace GameCore.Labor
         // grabbed pallet straight out of the trailer/lane: the forks keep pointing where they came from,
         // no 180° spin. Body faces the direction of travel.
         private IEnumerator DriveTailFirst(Transform t, Vector3 target) => DriveInternal(t, target, forksLead: false);
-
-        /// <summary>
-        /// Hybrid movement -- the long-distance leg of an offload task (dock stocker's current
-        /// position, e.g. wherever it was patrolling before being claimed for this task, or the
-        /// trailer/dock pivot -> a specific staging lane's entry). Temporarily re-enables the dock
-        /// stocker's OWN NavMeshAgent/AiNavigation and drives via AiNavigation.SeekPosition -- real
-        /// pathfinding, obstacle avoidance, and NavMeshObstacle-awareness (e.g. a hand-authored
-        /// Carve=true obstacle on a rack) -- instead of a blind straight line. On arrival (or giving
-        /// up -- unreachable target, timeout) it disables both again so the caller's next precision
-        /// step can safely drive the transform directly without the agent fighting it. Falls back to
-        /// a direct DriveTailFirst if no NavMeshAgent/AiNavigation is present, or if SeekPosition
-        /// can't reach the target at all.
-        /// </summary>
-        private IEnumerator SeekViaNavMesh(Transform ds, Vector3 target)
-        {
-            var nav = ds.GetComponent<AiNavigation>();
-            var agent = ds.GetComponent<NavMeshAgent>();
-            if (nav == null || agent == null)
-            {
-                yield return DriveTailFirst(ds, target);
-                yield break;
-            }
-
-            nav.enabled = true;
-            agent.enabled = true;
-            if (agent.isOnNavMesh) agent.isStopped = false;
-            else agent.Warp(ds.position);
-
-            bool arrived = false;
-            nav.SeekPosition(target, () => arrived = true);
-
-            float elapsed = 0f;
-            const float MaxSeekTime = 30f;
-            while (!arrived && nav.IsSeekingTask && elapsed < MaxSeekTime)
-            {
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-
-            // Hand back to manual control regardless of outcome -- AiNavigation/SeekPosition
-            // already logs+cancels on an invalid path, and this guarantees the next (precision)
-            // step never fights a still-active NavMeshAgent.
-            if (agent.isActiveAndEnabled) agent.isStopped = true;
-            agent.enabled = false;
-            nav.enabled = false;
-
-            if (!arrived)
-            {
-                Debug.LogWarning($"[TrailerOffload] SeekViaNavMesh: could not reach {target} via NavMesh (elapsed={elapsed:F1}s, timedOut={elapsed >= MaxSeekTime}) -- falling back to a direct drive.");
-                yield return DriveTailFirst(ds, target);
-            }
-        }
 
         // Drives the DS toward a flat target each frame. forksLead=true → body faces so the rear forks
         // point along travel (BodyForwardForForks); forksLead=false → body faces travel directly, forks

@@ -106,15 +106,41 @@ public class WorkQueuePanel
     private SortColumn _sortColumn = SortColumn.Priority;
     private bool _sortAscending;
 
-    // ── Item filter (Excel-style autofilter on the Item# column) ──
+    // ── Per-column autofilter (Excel-style dropdowns) ──
     private VisualElement _modal;
-    private Label _itemFilterHeaderLabel;
-    private Label _itemFilterHeaderIcon;
-    private VisualElement _itemFilterPopup;
-    private bool _itemFilterPopupVisible;
-    private bool _itemFilterActive;
-    private readonly HashSet<string> _itemFilterSelection = new();
-    private string _itemFilterSearchText = "";
+    private VisualElement _activeFilterPopup;
+    private SortColumn? _activeFilterColumn;
+
+    /// <summary>Filter state for one column.</summary>
+    private class ColumnFilter
+    {
+        public bool Active;
+        public readonly HashSet<string> Selection = new();
+        public string SearchText = "";
+        public Label HeaderLabel;
+        public Label HeaderIcon;
+    }
+
+    private readonly Dictionary<SortColumn, ColumnFilter> _columnFilters = new();
+
+    /// <summary>Columns that have an autofilter dropdown (excludes Order and checkbox).</summary>
+    private static readonly SortColumn[] FilterableColumns =
+    {
+        SortColumn.PaletteId, SortColumn.ItemNumber, SortColumn.Area,
+        SortColumn.Priority, SortColumn.Role, SortColumn.Task,
+        SortColumn.Status, SortColumn.From, SortColumn.To,
+        SortColumn.Operator, SortColumn.Customer,
+    };
+
+    private ColumnFilter GetFilter(SortColumn col)
+    {
+        if (!_columnFilters.TryGetValue(col, out var f))
+        {
+            f = new ColumnFilter();
+            _columnFilters[col] = f;
+        }
+        return f;
+    }
 
     private string _liveSignature;
 
@@ -275,17 +301,17 @@ public class WorkQueuePanel
         header.style.flexShrink = 0;
         header.style.overflow = Overflow.Hidden;
         header.Add(HeaderCell("", CheckboxWidth));
-        header.Add(HeaderCell("Palette ID", PaletteIdWidth, SortColumn.PaletteId));
-        header.Add(BuildItemFilterHeader());
-        header.Add(HeaderCell("Area", AreaWidth, SortColumn.Area, marginLeft: 12f));
-        header.Add(HeaderCell("Priority", PriorityWidth, SortColumn.Priority));
-        header.Add(HeaderCell("Role", RoleWidth, SortColumn.Role));
-        header.Add(HeaderCell("Task", TaskWidth, SortColumn.Task, marginLeft: RoleTaskGap));
-        header.Add(HeaderCell("Status", StatusWidth, SortColumn.Status));
-        header.Add(HeaderCell("From", LocationWidth, SortColumn.From));
-        header.Add(HeaderCell("To", LocationWidth, SortColumn.To));
-        header.Add(HeaderCell("Operator", OperatorWidth, SortColumn.Operator));
-        header.Add(HeaderCell("Customer", CustomerWidth, SortColumn.Customer));
+        header.Add(BuildFilterHeader("Palette ID", PaletteIdWidth, SortColumn.PaletteId));
+        header.Add(BuildFilterHeader("Item#", ItemNumberWidth, SortColumn.ItemNumber));
+        header.Add(BuildFilterHeader("Area", AreaWidth, SortColumn.Area, marginLeft: 12f));
+        header.Add(BuildFilterHeader("Priority", PriorityWidth, SortColumn.Priority));
+        header.Add(BuildFilterHeader("Role", RoleWidth, SortColumn.Role));
+        header.Add(BuildFilterHeader("Task", TaskWidth, SortColumn.Task, marginLeft: RoleTaskGap));
+        header.Add(BuildFilterHeader("Status", StatusWidth, SortColumn.Status));
+        header.Add(BuildFilterHeader("From", LocationWidth, SortColumn.From));
+        header.Add(BuildFilterHeader("To", LocationWidth, SortColumn.To));
+        header.Add(BuildFilterHeader("Operator", OperatorWidth, SortColumn.Operator));
+        header.Add(BuildFilterHeader("Customer", CustomerWidth, SortColumn.Customer));
         header.Add(HeaderCell("Order", OrderWidth, SortColumn.Order));
         modal.Add(header);
 
@@ -411,11 +437,8 @@ public class WorkQueuePanel
         var taskRows = workQueue?.Tasks
             .Where(t => t.Type != WorkTaskType.OrderSelect && t.Status != WorkTaskStatus.Complete)
             .ToList() ?? new List<WorkTask>();
-        Debug.Log($"[WorkQueuePanel.RebuildRows] raw taskRows: {taskRows.Count}, filterActive={_itemFilterActive}");
         taskRows = SortTasks(taskRows);
-        if (_itemFilterActive)
-            taskRows = taskRows.Where(t => _itemFilterSelection.Contains(GetTaskItemNumber(t))).ToList();
-        Debug.Log($"[WorkQueuePanel.RebuildRows] taskRows after filter: {taskRows.Count} (filterActive={_itemFilterActive}, selectionCount={_itemFilterSelection.Count})");
+        taskRows = ApplyTaskFilters(taskRows);
 
         if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null)
         {
@@ -443,9 +466,7 @@ public class WorkQueuePanel
             if (phase.HasValue) rows.Add((order, phase.Value, task));
         }
         rows = SortOrders(rows);
-        if (_itemFilterActive)
-            rows = rows.Where(r => _itemFilterSelection.Contains(GetOrderItemNumber(r.order))).ToList();
-        Debug.Log($"[WorkQueuePanel.RebuildRows] orderRows after filter: {rows.Count} (filterActive={_itemFilterActive}, selectionCount={_itemFilterSelection.Count})");
+        rows = ApplyOrderFilters(rows);
 
         // Drop checked ids that no longer resolve to a still-actionable row (submitted, or picked
         // up by a selector concurrently) so their checkmark doesn't linger looking "stuck".
@@ -824,112 +845,181 @@ public class WorkQueuePanel
         return int.TryParse(doorPart, out int door) ? door : 0;
     }
 
-    // ── Item# Autofilter (Excel-style dropdown) ──────────────────────────────
+    // ── Per-column autofilter (Excel-style dropdowns) ───────────────────────
 
-    /// <summary>Builds the clickable Item# header that opens the filter dropdown.</summary>
-    private VisualElement BuildItemFilterHeader()
+    /// <summary>Extracts the displayed cell value for a task row in the given column.</summary>
+    private static string GetTaskCellValue(SortColumn col, WorkTask task)
     {
-        var container = new VisualElement();
-        container.style.flexShrink = 0;
-        container.style.width = ItemNumberWidth;
-        container.style.minWidth = ItemNumberWidth;
-        container.style.flexDirection = FlexDirection.Row;
-        container.style.alignItems = Align.Center;
-        container.style.paddingLeft = 0;
-        container.style.paddingRight = 0;
-
-        _itemFilterHeaderLabel = new Label("Item#");
-        ApplyFont(_itemFilterHeaderLabel, bold: true, size: 12);
-        _itemFilterHeaderLabel.style.color = new StyleColor(ColSubtleText);
-        _itemFilterHeaderLabel.style.flexGrow = 1;
-        container.Add(_itemFilterHeaderLabel);
-
-        _itemFilterHeaderIcon = new Label("\u25BC");
-        ApplyFont(_itemFilterHeaderIcon, size: 9);
-        _itemFilterHeaderIcon.style.color = new StyleColor(ColSubtleText);
-        _itemFilterHeaderIcon.style.marginLeft = 2;
-        container.Add(_itemFilterHeaderIcon);
-
-        container.RegisterCallback<ClickEvent>(_ => ToggleItemFilterPopup(container));
-        container.RegisterCallback<PointerEnterEvent>(_ =>
+        return col switch
         {
-            if (!_itemFilterActive)
-            {
-                _itemFilterHeaderLabel.style.color = new StyleColor(ColTitleText);
-                _itemFilterHeaderIcon.style.color = new StyleColor(ColTitleText);
-            }
-        });
-        container.RegisterCallback<PointerLeaveEvent>(_ => UpdateItemFilterHeaderAppearance());
-
-        UpdateItemFilterHeaderAppearance();
-        return container;
+            SortColumn.PaletteId => ShortId(task.PalletId),
+            SortColumn.ItemNumber => GetTaskItemNumber(task),
+            SortColumn.Area => AreaLabel(task.Area),
+            SortColumn.Priority => task.Priority.ToString(),
+            SortColumn.Role => task.RequiredRole.DisplayName(),
+            SortColumn.Task => task.Type.ToString(),
+            SortColumn.Status => task.Status.ToString(),
+            SortColumn.From => task.FromLocation ?? "\u2014",
+            SortColumn.To => task.ToLocation ?? "\u2014",
+            SortColumn.Operator => GetOperatorName(task.AssignedToEmployeeGuid),
+            SortColumn.Customer => "\u2014",
+            _ => "\u2014"
+        };
     }
 
-    /// <summary>Updates the header label/icon color to reflect whether a filter is active.</summary>
-    private void UpdateItemFilterHeaderAppearance()
+    /// <summary>Extracts the displayed cell value for an order row in the given column.</summary>
+    private static string GetOrderCellValue(SortColumn col, OrderData order, RowPhase phase, WorkTask task)
     {
-        if (_itemFilterHeaderLabel == null) return;
-        var c = _itemFilterActive ? ColOrange : ColSubtleText;
-        _itemFilterHeaderLabel.style.color = new StyleColor(c);
-        _itemFilterHeaderIcon.style.color = new StyleColor(c);
+        return col switch
+        {
+            SortColumn.PaletteId => ShortId(task?.PalletId ?? "\u2014"),
+            SortColumn.ItemNumber => GetOrderItemNumber(order),
+            SortColumn.Area => task != null ? AreaLabel(task.Area) : "\u2014",
+            SortColumn.Priority => task != null ? task.Priority.ToString() : "\u2014",
+            SortColumn.Role => task != null ? task.RequiredRole.DisplayName() : "\u2014",
+            SortColumn.Task => task != null ? task.Type.ToString() : "\u2014",
+            SortColumn.Status => PhaseLabel(phase),
+            SortColumn.From => task?.FromLocation ?? "\u2014",
+            SortColumn.To => task?.ToLocation ?? "\u2014",
+            SortColumn.Operator => phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "\u2014",
+            SortColumn.Customer => order.CustomerName,
+            _ => "\u2014"
+        };
     }
 
-    /// <summary>Collects every unique item number displayed in the Item# column.</summary>
-    private List<string> CollectAllItemNumbers()
+    /// <summary>Applies all active column filters to the task row list.</summary>
+    private List<WorkTask> ApplyTaskFilters(List<WorkTask> tasks)
     {
-        var items = new HashSet<string>();
+        foreach (var col in FilterableColumns)
+        {
+            var f = GetFilter(col);
+            if (!f.Active) continue;
+            tasks = tasks.Where(t => f.Selection.Contains(GetTaskCellValue(col, t))).ToList();
+        }
+        return tasks;
+    }
 
-        int taskCount = 0;
+    /// <summary>Applies all active column filters to the order row list.</summary>
+    private List<(OrderData order, RowPhase phase, WorkTask task)> ApplyOrderFilters(
+        List<(OrderData order, RowPhase phase, WorkTask task)> rows)
+    {
+        foreach (var col in FilterableColumns)
+        {
+            var f = GetFilter(col);
+            if (!f.Active) continue;
+            rows = rows.Where(r => f.Selection.Contains(GetOrderCellValue(col, r.order, r.phase, r.task))).ToList();
+        }
+        return rows;
+    }
+
+    /// <summary>Collects every unique value displayed in the given column across all rows.</summary>
+    private List<string> CollectAllValues(SortColumn col)
+    {
+        var values = new HashSet<string>();
+
         if (ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) && workQueue != null)
         {
             foreach (var task in workQueue.Tasks)
             {
                 if (task.Status == WorkTaskStatus.Complete) continue;
                 if (task.Type == WorkTaskType.OrderSelect) continue;
-                string itemNum = GetTaskItemNumber(task);
-                items.Add(itemNum);
-                taskCount++;
+                values.Add(GetTaskCellValue(col, task));
             }
         }
 
-        int orderCount = 0;
         if (ServiceLocator.TryGet<OrderService>(out var orderService) && orderService != null)
         {
+            ServiceLocator.TryGet<WorkQueueSystem>(out var wq);
             foreach (var order in orderService.ActiveOrders)
             {
-                items.Add(GetOrderItemNumber(order));
-                orderCount++;
+                var task = wq?.Tasks.FirstOrDefault(t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect);
+                var phase = DeterminePhase(order, task);
+                if (phase.HasValue)
+                    values.Add(GetOrderCellValue(col, order, phase.Value, task));
             }
         }
 
-        Debug.Log($"[WorkQueuePanel.CollectAllItemNumbers] tasks={taskCount}, orders={orderCount}, uniqueItems={items.Count}: [{string.Join(", ", items)}]");
-
-        var sorted = items.ToList();
+        var sorted = values.ToList();
         sorted.Sort(System.StringComparer.OrdinalIgnoreCase);
         return sorted;
     }
 
-    private void ToggleItemFilterPopup(VisualElement anchor)
+    // ── Header construction ──
+
+    /// <summary>Builds a clickable column header with a filter dropdown indicator.</summary>
+    private VisualElement BuildFilterHeader(string text, float width, SortColumn col, float marginLeft = 0f)
     {
-        if (_itemFilterPopupVisible)
+        var filter = GetFilter(col);
+
+        var container = new VisualElement();
+        container.style.flexShrink = 0;
+        container.style.width = width;
+        container.style.minWidth = width;
+        container.style.flexDirection = FlexDirection.Row;
+        container.style.alignItems = Align.Center;
+        container.style.paddingLeft = 0;
+        container.style.paddingRight = 0;
+        container.style.marginLeft = marginLeft;
+
+        filter.HeaderLabel = new Label(text);
+        ApplyFont(filter.HeaderLabel, bold: true, size: 12);
+        filter.HeaderLabel.style.color = new StyleColor(ColSubtleText);
+        filter.HeaderLabel.style.flexGrow = 1;
+        container.Add(filter.HeaderLabel);
+
+        filter.HeaderIcon = new Label("\u25BC");
+        ApplyFont(filter.HeaderIcon, size: 9);
+        filter.HeaderIcon.style.color = new StyleColor(ColSubtleText);
+        filter.HeaderIcon.style.marginLeft = 2;
+        container.Add(filter.HeaderIcon);
+
+        container.RegisterCallback<ClickEvent>(_ => ToggleFilterPopup(col, container));
+        container.RegisterCallback<PointerEnterEvent>(_ =>
         {
-            CloseItemFilterPopup();
-            return;
-        }
-        OpenItemFilterPopup(anchor);
+            if (!filter.Active)
+            {
+                filter.HeaderLabel.style.color = new StyleColor(ColTitleText);
+                filter.HeaderIcon.style.color = new StyleColor(ColTitleText);
+            }
+        });
+        container.RegisterCallback<PointerLeaveEvent>(_ => UpdateFilterHeaderAppearance(col));
+
+        UpdateFilterHeaderAppearance(col);
+        return container;
     }
 
-    private void OpenItemFilterPopup(VisualElement anchor)
+    private void UpdateFilterHeaderAppearance(SortColumn col)
     {
-        var allItems = CollectAllItemNumbers();
+        var f = GetFilter(col);
+        if (f.HeaderLabel == null) return;
+        var c = f.Active ? ColOrange : ColSubtleText;
+        f.HeaderLabel.style.color = new StyleColor(c);
+        f.HeaderIcon.style.color = new StyleColor(c);
+    }
 
-        // On first open (no active filter), seed the selection with every item so all
-        // checkboxes start checked — matching Excel's default where everything is visible.
-        if (!_itemFilterActive)
+    // ── Popup management ──
+
+    private void ToggleFilterPopup(SortColumn col, VisualElement anchor)
+    {
+        if (_activeFilterColumn == col && _activeFilterPopup != null)
         {
-            _itemFilterSelection.Clear();
-            foreach (var item in allItems)
-                _itemFilterSelection.Add(item);
+            CloseFilterPopup();
+            return;
+        }
+        CloseFilterPopup();
+        OpenFilterPopup(col, anchor);
+    }
+
+    private void OpenFilterPopup(SortColumn col, VisualElement anchor)
+    {
+        var filter = GetFilter(col);
+        var allValues = CollectAllValues(col);
+
+        if (!filter.Active)
+        {
+            filter.Selection.Clear();
+            foreach (var v in allValues)
+                filter.Selection.Add(v);
         }
 
         var anchorBounds = anchor.worldBound;
@@ -937,27 +1027,34 @@ public class WorkQueuePanel
         float popupX = anchorBounds.x - modalBounds.x;
         float popupY = anchorBounds.y + anchorBounds.height - modalBounds.y;
 
-        _itemFilterPopup = BuildItemFilterPopup(allItems, popupX, popupY);
-        _modal.Add(_itemFilterPopup);
-        _itemFilterPopupVisible = true;
+        _activeFilterPopup = BuildFilterPopup(col, filter, allValues, popupX, popupY);
+        _modal.Add(_activeFilterPopup);
+        _activeFilterColumn = col;
     }
 
-    private void CloseItemFilterPopup()
+    private void CloseFilterPopup()
     {
-        if (_itemFilterPopup == null) return;
-        _itemFilterPopup.RemoveFromHierarchy();
-        _itemFilterPopup = null;
-        _itemFilterPopupVisible = false;
-        _itemFilterSearchText = "";
+        if (_activeFilterPopup != null)
+        {
+            _activeFilterPopup.RemoveFromHierarchy();
+            _activeFilterPopup = null;
+        }
+        if (_activeFilterColumn.HasValue)
+        {
+            var f = GetFilter(_activeFilterColumn.Value);
+            f.SearchText = "";
+        }
+        _activeFilterColumn = null;
     }
 
-    private VisualElement BuildItemFilterPopup(List<string> allItems, float x, float y)
+    private VisualElement BuildFilterPopup(SortColumn col, ColumnFilter filter,
+        List<string> allValues, float x, float y)
     {
         const float PopupWidth = 280f;
         const float PopupMaxHeight = 420f;
         const float ListMaxHeight = 220f;
 
-        // Full-modal click-catcher so clicking outside the panel closes the popup.
+        // Full-modal click-catcher
         var clickCatcher = new VisualElement();
         clickCatcher.style.position = Position.Absolute;
         clickCatcher.style.left = 0; clickCatcher.style.top = 0;
@@ -966,7 +1063,7 @@ public class WorkQueuePanel
         clickCatcher.RegisterCallback<ClickEvent>(e =>
         {
             e.StopPropagation();
-            CloseItemFilterPopup();
+            CloseFilterPopup();
         });
 
         var panel = new VisualElement();
@@ -990,10 +1087,10 @@ public class WorkQueuePanel
         // ── Sort buttons ──
         var sortAsc = new Button(() =>
         {
-            _sortColumn = SortColumn.ItemNumber;
+            _sortColumn = col;
             _sortAscending = true;
             RebuildRows();
-            CloseItemFilterPopup();
+            CloseFilterPopup();
         }) { text = "\u2191 Sort Ascending" };
         ApplyFont(sortAsc, size: 12);
         StyleFilterButton(sortAsc);
@@ -1001,10 +1098,10 @@ public class WorkQueuePanel
 
         var sortDesc = new Button(() =>
         {
-            _sortColumn = SortColumn.ItemNumber;
+            _sortColumn = col;
             _sortAscending = false;
             RebuildRows();
-            CloseItemFilterPopup();
+            CloseFilterPopup();
         }) { text = "\u2193 Sort Descending" };
         ApplyFont(sortDesc, size: 12);
         StyleFilterButton(sortDesc);
@@ -1013,7 +1110,7 @@ public class WorkQueuePanel
         AddSeparator(panel);
 
         // ── Search field ──
-        var searchField = new TextField { value = _itemFilterSearchText };
+        var searchField = new TextField { value = filter.SearchText };
         ApplyFont(searchField, size: 12);
         searchField.style.width = StyleKeyword.Auto;
         searchField.style.marginBottom = 6;
@@ -1026,8 +1123,8 @@ public class WorkQueuePanel
             searchField.style.borderBottomLeftRadius = searchField.style.borderBottomRightRadius = 4;
         searchField.RegisterValueChangedCallback(evt =>
         {
-            _itemFilterSearchText = evt.newValue ?? "";
-            RefreshFilterCheckboxList(panel, allItems);
+            filter.SearchText = evt.newValue ?? "";
+            RefreshFilterCheckboxList(panel, col, allValues);
         });
         panel.Add(searchField);
 
@@ -1039,25 +1136,23 @@ public class WorkQueuePanel
         selectAllToggle.style.marginBottom = 4;
         selectAllToggle.RegisterValueChangedCallback(evt =>
         {
-            var visibleItems = FilterItemsBySearch(allItems, _itemFilterSearchText);
+            var visible = FilterBySearch(allValues, filter.SearchText);
             if (evt.newValue)
             {
-                foreach (var item in visibleItems)
-                    _itemFilterSelection.Add(item);
+                foreach (var v in visible) filter.Selection.Add(v);
             }
             else
             {
-                foreach (var item in visibleItems)
-                    _itemFilterSelection.Remove(item);
+                foreach (var v in visible) filter.Selection.Remove(v);
             }
-            _itemFilterActive = _itemFilterSelection.Count < allItems.Count;
-            RefreshFilterCheckboxList(panel, allItems);
-            UpdateItemFilterHeaderAppearance();
+            filter.Active = filter.Selection.Count < allValues.Count;
+            RefreshFilterCheckboxList(panel, col, allValues);
+            UpdateFilterHeaderAppearance(col);
             RebuildRows();
         });
         panel.Add(selectAllToggle);
 
-        // ── Item checkbox list ──
+        // ── Checkbox list ──
         var itemScroll = new ScrollView
         {
             verticalScrollerVisibility = ScrollerVisibility.Auto,
@@ -1065,26 +1160,25 @@ public class WorkQueuePanel
         };
         itemScroll.style.maxHeight = ListMaxHeight;
         itemScroll.style.marginBottom = 6;
-        itemScroll.name = "item-filter-list";
+        itemScroll.name = "filter-list";
         panel.Add(itemScroll);
 
-        PopulateFilterCheckboxList(itemScroll, allItems);
+        PopulateFilterCheckboxList(itemScroll, col, allValues);
 
         AddSeparator(panel);
 
-        // ── Bottom bar: Clear Filter + result count ──
+        // ── Bottom bar ──
         var bottomRow = new VisualElement();
         bottomRow.style.flexDirection = FlexDirection.Row;
         bottomRow.style.alignItems = Align.Center;
 
         var clearBtn = new Button(() =>
         {
-            _itemFilterActive = false;
-            _itemFilterSelection.Clear();
-            foreach (var item in allItems)
-                _itemFilterSelection.Add(item);
-            RefreshFilterCheckboxList(panel, allItems);
-            UpdateItemFilterHeaderAppearance();
+            filter.Active = false;
+            filter.Selection.Clear();
+            foreach (var v in allValues) filter.Selection.Add(v);
+            RefreshFilterCheckboxList(panel, col, allValues);
+            UpdateFilterHeaderAppearance(col);
             RebuildRows();
         }) { text = "Clear Filter" };
         ApplyFont(clearBtn, size: 11);
@@ -1101,10 +1195,12 @@ public class WorkQueuePanel
         bottomRow.Add(countLabel);
         panel.Add(bottomRow);
 
-        UpdateFilterCount(panel, allItems);
+        UpdateFilterCount(panel, col, allValues);
 
         return clickCatcher;
     }
+
+    // ── Popup helpers ──
 
     private static void AddSeparator(VisualElement parent)
     {
@@ -1131,38 +1227,39 @@ public class WorkQueuePanel
         b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(Color.clear));
     }
 
-    private static List<string> FilterItemsBySearch(List<string> allItems, string search)
+    private static List<string> FilterBySearch(List<string> allValues, string search)
     {
-        if (string.IsNullOrWhiteSpace(search)) return allItems;
-        return allItems.Where(i => i.IndexOf(search, System.StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+        if (string.IsNullOrWhiteSpace(search)) return allValues;
+        return allValues.Where(v => v.IndexOf(search, System.StringComparison.OrdinalIgnoreCase) >= 0).ToList();
     }
 
-    /// <summary>Repopulates the checkbox scroll view and updates Select All / count.</summary>
-    private void RefreshFilterCheckboxList(VisualElement popupPanel, List<string> allItems)
+    private void RefreshFilterCheckboxList(VisualElement popupPanel, SortColumn col, List<string> allValues)
     {
-        var scroll = popupPanel.Q<ScrollView>("item-filter-list");
+        var filter = GetFilter(col);
+        var scroll = popupPanel.Q<ScrollView>("filter-list");
         if (scroll != null)
         {
             scroll.Clear();
-            PopulateFilterCheckboxList(scroll, allItems);
+            PopulateFilterCheckboxList(scroll, col, allValues);
         }
 
         var selectAll = popupPanel.Q<Toggle>("select-all-toggle");
         if (selectAll != null)
         {
-            var visibleItems = FilterItemsBySearch(allItems, _itemFilterSearchText);
-            bool allVisibleSelected = visibleItems.Count > 0 && visibleItems.All(i => _itemFilterSelection.Contains(i));
+            var visible = FilterBySearch(allValues, filter.SearchText);
+            bool allVisibleSelected = visible.Count > 0 && visible.All(v => filter.Selection.Contains(v));
             selectAll.SetValueWithoutNotify(allVisibleSelected);
         }
 
-        UpdateFilterCount(popupPanel, allItems);
+        UpdateFilterCount(popupPanel, col, allValues);
     }
 
-    private void PopulateFilterCheckboxList(ScrollView scroll, List<string> allItems)
+    private void PopulateFilterCheckboxList(ScrollView scroll, SortColumn col, List<string> allValues)
     {
-        var visibleItems = FilterItemsBySearch(allItems, _itemFilterSearchText);
+        var filter = GetFilter(col);
+        var visible = FilterBySearch(allValues, filter.SearchText);
 
-        if (visibleItems.Count == 0)
+        if (visible.Count == 0)
         {
             var empty = new Label("No items match search.");
             ApplyFont(empty, size: 11);
@@ -1173,12 +1270,12 @@ public class WorkQueuePanel
             return;
         }
 
-        foreach (var item in visibleItems)
+        foreach (var value in visible)
         {
             var toggle = new Toggle
             {
-                label = item,
-                value = _itemFilterSelection.Contains(item)
+                label = value,
+                value = filter.Selection.Contains(value)
             };
             ApplyFont(toggle, size: 12);
             toggle.style.color = new StyleColor(ColTitleText);
@@ -1186,27 +1283,26 @@ public class WorkQueuePanel
             toggle.style.marginBottom = 2;
             toggle.style.whiteSpace = WhiteSpace.NoWrap;
 
-            string capturedItem = item;
+            string capturedValue = value;
             toggle.RegisterValueChangedCallback(evt =>
             {
                 if (evt.newValue)
-                    _itemFilterSelection.Add(capturedItem);
+                    filter.Selection.Add(capturedValue);
                 else
-                    _itemFilterSelection.Remove(capturedItem);
+                    filter.Selection.Remove(capturedValue);
 
-                _itemFilterActive = _itemFilterSelection.Count < allItems.Count;
-                UpdateItemFilterHeaderAppearance();
+                filter.Active = filter.Selection.Count < allValues.Count;
+                UpdateFilterHeaderAppearance(col);
 
-                // Update Select All state without triggering its callback.
                 var selectAll = scroll.parent?.Q<Toggle>("select-all-toggle");
                 if (selectAll != null)
                 {
-                    var visItems = FilterItemsBySearch(allItems, _itemFilterSearchText);
-                    bool allVis = visItems.Count > 0 && visItems.All(i => _itemFilterSelection.Contains(i));
+                    var visItems = FilterBySearch(allValues, filter.SearchText);
+                    bool allVis = visItems.Count > 0 && visItems.All(v => filter.Selection.Contains(v));
                     selectAll.SetValueWithoutNotify(allVis);
                 }
 
-                UpdateFilterCount(scroll.parent, allItems);
+                UpdateFilterCount(scroll.parent, col, allValues);
                 RebuildRows();
             });
 
@@ -1214,14 +1310,15 @@ public class WorkQueuePanel
         }
     }
 
-    private void UpdateFilterCount(VisualElement popupPanel, List<string> allItems)
+    private void UpdateFilterCount(VisualElement popupPanel, SortColumn col, List<string> allValues)
     {
+        var filter = GetFilter(col);
         var label = popupPanel?.Q<Label>("filter-count");
         if (label == null) return;
 
-        int selected = _itemFilterSelection.Count;
-        int total = allItems.Count;
-        label.text = _itemFilterActive
+        int selected = filter.Selection.Count;
+        int total = allValues.Count;
+        label.text = filter.Active
             ? $"{selected} of {total} selected"
             : $"{total} items";
     }

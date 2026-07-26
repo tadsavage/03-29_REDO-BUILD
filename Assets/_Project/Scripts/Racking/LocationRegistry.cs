@@ -243,8 +243,27 @@ public class LocationRegistry : MonoBehaviour
             // Only mark this pallet resolved once we've actually found its slot -- otherwise an
             // early pass (before racks finish registering) would permanently skip it with no match.
             _reconciledPalletIds.Add(link.PalletId);
-            if (nearest.IsAvailable)
-                nearest.Occupy(link.PalletId, record.SkuId, record.Quantity);
+
+            // Fill the slot's CONTENTS whenever they're missing -- do NOT gate on IsAvailable.
+            // LocationStatusRegistry (status) IS persisted across save/load, but LocationData's
+            // contents are NOT, so a restored pallet's slot comes back already marked Occupied with
+            // an empty PalletId/SkuId/Quantity. The old `if (nearest.IsAvailable)` guard was
+            // therefore false for precisely the slots this reconciliation exists to repair, and
+            // those slots stayed "Occupied with blank contents" forever (measured live: 91 occupied
+            // slots, 90 of them blank). Keying off "has no pallet recorded" instead fixes restored
+            // slots while still never clobbering a slot whose contents are already known.
+            string existingPallet = nearest.PalletId;
+            if (string.IsNullOrEmpty(existingPallet))
+            {
+                string expiry = record.ExpirationDayNumber >= 0 ? record.ExpirationDayNumber.ToString() : null;
+                nearest.Occupy(link.PalletId, record.SkuId, record.Quantity, expiry, record.LoadId);
+
+                // Backfill the PALLET's own readable slot address too, so the cross-reference works
+                // in both directions for save-restored pallets (which never went through the live
+                // putaway path that normally sets this).
+                var pd = link.GetComponent<PalletData>();
+                if (pd != null) pd.SetLocation(record.CurrentLocation, nearest.Address);
+            }
         }
     }
 }

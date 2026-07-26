@@ -27,6 +27,10 @@ namespace GameCore.Inventory
         // ── Contents ─────────────────────────────────────────────────────────────────────
 
         [Header("Contents")]
+        /// <summary>The 10-digit human-readable "license plate" of the pallet in this slot. This is
+        /// the field to cross-reference against a pallet's own PalletData.LoadId — the internal
+        /// PalletId below is a GUID and is useless for eyeballing in the Inspector.</summary>
+        [SerializeField] private string _loadId;
         [SerializeField] private string _palletId;
         [SerializeField] private string _skuId;
         [SerializeField] private int    _quantity;
@@ -43,7 +47,12 @@ namespace GameCore.Inventory
         /// <summary>Current operational status.</summary>
         public LocationStatus Status         => _status;
 
-        /// <summary>PalletId of the pallet currently here; null/empty when vacant.</summary>
+        /// <summary>The human-readable 10-digit Load ID ("license plate") of the pallet currently
+        /// here; null/empty when vacant. Cross-references directly with PalletData.LoadId.</summary>
+        public string         LoadId         => _loadId;
+
+        /// <summary>PalletId (internal GUID) of the pallet currently here; null/empty when vacant.
+        /// Use <see cref="LoadId"/> when a human needs to read/match it.</summary>
         public string         PalletId       => _palletId;
 
         /// <summary>SKU / item number of the current load; null/empty when vacant.</summary>
@@ -99,9 +108,11 @@ namespace GameCore.Inventory
         /// <summary>
         /// Marks the slot occupied and stores the pallet's inventory details (Reserved to Occupied).
         /// </summary>
-        public void Occupy(string palletId, string skuId, int quantity, string expirationDate = null)
+        public void Occupy(string palletId, string skuId, int quantity, string expirationDate = null,
+                           string loadId = null)
         {
             _palletId       = palletId;
+            _loadId         = loadId;
             _skuId          = skuId;
             _quantity       = quantity;
             _expirationDate = expirationDate;
@@ -113,6 +124,7 @@ namespace GameCore.Inventory
         public void Release()
         {
             _palletId       = null;
+            _loadId         = null;
             _skuId          = null;
             _quantity       = 0;
             _expirationDate = null;
