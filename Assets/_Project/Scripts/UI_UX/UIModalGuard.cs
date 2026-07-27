@@ -17,4 +17,11 @@ public static class UIModalGuard
 
     public static void Push(object modal) { if (modal != null) _open.Add(modal); }
     public static void Pop(object modal)  { if (modal != null) _open.Remove(modal); }
+
+    // Statics survive domain reloads in the Editor, and entries are plain `object` so a destroyed
+    // MonoBehaviour can't be detected and swept. Exiting Play with a modal still open would therefore
+    // leave a permanent entry here and kill every guarded hotkey for the rest of the session. Clear
+    // the set on each play-mode start so a stale entry can never outlive the run that created it.
+    [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetOnPlay() => _open.Clear();
 }

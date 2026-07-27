@@ -1133,6 +1133,14 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         if (ServiceLocator.TryGet<InventoryService>(out var inventoryService))
             inventoryService.ClearAllPallets();
+
+        // Wiping the pallets without wiping the queue left every Receive/Putaway task pointing at a
+        // PalletId that no longer resolved. Those tasks stayed claimable and were handed back out on a
+        // loop by ReleaseStaleAssignments, failing every time. Both other callers of ClearAllPallets
+        // (TestPalletSpawner, PlacementSystem's save restore) already pair it with ClearAllTasks; this
+        // one was the outlier.
+        if (ServiceLocator.TryGet<WorkQueueSystem>(out var workQueueSystem))
+            workQueueSystem.ClearAllTasks();
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -261,6 +261,14 @@ public class PlacementStateMachine : MonoBehaviour
 
 
         // -----------------------------------------------------
+        // KEYBOARD SHORTCUTS — suppressed while a modal owns input
+        // -----------------------------------------------------
+        // A text-entry modal (Save/Load, Rack Setup, Lane Setup) has the keyboard. Undo/Redo, Esc and
+        // Tab must not fire underneath it — typing a save name containing Z or Y would otherwise
+        // rewrite the build history behind the dialog. Mouse-driven state ticking above is unaffected.
+        if (UIModalGuard.IsCapturing) return;
+
+        // -----------------------------------------------------
         // UNDO / REDO (Global Shortcuts)
         // -----------------------------------------------------
         if (Keyboard.current.ctrlKey.isPressed)

@@ -57,7 +57,13 @@ namespace GameCore.Labor
         private const float ForkPickupMatchY = 0f;
         private const float ForkLowerDistance = 1.0f;
         private const float GrabThreshold = 0.2f;
-        private const float PivotFrontDistance = 2.0f;
+        private const float PivotFrontDistance = 2.0f;   // legacy fallback when there's no docked door to measure from
+        // Mirrors of TrailerOffloadController's tuning, per Tad's spec for the loading side:
+        private const float PalletLiftClearance = 0.15f; // lift a grabbed pallet this far off the deck, and lower by the same to set it down
+        private const float LanePivotDistance   = 1.0f;  // the staging-lane pivot sits this far OUT from the lane entry
+        private const float PivotDoorOffset     = 1.0f;  // the SHIPPING DOOR pivot sits this far out from the dock door — every trailer-side turn happens here
+        private const float ForkRaiseStandoff   = 1.0f;  // halt this far short of the pallet (fork carry point → pallet, XZ) and raise the forks THERE, stopped
+        private const int   OutboundStackTier   = 0;     // outbound cargo is stacked ONE high — always tier 0
         private const bool InvertTrailerAxis = false; // must match TrailerOffloadController's setting
 
         private static readonly Vector3 ForkCarryLocalPos = new Vector3(0f, 0f, -0.2f);
@@ -112,6 +118,35 @@ namespace GameCore.Labor
             }
         }
 
+        /// <summary>
+        /// Maps "the Nth pallet loaded" to a cargo slot index, filling the trailer in LEFT/RIGHT PAIRS
+        /// from the nose back toward the doors.
+        ///
+        /// TruckController.SlotLocalPosition splits its 12 slots as `row = slotIndex / PalletsPerRow`,
+        /// so the rows are CONTIGUOUS BLOCKS, not interleaved: 0–5 are the whole left row and 6–11 the
+        /// whole right row. Handing out slots sequentially therefore put the first six pallets down the
+        /// entire left side before the right side got anything — which is why a part-loaded trailer sat
+        /// with everything stacked along one wall. LoadShipment never showed it because it builds all
+        /// 12 in one pass.
+        ///
+        /// Direction check (measured off the live rig, not assumed): the truck root carries a 180° Y
+        /// rotation so `TrailerIntoDir` = truck.forward = −Z, while the Load container has no Y
+        /// rotation and its local +Z is +Z world — i.e. local +Z runs OPPOSITE to `into`. Cross-checked
+        /// against TrailerOffloadController, which unloads smallest-Dot(pos, into) first as "nearest
+        /// the rear opening": with into = −Z that is the LARGEST local z. So col 5 is the doors and
+        /// col 0 is the nose, and ascending depth here loads nose-first — the correct order, and one
+        /// where the DS never has to drive past a pallet it already set down.
+        ///
+        /// (Note the stale comment on `openingRef` below calling slot 0 the "rearmost pallet" — by this
+        /// geometry slot 0 is the deepest point. It only matters as the no-docked-door fallback now.)
+        /// </summary>
+        private static int CargoSlotForSequence(int sequence)
+        {
+            int depth = sequence / 2;   // 0 = nose … 5 = doors
+            int side  = sequence % 2;   // alternate left / right
+            return side * TruckController.PalletsPerRow + depth;
+        }
+
         private static TruckController FindDockedOutboundTruck(int doorNumber)
         {
             foreach (var t in FindObjectsByType<TruckController>())
@@ -153,6 +188,9 @@ namespace GameCore.Labor
             DockEquipmentCommandeerRegistry.Commandeer(slot);
 
             Transform ds = slot.transform;
+            // Where the DS stood BEFORE we took it over — a valid, patrol-reachable spot on the working
+            // surface, kept as the fallback for the restore below.
+            Vector3 homePos = ds.position;
 
             var nav = ds.GetComponent<AiNavigation>();
             var agent = ds.GetComponent<NavMeshAgent>();
@@ -177,13 +215,21 @@ namespace GameCore.Labor
             {
                 var pallet = pallets[i];
                 if (pallet == null) continue;
+                // Rig destroyed mid-run — stop dispatching pallets and FALL THROUGH to the restore
+                // block below, rather than piling up more exceptions and skipping cleanup entirely.
+                if (ds == null) break;
 
-                int slotIndex = startSlotIndex + i;
-                if (slotIndex >= TruckController.PalletSlotCount)
+                // Bound the SEQUENCE, not the mapped slot. The pair interleave isn't monotonic, so a
+                // sequence past the end folds back onto a low slot index (sequence 12 → slot 6) and a
+                // slot-index check would silently double-place on top of an already-loaded pallet
+                // instead of stopping.
+                int sequence = startSlotIndex + i;
+                if (sequence >= TruckController.PalletSlotCount)
                 {
                     Debug.LogWarning($"[TrailerLoad] {truck.name} cargo full ({TruckController.PalletSlotCount} slots) — leaving {pallets.Count - i} pallet(s) staged for a later truck.");
                     break;
                 }
+                int slotIndex = CargoSlotForSequence(sequence);
 
                 if (!string.IsNullOrEmpty(pallet.OrderId)) loadedOrderIds.Add(pallet.OrderId);
 
@@ -196,6 +242,13 @@ namespace GameCore.Labor
             {
                 foreach (var orderId in loadedOrderIds)
                     orderService.MarkOrderLoaded(orderId);
+
+                // Anything at this lane still sitting in Loading that we did NOT put aboard had no
+                // findable pallet here. Send it back to Staged rather than leaving it stranded — the
+                // panel offers no action on a Loading row, so it would be stuck for good.
+                int stranded = orderService.RevertUnloadedOrdersToStaged(doorNumber, lane, loadedOrderIds);
+                if (stranded > 0)
+                    Debug.LogWarning($"[TrailerLoad] {stranded} order(s) at {doorNumber}{lane} had no staged pallets to load — reverted to Staged.");
             }
 
             // ── Restore the DS to patrol ──
@@ -203,7 +256,7 @@ namespace GameCore.Labor
             if (agent != null)
             {
                 agent.enabled = agentWas;
-                if (agent.isActiveAndEnabled) { agent.Warp(ds.position); agent.isStopped = false; }
+                RestoreAgentToWorkingSurface(ds, agent, homePos);
             }
             if (nav != null)
             {
@@ -212,6 +265,11 @@ namespace GameCore.Labor
             }
 
             DockEquipmentCommandeerRegistry.Release(slot);
+            // Hand the truck back so a LATER Load task at this door can still run against it. It is
+            // still docked with cargo space; only close-out (CompleteLoad) should retire it. Leaving
+            // the claim set is what deadlocked door 1 — every subsequent task stayed Available and its
+            // orders stuck in Loading, which the panel gives the player no way to act on.
+            truck.ReleaseLoadClaim();
             workQueue?.CompleteTask(task.TaskId);
             Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol. Awaiting close-out to depart.");
         }
@@ -255,21 +313,29 @@ namespace GameCore.Labor
             Vector3 doorPos = truck.DockedAt != null ? truck.DockedAt.transform.position : ds.position;
             LaneEntryGeometry(LaneNamingService.GetLane(laneSlot.DoorNumber, laneSlot.Lane), doorPos, out Vector3 entryW, out Vector3 downLane);
             float driveY = ds.position.y;
-            Vector3 entryPivot = new Vector3(entryW.x, driveY, entryW.z) - downLane * PivotFrontDistance;
+            // THE STAGING-LANE PIVOT — LanePivotDistance out from the lane entry, on the door side.
+            // Every lane-side turn happens here, never inside the lane.
+            Vector3 entryPivot = new Vector3(entryW.x, driveY, entryW.z) - downLane * LanePivotDistance;
 
-            // 1. Pull up to a pivot just in front of the lane entry (outside the lane, door side).
+            // 1. Pull up to the staging-lane pivot, just outside the lane entry.
             yield return DriveTailFirst(ds, entryPivot);
-            // 2. Spin so the forks face straight down the lane — forks FIRST.
+            // 2. Spin so the forks face straight down the lane — forks FIRST. All turning happens out
+            //    here at the pivot; the drive-in below never steers.
             yield return FaceForks(ds, downLane);
-            // 3. Drive in forks-first: lower the forks once close, stop when they reach the pallet.
+            // 3. Forks down to rest for the approach, then drive in from the lane ENTRY end.
+            if (forks != null) yield return LiftForks(forks, forkRestY);
             yield return DriveInToGrab(ds, forks, forkRestY, palletT, downLane);
-            // 4. Seat the pallet on the forks (fixed carry pose), then lift it.
+            // 4. Seat the pallet on the forks (fixed carry pose).
             Transform carrier = forks != null ? forks : ds;
             palletT.SetParent(carrier, worldPositionStays: false);
             palletT.localPosition = ForkCarryLocalPos;
             palletT.localRotation = Quaternion.Euler(ForkCarryLocalEuler);
-            if (forks != null) yield return LiftForks(forks, forkRestY + ForkLiftHeight);
-            // 5. Reverse straight back out to the entry pivot — cab-first, no spin.
+            // Riding the forks now — stop carving, or the pallet cuts a moving trench across the
+            // NavMesh and shoves every agent it passes.
+            pallet.SetNavObstacleActive(false);
+            // 4b. Lift to carry height — PalletLiftClearance off the deck, NOT the old fixed 1m.
+            if (forks != null) yield return LiftForks(forks, forks.localPosition.y + PalletLiftClearance);
+            // 5. Reverse straight back out to the staging-lane pivot — cab-first, no spin.
             yield return DriveTailFirst(ds, entryPivot);
 
             // ── CARRY to the trailer and place in the next open cargo slot ───────────────────
@@ -280,35 +346,56 @@ namespace GameCore.Labor
             // "rearmost pallet" OffloadOnePallet uses to locate the trailer opening — a fixed
             // geometric point that works whether the trailer has any cargo yet or not (offload
             // always has real pallets to reference; a truck that just arrived to be loaded doesn't).
-            Vector3 openingRef = truck.LoadContainer.TransformPoint(truck.SlotLocalPosition(0, 0, null));
+            Vector3 openingRef = truck.LoadContainer.TransformPoint(truck.SlotLocalPosition(0, OutboundStackTier, null));
             float openingLong = Vector3.Dot(openingRef, into);
 
-            Vector3 targetLocal = truck.SlotLocalPosition(slotIndex, 0, null);
+            // Outbound cargo is ONE HIGH — always tier 0. SlotLocalPosition gives this slot's spot in
+            // the trailer's own layout: its X is the left- or right-hand column, its depth is how far
+            // in the row sits.
+            Vector3 targetLocal = truck.SlotLocalPosition(slotIndex, OutboundStackTier, null);
             Vector3 targetWorld = truck.LoadContainer.TransformPoint(targetLocal);
             float targetLat = Vector3.Dot(targetWorld, rightAxis);
 
-            Vector3 trailerPivot = into * (openingLong - PivotFrontDistance)
-                                  + rightAxis * targetLat
-                                  + Vector3.up * ds.position.y;
+            // THE SHIPPING DOOR PIVOT — the single point where every trailer-side turn happens.
+            // Longitudinal is anchored to the DOCK DOOR, PivotDoorOffset out onto the dock (`into`
+            // points into the trailer, so subtract to move outward); lateral is this slot's own
+            // left/right column, so the DS is already squared up on the row it is driving into and
+            // needs no steering correction inside the trailer. Falls back to the old opening-derived
+            // reference only if this truck somehow has no docked door to measure from.
+            float pivotLong = truck.DockedAt != null
+                            ? Vector3.Dot(doorPos, into) - PivotDoorOffset
+                            : openingLong - PivotFrontDistance;
+            Vector3 shippingDoorPivot = into * pivotLong
+                                       + rightAxis * targetLat
+                                       + Vector3.up * ds.position.y;
 
-            // 6. Pull up to a pivot in front of the trailer opening, on this slot's row.
-            yield return DriveTailFirst(ds, trailerPivot);
+            // 6. Turn to face the way we're about to travel BEFORE setting off, then pull up to the
+            //    shipping door pivot. (Turning while already rolling reads as the DS slewing sideways
+            //    across the dock.)
+            yield return FaceDir(ds, shippingDoorPivot - ds.position);
+            yield return DriveTailFirst(ds, shippingDoorPivot);
             // 7. Spin so the forks (and the carried pallet) face straight into the trailer.
             yield return FaceForks(ds, into);
-            // 8. Drive forward until the carried pallet's XZ lines up over the target slot.
+            // 8. Drive straight in until the carried pallet's XZ lines up over its cargo slot.
             Vector3 palletOffset = palletT.position - ds.position; palletOffset.y = 0f;
             Vector3 targetXZ = new Vector3(targetWorld.x, driveY, targetWorld.z);
             yield return DriveForksFirst(ds, targetXZ - palletOffset);
-            // 9. Lower the forks back to rest, then set the pallet down in its cargo slot.
-            if (forks != null) yield return LiftForks(forks, forkRestY);
+            // 9. Lower by exactly the PalletLiftClearance it was raised, so the pallet settles onto
+            //    the trailer deck rather than being dropped from carry height.
+            if (forks != null) yield return LiftForks(forks, forks.localPosition.y - PalletLiftClearance);
+            // 10. Unparent off the forks into the trailer's cargo container.
             palletT.SetParent(truck.LoadContainer, worldPositionStays: false);
             palletT.localPosition = targetLocal;
             palletT.localRotation = Quaternion.identity;
+            // Cargo inside a trailer must NOT carve — it would cut a hole in the dock NavMesh where
+            // the trailer is parked.
+            pallet.SetNavObstacleActive(false);
 
-            Debug.Log($"[TrailerLoad][PLACE] {pallet.name} (order {pallet.OrderId}) -> {truck.name} slot {slotIndex}.");
+            Debug.Log($"[TrailerLoad][PLACE] {pallet.name} (order {pallet.OrderId}) -> {truck.name} slot {slotIndex} (tier {OutboundStackTier}).");
 
-            // 10. Reverse straight back out of the trailer to the pivot — cab-first, no spin.
-            yield return DriveTailFirst(ds, trailerPivot);
+            // 11. Reverse straight back out of the trailer to the shipping door pivot — cab-first,
+            //     forks trailing, no spin. The next pallet's run starts from here.
+            yield return DriveTailFirst(ds, shippingDoorPivot);
         }
 
         // Resolves a lane's ENTRY (the end nearest the dock door) and its down-lane direction (entry
@@ -324,31 +411,98 @@ namespace GameCore.Labor
             downLane = slots.Count > 1 ? Flat(exitW - entryW) : Flat(entryW - doorPos);
         }
 
+        /// <summary>
+        /// Hands the agent back onto a VALIDATED NavMesh position rather than blind-Warping to wherever
+        /// the scripted run finished. Warp snaps to the NEAREST mesh, which near a dock edge can be the
+        /// yard a metre below instead of the dock — exactly how a dock stocker ended a load run parked
+        /// at ground level in the open yard, on a disconnected island with no route back. Require the
+        /// sampled surface to be at the height the DS was working at; fall back to its pre-commandeer
+        /// position otherwise. (Mirror of TrailerOffloadController's copy — these two files
+        /// deliberately duplicate their primitives, see the class header.)
+        /// </summary>
+        private static void RestoreAgentToWorkingSurface(Transform ds, NavMeshAgent agent, Vector3 homePos)
+        {
+            if (ds == null || agent == null || !agent.isActiveAndEnabled) return;
+
+            const float HeightTolerance = 0.5f;
+            const float SampleRadius    = 2.0f;
+
+            bool ok = NavMesh.SamplePosition(ds.position, out NavMeshHit hit, SampleRadius, agent.areaMask)
+                      && Mathf.Abs(hit.position.y - homePos.y) <= HeightTolerance;
+
+            if (!ok)
+            {
+                Debug.LogWarning($"[TrailerLoad] {ds.name} finished its run at {ds.position} with no NavMesh at its " +
+                                 $"working height ({homePos.y:F2}) within {SampleRadius}m — returning it to {homePos} " +
+                                 $"rather than stranding it off the dock.");
+                if (!NavMesh.SamplePosition(homePos, out hit, SampleRadius, agent.areaMask))
+                {
+                    ds.position = homePos;
+                    agent.Warp(homePos);
+                    agent.isStopped = false;
+                    return;
+                }
+            }
+
+            ds.position = hit.position;
+            agent.Warp(hit.position);
+            agent.isStopped = false;
+        }
+
         // ── Movement primitives (duplicated from TrailerOffloadController) ───────────────────────
 
+        // Mirrors TrailerOffloadController.DriveInToGrab: three DISCRETE phases — approach low, stop
+        // and lift, then enter — so the tines are never moving vertically and horizontally at once.
+        // The old single-loop version raised the forks WHILE driving into the pallet, which dragged
+        // them up through the load it was about to pick, and it also steered on the way in (the DS is
+        // already squared up at the pivot, and rotating inside a lane looks wrong).
         private IEnumerator DriveInToGrab(Transform ds, Transform forks, float forkRestY, Transform pallet, Vector3 into)
         {
-            Quaternion face = Quaternion.LookRotation(Flat(BodyForwardForForks(into)));
             Vector3 start = ds.position;
             const float maxTravel = 8f;
 
+            // Fork local Y that puts the CARRY POINT (where the pallet actually seats) level with this
+            // pallet. Measured once, before the forks move: the delta is world-vertical so it maps 1:1
+            // onto the forks' local Y.
+            float matchLocalY = forkRestY;
+            if (forks != null)
+            {
+                Vector3 carryPoint = forks.TransformPoint(ForkCarryLocalPos);
+                matchLocalY = forks.localPosition.y + (pallet.position.y - carryPoint.y);
+            }
+
+            // PHASE 1 — approach with the forks DOWN, stopping ForkRaiseStandoff short. Measured from
+            // the fork carry point, not the DS root: the root sits well behind the tines, so a
+            // root-based standoff can already have them buried in the pallet face.
             while (true)
             {
+                if (ds == null || pallet == null) yield break; // destroyed mid-run — see DriveInternal
+                Vector3 grab = forks != null ? forks.TransformPoint(ForkCarryLocalPos) : ds.position + into;
+                Vector3 gd = pallet.position - grab; gd.y = 0f;
+                if (gd.magnitude <= ForkRaiseStandoff) break;
+
+                ds.position += into * (DriveSpeed * Time.deltaTime);
+                if ((ds.position - start).magnitude >= maxTravel)
+                {
+                    Debug.LogWarning("[TrailerLoad] DriveInToGrab hit the travel cap on approach — lifting and seating anyway.");
+                    break;
+                }
+                yield return null;
+            }
+
+            // PHASE 2 — STOPPED and clear: raise to this pallet's own height, and let the lift FINISH
+            // before moving again.
+            if (forks != null) yield return LiftForks(forks, matchLocalY);
+
+            // PHASE 3 — at pocket height: close the last stretch straight in, no steering.
+            while (true)
+            {
+                if (ds == null || pallet == null) yield break; // destroyed mid-run — see DriveInternal
                 Vector3 grab = forks != null ? forks.TransformPoint(ForkCarryLocalPos) : ds.position + into;
                 Vector3 gd = pallet.position - grab; gd.y = 0f;
                 if (gd.magnitude <= GrabThreshold) break;
 
-                Vector3 dsToP = pallet.position - ds.position; dsToP.y = 0f;
-                if (forks != null && dsToP.magnitude <= ForkLowerDistance)
-                {
-                    Vector3 lp = forks.localPosition;
-                    lp.y = Mathf.MoveTowards(lp.y, forkRestY + ForkPickupMatchY, ForkLiftSpeed * Time.deltaTime);
-                    forks.localPosition = lp;
-                }
-
-                ds.rotation = Quaternion.RotateTowards(ds.rotation, face, TurnSpeed * Time.deltaTime);
                 ds.position += into * (DriveSpeed * Time.deltaTime);
-
                 if ((ds.position - start).magnitude >= maxTravel)
                 {
                     Debug.LogWarning("[TrailerLoad] DriveInToGrab hit the travel cap before reaching the pallet — seating it anyway.");
@@ -365,6 +519,11 @@ namespace GameCore.Labor
         {
             while (true)
             {
+                // Destroyed mid-run (equipment deleted, scene teardown, domain reload during play).
+                // Without this the coroutine throws MissingReferenceException and dies PART WAY
+                // THROUGH, skipping the restore at the end of LoadRoutine and leaving the DS
+                // commandeered with its agent disabled — permanently frozen.
+                if (t == null) yield break;
                 Vector3 flat = new Vector3(target.x, t.position.y, target.z);
                 Vector3 to = flat - t.position; to.y = 0f;
                 if (to.magnitude <= ArriveThreshold) { t.position = flat; break; }
@@ -378,11 +537,13 @@ namespace GameCore.Labor
 
         private IEnumerator FaceDir(Transform t, Vector3 dir)
         {
+            if (t == null) yield break;
             Quaternion want = Quaternion.LookRotation(Flat(dir));
             while (Quaternion.Angle(t.rotation, want) > FaceThreshold)
             {
                 t.rotation = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * Time.deltaTime);
                 yield return null;
+                if (t == null) yield break; // destroyed mid-turn — see DriveInternal
             }
             t.rotation = want;
         }
@@ -393,12 +554,14 @@ namespace GameCore.Labor
 
         private IEnumerator LiftForks(Transform forks, float targetLocalY)
         {
+            if (forks == null) yield break;
             Vector3 lp = forks.localPosition;
             while (Mathf.Abs(lp.y - targetLocalY) > 0.001f)
             {
                 lp.y = Mathf.MoveTowards(lp.y, targetLocalY, ForkLiftSpeed * Time.deltaTime);
                 forks.localPosition = lp;
                 yield return null;
+                if (forks == null) yield break; // destroyed mid-lift — see DriveInternal
             }
         }
 

@@ -234,7 +234,14 @@ namespace GameCore.Actors
         private void UnparentAllPallets()
         {
             foreach (var pallet in _pallets)
-                if (pallet != null) pallet.transform.SetParent(null, true);
+            {
+                if (pallet == null) continue;
+                pallet.transform.SetParent(null, true);
+                // These are the pallets dropped wherever the selector happened to be standing when
+                // staging was unreachable. They are obstructions in an aisle — they must carve, or
+                // every agent walks through the pile.
+                pallet.SetNavObstacleActive(true);
+            }
         }
 
         /// <summary>Resolves the single-pallet "ChepEmpty" prefab via the Inventory build menu
@@ -305,19 +312,35 @@ namespace GameCore.Actors
             {
                 failReason = "order was never released to a staging lane (AssignedDoorNumber/AssignedLane unset — check the Work Queue panel release)";
             }
-            else if (!_inventoryService.TryFindStagingSlotInLane(order.AssignedDoorNumber, order.AssignedLane, out var slot))
+            // Search the whole STAGE, not just the one lane this order was released to: start in its
+            // own lane and overflow into the next lane of the same door (A → B → C) as each fills.
+            // Before this, a full lane meant the pallets were dropped wherever the selector happened
+            // to be standing, which is what littered the aisles.
+            else if (!_inventoryService.TryFindStagingSlotAtDoor(order.AssignedDoorNumber, order.AssignedLane,
+                                                                 out string resolvedLane, out var slot))
             {
-                failReason = $"no open slot in {order.AssignedDoorNumber}{order.AssignedLane} (lane full, or its Usage doesn't allow outbound picking)";
+                failReason = $"no open slot anywhere in Stage {order.AssignedDoorNumber} (every lane full, or none allows outbound picking)";
             }
             else if (!LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var pos))
             {
-                failReason = $"slot {order.AssignedDoorNumber}{order.AssignedLane}-{slot.Slot} resolved but has no computed world position yet (lane geometry not baked?)";
+                failReason = $"slot {order.AssignedDoorNumber}{resolvedLane}-{slot.Slot} resolved but has no computed world position yet (lane geometry not baked?)";
             }
             else
             {
                 stagingPos = pos;
                 if (LaneNamingService.TryGetLaneGeometry(slot.DoorNumber, slot.Lane, out var geo))
                     depthAxis = geo.DepthAxis;
+
+                // Record where the pallets ACTUALLY landed. If this order overflowed out of the lane
+                // it was released to, AssignedLane has to follow — it's what ReleaseOrdersToLoading
+                // groups by and what TrailerLoadController scans to find the staged pallets. Leaving
+                // it pointing at the original lane would strand the overflowed pallets.
+                if (!string.IsNullOrEmpty(resolvedLane) && resolvedLane != order.AssignedLane)
+                {
+                    Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) overflowed " +
+                              $"from {order.AssignedDoorNumber}{order.AssignedLane} into {order.AssignedDoorNumber}{resolvedLane}.");
+                    order.AssignedLane = resolvedLane;
+                }
             }
 
             if (stagingPos.HasValue)
@@ -359,6 +382,9 @@ namespace GameCore.Actors
                 pallet.transform.SetParent(null, true);
                 pallet.transform.position = basePos + axis * (i * 1.2f);
                 pallet.transform.rotation = Quaternion.LookRotation(axis, Vector3.up);
+                // On the ground now — start carving so MHE and humanoids path around it instead of
+                // straight through it.
+                pallet.SetNavObstacleActive(true);
             }
         }
 

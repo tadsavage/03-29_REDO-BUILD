@@ -509,10 +509,6 @@ namespace GameCore.Actors
             pallet.localPosition = new Vector3(0, verticalOffset, 0);
             pallet.localRotation = Quaternion.identity;
 
-            // Get the cell we're picking from BEFORE we move the pallet
-            var pickupCell = new Vector2Int(pallet.GetComponent<PlacedObject>()?.gridX ?? 0,
-                                             pallet.GetComponent<PlacedObject>()?.gridY ?? 0);
-
             // Disable NavMesh obstacle and modifier to stop carving
             NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
             if (obstacle != null) obstacle.enabled = false;
@@ -534,19 +530,16 @@ namespace GameCore.Actors
             // This removes it from the staging lane slot, allowing other RTOs to access the pallet behind it.
             _inventoryService?.MovePallet(palletId, new Vector2Int(-1, -1));
 
-            // Check if the pickup cell is now completely empty (no other pallets, top or bottom)
-            var remaining = _inventoryService?.GetPalletsAtLocation(pickupCell);
-            if (remaining != null && remaining.Count == 0)
-            {
-                // Cell is empty — immediately destroy all NavMesh components in that cell to clear carving.
-                // This auto-clears the NavMesh without needing an explicit rebake, making the cell instantly walkable.
-                DestroyObstaclesInCell(pickupCell);
-            }
-            else if (obstacle != null)
-            {
-                // Cell still has other pallets — queue this pallet's obstacle for batched cleanup
-                GameCore.Services.NavMeshRebuildQueue.QueueRebuild(obstacle);
-            }
+            // NOTE: nothing further is needed here. Pallets carve now (BuildingData.ConfigureObstacle),
+            // and the obstacle.enabled = false above removes this pallet's carve immediately — the cell
+            // becomes walkable the same frame, with no rebake and nothing to batch.
+            //
+            // This used to branch into DestroyObstaclesInCell() when the cell emptied, which destroyed
+            // the NavMeshObstacle AND NavMeshModifier of every PlacedObject sharing that grid cell —
+            // including the staging-lane FLOOR tile, permanently stripping its area = 3 ("MHE Lane")
+            // override and its build settings, which never came back. The other branch queued the
+            // obstacle for NavMeshRebuildQueue, which destroyed the component outright so the pallet
+            // could never block again after its first pickup. Both are gone.
 
             // Cargo-in-transit convention (same as TruckController/MHEOperatorPersistenceService):
             // disable PlacedObject while it rides. Its gridX/gridY still hold the ORIGINAL staging-lane
@@ -708,9 +701,28 @@ namespace GameCore.Actors
             }
             else if (record == null)
             {
-                Debug.LogError($"[ReachTruckOperator] '{name}': no InventoryService record for pallet " +
-                    $"'{palletId}' — recording '{toAddress}' as occupied with unknown contents.");
-                locationData.Occupy(palletId, string.Empty, 0);
+                // The inventory record went away mid-carry (picked to empty, contaminated, or cleared
+                // wholesale). By this point the pallet is already physically seated in the rack — there
+                // is no backing out of the putaway here — so recover the contents from the pallet's OWN
+                // PalletData instead of committing a slot that reads Occupied with a blank SKU and
+                // quantity 0, which nothing downstream can reason about. PalletData is the same source
+                // TrailerOffloadController.RegisterAndQueue trusts when it first registers the pallet,
+                // so the recovered values agree with what the master record would have held.
+                var pdata = pallet.GetComponent<PalletData>();
+                if (pdata != null && !string.IsNullOrEmpty(pdata.ItemNumber))
+                {
+                    string pExpiry = pdata.ExpirationDay >= 0 ? pdata.ExpirationDay.ToString() : null;
+                    Debug.LogWarning($"[ReachTruckOperator] '{name}': no InventoryService record for pallet " +
+                        $"'{palletId}' — recovered '{toAddress}' contents from the pallet's own PalletData " +
+                        $"(sku={pdata.ItemNumber} qty={pdata.CaseQuantity}).");
+                    locationData.Occupy(palletId, pdata.ItemNumber, pdata.CaseQuantity, pExpiry, pdata.LoadId);
+                }
+                else
+                {
+                    Debug.LogError($"[ReachTruckOperator] '{name}': no InventoryService record AND no usable " +
+                        $"PalletData for pallet '{palletId}' — leaving '{toAddress}' contents UNRECORDED " +
+                        $"rather than writing a blank occupancy.");
+                }
             }
             else
             {
@@ -1650,33 +1662,11 @@ namespace GameCore.Actors
             return null;
         }
 
-        /// <summary>
-        /// When a cell becomes completely empty (no pallets, top or bottom), immediately destroy
-        /// all NavMesh components (obstacle + modifier) in that cell. This auto-clears the NavMesh
-        /// carving and triggers an immediate rebake, making the cell instantly walkable for MHE.
-        /// </summary>
-        private void DestroyObstaclesInCell(Vector2Int cell)
-        {
-            var modifierType = System.Type.GetType("UnityEngine.AI.NavMeshModifier, Assembly-CSharp");
-            if (modifierType == null)
-                modifierType = System.Type.GetType("UnityEngine.AI.NavMeshModifier");
-
-            foreach (var po in PlacedObjectRegistry.All)
-            {
-                if (po == null || po.gameObject == null) continue;
-                if (po.gridX != cell.x || po.gridY != cell.y) continue;
-
-                var obstacle = po.GetComponent<NavMeshObstacle>();
-                if (obstacle != null) Destroy(obstacle);
-
-                if (modifierType != null)
-                {
-                    var modifier = po.GetComponent(modifierType);
-                    if (modifier != null) Destroy(modifier);
-                }
-            }
-
-            Debug.Log($"[ReachTruckOperator] Cell ({cell.x}, {cell.y}) is now empty — destroyed all NavMesh components for immediate rebake.");
-        }
+        // REMOVED: DestroyObstaclesInCell(). It destroyed the NavMeshObstacle AND NavMeshModifier of
+        // every PlacedObject sharing a grid cell — which included the staging-lane floor tile, whose
+        // modifier carries the area = 3 ("MHE Lane") override and its build settings. Those components
+        // were never recreated, so each emptied cell permanently degraded that lane's NavMesh setup.
+        // Nothing replaces it: pallets carve now, and disabling the carving obstacle at pickup frees
+        // the cell the same frame.
     }
 }

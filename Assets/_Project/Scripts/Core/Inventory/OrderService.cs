@@ -86,6 +86,35 @@ namespace GameCore.Inventory
         /// order's WorkTask from Open to Available so Order Selectors can start claiming them. Fails
         /// atomically (no partial changes) if any order isn't actually Open, the batch spans more
         /// than one customer, or the lane is already owned by a different customer.</summary>
+        /// <summary>Releases a batch to a whole STAGE (a door's set of staging lanes) rather than to
+        /// one named lane — what the Work Queue panel now offers as "Stage 1", "Stage 2"… Picks the
+        /// first lane of that Stage with room as the starting point; if it later fills, the selector
+        /// overflows into the next lane of the same Stage on its own
+        /// (InventoryService.TryFindStagingSlotAtDoor), so this choice is a starting point, not a
+        /// commitment.</summary>
+        public bool ReleaseOrdersToStage(List<string> orderIds, int doorNumber)
+        {
+            ServiceLocator.TryGet<InventoryService>(out var inv);
+
+            // Re-check here, not just in the dropdown that offered this stage: the panel rebuilds on a
+            // refresh tick, so a trailer can dock or a putaway can land in the gap between the player
+            // seeing the list and clicking Submit. Refusing here is what actually prevents the double
+            // assignment; hiding it in the UI is only the first line.
+            if (StagingLaneAssignmentService.HasInboundTruckDocked(doorNumber))
+            {
+                Debug.LogWarning($"[OrderService] Stage {doorNumber} has an inbound trailer docked — release refused.");
+                return false;
+            }
+            // Lane-level inbound stock needs no separate check here: TryResolveStartLane picks from
+            // LanesInStage, which already excludes any lane holding received pallets.
+            if (!StagingLaneAssignmentService.TryResolveStartLane(this, inv, doorNumber, out string startLane))
+            {
+                Debug.LogWarning($"[OrderService] Stage {doorNumber} has no pickable staging lane — release refused.");
+                return false;
+            }
+            return ReleaseOrdersToLane(orderIds, doorNumber, startLane);
+        }
+
         public bool ReleaseOrdersToLane(List<string> orderIds, int doorNumber, string lane)
         {
             if (_workQueue == null || orderIds == null || orderIds.Count == 0 || string.IsNullOrEmpty(lane)) return false;
@@ -101,7 +130,10 @@ namespace GameCore.Inventory
 
             string customerId = pairs[0].order.CustomerId;
             if (pairs.Any(p => p.order.CustomerId != customerId)) return false;
-            if (!StagingLaneAssignmentService.IsLaneAvailableFor(this, doorNumber, lane, customerId)) return false;
+            // Availability is reckoned per STAGE (the whole door), not per lane: an order staged into
+            // Stage 1 may overflow across all of 1A/1B/1C, so no other customer can be given any lane
+            // of that door while it's in use.
+            if (!StagingLaneAssignmentService.IsStageAvailableFor(this, doorNumber, customerId)) return false;
 
             foreach (var (order, task) in pairs)
             {
@@ -129,9 +161,15 @@ namespace GameCore.Inventory
             if (orders.Any(o => o == null || o.Status != OrderData.OrderStatus.Staged)) return false;
 
             string customerId = orders[0].CustomerId;
-            string lane = orders[0].AssignedLane;
-            if (string.IsNullOrEmpty(lane)) return false;
-            if (orders.Any(o => o.CustomerId != customerId || o.AssignedLane != lane || o.AssignedDoorNumber != doorNumber)) return false;
+            // Still one customer and one door per release, but NO LONGER one lane: staging overflows
+            // across a Stage (1A → 1B → 1C), so a customer's orders can legitimately be spread over
+            // several lanes of the same door. Group by lane and file one Load task per lane that
+            // actually holds something — a single task pointed at one lane would strand every pallet
+            // that overflowed into the others.
+            if (orders.Any(o => o.CustomerId != customerId || o.AssignedDoorNumber != doorNumber)) return false;
+            if (orders.Any(o => string.IsNullOrEmpty(o.AssignedLane))) return false;
+
+            var lanes = orders.Select(o => o.AssignedLane).Distinct().OrderBy(l => l).ToList();
 
             bool truckAtDoor = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
                 .Any(t => t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber);
@@ -141,16 +179,51 @@ namespace GameCore.Inventory
             foreach (var order in orders)
                 order.Status = OrderData.OrderStatus.Loading;
 
-            _workQueue.CreateTask(
-                WorkTaskType.Load,
-                EmployeeRole.Loader,
-                palletId: null,
-                description: $"Load {customerId} from {doorNumber}{lane} -> Door {doorNumber}",
-                fromLocation: $"{doorNumber}{lane}",
-                toLocation: doorNumber.ToString());
+            foreach (var lane in lanes)
+            {
+                _workQueue.CreateTask(
+                    WorkTaskType.Load,
+                    EmployeeRole.Loader,
+                    palletId: null,
+                    description: $"Load {customerId} from {doorNumber}{lane} -> Door {doorNumber}",
+                    fromLocation: $"{doorNumber}{lane}",
+                    toLocation: doorNumber.ToString());
+            }
 
-            Debug.Log($"[OrderService] Released {orders.Count} order(s) for {customerId} at {doorNumber}{lane} to loading.");
+            Debug.Log($"[OrderService] Released {orders.Count} order(s) for {customerId} at Stage {doorNumber} " +
+                      $"(lane(s) {string.Join(", ", lanes)}) to loading — {lanes.Count} load task(s) filed.");
             return true;
+        }
+
+        /// <summary>
+        /// Puts back to Staged any order at this door/lane that a load pass finished WITHOUT loading —
+        /// i.e. it's still Loading and wasn't in the set the loader actually put aboard.
+        ///
+        /// This happens when an order's staged pallets aren't findable in its lane: they were dropped
+        /// in an aisle because staging was full, or were otherwise moved. TrailerLoadController scans
+        /// the lane for OutboundPalletBuilder objects, finds nothing for that order, and completes —
+        /// leaving the order in Loading forever. Loading rows carry no enabled checkbox in the Work
+        /// Queue panel, so the player has no way to close them out or re-release them; the order is
+        /// simply stranded. Reverting to Staged makes it actionable again and surfaces the real
+        /// problem (missing pallets) rather than silently wedging the queue.
+        /// </summary>
+        public int RevertUnloadedOrdersToStaged(int doorNumber, string lane, ICollection<string> loadedOrderIds)
+        {
+            int reverted = 0;
+            foreach (var order in _activeOrders)
+            {
+                if (order.Status != OrderData.OrderStatus.Loading) continue;
+                if (order.AssignedDoorNumber != doorNumber || order.AssignedLane != lane) continue;
+                if (loadedOrderIds != null && loadedOrderIds.Contains(order.OrderId)) continue;
+
+                order.Status = OrderData.OrderStatus.Staged;
+                reverted++;
+                Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) was released to loading " +
+                                 $"from {doorNumber}{lane} but no staged pallet for it could be found there — " +
+                                 $"reverted to Staged so it can be re-released. Its pallets are most likely sitting " +
+                                 $"somewhere other than the lane.");
+            }
+            return reverted;
         }
 
         /// <summary>Marks an order Loaded once every pallet it staged has been physically carried onto

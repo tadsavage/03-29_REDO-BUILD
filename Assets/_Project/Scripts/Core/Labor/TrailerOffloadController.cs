@@ -42,10 +42,17 @@ namespace GameCore.Labor
         private const float  ForkLiftSpeed      = 0.6f;   // units/sec fork raise/lower
         private const float  ForkPickupMatchY   = 0f;     // fork local Y that matches the chep pallet's fork-pocket height
         private const float  ForkLowerDistance  = 1.0f;   // (legacy) unused since the approach-lift rewrite
-        private const float  ForkRaiseDistance  = 1.5f;   // start raising the forks to the pallet's Y once this close (XZ)
-        private const float  PalletLiftClearance = 0.15f; // how far to lift a grabbed pallet off the deck before backing out
+        private const float  ForkRaiseStandoff  = 1.0f;   // halt this far short of the pallet (fork CARRY POINT → pallet, XZ) and raise the forks THERE, stopped, before any further forward motion
+        private const float  PalletLiftClearance = 0.10f; // how far to lift a grabbed pallet off the deck before backing out
+        private const float  TrailerBackoutDistance = 1.25f; // reverse this far straight out of the trailer after a grab, before lowering the load to travel height
+        private const float  ForkTravelClearance = 0.20f; // fork height ABOVE rest that a loaded DS travels at — the load rides here, not all the way down on the deck
+        private const float  StackApproachClearance = 0.10f; // carried pallet rides this far above the target's TOP while driving over it, then lowers by exactly this much to seat
+        private const float  StackSeatLowerSpeed = 0.15f;  // slow, deliberate final descent onto the stack (units/sec) — quarter of ForkLiftSpeed
+        private const float  LaneBackoutDistance = 1.25f;  // reverse this far after setting a pallet down, before lowering the forks
+        private const float  LaneExitForkClearance = 0.15f; // fork height above rest for the empty run back out of the lane
         private const float  GrabThreshold      = 0.2f;   // fork grab-point within this XZ of the pallet → seat it on the forks
-        private const float  PivotFrontDistance = 2.0f;   // pickup/drop pivot sits this far in FRONT of the trailer opening / lane entry
+        private const float  PivotFrontDistance = 2.0f;   // lane entry pivot sits this far in FRONT of the lane entry (also the legacy fallback for the trailer pivot)
+        private const float  PivotDoorOffset    = 1.0f;   // TrailerPivotPoint sits this far OUT from the dock door, onto the dock — the DS's turning spot
         // Lane-drop height. PlacementGrid.GetCellCenter returns the grid PLANE Y (~0), but the staging
         // lanes physically sit on the dock foundation, so pallets dropped at the cell's Y sink into the
         // mesh. LaneSurfaceY is that foundation top; the first pallet sits there. Each stacked pallet
@@ -133,6 +140,9 @@ namespace GameCore.Labor
             DockEquipmentCommandeerRegistry.Commandeer(slot);
 
             Transform ds = slot.transform;
+            // Where the DS was standing BEFORE we took it over — by definition a valid, patrol-reachable
+            // spot on the working surface. Kept as the fallback for the restore below.
+            Vector3 homePos = ds.position;
 
             // ── Commandeer the DS: silence its patrol AI so we own the transform ──
             var nav   = ds.GetComponent<AiNavigation>();
@@ -180,6 +190,9 @@ namespace GameCore.Labor
             {
                 var pallet = pallets[i];
                 if (pallet == null) continue;
+                // Rig destroyed mid-run — stop dispatching pallets and FALL THROUGH to the restore
+                // block below, rather than piling up more exceptions and skipping cleanup entirely.
+                if (ds == null) break;
                 yield return OffloadOnePallet(ds, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, queue, i);
             }
 
@@ -188,7 +201,7 @@ namespace GameCore.Labor
             if (agent != null)
             {
                 agent.enabled = agentWas;
-                if (agent.isActiveAndEnabled) { agent.Warp(ds.position); agent.isStopped = false; }
+                RestoreAgentToWorkingSurface(ds, agent, homePos);
             }
             if (nav != null)
             {
@@ -209,19 +222,34 @@ namespace GameCore.Labor
             Vector3 P = pallet.position;
             Vector3 palletWorldScale = pallet.lossyScale; // preserve visual size across the reparenting
 
-            // ── PICK UP (pivot-in-front-of-door approach) ─────────────────────────────────
-            // The pivot sits PivotFrontDistance in FRONT of the trailer opening, on the same side/row
-            // as this pallet (there's effectively one pivot per row — left/right — since all pallets in
-            // a row share a lateral offset). The DS pulls up to it, turns on Y until its forks point
-            // straight down the row at the pallet, then drives straight in forks-first.
+            // ── THE TRAILER PIVOT POINT ───────────────────────────────────────────────────
+            // The single ground point in front of the trailer where ALL trailer-side pivoting happens,
+            // for this pallet. Every entry into and exit out of the trailer routes through it, so the DS
+            // only ever turns out here in the open and drives dead straight once it is inside.
+            //
+            // It is a flat (X,Z) point:
+            //   • LATERAL  — the pallet's own row offset, so the DS is already squared up on the pallet's
+            //                line and needs no steering correction on the way in;
+            //   • LONGITUDINAL — anchored to the DOCK DOOR, PivotDoorOffset further OUT onto the dock.
+            //                It deliberately does NOT come from the pallet: using the pallet's own depth
+            //                would put the "pivot in front of the trailer" INSIDE the trailer, where
+            //                there is no room to turn. It used to be derived from the rear-most pallet
+            //                as a stand-in for the opening, which parked the pivot right up against the
+            //                trailer mouth; measuring from the door itself puts it clear on the dock.
+            // Y is just the DS's drive height, carried through unchanged.
             Vector3 rightAxis = Vector3.Cross(Vector3.up, into);        // horizontal, ⟂ to `into` (unit)
             float   palletLat = Vector3.Dot(P, rightAxis);             // this pallet's row (lateral) offset
-            Vector3 pivot = into * (openingLong - PivotFrontDistance)  // longitudinal: in front of the opening
+            // `into` points INTO the trailer, so SUBTRACTING moves out onto the dock. Falls back to the
+            // old opening-proxy if this truck somehow has no DockedAt door to measure from.
+            float   pivotLong = truck.DockedAt != null
+                              ? Vector3.Dot(doorPos, into) - PivotDoorOffset
+                              : openingLong - PivotFrontDistance;
+            Vector3 trailerPivotPoint = into * pivotLong                // longitudinal: out from the door
                           + rightAxis * palletLat                      // lateral: on the pallet's row
                           + Vector3.up * ds.position.y;                // keep the DS's drive height
 
-            // 1. Pull up to the pivot at the trailer entry for this pallet's row (left/right).
-            yield return DriveTailFirst(ds, pivot);
+            // 1. Pull up to the TrailerPivotPoint for this pallet's row (left/right).
+            yield return DriveTailFirst(ds, trailerPivotPoint);
             // 2. Rotate IN PLACE at the pivot — outside the trailer — so the forks face straight down
             //    this pallet's row before any forward motion. All turning happens here; the drive-in
             //    below no longer steers, so the DS never rotates once it is inside the trailer.
@@ -241,9 +269,19 @@ namespace GameCore.Labor
             // yanked the load a metre up regardless of what height it was picked from. Relative to
             // wherever the forks actually are now, so it behaves the same on any tier.
             if (forks != null) yield return LiftForks(forks, forks.localPosition.y + PalletLiftClearance);
-            // 5. Reverse straight back out to the pivot in front of the door (clear of the trailer) —
-            //    cab-first, forks (and pallet) still pointing into the trailer, no spin.
-            yield return DriveTailFirst(ds, pivot);
+            // 5. Reverse straight out TrailerBackoutDistance first, so the load is clear of whatever
+            //    it was sitting on, THEN drop the forks back to rest height and carry it low for the
+            //    rest of the trip. (Carrying at pick height all the way to the lane is what made a
+            //    pallet taken off an upper tier float across the dock.) If a lowered pallet is ever
+            //    seen clipping the stack it came off, raise TrailerBackoutDistance — the descent
+            //    starts the moment this short reverse finishes.
+            yield return DriveTailFirst(ds, ds.position - into * TrailerBackoutDistance);
+            //    Settle to TRAVEL height, not all the way to rest — the load rides just off the deck
+            //    for the trip out rather than being set back down on it.
+            if (forks != null) yield return LiftForks(forks, forkRestY + ForkTravelClearance);
+            // 5b. Continue out to the SAME TrailerPivotPoint we entered through (clear of the trailer) —
+            //     cab-first, forks (and pallet) still pointing into the trailer, no spin.
+            yield return DriveTailFirst(ds, trailerPivotPoint);
 
             // ── DROP OFF (enter the lane from its door-end entry, never across lanes) ──────
             // 7. Pick the next open Inbound/Both slot in one of THIS truck's dock-door lanes.
@@ -281,39 +319,38 @@ namespace GameCore.Labor
             //    down the lane at the slot we're driving into — forks FIRST.
             yield return FaceForks(ds, downLane);
 
-            // 9b. STACKING CHECK: If the target cell already has a pallet, raise forks to stack on top.
-            // While stopped at the pivot, check if we're stacking this pallet on top of another.
-            float forkStackHeight = forkRestY; // default: rest position if cell is empty
+            // 9b. STACK APPROACH HEIGHT — raise so the CARRIED pallet's base rides exactly
+            //     StackApproachClearance above whatever it is going to land on, then drive over it at
+            //     that height. targetTopY is the measured TOP of the highest pallet already settled in
+            //     this cell, or the lane surface itself when the cell is empty.
+            //
+            //     The old version set the fork's local Y to `highestPalletHeight` — a pallet's top MINUS
+            //     its base, i.e. how TALL the pallet is. That conflates the size of an object with a
+            //     position on the mast: a 1.2m-tall pallet sent the forks to local Y 1.2 no matter how
+            //     high the stack it was landing on actually sat, which is why the load went up far more
+            //     than it ever needed to. The height we want is derived the same way DriveInToGrab
+            //     derives matchLocalY — measure the WORLD Y the load must reach, then shift the forks by
+            //     the difference — so it is correct for any pallet type and any tier.
+            float targetTopY = LaneSurfaceY; // empty cell → land on the lane surface itself
             if (ServiceLocator.TryGet<InventoryService>(out var invStack) && invStack != null)
             {
-                var palletsInCell = invStack.GetPalletsAtLocation(cell);
-                if (palletsInCell != null && palletsInCell.Count > 0)
+                foreach (var rec in invStack.GetPalletsAtLocation(cell))
                 {
-                    // Cell has at least one pallet — find the highest one and calculate its actual height
-                    float highestPalletHeight = 0f;
-                    foreach (var rec in palletsInCell)
-                    {
-                        var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
-                        if (go == null || go == pallet.gameObject) continue;
-                        if (go.transform.parent != null) continue; // skip carried pallets
-
-                        // Measure actual pallet HEIGHT: visual top minus base position
-                        float palletTop = MeasureTopY(go);
-                        float palletBase = go.transform.position.y;
-                        float palletHeight = palletTop - palletBase;
-
-                        if (palletHeight > highestPalletHeight)
-                            highestPalletHeight = palletHeight;
-                    }
-
-                    if (highestPalletHeight > 0f)
-                    {
-                        // Raise forks to: pallet height
-                        forkStackHeight = highestPalletHeight;
-                        Debug.Log($"[TrailerOffload] Stacking: pallet height={highestPalletHeight:F3}m, raising forks to {forkStackHeight:F3}m");
-                        yield return LiftForks(forks, forkStackHeight);
-                    }
+                    var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
+                    if (go == null || go == pallet.gameObject) continue;
+                    if (go.transform.parent != null) continue; // skip carried pallets
+                    float top = MeasureTopY(go);
+                    if (top > targetTopY) targetTopY = top;
                 }
+            }
+            if (forks != null)
+            {
+                // pallet.position.y is the carried pallet's BASE (DropPallet/ComputeDropBaseY both treat
+                // it that way), so this delta is exactly what the mast has to travel.
+                float approachLocalY = forks.localPosition.y + ((targetTopY + StackApproachClearance) - pallet.position.y);
+                Debug.Log($"[TrailerOffload] Stack approach: target top={targetTopY:F3}m, " +
+                          $"forks {forks.localPosition.y:F3} → {approachLocalY:F3} (+{StackApproachClearance:F2} clearance).");
+                yield return LiftForks(forks, approachLocalY);
             }
 
             // 10. Drive forward down the lane until the carried pallet's XZ lines up over the target tile
@@ -342,16 +379,16 @@ namespace GameCore.Labor
 
             float dropBaseY = ComputeDropBaseY(cell, pallet.gameObject);
 
-            // 12. Lower the forks toward the stack (cosmetic — DropPallet sets the exact final Y), then
-            //     unparent the pallet onto the lane at dropBaseY. Target forkStackHeight (the REAL
-            //     measured height of the existing pallet, computed in the 9b stacking check above) —
-            //     NOT a fixed per-tier constant. A flat "one pallet height" guess undershoots any
-            //     pallet type taller than that guess (e.g. the wire-tote pallets, which measure well
-            //     over a standard case pallet), so the carried pallet visibly sank into and clipped
-            //     through the top of a taller stack before DropPallet snapped it to the correct final
-            //     Y a moment later. forkStackHeight already equals forkRestY when the cell is empty
-            //     (tier 0), so this covers both cases with one target.
-            if (forks != null) yield return LiftForks(forks, forkStackHeight);
+            // 12. SEAT IT. Now parked directly over the target, lower SLOWLY (StackSeatLowerSpeed) by
+            //     the approach clearance until the carried pallet's base is exactly on dropBaseY — the
+            //     same authoritative value DropPallet is about to use. Targeting dropBaseY rather than
+            //     "the height we raised from" means the load comes to rest precisely on the stack with
+            //     nothing left for DropPallet to correct, so there is no snap at the end of the descent.
+            if (forks != null)
+            {
+                float seatLocalY = forks.localPosition.y + (dropBaseY - pallet.position.y);
+                yield return LiftForks(forks, seatLocalY, StackSeatLowerSpeed);
+            }
 
             DropPallet(pallet, targetW, dropBaseY, palletWorldScale, rotatedPlacement);
             // 12b. Record the authoritative base-Y everywhere the pallet's height is tracked.
@@ -364,18 +401,70 @@ namespace GameCore.Labor
             Debug.Log($"[TrailerOffload][DROP] pallet#{palletIndex} → door {door} lane {laneLetter} cell ({cell.x},{cell.y}) " +
                       $"tier={tier} dropBaseY={dropBaseY:F2} finalPos={pallet.position} cellCount(now)={nowInCell} " +
                       $"cellCenter={targetW}");
+            // 12c. Reverse clear of the pallet just set down BEFORE touching the mast — dropping the
+            //      tines while still directly over it would drag them down its face.
+            yield return DriveTailFirst(ds, ds.position - downLane * LaneBackoutDistance);
+            // 12d. Forks are empty now — settle them to the return-trip height so the DS makes the whole
+            //      run back to the trailer at a consistent height rather than arriving still raised to
+            //      the last drop's stack height (which then had to be corrected mid-approach).
+            if (forks != null) yield return LiftForks(forks, forkRestY + LaneExitForkClearance);
             // 13. Reverse straight back OUT of the lane to the entry pivot (never across the lanes) —
-            //     cab-first, forks trailing, no spin.
+            //     cab-first, forks trailing, no spin. From here the next iteration pulls up to the next
+            //     pallet's TrailerPivotPoint, which is where all trailer-side turning happens.
             yield return DriveTailFirst(ds, entryPivot);
+        }
+
+        /// <summary>
+        /// Hands the agent back onto a NavMesh position we have actually VALIDATED, instead of blindly
+        /// Warping to wherever the scripted run happened to finish.
+        ///
+        /// Warp snaps to the NEAREST NavMesh, which near a dock edge can be the yard a metre below
+        /// rather than the dock itself. That is how a dock stocker ended a load run parked at ground
+        /// level out in the open yard, isOnNavMesh=true but on a disconnected island with no route back
+        /// — invisible to every existing recovery. So: require the sampled surface to be at the height
+        /// the DS was working at, and fall back to its pre-commandeer position (known good) if it isn't.
+        /// </summary>
+        private static void RestoreAgentToWorkingSurface(Transform ds, NavMeshAgent agent, Vector3 homePos)
+        {
+            if (ds == null || agent == null || !agent.isActiveAndEnabled) return;
+
+            const float HeightTolerance = 0.5f; // a dock is ~1.15 above the yard — half that separates them cleanly
+            const float SampleRadius    = 2.0f;
+
+            bool ok = NavMesh.SamplePosition(ds.position, out NavMeshHit hit, SampleRadius, agent.areaMask)
+                      && Mathf.Abs(hit.position.y - homePos.y) <= HeightTolerance;
+
+            if (!ok)
+            {
+                Debug.LogWarning($"[TrailerOffload] {ds.name} finished its run at {ds.position} with no NavMesh at its " +
+                                 $"working height ({homePos.y:F2}) within {SampleRadius}m — returning it to {homePos} " +
+                                 $"rather than stranding it off the dock.");
+                if (!NavMesh.SamplePosition(homePos, out hit, SampleRadius, agent.areaMask))
+                {
+                    ds.position = homePos;
+                    agent.Warp(homePos);
+                    agent.isStopped = false;
+                    return;
+                }
+            }
+
+            ds.position = hit.position;
+            agent.Warp(hit.position);
+            agent.isStopped = false;
         }
 
         // ── Movement primitives (scripted transform choreography) ────────────────────────────────
 
         // Drives the DS forks-first toward the pallet (body faces -into so the rear forks point +into)
-        // — real fork engagement: once the DS is within ForkLowerDistance of the pallet it eases the
-        // forks down to the chep pallet's pocket height (ForkPickupMatchY), and it stops the instant the
-        // fork grab-point (where the pallet will seat) reaches the pallet's XZ (within GrabThreshold). A
-        // travel cap keeps it from driving through the trailer if the pallet is somehow unreachable.
+        // in three DISCRETE phases — approach low, stop and lift, then enter — so the tines are never
+        // moving vertically and horizontally at the same time:
+        //   1. roll in with the forks at rest until the fork carry point is ForkRaiseStandoff from the
+        //      pallet, and STOP;
+        //   2. stopped and clear, raise the forks to this pallet's own height and wait for the lift to
+        //      finish;
+        //   3. only then close the remaining gap, stopping the instant the carry point (where the
+        //      pallet will seat) reaches the pallet's XZ (within GrabThreshold).
+        // A travel cap keeps it from driving through the trailer if the pallet is somehow unreachable.
         private IEnumerator DriveInToGrab(Transform ds, Transform forks, float forkRestY, Transform pallet, Vector3 into)
         {
             Vector3 start = ds.position;
@@ -392,26 +481,45 @@ namespace GameCore.Labor
                 matchLocalY = forks.localPosition.y + (pallet.position.y - carryPoint.y);
             }
 
+            // PHASE 1 — APPROACH, forks still DOWN. Roll straight in until the fork carry point is
+            // ForkRaiseStandoff short of the pallet, then stop. Distance is measured from the CARRY
+            // POINT rather than the DS root because the tines are what has to stay clear: the root
+            // sits a good way behind them, so a root-based standoff can have the tines already buried
+            // in the pallet face by the time the lift is allowed to start.
             while (true)
             {
+                if (ds == null || pallet == null) yield break; // destroyed mid-run — see DriveInternal
+                Vector3 grab = forks != null ? forks.TransformPoint(ForkCarryLocalPos) : ds.position + into;
+                Vector3 gd = pallet.position - grab; gd.y = 0f;
+                if (gd.magnitude <= ForkRaiseStandoff) break;
+
+                // Straight in only — NO steering. The DS was squared up at the pivot before entering
+                // (FaceForks at the call site), and rotating inside the trailer looked wrong.
+                ds.position += into * (DriveSpeed * Time.deltaTime);
+
+                if ((ds.position - start).magnitude >= maxTravel)
+                {
+                    Debug.LogWarning("[TrailerOffload] DriveInToGrab hit the travel cap on approach — lifting and seating anyway.");
+                    break;
+                }
+                yield return null;
+            }
+
+            // PHASE 2 — STOPPED and clear of the pallet: raise to this pallet's own height and let the
+            // lift RUN TO COMPLETION before any further motion. Doing the lift concurrently with the
+            // drive (the old single-loop version) is what dragged the tines up through the pallet it
+            // was about to pick, and left the height still settling as the pallet got parented.
+            if (forks != null) yield return LiftForks(forks, matchLocalY);
+
+            // PHASE 3 — at pocket height now: close the last stretch straight in until the carry point
+            // reaches the pallet and it can be seated.
+            while (true)
+            {
+                if (ds == null || pallet == null) yield break; // destroyed mid-run — see DriveInternal
                 Vector3 grab = forks != null ? forks.TransformPoint(ForkCarryLocalPos) : ds.position + into;
                 Vector3 gd = pallet.position - grab; gd.y = 0f;
                 if (gd.magnitude <= GrabThreshold) break;
 
-                // Forks travel LOW, then come up to meet the pallet's own height as the DS closes in
-                // — the way a real lift approaches a load. (The old code eased toward a FIXED
-                // `forkRestY + ForkPickupMatchY`, ignoring the pallet's height entirely, which was
-                // right only for a ground-tier pallet and made stacked ones snap onto the tines.)
-                Vector3 dsToP = pallet.position - ds.position; dsToP.y = 0f;
-                if (forks != null && dsToP.magnitude <= ForkRaiseDistance)
-                {
-                    Vector3 lp = forks.localPosition;
-                    lp.y = Mathf.MoveTowards(lp.y, matchLocalY, ForkLiftSpeed * Time.deltaTime);
-                    forks.localPosition = lp;
-                }
-
-                // Straight in only — NO steering. The DS was squared up at the pivot before entering
-                // (FaceForks at the call site), and rotating inside the trailer looked wrong.
                 ds.position += into * (DriveSpeed * Time.deltaTime);
 
                 if ((ds.position - start).magnitude >= maxTravel)
@@ -421,11 +529,6 @@ namespace GameCore.Labor
                 }
                 yield return null;
             }
-
-            // Guarantee exact pocket height before the pallet is seated — if the DS closed the last
-            // stretch faster than the forks could rise, finish the lift here rather than seating the
-            // pallet at a mismatched height (which is what produced the visible snap).
-            if (forks != null) yield return LiftForks(forks, matchLocalY);
         }
 
         // Drive to a flat target with the FORKS leading (load-first) — the body turns so its rear forks
@@ -444,6 +547,13 @@ namespace GameCore.Labor
         {
             while (true)
             {
+                // The rig can be destroyed mid-run (equipment deleted, scene torn down, domain reload
+                // during play). Without this the coroutine throws MissingReferenceException on
+                // t.position and dies PART WAY THROUGH, which skips the restore block at the end of the
+                // routine and leaves the DS commandeered with its agent still disabled — permanently
+                // frozen. Bail cleanly instead and let the caller finish its cleanup.
+                if (t == null) yield break;
+
                 Vector3 flat = new Vector3(target.x, t.position.y, target.z);
                 Vector3 to = flat - t.position; to.y = 0f;
                 if (to.magnitude <= ArriveThreshold) { t.position = flat; break; }
@@ -457,11 +567,13 @@ namespace GameCore.Labor
 
         private IEnumerator FaceDir(Transform t, Vector3 dir)
         {
+            if (t == null) yield break;
             Quaternion want = Quaternion.LookRotation(Flat(dir));
             while (Quaternion.Angle(t.rotation, want) > FaceThreshold)
             {
                 t.rotation = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * Time.deltaTime);
                 yield return null;
+                if (t == null) yield break; // destroyed mid-turn — see DriveInternal
             }
             t.rotation = want;
         }
@@ -474,14 +586,19 @@ namespace GameCore.Labor
         // World direction the body's transform.forward must point so the FORKS aim along worldForkDir.
         private static Vector3 BodyForwardForForks(Vector3 worldForkDir) => worldForkDir * ForkAxisSign;
 
-        private IEnumerator LiftForks(Transform forks, float targetLocalY)
+        // speedOverride > 0 runs the mast at a different rate than ForkLiftSpeed — used for the slow,
+        // deliberate final descent that seats a pallet onto a stack.
+        private IEnumerator LiftForks(Transform forks, float targetLocalY, float speedOverride = -1f)
         {
+            if (forks == null) yield break;
+            float speed = speedOverride > 0f ? speedOverride : ForkLiftSpeed;
             Vector3 lp = forks.localPosition;
             while (Mathf.Abs(lp.y - targetLocalY) > 0.001f)
             {
-                lp.y = Mathf.MoveTowards(lp.y, targetLocalY, ForkLiftSpeed * Time.deltaTime);
+                lp.y = Mathf.MoveTowards(lp.y, targetLocalY, speed * Time.deltaTime);
                 forks.localPosition = lp;
                 yield return null;
+                if (forks == null) yield break; // destroyed mid-lift — see DriveInternal
             }
         }
 

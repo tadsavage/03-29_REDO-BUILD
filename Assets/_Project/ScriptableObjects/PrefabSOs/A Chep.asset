@@ -26,11 +26,12 @@ MonoBehaviour:
   replacesWalls: 0
   ClearsGridAfterPlacement: 0
   pathfindingClear: 0
-  navArea: 1
-  allowedAgents: 5
+  navArea: 0
+  allowedAgents: -1
   CanUseStairs: 0
   isStackable: 1
   objHeight: 0.165
+  worldYOffset: 0
   defaultFloorTile: {fileID: 0}
   footprint: {x: 1, y: 1}
   customShapeOffsets: []

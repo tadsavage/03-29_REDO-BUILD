@@ -54,8 +54,14 @@ public class PlacementSystem : MonoBehaviour
         if (quicksaveTimer > 0f)
             quicksaveTimer -= Time.deltaTime;
 
+        // F5/F9 stand down while a text-entry modal owns the keyboard — quick-saving or, far worse,
+        // quick-LOADING out from under the Save/Load dialog the player is mid-way through using is
+        // never what they meant. F6 below is exempt: it toggles this very window, so it stays live as
+        // a way to dismiss it.
+        bool modalCapturing = UIModalGuard.IsCapturing;
+
         // Quicksave (F5)
-        if (Keyboard.current.f5Key.wasPressedThisFrame && quicksaveTimer <= 0f)
+        if (!modalCapturing && Keyboard.current.f5Key.wasPressedThisFrame && quicksaveTimer <= 0f)
         {
             if (SaveLoadSystem.SaveManager.Instance != null)
             {
@@ -72,7 +78,7 @@ public class PlacementSystem : MonoBehaviour
         }
 
         // Quickload (F9)
-        if (Keyboard.current.f9Key.wasPressedThisFrame && quicksaveTimer <= 0f)
+        if (!modalCapturing && Keyboard.current.f9Key.wasPressedThisFrame && quicksaveTimer <= 0f)
         {
             bool usedSaveManager = SaveLoadSystem.SaveManager.Instance != null;
             QuickLoad();
@@ -749,7 +755,10 @@ public class PlacementSystem : MonoBehaviour
             var claimedAddresses = new HashSet<string>();
             foreach (var t in workQueueSystem.Tasks)
             {
+                // Cancelled tasks hold no claim either — leaving them in would keep their reserve slot
+                // pinned as Reserved forever with no live task ever coming to fill it.
                 if (t.Status == GameCore.Labor.WorkTaskStatus.Complete) continue;
+                if (t.Status == GameCore.Labor.WorkTaskStatus.Cancelled) continue;
                 if (!string.IsNullOrEmpty(t.ToLocation)) claimedAddresses.Add(t.ToLocation);
                 if (!string.IsNullOrEmpty(t.FromLocation)) claimedAddresses.Add(t.FromLocation);
             }

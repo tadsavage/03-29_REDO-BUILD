@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.AI;
 using GameCore.Inventory;
 
 /// <summary>
@@ -120,6 +121,43 @@ public class OutboundPalletBuilder : MonoBehaviour
             if (lineItem != null) total += kvp.Value * lineItem.SellingPrice;
         }
         return total;
+    }
+
+    // ── NavMesh blocking ─────────────────────────────────────────────────────────────────────
+    // An outbound pallet is built directly in the world and deliberately carries no PlacedObject /
+    // BuildingData (it isn't InventoryService-managed stock), so BuildingData.ConfigureObstacle() —
+    // which is what gives every ordinary pallet its carving NavMeshObstacle — never runs on it. That
+    // is why MHE and humanoids walked straight through staged outbound pallets. Same settings the
+    // Inventory category gets: box, carving, stationary-only, and inset inside its 1.33 cell so
+    // neighbouring pallets carve separate footprints instead of merging into one blob.
+    private const float ObstacleFootprint = 1.15f;
+    private NavMeshObstacle _obstacle;
+
+    /// <summary>Carve while the pallet is standing on the ground; stop carving while it rides a
+    /// selector or a set of forks. A carving obstacle dragged across the floor cuts a moving trench
+    /// through the NavMesh and shoves aside every agent it passes, so carrying must switch it off.
+    /// The component is created lazily on the first `true`, so a work-in-progress pallet being built
+    /// on a selector never carves at all.</summary>
+    public void SetNavObstacleActive(bool active)
+    {
+        if (_obstacle == null) _obstacle = GetComponent<NavMeshObstacle>();
+
+        if (!active)
+        {
+            if (_obstacle != null) _obstacle.enabled = false;
+            return;
+        }
+
+        if (_obstacle == null)
+        {
+            _obstacle = gameObject.AddComponent<NavMeshObstacle>();
+            _obstacle.shape = NavMeshObstacleShape.Box;
+            _obstacle.carveOnlyStationary = true;
+            _obstacle.size = new Vector3(ObstacleFootprint, PalletDim.y, ObstacleFootprint);
+            _obstacle.center = new Vector3(0f, PalletDim.y * 0.45f, 0f);
+        }
+        _obstacle.carving = true;
+        _obstacle.enabled = true;
     }
 
     private void RebuildPattern(Vector3 caseDim)

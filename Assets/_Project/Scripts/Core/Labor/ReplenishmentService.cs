@@ -68,9 +68,12 @@ namespace GameCore.Labor
 
         private bool HasPendingReplenishment(string pickAddress)
         {
+            // Cancelled counts as finished here, not pending — a cancelled replenish left in the list
+            // would otherwise block this pick address from ever getting a new one.
             return _workQueue.Tasks.Any(t =>
                 t.Type == WorkTaskType.Replenish &&
                 t.Status != WorkTaskStatus.Complete &&
+                t.Status != WorkTaskStatus.Cancelled &&
                 t.ToLocation == pickAddress);
         }
 

@@ -157,7 +157,9 @@ public class FreeLookCamera : MonoBehaviour
 
     private void Update()
     {
-        if (UIInputGuard.IsTextFieldFocused) return;
+        // IsTextFieldFocused alone only covers "the user clicked into a field". A modal can be up and
+        // owning input without any field focused — WASD would still fly the camera behind the dialog.
+        if (UIInputGuard.IsTextFieldFocused || UIModalGuard.IsCapturing) return;
 
         bool overUI = IsPointerOverUI();
         bool fast   = Keyboard.current[Key.LeftShift].isPressed

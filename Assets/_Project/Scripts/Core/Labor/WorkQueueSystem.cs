@@ -12,8 +12,12 @@ namespace GameCore.Labor
     /// <summary>Open: exists but not yet claimable -- currently only OrderSelect tasks start here,
     /// created "in limbo" until the player releases them to a staging lane via the Work Queue panel.
     /// Available: claimable by an operator (every other task type's normal starting state, and what
-    /// an Open order task becomes once released). Assigned: claimed, in progress. Complete: done.</summary>
-    public enum WorkTaskStatus { Open, Available, Assigned, Complete }
+    /// an Open order task becomes once released). Assigned: claimed, in progress. Complete: done.
+    /// Cancelled: the work can no longer be done because the pallet it targeted was removed from
+    /// inventory — kept in the list (greyed in the Work Queue panel) rather than deleted so a job that
+    /// got dropped out from under an operator stays visible. NOTE: append new values at the END; these
+    /// are persisted by ordinal in the save file.</summary>
+    public enum WorkTaskStatus { Open, Available, Assigned, Complete, Cancelled }
 
     /// <summary>A single unit of warehouse work, targeted at one EmployeeRole.</summary>
     public class WorkTask
@@ -101,9 +105,52 @@ namespace GameCore.Labor
         public static event Action<WorkTask> OnTaskCreated;
         public static event Action<WorkTask> OnTaskCompleted;
 
-        public void Initialize() { }
+        public void Initialize()
+        {
+            // A WorkTask holds only a PalletId STRING, so nothing stopped it outliving the pallet it
+            // pointed at. When that happened the task stayed claimable forever and got re-claimed on a
+            // loop — ReleaseStaleAssignments hands a dead claim back out every ~90s — and every attempt
+            // failed: "[ReceiverReceivingWorkflow] No master record for pallet ...", or worse, the Reach
+            // Truck Operator recorded a rack slot as Occupied with a blank SKU and quantity 0.
+            // InventoryService already announced every removal on OnPalletDestroyed; the event simply
+            // had no subscribers anywhere in the project. This is that subscriber.
+            InventoryService.OnPalletDestroyed += HandlePalletDestroyed;
+        }
 
-        public void Shutdown() => _tasks.Clear();
+        public void Shutdown()
+        {
+            // OnPalletDestroyed is a STATIC event — without this unsubscribe the handler outlives the
+            // service and accumulates across domain reloads / play sessions.
+            InventoryService.OnPalletDestroyed -= HandlePalletDestroyed;
+            _tasks.Clear();
+        }
+
+        private void HandlePalletDestroyed(PalletMasterRecord pallet)
+        {
+            if (pallet != null) CancelTasksForPallet(pallet.PalletId);
+        }
+
+        /// <summary>Cancel every not-yet-finished task targeting this pallet. Called whenever the
+        /// pallet's inventory record is removed (picked to empty, contaminated, or cleared wholesale by
+        /// the Tools window / a save restore) so no operator can claim work that can never succeed.</summary>
+        public int CancelTasksForPallet(string palletId)
+        {
+            if (string.IsNullOrEmpty(palletId)) return 0;
+
+            int cancelled = 0;
+            foreach (var t in _tasks)
+            {
+                if (t.PalletId != palletId) continue;
+                if (t.Status == WorkTaskStatus.Complete || t.Status == WorkTaskStatus.Cancelled) continue;
+                t.Status = WorkTaskStatus.Cancelled;
+                t.AssignedToEmployeeGuid = null; // release the claim so nothing tries to "resume mine"
+                cancelled++;
+            }
+
+            if (cancelled > 0)
+                Debug.Log($"[WorkQueueSystem] Cancelled {cancelled} task(s) for pallet {palletId} — its inventory record was removed.");
+            return cancelled;
+        }
 
         public WorkTask CreateTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
             string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery,

@@ -156,6 +156,19 @@ public class TruckController : MonoBehaviour
     /// <summary>Marks this outbound truck as being actively loaded so no other loader claims it.</summary>
     public void ClaimForLoad() => _loadClaimed = true;
 
+    /// <summary>Releases the "a loader is working me right now" claim, called when a load routine
+    /// finishes. This flag is a MUTEX for the duration of one routine, not a permanent latch: the
+    /// truck stays docked awaiting close-out and may still have cargo space, so further Load tasks
+    /// for its door must be able to run against it.
+    ///
+    /// Without this the flag stuck on forever — AwaitingLoad went false after the first load and
+    /// never came back, so TrailerLoadController's `if (!truck.AwaitingLoad) continue` skipped every
+    /// later task at that door. Those tasks sat Available permanently, their orders stayed stuck in
+    /// Loading, and Loading rows have no enabled checkbox in the Work Queue panel — so the player
+    /// couldn't close them out OR re-release them. Only _loadComplete (set at close-out) should
+    /// permanently retire a truck.</summary>
+    public void ReleaseLoadClaim() => _loadClaimed = false;
+
     /// <summary>Called by the load controller once every staged pallet for this door is aboard —
     /// lets the truck depart.</summary>
     public void CompleteLoad() => _loadComplete = true;

@@ -1024,6 +1024,15 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             _offMeshSeconds = 0f;
         }
 
+        // ── Recovery: re-snap if we're ON the mesh but rendering at the wrong HEIGHT ──
+        // The block above only fires when isOnNavMesh is false. An agent can be perfectly
+        // on the mesh and still be drawn at the wrong height (see ReconcileSurfaceY), which
+        // that check cannot see.
+        ReconcileSurfaceY();
+
+        // ── Recovery: ON the mesh, correct height, but STRANDED on an island ──
+        CheckStrandedOnNavMesh();
+
         // ── Arrival audio ────────────────────────────────────────────────────────
         {
             bool arrived = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
@@ -1059,7 +1068,12 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // endpoint is not mistakenly declared "arrived" and given a new destination.
         if (_agentAnimation == null)
         {
-            if (!_taskBusy
+            // isOnNavMesh is re-checked HERE, not just at the top of Update: UpdateRebakeTrigger()
+            // immediately above can rebuild the surface and drop this agent off the mesh mid-frame,
+            // and remainingDistance throws ("GetRemainingDistance can only be called on an active
+            // agent that has been placed on a NavMesh") the moment that happens.
+            if (agent.isOnNavMesh
+                && !_taskBusy
                 && !agent.pathPending
                 && agent.remainingDistance <= agent.stoppingDistance + 0.1f
                 && agent.pathStatus == NavMeshPathStatus.PathComplete)
@@ -1090,6 +1104,134 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             _rb.MovePosition(np);
         // Rotation is owned by AgentAnimation.LateUpdate() — do not set _rb.rotation
         // here, as it fires before AgentAnimation's LateUpdate and would overwrite it.
+    }
+
+    // ── Stranded-on-NavMesh recovery ─────────────────────────────────────────
+    // An agent can be perfectly ON a NavMesh and still be completely stuck, because the mesh it is
+    // standing on is a DISCONNECTED ISLAND. Seen live on a dock stocker that finished a load run at
+    // the dock edge: the restore Warp snapped it onto the yard mesh below instead of the dock, and it
+    // sat at ground level with isOnNavMesh=true, pathStatus=Partial, and a one-corner path pointing at
+    // its own feet. Every existing recovery missed it — the rescue block above only fires on
+    // !isOnNavMesh, ReconcileSurfaceY sees no height drift (it really is on that surface), and
+    // CheckDockLedge needs a LedgeLinkMarker within 2.5m, which open yard doesn't have.
+    //
+    // The test deliberately is NOT "idle and pathless" — an agent waiting at a patrol waypoint looks
+    // exactly like that and would be constantly false-positived. It's "can this agent reach ANY of its
+    // waypoints?". A normally idle agent still can; a stranded one can't reach a single one. Checked on
+    // a slow timer and bailing at the first reachable waypoint, so the usual cost is one CalculatePath.
+    private const float StrandedCheckPeriod  = 2.5f; // seconds between reachability probes
+    private const float StrandedRescueSeconds = 7.5f; // must be unreachable this long before we teleport
+    private float _strandedCheckTimer;
+    private float _strandedSeconds;
+    private NavMeshPath _strandedPath;
+
+    private void CheckStrandedOnNavMesh()
+    {
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return;
+        // Something else owns this agent's movement right now — don't second-guess it.
+        if (_traversingLink || _unsticking || agent.isOnOffMeshLink) return;
+        if (_taskBusy || _seekingTask || _seekingEquipment) return;
+        if (waypoints == null || waypoints.Length == 0) return;
+
+        _strandedCheckTimer += Time.deltaTime;
+        if (_strandedCheckTimer < StrandedCheckPeriod) return;
+        _strandedCheckTimer = 0f;
+
+        if (_strandedPath == null) _strandedPath = new NavMeshPath();
+
+        for (int i = 0; i < waypoints.Length; i++)
+        {
+            var wp = waypoints[i];
+            if (wp == null) continue;
+            if (agent.CalculatePath(wp.position, _strandedPath) &&
+                _strandedPath.status == NavMeshPathStatus.PathComplete)
+            {
+                _strandedSeconds = 0f; // at least one waypoint is reachable — healthy
+                return;
+            }
+        }
+
+        _strandedSeconds += StrandedCheckPeriod;
+        if (_strandedSeconds < StrandedRescueSeconds) return;
+        _strandedSeconds = 0f;
+
+        // Nothing at all is reachable from here. Teleport to the nearest waypoint's surface — the one
+        // move guaranteed to put the agent back on the connected mesh, and the reason this exists at
+        // all: with nothing left to do, a dock stocker should be back out on patrol, not parked in the
+        // yard forever.
+        Transform nearest = null;
+        float bestSqr = float.MaxValue;
+        foreach (var wp in waypoints)
+        {
+            if (wp == null) continue;
+            float d = (wp.position - transform.position).sqrMagnitude;
+            if (d < bestSqr) { bestSqr = d; nearest = wp; }
+        }
+        if (nearest == null) return;
+
+        if (!NavMesh.SamplePosition(nearest.position, out NavMeshHit hit, 4f, agent.areaMask))
+        {
+            Debug.LogWarning($"[AiNavigation] {name}: stranded on an isolated NavMesh island at {transform.position}, " +
+                             $"and the nearest waypoint has no NavMesh within 4m either — cannot self-rescue.");
+            return;
+        }
+
+        Debug.LogWarning($"[AiNavigation] {name}: stranded on an isolated NavMesh island at {transform.position} " +
+                         $"(no waypoint reachable for {StrandedRescueSeconds:F0}s) — warping to {hit.position} to rejoin patrol.");
+        agent.Warp(hit.position);
+        transform.position = hit.position;
+        agent.isStopped = false;
+        GoToRandomWaypoint();
+    }
+
+    // ── Surface-height reconciliation ────────────────────────────────────────
+    // Because updatePosition=false, LateUpdate renders agent.nextPosition VERBATIM — there is
+    // no ground projection anywhere in the pipeline. And NavMeshAgent.Warp() re-maps the agent
+    // to the nearest polygon but does NOT lift its position onto that polygon's surface, so
+    // every Warp(transform.position) recovery call faithfully preserves a bad height instead of
+    // fixing it. The result is an agent that is genuinely ON the dock island — full PathComplete
+    // routes, corners at dock height — while being drawn ~1.1m lower, sunk to the waist in the
+    // deck. Seen live on two Receivers walking dock waypoints at y=0.005 with their own path
+    // corners at y=1.129.
+    //
+    // Nothing else catches this: the isOnNavMesh recovery above never fires (the agent IS on the
+    // mesh), and CheckDockLedge's climb never fires either, because it gates on a PARTIAL path
+    // and this agent's path completes perfectly. So the state is invisible to every existing
+    // recovery and persists until the agent is destroyed.
+    //
+    // path.corners[0] is the agent's own position projected onto the polygon it is standing on,
+    // so its Y is exactly the surface height the agent should be rendered at. Comparing against
+    // it needs no raycast and no NavMesh.SamplePosition (which would defeat the purpose — it
+    // returns the NEAREST surface, i.e. the ground the agent has already sunk to, and would
+    // report everything as fine). Correct via the nextPosition setter rather than Warp: it moves
+    // the simulated position without re-mapping or discarding the current path.
+    private const float SurfaceYTolerance   = 0.30f; // allow normal ramp/step slop before correcting
+    private const float SurfaceYCheckPeriod = 0.5f;  // seconds between checks (agent.path allocates)
+    private float _surfaceYCheckTimer;
+
+    private void ReconcileSurfaceY()
+    {
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return;
+        // Every one of these owns the transform / height itself right now.
+        if (_traversingLink || _unsticking || agent.isOnOffMeshLink) return;
+        if (IsTraversingLedgeUp || IsTraversingLedgeDown) return;
+        if (!agent.hasPath || agent.pathPending) return;
+
+        _surfaceYCheckTimer += Time.deltaTime;
+        if (_surfaceYCheckTimer < SurfaceYCheckPeriod) return;
+        _surfaceYCheckTimer = 0f;
+
+        var corners = agent.path.corners;
+        if (corners.Length == 0) return;
+
+        float surfaceY = corners[0].y;
+        Vector3 np     = agent.nextPosition;
+        float   drift  = np.y - surfaceY;
+        if (Mathf.Abs(drift) <= SurfaceYTolerance) return;
+
+        Debug.LogWarning($"[AiNavigation] {name}: rendering {drift:F2}m off its NavMesh surface " +
+                         $"(pos Y {np.y:F2} vs surface {surfaceY:F2}) — re-snapping to the surface.");
+        agent.nextPosition = new Vector3(np.x, surfaceY, np.z);
     }
 
     // Local-space positions of the bottom and top of the stair walkway on the stairwell prefab
@@ -1131,6 +1273,12 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
         // Only when the agent can't get there directly (partial path) and has reached
         // the end of what it CAN walk (i.e. it's sitting at the dock edge), essentially stopped.
+        // Same guard as the waypoint-progression block: a rebake can drop the agent off the mesh
+        // between the top of Update() and here, and remainingDistance throws when that happens.
+        // Off the mesh there is no meaningful ledge decision to make anyway — the isOnNavMesh
+        // recovery in Update() owns that case.
+        if (!agent.isOnNavMesh) { _ledgeCheckTimer = 0f; return; }
+
         bool blocked  = agent.pathStatus != NavMeshPathStatus.PathComplete;
         bool atEnd    = agent.remainingDistance <= agent.stoppingDistance + 0.75f;
         bool stopped  = agent.velocity.sqrMagnitude < 0.06f;
@@ -1174,7 +1322,15 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // the instant the animation ends. Instead, step outward from the dock edge and
         // sample the GROUND NavMesh (y < 0.5) so the jump-down lands exactly where the
         // agent will stand — leaving nothing for Warp to correct.
-        Vector3 floorPt = new Vector3(dockPt.x + fwd.x * 0.5f, 0f, dockPt.z + fwd.z * 0.5f);
+        //
+        // If the search finds NOTHING there is no landing spot, and we must NOT fall back to a
+        // made-up point. The old fallback seeded floorPt at a hardcoded y = 0f and used it
+        // unconditionally: the agent got lerped down to a height never validated against any
+        // NavMesh and then Warped, which leaves it standing at ground level while still mapped to
+        // the DOCK island. That state is unrecoverable by every check in this file — see
+        // ReconcileSurfaceY — so refuse the jump instead and let the agent keep walking the dock.
+        Vector3 floorPt   = Vector3.zero;
+        bool    foundFloor = false;
         for (float d = 0.5f; d <= 3.0f; d += 0.25f)
         {
             Vector3 probe = new Vector3(dockPt.x + fwd.x * d, 0f, dockPt.z + fwd.z * d);
@@ -1182,8 +1338,16 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 && groundHit.position.y < 0.5f)
             {
                 floorPt = groundHit.position;
+                foundFloor = true;
                 break;
             }
+        }
+        if (!goingUp && !foundFloor)
+        {
+            Debug.LogWarning($"[AiNavigation] {name}: jump-down refused at ledge {dockPt} — no ground " +
+                             $"NavMesh within 3m to land on. Staying on the dock.");
+            _ledgeCheckTimer = 0f;
+            return;
         }
 
         _pendingFrom         = agent.transform.position;

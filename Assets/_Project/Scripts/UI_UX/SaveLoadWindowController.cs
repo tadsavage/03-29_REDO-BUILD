@@ -56,6 +56,9 @@ namespace SaveLoadSystem
         {
             UnregisterEvents();
             FreeThumbnails();
+            // If this window is disabled while open (scene change, teardown), Close() never runs and
+            // the modal input claim would stick, leaving every gameplay hotkey dead.
+            UIModalGuard.Pop(this);
         }
 
         private void QueryElements()
@@ -209,6 +212,11 @@ namespace SaveLoadSystem
             pendingActionSlot = -1;
             pendingOverwriteName = null;
 
+            // Claim keyboard input for the dialog, the same way RackSetupUI/LaneSetupUI already do.
+            // This window never registered, so typing a save name made up of bound keys ("322", or
+            // anything with W/A/S/D) also fired the panel hotkeys and drove the camera behind it.
+            UIModalGuard.Push(this);
+
             overlay.style.display = DisplayStyle.Flex;
             SetConfirmVisible(false);
             EnsureTabsClickable();
@@ -223,6 +231,8 @@ namespace SaveLoadSystem
             isOpen = false;
             pendingActionSlot = -1;
             pendingOverwriteName = null;
+
+            UIModalGuard.Pop(this);
 
             overlay.style.display = DisplayStyle.None;
             SetConfirmVisible(false);

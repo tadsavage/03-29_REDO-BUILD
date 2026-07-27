@@ -46,29 +46,20 @@ namespace GameCore.Services
 
         private void Rebuild()
         {
-            if (_queue.Count == 0) return;
-
-            // Dedupe: remove nulls and duplicates
-            var deduped = new HashSet<NavMeshObstacle>();
-            foreach (var obs in _queue)
-            {
-                if (obs != null) deduped.Add(obs);
-            }
+            // NO-OP BY DESIGN — kept only so existing QueueRebuild() call sites stay valid.
+            //
+            // This used to Destroy() the NavMeshObstacle component outright. Two problems:
+            //   1. It was pointless. Pallets were configured with carving = false (BuildingData
+            //      .ConfigureObstacle), so the obstacle never cut the NavMesh in the first place —
+            //      destroying it changed nothing about navigation.
+            //   2. It was destructive. The component never came back, so once a pallet had been
+            //      picked up it could never block again; the obstacle.enabled = true on the next
+            //      drop-off resolved to null and silently did nothing.
+            //
+            // Pallets now carve (see ConfigureObstacle). Disabling a carving NavMeshObstacle removes
+            // its carve immediately and re-enabling restores it — no batching, no rebuild, and
+            // certainly no destroying components. So there is nothing left for this queue to do.
             _queue.Clear();
-
-            if (deduped.Count == 0) return;
-
-            // Destroy carving by destroying the components themselves (not the GameObject —
-            // the pallet might still have other components). Destroying a NavMeshObstacle
-            // automatically clears its carving from the NavMesh, letting the RTO navigate
-            // smoothly. The GameObject stays, but NavMesh won't see an obstacle there anymore.
-            foreach (var obs in deduped)
-            {
-                if (obs != null && obs.gameObject.activeInHierarchy)
-                    Destroy(obs);
-            }
-
-            Debug.Log($"[NavMeshRebuildQueue] Cleared NavMesh carving for {deduped.Count} obstacles.");
         }
     }
 }

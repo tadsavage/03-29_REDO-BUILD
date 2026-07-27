@@ -88,7 +88,14 @@ public class BuildingData : MonoBehaviour
                 // Stackable objects (racks, shelving): carving obstacle blocks agent
                 // access under/through them while keeping the floor surface walkable.
                 ConfigureObstacle();
-                _modifier.ignoreFromBuild = false;
+                // Pallets (Inventory) must NOT be baked as geometry. They are transient — lifted and
+                // set down constantly — and baked geometry only changes on a REBAKE, so every pallet
+                // that got picked up left its footprint behind in the NavMesh until the next bake
+                // (the "pallets leaving their shape in the mesh" artifact). Excluded from the build
+                // they block purely by carving, which updates live with no rebake at all.
+                // Racks/shelving stay IN the bake: they are static, and their deck is real walkable
+                // surface that agents path across.
+                _modifier.ignoreFromBuild = Data.category == "Inventory";
             }
             else if (Data.isFloor)
             {
@@ -144,17 +151,27 @@ public class BuildingData : MonoBehaviour
 
         _obstacle.shape = NavMeshObstacleShape.Box;
 
-        // RULE: Inventory objects (pallets) should not carve the NavMesh. 
-        // This prevents "octagonal holes" in the staging lanes and racks.
-        // They still act as obstacles for RVO/steering avoidance.
         bool isInventory = Data != null && Data.category == "Inventory";
-        _obstacle.carving = !isInventory;
-        
+
+        // Inventory used to be excluded from carving ("prevents octagonal holes in the staging lanes
+        // and racks") and baked in as walkable geometry instead. That traded one artifact for two
+        // worse ones: a NON-carving obstacle does not block at all — agents walked straight through
+        // pallets, merely nudged by RVO steering — and a baked footprint only clears on a rebake, so
+        // lifted pallets left their shape in the mesh. Carving is the mechanism built for objects
+        // that move, so everything carves now; the octagonal artifact was really a SIZING problem,
+        // handled just below.
+        _obstacle.carving = true;
         _obstacle.carveOnlyStationary = true;
 
-        // 0.75f factor leaves a gap at cell boundaries wide enough for agents (>= 2× AgentRadius).
-        float gridSpaceX = Data.footprint.x * 1.35f;
-        float gridSpaceZ = Data.footprint.y * 1.35f;
+        // Cell pitch is 1.33 (hence the 0.665 half-cell offsets). The stock 1.35 box is very slightly
+        // WIDER than its own cell, so neighbouring obstacles overlap and their carves merge into the
+        // blobby shapes that made carving look unusable for pallets. Inventory gets a box inset
+        // inside its cell so each pallet carves a clean, separate footprint; everything else keeps
+        // the original size, which racks and walls are already tuned around.
+        // (The old comment here claimed a 0.75f factor while the code used 1.35f — it was stale.)
+        float perCell    = isInventory ? 1.15f : 1.35f;
+        float gridSpaceX = Data.footprint.x * perCell;
+        float gridSpaceZ = Data.footprint.y * perCell;
         float centerX    = (Data.footprint.x - 1) * 0.665f;
         float centerZ    = (Data.footprint.y - 1) * 0.665f;
 

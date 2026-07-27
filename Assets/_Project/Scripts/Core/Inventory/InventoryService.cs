@@ -440,6 +440,38 @@ namespace GameCore.Inventory
             return TryGetNextFreeSlot(doorNumber, lane, out slot);
         }
 
+        /// <summary>
+        /// Staging slot anywhere in this door's STAGE (its whole set of pickable lanes), with overflow.
+        /// Tries <paramref name="preferredLane"/> first — the lane the order was released to — then
+        /// walks the rest of the Stage in fill order (A, B, C…) until one has room, reporting which
+        /// lane it landed in via <paramref name="lane"/>.
+        ///
+        /// This is what lets an order keep staging when its own lane fills up instead of the selector
+        /// giving up and dumping pallets wherever it happened to be standing.
+        /// </summary>
+        public bool TryFindStagingSlotAtDoor(int doorNumber, string preferredLane,
+                                             out string lane, out LaneNamingService.LaneSlot slot)
+        {
+            slot = default;
+            lane = null;
+
+            if (!string.IsNullOrEmpty(preferredLane) &&
+                TryFindStagingSlotInLane(doorNumber, preferredLane, out slot))
+            {
+                lane = preferredLane;
+                return true;
+            }
+
+            foreach (var candidate in StagingLaneAssignmentService.LanesInStage(this, doorNumber))
+            {
+                if (candidate == preferredLane) continue; // already tried
+                if (!TryFindStagingSlotInLane(doorNumber, candidate, out slot)) continue;
+                lane = candidate;
+                return true;
+            }
+            return false;
+        }
+
         // ── Usage gating (Receiving/Shipping/Both) ───────────────────────────────
         // Receiving = Inbound (pallets arrive here → putaway only), Shipping = Outbound (pallets leave
         // here → picking only), Both = either. A lane never used yet defaults to Both.

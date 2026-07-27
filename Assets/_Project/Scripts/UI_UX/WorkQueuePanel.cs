@@ -97,7 +97,7 @@ public class WorkQueuePanel
     private readonly Button _submitButton;
 
     private readonly HashSet<string> _checkedOrderIds = new();
-    private List<string> _dropdownLanes = new();   // choice index -> "3A" style address, when in lane mode
+    private List<int> _dropdownStageDoors = new(); // choice index -> door number, when in stage mode ("Stage 3")
     private List<int> _dropdownDoors = new();       // choice index -> door number, when in door mode
     private ActionMode _mode = ActionMode.None;
 
@@ -747,21 +747,46 @@ public class WorkQueuePanel
         if (phases[0] == RowPhase.Open)
         {
             ServiceLocator.TryGet<InventoryService>(out var inv);
-            var lanes = LaneNamingService.AllLanes()
-                .Where(l => inv != null && inv.LaneAllowsPicking(l.door, l.lane))
-                .Where(l => StagingLaneAssignmentService.IsLaneAvailableFor(orderService, l.door, l.lane, customerId))
-                .OrderBy(l => l.door).ThenBy(l => l.lane)
-                .Select(l => $"{l.door}{l.lane}")
+            // The player picks a STAGE (a door's whole set of staging lanes), not an individual lane.
+            // Staging starts in that door's first lane and overflows into the next as each fills, so
+            // offering 1A/1B/1C separately just asked the player to make a choice the system now makes
+            // for itself. One entry per door that has at least one pickable lane and isn't already
+            // held by a different customer.
+            // A stage is offered only if it has a pickable lane, isn't held by another customer, AND
+            // has no inbound activity (received pallets sitting in its lanes, or an inbound trailer
+            // docked at the door). Hiding those is what stops a stage being double-assigned — the
+            // selector staging onto tiles a dock stocker is still filling.
+            var stageDoors = LaneNamingService.AllLanes()
+                .Select(l => l.door)
+                .Distinct()
+                .Where(d => StagingLaneAssignmentService.IsStageSelectableFor(orderService, inv, d, customerId))
+                .OrderBy(d => d)
                 .ToList();
-            _dropdownLanes = lanes;
+            _dropdownStageDoors = stageDoors;
 
-            if (lanes.Count == 0)
+            if (stageDoors.Count == 0)
             {
-                SetBottomBar(ActionMode.ReleaseToLane, "No available staging lane (every lane is either Inbound-only or already assigned to a different customer).", new List<string> { "—" }, enableTarget: false, enableSubmit: false);
+                // Say WHY, per door. A blank dropdown with a generic message is impossible to act on —
+                // the player can be staring at an empty dock with no idea what's blocking it.
+                var reasons = LaneNamingService.AllLanes()
+                    .Select(l => l.door)
+                    .Distinct()
+                    .OrderBy(d => d)
+                    .Select(d =>
+                    {
+                        StagingLaneAssignmentService.IsStageSelectableFor(orderService, inv, d, customerId, out string why);
+                        return $"Stage {d}: {why}";
+                    })
+                    .ToList();
+
+                string detail = reasons.Count > 0 ? string.Join("   •   ", reasons) : "no staging lanes exist yet";
+                Debug.LogWarning($"[WorkQueuePanel] No stage available for {checkedOrders[0].CustomerName} — {string.Join(" | ", reasons)}");
+                SetBottomBar(ActionMode.ReleaseToLane, $"No available stage — {detail}", new List<string> { "—" }, enableTarget: false, enableSubmit: false);
             }
             else
             {
-                SetBottomBar(ActionMode.ReleaseToLane, $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a staging lane:", lanes);
+                SetBottomBar(ActionMode.ReleaseToLane, $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a stage:",
+                    stageDoors.Select(d => $"Stage {d}").ToList());
             }
             return;
         }
@@ -815,10 +840,8 @@ public class WorkQueuePanel
         if (_mode == ActionMode.ReleaseToLane)
         {
             int idx = _targetDropdown.index;
-            if (idx < 0 || idx >= _dropdownLanes.Count) return;
-            string address = _dropdownLanes[idx]; // "3A"
-            int door = ParseLeadingDoor(address, out string lane);
-            ok = orderService.ReleaseOrdersToLane(orderIds, door, lane);
+            if (idx < 0 || idx >= _dropdownStageDoors.Count) return;
+            ok = orderService.ReleaseOrdersToStage(orderIds, _dropdownStageDoors[idx]);
         }
         else if (_mode == ActionMode.ReleaseToLoading)
         {
@@ -838,12 +861,9 @@ public class WorkQueuePanel
         RebuildRows();
     }
 
-    private static int ParseLeadingDoor(string address, out string lane)
-    {
-        lane = address.Length > 0 ? address.Substring(address.Length - 1) : "";
-        string doorPart = address.Length > 1 ? address.Substring(0, address.Length - 1) : "0";
-        return int.TryParse(doorPart, out int door) ? door : 0;
-    }
+    // REMOVED: ParseLeadingDoor(). It split a "3A" dropdown choice back into door + lane, which the
+    // stage dropdown no longer produces — the choice is a door number now and the lane is resolved by
+    // OrderService.ReleaseOrdersToStage.
 
     // ── Per-column autofilter (Excel-style dropdowns) ───────────────────────
 
