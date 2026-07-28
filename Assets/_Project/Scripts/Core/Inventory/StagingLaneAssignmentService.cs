@@ -14,12 +14,22 @@ namespace GameCore.Inventory
     /// </summary>
     public static class StagingLaneAssignmentService
     {
+        /// <summary>True if this order still has goods physically occupying its staging lane, and so
+        /// still owns it. Once a truck has been LOADED the pallets are aboard and the lane is bare —
+        /// holding it until the player gets around to closing the order out (Shipped) is what silently
+        /// starved every other customer of stages: four doors read as "already assigned to another
+        /// customer" purely because of long-finished loads, leaving only the one door an inbound
+        /// trailer was using. Cancelled orders never had goods there to begin with.</summary>
+        private static bool StillOccupiesItsLane(OrderData o) =>
+            o.Status != OrderData.OrderStatus.Loaded &&
+            o.Status != OrderData.OrderStatus.Shipped &&
+            o.Status != OrderData.OrderStatus.Cancelled;
+
         public static string GetOwningCustomerId(OrderService orderService, int door, string lane)
         {
             if (orderService == null || string.IsNullOrEmpty(lane)) return null;
             var owner = orderService.ActiveOrders.FirstOrDefault(o =>
-                o.AssignedDoorNumber == door && o.AssignedLane == lane &&
-                o.Status != OrderData.OrderStatus.Shipped && o.Status != OrderData.OrderStatus.Cancelled);
+                o.AssignedDoorNumber == door && o.AssignedLane == lane && StillOccupiesItsLane(o));
             return owner?.CustomerId;
         }
 
@@ -45,7 +55,7 @@ namespace GameCore.Inventory
             if (orderService == null) return null;
             var owner = orderService.ActiveOrders.FirstOrDefault(o =>
                 o.AssignedDoorNumber == door && !string.IsNullOrEmpty(o.AssignedLane) &&
-                o.Status != OrderData.OrderStatus.Shipped && o.Status != OrderData.OrderStatus.Cancelled);
+                StillOccupiesItsLane(o));
             return owner?.CustomerId;
         }
 

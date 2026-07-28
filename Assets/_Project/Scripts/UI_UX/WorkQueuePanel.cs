@@ -552,6 +552,11 @@ public class WorkQueuePanel
     {
         if (order.Status == OrderData.OrderStatus.Loading) return RowPhase.Loading;
         if (order.Status == OrderData.OrderStatus.Staged) return RowPhase.Staged;
+        // Loaded had no branch at all, so it fell through to the task lookup below and returned null
+        // (the OrderSelect task is long Complete by then) — no row, for the one phase whose row is the
+        // ONLY way to reach close-out. Nothing could be billed and no outbound trailer could ever be
+        // released to depart, so Loaded orders just accumulated forever.
+        if (order.Status == OrderData.OrderStatus.Loaded) return RowPhase.Loaded;
         if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return null;
         if (task == null) return null;
         return task.Status switch

@@ -100,10 +100,21 @@ namespace GameCore.Labor
 
             if (!ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) || workQueue == null) return;
 
-            foreach (var task in workQueue.GetPendingTasksForRole(EmployeeRole.Loader))
-            {
-                if (!TryParseLaneAddress(task.FromLocation, out int door, out string lane)) continue;
+            // Work a door's lanes in A -> B -> C order. GetPendingTasksForRole hands tasks back in
+            // CREATION order, which is just the order the player happened to release lanes in — so a
+            // stage whose B lane was released before its A lane got emptied B first, against the
+            // "finish lane A, then move on to lane B" rule. Sorting here (rather than at release time)
+            // keeps it right no matter what order the releases arrive in.
+            var byLane = new List<(WorkTask task, int door, string lane)>();
+            foreach (var t in workQueue.GetPendingTasksForRole(EmployeeRole.Loader))
+                if (TryParseLaneAddress(t.FromLocation, out int d, out string l))
+                    byLane.Add((t, d, l));
+            byLane.Sort((a, b) => a.door != b.door
+                ? a.door.CompareTo(b.door)
+                : string.CompareOrdinal(a.lane, b.lane));
 
+            foreach (var (task, door, lane) in byLane)
+            {
                 var truck = FindDockedOutboundTruck(door);
                 if (truck == null || !truck.AwaitingLoad) continue; // no trailer there (yet) -- try the next task
 
@@ -291,9 +302,17 @@ namespace GameCore.Labor
                 found.Add((pallet, slot.Slot));
             }
 
-            // Farthest-from-door slot loads FIRST (e.g. 2A-6 before 2A-1) -- the mirror image of
-            // the door-outward staging fill order, per Tad's 2026-07-23 spec.
-            found.Sort((a, b) => b.slotIndex.CompareTo(a.slotIndex));
+            // Slot 1 loads FIRST, then 2, on out to the end of the lane (e.g. 2A-1 before 2A-6) --
+            // the SAME door-outward order staging fills in, deliberately NOT the offloader's
+            // reversed sequence.
+            found.Sort((a, b) => a.slotIndex.CompareTo(b.slotIndex));
+
+            // The pick order was previously invisible in the log — only the destination cargo slot was
+            // recorded — so "the DS grabbed lane position 6 first" could be neither confirmed nor ruled
+            // out after the fact. This states the lane sequence outright.
+            Debug.Log($"[TrailerLoad][PICK ORDER] {doorNumber}{lane}: " +
+                      string.Join(" -> ", found.Select(f => $"pos{f.slotIndex}")));
+
             return found.Select(f => f.pallet).ToList();
         }
 
@@ -318,6 +337,19 @@ namespace GameCore.Labor
             Vector3 entryPivot = new Vector3(entryW.x, driveY, entryW.z) - downLane * LanePivotDistance;
 
             // 1. Pull up to the staging-lane pivot, just outside the lane entry.
+            //
+            // Come out to the dock aisle FIRST if we're starting deeper than the pivot. DriveTailFirst
+            // is a straight MoveTowards slide with no pathing, so a DS that begins its run parked deep
+            // in the warehouse — which is exactly where patrol leaves it, and therefore only ever on
+            // the FIRST pallet of a load — drove lengthwise THROUGH the lane to reach the pivot,
+            // entering at the exit end and running over every staged pallet on the way. Pallets 2+
+            // always start from shippingDoorPivot beside the door, which is why they looked fine.
+            // Backing straight out to the pivot's depth before running along the aisle means the lane
+            // is only ever entered from its door end.
+            float depthPastPivot = Vector3.Dot(ds.position - entryPivot, downLane);
+            if (depthPastPivot > 0f)
+                yield return DriveTailFirst(ds, ds.position - downLane * depthPastPivot);
+
             yield return DriveTailFirst(ds, entryPivot);
             // 2. Spin so the forks face straight down the lane — forks FIRST. All turning happens out
             //    here at the pivot; the drive-in below never steers.
@@ -391,7 +423,11 @@ namespace GameCore.Labor
             // the trailer is parked.
             pallet.SetNavObstacleActive(false);
 
-            Debug.Log($"[TrailerLoad][PLACE] {pallet.name} (order {pallet.OrderId}) -> {truck.name} slot {slotIndex} (tier {OutboundStackTier}).");
+            // "cargoSlot" spelled out because these numbers run 0-11 over the TRAILER's 12-slot bed
+            // (nose-first, alternating left/right — see CargoSlotForSequence) and read nothing like the
+            // 1-N staging-lane positions the pallet was picked FROM. Logging a bare "slot 6" next to a
+            // lane load made the interleave look like the DS was jumping to lane position 6.
+            Debug.Log($"[TrailerLoad][PLACE] {pallet.name} (order {pallet.OrderId}) -> {truck.name} cargoSlot {slotIndex} (tier {OutboundStackTier}).");
 
             // 11. Reverse straight back out of the trailer to the shipping door pivot — cab-first,
             //     forks trailing, no spin. The next pallet's run starts from here.

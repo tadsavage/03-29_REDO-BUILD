@@ -437,6 +437,14 @@ namespace GameCore.Inventory
         {
             slot = default;
             if (string.IsNullOrEmpty(lane) || !LaneAllowsPicking(doorNumber, lane)) return false;
+            // A lane holding received pallets belongs to putaway right now, so outbound must not stage
+            // into it — the SAME rule StagingLaneAssignmentService.LanesInStage applies when offering
+            // stages in the Work Queue dropdown. Without it the two disagreed: a lane could be assigned
+            // to an order while empty, fill with inbound cargo before the selector finished picking,
+            // and still be handed back here as the preferred lane (TryFindStagingSlotAtDoor tries
+            // AssignedLane before falling back to LanesInStage). That walked the selector straight into
+            // the lane the dock stocker was filling instead of overflowing to the next free lane.
+            if (StagingLaneAssignmentService.LaneHasInboundStock(this, doorNumber, lane)) return false;
             return TryGetNextFreeSlot(doorNumber, lane, out slot);
         }
 
