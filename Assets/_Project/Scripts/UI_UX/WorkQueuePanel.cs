@@ -49,6 +49,8 @@ public class WorkQueuePanel
     private static readonly Color ColStatusLoaded    = new Color(0x4C / 255f, 0xB8 / 255f, 0x6A / 255f, 1f);
 
     private static readonly Color ColStatusLoading   = new Color(0x7E / 255f, 0xD6 / 255f, 0xC8 / 255f, 1f);
+        // Header row indent — must equal the data rows' paddingLeft so columns line up.
+        private const float RowPaddingLeft = 6f;
         private const float CheckboxWidth = 26f;
         private const float PaletteIdWidth = 92f;
         private const float ItemNumberWidth = 76f;
@@ -57,11 +59,17 @@ public class WorkQueuePanel
         private const float RoleWidth = 156f;
         private const float TaskWidth = 96f;
         private const float RoleTaskGap = 12f;
+        // Task column only: indent its contents ~2-3 characters and take the space out of the
+        // column's own width, so Status and every column after it stay put.
+        private const float TaskIndent = 15f;
         private const float StatusWidth = 88f;
         private const float LocationWidth = 72f;
         private const float OperatorWidth = 112f;
         private const float CustomerWidth = 116f;
         private const float OrderWidth = 104f;
+        private const float FillRateWidth = 92f;
+        private const float SelectAllWidth = 130f;
+        private const float CancelSelectedWidth = 168f;
     private static Font _lilita;
 
 
@@ -87,7 +95,9 @@ public class WorkQueuePanel
         if (size > 0) el.style.fontSize = size;
     }
 
-    private enum RowPhase { Open, Available, Assigned, Staged, Loading, Loaded }
+    // NoStock = a legacy Backorder record (that status is retired). Shown so the player can cancel it
+    // instead of it sitting invisible while holding a stage.
+    private enum RowPhase { Open, Available, Assigned, Staged, Loading, Loaded, NoStock }
     private enum ActionMode { None, ReleaseToLane, ReleaseToLoading, CloseOut, Mixed }
 
     private readonly VisualElement _overlay;
@@ -95,6 +105,8 @@ public class WorkQueuePanel
     private readonly Label _bottomMessage;
     private readonly DropdownField _targetDropdown;
     private readonly Button _submitButton;
+    private Button _selectAllButton;
+    private Button _cancelSelectedButton;
 
     private readonly HashSet<string> _checkedOrderIds = new();
     private List<int> _dropdownStageDoors = new(); // choice index -> door number, when in stage mode ("Stage 3")
@@ -102,7 +114,7 @@ public class WorkQueuePanel
     private ActionMode _mode = ActionMode.None;
 
     private bool _visible;
-    private enum SortColumn { PaletteId, ItemNumber, Area, Priority, Role, Task, Status, From, To, Operator, Customer, Order }
+    private enum SortColumn { PaletteId, ItemNumber, Area, Priority, Role, Task, Status, From, To, Operator, Customer, Order, FillRate }
     private SortColumn _sortColumn = SortColumn.Priority;
     private bool _sortAscending;
 
@@ -223,7 +235,9 @@ public class WorkQueuePanel
             modal.style.borderBottomLeftRadius = modal.style.borderBottomRightRadius = 16;
         modal.style.paddingTop = 14; modal.style.paddingBottom = 14;
         modal.style.paddingLeft = 16; modal.style.paddingRight = 16;
-        modal.style.width = 1180;
+        // Columns total ~1270px with Fill Rate added; at the old 1180 the right-hand columns were
+        // already overrunning each other (Customer's text ran into the order id).
+        modal.style.width = 1320;
         modal.style.height = 680;
         modal.style.minWidth = 900;
         modal.style.minHeight = 260;
@@ -249,9 +263,30 @@ public class WorkQueuePanel
         titleBar.style.borderBottomColor = new StyleColor(ColBorder);
         titleBar.style.marginBottom = 10;
 
-        var titleSpacer = new VisualElement();
-        titleSpacer.style.width = 28;
-        titleBar.Add(titleSpacer);
+        // Select All — checks every currently-visible (post-filter) row that has an enabled
+        // checkbox; flips to Clear All once they're all checked.
+        _selectAllButton = StyleOrangeButton(new Button(ToggleSelectAllVisible) { text = "Select All" });
+        _selectAllButton.style.width = SelectAllWidth;
+        _selectAllButton.style.flexShrink = 0;
+        _selectAllButton.style.paddingLeft = 0;
+        _selectAllButton.style.paddingRight = 0;
+        // The title bar is the drag handle; without this the press would start a window drag
+        // and steal the pointer capture before the click resolves.
+        _selectAllButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+        titleBar.Add(_selectAllButton);
+
+        // Cancel Selected — calls off checked orders that nothing is physically committed to yet
+        // (Open, Available, or a legacy No Stock row). This is what replaces the backorder: an order
+        // the warehouse can't fill is either shipped short or cancelled outright.
+        _cancelSelectedButton = StyleButton(new Button(CancelSelected) { text = "Cancel Selected" },
+            ColWarning, ColOrangeEdge, ColOrangeText, ColOrangeHover);
+        _cancelSelectedButton.style.width = CancelSelectedWidth;
+        _cancelSelectedButton.style.flexShrink = 0;
+        _cancelSelectedButton.style.marginLeft = 8;
+        _cancelSelectedButton.style.paddingLeft = 0;
+        _cancelSelectedButton.style.paddingRight = 0;
+        _cancelSelectedButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+        titleBar.Add(_cancelSelectedButton);
 
         var title = new Label("Work Queue");
         ApplyFont(title, bold: true, size: 26);
@@ -288,6 +323,12 @@ public class WorkQueuePanel
             closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
             closeButton.style.color = new StyleColor(ColSubtleText);
         });
+        // Balances the two left-hand buttons so the title stays centred in the bar.
+        var titleSpacer = new VisualElement();
+        titleSpacer.style.width = SelectAllWidth + 8 + CancelSelectedWidth - 42;
+        titleSpacer.style.flexShrink = 0;
+        titleBar.Add(titleSpacer);
+
         titleBar.Add(closeButton);
         modal.Add(titleBar);
 
@@ -300,19 +341,21 @@ public class WorkQueuePanel
         header.style.flexDirection = FlexDirection.Row;
         header.style.flexShrink = 0;
         header.style.overflow = Overflow.Hidden;
+        header.style.paddingLeft = RowPaddingLeft;
         header.Add(HeaderCell("", CheckboxWidth));
         header.Add(BuildFilterHeader("Palette ID", PaletteIdWidth, SortColumn.PaletteId));
         header.Add(BuildFilterHeader("Item#", ItemNumberWidth, SortColumn.ItemNumber));
         header.Add(BuildFilterHeader("Area", AreaWidth, SortColumn.Area, marginLeft: 12f));
         header.Add(BuildFilterHeader("Priority", PriorityWidth, SortColumn.Priority));
         header.Add(BuildFilterHeader("Role", RoleWidth, SortColumn.Role));
-        header.Add(BuildFilterHeader("Task", TaskWidth, SortColumn.Task, marginLeft: RoleTaskGap));
+        header.Add(BuildFilterHeader("Task", TaskWidth - TaskIndent, SortColumn.Task, marginLeft: RoleTaskGap + TaskIndent));
         header.Add(BuildFilterHeader("Status", StatusWidth, SortColumn.Status));
         header.Add(BuildFilterHeader("From", LocationWidth, SortColumn.From));
         header.Add(BuildFilterHeader("To", LocationWidth, SortColumn.To));
         header.Add(BuildFilterHeader("Operator", OperatorWidth, SortColumn.Operator));
         header.Add(BuildFilterHeader("Customer", CustomerWidth, SortColumn.Customer));
         header.Add(HeaderCell("Order", OrderWidth, SortColumn.Order));
+        header.Add(HeaderCell("Fill Rate", FillRateWidth, SortColumn.FillRate));
         modal.Add(header);
 
         rowScroll = new ScrollView
@@ -453,24 +496,17 @@ public class WorkQueuePanel
                 _rowScroll.Add(empty);
             }
             RebuildBottomBar();
+            UpdateTitleBarButtons();
             return;
         }
 
         // Sorting helpers are declared below the row rebuild method.
 
-        var rows = new List<(OrderData order, RowPhase phase, WorkTask task)>();
-        foreach (var order in orderService.ActiveOrders)
-        {
-            var task = workQueue?.Tasks.FirstOrDefault(t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect);
-            var phase = DeterminePhase(order, task);
-            if (phase.HasValue) rows.Add((order, phase.Value, task));
-        }
-        rows = SortOrders(rows);
-        rows = ApplyOrderFilters(rows);
+        var rows = BuildVisibleOrderRows();
 
         // Drop checked ids that no longer resolve to a still-actionable row (submitted, or picked
         // up by a selector concurrently) so their checkmark doesn't linger looking "stuck".
-        var stillActionable = rows.Where(r => r.phase == RowPhase.Open || r.phase == RowPhase.Staged || r.phase == RowPhase.Loaded)
+        var stillActionable = rows.Where(r => IsActionable(r.phase))
             .Select(r => r.order.OrderId).ToHashSet();
         _checkedOrderIds.RemoveWhere(id => !stillActionable.Contains(id));
 
@@ -491,6 +527,121 @@ public class WorkQueuePanel
         }
 
         RebuildBottomBar();
+        UpdateTitleBarButtons();
+    }
+
+    /// <summary>Rows the player can check. Three of them are the points where something gets picked:
+    /// a lane (Open), a door (Staged), close-out (Loaded). Available and No Stock are checkable only
+    /// so they can be CANCELLED — nothing of either is physically committed yet.</summary>
+    private static bool IsActionable(RowPhase phase) =>
+        phase == RowPhase.Open || phase == RowPhase.Staged || phase == RowPhase.Loaded ||
+        phase == RowPhase.Available || phase == RowPhase.NoStock;
+
+    /// <summary>Phases the Cancel Selected button acts on — mirrors OrderService.CanCancelOrder,
+    /// which re-checks authoritatively before anything is actually cancelled.</summary>
+    private static bool IsCancellable(RowPhase phase) =>
+        phase == RowPhase.Open || phase == RowPhase.Available || phase == RowPhase.NoStock;
+
+    /// <summary>The order rows the panel is currently showing — sorted, and narrowed by whatever
+    /// column autofilters are active. Single source of truth for both the row list and Select All.</summary>
+    private List<(OrderData order, RowPhase phase, WorkTask task)> BuildVisibleOrderRows()
+    {
+        var rows = new List<(OrderData order, RowPhase phase, WorkTask task)>();
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return rows;
+        ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
+
+        foreach (var order in orderService.ActiveOrders)
+        {
+            var task = workQueue?.Tasks.FirstOrDefault(t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect);
+            var phase = DeterminePhase(order, task);
+            if (phase.HasValue) rows.Add((order, phase.Value, task));
+        }
+        return ApplyOrderFilters(SortOrders(rows));
+    }
+
+    /// <summary>Checks every visible row with an enabled checkbox; if they're already all
+    /// checked, unchecks them instead. Filtered-out rows are left untouched either way.</summary>
+    private void ToggleSelectAllVisible()
+    {
+        var selectable = BuildVisibleOrderRows()
+            .Where(r => IsActionable(r.phase))
+            .Select(r => r.order.OrderId)
+            .ToList();
+        if (selectable.Count == 0) return;
+
+        if (selectable.All(_checkedOrderIds.Contains)) _checkedOrderIds.ExceptWith(selectable);
+        else _checkedOrderIds.UnionWith(selectable);
+
+        RebuildRows();
+    }
+
+    /// <summary>The checked orders that can actually be cancelled right now. OrderService.CanCancelOrder
+    /// is the authority — the row phase is only how the button decides whether to look enabled.</summary>
+    private List<string> CancellableCheckedOrderIds()
+    {
+        var ids = new List<string>();
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return ids;
+
+        foreach (var (order, phase, _) in BuildVisibleOrderRows())
+        {
+            if (!_checkedOrderIds.Contains(order.OrderId)) continue;
+            if (!IsCancellable(phase) || !orderService.CanCancelOrder(order)) continue;
+            ids.Add(order.OrderId);
+        }
+        return ids;
+    }
+
+    /// <summary>Cancels every checked order that can be cancelled, leaving any other checked row
+    /// (a selector is mid-pick on it, or its goods are already staged) untouched.</summary>
+    private void CancelSelected()
+    {
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return;
+
+        var ids = CancellableCheckedOrderIds();
+        if (ids.Count == 0) return;
+
+        int cancelled = orderService.CancelOrders(ids);
+        _checkedOrderIds.ExceptWith(ids);
+        _liveSignature = null;   // statuses changed; force the next refresh tick to rebuild
+        RebuildRows();
+
+        if (cancelled > 0)
+            _bottomMessage.text = $"Cancelled {cancelled} order(s).";
+    }
+
+    /// <summary>Shows how many of the checked rows the button would actually cancel, so a mixed
+    /// selection says what it will do instead of silently doing part of it.</summary>
+    private void UpdateCancelSelectedButton()
+    {
+        if (_cancelSelectedButton == null) return;
+        int n = CancellableCheckedOrderIds().Count;
+        _cancelSelectedButton.SetEnabled(n > 0);
+        _cancelSelectedButton.text = n > 0 ? $"Cancel Selected ({n})" : "Cancel Selected";
+        _cancelSelectedButton.style.opacity = n > 0 ? 1f : 0.5f;
+    }
+
+    /// <summary>Refreshes both title-bar buttons' enabled state and labels against the current
+    /// selection. Called wherever the checked set or the visible rows change.</summary>
+    private void UpdateTitleBarButtons()
+    {
+        UpdateSelectAllButton();
+        UpdateCancelSelectedButton();
+    }
+
+    /// <summary>Greys the button out when nothing on screen is checkable, and flips its label
+    /// once everything checkable is checked.</summary>
+    private void UpdateSelectAllButton()
+    {
+        if (_selectAllButton == null) return;
+        var selectable = BuildVisibleOrderRows()
+            .Where(r => IsActionable(r.phase))
+            .Select(r => r.order.OrderId)
+            .ToList();
+
+        bool any = selectable.Count > 0;
+        _selectAllButton.SetEnabled(any);
+        _selectAllButton.text = any && selectable.All(_checkedOrderIds.Contains) ? "Clear All" : "Select All";
+        _selectAllButton.style.opacity = any ? 1f : 0.5f;
     }
 
     // Sorting helpers are declared before DeterminePhase.
@@ -528,6 +679,7 @@ public class WorkQueuePanel
             SortColumn.Customer => rows.OrderBy(r => r.order.CustomerName),
             SortColumn.Order => rows.OrderBy(r => r.order.OrderId),
             SortColumn.ItemNumber => rows.OrderBy(r => GetOrderItemNumber(r.order)),
+            SortColumn.FillRate => rows.OrderBy(r => FillRatio(r.order)),
             _ => rows.OrderBy(r => r.order.CreatedTimeMinute)
         };
         return (_sortAscending ? sorted : sorted.Reverse()).ToList();
@@ -558,6 +710,9 @@ public class WorkQueuePanel
         // released to depart, so Loaded orders just accumulated forever.
         if (order.Status == OrderData.OrderStatus.Loaded) return RowPhase.Loaded;
         if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return null;
+        // Legacy Backorder rows: their OrderSelect task is long Complete, so without this branch they
+        // resolve to no row at all — invisible, unactionable, and still holding a whole stage.
+        if (order.Status == OrderData.OrderStatus.Backorder) return RowPhase.NoStock;
         if (task == null) return null;
         return task.Status switch
         {
@@ -573,7 +728,7 @@ public class WorkQueuePanel
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
-        row.style.paddingTop = 4; row.style.paddingBottom = 4; row.style.paddingLeft = 6;
+        row.style.paddingTop = 4; row.style.paddingBottom = 4; row.style.paddingLeft = RowPaddingLeft;
         row.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColRowEven : ColRowOdd);
         row.style.flexShrink = 0;
 
@@ -587,13 +742,14 @@ public class WorkQueuePanel
         AddRowCell(row, AreaLabel(task.Area), AreaWidth, ColSubtleText, marginLeft: 12f);
         AddRowCell(row, task.Priority.ToString(), PriorityWidth, ColTitleText);
         AddRowCell(row, task.RequiredRole.DisplayName(), RoleWidth, ColSubtleText);
-        AddRowCell(row, task.Type.ToString(), TaskWidth, ColTitleText, marginLeft: RoleTaskGap);
+        AddRowCell(row, task.Type.ToString(), TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
         AddRowCell(row, task.Status.ToString(), StatusWidth, ColStatusColor(task.Status), bold: true);
         AddRowCell(row, task.FromLocation ?? "—", LocationWidth, ColSubtleText);
         AddRowCell(row, task.ToLocation ?? "—", LocationWidth, ColSubtleText);
         AddRowCell(row, GetOperatorName(task.AssignedToEmployeeGuid), OperatorWidth, ColTitleText);
         AddRowCell(row, "—", CustomerWidth, ColSubtleText);
         AddRowCell(row, "—", OrderWidth, ColSubtleText);
+        AddRowCell(row, "—", FillRateWidth, ColSubtleText);
         return row;
     }
 
@@ -602,20 +758,27 @@ public class WorkQueuePanel
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
-        row.style.paddingTop = 4; row.style.paddingBottom = 4; row.style.paddingLeft = 6;
+        row.style.paddingTop = 4; row.style.paddingBottom = 4; row.style.paddingLeft = RowPaddingLeft;
         row.style.flexShrink = 0;
 
         row.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColRowEven : ColRowOdd);
 
-        bool actionable = phase == RowPhase.Open || phase == RowPhase.Staged || phase == RowPhase.Loaded;
+        bool actionable = IsActionable(phase);
         var checkbox = new Toggle { value = _checkedOrderIds.Contains(order.OrderId) };
+        // Toggle carries default theme margins; zero them so the checkbox slot is exactly
+        // CheckboxWidth and every column downstream lines up with its header.
         checkbox.style.width = CheckboxWidth;
+        checkbox.style.minWidth = CheckboxWidth;
+        checkbox.style.flexShrink = 0;
+        checkbox.style.marginLeft = 0;
+        checkbox.style.marginRight = 0;
         checkbox.SetEnabled(actionable);
         checkbox.RegisterValueChangedCallback(evt =>
         {
             if (evt.newValue) _checkedOrderIds.Add(order.OrderId);
             else _checkedOrderIds.Remove(order.OrderId);
             RebuildBottomBar();
+            UpdateTitleBarButtons();
         });
         row.Add(checkbox);
 
@@ -633,13 +796,14 @@ public class WorkQueuePanel
         AddRowCell(row, area, AreaWidth, ColSubtleText, marginLeft: 12f);
         AddRowCell(row, task != null ? task.Priority.ToString() : "—", PriorityWidth, ColTitleText);
         AddRowCell(row, role, RoleWidth, ColSubtleText);
-        AddRowCell(row, taskName, TaskWidth, ColTitleText, marginLeft: RoleTaskGap);
+        AddRowCell(row, taskName, TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
         AddRowCell(row, PhaseLabel(phase), StatusWidth, PhaseColor(phase), bold: true);
         AddRowCell(row, from, LocationWidth, ColSubtleText);
         AddRowCell(row, to, LocationWidth, ColSubtleText);
         AddRowCell(row, operatorName, OperatorWidth, ColTitleText);
         AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText);
         AddRowCell(row, ShortId(order.OrderId), OrderWidth, ColSubtleText);
+        AddRowCell(row, FillRateText(order), FillRateWidth, FillRateColor(order), bold: true);
         return row;
     }
 
@@ -666,12 +830,32 @@ public class WorkQueuePanel
         ApplyFont(label, bold, 12);
         label.style.width = width;
         label.style.minWidth = width;
+        label.style.marginLeft = marginLeft;
+        label.style.marginRight = 0;
         label.style.flexShrink = 0;
         label.style.color = new StyleColor(color);
         label.style.whiteSpace = WhiteSpace.NoWrap;
         row.Add(label);
         return label;
     }
+
+    /// <summary>"16 / 23" — cases picked over cases ordered. The raw material for the service-level
+    /// KPI: an order that ships short still ships, and this is the record of by how much.</summary>
+    private static string FillRateText(OrderData order)
+        => order == null ? "—" : $"{order.TotalUnitsPicked} / {order.TotalUnits}";
+
+    /// <summary>Green at 100%, amber short, red for nothing picked — only once picking has actually
+    /// started, so an unreleased order reads as neutral rather than a failure.</summary>
+    private static Color FillRateColor(OrderData order)
+    {
+        if (order == null || order.TotalUnits <= 0) return ColSubtleText;
+        if (order.TotalUnitsPicked >= order.TotalUnits) return ColStatusLoaded;
+        if (order.TotalUnitsPicked > 0) return ColStatusAssigned;
+        return ColSubtleText;
+    }
+
+    private static float FillRatio(OrderData order)
+        => order == null || order.TotalUnits <= 0 ? 0f : (float)order.TotalUnitsPicked / order.TotalUnits;
 
     private static string ShortId(string value)
     {
@@ -688,6 +872,7 @@ public class WorkQueuePanel
         RowPhase.Staged => "Staged",
         RowPhase.Loading => "Loading",
         RowPhase.Loaded => "Loaded",
+        RowPhase.NoStock => "No Stock",
         _ => "?",
     };
 
@@ -699,6 +884,7 @@ public class WorkQueuePanel
         RowPhase.Staged => ColStatusStaged,
         RowPhase.Loading => ColStatusLoading,
         RowPhase.Loaded => ColStatusLoaded,
+        RowPhase.NoStock => ColWarning,
         _ => ColSubtleText,
     };
 
@@ -736,16 +922,35 @@ public class WorkQueuePanel
             .Where(p => p.HasValue).Select(p => p.Value).Distinct().ToList();
 
         var customers = checkedOrders.Select(o => o.CustomerId).Distinct().ToList();
-        if (customers.Count > 1)
-        {
-            SetBottomBar(ActionMode.Mixed, "Only one customer at a time — a staging lane / trailer load holds a single customer's orders for now.", new List<string> { "—" });
-            return;
-        }
-        string customerId = customers[0];
 
         if (phases.Count != 1)
         {
             SetBottomBar(ActionMode.Mixed, "Selection mixes different stages — check only Open orders together, or only Staged orders together.", new List<string> { "—" });
+            return;
+        }
+
+        // The one-customer rule is about SHARED PHYSICAL SPACE: a staging lane, and the trailer loaded
+        // out of it, hold a single customer's goods at a time — so releasing to a stage or to a door
+        // has to be one customer. Close-out shares nothing: it bills each order on its own line items
+        // and releases each door separately once nothing at that door is still Loading/Loaded (see
+        // OrderService.CloseOutOrders / TryReleaseDoorIfClear), so a batch spanning several customers
+        // and several doors closes out exactly as correctly as one.
+        if (customers.Count > 1 && phases[0] != RowPhase.Loaded)
+        {
+            SetBottomBar(ActionMode.Mixed, "Only one customer at a time for staging and loading — a lane / trailer load holds a single customer's orders. (Close-out can span customers.)", new List<string> { "—" });
+            return;
+        }
+        string customerId = customers[0];
+
+        // Available (released, waiting on a selector) and No Stock (a legacy backorder record) have no
+        // Submit action of their own — Cancel Selected is the only thing that acts on them.
+        if (phases[0] == RowPhase.Available || phases[0] == RowPhase.NoStock)
+        {
+            string what = phases[0] == RowPhase.Available
+                ? "already released and waiting for an Order Selector to claim them"
+                : "short of stock and stuck — nothing was ever picked for them";
+            SetBottomBar(ActionMode.None, $"These {checkedOrders.Count} order(s) are {what}. Use Cancel Selected to call them off.",
+                new List<string> { "—" }, enableTarget: false, enableSubmit: false);
             return;
         }
 
@@ -798,7 +1003,12 @@ public class WorkQueuePanel
 
         if (phases[0] == RowPhase.Loaded)
         {
-            SetBottomBar(ActionMode.CloseOut, $"Close out {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} — bills them and releases the trailer once its whole load is closed out:", new List<string> { "Close Out" }, enableTarget: false);
+            string who = customers.Count == 1
+                ? $"for {checkedOrders[0].CustomerName}"
+                : $"across {customers.Count} customers";
+            int doorCount = checkedOrders.Select(o => o.AssignedDoorNumber).Distinct().Count();
+            string doors = doorCount == 1 ? "the trailer" : $"each of the {doorCount} trailers";
+            SetBottomBar(ActionMode.CloseOut, $"Close out {checkedOrders.Count} order(s) {who} — bills them and releases {doors} once its whole load is closed out:", new List<string> { "Close Out" }, enableTarget: false);
             return;
         }
 

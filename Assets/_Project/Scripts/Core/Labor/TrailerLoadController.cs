@@ -510,12 +510,19 @@ namespace GameCore.Labor
             // PHASE 1 — approach with the forks DOWN, stopping ForkRaiseStandoff short. Measured from
             // the fork carry point, not the DS root: the root sits well behind the tines, so a
             // root-based standoff can already have them buried in the pallet face.
+            //
+            // The stop test is the SIGNED distance along the travel direction, not the raw magnitude.
+            // The pivot sits only LanePivotDistance (1m) outside the lane while the tines reach further
+            // forward than that, so for a pallet in slot 1 the carry point can already be level with or
+            // PAST it. Magnitude can't tell "1.5m ahead" from "1.5m behind", so the DS drove forward to
+            // close a gap that was behind it — all the way down the lane to the 8m travel cap, where it
+            // seated the slot-1 pallet anyway and the load appeared to snap onto the forks from nowhere.
             while (true)
             {
                 if (ds == null || pallet == null) yield break; // destroyed mid-run — see DriveInternal
                 Vector3 grab = forks != null ? forks.TransformPoint(ForkCarryLocalPos) : ds.position + into;
                 Vector3 gd = pallet.position - grab; gd.y = 0f;
-                if (gd.magnitude <= ForkRaiseStandoff) break;
+                if (Vector3.Dot(gd, into) <= ForkRaiseStandoff) break;
 
                 ds.position += into * (DriveSpeed * Time.deltaTime);
                 if ((ds.position - start).magnitude >= maxTravel)
@@ -530,13 +537,15 @@ namespace GameCore.Labor
             // before moving again.
             if (forks != null) yield return LiftForks(forks, matchLocalY);
 
-            // PHASE 3 — at pocket height: close the last stretch straight in, no steering.
+            // PHASE 3 — at pocket height: close the last stretch straight in, no steering. Signed for
+            // the same reason as phase 1 — a pallet already level with the tines must stop the drive,
+            // not start an 8m one.
             while (true)
             {
                 if (ds == null || pallet == null) yield break; // destroyed mid-run — see DriveInternal
                 Vector3 grab = forks != null ? forks.TransformPoint(ForkCarryLocalPos) : ds.position + into;
                 Vector3 gd = pallet.position - grab; gd.y = 0f;
-                if (gd.magnitude <= GrabThreshold) break;
+                if (Vector3.Dot(gd, into) <= GrabThreshold) break;
 
                 ds.position += into * (DriveSpeed * Time.deltaTime);
                 if ((ds.position - start).magnitude >= maxTravel)

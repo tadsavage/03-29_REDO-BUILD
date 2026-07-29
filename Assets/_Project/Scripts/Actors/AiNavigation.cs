@@ -109,6 +109,16 @@ public class AiNavigation : MonoBehaviour
     /// way along a partial route isn't cut short the moment it slows down.</summary>
     private const float PartialSeekGraceSeconds = 1.5f;
     private float _partialSeekSeconds;
+
+    /// <summary>Backstop for a task seek that stops getting closer to its target but never satisfies
+    /// any of the three resolution branches below. The PathPartial grace period gates on the agent
+    /// standing STILL, which a selector waiting in a busy staging lane never does — every dock stocker
+    /// that shoves past resets the timer, so it holds its pallet forever with nothing in the console.
+    /// Progress is measured as "did the remaining distance actually improve", not "is it moving".</summary>
+    private const float SeekNoProgressTimeout = 10f;
+    private const float SeekProgressEpsilon   = 0.25f;
+    private float _seekBestRemaining = float.MaxValue;
+    private float _seekNoProgressSeconds;
 public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     /// <summary>True when there are at least 2 waypoints — enough for a return trip.</summary>
     public bool HasEnoughWaypoints => waypoints != null && waypoints.Length >= 2;
@@ -393,6 +403,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         _taskTargetPosition = position;
         _onTaskArrived = onArrived;
         _seekingTask = true;
+        _seekBestRemaining = float.MaxValue;
+        _seekNoProgressSeconds = 0f;
+        _partialSeekSeconds = 0f;
         // Same reasoning as SeekEquipment: an employee walking to a receive task never went through
         // the Worker-waypoint patrol bootstrap, so without this the off-mesh-link/dock-climb logic
         // (which gates on `initialized`) would never even try to path them up onto the dock.
@@ -405,6 +418,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     {
         _seekingTask = false;
         _onTaskArrived = null;
+        _seekBestRemaining = float.MaxValue;
+        _seekNoProgressSeconds = 0f;
+        _partialSeekSeconds = 0f;
     }
 
     /// <summary>Marks the agent as busy with a stationary task (e.g. receiving a pallet) so the
@@ -878,6 +894,23 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // ── Task seeking (employee walks toward a generic task position, e.g. a pallet) ──────────
         if (_seekingTask)
         {
+            // Progress tracking for the no-progress backstop below. "Progress" is the remaining
+            // distance actually falling — being shunted around by MHE doesn't count as progress, and
+            // (unlike a velocity check) it can't be faked by the agent being shoved.
+            if (!agent.pathPending)
+            {
+                float remaining = agent.remainingDistance;
+                if (remaining < _seekBestRemaining - SeekProgressEpsilon)
+                {
+                    _seekBestRemaining = remaining;
+                    _seekNoProgressSeconds = 0f;
+                }
+                else
+                {
+                    _seekNoProgressSeconds += Time.deltaTime;
+                }
+            }
+
             if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathComplete
                 && agent.remainingDistance <= 1.0f)
             {
@@ -887,8 +920,14 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             }
             else if (agent.pathStatus == NavMeshPathStatus.PathInvalid && !agent.pathPending)
             {
-                Debug.LogWarning($"[AiNavigation] {name} cannot reach task position at {_taskTargetPosition} (path invalid) — abandoning task seek.");
+                // Previously this cancelled WITHOUT invoking the callback, so the driver waiting on it
+                // never learned the walk was over: its task stayed in progress and its pallets stayed
+                // parented, forever, with only this one line in the console. Hand control back so the
+                // driver can finish (its own fallback drops the load where the agent stands).
+                Debug.LogWarning($"[AiNavigation] {name} cannot reach task position at {_taskTargetPosition} (path invalid) — abandoning the walk and handing the task back.");
+                var callback = _onTaskArrived;
                 CancelSeekPosition();
+                callback?.Invoke();
             }
             else if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathPartial)
             {
@@ -927,6 +966,21 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             else
             {
                 _partialSeekSeconds = 0f;
+            }
+
+            // BACKSTOP — none of the branches above resolved the seek and the agent has stopped
+            // getting any closer. This is the case that stranded an Order Selector in a staging lane
+            // holding his pallets: dock stockers barging past kept his velocity above the PathPartial
+            // grace check's threshold, so that branch never accumulated, while the target cell stayed
+            // just out of reach (staged pallets carve the NavMesh). Nothing was logged and the order
+            // sat Assigned indefinitely. Hand the task back rather than deadlock it.
+            if (_seekingTask && _seekNoProgressSeconds >= SeekNoProgressTimeout)
+            {
+                Debug.LogWarning($"[AiNavigation] {name}: no progress toward task target {_taskTargetPosition} for " +
+                    $"{SeekNoProgressTimeout:F0}s (stopped {agent.remainingDistance:F2}m short, path {agent.pathStatus}) — treating as arrived.");
+                var callback = _onTaskArrived;
+                CancelSeekPosition();
+                callback?.Invoke();
             }
         }
 

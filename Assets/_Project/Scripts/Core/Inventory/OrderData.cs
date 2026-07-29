@@ -91,6 +91,11 @@ namespace GameCore.Inventory
         /// <summary>Days until due (negative if overdue).</summary>
         public int DaysUntilDue(int currentDay) => DueDay - currentDay;
 
+        /// <summary>NOTE: persisted by ordinal in the save file — never reorder or remove a value.
+        /// Backorder is RETIRED and no longer produced: a DC like this doesn't backorder, it ships
+        /// short (see the Fill Rate column) or the player cancels the order. The value stays only so
+        /// saves written before that change still load; such rows surface in the Work Queue as
+        /// "No Stock" and can be cancelled from there.</summary>
         public enum OrderStatus { Pending, PartiallyPicked, FullyPicked, Staged, Loading, Loaded, Shipped, Cancelled, Backorder }
         public enum OrderPaymentMethod { Prepaid, COD, Invoice }
     }

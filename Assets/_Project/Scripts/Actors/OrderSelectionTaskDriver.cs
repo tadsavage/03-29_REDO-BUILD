@@ -104,20 +104,28 @@ namespace GameCore.Actors
                 // transient miss. Rather than stranding the WIP pallet wherever the selector happens
                 // to be standing (the old behavior — permanent aisle debris, and the WorkTask sat
                 // Assigned forever until the stale-assignment sweep freed it for another selector to
-                // re-claim and build a *second* pallet from scratch), deliver whatever was picked to
-                // staging via the normal path and mark the order Backorder so it's visibly distinct
-                // from a fully-Staged, truck-ready order.
+                // re-claim and build a *second* pallet from scratch), the order takes one of two
+                // exits depending on whether anything was actually picked. Neither is a backorder:
+                // this warehouse ships short or the player calls the order off.
                 int pickedSoFar = _pallets.Sum(p => p != null ? p.TotalCases : 0);
                 if (pickedSoFar > 0)
                 {
-                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for its remaining line item(s) — delivering {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits} picked units to staging as a backorder.");
-                    FinishOrder(OrderData.OrderStatus.Backorder);
+                    // Short pick, not a backorder — this warehouse ships what it has. The cases that
+                    // made it onto a pallet go to staging exactly like a full order and the shortfall
+                    // shows in the Work Queue's Fill Rate column; billing already charges only for
+                    // QuantityPicked (see OrderService.ShipOrder), so a 16/23 order bills 16.
+                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for its remaining line item(s) — staging short at {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits} case(s).");
+                    FinishOrder();
                 }
                 else
                 {
-                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for any line item — marking backorder, nothing picked yet.");
-                    _currentOrder.Status = OrderData.OrderStatus.Backorder;
-                    FinishOrderCleanup(_currentTask);
+                    // Nothing picked at all, so nothing is physically committed anywhere: hand the
+                    // order back to the player rather than parking it in a status with no way out.
+                    // It returns to Open (unreleased) and RELEASES ITS STAGE, so the door isn't held
+                    // hostage by an order that never put a pallet in it. The player then decides —
+                    // cancel it, or chase the stock down and release it again.
+                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for any line item and nothing was picked — returning it to Open and releasing Stage {_currentOrder.AssignedDoorNumber}.");
+                    ReturnOrderToOpen();
                 }
                 return;
             }
@@ -349,7 +357,7 @@ namespace GameCore.Actors
                 Vector3 axis = depthAxis;
                 _nav.SeekPosition(targetPos, () =>
                 {
-                    PlacePalletsAtStagingSlot(targetPos, axis);
+                    PlacePalletsAtStagingSlot(order, targetPos, axis);
                     // Pallets are now physically sitting in a real staging lane slot — distinct
                     // from FullyPicked/PartiallyPicked, which only describe picking progress, not
                     // where the goods physically are. TrailerLoadController (D1) finds pallets to
@@ -368,24 +376,90 @@ namespace GameCore.Actors
             }
         }
 
-        /// <summary>Detaches every pallet built for this order at the staging slot, lined up one
-        /// behind the other along the lane's depth axis (mirrors how they currently ride the
-        /// selector front/back — see PalletOffsets) — placeholder positioning until Phase C's real
-        /// jack-carrying replaces this with an actual physical drop.</summary>
-        private void PlacePalletsAtStagingSlot(Vector3 basePos, Vector3 depthAxis)
+        /// <summary>
+        /// Detaches every pallet built for this order into its OWN staging slot.
+        ///
+        /// This used to drop them all relative to one resolved slot, offset 1.2m apart along the lane
+        /// axis. A cell is 1.33m, so the sibling landed INSIDE the same cell's claim radius: both
+        /// pallets mapped to one nearest-slot in InventoryService.OutboundOccupiedCells, only that one
+        /// cell ever read as occupied, and the next order staged into this lane was handed a slot that
+        /// already had a pallet sitting across it — pallets staged inside each other.
+        ///
+        /// Each pallet now resolves its own free slot, and does so AFTER the previous one has been
+        /// unparented, so the occupancy scan (which ignores pallets still riding a selector) can see
+        /// it and hand back the next slot along.
+        /// </summary>
+        private void PlacePalletsAtStagingSlot(OrderData order, Vector3 fallbackBasePos, Vector3 depthAxis)
         {
             Vector3 axis = depthAxis.sqrMagnitude > 0.0001f ? depthAxis.normalized : Vector3.forward;
+
             for (int i = 0; i < _pallets.Count; i++)
             {
                 var pallet = _pallets[i];
                 if (pallet == null) continue;
+
+                Vector3 pos = fallbackBasePos + axis * (i * 1.4f);
+                if (order != null && _inventoryService != null &&
+                    _inventoryService.TryFindStagingSlotAtDoor(order.AssignedDoorNumber, order.AssignedLane,
+                                                               out string resolvedLane, out var slot) &&
+                    LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var slotPos))
+                {
+                    pos = slotPos;
+                    // Keep AssignedLane pointing at where this order's goods actually are — it's what
+                    // ReleaseOrdersToLoading groups by and what TrailerLoadController scans.
+                    if (i == 0 && !string.IsNullOrEmpty(resolvedLane) && resolvedLane != order.AssignedLane)
+                    {
+                        Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) staged into " +
+                                  $"{order.AssignedDoorNumber}{resolvedLane} rather than {order.AssignedDoorNumber}{order.AssignedLane}.");
+                        order.AssignedLane = resolvedLane;
+                    }
+                }
+                else if (order != null)
+                {
+                    Debug.LogWarning($"[OrderSelectionTaskDriver] No free staging slot for pallet {i + 1} of order " +
+                                     $"{order.OrderId} at Stage {order.AssignedDoorNumber} — dropping it beside the last one.");
+                }
+
                 pallet.transform.SetParent(null, true);
-                pallet.transform.position = basePos + axis * (i * 1.2f);
+                pallet.transform.position = pos;
                 pallet.transform.rotation = Quaternion.LookRotation(axis, Vector3.up);
                 // On the ground now — start carving so MHE and humanoids path around it instead of
-                // straight through it.
+                // straight through it. Also what makes the NEXT iteration's slot lookup see this cell
+                // as taken, so siblings can't be handed the same slot.
                 pallet.SetNavObstacleActive(true);
             }
+        }
+
+        /// <summary>Un-releases an order the selector couldn't pick a single case for: its OrderSelect
+        /// task goes back to Open (as if never released) and its door/lane stamp is cleared so the
+        /// stage it was holding frees up immediately. Deliberately NOT CompleteTask — the work still
+        /// needs doing once the stock exists; the player re-releases it from the Work Queue, or
+        /// cancels it. This is the replacement for the old Backorder dead end, which left the order
+        /// invisible in the panel while it silently owned a whole door.</summary>
+        private void ReturnOrderToOpen()
+        {
+            var task = _currentTask;
+            var order = _currentOrder;
+
+            order.Status = OrderData.OrderStatus.Pending;
+            order.AssignedDoorNumber = 0;
+            order.AssignedLane = null;
+
+            if (task != null)
+            {
+                task.Status = WorkTaskStatus.Open;
+                task.AssignedToEmployeeGuid = null;
+            }
+
+            UnparentAllPallets();
+
+            _currentTask = null;
+            _currentOrder = null;
+            _pallets.Clear();
+
+            _taskInProgress = false;
+            _nav.SetTaskBusy(false);
+            _nav.Patrol();
         }
 
         private void FinishOrderCleanup(WorkTask task)

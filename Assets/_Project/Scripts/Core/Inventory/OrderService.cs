@@ -28,11 +28,8 @@ namespace GameCore.Inventory
         public static event System.Action<OrderData> OnOrderFulfilled;
         public static event System.Action<OrderData> OnOrderShipped;
 
-        // Reserved for order cancellation (TODO: Phase 2 "Partial-order handling — backorder, split,
-        // cancel") — no CancelOrder() method exists yet to raise it, so it's legitimately unused today.
-#pragma warning disable CS0067
+        /// <summary>Raised by <see cref="CancelOrders"/> when the player calls an order off.</summary>
         public static event System.Action<OrderData> OnOrderCancelled;
-#pragma warning restore CS0067
 
         public IReadOnlyList<OrderData> ActiveOrders => _activeOrders;
 
@@ -144,6 +141,63 @@ namespace GameCore.Inventory
 
             Debug.Log($"[OrderService] Released {pairs.Count} order(s) for {customerId} to {doorNumber}{lane}.");
             return true;
+        }
+
+        /// <summary>
+        /// True if this order can still be called off. A distribution centre like this has no such
+        /// thing as a backorder: an order the pickers can't fill is either cancelled outright or held
+        /// while the stock is hunted down / received in, so "cancellable" means nothing of it is
+        /// physically committed yet. That is: still awaiting release (its task is Open), or released
+        /// but not yet claimed by a selector (Available) — plus any legacy Backorder record left in a
+        /// save from before that status was retired. An order a selector is actively picking, or whose
+        /// goods are already staged, loading or loaded, is NOT cancellable — those have pallets in the
+        /// world that would be orphaned.
+        /// </summary>
+        public bool CanCancelOrder(OrderData order)
+        {
+            if (order == null) return false;
+            if (order.Status == OrderData.OrderStatus.Backorder) return true;   // legacy saves only
+            if (order.Status != OrderData.OrderStatus.Pending) return false;
+
+            var task = _workQueue?.Tasks.FirstOrDefault(t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect);
+            return task == null || task.Status == WorkTaskStatus.Open || task.Status == WorkTaskStatus.Available;
+        }
+
+        /// <summary>
+        /// Cancels every cancellable order in the batch and returns how many were actually cancelled;
+        /// any id that isn't cancellable is skipped rather than failing the whole call, so a mixed
+        /// selection does the part it can. Each cancellation cancels the order's OrderSelect task (so
+        /// no selector can claim work that no longer exists) and clears its door/lane stamp, which
+        /// releases the stage the order was holding.
+        /// </summary>
+        public int CancelOrders(List<string> orderIds)
+        {
+            if (orderIds == null || orderIds.Count == 0) return 0;
+
+            int cancelled = 0;
+            foreach (var id in orderIds)
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
+                if (!CanCancelOrder(order)) continue;
+
+                var task = _workQueue?.Tasks.FirstOrDefault(t => t.OrderId == id && t.Type == WorkTaskType.OrderSelect);
+                if (task != null && task.Status != WorkTaskStatus.Complete && task.Status != WorkTaskStatus.Cancelled)
+                {
+                    task.Status = WorkTaskStatus.Cancelled;
+                    task.AssignedToEmployeeGuid = null; // release the claim so nothing tries to "resume mine"
+                }
+
+                Debug.Log($"[OrderService] Order {order.OrderId} ({order.CustomerName}) cancelled by the player — " +
+                          $"{order.TotalUnitsPicked}/{order.TotalUnits} case(s) had been picked; released Stage {order.AssignedDoorNumber}.");
+
+                order.AssignedDoorNumber = 0;
+                order.AssignedLane = null;
+                order.Status = OrderData.OrderStatus.Cancelled;
+                OnOrderCancelled?.Invoke(order);
+                cancelled++;
+            }
+
+            return cancelled;
         }
 
         /// <summary>Releases a batch of fully-Staged orders — same customer, same staging lane — to
