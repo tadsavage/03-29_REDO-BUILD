@@ -1052,6 +1052,7 @@ public class WorkQueuePanel
         if (orderIds.Count == 0) return;
 
         bool ok;
+        int billed = 0;
         if (_mode == ActionMode.ReleaseToLane)
         {
             int idx = _targetDropdown.index;
@@ -1066,7 +1067,7 @@ public class WorkQueuePanel
         }
         else if (_mode == ActionMode.CloseOut)
         {
-            ok = orderService.CloseOutOrders(orderIds);
+            ok = orderService.CloseOutOrders(orderIds, out billed);
         }
         else return;
 
@@ -1074,6 +1075,17 @@ public class WorkQueuePanel
         else UIToast.Show("Could not submit that selection — it may have changed. Refreshing.");
 
         RebuildRows();
+
+        // Close-out is the one action here that moves money, and the modal hides the world popup
+        // FloatingMoneyText would otherwise show over the door — so the sale has to be acknowledged
+        // inside the panel. Played AFTER RebuildRows so the rows the money came from are already gone
+        // and the sweep reads as the consequence, not something happening alongside.
+        if (ok && billed != 0)
+        {
+            var root = _overlay?.parent;
+            MoneyFlightFx.Play(root, _modal, root?.Q<Label>("MoneyLabel"), billed,
+                               label => ApplyFont(label, bold: true));
+        }
     }
 
     // REMOVED: ParseLeadingDoor(). It split a "3A" dropdown choice back into door + lane, which the

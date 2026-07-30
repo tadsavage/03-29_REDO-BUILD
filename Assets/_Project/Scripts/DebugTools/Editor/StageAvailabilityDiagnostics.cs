@@ -25,7 +25,7 @@ namespace GameCore.DebugTools
     public static class StageAvailabilityDiagnostics
     {
         private const string OutPath =
-            @"C:\Users\MURILLO\AppData\Local\Temp\claude\C--Users-MURILLO--claude\3966088a-049c-4a50-b6da-468c3551f0fd\scratchpad\stage_diagnostic.txt";
+            @"C:\Users\MURILLO\AppData\Local\Temp\claude\C--Users-MURILLO--claude\e197961c-5f3f-403d-abea-399e27004f86\scratchpad\stage_diagnostic.txt";
 
         [MenuItem("Tools/Diagnostics/Dump Stage Availability")]
         public static void Dump()

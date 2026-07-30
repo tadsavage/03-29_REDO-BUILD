@@ -324,10 +324,21 @@ namespace GameCore.Actors
             // own lane and overflow into the next lane of the same door (A → B → C) as each fills.
             // Before this, a full lane meant the pallets were dropped wherever the selector happened
             // to be standing, which is what littered the aisles.
-            else if (!_inventoryService.TryFindStagingSlotAtDoor(order.AssignedDoorNumber, order.AssignedLane,
-                                                                 out string resolvedLane, out var slot))
+            //
+            // The lane is resolved ONCE here, for the whole order, and every pallet goes in it — the
+            // overflow decision must not be made per-pallet. AssignedLane can only name one lane, so a
+            // pallet that overflowed into a second lane was invisible to ReleaseOrdersToLoading and
+            // TrailerLoadController: it sat in the lane after the truck left, still billed, with no
+            // task left to move it (a Shipped order files none). See
+            // InventoryService.TryFindStagingLaneForPallets.
+            else if (!_inventoryService.TryFindStagingLaneForPallets(order.AssignedDoorNumber, order.AssignedLane,
+                                                                    LivePalletCount(), out string resolvedLane))
             {
-                failReason = $"no open slot anywhere in Stage {order.AssignedDoorNumber} (every lane full, or none allows outbound picking)";
+                failReason = $"no lane in Stage {order.AssignedDoorNumber} has room for all {LivePalletCount()} of this order's pallets (every lane full or too tight, or none allows outbound picking)";
+            }
+            else if (!_inventoryService.TryFindStagingSlotInLane(order.AssignedDoorNumber, resolvedLane, out var slot))
+            {
+                failReason = $"lane {order.AssignedDoorNumber}{resolvedLane} reported room for {LivePalletCount()} pallet(s) but then handed back no slot";
             }
             else if (!LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var pos))
             {
@@ -376,6 +387,16 @@ namespace GameCore.Actors
             }
         }
 
+        /// <summary>How many pallets this order actually still has to put down. Drives the "does this
+        /// lane have room for the whole order" check — a destroyed/null entry must not reserve a slot.</summary>
+        private int LivePalletCount()
+        {
+            int n = 0;
+            for (int i = 0; i < _pallets.Count; i++)
+                if (_pallets[i] != null) n++;
+            return n;
+        }
+
         /// <summary>
         /// Detaches every pallet built for this order into its OWN staging slot.
         ///
@@ -388,6 +409,10 @@ namespace GameCore.Actors
         /// Each pallet now resolves its own free slot, and does so AFTER the previous one has been
         /// unparented, so the occupancy scan (which ignores pallets still riding a selector) can see
         /// it and hand back the next slot along.
+        ///
+        /// Those per-pallet lookups are confined to order.AssignedLane, which FinishOrder has already
+        /// chosen with room for the whole order. They must never overflow into another lane: the order
+        /// records one lane, and a pallet outside it never gets loaded or cleared.
         /// </summary>
         private void PlacePalletsAtStagingSlot(OrderData order, Vector3 fallbackBasePos, Vector3 depthAxis)
         {
@@ -399,25 +424,26 @@ namespace GameCore.Actors
                 if (pallet == null) continue;
 
                 Vector3 pos = fallbackBasePos + axis * (i * 1.4f);
+                // Locked to order.AssignedLane — NOT TryFindStagingSlotAtDoor, which would overflow
+                // this pallet into a neighbouring lane that the order has no way to record. FinishOrder
+                // already picked a lane with room for every pallet, so this lookup is expected to
+                // succeed for all of them.
                 if (order != null && _inventoryService != null &&
-                    _inventoryService.TryFindStagingSlotAtDoor(order.AssignedDoorNumber, order.AssignedLane,
-                                                               out string resolvedLane, out var slot) &&
+                    _inventoryService.TryFindStagingSlotInLane(order.AssignedDoorNumber, order.AssignedLane,
+                                                               out var slot) &&
                     LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var slotPos))
                 {
                     pos = slotPos;
-                    // Keep AssignedLane pointing at where this order's goods actually are — it's what
-                    // ReleaseOrdersToLoading groups by and what TrailerLoadController scans.
-                    if (i == 0 && !string.IsNullOrEmpty(resolvedLane) && resolvedLane != order.AssignedLane)
-                    {
-                        Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) staged into " +
-                                  $"{order.AssignedDoorNumber}{resolvedLane} rather than {order.AssignedDoorNumber}{order.AssignedLane}.");
-                        order.AssignedLane = resolvedLane;
-                    }
                 }
                 else if (order != null)
                 {
-                    Debug.LogWarning($"[OrderSelectionTaskDriver] No free staging slot for pallet {i + 1} of order " +
-                                     $"{order.OrderId} at Stage {order.AssignedDoorNumber} — dropping it beside the last one.");
+                    // Not cosmetic: this pallet is about to be left somewhere the loader does not scan,
+                    // so it will not ship with the order. Loud on purpose.
+                    Debug.LogError($"[OrderSelectionTaskDriver] No free slot in lane {order.AssignedDoorNumber}" +
+                                   $"{order.AssignedLane} for pallet {i + 1}/{_pallets.Count} of order {order.OrderId} " +
+                                   $"({order.CustomerName}) — dropping it beside the last one, where the loader will " +
+                                   $"NOT find it. The lane was verified to have room before placement began, so " +
+                                   $"something claimed a slot mid-drop.");
                 }
 
                 pallet.transform.SetParent(null, true);

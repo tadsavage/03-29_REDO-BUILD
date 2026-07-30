@@ -60,7 +60,7 @@ namespace GameCore.Labor
         private const float PivotFrontDistance = 2.0f;   // legacy fallback when there's no docked door to measure from
         // Mirrors of TrailerOffloadController's tuning, per Tad's spec for the loading side:
         private const float PalletLiftClearance = 0.15f; // lift a grabbed pallet this far off the deck, and lower by the same to set it down
-        private const float LanePivotDistance   = 1.0f;  // the staging-lane pivot sits this far OUT from the lane entry
+        private const float LanePivotDistance   = 2.5f;  // the staging-lane pivot sits this far OUT from the lane entry, on the door side
         private const float PivotDoorOffset     = 1.0f;  // the SHIPPING DOOR pivot sits this far out from the dock door — every trailer-side turn happens here
         private const float ForkRaiseStandoff   = 1.0f;  // halt this far short of the pallet (fork carry point → pallet, XZ) and raise the forks THERE, stopped
         private const int   OutboundStackTier   = 0;     // outbound cargo is stacked ONE high — always tier 0
@@ -495,7 +495,11 @@ namespace GameCore.Labor
         private IEnumerator DriveInToGrab(Transform ds, Transform forks, float forkRestY, Transform pallet, Vector3 into)
         {
             Vector3 start = ds.position;
-            const float maxTravel = 8f;
+            // Backstop, not a normal stopping condition: enough to reach the deepest slot in the lane
+            // from the pivot, and nothing more. Derived from LanePivotDistance because the drive starts
+            // AT the pivot — pulling the pivot further out from the lane lengthens every drive-in by the
+            // same amount, and a hardcoded cap would start tripping on deep slots as soon as it moved.
+            const float maxTravel = LanePivotDistance + 7f;
 
             // Fork local Y that puts the CARRY POINT (where the pallet actually seats) level with this
             // pallet. Measured once, before the forks move: the delta is world-vertical so it maps 1:1
@@ -512,7 +516,7 @@ namespace GameCore.Labor
             // root-based standoff can already have them buried in the pallet face.
             //
             // The stop test is the SIGNED distance along the travel direction, not the raw magnitude.
-            // The pivot sits only LanePivotDistance (1m) outside the lane while the tines reach further
+            // The pivot sits only LanePivotDistance outside the lane while the tines reach further
             // forward than that, so for a pallet in slot 1 the carry point can already be level with or
             // PAST it. Magnitude can't tell "1.5m ahead" from "1.5m behind", so the DS drove forward to
             // close a gap that was behind it — all the way down the lane to the 8m travel cap, where it

@@ -480,6 +480,72 @@ namespace GameCore.Inventory
             return false;
         }
 
+        /// <summary>
+        /// How many more staged pallets this outbound lane can take. Same gates and same door-outward
+        /// scan TryGetNextFreeSlot uses, counted across every slot instead of stopping at the first —
+        /// one pallet per slot, since outbound stages single-high (see TrailerLoadController's
+        /// OutboundStackTier) and OutboundOccupiedCells claims a whole cell per staged pallet.
+        /// 0 if the lane can't be staged into at all.
+        /// </summary>
+        public int CountFreeStagingSlotsInLane(int doorNumber, string lane)
+        {
+            if (string.IsNullOrEmpty(lane) || !LaneAllowsPicking(doorNumber, lane)) return 0;
+            if (StagingLaneAssignmentService.LaneHasInboundStock(this, doorNumber, lane)) return 0;
+
+            int maxHeight = LaneConfigRegistry.Get(doorNumber, lane).MaxStackHeight;
+            var laneSlots = LaneNamingService.GetLane(doorNumber, lane);
+            var outboundOccupied = OutboundOccupiedCells(laneSlots);
+
+            int free = 0;
+            foreach (var s in laneSlots)
+            {
+                if (outboundOccupied.Contains(s.Cell)) continue;
+                int stacked = _palletsByLocation.TryGetValue(s.Cell, out var ids) ? ids.Count : 0;
+                if (stacked < maxHeight) free++;
+            }
+            return free;
+        }
+
+        /// <summary>
+        /// The one lane at this door that will hold an ENTIRE order's staged pallets — preferred lane
+        /// first, then the rest of the Stage in fill order, returning the first with room for all
+        /// <paramref name="palletCount"/> of them.
+        ///
+        /// An order's pallets must never straddle two lanes. OrderData carries exactly one
+        /// AssignedLane; it is what ReleaseOrdersToLoading files its Load task against and what
+        /// TrailerLoadController scans to find pallets. Per-pallet overflow (TryFindStagingSlotAtDoor,
+        /// called once per pallet) could put pallet 2 in a different lane than pallet 1, and only one
+        /// of those lanes can be recorded — the pallet in the other one is then invisible to the
+        /// loader. It stays in the lane after the truck departs, the order bills for it anyway, and
+        /// because a Shipped order files no further tasks, nothing ever moves it again.
+        ///
+        /// Reserving the whole order's worth of space up front costs some lane density (a lane with 1
+        /// slot left is skipped by a 2-pallet order) but keeps a customer's freight together, which is
+        /// how it would really be staged.
+        /// </summary>
+        public bool TryFindStagingLaneForPallets(int doorNumber, string preferredLane, int palletCount,
+                                                 out string lane)
+        {
+            lane = null;
+            if (palletCount < 1) palletCount = 1;
+
+            if (!string.IsNullOrEmpty(preferredLane) &&
+                CountFreeStagingSlotsInLane(doorNumber, preferredLane) >= palletCount)
+            {
+                lane = preferredLane;
+                return true;
+            }
+
+            foreach (var candidate in StagingLaneAssignmentService.LanesInStage(this, doorNumber))
+            {
+                if (candidate == preferredLane) continue; // already tried
+                if (CountFreeStagingSlotsInLane(doorNumber, candidate) < palletCount) continue;
+                lane = candidate;
+                return true;
+            }
+            return false;
+        }
+
         // ── Usage gating (Receiving/Shipping/Both) ───────────────────────────────
         // Receiving = Inbound (pallets arrive here → putaway only), Shipping = Outbound (pallets leave
         // here → picking only), Both = either. A lane never used yet defaults to Both.

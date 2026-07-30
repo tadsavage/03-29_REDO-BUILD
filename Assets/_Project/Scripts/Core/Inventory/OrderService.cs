@@ -87,8 +87,9 @@ namespace GameCore.Inventory
         /// one named lane — what the Work Queue panel now offers as "Stage 1", "Stage 2"… Picks the
         /// first lane of that Stage with room as the starting point; if it later fills, the selector
         /// overflows into the next lane of the same Stage on its own
-        /// (InventoryService.TryFindStagingSlotAtDoor), so this choice is a starting point, not a
-        /// commitment.</summary>
+        /// (InventoryService.TryFindStagingLaneForPallets), so this choice is a starting point, not a
+        /// commitment. That overflow is decided per ORDER, never per pallet — one order's pallets all
+        /// land in the lane recorded on OrderData.AssignedLane.</summary>
         public bool ReleaseOrdersToStage(List<string> orderIds, int doorNumber)
         {
             ServiceLocator.TryGet<InventoryService>(out var inv);
@@ -297,9 +298,17 @@ namespace GameCore.Inventory
         /// each one (see ShipOrder), then — per door touched — releases that door's outbound trailer
         /// to depart once nothing assigned there is still Loading/Loaded (not just the orders in this
         /// batch; a door only clears once its whole load has been closed out). Fails (no changes) if
-        /// any order isn't actually Loaded.</summary>
-        public bool CloseOutOrders(List<string> orderIds)
+        /// any order isn't actually Loaded.
+        ///
+        /// <paramref name="totalBilled"/> reports what the batch actually earned, summed from what
+        /// ShipOrder really credited rather than recomputed by the caller — a partially-picked order
+        /// bills only the cases that shipped, so any second calculation of "what this sale was worth"
+        /// would eventually disagree with the money that changed hands. The UI uses it to show the
+        /// figure it just banked (see WorkQueuePanel / MoneyFlightFx). 0 whenever this returns
+        /// false.</summary>
+        public bool CloseOutOrders(List<string> orderIds, out int totalBilled)
         {
+            totalBilled = 0;
             if (orderIds == null || orderIds.Count == 0) return false;
 
             var orders = orderIds.Select(id => _activeOrders.FirstOrDefault(o => o.OrderId == id)).ToList();
@@ -312,12 +321,13 @@ namespace GameCore.Inventory
                 int revenue = ShipOrder(order.OrderId);
                 revenueByDoor.TryGetValue(doorNumber, out int existing);
                 revenueByDoor[doorNumber] = existing + revenue;
+                totalBilled += revenue;
             }
 
             foreach (var kvp in revenueByDoor)
                 TryReleaseDoorIfClear(kvp.Key, kvp.Value);
 
-            Debug.Log($"[OrderService] Closed out {orders.Count} order(s).");
+            Debug.Log($"[OrderService] Closed out {orders.Count} order(s) — billed ${totalBilled:N0}.");
             return true;
         }
 
@@ -503,6 +513,128 @@ namespace GameCore.Inventory
 
             if (_activeOrders.Count > 0)
                 Debug.Log($"[OrderService] Restored {_activeOrders.Count} active order(s).");
+        }
+
+        /// <summary>
+        /// Reconciles restored orders against the outbound pallets that actually exist in the scene,
+        /// and hands any phantom back to picking. Call once at the END of a load, after pallets and
+        /// work tasks are restored.
+        ///
+        /// An order's Status/AssignedDoorNumber/AssignedLane persist, but the physical staged pallets
+        /// do NOT — there is no OutboundPalletSnapshot, and OutboundPalletBuilder instances are plain
+        /// world objects the save never captures. A save taken while orders sat staged therefore
+        /// reloads into a world where the Work Queue reports a lane holding freight that isn't there:
+        /// the lane reads Staged, the dock is empty, and releasing it to loading files a Load task the
+        /// loader can never satisfy — leaving a truck parked at the door indefinitely, since
+        /// TruckController.KeepDockAlive() suppresses the empty-trailer timeout while a task is
+        /// outstanding.
+        ///
+        /// Any order claiming its goods are in a lane (Staged or Loading) with no matching pallet is
+        /// reset to Pending and unreleased, its QuantityPicked cleared, and a fresh OrderSelect task
+        /// filed in Open so the player can release it again. The cases picked before the save are
+        /// genuinely gone — that rack decrement DID persist — so re-picking from current stock is the
+        /// honest recovery, not a duplicate.
+        ///
+        /// Loaded orders are reported but NOT reset: their pallets were inside a trailer that also
+        /// didn't persist, but they represent finished work awaiting billing, and voiding that revenue
+        /// isn't a decision to make silently on a load.
+        /// </summary>
+        public int ReconcileStagedOrdersAgainstScene()
+        {
+            var livePalletOrderIds = new HashSet<string>();
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+                if (p != null && !string.IsNullOrEmpty(p.OrderId))
+                    livePalletOrderIds.Add(p.OrderId);
+
+            int reset = 0;
+            var strandedLoaded = new List<string>();
+            var vacatedLanes = new HashSet<string>();
+
+            foreach (var order in _activeOrders)
+            {
+                if (order == null) continue;
+                if (livePalletOrderIds.Contains(order.OrderId)) continue;
+
+                if (order.Status == OrderData.OrderStatus.Loaded)
+                {
+                    strandedLoaded.Add($"{order.OrderId} ({order.CustomerName})");
+                    continue;
+                }
+                if (order.Status != OrderData.OrderStatus.Staged &&
+                    order.Status != OrderData.OrderStatus.Loading)
+                    continue;
+
+                Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) restored as " +
+                                 $"{order.Status} at {order.AssignedDoorNumber}{order.AssignedLane}, but none of its " +
+                                 $"staged pallets exist in the scene (staged pallets aren't persisted). Returning it to " +
+                                 $"picking — {order.TotalUnitsPicked} previously picked case(s) are gone and must be " +
+                                 $"re-picked from current stock.");
+
+                if (order.Status == OrderData.OrderStatus.Loading)
+                    vacatedLanes.Add($"{order.AssignedDoorNumber}{order.AssignedLane}");
+
+                order.Status = OrderData.OrderStatus.Pending;
+                order.AssignedDoorNumber = 0;
+                order.AssignedLane = null;
+                foreach (var li in order.LineItems)
+                    li.QuantityPicked = 0;
+
+                // Reuse a surviving OrderSelect task if the work-queue snapshot restored one, rather
+                // than filing a second task for the same order. If the order had already been staged,
+                // its OrderSelect task was Complete and won't have been exported at all — file a fresh
+                // one, Open, exactly as ReceiveOrder does (minus OnOrderArrived: this order isn't new).
+                var task = _workQueue?.Tasks.FirstOrDefault(
+                    t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect
+                      && t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled);
+                if (task != null)
+                {
+                    task.Status = WorkTaskStatus.Open;
+                    task.AssignedToEmployeeGuid = null;
+                }
+                else
+                {
+                    task = _workQueue?.CreateTask(
+                        WorkTaskType.OrderSelect,
+                        EmployeeRole.OrderSelector,
+                        palletId: null,
+                        description: $"Select order for {order.CustomerName} ({order.TotalUnits} units)",
+                        orderId: order.OrderId);
+                    if (task != null) task.Status = WorkTaskStatus.Open;
+                }
+
+                reset++;
+            }
+
+            // A Load task is keyed by LANE, not by order, and one task can cover several orders' pallets
+            // — so it may only be cancelled once no order is still Loading out of that lane. Left
+            // behind, it would send a loader and a commandeered dock stocker to an empty lane.
+            foreach (var laneAddress in vacatedLanes)
+            {
+                bool stillLoading = _activeOrders.Any(
+                    o => o != null && o.Status == OrderData.OrderStatus.Loading &&
+                         $"{o.AssignedDoorNumber}{o.AssignedLane}" == laneAddress);
+                if (stillLoading) continue;
+
+                var deadLoads = _workQueue?.Tasks.Where(
+                    t => t.Type == WorkTaskType.Load && t.FromLocation == laneAddress
+                      && t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled).ToList();
+                if (deadLoads == null) continue;
+
+                foreach (var dead in deadLoads)
+                {
+                    dead.Status = WorkTaskStatus.Cancelled;
+                    Debug.LogWarning($"[OrderService] Cancelled Load task for {laneAddress} — every order it " +
+                                     $"covered was a phantom, so there is nothing in that lane to load.");
+                }
+            }
+
+            if (reset > 0)
+                Debug.LogWarning($"[OrderService] Returned {reset} phantom staged order(s) to picking after load.");
+            if (strandedLoaded.Count > 0)
+                Debug.LogWarning($"[OrderService] {strandedLoaded.Count} order(s) restored as Loaded with no pallets in " +
+                                 $"the scene — their trailer didn't persist either, so they can't be closed out as-is: " +
+                                 $"{string.Join(", ", strandedLoaded)}");
+            return reset;
         }
     }
 

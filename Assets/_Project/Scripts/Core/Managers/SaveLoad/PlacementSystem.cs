@@ -906,6 +906,16 @@ public class PlacementSystem : MonoBehaviour
                 Debug.LogWarning("[PlacementSystem] TruckYardManager not found after scene restore — trucks not restored.");
         }
 
+        // Outbound staging pallets are the one physical thing the save never captures, while the
+        // orders that own them DO persist their Staged/Loading status and lane. Now that every pallet
+        // and truck that CAN be restored has been, reconcile the two: an order still claiming freight
+        // in a lane that holds none goes back to picking. Same species of load-time cleanup as the
+        // orphaned-Reserved-locations pass above — restored bookkeeping that outlived its physical
+        // counterpart. Must run after PalletPersistenceService.RestoreAll and the work-queue restore,
+        // never inside OrderService.Import, or it would judge the world before it finished loading.
+        if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderServiceForReconcile))
+            orderServiceForReconcile.ReconcileStagedOrdersAgainstScene();
+
         // Refresh rack labels: PlacedObject fields are restored but TMP text isn't.
         // Must happen before yard floors are populated (which triggers NavMesh bake).
         var aisleInit = FindAnyObjectByType<AisleInitializer>();
