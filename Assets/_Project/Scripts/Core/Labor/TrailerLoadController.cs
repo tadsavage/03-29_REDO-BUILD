@@ -61,7 +61,7 @@ namespace GameCore.Labor
         // Mirrors of TrailerOffloadController's tuning, per Tad's spec for the loading side:
         private const float PalletLiftClearance = 0.15f; // lift a grabbed pallet this far off the deck, and lower by the same to set it down
         private const float LanePivotDistance   = 2.5f;  // the staging-lane pivot sits this far OUT from the lane entry, on the door side
-        private const float PivotDoorOffset     = 1.0f;  // the SHIPPING DOOR pivot sits this far out from the dock door — every trailer-side turn happens here
+        private const float PivotDoorOffset     = 2.5f;  // the SHIPPING DOOR pivot sits this far out from the dock door — every trailer-side turn happens here. At 1.0 the forks/carried pallet clipped the trailer mouth on the spin; 1.75 was still tight.
         private const float ForkRaiseStandoff   = 1.0f;  // halt this far short of the pallet (fork carry point → pallet, XZ) and raise the forks THERE, stopped
         private const int   OutboundStackTier   = 0;     // outbound cargo is stacked ONE high — always tier 0
         private const bool InvertTrailerAxis = false; // must match TrailerOffloadController's setting

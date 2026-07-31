@@ -545,35 +545,16 @@ namespace GameCore.Actors
             foreach (var li in order.LineItems)
             {
                 if (li.IsFullyPicked) continue;
-                int remaining = li.QuantityRemaining;
 
-                LocationData best = null;
-                int bestQty = 0;
-                foreach (var address in SlotAssignmentService.GetSlotsForSku(li.SkuId))
-                {
-                    if (!LocationRegistry.TryGet(address, out var candidate)) continue;
-                    if (candidate.Quantity <= 0) continue;
+                // Slot choice lives in OrderPickPath so the Work Queue can preview an order's route
+                // using the identical rule — see that class for why it isn't duplicated here.
+                var best = OrderPickPath.ChooseSlot(li.SkuId, li.QuantityRemaining, out int qty);
+                if (best == null) continue;
 
-                    if (candidate.Quantity >= remaining)
-                    {
-                        best = candidate;
-                        bestQty = remaining;
-                        break;
-                    }
-                    if (candidate.Quantity > bestQty)
-                    {
-                        best = candidate;
-                        bestQty = candidate.Quantity;
-                    }
-                }
-
-                if (best != null)
-                {
-                    location = best;
-                    lineItem = li;
-                    takeQty = Mathf.Min(bestQty, remaining);
-                    return true;
-                }
+                location = best;
+                lineItem = li;
+                takeQty = qty;
+                return true;
             }
             return false;
         }

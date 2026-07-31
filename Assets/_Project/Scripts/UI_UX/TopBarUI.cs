@@ -103,6 +103,9 @@ public class TopBarUI : MonoBehaviour
         if (UIKeyBindingManager.Instance != null)
         {
             UIKeyBindingManager.Instance.RegisterUI(5, _shiftManagerPanel);
+            // Key 7 — registration is also what makes Tab close it: PlacementStateMachine's Tab handler
+            // closes panels through UIKeyBindingManager.CloseAll(), which only iterates the registry.
+            UIKeyBindingManager.Instance.RegisterUI(7, _workQueuePanel);
             // Note: SlotAssignmentPanel doesn't implement IUIPanel yet, can be accessed via UI button
         }
 

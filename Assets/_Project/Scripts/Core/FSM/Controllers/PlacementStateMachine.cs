@@ -323,7 +323,10 @@ if (_currentState != _idleState)
             if (slotAssignmentPanel != null && slotAssignmentPanel.IsVisible)
                 slotAssignmentPanel.Hide();
 
-            // The retained WorkQueuePanel is owned by TopBarUI and is closed by UIKeyBindingManager.
+            // The retained WorkQueuePanel is owned by TopBarUI and closed by the CloseAll() above —
+            // true only since it was actually registered (key 7) and made to implement IUIPanel.
+            // Before that this comment described an intention, not behaviour: CloseAll() iterates the
+            // registry, the panel wasn't in it, and Tab left the modal open.
 
             // Close NewItemPanel (key 8) if open
             var newItemPanel = _topBar != null ? _topBar.NewItemPanel : null;

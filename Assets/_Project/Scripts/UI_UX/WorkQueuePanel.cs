@@ -26,7 +26,7 @@ using UnityEngine.UIElements;
 /// mixed (different phases, or more than one customer — a lane/trailer holds one customer at a time
 /// for now) disables submission with an explanatory message.
 /// </summary>
-public class WorkQueuePanel
+public class WorkQueuePanel : IUIPanel
 {
     private static readonly Color ColBg         = new Color(20f / 255f, 28f / 255f, 38f / 255f, 0.92f);
     private static readonly Color ColBorder     = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
@@ -98,7 +98,9 @@ public class WorkQueuePanel
     // NoStock = a legacy Backorder record (that status is retired). Shown so the player can cancel it
     // instead of it sitting invisible while holding a stage.
     private enum RowPhase { Open, Available, Assigned, Staged, Loading, Loaded, NoStock }
-    private enum ActionMode { None, ReleaseToLane, ReleaseToLoading, CloseOut, Mixed }
+    // ReleaseToStagesAuto: a multi-customer Open selection, where the target dropdown is inert because
+    // the stage is decided per customer by OrderService.TryPlanStageSpread rather than picked.
+    private enum ActionMode { None, ReleaseToLane, ReleaseToStagesAuto, ReleaseToLoading, ReleaseToLoadingAuto, CloseOut, Mixed }
 
     private readonly VisualElement _overlay;
     private readonly ScrollView _rowScroll;
@@ -165,6 +167,12 @@ public class WorkQueuePanel
     }
 
     public bool IsVisible => _visible;
+
+    /// <summary>IUIPanel's view of the same flag. Implementing the interface is what puts this panel
+    /// into UIKeyBindingManager's registry, and therefore into CloseAll() — which is what Tab calls
+    /// (PlacementStateMachine). Without it the modal ignored Tab while every other panel closed.</summary>
+    public bool IsOpen => _visible;
+
     public void Toggle() { if (_visible) Hide(); else Show(); }
 
     public void Show()
@@ -787,8 +795,8 @@ public class WorkQueuePanel
         string paletteId = task?.PalletId ?? "—";
         string role = task != null ? task.RequiredRole.DisplayName() : "—";
         string taskName = task != null ? task.Type.ToString() : "—";
-        string from = task?.FromLocation ?? "—";
-        string to = task?.ToLocation ?? "—";
+        string from = OrderFromLocation(order, task, phase);
+        string to = OrderToLocation(order, task, phase);
         string operatorName = phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "—";
 
         AddRowCell(row, ShortId(paletteId), PaletteIdWidth, ColSubtleText);
@@ -805,6 +813,44 @@ public class WorkQueuePanel
         AddRowCell(row, ShortId(order.OrderId), OrderWidth, ColSubtleText);
         AddRowCell(row, FillRateText(order), FillRateWidth, FillRateColor(order), bold: true);
         return row;
+    }
+
+    /// <summary>
+    /// From/To mean different things either side of release, because the order itself does.
+    ///
+    /// An OPEN order hasn't been given a lane or a door yet — the useful answer is the pick run it's
+    /// about to become, so From/To are the first and last pick faces of its projected route
+    /// (OrderPickPath, the same slot-choice rule the selector uses).
+    ///
+    /// Once RELEASED the goods have a physical home: From is the staging lane they're in, To is the
+    /// door they leave by. Both come from the ORDER rather than the attached task — a Staged order's
+    /// OrderSelect task is already Complete, so reading the task left these blank exactly when the
+    /// location mattered most.
+    /// </summary>
+    private static string OrderFromLocation(OrderData order, WorkTask task, RowPhase phase)
+    {
+        if (phase == RowPhase.Open)
+        {
+            var path = OrderPickPath.Project(order);
+            return path.Count > 0 ? path[0] : "—";
+        }
+        if (order != null && order.AssignedDoorNumber > 0 && !string.IsNullOrEmpty(order.AssignedLane))
+            return $"{order.AssignedDoorNumber}{order.AssignedLane}";
+        return string.IsNullOrEmpty(task?.FromLocation) ? "—" : task.FromLocation;
+    }
+
+    /// <summary>See OrderFromLocation. Released orders read "Door N" rather than the bare number a
+    /// Load task carries in ToLocation, so the column reads as a destination.</summary>
+    private static string OrderToLocation(OrderData order, WorkTask task, RowPhase phase)
+    {
+        if (phase == RowPhase.Open)
+        {
+            var path = OrderPickPath.Project(order);
+            return path.Count > 0 ? path[path.Count - 1] : "—";
+        }
+        if (order != null && order.AssignedDoorNumber > 0)
+            return $"Door {order.AssignedDoorNumber}";
+        return string.IsNullOrEmpty(task?.ToLocation) ? "—" : task.ToLocation;
     }
 
     private static string AreaLabel(PalletData.AreaCategory area) => area switch
@@ -935,11 +981,12 @@ public class WorkQueuePanel
         // and releases each door separately once nothing at that door is still Loading/Loaded (see
         // OrderService.CloseOutOrders / TryReleaseDoorIfClear), so a batch spanning several customers
         // and several doors closes out exactly as correctly as one.
-        if (customers.Count > 1 && phases[0] != RowPhase.Loaded)
-        {
-            SetBottomBar(ActionMode.Mixed, "Only one customer at a time for staging and loading — a lane / trailer load holds a single customer's orders. (Close-out can span customers.)", new List<string> { "—" });
-            return;
-        }
+        // Every action here now spans customers, because none of them actually shares physical space
+        // between customers: staging gives each customer its own stage, loading sends each to the door
+        // its goods are already staged at (one trailer per door), and close-out bills each order on its
+        // own line items. The old blanket one-customer rule was about a shared lane/trailer, and that
+        // is enforced where it belongs — per stage and per door in OrderService — rather than by
+        // refusing the whole selection up front.
         string customerId = customers[0];
 
         // Available (released, waiting on a selector) and No Stock (a legacy backorder record) have no
@@ -957,6 +1004,29 @@ public class WorkQueuePanel
         if (phases[0] == RowPhase.Open)
         {
             ServiceLocator.TryGet<InventoryService>(out var inv);
+
+            // Several customers at once: there's no single stage to offer, so the target dropdown has
+            // nothing to choose and the system assigns one stage per customer instead. Show the player
+            // the exact plan it will commit — computed by the same method that commits it, so what
+            // they read is what happens.
+            if (customers.Count > 1)
+            {
+                if (!orderService.TryPlanStageSpread(_checkedOrderIds.ToList(), out var plan, out string why))
+                {
+                    SetBottomBar(ActionMode.ReleaseToStagesAuto,
+                        $"Can't release these {customers.Count} customers — {why}.",
+                        new List<string> { "—" }, enableTarget: false, enableSubmit: false);
+                }
+                else
+                {
+                    string assignments = string.Join(",   ", plan.Select(g => $"{g.CustomerName} → Stage {g.DoorNumber}"));
+                    SetBottomBar(ActionMode.ReleaseToStagesAuto,
+                        $"Release {checkedOrders.Count} order(s) across {customers.Count} customers — one stage each:   {assignments}",
+                        new List<string> { "Release" }, enableTarget: false);
+                }
+                return;
+            }
+
             // The player picks a STAGE (a door's whole set of staging lanes), not an individual lane.
             // Staging starts in that door's first lane and overflows into the next as each fills, so
             // offering 1A/1B/1C separately just asked the player to make a choice the system now makes
@@ -1025,7 +1095,25 @@ public class WorkQueuePanel
         // was released to its staging lane) — loading always targets that same door, so there's
         // nothing left to pick; a trailer is summoned automatically on submit if one isn't already
         // sitting there (see OrderService.ReleaseOrdersToLoading).
-        int targetDoor = checkedOrders[0].AssignedDoorNumber;
+        var stagedDoors = checkedOrders.Select(o => o.AssignedDoorNumber).Distinct().OrderBy(d => d).ToList();
+
+        // Several doors at once — one trailer each, so there's still nothing to choose, just more of
+        // it. Spell out which customer goes to which door rather than a bare count: this is the moment
+        // the player commits several trucks at once and it should be obvious what was included.
+        if (stagedDoors.Count > 1)
+        {
+            string assignments = string.Join(",   ", stagedDoors.Select(d =>
+            {
+                var first = checkedOrders.First(o => o.AssignedDoorNumber == d);
+                return $"{first.CustomerName} → Door {d}";
+            }));
+            SetBottomBar(ActionMode.ReleaseToLoadingAuto,
+                $"Release {checkedOrders.Count} order(s) to loading — one trailer per door:   {assignments}",
+                new List<string> { "Assign" }, enableTarget: false);
+            return;
+        }
+
+        int targetDoor = stagedDoors[0];
         _dropdownDoors = new List<int> { targetDoor };
         SetBottomBar(ActionMode.ReleaseToLoading, $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to Door {targetDoor} for loading:", new List<string> { $"Door {targetDoor}" });
     }
@@ -1040,8 +1128,12 @@ public class WorkQueuePanel
         _targetDropdown.SetValueWithoutNotify(_targetDropdown.choices[0]);
         _targetDropdown.SetEnabled(enableTarget && mode != ActionMode.None && mode != ActionMode.Mixed);
 
-        _submitButton.text = mode == ActionMode.ReleaseToLoading ? "Assign" : mode == ActionMode.CloseOut ? "Close Out" : "Submit Selection";
-        _submitButton.SetEnabled(enableSubmit && (mode == ActionMode.ReleaseToLane || mode == ActionMode.ReleaseToLoading || mode == ActionMode.CloseOut) && choices.Count > 0 && choices[0] != "—");
+        _submitButton.text = mode == ActionMode.ReleaseToLoading ? "Assign"
+                           : mode == ActionMode.ReleaseToLoadingAuto ? "Assign All"
+                           : mode == ActionMode.CloseOut ? "Close Out"
+                           : mode == ActionMode.ReleaseToStagesAuto ? "Release All"
+                           : "Submit Selection";
+        _submitButton.SetEnabled(enableSubmit && (mode == ActionMode.ReleaseToLane || mode == ActionMode.ReleaseToStagesAuto || mode == ActionMode.ReleaseToLoading || mode == ActionMode.ReleaseToLoadingAuto || mode == ActionMode.CloseOut) && choices.Count > 0 && choices[0] != "—");
         _submitButton.style.opacity = _submitButton.enabledSelf ? 1f : 0.5f;
     }
 
@@ -1053,17 +1145,40 @@ public class WorkQueuePanel
 
         bool ok;
         int billed = 0;
+        bool failAlreadyReported = false; // a branch that names its own reason suppresses the generic toast
         if (_mode == ActionMode.ReleaseToLane)
         {
             int idx = _targetDropdown.index;
             if (idx < 0 || idx >= _dropdownStageDoors.Count) return;
             ok = orderService.ReleaseOrdersToStage(orderIds, _dropdownStageDoors[idx]);
         }
+        else if (_mode == ActionMode.ReleaseToStagesAuto)
+        {
+            // No dropdown index to read — the stage per customer was decided by the planner, and is
+            // re-planned here rather than carried over from the preview so a stage taken in the
+            // meantime is caught at commit time instead of being assigned blind.
+            ok = orderService.ReleaseOrdersToStages(orderIds, out string why);
+            if (!ok)
+            {
+                UIToast.Show($"Release failed — {why}");
+                failAlreadyReported = true;
+            }
+        }
         else if (_mode == ActionMode.ReleaseToLoading)
         {
             int idx = _targetDropdown.index;
             if (idx < 0 || idx >= _dropdownDoors.Count) return;
             ok = orderService.ReleaseOrdersToLoading(orderIds, _dropdownDoors[idx]);
+        }
+        else if (_mode == ActionMode.ReleaseToLoadingAuto)
+        {
+            // Split by door inside the service — each door is its own trailer and its own Load task.
+            ok = orderService.ReleaseOrdersToLoadingBatch(orderIds, out string whyLoad);
+            if (!ok)
+            {
+                UIToast.Show($"Release to loading failed — {whyLoad}");
+                failAlreadyReported = true;
+            }
         }
         else if (_mode == ActionMode.CloseOut)
         {
@@ -1072,7 +1187,7 @@ public class WorkQueuePanel
         else return;
 
         if (ok) _checkedOrderIds.Clear();
-        else UIToast.Show("Could not submit that selection — it may have changed. Refreshing.");
+        else if (!failAlreadyReported) UIToast.Show("Could not submit that selection — it may have changed. Refreshing.");
 
         RebuildRows();
 
@@ -1126,8 +1241,8 @@ public class WorkQueuePanel
             SortColumn.Role => task != null ? task.RequiredRole.DisplayName() : "\u2014",
             SortColumn.Task => task != null ? task.Type.ToString() : "\u2014",
             SortColumn.Status => PhaseLabel(phase),
-            SortColumn.From => task?.FromLocation ?? "\u2014",
-            SortColumn.To => task?.ToLocation ?? "\u2014",
+            SortColumn.From => OrderFromLocation(order, task, phase),
+            SortColumn.To => OrderToLocation(order, task, phase),
             SortColumn.Operator => phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "\u2014",
             SortColumn.Customer => order.CustomerName,
             _ => "\u2014"

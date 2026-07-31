@@ -31,7 +31,25 @@ namespace GameCore.Inventory
         /// <summary>Raised by <see cref="CancelOrders"/> when the player calls an order off.</summary>
         public static event System.Action<OrderData> OnOrderCancelled;
 
+        /// <summary>Orders that still need something from the player or the workforce. A finished
+        /// order leaves this list the moment it goes terminal — see Archive.</summary>
         public IReadOnlyList<OrderData> ActiveOrders => _activeOrders;
+
+        /// <summary>Finished orders (Shipped or Cancelled), most recent last. Kept for reporting;
+        /// nothing operational should read this.</summary>
+        public IReadOnlyList<OrderData> OrderHistory => _orderHistory;
+
+        private readonly List<OrderData> _orderHistory = new();
+
+        /// <summary>
+        /// Hard cap on retained finished orders — oldest dropped first once exceeded.
+        ///
+        /// Bounded by COUNT rather than by age because OrderData records no closed-on day, and adding
+        /// one would mean changing OrderSnapshot's schema. Count is the honest thing to bound by here:
+        /// the reason this cap exists is save size and scan cost, both of which track the number of
+        /// records, not their age.
+        /// </summary>
+        private const int MaxArchivedOrders = 250;
 
         public void Initialize()
         {
@@ -111,6 +129,134 @@ namespace GameCore.Inventory
                 return false;
             }
             return ReleaseOrdersToLane(orderIds, doorNumber, startLane);
+        }
+
+        /// <summary>One customer's share of a multi-customer release, and the stage it will go to.</summary>
+        public class StageRelease
+        {
+            public string CustomerId;
+            public string CustomerName;
+            public List<string> OrderIds;
+            public int DoorNumber;
+        }
+
+        /// <summary>
+        /// Works out which stage each customer in a mixed selection would get, WITHOUT changing
+        /// anything — so the panel can show the player the exact plan before they commit to it, and
+        /// then commit that same plan (see ReleaseOrdersToStages). One algorithm serving both is the
+        /// point: a preview computed separately from the commit drifts out of agreement with it.
+        ///
+        /// A stage holds ONE customer at a time — staging overflows A→B→C within a stage, so a second
+        /// customer sharing it would have the first's overflow land in its lanes. Multi-customer
+        /// release therefore means one stage EACH, not a shared stage. Customers are served in the
+        /// order they appear in the selection; each takes a stage it already owns if it has one
+        /// (adding to a customer's existing staging, the natural thing) before consuming a free stage.
+        ///
+        /// All-or-nothing: if any customer can't be placed, nothing is planned and
+        /// <paramref name="failReason"/> names the customer and why.
+        /// </summary>
+        public bool TryPlanStageSpread(List<string> orderIds, out List<StageRelease> plan, out string failReason)
+        {
+            plan = new List<StageRelease>();
+            failReason = null;
+            if (orderIds == null || orderIds.Count == 0) { failReason = "nothing selected"; return false; }
+
+            ServiceLocator.TryGet<InventoryService>(out var inv);
+
+            // Group by customer, preserving the order they were selected in.
+            var byCustomer = new Dictionary<string, StageRelease>();
+            var customerOrder = new List<string>();
+            foreach (var id in orderIds)
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
+                if (order == null) { failReason = $"order {id} no longer exists"; plan = null; return false; }
+
+                if (!byCustomer.TryGetValue(order.CustomerId, out var group))
+                {
+                    group = new StageRelease
+                    {
+                        CustomerId = order.CustomerId,
+                        CustomerName = order.CustomerName,
+                        OrderIds = new List<string>()
+                    };
+                    byCustomer[order.CustomerId] = group;
+                    customerOrder.Add(order.CustomerId);
+                }
+                group.OrderIds.Add(id);
+            }
+
+            var allDoors = LaneNamingService.AllLanes().Select(l => l.door).Distinct().OrderBy(d => d).ToList();
+            var claimed = new HashSet<int>(); // stages spoken for by EARLIER customers in this same batch
+
+            foreach (var customerId in customerOrder)
+            {
+                var group = byCustomer[customerId];
+                int chosen = 0;
+
+                // Prefer a stage this customer already occupies, so their orders stay together.
+                foreach (int door in allDoors)
+                {
+                    if (claimed.Contains(door)) continue;
+                    if (StagingLaneAssignmentService.GetOwningCustomerIdForDoor(this, door) != customerId) continue;
+                    if (!StagingLaneAssignmentService.IsStageSelectableFor(this, inv, door, customerId)) continue;
+                    chosen = door;
+                    break;
+                }
+
+                if (chosen == 0)
+                {
+                    foreach (int door in allDoors)
+                    {
+                        if (claimed.Contains(door)) continue;
+                        if (!StagingLaneAssignmentService.IsStageSelectableFor(this, inv, door, customerId)) continue;
+                        chosen = door;
+                        break;
+                    }
+                }
+
+                if (chosen == 0)
+                {
+                    failReason = customerOrder.Count > 1
+                        ? $"no free stage left for {group.CustomerName} — {customerOrder.Count} customers selected but only {claimed.Count} stage(s) could be assigned"
+                        : $"no available stage for {group.CustomerName}";
+                    plan = null;
+                    return false;
+                }
+
+                claimed.Add(chosen);
+                group.DoorNumber = chosen;
+                plan.Add(group);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Releases a selection spanning any number of customers in one action, each to its own stage
+        /// (see TryPlanStageSpread for how stages are chosen). Plans the whole batch before touching
+        /// anything, so an unplaceable customer aborts the release rather than half-committing it.
+        /// </summary>
+        public bool ReleaseOrdersToStages(List<string> orderIds, out string failReason)
+        {
+            if (!TryPlanStageSpread(orderIds, out var plan, out failReason)) return false;
+
+            foreach (var group in plan)
+            {
+                // Each group re-validates on the way in (inbound trailer, lane resolution, ownership).
+                // The plan above already cleared all of that, so a refusal here means the world moved
+                // between planning and committing within this same call — report it rather than
+                // continuing and leaving the batch half-released.
+                if (ReleaseOrdersToStage(group.OrderIds, group.DoorNumber)) continue;
+
+                failReason = $"{group.CustomerName} could not be released to Stage {group.DoorNumber}";
+                Debug.LogWarning($"[OrderService] Multi-customer release aborted partway: {failReason}. " +
+                                 $"{plan.IndexOf(group)} of {plan.Count} customer(s) were already released.");
+                return false;
+            }
+
+            Debug.Log($"[OrderService] Released {orderIds.Count} order(s) across {plan.Count} customer(s): " +
+                      string.Join(", ", plan.Select(g => $"{g.CustomerName} -> Stage {g.DoorNumber}")));
+            return true;
         }
 
         public bool ReleaseOrdersToLane(List<string> orderIds, int doorNumber, string lane)
@@ -195,6 +341,8 @@ namespace GameCore.Inventory
                 order.AssignedLane = null;
                 order.Status = OrderData.OrderStatus.Cancelled;
                 OnOrderCancelled?.Invoke(order);
+                // Safe to mutate _activeOrders here: this loop walks orderIds, not the order list.
+                Archive(order);
                 cancelled++;
             }
 
@@ -247,6 +395,75 @@ namespace GameCore.Inventory
 
             Debug.Log($"[OrderService] Released {orders.Count} order(s) for {customerId} at Stage {doorNumber} " +
                       $"(lane(s) {string.Join(", ", lanes)}) to loading — {lanes.Count} load task(s) filed.");
+            return true;
+        }
+
+        /// <summary>
+        /// Releases Staged orders spanning several customers to loading in one action. Each customer's
+        /// orders go to the door their goods are already staged at — nothing is chosen here, the door
+        /// was fixed when they were released to a staging lane.
+        ///
+        /// A trailer holds ONE customer's freight, so this never puts two customers on one truck: the
+        /// batch is split by door, and a door is single-customer by construction (a stage is owned by
+        /// one customer while occupied). That invariant is re-checked rather than assumed — if a door
+        /// somehow holds two customers, this refuses instead of loading a mixed trailer.
+        ///
+        /// Validates the whole batch before releasing any of it, so one bad order can't leave half the
+        /// selection Loading and half Staged.
+        /// </summary>
+        public bool ReleaseOrdersToLoadingBatch(List<string> orderIds, out string failReason)
+        {
+            failReason = null;
+            if (orderIds == null || orderIds.Count == 0) { failReason = "nothing selected"; return false; }
+
+            var byDoor = new Dictionary<int, List<OrderData>>();
+            var doorOrder = new List<int>();
+
+            foreach (var id in orderIds)
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
+                if (order == null) { failReason = $"order {id} no longer exists"; return false; }
+                if (order.Status != OrderData.OrderStatus.Staged)
+                {
+                    failReason = $"{order.CustomerName}'s order is {order.Status}, not Staged";
+                    return false;
+                }
+                if (order.AssignedDoorNumber <= 0 || string.IsNullOrEmpty(order.AssignedLane))
+                {
+                    failReason = $"{order.CustomerName}'s order has no staging lane recorded";
+                    return false;
+                }
+
+                if (!byDoor.TryGetValue(order.AssignedDoorNumber, out var list))
+                {
+                    list = new List<OrderData>();
+                    byDoor[order.AssignedDoorNumber] = list;
+                    doorOrder.Add(order.AssignedDoorNumber);
+                }
+                list.Add(order);
+            }
+
+            foreach (int door in doorOrder)
+            {
+                var customersAtDoor = byDoor[door].Select(o => o.CustomerId).Distinct().ToList();
+                if (customersAtDoor.Count <= 1) continue;
+                failReason = $"Door {door} has orders from {customersAtDoor.Count} customers — a trailer loads one customer";
+                return false;
+            }
+
+            foreach (int door in doorOrder)
+            {
+                var ids = byDoor[door].Select(o => o.OrderId).ToList();
+                if (ReleaseOrdersToLoading(ids, door)) continue;
+
+                failReason = $"Door {door} could not be released to loading";
+                Debug.LogWarning($"[OrderService] Multi-door loading release aborted partway: {failReason}. " +
+                                 $"{doorOrder.IndexOf(door)} of {doorOrder.Count} door(s) were already released.");
+                return false;
+            }
+
+            Debug.Log($"[OrderService] Released {orderIds.Count} order(s) to loading across {doorOrder.Count} door(s): " +
+                      string.Join(", ", doorOrder.Select(d => $"{byDoor[d][0].CustomerName} -> Door {d}")));
             return true;
         }
 
@@ -404,6 +621,10 @@ namespace GameCore.Inventory
             var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
             if (order == null)
             {
+                // Shipping archives the order, so a repeat call finds it in history, not here. That's
+                // the documented no-op path now — only warn if the id is genuinely unknown.
+                if (_orderHistory.Any(o => o.OrderId == orderId)) return 0;
+
                 Debug.LogWarning($"[OrderService] ShipOrder: no active order found for {orderId}.");
                 return 0;
             }
@@ -414,6 +635,10 @@ namespace GameCore.Inventory
 
             order.Status = OrderData.OrderStatus.Shipped;
             OnOrderShipped?.Invoke(order);
+            // Terminal now — out of the working list before CloseOutOrders asks the door whether
+            // anything there is still Loading/Loaded, so a just-shipped order can't hold its own
+            // trailer at the dock.
+            Archive(order);
             Debug.Log($"[OrderService] Order {orderId} ({order.CustomerName}) shipped — billed ${revenue} for {order.TotalUnitsPicked} unit(s).");
             return revenue;
         }
@@ -430,8 +655,9 @@ namespace GameCore.Inventory
             // Fine every order that just went overdue and hasn't already been charged — a one-time
             // hit the day it first crosses its due date, not a recurring daily charge. Fires
             // regardless of Status: an order still sitting unreleased in the Work Queue panel is
-            // just as late as one that's Staged or Loading — only Shipped/Cancelled orders are
-            // naturally excluded by IsOverdue not mattering to them anymore in practice.
+            // just as late as one that's Staged or Loading. Shipped and Cancelled orders are excluded
+            // structurally now, not incidentally — they've been archived out of _activeOrders, so a
+            // delivered order can never be fined for going overdue after the fact.
             foreach (var order in _activeOrders.Where(o => o.IsOverdue(newDay) && !o.HasBeenFined))
             {
                 int fine = Mathf.RoundToInt(LateFeePercentClerk * order.TotalRevenue);
@@ -442,13 +668,42 @@ namespace GameCore.Inventory
             }
         }
 
-        /// <summary>Flatten all active orders for saving. _assignedTasks is intentionally not
-        /// persisted — nothing in the codebase writes to it yet (reserved for future picking-task
-        /// assignment tracking), so there's nothing real to snapshot.</summary>
+        /// <summary>
+        /// Moves a finished order out of the working list and into history.
+        ///
+        /// Called the instant an order goes terminal (Shipped or Cancelled) rather than swept up
+        /// later, so a closed-out order leaves the Work Queue immediately. Without this, terminal
+        /// orders accumulated in _activeOrders forever — 67 in one observed session, nearly all
+        /// finished — and every one of them was re-scanned by WorkQueuePanel.BuildLiveSignature four
+        /// times a second and re-serialised into every save. Harmless at a few hand-made orders per
+        /// session; compounding without limit once orders arrive on a schedule.
+        ///
+        /// Safe to call from a loop over any collection EXCEPT _activeOrders itself.
+        /// </summary>
+        private void Archive(OrderData order)
+        {
+            if (order == null) return;
+
+            _activeOrders.Remove(order);
+            _orderHistory.Add(order);
+
+            // Oldest-first trim: history is append-ordered, so index 0 is the longest-finished.
+            int excess = _orderHistory.Count - MaxArchivedOrders;
+            if (excess > 0) _orderHistory.RemoveRange(0, excess);
+        }
+
+        /// <summary>Flatten orders for saving — active first, then history, in one list. Both go into
+        /// the same OrderSnapshot list ON PURPOSE: Status already distinguishes them, so Import can
+        /// sort them back out, and the save schema needs no new field. That also means an existing
+        /// save full of un-retired terminal orders migrates itself on the next load.
+        ///
+        /// _assignedTasks is intentionally not persisted — nothing in the codebase writes to it yet
+        /// (reserved for future picking-task assignment tracking), so there's nothing real to
+        /// snapshot.</summary>
         public List<OrderSnapshot> Export()
         {
             var list = new List<OrderSnapshot>();
-            foreach (var o in _activeOrders)
+            foreach (var o in _activeOrders.Concat(_orderHistory))
             {
                 var snap = new OrderSnapshot
                 {
@@ -481,12 +736,17 @@ namespace GameCore.Inventory
             return list;
         }
 
-        /// <summary>Restores active orders from a save file. Deliberately does NOT fire
-        /// OnOrderArrived — that event exists to notify UI/employees of a genuinely NEW order,
-        /// and a restored order isn't new.</summary>
+        /// <summary>Restores orders from a save file, sorting each into the working list or history
+        /// by its saved Status. Deliberately does NOT fire OnOrderArrived — that event exists to
+        /// notify UI/employees of a genuinely NEW order, and a restored order isn't new.
+        ///
+        /// This split is also the migration path for saves written before archiving existed: their
+        /// terminal orders were all stored as "active", and land in history on the next load without
+        /// anything having to rewrite the file.</summary>
         public void Import(List<OrderSnapshot> entries)
         {
             _activeOrders.Clear();
+            _orderHistory.Clear();
             _assignedTasks.Clear();
             if (entries == null) return;
 
@@ -508,11 +768,20 @@ namespace GameCore.Inventory
                     };
                     order.LineItems.Add(li);
                 }
-                _activeOrders.Add(order);
+                bool terminal = order.Status == OrderData.OrderStatus.Shipped
+                             || order.Status == OrderData.OrderStatus.Cancelled;
+                if (terminal) _orderHistory.Add(order);
+                else _activeOrders.Add(order);
             }
 
-            if (_activeOrders.Count > 0)
-                Debug.Log($"[OrderService] Restored {_activeOrders.Count} active order(s).");
+            // Trim once, after the whole file is in, rather than per-add: a legacy save can carry far
+            // more than the cap and the oldest are the ones to drop.
+            int excess = _orderHistory.Count - MaxArchivedOrders;
+            if (excess > 0) _orderHistory.RemoveRange(0, excess);
+
+            if (_activeOrders.Count > 0 || _orderHistory.Count > 0)
+                Debug.Log($"[OrderService] Restored {_activeOrders.Count} active order(s) " +
+                          $"and {_orderHistory.Count} finished order(s) in history.");
         }
 
         /// <summary>
