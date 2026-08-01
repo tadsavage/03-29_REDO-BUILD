@@ -320,6 +320,8 @@ public class PlacementSystem : MonoBehaviour
             save.orders = orderService.Export();
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderArrivalService orderArrivalService))
             save.contracts = orderArrivalService.Export();
+        if (ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockScheduleService))
+            save.dockAppointments = dockScheduleService.Export();
 
         if (ToolsWindowController.Instance != null)
         {
@@ -775,6 +777,10 @@ public class PlacementSystem : MonoBehaviour
             orderService.Import(save.orders);
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderArrivalService orderArrivalRestore))
             orderArrivalRestore.Import(save.contracts);
+        // After orderService.Import: appointments reference order ids, and importing them against an
+        // already-restored order list keeps the two consistent from the first frame.
+        if (ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockScheduleRestore))
+            dockScheduleRestore.Import(save.dockAppointments);
 
         if (save.cameraData != null && freeLookCamera != null)
             freeLookCamera.SetState(save.cameraData);

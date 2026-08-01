@@ -188,8 +188,9 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         // Inbound Simulator
         Wire<Button>("btn-spawn-delivery", root, b => b.clicked += SpawnInboundTruck);
         Wire<Button>("btn-create-test-pallets", root, b => b.clicked += CreateTestPallets);
-        Wire<Button>("btn-create-test-order", root, b => b.clicked += CreateTestOrder);
-        Wire<Button>("btn-spawn-outbound-truck", root, b => b.clicked += SpawnOutboundTruckDebug);
+        // btn-create-test-order / btn-spawn-outbound-truck are no longer in this window's UXML —
+        // the Contracts panel's Customers tab calls CreateTestOrder()/SpawnOutboundTruckDebug()
+        // directly through ToolsWindowController.Instance.
         Wire<Button>("btn-clear-scene", root, b => b.clicked += ClearScene);
         _shipmentsList = root.Q("shipments-list");
 
@@ -1570,7 +1571,11 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     // Debug shortcut: generate a batch of 3-5 randomized orders for one random customer (3-5 SKUs,
     // 5-10 cases per line) and register them with OrderService, Open and awaiting release — outbound
     // analog of SpawnInboundTruck. See OrderGenerator.
-    private void CreateTestOrder()
+    //
+    // PUBLIC because its button now lives on the Contracts panel's Customers tab rather than in this
+    // window. It stays HERE rather than moving wholesale because the CustomerRegistry it needs is a
+    // serialized field on this component — a panel built in code has no Inspector to assign one from.
+    public void CreateTestOrder()
     {
         if (_customerRegistry == null)
         {
@@ -1610,7 +1615,87 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     // for un-parented OutboundPalletBuilder instances and reading back which door's lane they're
     // sitting in). D1's "real" trigger (automatic, tied to order due dates) is a later polish pass;
     // for now this mirrors every other milestone's debug-triggered testing.
-    private void SpawnOutboundTruckDebug()
+    /// <summary>
+    /// Debug: put one new signable customer offer on the Contracts panel's Customers tab.
+    ///
+    /// Stands in for the real thing until reputation exists — offers are meant to arrive over time at
+    /// a rate set by how well the business is run (late orders, cancellations, drivers left waiting,
+    /// mispicks, damaged cases) and by difficulty. This just forces one to appear now.
+    ///
+    /// Prefers a customer with no offer already on the board so the list doesn't fill with duplicates
+    /// of one company; falls back to any customer once the roster is exhausted (the ContractId still
+    /// differs, so they stack as separate offers rather than colliding).
+    ///
+    /// Lives here rather than on the panel because the CustomerRegistry is a serialized field on this
+    /// component and a code-built panel has no Inspector to assign one from.
+    /// </summary>
+    /// <returns>Company name of the offer added, or null if nothing could be generated.</returns>
+    public string CreateTestCustomerOffer()
+    {
+        if (_customerRegistry == null || _customerRegistry.customers.Count == 0)
+        {
+            Debug.LogError("[DevConsole] No CustomerRegistry assigned on ToolsWindowController.");
+            return null;
+        }
+        if (!ServiceLocator.TryGet<GameCore.Inventory.OrderArrivalService>(out var arrivals) || arrivals == null)
+        {
+            Debug.LogError("[DevConsole] OrderArrivalService not available.");
+            return null;
+        }
+
+        var alreadyOffered = new System.Collections.Generic.HashSet<string>();
+        foreach (var c in arrivals.Catalog)
+            if (c?.Customer != null) alreadyOffered.Add(c.Customer.CustomerId);
+
+        var pool = _customerRegistry.customers
+            .Where(c => c != null && !alreadyOffered.Contains(c.CustomerId)).ToList();
+        if (pool.Count == 0)
+            pool = _customerRegistry.customers.Where(c => c != null).ToList();
+        if (pool.Count == 0) return null;
+
+        var customer = pool[UnityEngine.Random.Range(0, pool.Count)];
+
+        // One in four is a one-off wholesale drop; the rest are standing accounts. Terms are rolled so
+        // successive presses produce genuinely different offers to compare, not the same card twice.
+        bool wholesale = UnityEngine.Random.value < 0.25f;
+        int ordersMin = UnityEngine.Random.Range(1, 4);
+        int casesMin = UnityEngine.Random.Range(4, 12);
+        int lineMin = UnityEngine.Random.Range(2, 5);
+
+        var contract = GameCore.Inventory.ContractData.CreateRuntime(
+            contractId: $"Contract_Dev_{customer.CustomerId}_{++_devOfferCounter}",
+            customer: customer,
+            pitch: wholesale
+                ? "One trailer, full pallets, one payment. No case picking."
+                : "A new account looking for a home. Terms are what they are — take it or leave it.",
+            kind: wholesale ? GameCore.Inventory.ContractKind.OneOffWholesale
+                            : GameCore.Inventory.ContractKind.Recurring,
+            palletCount: UnityEngine.Random.Range(6, 13),
+            ordersPerDayMin: ordersMin,
+            ordersPerDayMax: ordersMin + UnityEngine.Random.Range(0, 3),
+            lineItemsMin: lineMin,
+            lineItemsMax: lineMin + UnityEngine.Random.Range(1, 4),
+            casesPerLineMin: casesMin,
+            casesPerLineMax: casesMin + UnityEngine.Random.Range(2, 10),
+            cutoffHour: UnityEngine.Random.Range(14, 20),
+            leadTimeDays: UnityEngine.Random.Range(1, 4),
+            payRateMultiplier: Mathf.Round(UnityEngine.Random.Range(0.75f, 1.45f) * 100f) / 100f,
+            lateFeePercent: UnityEngine.Random.Range(0.10f, 0.40f));
+
+        if (!arrivals.AddOffer(contract))
+        {
+            Debug.LogWarning($"[DevConsole] Offer {contract.ContractId} already on the board.");
+            return null;
+        }
+
+        Debug.Log($"[DevConsole] New offer: {customer.CompanyName} ({contract.Title}).");
+        return customer.CompanyName;
+    }
+
+    private int _devOfferCounter;
+
+    // PUBLIC for the same reason as CreateTestOrder above — driven from the Customers tab now.
+    public void SpawnOutboundTruckDebug()
     {
         if (_truckYard == null) { Debug.LogError("[DevConsole] TruckYardManager not found."); return; }
         var grid = _grid != null ? _grid : FindAnyObjectByType<PlacementGrid>();

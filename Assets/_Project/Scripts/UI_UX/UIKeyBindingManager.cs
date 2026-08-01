@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -54,6 +55,16 @@ public class UIKeyBindingManager : MonoBehaviour
 
     private Dictionary<int, IUIPanel> _uiPanels = new();
     private int _currentOpenKey = -1;  // -1 = none open
+
+    /// <summary>
+    /// Panels with no hotkey of their own that must still close on Tab — sub-popups opened by clicking
+    /// something inside another panel (e.g. the Work Queue's Fill Rate shorts readout).
+    ///
+    /// Kept separate from _uiPanels because that dictionary is keyed by hotkey number and only has
+    /// nine slots, all spoken for. An auxiliary is never the "currently open" panel for exclusivity
+    /// purposes either — it floats over whatever opened it rather than replacing it.
+    /// </summary>
+    private readonly List<IUIPanel> _auxiliaryPanels = new();
 
     private void Awake()
     {
@@ -156,9 +167,41 @@ public class UIKeyBindingManager : MonoBehaviour
         _currentOpenKey = keyNumber;
     }
 
+    /// <summary>Register a hotkey-less popup so Tab still closes it. See _auxiliaryPanels.</summary>
+    public void RegisterAuxiliary(IUIPanel panel)
+    {
+        if (panel == null || _auxiliaryPanels.Contains(panel)) return;
+        _auxiliaryPanels.Add(panel);
+    }
+
+    public void UnregisterAuxiliary(IUIPanel panel)
+    {
+        if (panel != null) _auxiliaryPanels.Remove(panel);
+    }
+
+    /// <summary>Closes any open auxiliary popup. Returns true if it closed at least one — callers use
+    /// that to swallow the keypress, so Escape dismisses the popup INSTEAD of also opening the pause
+    /// menu behind it.</summary>
+    public bool CloseAuxiliaries()
+    {
+        bool closedAny = false;
+        foreach (var panel in _auxiliaryPanels)
+        {
+            if (panel == null || !panel.IsOpen) continue;
+            panel.Hide();
+            closedAny = true;
+        }
+        return closedAny;
+    }
+
+    /// <summary>True while any hotkey-less popup is showing.</summary>
+    public bool AnyAuxiliaryOpen => _auxiliaryPanels.Any(p => p != null && p.IsOpen);
+
     /// <summary>Close all keybind UIs.</summary>
     public void CloseAll()
     {
+        CloseAuxiliaries();
+
         foreach (var panel in _uiPanels.Values)
         {
             if (panel != null && panel.IsOpen)

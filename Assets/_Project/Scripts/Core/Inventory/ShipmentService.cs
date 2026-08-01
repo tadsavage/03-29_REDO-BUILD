@@ -19,16 +19,27 @@ namespace GameCore.Inventory
 
         public IReadOnlyList<ShipmentData> PendingShipments => _pendingShipments;
 
+        private EventManager _eventManager;
+
         public void Initialize()
         {
             _yardManager = Object.FindAnyObjectByType<TruckYardManager>();
             _timeService = ServiceLocator.Get<SimulationTimeService>();
+
+            // Backstop for the per-departure purge: a truck destroyed mid-route (deleted, scene
+            // wiped, domain reload) never reaches BeginDeparture, so its PO would otherwise sit in
+            // the list forever.
+            _eventManager = EventManager.Instance;
+            _eventManager?.Subscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
         }
 
         public void Shutdown()
         {
+            _eventManager?.Unsubscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
             _pendingShipments.Clear();
         }
+
+        private void OnDayChanged(string eventId, int newDay) => PurgeCompleted();
 
         /// <summary>Wipes the PO list without tearing down the service — used by the Dev Console's
         /// "Clear Scene" button so leftover test POs don't keep spawning trucks against a scene
@@ -36,6 +47,32 @@ namespace GameCore.Inventory
         public void ClearAll()
         {
             _pendingShipments.Clear();
+        }
+
+        /// <summary>
+        /// Drops finished POs (Departed / Received / Cancelled) out of the pending list.
+        ///
+        /// The list is called PENDING and a departed truck's PO is by definition not pending — but
+        /// nothing ever removed them, so the Dev Console's inbound section accumulated a red
+        /// "[Departed]" row per truck for the life of the save, and every one was re-serialised on
+        /// every save. Same class of leak as the terminal orders OrderService.Archive now retires.
+        ///
+        /// Safe: a truck holds a direct reference to its own ShipmentData, so removing it from this
+        /// list can't strand a truck mid-route. Called when a truck departs, when a new PO is created,
+        /// at each day roll, and once on load to clean out existing saves.
+        /// </summary>
+        /// <returns>How many were removed.</returns>
+        public int PurgeCompleted()
+        {
+            int removed = _pendingShipments.RemoveAll(s =>
+                s == null ||
+                s.Status == ShipmentData.ShipmentStatus.Departed ||
+                s.Status == ShipmentData.ShipmentStatus.Received ||
+                s.Status == ShipmentData.ShipmentStatus.Cancelled);
+
+            if (removed > 0)
+                Debug.Log($"[ShipmentService] Retired {removed} finished PO(s); {_pendingShipments.Count} still pending.");
+            return removed;
         }
 
         /// <summary>Creates a new Purchase Order and schedules a truck arrival.</summary>
@@ -75,6 +112,12 @@ namespace GameCore.Inventory
 
                 _yardManager.SpawnNextTruck(shipment);
                 Debug.Log($"[ShipmentService] Spawned truck for PO {shipment.PONumber}");
+
+                // Inbound and outbound share the same physical doors, so an arriving PO has to show
+                // up on the dock schedule and consume a slot — otherwise the player books every door
+                // for outbound at 08:00 and this truck arrives with nowhere to go.
+                if (ServiceLocator.TryGet(out DockScheduleService dockSchedule))
+                    dockSchedule.BookInboundNow(shipment.SupplierId, shipment.SupplierName);
             }
             else
             {
@@ -142,6 +185,10 @@ namespace GameCore.Inventory
                 }
                 _pendingShipments.Add(shipment);
             }
+
+            // Existing saves are full of finished POs from before they were ever retired — this is
+            // what actually clears the backlog out of the Dev Console's inbound list on first load.
+            PurgeCompleted();
 
             if (_pendingShipments.Count > 0)
                 Debug.Log($"[ShipmentService] Restored {_pendingShipments.Count} pending shipment(s).");

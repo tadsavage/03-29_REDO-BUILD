@@ -1125,10 +1125,250 @@ it again.
 2. Full-pallet fulfilment mechanic (the big one).
 3. Wholesale offers should REFRESH rather than being permanently spent once delivered (agreed, not
    built).
-4. `ContractData.LateFeePercent` not enforced by the fine sweep.
+4. ~~`ContractData.LateFeePercent` not enforced by the fine sweep.~~ **FIXED 2026-08-01** — see below.
 5. `ShipOrder` bills `QuantityPicked` with no check that pallets actually made it onto a truck — this
    is what let the lane-straddle bug stay silent.
 6. Nothing guards against multiple outbound trucks per door.
 7. Dev HUD card sits to the RIGHT of the utility buttons; may want moving into the gap before them.
 8. Only 3 `ContractData` assets exist (Starter / HighVolume / WholesaleTrailer). A fuller spread
    across the 26 customers still needs authoring.
+
+---
+
+## Session 2026-08-01 — Contracts panel becomes three tabs; DockScheduleService (appointment book)
+
+**Live-verified in Play mode against Tad's real save** (5 outbound doors, 3 contracts, 2 running
+accounts + 1 delivered wholesale). Compiles clean; every claim below was measured, not inferred.
+Only the legend reposition (last edit) is unproven — a one-line move of an already-rendered element.
+
+### `ContractsPanel` — Offers / Accounts / Schedule (key `6`)
+
+Retitled **OUTBOUND CONTRACTS**. Customer icons (`CustomerData.Icon`) on all three tabs: 72px on
+Offers cards, 44px on Accounts rows, **18px immediately left of the name** on Schedule chips.
+
+- **Offers** — `AvailableOffers` ONLY. Previously the tab listed everything and greyed out what was
+  taken, so a delivered wholesale deal squatted there permanently at 45% opacity. An offer you can act
+  on and an account you're being judged on are different objects.
+- **Accounts** — three stat tiles (committed cases/day, orders delivered, on-time %) over one row per
+  running account, then a `COMPLETED DEALS` group for spent wholesale. Per-row: day held, next drop
+  time, shipped/late counts, fees paid, earned-to-date, and the only **Cancel** button in the game
+  (`OrderArrivalService.Cancel` existed and nothing called it). Cancelling stops FUTURE arrivals only
+  — orders already on the board keep their due dates and still fine you.
+- **Schedule** — 12 two-hour block rows × N door columns, day pager (−2/+7 around today), legend,
+  live capacity readout. Past blocks dim. Full blocks flag `FULL` in red.
+
+**Interaction is select-then-place, not drag.** Click a chip to pick it up, click any open slot to
+drop it, click the chip again to abandon. Pointer capture inside a `ScrollView` fights the scroller,
+and two-click also works when source and target blocks aren't both on screen.
+
+**Chip layout gotcha (found by screenshotting, not by reading):** name + door in ONE label meant a
+long company name pushed `· D3` off the end under `overflow: Hidden`. Name now flexes and clips; the
+door number is a separate `flexShrink = 0` element. The door is the one fact on the chip you can't
+infer from anything else.
+
+**The footer bug from the screenshot.** `Signed.Count(s => s.Active)` counted a delivered wholesale as
+a running account (reported 3 when 2 were). `Active` means "TAKEN", nothing more — a spent one-off
+stays Active forever, which is what keeps the Sign button off its card. New
+`OrderArrivalService.RunningAccounts` / `DeliveredWholesale` split it properly. Measured live: 2 and 1.
+
+### `DockScheduleService` (new `IService`, `Core/Inventory/`)
+
+**A block reserves a TRAILER AT A DOOR, not paperwork.** That distinction is the whole design. A
+contract's `CutoffHour` still governs when orders ARRIVE on the Work Queue; this decides when the
+truck to carry them shows up. Door count only constrains anything if the thing being counted
+physically occupies a door.
+
+- `BlockHours = 2`, `BlocksPerDay = 12`. `DockAppointment` = day + block + door + kind + customer +
+  contract + order ids.
+- **Capacity = outbound-capable doors, not all doors.** A door counts only if ≥1 of its shipping lanes
+  isn't `LaneUsage.Inbound` (default `Both`, so every door with lanes counts until told otherwise).
+  Counting bare doors would let the player "fix" congestion by buying a door they can't stage into.
+  Recomputed per call — lanes are placed/deleted through the build FSM at any moment.
+- **Inbound POs consume the same capacity.** `ShipmentService.TrySpawnTruck` now calls
+  `BookInboundNow`. A dock door doesn't know which way a trailer faces; without this the player books
+  every door for outbound at 08:00 and a PO arrives with nowhere to go.
+- **Auto-placement on `OrderService.OnOrderArrived`** — first free block from now, never past the
+  order's due day (an appointment after the deadline looks handled while guaranteeing the fine).
+  Orders sharing a customer AND contract share one trailer; a different contract gets its own, so a
+  wholesale drop can't ride on the case-pick trailer.
+- Persisted via `SaveData.dockAppointments`; old saves load with an empty schedule and refill.
+
+**Measured live:** 5 bookings filled a block and were assigned doors 1–5 distinctly; the 6th was
+refused with `"08:00–10:00 is full — all 5 door(s) are booked."`; a move into a full block failed and
+left the original in place (no data loss); 5 real orders auto-placed into exactly 3 trailers.
+
+### Late fees are real now
+
+`OrderData.LateFeePercent` is stamped from `ContractData.LateFeePercent` at order creation and
+`OrderService.OnDayChanged` charges THAT instead of the flat `LateFeePercentClerk` 25%. Copied rather
+than looked up at fine time so the fine reflects the terms accepted when the order arrived, and so
+`OrderService` needs no dependency on the contract system. **0 in a save = unset → falls back to 25%**,
+so legacy orders behave exactly as before.
+
+New `OrderData` fields: `ContractId`, `LateFeePercent`, `IsWholesale` (all round-tripped in
+`OrderSnapshot`). New `OrderService.OnOrderFined(OrderData, int)` event.
+
+### Per-contract performance is accumulated, not recomputed
+
+`SignedContract` gained `OrdersDelivered` / `OrdersLate` / `RevenueEarned` / `LateFeesPaid`, fed by
+`OrderArrivalService` subscribing to `OnOrderShipped` / `OnOrderFined`. **Accumulated deliberately:**
+`OrderService.OrderHistory` is capped at 250 and trims oldest-first, so a recomputed "earned to date"
+would silently FALL over a long game as early orders aged out. Attribution matches on `ContractId`
+only, never falling back to `CustomerId` — one customer may hold several contracts and a wrong
+attribution is worse than none. `RevenueEarned` uses billed `QuantityPicked`, matching `ShipOrder`.
+
+### Tab polish + dev-button move (same day, second pass)
+
+- **Tabs redrawn as folder tabs.** First pass drew inactive tabs as bare transparent text and they
+  read as a subtitle — nothing suggested there was anything behind them. Now every tab has a card
+  face, outline and rounded top corners; the active one is orange, **taller (38 vs 32), and sits 2px
+  lower with NO bottom border** so it breaks through the divider and joins the content below. That
+  break is what sells it — colour alone just looks like a highlighted word. Counts moved into their
+  own dark pill (`Schedule 4/60` was scanning as a four-word title). Tab bar is `Align.FlexEnd` so
+  tabs sit ON the divider regardless of individual height.
+- **"Offers" tab renamed "Customers"** (enum `Tab.Customers`, `BuildCustomers`). Contracts will
+  eventually appear over time rather than sit in a fixed list, so it's a customer board you watch,
+  not a catalogue you shop.
+- **Dev order triggers moved** out of the Tools window's OUTBOUND SIMULATOR section (deleted from
+  `ToolsWindow.uxml`, `Wire` calls removed) onto a small muted **DEV** cluster at the right of the
+  Contracts tab row. `CreateTestOrder()` / `SpawnOutboundTruckDebug()` are now **public** on
+  `ToolsWindowController` and called through `ToolsWindowController.Instance`; they stay on that
+  component because the `CustomerRegistry` they need is a serialized Inspector field, which a
+  code-built panel has no way to supply. The cluster hides itself when `Instance` is null.
+  **Do NOT remove the Dev Console's other buttons** — only the two outbound ones moved.
+
+### Dev HUD sizing — the real cause was flex-shrink, not the button
+
+Reported as "the FPS element still looks wrong." Measured: the card asked for 310px and **resolved to
+262** — the bottom bar is a flex row and was squeezing it, while the fixed-width labels inside refused
+to shrink, so the preset button spilled **39px past the card's right edge**. It looked like a button
+sizing bug and was a container bug.
+
+- `_panel.style.flexShrink = 0` (the fix), card width 300, and the inner widths are now named
+  constants that must sum within it: `CardPadding(12) + FpsLabelWidth(100) + FpsLabelGap(12) +
+  StackWidth(160) + CardPadding(12) = 296`. Change one, check the sum.
+- FPS font **34 → 29** (~15% down). Cell label `marginBottom` 6 → 10 to lift it clear. Preset button
+  is now a fixed 160×40 with `whiteSpace = Normal` so "Mode: Toaster" wraps instead of overrunning.
+- Verified after the fix: card 300px wide, button fits with 13px spare, 12px gap to the utility row,
+  28px clear of the bar's right edge — nothing else on the bar moved.
+
+### Third pass (same day) — PO purge, toast z-order, TEST CUSTOMER
+
+**Finished POs are retired now.** `ShipmentService.PendingShipments` never dropped anything, so every
+departed truck left a red `[Departed]` row in the Dev Console's inbound list forever and every one was
+re-serialised into every save — the same leak `OrderService.Archive` fixed for orders. New
+`ShipmentService.PurgeCompleted()` removes Departed/Received/Cancelled, called from
+`TruckController.BeginDeparture` (immediate — the row vanishes as the truck pulls out), from
+`OnDayChanged` (backstop for trucks destroyed mid-route, which never reach BeginDeparture), and at the
+end of `Import()` (**this is what clears an existing save's backlog on first load**). Safe because a
+truck holds a direct `AssignedShipment` reference, not a list lookup. Verified: 0 finished POs left in
+the list after loading Tad's save.
+
+**Toast z-order — the previous fix was raising the wrong element.** `ToastLabel` is NESTED inside a
+wrapper in the UXML, so `_toast.BringToFront()` only reordered it against its siblings *inside that
+wrapper*; the wrapper itself stayed where it was in the root's child list, still under the panels. New
+`RaiseAboveEverything()` walks the whole ancestor chain calling `BringToFront()` at each level.
+Measured after the fix: common ancestor `TopBar-container` (21 children), toast branch at index 20 vs
+modal branch at 18 — and confirmed visually with a toast drawn over the open Contracts modal.
+Deliberately NOT reparenting the label to the root: the wrapper may carry USS that positions it.
+
+**`TEST CUSTOMER` replaces `TEST ORDER`, and it now adds an OFFER, not orders.** Tad's call. It puts
+one new signable customer on the Customers tab — the debug stand-in for reputation-driven arrival.
+- `ContractData.CreateRuntime(...)` — new static factory that builds a ContractData in memory instead
+  of from an authored asset. **This is the API the reputation system will use**; the dev button is
+  just its first caller. `contractId` becomes `.name`, because `ContractId => name`.
+- `OrderArrivalService.AddOffer(contract)` — appends to the catalog, refusing a duplicate ContractId
+  rather than shadowing (two entries under one id would make `GetContract` depend on list order).
+- `ToolsWindowController.CreateTestCustomerOffer()` — picks a customer with no offer already on the
+  board, rolls varied terms (1-in-4 wholesale), returns the company name. Lives there because the
+  `CustomerRegistry` is a serialized field on that component.
+- **CAVEAT, documented in code:** a runtime contract isn't in the `ContractRegistry`, so it does NOT
+  survive save/load. Signing one and reloading leaves a `SignedContract` whose id resolves to nothing;
+  `OnHourChanged` already warns and skips. Fine for a debug trigger — the real feature must persist
+  generated offers alongside `SaveData.contracts`.
+- The DEV cluster moved out of the tab row into the **Customers tab content** (top-right, beside the
+  intro text). It was on screen while reading the Schedule, where it means nothing.
+
+Verified live: two presses produced `The Cracker Barrel Caravan` and `Puff & Stuff Pastries` with
+genuinely different terms (x1.44 pay / 34% fee / 98 cases/day vs x1.38 / 23% / 182), both immediately
+signable, tab badge going 0 → 2.
+
+**Dev HUD, second pass:** FPS 29 → **26**, and the Cell label is now `MiddleCenter` inside its
+`StackWidth` box so it sits centred over the preset button instead of jammed left.
+
+### Fourth pass — Fill Rate shorts popup + Schedule horizontal scroll
+
+**`OrderShortsPopup`** (`UI_UX/OrderShortsPopup.cs`) — click the Work Queue's **Fill Rate** cell to see
+what was CUT. "16 / 23" says an order shipped short but not WHAT was short, and that's the
+operationally useful part: one SKU 8 cases light is a different problem from eight lines 1 case light.
+Lists only lines with a shortfall (a fully-picked line isn't "cut" and listing it buries the two that
+were), sorted worst-first, with a footer totalling lines short / cases cut / revenue not billed.
+
+- Floats over the Work Queue rather than replacing it — it's an inspector for a row you're still
+  reading. Draggable by its title bar, red ✕ top-right.
+- The Fill Rate cell is underlined by hover-colour and carries a tooltip; an unmarked clickable cell
+  in a table of dead ones is a hidden feature. `evt.StopPropagation()` so the click can't reach the
+  row checkbox.
+- Built lazily on first click (`_shortsPopup ??= new ...`) — most sessions never open it.
+
+**Closing it needed a new concept: AUXILIARY panels.** `UIKeyBindingManager._uiPanels` is keyed by
+hotkey number and all nine slots are taken, but Tab (→ `CloseAll`) only iterates that registry. New
+`RegisterAuxiliary` / `UnregisterAuxiliary` / `CloseAuxiliaries()` / `AnyAuxiliaryOpen` handle
+hotkey-less sub-popups: `CloseAll` now closes them first, and `TopBarUI`'s escape chain calls
+`CloseAuxiliaries()` at the TOP — **its bool return is what stops the same Escape falling through and
+opening the pause menu behind the popup.** Any future sub-popup should register the same way.
+
+**Schedule tab scrolls horizontally with a stationary frame.** Two changes:
+1. New `_tabHeader` element in the modal, **between the tab bar and the ScrollView**. The Schedule
+   tab's day switcher and colour legend go there, so they don't slide away when the grid scrolls.
+   Other tabs leave it empty and it collapses. Measured: scrolling right 200px moved the header 0px.
+2. `_content.mode` flips to `VerticalAndHorizontal` on the Schedule tab only, AND the grid's cells
+   became **fixed widths with flexShrink 0** (`TimeColWidth 92 / SlotWidth 168 / FullFlagWidth 44`).
+   **This second half is the load-bearing one:** slots were `flexGrow 1 / flexBasis 0`, so they shared
+   whatever width existed and squeezed to nothing rather than overflowing — the horizontal scrollbar
+   could never appear no matter how many doors there were. Verified at 5 doors: row 1013px vs 978px
+   viewport, h-scroller displayed.
+
+Verified live end-to-end: popup listed exactly the two short lines out of three (Canned Tomato 12 cut,
+Bread 8 cut, Water fully picked and correctly omitted), footer `2 line(s) short · 20 case(s) cut ·
+$220 not billed` matching by hand; Tab and Escape both closed it; a 429-case order scrolled within the
+popup's own list.
+
+### Contract arrival by REPUTATION — designed 2026-08-01, NOT built
+
+Tad's direction for how contracts should appear once the loop is real. Recording it here so the
+Customers tab gets built toward it rather than away from it.
+
+- Offers **appear over time, semi-randomly**, rather than all being present from turn one. The
+  Customers tab becomes something you check, and a good offer is a moment.
+- **Frequency scales with the business's reputation AND game difficulty.** A well-run DC attracts more
+  and better customers; a bad one dries up. Difficulty scales the curve.
+- Reputation inputs Tad named, in his order: **late orders · cancelled orders · drivers left waiting
+  to be offloaded at inbound · mispicked orders · damaged cases.** The last two don't exist yet.
+- Everything the first three need is already recorded: `SignedContract.OrdersLate` /
+  `OrdersDelivered` (per-account and summable), `OrderService.OnOrderCancelled`, and inbound wait is
+  derivable from `TruckController`'s dock lifecycle (`AwaitingOffload` → `CompleteOffload`).
+- The natural shape is a `ReputationService : IService` holding a rolling score, persisted like
+  `SignedContract`'s stats are, driving how often `OrderArrivalService.AddOffer` fires and how good
+  the rolled terms are. **Not started — but both halves of the plumbing now exist**
+  (`ContractData.CreateRuntime` + `AddOffer`), and `ToolsWindowController.CreateTestCustomerOffer`
+  is a working reference implementation of the roll.
+- **Persistence is the one real gap.** Generated offers vanish on reload (see the caveat above). Needs
+  a `List<ContractSnapshot>`-style store of generated offers in `SaveData` before this ships.
+
+### Still open after this session
+
+1. **Nothing makes a truck actually show up for its appointment.** The book is real, persisted, and
+   capacity-enforced, but `TruckYardManager` doesn't read it — outbound trailers still arrive however
+   they did before. That wiring is the next step and is where the schedule starts to bite.
+2. Full-pallet fulfilment (unchanged, still the big one) — `OrderData.IsWholesale` is now the flag it
+   will key off.
+3. Wholesale offers should REFRESH rather than being permanently spent (unchanged). Delivered deals at
+   least no longer clutter Offers — they live under Accounts → Completed deals.
+4. Accounts aggregates per CONTRACT. One customer holding two contracts shows as two rows. Correct,
+   but if that ever looks wrong it's the place to group.
+5. `ScheduleDaysBack = 2` matches `DockScheduleService.KeepPastDays`; changing one needs the other.
+6. Reputation-gated contract arrival (designed above, not built) — the thing that makes the Customers
+   tab worth opening more than once.
+7. Only 3 `ContractData` assets, so the Customers tab currently shows its empty state on Tad's save.
+   Reputation-driven arrival will need a much deeper catalogue across the 26 authored customers.

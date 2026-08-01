@@ -811,9 +811,38 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, operatorName, OperatorWidth, ColTitleText);
         AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText);
         AddRowCell(row, ShortId(order.OrderId), OrderWidth, ColSubtleText);
-        AddRowCell(row, FillRateText(order), FillRateWidth, FillRateColor(order), bold: true);
+        var fill = AddRowCell(row, FillRateText(order), FillRateWidth, FillRateColor(order), bold: true);
+        MakeFillRateClickable(fill, order);
         return row;
     }
+
+    /// <summary>
+    /// Turns a Fill Rate cell into a button for the shorts breakdown. "16 / 23" says an order shipped
+    /// short but not WHAT was short, and that's the operationally useful part — one SKU 8 cases light
+    /// is a different problem from eight lines 1 case light.
+    ///
+    /// Underlined and hover-highlighted so it reads as clickable; the rest of the row isn't, and an
+    /// unmarked clickable cell in a table of dead ones is just a hidden feature.
+    /// </summary>
+    private void MakeFillRateClickable(Label cell, OrderData order)
+    {
+        if (cell == null || order == null) return;
+
+        Color baseColor = FillRateColor(order);
+        cell.tooltip = "Click to see what was cut from this order.";
+        cell.RegisterCallback<MouseEnterEvent>(_ => cell.style.color = new StyleColor(ColOrangeText));
+        cell.RegisterCallback<MouseLeaveEvent>(_ => cell.style.color = new StyleColor(baseColor));
+        cell.RegisterCallback<ClickEvent>(evt =>
+        {
+            _shortsPopup ??= new OrderShortsPopup(_overlay.parent ?? _overlay);
+            _shortsPopup.ShowFor(order, evt.position);
+            evt.StopPropagation(); // don't let the click fall through to the row's checkbox
+        });
+    }
+
+    /// <summary>Built on first use rather than in the constructor — most sessions never open it, and
+    /// a panel that isn't built can't be a layout or z-order problem.</summary>
+    private OrderShortsPopup _shortsPopup;
 
     /// <summary>
     /// From/To mean different things either side of release, because the order itself does.

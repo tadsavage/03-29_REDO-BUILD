@@ -65,6 +65,7 @@ public class GameContext : MonoBehaviour
         var shipmentReceivingCoordinator = new GameCore.Inventory.ShipmentReceivingCoordinator();
         var putawayLogic = new GameCore.Inventory.PutawayLogic();
         var orderArrivalService = new GameCore.Inventory.OrderArrivalService();
+        var dockScheduleService = new GameCore.Inventory.DockScheduleService();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
@@ -78,6 +79,7 @@ public class GameContext : MonoBehaviour
         ServiceLocator.Register<GameCore.Inventory.ShipmentReceivingCoordinator>(shipmentReceivingCoordinator);
         ServiceLocator.Register<GameCore.Inventory.PutawayLogic>(putawayLogic);
         ServiceLocator.Register<GameCore.Inventory.OrderArrivalService>(orderArrivalService);
+        ServiceLocator.Register<GameCore.Inventory.DockScheduleService>(dockScheduleService);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
@@ -90,6 +92,9 @@ public class GameContext : MonoBehaviour
         workQueueSystem.Initialize();
         shipmentReceivingCoordinator.Initialize();
         putawayLogic.Initialize();
+        // Before OrderArrivalService: this subscribes to OrderService.OnOrderArrived to auto-place
+        // each order into a dock block, and signing a contract can generate orders immediately.
+        dockScheduleService.Initialize();
         // Last: it resolves OrderService/InventoryService/SimulationTimeService out of the locator,
         // so everything it depends on must already be registered AND initialized.
         orderArrivalService.Initialize();

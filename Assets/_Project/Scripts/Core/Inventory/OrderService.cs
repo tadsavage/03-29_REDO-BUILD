@@ -31,6 +31,11 @@ namespace GameCore.Inventory
         /// <summary>Raised by <see cref="CancelOrders"/> when the player calls an order off.</summary>
         public static event System.Action<OrderData> OnOrderCancelled;
 
+        /// <summary>Raised once per order the day it first goes overdue, with the dollar amount
+        /// charged. Exists so the contract that produced the order can count it against that
+        /// account's on-time record without OrderService having to know contracts exist.</summary>
+        public static event System.Action<OrderData, int> OnOrderFined;
+
         /// <summary>Orders that still need something from the player or the workforce. A finished
         /// order leaves this list the moment it goes terminal — see Archive.</summary>
         public IReadOnlyList<OrderData> ActiveOrders => _activeOrders;
@@ -643,11 +648,12 @@ namespace GameCore.Inventory
             return revenue;
         }
 
-        /// <summary>Late fee as a fraction of order cost — per Tad's original spec this varies by
-        /// difficulty. Difficulty is currently hardcoded to Clerk everywhere (GameContext.Awake()),
-        /// so there's no real selection to read from yet; once one exists, this should scale the
-        /// same way GameContext's startingCapital/sellBackRate already do rather than staying a
-        /// flat constant.</summary>
+        /// <summary>Fallback late fee for an order that carries no rate of its own — a Dev Console
+        /// order, or one restored from a save written before OrderData.LateFeePercent existed.
+        ///
+        /// Contract-generated orders now carry their OWN rate, stamped at creation from
+        /// ContractData.LateFeePercent. Until that landed, every contract advertised a bespoke rate
+        /// on its card and then got charged this flat 25% regardless — the terms were decoration.</summary>
         private const float LateFeePercentClerk = 0.25f;
 
         private void OnDayChanged(string eventId, int newDay)
@@ -658,13 +664,18 @@ namespace GameCore.Inventory
             // just as late as one that's Staged or Loading. Shipped and Cancelled orders are excluded
             // structurally now, not incidentally — they've been archived out of _activeOrders, so a
             // delivered order can never be fined for going overdue after the fact.
-            foreach (var order in _activeOrders.Where(o => o.IsOverdue(newDay) && !o.HasBeenFined))
+            // ToList() because OnOrderFined listeners are free to touch order state; the enumeration
+            // itself is over _activeOrders and nothing here archives, but snapshotting keeps a future
+            // listener from invalidating the iterator.
+            foreach (var order in _activeOrders.Where(o => o.IsOverdue(newDay) && !o.HasBeenFined).ToList())
             {
-                int fine = Mathf.RoundToInt(LateFeePercentClerk * order.TotalRevenue);
+                float rate = order.LateFeePercent > 0f ? order.LateFeePercent : LateFeePercentClerk;
+                int fine = Mathf.RoundToInt(rate * order.TotalRevenue);
                 _moneyService?.RemoveCapital(fine, FinanceCategory.Fines);
                 order.HasBeenFined = true;
+                OnOrderFined?.Invoke(order, fine);
 
-                Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) is OVERDUE — fined ${fine} ({LateFeePercentClerk:P0} of ${order.TotalRevenue} order cost).");
+                Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) is OVERDUE — fined ${fine} ({rate:P0} of ${order.TotalRevenue} order cost).");
             }
         }
 
@@ -718,7 +729,10 @@ namespace GameCore.Inventory
                     paymentMethod = (int)o.PaymentMethod,
                     assignedDoorNumber = o.AssignedDoorNumber,
                     assignedLane = o.AssignedLane,
-                    hasBeenFined = o.HasBeenFined
+                    hasBeenFined = o.HasBeenFined,
+                    contractId = o.ContractId,
+                    lateFeePercent = o.LateFeePercent,
+                    isWholesale = o.IsWholesale
                 };
                 foreach (var li in o.LineItems)
                 {
@@ -758,7 +772,12 @@ namespace GameCore.Inventory
                 {
                     AssignedDoorNumber = snap.assignedDoorNumber,
                     AssignedLane = snap.assignedLane,
-                    HasBeenFined = snap.hasBeenFined
+                    HasBeenFined = snap.hasBeenFined,
+                    ContractId = snap.contractId,
+                    // 0 means the field wasn't in the file — keep the old flat rate rather than
+                    // silently making a legacy order free to be late.
+                    LateFeePercent = snap.lateFeePercent > 0f ? snap.lateFeePercent : LateFeePercentClerk,
+                    IsWholesale = snap.isWholesale
                 };
                 foreach (var liSnap in snap.lineItems)
                 {

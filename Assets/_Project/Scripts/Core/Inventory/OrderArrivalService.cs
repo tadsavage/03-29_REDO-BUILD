@@ -11,16 +11,9 @@ namespace GameCore.Inventory
     /// Turns signed contracts into arriving customer orders — the thing that replaces the Dev
     /// Console's "Create Test Order" button in a real build.
     ///
-    /// SKETCH — this is NOT wired up. It is registered nowhere and Initialize() is never called, so
-    /// it has no effect on the running game. To switch it on, two lines in GameContext.Awake()
-    /// alongside the other services:
-    ///
-    ///     ServiceLocator.Register&lt;GameCore.Inventory.OrderArrivalService&gt;(orderArrivalService);
-    ///     orderArrivalService.Initialize();
-    ///
-    /// ...plus a CustomerRegistry/ContractData reference handed in, and Export/Import called from
-    /// PlacementSystem's save path (see the persistence note below). Read the two caveats at the
-    /// bottom of this comment BEFORE turning it on.
+    /// LIVE. Registered and initialized last in GameContext.Awake() (it resolves the other services
+    /// out of the locator), and Export/Import are called from PlacementSystem's save path. Both
+    /// prerequisites listed at the bottom of this comment have been met.
     ///
     /// DESIGN
     ///
@@ -36,19 +29,16 @@ namespace GameCore.Inventory
     /// The Dev Console button stays useful and should NOT be removed — it remains the only way to
     /// force a specific test batch on demand.
     ///
-    /// TWO PREREQUISITES, both real:
+    /// TWO PREREQUISITES, both now met — recorded because both are load-bearing and easy to undo:
     ///
-    /// 1. TERMINAL ORDERS ARE NEVER RETIRED. OrderService._activeOrders accumulates Shipped and
-    ///    Cancelled orders forever (observed at 67, nearly all terminal, in a single play session).
-    ///    That list feeds the Work Queue rows, the per-customer stage gates, and TryPlanStageSpread.
-    ///    While orders arrive by hand it is cosmetic; the moment they arrive every day it is a real
-    ///    and compounding problem. Archive terminal orders out of the active list — keeping them for
-    ///    financial history — BEFORE enabling automatic arrival.
+    /// 1. TERMINAL ORDERS ARE RETIRED. OrderService.Archive moves Shipped/Cancelled orders out of
+    ///    _activeOrders the instant they go terminal. Before that they accumulated forever (67 in one
+    ///    observed session, nearly all finished) and every one was re-scanned by the Work Queue four
+    ///    times a second. Cosmetic while orders arrived by hand; compounding once they arrive daily.
     ///
-    /// 2. ARRIVAL STATE MUST PERSIST. Export()/Import() below exist for exactly that and must be
-    ///    called from PlacementSystem.ApplySaveData alongside orderService.Import(save.orders).
-    ///    Without it, SignedContract.LastGeneratedDay resets and a save/load either duplicates a
-    ///    day's orders or silently skips one.
+    /// 2. ARRIVAL STATE PERSISTS. Export()/Import() are called from PlacementSystem alongside
+    ///    orderService.Import(save.orders). Without it SignedContract.LastGeneratedDay resets and a
+    ///    save/load either duplicates a day's orders or silently skips one.
     /// </summary>
     public class OrderArrivalService : IService
     {
@@ -66,12 +56,61 @@ namespace GameCore.Inventory
         /// <summary>Contract offers available to sign, in registry order.</summary>
         public IReadOnlyList<ContractData> Catalog => _catalog;
 
-        /// <summary>Offers not yet signed — what the contracts modal lists.</summary>
+        /// <summary>Offers not yet signed — what the Offers tab lists.</summary>
         public IEnumerable<ContractData> AvailableOffers =>
             _catalog.Where(c => !_signed.Any(s => s.ContractId == c.ContractId && s.Active));
 
         public bool IsSigned(string contractId) =>
             _signed.Any(s => s.ContractId == contractId && s.Active);
+
+        /// <summary>The signed record for a contract, or null if it was never taken.</summary>
+        public SignedContract GetSigned(string contractId) =>
+            _signed.FirstOrDefault(s => s.ContractId == contractId && s.Active);
+
+        /// <summary>The catalog asset behind a signed record.</summary>
+        public ContractData GetContract(string contractId) =>
+            _catalog.FirstOrDefault(c => c.ContractId == contractId);
+
+        /// <summary>
+        /// Standing accounts actually sending work — signed, active, and NOT a spent wholesale deal.
+        ///
+        /// This distinction is the whole reason the method exists. A delivered one-off stays Active
+        /// forever by design (that's what keeps the Sign button off its card), so a plain
+        /// Signed.Count(s =&gt; s.Active) counts it as a running account. The panel footer did exactly
+        /// that and reported three accounts running when two were.
+        /// </summary>
+        public IEnumerable<SignedContract> RunningAccounts => _signed.Where(s =>
+        {
+            if (!s.Active) return false;
+            var c = GetContract(s.ContractId);
+            return c != null && !c.IsWholesale;
+        });
+
+        /// <summary>Signed records for spent one-off deals — delivered, done, kept for the record.</summary>
+        public IEnumerable<SignedContract> DeliveredWholesale => _signed.Where(s =>
+        {
+            if (!s.Active) return false;
+            var c = GetContract(s.ContractId);
+            return c != null && c.IsWholesale;
+        });
+
+        /// <summary>Day/hour a recurring contract next drops orders. A contract that has already run
+        /// today rolls to tomorrow. Meaningless for wholesale, which returns false.</summary>
+        public bool TryGetNextArrival(string contractId, out int day, out int hour)
+        {
+            day = 0; hour = 0;
+            var contract = GetContract(contractId);
+            var signed = GetSigned(contractId);
+            if (contract == null || signed == null || contract.IsWholesale) return false;
+
+            int today = _timeService?.Day ?? 0;
+            hour = contract.CutoffHour;
+            // Keyed on LastGeneratedDay, NOT on whether the cutoff hour has passed: a contract signed
+            // after its own cutoff still fires on the next hour tick today (OnHourChanged only tests
+            // newHour >= CutoffHour), so "it's gone 17:00" doesn't mean today's drop has happened.
+            day = signed.LastGeneratedDay >= today ? today + 1 : today;
+            return true;
+        }
 
         /// <summary>Contract offers available to sign. Hand in the authored ContractData assets —
         /// same pattern as CustomerRegistry being handed to OrderGenerator.</summary>
@@ -79,6 +118,23 @@ namespace GameCore.Inventory
         {
             _catalog.Clear();
             if (contracts != null) _catalog.AddRange(contracts.Where(c => c != null));
+        }
+
+        /// <summary>
+        /// Puts one more offer on the board. This is the hook contract ARRIVAL will use — offers are
+        /// meant to show up over time at a rate driven by reputation and difficulty, rather than the
+        /// catalog being a fixed shelf loaded once at startup.
+        ///
+        /// Rejects a duplicate ContractId rather than shadowing the existing one, because ContractId
+        /// is what SignedContract and OrderData both key on — two entries under one id would make
+        /// GetContract's answer depend on list order.
+        /// </summary>
+        public bool AddOffer(ContractData contract)
+        {
+            if (contract == null) return false;
+            if (_catalog.Any(c => c != null && c.ContractId == contract.ContractId)) return false;
+            _catalog.Add(contract);
+            return true;
         }
 
         public void Initialize()
@@ -108,12 +164,52 @@ namespace GameCore.Inventory
             }
 
             _eventManager.Subscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
+
+            // Detach-then-attach: these are STATIC events, so a service instance leaked by a domain
+            // reload would otherwise keep a live handler on a dead _signed list. This doesn't unhook
+            // that leaked instance's own handler, but it does stop THIS one double-counting if
+            // Initialize is ever called twice.
+            OrderService.OnOrderShipped -= HandleOrderShipped;
+            OrderService.OnOrderShipped += HandleOrderShipped;
+            OrderService.OnOrderFined -= HandleOrderFined;
+            OrderService.OnOrderFined += HandleOrderFined;
         }
 
         public void Shutdown()
         {
             _eventManager?.Unsubscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
+            OrderService.OnOrderShipped -= HandleOrderShipped;
+            OrderService.OnOrderFined -= HandleOrderFined;
         }
+
+        // ── Performance bookkeeping ──────────────────────────────────────────
+
+        private void HandleOrderShipped(OrderData order)
+        {
+            var signed = FindSignedFor(order);
+            if (signed == null) return;
+            signed.OrdersDelivered++;
+            // Billed amount, not TotalRevenue: an order that shipped short only earned what actually
+            // went on the truck, and that's what ShipOrder credited to the player.
+            signed.RevenueEarned += order.LineItems.Sum(li => (long)li.QuantityPicked * li.SellingPrice);
+        }
+
+        private void HandleOrderFined(OrderData order, int fine)
+        {
+            var signed = FindSignedFor(order);
+            if (signed == null) return;
+            signed.OrdersLate++;
+            signed.LateFeesPaid += fine;
+        }
+
+        /// <summary>Resolves a finished order back to the contract that produced it. Matches on the
+        /// stamped ContractId only — never falls back to CustomerId, because one customer may hold
+        /// several contracts and a wrong attribution is worse than none. Dev Console orders carry no
+        /// ContractId and are correctly credited to nothing.</summary>
+        private SignedContract FindSignedFor(OrderData order)
+            => order == null || string.IsNullOrEmpty(order.ContractId)
+             ? null
+             : _signed.FirstOrDefault(s => s.ContractId == order.ContractId);
 
         // ── Signing ──────────────────────────────────────────────────────────
 
@@ -234,7 +330,12 @@ namespace GameCore.Inventory
                 $"{customer.CompanyName} Distribution Center",
                 today,
                 today + contract.LeadTimeDays,
-                _timeService.Minute);
+                _timeService.Minute)
+            {
+                ContractId = contract.ContractId,
+                LateFeePercent = contract.LateFeePercent,
+                IsWholesale = true
+            };
 
             // Distinct SKUs where possible so the trailer isn't 12 pallets of one thing; if the
             // catalogue is smaller than the pallet count, SKUs repeat as separate full-pallet lines.
@@ -287,7 +388,11 @@ namespace GameCore.Inventory
                     $"{customer.CompanyName} Distribution Center",
                     today,
                     today + contract.LeadTimeDays,
-                    _timeService.Minute);
+                    _timeService.Minute)
+                {
+                    ContractId = contract.ContractId,
+                    LateFeePercent = contract.LateFeePercent
+                };
 
                 foreach (var sku in chosen)
                 {
@@ -313,7 +418,11 @@ namespace GameCore.Inventory
             contractId = s.ContractId,
             signedOnDay = s.SignedOnDay,
             lastGeneratedDay = s.LastGeneratedDay,
-            active = s.Active
+            active = s.Active,
+            ordersDelivered = s.OrdersDelivered,
+            ordersLate = s.OrdersLate,
+            revenueEarned = s.RevenueEarned,
+            lateFeesPaid = s.LateFeesPaid
         }).ToList();
 
         public void Import(List<ContractSnapshot> entries)
@@ -329,7 +438,11 @@ namespace GameCore.Inventory
                     ContractId = snap.contractId,
                     SignedOnDay = snap.signedOnDay,
                     LastGeneratedDay = snap.lastGeneratedDay,
-                    Active = snap.active
+                    Active = snap.active,
+                    OrdersDelivered = snap.ordersDelivered,
+                    OrdersLate = snap.ordersLate,
+                    RevenueEarned = snap.revenueEarned,
+                    LateFeesPaid = snap.lateFeesPaid
                 });
             }
 

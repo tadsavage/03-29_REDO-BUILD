@@ -209,8 +209,18 @@ public class DevHudWindow : MonoBehaviour
     private const float BarCardHeight = 104f;
 
     /// <summary>Wide enough for "999 FPS" plus the cell/preset stack without the text ever changing
-    /// the card's size. See the note on style.width in ApplyDockedLayout.</summary>
-    private const float DockedCardWidth = 310f;
+    /// the card's size. See the note on style.width in ApplyDockedLayout.
+    ///
+    /// Must be >= paddingLeft + FpsLabelWidth + FpsLabelGap + StackWidth + paddingRight, and the card
+    /// must have flexShrink = 0 to actually get it — see ApplyDockedLayout.</summary>
+    private const float DockedCardWidth = 300f;
+
+    /// <summary>Width of the Cell label and the preset button beneath it. They share one width so the
+    /// stack has a straight left AND right edge.</summary>
+    private const float StackWidth = 160f;
+    private const float FpsLabelWidth = 100f;
+    private const float FpsLabelGap = 12f;
+    private const float CardPadding = 12f;
 
     private void ApplyDockedLayout()
     {
@@ -224,11 +234,16 @@ public class DevHudWindow : MonoBehaviour
         // the utility row — which tanked the frame rate the moment this docked. A fixed width means a
         // text change repaints one label and nothing reflows.
         _panel.style.width = DockedCardWidth;
+        // flexShrink 0 or the width above is a suggestion, not a rule. The bar is a full flex row and
+        // was squeezing this card from 310 down to 262 to fit everything else — while the fixed-width
+        // labels INSIDE it refused to shrink, so the preset button spilled 39px out of the right-hand
+        // edge. That looked like a button-sizing bug and wasn't one.
+        _panel.style.flexShrink = 0;
         _panel.style.height = BarCardHeight;
         _panel.style.flexDirection = FlexDirection.Row;
         _panel.style.alignItems = Align.Center;
-        _panel.style.paddingLeft = 14;
-        _panel.style.paddingRight = 14;
+        _panel.style.paddingLeft = CardPadding;
+        _panel.style.paddingRight = CardPadding;
         _panel.style.marginLeft = 12;
         _panel.style.marginRight = 12;
         // Same card face the bar's own buttons use, so it reads as part of the set rather than a
@@ -257,12 +272,13 @@ public class DevHudWindow : MonoBehaviour
         // in the middle of it.
         if (_fpsLabel != null)
         {
-            _fpsLabel.style.fontSize = 34;
-            _fpsLabel.style.marginRight = 14;
+            _fpsLabel.style.fontSize = 26; // 34 -> 29 -> 26, two passes of "still too loud"
+            _fpsLabel.style.marginRight = FpsLabelGap;
             _fpsLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
             // Fixed too: "9 FPS" and "144 FPS" must occupy the same box, or the stack beside it
             // shuffles sideways every time the number changes width.
-            _fpsLabel.style.width = 110;
+            _fpsLabel.style.width = FpsLabelWidth;
+            _fpsLabel.style.flexShrink = 0;
         }
 
         if (_cellLabel != null && _modeButton != null && body != null)
@@ -276,6 +292,8 @@ public class DevHudWindow : MonoBehaviour
                 stack.style.flexDirection = FlexDirection.Column;
                 stack.style.alignItems = Align.FlexStart;
                 stack.style.justifyContent = Justify.Center;
+                stack.style.width = StackWidth;
+                stack.style.flexShrink = 0;
                 _cellLabel.RemoveFromHierarchy();
                 _modeButton.RemoveFromHierarchy();
                 stack.Add(_cellLabel);
@@ -285,16 +303,31 @@ public class DevHudWindow : MonoBehaviour
 
             _cellLabel.style.fontSize = 16;
             _cellLabel.style.marginTop = 0;
-            _cellLabel.style.marginBottom = 6;
-            _cellLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
-            _cellLabel.style.width = 160; // fixed for the same reason as the FPS label
+            _cellLabel.style.marginBottom = 10; // lifts Cell clear of the taller preset button below
+            // Centred, not left-aligned: the label and the preset button share StackWidth, so centring
+            // the text inside it parks "Cell: (28, 61)" directly over the button rather than jammed
+            // against its left edge.
+            _cellLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _cellLabel.style.width = StackWidth; // fixed for the same reason as the FPS label
 
+            // Taller, fixed-width, and its label WRAPS. "Mode: Toaster" on one line at 16pt overran
+            // the card's 310px and spilled out the right-hand side; a content-hugging button can't
+            // be clipped back in, so the button is sized and the text is allowed to break instead.
             _modeButton.style.marginTop = 0;
-            _modeButton.style.paddingTop = 4;
-            _modeButton.style.paddingBottom = 4;
-            _modeButton.style.paddingLeft = 10;
-            _modeButton.style.paddingRight = 10;
-            if (_modeLabel != null) _modeLabel.style.fontSize = 16;
+            _modeButton.style.width = StackWidth;   // matches the cell label above it
+            _modeButton.style.height = 40;
+            _modeButton.style.flexShrink = 0;
+            _modeButton.style.justifyContent = Justify.Center;
+            _modeButton.style.paddingTop = 2;
+            _modeButton.style.paddingBottom = 2;
+            _modeButton.style.paddingLeft = 8;
+            _modeButton.style.paddingRight = 8;
+            if (_modeLabel != null)
+            {
+                _modeLabel.style.fontSize = 15;
+                _modeLabel.style.whiteSpace = WhiteSpace.Normal;
+                _modeLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            }
         }
 
         MatchCategoryButtonHeight();

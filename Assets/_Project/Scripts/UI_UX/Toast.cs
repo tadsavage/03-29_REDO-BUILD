@@ -63,16 +63,37 @@ public class UIToast : MonoBehaviour
         _toast.style.opacity    = 1;
         _timer                  = _defaultDuration;
 
-        // The document's sortingOrder (999999, set in Awake) only orders this document against OTHER
-        // documents. Every full-screen panel — Work Queue, Contracts, Shift Manager, New Item — is
-        // built at runtime into THIS SAME document's root, so they're siblings of the toast and z-order
-        // is sibling order, not sortingOrder. Being added later, they always drew on top and buried it.
-        // Re-raising on every Show is what actually keeps the toast visible, and it has to be per-Show
-        // because panels created after the last toast would otherwise overtake it again.
-        _toast.BringToFront();
+        RaiseAboveEverything();
 
         // Re-center after the label's geometry resolves (text content may change its width)
         _toast.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+    }
+
+    /// <summary>
+    /// Puts the toast in front of every runtime panel.
+    ///
+    /// The document's sortingOrder (999999, set in Awake) only orders this document against OTHER
+    /// documents. Every full-screen panel — Work Queue, Contracts, Shift Manager, New Item — is built
+    /// at runtime into THIS SAME document's root, so z-order between them and the toast is SIBLING
+    /// ORDER, and a panel added later draws on top.
+    ///
+    /// A bare _toast.BringToFront() (the previous fix) wasn't enough: ToastLabel is nested inside a
+    /// wrapper in the UXML, so raising it only reordered it against its own siblings inside that
+    /// wrapper — the wrapper itself stayed wherever it was in the root's child list, still underneath
+    /// the panels. Walking the whole ancestor chain is what actually gets it to the top, and it has to
+    /// run per-Show because any panel opened since the last toast would otherwise overtake it again.
+    ///
+    /// Deliberately not reparenting the label to the root instead: the wrapper may carry USS that
+    /// positions or styles it.
+    /// </summary>
+    private static void RaiseAboveEverything()
+    {
+        var e = (VisualElement)_toast;
+        while (e?.parent != null)
+        {
+            e.BringToFront();
+            e = e.parent;
+        }
     }
 
     private static void OnGeometryChanged(GeometryChangedEvent evt)

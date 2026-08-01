@@ -40,6 +40,31 @@ namespace GameCore.Inventory
         /// subsequent day it remains unshipped.</summary>
         public bool HasBeenFined { get; set; }
 
+        /// <summary>ContractData.ContractId of the contract that produced this order, or null for a
+        /// hand-made Dev Console order. Stamped at creation by OrderArrivalService.
+        ///
+        /// This exists so a shipped order can be credited back to the account that brought it in —
+        /// the Accounts tab's per-contract totals are accumulated from OnOrderShipped/OnOrderFined,
+        /// and CustomerId alone can't do the job because one customer may hold several contracts.</summary>
+        public string ContractId { get; set; }
+
+        /// <summary>Share of order revenue charged if this order goes overdue, copied off the
+        /// contract at creation rather than looked up at fine time.
+        ///
+        /// Copied deliberately: the fine must reflect the terms the player accepted when the order
+        /// arrived, not whatever the asset says days later, and it keeps OrderService free of any
+        /// dependency on the contract system. Defaults to the old flat 25% so Dev Console orders and
+        /// saves written before this field existed behave exactly as they did.</summary>
+        public float LateFeePercent { get; set; } = 0.25f;
+
+        /// <summary>True for a one-off wholesale drop, where every line item is exactly a full pallet
+        /// (Ti x Hi cases) rather than a case pick. Set at creation by OrderArrivalService.
+        ///
+        /// Read today only to colour the order's dock appointment, but it's the flag the full-pallet
+        /// fulfilment mechanic will need when it exists — right now these orders still get walked off
+        /// one case at a time by the case-pick selector.</summary>
+        public bool IsWholesale { get; set; }
+
         public OrderData(string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute)
         {
             OrderId = System.Guid.NewGuid().ToString();
@@ -149,6 +174,11 @@ namespace GameCore.Inventory
         public int assignedDoorNumber;
         public string assignedLane;
         public bool hasBeenFined;
+        public string contractId;
+        /// <summary>0 in a save written before this field existed — Import treats 0 as "unset" and
+        /// falls back to the old flat 25%, so old saves keep their original fine behaviour.</summary>
+        public float lateFeePercent;
+        public bool isWholesale;
         public List<OrderLineItemSnapshot> lineItems = new();
     }
 

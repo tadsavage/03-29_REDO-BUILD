@@ -1471,9 +1471,16 @@ private DockSlot        _dock;
         _dock?.SetDoorForcedOpen(false);
         _dock?.Release();
 
-        // Mark shipment as Departed
+        // Mark shipment as Departed and retire it from the pending list. A departed PO has done its
+        // whole job — leaving it in PendingShipments meant the Dev Console's inbound list grew a red
+        // "[Departed]" row per truck forever and every one of them was re-serialised into every save.
+        // This truck keeps its own AssignedShipment reference, so nothing here loses data it still needs.
         if (AssignedShipment != null)
+        {
             AssignedShipment.Status = GameCore.Inventory.ShipmentData.ShipmentStatus.Departed;
+            if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipSvc))
+                shipSvc.PurgeCompleted();
+        }
 
         // Solid trailer + closed doors again before it drives off.
         SetDockedGhost(false);

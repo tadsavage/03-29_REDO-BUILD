@@ -94,6 +94,49 @@ namespace GameCore.Inventory
             ? $"Wholesale — {_palletCount} pallet{(_palletCount == 1 ? "" : "s")}"
             : "Standing Account";
 
+        /// <summary>
+        /// Builds a ContractData in memory rather than from an authored asset.
+        ///
+        /// Exists because contract offers are meant to APPEAR over time — semi-randomly, at a rate set
+        /// by the business's reputation and the difficulty — rather than being a fixed shelf of hand-
+        /// authored assets. The reputation system will need exactly this; the Customers tab's DEV
+        /// button is its first caller.
+        ///
+        /// CAVEAT: a runtime contract is not in the ContractRegistry, so it does NOT survive a save/
+        /// load. Signing one and reloading leaves a SignedContract whose id resolves to nothing, which
+        /// OrderArrivalService.OnHourChanged already handles by warning and skipping. Fine for a debug
+        /// trigger; whatever ships the real feature needs to persist generated offers alongside
+        /// SaveData.contracts.
+        /// </summary>
+        public static ContractData CreateRuntime(
+            string contractId, CustomerData customer, string pitch, ContractKind kind,
+            int palletCount,
+            int ordersPerDayMin, int ordersPerDayMax,
+            int lineItemsMin, int lineItemsMax,
+            int casesPerLineMin, int casesPerLineMax,
+            int cutoffHour, int leadTimeDays,
+            float payRateMultiplier, float lateFeePercent)
+        {
+            var c = CreateInstance<ContractData>();
+            // ContractId reads straight off name, so this IS the identity, not a display nicety.
+            c.name = contractId;
+            c._customer = customer;
+            c._pitch = pitch;
+            c._kind = kind;
+            c._palletCount = Mathf.Max(1, palletCount);
+            c._ordersPerDayMin = Mathf.Max(1, ordersPerDayMin);
+            c._ordersPerDayMax = Mathf.Max(c._ordersPerDayMin, ordersPerDayMax);
+            c._lineItemsMin = Mathf.Max(1, lineItemsMin);
+            c._lineItemsMax = Mathf.Max(c._lineItemsMin, lineItemsMax);
+            c._casesPerLineMin = Mathf.Max(1, casesPerLineMin);
+            c._casesPerLineMax = Mathf.Max(c._casesPerLineMin, casesPerLineMax);
+            c._cutoffHour = Mathf.Clamp(cutoffHour, 0, 23);
+            c._leadTimeDays = Mathf.Max(1, leadTimeDays);
+            c._payRateMultiplier = Mathf.Max(0.1f, payRateMultiplier);
+            c._lateFeePercent = Mathf.Clamp01(lateFeePercent);
+            return c;
+        }
+
         /// <summary>Rough cases/day a recurring account commits you to, for comparing offers.
         /// Midpoint of every band multiplied out — an estimate, not a promise. Meaningless for
         /// wholesale, which is a single drop rather than a daily rate.</summary>
@@ -113,8 +156,10 @@ namespace GameCore.Inventory
     /// day's arrivals (duplicate orders) or skips one (a silent gap in demand). Same class of bug as
     /// the phantom staged orders — durable bookkeeping paired with state that wasn't saved.
     ///
-    /// A wholesale deal sets Active false the moment it delivers, which is what stops it re-firing:
-    /// it is a one-off, and "already delivered" is exactly what needs to survive a reload.
+    /// Active means "this contract is TAKEN" and nothing more. A delivered wholesale deal stays
+    /// Active forever — what stops it re-firing is the IsWholesale skip in OrderArrivalService's
+    /// hour tick, not this flag. Clearing it would make a delivered one-off read as never-signed to
+    /// IsSigned, putting the Sign button back on the card.
     /// </summary>
     [System.Serializable]
     public class SignedContract
@@ -123,9 +168,39 @@ namespace GameCore.Inventory
         public int SignedOnDay;
         public int LastGeneratedDay = -1; // -1 = has never generated
         public bool Active = true;
+
+        // ── Running performance, accumulated as orders finish ────────────────
+        //
+        // Accumulated onto the contract rather than recomputed from OrderService on demand, because
+        // OrderService.OrderHistory is capped at MaxArchivedOrders (250) and trims oldest-first —
+        // a long game would silently see "earned to date" start falling as early orders aged out.
+        // These are monotonic and persisted, so they mean what they say for the life of the save.
+
+        /// <summary>Orders from this contract that reached Shipped.</summary>
+        public int OrdersDelivered;
+
+        /// <summary>Orders from this contract that were fined for going overdue. Counted at fine
+        /// time, so an order that goes late and then ships counts in BOTH this and OrdersDelivered —
+        /// which is correct: it was delivered, and it was late.</summary>
+        public int OrdersLate;
+
+        /// <summary>Gross billed for this contract's shipped orders (what ShipOrder credited).</summary>
+        public long RevenueEarned;
+
+        /// <summary>Late fees charged against this contract's orders.</summary>
+        public long LateFeesPaid;
+
+        /// <summary>Share of delivered orders that were never fined, 0–1. Returns 1 before anything
+        /// has shipped — a brand-new account reads as perfect rather than as 0%, which would look
+        /// like a failing customer the moment you signed it.</summary>
+        public float OnTimeRate => OrdersDelivered <= 0
+            ? 1f
+            : Mathf.Clamp01((OrdersDelivered - OrdersLate) / (float)OrdersDelivered);
     }
 
-    /// <summary>Save shape for a SignedContract. Mirrors OrderSnapshot's flat-fields style.</summary>
+    /// <summary>Save shape for a SignedContract. Mirrors OrderSnapshot's flat-fields style.
+    /// New stat fields default to 0 in a save written before they existed, which is the correct
+    /// starting value — history simply begins from that load.</summary>
     [System.Serializable]
     public class ContractSnapshot
     {
@@ -133,5 +208,9 @@ namespace GameCore.Inventory
         public int signedOnDay;
         public int lastGeneratedDay;
         public bool active;
+        public int ordersDelivered;
+        public int ordersLate;
+        public long revenueEarned;
+        public long lateFeesPaid;
     }
 }

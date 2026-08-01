@@ -209,10 +209,17 @@ public class TopBarUI : MonoBehaviour
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
+            // A hotkey-less sub-popup (the Work Queue's Fill Rate shorts readout) is the innermost
+            // thing on screen, so it backs out first — and CloseAuxiliaries returning true is what
+            // stops the same press falling through and opening the pause menu behind it.
+            if (keys.CloseAuxiliaries())
+            {
+                // handled
+            }
             // Save/load window takes priority: Escape closes it (and ensures
             // the pause menu doesn't pop back open in the same press) instead
             // of toggling the pause menu.
-            if (_saveLoadController != null && _saveLoadController.IsOpen)
+            else if (_saveLoadController != null && _saveLoadController.IsOpen)
             {
                 _saveLoadController.Close();
                 _pendingGoToMenu = false;

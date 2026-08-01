@@ -44,6 +44,11 @@ public class SaveData
     // Empty in older saves.
     public List<ContractSnapshot> contracts = new();
 
+    // Dock appointments (which customer holds which door in which two-hour block), from
+    // DockScheduleService. Empty in older saves — those simply load with an empty schedule and
+    // repopulate as new orders arrive.
+    public List<DockAppointmentSnapshot> dockAppointments = new();
+
     // Former employees (terminated / resigned) — kept on file for rehire, union reinstatement,
     // and HR history. Populated from FormerEmployeeArchive. Absent in older saves (empty list).
     public List<EmployeeRecord> formerEmployees = new();
