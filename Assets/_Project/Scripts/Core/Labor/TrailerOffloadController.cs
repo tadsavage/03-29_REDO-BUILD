@@ -71,6 +71,9 @@ namespace GameCore.Labor
         // typically centered (X≈0), resting on the tines (small Y), pushed forward onto them (Z along
         // the forks' forward axis).
         private static readonly Vector3 ForkCarryLocalPos   = new Vector3(0f, 0f, -0.2f);
+        // Identity — see the matching note in TrailerLoadController. Yawing this 180 to correct a
+        // flipped pallet is wrong: the carry pose is shared by every pickup, so it just moves the
+        // flip onto all the pallets that were previously correct.
         private static readonly Vector3 ForkCarryLocalEuler = Vector3.zero;
 
         // Which way the forks point in the DS's LOCAL frame. On this model the forks/mast are on the
@@ -262,9 +265,13 @@ namespace GameCore.Labor
             yield return DriveInToGrab(ds, forks, forkRestY, pallet, into);
             // 4. Seat the pallet on the forks, then lift just enough to take its weight off the deck.
             Transform carrier = forks != null ? forks : ds;
+            // Captured BEFORE parenting: once it's a child its world rotation is already the
+            // carrier's, leaving nothing to compare against.
+            Vector3 facingBeforePickup = pallet.forward;
             pallet.SetParent(carrier, worldPositionStays: false);
             pallet.localPosition = ForkCarryLocalPos;
-            pallet.localRotation = Quaternion.Euler(ForkCarryLocalEuler);
+            pallet.localRotation = NearestFacing(Quaternion.Euler(ForkCarryLocalEuler),
+                                                 carrier.InverseTransformDirection(facingBeforePickup));
             // A short lift off the deck — NOT the old fixed `forkRestY + ForkLiftHeight` (1m), which
             // yanked the load a metre up regardless of what height it was picked from. Relative to
             // wherever the forks actually are now, so it behaves the same on any tier.
@@ -366,7 +373,10 @@ namespace GameCore.Labor
             // The pallet's long axis (world X = 48") should run parallel to the lane, matching how
             // TestPalletSpawner and PalletPersistenceService place pallets.
             Quaternion laneRotation = Quaternion.LookRotation(Flat(downLane));
-            Quaternion rotatedPlacement = laneRotation;
+            // Lengthwise along the lane either way — but keep whichever end is already leading, so the
+            // pallet doesn't spin 180 at the moment it leaves the forks. Both variants look identical
+            // once parked; only the transition between them is visible.
+            Quaternion rotatedPlacement = NearestFacing(laneRotation, pallet.forward);
 
             RegisterAndQueue(inv, truck, cell, pallet, rotatedPlacement, palletIndex);
             
@@ -581,6 +591,21 @@ namespace GameCore.Labor
         // Rotate in place so the FORKS point along worldForkDir (the body faces the opposite way on a
         // rear-fork model). Use whenever the forklift must "aim its forks" — squaring up to a pallet in
         // the trailer or squaring up to a staging lane.
+        /// <summary>
+        /// The 180-degree variant of <paramref name="want"/> closest to how the pallet already faces.
+        /// A pallet's footprint is symmetric under a 180 yaw, so both variants seat it equally
+        /// squarely and picking the nearer one means it never visibly spins on pickup or set-down.
+        /// Mirror of TrailerLoadController.NearestFacing — see the fuller note there for why an
+        /// absolute carry pose cannot work for both trailer-sourced and lane-sourced pallets.
+        /// </summary>
+        private static Quaternion NearestFacing(Quaternion want, Vector3 currentForward)
+        {
+            Vector3 wantFwd = Flat(want * Vector3.forward);
+            Vector3 curFwd = Flat(currentForward);
+            if (curFwd.sqrMagnitude < 0.0001f || wantFwd.sqrMagnitude < 0.0001f) return want;
+            return Vector3.Dot(wantFwd, curFwd) >= 0f ? want : want * Quaternion.Euler(0f, 180f, 0f);
+        }
+
         private IEnumerator FaceForks(Transform t, Vector3 worldForkDir) => FaceDir(t, BodyForwardForForks(worldForkDir));
 
         // World direction the body's transform.forward must point so the FORKS aim along worldForkDir.

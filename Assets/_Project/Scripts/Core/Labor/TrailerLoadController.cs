@@ -67,6 +67,10 @@ namespace GameCore.Labor
         private const bool InvertTrailerAxis = false; // must match TrailerOffloadController's setting
 
         private static readonly Vector3 ForkCarryLocalPos = new Vector3(0f, 0f, -0.2f);
+        // Identity. Do NOT "fix" a flipped pallet by yawing this 180: the carry pose applies to EVERY
+        // pallet the forks pick up, so it turns one wrong case into every other case being wrong
+        // (tried 2026-07-29, reverted immediately). A pallet that visibly snaps on pickup was sitting
+        // at the wrong rotation BEFORE the forks reached it — fix it where it was placed.
         private static readonly Vector3 ForkCarryLocalEuler = Vector3.zero;
         private const float ForkAxisSign = -1f;
 
@@ -359,9 +363,13 @@ namespace GameCore.Labor
             yield return DriveInToGrab(ds, forks, forkRestY, palletT, downLane);
             // 4. Seat the pallet on the forks (fixed carry pose).
             Transform carrier = forks != null ? forks : ds;
+            // Captured BEFORE parenting — once it's a child, its world rotation is already whatever
+            // the carrier imposes and there's nothing left to compare against.
+            Vector3 palletFacingBeforePickup = palletT.forward;
             palletT.SetParent(carrier, worldPositionStays: false);
             palletT.localPosition = ForkCarryLocalPos;
-            palletT.localRotation = Quaternion.Euler(ForkCarryLocalEuler);
+            palletT.localRotation = NearestFacing(Quaternion.Euler(ForkCarryLocalEuler),
+                                                  carrier.InverseTransformDirection(palletFacingBeforePickup));
             // Riding the forks now — stop carving, or the pallet cuts a moving trench across the
             // NavMesh and shoves every agent it passes.
             pallet.SetNavObstacleActive(false);
@@ -416,9 +424,13 @@ namespace GameCore.Labor
             //    the trailer deck rather than being dropped from carry height.
             if (forks != null) yield return LiftForks(forks, forks.localPosition.y - PalletLiftClearance);
             // 10. Unparent off the forks into the trailer's cargo container.
+            Vector3 facingOnForks = palletT.forward; // world facing while still carried
             palletT.SetParent(truck.LoadContainer, worldPositionStays: false);
             palletT.localPosition = targetLocal;
-            palletT.localRotation = Quaternion.identity;
+            // Square to the trailer, but keep the 180 it already had — otherwise the pallet spins on
+            // the deck at the moment of release, the same snap the pickup used to have.
+            palletT.localRotation = NearestFacing(Quaternion.identity,
+                                                  truck.LoadContainer.InverseTransformDirection(facingOnForks));
             // Cargo inside a trailer must NOT carve — it would cut a hole in the dock NavMesh where
             // the trailer is parked.
             pallet.SetNavObstacleActive(false);
@@ -595,6 +607,28 @@ namespace GameCore.Labor
                 if (t == null) yield break; // destroyed mid-turn — see DriveInternal
             }
             t.rotation = want;
+        }
+
+        /// <summary>
+        /// The 180-degree variant of <paramref name="want"/> that is CLOSEST to how the pallet is
+        /// already facing.
+        ///
+        /// A pallet is symmetric under a 180 yaw — the footprint is identical either way — so both
+        /// variants seat it equally squarely. Which one you choose is therefore free, and choosing
+        /// the nearer one means the pallet never visibly spins when it's picked up or set down.
+        ///
+        /// This exists because an ABSOLUTE carry pose cannot be right for both sources: cargo in a
+        /// trailer is aligned to the trailer axis (pointing out of the building) and cargo in a lane
+        /// to the lane's DepthAxis (pointing into it), a full 180 apart. A fixed pose suits one and
+        /// flips the other — which is exactly what happened when a hardcoded 180 was tried here to
+        /// fix lane pickups and broke every trailer pickup instead.
+        /// </summary>
+        private static Quaternion NearestFacing(Quaternion want, Vector3 currentWorldForward)
+        {
+            Vector3 wantFwd = Flat(want * Vector3.forward);
+            Vector3 curFwd = Flat(currentWorldForward);
+            if (curFwd.sqrMagnitude < 0.0001f || wantFwd.sqrMagnitude < 0.0001f) return want;
+            return Vector3.Dot(wantFwd, curFwd) >= 0f ? want : want * Quaternion.Euler(0f, 180f, 0f);
         }
 
         private IEnumerator FaceForks(Transform t, Vector3 worldForkDir) => FaceDir(t, BodyForwardForForks(worldForkDir));

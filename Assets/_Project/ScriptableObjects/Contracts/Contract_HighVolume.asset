@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f013e756e58b2594fab35be00af81810, type: 3}
+  m_Name: Contract_HighVolume
+  m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.ContractData
+  _customer: {fileID: 11400000, guid: 976b4463e7c002e45a5f5de51522404f, type: 2}
+  _pitch: "High volume at thin margin. They will fill your stage every single day
+    \u2014 take it only if your pickers can keep up."
+  _kind: 0
+  _palletCount: 1
+  _ordersPerDayMin: 3
+  _ordersPerDayMax: 5
+  _lineItemsMin: 4
+  _lineItemsMax: 6
+  _casesPerLineMin: 8
+  _casesPerLineMax: 14
+  _cutoffHour: 16
+  _leadTimeDays: 2
+  _payRateMultiplier: 0.85
+  _lateFeePercent: 0.3

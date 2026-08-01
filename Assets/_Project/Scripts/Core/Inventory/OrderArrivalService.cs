@@ -63,6 +63,16 @@ namespace GameCore.Inventory
         /// <summary>Every contract the player has signed and not cancelled.</summary>
         public IReadOnlyList<SignedContract> Signed => _signed;
 
+        /// <summary>Contract offers available to sign, in registry order.</summary>
+        public IReadOnlyList<ContractData> Catalog => _catalog;
+
+        /// <summary>Offers not yet signed — what the contracts modal lists.</summary>
+        public IEnumerable<ContractData> AvailableOffers =>
+            _catalog.Where(c => !_signed.Any(s => s.ContractId == c.ContractId && s.Active));
+
+        public bool IsSigned(string contractId) =>
+            _signed.Any(s => s.ContractId == contractId && s.Active);
+
         /// <summary>Contract offers available to sign. Hand in the authored ContractData assets —
         /// same pattern as CustomerRegistry being handed to OrderGenerator.</summary>
         public void SetCatalog(IEnumerable<ContractData> contracts)
@@ -89,6 +99,14 @@ namespace GameCore.Inventory
                 return;
             }
 
+            // Self-load the catalog so no caller has to remember to. SetCatalog still exists for
+            // tests and for handing in a different list.
+            if (_catalog.Count == 0)
+            {
+                var registry = ContractRegistry.Load();
+                if (registry != null) SetCatalog(registry.contracts);
+            }
+
             _eventManager.Subscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
         }
 
@@ -105,7 +123,7 @@ namespace GameCore.Inventory
             var contract = _catalog.FirstOrDefault(c => c.ContractId == contractId);
             if (contract == null) return false;
 
-            _signed.Add(new SignedContract
+            var signed = new SignedContract
             {
                 ContractId = contractId,
                 SignedOnDay = _timeService?.Day ?? 0,
@@ -115,7 +133,23 @@ namespace GameCore.Inventory
                 LastGeneratedDay = (_timeService != null && _timeService.Hour >= contract.CutoffHour)
                                  ? _timeService.Day
                                  : -1
-            });
+            };
+            _signed.Add(signed);
+
+            if (contract.IsWholesale)
+            {
+                // Stays ACTIVE deliberately, even though it will never generate again. Active means
+                // "this contract is taken" — it's what IsSigned reports, which is both what greys the
+                // card out and what stops a second signing. Clearing it here (the original mistake)
+                // made a delivered one-off read as never-signed: the card kept its Sign button and
+                // every click produced another full trailer.
+                //
+                // What stops it re-firing is the IsWholesale skip in OnHourChanged, not this flag.
+                int today = _timeService?.Day ?? 0;
+                signed.LastGeneratedDay = today;
+                GenerateWholesale(contract, today);
+                return true;
+            }
 
             Debug.Log($"[OrderArrivalService] Signed {contractId} ({contract.Customer?.CompanyName}) — " +
                       $"~{contract.EstimatedCasesPerDay} cases/day, due {contract.LeadTimeDays} day(s) out.");
@@ -149,6 +183,9 @@ namespace GameCore.Inventory
                                      $"matching asset in the catalog — skipping. (Asset renamed or removed?)");
                     continue;
                 }
+                // A one-off delivered everything it owed at signing. It stays in _signed (and so stays
+                // marked taken in the modal) but must never produce a second trailer.
+                if (contract.IsWholesale) continue;
                 if (newHour < contract.CutoffHour) continue;
 
                 // Stamped BEFORE generating: a throw or an empty roll must not leave this contract
@@ -156,6 +193,68 @@ namespace GameCore.Inventory
                 signed.LastGeneratedDay = today;
                 GenerateFor(contract, today);
             }
+        }
+
+        /// <summary>
+        /// One wholesale drop: a single order whose every line item is exactly ONE FULL PALLET of a
+        /// SKU — Ti x Hi cases, never a partial layer and never a loose case. That's what makes it a
+        /// pallet pick rather than a big case pick.
+        ///
+        /// KNOWN GAP (deliberate, per Tad): the quantities are full pallets but FULFILMENT still runs
+        /// through the case-pick selector, which will walk these off one case at a time. The order
+        /// shape is right; the mechanic that moves whole pallets from reserve to the staging lane
+        /// doesn't exist yet. Building it is a separate piece of work comparable in size to the
+        /// outbound picking system.
+        /// </summary>
+        private void GenerateWholesale(ContractData contract, int today)
+        {
+            var customer = contract.Customer;
+            if (customer == null)
+            {
+                Debug.LogWarning($"[OrderArrivalService] Contract '{contract.ContractId}' has no customer assigned.");
+                return;
+            }
+
+            // Only SKUs with real pallet maths — a Ti/Hi of zero can't express "one full pallet".
+            var eligible = _inventoryService.AllSkus
+                .Where(s => s != null && s.SellValue > 0f && s.Ti > 0 && s.Hi > 0)
+                .ToList();
+            if (eligible.Count == 0)
+            {
+                Debug.LogWarning("[OrderArrivalService] No SKUs with committed Ti/Hi — wholesale order not generated.");
+                return;
+            }
+
+            var rand = new System.Random();
+            int pallets = Mathf.Max(1, contract.PalletCount);
+
+            var order = new OrderData(
+                customer.CustomerId,
+                customer.CompanyName,
+                $"{customer.CompanyName} Distribution Center",
+                today,
+                today + contract.LeadTimeDays,
+                _timeService.Minute);
+
+            // Distinct SKUs where possible so the trailer isn't 12 pallets of one thing; if the
+            // catalogue is smaller than the pallet count, SKUs repeat as separate full-pallet lines.
+            var picks = eligible.OrderBy(_ => rand.Next()).Take(Mathf.Min(pallets, eligible.Count)).ToList();
+            int totalCases = 0;
+            for (int i = 0; i < pallets; i++)
+            {
+                var sku = picks[i % picks.Count];
+                int fullPallet = sku.Ti * sku.Hi;
+                totalCases += fullPallet;
+                order.LineItems.Add(new OrderLineItem(
+                    sku.SkuId,
+                    fullPallet,
+                    Mathf.RoundToInt(sku.BuyValue),
+                    Mathf.RoundToInt(sku.SellValue * contract.PayRateMultiplier)));
+            }
+
+            _orderService.ReceiveOrder(order);
+            Debug.Log($"[OrderArrivalService] WHOLESALE signed — {customer.CompanyName}: {pallets} full pallet(s), " +
+                      $"{totalCases} cases across {order.LineItems.Count} line(s), due day {today + contract.LeadTimeDays}.");
         }
 
         private void GenerateFor(ContractData contract, int today)

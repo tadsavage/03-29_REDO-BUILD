@@ -39,6 +39,11 @@ public class SaveData
     // Active customer orders from OrderService. Empty in older saves.
     public List<OrderSnapshot> orders = new();
 
+    // Contracts the player has signed, from OrderArrivalService. Carries each one's last-generated
+    // day, without which a load would either re-run a day's arrivals or silently skip one.
+    // Empty in older saves.
+    public List<ContractSnapshot> contracts = new();
+
     // Former employees (terminated / resigned) — kept on file for rehire, union reinstatement,
     // and HR history. Populated from FormerEmployeeArchive. Absent in older saves (empty list).
     public List<EmployeeRecord> formerEmployees = new();

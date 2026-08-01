@@ -318,6 +318,8 @@ public class PlacementSystem : MonoBehaviour
             save.shipments = shipmentService.Export();
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderService))
             save.orders = orderService.Export();
+        if (ServiceLocator.TryGet(out GameCore.Inventory.OrderArrivalService orderArrivalService))
+            save.contracts = orderArrivalService.Export();
 
         if (ToolsWindowController.Instance != null)
         {
@@ -771,6 +773,8 @@ public class PlacementSystem : MonoBehaviour
             shipmentService.Import(save.shipments);
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderService))
             orderService.Import(save.orders);
+        if (ServiceLocator.TryGet(out GameCore.Inventory.OrderArrivalService orderArrivalRestore))
+            orderArrivalRestore.Import(save.contracts);
 
         if (save.cameraData != null && freeLookCamera != null)
             freeLookCamera.SetState(save.cameraData);

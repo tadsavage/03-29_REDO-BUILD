@@ -64,6 +64,7 @@ public class GameContext : MonoBehaviour
         var workQueueSystem = new GameCore.Labor.WorkQueueSystem();
         var shipmentReceivingCoordinator = new GameCore.Inventory.ShipmentReceivingCoordinator();
         var putawayLogic = new GameCore.Inventory.PutawayLogic();
+        var orderArrivalService = new GameCore.Inventory.OrderArrivalService();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
@@ -76,6 +77,7 @@ public class GameContext : MonoBehaviour
         ServiceLocator.Register<GameCore.Labor.WorkQueueSystem>(workQueueSystem);
         ServiceLocator.Register<GameCore.Inventory.ShipmentReceivingCoordinator>(shipmentReceivingCoordinator);
         ServiceLocator.Register<GameCore.Inventory.PutawayLogic>(putawayLogic);
+        ServiceLocator.Register<GameCore.Inventory.OrderArrivalService>(orderArrivalService);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
@@ -88,6 +90,9 @@ public class GameContext : MonoBehaviour
         workQueueSystem.Initialize();
         shipmentReceivingCoordinator.Initialize();
         putawayLogic.Initialize();
+        // Last: it resolves OrderService/InventoryService/SimulationTimeService out of the locator,
+        // so everything it depends on must already be registered AND initialized.
+        orderArrivalService.Initialize();
 
         // Load every SkuData asset that lives under a Resources folder (currently just the dummy
         // test SKU) so InventoryService.GetSkuData / TruckController.LoadShipment can resolve a

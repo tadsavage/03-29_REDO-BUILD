@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f013e756e58b2594fab35be00af81810, type: 3}
+  m_Name: Contract_WholesaleTrailer
+  m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.ContractData
+  _customer: {fileID: 11400000, guid: 4b90f9cb9c4fbbc4b979993c2b9c97f4, type: 2}
+  _pitch: "One trailer, full pallets, one payment. No case picking \u2014 they take
+    whole pallets or nothing."
+  _kind: 1
+  _palletCount: 12
+  _ordersPerDayMin: 1
+  _ordersPerDayMax: 1
+  _lineItemsMin: 1
+  _lineItemsMax: 1
+  _casesPerLineMin: 1
+  _casesPerLineMax: 1
+  _cutoffHour: 9
+  _leadTimeDays: 3
+  _payRateMultiplier: 1.25
+  _lateFeePercent: 0.35

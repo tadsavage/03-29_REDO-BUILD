@@ -15,30 +15,61 @@ using UnityEngine.InputSystem;
 ///   5 = Shift Manager (ShiftManagerPanel)
 ///   6 = Slot Assignment (SlotAssignmentPanel)
 ///   7 = Work Queue
+///   9 = Wholesale Contracts (ContractsPanel)
+///
+/// Registration is also what makes Tab close a panel: PlacementStateMachine's Tab handler calls
+/// CloseAll(), which only iterates this registry.
 /// </summary>
 public class UIKeyBindingManager : MonoBehaviour
 {
-    public static UIKeyBindingManager Instance { get; private set; }
+    private static UIKeyBindingManager _instance;
+
+    /// <summary>
+    /// Self-creating singleton. It used to be assigned only in Awake, which made registration depend
+    /// on script execution order: TopBarUI.Init runs before this component's Awake, so every panel it
+    /// registers (5 Shift Manager, 7 Work Queue, 9 Contracts) hit a null Instance and was skipped
+    /// without a word. The symptom was subtle — those panels still opened via their own key handling,
+    /// but were absent from the registry, so CloseAll() (i.e. Tab) silently ignored them.
+    ///
+    /// Prefers an existing scene instance before creating one, so a manager placed in the scene that
+    /// simply hasn't Awoken yet is adopted rather than duplicated.
+    /// </summary>
+    public static UIKeyBindingManager Instance
+    {
+        get
+        {
+            if (_instance != null) return _instance;
+
+            _instance = FindFirstObjectByType<UIKeyBindingManager>();
+            if (_instance == null)
+            {
+                var go = new GameObject("[UIKeyBindingManager]");
+                _instance = go.AddComponent<UIKeyBindingManager>();
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     private Dictionary<int, IUIPanel> _uiPanels = new();
     private int _currentOpenKey = -1;  // -1 = none open
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
             return;
         }
-        Instance = this;
+        _instance = this;
     }
 
-    /// <summary>Register a UI panel for a keybinding number (1-7).</summary>
+    /// <summary>Register a UI panel for a keybinding number (1-9).</summary>
     public void RegisterUI(int keyNumber, IUIPanel panel)
     {
-        if (keyNumber < 1 || keyNumber > 7)
+        if (keyNumber < 1 || keyNumber > 9)
         {
-            Debug.LogError($"[UIKeyBindingManager] Invalid key number {keyNumber}. Must be 1-7.");
+            Debug.LogError($"[UIKeyBindingManager] Invalid key number {keyNumber}. Must be 1-9.");
             return;
         }
 

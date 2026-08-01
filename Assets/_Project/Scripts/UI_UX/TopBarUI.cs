@@ -51,6 +51,8 @@ public class TopBarUI : MonoBehaviour
     public SlotAssignmentPanel SlotAssignmentPanel => _slotAssignmentPanel;
     private WorkQueuePanel _workQueuePanel;             // "7" key — release orders to a staging lane / door
     public WorkQueuePanel WorkQueuePanel => _workQueuePanel;
+    private ContractsPanel _contractsPanel;             // "9" key — sign customer contracts (where demand comes from)
+    public ContractsPanel ContractsPanel => _contractsPanel;
     private NewItemPanel _newItemPanel;                 // "8" key — assign pick slots to received items
     public NewItemPanel NewItemPanel => _newItemPanel;
     private SaveLoadWindowController _saveLoadController;
@@ -97,6 +99,7 @@ public class TopBarUI : MonoBehaviour
         _shiftManagerPanel = new ShiftManagerPanel(root, _timeService);
         _slotAssignmentPanel = new SlotAssignmentPanel(root);
         _workQueuePanel = new WorkQueuePanel(root);
+        _contractsPanel = new ContractsPanel(root);
         _newItemPanel = new NewItemPanel(root);
 
         // Register shift manager with UIKeyBindingManager for keybinding support (key 5)
@@ -106,6 +109,7 @@ public class TopBarUI : MonoBehaviour
             // Key 7 — registration is also what makes Tab close it: PlacementStateMachine's Tab handler
             // closes panels through UIKeyBindingManager.CloseAll(), which only iterates the registry.
             UIKeyBindingManager.Instance.RegisterUI(7, _workQueuePanel);
+            UIKeyBindingManager.Instance.RegisterUI(9, _contractsPanel);
             // Note: SlotAssignmentPanel doesn't implement IUIPanel yet, can be accessed via UI button
         }
 
