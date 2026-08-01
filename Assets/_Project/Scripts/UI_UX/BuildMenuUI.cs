@@ -81,9 +81,28 @@ public class BuildMenuUI : MonoBehaviour
 
     public bool IsPointerOverBuildMenu { get; private set; }
 
+    /// <summary>The live bottom-HUD menu, so other HUD pieces can parent themselves into the same
+    /// document instead of floating in one of their own (see DevHudWindow).</summary>
+    public static BuildMenuUI Instance { get; private set; }
+
+    /// <summary>Root of the bottom HUD document. Null until OnEnable has run.</summary>
+    public VisualElement Root => _root;
+
+    /// <summary>The bar itself. Adding here docks a widget INTO the bar's row layout — between the
+    /// category buttons and the utility buttons, since the bar is space-between — rather than leaving
+    /// it floating over the HUD.</summary>
+    public VisualElement BottomBar => _bottomBar;
+
+    /// <summary>Height of the bottom bar in the USS (.buildmenu-bottom-bar) plus its 2px top border.
+    /// Anything anchored just above the bar measures from here.</summary>
+    public const float BottomBarHeight = 122f;
+
+    private VisualElement _keybindLegend;
+
     private void Awake()
     {
         _uiDoc = GetComponent<UIDocument>();
+        Instance = this;
     }
 
     private void OnEnable()
@@ -166,6 +185,95 @@ public class BuildMenuUI : MonoBehaviour
 
         // Prevent wheel events from zooming the camera when over the UI
         _bottomBar.RegisterCallback<WheelEvent>(evt => evt.StopPropagation());
+
+        BuildKeybindLegend();
+    }
+
+    /// <summary>
+    /// The number-key cheat sheet, as a strip sitting directly above the build bar.
+    ///
+    /// Purely a HUD readout: the strip and every child are PickingMode.Ignore, so it can never eat a
+    /// click meant for the world or the bar beneath it. Built here rather than in its own document
+    /// because it belongs to the bottom HUD and should move and layer with it.
+    ///
+    /// The labels are the panels' human names, not the class names — "Dev Console", not
+    /// "ToolsWindowController". Keys must stay in step with UIKeyBindingManager's registry.
+    /// </summary>
+    private void BuildKeybindLegend()
+    {
+        if (_root == null) return;
+        if (_keybindLegend != null) { _keybindLegend.RemoveFromHierarchy(); _keybindLegend = null; }
+
+        var strip = new VisualElement { name = "KeybindLegend" };
+        strip.pickingMode = PickingMode.Ignore;
+        strip.style.position = Position.Absolute;
+        strip.style.bottom = BottomBarHeight;
+        strip.style.left = 0;
+        strip.style.right = 0;
+        strip.style.height = 30;
+        strip.style.flexDirection = FlexDirection.Row;
+        strip.style.alignItems = Align.Center;
+        strip.style.justifyContent = Justify.Center;
+        // House orange (#B5743A), the same family as the action buttons, dropped to a HUD-weight alpha.
+        strip.style.backgroundColor = new StyleColor(new Color(0xB5 / 255f, 0x74 / 255f, 0x3A / 255f, 0.15f));
+        strip.style.borderTopWidth = strip.style.borderBottomWidth = 2;
+        strip.style.borderTopColor = strip.style.borderBottomColor =
+            new StyleColor(new Color(0x7A / 255f, 0x4C / 255f, 0x22 / 255f, 1f));
+
+        (int key, string label)[] binds =
+        {
+            (1, "Dev Console"), (2, "Hiring Board"), (3, "Employee Roster"), (4, "Employee List"),
+            (5, "Shift Manager"), (6, "Contracts"), (7, "Work Queue"), (8, "New Item")
+        };
+
+        foreach (var (key, label) in binds)
+        {
+            var entry = new VisualElement();
+            entry.pickingMode = PickingMode.Ignore;
+            entry.style.flexDirection = FlexDirection.Row;
+            entry.style.alignItems = Align.Center;
+            entry.style.marginLeft = 10;
+            entry.style.marginRight = 10;
+
+            var num = new Label(key.ToString());
+            num.pickingMode = PickingMode.Ignore;
+            ApplyLegendFont(num, bold: true, size: 15);
+            num.style.color = new StyleColor(new Color(0xFD / 255f, 0xE8 / 255f, 0xCC / 255f, 1f));
+            num.style.marginRight = 5;
+
+            var text = new Label(label);
+            text.pickingMode = PickingMode.Ignore;
+            ApplyLegendFont(text, bold: false, size: 14);
+            text.style.color = new StyleColor(new Color(1f, 1f, 1f, 0.92f));
+
+            entry.Add(num);
+            entry.Add(text);
+            strip.Add(entry);
+        }
+
+        _root.Add(strip);
+        _keybindLegend = strip;
+    }
+
+    private static Font _legendFont;
+
+    private static void ApplyLegendFont(VisualElement el, bool bold, int size)
+    {
+        if (_legendFont == null)
+        {
+#if UNITY_EDITOR
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("LilitaOne-Regular t:Font");
+            if (guids.Length > 0)
+                _legendFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
+                    UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
+#else
+            _legendFont = Resources.Load<Font>("LilitaOne-Regular");
+#endif
+        }
+        if (_legendFont != null)
+            el.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(_legendFont));
+        if (bold) el.style.unityFontStyleAndWeight = FontStyle.Bold;
+        el.style.fontSize = size;
     }
 
     private void BuildCategoryButtons()

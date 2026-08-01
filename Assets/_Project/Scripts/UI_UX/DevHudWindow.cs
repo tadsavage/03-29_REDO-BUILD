@@ -1,3 +1,4 @@
+using System.Linq;          // Children().FirstOrDefault() in MatchCategoryButtonHeight
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
@@ -27,6 +28,9 @@ public class DevHudWindow : MonoBehaviour
     private Label _modeLabel;
     private VisualElement _modeButton;
     private DraggableWindow _dragger;
+    private VisualElement _titleBar;
+    private Button _closeButton;
+    private bool _docked;
     private float _smoothedFps = 60f;
     private int _lastCellX = -1, _lastCellY = -1;
 
@@ -38,13 +42,39 @@ public class DevHudWindow : MonoBehaviour
     {
         _doc = GetComponent<UIDocument>();
         _doc.sortingOrder = 100;
-        var root = _doc.rootVisualElement;
-        if (root == null) return;
+        var ownRoot = _doc.rootVisualElement;
+        if (ownRoot == null) return;
 
-        root.pickingMode = PickingMode.Ignore;
-        root.Clear();
-        BuildUI(root);
-        RestoreWindowPos();
+        ownRoot.pickingMode = PickingMode.Ignore;
+        ownRoot.Clear();
+
+        // Dock INTO the bar, not merely into its document. Parenting to the document root still left
+        // this absolutely positioned at left:16/top:90 — a floating window that happened to share a
+        // document, which is not what "part of the bottom bar" means. Adding to the bar itself puts it
+        // in the bar's row layout (space-between, so it lands between the category and utility rows)
+        // and it inherits the bar's position, layering and lifetime for free.
+        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BottomBar : null;
+        _docked = bar != null;
+        BuildUI(bar ?? ownRoot);
+
+        // Only a free-floating window has a position worth remembering; a docked one is placed by the
+        // bar's layout and must not be moved by a stale pref.
+        if (!_docked) RestoreWindowPos();
+
+        // If the bar wasn't up yet, retry once — otherwise a script-order accident silently leaves the
+        // dev HUD floating in its own document forever.
+        if (!_docked)
+        {
+            ownRoot.schedule.Execute(() =>
+            {
+                var late = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BottomBar : null;
+                if (late == null || _panel == null || _panel.parent == late) return;
+                _panel.RemoveFromHierarchy();
+                late.Add(_panel);
+                _docked = true;
+                ApplyDockedLayout();
+            }).ExecuteLater(250);
+        }
         TrySubscribeSave();
     }
 
@@ -151,8 +181,148 @@ public class DevHudWindow : MonoBehaviour
         _panel.Add(body);
         root.Add(_panel);
 
+        if (_docked)
+        {
+            // Docked: the bar owns placement, so drop the floating-window chrome entirely. No drag
+            // (there is nowhere to drag it to), and no ✕ — closing a widget that's part of the bar
+            // would leave a hole in the bar rather than dismissing a window.
+            _titleBar = titleBar;
+            _closeButton = close;
+            ApplyDockedLayout();
+            return;
+        }
+
         _dragger = new DraggableWindow(_panel, titleBar, close);
         _dragger.OnDragEnd += SaveWindowPos;
+    }
+
+    /// <summary>
+    /// Turns the floating window into a bar-resident widget: in-flow instead of absolute, laid out in
+    /// a row so it fits the bar's 120px height, and stripped of the drag/close affordances that only
+    /// make sense for a window. The graphics-preset button is deliberately kept — it's the one
+    /// interactive part worth having on the bar.
+    /// </summary>
+    /// <summary>Fallback height, from .buildmenu-category-button in buildmenuNEW.uss. Only used until
+    /// MatchCategoryButtonHeight can measure a real button — the USS value doesn't survive panel
+    /// scaling (104px in the sheet resolved to 113.2 at this resolution), so copying the live height
+    /// is the only way to actually match.</summary>
+    private const float BarCardHeight = 104f;
+
+    /// <summary>Wide enough for "999 FPS" plus the cell/preset stack without the text ever changing
+    /// the card's size. See the note on style.width in ApplyDockedLayout.</summary>
+    private const float DockedCardWidth = 310f;
+
+    private void ApplyDockedLayout()
+    {
+        if (_panel == null) return;
+
+        _panel.style.position = Position.Relative;
+        _panel.style.left = StyleKeyword.Auto;
+        _panel.style.top = StyleKeyword.Auto;
+        // FIXED width, not auto. The FPS text changes every frame, and an auto-width card inside the
+        // bar's flex row makes that a per-frame re-layout of the whole bar — ten category buttons and
+        // the utility row — which tanked the frame rate the moment this docked. A fixed width means a
+        // text change repaints one label and nothing reflows.
+        _panel.style.width = DockedCardWidth;
+        _panel.style.height = BarCardHeight;
+        _panel.style.flexDirection = FlexDirection.Row;
+        _panel.style.alignItems = Align.Center;
+        _panel.style.paddingLeft = 14;
+        _panel.style.paddingRight = 14;
+        _panel.style.marginLeft = 12;
+        _panel.style.marginRight = 12;
+        // Same card face the bar's own buttons use, so it reads as part of the set rather than a
+        // window that happens to be parked there.
+        _panel.style.backgroundColor = new Color(34f / 255f, 44f / 255f, 56f / 255f, 0.55f);
+        SetBorder(_panel, new Color(1f, 1f, 1f, 0.08f), 1f);
+        SetRadius(_panel, 8f);
+
+        if (_titleBar != null) _titleBar.style.display = DisplayStyle.None;
+        if (_closeButton != null) _closeButton.style.display = DisplayStyle.None;
+
+        var body = _fpsLabel?.parent;
+        if (body != null)
+        {
+            body.style.flexDirection = FlexDirection.Row;
+            body.style.alignItems = Align.Center;
+            body.style.paddingTop = 0;
+            body.style.paddingBottom = 0;
+            body.style.paddingLeft = 0;
+            body.style.paddingRight = 0;
+            body.style.height = Length.Percent(100);
+        }
+
+        // FPS is the headline number and carries the height on its own; the cell readout and preset
+        // button stack beside it so the card fills 104px vertically instead of floating one thin row
+        // in the middle of it.
+        if (_fpsLabel != null)
+        {
+            _fpsLabel.style.fontSize = 34;
+            _fpsLabel.style.marginRight = 14;
+            _fpsLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
+            // Fixed too: "9 FPS" and "144 FPS" must occupy the same box, or the stack beside it
+            // shuffles sideways every time the number changes width.
+            _fpsLabel.style.width = 110;
+        }
+
+        if (_cellLabel != null && _modeButton != null && body != null)
+        {
+            var stack = _cellLabel.parent == body && _modeButton.parent == body
+                ? new VisualElement()
+                : _cellLabel.parent as VisualElement;
+
+            if (stack != null && stack != _cellLabel.parent)
+            {
+                stack.style.flexDirection = FlexDirection.Column;
+                stack.style.alignItems = Align.FlexStart;
+                stack.style.justifyContent = Justify.Center;
+                _cellLabel.RemoveFromHierarchy();
+                _modeButton.RemoveFromHierarchy();
+                stack.Add(_cellLabel);
+                stack.Add(_modeButton);
+                body.Add(stack);
+            }
+
+            _cellLabel.style.fontSize = 16;
+            _cellLabel.style.marginTop = 0;
+            _cellLabel.style.marginBottom = 6;
+            _cellLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
+            _cellLabel.style.width = 160; // fixed for the same reason as the FPS label
+
+            _modeButton.style.marginTop = 0;
+            _modeButton.style.paddingTop = 4;
+            _modeButton.style.paddingBottom = 4;
+            _modeButton.style.paddingLeft = 10;
+            _modeButton.style.paddingRight = 10;
+            if (_modeLabel != null) _modeLabel.style.fontSize = 16;
+        }
+
+        MatchCategoryButtonHeight();
+    }
+
+    /// <summary>
+    /// Copies the live height of a real category button onto the card.
+    ///
+    /// Hardcoding the USS value (104) doesn't match: panel scaling turns it into 113.2 at this
+    /// resolution, and any other resolution gives a different number again. Measuring the rendered
+    /// button is the only thing that stays correct — and it has to run after layout, hence the
+    /// scheduled callback.
+    /// </summary>
+    private void MatchCategoryButtonHeight()
+    {
+        if (_panel == null) return;
+
+        _panel.schedule.Execute(() =>
+        {
+            var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BottomBar : null;
+            var catRow = bar?.Q<VisualElement>("CategoryRow");
+            var button = catRow?.Children().FirstOrDefault();
+            if (button == null) return;
+
+            float h = button.resolvedStyle.height;
+            if (h > 1f && Mathf.Abs(h - _panel.resolvedStyle.height) > 0.5f)
+                _panel.style.height = h;
+        }).ExecuteLater(200);
     }
 
     private void Update()

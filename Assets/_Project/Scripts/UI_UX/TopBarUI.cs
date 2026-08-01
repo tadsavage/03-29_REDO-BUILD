@@ -51,7 +51,7 @@ public class TopBarUI : MonoBehaviour
     public SlotAssignmentPanel SlotAssignmentPanel => _slotAssignmentPanel;
     private WorkQueuePanel _workQueuePanel;             // "7" key — release orders to a staging lane / door
     public WorkQueuePanel WorkQueuePanel => _workQueuePanel;
-    private ContractsPanel _contractsPanel;             // "9" key — sign customer contracts (where demand comes from)
+    private ContractsPanel _contractsPanel;             // "6" key — sign customer contracts (where demand comes from)
     public ContractsPanel ContractsPanel => _contractsPanel;
     private NewItemPanel _newItemPanel;                 // "8" key — assign pick slots to received items
     public NewItemPanel NewItemPanel => _newItemPanel;
@@ -108,8 +108,9 @@ public class TopBarUI : MonoBehaviour
             UIKeyBindingManager.Instance.RegisterUI(5, _shiftManagerPanel);
             // Key 7 — registration is also what makes Tab close it: PlacementStateMachine's Tab handler
             // closes panels through UIKeyBindingManager.CloseAll(), which only iterates the registry.
+            UIKeyBindingManager.Instance.RegisterUI(6, _contractsPanel);
             UIKeyBindingManager.Instance.RegisterUI(7, _workQueuePanel);
-            UIKeyBindingManager.Instance.RegisterUI(9, _contractsPanel);
+            UIKeyBindingManager.Instance.RegisterUI(8, _newItemPanel);
             // Note: SlotAssignmentPanel doesn't implement IUIPanel yet, can be accessed via UI button
         }
 
@@ -186,17 +187,25 @@ public class TopBarUI : MonoBehaviour
         // Update panels that need periodic refresh
         _newItemPanel?.Update();
 
-        if (!UIModalGuard.IsCapturing && Keyboard.current.digit5Key.wasPressedThisFrame)
-            _shiftManagerPanel?.Toggle();
+        // All routed through UIKeyBindingManager rather than toggled directly. Toggling a panel
+        // straight left every other panel open — the manager is what closes the incumbent first, and
+        // what gives the Shift Manager its chance to confirm before losing unsaved edits.
+        var keys = UIKeyBindingManager.Instance;
 
+        if (!UIModalGuard.IsCapturing && Keyboard.current.digit5Key.wasPressedThisFrame)
+            keys.ToggleUI(5);
+
+        // 6 opens WHOLESALE CONTRACTS. The Slot Assignment panel that used to live here is still
+        // reachable by clicking a rack (PlacementStateMachine -> ShowForAisle); it just no longer has
+        // a number key of its own.
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit6Key.wasPressedThisFrame)
-            _slotAssignmentPanel?.Toggle();
+            keys.ToggleUI(6);
 
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit7Key.wasPressedThisFrame)
-            _workQueuePanel?.Toggle();
+            keys.ToggleUI(7);
 
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit8Key.wasPressedThisFrame)
-            _newItemPanel?.Toggle();
+            keys.ToggleUI(8);
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {

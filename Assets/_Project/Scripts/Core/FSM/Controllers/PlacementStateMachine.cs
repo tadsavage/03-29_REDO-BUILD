@@ -296,19 +296,6 @@ if (_currentState != _idleState)
         }
 
         // -----------------------------------------------------
-        // WHOLESALE CONTRACTS (9)
-        // -----------------------------------------------------
-        // Routed through UIKeyBindingManager rather than toggled directly so it joins the exclusive
-        // panel group — opening it closes whatever else is open, and Tab closes it via CloseAll().
-        if (Keyboard.current.digit9Key.wasPressedThisFrame)
-        {
-            if (UIKeyBindingManager.Instance != null)
-                UIKeyBindingManager.Instance.ToggleUI(9);
-            else
-                _topBar?.ContractsPanel?.Toggle();
-        }
-
-        // -----------------------------------------------------
         // CLOSE ALL UI PANELS (TAB)
         // -----------------------------------------------------
         if (Keyboard.current.tabKey.wasPressedThisFrame)

@@ -13,9 +13,10 @@ using UnityEngine.InputSystem;
 ///   3 = Employee Roster (EmployeeRosterUI)
 ///   4 = Employee List (EmployeeListPanelController)
 ///   5 = Shift Manager (ShiftManagerPanel)
-///   6 = Slot Assignment (SlotAssignmentPanel)
+///   6 = Wholesale Contracts (ContractsPanel) — replaced Slot Assignment, which is now opened by
+///       clicking a rack rather than by a number key
 ///   7 = Work Queue
-///   9 = Wholesale Contracts (ContractsPanel)
+///   8 = New Item / Slotter
 ///
 /// Registration is also what makes Tab close a panel: PlacementStateMachine's Tab handler calls
 /// CloseAll(), which only iterates this registry.
@@ -123,12 +124,31 @@ public class UIKeyBindingManager : MonoBehaviour
             return;
         }
 
-        // Close the currently open panel (if any)
+        // Close the currently open panel (if any) before opening the new one.
         if (_currentOpenKey != -1 && _currentOpenKey != keyNumber && _uiPanels.ContainsKey(_currentOpenKey))
         {
             var currentPanel = _uiPanels[_currentOpenKey];
             if (currentPanel != null && currentPanel.IsOpen)
+            {
+                // The Shift Manager is the one panel that can hold unsaved work, so it gets a say in
+                // whether it's closed. Unedited it closes silently like any other; edited it raises
+                // its confirmation and the requested panel opens only if the player agrees. Opening
+                // is deferred into the callback rather than continuing here, otherwise the new panel
+                // would appear on top of the confirmation the player hasn't answered yet.
+                if (currentPanel is ShiftManagerPanel shiftManager && shiftManager.HasUnsavedChanges)
+                {
+                    int pendingKey = keyNumber;
+                    var pendingPanel = panel;
+                    shiftManager.RequestClose(() =>
+                    {
+                        pendingPanel.Show();
+                        _currentOpenKey = pendingKey;
+                    });
+                    return;
+                }
+
                 currentPanel.Hide();
+            }
         }
 
         // Open the requested panel

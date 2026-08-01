@@ -649,9 +649,37 @@ Two new options in the Employee Info card's Actions dropdown (`EmployeeInfoUI`),
 
 **Confirmed, not changed:** Employee Roster (`EmployeeRosterUI.cs`) dragging was checked during this pass — it's already wired via the same shared `DraggableWindow` helper used here and by the Hiring Board (`DraggableWindow.cs`'s own doc comment specifically cites the roster's stretched top+bottom anchoring as the motivating case it was built to handle). No code change was needed there.
 
-### Keybindings (rebound 2026-06-26)
+### Keybindings (rebound 2026-06-26; 6–8 revised 2026-07-29)
 
-F1–F4 were rebound to the number row to free up F-keys and make room for **5** (Shift Manager): **1** = Dev Console (`ToolsWindowController`, itself non-functional — see BUGS), **2** = Hiring Board, **3** = Employee Roster, **4** = Employee List, **5** = Shift Manager. All via `Keyboard.current.digitNKey`, not the numpad. Quicksave/load (F5/F6/F9, see Development Commands above) are unrelated F-keys, untouched.
+**1** = Dev Console (`ToolsWindowController`), **2** = Hiring Board, **3** = Employee Roster,
+**4** = Employee List, **5** = Shift Manager, **6** = **Wholesale Contracts** (`ContractsPanel`),
+**7** = Work Queue, **8** = New Item / Slotter. All via `Keyboard.current.digitNKey`, not the numpad.
+Quicksave/load (F5/F6/F9) are unrelated F-keys, untouched.
+
+**6 was Slot Assignment until 2026-07-29.** `SlotAssignmentPanel` now has no number key and is opened
+by clicking a rack (`PlacementStateMachine` → `ShowForAisle`).
+
+#### Panel exclusivity — how it actually works, and how it silently didn't
+
+Opening any panel closes the currently open one. That is `UIKeyBindingManager.ToggleUI`, and it only
+works for panels that are **registered** — which requires implementing `IUIPanel` AND a
+`RegisterUI(n, panel)` call. Two long-standing bugs both traced to this:
+
+1. **Panels 5, 7, 8, 9 were never registered.** `UIKeyBindingManager.Instance` was assigned only in
+   `Awake`, but `UIBootstrapper.Awake` → `TopBarUI.Init` runs *earlier*, so every registration there
+   hit a null Instance and was skipped without a word. `Instance` is now a **self-creating property**
+   (adopts an existing scene instance first). Symptom was subtle: those panels still opened via their
+   own key handling, but `CloseAll()` — i.e. **Tab** — ignored them.
+2. **Keys 5–8 bypassed the manager entirely**, calling `panel.Toggle()` directly in `TopBarUI.Update`,
+   so nothing ever closed anything. All now route through `ToggleUI`.
+
+**Shift Manager exception:** it can hold unsaved edits, so it gets a veto. `ShiftManagerPanel.
+RequestClose(onClosed)` closes silently when clean, and when dirty raises the existing
+`ShowConfirmation` dialog; the requested panel opens inside the callback so it can't appear on top of
+an unanswered prompt.
+
+**Adding a new panel?** Implement `IUIPanel` (`Show`/`Hide`/`IsOpen`), call `RegisterUI`, and route its
+key through `ToggleUI`. Skipping any of the three fails quietly.
 
 ### Inventory System — Milestone 1 (CORE COMPLETE — 2026-06-27)
 
@@ -951,3 +979,156 @@ Known problems that need fixing. Add to this list as issues are discovered.
 - **ToolsWindow (`Assets/3. UI/7.ToolsWindow/`) is non-functional** — none of the following work: tilde toggle, X close button, tab switching, panel drag. Mouse scroll in the panel also bleeds through to the game camera. Root cause likely: PanelSettings misconfiguration, `Start()` silently failing before event wiring runs, or UIDocument not blocking input. Needs full debug pass.
 - **One-time placement costs aren't `FinanceCategory`-categorized for lifetime totals** — `PlaceCommand`'s `_money.Deduct(_data.cost, _data.category)` tags the deduction with the raw `ObjDataSO.category` string into `_lifetimeExpenses`/`_lifetimeDetail`, which doesn't match any `FinanceCategory.ExpenseOrder` entry. The dollars are real and now correctly shown in the **Spent Today → Purchases** list (fixed 2026-06-25/26), but the **Hourly tab's lifetime per-category breakdown still won't include them**. See [Economy & Financial Reporting System](#economy--financial-reporting-system).
 - **`EmployeeStatSystem`'s daily fatigue/morale tick is dormant** — `TickDay`/`TickDayForAll` are never called except from their own Editor debug context menu. The new overtime-doubles-fatigue rule is implemented correctly inside it but has zero effect in actual play until it's wired to a real day-change event. `GetCurrentDayOfWeek()` is also still a real-world-`DateTime.Now` placeholder, not tied to the in-game calendar.
+
+---
+
+## Session 2026-07-29 — Contracts (demand origin), order archiving, and a cluster of UI-wiring bugs
+
+### Contract system — where demand comes from in a real build
+
+Replaces the Dev Console's "Create Test Order" button as the player-facing source of orders (that
+button stays as a debug override and should NOT be removed).
+
+- **`ContractData`** (`Core/Inventory/`) — SO holding one customer's commercial terms. Deliberately a
+  SEPARATE asset from `CustomerData`: that is identity (name/description/icon, 26 assets already
+  authored), this is an offer, and the same customer should be able to appear as a small starter
+  account early and a punishing one later.
+  - `ContractKind.Recurring` — a standing account; rolls mixed case-pick orders daily at `CutoffHour`.
+  - `ContractKind.OneOffWholesale` — signed once, delivers once. **Full pallets only**: every line item
+    is exactly `Ti x Hi` cases of one SKU, never a partial layer or loose case (Tad's explicit rule).
+  - `PayRateMultiplier` scales `SellValue` and IS honoured. **`LateFeePercent` is displayed on cards
+    but NOT enforced** — `OrderService.OnDayChanged` still charges the flat `LateFeePercentClerk`
+    (25%). Known loose end.
+- **`ContractRegistry`** — `Resources`-loaded by name (`ContractRegistry.Load()`) so it resolves in a
+  BUILT PLAYER; `AssetDatabase` lookups are editor-only. Asset lives at
+  `Assets/_Project/Resources/ContractRegistry.asset`.
+- **`OrderArrivalService`** (`IService`, registered LAST in `GameContext` since it resolves the others
+  out of the locator) — subscribes to `OnHourChanged`, not `OnDayChanged`: orders landing at a cutoff
+  hour create the daily rhythm; midnight arrivals give the player no deadline to feel. `OnDayChanged`
+  remains right for the E1 fine sweep.
+  - `SignedContract.LastGeneratedDay` is persisted via a new `SaveData.contracts`. Without it a
+    save/load either re-runs a day's arrivals or silently skips one.
+  - **`Active` means "taken", nothing else.** A delivered wholesale deal stays Active forever; what
+    stops it re-firing is the `IsWholesale` skip in `OnHourChanged`. Clearing `Active` (the original
+    mistake) made a delivered one-off read as never-signed to `IsSigned`, so the card kept its Sign
+    button and every click produced another full trailer.
+- **`ContractsPanel`** (key 6) — card list using `CustomerData.Icon` directly (all 26 already
+  assigned). Draggable by its title bar; centres on first open only. Matches the house palette
+  (navy #141C26, blue border #5C9BC4, orange #B5743A, Lilita One).
+  - Card values are written `+$X` — a leading tilde for "approximately" reads as a MINUS sign at this
+    font size and made every contract look like a cost.
+
+**KNOWN GAP:** wholesale orders have full-pallet quantities but fulfilment still runs through the
+case-pick selector, which walks a 12-pallet trailer off one case at a time. The mechanic that moves
+whole pallets from reserve to the staging lane does not exist. This is the main thing standing between
+wholesale and it feeling like wholesale.
+
+### Terminal-order archiving (prerequisite for automatic arrivals)
+
+`OrderService` used to keep Shipped/Cancelled orders in `_activeOrders` forever — 67 observed in one
+session, nearly all terminal. That list feeds `WorkQueuePanel.BuildLiveSignature` (a string
+concatenation over every active order, **every 250ms**), the stage-ownership gates, and
+`TryPlanStageSpread`, and it is serialised into every save.
+
+- `Archive(order)` moves an order to `_orderHistory` **the instant it goes terminal** — from
+  `ShipOrder` (before `TryReleaseDoorIfClear` asks whether the door still has work, so a just-shipped
+  order cannot hold its own trailer) and from `CancelOrders` (safe: that loop walks `orderIds`, not
+  `_activeOrders`).
+- Bounded by COUNT (`MaxArchivedOrders = 250`), not age — `OrderData` records no closed-on day, and
+  save size tracks record count anyway.
+- `Export` writes active + history into the SAME `OrderSnapshot` list; `Import` sorts them back by
+  Status. No schema change, and **old saves migrate themselves** on next load.
+
+### Pallet rotation — the 180 degree flip, and the fix that made it worse
+
+Symptom: pallets visibly spun 180 degrees on the Y axis when picked up.
+
+**Wrong fix (reverted):** yawing `ForkCarryLocalEuler` to 180. The carry pose applies to EVERY pallet,
+so it just moved the flip onto all the pallets that were previously correct.
+
+**Root cause:** lane `DepthAxis` is +Z for every lane and trailers dock at negative Z, so a pallet
+**in a trailer** and a pallet **in a lane** genuinely sit 180 degrees apart in world space. Any
+ABSOLUTE carry pose is right for exactly one source and wrong for the other.
+
+**Real fix:** `NearestFacing(want, currentForward)` in both `TrailerLoadController` and
+`TrailerOffloadController` — seats the pallet square to the carrier but picks whichever of the two
+180-degree variants is already closer. A pallet's footprint is symmetric under a 180 yaw, so both park
+identically; only the transition was ever visible. Applied at all four transitions (pickup and
+set-down, both controllers). Facing must be captured BEFORE parenting.
+
+### Bottom HUD
+
+- **Keybind legend** — orange strip (#B5743A @ 0.15 alpha) above the bar, built in `BuildMenuUI`,
+  anchored at `BottomBarHeight` (122 = bar's 120px + 2px border). Strip and every child are
+  `PickingMode.Ignore`.
+- **Dev HUD docked into the bar.** `BuildMenuUI.Instance.BottomBar` (not `.Root` — parenting to the
+  document root still left it absolutely positioned and floating). Drag and close button removed; the
+  graphics-preset button stays.
+- **PERFORMANCE RULE:** anything with per-frame-changing text inside the bottom bar MUST have a
+  **fixed width**. The FPS label at auto width resized every frame and forced a full re-layout of the
+  bar (ten category buttons + utility row): **frame rate went 34 -> 2**. Fixed widths restored it to 41.
+- **Match sizes by MEASURING, not by copying USS numbers.** `.buildmenu-category-button` is `104px` in
+  the sheet but resolves to 112-113 depending on panel scaling. `MatchCategoryButtonHeight()` reads a
+  live button's `resolvedStyle.height` after layout.
+
+### Toast always-on-top
+
+`UIToast` lives on the **TopBar** GameObject and its `Awake` is what sets that document's
+`sortingOrder` to 999999. But every full-screen panel is built at runtime into **that same document's
+root**, so they are siblings of the toast and z-order is SIBLING ORDER — `sortingOrder` never applied.
+`Show()` now calls `BringToFront()`, per-show because a panel created later would otherwise overtake
+it again.
+
+### Other fixes this session
+
+- **Lane straddle (was stranding pallets + billing for them):** an order's pallets could land in two
+  different lanes while `OrderData.AssignedLane` records only one; the loader scans one lane, so the
+  other pallet was never loaded, yet `ShipOrder` billed the full picked quantity. New
+  `InventoryService.CountFreeStagingSlotsInLane` / `TryFindStagingLaneForPallets` pick ONE lane with
+  room for the whole order, resolved once in `FinishOrder`; per-pallet placement is locked to
+  `AssignedLane` and cannot overflow.
+- **Phantom staged orders after load:** staged pallets are NOT persisted while order status/door/lane
+  ARE. `OrderService.ReconcileStagedOrdersAgainstScene()` (called at the END of
+  `PlacementSystem.ApplySaveData`, after pallets AND trucks restore) returns Staged/Loading orders
+  with no matching pallet to Pending, refiles an Open OrderSelect task, and cancels lane-keyed Load
+  tasks nothing needs. `Loaded` orders are reported only — voiding earned revenue is not the guard's
+  call. **Real persistence for staged pallets and in-flight trucks still does not exist.**
+- **Multi-customer release:** `TryPlanStageSpread`/`ReleaseOrdersToStages` give each customer its own
+  STAGE (a stage cannot be shared — staging overflows A->B->C within it);
+  `ReleaseOrdersToLoadingBatch` splits by door, one trailer each.
+- **Work Queue From/To columns:** Open rows show first/last pick face via new `OrderPickPath`, which
+  `OrderSelectionTaskDriver.TryFindBestPickLocation` now also calls so preview and reality cannot
+  diverge. Released rows show staging lane -> `Door N`.
+- **`MoneyFlightFx`** — UI-Toolkit money sweep on close-out. `FloatingMoneyText` is world-space and
+  therefore invisible behind a full-screen modal, which is why close-out felt like it banked nothing.
+
+### Tooling gotchas (cost real time — read before debugging)
+
+- **`Unity_ValidateScript` is a SYNTAX check only.** It returned clean for a file whose
+  `SimulationTimeService` reference was unresolvable. "Validates clean" does NOT mean compiles.
+  **Real compile gate:** run a trivial `Unity_RunCommand` naming the types just edited — it builds
+  against the real game assemblies.
+- **`Unity_ReadConsole`'s type filter is broken** — `Types: ["Error","Warning"]` returns 0 entries
+  regardless, and it returns OLDEST-first. Use `FilterText` (e.g. `"error CS"`).
+- **`SimulationTimeService` is in `GameCore.Economy`**, not `GameCore.Services`.
+- **`Unity_RunCommand` blocks `System.Reflection`** — use `AssetDatabase.FindAssets("t:Type")` and
+  `SerializedObject` to reach private serialized fields.
+- **Verify the thing, not the value you set.** Several fixes this session were reported as done while
+  broken because the code was checked and the behaviour was not — registration that never ran, a panel
+  parented to the wrong element, a height that did not match. Read the runtime log or measure against
+  the real target.
+
+### Still open after this session
+
+1. **End-to-end run never completed** — the stuck-selector backstop (`AiNavigation` no-progress) and
+   the loader `DriveInToGrab` travel-cap fix from 2026-07-28 remain UNPROVEN.
+2. Full-pallet fulfilment mechanic (the big one).
+3. Wholesale offers should REFRESH rather than being permanently spent once delivered (agreed, not
+   built).
+4. `ContractData.LateFeePercent` not enforced by the fine sweep.
+5. `ShipOrder` bills `QuantityPicked` with no check that pallets actually made it onto a truck — this
+   is what let the lane-straddle bug stay silent.
+6. Nothing guards against multiple outbound trucks per door.
+7. Dev HUD card sits to the RIGHT of the utility buttons; may want moving into the gap before them.
+8. Only 3 `ContractData` assets exist (Starter / HighVolume / WholesaleTrailer). A fuller spread
+   across the 26 customers still needs authoring.

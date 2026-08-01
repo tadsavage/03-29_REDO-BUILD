@@ -247,6 +247,34 @@ public class ShiftManagerPanel : IUIPanel
         ShowConfirmation("Exit? Changes may be lost.", Hide);
     }
 
+    /// <summary>True while the panel holds edits the player hasn't saved or discarded.</summary>
+    public bool HasUnsavedChanges => _hasChanges;
+
+    /// <summary>
+    /// Close on someone else's behalf — used when opening another panel would otherwise yank this one
+    /// away. Untouched, it just closes. Edited, it raises the existing confirmation and only closes
+    /// (and only then runs <paramref name="onClosed"/>) if the player says yes, so a stray keypress
+    /// can't silently discard a schedule someone was halfway through building.
+    ///
+    /// Deliberately reuses the same ShowConfirmation the ✕ button uses rather than adding a second
+    /// dialog — the confirm UI was already built, it just had no route in from outside.
+    /// </summary>
+    public void RequestClose(Action onClosed)
+    {
+        if (!_hasChanges)
+        {
+            Hide();
+            onClosed?.Invoke();
+            return;
+        }
+
+        ShowConfirmation("Are you sure? Exit — changes may be lost.", () =>
+        {
+            Hide();
+            onClosed?.Invoke();
+        });
+    }
+
     // ── Validation ──────────────────────────────────────────────────────────────
     private bool ValidateAll(out string error)
     {

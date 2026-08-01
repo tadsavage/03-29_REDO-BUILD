@@ -63,6 +63,14 @@ public class UIToast : MonoBehaviour
         _toast.style.opacity    = 1;
         _timer                  = _defaultDuration;
 
+        // The document's sortingOrder (999999, set in Awake) only orders this document against OTHER
+        // documents. Every full-screen panel — Work Queue, Contracts, Shift Manager, New Item — is
+        // built at runtime into THIS SAME document's root, so they're siblings of the toast and z-order
+        // is sibling order, not sortingOrder. Being added later, they always drew on top and buried it.
+        // Re-raising on every Show is what actually keeps the toast visible, and it has to be per-Show
+        // because panels created after the last toast would otherwise overtake it again.
+        _toast.BringToFront();
+
         // Re-center after the label's geometry resolves (text content may change its width)
         _toast.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
     }

@@ -17,7 +17,7 @@ using UnityEngine.UIElements;
 ///   - Assign Extra Slot / Auto-Assign Extra Slot / Move Slot buttons
 /// Bound to the "8" key.
 /// </summary>
-public class NewItemPanel
+public class NewItemPanel : IUIPanel
 {
     private static readonly Color ColBg         = new Color(20f / 255f, 28f / 255f, 38f / 255f, 0.92f);
     private static readonly Color ColBorder     = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
@@ -103,6 +103,12 @@ public class NewItemPanel
     }
 
     public bool IsVisible => _visible;
+
+    /// <summary>IUIPanel's view of the same flag — implementing the interface is what puts this panel
+    /// in UIKeyBindingManager's registry, which is what makes opening another panel close this one
+    /// (and makes Tab close it via CloseAll).</summary>
+    public bool IsOpen => _visible;
+
     public void Toggle() { if (_visible) Hide(); else Show(); }
 
     /// <summary>Open the panel with a specific SKU already selected for slotting.</summary>
