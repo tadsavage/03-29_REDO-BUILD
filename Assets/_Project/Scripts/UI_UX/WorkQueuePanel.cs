@@ -224,7 +224,15 @@ public class WorkQueuePanel : IUIPanel
     {
         var overlay = new VisualElement { name = "workqueue-overlay" };
         overlay.style.position = Position.Absolute;
-        overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0; overlay.style.bottom = 0;
+        // Stops above the bottom HUD rather than covering it. This scrim is pickable while open (it
+        // deliberately eats world clicks), and this panel is built into the Toast document at
+        // sortingOrder 999999, so a full-height scrim swallows every click on the bar's buttons and
+        // the Build/Play tabs, and no sortingOrder on the bar can win. Reserving that strip is what
+        // actually keeps it reachable — and it has to include the tabs, which sit on top of the bar
+        // and stick up past it. The modal itself is unaffected: overflow is visible, so it still
+        // draws and picks outside the scrim's rect if it needs the room.
+        overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0;
+        overlay.style.bottom = BuildMenuUI.BottomHudReservedHeight;
         overlay.style.backgroundColor = new StyleColor(new Color(0f, 0f, 0f, 0.55f));
         overlay.style.justifyContent = Justify.FlexStart;
         overlay.style.alignItems = Align.Center;

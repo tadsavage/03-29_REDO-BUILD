@@ -53,7 +53,7 @@ public class DevHudWindow : MonoBehaviour
         // document, which is not what "part of the bottom bar" means. Adding to the bar itself puts it
         // in the bar's row layout (space-between, so it lands between the category and utility rows)
         // and it inherits the bar's position, layering and lifetime for free.
-        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BottomBar : null;
+        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BuildBar : null;
         _docked = bar != null;
         BuildUI(bar ?? ownRoot);
 
@@ -67,7 +67,7 @@ public class DevHudWindow : MonoBehaviour
         {
             ownRoot.schedule.Execute(() =>
             {
-                var late = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BottomBar : null;
+                var late = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BuildBar : null;
                 if (late == null || _panel == null || _panel.parent == late) return;
                 _panel.RemoveFromHierarchy();
                 late.Add(_panel);
@@ -347,7 +347,7 @@ public class DevHudWindow : MonoBehaviour
 
         _panel.schedule.Execute(() =>
         {
-            var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BottomBar : null;
+            var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BuildBar : null;
             var catRow = bar?.Q<VisualElement>("CategoryRow");
             var button = catRow?.Children().FirstOrDefault();
             if (button == null) return;

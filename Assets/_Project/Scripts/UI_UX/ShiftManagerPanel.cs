@@ -362,7 +362,10 @@ public class ShiftManagerPanel : IUIPanel
     {
         var overlay = new VisualElement { name = "shift-mgr-overlay" };
         overlay.style.position = Position.Absolute;
-        overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0; overlay.style.bottom = 0;
+        // Stops above the bottom HUD so this scrim can't swallow clicks on the bar or the Build/Play
+        // tabs — see the note on workqueue-overlay in WorkQueuePanel.Build.
+        overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0;
+        overlay.style.bottom = BuildMenuUI.BottomHudReservedHeight;
         overlay.style.backgroundColor = new StyleColor(new Color(0f, 0f, 0f, 0.55f));
         // Anchored toward the top (not vertically centered) and horizontally centered, so the
         // panel has room below it to grow downward as shifts are added instead of running out

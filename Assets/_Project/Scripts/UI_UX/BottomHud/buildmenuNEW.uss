@@ -30,6 +30,125 @@
     overflow: visible; /* ALLOWS HOVER TOOLTIPS TO DISPLAY OUTSIDE THE BAR BOUNDS */
 }
 
+/* Only one bottom bar is up at a time — BuildMenuUI swaps this class between the
+   Build and Play bars. display:none rather than opacity so the hidden bar cannot
+   swallow clicks meant for the world. */
+.buildmenu-bar-hidden {
+    display: none;
+}
+
+/* ── Play bar buttons ────────────────────────────────────────────────────
+   Same card as .buildmenu-category-button; only the icon shrinks, to leave room for
+   the hotkey badge without pushing the label out of the 104px card. */
+.playbar-icon {
+    width: 68px;
+    height: 68px;
+}
+
+.playbar-label {
+    font-size: 14px;
+}
+
+/* Absolute so the badge costs no vertical space — the card is already full at
+   68px icon + label. Anchors to the button, which is position:relative by default. */
+.playbar-key {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgba(150, 190, 220, 0.75);
+}
+
+/* Icons are referenced by GUID (fileID 2800000 = the PNG's Texture2D main asset), the
+   same url() form the fonts above use, so no Inspector wiring and the dependency is
+   packed into a build. */
+.playbar-icon-devconsole {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/DevConsoleThumb.png?fileID=2800000&guid=59aec23a22a6b2e4288c2f9e06b5b574&type=3#DevConsoleThumb");
+}
+
+.playbar-icon-hiringboard {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/HiringBoardThumb.png?fileID=2800000&guid=918541899f07b2248b04e09973270879&type=3#HiringBoardThumb");
+}
+
+.playbar-icon-employeeroster {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/EmployeeRosterThumb.png?fileID=2800000&guid=ff3df38c81b7741499246e9636ab264f&type=3#EmployeeRosterThumb");
+}
+
+.playbar-icon-employeelist {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/EmployeeListThumb.png?fileID=2800000&guid=72b41feff32158545a10580bc41c37d0&type=3#EmployeeListThumb");
+}
+
+.playbar-icon-shiftmanager {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/ShiftManagerThumb.png?fileID=2800000&guid=59d3ed0b648f5e0459152b1fd1205a07&type=3#ShiftManagerThumb");
+}
+
+.playbar-icon-contracts {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/ContractsThumb.png?fileID=2800000&guid=3d7daea61b3f9a84e82e83d9bfdf014b&type=3#ContractsThumb");
+}
+
+.playbar-icon-workqueue {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/WorkQueueThumb.png?fileID=2800000&guid=32c13be7f77f7924b948b9f552fd630a&type=3#WorkQueueThumb");
+}
+
+.playbar-icon-newitem {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/NewItemThumb.png?fileID=2800000&guid=703546f892563b8428200ddbd177029a&type=3#NewItemThumb");
+}
+
+/* ── Build / Play mode tabs ──────────────────────────────────────────────
+   Anchored at bottom:120px — the bar's height, not BottomBarHeight (122) — so the
+   tab's bottom edge overlaps the bar's 2px top border and the active tab reads as
+   one piece with the bar beneath it. */
+.buildmenu-mode-tabs {
+    position: absolute;
+    bottom: 120px;
+    left: 16px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.buildmenu-mode-tab {
+    height: 30px;
+    min-width: 96px;
+    margin: 0;
+    margin-right: 4px;
+    padding-left: 18px;
+    padding-right: 18px;
+    background-color: rgba(34, 44, 56, 0.55);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    border-bottom-width: 0;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+.buildmenu-mode-tab:hover {
+    background-color: rgba(92, 155, 196, 0.25);
+    border-color: rgba(92, 155, 196, 0.5);
+    color: rgb(255, 255, 255);
+}
+
+/* Active tab: same fill as the bar, blue framing that continues the bar's top
+   border, and 2px taller so it sits slightly proud of its inactive sibling. */
+.buildmenu-mode-tab-active {
+    height: 32px;
+    background-color: rgba(20, 28, 38, 0.82);
+    border-color: rgba(92, 155, 196, 0.6);
+    border-bottom-width: 0;
+    color: rgb(255, 255, 255);
+}
+
+.buildmenu-mode-tab-active:hover {
+    background-color: rgba(20, 28, 38, 0.82);
+    border-color: rgba(92, 155, 196, 0.6);
+}
+
 .buildmenu-category-row {
     display: flex;
     flex-direction: row;

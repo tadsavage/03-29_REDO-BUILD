@@ -55,15 +55,36 @@ public class BuildMenuUI : MonoBehaviour
     // UI Toolkit references
     private UIDocument _uiDoc;
     private VisualElement _root;
-    private VisualElement _bottomBar;
+    private VisualElement _buildBar;
+    private VisualElement _playBar;
     private VisualElement _categoryRow;
     private VisualElement _utilityRow;
     private VisualElement _submenuContainer;
     private ScrollView _submenuScroll;
+    private VisualElement _modeTabs;
+    private Button _tabBuild;
+    private Button _tabPlay;
+
+    // Hotkey number -> its play-bar button, for reflecting the open panel back onto the bar.
+    private readonly Dictionary<int, Button> _playBarButtons = new();
+    private int _lastSyncedOpenKey = int.MinValue;
 
     // State
     private CategoryConfig _activeCategory;
     private bool _submenuOpen;
+
+    /// <summary>Which bottom bar is up. Build is the placement HUD; Play is the run-the-warehouse HUD.</summary>
+    public enum HudMode { Build, Play }
+
+    private HudMode _mode = HudMode.Build;
+
+    /// <summary>Fires after the visible bar has actually swapped, so listeners can read the new mode.</summary>
+    public Action<HudMode> OnHudModeChanged;
+
+    /// <summary>CacheElements runs again from Initialize() when the bootstrapper wires us up after
+    /// OnEnable. Without this the pointer guards and tab handlers get registered twice, and a double
+    /// tab handler toggles the mode straight back on every click.</summary>
+    private bool _barCallbacksRegistered;
 
     [Serializable]
     public class CategoryConfig
@@ -88,20 +109,50 @@ public class BuildMenuUI : MonoBehaviour
     /// <summary>Root of the bottom HUD document. Null until OnEnable has run.</summary>
     public VisualElement Root => _root;
 
-    /// <summary>The bar itself. Adding here docks a widget INTO the bar's row layout — between the
-    /// category buttons and the utility buttons, since the bar is space-between — rather than leaving
-    /// it floating over the HUD.</summary>
-    public VisualElement BottomBar => _bottomBar;
+    /// <summary>The build bar itself. Adding here docks a widget INTO the bar's row layout — between
+    /// the category buttons and the utility buttons, since the bar is space-between — rather than
+    /// leaving it floating over the HUD.</summary>
+    public VisualElement BuildBar => _buildBar;
+
+    /// <summary>The play bar. Same chrome and layout as <see cref="BuildBar"/>, empty until play-mode
+    /// tools exist — dock play-side widgets here.</summary>
+    public VisualElement PlayBar => _playBar;
+
+    /// <summary>Whichever bar is currently visible. Use this when a widget should follow the mode
+    /// switch; use <see cref="BuildBar"/>/<see cref="PlayBar"/> to pin it to one mode.</summary>
+    public VisualElement ActiveBar => _mode == HudMode.Build ? _buildBar : _playBar;
 
     /// <summary>Height of the bottom bar in the USS (.buildmenu-bottom-bar) plus its 2px top border.
     /// Anything anchored just above the bar measures from here.</summary>
     public const float BottomBarHeight = 122f;
 
-    private VisualElement _keybindLegend;
+    /// <summary>Where the Build/Play tab strip is anchored (.buildmenu-mode-tabs bottom) and how tall
+    /// the taller, active tab is (.buildmenu-mode-tab-active height). Must stay in step with the USS —
+    /// nothing enforces that, so change both together.</summary>
+    public const float ModeTabsBottom = 120f;
+    public const float ModeTabHeight = 32f;
+
+    /// <summary>The strip along the bottom of the screen the HUD owns: the bar, plus the Build/Play
+    /// tabs perched on top of it. Full-screen modal scrims stop here instead of at 0, otherwise they
+    /// swallow clicks on the bar and the tabs — reserving only the bar left the tabs covered, since
+    /// they stick up past it.</summary>
+    public const float BottomHudReservedHeight = ModeTabsBottom + ModeTabHeight;
 
     private void Awake()
     {
         _uiDoc = GetComponent<UIDocument>();
+
+        // The bottom HUD is a taskbar, so it has to outrank the windows it opens. At the scene's
+        // sortingOrder 0 it sat under every panel (HiringBoard 95, EmployeeRoster 99, HUD 20,
+        // ToolsWindow 50...), and UI Toolkit picks top-down by sortingOrder — so an open panel ate
+        // the clicks on the play buttons. Worst offender is WorkQueuePanel's overlay, which is
+        // full-screen and pickable, and blanked the bar entirely.
+        //
+        // 120 clears every panel while staying under the things that legitimately cover the bar:
+        // RackSetupUI (150), ChevronTooltip (200), LaneSetupUI (250), Toast (999999). Set here
+        // rather than in the scene to match how those four do it, and so it can't drift.
+        if (_uiDoc != null) _uiDoc.sortingOrder = 120;
+
         Instance = this;
     }
 
@@ -157,123 +208,154 @@ public class BuildMenuUI : MonoBehaviour
 
     private void CacheElements()
     {
-        _bottomBar = _root.Q<VisualElement>("BottomBar");
+        _buildBar = _root.Q<VisualElement>("BottomBarBuildUI");
+        _playBar = _root.Q<VisualElement>("BottomBarPlayUI");
         _categoryRow = _root.Q<VisualElement>("CategoryRow");
         _utilityRow = _root.Q<VisualElement>("UtilityRow");
         _submenuContainer = _root.Q<VisualElement>("SubmenuContainer");
+        _modeTabs = _root.Q<VisualElement>("ModeTabs");
+        _tabBuild = _root.Q<Button>("TabBuild");
+        _tabPlay = _root.Q<Button>("TabPlay");
 
-        // BottomBar is Ignore in UXML (legacy reason) — override to Position so
-        // any click inside the bar area is caught and doesn't pass through to the
+        // The bars are Ignore in UXML (legacy reason) — override to Position so
+        // any click inside a bar area is caught and doesn't pass through to the
         // game world. The full-screen root stays Ignore so it doesn't block clicks
         // in open space above the bar.
-        if (_bottomBar != null)        _bottomBar.pickingMode        = PickingMode.Position;
+        if (_buildBar != null)         _buildBar.pickingMode         = PickingMode.Position;
+        if (_playBar != null)          _playBar.pickingMode          = PickingMode.Position;
         if (_submenuContainer != null) _submenuContainer.pickingMode = PickingMode.Position;
 
-        // Track mouse over the bottom action bar
-        _bottomBar.RegisterCallback<PointerEnterEvent>(_ =>
+        if (!_barCallbacksRegistered)
+        {
+            RegisterBarPointerGuards(_buildBar);
+            RegisterBarPointerGuards(_playBar);
+            RegisterBarPointerGuards(_modeTabs);
+
+            if (_tabBuild != null) _tabBuild.clicked += () => SetHudMode(HudMode.Build);
+            if (_tabPlay != null) _tabPlay.clicked += () => SetHudMode(HudMode.Play);
+
+            WirePlayBarButtons();
+
+            _barCallbacksRegistered = true;
+        }
+
+        ApplyHudMode();
+    }
+
+    /// <summary>
+    /// Points PlayBtn1..8 at UIKeyBindingManager.ToggleUI with their own number, so a click is the
+    /// exact same call the number key makes — same exclusivity, same Shift Manager unsaved-changes
+    /// prompt, same Tab-closes-everything registry. Nothing here knows which panel it opens, so
+    /// reassigning a hotkey moves its button with it.
+    /// </summary>
+    private void WirePlayBarButtons()
+    {
+        for (int i = 1; i <= 8; i++)
+        {
+            var button = _root.Q<Button>($"PlayBtn{i}");
+            if (button == null)
+            {
+                Debug.LogWarning($"[BuildMenuUI] PlayBtn{i} not found in BottomBarPlayUI.");
+                continue;
+            }
+
+            int key = i; // don't capture the loop variable
+            button.clicked += () => UIKeyBindingManager.Instance.ToggleUI(key);
+            _playBarButtons[key] = button;
+        }
+    }
+
+    /// <summary>
+    /// Mirrors the open panel onto the bar using the same .selected class the build categories use.
+    /// Polled rather than evented because UIKeyBindingManager has no "panel changed" notification and
+    /// panels can also be closed by Tab or Escape, which never route through these buttons.
+    /// </summary>
+    private void SyncPlayBarSelection()
+    {
+        if (_playBarButtons.Count == 0) return;
+
+        int openKey = UIKeyBindingManager.Instance != null ? UIKeyBindingManager.Instance.CurrentOpenKey : -1;
+        if (openKey == _lastSyncedOpenKey) return;
+        _lastSyncedOpenKey = openKey;
+
+        foreach (var kvp in _playBarButtons)
+            kvp.Value.EnableInClassList("selected", kvp.Key == openKey);
+    }
+
+    private void Update()
+    {
+        SyncPlayBarSelection();
+    }
+
+    /// <summary>
+    /// Keeps the cursor-is-over-HUD flag and the submenu close timer honest for anything that sits in
+    /// the bottom HUD. Placement reads IsPointerOverBuildMenu to decide whether a click belongs to the
+    /// world, so every clickable strip down here has to report itself — the tabs included, otherwise
+    /// switching modes also drops a building on the floor behind them.
+    /// </summary>
+    private void RegisterBarPointerGuards(VisualElement el)
+    {
+        if (el == null) return;
+
+        el.RegisterCallback<PointerEnterEvent>(_ =>
         {
             IsPointerOverBuildMenu = true;
             _submenuClosePending = false;
             _submenuCloseTask?.Pause();
         });
 
-        _bottomBar.RegisterCallback<PointerLeaveEvent>(_ =>
+        el.RegisterCallback<PointerLeaveEvent>(_ =>
         {
             IsPointerOverBuildMenu = false;
             StartDelayedSubmenuClose();
         });
 
         // Prevent wheel events from zooming the camera when over the UI
-        _bottomBar.RegisterCallback<WheelEvent>(evt => evt.StopPropagation());
-
-        BuildKeybindLegend();
+        el.RegisterCallback<WheelEvent>(evt => evt.StopPropagation());
     }
 
-    /// <summary>
-    /// The number-key cheat sheet, as a strip sitting directly above the build bar.
-    ///
-    /// Purely a HUD readout: the strip and every child are PickingMode.Ignore, so it can never eat a
-    /// click meant for the world or the bar beneath it. Built here rather than in its own document
-    /// because it belongs to the bottom HUD and should move and layer with it.
-    ///
-    /// The labels are the panels' human names, not the class names — "Dev Console", not
-    /// "ToolsWindowController". Keys must stay in step with UIKeyBindingManager's registry.
-    /// </summary>
-    private void BuildKeybindLegend()
+    /// <summary>Switches which bottom bar is up. No-ops if already in that mode.</summary>
+    public void SetHudMode(HudMode mode)
     {
-        if (_root == null) return;
-        if (_keybindLegend != null) { _keybindLegend.RemoveFromHierarchy(); _keybindLegend = null; }
+        if (_mode == mode) return;
+        _mode = mode;
 
-        var strip = new VisualElement { name = "KeybindLegend" };
-        strip.pickingMode = PickingMode.Ignore;
-        strip.style.position = Position.Absolute;
-        strip.style.bottom = BottomBarHeight;
-        strip.style.left = 0;
-        strip.style.right = 0;
-        strip.style.height = 30;
-        strip.style.flexDirection = FlexDirection.Row;
-        strip.style.alignItems = Align.Center;
-        strip.style.justifyContent = Justify.Center;
-        // House orange (#B5743A), the same family as the action buttons, dropped to a HUD-weight alpha.
-        strip.style.backgroundColor = new StyleColor(new Color(0xB5 / 255f, 0x74 / 255f, 0x3A / 255f, 0.15f));
-        strip.style.borderTopWidth = strip.style.borderBottomWidth = 2;
-        strip.style.borderTopColor = strip.style.borderBottomColor =
-            new StyleColor(new Color(0x7A / 255f, 0x4C / 255f, 0x22 / 255f, 1f));
+        // A submenu left open over the play bar would be a build affordance in a mode that has no
+        // build tools, and its item clicks still fire.
+        if (_submenuContainer != null && _categoryRow != null) CloseSubmenu();
 
-        (int key, string label)[] binds =
-        {
-            (1, "Dev Console"), (2, "Hiring Board"), (3, "Employee Roster"), (4, "Employee List"),
-            (5, "Shift Manager"), (6, "Contracts"), (7, "Work Queue"), (8, "New Item")
-        };
+        // Switching modes is a context switch, so nothing from the old one should survive it —
+        // otherwise you land in Build with the Work Queue still up. Same call Tab makes, which also
+        // means it inherits Tab's behaviour of closing the Shift Manager without its unsaved-changes
+        // prompt. Clears the play buttons' highlight for free: CloseAll resets CurrentOpenKey, and
+        // SyncPlayBarSelection picks that up on the next frame.
+        UIKeyBindingManager.Instance?.CloseAll();
 
-        foreach (var (key, label) in binds)
-        {
-            var entry = new VisualElement();
-            entry.pickingMode = PickingMode.Ignore;
-            entry.style.flexDirection = FlexDirection.Row;
-            entry.style.alignItems = Align.Center;
-            entry.style.marginLeft = 10;
-            entry.style.marginRight = 10;
-
-            var num = new Label(key.ToString());
-            num.pickingMode = PickingMode.Ignore;
-            ApplyLegendFont(num, bold: true, size: 15);
-            num.style.color = new StyleColor(new Color(0xFD / 255f, 0xE8 / 255f, 0xCC / 255f, 1f));
-            num.style.marginRight = 5;
-
-            var text = new Label(label);
-            text.pickingMode = PickingMode.Ignore;
-            ApplyLegendFont(text, bold: false, size: 14);
-            text.style.color = new StyleColor(new Color(1f, 1f, 1f, 0.92f));
-
-            entry.Add(num);
-            entry.Add(text);
-            strip.Add(entry);
-        }
-
-        _root.Add(strip);
-        _keybindLegend = strip;
+        ApplyHudMode();
+        OnHudModeChanged?.Invoke(_mode);
     }
 
-    private static Font _legendFont;
-
-    private static void ApplyLegendFont(VisualElement el, bool bold, int size)
+    private void ApplyHudMode()
     {
-        if (_legendFont == null)
-        {
-#if UNITY_EDITOR
-            string[] guids = UnityEditor.AssetDatabase.FindAssets("LilitaOne-Regular t:Font");
-            if (guids.Length > 0)
-                _legendFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
-                    UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
-#else
-            _legendFont = Resources.Load<Font>("LilitaOne-Regular");
-#endif
-        }
-        if (_legendFont != null)
-            el.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(_legendFont));
-        if (bold) el.style.unityFontStyleAndWeight = FontStyle.Bold;
-        el.style.fontSize = size;
+        bool build = _mode == HudMode.Build;
+
+        SetHidden(_buildBar, !build);
+        SetHidden(_playBar, build);
+
+        SetTabActive(_tabBuild, build);
+        SetTabActive(_tabPlay, !build);
+    }
+
+    // EnableInClassList rather than Add/RemoveFromClassList: the classes are also set in the UXML, and
+    // CacheElements runs twice, so the add/remove pair can leave a duplicate entry behind.
+    private static void SetHidden(VisualElement el, bool hidden)
+    {
+        el?.EnableInClassList("buildmenu-bar-hidden", hidden);
+    }
+
+    private static void SetTabActive(Button tab, bool active)
+    {
+        tab?.EnableInClassList("buildmenu-mode-tab-active", active);
     }
 
     private void BuildCategoryButtons()
@@ -542,7 +624,7 @@ public class BuildMenuUI : MonoBehaviour
     private void PositionSubmenuNow()
     {
         if (_lastClickedCategoryButton == null) return;
-        if (_bottomBar == null || _root == null || _submenuContainer == null) return;
+        if (_buildBar == null || _root == null || _submenuContainer == null) return;
 
         Vector2 rootPos = _root.worldBound.position;
         Vector2 buttonPos = _lastClickedCategoryButton.worldBound.position;
@@ -556,7 +638,7 @@ public class BuildMenuUI : MonoBehaviour
     public VisualElement GetStationedPopup()
     {
         if (_root == null) _root = _uiDoc.rootVisualElement;
-        if (_bottomBar == null) _bottomBar = _root.Q<VisualElement>("BottomBar");
+        if (_buildBar == null) _buildBar = _root.Q<VisualElement>("BottomBarBuildUI");
 
         VisualElement foundPopup = _root.Q<VisualElement>("WorldHoverPopup");
         if (foundPopup != null) return foundPopup;

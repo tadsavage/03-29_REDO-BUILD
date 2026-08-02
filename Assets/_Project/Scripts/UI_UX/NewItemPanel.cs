@@ -931,7 +931,10 @@ public class NewItemPanel : IUIPanel
     {
         var overlay = new VisualElement { name = "new-item-overlay" };
         overlay.style.position = Position.Absolute;
-        overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0; overlay.style.bottom = 0;
+        // Stops above the bottom HUD so this scrim can't swallow clicks on the bar or the Build/Play
+        // tabs — see the note on workqueue-overlay in WorkQueuePanel.Build.
+        overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0;
+        overlay.style.bottom = BuildMenuUI.BottomHudReservedHeight;
         overlay.style.backgroundColor = new StyleColor(new Color(0f, 0f, 0f, 0.55f));
         overlay.style.justifyContent = Justify.FlexStart;
         overlay.style.alignItems = Align.Center;

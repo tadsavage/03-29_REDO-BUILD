@@ -100,7 +100,7 @@ public class UIBootstrapper : MonoBehaviour
             UIDocument[] docs = Object.FindObjectsByType<UIDocument>();
             foreach (var d in docs)
             {
-                if (d.rootVisualElement != null && d.rootVisualElement.Q("BottomBar") != null)
+                if (d.rootVisualElement != null && d.rootVisualElement.Q("BottomBarBuildUI") != null)
                 {
                     _buildMenuDocument = d;
                     break;

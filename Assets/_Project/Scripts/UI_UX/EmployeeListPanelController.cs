@@ -167,6 +167,11 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
         // Overlay / modal
         _overlay = root.Q<VisualElement>("employee-overlay");
         _modal = root.Q<VisualElement>("employee-modal");
+
+        // The overlay is full-screen in the UXML and goes pickable while open, which would swallow
+        // clicks on the bottom bar's buttons and the Build/Play tabs. Reserve the HUD's strip — see
+        // the note on workqueue-overlay in WorkQueuePanel.Build.
+        if (_overlay != null) _overlay.style.bottom = BuildMenuUI.BottomHudReservedHeight;
         _closeButton = root.Q<Button>("close-button");
         _employeeCountLabel = root.Q<Label>("employee-count");
 

@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
     <Style src="project://database/Assets/3.%20UI/2.BottomHud/buildmenuNEW.uss?fileID=7433441132597879392&amp;guid=6451556a33fb0be46aa059d66682505f&amp;type=3#buildmenuNEW"/>
     <Style src="project://database/Assets/3.%20UI/4.PopupUIs/WorldHoverPopup.uss?fileID=7433441132597879392&amp;guid=e7f4862e76357b3469d9ad92258f0600&amp;type=3#WorldHoverPopup"/>
-    
+
     <ui:VisualElement name="BuildMenuRoot" picking-mode="Ignore" class="buildmenu-root">
         <ui:VisualElement name="SubmenuContainer" picking-mode="Position" class="buildmenu-submenu buildmenu-submenu-closed">
             <ui:VisualElement name="SubmenuRoot" picking-mode="Position" class="buildmenu-submenu-root">
@@ -12,8 +12,76 @@
         </ui:VisualElement>
     </ui:VisualElement>
 
-    <ui:VisualElement name="BottomBar" picking-mode="Ignore" class="buildmenu-bottom-bar">
+    <ui:VisualElement name="BottomBarBuildUI" picking-mode="Ignore" class="buildmenu-bottom-bar">
         <ui:VisualElement name="CategoryRow" picking-mode="Position" class="buildmenu-category-row"/>
         <ui:VisualElement name="UtilityRow" picking-mode="Position" class="buildmenu-utility-row"/>
+    </ui:VisualElement>
+
+    <!-- Play-mode counterpart to the build bar. Same chrome, same two-row layout; BuildMenuUI shows
+         exactly one of the two bars.
+
+         PlayBtn1..8 mirror hotkeys 1-8 and are wired straight to UIKeyBindingManager.ToggleUI, so a
+         click and a keypress take the identical path — the key badge in each corner is the same
+         number. If a hotkey is ever reassigned, the button follows it automatically; only the label,
+         icon class and badge here need updating. -->
+    <ui:VisualElement name="BottomBarPlayUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
+        <ui:VisualElement name="PlayCategoryRow" picking-mode="Position" class="buildmenu-category-row">
+
+            <ui:Button name="PlayBtn1" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-devconsole"/>
+                <ui:Label text="Dev Console" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="1" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn2" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-hiringboard"/>
+                <ui:Label text="Hiring Board" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="2" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn3" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-employeeroster"/>
+                <ui:Label text="Roster" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="3" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn4" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-employeelist"/>
+                <ui:Label text="Employees" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="4" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn5" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-shiftmanager"/>
+                <ui:Label text="Shifts" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="5" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn6" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-contracts"/>
+                <ui:Label text="Contracts" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="6" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn7" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-workqueue"/>
+                <ui:Label text="Work Queue" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="7" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn8" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-newitem"/>
+                <ui:Label text="New Item" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="8" class="playbar-key"/>
+            </ui:Button>
+
+        </ui:VisualElement>
+        <ui:VisualElement name="PlayUtilityRow" picking-mode="Position" class="buildmenu-utility-row"/>
+    </ui:VisualElement>
+
+    <!-- Sits directly on top of the bar's 2px border so the active tab reads as part of the bar. -->
+    <ui:VisualElement name="ModeTabs" picking-mode="Position" class="buildmenu-mode-tabs">
+        <ui:Button name="TabBuild" text="BUILD" class="buildmenu-mode-tab buildmenu-mode-tab-active"/>
+        <ui:Button name="TabPlay" text="PLAY" class="buildmenu-mode-tab"/>
     </ui:VisualElement>
 </ui:UXML>
