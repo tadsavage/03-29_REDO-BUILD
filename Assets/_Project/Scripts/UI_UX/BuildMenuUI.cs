@@ -67,7 +67,7 @@ public class BuildMenuUI : MonoBehaviour
 
     // Hotkey number -> its play-bar button, for reflecting the open panel back onto the bar.
     private readonly Dictionary<int, Button> _playBarButtons = new();
-    private int _lastSyncedOpenKey = int.MinValue;
+    private int _lastSyncedOpenMask = int.MinValue;
 
     // State
     private CategoryConfig _activeCategory;
@@ -266,20 +266,35 @@ public class BuildMenuUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Mirrors the open panel onto the bar using the same .selected class the build categories use.
+    /// Mirrors the open panels onto the bar using the same .selected class the build categories use.
     /// Polled rather than evented because UIKeyBindingManager has no "panel changed" notification and
     /// panels can also be closed by Tab or Escape, which never route through these buttons.
+    ///
+    /// Asks each panel whether it's open rather than comparing keys against CurrentOpenKey: a panel
+    /// registered floating is deliberately never the "current" key, so a single-key comparison showed
+    /// it as unlit the whole time it was on screen. Every panel is exclusive today, so at most one
+    /// button lights up, but the mask keeps that honest if a floating window comes back.
     /// </summary>
     private void SyncPlayBarSelection()
     {
         if (_playBarButtons.Count == 0) return;
 
-        int openKey = UIKeyBindingManager.Instance != null ? UIKeyBindingManager.Instance.CurrentOpenKey : -1;
-        if (openKey == _lastSyncedOpenKey) return;
-        _lastSyncedOpenKey = openKey;
+        var keys = UIKeyBindingManager.Instance;
+
+        // Bitmask purely as the change guard the single int used to be — this runs every frame, and
+        // rewriting the class list on all eight buttons unconditionally is what it exists to avoid.
+        int openMask = 0;
+        if (keys != null)
+        {
+            foreach (var kvp in _playBarButtons)
+                if (keys.IsPanelOpen(kvp.Key)) openMask |= 1 << kvp.Key;
+        }
+
+        if (openMask == _lastSyncedOpenMask) return;
+        _lastSyncedOpenMask = openMask;
 
         foreach (var kvp in _playBarButtons)
-            kvp.Value.EnableInClassList("selected", kvp.Key == openKey);
+            kvp.Value.EnableInClassList("selected", (openMask & (1 << kvp.Key)) != 0);
     }
 
     private void Update()

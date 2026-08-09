@@ -5,12 +5,35 @@ namespace GameCore.Inventory
     /// <summary>
     /// Recurring = a standing account that sends work every day until cancelled — mixed case-pick
     /// orders. OneOffWholesale = a single large drop, signed once and delivered once: a trailer's
-    /// worth of FULL PALLETS, never a loose case.
+    /// worth of FULL PALLETS, never a loose case. Bulk = a single order a customer places off the
+    /// cuff, priced off cost of goods, in full-pallet quantities with whatever part case is left
+    /// over — the board rolls 1–3 of these every day and they expire unaccepted.
+    ///
+    /// NOTE: append new values at the END. Authored ContractData assets serialize this by ordinal.
     /// </summary>
     public enum ContractKind
     {
         Recurring,
-        OneOffWholesale
+        OneOffWholesale,
+        Bulk
+    }
+
+    /// <summary>
+    /// How often a contract sends work once it's been taken.
+    ///
+    /// Separate from <see cref="ContractKind"/> because the two answer different questions — kind is
+    /// WHAT arrives (case picks, a trailer of pallets, a bulk drop), frequency is HOW OFTEN. A
+    /// standing account is the only one where the player has a real choice between them today;
+    /// OneTime exists so a bulk order and a wholesale drop can say "never again" in the same
+    /// vocabulary rather than each being special-cased at the arrival tick.
+    ///
+    /// NOTE: append new values at the END — persisted by ordinal.
+    /// </summary>
+    public enum OrderFrequency
+    {
+        Daily,
+        Weekly,
+        OneTime
     }
 
     /// <summary>
@@ -37,6 +60,18 @@ namespace GameCore.Inventory
 
         [Header("Kind")]
         [SerializeField] private ContractKind _kind = ContractKind.Recurring;
+        [Tooltip("How often this contract sends work once taken. A standing account is Daily or " +
+                 "Weekly; wholesale and bulk are OneTime and never re-fire.")]
+        [SerializeField] private OrderFrequency _frequency = OrderFrequency.Daily;
+
+        [Header("Bulk (Bulk only)")]
+        [Tooltip("How many SKUs the customer asks for. Each line is a whole number of pallets plus " +
+                 "whatever part case is left over — 620 cases of a 60/pallet SKU is 10 pallets and " +
+                 "20 loose cases, not 11 pallets.")]
+        [SerializeField, Min(1)] private int _bulkLinesMin = 1;
+        [SerializeField, Min(1)] private int _bulkLinesMax = 3;
+        [SerializeField, Min(1)] private int _bulkPalletsPerLineMin = 1;
+        [SerializeField, Min(1)] private int _bulkPalletsPerLineMax = 10;
 
         [Header("Wholesale (OneOffWholesale only)")]
         [Tooltip("How many pallets the deal is worth. Each becomes ONE line item sized to exactly a " +
@@ -71,6 +106,11 @@ namespace GameCore.Inventory
         public CustomerData Customer => _customer;
         public string Pitch => _pitch;
         public ContractKind Kind => _kind;
+        public OrderFrequency Frequency => _frequency;
+        public int BulkLinesMin => _bulkLinesMin;
+        public int BulkLinesMax => _bulkLinesMax;
+        public int BulkPalletsPerLineMin => _bulkPalletsPerLineMin;
+        public int BulkPalletsPerLineMax => _bulkPalletsPerLineMax;
         public int PalletCount => _palletCount;
         public int OrdersPerDayMin => _ordersPerDayMin;
         public int OrdersPerDayMax => _ordersPerDayMax;
@@ -84,15 +124,42 @@ namespace GameCore.Inventory
         public float LateFeePercent => _lateFeePercent;
 
         public bool IsWholesale => _kind == ContractKind.OneOffWholesale;
+        public bool IsBulk => _kind == ContractKind.Bulk;
+
+        /// <summary>True for a contract that delivers once and never fires again. Reads off Frequency
+        /// rather than off Kind so the arrival tick has ONE question to ask — before this, "does it
+        /// re-fire?" was answered by an IsWholesale special case that bulk would have had to
+        /// duplicate.</summary>
+        public bool IsOneTime => _frequency == OrderFrequency.OneTime;
 
         /// <summary>Stable identity for save data. Asset name, not company name — one customer can
         /// have several contracts, so the customer id doesn't identify a contract.</summary>
         public string ContractId => name;
 
         /// <summary>Display name for the offer card.</summary>
-        public string Title => _kind == ContractKind.OneOffWholesale
-            ? $"Wholesale — {_palletCount} pallet{(_palletCount == 1 ? "" : "s")}"
-            : "Standing Account";
+        public string Title => _kind switch
+        {
+            ContractKind.OneOffWholesale => $"Wholesale — {_palletCount} pallet{(_palletCount == 1 ? "" : "s")}",
+            ContractKind.Bulk => "Bulk Order",
+            _ => "Standing Order"
+        };
+
+        /// <summary>What the New Contracts board calls this type. Bulk and Standing are the two the
+        /// player actually sees today; wholesale keeps its own label so an authored one still reads
+        /// correctly if it's on the board.</summary>
+        public string KindLabel => _kind switch
+        {
+            ContractKind.OneOffWholesale => "WHOLESALE",
+            ContractKind.Bulk => "BULK ORDER",
+            _ => "STANDING ORDER"
+        };
+
+        public string FrequencyLabel => _frequency switch
+        {
+            OrderFrequency.Weekly => "Weekly",
+            OrderFrequency.OneTime => "One-Time",
+            _ => "Daily"
+        };
 
         /// <summary>
         /// Builds a ContractData in memory rather than from an authored asset.
@@ -102,11 +169,12 @@ namespace GameCore.Inventory
         /// authored assets. The reputation system will need exactly this; the Customers tab's DEV
         /// button is its first caller.
         ///
-        /// CAVEAT: a runtime contract is not in the ContractRegistry, so it does NOT survive a save/
-        /// load. Signing one and reloading leaves a SignedContract whose id resolves to nothing, which
-        /// OrderArrivalService.OnHourChanged already handles by warning and skipping. Fine for a debug
-        /// trigger; whatever ships the real feature needs to persist generated offers alongside
-        /// SaveData.contracts.
+        /// PERSISTENCE: a runtime contract is not in the ContractRegistry, so it can't be recovered
+        /// from an asset on load. OrderArrivalService now exports every generated offer field-by-field
+        /// and rebuilds them through this method on Import — see GeneratedOfferSnapshot there. That
+        /// matters far more than it did when only the Dev Console made these: the daily Bulk board is
+        /// entirely runtime contracts, and losing them on load would lose the offers AND orphan any
+        /// signed-but-unshipped bulk order whose ContractId no longer resolves.
         /// </summary>
         public static ContractData CreateRuntime(
             string contractId, CustomerData customer, string pitch, ContractKind kind,
@@ -115,7 +183,10 @@ namespace GameCore.Inventory
             int lineItemsMin, int lineItemsMax,
             int casesPerLineMin, int casesPerLineMax,
             int cutoffHour, int leadTimeDays,
-            float payRateMultiplier, float lateFeePercent)
+            float payRateMultiplier, float lateFeePercent,
+            OrderFrequency frequency = OrderFrequency.Daily,
+            int bulkLinesMin = 1, int bulkLinesMax = 3,
+            int bulkPalletsPerLineMin = 1, int bulkPalletsPerLineMax = 10)
         {
             var c = CreateInstance<ContractData>();
             // ContractId reads straight off name, so this IS the identity, not a display nicety.
@@ -134,13 +205,20 @@ namespace GameCore.Inventory
             c._leadTimeDays = Mathf.Max(1, leadTimeDays);
             c._payRateMultiplier = Mathf.Max(0.1f, payRateMultiplier);
             c._lateFeePercent = Mathf.Clamp01(lateFeePercent);
+            c._frequency = frequency;
+            c._bulkLinesMin = Mathf.Max(1, bulkLinesMin);
+            c._bulkLinesMax = Mathf.Max(c._bulkLinesMin, bulkLinesMax);
+            c._bulkPalletsPerLineMin = Mathf.Max(1, bulkPalletsPerLineMin);
+            c._bulkPalletsPerLineMax = Mathf.Max(c._bulkPalletsPerLineMin, bulkPalletsPerLineMax);
             return c;
         }
 
         /// <summary>Rough cases/day a recurring account commits you to, for comparing offers.
         /// Midpoint of every band multiplied out — an estimate, not a promise. Meaningless for
-        /// wholesale, which is a single drop rather than a daily rate.</summary>
-        public int EstimatedCasesPerDay => _kind == ContractKind.OneOffWholesale
+        /// wholesale and bulk, both of which are a single drop rather than a daily rate. Keyed on
+        /// Kind rather than on IsOneTime because authored wholesale assets predate Frequency and
+        /// still carry its Daily default.</summary>
+        public int EstimatedCasesPerDay => _kind != ContractKind.Recurring
             ? 0
             : Mathf.RoundToInt(((_ordersPerDayMin + _ordersPerDayMax) / 2f)
                              * ((_lineItemsMin + _lineItemsMax) / 2f)
@@ -168,6 +246,23 @@ namespace GameCore.Inventory
         public int SignedOnDay;
         public int LastGeneratedDay = -1; // -1 = has never generated
         public bool Active = true;
+
+        // ── Loss ─────────────────────────────────────────────────────────────
+        //
+        // A contract the player lost by never booking a door for its freight (see
+        // OrderArrivalService's day-roll sweep). Distinct from a player CANCELLATION, which also
+        // clears Active: a cancelled account can be re-signed the moment it reappears, a lost one
+        // is barred for ContractLossCooldownDays.
+        //
+        // TWO fields rather than a single "lost on day N, -1 for never". LostOnDay alone can't tell
+        // "never lost" from "lost on day 0" once it's been through a save — JsonUtility writes the
+        // default 0 for a field the old save didn't have, and day 0 is a real day.
+
+        /// <summary>True once this contract was lost to a missed pickup.</summary>
+        public bool Lost;
+
+        /// <summary>Day the loss happened. Only meaningful while Lost is true.</summary>
+        public int LostOnDay;
 
         // ── Running performance, accumulated as orders finish ────────────────
         //
@@ -212,5 +307,50 @@ namespace GameCore.Inventory
         public int ordersLate;
         public long revenueEarned;
         public long lateFeesPaid;
+        /// <summary>False in a save written before contract loss existed, which is correct — nothing
+        /// in that save was ever lost.</summary>
+        public bool lost;
+        public int lostOnDay;
+    }
+
+    /// <summary>
+    /// Save shape for a contract that was GENERATED at runtime rather than authored as an asset —
+    /// today, every Bulk offer on the New Contracts board.
+    ///
+    /// Exists because ContractRegistry can only resolve authored assets. Without this the daily bulk
+    /// board would empty itself on every load, and any bulk order already signed and part-picked
+    /// would reload pointing at a ContractId that resolves to nothing — which
+    /// OrderArrivalService.OnHourChanged handles by warning and skipping, i.e. the order would sit
+    /// there uncredited forever.
+    ///
+    /// Deliberately flat and complete rather than a seed + regeneration: re-rolling the offers from a
+    /// stored seed would hand the player a different board than the one they saved looking at.
+    /// </summary>
+    [System.Serializable]
+    public class GeneratedOfferSnapshot
+    {
+        public string contractId;
+        public string customerId;
+        public string pitch;
+        public int kind;
+        public int frequency;
+        public int palletCount;
+        public int ordersPerDayMin;
+        public int ordersPerDayMax;
+        public int lineItemsMin;
+        public int lineItemsMax;
+        public int casesPerLineMin;
+        public int casesPerLineMax;
+        public int bulkLinesMin;
+        public int bulkLinesMax;
+        public int bulkPalletsPerLineMin;
+        public int bulkPalletsPerLineMax;
+        public int cutoffHour;
+        public int leadTimeDays;
+        public float payRateMultiplier;
+        public float lateFeePercent;
+        /// <summary>Day this offer was rolled onto the board. The daily roll clears offers older than
+        /// today, so without this a restored offer would be immortal.</summary>
+        public int createdOnDay;
     }
 }

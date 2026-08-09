@@ -319,7 +319,10 @@ public class PlacementSystem : MonoBehaviour
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderService))
             save.orders = orderService.Export();
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderArrivalService orderArrivalService))
+        {
             save.contracts = orderArrivalService.Export();
+            save.generatedOffers = orderArrivalService.ExportGeneratedOffers();
+        }
         if (ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockScheduleService))
             save.dockAppointments = dockScheduleService.Export();
 
@@ -436,7 +439,8 @@ public class PlacementSystem : MonoBehaviour
                     toLocation = task.ToLocation,
                     area = (int)task.Area,
                     priority = task.Priority,
-                    orderId = task.OrderId
+                    orderId = task.OrderId,
+                    skuId = task.SkuId
                 });
             }
         }
@@ -736,6 +740,7 @@ public class PlacementSystem : MonoBehaviour
                 task.Status = (GameCore.Labor.WorkTaskStatus)snapshot.status;
                 task.AssignedToEmployeeGuid = snapshot.assignedToEmployeeGuid;
                 task.OrderId = snapshot.orderId;
+                task.SkuId = snapshot.skuId;
 
                 workQueueSystem.RegisterRestoredTask(task);
             }
@@ -776,7 +781,12 @@ public class PlacementSystem : MonoBehaviour
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderService))
             orderService.Import(save.orders);
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderArrivalService orderArrivalRestore))
+        {
             orderArrivalRestore.Import(save.contracts);
+            // AFTER Import: the rebuilt offers are added to the catalog the authored ones already
+            // occupy, and the loss-cooldown check they're filtered by reads the signed records above.
+            orderArrivalRestore.ImportGeneratedOffers(save.generatedOffers);
+        }
         // After orderService.Import: appointments reference order ids, and importing them against an
         // already-restored order list keeps the two consistent from the first frame.
         if (ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockScheduleRestore))
@@ -925,6 +935,12 @@ public class PlacementSystem : MonoBehaviour
         // never inside OrderService.Import, or it would judge the world before it finished loading.
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderServiceForReconcile))
             orderServiceForReconcile.ReconcileStagedOrdersAgainstScene();
+
+        // NOTE: there used to be a DockScheduleService.SweepUnbookedOrders() call here, giving every
+        // live order a dock appointment it didn't already have. It's gone along with auto-booking —
+        // booking a door is now the player's decision and re-making it for them on every load would
+        // undo it. A save written before this change loads with its freight stranded until they book
+        // it, which is the intended behaviour, not a regression.
 
         // Refresh rack labels: PlacedObject fields are restored but TMP text isn't.
         // Must happen before yard floors are populated (which triggers NavMesh bake).

@@ -27,6 +27,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     private UIDocument _doc;
     private VisualElement _window;
     private bool _visible;
+    private ResizableWindow _resizeWindow;
 
     // Core services
     private GameContext _ctx;
@@ -153,9 +154,14 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         _window.style.top   = _storedPosition.y;
 
         // Add resizing capability (similar to Work Queue Panel)
-        new ResizableWindow(_window, minW: 300f, minH: 250f, grip: 8f, titleInset: 32f);
+        _resizeWindow = new ResizableWindow(_window, minW: 300f, minH: 250f, grip: 8f, titleInset: 32f);
 
         Wire<Button>("tools-close",    root, b => b.clicked += () => Hide());
+        Wire<Button>("tools-scale",    root, b =>
+        {
+            b.clicked += _resizeWindow.CycleScale;
+            ResizableWindow.AddStackedSquaresGlyph(b, 60f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f));
+        });
         Wire<Button>("tab-btn-dev",    root, b => { _tabDev      = b; b.clicked += () => SwitchTab("dev"); });
         Wire<Button>("tab-btn-settings", root, b => { _tabSettings = b; b.clicked += () => SwitchTab("settings"); });
 
@@ -365,6 +371,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         _visible = true;
         _window.style.display = DisplayStyle.Flex;
         SwitchTab(tab);
+        _resizeWindow?.ResetToNormal();
     }
 
     private bool IsTabActive(string tab)

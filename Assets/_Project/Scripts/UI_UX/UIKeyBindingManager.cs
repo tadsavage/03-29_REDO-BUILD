@@ -4,8 +4,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Manages exclusive keybinding UIs (keys 1-7).
-/// Only one keybind UI can be open at a time — toggling one closes any currently open one.
+/// Manages keybinding UIs (keys 1-8).
+/// Only one EXCLUSIVE keybind UI can be open at a time — toggling one closes any currently open one.
+/// Panels registered with floating: true opt out of that and coexist with whatever else is showing.
 /// Panels must implement IUIPanel to be registered.
 ///
 /// Keybindings:
@@ -14,8 +15,8 @@ using UnityEngine.InputSystem;
 ///   3 = Employee Roster (EmployeeRosterUI)
 ///   4 = Employee List (EmployeeListPanelController)
 ///   5 = Shift Manager (ShiftManagerPanel)
-///   6 = Wholesale Contracts (ContractsPanel) — replaced Slot Assignment, which is now opened by
-///       clicking a rack rather than by a number key
+///   6 = Contracts (ContractsPanel) — New Contracts / Bulk Orders / Accounts / Schedule. Replaced
+///       Slot Assignment, which is now opened by clicking a rack rather than by a number key
 ///   7 = Work Queue
 ///   8 = New Item / Slotter
 ///
@@ -66,6 +67,23 @@ public class UIKeyBindingManager : MonoBehaviour
     /// </summary>
     private readonly List<IUIPanel> _auxiliaryPanels = new();
 
+    /// <summary>
+    /// Hotkey panels exempt from the one-at-a-time rule — floating windows rather than modals.
+    ///
+    /// A modal owns the screen: it dims what's behind it and swallows clicks, so closing whatever was
+    /// already open costs the player nothing. A floating window is the opposite bargain — it's draggable
+    /// and lets clicks through precisely so it can be read ALONGSIDE another panel, and exclusivity would
+    /// take that back the instant the player opened the thing they wanted to compare it against.
+    ///
+    /// Kept out of _currentOpenKey entirely: that field means "the exclusive panel currently holding the
+    /// screen", and a floating window doesn't hold it. Anything that needs to know whether a specific
+    /// panel is showing should ask IsPanelOpen rather than compare against CurrentOpenKey.
+    ///
+    /// Empty today — Contracts (6) was the only floating panel and is now exclusive. The option stays
+    /// because IsPanelOpen and the play bar's mask are already written around it.
+    /// </summary>
+    private readonly HashSet<int> _floatingKeys = new();
+
     private void Awake()
     {
         if (_instance != null && _instance != this)
@@ -76,8 +94,9 @@ public class UIKeyBindingManager : MonoBehaviour
         _instance = this;
     }
 
-    /// <summary>Register a UI panel for a keybinding number (1-9).</summary>
-    public void RegisterUI(int keyNumber, IUIPanel panel)
+    /// <summary>Register a UI panel for a keybinding number (1-9). Pass floating: true for a window
+    /// that should coexist with other panels instead of replacing them — see _floatingKeys.</summary>
+    public void RegisterUI(int keyNumber, IUIPanel panel, bool floating = false)
     {
         if (keyNumber < 1 || keyNumber > 9)
         {
@@ -92,7 +111,9 @@ public class UIKeyBindingManager : MonoBehaviour
         }
 
         _uiPanels[keyNumber] = panel;
-        Debug.Log($"[UIKeyBindingManager] Registered {panel.GetType().Name} for key {keyNumber}");
+        if (floating) _floatingKeys.Add(keyNumber); else _floatingKeys.Remove(keyNumber);
+        Debug.Log($"[UIKeyBindingManager] Registered {panel.GetType().Name} for key {keyNumber}" +
+                  (floating ? " (floating)" : ""));
     }
 
     /// <summary>Unregister a UI panel from its keybinding.</summary>
@@ -101,6 +122,7 @@ public class UIKeyBindingManager : MonoBehaviour
         if (_uiPanels.ContainsKey(keyNumber))
         {
             _uiPanels.Remove(keyNumber);
+            _floatingKeys.Remove(keyNumber);
             // If this was the open panel, note it
             if (_currentOpenKey == keyNumber)
                 _currentOpenKey = -1;
@@ -126,6 +148,19 @@ public class UIKeyBindingManager : MonoBehaviour
         }
 
         Debug.Log($"[UIKeyBindingManager] ToggleUI key {keyNumber}: {panel.GetType().Name}, IsOpen={panel.IsOpen}");
+
+        // A floating window toggles purely on its own visibility and leaves _currentOpenKey — and
+        // therefore whatever exclusive panel is showing — completely alone in both directions.
+        if (_floatingKeys.Contains(keyNumber))
+        {
+            if (panel.IsOpen) panel.Hide(); else panel.Show();
+            return;
+        }
+
+        // Any exclusive toggle clears the screen, and a sub-popup is part of what's on it — the panel
+        // that opened it is about to be hidden either way, so leaving its popup floating over the new
+        // panel would strand a readout belonging to something no longer visible.
+        CloseAuxiliaries();
 
         // If this panel is already open, close it
         if (_currentOpenKey == keyNumber && panel.IsOpen)
@@ -215,4 +250,10 @@ public class UIKeyBindingManager : MonoBehaviour
 
     /// <summary>Check if a specific keybind UI is currently open.</summary>
     public bool IsUIOpen(int keyNumber) => _currentOpenKey == keyNumber;
+
+    /// <summary>Whether the panel on this key is actually showing, asked of the panel itself rather
+    /// than inferred from CurrentOpenKey — a floating window is never the "current" key, so anything
+    /// mirroring open state (the play bar's highlight) has to come through here to see it.</summary>
+    public bool IsPanelOpen(int keyNumber)
+        => _uiPanels.TryGetValue(keyNumber, out var panel) && panel != null && panel.IsOpen;
 }

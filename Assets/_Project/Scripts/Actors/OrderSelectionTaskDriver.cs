@@ -100,6 +100,20 @@ namespace GameCore.Actors
 
             if (!TryFindBestPickLocation(_currentOrder, out var location, out var lineItem, out int takeQty))
             {
+                // A bulk order's case picker is DONE the moment the only thing left is full pallets —
+                // that work belongs to the Reach Trucks. Without this the selector would read the
+                // pallet quantities as unreachable stock and report a short pick on a healthy order.
+                // The order stays PartiallyPicked; whichever pallet pick lands last flips it to Staged
+                // (OrderService.NotePalletPicked).
+                if (_orderService.RemainingIsAllPalletPick(_currentOrder))
+                {
+                    Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) " +
+                              $"— loose cases done ({_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits}); the " +
+                              $"balance is full pallets on the Reach Trucks. Delivering to staging.");
+                    FinishOrder(OrderData.OrderStatus.PartiallyPicked);
+                    return;
+                }
+
                 // No reachable location for any remaining line item — genuinely out of stock, not a
                 // transient miss. Rather than stranding the WIP pallet wherever the selector happens
                 // to be standing (the old behavior — permanent aisle debris, and the WorkTask sat
@@ -546,9 +560,16 @@ namespace GameCore.Actors
             {
                 if (li.IsFullyPicked) continue;
 
+                // On a BULK order most of this line is owed by outstanding PalletPick tasks, and a
+                // selector must not walk those off by hand — 620 cases means ten Reach Truck pallets
+                // and twenty cases here, not 620 case picks. SelectableRemaining is what's genuinely
+                // left for a case picker; for every other order it's just QuantityRemaining.
+                int want = _orderService.SelectableRemaining(order, li);
+                if (want <= 0) continue;
+
                 // Slot choice lives in OrderPickPath so the Work Queue can preview an order's route
                 // using the identical rule — see that class for why it isn't duplicated here.
-                var best = OrderPickPath.ChooseSlot(li.SkuId, li.QuantityRemaining, out int qty);
+                var best = OrderPickPath.ChooseSlot(li.SkuId, want, out int qty);
                 if (best == null) continue;
 
                 location = best;

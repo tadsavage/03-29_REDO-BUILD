@@ -92,6 +92,12 @@ namespace GameCore.Inventory
             OnOrderArrived?.Invoke(order);
             Debug.Log($"[OrderService] New Order received: {order.OrderId} from {order.CustomerName} ({order.TotalUnits} units) — awaiting release to a staging lane.");
 
+            if (order.IsBulk)
+            {
+                FileBulkTasks(order);
+                return;
+            }
+
             var task = _workQueue?.CreateTask(
                 WorkTaskType.OrderSelect,
                 EmployeeRole.OrderSelector,
@@ -99,6 +105,169 @@ namespace GameCore.Inventory
                 description: $"Select order for {order.CustomerName} ({order.TotalUnits} units)",
                 orderId: order.OrderId);
             if (task != null) task.Status = WorkTaskStatus.Open;
+        }
+
+        /// <summary>
+        /// Files the work for a BULK order: one PalletPick per whole pallet, plus a single OrderSelect
+        /// covering every loose case left over across the whole order.
+        /// </summary>
+        /// <remarks>
+        /// 620 cases of a 60-per-pallet SKU is ten Reach Truck trips and one selector walking off
+        /// twenty cases — not eleven pallets, and not 620 cases picked by hand.
+        ///
+        /// ONE OrderSelect for the whole order rather than one per line, matching the non-bulk rule:
+        /// a selector works an order continuously, and two selectors on one order would build pallets
+        /// against each other.
+        ///
+        /// A SKU with no committed Ti/Hi can't express a full pallet, so its whole line falls through
+        /// to the case picker. That's the honest failure — it keeps the order fillable instead of
+        /// filing pallet picks that could never resolve a source pallet.
+        /// </remarks>
+        private void FileBulkTasks(OrderData order)
+        {
+            int palletTasks = 0;
+            int looseCases = 0;
+
+            foreach (var li in order.LineItems)
+            {
+                int fullPallet = FullPalletCases(li.SkuId);
+                if (fullPallet <= 0)
+                {
+                    Debug.LogWarning($"[OrderService] SKU {li.SkuId} on bulk order {order.OrderId} has no " +
+                                     $"committed Ti/Hi — its {li.QuantityNeeded} case(s) fall back to a case pick.");
+                    looseCases += li.QuantityNeeded;
+                    continue;
+                }
+
+                int pallets = li.QuantityNeeded / fullPallet;
+                looseCases += li.QuantityNeeded % fullPallet;
+
+                var area = _inventoryService?.GetSkuData(li.SkuId)?.StorageArea ?? PalletData.AreaCategory.Grocery;
+                for (int i = 0; i < pallets; i++)
+                {
+                    // PalletId and FromLocation stay null: the source reserve pallet is chosen when a
+                    // Reach Truck claims this, not now. See WorkTask.SkuId.
+                    var pt = _workQueue?.CreateTask(
+                        WorkTaskType.PalletPick,
+                        EmployeeRole.ReachTruckOperator,
+                        palletId: null,
+                        description: $"Pallet pick — {fullPallet} cs of {li.SkuId} for {order.CustomerName}",
+                        area: area,
+                        orderId: order.OrderId,
+                        skuId: li.SkuId);
+                    if (pt != null) pt.Status = WorkTaskStatus.Open;
+                    palletTasks++;
+                }
+            }
+
+            if (looseCases > 0)
+            {
+                var st = _workQueue?.CreateTask(
+                    WorkTaskType.OrderSelect,
+                    EmployeeRole.OrderSelector,
+                    palletId: null,
+                    description: $"Select {looseCases} loose case(s) for {order.CustomerName}",
+                    orderId: order.OrderId);
+                if (st != null) st.Status = WorkTaskStatus.Open;
+            }
+
+            Debug.Log($"[OrderService] BULK order {order.OrderId} ({order.CustomerName}): filed {palletTasks} " +
+                      $"pallet pick(s)" + (looseCases > 0 ? $" and 1 case pick for {looseCases} loose case(s)." : "."));
+        }
+
+        /// <summary>Cases in one full pallet of this SKU (Ti x Hi), or 0 if it has no committed pallet
+        /// maths. The single definition of "a full pallet" on the outbound side.</summary>
+        public int FullPalletCases(string skuId)
+        {
+            var sku = _inventoryService?.GetSkuData(skuId);
+            if (sku == null || sku.Ti <= 0 || sku.Hi <= 0) return 0;
+            return sku.Ti * sku.Hi;
+        }
+
+        /// <summary>Every not-yet-finished task belonging to an order, of any type. Bulk orders carry
+        /// several (N pallet picks and maybe a case pick), so anything that used to find "the order's
+        /// task" with FirstOrDefault has to come through here or it will see only one of them.</summary>
+        public IEnumerable<WorkTask> LiveTasksForOrder(string orderId)
+            => _workQueue == null || string.IsNullOrEmpty(orderId)
+             ? Enumerable.Empty<WorkTask>()
+             : _workQueue.Tasks.Where(t => t.OrderId == orderId
+                                        && t.Status != WorkTaskStatus.Complete
+                                        && t.Status != WorkTaskStatus.Cancelled);
+
+        /// <summary>
+        /// Cases on this order that outstanding PalletPick tasks are going to deliver for a SKU.
+        ///
+        /// This is what stops the case picker from walking off the pallet quantities. An
+        /// OrderSelectionTaskDriver looks at OrderLineItem.QuantityRemaining and would happily pick
+        /// all 620 cases by hand; subtracting this leaves it only the 20 it's actually there for.
+        /// Derived from the live task list rather than stored on the line item, so it can't drift out
+        /// of step with the work that actually exists.
+        /// </summary>
+        public int OutstandingPalletPickCases(string orderId, string skuId)
+        {
+            int fullPallet = FullPalletCases(skuId);
+            if (fullPallet <= 0) return 0;
+
+            int tasks = LiveTasksForOrder(orderId).Count(t => t.Type == WorkTaskType.PalletPick && t.SkuId == skuId);
+            return tasks * fullPallet;
+        }
+
+        /// <summary>How many cases of this line a case picker may still take — what's left after both
+        /// what's already picked and what the Reach Trucks still owe.</summary>
+        public int SelectableRemaining(OrderData order, OrderLineItem line)
+        {
+            if (order == null || line == null) return 0;
+            if (!order.IsBulk) return line.QuantityRemaining;
+            return Mathf.Max(0, line.QuantityRemaining - OutstandingPalletPickCases(order.OrderId, line.SkuId));
+        }
+
+        /// <summary>True when nothing is left for a case picker because every remaining case is owed
+        /// by a PalletPick. Lets the selector finish its remainder and deliver normally instead of
+        /// reporting a short pick, which is what it would otherwise conclude from finding no
+        /// pickable location for the pallet quantities.</summary>
+        public bool RemainingIsAllPalletPick(OrderData order)
+        {
+            if (order == null || !order.IsBulk) return false;
+            if (order.IsFullyPicked) return false;
+            return order.LineItems.All(li => SelectableRemaining(order, li) <= 0);
+        }
+
+        /// <summary>
+        /// Credits one delivered full pallet against a bulk order and advances the order's status.
+        ///
+        /// Called by the Reach Truck the moment the pallet is physically set down in the staging lane,
+        /// which is why it can set Staged: the goods really are where a loader will find them. Whoever
+        /// finishes last — the final pallet pick or the case picker's remainder — is what flips the
+        /// order to Staged, so neither has to know about the other.
+        /// </summary>
+        public void NotePalletPicked(string orderId, string skuId, int cases)
+        {
+            var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
+            if (order == null) return;
+
+            var line = order.LineItems.FirstOrDefault(li => li.SkuId == skuId && !li.IsFullyPicked);
+            if (line == null)
+            {
+                Debug.LogWarning($"[OrderService] Pallet pick delivered {cases} cs of {skuId} for order " +
+                                 $"{orderId}, but no unfilled line wants that SKU — not credited.");
+                return;
+            }
+
+            // Clamped: a pallet carrying more than the line still needs must not push QuantityPicked
+            // past QuantityNeeded, which would make TotalUnitsRemaining negative and bill the customer
+            // for cases they never ordered.
+            line.QuantityPicked = Mathf.Min(line.QuantityNeeded, line.QuantityPicked + cases);
+
+            if (order.IsFullyPicked)
+            {
+                MarkOrderFulfilled(orderId);
+                order.Status = OrderData.OrderStatus.Staged;
+                Debug.Log($"[OrderService] Bulk order {orderId} ({order.CustomerName}) complete — staged.");
+            }
+            else if (order.Status == OrderData.OrderStatus.Pending)
+            {
+                order.Status = OrderData.OrderStatus.PartiallyPicked;
+            }
         }
 
         /// <summary>Releases a batch of still-Open orders — must all belong to the same customer —
@@ -268,13 +437,21 @@ namespace GameCore.Inventory
         {
             if (_workQueue == null || orderIds == null || orderIds.Count == 0 || string.IsNullOrEmpty(lane)) return false;
 
-            var pairs = new List<(OrderData order, WorkTask task)>();
+            // Every live task for the order, not just its OrderSelect: a bulk order carries N
+            // PalletPicks and possibly a case pick, and releasing only one of them would leave the
+            // rest permanently Open — invisible to every operator and unreleasable a second time.
+            var pairs = new List<(OrderData order, List<WorkTask> tasks)>();
             foreach (var id in orderIds)
             {
                 var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
-                var task = _workQueue.Tasks.FirstOrDefault(t => t.OrderId == id && t.Type == WorkTaskType.OrderSelect);
-                if (order == null || task == null || task.Status != WorkTaskStatus.Open) return false;
-                pairs.Add((order, task));
+                if (order == null) return false;
+
+                var tasks = LiveTasksForOrder(id).ToList();
+                if (tasks.Count == 0) return false;
+                // All-or-nothing per order: a partly-released order would put half its work on the
+                // floor while the panel still offers it as releasable.
+                if (tasks.Any(t => t.Status != WorkTaskStatus.Open)) return false;
+                pairs.Add((order, tasks));
             }
 
             string customerId = pairs[0].order.CustomerId;
@@ -284,14 +461,23 @@ namespace GameCore.Inventory
             // of that door while it's in use.
             if (!StagingLaneAssignmentService.IsStageAvailableFor(this, doorNumber, customerId)) return false;
 
-            foreach (var (order, task) in pairs)
+            int released = 0;
+            foreach (var (order, tasks) in pairs)
             {
                 order.AssignedDoorNumber = doorNumber;
                 order.AssignedLane = lane;
-                task.Status = WorkTaskStatus.Available;
+                foreach (var task in tasks)
+                {
+                    task.Status = WorkTaskStatus.Available;
+                    // A PalletPick's destination is decided here, at release — it's the lane the
+                    // player just chose. The Reach Truck reads it off the task rather than looking the
+                    // order up, so the pallet can't land somewhere the order doesn't record.
+                    if (task.Type == WorkTaskType.PalletPick) task.AssignToLocation($"{doorNumber}{lane}");
+                    released++;
+                }
             }
 
-            Debug.Log($"[OrderService] Released {pairs.Count} order(s) for {customerId} to {doorNumber}{lane}.");
+            Debug.Log($"[OrderService] Released {pairs.Count} order(s) ({released} task(s)) for {customerId} to {doorNumber}{lane}.");
             return true;
         }
 
@@ -311,8 +497,11 @@ namespace GameCore.Inventory
             if (order.Status == OrderData.OrderStatus.Backorder) return true;   // legacy saves only
             if (order.Status != OrderData.OrderStatus.Pending) return false;
 
-            var task = _workQueue?.Tasks.FirstOrDefault(t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect);
-            return task == null || task.Status == WorkTaskStatus.Open || task.Status == WorkTaskStatus.Available;
+            // Every live task has to be uncommitted, not just the first one found: a bulk order with
+            // one Reach Truck already carrying a pallet has goods in motion even if its case pick
+            // hasn't started.
+            return LiveTasksForOrder(order.OrderId)
+                .All(t => t.Status == WorkTaskStatus.Open || t.Status == WorkTaskStatus.Available);
         }
 
         /// <summary>
@@ -332,8 +521,9 @@ namespace GameCore.Inventory
                 var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
                 if (!CanCancelOrder(order)) continue;
 
-                var task = _workQueue?.Tasks.FirstOrDefault(t => t.OrderId == id && t.Type == WorkTaskType.OrderSelect);
-                if (task != null && task.Status != WorkTaskStatus.Complete && task.Status != WorkTaskStatus.Cancelled)
+                // ToList first — cancelling mutates nothing in the queue, but LiveTasksForOrder is a
+                // lazy query over it and the status writes below would change what it yields mid-walk.
+                foreach (var task in LiveTasksForOrder(id).ToList())
                 {
                     task.Status = WorkTaskStatus.Cancelled;
                     task.AssignedToEmployeeGuid = null; // release the claim so nothing tries to "resume mine"
@@ -345,6 +535,7 @@ namespace GameCore.Inventory
                 order.AssignedDoorNumber = 0;
                 order.AssignedLane = null;
                 order.Status = OrderData.OrderStatus.Cancelled;
+                StampClosedNow(order);
                 OnOrderCancelled?.Invoke(order);
                 // Safe to mutate _activeOrders here: this loop walks orderIds, not the order list.
                 Archive(order);
@@ -507,12 +698,17 @@ namespace GameCore.Inventory
         /// its assigned door's trailer — called by TrailerLoadController once its lane-wide load pass
         /// finishes. Distinct from Shipped: billing and trailer departure now wait for the player's
         /// explicit close-out (see CloseOutOrders) instead of firing the instant the AI finishes
-        /// stacking pallets.</summary>
-        public void MarkOrderLoaded(string orderId)
+        /// stacking pallets.
+        ///
+        /// <paramref name="palletsLoaded"/> is ADDED to the order's running PalletsShipped rather
+        /// than assigned: an order too big for one trailer is loaded across two passes, and each
+        /// pass only knows about the pallets it personally carried aboard.</summary>
+        public void MarkOrderLoaded(string orderId, int palletsLoaded = 0)
         {
             var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
             if (order == null) return;
             order.Status = OrderData.OrderStatus.Loaded;
+            if (palletsLoaded > 0) order.PalletsShipped += palletsLoaded;
             Debug.Log($"[OrderService] Order {orderId} ({order.CustomerName}) loaded onto its trailer — awaiting close-out.");
         }
 
@@ -639,6 +835,7 @@ namespace GameCore.Inventory
             _moneyService?.AddCapital(revenue, FinanceCategory.CasePick);
 
             order.Status = OrderData.OrderStatus.Shipped;
+            StampClosedNow(order);
             OnOrderShipped?.Invoke(order);
             // Terminal now — out of the working list before CloseOutOrders asks the door whether
             // anything there is still Loading/Loaded, so a just-shipped order can't hold its own
@@ -691,6 +888,20 @@ namespace GameCore.Inventory
         ///
         /// Safe to call from a loop over any collection EXCEPT _activeOrders itself.
         /// </summary>
+        /// <summary>Records the in-game moment an order went terminal, for the Work Queue's Completed
+        /// tab. Written once, at the transition itself, rather than derived later — nothing else in
+        /// the save records when a shipment left, and a figure recomputed from anything downstream
+        /// would just be a guess.
+        ///
+        /// Leaves the stamp at -1 if the clock isn't available, which the tab renders as "—". A
+        /// missing timestamp is honest; day 0 would be a lie that also sorts to the bottom.</summary>
+        private void StampClosedNow(OrderData order)
+        {
+            if (order == null || _timeService == null) return;
+            order.ClosedDayNumber = _timeService.Day;
+            order.ClosedMinuteOfDay = _timeService.Hour * 60 + _timeService.Minute;
+        }
+
         private void Archive(OrderData order)
         {
             if (order == null) return;
@@ -732,7 +943,11 @@ namespace GameCore.Inventory
                     hasBeenFined = o.HasBeenFined,
                     contractId = o.ContractId,
                     lateFeePercent = o.LateFeePercent,
-                    isWholesale = o.IsWholesale
+                    isWholesale = o.IsWholesale,
+                    isBulk = o.IsBulk,
+                    closedDayNumber = o.ClosedDayNumber,
+                    closedMinuteOfDay = o.ClosedMinuteOfDay,
+                    palletsShipped = o.PalletsShipped
                 };
                 foreach (var li in o.LineItems)
                 {
@@ -777,7 +992,14 @@ namespace GameCore.Inventory
                     // 0 means the field wasn't in the file — keep the old flat rate rather than
                     // silently making a legacy order free to be late.
                     LateFeePercent = snap.lateFeePercent > 0f ? snap.lateFeePercent : LateFeePercentClerk,
-                    IsWholesale = snap.isWholesale
+                    IsWholesale = snap.isWholesale,
+                    IsBulk = snap.isBulk,
+                    // Day numbers start at 1, so 0 can only mean "this save predates the field".
+                    ClosedDayNumber = snap.closedDayNumber > 0 ? snap.closedDayNumber : -1,
+                    // The DAY decides whether the pair was recorded, never the minute's own value —
+                    // 0 is a legitimate minute (midnight), so it can't stand in for "unset" here.
+                    ClosedMinuteOfDay = snap.closedDayNumber > 0 ? snap.closedMinuteOfDay : -1,
+                    PalletsShipped = snap.palletsShipped
                 };
                 foreach (var liSnap in snap.lineItems)
                 {
@@ -867,21 +1089,31 @@ namespace GameCore.Inventory
                 foreach (var li in order.LineItems)
                     li.QuantityPicked = 0;
 
-                // Reuse a surviving OrderSelect task if the work-queue snapshot restored one, rather
-                // than filing a second task for the same order. If the order had already been staged,
-                // its OrderSelect task was Complete and won't have been exported at all — file a fresh
-                // one, Open, exactly as ReceiveOrder does (minus OnOrderArrived: this order isn't new).
-                var task = _workQueue?.Tasks.FirstOrDefault(
-                    t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect
-                      && t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled);
-                if (task != null)
+                // Reuse surviving tasks if the work-queue snapshot restored any, rather than filing a
+                // second set for the same order. If the order had already been staged its tasks were
+                // Complete and won't have been exported at all — file fresh ones, Open, exactly as
+                // ReceiveOrder does (minus OnOrderArrived: this order isn't new).
+                var surviving = LiveTasksForOrder(order.OrderId).ToList();
+                if (surviving.Count > 0)
                 {
-                    task.Status = WorkTaskStatus.Open;
-                    task.AssignedToEmployeeGuid = null;
+                    foreach (var t in surviving)
+                    {
+                        t.Status = WorkTaskStatus.Open;
+                        t.AssignedToEmployeeGuid = null;
+                        // A PalletPick's source is re-resolved on the next claim; a stale PalletId from
+                        // before the reload would point at a pallet this order no longer holds.
+                        if (t.Type == WorkTaskType.PalletPick) t.PalletId = null;
+                    }
+                }
+                else if (order.IsBulk)
+                {
+                    // QuantityPicked was just zeroed above, so FileBulkTasks re-derives the same
+                    // pallet/remainder split the order arrived with.
+                    FileBulkTasks(order);
                 }
                 else
                 {
-                    task = _workQueue?.CreateTask(
+                    var task = _workQueue?.CreateTask(
                         WorkTaskType.OrderSelect,
                         EmployeeRole.OrderSelector,
                         palletId: null,

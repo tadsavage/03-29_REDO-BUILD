@@ -65,6 +65,32 @@ namespace GameCore.Inventory
         /// one case at a time by the case-pick selector.</summary>
         public bool IsWholesale { get; set; }
 
+        /// <summary>True for a bulk order — a customer's off-the-cuff drop, priced off cost of goods
+        /// and fulfilled in FULL PALLETS by PalletPick tasks rather than case by case.
+        ///
+        /// Unlike IsWholesale (which is still only cosmetic), this one is load-bearing:
+        /// OrderService.ReceiveOrder branches on it to file PalletPick tasks instead of a single
+        /// OrderSelect, so flipping it after creation would leave the order with the wrong work
+        /// already filed.</summary>
+        public bool IsBulk { get; set; }
+
+        /// <summary>In-game day this order went terminal — the day its trailer was closed out and
+        /// picked up (ShipOrder), or the day it was called off (CancelOrders). -1 until then, and
+        /// also in any order restored from a save written before this field existed: the Completed
+        /// tab shows those as "—" rather than pretending they closed on day 0.</summary>
+        public int ClosedDayNumber { get; set; } = -1;
+
+        /// <summary>Minute of the day (hour x 60 + minute) the ClosedDayNumber stamp was taken.
+        /// Exists so two shipments that left on the same day still sort against each other, and so
+        /// the Completed tab can show a clock time rather than just a date.</summary>
+        public int ClosedMinuteOfDay { get; set; } = -1;
+
+        /// <summary>How many physical pallets went aboard a trailer for this order. ACCUMULATED by
+        /// OrderService.MarkOrderLoaded as each load pass finishes rather than set once — an order
+        /// whose pallets don't all fit on one trailer is loaded across two, and each pass reports
+        /// only the pallets it personally put on.</summary>
+        public int PalletsShipped { get; set; }
+
         public OrderData(string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute)
         {
             OrderId = System.Guid.NewGuid().ToString();
@@ -106,6 +132,21 @@ namespace GameCore.Inventory
 
         /// <summary>Expected profit after COGS.</summary>
         public int ExpectedProfit => TotalRevenue - LineItems.Sum(item => item.QuantityNeeded * item.UnitCost);
+
+        /// <summary>What this order actually earned — selling price x the units that were really
+        /// picked, not the units ordered. Deliberately the same expression OrderService.ShipOrder
+        /// bills on, so the Completed tab's figure can never drift from the money that changed
+        /// hands: an order that shipped short shows what it really made.</summary>
+        public int ShippedRevenue => LineItems.Sum(item => item.QuantityPicked * item.SellingPrice);
+
+        /// <summary>Cost of goods for the units that actually shipped.</summary>
+        public int ShippedCogs => LineItems.Sum(item => item.QuantityPicked * item.UnitCost);
+
+        /// <summary>Net profit on what shipped — revenue less cost of goods, and nothing else.
+        /// Wages, hourly running costs and any late fee charged against this order are NOT deducted
+        /// here; this is the margin on the freight itself, which is what the Completed tab reports
+        /// per deal. Facility-wide costs belong to the finance panel, not to one order.</summary>
+        public int ShippedProfit => ShippedRevenue - ShippedCogs;
 
         /// <summary>Is order fully picked and ready to stage?</summary>
         public bool IsFullyPicked => TotalUnitsRemaining <= 0;
@@ -179,6 +220,16 @@ namespace GameCore.Inventory
         /// falls back to the old flat 25%, so old saves keep their original fine behaviour.</summary>
         public float lateFeePercent;
         public bool isWholesale;
+        /// <summary>False in a save written before bulk orders existed — correct, since nothing in
+        /// such a save was ever a bulk order.</summary>
+        public bool isBulk;
+        /// <summary>0 in a save written before these existed. Day numbers start at 1, so 0 is
+        /// unambiguously "not recorded" — Import maps it back to -1 rather than to day 0.</summary>
+        public int closedDayNumber;
+        public int closedMinuteOfDay;
+        /// <summary>0 in a save written before pallet counts were recorded. Shown as "—" rather
+        /// than as a genuine zero-pallet shipment, which can't happen.</summary>
+        public int palletsShipped;
         public List<OrderLineItemSnapshot> lineItems = new();
     }
 

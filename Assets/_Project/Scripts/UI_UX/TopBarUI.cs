@@ -108,6 +108,8 @@ public class TopBarUI : MonoBehaviour
             UIKeyBindingManager.Instance.RegisterUI(5, _shiftManagerPanel);
             // Key 7 — registration is also what makes Tab close it: PlacementStateMachine's Tab handler
             // closes panels through UIKeyBindingManager.CloseAll(), which only iterates the registry.
+            // Contracts used to register floating: true so it could be read next to the Work Queue.
+            // It's exclusive now by request — opening it clears the screen like any other panel.
             UIKeyBindingManager.Instance.RegisterUI(6, _contractsPanel);
             UIKeyBindingManager.Instance.RegisterUI(7, _workQueuePanel);
             UIKeyBindingManager.Instance.RegisterUI(8, _newItemPanel);

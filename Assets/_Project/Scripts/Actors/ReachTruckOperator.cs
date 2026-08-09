@@ -215,6 +215,8 @@ namespace GameCore.Actors
                 _busy = true;
                 if (alreadyAssigned.Type == WorkTaskType.Replenish)
                     StartCoroutine(ReplenishRoutine(alreadyAssigned));
+                else if (alreadyAssigned.Type == WorkTaskType.PalletPick)
+                    StartCoroutine(PalletPickRoutine(alreadyAssigned));
                 else
                     StartCoroutine(PutawayRoutine(alreadyAssigned));
                 return;
@@ -237,9 +239,31 @@ namespace GameCore.Actors
 
             foreach (var t in pending)
             {
-                // CRITICAL: Reach Trucks do Putaway (staging lane -> rack) and Replenish (reserve ->
-                // pick slot). They MUST NOT claim Receive/OrderSelect/Load tasks (other roles).
-                if (t.Type != WorkTaskType.Putaway && t.Type != WorkTaskType.Replenish) continue;
+                // CRITICAL: Reach Trucks do Putaway (staging lane -> rack), Replenish (reserve -> pick
+                // slot) and PalletPick (reserve -> outbound staging lane). They MUST NOT claim
+                // Receive/OrderSelect/Load tasks (other roles).
+                if (t.Type != WorkTaskType.Putaway &&
+                    t.Type != WorkTaskType.Replenish &&
+                    t.Type != WorkTaskType.PalletPick) continue;
+
+                if (t.Type == WorkTaskType.PalletPick)
+                {
+                    // Destination is stamped at release. An unreleased pallet pick shouldn't be
+                    // claimable at all (it's Open, and GetPendingTasksForRole only returns Available),
+                    // so a missing lane here means something released it wrong — say so rather than
+                    // driving a pallet to nowhere.
+                    if (!TryParseLaneName(t.ToLocation, out int pd, out string pl))
+                    {
+                        Debug.LogWarning($"[ReachTruckOperator] PalletPick {t.TaskId} has no parseable " +
+                                         $"destination lane ('{t.ToLocation}'). Skipping.");
+                        continue;
+                    }
+                    if (!LaneNamingService.TryGetLaneGeometry(pd, pl, out _)) continue;
+                    // Only claimable while a reserve pallet of this SKU actually exists. Checked
+                    // WITHOUT reserving — reserving here would lock a slot for a task this truck may
+                    // yet lose to a higher-priority one on the same poll.
+                    if (!ReplenishmentService.TryFindOldestReserve(_inventoryService, t.SkuId, out _)) continue;
+                }
 
                 if (t.Type == WorkTaskType.Putaway)
                 {
@@ -283,11 +307,46 @@ namespace GameCore.Actors
 
             if (!_workQueue.TryClaimSpecificTask(best, guid)) return;
 
+            // NOW the source pallet is chosen and locked, once this truck definitely owns the task.
+            // Doing it during the scan above would reserve a slot for every candidate considered.
+            if (best.Type == WorkTaskType.PalletPick && !TryBindPalletPickSource(best))
+            {
+                // Someone took the last reserve pallet between the scan and the claim. Hand the task
+                // straight back rather than starting a routine that has nothing to fetch.
+                best.Status = WorkTaskStatus.Available;
+                best.AssignedToEmployeeGuid = null;
+                return;
+            }
+
             _busy = true;
             if (best.Type == WorkTaskType.Replenish)
                 StartCoroutine(ReplenishRoutine(best));
+            else if (best.Type == WorkTaskType.PalletPick)
+                StartCoroutine(PalletPickRoutine(best));
             else
                 StartCoroutine(PutawayRoutine(best));
+        }
+
+        /// <summary>
+        /// Resolves and locks the reserve pallet a PalletPick will take, stamping it onto the task.
+        ///
+        /// The FIFO rule is ReplenishmentService's, shared rather than copied so inbound replenishment
+        /// and outbound pallet picking rotate stock the same way. Reserving the slot immediately is
+        /// what stops a second truck — or the replenishment scanner — being handed the same pallet.
+        /// </summary>
+        private bool TryBindPalletPickSource(WorkTask task)
+        {
+            if (!ReplenishmentService.TryFindOldestReserve(_inventoryService, task.SkuId, out var reserve))
+            {
+                Debug.LogWarning($"[ReachTruckOperator] '{name}' claimed PalletPick {task.TaskId} for SKU " +
+                                 $"{task.SkuId} but no reserve slot holds it any more.");
+                return false;
+            }
+
+            reserve.Reserve();
+            task.PalletId = reserve.PalletId;
+            task.AssignFromLocation(reserve.Address);
+            return true;
         }
 
         /// <summary>
@@ -873,6 +932,222 @@ namespace GameCore.Actors
 
             // Delivery leg is physically identical to a normal putaway rack delivery.
             yield return DeliverPalletToRack(pallet, palletId, pickAddress, task, obstacle);
+        }
+
+        // ── Pallet pick (reserve -> outbound staging lane) ───────────────────────────────────────
+
+        /// <summary>
+        /// Takes one FULL pallet out of reserve and stands it in an outbound staging lane, for a bulk
+        /// order that asked for full-pallet quantities.
+        ///
+        /// The extraction half is Replenish's, verbatim — same PickupFromReserve, same cargo-in-transit
+        /// conventions. Only the delivery differs: a staging lane slot instead of a rack bay, which is
+        /// the outbound mirror of what PutawayRoutine does in reverse.
+        /// </summary>
+        private IEnumerator PalletPickRoutine(WorkTask task)
+        {
+            _carryOriginValid = false;
+            string reserveAddress = task.FromLocation;
+            string palletId       = task.PalletId;
+
+            if (!TryParseLaneName(task.ToLocation, out int door, out string lane))
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: destination '{task.ToLocation}' " +
+                                 $"is not a lane. Aborting.");
+                yield return AbortRoutine(task, palletId, reserveAddress);
+                yield break;
+            }
+
+            Debug.Log($"[ReachTruckOperator] '{name}' STARTING pallet pick {task.TaskId}: {palletId} " +
+                      $"{reserveAddress} -> {door}{lane}");
+
+            var link = PalletMasterLink.Find(palletId);
+            Transform pallet = link != null ? link.transform : null;
+            LocationData reserveLoc = FindLocationTransform(reserveAddress)?.GetComponent<LocationData>();
+
+            if (pallet == null || reserveLoc == null)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick: missing pallet ({pallet != null}) or " +
+                                 $"reserve location ({reserveLoc != null}). Aborting.");
+                // Nothing physically moved — put the reserve slot back the way it was, using its own
+                // still-intact fields, exactly as ReplenishRoutine does.
+                if (reserveLoc != null)
+                    reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
+                task.PalletId = null;   // re-resolved on the next claim
+                if (task != null) task.Status = WorkTaskStatus.Available;
+                Restore();
+                yield break;
+            }
+
+            // Captured BEFORE the slot is released — once it's cleared these fields are gone, and the
+            // case count is what gets credited to the order and written onto the outbound pallet.
+            int palletCases = reserveLoc.Quantity;
+            string skuId = task.SkuId;
+
+            _carryOriginPos   = pallet.position;
+            _carryOriginRot   = pallet.rotation;
+            _carryOriginValid = true;
+
+            bool grabbed = false;
+            yield return PickupFromReserve(reserveAddress, pallet, r => grabbed = r);
+
+            if (!grabbed)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick: could not extract {palletId} from " +
+                                 $"{reserveAddress}. Reverting reservation.");
+                reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
+                task.PalletId = null;
+                task.Status = WorkTaskStatus.Available;
+                _carryOriginValid = false;
+                Restore();
+                yield break;
+            }
+
+            reserveLoc.Release();
+
+            // Cargo-in-transit convention shared with Putaway/Replenish.
+            NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
+            if (obstacle != null) obstacle.enabled = false;
+
+            var modifierType = System.Type.GetType("UnityEngine.AI.NavMeshModifier, Assembly-CSharp")
+                                ?? System.Type.GetType("UnityEngine.AI.NavMeshModifier");
+            if (modifierType != null)
+            {
+                var modifier = pallet.GetComponent(modifierType);
+                if (modifier != null) modifierType.GetProperty("enabled").SetValue(modifier, false);
+            }
+
+            _inventoryService?.MovePallet(palletId, new Vector2Int(-1, -1));
+
+            PlacedObject palletPO = pallet.GetComponent<PlacedObject>();
+            if (palletPO != null) palletPO.enabled = false;
+
+            if (_forks != null)
+            {
+                yield return RetractForks(_forks, _forkRestLocalZ);
+                yield return LiftForks(_forks, ForkTravelHeight);
+            }
+
+            yield return DeliverPalletToStagingLane(pallet, palletId, skuId, palletCases, door, lane, task, obstacle);
+        }
+
+        /// <summary>
+        /// Drives a carried pallet into an outbound staging lane slot and sets it down as order freight.
+        ///
+        /// Unlike a rack bay, a lane slot has no authored approach anchor or location transform — the
+        /// geometry comes from LaneNamingService, the same source OrderSelectionTaskDriver uses when a
+        /// selector delivers its built pallets. Overflow within the stage (A -> B -> C) is resolved
+        /// here through InventoryService.TryFindStagingLaneForPallets rather than being forced into the
+        /// lane the order was released to, since a lane can fill between release and arrival.
+        /// </summary>
+        private IEnumerator DeliverPalletToStagingLane(Transform pallet, string palletId, string skuId,
+                                                       int palletCases, int door, string lane,
+                                                       WorkTask task, NavMeshObstacle obstacle)
+        {
+            if (!_inventoryService.TryFindStagingLaneForPallets(door, lane, 1, out string resolvedLane) ||
+                !_inventoryService.TryFindStagingSlotInLane(door, resolvedLane, out var slot) ||
+                !LaneNamingService.TryGetSlotWorldPos(slot.Cell, out Vector3 slotPos))
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick: no free staging slot in Stage {door} " +
+                                 $"(started at {door}{lane}). Putting the pallet back and retrying later.");
+                ReleaseCarriedPalletToOrigin(pallet);
+                if (obstacle != null) obstacle.enabled = true;
+                if (palletPOWasDisabled(pallet, out var po)) po.enabled = true;
+                yield return AbortRoutine(task, palletId, null);
+                yield break;
+            }
+
+            Vector3 depthAxis = Vector3.forward;
+            if (LaneNamingService.TryGetLaneGeometry(door, resolvedLane, out var geo))
+                depthAxis = geo.DepthAxis.sqrMagnitude > 0.0001f ? geo.DepthAxis.normalized : Vector3.forward;
+
+            // Open-floor leg to the lane. Approaching the slot from OUTSIDE the lane (backed off along
+            // the depth axis) rather than aiming straight at the slot keeps the truck from trying to
+            // path through the pallets already standing deeper in it.
+            Vector3 approach = slotPos - depthAxis * LaneApproachStandoff;
+            bool reachedLane = false;
+            yield return SeekViaNavMesh(approach, $"pallet pick: → lane {door}{resolvedLane}", r => reachedLane = r);
+            if (!reachedLane)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick: no path to lane {door}{resolvedLane}. " +
+                                 $"Putting the pallet back.");
+                ReleaseCarriedPalletToOrigin(pallet);
+                if (obstacle != null) obstacle.enabled = true;
+                if (palletPOWasDisabled(pallet, out var po2)) po2.enabled = true;
+                yield return AbortRoutine(task, palletId, null);
+                yield break;
+            }
+
+            // Close the last stretch manually and square up on the slot, same reasoning as the rack
+            // delivery: the NavMesh leg only guarantees arrival within the agent's stopping distance,
+            // and setting a pallet down from a metre off-centre is what puts it across two cells.
+            yield return DriveToPoint(transform, approach, PrecisePlaceThreshold);
+            yield return FaceForks(transform, depthAxis);
+
+            if (_forks != null)
+                yield return LiftForksToWorldY(_forks, slotPos.y + ForkRackClearance);
+
+            yield return DriveToPoint(transform, slotPos - depthAxis * ForkSetDownStandoff, PrecisePlaceThreshold);
+
+            if (_forks != null)
+                yield return LiftForks(_forks, _forks.localPosition.y - ForkDepositDrop);
+
+            // ── Set down as OUTBOUND FREIGHT ─────────────────────────────────────────────────────
+            //
+            // Left UNPARENTED at the world root, deliberately — do NOT EnsureUnderContainer this the
+            // way a rack putaway does. Both systems that find staged freight skip any pallet with a
+            // parent (InventoryService.OutboundOccupiedCells and
+            // TrailerLoadController.FindStagedPalletsInLane both guard on `transform.parent != null`,
+            // because a parented pallet is one still riding a selector or a set of forks). Filing it
+            // under the Inventory container made the pallet invisible to both: it stood in the lane
+            // looking perfectly correct, the cell still read as free, and no loader would ever take
+            // it. OrderSelectionTaskDriver leaves its staged pallets unparented for the same reason.
+            pallet.SetParent(null, worldPositionStays: true);
+            pallet.position = slotPos;
+            pallet.rotation = Quaternion.LookRotation(depthAxis, Vector3.up);
+            _carryOriginValid = false;
+
+            var palletPO = pallet.GetComponent<PlacedObject>();
+            if (palletPO != null) palletPO.enabled = true;
+
+            // THE load-bearing step. TrailerLoadController.FindStagedPalletsInLane and
+            // InventoryService.OutboundOccupiedCells both find staged freight by scanning for this
+            // component and nothing else — without it the pallet stands in the lane looking perfectly
+            // correct, never gets loaded, and the next order stages a pallet straight through it.
+            var outbound = pallet.GetComponent<OutboundPalletBuilder>() ?? pallet.gameObject.AddComponent<OutboundPalletBuilder>();
+            outbound.AdoptFullPallet(task.OrderId, palletCases);
+            outbound.SetNavObstacleActive(true);
+            if (obstacle != null) obstacle.enabled = true;
+
+            // ORDER MATTERS. CompleteTask first, THEN drop the pallet from inventory: WorkQueueSystem
+            // subscribes to InventoryService.OnPalletDestroyed and cancels every unfinished task for a
+            // removed pallet — reversing these two lines makes this routine cancel its own task on the
+            // last line of a successful run.
+            _workQueue.CompleteTask(task.TaskId);
+            _inventoryService?.DestroyPallet(palletId);
+
+            // Credit the order last, once the freight is genuinely standing in the lane. This is what
+            // flips a bulk order to Staged when its final pallet lands.
+            if (ServiceLocator.TryGet<OrderService>(out var orderService) && orderService != null)
+                orderService.NotePalletPicked(task.OrderId, skuId, palletCases);
+
+            Debug.Log($"[ReachTruckOperator] '{name}' pallet pick complete: {palletCases} cs of {skuId} " +
+                      $"staged at {door}{resolvedLane}-{slot.Slot} for order {task.OrderId}.");
+
+            Restore();
+        }
+
+        /// <summary>How far outside a staging slot to stop before setting a pallet down. Two separate
+        /// standoffs because the truck approaches from clear of the lane and then noses in.</summary>
+        private const float LaneApproachStandoff = 3.0f;
+        private const float ForkSetDownStandoff  = 1.2f;
+
+        /// <summary>Small helper for the abort paths: a carried pallet had its PlacedObject switched
+        /// off at pickup, and every path that puts it back down has to switch it on again.</summary>
+        private static bool palletPOWasDisabled(Transform pallet, out PlacedObject po)
+        {
+            po = pallet != null ? pallet.GetComponent<PlacedObject>() : null;
+            return po != null && !po.enabled;
         }
 
         /// <summary>

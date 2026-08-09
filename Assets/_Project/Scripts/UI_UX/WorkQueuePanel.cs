@@ -116,6 +116,7 @@ public class WorkQueuePanel : IUIPanel
     private ActionMode _mode = ActionMode.None;
 
     private bool _visible;
+    private ResizableWindow _resizeWindow;
     private enum SortColumn { PaletteId, ItemNumber, Area, Priority, Role, Task, Status, From, To, Operator, Customer, Order, FillRate }
     private SortColumn _sortColumn = SortColumn.Priority;
     private bool _sortAscending;
@@ -181,6 +182,7 @@ public class WorkQueuePanel : IUIPanel
         _overlay.style.display = DisplayStyle.Flex;
         _liveSignature = null;
         RebuildRows();
+        _resizeWindow?.ResetToNormal();
     }
     private void RefreshIfVisible()
     {
@@ -262,7 +264,7 @@ public class WorkQueuePanel : IUIPanel
         // Title bar
         var titleBar = new VisualElement();
         titleBar.style.flexDirection = FlexDirection.Row;
-        titleBar.style.height = 58;
+        titleBar.style.height = 70;
         titleBar.style.alignItems = Align.Center;
 
         titleBar.style.width = StyleKeyword.Auto;
@@ -311,12 +313,13 @@ public class WorkQueuePanel : IUIPanel
         title.style.unityTextAlign = TextAnchor.MiddleCenter;
         titleBar.Add(title);
 
+        const float titleBtnSize = 63f; // 1.5x the base 42px square button
         var closeButton = new Button(Hide) { text = "✕" };
-        ApplyFont(closeButton, bold: true, size: 20);
-        closeButton.style.width = 42;
-        closeButton.style.height = 42;
-        closeButton.style.minWidth = 42;
-        closeButton.style.minHeight = 42;
+        ApplyFont(closeButton, bold: true, size: 30);
+        closeButton.style.width = titleBtnSize;
+        closeButton.style.height = titleBtnSize;
+        closeButton.style.minWidth = titleBtnSize;
+        closeButton.style.minHeight = titleBtnSize;
         closeButton.style.marginTop = 0;
         closeButton.style.marginBottom = 0;
         closeButton.style.marginLeft = 0;
@@ -339,17 +342,53 @@ public class WorkQueuePanel : IUIPanel
             closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
             closeButton.style.color = new StyleColor(ColSubtleText);
         });
+        closeButton.RegisterCallback<PointerDownEvent>(_ =>
+            closeButton.style.backgroundColor = new StyleColor(new Color(0.6f, 0.16f, 0.12f, 1f)));
+        closeButton.RegisterCallback<PointerUpEvent>(_ =>
+            closeButton.style.backgroundColor = new StyleColor(new Color(0.8f, 0.3f, 0.2f, 1f)));
+        // Cycles normal / large / fill-screen (see ResizableWindow.CycleScale below). Same size as the
+        // close button and on the same title-bar row, so the two sit flush together.
+        var scaleButton = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+        scaleButton.style.width = titleBtnSize;
+        scaleButton.style.height = titleBtnSize;
+        scaleButton.style.minWidth = titleBtnSize;
+        scaleButton.style.minHeight = titleBtnSize;
+        scaleButton.style.marginTop = 0;
+        scaleButton.style.marginBottom = 0;
+        scaleButton.style.marginLeft = 0;
+        scaleButton.style.marginRight = 8;
+        scaleButton.style.paddingTop = 0;
+        scaleButton.style.paddingBottom = 0;
+        scaleButton.style.paddingLeft = 0;
+        scaleButton.style.paddingRight = 0;
+        scaleButton.style.alignSelf = Align.Center;
+        scaleButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
+        scaleButton.style.color = new StyleColor(ColSubtleText);
+        ResizableWindow.AddStackedSquaresGlyph(scaleButton, titleBtnSize, ColSubtleText);
+        scaleButton.RegisterCallback<PointerEnterEvent>(_ =>
+        {
+            scaleButton.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f));
+            scaleButton.style.color = new StyleColor(Color.white);
+        });
+        scaleButton.RegisterCallback<PointerLeaveEvent>(_ =>
+        {
+            scaleButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
+            scaleButton.style.color = new StyleColor(ColSubtleText);
+        });
+
         // Balances the two left-hand buttons so the title stays centred in the bar.
         var titleSpacer = new VisualElement();
-        titleSpacer.style.width = SelectAllWidth + 8 + CancelSelectedWidth - 42;
+        titleSpacer.style.width = SelectAllWidth + 8 + CancelSelectedWidth - titleBtnSize - 8 - titleBtnSize;
         titleSpacer.style.flexShrink = 0;
         titleBar.Add(titleSpacer);
 
+        titleBar.Add(scaleButton);
         titleBar.Add(closeButton);
         modal.Add(titleBar);
 
         new DraggableWindow(modal, titleBar, closeButton);
-        new ResizableWindow(modal, minW: 900f, minH: 260f, grip: 10f, titleInset: 42f, allowVerticalResize: false);
+        _resizeWindow = new ResizableWindow(modal, minW: 900f, minH: 260f, grip: 10f, titleInset: 54f, allowVerticalResize: false);
+        scaleButton.clicked += _resizeWindow.CycleScale;
 
         // Column headers. The dark modal styling remains the new queue's visual shell;
         // these columns expose the complete work-task record used by the old queue.
@@ -493,8 +532,12 @@ public class WorkQueuePanel : IUIPanel
         _rowScroll.Clear();
 
         ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
+        // OrderSelect and PalletPick are excluded because both are ORDER work, already represented by
+        // the order rows below — and a bulk order files one PalletPick per pallet, so ten of them
+        // would bury its own order row under ten near-identical task rows.
         var taskRows = workQueue?.Tasks
-            .Where(t => t.Type != WorkTaskType.OrderSelect && t.Status != WorkTaskStatus.Complete)
+            .Where(t => t.Type != WorkTaskType.OrderSelect && t.Type != WorkTaskType.PalletPick
+                     && t.Status != WorkTaskStatus.Complete)
             .ToList() ?? new List<WorkTask>();
         taskRows = SortTasks(taskRows);
         taskRows = ApplyTaskFilters(taskRows);
@@ -568,12 +611,47 @@ public class WorkQueuePanel : IUIPanel
 
         foreach (var order in orderService.ActiveOrders)
         {
-            var task = workQueue?.Tasks.FirstOrDefault(t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect);
+            var task = RepresentativeTask(order, workQueue);
             var phase = DeterminePhase(order, task);
             if (phase.HasValue) rows.Add((order, phase.Value, task));
         }
         return ApplyOrderFilters(SortOrders(rows));
     }
+
+    /// <summary>
+    /// The one task that stands for a whole order on its row.
+    ///
+    /// A plain order has exactly one (its OrderSelect), but a bulk order has a PalletPick per pallet
+    /// and possibly a case pick on top — so the row has to summarise several. It takes the LEAST
+    /// advanced of them, because that's what the player can still act on: an order with nine pallets
+    /// claimed and one still Open is not "in progress", it's an order with work nobody has taken.
+    /// </summary>
+    private static WorkTask RepresentativeTask(OrderData order, WorkQueueSystem workQueue)
+    {
+        if (workQueue == null) return null;
+
+        WorkTask best = null;
+        foreach (var t in workQueue.Tasks)
+        {
+            if (t.OrderId != order.OrderId) continue;
+            // Load is included alongside the picking types so a released (Loading) order still shows
+            // a live task once it has one — without it, Role/Priority went blank the moment picking
+            // finished even though a real Load task (role Loader) exists and is being worked.
+            if (t.Type != WorkTaskType.OrderSelect && t.Type != WorkTaskType.PalletPick && t.Type != WorkTaskType.Load) continue;
+            if (t.Status == WorkTaskStatus.Complete || t.Status == WorkTaskStatus.Cancelled) continue;
+            if (best == null || PhaseRank(t.Status) < PhaseRank(best.Status)) best = t;
+        }
+        return best;
+    }
+
+    /// <summary>Lower = less advanced. Open before Available before Assigned.</summary>
+    private static int PhaseRank(WorkTaskStatus status) => status switch
+    {
+        WorkTaskStatus.Open => 0,
+        WorkTaskStatus.Available => 1,
+        WorkTaskStatus.Assigned => 2,
+        _ => 3,
+    };
 
     /// <summary>Checks every visible row with an enabled checkbox; if they're already all
     /// checked, unchecks them instead. Filtered-out rows are left untouched either way.</summary>
@@ -684,9 +762,10 @@ public class WorkQueuePanel : IUIPanel
     {
         IEnumerable<(OrderData order, RowPhase phase, WorkTask task)> sorted = _sortColumn switch
         {
-            SortColumn.Area => rows.OrderBy(r => r.task != null ? AreaLabel(r.task.Area) : ""),
+            SortColumn.Area => rows.OrderBy(r => GetOrderAreaLabel(r.order)),
             SortColumn.Priority => rows.OrderBy(r => r.task?.Priority ?? 0),
-            SortColumn.Role => rows.OrderBy(r => r.task?.RequiredRole.DisplayName() ?? ""),
+            SortColumn.Role => rows.OrderBy(r => r.task?.RequiredRole.DisplayName()
+                ?? (r.phase == RowPhase.Staged ? EmployeeRole.Loader.DisplayName() : "")),
             SortColumn.Task => rows.OrderBy(r => r.task?.Type.ToString() ?? "OrderSelect"),
             SortColumn.Status => rows.OrderBy(r => PhaseLabel(r.phase)),
             SortColumn.From => rows.OrderBy(r => r.task?.FromLocation ?? ""),
@@ -714,7 +793,46 @@ public class WorkQueuePanel : IUIPanel
     /// <summary>Returns the item number displayed for an order row — matches BuildRow exactly.</summary>
     private static string GetOrderItemNumber(OrderData order)
     {
-        return order.LineItems.FirstOrDefault()?.SkuId ?? "\u2014";
+        if (order == null || order.LineItems.Count == 0) return "\u2014";
+        var distinctSkus = order.LineItems.Select(li => li.SkuId).Distinct().ToList();
+        return distinctSkus.Count > 1 ? "Mixed" : distinctSkus[0];
+    }
+
+    /// <summary>Area for an order row, derived from the storage area(s) of the SKUs on the order
+    /// rather than the representative task's Area \u2014 that field defaults to Grocery for every
+    /// non-bulk OrderSelect task regardless of what's actually on the order, and goes missing
+    /// entirely once the order's task completes (Staged/Loading/Loaded). "Mixed" once the order's
+    /// line items span more than one storage area, same reasoning as GetOrderItemNumber.</summary>
+    private static string GetOrderAreaLabel(OrderData order)
+    {
+        if (order == null || order.LineItems.Count == 0) return "\u2014";
+        if (!ServiceLocator.TryGet<InventoryService>(out var inv) || inv == null) return "\u2014";
+
+        var areas = order.LineItems
+            .Select(li => inv.AllSkus.FirstOrDefault(s => s.SkuId == li.SkuId))
+            .Where(s => s != null)
+            .Select(s => s.StorageArea)
+            .Distinct()
+            .ToList();
+
+        if (areas.Count == 0) return "\u2014";
+        return areas.Count > 1 ? "Mixed" : AreaLabel(areas[0]);
+    }
+
+    /// <summary>Pallet ID for a Staged/Loading/Loaded order row once its picking task is gone (that
+    /// task's PalletId was always null anyway \u2014 a selector's pallet is only known once built). Finds
+    /// the order's own OutboundPalletBuilder instance(s) by OrderId and labels them by build order
+    /// ("Pallet 1", "Pallets 1, 2") rather than their GUID-less scene name, which carries no useful
+    /// identity of its own.</summary>
+    private static string GetStagedPalletLabel(OrderData order)
+    {
+        if (order == null) return "\u2014";
+        int count = Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
+            .Count(p => p != null && p.OrderId == order.OrderId);
+        if (count == 0) return "\u2014";
+
+        var labels = Enumerable.Range(1, count).Select(i => i.ToString());
+        return count == 1 ? $"Pallet {labels.First()}" : $"Pallets {string.Join(", ", labels)}";
     }
     private RowPhase? DeterminePhase(OrderData order, WorkTask task)
     {
@@ -799,15 +917,23 @@ public class WorkQueuePanel : IUIPanel
         row.Add(checkbox);
 
         string itemNumber = GetOrderItemNumber(order);
-        string area = task != null ? AreaLabel(task.Area) : "—";
-        string paletteId = task?.PalletId ?? "—";
-        string role = task != null ? task.RequiredRole.DisplayName() : "—";
+        string area = GetOrderAreaLabel(order);
+        // A Staged/Loading order's picking task carried no PalletId (a selector's pallet is only
+        // known once actually built) — once that task is also gone, look up the real staged pallet
+        // instead of showing a permanent blank.
+        string paletteId = !string.IsNullOrEmpty(task?.PalletId) ? ShortId(task.PalletId) : GetStagedPalletLabel(order);
+        // Staged has no live task (the OrderSelect that built the pallet already completed, and no
+        // Load task exists until the player releases it to a door) — but the ROLE that will pick it
+        // up next is not actually unknown, it's always Loader. Showing "—" there read as missing data
+        // rather than "waiting on you to release it," which Priority (still "—" here) already conveys.
+        string role = task != null ? task.RequiredRole.DisplayName()
+            : phase == RowPhase.Staged ? EmployeeRole.Loader.DisplayName() : "—";
         string taskName = task != null ? task.Type.ToString() : "—";
         string from = OrderFromLocation(order, task, phase);
         string to = OrderToLocation(order, task, phase);
         string operatorName = phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "—";
 
-        AddRowCell(row, ShortId(paletteId), PaletteIdWidth, ColSubtleText);
+        AddRowCell(row, paletteId, PaletteIdWidth, ColSubtleText);
         AddRowCell(row, itemNumber, ItemNumberWidth, ColTitleText);
         AddRowCell(row, area, AreaWidth, ColSubtleText, marginLeft: 12f);
         AddRowCell(row, task != null ? task.Priority.ToString() : "—", PriorityWidth, ColTitleText);
@@ -1271,11 +1397,12 @@ public class WorkQueuePanel : IUIPanel
     {
         return col switch
         {
-            SortColumn.PaletteId => ShortId(task?.PalletId ?? "\u2014"),
+            SortColumn.PaletteId => !string.IsNullOrEmpty(task?.PalletId) ? ShortId(task.PalletId) : GetStagedPalletLabel(order),
             SortColumn.ItemNumber => GetOrderItemNumber(order),
-            SortColumn.Area => task != null ? AreaLabel(task.Area) : "\u2014",
+            SortColumn.Area => GetOrderAreaLabel(order),
             SortColumn.Priority => task != null ? task.Priority.ToString() : "\u2014",
-            SortColumn.Role => task != null ? task.RequiredRole.DisplayName() : "\u2014",
+            SortColumn.Role => task != null ? task.RequiredRole.DisplayName()
+                : phase == RowPhase.Staged ? EmployeeRole.Loader.DisplayName() : "\u2014",
             SortColumn.Task => task != null ? task.Type.ToString() : "\u2014",
             SortColumn.Status => PhaseLabel(phase),
             SortColumn.From => OrderFromLocation(order, task, phase),
@@ -1321,7 +1448,9 @@ public class WorkQueuePanel : IUIPanel
             foreach (var task in workQueue.Tasks)
             {
                 if (task.Status == WorkTaskStatus.Complete) continue;
-                if (task.Type == WorkTaskType.OrderSelect) continue;
+                // Same exclusions as RebuildRows — the filter's option list has to describe the rows
+                // the panel actually shows, or it offers values nothing can match.
+                if (task.Type == WorkTaskType.OrderSelect || task.Type == WorkTaskType.PalletPick) continue;
                 values.Add(GetTaskCellValue(col, task));
             }
         }
@@ -1331,7 +1460,7 @@ public class WorkQueuePanel : IUIPanel
             ServiceLocator.TryGet<WorkQueueSystem>(out var wq);
             foreach (var order in orderService.ActiveOrders)
             {
-                var task = wq?.Tasks.FirstOrDefault(t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect);
+                var task = RepresentativeTask(order, wq);
                 var phase = DeterminePhase(order, task);
                 if (phase.HasValue)
                     values.Add(GetOrderCellValue(col, order, phase.Value, task));

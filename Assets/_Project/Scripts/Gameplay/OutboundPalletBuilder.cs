@@ -36,6 +36,30 @@ public class OutboundPalletBuilder : MonoBehaviour
     /// order a staged pallet belongs to without needing a separate lookup table.</summary>
     public string OrderId { get; set; }
 
+    /// <summary>
+    /// Marks an ALREADY-BUILT pallet as outbound freight for an order, without touching its cases.
+    ///
+    /// This is how a Pallet Pick joins the outbound world. A bulk order's full pallet is a real
+    /// received pallet that a Reach Truck carried out of a reserve slot — its cases were modelled by
+    /// PalletBuilder when it was received, so there is nothing to lay out and AddCase must not be
+    /// called (it would stack a second set of cases on top of the ones already there).
+    ///
+    /// It still has to become an OutboundPalletBuilder, because that component is the ONLY thing two
+    /// downstream systems look for: TrailerLoadController.FindStagedPalletsInLane scans for it to
+    /// decide what goes on the trailer, and InventoryService.OutboundOccupiedCells scans for it to
+    /// know a staging cell is taken. Without it the pallet sits in the lane looking correct, never
+    /// loads, and the next order stages a pallet straight through it.
+    ///
+    /// FillFraction is set to a full pallet so IsCubedOut reads true — nothing may add cases to a
+    /// pallet that is, by definition, already full.
+    /// </summary>
+    public void AdoptFullPallet(string orderId, int cases)
+    {
+        OrderId = orderId;
+        TotalCases = Mathf.Max(0, cases);
+        FillFraction = 1f;
+    }
+
     /// <summary>Fraction of "one reference pallet's worth" of capacity consumed so far, summed
     /// across every SKU added. No cubic-footage field exists on SkuData, so each case contributes
     /// 1/(Ti*Hi) of its own SKU's full-pallet case count as a proxy for the volume it occupies —

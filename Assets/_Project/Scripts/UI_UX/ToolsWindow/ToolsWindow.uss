@@ -58,19 +58,44 @@
 }
 
 .tools-close {
-    width: 40px;
-    height: 40px;
-    border-radius: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 30px;
     border-width: 1px;
     border-color: rgba(230, 80, 80, 0.5);
     background-color: rgba(200, 60, 60, 0.15);
     color: #FF9090;
-    font-size: 20px;
+    font-size: 30px;
     -unity-text-align: middle-center;
     padding: 0;
 }
 .tools-close:hover  { background-color: rgba(220, 60, 60, 0.42); color: #FFFFFF; }
 .tools-close:active { background-color: rgba(160, 30, 30, 0.65); translate: 0 1px; }
+
+/* Groups scale + close as one unit so titlebar's space-between keeps them together on the right,
+   flush against each other, instead of space-between spreading three separate children apart. */
+.tools-titlebar-buttons {
+    flex-direction: row;
+    align-items: center;
+}
+
+/* Cycles normal / large / fill-screen. Same size as .tools-close and on the same title-bar row, so
+   the two sit flush together. */
+.tools-scale {
+    width: 60px;
+    height: 60px;
+    border-radius: 30px;
+    border-width: 1px;
+    border-color: rgba(92, 155, 196, 0.5);
+    background-color: rgba(92, 155, 196, 0.15);
+    color: #CFE2F0;
+    font-size: 20px;
+    -unity-text-align: middle-center;
+    padding: 0;
+    margin-right: 8px;
+}
+.tools-scale:hover  { background-color: rgba(92, 155, 196, 0.42); color: #FFFFFF; }
+.tools-scale:active { background-color: rgba(60, 110, 150, 0.65); translate: 0 1px; }
 
 /* ── TAB STRIP ───────────────────────────────────────── */
 .tools-tabstrip {

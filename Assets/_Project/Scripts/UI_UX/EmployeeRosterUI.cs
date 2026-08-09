@@ -514,6 +514,7 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
                         WorkTaskType.Putaway => "Putting Away",
                         WorkTaskType.Replenish => "Replenishing",
                         WorkTaskType.OrderSelect => "Selecting Order",
+                        WorkTaskType.PalletPick => "Pallet Picking",
                         WorkTaskType.Load => "Loading",
                         _ => task.Type.ToString()
                     };

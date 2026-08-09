@@ -60,7 +60,7 @@ namespace GameCore.Labor
 
                 if (HasPendingReplenishment(pick.Address)) continue; // already in flight
 
-                if (!TryFindOldestReserve(skuId, out LocationData reserve)) continue;
+                if (!TryFindOldestReserve(_inventoryService, skuId, out LocationData reserve)) continue;
 
                 CreateReplenishTask(pick, reserve, skuId);
             }
@@ -77,10 +77,22 @@ namespace GameCore.Labor
                 t.ToLocation == pickAddress);
         }
 
-        /// <summary>FIFO: the Occupied reserve slot holding this SKU whose pallet was received earliest.</summary>
-        private bool TryFindOldestReserve(string skuId, out LocationData best)
+        /// <summary>
+        /// FIFO: the Occupied reserve slot holding this SKU whose pallet was received earliest.
+        ///
+        /// Static and public because outbound PalletPick needs the identical question answered — a
+        /// Reach Truck taking a full pallet to a staging lane picks its source exactly the way
+        /// replenishment does. Two copies of this rule would eventually disagree about which pallet is
+        /// next and rotate stock differently depending on where it was going.
+        ///
+        /// Occupied specifically, never Reserved: a Reserved slot is already promised to another task,
+        /// and handing it out twice is how two trucks get sent for one pallet.
+        /// </summary>
+        public static bool TryFindOldestReserve(InventoryService inventory, string skuId, out LocationData best)
         {
             best = null;
+            if (inventory == null || string.IsNullOrEmpty(skuId)) return false;
+
             int bestDay = int.MaxValue;
 
             foreach (var reserve in LocationRegistry.ReserveLocations)
@@ -89,7 +101,7 @@ namespace GameCore.Labor
                 if (reserve.SkuId != skuId) continue;
                 if (string.IsNullOrEmpty(reserve.PalletId)) continue;
 
-                var record = _inventoryService.GetPallet(reserve.PalletId);
+                var record = inventory.GetPallet(reserve.PalletId);
                 if (record == null) continue;
 
                 if (record.ReceivedDayNumber < bestDay)

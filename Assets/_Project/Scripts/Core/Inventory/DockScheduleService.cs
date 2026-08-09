@@ -15,7 +15,10 @@ namespace GameCore.Inventory
         /// <summary>An inbound purchase order occupying a door to be unloaded.</summary>
         Inbound,
         /// <summary>A one-off wholesale pallet drop.</summary>
-        Wholesale
+        Wholesale,
+        /// <summary>A bulk order — full pallets out of reserve, priced off cost of goods.
+        /// NOTE: appended, never reordered — persisted by ordinal in DockAppointmentSnapshot.</summary>
+        Bulk
     }
 
     /// <summary>One customer's trailer at one door for one two-hour block.</summary>
@@ -38,6 +41,35 @@ namespace GameCore.Inventory
         public int StartHour => BlockIndex * DockScheduleService.BlockHours;
         public int EndHour => StartHour + DockScheduleService.BlockHours;
         public string TimeLabel => $"{StartHour:00}:00–{EndHour:00}:00";
+    }
+
+    /// <summary>
+    /// Orders on the board that no appointment is holding a door for, collapsed to the unit an
+    /// appointment actually books: one customer's orders under one contract, i.e. one trailer.
+    ///
+    /// Not a persisted record — derived from the order list every time it's asked for, the same
+    /// "always re-derivable from current state" approach StagingLaneAssignmentService takes. A stored
+    /// list of stranded orders would be a second thing to keep in step with the schedule.
+    /// </summary>
+    public class UnscheduledGroup
+    {
+        public string CustomerId;
+        public string CustomerName;
+        public string ContractId;
+        public bool IsWholesale;
+        public bool IsBulk;
+        public List<string> OrderIds = new();
+        /// <summary>Soonest deadline in the group — what the UI sorts by, since the most urgent
+        /// stranded trailer is the one the player needs to see first.</summary>
+        public int EarliestDueDay;
+
+        public AppointmentKind Kind => IsWholesale ? AppointmentKind.Wholesale
+                                     : IsBulk ? AppointmentKind.Bulk
+                                     : AppointmentKind.Outbound;
+
+        /// <summary>Stable identity for UI selection. Customer alone isn't enough — one customer can
+        /// hold several contracts, and each is its own trailer.</summary>
+        public string Key => $"{CustomerId}|{ContractId}";
     }
 
     /// <summary>Save shape for a DockAppointment. Flat fields, same style as OrderSnapshot.</summary>
@@ -68,6 +100,12 @@ namespace GameCore.Inventory
     /// If purchase orders were invisible here the player would book every door at 08:00 and then have
     /// a PO arrive with nowhere to go, so ShipmentService books an Inbound appointment for the block
     /// its truck actually lands in and it consumes capacity like anything else.
+    ///
+    /// NOTHING BOOKS ITSELF. Every appointment here was made by the player. Arriving orders used to
+    /// be auto-placed into the first block with room, which made this whole tab optional — the plan
+    /// already worked, so the grid was somewhere to go if you felt like it. Now an order with no
+    /// appointment is freight nobody promised a truck for, and if it passes its due day that account
+    /// is lost for 30 days (OrderArrivalService.SweepMissedPickups).
     ///
     /// CAPACITY IS OUTBOUND-CAPABLE DOORS, NOT ALL DOORS. A door only counts if at least one of its
     /// shipping lanes will accept outbound work (LaneUsage.Outbound or Both — Both being the default,
@@ -225,14 +263,87 @@ namespace GameCore.Inventory
             return true;
         }
 
+        /// <summary>
+        /// Whether an appointment is a finished record rather than a plan the player can still change.
+        ///
+        /// A block only means anything while there's still a decision in it. Once the trailer has been
+        /// and gone, the chip is history — dragging it to next Tuesday doesn't un-ship the freight, it
+        /// just puts a lie on the calendar and burns a door that a real trailer needed. Three ways an
+        /// appointment stops being a plan:
+        ///
+        ///   PAST      its block has already elapsed. Nothing can be scheduled into a time that's gone.
+        ///   WORKED    no order on it still needs a door — reusing NeedsAppointment, the same predicate
+        ///             that decides whether an order is stranded, so "this order needs a dock" has
+        ///             exactly one definition. Anything from Loading onward counts as worked: at
+        ///             Loading a truck is physically at the door, and past that the freight is on it.
+        ///   INBOUND   BookInboundNow files these as an honest note that a PO's truck is taking a door
+        ///             right now, not as a reservation. There was never a decision here to revise.
+        ///
+        /// An appointment with no orders attached yet is NOT locked — it's an empty booking the player
+        /// made ahead of the freight, which is exactly the thing they should be able to move.
+        /// </summary>
+        public bool IsLocked(DockAppointment appt, out string reason)
+        {
+            reason = null;
+            if (appt == null) { reason = "That appointment no longer exists."; return true; }
+
+            if (appt.Kind == AppointmentKind.Inbound)
+            {
+                reason = "That's an inbound PO's truck taking a door — not a booking you can move.";
+                return true;
+            }
+
+            if (appt.Day < CurrentDay || (appt.Day == CurrentDay && appt.BlockIndex < CurrentBlock))
+            {
+                reason = $"{BlockLabel(appt.BlockIndex)} on day {appt.Day} has already passed.";
+                return true;
+            }
+
+            if (appt.OrderIds.Count > 0 && !AnyOrderStillNeedsDock(appt))
+            {
+                // Deliberately not "already loaded": this same branch catches cancelled orders, where
+                // that would be a lie. "No longer needs a door" is true of every way it can trigger.
+                reason = $"{appt.CustomerName}'s orders no longer need a door — that trailer is done.";
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool IsLocked(DockAppointment appt) => IsLocked(appt, out _);
+
+        /// <summary>Does any order on this trailer still want a door? An order that's left the active
+        /// list entirely (shipped and archived, or cancelled) counts as no.</summary>
+        private bool AnyOrderStillNeedsDock(DockAppointment appt)
+        {
+            if (!ServiceLocator.TryGet(out OrderService orders)) return true; // can't tell — don't lock
+
+            foreach (var order in orders.ActiveOrders)
+                if (order != null && appt.OrderIds.Contains(order.OrderId) && NeedsAppointment(order))
+                    return true;
+            return false;
+        }
+
         /// <summary>Moves an existing appointment to another block, keeping its orders. Fails (leaving
-        /// the original untouched) if the destination is full.</summary>
+        /// the original untouched) if the destination is full, in the past, or if the appointment is
+        /// no longer a live plan.</summary>
         public bool TryMove(string appointmentId, int day, int blockIndex, out string failReason)
         {
             failReason = null;
             var appt = FindById(appointmentId);
             if (appt == null) { failReason = "That appointment no longer exists."; return false; }
             if (appt.Day == day && appt.BlockIndex == blockIndex) return true;
+
+            // Checked here and not only in the UI: the panel decides what to grey out, but this is what
+            // makes it true. A chip can also finish WHILE it sits selected, between the click that picked
+            // it up and the click that puts it down.
+            if (IsLocked(appt, out failReason)) return false;
+
+            if (day < CurrentDay || (day == CurrentDay && blockIndex < CurrentBlock))
+            {
+                failReason = "That time has already passed.";
+                return false;
+            }
 
             var doors = OutboundDoors();
             var taken = GetBlock(day, blockIndex).Where(a => a.Id != appointmentId)
@@ -272,64 +383,106 @@ namespace GameCore.Inventory
             Debug.Log($"[DockSchedule] Inbound {supplierName} not booked into {BlockLabel(CurrentBlock)}: {why}");
         }
 
-        // ── Auto-placement ───────────────────────────────────────────────────
+        // ── Arrival ──────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Every arriving order gets a slot without the player touching the grid, so the Schedule tab
-        /// is a tool for overriding a plan rather than a chore that must be completed before anything
-        /// ships. The player reschedules what they care about and ignores the rest.
+        /// An arriving order joins a trailer the player has ALREADY booked for that account, and
+        /// otherwise stays stranded until they book one.
         ///
-        /// Orders from the same customer on the same day share ONE appointment — one customer, one
-        /// trailer. That matches how OrderService already refuses to share a staging lane between
-        /// customers.
+        /// This used to auto-place every arrival, so the Schedule tab was a tool for overriding a plan
+        /// that already worked and a player who never opened it lost nothing. Booking is now the
+        /// player's job: freight with no appointment is a promise they haven't kept, and if it passes
+        /// its due day the account is lost (OrderArrivalService.SweepMissedPickups). The day-roll
+        /// sweep that used to re-book stranded orders is gone for the same reason — it would undo the
+        /// decision the moment the player declined to make it.
+        ///
+        /// The join branch stays. Same customer AND same contract shares a trailer; matching on
+        /// customer alone would put a bulk pallet drop on the same appointment as that customer's
+        /// case-pick orders — physically two different trailers, and the chip could only be coloured
+        /// as one of them.
         /// </summary>
         private void HandleOrderArrived(OrderData order)
         {
             if (order == null) return;
-            if (CapacityPerBlock <= 0) return; // nothing to book against; stays unscheduled
 
-            // Same customer AND same contract shares a trailer. Matching on customer alone would put
-            // a wholesale pallet drop on the same appointment as that customer's case-pick orders —
-            // physically two different trailers, and the chip could only be coloured as one of them.
             var existing = UpcomingFor(order.CustomerId)
                 .FirstOrDefault(a => a.Kind != AppointmentKind.Inbound && a.ContractId == order.ContractId);
-            if (existing != null)
-            {
-                if (!existing.OrderIds.Contains(order.OrderId)) existing.OrderIds.Add(order.OrderId);
-                return;
-            }
-
-            var kind = order.IsWholesale ? AppointmentKind.Wholesale : AppointmentKind.Outbound;
-            if (TryAutoPlace(order, kind, out var appt))
-                appt.OrderIds.Add(order.OrderId);
+            if (existing != null && !existing.OrderIds.Contains(order.OrderId))
+                existing.OrderIds.Add(order.OrderId);
         }
 
-        /// <summary>Books the first block with room, starting at the current block today and walking
-        /// forward. Never schedules past the order's due day — an appointment after the deadline is
-        /// worse than none, because it looks handled while guaranteeing the fine.</summary>
-        private bool TryAutoPlace(OrderData order, AppointmentKind kind, out DockAppointment booked)
-        {
-            booked = null;
-            int day = CurrentDay;
-            int block = CurrentBlock;
-            int lastDay = Mathf.Max(order.DueDay, day);
+        // ── Stranded orders ──────────────────────────────────────────────────
 
-            while (day <= lastDay)
+        /// <summary>
+        /// Statuses that still need a trailer to turn up. Loading and Loaded are excluded because the
+        /// truck is already at the door or has the freight on board — booking those a fresh block would
+        /// consume capacity for a trip that's happening anyway. Backorder is excluded because nothing
+        /// currently produces it, so what it should mean for the dock is undecided.
+        /// </summary>
+        private static bool NeedsAppointment(OrderData order)
+            => order.Status == OrderData.OrderStatus.Pending
+            || order.Status == OrderData.OrderStatus.PartiallyPicked
+            || order.Status == OrderData.OrderStatus.FullyPicked
+            || order.Status == OrderData.OrderStatus.Staged;
+
+        /// <summary>
+        /// Live orders no appointment is holding a door for, most urgent first.
+        ///
+        /// The PRIMARY view of the schedule now, not an error case: nothing books itself, so every
+        /// order lands here and stays until the player gives it a door. Anything still here when its
+        /// due day passes costs the account (OrderArrivalService.SweepMissedPickups).
+        /// </summary>
+        public List<UnscheduledGroup> UnscheduledGroups()
+        {
+            var groups = new List<UnscheduledGroup>();
+            if (!ServiceLocator.TryGet(out OrderService orders)) return groups;
+
+            var byKey = new Dictionary<string, UnscheduledGroup>();
+            foreach (var order in orders.ActiveOrders)
             {
-                for (; block < BlocksPerDay; block++)
+                if (order == null || !NeedsAppointment(order)) continue;
+                if (FindForOrder(order.OrderId) != null) continue;
+
+                string key = $"{order.CustomerId}|{order.ContractId}";
+                if (!byKey.TryGetValue(key, out var group))
                 {
-                    if (!HasRoom(day, block)) continue;
-                    if (TryBook(day, block, kind, order.CustomerId, order.CustomerName, order.ContractId,
-                                out booked, out _))
-                        return true;
+                    group = new UnscheduledGroup
+                    {
+                        CustomerId = order.CustomerId,
+                        CustomerName = order.CustomerName,
+                        ContractId = order.ContractId,
+                        IsWholesale = order.IsWholesale,
+                        IsBulk = order.IsBulk,
+                        EarliestDueDay = order.DueDay
+                    };
+                    byKey[key] = group;
+                    groups.Add(group);
                 }
-                day++;
-                block = 0;
+
+                group.OrderIds.Add(order.OrderId);
+                group.EarliestDueDay = Mathf.Min(group.EarliestDueDay, order.DueDay);
             }
 
-            Debug.LogWarning($"[DockSchedule] No free dock slot for {order.CustomerName} before day {order.DueDay} " +
-                             $"— order is unscheduled. Capacity is {CapacityPerBlock} door(s) per block.");
-            return false;
+            groups.Sort((a, b) => a.EarliestDueDay != b.EarliestDueDay
+                ? a.EarliestDueDay.CompareTo(b.EarliestDueDay)
+                : string.Compare(a.CustomerName, b.CustomerName, System.StringComparison.Ordinal));
+            return groups;
+        }
+
+        /// <summary>Books a stranded group into one specific block — the player's own choice from the
+        /// Schedule tab, as opposed to the sweep's first-fit. Same capacity rules as everything else;
+        /// the reason comes back verbatim for the UI to show.</summary>
+        public bool TryBookGroup(int day, int blockIndex, UnscheduledGroup group, out string failReason)
+        {
+            failReason = null;
+            if (group == null) { failReason = "Nothing selected to book."; return false; }
+
+            if (!TryBook(day, blockIndex, group.Kind, group.CustomerId, group.CustomerName,
+                         group.ContractId, out var booked, out failReason))
+                return false;
+
+            booked.OrderIds.AddRange(group.OrderIds);
+            return true;
         }
 
         // ── Housekeeping ─────────────────────────────────────────────────────
@@ -338,6 +491,10 @@ namespace GameCore.Inventory
         {
             int cutoff = newDay - KeepPastDays;
             _appointments.RemoveAll(a => a.Day < cutoff);
+
+            // NOTE: no re-booking sweep here any more. The purge does strand orders that outlived
+            // their appointment, but re-booking them automatically is exactly the behaviour that made
+            // the Schedule tab optional — the player rebooks, or loses the account.
         }
 
         // ── Persistence ──────────────────────────────────────────────────────

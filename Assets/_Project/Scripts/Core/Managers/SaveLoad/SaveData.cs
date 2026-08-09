@@ -44,6 +44,12 @@ public class SaveData
     // Empty in older saves.
     public List<ContractSnapshot> contracts = new();
 
+    // Contract offers GENERATED at runtime rather than authored as assets — the daily Bulk Orders
+    // board. ContractRegistry can only resolve authored assets, so without this the board empties on
+    // every load and any signed-but-unshipped bulk order reloads pointing at nothing.
+    // Empty in older saves.
+    public List<GeneratedOfferSnapshot> generatedOffers = new();
+
     // Dock appointments (which customer holds which door in which two-hour block), from
     // DockScheduleService. Empty in older saves — those simply load with an empty schedule and
     // repopulate as new orders arrive.
@@ -178,7 +184,8 @@ public class WorkTaskSnapshot
     public string toLocation;
     public int area;                         // PalletData.AreaCategory as int enum
     public int priority = GameCore.Labor.WorkTask.DefaultPriority; // older saves lack this key; field initializer covers it
-    public string orderId;                   // OrderSelect tasks only; null for everything else (older saves lack this key, deserializes to null either way)
+    public string orderId;                   // OrderSelect/PalletPick tasks only; null for everything else (older saves lack this key, deserializes to null either way)
+    public string skuId;                     // PalletPick tasks only — the SKU whose full pallet is wanted; null for everything else
 }
 
 [System.Serializable]

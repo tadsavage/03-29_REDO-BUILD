@@ -224,7 +224,10 @@ namespace GameCore.Labor
             ServiceLocator.TryGet<OrderService>(out var orderService);
             ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
 
-            var loadedOrderIds = new HashSet<string>();
+            // Counted per order, not just collected as a set: the Completed tab reports how many
+            // pallets a deal actually shipped on, and only the loader ever sees that number — the
+            // order itself knows cases, never pallets.
+            var loadedPalletsByOrder = new Dictionary<string, int>();
             int startSlotIndex = truck.LoadContainer != null ? truck.LoadContainer.childCount : 0;
             for (int i = 0; i < pallets.Count; i++)
             {
@@ -246,7 +249,11 @@ namespace GameCore.Labor
                 }
                 int slotIndex = CargoSlotForSequence(sequence);
 
-                if (!string.IsNullOrEmpty(pallet.OrderId)) loadedOrderIds.Add(pallet.OrderId);
+                if (!string.IsNullOrEmpty(pallet.OrderId))
+                {
+                    loadedPalletsByOrder.TryGetValue(pallet.OrderId, out int soFar);
+                    loadedPalletsByOrder[pallet.OrderId] = soFar + 1;
+                }
 
                 yield return LoadOnePallet(ds, forks, forkRestY, truck, pallet, slotIndex);
             }
@@ -255,13 +262,13 @@ namespace GameCore.Labor
             // that's the player's explicit close-out, see OrderService.CloseOutOrders).
             if (orderService != null)
             {
-                foreach (var orderId in loadedOrderIds)
-                    orderService.MarkOrderLoaded(orderId);
+                foreach (var kvp in loadedPalletsByOrder)
+                    orderService.MarkOrderLoaded(kvp.Key, kvp.Value);
 
                 // Anything at this lane still sitting in Loading that we did NOT put aboard had no
                 // findable pallet here. Send it back to Staged rather than leaving it stranded — the
                 // panel offers no action on a Loading row, so it would be stuck for good.
-                int stranded = orderService.RevertUnloadedOrdersToStaged(doorNumber, lane, loadedOrderIds);
+                int stranded = orderService.RevertUnloadedOrdersToStaged(doorNumber, lane, loadedPalletsByOrder.Keys);
                 if (stranded > 0)
                     Debug.LogWarning($"[TrailerLoad] {stranded} order(s) at {doorNumber}{lane} had no staged pallets to load — reverted to Staged.");
             }

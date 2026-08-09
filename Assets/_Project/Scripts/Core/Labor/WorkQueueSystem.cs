@@ -7,9 +7,13 @@ using UnityEngine;
 
 namespace GameCore.Labor
 {
-    public enum WorkTaskType { Receive, Putaway, Replenish, OrderSelect, Load }
+    /// <summary>NOTE: append new values at the END — persisted by ordinal in the save file.
+    /// PalletPick moves ONE full pallet from a reserve slot straight to an outbound staging lane,
+    /// for a bulk order that asked for full-pallet quantities. It's the outbound mirror of Putaway,
+    /// and shares Replenish's reserve-extraction half.</summary>
+    public enum WorkTaskType { Receive, Putaway, Replenish, OrderSelect, Load, PalletPick }
 
-    /// <summary>Open: exists but not yet claimable -- currently only OrderSelect tasks start here,
+    /// <summary>Open: exists but not yet claimable -- OrderSelect and PalletPick tasks start here,
     /// created "in limbo" until the player releases them to a staging lane via the Work Queue panel.
     /// Available: claimable by an operator (every other task type's normal starting state, and what
     /// an Open order task becomes once released). Assigned: claimed, in progress. Complete: done.
@@ -43,13 +47,33 @@ namespace GameCore.Labor
         /// a reserve/pick address, or a door). FromLocation is immutable once set at creation.
         /// ToLocation starts null for Putaway tasks and is assigned by PutawayLogic at RTO pickup
         /// via <see cref="AssignToLocation"/>.</summary>
-        public string FromLocation { get; }
+        public string FromLocation { get; private set; }
         public string ToLocation { get; private set; }
 
         /// <summary>Assigns (or updates) the TO location. Used by PutawayLogic to lock the
         /// destination at RTO pickup time — the task is created with ToLocation null and filled
         /// in the moment the RTO physically claims the pallet.</summary>
         public void AssignToLocation(string address) => ToLocation = address;
+
+        /// <summary>
+        /// Assigns the FROM location, for PalletPick only — where the Reach Truck actually found the
+        /// pallet, resolved at claim time (see <see cref="SkuId"/> for why it can't be known sooner).
+        ///
+        /// Guarded by type rather than left open. FromLocation is immutable for every other task
+        /// because Putaway once shipped with a malformed address baked in and became permanently
+        /// unclaimable; a general setter would put that back within reach. PalletPick is the one type
+        /// whose source genuinely isn't decided at creation.
+        /// </summary>
+        public void AssignFromLocation(string address)
+        {
+            if (Type != WorkTaskType.PalletPick)
+            {
+                Debug.LogError($"[WorkTask] Refusing to reassign FromLocation on a {Type} task — only " +
+                               $"PalletPick resolves its source after creation.");
+                return;
+            }
+            FromLocation = address;
+        }
 
         /// <summary>The storage area (Grocery, Perishable, or Frozen) of the item being worked on,
         /// pulled from the SKU's StorageArea. Used for routing/display and downstream employee specialization.</summary>
@@ -70,9 +94,18 @@ namespace GameCore.Labor
         /// the driver looks the real OrderData (LineItems, etc.) up from OrderService by this id.</summary>
         public string OrderId { get; set; }
 
+        /// <summary>SKU this task is for — PalletPick tasks only, and the reason it exists.
+        ///
+        /// A PalletPick is filed the moment a bulk order arrives, but the reserve pallet it will
+        /// actually take can't be chosen until the player releases the order: reserve stock moves in
+        /// between (replenishment pulls pallets, putaway adds them), so a PalletId picked at creation
+        /// would routinely name a pallet that has left the slot. The SKU is the durable half of the
+        /// request; PalletId and FromLocation are filled in at claim time by the Reach Truck.</summary>
+        public string SkuId { get; set; }
+
         public WorkTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
             string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery,
-            int priority = DefaultPriority, string orderId = null)
+            int priority = DefaultPriority, string orderId = null, string skuId = null)
         {
             TaskId = Guid.NewGuid().ToString();
             Type = type;
@@ -84,6 +117,7 @@ namespace GameCore.Labor
             Area = area;
             Priority = priority;
             OrderId = orderId;
+            SkuId = skuId;
         }
     }
 
@@ -154,7 +188,7 @@ namespace GameCore.Labor
 
         public WorkTask CreateTask(WorkTaskType type, EmployeeRole requiredRole, string palletId, string description,
             string fromLocation = null, string toLocation = null, PalletData.AreaCategory area = PalletData.AreaCategory.Grocery,
-            int priority = WorkTask.DefaultPriority, string orderId = null)
+            int priority = WorkTask.DefaultPriority, string orderId = null, string skuId = null)
         {
             // RULE: Putaway tasks can only be created for pallets that have been fully received (have PalletData).
             // They must also have a valid FromLocation (staging lane).
@@ -180,7 +214,7 @@ namespace GameCore.Labor
                 }
             }
 
-            var task = new WorkTask(type, requiredRole, palletId, description, fromLocation, toLocation, area, priority, orderId);
+            var task = new WorkTask(type, requiredRole, palletId, description, fromLocation, toLocation, area, priority, orderId, skuId);
             _tasks.Add(task);
             OnTaskCreated?.Invoke(task);
             Debug.Log($"[WorkQueueSystem] + {description} (role: {requiredRole.DisplayName()}, area: {area})");
