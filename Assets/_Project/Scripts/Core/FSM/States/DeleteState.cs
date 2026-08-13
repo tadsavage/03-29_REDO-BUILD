@@ -271,27 +271,41 @@ public class DeleteState : PlacementStateBase
 
         BuildingHighlighter newHover = targetBd != null ? targetBd.GetComponent<BuildingHighlighter>() : null;
 
-        // Build the full highlight group: the target itself, plus — for a Foundation/Grounds
+        // Build the highlight group. Default: the target itself, plus — for a Foundation/Grounds
         // target — every floor tile occupying its footprint cells, so the whole slab (foundation
         // + tiles on top) highlights together regardless of which piece was actually raycast.
+        // EXCEPTION: if the hovered cell's top tile is a revertable custom tile (not the
+        // foundation's default), a click here only reverts that single cell (TryRevertCustomTile)
+        // — it never touches the foundation or its other tiles — so only that one tile highlights.
         HashSet<BuildingHighlighter> newGroup = new HashSet<BuildingHighlighter>();
         if (newHover != null)
         {
-            newGroup.Add(newHover);
+            bool isFoundation = IsFoundationData(targetBd.Data);
+            bool singleCustomTile = isFoundation && ClassifyFoundationCell(targetBd, cell) == CellFloorKind.CustomRevertable;
 
-            if (IsFoundationData(targetBd.Data) && targetBd.Offsets != null)
+            if (singleCustomTile)
             {
-                var root = targetBd.RootCell;
-                foreach (var o in targetBd.Offsets)
-                {
-                    var footprintObjs = _grid.GetObjectsInCell(root + o);
-                    if (footprintObjs == null) continue;
+                var tileHighlighter = FindTopFloorHighlighter(targetBd, cell);
+                if (tileHighlighter != null) newGroup.Add(tileHighlighter);
+            }
+            else
+            {
+                newGroup.Add(newHover);
 
-                    foreach (var entry in footprintObjs)
+                if (isFoundation && targetBd.Offsets != null)
+                {
+                    var root = targetBd.RootCell;
+                    foreach (var o in targetBd.Offsets)
                     {
-                        if (entry.instance == null || entry.data == null || !entry.data.isFloor) continue;
-                        var tileHighlighter = entry.instance.GetComponent<BuildingHighlighter>();
-                        if (tileHighlighter != null) newGroup.Add(tileHighlighter);
+                        var footprintObjs = _grid.GetObjectsInCell(root + o);
+                        if (footprintObjs == null) continue;
+
+                        foreach (var entry in footprintObjs)
+                        {
+                            if (entry.instance == null || entry.data == null || !entry.data.isFloor) continue;
+                            var tileHighlighter = entry.instance.GetComponent<BuildingHighlighter>();
+                            if (tileHighlighter != null) newGroup.Add(tileHighlighter);
+                        }
                     }
                 }
             }
@@ -334,6 +348,22 @@ public class DeleteState : PlacementStateBase
 
         _hoverGroup.Clear();
         _hover = null;
+    }
+
+    // Returns the highlighter for the top visible floor tile riding on `foundation` in `cell`
+    // (the tile a click would revert), or null if there isn't one.
+    private BuildingHighlighter FindTopFloorHighlighter(BuildingData foundation, Vector2Int cell)
+    {
+        var objs = _grid.GetObjectsInCell(cell);
+        if (objs == null) return null;
+        for (int i = objs.Count - 1; i >= 0; i--)
+        {
+            var e = objs[i];
+            if (e.instance == foundation.gameObject) continue;
+            if (e.instance != null && e.instance.activeSelf && e.data != null && e.data.isFloor)
+                return e.instance.GetComponent<BuildingHighlighter>();
+        }
+        return null;
     }
 
     private static bool IsFoundationData(ObjDataSO d)

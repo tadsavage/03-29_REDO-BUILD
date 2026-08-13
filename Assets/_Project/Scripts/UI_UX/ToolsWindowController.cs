@@ -1662,9 +1662,9 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         var customer = pool[UnityEngine.Random.Range(0, pool.Count)];
 
-        // One in four is a one-off wholesale drop; the rest are standing accounts. Terms are rolled so
+        // One in four is a one-off bulk drop; the rest are standing accounts. Terms are rolled so
         // successive presses produce genuinely different offers to compare, not the same card twice.
-        bool wholesale = UnityEngine.Random.value < 0.25f;
+        bool bulk = UnityEngine.Random.value < 0.25f;
         int ordersMin = UnityEngine.Random.Range(1, 4);
         int casesMin = UnityEngine.Random.Range(4, 12);
         int lineMin = UnityEngine.Random.Range(2, 5);
@@ -1672,11 +1672,11 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         var contract = GameCore.Inventory.ContractData.CreateRuntime(
             contractId: $"Contract_Dev_{customer.CustomerId}_{++_devOfferCounter}",
             customer: customer,
-            pitch: wholesale
+            pitch: bulk
                 ? "One trailer, full pallets, one payment. No case picking."
                 : "A new account looking for a home. Terms are what they are — take it or leave it.",
-            kind: wholesale ? GameCore.Inventory.ContractKind.OneOffWholesale
-                            : GameCore.Inventory.ContractKind.Recurring,
+            kind: bulk ? GameCore.Inventory.ContractKind.Bulk
+                       : GameCore.Inventory.ContractKind.Recurring,
             palletCount: UnityEngine.Random.Range(6, 13),
             ordersPerDayMin: ordersMin,
             ordersPerDayMax: ordersMin + UnityEngine.Random.Range(0, 3),
@@ -1687,7 +1687,12 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             cutoffHour: UnityEngine.Random.Range(14, 20),
             leadTimeDays: UnityEngine.Random.Range(1, 4),
             payRateMultiplier: Mathf.Round(UnityEngine.Random.Range(0.75f, 1.45f) * 100f) / 100f,
-            lateFeePercent: UnityEngine.Random.Range(0.10f, 0.40f));
+            lateFeePercent: UnityEngine.Random.Range(0.10f, 0.40f),
+            // Explicit rather than relying on the Daily default: a bulk offer must be OneTime so it
+            // can't be mistaken for a standing account once IsBulk (not a separate wholesale flag)
+            // is what OnHourChanged reads to decide whether a signed contract re-fires.
+            frequency: bulk ? GameCore.Inventory.OrderFrequency.OneTime
+                            : GameCore.Inventory.OrderFrequency.Daily);
 
         if (!arrivals.AddOffer(contract))
         {

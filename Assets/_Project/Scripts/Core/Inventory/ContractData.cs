@@ -4,17 +4,23 @@ namespace GameCore.Inventory
 {
     /// <summary>
     /// Recurring = a standing account that sends work every day until cancelled — mixed case-pick
-    /// orders. OneOffWholesale = a single large drop, signed once and delivered once: a trailer's
-    /// worth of FULL PALLETS, never a loose case. Bulk = a single order a customer places off the
-    /// cuff, priced off cost of goods, in full-pallet quantities with whatever part case is left
-    /// over — the board rolls 1–3 of these every day and they expire unaccepted.
+    /// orders. Bulk = a single order a customer places off the cuff, priced off cost of goods, in
+    /// full-pallet quantities with whatever part case is left over — the board rolls 1–3 of these
+    /// every day and they expire unaccepted.
+    ///
+    /// RETIRED: OneOffWholesale described the same real-world thing as Bulk (a one-off full-pallet
+    /// drop) under a second name with fulfilment that never actually worked (it still case-picked
+    /// one at a time despite the full-pallet shape). Merged into Bulk — ContractData.IsBulk is true
+    /// for both ordinals, so an old asset or save still resolves correctly. Kept in the enum rather
+    /// than deleted because it's persisted by ordinal (see NOTE below) — removing it would silently
+    /// reinterpret any authored asset or save still carrying ordinal 1 as a different kind.
     ///
     /// NOTE: append new values at the END. Authored ContractData assets serialize this by ordinal.
     /// </summary>
     public enum ContractKind
     {
         Recurring,
-        OneOffWholesale,
+        OneOffWholesale, // retired — treated identically to Bulk, see IsBulk
         Bulk
     }
 
@@ -61,7 +67,7 @@ namespace GameCore.Inventory
         [Header("Kind")]
         [SerializeField] private ContractKind _kind = ContractKind.Recurring;
         [Tooltip("How often this contract sends work once taken. A standing account is Daily or " +
-                 "Weekly; wholesale and bulk are OneTime and never re-fire.")]
+                 "Weekly; bulk is OneTime and never re-fires.")]
         [SerializeField] private OrderFrequency _frequency = OrderFrequency.Daily;
 
         [Header("Bulk (Bulk only)")]
@@ -73,10 +79,9 @@ namespace GameCore.Inventory
         [SerializeField, Min(1)] private int _bulkPalletsPerLineMin = 1;
         [SerializeField, Min(1)] private int _bulkPalletsPerLineMax = 10;
 
-        [Header("Wholesale (OneOffWholesale only)")]
-        [Tooltip("How many pallets the deal is worth. Each becomes ONE line item sized to exactly a " +
-                 "full pallet of that SKU (Ti x Hi) — wholesale is full pallets only, never a part " +
-                 "case. A trailer holds 12.")]
+        [Header("Legacy Wholesale field (retired OneOffWholesale kind only)")]
+        [Tooltip("Unused by anything current — kept only so an authored OneOffWholesale asset (now " +
+                 "treated as Bulk) still deserializes its old value without warnings.")]
         [SerializeField, Min(1)] private int _palletCount = 12;
 
         [Header("Recurring volume — rolled fresh each arrival day")]
@@ -123,8 +128,11 @@ namespace GameCore.Inventory
         public float PayRateMultiplier => _payRateMultiplier;
         public float LateFeePercent => _lateFeePercent;
 
-        public bool IsWholesale => _kind == ContractKind.OneOffWholesale;
-        public bool IsBulk => _kind == ContractKind.Bulk;
+        /// <summary>True for a bulk order — a customer's off-the-cuff drop, priced off cost of
+        /// goods and fulfilled in FULL PALLETS by PalletPick tasks rather than case by case. True
+        /// for both the current Bulk ordinal and the retired OneOffWholesale one, which described
+        /// the same thing and is now folded into it (see ContractKind's doc comment).</summary>
+        public bool IsBulk => _kind == ContractKind.Bulk || _kind == ContractKind.OneOffWholesale;
 
         /// <summary>True for a contract that delivers once and never fires again. Reads off Frequency
         /// rather than off Kind so the arrival tick has ONE question to ask — before this, "does it
@@ -136,23 +144,13 @@ namespace GameCore.Inventory
         /// have several contracts, so the customer id doesn't identify a contract.</summary>
         public string ContractId => name;
 
-        /// <summary>Display name for the offer card.</summary>
-        public string Title => _kind switch
-        {
-            ContractKind.OneOffWholesale => $"Wholesale — {_palletCount} pallet{(_palletCount == 1 ? "" : "s")}",
-            ContractKind.Bulk => "Bulk Order",
-            _ => "Standing Order"
-        };
+        /// <summary>Display name for the offer card. Keyed on IsBulk, not _kind, so a retired
+        /// OneOffWholesale asset reads as "Bulk Order" too rather than keeping its old label.</summary>
+        public string Title => IsBulk ? "Bulk Order" : "Standing Order";
 
-        /// <summary>What the New Contracts board calls this type. Bulk and Standing are the two the
-        /// player actually sees today; wholesale keeps its own label so an authored one still reads
-        /// correctly if it's on the board.</summary>
-        public string KindLabel => _kind switch
-        {
-            ContractKind.OneOffWholesale => "WHOLESALE",
-            ContractKind.Bulk => "BULK ORDER",
-            _ => "STANDING ORDER"
-        };
+        /// <summary>What the New Contracts board calls this type. Keyed on IsBulk for the same
+        /// reason as Title.</summary>
+        public string KindLabel => IsBulk ? "BULK ORDER" : "STANDING ORDER";
 
         public string FrequencyLabel => _frequency switch
         {
@@ -234,10 +232,10 @@ namespace GameCore.Inventory
     /// day's arrivals (duplicate orders) or skips one (a silent gap in demand). Same class of bug as
     /// the phantom staged orders — durable bookkeeping paired with state that wasn't saved.
     ///
-    /// Active means "this contract is TAKEN" and nothing more. A delivered wholesale deal stays
-    /// Active forever — what stops it re-firing is the IsWholesale skip in OrderArrivalService's
-    /// hour tick, not this flag. Clearing it would make a delivered one-off read as never-signed to
-    /// IsSigned, putting the Sign button back on the card.
+    /// Active means "this contract is TAKEN" and nothing more. A delivered one-off (bulk, or the
+    /// retired wholesale kind folded into it) stays Active forever — what stops it re-firing is the
+    /// IsBulk skip in OrderArrivalService's hour tick, not this flag. Clearing it would make a
+    /// delivered one-off read as never-signed to IsSigned, putting the Sign button back on the card.
     /// </summary>
     [System.Serializable]
     public class SignedContract

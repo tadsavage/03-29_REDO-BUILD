@@ -816,10 +816,10 @@ public class ContractsPanel : IUIPanel
     /// <summary>Accent colour for a contract type — the same family used for its chips elsewhere, so
     /// a bulk order reads as the same thing on this tab and in the stranded strip.</summary>
     private static Color AccentFor(ContractData c)
-        => c.IsBulk ? ColBulkEdge : c.IsWholesale ? ColWholesale : ColBorder;
+        => c.IsBulk ? ColBulkEdge : ColBorder;
 
     private static Color TypeTextFor(ContractData c)
-        => c.IsBulk ? ColChipBulkTx : c.IsWholesale ? ColWholesale : ColChipOutText;
+        => c.IsBulk ? ColChipBulkTx : ColChipOutText;
 
     private VisualElement BuildOfferCard(ContractData contract, InventoryService inv, int rowIndex)
     {
@@ -858,8 +858,8 @@ public class ContractsPanel : IUIPanel
         right.style.alignItems = Align.FlexEnd;
 
         right.Add(MakeText(EstimatedValueText(contract, inv), 21, ColMoney, bold: true));
-        var caption = MakeText(contract.IsWholesale || contract.IsBulk ? "est. one-off revenue"
-                                                                      : "est. revenue per day", 12, ColSubtleText);
+        var caption = MakeText(contract.IsBulk ? "est. one-off revenue"
+                                                : "est. revenue per day", 12, ColSubtleText);
         caption.style.marginBottom = 6;
         right.Add(caption);
 
@@ -880,8 +880,7 @@ public class ContractsPanel : IUIPanel
         pill.style.marginLeft = 8;
         pill.style.paddingLeft = 6; pill.style.paddingRight = 6;
         pill.style.paddingTop = 1; pill.style.paddingBottom = 1;
-        pill.style.backgroundColor = new StyleColor(contract.IsBulk ? ColChipBulk
-                                                  : contract.IsWholesale ? ColChipWhole : ColChipOut);
+        pill.style.backgroundColor = new StyleColor(contract.IsBulk ? ColChipBulk : ColChipOut);
         pill.style.borderTopWidth = pill.style.borderBottomWidth =
             pill.style.borderLeftWidth = pill.style.borderRightWidth = 1;
         pill.style.borderTopColor = pill.style.borderBottomColor =
@@ -922,10 +921,6 @@ public class ContractsPanel : IUIPanel
             return $"{c.BulkLinesMin}–{c.BulkLinesMax} item(s) · full pallets out of reserve · " +
                    $"cost of goods + 5% · due in {c.LeadTimeDays} day(s) · late fee {c.LateFeePercent:P0}";
 
-        if (c.IsWholesale)
-            return $"{c.PalletCount} full pallets · due in {c.LeadTimeDays} day(s) · " +
-                   $"late fee {c.LateFeePercent:P0} · full-pallet quantities only";
-
         return $"{c.FrequencyLabel} · {c.OrdersPerDayMin}–{c.OrdersPerDayMax} orders/day · " +
                $"~{c.EstimatedCasesPerDay} cases/day · cutoff {c.CutoffHour:00}:00 · " +
                $"due in {c.LeadTimeDays} day(s) · late fee {c.LateFeePercent:P0}";
@@ -960,14 +955,6 @@ public class ContractsPanel : IUIPanel
             float midLines = (c.BulkLinesMin + c.BulkLinesMax) / 2f;
             float midPallets = (c.BulkPalletsPerLineMin + c.BulkPalletsPerLineMax) / 2f;
             return $"+${Mathf.RoundToInt(avgPalletCost * midLines * midPallets * OrderArrivalService.BulkSurchargeMultiplier):N0}";
-        }
-
-        if (c.IsWholesale)
-        {
-            var palletCapable = sellable.Where(s => s.Ti > 0 && s.Hi > 0).ToList();
-            if (palletCapable.Count == 0) return $"x{c.PayRateMultiplier:0.00}";
-            float avgPalletValue = palletCapable.Average(s => s.Ti * s.Hi * s.SellValue);
-            return $"+${Mathf.RoundToInt(avgPalletValue * c.PalletCount * c.PayRateMultiplier):N0}";
         }
 
         float avgCase = sellable.Average(s => s.SellValue);
@@ -1117,9 +1104,7 @@ public class ContractsPanel : IUIPanel
         string who = contract.Customer != null ? contract.Customer.CompanyName : contract.ContractId;
         UIToast.Show(contract.IsBulk
             ? $"{who}: bulk order accepted — book it a door on the Schedule tab."
-            : contract.IsWholesale
-                ? $"{who}: {contract.PalletCount} pallets inbound — check the Work Queue."
-                : $"{who} signed — orders start arriving at {contract.CutoffHour:00}:00.");
+            : $"{who} signed — orders start arriving at {contract.CutoffHour:00}:00.");
 
         Rebuild();
     }
@@ -1203,12 +1188,14 @@ public class ContractsPanel : IUIPanel
         return tile;
     }
 
+    /// <summary>Always a running standing account — RunningAccounts excludes IsBulk (which now also
+    /// covers the retired wholesale ordinal), so a bulk/wholesale contract never reaches this
+    /// row.</summary>
     private VisualElement BuildAccountRow(OrderArrivalService arrivals, SignedContract signed,
                                           ContractData contract, int rowIndex)
     {
-        bool isWholesale = contract.IsWholesale;
-        bool struggling = !isWholesale && signed.OrdersLate > 0;
-        Color accent = isWholesale ? ColChipPurple : struggling ? ColDanger : ColMoney;
+        bool struggling = signed.OrdersLate > 0;
+        Color accent = struggling ? ColDanger : ColMoney;
 
         var card = MakeRow(rowIndex, accent);
         card.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, IconSizeSm, 6));
@@ -1232,16 +1219,9 @@ public class ContractsPanel : IUIPanel
         caption.style.marginBottom = 5;
         right.Add(caption);
 
-        if (isWholesale)
-        {
-            right.Add(MakeText("DELIVERED", 12, ColSubtleText, bold: true));
-        }
-        else
-        {
-            var cancel = new Button(() => OnCancel(contract, signed)) { text = "CANCEL" };
-            StyleGhostButton(cancel);
-            right.Add(cancel);
-        }
+        var cancel = new Button(() => OnCancel(contract, signed)) { text = "CANCEL" };
+        StyleGhostButton(cancel);
+        right.Add(cancel);
 
         card.Add(right);
         return card;
@@ -1251,13 +1231,6 @@ public class ContractsPanel : IUIPanel
     {
         int today = CurrentDay();
         int daysHeld = Mathf.Max(0, today - signed.SignedOnDay);
-
-        if (contract.IsWholesale)
-        {
-            return $"Wholesale — {contract.PalletCount} pallets · signed day {signed.SignedOnDay} · " +
-                   $"{signed.OrdersDelivered} order(s) shipped" +
-                   (signed.LateFeesPaid > 0 ? $" · ${signed.LateFeesPaid:N0} in late fees" : "");
-        }
 
         string next = arrivals.TryGetNextArrival(signed.ContractId, out int day, out int hour)
             ? (day == today ? $"next drop {hour:00}:00 today" : $"next drop {hour:00}:00 day {day}")
@@ -1575,24 +1548,24 @@ public class ContractsPanel : IUIPanel
     private static Color ChipFill(AppointmentKind kind) => kind switch
     {
         AppointmentKind.Inbound => ColChipIn,
-        AppointmentKind.Wholesale => ColChipWhole,
-        AppointmentKind.Bulk => ColChipBulk,
+        // Wholesale is retired (folded into Bulk) but ordinal-persisted — a not-yet-purged saved
+        // appointment from before the merge can still carry it, so it renders identically to Bulk
+        // rather than falling through to the generic Outbound style.
+        AppointmentKind.Bulk or AppointmentKind.Wholesale => ColChipBulk,
         _ => ColChipOut
     };
 
     private static Color ChipEdge(AppointmentKind kind) => kind switch
     {
         AppointmentKind.Inbound => ColOrangeEdge,
-        AppointmentKind.Wholesale => ColChipPurple,
-        AppointmentKind.Bulk => ColBulkEdge,
+        AppointmentKind.Bulk or AppointmentKind.Wholesale => ColBulkEdge,
         _ => ColBlueEdge
     };
 
     private static Color ChipText(AppointmentKind kind) => kind switch
     {
         AppointmentKind.Inbound => ColWholesale,
-        AppointmentKind.Wholesale => ColChipWholeTx,
-        AppointmentKind.Bulk => ColChipBulkTx,
+        AppointmentKind.Bulk or AppointmentKind.Wholesale => ColChipBulkTx,
         _ => ColChipOutText
     };
 
@@ -1759,7 +1732,6 @@ public class ContractsPanel : IUIPanel
         legend.Add(MakeLegendSwatch(ColChipOut, ColBlueEdge, "standing order"));
         legend.Add(MakeLegendSwatch(ColChipBulk, ColBulkEdge, "bulk order"));
         legend.Add(MakeLegendSwatch(ColChipIn, ColOrangeEdge, "inbound PO (same doors)"));
-        legend.Add(MakeLegendSwatch(ColChipWhole, ColChipPurple, "wholesale pallet drop"));
         return legend;
     }
 
@@ -2486,23 +2458,21 @@ public class ContractsPanel : IUIPanel
         return $"Day {order.ClosedDayNumber} · {order.ClosedMinuteOfDay / 60:00}:{order.ClosedMinuteOfDay % 60:00}";
     }
 
-    /// <summary>How the deal reached the dock. Bulk and Wholesale are real flags on the order; anything
-    /// else came from a contract, unless it has no contract at all — which only a Dev Console order
-    /// does.</summary>
+    /// <summary>How the deal reached the dock. Bulk is a real flag on the order (also covers the
+    /// retired wholesale concept, folded into it); anything else came from a contract, unless it has
+    /// no contract at all — which only a Dev Console order does.</summary>
     private static string OrderTypeLabel(OrderData order)
     {
         if (order == null) return "—";
         if (order.IsBulk) return "Bulk";
-        if (order.IsWholesale) return "Wholesale";
         return string.IsNullOrEmpty(order.ContractId) ? "Manual" : "Contract";
     }
 
-    /// <summary>Type colours reuse the families the rest of the panel already assigns these three:
-    /// teal for bulk, purple for wholesale, blue for a standing contract.</summary>
+    /// <summary>Type colours reuse the families the rest of the panel already assigns these:
+    /// teal for bulk, blue for a standing contract.</summary>
     private static Color OrderTypeColor(OrderData order) => OrderTypeLabel(order) switch
     {
         "Bulk" => ColChipBulkTx,
-        "Wholesale" => ColChipWholeTx,
         "Contract" => ColChipOutText,
         _ => ColSubtleText,
     };

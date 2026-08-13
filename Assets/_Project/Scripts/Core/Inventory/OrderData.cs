@@ -57,21 +57,12 @@ namespace GameCore.Inventory
         /// saves written before this field existed behave exactly as they did.</summary>
         public float LateFeePercent { get; set; } = 0.25f;
 
-        /// <summary>True for a one-off wholesale drop, where every line item is exactly a full pallet
-        /// (Ti x Hi cases) rather than a case pick. Set at creation by OrderArrivalService.
-        ///
-        /// Read today only to colour the order's dock appointment, but it's the flag the full-pallet
-        /// fulfilment mechanic will need when it exists — right now these orders still get walked off
-        /// one case at a time by the case-pick selector.</summary>
-        public bool IsWholesale { get; set; }
-
         /// <summary>True for a bulk order — a customer's off-the-cuff drop, priced off cost of goods
-        /// and fulfilled in FULL PALLETS by PalletPick tasks rather than case by case.
-        ///
-        /// Unlike IsWholesale (which is still only cosmetic), this one is load-bearing:
+        /// and fulfilled in FULL PALLETS by PalletPick tasks rather than case by case. Load-bearing:
         /// OrderService.ReceiveOrder branches on it to file PalletPick tasks instead of a single
         /// OrderSelect, so flipping it after creation would leave the order with the wrong work
-        /// already filed.</summary>
+        /// already filed. Also true for orders created back when this was a separate "wholesale"
+        /// concept — see OrderSnapshot.isWholesale.</summary>
         public bool IsBulk { get; set; }
 
         /// <summary>In-game day this order went terminal — the day its trailer was closed out and
@@ -219,6 +210,9 @@ namespace GameCore.Inventory
         /// <summary>0 in a save written before this field existed — Import treats 0 as "unset" and
         /// falls back to the old flat 25%, so old saves keep their original fine behaviour.</summary>
         public float lateFeePercent;
+        /// <summary>RETIRED field, kept only so a save written before Wholesale merged into Bulk
+        /// still deserializes without error. Never written by Export any more; Import folds it into
+        /// isBulk (see OrderService.Import).</summary>
         public bool isWholesale;
         /// <summary>False in a save written before bulk orders existed — correct, since nothing in
         /// such a save was ever a bulk order.</summary>

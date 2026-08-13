@@ -943,7 +943,8 @@ namespace GameCore.Inventory
                     hasBeenFined = o.HasBeenFined,
                     contractId = o.ContractId,
                     lateFeePercent = o.LateFeePercent,
-                    isWholesale = o.IsWholesale,
+                    // isWholesale deliberately left false/unwritten — that field is retired, folded
+                    // into isBulk. Only Import still reads it, for saves written before the merge.
                     isBulk = o.IsBulk,
                     closedDayNumber = o.ClosedDayNumber,
                     closedMinuteOfDay = o.ClosedMinuteOfDay,
@@ -992,8 +993,10 @@ namespace GameCore.Inventory
                     // 0 means the field wasn't in the file — keep the old flat rate rather than
                     // silently making a legacy order free to be late.
                     LateFeePercent = snap.lateFeePercent > 0f ? snap.lateFeePercent : LateFeePercentClerk,
-                    IsWholesale = snap.isWholesale,
-                    IsBulk = snap.isBulk,
+                    // A save written before Wholesale merged into Bulk carries isWholesale=true and
+                    // isBulk=false — fold it forward so that order keeps getting full-pallet
+                    // fulfilment instead of silently becoming an ordinary case-pick order on load.
+                    IsBulk = snap.isBulk || snap.isWholesale,
                     // Day numbers start at 1, so 0 can only mean "this save predates the field".
                     ClosedDayNumber = snap.closedDayNumber > 0 ? snap.closedDayNumber : -1,
                     // The DAY decides whether the pair was recorded, never the minute's own value —

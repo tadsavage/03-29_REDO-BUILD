@@ -14,7 +14,9 @@ namespace GameCore.Inventory
         Outbound,
         /// <summary>An inbound purchase order occupying a door to be unloaded.</summary>
         Inbound,
-        /// <summary>A one-off wholesale pallet drop.</summary>
+        /// <summary>RETIRED — a one-off wholesale pallet drop, folded into Bulk (see
+        /// ContractKind.OneOffWholesale). Kept for ordinal stability; nothing produces this value
+        /// any more, and it's treated the same as Bulk anywhere it's still read.</summary>
         Wholesale,
         /// <summary>A bulk order — full pallets out of reserve, priced off cost of goods.
         /// NOTE: appended, never reordered — persisted by ordinal in DockAppointmentSnapshot.</summary>
@@ -56,16 +58,13 @@ namespace GameCore.Inventory
         public string CustomerId;
         public string CustomerName;
         public string ContractId;
-        public bool IsWholesale;
         public bool IsBulk;
         public List<string> OrderIds = new();
         /// <summary>Soonest deadline in the group — what the UI sorts by, since the most urgent
         /// stranded trailer is the one the player needs to see first.</summary>
         public int EarliestDueDay;
 
-        public AppointmentKind Kind => IsWholesale ? AppointmentKind.Wholesale
-                                     : IsBulk ? AppointmentKind.Bulk
-                                     : AppointmentKind.Outbound;
+        public AppointmentKind Kind => IsBulk ? AppointmentKind.Bulk : AppointmentKind.Outbound;
 
         /// <summary>Stable identity for UI selection. Customer alone isn't enough — one customer can
         /// hold several contracts, and each is its own trailer.</summary>
@@ -451,7 +450,6 @@ namespace GameCore.Inventory
                         CustomerId = order.CustomerId,
                         CustomerName = order.CustomerName,
                         ContractId = order.ContractId,
-                        IsWholesale = order.IsWholesale,
                         IsBulk = order.IsBulk,
                         EarliestDueDay = order.DueDay
                     };
