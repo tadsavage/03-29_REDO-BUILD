@@ -449,9 +449,10 @@ namespace GameCore.Inventory
         /// Ends every account whose freight sat past its deadline without a dock appointment, and
         /// cancels the stranded orders.
         ///
-        /// This is what makes the Schedule tab load-bearing. Auto-placement used to book a door for
-        /// every arriving order, so "unscheduled" only ever meant the dock was genuinely full; now
-        /// nothing books itself and an order with no appointment is a promise the player didn't keep.
+        /// This is what makes the Schedule tab load-bearing even though arrival auto-places a door for
+        /// most orders (DockScheduleService.TryAutoPlace): "unscheduled" here means the dock was
+        /// genuinely full before the due day, or the player deliberately unbooked the trailer and never
+        /// rebooked it — either way, nobody promised this freight a truck.
         ///
         /// The contract is lost either way, but the ORDERS are only cleared where that's safe.
         /// OrderService.CanCancelOrder refuses anything physically committed — a part-picked or staged

@@ -100,11 +100,15 @@ namespace GameCore.Inventory
     /// a PO arrive with nowhere to go, so ShipmentService books an Inbound appointment for the block
     /// its truck actually lands in and it consumes capacity like anything else.
     ///
-    /// NOTHING BOOKS ITSELF. Every appointment here was made by the player. Arriving orders used to
-    /// be auto-placed into the first block with room, which made this whole tab optional — the plan
-    /// already worked, so the grid was somewhere to go if you felt like it. Now an order with no
-    /// appointment is freight nobody promised a truck for, and if it passes its due day that account
-    /// is lost for 30 days (OrderArrivalService.SweepMissedPickups).
+    /// ARRIVING ORDERS AUTO-BOOK, BUT THE PLAN IS STILL THE PLAYER'S TO CHANGE. An order that lands
+    /// with no appointment already covering its customer+contract is placed into the first block with
+    /// room, walking forward from right now toward the order's due day (never past it — a booking
+    /// after the deadline would look handled while still guaranteeing the fine). That placement is a
+    /// starting point, not a lock: TryMove/IsLocked impose no extra restriction on an auto-placed
+    /// appointment, so the player can drag it anywhere else with room the same as a hand-booked one.
+    /// The only orders that reach the stranded strip are ones that genuinely found no room before
+    /// their due day, and those still cost the account after 30 days (OrderArrivalService.
+    /// SweepMissedPickups) if they stay stranded.
     ///
     /// CAPACITY IS OUTBOUND-CAPABLE DOORS, NOT ALL DOORS. A door only counts if at least one of its
     /// shipping lanes will accept outbound work (LaneUsage.Outbound or Both — Both being the default,
@@ -385,20 +389,18 @@ namespace GameCore.Inventory
         // ── Arrival ──────────────────────────────────────────────────────────
 
         /// <summary>
-        /// An arriving order joins a trailer the player has ALREADY booked for that account, and
-        /// otherwise stays stranded until they book one.
+        /// An arriving order joins a trailer the player has already booked for that account. Otherwise
+        /// it's auto-placed into the first block with room before its due day, so the Schedule tab is
+        /// a tool for overriding a plan that already works rather than a chore that must be completed
+        /// before anything ships — a player who never opens it doesn't lose accounts to a due date they
+        /// didn't know was ticking. The placement is just a default: nothing about TryMove/IsLocked
+        /// treats an auto-placed appointment any differently from a hand-booked one, so the player is
+        /// always free to drag it somewhere else.
         ///
-        /// This used to auto-place every arrival, so the Schedule tab was a tool for overriding a plan
-        /// that already worked and a player who never opened it lost nothing. Booking is now the
-        /// player's job: freight with no appointment is a promise they haven't kept, and if it passes
-        /// its due day the account is lost (OrderArrivalService.SweepMissedPickups). The day-roll
-        /// sweep that used to re-book stranded orders is gone for the same reason — it would undo the
-        /// decision the moment the player declined to make it.
-        ///
-        /// The join branch stays. Same customer AND same contract shares a trailer; matching on
-        /// customer alone would put a bulk pallet drop on the same appointment as that customer's
-        /// case-pick orders — physically two different trailers, and the chip could only be coloured
-        /// as one of them.
+        /// The join branch stays for the same reason it always existed: same customer AND same contract
+        /// shares a trailer. Matching on customer alone would put a bulk pallet drop on the same
+        /// appointment as that customer's case-pick orders — physically two different trailers, and the
+        /// chip could only be coloured as one of them.
         /// </summary>
         private void HandleOrderArrived(OrderData order)
         {
@@ -406,8 +408,45 @@ namespace GameCore.Inventory
 
             var existing = UpcomingFor(order.CustomerId)
                 .FirstOrDefault(a => a.Kind != AppointmentKind.Inbound && a.ContractId == order.ContractId);
-            if (existing != null && !existing.OrderIds.Contains(order.OrderId))
-                existing.OrderIds.Add(order.OrderId);
+            if (existing != null)
+            {
+                if (!existing.OrderIds.Contains(order.OrderId)) existing.OrderIds.Add(order.OrderId);
+                return;
+            }
+
+            if (CapacityPerBlock <= 0) return; // nothing to book against; stays unscheduled
+
+            var kind = order.IsBulk ? AppointmentKind.Bulk : AppointmentKind.Outbound;
+            if (TryAutoPlace(order, kind, out var appt))
+                appt.OrderIds.Add(order.OrderId);
+        }
+
+        /// <summary>Books the first block with room, starting at the current block today and walking
+        /// forward. Never schedules past the order's due day — an appointment after the deadline is
+        /// worse than none, because it looks handled while guaranteeing the fine.</summary>
+        private bool TryAutoPlace(OrderData order, AppointmentKind kind, out DockAppointment booked)
+        {
+            booked = null;
+            int day = CurrentDay;
+            int block = CurrentBlock;
+            int lastDay = Mathf.Max(order.DueDay, day);
+
+            while (day <= lastDay)
+            {
+                for (; block < BlocksPerDay; block++)
+                {
+                    if (!HasRoom(day, block)) continue;
+                    if (TryBook(day, block, kind, order.CustomerId, order.CustomerName, order.ContractId,
+                                out booked, out _))
+                        return true;
+                }
+                day++;
+                block = 0;
+            }
+
+            Debug.LogWarning($"[DockSchedule] No free dock slot for {order.CustomerName} before day {order.DueDay} " +
+                             $"— order is unscheduled. Capacity is {CapacityPerBlock} door(s) per block.");
+            return false;
         }
 
         // ── Stranded orders ──────────────────────────────────────────────────
@@ -427,9 +466,11 @@ namespace GameCore.Inventory
         /// <summary>
         /// Live orders no appointment is holding a door for, most urgent first.
         ///
-        /// The PRIMARY view of the schedule now, not an error case: nothing books itself, so every
-        /// order lands here and stays until the player gives it a door. Anything still here when its
-        /// due day passes costs the account (OrderArrivalService.SweepMissedPickups).
+        /// The overflow view now, not the primary one: arrival auto-places into the first block with
+        /// room, so most orders never pass through here. What lands here is freight TryAutoPlace
+        /// genuinely couldn't fit before its due day (or arrived while capacity was 0), plus anything
+        /// the player deliberately unbooked. Anything still here when its due day passes costs the
+        /// account (OrderArrivalService.SweepMissedPickups).
         /// </summary>
         public List<UnscheduledGroup> UnscheduledGroups()
         {

@@ -21,9 +21,11 @@ using GameCore.Services;
 ///   SCHEDULE       the dock appointment book — two-hour blocks, one row per block, as many slots
 ///                  per block as you have outbound doors.
 ///
-/// SCHEDULING IS NOT OPTIONAL. Nothing books itself any more. Freight with no appointment shows in
-/// the stranded strip on the Schedule tab, and if it passes its due day still stranded, the account
-/// is lost for 30 days (OrderArrivalService.SweepMissedPickups).
+/// ARRIVING FREIGHT AUTO-BOOKS A DOOR, BUT STAYS THE PLAYER'S TO MOVE. An order lands into the first
+/// open block before its due day the moment it arrives (DockScheduleService.TryAutoPlace) — the
+/// Schedule tab is where you override that plan, not where you're required to build it from scratch.
+/// Freight that genuinely found no room shows in the stranded strip instead, and if it passes its due
+/// day still stranded, the account is lost for 30 days (OrderArrivalService.SweepMissedPickups).
 ///
 /// Why New Contracts and Accounts are separate rather than one greyed-out list: a delivered one-off
 /// stays signed forever (that's what keeps the Sign button off it), so under the old single list it
