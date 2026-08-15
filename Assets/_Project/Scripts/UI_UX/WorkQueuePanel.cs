@@ -109,6 +109,7 @@ public class WorkQueuePanel : IUIPanel
     private readonly Button _submitButton;
     private Button _selectAllButton;
     private Button _cancelSelectedButton;
+    private Button _scaleButton;
 
     private readonly HashSet<string> _checkedOrderIds = new();
     private List<int> _dropdownStageDoors = new(); // choice index -> door number, when in stage mode ("Stage 3")
@@ -348,32 +349,32 @@ public class WorkQueuePanel : IUIPanel
             closeButton.style.backgroundColor = new StyleColor(new Color(0.8f, 0.3f, 0.2f, 1f)));
         // Cycles normal / large / fill-screen (see ResizableWindow.CycleScale below). Same size as the
         // close button and on the same title-bar row, so the two sit flush together.
-        var scaleButton = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
-        scaleButton.style.width = titleBtnSize;
-        scaleButton.style.height = titleBtnSize;
-        scaleButton.style.minWidth = titleBtnSize;
-        scaleButton.style.minHeight = titleBtnSize;
-        scaleButton.style.marginTop = 0;
-        scaleButton.style.marginBottom = 0;
-        scaleButton.style.marginLeft = 0;
-        scaleButton.style.marginRight = 8;
-        scaleButton.style.paddingTop = 0;
-        scaleButton.style.paddingBottom = 0;
-        scaleButton.style.paddingLeft = 0;
-        scaleButton.style.paddingRight = 0;
-        scaleButton.style.alignSelf = Align.Center;
-        scaleButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
-        scaleButton.style.color = new StyleColor(ColSubtleText);
-        ResizableWindow.AddStackedSquaresGlyph(scaleButton, titleBtnSize, ColSubtleText);
-        scaleButton.RegisterCallback<PointerEnterEvent>(_ =>
+        _scaleButton = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+        _scaleButton.style.width = titleBtnSize;
+        _scaleButton.style.height = titleBtnSize;
+        _scaleButton.style.minWidth = titleBtnSize;
+        _scaleButton.style.minHeight = titleBtnSize;
+        _scaleButton.style.marginTop = 0;
+        _scaleButton.style.marginBottom = 0;
+        _scaleButton.style.marginLeft = 0;
+        _scaleButton.style.marginRight = 8;
+        _scaleButton.style.paddingTop = 0;
+        _scaleButton.style.paddingBottom = 0;
+        _scaleButton.style.paddingLeft = 0;
+        _scaleButton.style.paddingRight = 0;
+        _scaleButton.style.alignSelf = Align.Center;
+        _scaleButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
+        _scaleButton.style.color = new StyleColor(ColSubtleText);
+        ResizableWindow.AddStackedSquaresGlyph(_scaleButton, titleBtnSize, ColSubtleText, isFilled: false);
+        _scaleButton.RegisterCallback<PointerEnterEvent>(_ =>
         {
-            scaleButton.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f));
-            scaleButton.style.color = new StyleColor(Color.white);
+            _scaleButton.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f));
+            _scaleButton.style.color = new StyleColor(Color.white);
         });
-        scaleButton.RegisterCallback<PointerLeaveEvent>(_ =>
+        _scaleButton.RegisterCallback<PointerLeaveEvent>(_ =>
         {
-            scaleButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
-            scaleButton.style.color = new StyleColor(ColSubtleText);
+            _scaleButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
+            _scaleButton.style.color = new StyleColor(ColSubtleText);
         });
 
         // Balances the two left-hand buttons so the title stays centred in the bar.
@@ -382,13 +383,17 @@ public class WorkQueuePanel : IUIPanel
         titleSpacer.style.flexShrink = 0;
         titleBar.Add(titleSpacer);
 
-        titleBar.Add(scaleButton);
+        titleBar.Add(_scaleButton);
         titleBar.Add(closeButton);
         modal.Add(titleBar);
 
         new DraggableWindow(modal, titleBar, closeButton);
         _resizeWindow = new ResizableWindow(modal, minW: 900f, minH: 260f, grip: 10f, titleInset: 54f, allowVerticalResize: false);
-        scaleButton.clicked += _resizeWindow.CycleScale;
+        _scaleButton.clicked += () =>
+        {
+            _resizeWindow.CycleScale();
+            _resizeWindow.UpdateScaleButtonIcon(_scaleButton, titleBtnSize, ColSubtleText);
+        };
 
         // Column headers. The dark modal styling remains the new queue's visual shell;
         // these columns expose the complete work-task record used by the old queue.

@@ -67,6 +67,10 @@ public class EmployeeInfoUI : MonoBehaviour
     private Vector2? _customPosition;
     private int _capturedPointerId = -1;
 
+    // ────────── Resizing ──────────
+    private Button _scaleBtn;
+    private ResizableWindow _resizeWindow;
+
     public void Init(UIDocument hudDocument)
     {
         if (hudDocument == null) return;
@@ -118,6 +122,21 @@ public class EmployeeInfoUI : MonoBehaviour
         _skillLevelLabel = _panel.Q<Label>("skill-level");
         _statusLabel = _panel.Q<Label>("employee-status");
 
+        // Add scale button for resize/maximize
+        if (_closeButton != null && _headerRow != null)
+        {
+            _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+            _scaleBtn.style.width = 28; _scaleBtn.style.height = 28;
+            _scaleBtn.style.marginRight = 6;
+            ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, 28f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f), isFilled: false);
+            _scaleBtn.RegisterCallback<PointerEnterEvent>(_ =>
+                _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
+            _scaleBtn.RegisterCallback<PointerLeaveEvent>(_ =>
+                _scaleBtn.style.backgroundColor = new StyleColor(Color.clear));
+            // Insert before close button
+            _headerRow.Insert(_headerRow.childCount - 1, _scaleBtn);
+        }
+
         if (_closeButton != null)
         {
             _closeButton.clicked += Hide;
@@ -133,6 +152,20 @@ public class EmployeeInfoUI : MonoBehaviour
                 _closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
                 _closeButton.style.color = new StyleColor(new Color(0x8A / 255f, 0xAA / 255f, 0xBB / 255f, 1f));
             });
+        }
+
+        // Setup resizable window
+        if (_panel != null)
+        {
+            _resizeWindow = new ResizableWindow(_panel, minW: 300f, minH: 250f, grip: 6f, titleInset: 36f, allowVerticalResize: true);
+            if (_scaleBtn != null)
+            {
+                _scaleBtn.clicked += () =>
+                {
+                    _resizeWindow.CycleScale();
+                    _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, 28f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f));
+                };
+            }
         }
 
         // ────────── Dragging Setup ──────────

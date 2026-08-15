@@ -67,6 +67,8 @@ public class SlotAssignmentPanel
     private bool _visible;
     private List<SkuData> _skuChoices = new();
     private readonly Dictionary<int, VisualElement> _aisleHeaders = new();
+    private Button _scaleBtn;
+    private ResizableWindow _resizeWindow;
 
     public SlotAssignmentPanel(VisualElement root)
     {
@@ -169,6 +171,19 @@ public class SlotAssignmentPanel
         title.style.unityTextAlign = TextAnchor.MiddleCenter;
         titleBar.Add(title);
 
+        // Scale button (resize window)
+        _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+        _scaleBtn.style.width = 28; _scaleBtn.style.height = 28;
+        _scaleBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
+        _scaleBtn.style.color = new StyleColor(ColSubtleText);
+        _scaleBtn.style.marginRight = 6;
+        ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, 28f, ColTitleText, isFilled: false);
+        _scaleBtn.RegisterCallback<PointerEnterEvent>(_ =>
+            _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
+        _scaleBtn.RegisterCallback<PointerLeaveEvent>(_ =>
+            _scaleBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f)));
+        titleBar.Add(_scaleBtn);
+
         var closeButton = new Button(Hide) { text = "✕" };
         closeButton.style.width = 28; closeButton.style.height = 28;
         closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
@@ -187,6 +202,12 @@ public class SlotAssignmentPanel
         modal.Add(titleBar);
 
         new DraggableWindow(modal, titleBar, closeButton);
+        _resizeWindow = new ResizableWindow(modal, minW: 560f, minH: 300f, grip: 8f, titleInset: 40f);
+        _scaleBtn.clicked += () =>
+        {
+            _resizeWindow.CycleScale();
+            _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, 28f, ColTitleText);
+        };
 
         // Tab row
         var tabRow = new VisualElement();

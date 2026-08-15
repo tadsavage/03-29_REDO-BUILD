@@ -202,24 +202,24 @@ public class DevHudWindow : MonoBehaviour
     /// make sense for a window. The graphics-preset button is deliberately kept — it's the one
     /// interactive part worth having on the bar.
     /// </summary>
-    /// <summary>Fallback height, from .buildmenu-category-button in buildmenuNEW.uss. Only used until
+    /// <summary>Fallback height, from .buildmenu-utility-button in buildmenuNEW.uss — the card docks
+    /// beside the UtilityRow (Lower/Raise etc), not the taller CategoryRow. Only used until
     /// MatchCategoryButtonHeight can measure a real button — the USS value doesn't survive panel
-    /// scaling (104px in the sheet resolved to 113.2 at this resolution), so copying the live height
-    /// is the only way to actually match.</summary>
-    private const float BarCardHeight = 104f;
+    /// scaling, so copying the live height is the only way to actually match.</summary>
+    private const float BarCardHeight = 84f;
 
     /// <summary>Wide enough for "999 FPS" plus the cell/preset stack without the text ever changing
     /// the card's size. See the note on style.width in ApplyDockedLayout.
     ///
     /// Must be >= paddingLeft + FpsLabelWidth + FpsLabelGap + StackWidth + paddingRight, and the card
     /// must have flexShrink = 0 to actually get it — see ApplyDockedLayout.</summary>
-    private const float DockedCardWidth = 300f;
+    private const float DockedCardWidth = 330f;
 
     /// <summary>Width of the Cell label and the preset button beneath it. They share one width so the
     /// stack has a straight left AND right edge.</summary>
     private const float StackWidth = 160f;
     private const float FpsLabelWidth = 100f;
-    private const float FpsLabelGap = 12f;
+    private const float FpsLabelGap = 42f;
     private const float CardPadding = 12f;
 
     private void ApplyDockedLayout()
@@ -272,7 +272,7 @@ public class DevHudWindow : MonoBehaviour
         // in the middle of it.
         if (_fpsLabel != null)
         {
-            _fpsLabel.style.fontSize = 26; // 34 -> 29 -> 26, two passes of "still too loud"
+            _fpsLabel.style.fontSize = 23; // 26 * 0.9 ~= 23, ~10% smaller per request
             _fpsLabel.style.marginRight = FpsLabelGap;
             _fpsLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
             // Fixed too: "9 FPS" and "144 FPS" must occupy the same box, or the stack beside it
@@ -341,21 +341,33 @@ public class DevHudWindow : MonoBehaviour
     /// button is the only thing that stays correct — and it has to run after layout, hence the
     /// scheduled callback.
     /// </summary>
+    /// <summary>
+    /// Copies the live height of a real utility button onto the card.
+    ///
+    /// The card is docked next to the bar's UtilityRow (Lower/Raise etc, 84px), not the taller
+    /// CategoryRow (Barriers/Floors etc, 104px) — matching the wrong row is exactly why the card
+    /// used to sit taller than its actual neighbours. Hardcoding either USS value doesn't work
+    /// either: panel scaling changes it per-resolution, so measuring the rendered button is the
+    /// only thing that stays correct — and it has to run after layout, hence the scheduled callback.
+    /// </summary>
     private void MatchCategoryButtonHeight()
     {
         if (_panel == null) return;
 
+        // Repeats rather than firing once: the bar's own buttons can still be mid-layout (or not
+        // parented yet) the first time this runs, and a single missed attempt would otherwise leave
+        // the card permanently on the BarCardHeight fallback instead of the real button height.
         _panel.schedule.Execute(() =>
         {
             var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BuildBar : null;
-            var catRow = bar?.Q<VisualElement>("CategoryRow");
-            var button = catRow?.Children().FirstOrDefault();
+            var utilityRow = bar?.Q<VisualElement>("UtilityRow");
+            var button = utilityRow?.Children().FirstOrDefault();
             if (button == null) return;
 
             float h = button.resolvedStyle.height;
             if (h > 1f && Mathf.Abs(h - _panel.resolvedStyle.height) > 0.5f)
                 _panel.style.height = h;
-        }).ExecuteLater(200);
+        }).Every(300);
     }
 
     private void Update()

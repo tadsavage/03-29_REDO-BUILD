@@ -506,7 +506,7 @@ public class TopBarUI : MonoBehaviour
             _lastMinute = _timeService.Minute;
             _lastHour   = _timeService.Hour;
             _lastDay    = _timeService.Day;
-            _time.text  = $"Time: {_lastHour:00}:{_lastMinute:00}  Day {_lastDay}";
+            _time.text  = $"Day {_lastDay}  Time: {_lastHour:00}:{_lastMinute:00}";
             _shiftStatusPanel?.RefreshIfVisible();
         }
     }

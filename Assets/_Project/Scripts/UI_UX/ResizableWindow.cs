@@ -108,11 +108,21 @@ public class ResizableWindow
     /// cloning their close button's dimensions so the two sit flush together on the title bar).
     /// </summary>
     /// <summary>
-    /// Draws the classic "restore/maximize" glyph — two overlapping square outlines — as children of
-    /// a scale button, sized relative to the button's own square dimensions. Callers own the button
-    /// itself (size, background, hover states); this only fills in its icon.
+    /// Draws an icon as children of a scale button. When maximized (filled), shows the classic
+    /// "restore/maximize" glyph (two overlapping squares). When not maximized, shows a Windows-style
+    /// resize handle (small square in corner). Sized relative to the button's own square dimensions.
+    /// Callers own the button itself (size, background, hover states); this only fills in its icon.
     /// </summary>
-    public static void AddStackedSquaresGlyph(VisualElement button, float buttonSize, Color lineColor)
+    public static void AddStackedSquaresGlyph(VisualElement button, float buttonSize, Color lineColor, bool isFilled = false)
+    {
+        button.Clear();
+        if (isFilled)
+            DrawMaximizeIcon(button, buttonSize, lineColor);
+        else
+            DrawResizeHandleIcon(button, buttonSize, lineColor);
+    }
+
+    private static void DrawMaximizeIcon(VisualElement button, float buttonSize, Color lineColor)
     {
         float sq = buttonSize * 0.44f;
         float thick = Mathf.Max(1.4f, buttonSize * 0.05f);
@@ -144,6 +154,40 @@ public class ResizableWindow
 
         button.Add(back);
         button.Add(front);
+    }
+
+    private static void DrawResizeHandleIcon(VisualElement button, float buttonSize, Color lineColor)
+    {
+        // Windows-style resize handle: a small square in the bottom-right corner, 75% larger
+        float handleSize = buttonSize * 0.35f * 1.75f;  // 75% larger
+        float thick = Mathf.Max(1.4f, buttonSize * 0.05f);
+
+        var handle = new VisualElement { pickingMode = PickingMode.Ignore };
+        handle.style.position = Position.Absolute;
+        handle.style.width = handleSize;
+        handle.style.height = handleSize;
+        handle.style.borderTopWidth = handle.style.borderBottomWidth =
+            handle.style.borderLeftWidth = handle.style.borderRightWidth = thick;
+        handle.style.borderTopColor = handle.style.borderBottomColor =
+            handle.style.borderLeftColor = handle.style.borderRightColor = lineColor;
+        handle.style.borderTopLeftRadius = handle.style.borderTopRightRadius =
+            handle.style.borderBottomLeftRadius = handle.style.borderBottomRightRadius = 1.5f;
+
+        // Center the handle in the button (slightly left and up for visual balance)
+        float offsetFromEdge = (buttonSize - handleSize) / 2f;
+        handle.style.left = offsetFromEdge - 1.5f;
+        handle.style.top = offsetFromEdge - 1.5f;
+
+        button.Add(handle);
+    }
+
+    /// <summary>
+    /// Updates the button's icon to reflect the current maximize state. Call this after CycleScale()
+    /// or whenever the panel's maximize state changes.
+    /// </summary>
+    public void UpdateScaleButtonIcon(VisualElement button, float buttonSize, Color lineColor)
+    {
+        AddStackedSquaresGlyph(button, buttonSize, lineColor, _filled);
     }
 
     public void CycleScale()

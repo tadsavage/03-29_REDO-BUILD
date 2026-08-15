@@ -146,11 +146,11 @@ namespace GameCore.Inventory
 
         /// <summary>Display name for the offer card. Keyed on IsBulk, not _kind, so a retired
         /// OneOffWholesale asset reads as "Bulk Order" too rather than keeping its old label.</summary>
-        public string Title => IsBulk ? "Bulk Order" : "Standing Order";
+        public string Title => IsBulk ? "Bulk Order" : "Recurring Order";
 
         /// <summary>What the New Contracts board calls this type. Keyed on IsBulk for the same
         /// reason as Title.</summary>
-        public string KindLabel => IsBulk ? "BULK ORDER" : "STANDING ORDER";
+        public string KindLabel => IsBulk ? "BULK ORDER" : "RECURRING ORDER";
 
         public string FrequencyLabel => _frequency switch
         {

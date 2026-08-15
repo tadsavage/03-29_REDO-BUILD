@@ -26,6 +26,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
     private UIDocument _doc;
     private VisualElement _window;
+    private Button _scaleButton;
     private bool _visible;
     private ResizableWindow _resizeWindow;
 
@@ -159,8 +160,18 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         Wire<Button>("tools-close",    root, b => b.clicked += () => Hide());
         Wire<Button>("tools-scale",    root, b =>
         {
-            b.clicked += _resizeWindow.CycleScale;
-            ResizableWindow.AddStackedSquaresGlyph(b, 60f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f));
+            _scaleButton = b;
+            Color titleColor = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
+            b.clicked += () =>
+            {
+                _resizeWindow.CycleScale();
+                _resizeWindow.UpdateScaleButtonIcon(_scaleButton, 60f, titleColor);
+            };
+            ResizableWindow.AddStackedSquaresGlyph(b, 60f, titleColor, isFilled: false);
+            b.RegisterCallback<PointerEnterEvent>(_ =>
+                b.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
+            b.RegisterCallback<PointerLeaveEvent>(_ =>
+                b.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f)));
         });
         Wire<Button>("tab-btn-dev",    root, b => { _tabDev      = b; b.clicked += () => SwitchTab("dev"); });
         Wire<Button>("tab-btn-settings", root, b => { _tabSettings = b; b.clicked += () => SwitchTab("settings"); });

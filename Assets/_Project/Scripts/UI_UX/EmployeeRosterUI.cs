@@ -42,11 +42,14 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
     // ── UI refs ─────────────────────────────────────────────────────────────────
     private UIDocument     _doc;
     private VisualElement  _overlay;
+    private VisualElement  _panel;
     private VisualElement  _list;
     private Button         _close;
+    private Button         _scaleBtn;
     private Label          _summaryText;
     private DropdownField  _filter;
     private DraggableWindow _dragger;   // drag-by-title-bar + reset-on-X
+    private ResizableWindow _resizeWindow;
 
     private EmployeeInfoUI _infoUI;     // cached target for shift-click → detail panel
 
@@ -87,9 +90,37 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         _close?.RegisterCallback<ClickEvent>(_ => { _dragger?.ResetToOriginal(); Close(); });
 
         // Drag the panel by its title bar (session-only position memory).
-        var panel = root.Q<VisualElement>("er-panel");
+        _panel = root.Q<VisualElement>("er-panel");
         var titleBar = root.Q<VisualElement>(className: "er-title-bar");
-        _dragger = new DraggableWindow(panel, titleBar, _close);
+        _dragger = new DraggableWindow(_panel, titleBar, _close);
+
+        // Add scale button for resize/maximize
+        if (titleBar != null)
+        {
+            _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+            _scaleBtn.style.width = 32; _scaleBtn.style.height = 32;
+            _scaleBtn.style.marginRight = 6;
+            ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, 32f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f), isFilled: false);
+            _scaleBtn.RegisterCallback<PointerEnterEvent>(_ =>
+                _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
+            _scaleBtn.RegisterCallback<PointerLeaveEvent>(_ =>
+                _scaleBtn.style.backgroundColor = new StyleColor(Color.clear));
+            // Insert before close button
+            titleBar.Insert(titleBar.childCount - 1, _scaleBtn);
+        }
+
+        if (_panel != null)
+        {
+            _resizeWindow = new ResizableWindow(_panel, minW: 400f, minH: 300f, grip: 8f, titleInset: 40f);
+            if (_scaleBtn != null)
+            {
+                _scaleBtn.clicked += () =>
+                {
+                    _resizeWindow.CycleScale();
+                    _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, 32f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f));
+                };
+            }
+        }
 
         if (_filter != null)
         {

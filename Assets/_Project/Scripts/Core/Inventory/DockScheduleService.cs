@@ -508,6 +508,12 @@ namespace GameCore.Inventory
             return groups;
         }
 
+        // NOTE: there is deliberately no "synthetic DockAppointment per stranded group" helper here.
+        // One existed and the Schedule tab's pool used it — but a synthetic appointment's Id is the
+        // group key, not a real appointment id, so selecting one and clicking a slot sent an id
+        // TryMove could never find. Stranded freight books through UnscheduledGroups + TryBookGroup;
+        // it is not an appointment until that call succeeds.
+
         /// <summary>Books a stranded group into one specific block — the player's own choice from the
         /// Schedule tab, as opposed to the sweep's first-fit. Same capacity rules as everything else;
         /// the reason comes back verbatim for the UI to show.</summary>

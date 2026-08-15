@@ -1,16 +1,16 @@
 {
     "saveName": "slot_save",
-    "money": 311524,
-    "spentToday": 9191,
+    "money": 310946,
+    "spentToday": 10674,
     "cameraData": {
         "focusPoint": {
-            "x": -8.190112113952637,
+            "x": -12.627124786376954,
             "y": 0.0,
-            "z": 2.9055886268615724
+            "z": 0.6759841442108154
         },
-        "distance": 45.0,
-        "pitch": 34.547996520996097,
-        "yaw": -444.90924072265627
+        "distance": 35.049991607666019,
+        "pitch": 30.037967681884767,
+        "yaw": -326.62322998046877
     },
     "placedObjects": [
         {
@@ -5655,11 +5655,11 @@
         },
         {
             "id": 39,
-            "x": 35,
-            "y": 50,
+            "x": 33,
+            "y": 48,
             "rot": 0,
             "customData": "",
-            "worldY": 0.004999999888241291,
+            "worldY": 0.0,
             "hasTransform": false,
             "pos": {
                 "x": 0.0,
@@ -5955,11 +5955,11 @@
         },
         {
             "id": 39,
-            "x": 33,
-            "y": 48,
+            "x": 35,
+            "y": 50,
             "rot": 0,
             "customData": "",
-            "worldY": 0.004999999888241291,
+            "worldY": 0.0,
             "hasTransform": false,
             "pos": {
                 "x": 0.0,
@@ -29614,29 +29614,9 @@
             }
         },
         {
-            "id": 33,
-            "x": 35,
-            "y": 50,
-            "rot": 1,
-            "customData": "",
-            "worldY": 1.084999918937683,
-            "hasTransform": false,
-            "pos": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0,
-                "w": 0.0
-            }
-        },
-        {
             "id": 34,
-            "x": 35,
-            "y": 51,
+            "x": 34,
+            "y": 49,
             "rot": 0,
             "customData": "",
             "worldY": 1.084999918937683,
@@ -29655,8 +29635,8 @@
         },
         {
             "id": 34,
-            "x": 36,
-            "y": 50,
+            "x": 34,
+            "y": 48,
             "rot": 0,
             "customData": "",
             "worldY": 1.084999918937683,
@@ -29675,8 +29655,28 @@
         },
         {
             "id": 34,
-            "x": 36,
-            "y": 51,
+            "x": 33,
+            "y": 49,
+            "rot": 0,
+            "customData": "",
+            "worldY": 1.084999918937683,
+            "hasTransform": false,
+            "pos": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 0.0
+            }
+        },
+        {
+            "id": 34,
+            "x": 33,
+            "y": 48,
             "rot": 0,
             "customData": "",
             "worldY": 1.084999918937683,
@@ -30815,8 +30815,8 @@
         },
         {
             "id": 34,
-            "x": 33,
-            "y": 48,
+            "x": 36,
+            "y": 51,
             "rot": 0,
             "customData": "",
             "worldY": 1.084999918937683,
@@ -30835,8 +30835,8 @@
         },
         {
             "id": 34,
-            "x": 33,
-            "y": 49,
+            "x": 36,
+            "y": 50,
             "rot": 0,
             "customData": "",
             "worldY": 1.084999918937683,
@@ -30855,8 +30855,8 @@
         },
         {
             "id": 34,
-            "x": 34,
-            "y": 48,
+            "x": 35,
+            "y": 51,
             "rot": 0,
             "customData": "",
             "worldY": 1.084999918937683,
@@ -30875,8 +30875,8 @@
         },
         {
             "id": 34,
-            "x": 34,
-            "y": 49,
+            "x": 35,
+            "y": 50,
             "rot": 0,
             "customData": "",
             "worldY": 1.084999918937683,
@@ -37076,22 +37076,6 @@
     ],
     "devSettings": [
         {
-            "key": "Gate_Open_Close.rot_down",
-            "val": "0"
-        },
-        {
-            "key": "Gate_Open_Close.rot_up",
-            "val": "-85"
-        },
-        {
-            "key": "Gate_Open_Close.arm_speed",
-            "val": "80"
-        },
-        {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
-        },
-        {
             "key": "WallVisibilityManager.foundationHeight",
             "val": "1.11"
         },
@@ -37102,6 +37086,18 @@
         {
             "key": "WallVisibilityManager.slideDuration",
             "val": "2"
+        },
+        {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
         },
         {
             "key": "FreeLookCamera.pitchMin",
@@ -37142,13 +37138,17 @@
         {
             "key": "FreeLookCamera.zMax",
             "val": "40"
+        },
+        {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
         }
     ],
     "toolsWindowX": 100.0,
     "toolsWindowY": 120.0,
     "guidanceLinesVisible": true,
     "waypointsVisible": true,
-    "hoverPopupEnabled": false,
+    "hoverPopupEnabled": true,
     "employeeRecords": [],
     "laneConfigs": [],
     "slotAssignments": [],
@@ -37237,29 +37237,29 @@
         "fractionalByGLLine": [
             {
                 "glLine": "Groundskeeping",
-                "fractionalRemainder": 0.6670894622802734
+                "fractionalRemainder": 0.9504313468933106
             },
             {
                 "glLine": "Walls",
-                "fractionalRemainder": 0.2666208744049072
+                "fractionalRemainder": 0.1999530792236328
             },
             {
                 "glLine": "Doors",
-                "fractionalRemainder": 0.583365261554718
+                "fractionalRemainder": 0.16669929027557374
             },
             {
                 "glLine": "Loss Prevention",
-                "fractionalRemainder": 0.5833108425140381
+                "fractionalRemainder": 0.4999768137931824
             },
             {
                 "glLine": "Flavor",
-                "fractionalRemainder": 0.9666787981987
+                "fractionalRemainder": 0.2000124454498291
             }
         ]
     },
     "time": {
-        "hour": 18,
-        "minute": 41,
+        "hour": 19,
+        "minute": 52,
         "day": 3,
         "fractionalMinutes": 0.0
     },

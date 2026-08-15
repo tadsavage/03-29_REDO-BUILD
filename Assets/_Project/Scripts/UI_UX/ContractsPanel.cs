@@ -10,14 +10,15 @@ using GameCore.Services;
 /// The Outbound Order Manager. Four tabs over one question — where work comes from, how the work you
 /// already took is going, and when each trailer is getting a door.
 ///
-///   NEW CONTRACTS  contracts on the table. Two types share the board: BULK ORDERS (a one-off
-///                  full-pallet drop at cost + 5%, 1–3 rolled fresh daily, the rest expiring) and
-///                  STANDING ORDERS (a daily or weekly account). Told apart by a type pill and a
-///                  colour family, not by separate tabs — the player is choosing across both.
+///   NEW CONTRACTS  contracts on the table, split into two side-by-side panels so the player is
+///                  choosing WITHIN a type, not across both: BULK ORDERS (a one-off full-pallet
+///                  drop at cost + 5%, 1–3 rolled fresh daily, the rest expiring) and RECURRING
+///                  ORDERS (a daily or weekly account).
 ///   BULK ORDERS    the bulk orders already accepted: how each breaks into pallets versus loose
 ///                  cases, and whether it has a door booked yet.
-///   ACCOUNTS       what you're actually running, and how well. Per-contract delivered/late/earned,
-///                  plus the only place a standing account can be cancelled.
+///   RECURRING ORDERS (Tab.Accounts)  what you're actually running, and how well. Per-contract
+///                  delivered/late/earned, plus the only place a recurring account can be
+///                  cancelled.
 ///   SCHEDULE       the dock appointment book — two-hour blocks, one row per block, as many slots
 ///                  per block as you have outbound doors.
 ///
@@ -111,18 +112,20 @@ public class ContractsPanel : IUIPanel
     /// <summary>
     /// NewContracts was "Offers" until 2026-08-01, then "Customers", and is now what it always meant:
     /// the board of contracts on the table. Two types share it — Bulk Orders (a one-off full-pallet
-    /// drop priced off cost of goods, 1–3 rolled fresh every day) and Standing Orders (a daily or
-    /// weekly account) — told apart by colour and a type pill rather than by separate tabs, because
-    /// the decision the player is making is "which of these do I want", across both.
+    /// drop priced off cost of goods, 1–3 rolled fresh every day) and Recurring Orders (a daily or
+    /// weekly account, formerly labelled "Standing Order") — told apart by colour and a type pill AND
+    /// (as of 2026-08-15) by two side-by-side panels, one per type, because the decision the player is
+    /// making is "which of these do I want" WITHIN a type, not across both.
     ///
     /// BulkOrders is the opposite: not offers but the live bulk orders already accepted, and how far
     /// through the warehouse each one is.
     /// </summary>
     ///
     /// Completed is the ledger: every order that has actually been closed out and paid for, newest
-    /// first. Distinct from the "COMPLETED DEALS" heading on Accounts, which lists finished wholesale
-    /// CONTRACTS — this one is per ORDER, and it's the only place the money a shipment made (and what
-    /// it cost to make it) is reported per deal.
+    /// first. Distinct from the "COMPLETED DEALS" heading on Accounts (displayed as "Recurring
+    /// Orders" — the enum name is unchanged), which lists finished wholesale CONTRACTS — this one is
+    /// per ORDER, and it's the only place the money a shipment made (and what it cost to make it) is
+    /// reported per deal.
     private enum Tab { NewContracts, BulkOrders, Accounts, Schedule, Completed }
 
     private readonly VisualElement _overlay;
@@ -133,8 +136,9 @@ public class ContractsPanel : IUIPanel
     private readonly ScrollView _content;
     private readonly Label _footerMessage;
     /// <summary>The big heading in the title bar. Retitled per tab (see TitleFor) — a ledger of
-    /// finished orders sitting under the words "OUTBOUND CONTRACTS" names the wrong thing.</summary>
+    /// finished orders sitting under the words "OUTBOUND ORDER MANAGER" names the wrong thing.</summary>
     private Label _titleLabel;
+    private Button _scaleBtn;
     private bool _visible;
     private ResizableWindow _resizeWindow;
 
@@ -327,13 +331,17 @@ public class ContractsPanel : IUIPanel
         // Cycles normal / large / fill-screen (see ResizableWindow.CycleScale below). Same size as the
         // close button and on the same title-bar row, so the two sit flush together.
         const float titleBtnSize = 48f; // 1.5x the base 32px square button
-        var scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
-        StyleSquareButton(scaleBtn);
-        scaleBtn.style.width = titleBtnSize;
-        scaleBtn.style.height = titleBtnSize;
-        scaleBtn.style.marginRight = 6;
-        ResizableWindow.AddStackedSquaresGlyph(scaleBtn, titleBtnSize, ColTitleText);
-        titleBar.Add(scaleBtn);
+        _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+        StyleSquareButton(_scaleBtn);
+        _scaleBtn.style.width = titleBtnSize;
+        _scaleBtn.style.height = titleBtnSize;
+        _scaleBtn.style.marginRight = 6;
+        ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, titleBtnSize, ColTitleText, isFilled: false);
+        _scaleBtn.RegisterCallback<PointerEnterEvent>(_ =>
+            _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
+        _scaleBtn.RegisterCallback<PointerLeaveEvent>(_ =>
+            _scaleBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f)));
+        titleBar.Add(_scaleBtn);
 
         var close = new Button(Hide) { text = "✕" };
         StyleSquareButton(close);
@@ -415,6 +423,7 @@ public class ContractsPanel : IUIPanel
         // comparison. Scheduled ONCE here — doing it per Rebuild would stack a poller per refresh.
         content.schedule.Execute(SyncFrozenTimeColumn).Every(16);
         content.schedule.Execute(SyncCompletedHeader).Every(16);
+        content.schedule.Execute(SyncScheduleHeader).Every(16);
 
         footerMessage = new Label();
         ApplyFont(footerMessage, size: 15);
@@ -429,7 +438,11 @@ public class ContractsPanel : IUIPanel
         // can see at once. titleInset keeps the grips clear of the drag handle above them.
         _resizeWindow = new ResizableWindow(modal, minW: ModalMinWidth, minH: ModalHeight, grip: 10f,
                             titleInset: 48f, allowVerticalResize: false);
-        scaleBtn.clicked += _resizeWindow.CycleScale;
+        _scaleBtn.clicked += () =>
+        {
+            _resizeWindow.CycleScale();
+            _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, titleBtnSize, ColTitleText);
+        };
 
         overlay.Add(modal);
         modalOut = modal;
@@ -472,9 +485,11 @@ public class ContractsPanel : IUIPanel
 
         int bulkCount = LiveBulkOrders().Count;
 
+        // Recurring before Bulk in the tab row, matching the New Contracts board's left-to-right
+        // panel order (Recurring left, Bulk right) — the tab row used to run the opposite way.
         _tabBar.Add(MakeTab("New Contracts", offerCount.ToString(), Tab.NewContracts));
+        _tabBar.Add(MakeTab("Recurring Orders", accountCount.ToString(), Tab.Accounts));
         _tabBar.Add(MakeTab("Bulk Orders", bulkCount.ToString(), Tab.BulkOrders));
-        _tabBar.Add(MakeTab("Accounts", accountCount.ToString(), Tab.Accounts));
         _tabBar.Add(MakeTab("Schedule", scheduleBadge, Tab.Schedule));
         _tabBar.Add(MakeTab("Completed", CompletedOrders().Count.ToString(), Tab.Completed));
     }
@@ -590,6 +605,13 @@ public class ContractsPanel : IUIPanel
     private VisualElement _completedHeaderRow;
     private float _lastCompletedHScroll = float.NaN;
 
+    /// <summary>The Schedule tab's "Door 1 / Door 2 / …" column header, same shape as
+    /// _completedHeaderRow — lives in the stationary strip above the grid and is slid sideways in
+    /// step with the grid's horizontal scroll so it stays lined up over the right columns. Null on
+    /// every other tab.</summary>
+    private VisualElement _scheduleHeaderRow;
+    private float _lastScheduleHScroll = float.NaN;
+
     /// <summary>
     /// Slides the Completed header sideways by exactly what the ledger is scrolled, so the two stay
     /// in step once the window is dragged narrower than the columns need.
@@ -607,6 +629,19 @@ public class ContractsPanel : IUIPanel
         if (Mathf.Approximately(x, _lastCompletedHScroll)) return;
         _lastCompletedHScroll = x;
         _completedHeaderRow.style.left = -x;
+    }
+
+    /// <summary>The Schedule tab's mirror of SyncCompletedHeader — same reasoning, same mechanism,
+    /// separate field because the two headers belong to different tabs and are cleared independently
+    /// on Rebuild.</summary>
+    private void SyncScheduleHeader()
+    {
+        if (_scheduleHeaderRow == null) return;
+
+        float x = _content.scrollOffset.x;
+        if (Mathf.Approximately(x, _lastScheduleHScroll)) return;
+        _lastScheduleHScroll = x;
+        _scheduleHeaderRow.style.left = -x;
     }
 
     private void OnDevAddCustomer()
@@ -695,7 +730,7 @@ public class ContractsPanel : IUIPanel
     /// <summary>Heading for a tab. Only Completed differs today: the other three are all views of the
     /// contract board, which is what the panel is called.</summary>
     private static string TitleFor(Tab tab)
-        => tab == Tab.Completed ? "COMPLETED ORDERS" : "OUTBOUND CONTRACTS";
+        => tab == Tab.Completed ? "COMPLETED ORDERS" : "OUTBOUND ORDER MANAGER";
 
     private void Rebuild()
     {
@@ -707,6 +742,8 @@ public class ContractsPanel : IUIPanel
         _lastHScroll = float.NaN;   // force the next poll to re-apply the offset to the new cells
         _completedHeaderRow = null; // the strip was just cleared; this pointed into it
         _lastCompletedHScroll = float.NaN;
+        _scheduleHeaderRow = null;  // same reasoning, Schedule tab's own copy
+        _lastScheduleHScroll = float.NaN;
         _footerMessage.text = string.Empty;
 
         // Only the Schedule grid can outgrow the modal sideways — a row is one column per door, and
@@ -748,20 +785,26 @@ public class ContractsPanel : IUIPanel
 
     // ── Tab 1: New Contracts ─────────────────────────────────────────────────
 
+    private const string RecurringHelperText =
+        "Recurring Orders are ongoing contractual agreements to ship orders to customers on a " +
+        "predetermined frequency. These will auto-schedule on the Schedule tab at their designated " +
+        "time, although these can be modified at any given time up until the order is released.";
+
+    private const string BulkHelperText =
+        "Bulk Orders are one-time pickups, usually from customers that don't have a recurring order " +
+        "contract. Treating these customers well could turn them into long-standing partners!";
+
     private void BuildNewContracts(OrderArrivalService arrivals)
     {
         // Intro on the left, dev triggers on the right. The dev cluster lives on THIS tab only — it
         // was in the tab row, which put it on screen while you were reading the Schedule, where it
-        // means nothing.
+        // means nothing. Kept short now that each panel below carries its own explanation.
         var header = new VisualElement();
         header.style.flexDirection = FlexDirection.Row;
         header.style.alignItems = Align.FlexStart;
-        header.style.marginBottom = 8;
+        header.style.marginBottom = 10;
 
-        var intro = new Label("Take a contract to bring work in. BULK ORDERS are a one-off full-pallet drop " +
-                              "priced at cost plus 5% — a fresh 1–3 of them land here every day and the rest " +
-                              "expire. STANDING ORDERS are an account that sends work daily or weekly.  ·  " +
-                              "Drag the title bar to move the window.");
+        var intro = new Label("Take a contract to bring work in.  ·  Drag the title bar to move the window.");
         ApplyFont(intro, size: 14);
         intro.style.color = new StyleColor(ColSubtleText);
         intro.style.whiteSpace = WhiteSpace.Normal;
@@ -787,32 +830,82 @@ public class ContractsPanel : IUIPanel
         // AvailableOffers only — a signed contract has moved to Accounts. Showing it here greyed out
         // is what let a spent wholesale deal squat in the list forever.
         var offers = arrivals.AvailableOffers.ToList();
-        if (offers.Count == 0)
-        {
-            var none = new Label("Every customer on the board is signed. Cancel an account to free one up, " +
-                                 "or check the Accounts tab to see how the ones you have are doing.");
-            ApplyFont(none, size: 15);
-            none.style.color = new StyleColor(ColSubtleText);
-            none.style.whiteSpace = WhiteSpace.Normal;
-            none.style.marginTop = 12;
-            _content.Add(none);
-        }
-
-        // Bulk first, then standing. Bulk offers expire tonight and standing ones don't, so the
-        // perishable decision goes at the top where it will actually be read.
-        int row = 0;
-        foreach (var contract in offers.OrderByDescending(c => c.IsBulk))
-            _content.Add(BuildOfferCard(contract, inv, row++));
-
         // Anything barred after a missed pickup, so a customer who has vanished from the board is
         // explained rather than just gone.
         var lost = arrivals.LostOffers.ToList();
-        foreach (var contract in lost)
-            _content.Add(BuildLostCard(contract, arrivals, row++));
+
+        // Two panels, one per type — the decision the player is making is "which of these do I
+        // want" WITHIN a type (compare two Bulk offers, or two Recurring ones), not across both, so
+        // a single shuffled list was the wrong grouping once there were enough offers to compare.
+        var columns = new VisualElement();
+        columns.style.flexDirection = FlexDirection.Row;
+        columns.style.alignItems = Align.FlexStart;
+
+        columns.Add(BuildOfferColumn("RECURRING ORDERS", ColBorder, RecurringHelperText,
+            offers.Where(c => !c.IsBulk).ToList(), lost.Where(c => !c.IsBulk).ToList(),
+            arrivals, inv, marginRight: 12));
+
+        columns.Add(BuildOfferColumn("BULK ORDERS", ColBulkEdge, BulkHelperText,
+            offers.Where(c => c.IsBulk).ToList(), lost.Where(c => c.IsBulk).ToList(),
+            arrivals, inv, marginRight: 0));
+
+        _content.Add(columns);
 
         _footerMessage.text = $"{offers.Count} contract(s) on the table · " +
-                              $"{arrivals.RunningAccounts.Count()} standing account(s) currently running" +
+                              $"{arrivals.RunningAccounts.Count()} recurring account(s) currently running" +
                               (lost.Count > 0 ? $" · {lost.Count} lost account(s) in cooldown." : ".");
+    }
+
+    /// <summary>One hemisphere of the New Contracts board: a bordered panel dedicated to a single
+    /// contract type, with a large title, an explanatory paragraph naming what the type actually
+    /// commits the player to, and its own card list (offers first, then anything barred by a missed
+    /// pickup). BuildOfferCard/BuildLostCard are unchanged and shared by both panels — only the
+    /// grouping is new.</summary>
+    private VisualElement BuildOfferColumn(string title, Color accent, string helperText,
+                                           List<ContractData> offers, List<ContractData> lostOffers,
+                                           OrderArrivalService arrivals, InventoryService inv,
+                                           float marginRight)
+    {
+        var column = new VisualElement();
+        column.style.flexGrow = 1;
+        column.style.flexBasis = 0;
+        column.style.marginRight = marginRight;
+        column.style.paddingTop = 12; column.style.paddingBottom = 12;
+        column.style.paddingLeft = 12; column.style.paddingRight = 12;
+        column.style.backgroundColor = new StyleColor(new Color(accent.r, accent.g, accent.b, 0.06f));
+        column.style.borderTopWidth = column.style.borderBottomWidth =
+            column.style.borderLeftWidth = column.style.borderRightWidth = 2;
+        column.style.borderTopColor = column.style.borderBottomColor =
+            column.style.borderLeftColor = column.style.borderRightColor = new StyleColor(accent);
+        column.style.borderTopLeftRadius = column.style.borderTopRightRadius =
+            column.style.borderBottomLeftRadius = column.style.borderBottomRightRadius = 10;
+
+        var titleLabel = MakeText(title, 24, ColTitleText, bold: true);
+        titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        titleLabel.style.alignSelf = Align.Stretch;
+        column.Add(titleLabel);
+
+        var helper = MakeText(helperText, 13, ColSubtleText);
+        helper.style.marginTop = 4;
+        helper.style.marginBottom = 10;
+        column.Add(helper);
+
+        if (offers.Count == 0 && lostOffers.Count == 0)
+        {
+            var none = MakeText("Nothing on offer right now — check back after the next contract rolls.",
+                                13, ColEmptyText);
+            none.style.marginTop = 4;
+            column.Add(none);
+            return column;
+        }
+
+        int row = 0;
+        foreach (var contract in offers)
+            column.Add(BuildOfferCard(contract, inv, row++));
+        foreach (var contract in lostOffers)
+            column.Add(BuildLostCard(contract, arrivals, row++));
+
+        return column;
     }
 
     /// <summary>Accent colour for a contract type — the same family used for its chips elsewhere, so
@@ -826,6 +919,7 @@ public class ContractsPanel : IUIPanel
     private VisualElement BuildOfferCard(ContractData contract, InventoryService inv, int rowIndex)
     {
         var card = MakeRow(rowIndex, AccentFor(contract));
+        card.style.position = Position.Relative;
         card.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, IconSize, 8));
 
         var body = new VisualElement();
@@ -837,7 +931,6 @@ public class ContractsPanel : IUIPanel
         titleRow.style.alignItems = Align.Center;
         titleRow.Add(MakeText(contract.Customer != null ? contract.Customer.CompanyName : "(no customer assigned)",
                               19, ColTitleText, bold: true));
-        titleRow.Add(MakeTypePill(contract));
         body.Add(titleRow);
 
         body.Add(MakeText(contract.Title, 14, TypeTextFor(contract), bold: true));
@@ -870,28 +963,47 @@ public class ContractsPanel : IUIPanel
         right.Add(sign);
 
         card.Add(right);
+        card.Add(MakeTypePill(contract));
         return card;
     }
 
-    /// <summary>The BULK ORDER / STANDING ORDER badge beside the customer name. Colour AND words, not
+    /// <summary>The BULK ORDER / RECURRING ORDER badge beside the customer name. Colour AND words, not
     /// colour alone — the two types differ in what they commit the player to, which is too important
-    /// to encode only as a hue.</summary>
+    /// to encode only as a hue. Redundant with which panel the card is in now that New Contracts is
+    /// split by type, but kept — the badge is also what the Bulk Orders and Completed tabs rely on to
+    /// tell the two types apart in a single mixed list.</summary>
     private VisualElement MakeTypePill(ContractData contract)
     {
         var pill = new VisualElement();
-        pill.style.marginLeft = 8;
-        pill.style.paddingLeft = 6; pill.style.paddingRight = 6;
-        pill.style.paddingTop = 1; pill.style.paddingBottom = 1;
+        // Positioned absolutely to the top-right corner of the card
+        pill.style.position = Position.Absolute;
+        pill.style.top = 8;
+        pill.style.right = 8;
+        pill.style.flexGrow = 0;
+        pill.style.flexShrink = 0;
+        pill.style.width = StyleKeyword.Auto;
+        // 50% size increase: font 10->15, padding 6->9 and 1->2, border 1->2, radius 4->6
+        pill.style.paddingLeft = 9; pill.style.paddingRight = 9;
+        pill.style.paddingTop = 2; pill.style.paddingBottom = 2;
         pill.style.backgroundColor = new StyleColor(contract.IsBulk ? ColChipBulk : ColChipOut);
         pill.style.borderTopWidth = pill.style.borderBottomWidth =
-            pill.style.borderLeftWidth = pill.style.borderRightWidth = 1;
+            pill.style.borderLeftWidth = pill.style.borderRightWidth = 2;
         pill.style.borderTopColor = pill.style.borderBottomColor =
             pill.style.borderLeftColor = pill.style.borderRightColor = new StyleColor(AccentFor(contract));
         pill.style.borderTopLeftRadius = pill.style.borderTopRightRadius =
-            pill.style.borderBottomLeftRadius = pill.style.borderBottomRightRadius = 4;
+            pill.style.borderBottomLeftRadius = pill.style.borderBottomRightRadius = 6;
 
-        var label = MakeText(contract.KindLabel, 10, TypeTextFor(contract), bold: true);
+        var label = MakeText(contract.KindLabel, 15, TypeTextFor(contract), bold: true);
         label.style.whiteSpace = WhiteSpace.NoWrap;
+        // Unity's default runtime theme puts an unrequested margin/padding on every Label (measured
+        // live: ~2/4px margin, ~1/2px padding, asymmetric) — invisible on loosely-laid-out text but
+        // it's exactly what made this specific badge's border look loose around its own text, since
+        // the badge is sized tightly off the label's box. Zeroed so the pill's own padding is the
+        // only air around the word.
+        label.style.marginLeft = 0; label.style.marginRight = 0;
+        label.style.marginTop = 0; label.style.marginBottom = 0;
+        label.style.paddingLeft = 0; label.style.paddingRight = 0;
+        label.style.paddingTop = 0; label.style.paddingBottom = 0;
         pill.Add(label);
         return pill;
     }
@@ -1033,9 +1145,31 @@ public class ContractsPanel : IUIPanel
         bool late = order.DueDay < today;
         var card = MakeRow(rowIndex, !booked ? ColDanger : ColBulkEdge);
 
+        // LEFT: Customer icon + name and order details
+        var leftSection = new VisualElement();
+        leftSection.style.flexDirection = FlexDirection.Row;
+        leftSection.style.alignItems = Align.FlexStart;
+        leftSection.style.flexGrow = 1;
+        leftSection.style.flexShrink = 1;
+
+        // Get customer icon from order
+        var arrivals = Arrivals();
+        Sprite customerIcon = null;
+        if (arrivals != null)
+        {
+            var contract = arrivals.GetContract(order.ContractId);
+            if (contract?.Customer != null)
+                customerIcon = contract.Customer.Icon;
+        }
+        var iconElement = MakeIcon(customerIcon, 88, 0);
+        iconElement.style.width = 88 * 1.1f; // ~10% wider than the icon's 88px height
+        iconElement.style.marginRight = 12;
+        leftSection.Add(iconElement);
+
         var body = new VisualElement();
         body.style.flexGrow = 1;
         body.style.flexShrink = 1;
+        body.style.alignItems = Align.FlexStart;
 
         body.Add(MakeText(order.CustomerName, 17, ColTitleText, bold: true));
 
@@ -1054,26 +1188,60 @@ public class ContractsPanel : IUIPanel
             lineText.style.marginTop = 1;
             body.Add(lineText);
         }
-        card.Add(body);
+        leftSection.Add(body);
+        card.Add(leftSection);
 
-        var right = new VisualElement();
-        right.style.width = 230;
-        right.style.flexShrink = 0;
-        right.style.alignItems = Align.FlexEnd;
+        // MIDDLE: Order Status section - anchored with absolute positioning so it sits at the
+        // true horizontal center of the card, regardless of how wide the left/right sections are
+        // (a flex-grow sibling would otherwise pull this section's own center off to one side).
+        var statusSection = new VisualElement();
+        statusSection.style.position = Position.Absolute;
+        statusSection.style.left = 0;
+        statusSection.style.right = 0;
+        statusSection.style.top = 0;
+        statusSection.style.bottom = 0;
+        statusSection.style.flexDirection = FlexDirection.Column;
+        statusSection.style.alignItems = Align.Center;
+        statusSection.style.justifyContent = Justify.Center;
 
-        right.Add(MakeText(BulkPhaseLabel(order), 14, ColTitleText, bold: true));
+        var statusValue = MakeText(BulkPhaseLabel(order), 20, ColMoney, bold: true);
+        statusValue.style.marginBottom = 4;
+        statusSection.Add(statusValue);
 
         string due = late ? $"{today - order.DueDay}d LATE" : order.DueDay == today ? "due today" : $"due day {order.DueDay}";
-        var dueLabel = MakeText(due, 13, late ? ColDangerSoft : ColSubtleText, bold: late);
-        dueLabel.style.marginTop = 2;
-        right.Add(dueLabel);
+        var doorStatus = MakeText(booked ? "Door Booked" : "NO DOOR BOOKED", 14,
+                                  booked ? ColMoney : ColDangerSoft, bold: !booked);
+        statusSection.Add(doorStatus);
 
-        var dock = MakeText(booked ? "door booked" : "NO DOOR BOOKED", 13,
-                            booked ? ColMoney : ColDangerSoft, bold: !booked);
-        dock.style.marginTop = 2;
-        right.Add(dock);
+        card.Add(statusSection);
 
-        right.Add(MakeText($"{order.TotalUnitsPicked}/{order.TotalUnits} cs picked", 12, ColSubtleText));
+        // RIGHT: Order Status header + Cases/Pallets
+        var right = new VisualElement();
+        right.style.width = 200;
+        right.style.flexShrink = 0;
+        right.style.alignItems = Align.FlexEnd;
+        right.style.flexDirection = FlexDirection.Column;
+
+        // Add "Order Status" header in light blue at top
+        var statusHeader = MakeText("Order Status", 14, ColChipOutText);
+        statusHeader.style.marginBottom = 6;
+        right.Add(statusHeader);
+
+        // Calculate expected pallets
+        int expectedPallets = 0;
+        if (orders != null)
+        {
+            foreach (var li in order.LineItems)
+            {
+                int fullPallet = orders.FullPalletCases(li.SkuId);
+                if (fullPallet > 0)
+                    expectedPallets += li.QuantityNeeded / fullPallet;
+            }
+        }
+
+        // Add total cases expected (25% bigger font: 12 * 1.25 = 15)
+        right.Add(MakeText($"{order.TotalUnits} cases expected", 16, ColTitleText, bold: true));
+        right.Add(MakeText($"{expectedPallets} pallet(s) expected", 15, Color.white));
 
         card.Add(right);
         return card;
@@ -1119,8 +1287,8 @@ public class ContractsPanel : IUIPanel
 
         if (running.Count == 0)
         {
-            var none = new Label("No accounts yet. Sign something on the Offers tab and orders will start " +
-                                 "arriving on their own.");
+            var none = new Label("No accounts yet. Sign something on the New Contracts tab and orders will " +
+                                 "start arriving on their own.");
             ApplyFont(none, size: 15);
             none.style.color = new StyleColor(ColSubtleText);
             none.style.whiteSpace = WhiteSpace.Normal;
@@ -1145,7 +1313,7 @@ public class ContractsPanel : IUIPanel
         // orders stamped with a ContractId, which these aren't), so the row read "$0 earned · 0
         // shipped" forever while the real money sat on the Completed tab. That tab is where finished
         // deals live now, per ORDER and with the actual revenue on them.
-        _footerMessage.text = $"{running.Count} standing account(s) running. Finished one-offs are on the " +
+        _footerMessage.text = $"{running.Count} recurring account(s) running. Finished one-offs are on the " +
                               "Completed tab. Cancelling stops future orders; anything already on the " +
                               "board still has to ship.";
     }
@@ -1163,11 +1331,15 @@ public class ContractsPanel : IUIPanel
         int late = running.Sum(s => s.OrdersLate);
         float onTime = delivered <= 0 ? 1f : (delivered - late) / (float)delivered;
 
+        // Estimate pallets: assumes average pallet is ~24 cases (Ti * Hi, common value)
+        int estimatedPallets = Mathf.CeilToInt(committed / 24f);
+
         var strip = new VisualElement();
         strip.style.flexDirection = FlexDirection.Row;
         strip.style.marginBottom = 8;
 
         strip.Add(MakeStatTile("COMMITTED / DAY", $"{committed:N0} cases", ColTitleText));
+        strip.Add(MakeStatTile("COMMITTED / DAY", $"{estimatedPallets:N0} pallets", ColTitleText));
         strip.Add(MakeStatTile("ORDERS DELIVERED", $"{delivered:N0}", ColTitleText));
         strip.Add(MakeStatTile("ON-TIME", $"{onTime:P0}",
                                onTime >= 0.9f ? ColMoney : onTime >= 0.7f ? ColWholesale : ColDangerSoft));
@@ -1190,7 +1362,7 @@ public class ContractsPanel : IUIPanel
         return tile;
     }
 
-    /// <summary>Always a running standing account — RunningAccounts excludes IsBulk (which now also
+    /// <summary>Always a running recurring account — RunningAccounts excludes IsBulk (which now also
     /// covers the retired wholesale ordinal), so a bulk/wholesale contract never reaches this
     /// row.</summary>
     private VisualElement BuildAccountRow(OrderArrivalService arrivals, SignedContract signed,
@@ -1200,24 +1372,123 @@ public class ContractsPanel : IUIPanel
         Color accent = struggling ? ColDanger : ColMoney;
 
         var card = MakeRow(rowIndex, accent);
-        card.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, IconSizeSm, 6));
+        card.style.position = Position.Relative;
+
+        // Icon 30% larger (44 * 1.3 ≈ 57)
+        card.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, 57, 6));
 
         var body = new VisualElement();
         body.style.flexGrow = 1;
         body.style.flexShrink = 1;
+
+        // Customer name font 25% larger (17 → 21)
         body.Add(MakeText(contract.Customer != null ? contract.Customer.CompanyName : contract.ContractId,
-                          17, ColTitleText, bold: true));
-        body.Add(MakeText(StatusLine(arrivals, signed, contract), 13,
-                          struggling ? ColDangerSoft : ColSubtleText));
+                          21, ColTitleText, bold: true));
+
+        // Add customer satisfaction (placeholder: "Unhappy" for now)
+        var satisfaction = MakeText("Customer Current Satisfaction: Unhappy", 13, ColSubtleText);
+        satisfaction.style.marginTop = 2;
+        body.Add(satisfaction);
+
         card.Add(body);
+
+        // Status container box in the middle of the pane - two columns separated
+        var statusContainer = new VisualElement();
+        statusContainer.style.position = Position.Absolute;
+        statusContainer.style.top = 20;
+        statusContainer.style.left = 400;
+        statusContainer.style.width = 600;
+        statusContainer.style.height = 95;
+        statusContainer.style.flexDirection = FlexDirection.Row;
+        statusContainer.style.paddingTop = 2;
+        statusContainer.style.paddingBottom = 2;
+        statusContainer.style.paddingLeft = 0;
+        statusContainer.style.paddingRight = 0;
+        // Invisible: no background, no border
+        statusContainer.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 0f));
+        statusContainer.style.borderTopWidth = statusContainer.style.borderBottomWidth =
+            statusContainer.style.borderLeftWidth = statusContainer.style.borderRightWidth = 0;
+
+        int today = CurrentDay();
+        int daysHeld = Mathf.Max(0, today - signed.SignedOnDay);
+        string nextDrop = arrivals.TryGetNextArrival(signed.ContractId, out int day, out int hour)
+            ? (day == today ? $"{hour:00}:00 today" : $"{hour:00}:00 ON day {day}")
+            : "unknown";
+
+        // Calculate actual cases and pallets from orders
+        int totalCases = 0;
+        int totalPallets = 0;
+        if (ServiceLocator.TryGet<OrderService>(out var orderService) && orderService != null)
+        {
+            foreach (var order in orderService.ActiveOrders.Concat(orderService.OrderHistory))
+            {
+                if (order != null && order.ContractId == signed.ContractId)
+                {
+                    totalCases += order.TotalUnitsPicked;
+                    // Estimate pallets: assume ~24 cases per pallet average
+                    totalPallets += Mathf.CeilToInt(order.TotalUnitsPicked / 24f);
+                }
+            }
+        }
+
+        float fillRate = CalculateLifetimeFillRate(signed.ContractId);
+
+        // Left column - 3 items stacked vertically
+        var leftColumn = new VisualElement();
+        leftColumn.style.flexDirection = FlexDirection.Column;
+        leftColumn.style.flexGrow = 0;
+        leftColumn.style.width = 280;
+
+        var line1 = MakeText($"• Days Held: {daysHeld}", 20, ColSubtleText);
+        line1.style.marginBottom = 4;
+        leftColumn.Add(line1);
+
+        var line2 = MakeText($"• Next Order: {nextDrop}", 20, ColSubtleText);
+        line2.style.marginBottom = 4;
+        line2.style.whiteSpace = WhiteSpace.NoWrap;
+        leftColumn.Add(line2);
+
+        var line3 = MakeText($"• Shipped: {signed.OrdersDelivered}", 20, ColSubtleText);
+        leftColumn.Add(line3);
+
+        statusContainer.Add(leftColumn);
+
+        // Right column - 3 items stacked vertically
+        var rightColumn = new VisualElement();
+        rightColumn.style.flexDirection = FlexDirection.Column;
+        rightColumn.style.flexGrow = 0;
+        rightColumn.style.width = 200;
+        rightColumn.style.marginLeft = 220;
+
+        var line4 = MakeText($"• Cases: {totalCases}", 20, ColSubtleText);
+        line4.style.marginBottom = 6;
+        line4.style.marginTop = 0;
+        rightColumn.Add(line4);
+
+        var line5 = MakeText($"• Pallets: {totalPallets}", 20, ColSubtleText);
+        line5.style.marginBottom = 6;
+        line5.style.marginTop = 0;
+        rightColumn.Add(line5);
+
+        var line6 = MakeText($"• Fill Rate: {fillRate:P0}", 20, ColSubtleText);
+        line6.style.marginBottom = 0;
+        line6.style.marginTop = 0;
+        rightColumn.Add(line6);
+
+        statusContainer.Add(rightColumn);
+
+        card.Add(statusContainer);
 
         var right = new VisualElement();
         right.style.width = 190;
         right.style.flexShrink = 0;
         right.style.alignItems = Align.FlexEnd;
 
-        right.Add(MakeText($"${signed.RevenueEarned:N0}", 17, ColMoney, bold: true));
-        var caption = MakeText("earned to date", 11, ColSubtleText);
+        // Double dollar font (17 → 34)
+        right.Add(MakeText($"${signed.RevenueEarned:N0}", 34, ColMoney, bold: true));
+
+        // Double caption font (11 → 22)
+        var caption = MakeText("earned to date", 22, ColSubtleText);
         caption.style.marginBottom = 5;
         right.Add(caption);
 
@@ -1229,20 +1500,53 @@ public class ContractsPanel : IUIPanel
         return card;
     }
 
+    /// <summary>Calculate lifetime fill rate for a contract: (total cases shipped / total cases ordered) * 100%</summary>
+    private float CalculateLifetimeFillRate(string contractId)
+    {
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null)
+            return 0f;
+
+        int totalOrdered = 0;
+        int totalShipped = 0;
+
+        // Check active orders
+        foreach (var order in orderService.ActiveOrders)
+        {
+            if (order != null && order.ContractId == contractId)
+            {
+                totalOrdered += order.TotalUnits;
+                totalShipped += order.TotalUnitsPicked;
+            }
+        }
+
+        // Check completed orders in history
+        foreach (var order in orderService.OrderHistory)
+        {
+            if (order != null && order.ContractId == contractId)
+            {
+                totalOrdered += order.TotalUnits;
+                totalShipped += order.TotalUnitsPicked;
+            }
+        }
+
+        if (totalOrdered == 0) return 1f; // No orders = perfect fill rate
+        return totalShipped / (float)totalOrdered;
+    }
+
     private string StatusLine(OrderArrivalService arrivals, SignedContract signed, ContractData contract)
     {
         int today = CurrentDay();
         int daysHeld = Mathf.Max(0, today - signed.SignedOnDay);
 
         string next = arrivals.TryGetNextArrival(signed.ContractId, out int day, out int hour)
-            ? (day == today ? $"next drop {hour:00}:00 today" : $"next drop {hour:00}:00 day {day}")
+            ? (day == today ? $"next drop {hour:00}:00 today" : $"next drop {hour:00}:00 ON day {day}")
             : "next drop unknown";
 
         string lateBit = signed.OrdersLate > 0
             ? $" · {signed.OrdersLate} late · ${signed.LateFeesPaid:N0} in fees"
             : " · 0 late";
 
-        return $"Day {daysHeld} · {next} · {signed.OrdersDelivered} shipped{lateBit} · " +
+        return $"Days held: {daysHeld} · {next} · {signed.OrdersDelivered} shipped{lateBit} · " +
                $"on-time {signed.OnTimeRate:P0}";
     }
 
@@ -1285,7 +1589,7 @@ public class ContractsPanel : IUIPanel
         int today = CurrentDay();
         // Day switcher and legend go in the STATIONARY strip, not the scroll view — they're the frame
         // you read the grid against, so they must not slide away when you scroll right to reach door 9.
-        _tabHeader.Add(BuildScheduleHeader(schedule, today));
+        _tabHeader.Add(BuildScheduleHeader(today));
 
         var doors = schedule.OutboundDoors();
         if (doors.Count == 0)
@@ -1302,15 +1606,19 @@ public class ContractsPanel : IUIPanel
             return;
         }
 
-        // Legend ABOVE the grid and in the stationary strip: twelve block rows always overflow the
-        // scroll view, so a legend appended at the end is permanently below the fold — the one place
-        // it's useless, since the colours it explains are all on screen.
-        _tabHeader.Add(BuildScheduleLegend());
-
-        // Stranded freight goes ABOVE the grid and inside the stationary strip for the same reason the
-        // legend does — you need it in view while you scroll the grid hunting for somewhere to put it.
+        // The frame you read the grid against — legend, the stranded-trailer pool, and the in-game
+        // clock — goes ABOVE the grid and inside the STATIONARY strip: twelve block rows always
+        // overflow the scroll view, so anything appended after them is permanently below the fold,
+        // which is the one place none of the three is any use. You need all of them in view while
+        // scrolling the grid hunting for somewhere to put a trailer.
         var unscheduled = schedule.UnscheduledGroups();
-        if (unscheduled.Count > 0) _tabHeader.Add(BuildUnscheduledStrip(unscheduled, arrivals));
+        _tabHeader.Add(BuildScheduleStrip(unscheduled, doors.Count, today));
+
+        // Column header goes LAST into the stationary strip so it ends up directly above row 1 — same
+        // ordering reasoning as BuildCompletedSummary/BuildCompletedHeader. Without a label per column,
+        // "which door is column 3" was only answerable by counting or reading a chip's own "· D3" tag.
+        _scheduleHeaderRow = BuildScheduleColumnHeader(doors);
+        _tabHeader.Add(_scheduleHeaderRow);
 
         for (int block = 0; block < DockScheduleService.BlocksPerDay; block++)
             _content.Add(BuildScheduleRow(schedule, arrivals, doors, block, today));
@@ -1335,95 +1643,6 @@ public class ContractsPanel : IUIPanel
                                       : string.Empty);
     }
 
-    /// <summary>
-    /// The stranded-freight strip: live orders no appointment is holding a door for.
-    ///
-    /// Exists because these orders were previously invisible on this tab AND unbookable — auto-placement
-    /// gets one attempt when the order arrives and never retries, so anything it missed simply never
-    /// appeared, while the Accounts tab happily reported the customer as having freight due. A chip here
-    /// is picked up and dropped into a slot with exactly the same two clicks as moving a booked one.
-    /// </summary>
-    private VisualElement BuildUnscheduledStrip(List<UnscheduledGroup> groups,
-                                                OrderArrivalService arrivals)
-    {
-        int today = CurrentDay();
-
-        var wrap = new VisualElement();
-        wrap.style.marginBottom = 8;
-        wrap.style.paddingTop = 6; wrap.style.paddingBottom = 6;
-        wrap.style.paddingLeft = 8; wrap.style.paddingRight = 8;
-        wrap.style.backgroundColor = new StyleColor(new Color(ColDanger.r, ColDanger.g, ColDanger.b, 0.10f));
-        wrap.style.borderLeftWidth = 3;
-        wrap.style.borderLeftColor = new StyleColor(ColDanger);
-        wrap.style.borderTopLeftRadius = wrap.style.borderTopRightRadius =
-            wrap.style.borderBottomLeftRadius = wrap.style.borderBottomRightRadius = 6;
-
-        int orderCount = groups.Sum(g => g.OrderIds.Count);
-        var heading = MakeText($"NO DOOR BOOKED — {orderCount} order(s) on {groups.Count} trailer(s). " +
-                               "Click one, then click an open slot.", 12, ColDangerSoft, bold: true);
-        heading.style.marginBottom = 5;
-        wrap.Add(heading);
-
-        // Wrapping row rather than a horizontal scroller: this strip eats vertical space from the grid,
-        // and a wrap keeps that cost proportional to how bad the backlog actually is.
-        var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.flexWrap = Wrap.Wrap;
-        foreach (var group in groups)
-            row.Add(BuildUnscheduledChip(group, arrivals, today));
-        wrap.Add(row);
-        return wrap;
-    }
-
-    private VisualElement BuildUnscheduledChip(UnscheduledGroup group,
-                                               OrderArrivalService arrivals, int today)
-    {
-        bool selected = group.Key == _selectedUnscheduledKey;
-        bool late = group.EarliestDueDay < today;
-
-        var chip = new VisualElement();
-        chip.style.flexDirection = FlexDirection.Row;
-        chip.style.alignItems = Align.Center;
-        chip.style.flexShrink = 0;
-        chip.style.marginRight = 5; chip.style.marginBottom = 4;
-        chip.style.paddingLeft = 6; chip.style.paddingRight = 8;
-        chip.style.paddingTop = 3; chip.style.paddingBottom = 3;
-        // Coloured by TYPE, matching the booked chips in the grid — the strip is where the three
-        // types sit side by side, so it's the one place the distinction has to survive at chip size.
-        // Selection and lateness still override: what you're holding and what's overdue matter more
-        // than what kind it is.
-        chip.style.backgroundColor = new StyleColor(selected ? ColOrange : ChipFill(group.Kind));
-        chip.style.borderTopWidth = chip.style.borderBottomWidth =
-            chip.style.borderLeftWidth = chip.style.borderRightWidth = 1;
-        chip.style.borderTopColor = chip.style.borderBottomColor =
-            chip.style.borderLeftColor = chip.style.borderRightColor =
-                new StyleColor(selected ? ColOrangeText : late ? ColDanger : ChipEdge(group.Kind));
-        chip.style.borderTopLeftRadius = chip.style.borderTopRightRadius =
-            chip.style.borderBottomLeftRadius = chip.style.borderBottomRightRadius = 5;
-
-        Color text = selected ? ColOrangeText : late ? ColDangerSoft : ChipText(group.Kind);
-        chip.Add(MakeIcon(IconForCustomer(group.CustomerId, group.ContractId, arrivals), IconSizeTiny, 3,
-                          marginRight: 5));
-
-        var name = MakeText(group.CustomerName, 11, text);
-        name.style.whiteSpace = WhiteSpace.NoWrap;
-        chip.Add(name);
-
-        string due = late ? $"{today - group.EarliestDueDay}d LATE"
-                   : group.EarliestDueDay == today ? "due today"
-                   : $"due d{group.EarliestDueDay}";
-        var meta = MakeText($"· {group.OrderIds.Count} · {due}", 11,
-                            selected ? ColOrangeText : late ? ColDangerSoft : ColSubtleText, bold: late);
-        meta.style.marginLeft = 4;
-        meta.style.whiteSpace = WhiteSpace.NoWrap;
-        chip.Add(meta);
-
-        chip.RegisterCallback<ClickEvent>(_ => OnUnscheduledClicked(group));
-        chip.tooltip = $"{group.CustomerName} · {group.OrderIds.Count} order(s) with no dock appointment · " +
-                       $"earliest due day {group.EarliestDueDay} · click, then click an open slot to book";
-        return chip;
-    }
-
     private void OnUnscheduledClicked(UnscheduledGroup group)
     {
         _selectedUnscheduledKey = _selectedUnscheduledKey == group.Key ? null : group.Key;
@@ -1431,40 +1650,313 @@ public class ContractsPanel : IUIPanel
         Rebuild();
     }
 
-    private VisualElement BuildScheduleHeader(DockScheduleService schedule, int today)
+    private VisualElement BuildScheduleHeader(int today)
     {
         var header = new VisualElement();
-        header.style.flexDirection = FlexDirection.Row;
-        header.style.alignItems = Align.Center;
+        header.style.flexDirection = FlexDirection.Column;
         header.style.marginBottom = 8;
+
+        // ── Top row: Day switcher centered ──
+        var daySwitcher = new VisualElement();
+        daySwitcher.style.flexDirection = FlexDirection.Row;
+        daySwitcher.style.alignItems = Align.Center;
+        daySwitcher.style.justifyContent = Justify.Center;
+        daySwitcher.style.marginBottom = 8;
 
         var prev = new Button(() => { _scheduleDay = Mathf.Max(today - ScheduleDaysBack, _scheduleDay - 1); Rebuild(); })
             { text = "◀" };
         StyleSquareButton(prev);
-        prev.style.width = 26; prev.style.height = 26;
-        header.Add(prev);
+        prev.style.width = 39; prev.style.height = 39;
+        daySwitcher.Add(prev);
 
         string when = _scheduleDay == today ? "today"
                     : _scheduleDay == today + 1 ? "tomorrow"
                     : _scheduleDay < today ? $"{today - _scheduleDay} day(s) ago"
                     : $"in {_scheduleDay - today} day(s)";
-        var dayLabel = MakeText($"Day {_scheduleDay} · {when}", 15, ColTitleText, bold: true);
-        dayLabel.style.marginLeft = 8; dayLabel.style.marginRight = 8;
-        header.Add(dayLabel);
+        var dayLabel = MakeText($"Day {_scheduleDay} · {when}", 30, ColWholesale, bold: true);
+        dayLabel.style.marginLeft = 12; dayLabel.style.marginRight = 12;
+        daySwitcher.Add(dayLabel);
 
         var next = new Button(() => { _scheduleDay = Mathf.Min(today + ScheduleDaysAhead, _scheduleDay + 1); Rebuild(); })
             { text = "▶" };
         StyleSquareButton(next);
-        next.style.width = 26; next.style.height = 26;
-        header.Add(next);
+        next.style.width = 39; next.style.height = 39;
+        daySwitcher.Add(next);
+
+        header.Add(daySwitcher);
+
+        return header;
+    }
+
+    // ── Schedule strip geometry ───────────────────────────────────────────────────────────────────
+    // Pool boxes are deliberately SMALL and uniform. This strip sits between the day switcher and the
+    // grid, so every pixel it takes is a block row you can't see; the full-name chips it replaced grew
+    // it past a third of the panel the moment a backlog built up.
+    private const float PoolBoxWidth  = 58f;
+    private const float PoolBoxHeight = 44f;
+    private const int   PoolMaxBoxes  = 10;
+
+    /// <summary>
+    /// The bordered strip under the day switcher, split into two hemispheres by a vertical rule:
+    /// LEGEND on the left, the stranded-trailer POOL on the right, with the in-game day and clock
+    /// centred on a rail along the bottom.
+    ///
+    /// The pool replaces a separate full-width strip that listed the same trailers as wide
+    /// name-and-due-date chips: both were on screen at once carrying identical data, and the wide ones
+    /// pushed the grid down. Same trailers, one small colour-coded box each, one place to look.
+    ///
+    /// A box is pick-up-then-place, not a literal pixel drag — the grid lives in a ScrollView, and a
+    /// drag that has to auto-scroll to reach door 7 or block 11 is worse than two clicks. Clicking a
+    /// box selects it exactly like clicking a booked chip does, and every open slot already lights up
+    /// and accepts a click while something is held (see BuildEmptySlot's canDrop).
+    /// </summary>
+    private VisualElement BuildScheduleStrip(List<UnscheduledGroup> unscheduled, int doorCount, int today)
+    {
+        var wrapper = new VisualElement();
+        wrapper.style.flexDirection = FlexDirection.Column;
+        wrapper.style.marginBottom = 10;
+        wrapper.style.backgroundColor = new StyleColor(ColStat);
+        wrapper.style.borderTopWidth = wrapper.style.borderBottomWidth =
+            wrapper.style.borderLeftWidth = wrapper.style.borderRightWidth = 2;
+        wrapper.style.borderTopColor = wrapper.style.borderBottomColor =
+            wrapper.style.borderLeftColor = wrapper.style.borderRightColor = new StyleColor(ColBorder);
+        wrapper.style.borderTopLeftRadius = wrapper.style.borderTopRightRadius =
+            wrapper.style.borderBottomLeftRadius = wrapper.style.borderBottomRightRadius = 8;
+
+        // Align.Stretch, not Center: the divider between the halves is the left half's right border, so
+        // it only runs the full height of the strip if that half is stretched to the taller sibling.
+        var halves = new VisualElement();
+        halves.style.flexDirection = FlexDirection.Row;
+        halves.style.alignItems = Align.Stretch;
+
+        // ── LEFT hemisphere: what the colours mean ──
+        var left = new VisualElement();
+        left.style.flexBasis = Length.Percent(50);
+        left.style.flexGrow = 0; left.style.flexShrink = 0;
+        left.style.paddingTop = 10; left.style.paddingBottom = 10;
+        left.style.paddingLeft = 14; left.style.paddingRight = 14;
+        left.style.borderRightWidth = 2;
+        left.style.borderRightColor = new StyleColor(ColBorder);
+        left.Add(MakeStripCaption("LEGEND", ColSubtleText));
+        left.Add(MakeLegendRow(ColChipOut,  ColBlueEdge,   "recurring order"));
+        left.Add(MakeLegendRow(ColChipBulk, ColBulkEdge,   "bulk order"));
+        left.Add(MakeLegendRow(ColChipIn,   ColOrangeEdge, "inbound PO (shares the same doors)"));
+        halves.Add(left);
+
+        // ── RIGHT hemisphere: trailers with no door yet ──
+        var right = new VisualElement();
+        right.style.flexBasis = Length.Percent(50);
+        right.style.flexGrow = 0; right.style.flexShrink = 0;
+        right.style.paddingTop = 10; right.style.paddingBottom = 10;
+        right.style.paddingLeft = 14; right.style.paddingRight = 14;
+
+        bool anyLate = unscheduled.Any(g => g.EarliestDueDay < today);
+        int strandedOrders = unscheduled.Sum(g => g.OrderIds.Count);
+        right.Add(MakeStripCaption(
+            unscheduled.Count == 0
+                ? "UNSCHEDULED TRAILERS"
+                : $"UNSCHEDULED TRAILERS — {unscheduled.Count} ({strandedOrders} order(s))",
+            anyLate ? ColDangerSoft : ColSubtleText));
+
+        if (unscheduled.Count == 0)
+        {
+            var clear = MakeText("Every trailer has a door. Nothing waiting.", 16, ColSubtleText);
+            right.Add(clear);
+        }
+        else
+        {
+            // Wrap rather than a horizontal scroller: the strip's height should be proportional to how
+            // bad the backlog actually is, and a scroller hides exactly the thing it's reporting.
+            var boxes = new VisualElement();
+            boxes.style.flexDirection = FlexDirection.Row;
+            boxes.style.flexWrap = Wrap.Wrap;
+            boxes.style.alignItems = Align.Center;
+            foreach (var group in unscheduled.Take(PoolMaxBoxes))
+                boxes.Add(BuildPoolBox(group, today));
+
+            if (unscheduled.Count > PoolMaxBoxes)
+            {
+                var more = MakeText($"+{unscheduled.Count - PoolMaxBoxes} more", 15, ColSubtleText, bold: true);
+                more.style.marginLeft = 2;
+                more.style.marginBottom = 6;
+                boxes.Add(more);
+            }
+            right.Add(boxes);
+
+            var hint = MakeText(_selectedUnscheduledKey != null
+                                    ? "Now click an open slot in the grid — or click the box again to put it down."
+                                    : "Click a box, then click an open slot in the grid to book it.",
+                                15, _selectedUnscheduledKey != null ? ColOrangeText : ColSubtleText);
+            hint.style.marginTop = 2;
+            right.Add(hint);
+        }
+
+        halves.Add(right);
+        wrapper.Add(halves);
+
+        // ── Bottom rail: the in-game clock, plus what one block can physically hold ──
+        // The clock lives here because the grid scrolls the day switcher out of reach, and "is 14:00
+        // still ahead of me?" is the question this whole tab exists to answer.
+        var rail = new VisualElement();
+        rail.style.flexDirection = FlexDirection.Row;
+        rail.style.alignItems = Align.Center;
+        rail.style.justifyContent = Justify.Center;
+        rail.style.paddingTop = 7; rail.style.paddingBottom = 7;
+        rail.style.borderTopWidth = 2;
+        rail.style.borderTopColor = new StyleColor(ColBorder);
+        rail.style.backgroundColor = new StyleColor(ColBg);
+        rail.style.borderBottomLeftRadius = rail.style.borderBottomRightRadius = 6;
+
+        string clock = ServiceLocator.TryGet(out SimulationTimeService time) && time != null
+            ? $"Day {time.Day}   ·   {time.Hour:00}:{time.Minute:00}"
+            : $"Day {today}";
+        rail.Add(MakeText(clock, 19, ColWholesale, bold: true));
+
+        var sep = MakeText("|", 16, ColBorder);
+        sep.style.marginLeft = 14; sep.style.marginRight = 14;
+        rail.Add(sep);
+
+        rail.Add(MakeText($"{doorCount} outbound door(s) → {doorCount} trailer(s) per 2-hour block",
+                          16, ColSubtleText));
+        wrapper.Add(rail);
+
+        return wrapper;
+    }
+
+    private Label MakeStripCaption(string text, Color color)
+    {
+        var caption = MakeText(text, 14, color, bold: true);
+        caption.style.marginBottom = 8;
+        caption.style.whiteSpace = WhiteSpace.NoWrap;
+        return caption;
+    }
+
+    private VisualElement MakeLegendRow(Color fill, Color edge, string text)
+    {
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.marginBottom = 6;
+
+        var swatch = new VisualElement();
+        swatch.style.width = 22; swatch.style.height = 22;
+        swatch.style.flexShrink = 0;
+        swatch.style.marginRight = 10;
+        swatch.style.backgroundColor = new StyleColor(fill);
+        swatch.style.borderTopWidth = swatch.style.borderBottomWidth =
+            swatch.style.borderLeftWidth = swatch.style.borderRightWidth = 2;
+        swatch.style.borderTopColor = swatch.style.borderBottomColor =
+            swatch.style.borderLeftColor = swatch.style.borderRightColor = new StyleColor(edge);
+        swatch.style.borderTopLeftRadius = swatch.style.borderTopRightRadius =
+            swatch.style.borderBottomLeftRadius = swatch.style.borderBottomRightRadius = 4;
+        row.Add(swatch);
+
+        var label = MakeText(text, 16, ColSubtleText);
+        label.style.whiteSpace = WhiteSpace.NoWrap;
+        row.Add(label);
+        return row;
+    }
+
+    /// <summary>
+    /// One stranded trailer as a small colour-coded box. Fill and edge come from the same ChipFill/
+    /// ChipEdge switch the booked chips in the grid use — a box in the pool and the chip it becomes
+    /// once placed are the same trailer, so if they disagreed on colour the legend would be lying
+    /// about one of them. Selection and lateness override the type colour: what you're holding and
+    /// what's already overdue both matter more than what kind of freight it is.
+    /// </summary>
+    private VisualElement BuildPoolBox(UnscheduledGroup group, int today)
+    {
+        bool selected = group.Key == _selectedUnscheduledKey;
+        bool late = group.EarliestDueDay < today;
+
+        var box = new VisualElement();
+        box.style.width = PoolBoxWidth; box.style.height = PoolBoxHeight;
+        box.style.flexShrink = 0;
+        box.style.marginRight = 6; box.style.marginBottom = 6;
+        box.style.alignItems = Align.Center;
+        box.style.justifyContent = Justify.Center;
+        box.style.backgroundColor = new StyleColor(selected ? ColOrange : ChipFill(group.Kind));
+        box.style.borderTopWidth = box.style.borderBottomWidth =
+            box.style.borderLeftWidth = box.style.borderRightWidth = selected ? 3 : 2;
+        box.style.borderTopColor = box.style.borderBottomColor =
+            box.style.borderLeftColor = box.style.borderRightColor =
+                new StyleColor(selected ? ColOrangeText : late ? ColDanger : ChipEdge(group.Kind));
+        box.style.borderTopLeftRadius = box.style.borderTopRightRadius =
+            box.style.borderBottomLeftRadius = box.style.borderBottomRightRadius = 5;
+
+        Color ink = selected ? ColOrangeText : late ? ColDangerSoft : ChipText(group.Kind);
+
+        var code = MakeText(Abbreviate(group.CustomerName), 16, ink, bold: true);
+        code.style.unityTextAlign = TextAnchor.MiddleCenter;
+        code.style.whiteSpace = WhiteSpace.NoWrap;
+        box.Add(code);
+
+        var meta = MakeText(late ? $"{today - group.EarliestDueDay}d LATE" : $"{group.OrderIds.Count} ord",
+                            11, late ? ColDangerSoft : ink, bold: late);
+        meta.style.unityTextAlign = TextAnchor.MiddleCenter;
+        meta.style.whiteSpace = WhiteSpace.NoWrap;
+        box.Add(meta);
+
+        box.RegisterCallback<ClickEvent>(_ => OnUnscheduledClicked(group));
+        string due = late ? $"{today - group.EarliestDueDay} day(s) LATE"
+                   : group.EarliestDueDay == today ? "due today"
+                   : $"due day {group.EarliestDueDay}";
+        box.tooltip = $"{group.CustomerName} · {group.OrderIds.Count} order(s) with no dock appointment · {due}\n" +
+                      (selected ? "Click again to put it down."
+                                : "Click, then click an open slot to book it.");
+        return box;
+    }
+
+    /// <summary>Three letters for a box only 58px wide: initials when the name has several words
+    /// ("Grizzly Ridge Jerky" → GRJ), otherwise the first three characters.</summary>
+    private static string Abbreviate(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "???";
+        var words = name.Split(new[] { ' ', '-', '&', '\'', '.' },
+                              System.StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length >= 2)
+            return new string(words.Take(3).Select(w => char.ToUpperInvariant(w[0])).ToArray());
+        return name.Substring(0, Mathf.Min(3, name.Length)).ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// "Door 1 / Door 2 / …" labels, one per column, sitting directly above the grid. Column widths
+    /// and the leading/trailing spacers mirror BuildScheduleRow exactly (TimeColWidth, SlotWidth per
+    /// door with the same 5px marginRight the chips use, FullFlagWidth) so a header lines up with the
+    /// slot underneath it without any per-cell math of its own.
+    ///
+    /// This row lives in the stationary strip (_tabHeader), not the scroll view, so SyncScheduleHeader
+    /// has to hand it the grid's horizontal scroll offset every frame — see that method.
+    /// </summary>
+    private VisualElement BuildScheduleColumnHeader(List<int> doors)
+    {
+        var header = new VisualElement();
+        header.style.flexDirection = FlexDirection.Row;
+        header.style.marginBottom = 6;
 
         var spacer = new VisualElement();
-        spacer.style.flexGrow = 1;
+        spacer.style.width = TimeColWidth;
+        spacer.style.minWidth = TimeColWidth;
+        spacer.style.flexShrink = 0;
         header.Add(spacer);
 
-        int doorCount = schedule.CapacityPerBlock;
-        header.Add(MakeText($"{doorCount} outbound door(s) → {doorCount} appointment(s) per block",
-                            12, ColSubtleText));
+        foreach (int door in doors)
+        {
+            var label = MakeText($"Door {door}", 24, ColSubtleText, bold: true);
+            label.style.width = SlotWidth;
+            label.style.minWidth = SlotWidth;
+            label.style.flexShrink = 0;
+            label.style.marginRight = 5;
+            label.style.unityTextAlign = TextAnchor.MiddleCenter;
+            header.Add(label);
+        }
+
+        var flagSpacer = new VisualElement();
+        flagSpacer.style.width = FullFlagWidth;
+        flagSpacer.style.minWidth = FullFlagWidth;
+        flagSpacer.style.flexShrink = 0;
+        header.Add(flagSpacer);
+
         return header;
     }
 
@@ -1724,37 +2216,6 @@ public class ContractsPanel : IUIPanel
 
         _selectedAppointmentId = null;
         Rebuild();
-    }
-
-    private VisualElement BuildScheduleLegend()
-    {
-        var legend = new VisualElement();
-        legend.style.flexDirection = FlexDirection.Row;
-        legend.style.marginBottom = 6;
-        legend.Add(MakeLegendSwatch(ColChipOut, ColBlueEdge, "standing order"));
-        legend.Add(MakeLegendSwatch(ColChipBulk, ColBulkEdge, "bulk order"));
-        legend.Add(MakeLegendSwatch(ColChipIn, ColOrangeEdge, "inbound PO (same doors)"));
-        return legend;
-    }
-
-    private VisualElement MakeLegendSwatch(Color fill, Color edge, string text)
-    {
-        var wrap = new VisualElement();
-        wrap.style.flexDirection = FlexDirection.Row;
-        wrap.style.alignItems = Align.Center;
-        wrap.style.marginRight = 16;
-
-        var swatch = new VisualElement();
-        swatch.style.width = 10; swatch.style.height = 10;
-        swatch.style.marginRight = 5;
-        swatch.style.backgroundColor = new StyleColor(fill);
-        swatch.style.borderTopWidth = swatch.style.borderBottomWidth =
-            swatch.style.borderLeftWidth = swatch.style.borderRightWidth = 1;
-        swatch.style.borderTopColor = swatch.style.borderBottomColor =
-            swatch.style.borderLeftColor = swatch.style.borderRightColor = new StyleColor(edge);
-        wrap.Add(swatch);
-        wrap.Add(MakeText(text, 11, ColSubtleText));
-        return wrap;
     }
 
     /// <summary>
