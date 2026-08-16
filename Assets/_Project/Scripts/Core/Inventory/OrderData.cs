@@ -40,6 +40,15 @@ namespace GameCore.Inventory
         /// subsequent day it remains unshipped.</summary>
         public bool HasBeenFined { get; set; }
 
+        /// <summary>True once this order has been charged the late-LOAD fine (DockScheduleService.
+        /// SweepElapsedAppointments via OrderService.FineLateLoad) — the trailer's booked door
+        /// appointment ran out while a Dock Stocker was still physically loading it. A DIFFERENT
+        /// trigger from HasBeenFined (that one is the due-day fine): a trailer can run late without
+        /// the order itself being overdue yet, and the two are allowed to both hit the same order.
+        /// One-time, same reasoning as HasBeenFined — stops a multi-hour load from being charged
+        /// again on every subsequent hour tick before it finishes.</summary>
+        public bool HasBeenLateLoadFined { get; set; }
+
         /// <summary>ContractData.ContractId of the contract that produced this order, or null for a
         /// hand-made Dev Console order. Stamped at creation by OrderArrivalService.
         ///
@@ -206,6 +215,9 @@ namespace GameCore.Inventory
         public int assignedDoorNumber;
         public string assignedLane;
         public bool hasBeenFined;
+        /// <summary>False in a save written before the late-load fine existed — correct, since
+        /// nothing in such a save could have been charged it.</summary>
+        public bool hasBeenLateLoadFined;
         public string contractId;
         /// <summary>0 in a save written before this field existed — Import treats 0 as "unset" and
         /// falls back to the old flat 25%, so old saves keep their original fine behaviour.</summary>

@@ -100,15 +100,18 @@ namespace GameCore.Inventory
     /// a PO arrive with nowhere to go, so ShipmentService books an Inbound appointment for the block
     /// its truck actually lands in and it consumes capacity like anything else.
     ///
-    /// ARRIVING ORDERS AUTO-BOOK, BUT THE PLAN IS STILL THE PLAYER'S TO CHANGE. An order that lands
-    /// with no appointment already covering its customer+contract is placed into the first block with
-    /// room, walking forward from right now toward the order's due day (never past it — a booking
-    /// after the deadline would look handled while still guaranteeing the fine). That placement is a
-    /// starting point, not a lock: TryMove/IsLocked impose no extra restriction on an auto-placed
-    /// appointment, so the player can drag it anywhere else with room the same as a hand-booked one.
-    /// The only orders that reach the stranded strip are ones that genuinely found no room before
-    /// their due day, and those still cost the account after 30 days (OrderArrivalService.
-    /// SweepMissedPickups) if they stay stranded.
+    /// RECURRING ORDERS AUTO-BOOK; BULK ORDERS GO TO THE POOL. A recurring order arrives on its own
+    /// schedule with no player action attached — it lands with no appointment covering its
+    /// customer+contract, so it's placed into the first block with room, walking forward from right
+    /// now toward the order's due day (never past it — a booking after the deadline would look handled
+    /// while still guaranteeing the fine). That placement is a starting point, not a lock: TryMove/
+    /// IsLocked impose no extra restriction on an auto-placed appointment, so the player can drag it
+    /// anywhere else with room the same as a hand-booked one. A BULK order is different: signing one is
+    /// a direct, in-the-moment player action (clicking Sign on a contract card), so auto-placing it
+    /// would just be guessing on the player's behalf at the exact moment they were already choosing —
+    /// it lands unscheduled instead, for the same pick-then-place flow the stranded strip already
+    /// offers. Either way, freight that stays unscheduled past its due day costs the account after 30
+    /// days (OrderArrivalService.SweepMissedPickups).
     ///
     /// CAPACITY IS OUTBOUND-CAPABLE DOORS, NOT ALL DOORS. A door only counts if at least one of its
     /// shipping lanes will accept outbound work (LaneUsage.Outbound or Both — Both being the default,
@@ -141,13 +144,17 @@ namespace GameCore.Inventory
             OrderService.OnOrderArrived += HandleOrderArrived;
 
             if (_eventManager != null)
+            {
                 _eventManager.Subscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
+                _eventManager.Subscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
+            }
         }
 
         public void Shutdown()
         {
             OrderService.OnOrderArrived -= HandleOrderArrived;
             _eventManager?.Unsubscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
+            _eventManager?.Unsubscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
             _appointments.Clear();
         }
 
@@ -389,13 +396,18 @@ namespace GameCore.Inventory
         // ── Arrival ──────────────────────────────────────────────────────────
 
         /// <summary>
-        /// An arriving order joins a trailer the player has already booked for that account. Otherwise
-        /// it's auto-placed into the first block with room before its due day, so the Schedule tab is
-        /// a tool for overriding a plan that already works rather than a chore that must be completed
-        /// before anything ships — a player who never opens it doesn't lose accounts to a due date they
-        /// didn't know was ticking. The placement is just a default: nothing about TryMove/IsLocked
-        /// treats an auto-placed appointment any differently from a hand-booked one, so the player is
-        /// always free to drag it somewhere else.
+        /// An arriving order joins a trailer the player has already booked for that account. Otherwise,
+        /// a RECURRING order is auto-placed into the first block with room before its due day, so the
+        /// Schedule tab is a tool for overriding a plan that already works rather than a chore that must
+        /// be completed before anything ships — a player who never opens it doesn't lose accounts to a
+        /// due date they didn't know was ticking. The placement is just a default: nothing about
+        /// TryMove/IsLocked treats an auto-placed appointment any differently from a hand-booked one, so
+        /// the player is always free to drag it somewhere else.
+        ///
+        /// A BULK order never auto-places — it's left unscheduled, to surface in the stranded strip's
+        /// pool exactly like a recurring order that failed to find room. Signing a bulk offer is the
+        /// player choosing, right now, to take on that freight; handing them a box to place themselves
+        /// matches that moment better than a slot they never picked appearing on the grid behind them.
         ///
         /// The join branch stays for the same reason it always existed: same customer AND same contract
         /// shares a trailer. Matching on customer alone would put a bulk pallet drop on the same
@@ -414,10 +426,10 @@ namespace GameCore.Inventory
                 return;
             }
 
+            if (order.IsBulk) return; // stays unscheduled — the player places it from the pool
             if (CapacityPerBlock <= 0) return; // nothing to book against; stays unscheduled
 
-            var kind = order.IsBulk ? AppointmentKind.Bulk : AppointmentKind.Outbound;
-            if (TryAutoPlace(order, kind, out var appt))
+            if (TryAutoPlace(order, AppointmentKind.Outbound, out var appt))
                 appt.OrderIds.Add(order.OrderId);
         }
 
@@ -466,10 +478,11 @@ namespace GameCore.Inventory
         /// <summary>
         /// Live orders no appointment is holding a door for, most urgent first.
         ///
-        /// The overflow view now, not the primary one: arrival auto-places into the first block with
-        /// room, so most orders never pass through here. What lands here is freight TryAutoPlace
-        /// genuinely couldn't fit before its due day (or arrived while capacity was 0), plus anything
-        /// the player deliberately unbooked. Anything still here when its due day passes costs the
+        /// Two kinds of occupant, one by design and one by exception. EVERY bulk order lands here on
+        /// arrival — HandleOrderArrived deliberately never auto-places one, so this pool is how the
+        /// player picks it up and places it. Recurring orders only show up here when TryAutoPlace
+        /// genuinely couldn't fit one before its due day (or it arrived while capacity was 0), or when
+        /// the player deliberately unbooked one. Anything still here when its due day passes costs the
         /// account (OrderArrivalService.SweepMissedPickups).
         /// </summary>
         public List<UnscheduledGroup> UnscheduledGroups()
@@ -540,6 +553,72 @@ namespace GameCore.Inventory
             // NOTE: no re-booking sweep here any more. The purge does strand orders that outlived
             // their appointment, but re-booking them automatically is exactly the behaviour that made
             // the Schedule tab optional — the player rebooks, or loses the account.
+        }
+
+        private void OnHourChanged(string eventId, int newHour) => SweepElapsedAppointments();
+
+        /// <summary>
+        /// Judges every appointment whose booked block has fully elapsed, once per hour tick. Two
+        /// outcomes, decided by whether the trailer's freight ever actually started loading — i.e.
+        /// whether ANY of its orders reached Loading or beyond, meaning a Dock Stocker actually claimed
+        /// the Load task and is (or was) physically carrying pallets onto it:
+        ///
+        ///   NEVER STARTED   the door slot is cancelled outright (same Cancel a player's own "return to
+        ///                   pool" click uses — see ContractsPanel.OnReturnAppointmentToPoolClicked) so
+        ///                   the freight falls back into the unscheduled pool on the next rebuild. This
+        ///                   is Tad's "the trailer showed up and we didn't load it up because it wasn't
+        ///                   ready or we didn't have the employees" case.
+        ///   ALREADY LOADING pulling the appointment out from under a Dock Stocker mid-load would desync
+        ///                   TrailerLoadController, which is still driving a coroutine against these
+        ///                   exact pallets/orders — so the appointment is left alone and the load is
+        ///                   allowed to finish. Instead each order on it eats a one-time 25% revenue
+        ///                   fine (OrderService.FineLateLoad) for running the door slot over. Tad's
+        ///                   explicit ask was that this should also cost some customer satisfaction —
+        ///                   not modelled here, see the TODO on FineLateLoad for why.
+        ///
+        /// Inbound appointments are never judged here — they're ShipmentService's note that a PO's
+        /// truck is at a door, not a promise this service made to anyone.
+        /// </summary>
+        private void SweepElapsedAppointments()
+        {
+            if (!ServiceLocator.TryGet(out OrderService orderService) || orderService == null) return;
+
+            int today = CurrentDay;
+            int nowBlock = CurrentBlock;
+            var elapsed = _appointments
+                .Where(a => a.Kind != AppointmentKind.Inbound &&
+                            (a.Day < today || (a.Day == today && a.BlockIndex < nowBlock)))
+                .ToList();
+
+            foreach (var appt in elapsed)
+            {
+                var apptOrders = orderService.ActiveOrders
+                    .Where(o => o != null && appt.OrderIds.Contains(o.OrderId))
+                    .ToList();
+
+                bool startedLoading = apptOrders.Any(o =>
+                    o.Status == OrderData.OrderStatus.Loading ||
+                    o.Status == OrderData.OrderStatus.Loaded ||
+                    o.Status == OrderData.OrderStatus.Shipped);
+
+                if (!startedLoading)
+                {
+                    string who = appt.CustomerName;
+                    _appointments.Remove(appt);
+                    Debug.LogWarning($"[DockSchedule] {who}'s {BlockLabel(appt.BlockIndex)} slot on day {appt.Day} " +
+                                     $"elapsed with nothing loaded — released back to the unscheduled pool.");
+                    continue;
+                }
+
+                foreach (var order in apptOrders)
+                {
+                    if (order.HasBeenLateLoadFined) continue;
+                    if (order.Status != OrderData.OrderStatus.Loading &&
+                        order.Status != OrderData.OrderStatus.Loaded) continue;
+
+                    orderService.FineLateLoad(order);
+                }
+            }
         }
 
         // ── Persistence ──────────────────────────────────────────────────────

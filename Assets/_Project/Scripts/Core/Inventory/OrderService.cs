@@ -864,6 +864,11 @@ namespace GameCore.Inventory
             // ToList() because OnOrderFined listeners are free to touch order state; the enumeration
             // itself is over _activeOrders and nothing here archives, but snapshotting keeps a future
             // listener from invalidating the iterator.
+            //
+            // TODO(customer satisfaction — Tad's ask): missing a customer's due day is exactly the
+            // "didn't receive it in the timeslot they wanted" case a satisfaction system should react
+            // to, same as the other two TODOs on this file (FineLateLoad) and on ContractsPanel.
+            // BuildPoolBox. No such system exists yet — this is the call site for it once one does.
             foreach (var order in _activeOrders.Where(o => o.IsOverdue(newDay) && !o.HasBeenFined).ToList())
             {
                 float rate = order.LateFeePercent > 0f ? order.LateFeePercent : LateFeePercentClerk;
@@ -874,6 +879,44 @@ namespace GameCore.Inventory
 
                 Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) is OVERDUE — fined ${fine} ({rate:P0} of ${order.TotalRevenue} order cost).");
             }
+        }
+
+        /// <summary>Flat rate for FineLateLoad — a trailer's booked door slot ran out while it was
+        /// still being loaded. Same 25% shape as the day-late fine, but a deliberately separate
+        /// constant: the two fines have different triggers (door slot vs. due day) and there's no
+        /// reason a future balance pass couldn't tune them apart.</summary>
+        private const float LateLoadFinePercent = 0.25f;
+
+        /// <summary>
+        /// One-time 25% revenue penalty for an order whose booked dock appointment's block ran out
+        /// while it was still being physically loaded. Called by DockScheduleService.
+        /// SweepElapsedAppointments — never from UI — for exactly the case Tad specced: the trailer
+        /// showed up and loading DID start, so pulling the appointment out from under the Dock Stocker
+        /// mid-coroutine would desync TrailerLoadController; instead the load is left to finish and
+        /// the account eats a fine for running over its window, same as a day-late order does for
+        /// missing its due date.
+        ///
+        /// Reuses OnOrderFined rather than a new event — OrderArrivalService.HandleOrderFined already
+        /// rolls any fine into the owning contract's OrdersLate/LateFeesPaid stats, and a late-loaded
+        /// trailer should count against that account's on-time rate exactly like a day-late one does.
+        ///
+        /// TODO(customer satisfaction): Tad's explicit ask was that this should also cost the account
+        /// some customer satisfaction. Not modelled here — no such system exists yet in this codebase
+        /// (searched; there's no satisfaction/reputation field anywhere) — but this is the call site
+        /// that should apply it once one does.
+        /// </summary>
+        public void FineLateLoad(OrderData order)
+        {
+            if (order == null || order.HasBeenLateLoadFined) return;
+
+            int fine = Mathf.RoundToInt(LateLoadFinePercent * order.TotalRevenue);
+            _moneyService?.RemoveCapital(fine, FinanceCategory.Fines);
+            order.HasBeenLateLoadFined = true;
+            OnOrderFined?.Invoke(order, fine);
+
+            Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) fined ${fine} " +
+                             $"({LateLoadFinePercent:P0} of ${order.TotalRevenue}) — its dock appointment ran out " +
+                             $"while still loading.");
         }
 
         /// <summary>
@@ -941,6 +984,7 @@ namespace GameCore.Inventory
                     assignedDoorNumber = o.AssignedDoorNumber,
                     assignedLane = o.AssignedLane,
                     hasBeenFined = o.HasBeenFined,
+                    hasBeenLateLoadFined = o.HasBeenLateLoadFined,
                     contractId = o.ContractId,
                     lateFeePercent = o.LateFeePercent,
                     // isWholesale deliberately left false/unwritten — that field is retired, folded
@@ -989,6 +1033,7 @@ namespace GameCore.Inventory
                     AssignedDoorNumber = snap.assignedDoorNumber,
                     AssignedLane = snap.assignedLane,
                     HasBeenFined = snap.hasBeenFined,
+                    HasBeenLateLoadFined = snap.hasBeenLateLoadFined,
                     ContractId = snap.contractId,
                     // 0 means the field wasn't in the file — keep the old flat rate rather than
                     // silently making a legacy order free to be late.

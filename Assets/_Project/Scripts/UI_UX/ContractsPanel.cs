@@ -22,11 +22,13 @@ using GameCore.Services;
 ///   SCHEDULE       the dock appointment book — two-hour blocks, one row per block, as many slots
 ///                  per block as you have outbound doors.
 ///
-/// ARRIVING FREIGHT AUTO-BOOKS A DOOR, BUT STAYS THE PLAYER'S TO MOVE. An order lands into the first
-/// open block before its due day the moment it arrives (DockScheduleService.TryAutoPlace) — the
-/// Schedule tab is where you override that plan, not where you're required to build it from scratch.
-/// Freight that genuinely found no room shows in the stranded strip instead, and if it passes its due
-/// day still stranded, the account is lost for 30 days (OrderArrivalService.SweepMissedPickups).
+/// RECURRING FREIGHT AUTO-BOOKS A DOOR; BULK FREIGHT WAITS FOR YOU TO PLACE IT. A recurring order
+/// lands into the first open block before its due day the moment it arrives (DockScheduleService.
+/// TryAutoPlace) — the Schedule tab is where you override that plan, not where you're required to
+/// build it from scratch. A bulk order never auto-books: signing one is the player's own in-the-moment
+/// choice, so it shows up as a box in the stranded strip's pool instead, same as recurring freight that
+/// genuinely found no room. Either way, freight that's still unscheduled when its due day passes costs
+/// the account for 30 days (OrderArrivalService.SweepMissedPickups).
 ///
 /// Why New Contracts and Accounts are separate rather than one greyed-out list: a delivered one-off
 /// stays signed forever (that's what keeps the Sign button off it), so under the old single list it
@@ -80,7 +82,11 @@ public class ContractsPanel : IUIPanel
     /// ~1170), then again to fit the Order # column (adds ~100) — a default that clips its own ledger
     /// would make resizing a repair rather than a preference.</summary>
     private const float ModalWidth  = 1340f;
-    private const float ModalHeight = 680f;
+    // Raised from 680 so the Schedule tab's grid — a ScrollView that just fills whatever's left after
+    // the fixed-height header strip — shows more block rows without scrolling. minH on the
+    // ResizableWindow below is tied to this same constant, so the player still can't drag it shorter
+    // than the new default, same as before.
+    private const float ModalHeight = 800f;
     /// <summary>Narrowest the window can be dragged. Below this the tab bar itself starts wrapping.
     /// The Completed tab can be narrowed past its own column total safely — it scrolls sideways, and
     /// its header tracks the scroll (see SyncCompletedHeader).</summary>
@@ -424,6 +430,10 @@ public class ContractsPanel : IUIPanel
         content.schedule.Execute(SyncFrozenTimeColumn).Every(16);
         content.schedule.Execute(SyncCompletedHeader).Every(16);
         content.schedule.Execute(SyncScheduleHeader).Every(16);
+        // Coarser interval than the three above — this only ever displays whole minutes, so polling
+        // faster than a few times a second buys nothing. Scheduled ONCE here for the same reason as
+        // the others: doing it per Rebuild would stack a poller per refresh.
+        content.schedule.Execute(SyncScheduleClock).Every(200);
 
         footerMessage = new Label();
         ApplyFont(footerMessage, size: 15);
@@ -612,6 +622,11 @@ public class ContractsPanel : IUIPanel
     private VisualElement _scheduleHeaderRow;
     private float _lastScheduleHScroll = float.NaN;
 
+    /// <summary>The Schedule tab's rail clock — kept live by SyncScheduleClock rather than only
+    /// reflecting the moment of the last Rebuild(). Null on every other tab.</summary>
+    private Label _scheduleClockLabel;
+    private string _lastScheduleClockText;
+
     /// <summary>
     /// Slides the Completed header sideways by exactly what the ledger is scrolled, so the two stay
     /// in step once the window is dragged narrower than the columns need.
@@ -643,6 +658,26 @@ public class ContractsPanel : IUIPanel
         _lastScheduleHScroll = x;
         _scheduleHeaderRow.style.left = -x;
     }
+
+    /// <summary>Keeps the Schedule tab's rail clock ticking between rebuilds. Before this it only ever
+    /// showed the time as of the last Rebuild() — which in practice meant it looked frozen unless the
+    /// player did something that happened to trigger one (switching tabs, or the window losing and
+    /// regaining focus), which read as a bug rather than the correct value just going stale. Guarded on
+    /// change, same reasoning as SyncScheduleHeader/SyncCompletedHeader.</summary>
+    private void SyncScheduleClock()
+    {
+        if (_scheduleClockLabel == null) return;
+
+        string text = FormatScheduleClock();
+        if (text == _lastScheduleClockText) return;
+        _lastScheduleClockText = text;
+        _scheduleClockLabel.text = text;
+    }
+
+    private static string FormatScheduleClock()
+        => ServiceLocator.TryGet(out SimulationTimeService time) && time != null
+            ? $"Day {time.Day}   ·   {time.Hour:00}:{time.Minute:00}"
+            : $"Day {CurrentDay()}";
 
     private void OnDevAddCustomer()
     {
@@ -744,6 +779,8 @@ public class ContractsPanel : IUIPanel
         _lastCompletedHScroll = float.NaN;
         _scheduleHeaderRow = null;  // same reasoning, Schedule tab's own copy
         _lastScheduleHScroll = float.NaN;
+        _scheduleClockLabel = null; // the rail was just cleared; this pointed into it
+        _lastScheduleClockText = null;
         _footerMessage.text = string.Empty;
 
         // Only the Schedule grid can outgrow the modal sideways — a row is one column per door, and
@@ -1612,7 +1649,7 @@ public class ContractsPanel : IUIPanel
         // which is the one place none of the three is any use. You need all of them in view while
         // scrolling the grid hunting for somewhere to put a trailer.
         var unscheduled = schedule.UnscheduledGroups();
-        _tabHeader.Add(BuildScheduleStrip(unscheduled, doors.Count, today));
+        _tabHeader.Add(BuildScheduleStrip(unscheduled, today, arrivals));
 
         // Column header goes LAST into the stationary strip so it ends up directly above row 1 — same
         // ordering reasoning as BuildCompletedSummary/BuildCompletedHeader. Without a label per column,
@@ -1634,10 +1671,12 @@ public class ContractsPanel : IUIPanel
         if (_selectedUnscheduledKey != null)
             _footerMessage.text = "Pick an empty slot to book this trailer in, or click it again to put it down.";
         else if (_selectedAppointmentId != null)
-            _footerMessage.text = "Pick an empty slot to move the selected appointment, or click it again to drop it.";
+            _footerMessage.text = "Pick an empty slot to move the selected appointment, click it again to drop it, " +
+                                  "or click the Unscheduled Trailers pool to send it back unbooked.";
         else
-            _footerMessage.text = $"{booked} of {capacity} slots booked · arriving orders auto-book the first free " +
-                                  $"block before their due day — click an appointment to move it." +
+            _footerMessage.text = $"{booked} of {capacity} slots booked · recurring orders auto-book the first free " +
+                                  $"block before their due day, bulk orders wait for you to place them — click an " +
+                                  $"appointment to move it." +
                                   (unscheduled.Count > 0
                                       ? $"  ·  {unscheduled.Count} trailer(s) still need a door — see above."
                                       : string.Empty);
@@ -1654,14 +1693,14 @@ public class ContractsPanel : IUIPanel
     {
         var header = new VisualElement();
         header.style.flexDirection = FlexDirection.Column;
-        header.style.marginBottom = 8;
+        header.style.marginBottom = 4;
 
-        // ── Top row: Day switcher centered ──
+        // ── Top row: Day switcher centered, live clock riding alongside it ──
         var daySwitcher = new VisualElement();
         daySwitcher.style.flexDirection = FlexDirection.Row;
         daySwitcher.style.alignItems = Align.Center;
         daySwitcher.style.justifyContent = Justify.Center;
-        daySwitcher.style.marginBottom = 8;
+        daySwitcher.style.marginBottom = 4;
 
         var prev = new Button(() => { _scheduleDay = Mathf.Max(today - ScheduleDaysBack, _scheduleDay - 1); Rebuild(); })
             { text = "◀" };
@@ -1673,7 +1712,7 @@ public class ContractsPanel : IUIPanel
                     : _scheduleDay == today + 1 ? "tomorrow"
                     : _scheduleDay < today ? $"{today - _scheduleDay} day(s) ago"
                     : $"in {_scheduleDay - today} day(s)";
-        var dayLabel = MakeText($"Day {_scheduleDay} · {when}", 30, ColWholesale, bold: true);
+        var dayLabel = MakeText($"Day {_scheduleDay} · {when}", 30, ColChipOutText, bold: true);
         dayLabel.style.marginLeft = 12; dayLabel.style.marginRight = 12;
         daySwitcher.Add(dayLabel);
 
@@ -1682,6 +1721,17 @@ public class ContractsPanel : IUIPanel
         StyleSquareButton(next);
         next.style.width = 39; next.style.height = 39;
         daySwitcher.Add(next);
+
+        // The live clock used to sit alone in a now-deleted rail under the legend — moved up next to
+        // the thing it actually answers ("is the block I'm looking at still ahead of right now?"),
+        // right beside the switcher that picks which day you're looking at.
+        var clockSep = MakeText("|", 22, ColBorder);
+        clockSep.style.marginLeft = 18; clockSep.style.marginRight = 12;
+        daySwitcher.Add(clockSep);
+
+        _scheduleClockLabel = MakeText(FormatScheduleClock(), 18, ColWholesale, bold: true);
+        _lastScheduleClockText = _scheduleClockLabel.text;
+        daySwitcher.Add(_scheduleClockLabel);
 
         header.Add(daySwitcher);
 
@@ -1692,14 +1742,15 @@ public class ContractsPanel : IUIPanel
     // Pool boxes are deliberately SMALL and uniform. This strip sits between the day switcher and the
     // grid, so every pixel it takes is a block row you can't see; the full-name chips it replaced grew
     // it past a third of the panel the moment a backlog built up.
-    private const float PoolBoxWidth  = 58f;
-    private const float PoolBoxHeight = 44f;
+    private const float PoolBoxWidth  = 78f;
+    private const float PoolBoxHeight = 70f;
     private const int   PoolMaxBoxes  = 10;
 
     /// <summary>
     /// The bordered strip under the day switcher, split into two hemispheres by a vertical rule:
-    /// LEGEND on the left, the stranded-trailer POOL on the right, with the in-game day and clock
-    /// centred on a rail along the bottom.
+    /// LEGEND on the left, the stranded-trailer POOL on the right. The in-game clock used to live on a
+    /// rail along the bottom of this strip — moved up next to the day switcher in BuildScheduleHeader
+    /// instead, so this strip no longer has a bottom row at all once its two halves are built.
     ///
     /// The pool replaces a separate full-width strip that listed the same trailers as wide
     /// name-and-due-date chips: both were on screen at once carrying identical data, and the wide ones
@@ -1710,11 +1761,12 @@ public class ContractsPanel : IUIPanel
     /// box selects it exactly like clicking a booked chip does, and every open slot already lights up
     /// and accepts a click while something is held (see BuildEmptySlot's canDrop).
     /// </summary>
-    private VisualElement BuildScheduleStrip(List<UnscheduledGroup> unscheduled, int doorCount, int today)
+    private VisualElement BuildScheduleStrip(List<UnscheduledGroup> unscheduled, int today,
+                                             OrderArrivalService arrivals)
     {
         var wrapper = new VisualElement();
         wrapper.style.flexDirection = FlexDirection.Column;
-        wrapper.style.marginBottom = 10;
+        wrapper.style.marginBottom = 6;
         wrapper.style.backgroundColor = new StyleColor(ColStat);
         wrapper.style.borderTopWidth = wrapper.style.borderBottomWidth =
             wrapper.style.borderLeftWidth = wrapper.style.borderRightWidth = 2;
@@ -1722,6 +1774,38 @@ public class ContractsPanel : IUIPanel
             wrapper.style.borderLeftColor = wrapper.style.borderRightColor = new StyleColor(ColBorder);
         wrapper.style.borderTopLeftRadius = wrapper.style.borderTopRightRadius =
             wrapper.style.borderBottomLeftRadius = wrapper.style.borderBottomRightRadius = 8;
+
+        bool anyLate = unscheduled.Any(g => g.EarliestDueDay < today);
+        int strandedOrders = unscheduled.Sum(g => g.OrderIds.Count);
+
+        // ── Caption row: LEGEND / UNSCHEDULED TRAILERS, each centred over its half below ──
+        // Sits above the bordered halves rather than as the first line inside them, so the two
+        // captions read as headers over the box instead of body text at its top-left corner.
+        var captions = new VisualElement();
+        captions.style.flexDirection = FlexDirection.Row;
+        captions.style.paddingTop = 6;
+        captions.style.borderBottomWidth = 2;
+        captions.style.borderBottomColor = new StyleColor(ColBorder);
+
+        var legendCaptionHalf = new VisualElement();
+        legendCaptionHalf.style.flexBasis = Length.Percent(50);
+        legendCaptionHalf.style.flexGrow = 0; legendCaptionHalf.style.flexShrink = 0;
+        legendCaptionHalf.style.alignItems = Align.Center;
+        legendCaptionHalf.Add(MakeStripCaption("LEGEND", ColSubtleText));
+        captions.Add(legendCaptionHalf);
+
+        var unscheduledCaptionHalf = new VisualElement();
+        unscheduledCaptionHalf.style.flexBasis = Length.Percent(50);
+        unscheduledCaptionHalf.style.flexGrow = 0; unscheduledCaptionHalf.style.flexShrink = 0;
+        unscheduledCaptionHalf.style.alignItems = Align.Center;
+        unscheduledCaptionHalf.Add(MakeStripCaption(
+            unscheduled.Count == 0
+                ? "UNSCHEDULED TRAILERS"
+                : $"UNSCHEDULED TRAILERS — {unscheduled.Count} ({strandedOrders} order(s))",
+            anyLate ? ColDangerSoft : ColSubtleText));
+        captions.Add(unscheduledCaptionHalf);
+
+        wrapper.Add(captions);
 
         // Align.Stretch, not Center: the divider between the halves is the left half's right border, so
         // it only runs the full height of the strip if that half is stretched to the taller sibling.
@@ -1733,11 +1817,11 @@ public class ContractsPanel : IUIPanel
         var left = new VisualElement();
         left.style.flexBasis = Length.Percent(50);
         left.style.flexGrow = 0; left.style.flexShrink = 0;
-        left.style.paddingTop = 10; left.style.paddingBottom = 10;
+        left.style.justifyContent = Justify.Center;
+        left.style.paddingTop = 6; left.style.paddingBottom = 6;
         left.style.paddingLeft = 14; left.style.paddingRight = 14;
         left.style.borderRightWidth = 2;
         left.style.borderRightColor = new StyleColor(ColBorder);
-        left.Add(MakeStripCaption("LEGEND", ColSubtleText));
         left.Add(MakeLegendRow(ColChipOut,  ColBlueEdge,   "recurring order"));
         left.Add(MakeLegendRow(ColChipBulk, ColBulkEdge,   "bulk order"));
         left.Add(MakeLegendRow(ColChipIn,   ColOrangeEdge, "inbound PO (shares the same doors)"));
@@ -1747,20 +1831,29 @@ public class ContractsPanel : IUIPanel
         var right = new VisualElement();
         right.style.flexBasis = Length.Percent(50);
         right.style.flexGrow = 0; right.style.flexShrink = 0;
-        right.style.paddingTop = 10; right.style.paddingBottom = 10;
+        right.style.justifyContent = Justify.Center;
+        right.style.paddingTop = 6; right.style.paddingBottom = 6;
         right.style.paddingLeft = 14; right.style.paddingRight = 14;
 
-        bool anyLate = unscheduled.Any(g => g.EarliestDueDay < today);
-        int strandedOrders = unscheduled.Sum(g => g.OrderIds.Count);
-        right.Add(MakeStripCaption(
-            unscheduled.Count == 0
-                ? "UNSCHEDULED TRAILERS"
-                : $"UNSCHEDULED TRAILERS — {unscheduled.Count} ({strandedOrders} order(s))",
-            anyLate ? ColDangerSoft : ColSubtleText));
+        // Holding a booked chip turns the whole pool into a drop target — put it down anywhere in here
+        // (not just on an empty grid slot) to unbook it and send it back to this pool. Individual pool
+        // boxes stop their own click from bubbling up to this handler (see BuildPoolBox), so a click
+        // that lands ON a box still means "select that box instead," never "also drop what I'm holding."
+        bool returningAppointment = _selectedAppointmentId != null;
+        if (returningAppointment)
+        {
+            right.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.12f));
+            right.RegisterCallback<ClickEvent>(_ => OnReturnAppointmentToPoolClicked());
+        }
 
         if (unscheduled.Count == 0)
         {
-            var clear = MakeText("Every trailer has a door. Nothing waiting.", 16, ColSubtleText);
+            var clear = MakeText(returningAppointment
+                                     ? "Click here to send that trailer back to the pool, unbooked."
+                                     : "Every trailer has a door. Nothing waiting.",
+                                 16, returningAppointment ? ColOrangeText : ColSubtleText);
+            clear.style.unityTextAlign = TextAnchor.MiddleCenter;
+            clear.style.whiteSpace = WhiteSpace.Normal;
             right.Add(clear);
         }
         else
@@ -1772,7 +1865,7 @@ public class ContractsPanel : IUIPanel
             boxes.style.flexWrap = Wrap.Wrap;
             boxes.style.alignItems = Align.Center;
             foreach (var group in unscheduled.Take(PoolMaxBoxes))
-                boxes.Add(BuildPoolBox(group, today));
+                boxes.Add(BuildPoolBox(group, today, arrivals));
 
             if (unscheduled.Count > PoolMaxBoxes)
             {
@@ -1783,10 +1876,13 @@ public class ContractsPanel : IUIPanel
             }
             right.Add(boxes);
 
-            var hint = MakeText(_selectedUnscheduledKey != null
-                                    ? "Now click an open slot in the grid — or click the box again to put it down."
-                                    : "Click a box, then click an open slot in the grid to book it.",
-                                15, _selectedUnscheduledKey != null ? ColOrangeText : ColSubtleText);
+            string hintText = returningAppointment
+                ? "Click an empty spot here to send that trailer back to the pool, unbooked."
+                : _selectedUnscheduledKey != null
+                    ? "Now click an open slot in the grid — or click the box again to put it down."
+                    : "Click a box, then click an open slot in the grid to book it.";
+            var hint = MakeText(hintText, 15,
+                                returningAppointment || _selectedUnscheduledKey != null ? ColOrangeText : ColSubtleText);
             hint.style.marginTop = 2;
             right.Add(hint);
         }
@@ -1794,39 +1890,13 @@ public class ContractsPanel : IUIPanel
         halves.Add(right);
         wrapper.Add(halves);
 
-        // ── Bottom rail: the in-game clock, plus what one block can physically hold ──
-        // The clock lives here because the grid scrolls the day switcher out of reach, and "is 14:00
-        // still ahead of me?" is the question this whole tab exists to answer.
-        var rail = new VisualElement();
-        rail.style.flexDirection = FlexDirection.Row;
-        rail.style.alignItems = Align.Center;
-        rail.style.justifyContent = Justify.Center;
-        rail.style.paddingTop = 7; rail.style.paddingBottom = 7;
-        rail.style.borderTopWidth = 2;
-        rail.style.borderTopColor = new StyleColor(ColBorder);
-        rail.style.backgroundColor = new StyleColor(ColBg);
-        rail.style.borderBottomLeftRadius = rail.style.borderBottomRightRadius = 6;
-
-        string clock = ServiceLocator.TryGet(out SimulationTimeService time) && time != null
-            ? $"Day {time.Day}   ·   {time.Hour:00}:{time.Minute:00}"
-            : $"Day {today}";
-        rail.Add(MakeText(clock, 19, ColWholesale, bold: true));
-
-        var sep = MakeText("|", 16, ColBorder);
-        sep.style.marginLeft = 14; sep.style.marginRight = 14;
-        rail.Add(sep);
-
-        rail.Add(MakeText($"{doorCount} outbound door(s) → {doorCount} trailer(s) per 2-hour block",
-                          16, ColSubtleText));
-        wrapper.Add(rail);
-
         return wrapper;
     }
 
     private Label MakeStripCaption(string text, Color color)
     {
         var caption = MakeText(text, 14, color, bold: true);
-        caption.style.marginBottom = 8;
+        caption.style.marginBottom = 6;
         caption.style.whiteSpace = WhiteSpace.NoWrap;
         return caption;
     }
@@ -1836,7 +1906,7 @@ public class ContractsPanel : IUIPanel
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
-        row.style.marginBottom = 6;
+        row.style.marginBottom = 3;
 
         var swatch = new VisualElement();
         swatch.style.width = 22; swatch.style.height = 22;
@@ -1864,7 +1934,7 @@ public class ContractsPanel : IUIPanel
     /// about one of them. Selection and lateness override the type colour: what you're holding and
     /// what's already overdue both matter more than what kind of freight it is.
     /// </summary>
-    private VisualElement BuildPoolBox(UnscheduledGroup group, int today)
+    private VisualElement BuildPoolBox(UnscheduledGroup group, int today, OrderArrivalService arrivals)
     {
         bool selected = group.Key == _selectedUnscheduledKey;
         bool late = group.EarliestDueDay < today;
@@ -1873,8 +1943,13 @@ public class ContractsPanel : IUIPanel
         box.style.width = PoolBoxWidth; box.style.height = PoolBoxHeight;
         box.style.flexShrink = 0;
         box.style.marginRight = 6; box.style.marginBottom = 6;
+        box.style.paddingTop = 4; box.style.paddingBottom = 4;
         box.style.alignItems = Align.Center;
         box.style.justifyContent = Justify.Center;
+        // Three stacked labels centred as a group can overrun a fixed-height box if their natural line
+        // height runs even slightly over what fits — clip rather than let the top/bottom lines spill
+        // past the border (they were doing exactly that before this was added).
+        box.style.overflow = Overflow.Hidden;
         box.style.backgroundColor = new StyleColor(selected ? ColOrange : ChipFill(group.Kind));
         box.style.borderTopWidth = box.style.borderBottomWidth =
             box.style.borderLeftWidth = box.style.borderRightWidth = selected ? 3 : 2;
@@ -1889,15 +1964,44 @@ public class ContractsPanel : IUIPanel
         var code = MakeText(Abbreviate(group.CustomerName), 16, ink, bold: true);
         code.style.unityTextAlign = TextAnchor.MiddleCenter;
         code.style.whiteSpace = WhiteSpace.NoWrap;
+        code.style.marginTop = 0; code.style.marginBottom = 0;
         box.Add(code);
 
-        var meta = MakeText(late ? $"{today - group.EarliestDueDay}d LATE" : $"{group.OrderIds.Count} ord",
-                            11, late ? ColDangerSoft : ink, bold: late);
-        meta.style.unityTextAlign = TextAnchor.MiddleCenter;
-        meta.style.whiteSpace = WhiteSpace.NoWrap;
-        box.Add(meta);
+        // The slot the customer actually contracted for, split across the box's middle and bottom
+        // lines: due day on its own line, their contract's CutoffHour (the closest thing to an
+        // "expected receiving time" on record — there's no dedicated delivery-window field, CutoffHour
+        // is when THEIR order lands, reused here as the best available proxy for the hour they think of
+        // as "their" slot) on the line below it. Falls back to an em dash for a Dev Console order,
+        // which carries no ContractId and therefore no hour to show. Order count / days-late, shown
+        // here before, is still available on hover (see the tooltip below) rather than taking a line.
+        //
+        // TODO(customer satisfaction — Tad's ask): a trailer that sits here past THIS expected slot,
+        // not just past its hard due day, should cost the account some customer satisfaction once that
+        // system exists. No such system exists yet (see the same TODO on OrderService.OnDayChanged and
+        // OrderService.FineLateLoad) — these two lines are the visible half of that gap; the other half
+        // is wherever "missed the wanted slot" actually gets decided, which today only happens at the
+        // hard due-day/lost-contract level, not at this softer "customer's own preferred hour" level.
+        var contract = arrivals?.GetContract(group.ContractId);
 
-        box.RegisterCallback<ClickEvent>(_ => OnUnscheduledClicked(group));
+        var dayLabel = MakeText($"Day {group.EarliestDueDay}", 11, late ? ColDangerSoft : ink, bold: late);
+        dayLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        dayLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        dayLabel.style.marginTop = 0; dayLabel.style.marginBottom = 0;
+        box.Add(dayLabel);
+
+        // Same ink as the customer code and day line, not the muted ColSubtleText it had before — all
+        // three lines read as one piece of information now, not two important ones and a footnote.
+        var timeLabel = MakeText(contract != null ? $"{contract.CutoffHour:00}:00" : "—",
+                                 13, late ? ColDangerSoft : ink);
+        timeLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        timeLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        timeLabel.style.marginTop = 0; timeLabel.style.marginBottom = 0;
+        box.Add(timeLabel);
+
+        // Stopped here, not left to bubble: the pool container itself is a drop target for a held
+        // appointment chip (see BuildScheduleStrip), and a click on one specific box means "select
+        // this box" — never also "drop what I'm holding into the pool at large."
+        box.RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); OnUnscheduledClicked(group); });
         string due = late ? $"{today - group.EarliestDueDay} day(s) LATE"
                    : group.EarliestDueDay == today ? "due today"
                    : $"due day {group.EarliestDueDay}";
@@ -2169,6 +2273,37 @@ public class ContractsPanel : IUIPanel
         // without changing tabs.
         _selectedAppointmentId = _selectedAppointmentId == appt.Id ? null : appt.Id;
         _selectedUnscheduledKey = null; // one thing in hand at a time
+        Rebuild();
+    }
+
+    /// <summary>
+    /// Unbooks the held appointment entirely — DockScheduleService.Cancel, not a move — so its orders
+    /// fall back to UnscheduledGroups() and reappear in the pool on next rebuild. The mirror image of
+    /// picking a pool box up and placing it in the grid.
+    ///
+    /// Re-checks IsLocked here rather than trusting the selection was still valid: the same race TryMove
+    /// already guards against applies — the orders on this chip could have been released to loading in
+    /// the moments between picking it up and clicking the pool.
+    /// </summary>
+    private void OnReturnAppointmentToPoolClicked()
+    {
+        var schedule = Schedule();
+        if (schedule == null || _selectedAppointmentId == null) return;
+
+        var appt = schedule.FindById(_selectedAppointmentId);
+        _selectedAppointmentId = null; // one way or another, the pick-up ends here
+        if (appt == null) { Rebuild(); return; }
+
+        if (schedule.IsLocked(appt, out string why))
+        {
+            UIToast.Show(why);
+            Rebuild();
+            return;
+        }
+
+        string who = appt.CustomerName;
+        schedule.Cancel(appt.Id);
+        UIToast.Show($"{who}'s trailer pulled off the schedule — back in the pool, unbooked.");
         Rebuild();
     }
 
