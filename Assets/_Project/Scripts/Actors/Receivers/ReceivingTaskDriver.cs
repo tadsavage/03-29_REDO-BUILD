@@ -51,6 +51,19 @@ namespace GameCore.Actors
         /// still has to walk to the pallet first).</summary>
         private const float StuckFlagTimeout = 12f;
         private float _stuckFlagSeconds;
+
+        /// <summary>
+        /// The task claimed by the most recent TryClaimNextReceiveTask, held until the workflow
+        /// reports it done.
+        ///
+        /// Exists so the deadlock watchdog can HAND THE TASK BACK. Before this the driver kept no
+        /// reference to what it had claimed — the task went straight into a lambda — so recovering
+        /// from a stuck flag un-wedged the employee and silently orphaned the work: the task stayed
+        /// Assigned to her forever while she stood idle, and GetPendingTasksForRole only ever returns
+        /// Available, so she could never see it again. Observed live: two Receive tasks Assigned for
+        /// 250s with _taskInProgress=false and the workflow Idle.
+        /// </summary>
+        private WorkTask _claimedTask;
         private bool _holdingNearDock;
         private float _holdTimer;
 
@@ -78,6 +91,11 @@ namespace GameCore.Actors
         {
             if (_workflow != null)
                 _workflow.OnWorkflowComplete -= HandleWorkflowComplete;
+
+            // A receiver who is fired, or wiped by a scene clear, must not take her claim with her.
+            // Without this the task stays Assigned to an employee who no longer exists — unclaimable
+            // by anyone, and invisible to every other receiver.
+            ReleaseClaimedTask("receiver removed");
         }
 
         private void Update()
@@ -103,6 +121,11 @@ namespace GameCore.Actors
                     Debug.LogWarning($"[ReceivingTaskDriver] {name}: task flagged in-progress but the " +
                         $"workflow is Idle — clearing the stale flag and resuming (deadlock recovered).");
                     _stuckFlagSeconds = 0f;
+                    // Release the claim BEFORE clearing the flag. Recovering the employee without
+                    // giving the task back just moves the deadlock from her to the queue: she goes
+                    // back to polling, the task stays Assigned, and GetPendingTasksForRole (Available
+                    // only) can never show it to her again. That is the exact state this was found in.
+                    ReleaseClaimedTask("receiver deadlock recovery");
                     _taskInProgress = false;
                     _holdingNearDock = false;
                     _nav.SetTaskBusy(false);
@@ -144,8 +167,13 @@ namespace GameCore.Actors
 
             _holdingNearDock = false;
             _taskInProgress = true;
+            _claimedTask = task;
             _nav.SetTaskBusy(true);
             var standPosition = GetStandPosition(palletTransform);
+            // The workflow only starts inside this arrival callback, so every way a seek can fail to
+            // arrive — AiNavigation.SeekPosition silently no-oping on an already-set _seekingTask, a
+            // NavMesh rebake knocking the agent off mid-leg, patrol hijacking the destination — leaves
+            // the task claimed with nothing running. That is what the watchdog above now cleans up.
             _nav.SeekPosition(standPosition, () => _workflow.BeginReceivingAt(task, palletTransform));
         }
 
@@ -282,8 +310,33 @@ namespace GameCore.Actors
 
         private static string LaneKey(LaneNamingService.LaneSlot slot) => $"{slot.DoorNumber}{slot.Lane}";
 
+        /// <summary>
+        /// Hands a claimed-but-unworked task back to the queue as Available so someone can pick it up
+        /// again. No-op if nothing is claimed, or if the task already finished normally.
+        ///
+        /// Deliberately clears AssignedToEmployeeGuid too: a task left pointing at an employee who
+        /// isn't working it is what resume-on-load logic reads as "mine, in progress", which would
+        /// re-strand it after a save/load rather than letting anyone claim it fresh.
+        /// </summary>
+        private void ReleaseClaimedTask(string why)
+        {
+            if (_claimedTask == null) return;
+
+            if (_claimedTask.Status == WorkTaskStatus.Assigned)
+            {
+                _claimedTask.Status = WorkTaskStatus.Available;
+                _claimedTask.AssignedToEmployeeGuid = null;
+                Debug.LogWarning($"[ReceivingTaskDriver] {name}: released Receive task for pallet " +
+                                 $"{_claimedTask.PalletId} back to the queue ({why}).");
+            }
+            _claimedTask = null;
+        }
+
         private void HandleWorkflowComplete()
         {
+            // Finished normally — the workflow completed the task itself, so there's nothing to hand
+            // back; just stop tracking it so a later watchdog pass can't "release" a done task.
+            _claimedTask = null;
             _taskInProgress = false;
 
             if (MoreReceivingWorkExpected())

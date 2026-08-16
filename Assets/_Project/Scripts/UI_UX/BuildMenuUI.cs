@@ -59,6 +59,9 @@ public class BuildMenuUI : MonoBehaviour
     private VisualElement _playBar;
     private VisualElement _categoryRow;
     private VisualElement _utilityRow;
+    /// <summary>The play bar's own utility row. Present in the UXML since the play bar was added but
+    /// never filled until now — see BuildUtilityButtons.</summary>
+    private VisualElement _playUtilityRow;
     private VisualElement _submenuContainer;
     private ScrollView _submenuScroll;
     private VisualElement _modeTabs;
@@ -212,6 +215,7 @@ public class BuildMenuUI : MonoBehaviour
         _playBar = _root.Q<VisualElement>("BottomBarPlayUI");
         _categoryRow = _root.Q<VisualElement>("CategoryRow");
         _utilityRow = _root.Q<VisualElement>("UtilityRow");
+        _playUtilityRow = _root.Q<VisualElement>("PlayUtilityRow");
         _submenuContainer = _root.Q<VisualElement>("SubmenuContainer");
         _modeTabs = _root.Q<VisualElement>("ModeTabs");
         _tabBuild = _root.Q<Button>("TabBuild");
@@ -243,14 +247,19 @@ public class BuildMenuUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Points PlayBtn1..8 at UIKeyBindingManager.ToggleUI with their own number, so a click is the
+    /// Points PlayBtn1..9 at UIKeyBindingManager.ToggleUI with their own number, so a click is the
     /// exact same call the number key makes — same exclusivity, same Shift Manager unsaved-changes
     /// prompt, same Tab-closes-everything registry. Nothing here knows which panel it opens, so
     /// reassigning a hotkey moves its button with it.
     /// </summary>
+    /// <summary>How many numbered buttons the play bar has. Named rather than inline so adding a
+    /// tenth means changing this and the UXML, not hunting a bare literal — the loop below warns per
+    /// missing button, so a mismatch is loud rather than a silently dead button.</summary>
+    private const int PlayBarButtonCount = 9;
+
     private void WirePlayBarButtons()
     {
-        for (int i = 1; i <= 8; i++)
+        for (int i = 1; i <= PlayBarButtonCount; i++)
         {
             var button = _root.Q<Button>($"PlayBtn{i}");
             if (button == null)
@@ -350,6 +359,17 @@ public class BuildMenuUI : MonoBehaviour
         OnHudModeChanged?.Invoke(_mode);
     }
 
+    /// <summary>
+    /// Fired after the visible bar changes, so widgets docked INTO a bar can move to the one that's
+    /// now on screen.
+    ///
+    /// A VisualElement has exactly one parent, so anything parented to the build bar simply vanishes
+    /// when the play bar is shown — which is what happened to the dev HUD (FPS + graphics preset).
+    /// An event rather than BuildMenuUI knowing about the dev HUD directly: the bar shouldn't have to
+    /// enumerate its tenants, and anything else docked later gets the same treatment for free.
+    /// </summary>
+    public static event System.Action<VisualElement> OnActiveBarChanged;
+
     private void ApplyHudMode()
     {
         bool build = _mode == HudMode.Build;
@@ -359,6 +379,8 @@ public class BuildMenuUI : MonoBehaviour
 
         SetTabActive(_tabBuild, build);
         SetTabActive(_tabPlay, !build);
+
+        OnActiveBarChanged?.Invoke(ActiveBar);
     }
 
     // EnableInClassList rather than Add/RemoveFromClassList: the classes are also set in the UXML, and
@@ -413,6 +435,17 @@ public class BuildMenuUI : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Fills BOTH bars' utility rows from the same config list.
+    ///
+    /// The play bar's row existed in the UXML from the start and was never populated, so switching to
+    /// Play lost Delete/Move/Undo/Redo/Lower/Raise — none of which are build-only actions. Undo in
+    /// particular is the one you want most when you've just done something in the wrong mode.
+    ///
+    /// Built twice rather than reparented on mode switch: a VisualElement has exactly one parent, so
+    /// a shared row would have to be moved every time the mode flips, and any handler or hover state
+    /// mid-flight would go with it. Two independent sets, one config.
+    /// </summary>
     private void BuildUtilityButtons()
     {
         if (_utilityRow == null)
@@ -421,8 +454,17 @@ public class BuildMenuUI : MonoBehaviour
             return;
         }
 
-        //Debug.Log($"[BuildMenuUI] Building {utilityButtons.Count} utility buttons.");
-        _utilityRow.Clear();
+        PopulateUtilityRow(_utilityRow);
+
+        // Absent only if the UXML changed; warn rather than fail, since the build bar still works.
+        if (_playUtilityRow != null) PopulateUtilityRow(_playUtilityRow);
+        else Debug.LogWarning("[BuildMenuUI] PlayUtilityRow not found — the play bar will have no " +
+                              "utility buttons.");
+    }
+
+    private void PopulateUtilityRow(VisualElement row)
+    {
+        row.Clear();
 
         foreach (var util in utilityButtons)
         {
@@ -479,7 +521,7 @@ public class BuildMenuUI : MonoBehaviour
                 string btnId = util.id;
                 button.clicked += () => HandleGenericUtilityClick(btnId);
             }
-            _utilityRow.Add(ve);
+            row.Add(ve);
         }
     }
 

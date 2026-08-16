@@ -75,6 +75,12 @@
                 <ui:Label text="8" class="playbar-key"/>
             </ui:Button>
 
+            <ui:Button name="PlayBtn9" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-purchasing"/>
+                <ui:Label text="Purchasing" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="9" class="playbar-key"/>
+            </ui:Button>
+
         </ui:VisualElement>
         <ui:VisualElement name="PlayUtilityRow" picking-mode="Position" class="buildmenu-utility-row"/>
     </ui:VisualElement>

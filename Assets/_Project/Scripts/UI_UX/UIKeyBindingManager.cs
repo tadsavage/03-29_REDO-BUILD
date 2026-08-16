@@ -19,6 +19,7 @@ using UnityEngine.InputSystem;
 ///       Slot Assignment, which is now opened by clicking a rack rather than by a number key
 ///   7 = Work Queue
 ///   8 = New Item / Slotter
+///   9 = Purchasing (PurchasingPanel) — raise POs for inbound stock; the inbound counterpart to 6
 ///
 /// Registration is also what makes Tab close a panel: PlacementStateMachine's Tab handler calls
 /// CloseAll(), which only iterates this registry.

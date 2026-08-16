@@ -91,6 +91,16 @@ public class ContractsPanel : IUIPanel
     /// The Completed tab can be narrowed past its own column total safely — it scrolls sideways, and
     /// its header tracks the scroll (see SyncCompletedHeader).</summary>
     private const float ModalMinWidth = 820f;
+    /// <summary>Width of an offer card's right-hand action column. The commit button and the SHIP BY
+    /// badge are both stretched to it, which is what makes them exactly the same width without either
+    /// carrying a hard-coded number of its own.</summary>
+    private const float OfferActionColWidth = 210f;
+
+    /// <summary>Height StyleOrangeButton gives every orange button. Named so the offer card's
+    /// deliberately taller commit button can be expressed as a multiple of it rather than as a magic
+    /// number that silently stops relating to the others if the base ever changes.</summary>
+    private const float OrangeButtonHeight = 30f;
+
     private const float IconSize    = 72f;   // Offers cards
     private const float IconSizeSm  = 44f;   // Accounts rows
     private const float IconSizeTiny = 18f;  // Schedule chips
@@ -235,7 +245,144 @@ public class ContractsPanel : IUIPanel
     {
         _overlay = Build(out _modal, out _tabBar, out _tabHeader, out _content, out _footerMessage);
         root.Add(_overlay);
+        // Added to the OVERLAY, not the modal: the modal is absolutely positioned and draggable, so a
+        // dialog inside it would follow the window around and could sit half off-screen. The overlay
+        // fills the panel's whole area, which is what a modal confirmation should darken and block.
+        _overlay.Add(BuildOffSlotConfirm());
         Hide();
+    }
+
+    // ── Off-slot move confirmation ───────────────────────────────────────────
+    //
+    // Moving a trailer off the hour its customer asked for is allowed and always was — what was
+    // missing is that the player had no way to know it cost anything until after they'd done it and
+    // read a toast. This is the checkpoint: state the price, get a yes, and let anyone who's learned
+    // it turn the prompt off for good.
+
+    /// <summary>PlayerPrefs key for the "don't show this again" tick. PlayerPrefs rather than the save
+    /// file on purpose — this is a preference about the UI belonging to the person playing, not world
+    /// state belonging to one warehouse, so it should hold across every save and new game the way
+    /// PlayerName and Difficulty already do.</summary>
+    private const string OffSlotWarningPref = "Contracts.SuppressOffSlotWarning";
+
+    private static bool OffSlotWarningSuppressed
+    {
+        get => PlayerPrefs.GetInt(OffSlotWarningPref, 0) == 1;
+        set { PlayerPrefs.SetInt(OffSlotWarningPref, value ? 1 : 0); PlayerPrefs.Save(); }
+    }
+
+    private VisualElement _confirmBlocker;
+    private Label _confirmMessage;
+    private Toggle _confirmSuppress;
+    private System.Action _confirmYesAction;
+
+    /// <summary>
+    /// The full-panel dim + centred Yes/No card. Built once and kept hidden rather than created per
+    /// prompt, so the "don't show again" tick has somewhere to live between openings and there's no
+    /// per-interaction allocation on a path the player may hit repeatedly while shuffling doors.
+    /// </summary>
+    private VisualElement BuildOffSlotConfirm()
+    {
+        _confirmBlocker = new VisualElement();
+        _confirmBlocker.style.position = Position.Absolute;
+        _confirmBlocker.style.left = 0; _confirmBlocker.style.right = 0;
+        _confirmBlocker.style.top = 0; _confirmBlocker.style.bottom = 0;
+        _confirmBlocker.style.alignItems = Align.Center;
+        _confirmBlocker.style.justifyContent = Justify.Center;
+        _confirmBlocker.style.backgroundColor = new StyleColor(new Color(0f, 0f, 0f, 0.55f));
+        _confirmBlocker.style.display = DisplayStyle.None;
+        // Swallows every click that isn't on the card, so the grid underneath can't be clicked while
+        // an unanswered prompt is up — the whole point of a checkpoint is that it interrupts.
+        _confirmBlocker.RegisterCallback<ClickEvent>(evt => evt.StopPropagation());
+
+        var card = new VisualElement();
+        card.style.width = 460;
+        card.style.paddingTop = 18; card.style.paddingBottom = 16;
+        card.style.paddingLeft = 22; card.style.paddingRight = 22;
+        card.style.backgroundColor = new StyleColor(ColBg);
+        card.style.borderTopWidth = card.style.borderBottomWidth =
+            card.style.borderLeftWidth = card.style.borderRightWidth = 2;
+        card.style.borderTopColor = card.style.borderBottomColor =
+            card.style.borderLeftColor = card.style.borderRightColor = new StyleColor(ColOrange);
+        card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
+            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 10;
+
+        var title = MakeText("ARE YOU SURE?", 22, ColOrangeText, bold: true);
+        title.style.unityTextAlign = TextAnchor.MiddleCenter;
+        title.style.marginBottom = 10;
+        card.Add(title);
+
+        _confirmMessage = MakeText("", 15, ColTitleText);
+        _confirmMessage.style.whiteSpace = WhiteSpace.Normal;
+        _confirmMessage.style.unityTextAlign = TextAnchor.MiddleCenter;
+        _confirmMessage.style.marginBottom = 14;
+        card.Add(_confirmMessage);
+
+        var buttons = new VisualElement();
+        buttons.style.flexDirection = FlexDirection.Row;
+        buttons.style.justifyContent = Justify.Center;
+
+        var yes = new Button(() => { var act = _confirmYesAction; HideOffSlotConfirm(); act?.Invoke(); })
+            { text = "YES, MOVE IT" };
+        StyleOrangeButton(yes);
+        yes.style.height = OrangeButtonHeight * 1.25f;
+        yes.style.marginRight = 10;
+        buttons.Add(yes);
+
+        var no = new Button(HideOffSlotConfirm) { text = "NO" };
+        StyleOrangeButton(no);
+        no.style.height = OrangeButtonHeight * 1.25f;
+        // Muted so the destructive-ish option isn't the one the eye lands on first.
+        no.style.backgroundColor = new StyleColor(ColStat);
+        no.style.color = new StyleColor(ColSubtleText);
+        buttons.Add(no);
+        card.Add(buttons);
+
+        // `text`, not the Toggle(label) constructor: a Toggle's LABEL renders to the left of the
+        // checkbox, which reads backwards for an opt-out ("Don't show this again ☐"). `text` puts the
+        // caption to the right of the tick where a checkbox caption belongs. Styling then has to go
+        // through a Q over every Label in the control, since the element `text` creates isn't
+        // labelElement — that one stays empty and would silently swallow the font change.
+        _confirmSuppress = new Toggle { text = "Don't show this again" };
+        foreach (var lbl in _confirmSuppress.Query<Label>().ToList())
+        {
+            ApplyFont(lbl, size: 13);
+            lbl.style.color = new StyleColor(ColSubtleText);
+        }
+        _confirmSuppress.style.marginTop = 14;
+        _confirmSuppress.style.alignSelf = Align.Center;
+        // Written on CHANGE rather than when Yes is clicked: ticking it and then answering No is still
+        // the player saying "I know what this costs, stop asking" — the tick is about the prompt, not
+        // about this particular move.
+        _confirmSuppress.RegisterValueChangedCallback(evt => OffSlotWarningSuppressed = evt.newValue);
+        card.Add(_confirmSuppress);
+
+        _confirmBlocker.Add(card);
+        return _confirmBlocker;
+    }
+
+    /// <summary>Runs <paramref name="onYes"/> immediately if the player has turned the warning off,
+    /// otherwise puts the prompt up and runs it only on Yes.</summary>
+    private void ConfirmOffSlotMove(string customerName, string requestedLabel, string newLabel,
+                                    System.Action onYes)
+    {
+        if (OffSlotWarningSuppressed) { onYes(); return; }
+
+        _confirmMessage.text =
+            $"Customer will be dissatisfied if you make an appointment earlier or later than the " +
+            $"requested Appointment Timeslot. A fine will be imposed as well as having a negative " +
+            $"impact on Customer Satisfaction Level.\n\n" +
+            $"{customerName} asked for {requestedLabel}. You're moving them to {newLabel}.";
+        _confirmYesAction = onYes;
+        _confirmSuppress.SetValueWithoutNotify(false);
+        _confirmBlocker.style.display = DisplayStyle.Flex;
+        _confirmBlocker.BringToFront();
+    }
+
+    private void HideOffSlotConfirm()
+    {
+        _confirmYesAction = null;
+        _confirmBlocker.style.display = DisplayStyle.None;
     }
 
     public bool IsVisible => _visible;
@@ -250,6 +397,23 @@ public class ContractsPanel : IUIPanel
         Rebuild();
         CentreOnce();
         _resizeWindow?.ResetToNormal();
+    }
+
+    /// <summary>
+    /// Opens this panel straight onto the Schedule tab, on a given day.
+    ///
+    /// Exists for cross-panel links — the Purchasing panel's "Scheduler" button, which sends the
+    /// player from a PO that needs a door to the grid where doors are booked. Sets the tab BEFORE
+    /// Show() so the panel never flashes whichever tab was last open on the way through.
+    ///
+    /// A day of 0 or less means "leave the view where it was", so a caller with no opinion doesn't
+    /// have to invent one.
+    /// </summary>
+    public void ShowScheduleTab(int day = 0)
+    {
+        _tab = Tab.Schedule;
+        if (day > 0) _scheduleDay = day;
+        Show();
     }
 
     /// <summary>Centres the modal the FIRST time it's shown and never again — reopening should return
@@ -1001,7 +1165,14 @@ public class ContractsPanel : IUIPanel
                               19, ColTitleText, bold: true));
         body.Add(titleRow);
 
-        body.Add(MakeText(contract.Title, 14, TypeTextFor(contract), bold: true));
+        // The outlined type badge sits here, directly under the customer name — it used to float in
+        // the card's top-right corner with a plain-text duplicate ("Bulk Order") sitting here instead.
+        // Two renderings of one fact in two places, and the corner one overlapped the money figure.
+        // One badge, in the reading order the player actually scans: who, then what kind of deal.
+        var pill = MakeTypePill(contract);
+        pill.style.marginTop = 3;
+        pill.style.marginBottom = 1;
+        body.Add(pill);
 
         if (!string.IsNullOrWhiteSpace(contract.Pitch))
         {
@@ -1016,37 +1187,195 @@ public class ContractsPanel : IUIPanel
         card.Add(body);
 
         var right = new VisualElement();
-        right.style.width = 210;
+        right.style.width = OfferActionColWidth;
         right.style.flexShrink = 0;
         right.style.alignItems = Align.FlexEnd;
 
-        right.Add(MakeText(EstimatedValueText(contract, inv), 21, ColMoney, bold: true));
-        var caption = MakeText(contract.IsBulk ? "est. one-off revenue"
-                                                : "est. revenue per day", 12, ColSubtleText);
-        caption.style.marginBottom = 6;
-        right.Add(caption);
-
+        // The commit button leads the column, in the corner the type badge used to occupy. The player
+        // reads the offer left-to-right and lands on the action, with the money and the deadline
+        // underneath it as the two things that qualify the decision.
         var sign = new Button(() => OnSign(contract)) { text = contract.IsBulk ? "ACCEPT ORDER" : "SIGN CONTRACT" };
         StyleOrangeButton(sign);
+        // 25% taller than the shared 30px orange button, and stretched to the column rather than
+        // sized to its own text. Both matter: the height makes it the obvious target on the card, and
+        // the stretch is what lets the deadline badge below match its width WITHOUT measuring
+        // resolvedStyle after layout — two elements stretched to the same parent are the same width
+        // by construction, and can't drift when the button's label changes length between
+        // "ACCEPT ORDER" and "SIGN CONTRACT".
+        sign.style.height = OrangeButtonHeight * 1.25f;
+        sign.style.alignSelf = Align.Stretch;
+        sign.style.marginBottom = 8;
         right.Add(sign);
 
+        right.Add(MakeText(EstimatedValueText(contract, inv), 21, ColMoney, bold: true));
+        // The headline figure stays the BASE estimate even for a same-day rush — the double is
+        // conditional on beating the deadline, and baking it into the number would advertise money
+        // the player only earns if they pull it off. The caption says where the 2x comes from.
+        var caption = MakeText(contract.IsBulk
+                                   ? (contract.IsSameDayRush ? "est. one-off revenue · 2x if on time"
+                                                             : "est. one-off revenue")
+                                   : "est. revenue per day", 12, ColSubtleText);
+        caption.style.marginBottom = 2;
+        right.Add(caption);
+
+        right.Add(BuildDeadlineBadge(contract));
+
         card.Add(right);
-        card.Add(MakeTypePill(contract));
         return card;
     }
 
-    /// <summary>The BULK ORDER / RECURRING ORDER badge beside the customer name. Colour AND words, not
-    /// colour alone — the two types differ in what they commit the player to, which is too important
-    /// to encode only as a hue. Redundant with which panel the card is in now that New Contracts is
-    /// split by type, but kept — the badge is also what the Bulk Orders and Completed tabs rely on to
-    /// tell the two types apart in a single mixed list.</summary>
+    /// <summary>
+    /// The SHIP-BY badge under the commit button — the last moment this freight may leave the
+    /// building, and what it costs to miss it.
+    ///
+    /// THE TWO CONTRACT TYPES HAVE GENUINELY DIFFERENT DEADLINES, and this badge is where the player
+    /// finds that out before they commit rather than after:
+    ///
+    ///   BULK      a DAY. The freight may go any time up to the end of that day, and it's on the
+    ///             player to find it a dock appointment (Contracts → Schedule) at all.
+    ///   RECURRING a two-hour BLOCK, on the day the order lands. A standing account is pre-booked
+    ///             out ScheduleHorizonDays in advance (OrderArrivalService.MaintainRecurringSchedule),
+    ///             so there is always already an appointment — the deadline is the END of that block,
+    ///             not the end of the day. Whatever hasn't shipped when the block elapses is late
+    ///             (DockScheduleService.SweepElapsedAppointments).
+    ///
+    /// Missing either costs the same two things: a late fee at the contract's own advertised rate,
+    /// and customer satisfaction. Bulk freight left with no appointment at all past its day is
+    /// refused outright — SweepMissedPickups cancels the order and loses the account for
+    /// ContractLossCooldownDays.
+    ///
+    /// Given its own boxed block rather than another clause on the terms line because it's the one
+    /// term that decides whether the player can physically service the order at all. A 72-hour drop
+    /// and a same-day rush are the same money and completely different decisions.
+    ///
+    /// A SAME-DAY rush (bulk only — recurring pays no rush premium) is drawn in the warning colour
+    /// and states its double-revenue upside outright: the deadline is the whole risk, so the reward
+    /// has to sit beside it. Late is late either way — a rush that slips is fined at the ordinary
+    /// rate, it just forfeits the double (OrderData.QualifiesForSameDayBonus).
+    /// </summary>
+    private VisualElement BuildDeadlineBadge(ContractData contract)
+    {
+        if (!contract.IsBulk) return BuildRecurringDeadlineBadge(contract);
+
+        bool rush = contract.IsSameDayRush;
+        Color edge = rush ? ColWholesale : ColBlueEdge;
+        Color text = rush ? ColWholesale : ColChipOutText;
+
+        var box = new VisualElement();
+        box.style.marginTop = 8;
+        box.style.alignSelf = Align.Stretch;
+        box.style.alignItems = Align.FlexEnd;
+        box.style.paddingLeft = 8; box.style.paddingRight = 8;
+        // Tighter than the 4 it was: with the lines themselves pulled together (DeadlineLine), the old
+        // padding left the frame looking loose around a compact stack.
+        box.style.paddingTop = 3; box.style.paddingBottom = 3;
+        box.style.backgroundColor = new StyleColor(new Color(edge.r, edge.g, edge.b, 0.10f));
+        box.style.borderTopWidth = box.style.borderBottomWidth =
+            box.style.borderLeftWidth = box.style.borderRightWidth = 1;
+        box.style.borderTopColor = box.style.borderBottomColor =
+            box.style.borderLeftColor = box.style.borderRightColor = new StyleColor(edge);
+        box.style.borderTopLeftRadius = box.style.borderTopRightRadius =
+            box.style.borderBottomLeftRadius = box.style.borderBottomRightRadius = 6;
+
+        // Absolute day as well as the countdown: the countdown is how it feels, the day number is
+        // what the player has to match against on the Schedule tab.
+        box.Add(DeadlineLine($"SHIP BY: DAY {CurrentDay() + contract.LeadTimeDays}", 13, text, bold: true));
+        box.Add(DeadlineLine(rush ? "SAME DAY — pays 2x on time" : $"{contract.DeadlineLabel} to book a door",
+                             11, rush ? ColWholesale : ColSubtleText));
+        box.Add(DeadlineLine("Miss it: fee, then refusal", 10, ColDangerSoft));
+
+        return box;
+    }
+
+    /// <summary>
+    /// One line inside a SHIP BY badge, set tight.
+    ///
+    /// Unity's default runtime theme puts an unrequested ~2/4px margin AND ~1/2px padding on every
+    /// Label (measured live; the same quirk is documented on MakeTypePill). Stacked four deep that's
+    /// most of the air between these lines, and it read as four unrelated sentences rather than one
+    /// block of terms. Zeroing it and pinning an explicit compact height roughly halves the gap.
+    ///
+    /// Height is fontSize + 5 rather than a fixed number so every line scales with its own text —
+    /// enough to clear descenders at these sizes, tight enough that the lines group. The badge frame
+    /// is sized by its children, so it shrinks to match with no separate number to keep in step.
+    /// </summary>
+    private Label DeadlineLine(string text, int size, Color color, bool bold = false)
+    {
+        var label = MakeText(text, size, color, bold);
+        label.style.whiteSpace = WhiteSpace.NoWrap;
+        label.style.marginTop = 0; label.style.marginBottom = 0;
+        label.style.marginLeft = 0; label.style.marginRight = 0;
+        label.style.paddingTop = 0; label.style.paddingBottom = 0;
+        label.style.paddingLeft = 0; label.style.paddingRight = 0;
+        label.style.height = size + 5;
+        label.style.unityTextAlign = TextAnchor.MiddleRight;
+        return label;
+    }
+
+    /// <summary>
+    /// The recurring half of the SHIP BY badge — a two-hour BLOCK rather than a day.
+    ///
+    /// A standing account never waits on the player to find it a door: MaintainRecurringSchedule
+    /// pre-books its appointments a week ahead, so the promise the player is accepting is a specific
+    /// window on each delivery day, and the deadline is that window's end hour. Shown as a clock time
+    /// for that reason — "day 6" would be the wrong unit and would read as far more slack than there
+    /// really is.
+    ///
+    /// The block is derived from CutoffHour, which is where MaintainRecurringSchedule aims its
+    /// bookings, so the card and the Schedule tab agree by construction rather than by coincidence —
+    /// and the slot is FIXED once booked (DockScheduleService.TryMoveToDoor lets the player change the
+    /// door but not the time), so what this badge promises is what the trailer will actually get.
+    ///
+    /// The card does NOT show a first-delivery date, deliberately. A recurring account never delivers
+    /// on the day it's signed (OrderArrivalService.DeliversOn), so a date here would be tomorrow's at
+    /// the earliest and would compete with the thing that actually matters every single day after
+    /// that: the window.
+    /// </summary>
+    private VisualElement BuildRecurringDeadlineBadge(ContractData contract)
+    {
+        int block = DockScheduleService.BlockForHour(contract.CutoffHour);
+        int endHour = (block + 1) * DockScheduleService.BlockHours;
+
+        var box = new VisualElement();
+        box.style.marginTop = 8;
+        box.style.alignSelf = Align.Stretch;
+        box.style.alignItems = Align.FlexEnd;
+        box.style.paddingLeft = 8; box.style.paddingRight = 8;
+        // Tighter than the 4 it was: with the lines themselves pulled together (DeadlineLine), the old
+        // padding left the frame looking loose around a compact stack.
+        box.style.paddingTop = 3; box.style.paddingBottom = 3;
+        box.style.backgroundColor = new StyleColor(new Color(ColBlueEdge.r, ColBlueEdge.g, ColBlueEdge.b, 0.10f));
+        box.style.borderTopWidth = box.style.borderBottomWidth =
+            box.style.borderLeftWidth = box.style.borderRightWidth = 1;
+        box.style.borderTopColor = box.style.borderBottomColor =
+            box.style.borderLeftColor = box.style.borderRightColor = new StyleColor(ColBlueEdge);
+        box.style.borderTopLeftRadius = box.style.borderTopRightRadius =
+            box.style.borderBottomLeftRadius = box.style.borderBottomRightRadius = 6;
+
+        box.Add(DeadlineLine($"SHIP BY: {endHour:00}:00", 13, ColChipOutText, bold: true));
+        box.Add(DeadlineLine($"end of the {DockScheduleService.BlockLabel(block)} slot", 11, ColSubtleText));
+        box.Add(DeadlineLine($"Auto-booked {OrderArrivalService.ScheduleHorizonDays} days out · fixed slot",
+                             10, ColSubtleText));
+        box.Add(DeadlineLine("Miss the slot: fee + satisfaction", 10, ColDangerSoft));
+
+        return box;
+    }
+
+    /// <summary>The BULK ORDER / RECURRING ORDER badge, sitting directly under the customer name.
+    /// Colour AND words, not colour alone — the two types differ in what they commit the player to
+    /// (and now in what their deadline even MEANS: a day versus a two-hour block), which is too
+    /// important to encode only as a hue. Redundant with which panel the card is in now that New
+    /// Contracts is split by type, but kept — the badge is also what the Bulk Orders and Completed
+    /// tabs rely on to tell the two types apart in a single mixed list.</summary>
     private VisualElement MakeTypePill(ContractData contract)
     {
         var pill = new VisualElement();
-        // Positioned absolutely to the top-right corner of the card
-        pill.style.position = Position.Absolute;
-        pill.style.top = 8;
-        pill.style.right = 8;
+        // In normal flow now, not absolutely positioned in the card's top-right corner. Absolute
+        // took it out of layout entirely, which is how it ended up overlapping the money figure —
+        // and the corner is where the commit button belongs (see BuildOfferCard). alignSelf
+        // FlexStart keeps it hugging its own text inside a stretch-aligned column parent instead of
+        // spanning the full body width.
+        pill.style.alignSelf = Align.FlexStart;
         pill.style.flexGrow = 0;
         pill.style.flexShrink = 0;
         pill.style.width = StyleKeyword.Auto;
@@ -1097,15 +1426,26 @@ public class ContractsPanel : IUIPanel
         return card;
     }
 
+    /// <summary>The run-on terms line. Bulk says "ship same day" rather than "due in 0 day(s)", which
+    /// reads as missing data; recurring states its booked WINDOW rather than a number of days, because
+    /// a standing account's deadline is the end of its pre-booked two-hour block, not the end of a day
+    /// (see BuildDeadlineBadge). Either way the deadline also gets its own badge under the button —
+    /// it's the term that decides whether the order is serviceable at all.</summary>
     private static string TermsLine(ContractData c)
     {
         if (c.IsBulk)
+        {
+            string deadline = c.IsSameDayRush
+                ? "ship SAME DAY (2x pay)"
+                : $"ship within {c.LeadTimeDays} day(s)";
             return $"{c.BulkLinesMin}–{c.BulkLinesMax} item(s) · full pallets out of reserve · " +
-                   $"cost of goods + 5% · due in {c.LeadTimeDays} day(s) · late fee {c.LateFeePercent:P0}";
+                   $"cost of goods + 5% · {deadline} · late fee {c.LateFeePercent:P0}";
+        }
 
+        int block = DockScheduleService.BlockForHour(c.CutoffHour);
         return $"{c.FrequencyLabel} · {c.OrdersPerDayMin}–{c.OrdersPerDayMax} orders/day · " +
-               $"~{c.EstimatedCasesPerDay} cases/day · cutoff {c.CutoffHour:00}:00 · " +
-               $"due in {c.LeadTimeDays} day(s) · late fee {c.LateFeePercent:P0}";
+               $"~{c.EstimatedCasesPerDay} cases/day · ships in the {DockScheduleService.BlockLabel(block)} " +
+               $"slot · late fee {c.LateFeePercent:P0}";
     }
 
     /// <summary>
@@ -1276,10 +1616,23 @@ public class ContractsPanel : IUIPanel
         statusValue.style.marginBottom = 4;
         statusSection.Add(statusValue);
 
-        string due = late ? $"{today - order.DueDay}d LATE" : order.DueDay == today ? "due today" : $"due day {order.DueDay}";
         var doorStatus = MakeText(booked ? "Door Booked" : "NO DOOR BOOKED", 14,
                                   booked ? ColMoney : ColDangerSoft, bold: !booked);
         statusSection.Add(doorStatus);
+
+        // THE DEADLINE, restated on the live card. The offer card said what the player was agreeing
+        // to; this says how much of it is left. A rush is called out by name while it's still winnable
+        // — the 2x is only paid if it closes out before the day rolls (OrderService.ShipOrder), so
+        // "today" is the last moment that label means anything.
+        string due = late ? $"{today - order.DueDay}d LATE"
+                   : order.DueDay == today
+                       ? (order.IsSameDayRush ? "SHIP TODAY — 2x pay" : "ship by end of today")
+                       : $"ship by day {order.DueDay}";
+        var dueStatus = MakeText(due, 13,
+                                 late ? ColDangerSoft : order.DueDay == today ? ColWholesale : ColSubtleText,
+                                 bold: late || order.DueDay == today);
+        dueStatus.style.marginTop = 2;
+        statusSection.Add(dueStatus);
 
         card.Add(statusSection);
 
@@ -1687,7 +2040,8 @@ public class ContractsPanel : IUIPanel
         // which is the one place none of the three is any use. You need all of them in view while
         // scrolling the grid hunting for somewhere to put a trailer.
         var unscheduled = schedule.UnscheduledGroups();
-        _tabHeader.Add(BuildScheduleStrip(unscheduled, today, arrivals));
+        var parked = schedule.ParkedAppointments.ToList();
+        _tabHeader.Add(BuildScheduleStrip(unscheduled, parked, today, arrivals));
 
         // Column header goes LAST into the stationary strip so it ends up directly above row 1 — same
         // ordering reasoning as BuildCompletedSummary/BuildCompletedHeader. Without a label per column,
@@ -1697,6 +2051,10 @@ public class ContractsPanel : IUIPanel
 
         for (int block = 0; block < DockScheduleService.BlocksPerDay; block++)
             _content.Add(BuildScheduleRow(schedule, arrivals, doors, block, today));
+
+        // The rows exist again, so a reaction queued by the placement that triggered this rebuild can
+        // finally find the cell it belongs over.
+        PlayPendingUnhappyFx();
 
         // The rows were just rebuilt at offset 0 while the view may still be scrolled — re-apply
         // immediately so a rebuild (moving an appointment) doesn't flash the frozen column back to the
@@ -1799,7 +2157,8 @@ public class ContractsPanel : IUIPanel
     /// box selects it exactly like clicking a booked chip does, and every open slot already lights up
     /// and accepts a click while something is held (see BuildEmptySlot's canDrop).
     /// </summary>
-    private VisualElement BuildScheduleStrip(List<UnscheduledGroup> unscheduled, int today,
+    private VisualElement BuildScheduleStrip(List<UnscheduledGroup> unscheduled,
+                                             List<DockAppointment> parked, int today,
                                              OrderArrivalService arrivals)
     {
         var wrapper = new VisualElement();
@@ -1813,8 +2172,13 @@ public class ContractsPanel : IUIPanel
         wrapper.style.borderTopLeftRadius = wrapper.style.borderTopRightRadius =
             wrapper.style.borderBottomLeftRadius = wrapper.style.borderBottomRightRadius = 8;
 
-        bool anyLate = unscheduled.Any(g => g.EarliestDueDay < today);
-        int strandedOrders = unscheduled.Sum(g => g.OrderIds.Count);
+        // Parked trailers share the pool with never-booked freight and count toward everything the
+        // caption reports — from the player's side they're the same problem ("this has no door"), and
+        // a count that ignored the trailer they just pulled off would read as though it vanished,
+        // which is the exact bug parking exists to fix.
+        bool anyLate = unscheduled.Any(g => g.EarliestDueDay < today) || parked.Any(a => a.Day < today);
+        int strandedOrders = unscheduled.Sum(g => g.OrderIds.Count) + parked.Sum(a => a.OrderIds.Count);
+        int poolCount = unscheduled.Count + parked.Count;
 
         // ── Caption row: LEGEND / UNSCHEDULED TRAILERS, each centred over its half below ──
         // Sits above the bordered halves rather than as the first line inside them, so the two
@@ -1837,9 +2201,9 @@ public class ContractsPanel : IUIPanel
         unscheduledCaptionHalf.style.flexGrow = 0; unscheduledCaptionHalf.style.flexShrink = 0;
         unscheduledCaptionHalf.style.alignItems = Align.Center;
         unscheduledCaptionHalf.Add(MakeStripCaption(
-            unscheduled.Count == 0
+            poolCount == 0
                 ? "UNSCHEDULED TRAILERS"
-                : $"UNSCHEDULED TRAILERS — {unscheduled.Count} ({strandedOrders} order(s))",
+                : $"UNSCHEDULED TRAILERS — {poolCount} ({strandedOrders} order(s))",
             anyLate ? ColDangerSoft : ColSubtleText));
         captions.Add(unscheduledCaptionHalf);
 
@@ -1877,17 +2241,21 @@ public class ContractsPanel : IUIPanel
         // (not just on an empty grid slot) to unbook it and send it back to this pool. Individual pool
         // boxes stop their own click from bubbling up to this handler (see BuildPoolBox), so a click
         // that lands ON a box still means "select that box instead," never "also drop what I'm holding."
-        bool returningAppointment = _selectedAppointmentId != null;
+        // Only a trailer that's still ON the grid can be returned to the pool. A held trailer that is
+        // already parked is in hand to be PUT BACK, so the pool must not offer to re-park it — that
+        // click would be a no-op that reads as the trailer disappearing again.
+        var heldAppt = _selectedAppointmentId != null ? Schedule()?.FindById(_selectedAppointmentId) : null;
+        bool returningAppointment = heldAppt != null && !heldAppt.Parked;
         if (returningAppointment)
         {
             right.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.12f));
             right.RegisterCallback<ClickEvent>(_ => OnReturnAppointmentToPoolClicked());
         }
 
-        if (unscheduled.Count == 0)
+        if (poolCount == 0)
         {
             var clear = MakeText(returningAppointment
-                                     ? "Click here to send that trailer back to the pool, unbooked."
+                                     ? "Click here to pull that trailer off the grid — it'll wait here."
                                      : "Every trailer has a door. Nothing waiting.",
                                  16, returningAppointment ? ColOrangeText : ColSubtleText);
             clear.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -1902,25 +2270,42 @@ public class ContractsPanel : IUIPanel
             boxes.style.flexDirection = FlexDirection.Row;
             boxes.style.flexWrap = Wrap.Wrap;
             boxes.style.alignItems = Align.Center;
-            foreach (var group in unscheduled.Take(PoolMaxBoxes))
-                boxes.Add(BuildPoolBox(group, today, arrivals));
 
-            if (unscheduled.Count > PoolMaxBoxes)
+            // Parked trailers FIRST: the player put them there a moment ago and is about to put them
+            // back, so they're the ones being looked for. Never-booked freight is the standing backlog
+            // and can wait its turn.
+            int shown = 0;
+            foreach (var appt in parked)
             {
-                var more = MakeText($"+{unscheduled.Count - PoolMaxBoxes} more", 15, ColSubtleText, bold: true);
+                if (shown++ >= PoolMaxBoxes) break;
+                boxes.Add(BuildParkedBox(appt, today));
+            }
+            foreach (var group in unscheduled)
+            {
+                if (shown++ >= PoolMaxBoxes) break;
+                boxes.Add(BuildPoolBox(group, today, arrivals));
+            }
+
+            if (poolCount > PoolMaxBoxes)
+            {
+                var more = MakeText($"+{poolCount - PoolMaxBoxes} more", 15, ColSubtleText, bold: true);
                 more.style.marginLeft = 2;
                 more.style.marginBottom = 6;
                 boxes.Add(more);
             }
             right.Add(boxes);
 
+            bool holdingParked = heldAppt != null && heldAppt.Parked;
             string hintText = returningAppointment
-                ? "Click an empty spot here to send that trailer back to the pool, unbooked."
-                : _selectedUnscheduledKey != null
-                    ? "Now click an open slot in the grid — or click the box again to put it down."
-                    : "Click a box, then click an open slot in the grid to book it.";
+                ? "Click an empty spot here to pull that trailer off the grid — it'll wait here."
+                : holdingParked
+                    ? "Now click an open slot in the grid to put it back — or click the box again to let go."
+                    : _selectedUnscheduledKey != null
+                        ? "Now click an open slot in the grid — or click the box again to put it down."
+                        : "Click a box, then click an open slot in the grid to book it.";
             var hint = MakeText(hintText, 15,
-                                returningAppointment || _selectedUnscheduledKey != null ? ColOrangeText : ColSubtleText);
+                                returningAppointment || holdingParked || _selectedUnscheduledKey != null
+                                    ? ColOrangeText : ColSubtleText);
             hint.style.marginTop = 2;
             right.Add(hint);
         }
@@ -2013,12 +2398,14 @@ public class ContractsPanel : IUIPanel
         // which carries no ContractId and therefore no hour to show. Order count / days-late, shown
         // here before, is still available on hover (see the tooltip below) rather than taking a line.
         //
-        // TODO(customer satisfaction — Tad's ask): a trailer that sits here past THIS expected slot,
-        // not just past its hard due day, should cost the account some customer satisfaction once that
-        // system exists. No such system exists yet (see the same TODO on OrderService.OnDayChanged and
-        // OrderService.FineLateLoad) — these two lines are the visible half of that gap; the other half
-        // is wherever "missed the wanted slot" actually gets decided, which today only happens at the
-        // hard due-day/lost-contract level, not at this softer "customer's own preferred hour" level.
+        // RESOLVED (was a TODO here for the softer "missed the hour they actually wanted" case):
+        // satisfaction now moves in both directions and at both granularities. Landing a trailer
+        // anywhere other than the contract's requested block docks it (DockScheduleService.
+        // MissedRequestedSlot → OrderArrivalService.PenalizeSatisfaction), letting a recurring
+        // trailer's booked block elapse with freight still on it docks it again alongside the late fee
+        // (SweepElapsedAppointments), and every order that DOES make its deadline nudges it back up
+        // (HandleOrderShipped → RewardSatisfaction). The number lives on SignedContract.
+        // SatisfactionPercent and is shown on the Accounts tab.
         var contract = arrivals?.GetContract(group.ContractId);
 
         var dayLabel = MakeText($"Day {group.EarliestDueDay}", 11, late ? ColDangerSoft : ink, bold: late);
@@ -2047,6 +2434,96 @@ public class ContractsPanel : IUIPanel
                       (selected ? "Click again to put it down."
                                 : "Click, then click an open slot to book it.");
         return box;
+    }
+
+    /// <summary>
+    /// A pool box for a trailer the player has PARKED — pulled off the grid but not given up on.
+    ///
+    /// Drawn like a stranded box so the pool reads as one row of "trailers with no door", but it's a
+    /// different object underneath: a live DockAppointment rather than a derived group of orders. That
+    /// difference is why it selects through _selectedAppointmentId and places through TryMoveToDoor,
+    /// which is what keeps a parked recurring trailer bound to its promised time slot instead of
+    /// letting the player launder it into a different one by unbooking and re-booking.
+    ///
+    /// Marked with a dashed-looking accent border and a "held" tooltip so it's distinguishable from
+    /// freight that was never booked at all — the player put this one here on purpose.
+    /// </summary>
+    private VisualElement BuildParkedBox(DockAppointment appt, int today)
+    {
+        bool selected = appt.Id == _selectedAppointmentId;
+        bool late = appt.Day < today;
+
+        var box = new VisualElement();
+        box.style.width = PoolBoxWidth; box.style.height = PoolBoxHeight;
+        box.style.flexShrink = 0;
+        box.style.marginRight = 6; box.style.marginBottom = 6;
+        box.style.paddingTop = 4; box.style.paddingBottom = 4;
+        box.style.alignItems = Align.Center;
+        box.style.justifyContent = Justify.Center;
+        box.style.overflow = Overflow.Hidden;
+        box.style.backgroundColor = new StyleColor(selected ? ColOrange : ChipFill(appt.Kind));
+        box.style.borderTopWidth = box.style.borderBottomWidth =
+            box.style.borderLeftWidth = box.style.borderRightWidth = selected ? 3 : 2;
+        box.style.borderTopColor = box.style.borderBottomColor =
+            box.style.borderLeftColor = box.style.borderRightColor =
+                new StyleColor(selected ? ColOrangeText : late ? ColDanger : ColOrange);
+        box.style.borderTopLeftRadius = box.style.borderTopRightRadius =
+            box.style.borderBottomLeftRadius = box.style.borderBottomRightRadius = 5;
+
+        Color ink = selected ? ColOrangeText : late ? ColDangerSoft : ChipText(appt.Kind);
+
+        // An inbound PO reservation is identified by its PO NUMBER, not by initials of the supplier.
+        // The supplier is the same wholesaler on every order; the number is what tells one delivery
+        // from the next, and it's what the Purchasing panel showed the player when they raised it.
+        bool isPo = !string.IsNullOrEmpty(appt.ShipmentPoNumber);
+
+        var code = MakeText(isPo ? "PO" : Abbreviate(appt.CustomerName), 16, ink, bold: true);
+        code.style.unityTextAlign = TextAnchor.MiddleCenter;
+        code.style.whiteSpace = WhiteSpace.NoWrap;
+        code.style.marginTop = 0; code.style.marginBottom = 0;
+        box.Add(code);
+
+        var dayLabel = MakeText(isPo ? appt.ShipmentPoNumber : $"Day {appt.Day}",
+                                11, late ? ColDangerSoft : ink, bold: late);
+        dayLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        dayLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        dayLabel.style.marginTop = 0; dayLabel.style.marginBottom = 0;
+        box.Add(dayLabel);
+
+        // For a PO the DAY is the useful third line — it's freight that hasn't been given a time yet,
+        // so its own (placeholder) block index would be meaningless. For a parked outbound trailer the
+        // block IS its promise, so that's what shows.
+        var timeLabel = MakeText(isPo ? $"Day {appt.Day}" : $"{appt.StartHour:00}:00",
+                                 13, late ? ColDangerSoft : ink);
+        timeLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        timeLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        timeLabel.style.marginTop = 0; timeLabel.style.marginBottom = 0;
+        box.Add(timeLabel);
+
+        // Same reason as BuildPoolBox: the pool container is itself a drop target, and a click on a
+        // specific box must mean "select this one", never "also drop what I'm holding".
+        box.RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); OnParkedClicked(appt); });
+        box.tooltip = isPo
+            ? $"Inbound PO {appt.ShipmentPoNumber} from {appt.CustomerName} · wanted day {appt.Day}\n" +
+              $"No door booked — the truck won't leave the supplier until you give it one.\n" +
+              (selected ? "Click an open slot to book it, or click again to let go."
+                        : "Click, then click an open slot to book its door and time.")
+            : $"{appt.CustomerName} · held off the grid by you · " +
+              $"{DockScheduleService.BlockLabel(appt.BlockIndex)} on day {appt.Day}\n" +
+              (selected ? "Click an open slot to put it back, or click again to let go."
+                        : "Click, then click an open slot to put it back on the grid.");
+        return box;
+    }
+
+    /// <summary>Picks up (or puts down) a parked trailer. Shares _selectedAppointmentId with grid
+    /// chips because a parked trailer IS an appointment — which means the existing "click a slot to
+    /// move the held appointment" path in OnSlotClicked already places it, with no second code path
+    /// and no chance of the two disagreeing about the rules.</summary>
+    private void OnParkedClicked(DockAppointment appt)
+    {
+        _selectedAppointmentId = _selectedAppointmentId == appt.Id ? null : appt.Id;
+        _selectedUnscheduledKey = null; // one thing in hand at a time
+        Rebuild();
     }
 
     /// <summary>Three letters for a box only 58px wide: initials when the name has several words
@@ -2155,6 +2632,11 @@ public class ContractsPanel : IUIPanel
             // different from a merely-quiet one; opacity on top of that tint would just wash it back
             // out, undoing the contrast this was added for.
             if (past && isChip) slot.style.opacity = 0.45f;
+            // Named so a cell can be found again AFTER a rebuild. Every placement rebuilds the whole
+            // grid, which destroys the element the player actually clicked — so an effect anchored to
+            // that element would be anchored to a corpse. The name is the (block, door) coordinate,
+            // which survives the rebuild because it describes the position rather than the object.
+            slot.name = SlotElementName(block, doorNumber);
             row.Add(slot);
         }
 
@@ -2262,7 +2744,14 @@ public class ContractsPanel : IUIPanel
         // Name flexes and is allowed to clip; the door number is a separate fixed-width element that
         // never can. Both in one label meant a long company name pushed "· D3" off the end of the
         // chip — and the door is the one thing on the chip you can't work out from anything else.
-        var label = MakeText(appt.CustomerName, 11, text);
+        //
+        // AN INBOUND PO IS LABELLED "Inbound PO", NOT BY ITS SUPPLIER. Every purchase order comes from
+        // the same wholesaler, so the supplier name is a constant — it filled the chip with the one
+        // word that distinguishes nothing, and read as a customer, which is the opposite of what an
+        // inbound trailer is. What the player needs off a glance at the grid is the DIRECTION of the
+        // freight; the PO number is on the tooltip and in the Purchasing panel for when they need to
+        // identify which one.
+        var label = MakeText(ChipLabelFor(appt), 11, text);
         label.style.flexGrow = 1;
         label.style.flexShrink = 1;
         label.style.overflow = Overflow.Hidden;
@@ -2280,10 +2769,35 @@ public class ContractsPanel : IUIPanel
         // picked up at all; the tooltip still explains why rather than leaving it inertly unresponsive.
         if (!locked) chip.RegisterCallback<ClickEvent>(_ => OnChipClicked(appt));
 
-        chip.tooltip = $"{appt.CustomerName} · {appt.TimeLabel} · door {appt.DoorNumber} · " +
-                       $"{appt.OrderIds.Count} order(s) · " + (locked ? lockReason : "click to move");
+        // The tooltip is where the specifics live, since the chip itself is only ~150px. An inbound
+        // trailer carries a PO rather than orders, so counting OrderIds on it would always print
+        // "0 order(s)" — true and useless.
+        chip.tooltip = IsInboundPo(appt)
+            ? $"Inbound PO {appt.ShipmentPoNumber} · {appt.CustomerName} · {appt.TimeLabel} · " +
+              $"door {appt.DoorNumber} · " + (locked ? lockReason : "click to move")
+            : $"{appt.CustomerName} · {appt.TimeLabel} · door {appt.DoorNumber} · " +
+              $"{appt.OrderIds.Count} order(s) · " + (locked ? lockReason : "click to move");
         return chip;
     }
+
+    /// <summary>True for a purchase order the player raised — an inbound appointment carrying a PO
+    /// number, as opposed to BookInboundNow's note that a truck is currently at a door.</summary>
+    private static bool IsInboundPo(DockAppointment appt)
+        => appt != null && appt.Kind == AppointmentKind.Inbound
+        && !string.IsNullOrEmpty(appt.ShipmentPoNumber);
+
+    /// <summary>What a grid chip calls itself. Outbound trailers are identified by the CUSTOMER whose
+    /// freight they carry; inbound ones by what they are, since the supplier is the same every time.
+    /// A bare BookInboundNow note keeps the supplier name — that one really is "whose truck is at the
+    /// door right now", and there's no PO to name it by.</summary>
+    private static string ChipLabelFor(DockAppointment appt)
+        => IsInboundPo(appt) ? "Inbound PO" : appt.CustomerName;
+
+    /// <summary>How a trailer is named in a TOAST. Same rule as the chip, but with room for the PO
+    /// number — a message saying "Wholesale Supply's trailer is off the grid" names the one thing
+    /// every purchase order has in common, and reads as though a customer were involved.</summary>
+    private static string AppointmentDisplayName(DockAppointment appt)
+        => IsInboundPo(appt) ? $"Inbound PO {appt.ShipmentPoNumber}" : appt.CustomerName;
 
     private VisualElement BuildEmptySlot(int block, int doorNumber, bool past)
     {
@@ -2334,13 +2848,18 @@ public class ContractsPanel : IUIPanel
     }
 
     /// <summary>
-    /// Unbooks the held appointment entirely — DockScheduleService.Cancel, not a move — so its orders
-    /// fall back to UnscheduledGroups() and reappear in the pool on next rebuild. The mirror image of
-    /// picking a pool box up and placing it in the grid.
+    /// Sends the held trailer back to the unscheduled pool — DockScheduleService.TryPark, which keeps
+    /// the appointment alive rather than deleting it. The mirror image of picking a pool box up and
+    /// placing it in the grid, and the thing that makes shuffling doors around possible: the trailer
+    /// stays in the pool as its own box until the player puts it back down.
     ///
-    /// Re-checks IsLocked here rather than trusting the selection was still valid: the same race TryMove
-    /// already guards against applies — the orders on this chip could have been released to loading in
-    /// the moments between picking it up and clicking the pool.
+    /// This used to call Cancel and let the pool re-derive a box from the appointment's orders. That
+    /// silently destroyed any trailer with no orders on it yet — every pre-booked recurring trailer —
+    /// because the pool is derived from orders and there were none to derive from. See TryPark.
+    ///
+    /// The selection is deliberately KEPT when parking succeeds: the player almost always parks a
+    /// trailer in order to put it somewhere else, so it stays in hand and the very next slot click
+    /// places it. Clearing it would mean picking the same trailer up again for no reason.
     /// </summary>
     private void OnReturnAppointmentToPoolClicked()
     {
@@ -2348,19 +2867,21 @@ public class ContractsPanel : IUIPanel
         if (schedule == null || _selectedAppointmentId == null) return;
 
         var appt = schedule.FindById(_selectedAppointmentId);
-        _selectedAppointmentId = null; // one way or another, the pick-up ends here
-        if (appt == null) { Rebuild(); return; }
+        if (appt == null) { _selectedAppointmentId = null; Rebuild(); return; }
 
-        if (schedule.IsLocked(appt, out string why))
+        // Captured before parking, and phrased without a possessive: "Inbound PO 837194's trailer" is
+        // clumsy, and plenty of company names already end in "s".
+        string who = AppointmentDisplayName(appt);
+        if (!schedule.TryPark(appt.Id, out string why))
         {
+            _selectedAppointmentId = null;
             UIToast.Show(why);
             Rebuild();
             return;
         }
 
-        string who = appt.CustomerName;
-        schedule.Cancel(appt.Id);
-        UIToast.Show($"{who}'s trailer pulled off the schedule — back in the pool, unbooked.");
+        UIToast.Show($"{who} is off the grid and waiting in the pool — " +
+                     $"click an open slot to put it back.");
         Rebuild();
     }
 
@@ -2385,51 +2906,186 @@ public class ContractsPanel : IUIPanel
                 return;
             }
 
-            if (!schedule.TryBookGroupAtDoor(_scheduleDay, block, doorNumber, group, out var booked, out string bookWhy))
+            // The warning goes BEFORE the booking, not after — a checkpoint the player passes having
+            // already spent the money isn't a checkpoint. Everything past this point is deferred into
+            // the callback, which runs immediately when the player has turned the prompt off.
+            // No existing appointment to consult — booking a stranded group creates a fresh one, which
+            // by definition hasn't been penalized yet.
+            ConfirmOffSlotIfNeeded(schedule, group.ContractId, group.CustomerName, block, null, () =>
             {
-                UIToast.Show(bookWhy);
-                return;
-            }
+                if (!schedule.TryBookGroupAtDoor(_scheduleDay, block, doorNumber, group, out var booked, out string bookWhy))
+                {
+                    UIToast.Show(bookWhy);
+                    return;
+                }
 
-            AnnounceSlotResult(schedule, booked, block, doorNumber);
-            _selectedUnscheduledKey = null;
-            Rebuild();
+                AnnounceSlotResult(schedule, booked, block, doorNumber);
+                _selectedUnscheduledKey = null;
+                Rebuild();
+            });
             return;
         }
 
         if (_selectedAppointmentId == null) return;
 
-        if (!schedule.TryMoveToDoor(_selectedAppointmentId, _scheduleDay, block, doorNumber, out string why))
-        {
-            UIToast.Show(why);
-            return;
-        }
+        // Captured now: the field is cleared inside the callback, which may run after the player has
+        // answered a dialog, by which time reading it again would be reading null.
+        string apptId = _selectedAppointmentId;
+        var moving = schedule.FindById(apptId);
+        if (moving == null) return;
 
-        AnnounceSlotResult(schedule, schedule.FindById(_selectedAppointmentId), block, doorNumber);
-        _selectedAppointmentId = null;
-        Rebuild();
+        ConfirmOffSlotIfNeeded(schedule, moving.ContractId, moving.CustomerName, block, moving, () =>
+        {
+            if (!schedule.TryMoveToDoor(apptId, _scheduleDay, block, doorNumber, out string why))
+            {
+                UIToast.Show(why);
+                return;
+            }
+
+            AnnounceSlotResult(schedule, schedule.FindById(apptId), block, doorNumber);
+            _selectedAppointmentId = null;
+            Rebuild();
+        });
     }
 
     /// <summary>
-    /// Shared post-booking/move toast — same wording either way, since both are the same underlying
-    /// event from the player's seat: a trailer just landed somewhere, whether it started in the pool or
-    /// was already on the grid. A plain confirmation when it landed on the customer's own requested
-    /// hour (their contract's CutoffHour); a small one-time satisfaction penalty plus an explicit
-    /// warning toast instead when it missed that hour — see DockScheduleService.MissedRequestedSlot.
+    /// Puts the off-slot warning up only when this landing will ACTUALLY cost something; otherwise runs
+    /// the action straight through. One place decides that, so the pool-booking path and the move path
+    /// can't end up with different ideas about when a warning is warranted.
+    ///
+    /// Two conditions, and the second matters as much as the first: the destination has to miss the
+    /// customer's hour, AND this trailer must not already have been penalized for that
+    /// (DockAppointment.OffSlotPenaltyApplied). A dialog quoting a fine and a satisfaction hit that
+    /// the code then declines to charge would train the player to distrust it — and since the penalty
+    /// is once per trailer, every move after the first is exactly that case. Shuffling doors on an
+    /// already-penalized trailer stays silent, which is the behaviour a player shuffling doors wants.
+    /// </summary>
+    private void ConfirmOffSlotIfNeeded(DockScheduleService schedule, string contractId,
+                                        string customerName, int block, DockAppointment existing,
+                                        System.Action onConfirmed)
+    {
+        bool alreadyPaid = existing != null && existing.OffSlotPenaltyApplied;
+        if (alreadyPaid || !schedule.WouldMissRequestedSlot(contractId, block)) { onConfirmed(); return; }
+
+        schedule.TryGetRequestedBlock(contractId, out int wanted);
+        ConfirmOffSlotMove(customerName, DockScheduleService.BlockLabel(wanted),
+                           DockScheduleService.BlockLabel(block), onConfirmed);
+    }
+
+    /// <summary>
+    /// Applies and reports what a landing actually cost — same for a booking out of the pool and a move
+    /// on the grid, because from the player's seat they're the same event: a trailer just landed
+    /// somewhere. A plain confirmation when it landed on the customer's own requested hour; the price
+    /// the confirmation dialog quoted when it didn't.
+    ///
+    /// BOTH halves of that price are charged here, which is the half that used to be missing: a
+    /// satisfaction hit AND a fine, per the terms the player was just shown. The fine goes through
+    /// OrderService.FineMovedOffRequestedSlot, which shares HasBeenFined with the deadline sweeps, so
+    /// an order can't be billed twice for one broken promise about when its freight moves.
+    ///
+    /// An appointment with no orders on it yet — a pre-booked recurring trailer — takes the
+    /// satisfaction hit but no fine: there is nothing to bill a percentage of. The order that lands on
+    /// it later is then judged by its own deadline like any other, which is the honest outcome; the
+    /// player was warned, and the account is already carrying the mark.
     /// </summary>
     private void AnnounceSlotResult(DockScheduleService schedule, DockAppointment appt, int block, int doorNumber)
     {
         if (appt == null) return;
 
-        if (schedule.MissedRequestedSlot(appt))
+        // ONE penalty per trailer, decided in one place. TryClaimOffSlotPenalty returns true only the
+        // first time this trailer is found off its customer's hour, so shuffling it between doors — or
+        // between two equally-wrong blocks — costs nothing further. Everything below it (satisfaction,
+        // fine, floating reaction, toast wording) hangs off that one answer, so the three can't
+        // disagree about whether this landing actually cost anything.
+        if (!schedule.TryClaimOffSlotPenalty(appt))
         {
-            UIToast.Show("Order successfully moved, but with a small penalty to satisfaction.");
-            Arrivals()?.PenalizeSatisfaction(appt.ContractId);
+            UIToast.Show(schedule.MissedRequestedSlot(appt)
+                ? $"{AppointmentDisplayName(appt)} moved to {DockScheduleService.BlockLabel(block)}, " +
+                  $"door {doorNumber} — still off their slot, but already accounted for. No further charge."
+                : $"{AppointmentDisplayName(appt)} booked into {DockScheduleService.BlockLabel(block)}, " +
+                  $"door {doorNumber}, on day {_scheduleDay}.");
             return;
         }
 
-        UIToast.Show($"{appt.CustomerName} booked into {DockScheduleService.BlockLabel(block)}, door {doorNumber}, " +
-                     $"on day {_scheduleDay}.");
+        Arrivals()?.PenalizeSatisfaction(appt.ContractId);
+
+        int fined = 0;
+        int fineTotal = 0;
+        if (ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
+        {
+            foreach (var order in orders.ActiveOrders.Where(o => o != null && appt.OrderIds.Contains(o.OrderId)).ToList())
+            {
+                // The charge is a percentage of order value, computed inside OrderService — mirroring
+                // that arithmetic here to show a number would be a second copy that eventually
+                // disagrees with the money actually taken. Read capital across the call instead, so
+                // what floats up is exactly what left the balance.
+                long before = _moneyBeforeFine();
+                if (!orders.FineMovedOffRequestedSlot(order, appt.StartHour)) continue;
+                fined++;
+                fineTotal += (int)Mathf.Max(0, before - _moneyBeforeFine());
+            }
+        }
+
+        // Queued rather than played now: the caller rebuilds the grid immediately after this, which
+        // destroys the very cell the effect anchors to. See PlayPendingUnhappyFx.
+        QueueUnhappyFx(block, doorNumber, fineTotal);
+
+        UIToast.Show(fined > 0
+            ? $"{appt.CustomerName} moved off their requested slot — {fined} order(s) fined, satisfaction down."
+            : $"{appt.CustomerName} moved off their requested slot — satisfaction down.");
+    }
+
+    /// <summary>Current capital, or 0 when the money service isn't up. Used to measure a fine by what
+    /// actually left the balance rather than recomputing the rate.</summary>
+    private static long _moneyBeforeFine()
+        => ServiceLocator.TryGet<MoneyService>(out var m) && m != null ? m.CurrentCapital : 0L;
+
+    // ── Unhappy-customer reaction ────────────────────────────────────────────
+
+    private int _pendingFxBlock = -1;
+    private int _pendingFxDoor;
+    private int _pendingFxFine;
+
+    /// <summary>Stable per-cell element name — the grid coordinate, not the object, so it survives the
+    /// rebuild that every placement triggers.</summary>
+    private static string SlotElementName(int block, int doorNumber) => $"sched-slot-{block}-{doorNumber}";
+
+    /// <summary>Records where the reaction should play. Deferred because AnnounceSlotResult runs
+    /// BEFORE the caller's Rebuild(), and the rebuild throws away the cell being pointed at.</summary>
+    private void QueueUnhappyFx(int block, int doorNumber, int fineAmount)
+    {
+        _pendingFxBlock = block;
+        _pendingFxDoor = doorNumber;
+        _pendingFxFine = fineAmount;
+    }
+
+    /// <summary>
+    /// Plays any queued reaction over the freshly rebuilt grid cell.
+    ///
+    /// Called at the end of BuildSchedule, which is the first moment the new cell exists. The lookup
+    /// is by name against the rebuilt tree, and the effect is parented to the OVERLAY rather than to
+    /// the cell: the grid lives in a ScrollView that clips its children, and a face swelling to 150%
+    /// out of a slot would be sliced off at the cell edge.
+    ///
+    /// Clears the queue unconditionally, hit or miss — a reaction that couldn't find its cell (the
+    /// player switched day or tab in the same frame) must not lie in wait and fire over an unrelated
+    /// slot the next time the grid is built.
+    /// </summary>
+    private void PlayPendingUnhappyFx()
+    {
+        if (_pendingFxBlock < 0) return;
+
+        string name = SlotElementName(_pendingFxBlock, _pendingFxDoor);
+        int fine = _pendingFxFine;
+        _pendingFxBlock = -1;
+
+        // One frame late: the rows were only just added, so nothing has a resolved worldBound yet and
+        // the effect's own anchor read would come back empty.
+        _overlay.schedule.Execute(() =>
+        {
+            var cell = _content?.Q(name);
+            if (cell != null) UnhappyCustomerFx.Play(_overlay, cell, fine);
+        }).ExecuteLater(16);
     }
 
     /// <summary>
@@ -3356,7 +4012,7 @@ public class ContractsPanel : IUIPanel
         b.style.borderTopLeftRadius = b.style.borderTopRightRadius =
             b.style.borderBottomLeftRadius = b.style.borderBottomRightRadius = 6;
         b.style.paddingLeft = 12; b.style.paddingRight = 12;
-        b.style.height = 30;
+        b.style.height = OrangeButtonHeight;
         b.style.marginLeft = 0; b.style.marginRight = 0;
         b.RegisterCallback<MouseEnterEvent>(_ => b.style.backgroundColor = new StyleColor(ColOrangeHover));
         b.RegisterCallback<MouseLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(ColOrange));

@@ -98,7 +98,30 @@ namespace GameCore.Inventory
                  "rhythm — orders arriving at midnight give the player no deadline to feel. A " +
                  "wholesale deal ignores this and drops the moment it's signed.")]
         [SerializeField, Range(0, 23)] private int _cutoffHour = 17;
-        [SerializeField, Min(1)] private int _leadTimeDays = 2;
+
+        // ── The DEADLINE ─────────────────────────────────────────────────────
+        //
+        // This is the LATEST DAY the order may be shipped, not a delivery estimate. It's the number
+        // the offer card puts under the ACCEPT button, and it's what the player is really agreeing
+        // to when they take the contract.
+        //
+        // WHAT IT COMMITS THE PLAYER TO: a dock appointment must be booked (Contracts → Schedule)
+        // on or before this day. Freight that reaches the deadline with no trailer booked is
+        // judged by OrderArrivalService.SweepMissedPickups on the following day roll — the
+        // customer's satisfaction is docked, and past that they refuse the freight outright: the
+        // account is LOST and barred for ContractLossCooldownDays. So a missed deadline costs
+        // satisfaction, or the customer, or both.
+        //
+        // 0 IS LEGAL AND MEANINGFUL. Bulk offers roll a deadline anywhere from SAME DAY (0) to 72
+        // hours out (3), so Min is 0 rather than 1. A same-day rush pays DOUBLE (see
+        // OrderData.SameDayRushRevenueMultiplier) if it ships before midnight, and is fined exactly
+        // like any other late order if it doesn't — the upside is what makes the gamble worth it,
+        // the ordinary fine is what stops it being free.
+        [Tooltip("Days from arrival until the order MUST have shipped. 0 = same-day rush: double " +
+                 "revenue if it ships today, ordinary late fee if it doesn't. Max useful value for " +
+                 "a bulk offer is 3 (72 hours). Miss it and the customer's satisfaction drops or " +
+                 "they refuse the load and the account is lost.")]
+        [SerializeField, Min(0)] private int _leadTimeDays = 2;
 
         [Header("Money")]
         [Tooltip("Scales each line's SellValue. Above 1 = a premium customer worth the trouble; " +
@@ -124,7 +147,20 @@ namespace GameCore.Inventory
         public int CasesPerLineMin => _casesPerLineMin;
         public int CasesPerLineMax => _casesPerLineMax;
         public int CutoffHour => _cutoffHour;
+
+        /// <summary>Days from arrival to the SHIPPING DEADLINE — see the field's comment for what
+        /// missing it costs. 0 means same-day.</summary>
         public int LeadTimeDays => _leadTimeDays;
+
+        /// <summary>True for a same-day rush: the freight must be picked, staged, loaded and closed
+        /// out before the day rolls over. Pays <see cref="OrderData.SameDayRushRevenueMultiplier"/>x
+        /// on delivery, and is fined like any other late order if it slips.</summary>
+        public bool IsSameDayRush => _leadTimeDays <= 0;
+
+        /// <summary>The deadline as the player reads it on the card — "SAME DAY", "24 HRS", "72 HRS".
+        /// Hours rather than days because the offer is a countdown the player is racing, and a
+        /// same-day drop expressed as "0 day(s)" reads as missing data.</summary>
+        public string DeadlineLabel => _leadTimeDays <= 0 ? "SAME DAY" : $"{_leadTimeDays * 24} HRS";
         public float PayRateMultiplier => _payRateMultiplier;
         public float LateFeePercent => _lateFeePercent;
 
@@ -200,7 +236,10 @@ namespace GameCore.Inventory
             c._casesPerLineMin = Mathf.Max(1, casesPerLineMin);
             c._casesPerLineMax = Mathf.Max(c._casesPerLineMin, casesPerLineMax);
             c._cutoffHour = Mathf.Clamp(cutoffHour, 0, 23);
-            c._leadTimeDays = Mathf.Max(1, leadTimeDays);
+            // Max(0), NOT Max(1): 0 is the same-day rush, which is a real offer the bulk roll makes.
+            // Clamping it up to 1 here would have silently deleted the whole same-day mechanic while
+            // leaving the roll below looking correct.
+            c._leadTimeDays = Mathf.Max(0, leadTimeDays);
             c._payRateMultiplier = Mathf.Max(0.1f, payRateMultiplier);
             c._lateFeePercent = Mathf.Clamp01(lateFeePercent);
             c._frequency = frequency;

@@ -51,6 +51,45 @@ namespace GameCore.Inventory
         public const int BulkOffersPerDayMin = 1;
         public const int BulkOffersPerDayMax = 3;
 
+        // ── Business hours for new customer requests ─────────────────────────
+        //
+        // Nobody phones in a bulk order at 03:00. Offers used to roll at the midnight day-change,
+        // which meant a full board of same-day rushes was waiting the moment the day flipped —
+        // deadlines already burning through the night shift, and the player's first act each morning
+        // was triage on work that arrived while nothing was open.
+        //
+        // Now the board clears at midnight and REFILLS during the working day, once, at a random hour
+        // inside this window. A same-day bulk rush is still possible (that was the point of it), but
+        // it arrives with a working day in front of it rather than behind it.
+
+        /// <summary>Longest gap between deliveries any OrderFrequency can express — Weekly's 7 days.
+        /// Bounds the forward scan in TryGetNextArrival. Deliberately its own constant rather than
+        /// reusing ScheduleHorizonDays, which is also 7 but means something unrelated (how far ahead
+        /// trailers are pre-booked); tying the scan to that would make lowering the horizon quietly
+        /// break weekly accounts' "next drop" display.</summary>
+        private const int LongestCadenceDays = 7;
+
+        /// <summary>Earliest hour a new customer request can land. Inclusive.</summary>
+        public const int OfferWindowOpenHour = 8;
+
+        /// <summary>Latest hour a new customer request can land. Inclusive — an offer may arrive AT
+        /// 18:00, never after it.</summary>
+        public const int OfferWindowCloseHour = 18;
+
+        /// <summary>
+        /// How far ahead the Schedule tab is kept populated with recurring accounts' trailers.
+        ///
+        /// A standing account's appointments are a KNOWN QUANTITY — the contract already says which
+        /// days it delivers and at what hour — so making the player discover each one the morning it
+        /// lands is busywork, and worse, it hides the thing the schedule exists to show: whether next
+        /// Thursday is already full before you sign a second account into it. A week out is enough to
+        /// see a collision coming and still short enough that the grid is readable.
+        ///
+        /// Bulk deliberately gets NO pre-booking. A bulk order doesn't exist until the player accepts
+        /// it, so there's nothing to book ahead — placing it is the decision.
+        /// </summary>
+        public const int ScheduleHorizonDays = 7;
+
         private readonly List<SignedContract> _signed = new();
         private readonly List<ContractData> _catalog = new();
 
@@ -159,11 +198,26 @@ namespace GameCore.Inventory
 
             int today = _timeService?.Day ?? 0;
             hour = contract.CutoffHour;
-            // Keyed on LastGeneratedDay, NOT on whether the cutoff hour has passed: a contract signed
-            // after its own cutoff still fires on the next hour tick today (OnHourChanged only tests
-            // newHour >= CutoffHour), so "it's gone 17:00" doesn't mean today's drop has happened.
-            day = signed.LastGeneratedDay >= today ? today + 1 : today;
-            return true;
+
+            // Walks forward through DeliversOn rather than reproducing the cadence rules inline. The
+            // old one-liner ("already ran today? then tomorrow") was right for Daily and silently
+            // wrong for Weekly — it promised the Accounts tab a drop tomorrow when the real one was
+            // six days out. Sharing the predicate means the date shown here, the day the order
+            // actually generates, and the day its trailer is pre-booked can't disagree.
+            //
+            // Bounded by the longest cadence OrderFrequency can express, NOT by ScheduleHorizonDays.
+            // They're both 7 today, which is exactly why this is worth being explicit about: bounding
+            // the scan by the booking horizon happened to work only because a weekly drop is never
+            // more than 7 days out, and lowering the horizon later would silently start reporting
+            // "no next arrival" for every weekly account. The two numbers mean different things.
+            for (int d = today; d <= today + LongestCadenceDays; d++)
+            {
+                if (!DeliversOn(contract, signed, d)) continue;
+                if (signed.LastGeneratedDay >= d) continue; // that day's drop has already happened
+                day = d;
+                return true;
+            }
+            return false;
         }
 
         /// <summary>Contract offers available to sign. Hand in the authored ContractData assets —
@@ -287,9 +341,22 @@ namespace GameCore.Inventory
             var signed = FindSignedFor(order);
             if (signed == null) return;
             signed.OrdersDelivered++;
-            // Billed amount, not TotalRevenue: an order that shipped short only earned what actually
-            // went on the truck, and that's what ShipOrder credited to the player.
-            signed.RevenueEarned += order.LineItems.Sum(li => (long)li.QuantityPicked * li.SellingPrice);
+            // ShippedRevenue, not TotalRevenue: an order that shipped short only earned what actually
+            // went on the truck. Reading the property rather than re-summing the line items also keeps
+            // the SAME-DAY RUSH double in the account's earned-to-date — hand-summing here was already
+            // a second copy of ShipOrder's arithmetic, and the bonus is exactly the kind of change
+            // that makes two copies quietly disagree.
+            signed.RevenueEarned += order.ShippedRevenue;
+
+            // EVERY ORDER OUT ON TIME NUDGES SATISFACTION BACK UP — Tad's ask, and the half that makes
+            // the number a relationship rather than a ratchet. Deliberately much smaller than the
+            // penalty (see RewardSatisfaction): a lapse should take many good days to work off, so an
+            // account you've been mistreating stays visibly damaged for a while.
+            //
+            // "On time" is HasBeenFined being clear. That flag is set by whichever deadline actually
+            // governed this order — the end of a recurring trailer's booked block, or a bulk order's
+            // due day — so this one test is correct for both without knowing which applied.
+            if (!order.HasBeenFined) RewardSatisfaction(order.ContractId);
         }
 
         private void HandleOrderFined(OrderData order, int fine)
@@ -306,6 +373,17 @@ namespace GameCore.Inventory
         /// curve now would be a placeholder pretending to be a system.</summary>
         public const float SatisfactionPenaltyPerMiss = 5f;
 
+        /// <summary>
+        /// Satisfaction earned back for one order delivered on time.
+        ///
+        /// A FIFTH of the penalty, on purpose. Reputation should be slow to rebuild and quick to lose:
+        /// at 1 point a shipment it takes five clean deliveries to undo a single missed slot, so a
+        /// customer you've let down stays visibly unhappy long enough for the player to feel it, while
+        /// a well-run account still drifts back to 100 over a normal week's work rather than being
+        /// permanently marked by one bad afternoon.
+        /// </summary>
+        public const float SatisfactionRewardPerOnTimeOrder = 1f;
+
         /// <summary>Docks a small, flat amount of customer satisfaction for a signed contract. Silently
         /// no-ops for a contract that isn't (or is no longer) signed — a Dev Console order or a lost
         /// contract has nothing left to penalize.</summary>
@@ -314,6 +392,17 @@ namespace GameCore.Inventory
             var signed = GetSigned(contractId);
             if (signed == null) return;
             signed.SatisfactionPercent = Mathf.Max(0f, signed.SatisfactionPercent - SatisfactionPenaltyPerMiss);
+        }
+
+        /// <summary>Nudges customer satisfaction back up for an order that made its deadline. Capped at
+        /// 100 — a perfect account can't bank credit against future lateness, which would let a player
+        /// buy their way out of a bad week with a good one. Same silent no-op as PenalizeSatisfaction
+        /// for an order with no live contract behind it.</summary>
+        public void RewardSatisfaction(string contractId)
+        {
+            var signed = GetSigned(contractId);
+            if (signed == null) return;
+            signed.SatisfactionPercent = Mathf.Min(100f, signed.SatisfactionPercent + SatisfactionRewardPerOnTimeOrder);
         }
 
         /// <summary>Resolves a finished order back to the contract that produced it. Matches on the
@@ -342,16 +431,22 @@ namespace GameCore.Inventory
             var contract = _catalog.FirstOrDefault(c => c.ContractId == contractId);
             if (contract == null) return false;
 
+            int signDay = _timeService?.Day ?? 0;
             var signed = new SignedContract
             {
                 ContractId = contractId,
-                SignedOnDay = _timeService?.Day ?? 0,
-                // Never back-fill: a contract signed at 16:00 with a 17:00 cutoff should deliver its
-                // first orders TODAY, but one signed at 18:00 must wait for tomorrow rather than
-                // immediately dumping a day's volume on a player who just signed it.
-                LastGeneratedDay = (_timeService != null && _timeService.Hour >= contract.CutoffHour)
-                                 ? _timeService.Day
-                                 : -1
+                SignedOnDay = signDay,
+                // A RECURRING ACCOUNT NEVER DELIVERS ON THE DAY IT WAS SIGNED. Stamping the signing
+                // day as already-generated is what enforces it: OnHourChanged skips any contract whose
+                // LastGeneratedDay is >= today, so the first orders can't land before tomorrow, and
+                // DeliversOn applies the same rule to the pre-booked schedule.
+                //
+                // The old behaviour let a contract signed before its cutoff hour deliver immediately.
+                // That is fine on paper and awful in practice: sign at 22:00 with a 16:00–18:00 slot
+                // and the account opens with freight that is already hours late through no fault of
+                // the player. A new customer's first pickup is tomorrow — same as a real account
+                // being set up.
+                LastGeneratedDay = signDay
             };
             _signed.Add(signed);
 
@@ -371,31 +466,101 @@ namespace GameCore.Inventory
                 return true;
             }
 
-            // Pre-books the account's very first appointment right now, before any order exists to
-            // trigger DockScheduleService.HandleOrderArrived's own auto-place. Without this, a
-            // recurring account's slot didn't show up on the Schedule tab until its first order
-            // actually generated at the contract's cutoff hour — which could be a full day away (see
-            // the "never back-fill" comment above) and read as broken to a player who'd just signed and
-            // expected to see it immediately. TryGetNextArrival already knows exactly which day/hour
-            // that first order will land on; TryAutoPlace(day, hour, ...) books that same slot ahead of
-            // time as an empty booking. When the real order arrives later, HandleOrderArrived's own
-            // "join a trailer the player has already booked" branch finds it and just attaches the
-            // order — no double-booking, and the player can still drag it elsewhere in the meantime.
-            if (_dockSchedule != null && contract.Customer != null &&
-                TryGetNextArrival(contractId, out int arrivalDay, out int arrivalHour) &&
-                _dockSchedule.TryAutoPlace(arrivalDay, arrivalHour, arrivalDay + contract.LeadTimeDays,
-                    AppointmentKind.Outbound, contract.Customer.CustomerId, contract.Customer.CompanyName,
-                    contractId, out var appt)
-                && _dockSchedule.MissedRequestedSlot(appt))
-            {
-                UIToast.Show("Order successfully moved, but with a small penalty to satisfaction.");
-                PenalizeSatisfaction(contractId);
-            }
+            // Fills in this account's whole week of trailers immediately, not just its first. Without
+            // any pre-booking a recurring account's slot didn't appear on the Schedule tab until its
+            // first order actually generated at the contract's cutoff hour — which could be a full day
+            // away (see the "never back-fill" comment above) and read as broken to a player who'd just
+            // signed. Booking only the first fixed that one case and still left the rest of the week
+            // blank, which is the half that actually matters: the player signs a second account
+            // against a grid that looks empty and only discovers the collision a week later.
+            MaintainRecurringSchedule();
 
             Debug.Log($"[OrderArrivalService] Signed {contractId} ({contract.Customer?.CompanyName}) — " +
                       $"{contract.FrequencyLabel}, ~{contract.EstimatedCasesPerDay} cases/day, " +
-                      $"due {contract.LeadTimeDays} day(s) out.");
+                      $"ships in the {DockScheduleService.BlockLabel(DockScheduleService.BlockForHour(contract.CutoffHour))} slot.");
             return true;
+        }
+
+        /// <summary>
+        /// Keeps every running account's trailers booked <see cref="ScheduleHorizonDays"/> days ahead.
+        ///
+        /// THE DEADLINE FOR A RECURRING ORDER IS THE END OF ITS BOOKED BLOCK, not a day — which only
+        /// works if the block genuinely exists before the order does. That's this method's real job:
+        /// it makes the appointment the promise, so an order can be judged against a two-hour window
+        /// the moment it lands (DockScheduleService.SweepElapsedAppointments) instead of waiting for a
+        /// midnight roll-up that would be far too coarse to mean anything.
+        ///
+        /// Books EMPTY appointments. When the order arrives, HandleOrderArrived's "join a trailer the
+        /// player has already booked" branch finds the one for that customer+contract and attaches the
+        /// order to it — no double-booking, and no difference between a slot booked here and one the
+        /// player placed by hand. The player can still move it, subject to the recurring move rule
+        /// (earlier, same day only — see DockScheduleService.TryMoveToDoor).
+        ///
+        /// Idempotent, and cheap enough to call on every day roll and every signing: it skips any day
+        /// that already has an appointment for that contract, so re-running it books nothing new.
+        /// Stale bookings need no cleanup here — an elapsed appointment with nothing loaded is
+        /// released by SweepElapsedAppointments, and cancelling an account stops it being extended.
+        /// </summary>
+        public void MaintainRecurringSchedule()
+        {
+            if (_dockSchedule == null || _timeService == null) return;
+            if (_dockSchedule.CapacityPerBlock <= 0) return; // no outbound door yet — nothing to book against
+
+            int today = _timeService.Day;
+
+            foreach (var signed in _signed.ToList())
+            {
+                if (!signed.Active) continue;
+                var contract = GetContract(signed.ContractId);
+                if (contract == null || contract.Customer == null) continue;
+                // One-offs and bulk have nothing recurring to project forward.
+                if (contract.IsBulk || contract.IsOneTime) continue;
+
+                for (int day = today; day <= today + ScheduleHorizonDays; day++)
+                {
+                    if (!DeliversOn(contract, signed, day)) continue;
+                    if (_dockSchedule.HasAppointmentFor(signed.ContractId, day)) continue;
+
+                    // lastDay == day: a recurring trailer that can't fit on its OWN day is not booked
+                    // at all rather than pushed to tomorrow. Its deadline is a block on this day, so a
+                    // slot on any other day isn't a late booking — it's a booking for the wrong order.
+                    // The freight then shows up in the unscheduled pool where the player can see the
+                    // dock is over-committed, which is the honest outcome.
+                    //
+                    // A full day is skipped, NOT treated as the end of the horizon: today being
+                    // over-committed says nothing about next Tuesday, and giving up on the first
+                    // failure would leave the rest of the week blank for exactly the account whose
+                    // schedule the player most needs to see.
+                    _dockSchedule.TryAutoPlace(day, contract.CutoffHour, day, AppointmentKind.Outbound,
+                        contract.Customer.CustomerId, contract.Customer.CompanyName,
+                        signed.ContractId, out _);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Does this contract send work on the given day? Daily is every day after the signing day;
+        /// Weekly repeats a week at a time from it.
+        ///
+        /// NEVER THE SIGNING DAY ITSELF — the strict `day &lt;= SignedOnDay` test, not `&lt;`. A new
+        /// account's first pickup is tomorrow at the earliest, so signing at 22:00 can't open the
+        /// relationship with freight that's already missed its window. This is the schedule-side half
+        /// of the rule; the arrival-side half is Sign() stamping LastGeneratedDay with the signing day.
+        /// Both are needed: one stops the pre-booking, the other stops the order.
+        ///
+        /// Anchored on SignedOnDay rather than on an absolute calendar so a weekly account signed on
+        /// day 3 delivers on 10, 17, 24 — a week from the handshake, which is the thing the player
+        /// agreed to — instead of snapping to some global week boundary they never chose. Deliberately
+        /// NOT anchored on LastGeneratedDay any more: that field now always holds the signing day right
+        /// after signing, so using it would have re-derived the same anchor by a longer route while
+        /// quietly shifting the whole series every time an order generated.
+        /// </summary>
+        private static bool DeliversOn(ContractData contract, SignedContract signed, int day)
+        {
+            if (day <= signed.SignedOnDay) return false;
+            if (contract.Frequency != OrderFrequency.Weekly) return true;
+
+            return (day - signed.SignedOnDay) % 7 == 0;
         }
 
         /// <summary>
@@ -439,6 +604,8 @@ namespace GameCore.Inventory
             if (_orderService == null || _timeService == null) return;
             int today = _timeService.Day;
 
+            TryRollOffersThisHour(today, newHour);
+
             foreach (var signed in _signed)
             {
                 if (!signed.Active) continue;
@@ -477,9 +644,63 @@ namespace GameCore.Inventory
         private void OnDayChanged(string eventId, int newDay)
         {
             // Order matters. The loss sweep judges YESTERDAY's failures, so it runs against the board
-            // as it stood; rolling fresh offers first would be harmless today but only by accident.
+            // as it stood; anything that touches the offer list first would be harmless today but only
+            // by accident.
             SweepMissedPickups(newDay);
-            RollDailyBulkOffers(newDay);
+
+            // Midnight only CLEARS the board — the day's fresh offers now arrive during business hours
+            // (TryRollOffersThisHour), so the New Contracts tab is genuinely empty overnight and fills
+            // as the working day goes on.
+            ExpireStaleBulkOffers(newDay);
+            PickTodaysOfferHour(newDay);
+
+            // Extends the booked week by one more day, so the horizon stays ScheduleHorizonDays out
+            // rather than draining away as days pass. Runs LAST: an account lost by the sweep above
+            // is no longer Active and must not get tomorrow's trailer booked for it.
+            MaintainRecurringSchedule();
+        }
+
+        /// <summary>Day <see cref="_offerHourToday"/> was rolled for. -1 = not picked yet this
+        /// session, which is also the state after a load — see PickTodaysOfferHour.</summary>
+        private int _offerHourDay = -1;
+        private int _offerHourToday = OfferWindowOpenHour;
+
+        /// <summary>
+        /// Chooses the hour inside the business-hours window at which today's customer requests come
+        /// in. One hour per day rather than one per offer: a handful of calls arriving together reads
+        /// as "the morning's post", where scattering them across the day would have the board quietly
+        /// growing behind the player's back while they're looking at it.
+        ///
+        /// Not persisted. On a load, PickTodaysOfferHour hasn't run for the restored day, so it's
+        /// re-rolled — which is why TryRollOffersThisHour tests `hour &gt;= _offerHourToday` rather than
+        /// equality, and why it also checks whether today's offers already exist. Between them, a save
+        /// loaded at 16:00 whose offers already arrived gets no second batch, and one loaded at 16:00
+        /// that re-rolls a 10:00 slot catches up immediately instead of silently skipping the day.
+        /// </summary>
+        private void PickTodaysOfferHour(int day)
+        {
+            _offerHourDay = day;
+            _offerHourToday = new System.Random(day).Next(OfferWindowOpenHour, OfferWindowCloseHour + 1);
+        }
+
+        /// <summary>
+        /// Rolls the day's bulk offers if the working day has reached the hour they're due and they
+        /// haven't already arrived.
+        ///
+        /// "Already arrived" is derived from _generatedOfferDay rather than tracked in a flag of its
+        /// own, so it survives a save/load for free — an offer rolled today is still stamped today
+        /// after a reload, and no extra save field has to be kept in step. A day that legitimately
+        /// rolls nothing (no eligible SKUs) simply retries on the next hour tick inside the window,
+        /// which is the behaviour you want anyway.
+        /// </summary>
+        private void TryRollOffersThisHour(int today, int hour)
+        {
+            if (hour < OfferWindowOpenHour || hour > OfferWindowCloseHour) return;
+            if (_offerHourDay != today) PickTodaysOfferHour(today);
+            if (hour < _offerHourToday) return;
+            if (_generatedOfferDay.Values.Any(d => d == today)) return;
+
+            RollDailyBulkOffers(today);
         }
 
         /// <summary>
@@ -538,16 +759,18 @@ namespace GameCore.Inventory
         }
 
         /// <summary>
-        /// Clears yesterday's untaken bulk offers and rolls 1–3 fresh ones.
+        /// Rolls the day's 1–3 fresh bulk offers. Called from TryRollOffersThisHour during business
+        /// hours, NOT at the day roll — new customer requests arrive while somebody's answering the
+        /// phone.
         ///
-        /// Offers EXPIRE rather than accumulating, which is what makes the daily board a decision
-        /// instead of a growing backlog the player can pick over at leisure. A bulk offer the player
-        /// signed is already out of _catalog's available set, so only the ignored ones are dropped.
+        /// Expiry is the day roll's job (ExpireStaleBulkOffers, called from OnDayChanged) and no
+        /// longer happens here. That split is deliberate: the board must be swept the moment the day
+        /// turns, or yesterday's dead offers would sit there until whatever hour today's batch happens
+        /// to land — and "already rolled today" is derived from _generatedOfferDay, which expiry
+        /// mutates, so doing both in one call would have made that test depend on call order.
         /// </summary>
         private void RollDailyBulkOffers(int today)
         {
-            ExpireStaleBulkOffers(today);
-
             if (_customers == null) _customers = CustomerRegistry.Load();
             if (_customers == null || _customers.customers.Count == 0) return;
             if (_inventoryService == null) return;
@@ -579,16 +802,30 @@ namespace GameCore.Inventory
                 // anyway, and a card that can't be clicked is worse than no card.
                 if (IsInLossCooldown(contractId)) continue;
 
+                // THE DEADLINE — the latest day this freight may ship, rolled fresh per offer and
+                // shown under the ACCEPT button on the card. Range is SAME DAY (0) through 72 hours
+                // (3): Next's upper bound is exclusive, so Next(0, 4) gives 0-3.
+                //
+                // A 0 here is a genuine rush, not a degenerate case. The player must pick, stage,
+                // load and close it out before midnight, and in exchange it pays double (see
+                // OrderData.SameDayRushRevenueMultiplier). Miss any deadline and the customer's
+                // satisfaction takes a hit; leave the freight unbooked past it and they refuse the
+                // load entirely — SweepMissedPickups cancels the order and loses the account.
+                int deadlineDays = rand.Next(0, 4);
+
                 var offer = ContractData.CreateRuntime(
                     contractId, customer,
-                    $"{customer.CompanyName} wants a full-pallet drop. Cost of goods plus 5%.",
+                    deadlineDays <= 0
+                        ? $"{customer.CompanyName} needs a full-pallet drop out TODAY. Cost of goods " +
+                          $"plus 5%, paid double if it makes the truck."
+                        : $"{customer.CompanyName} wants a full-pallet drop. Cost of goods plus 5%.",
                     ContractKind.Bulk,
                     palletCount: 1,
                     ordersPerDayMin: 1, ordersPerDayMax: 1,
                     lineItemsMin: 1, lineItemsMax: 3,
                     casesPerLineMin: 1, casesPerLineMax: 1,
                     cutoffHour: 17,
-                    leadTimeDays: rand.Next(1, 4),
+                    leadTimeDays: deadlineDays,
                     payRateMultiplier: 1f,
                     lateFeePercent: 0.25f,
                     frequency: OrderFrequency.OneTime,
@@ -655,6 +892,10 @@ namespace GameCore.Inventory
                 rand.Next(contract.BulkLinesMin, contract.BulkLinesMax + 1));
             var chosen = eligible.OrderBy(_ => rand.Next()).Take(lineCount).ToList();
 
+            // DueDay = today + the deadline the offer advertised. today + 0 is a SAME-DAY RUSH: the
+            // order is born already due, so OrderData.IsSameDayRush is true and ShipOrder pays double
+            // if the player closes it out before the day rolls. It is NOT overdue on arrival —
+            // IsOverdue is strictly currentDay > DueDay — so no fine is charged the moment it lands.
             var order = new OrderData(
                 customer.CustomerId,
                 customer.CompanyName,
@@ -692,7 +933,8 @@ namespace GameCore.Inventory
             _orderService.ReceiveOrder(order);
             Debug.Log($"[OrderArrivalService] BULK accepted — {customer.CompanyName}: {totalCases} case(s) " +
                       $"across {order.LineItems.Count} line(s) (~{totalPallets} full pallet(s)), " +
-                      $"due day {today + contract.LeadTimeDays}.");
+                      $"must ship by day {order.DueDay}" +
+                      (order.IsSameDayRush ? " — SAME-DAY RUSH, pays double if it makes the truck." : "."));
         }
 
         /// <summary>Cost of goods plus a 5% surcharge — the whole of bulk pricing.</summary>
@@ -794,6 +1036,12 @@ namespace GameCore.Inventory
 
             if (_signed.Count > 0)
                 Debug.Log($"[OrderArrivalService] Restored {_signed.Count} signed contract(s).");
+
+            // Tops the booked week back up after a load. Appointments persist too, so this normally
+            // books nothing — but a save taken mid-week, or one written before pre-booking existed,
+            // would otherwise come back with a short or empty horizon and no way to refill it until
+            // the next midnight. Idempotent by HasAppointmentFor, so running it here is free.
+            MaintainRecurringSchedule();
         }
 
         // ── Generated-offer persistence ──────────────────────────────────────

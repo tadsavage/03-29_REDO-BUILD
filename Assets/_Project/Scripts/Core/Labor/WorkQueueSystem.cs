@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GameCore.Events;
 using GameCore.Inventory;
 using GameCore.Services;
 using UnityEngine;
@@ -149,13 +150,33 @@ namespace GameCore.Labor
             // InventoryService already announced every removal on OnPalletDestroyed; the event simply
             // had no subscribers anywhere in the project. This is that subscriber.
             InventoryService.OnPalletDestroyed += HandlePalletDestroyed;
+
+            // THE STALE-CLAIM SWEEP IS THE QUEUE'S OWN JOB, not a tenant's.
+            //
+            // ReleaseStaleAssignments used to be called from exactly one place in the entire project:
+            // ReachTruckOperator's poll loop. So the safety net for the WHOLE queue only existed if
+            // the player happened to have a reach truck operator hired. Found live with no RTO in the
+            // scene and two Receive tasks Assigned-but-abandoned for 250s — nothing was ever going to
+            // release them, and the receiver polls only for Available, so she stood idle beside the
+            // pallets she was supposed to be receiving.
+            //
+            // Hooked to the hour tick rather than a new heartbeat: the sim runs one in-game hour per
+            // real minute, so this fires about every 60s against a 90s threshold — often enough to
+            // recover promptly, rare enough to cost nothing.
+            _eventManager = EventManager.Instance;
+            _eventManager?.Subscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
         }
+
+        private EventManager _eventManager;
+
+        private void OnHourChanged(string eventId, int newHour) => ReleaseStaleAssignments();
 
         public void Shutdown()
         {
             // OnPalletDestroyed is a STATIC event — without this unsubscribe the handler outlives the
             // service and accumulates across domain reloads / play sessions.
             InventoryService.OnPalletDestroyed -= HandlePalletDestroyed;
+            _eventManager?.Unsubscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
             _tasks.Clear();
         }
 

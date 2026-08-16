@@ -832,6 +832,18 @@ namespace GameCore.Inventory
             if (order.Status == OrderData.OrderStatus.Shipped) return 0;
 
             int revenue = order.LineItems.Sum(li => li.QuantityPicked * li.SellingPrice);
+
+            // SAME-DAY RUSH BONUS. An order the customer wanted out the door on its own arrival day
+            // pays double when it actually makes it — that premium is what makes a rush worth taking,
+            // since the deadline leaves no slack at all. Deliberately keyed on the CURRENT day rather
+            // than on HasBeenFined: the fine sweep runs at the day roll, so a rush closed out at
+            // 23:59 has earned the bonus and a rush closed out one minute later has not, regardless
+            // of whether the fine has been charged yet. A rush that slips bills at the ordinary rate
+            // and still takes the ordinary late fee — the downside is not doubled, only the upside.
+            bool sameDayBonus = _timeService != null && order.QualifiesForSameDayBonus(_timeService.Day);
+            if (sameDayBonus)
+                revenue = Mathf.RoundToInt(revenue * OrderData.SameDayRushRevenueMultiplier);
+
             _moneyService?.AddCapital(revenue, FinanceCategory.CasePick);
 
             order.Status = OrderData.OrderStatus.Shipped;
@@ -841,7 +853,8 @@ namespace GameCore.Inventory
             // anything there is still Loading/Loaded, so a just-shipped order can't hold its own
             // trailer at the dock.
             Archive(order);
-            Debug.Log($"[OrderService] Order {orderId} ({order.CustomerName}) shipped — billed ${revenue} for {order.TotalUnitsPicked} unit(s).");
+            Debug.Log($"[OrderService] Order {orderId} ({order.CustomerName}) shipped — billed ${revenue} for " +
+                      $"{order.TotalUnitsPicked} unit(s){(sameDayBonus ? " (SAME-DAY RUSH — revenue doubled)" : "")}.");
             return revenue;
         }
 
@@ -865,59 +878,77 @@ namespace GameCore.Inventory
             // itself is over _activeOrders and nothing here archives, but snapshotting keeps a future
             // listener from invalidating the iterator.
             //
-            // TODO(customer satisfaction — Tad's ask): missing a customer's due day is exactly the
-            // "didn't receive it in the timeslot they wanted" case a satisfaction system should react
-            // to, same as the other two TODOs on this file (FineLateLoad) and on ContractsPanel.
-            // BuildPoolBox. No such system exists yet — this is the call site for it once one does.
+            // THIS IS THE BULK DEADLINE, and the backstop for everything else. A bulk order's deadline
+            // is a whole DAY, so midnight is exactly the right moment to judge it. A RECURRING order's
+            // deadline is the end of its booked two-hour block and has almost always been judged hours
+            // earlier by DockScheduleService.SweepElapsedAppointments — which sets the same
+            // HasBeenFined flag, so it's already excluded here and one miss can't be billed twice.
+            // A recurring order with no appointment at all still falls through to this sweep, which is
+            // the correct floor: it can't be measured against a block it never had.
             foreach (var order in _activeOrders.Where(o => o.IsOverdue(newDay) && !o.HasBeenFined).ToList())
-            {
-                float rate = order.LateFeePercent > 0f ? order.LateFeePercent : LateFeePercentClerk;
-                int fine = Mathf.RoundToInt(rate * order.TotalRevenue);
-                _moneyService?.RemoveCapital(fine, FinanceCategory.Fines);
-                order.HasBeenFined = true;
-                OnOrderFined?.Invoke(order, fine);
-
-                Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) is OVERDUE — fined ${fine} ({rate:P0} of ${order.TotalRevenue} order cost).");
-            }
+                ChargeLateFee(order, $"is OVERDUE (due day {order.DueDay})");
         }
-
-        /// <summary>Flat rate for FineLateLoad — a trailer's booked door slot ran out while it was
-        /// still being loaded. Same 25% shape as the day-late fine, but a deliberately separate
-        /// constant: the two fines have different triggers (door slot vs. due day) and there's no
-        /// reason a future balance pass couldn't tune them apart.</summary>
-        private const float LateLoadFinePercent = 0.25f;
 
         /// <summary>
-        /// One-time 25% revenue penalty for an order whose booked dock appointment's block ran out
-        /// while it was still being physically loaded. Called by DockScheduleService.
-        /// SweepElapsedAppointments — never from UI — for exactly the case Tad specced: the trailer
-        /// showed up and loading DID start, so pulling the appointment out from under the Dock Stocker
-        /// mid-coroutine would desync TrailerLoadController; instead the load is left to finish and
-        /// the account eats a fine for running over its window, same as a day-late order does for
-        /// missing its due date.
+        /// Charges an order's one-time late fee at its OWN contracted rate and announces it.
         ///
-        /// Reuses OnOrderFined rather than a new event — OrderArrivalService.HandleOrderFined already
-        /// rolls any fine into the owning contract's OrdersLate/LateFeesPaid stats, and a late-loaded
-        /// trailer should count against that account's on-time rate exactly like a day-late one does.
+        /// One method for both deadline types on purpose. A bulk order misses a day, a recurring order
+        /// misses a two-hour block — different triggers, but the same consequence and the same
+        /// bookkeeping, and HasBeenFined being the single guard across both is what makes double-
+        /// billing structurally impossible rather than something two call sites have to agree about.
         ///
-        /// TODO(customer satisfaction): Tad's explicit ask was that this should also cost the account
-        /// some customer satisfaction. Not modelled here — no such system exists yet in this codebase
-        /// (searched; there's no satisfaction/reputation field anywhere) — but this is the call site
-        /// that should apply it once one does.
+        /// Fires OnOrderFined, which OrderArrivalService.HandleOrderFined rolls into the owning
+        /// contract's OrdersLate / LateFeesPaid — so a missed block counts against an account's
+        /// on-time rate exactly like a missed day does.
+        ///
+        /// Returns true only if this call is what charged it, so a caller can pair the money penalty
+        /// with a satisfaction penalty without needing to re-derive whether the fine actually landed.
         /// </summary>
-        public void FineLateLoad(OrderData order)
+        private bool ChargeLateFee(OrderData order, string why)
         {
-            if (order == null || order.HasBeenLateLoadFined) return;
+            if (order == null || order.HasBeenFined) return false;
 
-            int fine = Mathf.RoundToInt(LateLoadFinePercent * order.TotalRevenue);
+            float rate = order.LateFeePercent > 0f ? order.LateFeePercent : LateFeePercentClerk;
+            int fine = Mathf.RoundToInt(rate * order.TotalRevenue);
             _moneyService?.RemoveCapital(fine, FinanceCategory.Fines);
-            order.HasBeenLateLoadFined = true;
+            order.HasBeenFined = true;
             OnOrderFined?.Invoke(order, fine);
 
-            Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) fined ${fine} " +
-                             $"({LateLoadFinePercent:P0} of ${order.TotalRevenue}) — its dock appointment ran out " +
-                             $"while still loading.");
+            Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) {why} — " +
+                             $"fined ${fine} ({rate:P0} of ${order.TotalRevenue} order value).");
+            return true;
         }
+
+        /// <summary>
+        /// The freight was still here when its booked dock block ran out. Charges the same one-time
+        /// late fee a day-overdue order takes — see ChargeLateFee — and reports whether this call is
+        /// what charged it, so DockScheduleService.SweepElapsedAppointments can dock customer
+        /// satisfaction in step with the money and never twice for one miss.
+        ///
+        /// This is what makes "your deadline is the end of your slot" a real rule rather than a label
+        /// on a card. It replaced FineLateLoad, which charged a separate flat 25% under its own
+        /// HasBeenLateLoadFined flag and only ever fired for trailers that had already STARTED
+        /// loading: a trailer nobody touched all window went entirely unpunished, and the one that was
+        /// half-loaded got billed at a rate its contract never advertised. (OrderData.
+        /// HasBeenLateLoadFined is kept and still round-trips through saves — dropping the field would
+        /// break older save files for a flag nothing reads any more.)
+        /// </summary>
+        public bool FineMissedDeadline(OrderData order, int blockEndHour)
+            => ChargeLateFee(order, $"missed its {blockEndHour:00}:00 dock slot");
+
+        /// <summary>
+        /// The player moved this order's trailer off the hour its customer asked for. Charges the same
+        /// one-time fee as any other broken promise about when the freight moves, and reports whether
+        /// this call is what charged it so the caller can pair it with a satisfaction hit.
+        ///
+        /// Shares HasBeenFined with the two deadline sweeps ON PURPOSE, rather than getting a flag of
+        /// its own. An order rebooked into a worse slot and then also late for it has broken one
+        /// promise, not two, and the player has already been shown the price once and accepted it —
+        /// billing again when the slot they chose runs out would be charging twice for a single
+        /// decision. First fine wins; the rest is already-paid-for consequence.
+        /// </summary>
+        public bool FineMovedOffRequestedSlot(OrderData order, int blockStartHour)
+            => ChargeLateFee(order, $"was moved off its requested slot to {blockStartHour:00}:00");
 
         /// <summary>
         /// Moves a finished order out of the working list and into history.

@@ -53,7 +53,14 @@ public class DevHudWindow : MonoBehaviour
         // document, which is not what "part of the bottom bar" means. Adding to the bar itself puts it
         // in the bar's row layout (space-between, so it lands between the category and utility rows)
         // and it inherits the bar's position, layering and lifetime for free.
-        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BuildBar : null;
+        //
+        // ActiveBar, not BuildBar: an element has one parent, so docking to the build bar meant the
+        // FPS readout and the graphics preset simply disappeared the moment the player switched to
+        // Play. OnActiveBarChanged below moves it across with the mode.
+        BuildMenuUI.OnActiveBarChanged -= FollowActiveBar;
+        BuildMenuUI.OnActiveBarChanged += FollowActiveBar;
+
+        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
         _docked = bar != null;
         BuildUI(bar ?? ownRoot);
 
@@ -67,7 +74,7 @@ public class DevHudWindow : MonoBehaviour
         {
             ownRoot.schedule.Execute(() =>
             {
-                var late = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BuildBar : null;
+                var late = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
                 if (late == null || _panel == null || _panel.parent == late) return;
                 _panel.RemoveFromHierarchy();
                 late.Add(_panel);
@@ -78,8 +85,21 @@ public class DevHudWindow : MonoBehaviour
         TrySubscribeSave();
     }
 
+    /// <summary>Re-parents this HUD into whichever bar just became visible. A no-op when it's already
+    /// there, so the mode-switch event costs nothing on the bar it's already docked to.</summary>
+    private void FollowActiveBar(VisualElement bar)
+    {
+        if (bar == null || _panel == null || _panel.parent == bar) return;
+        _panel.RemoveFromHierarchy();
+        bar.Add(_panel);
+        _docked = true;
+        ApplyDockedLayout();
+    }
+
     private void OnDisable()
     {
+        BuildMenuUI.OnActiveBarChanged -= FollowActiveBar;
+
         if (_subscribed && SaveManager.Instance != null)
             SaveManager.Instance.OnSaveCompleted -= OnGameSaved;
         _subscribed = false;
@@ -359,7 +379,7 @@ public class DevHudWindow : MonoBehaviour
         // the card permanently on the BarCardHeight fallback instead of the real button height.
         _panel.schedule.Execute(() =>
         {
-            var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.BuildBar : null;
+            var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
             var utilityRow = bar?.Q<VisualElement>("UtilityRow");
             var button = utilityRow?.Children().FirstOrDefault();
             if (button == null) return;

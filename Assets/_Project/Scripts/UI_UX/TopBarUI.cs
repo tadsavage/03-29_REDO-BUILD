@@ -55,6 +55,8 @@ public class TopBarUI : MonoBehaviour
     public ContractsPanel ContractsPanel => _contractsPanel;
     private NewItemPanel _newItemPanel;                 // "8" key — assign pick slots to received items
     public NewItemPanel NewItemPanel => _newItemPanel;
+    private PurchasingPanel _purchasingPanel;           // "9" key — raise POs to bring stock in
+    public PurchasingPanel PurchasingPanel => _purchasingPanel;
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
 
@@ -101,6 +103,7 @@ public class TopBarUI : MonoBehaviour
         _workQueuePanel = new WorkQueuePanel(root);
         _contractsPanel = new ContractsPanel(root);
         _newItemPanel = new NewItemPanel(root);
+        _purchasingPanel = new PurchasingPanel(root);
 
         // Register shift manager with UIKeyBindingManager for keybinding support (key 5)
         if (UIKeyBindingManager.Instance != null)
@@ -113,6 +116,7 @@ public class TopBarUI : MonoBehaviour
             UIKeyBindingManager.Instance.RegisterUI(6, _contractsPanel);
             UIKeyBindingManager.Instance.RegisterUI(7, _workQueuePanel);
             UIKeyBindingManager.Instance.RegisterUI(8, _newItemPanel);
+            UIKeyBindingManager.Instance.RegisterUI(9, _purchasingPanel);
             // Note: SlotAssignmentPanel doesn't implement IUIPanel yet, can be accessed via UI button
         }
 
@@ -208,6 +212,10 @@ public class TopBarUI : MonoBehaviour
 
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit8Key.wasPressedThisFrame)
             keys.ToggleUI(8);
+
+        // 9 opens PURCHASING — the inbound counterpart to Contracts on 6.
+        if (!UIModalGuard.IsCapturing && Keyboard.current.digit9Key.wasPressedThisFrame)
+            keys.ToggleUI(9);
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {

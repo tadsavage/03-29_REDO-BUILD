@@ -41,12 +41,14 @@
    Same card as .buildmenu-category-button; only the icon shrinks, to leave room for
    the hotkey badge without pushing the label out of the 104px card. */
 .playbar-icon {
-    width: 68px;
-    height: 68px;
+    width: 62px;
+    height: 62px;
 }
 
 .playbar-label {
-    font-size: 14px;
+    /* Slightly larger than the build labels: play-bar names are shorter ("Purchasing", "Work Queue")
+       so they still fit the 90px card at 13px, where "Loss Prevention" would not. */
+    font-size: 13px;
 }
 
 /* Absolute so the badge costs no vertical space — the card is already full at
@@ -93,6 +95,13 @@
 
 .playbar-icon-newitem {
     background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/NewItemThumb.png?fileID=2800000&guid=703546f892563b8428200ddbd177029a&type=3#NewItemThumb");
+}
+
+/* PLACEHOLDER ART: reuses the Contracts thumb because Play Bar Icons has no purchasing image yet.
+   It is deliberately the same picture as button 6, which is wrong and meant to be noticed — drop a
+   PurchasingThumb.png into Assets/_Project/Art/Icons/Play Bar Icons/ and repoint this one rule. */
+.playbar-icon-purchasing {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/ContractsThumb.png#ContractsThumb");
 }
 
 /* ── Build / Play mode tabs ──────────────────────────────────────────────
@@ -168,9 +177,14 @@
     max-width: 520px !important;
 }
 
-/* Category buttons — card face */
+/* Category buttons — card face.
+   Width cut 25% (120 -> 90) so ten categories, the utility row and the dev HUD all fit on one bar
+   without the utilities being pushed off the right edge. Height is deliberately UNCHANGED: the bar
+   is a fixed 120px and the cards should still fill it. The icon below is cut by the same 25% —
+   background-size:contain scales the IMAGE to its element, but the element itself was 96px wide and
+   would have overflowed a 90px card (82px of content box after padding). */
 .buildmenu-category-button {
-    width: 120px;
+    width: 90px;
     height: 104px;
     display: flex;
     flex-direction: column;
@@ -200,7 +214,7 @@
 }
 
 .buildmenu-category-icon {
-    width: 96px;
+    width: 72px;
     height: 88px;
     background-size: contain;
     background-repeat: no-repeat;
@@ -209,7 +223,11 @@
 
 .buildmenu-category-label {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
-    font-size: 16px;
+    /* 16 -> 12 to follow the card down from 120px to 90px. The binding case is "Loss Prevention" at
+       15 characters against ~82px of content box; at 16px it overran the old 120px card too, which
+       is why it looked like it was leaning on its neighbour. nowrap is kept deliberately — the card
+       is only 104px tall with an 88px icon in it, so there is no room for a second line to wrap to. */
+    font-size: 12px;
     -unity-text-letter-spacing: -1px;
     -unity-font-style: normal;
     color: #96BEDC;

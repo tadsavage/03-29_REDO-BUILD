@@ -37,8 +37,57 @@ namespace GameCore.Inventory
         public string CustomerName;
         /// <summary>ContractData.ContractId, or null for inbound / hand-made orders.</summary>
         public string ContractId;
-        /// <summary>Orders riding on this trailer. Empty for an inbound PO.</summary>
+
+        /// <summary>
+        /// The inbound PO this appointment is holding a door for, or null.
+        ///
+        /// Non-empty is what separates the two completely different things an Inbound appointment can
+        /// be. BookInboundNow files a NOTE that a truck is standing at a door right now — there was
+        /// never a decision in it and it can't be moved. A PO the player raised through Purchasing
+        /// files a RESERVATION for freight that hasn't left the supplier yet, which is a plan like any
+        /// other: it starts life parked in the unscheduled pool and the player drops it on the day,
+        /// block and door they want it to arrive at.
+        ///
+        /// IsLocked keys off this, so the note stays immovable and the reservation stays draggable.
+        /// </summary>
+        public string ShipmentPoNumber;
+        /// <summary>Orders riding on this trailer. Empty for an inbound PO, and empty for a recurring
+        /// trailer that's been pre-booked ahead of its order arriving.</summary>
         public List<string> OrderIds = new();
+
+        /// <summary>
+        /// The player has pulled this trailer off the grid but it still exists — it's sitting in the
+        /// unscheduled pool waiting to be put back at a door.
+        ///
+        /// This is what makes shuffling doors possible. Returning a trailer to the pool used to DELETE
+        /// the appointment and let the pool re-derive a box from its orders, which worked only for
+        /// freight that had orders: a recurring trailer pre-booked before its order arrives carries
+        /// none, so unbooking one destroyed the only record of it and the box simply vanished. Parking
+        /// keeps the appointment — with its customer, contract, day and BLOCK intact — so the same
+        /// trailer can be put back down, and so a recurring trailer can't launder its fixed time slot
+        /// by being unbooked and re-booked somewhere else.
+        ///
+        /// A parked trailer occupies no door: GetBlock excludes it, so it frees its slot the moment
+        /// it's picked up and doesn't count against capacity.
+        /// </summary>
+        public bool Parked;
+
+        /// <summary>
+        /// This trailer has already cost its customer satisfaction for sitting outside their requested
+        /// hour. One offence per trailer, not one per click.
+        ///
+        /// Without it, every landing on an off-slot block docked satisfaction again — so a player
+        /// shuffling doors to fit a busy morning could take five hits for the single fact that one
+        /// trailer isn't at 16:00, and moving it from 20:00 to 22:00 (no worse for the customer, both
+        /// wrong) cost as much as the original mistake. The penalty belongs to the STATE of being
+        /// off-slot, which is reached once.
+        ///
+        /// Deliberately never cleared, including by moving back onto the requested slot. Putting it
+        /// right is worth doing — it stops the trailer being late — but it doesn't un-annoy a customer
+        /// who was already told their slot moved, and a flag that clears would make an off/on/off
+        /// shuffle chargeable again, which is the exact thing this exists to prevent.
+        /// </summary>
+        public bool OffSlotPenaltyApplied;
 
         public int StartHour => BlockIndex * DockScheduleService.BlockHours;
         public int EndHour => StartHour + DockScheduleService.BlockHours;
@@ -84,6 +133,16 @@ namespace GameCore.Inventory
         public string customerName;
         public string contractId;
         public List<string> orderIds = new();
+        /// <summary>False in a save written before parking existed — correct, since every appointment
+        /// in such a save was on the grid.</summary>
+        public bool parked;
+        /// <summary>Null in a save written before player purchasing existed — correct, since no
+        /// appointment in such a save was ever a PO reservation.</summary>
+        public string shipmentPoNumber;
+        /// <summary>False in a save written before the once-only off-slot penalty existed. That is the
+        /// forgiving default: at worst an already-penalized trailer can be charged once more after
+        /// loading such a save, rather than a fresh trailer being wrongly treated as already paid.</summary>
+        public bool offSlotPenaltyApplied;
     }
 
     /// <summary>
@@ -162,12 +221,44 @@ namespace GameCore.Inventory
 
         // ── Time helpers ─────────────────────────────────────────────────────
 
-        public int CurrentDay => _timeService?.Day ?? 0;
+        /// <summary>
+        /// The clock, re-resolved from the locator if this service somehow lost it.
+        ///
+        /// WHY THIS ISN'T JUST THE FIELD. A null clock used to make CurrentDay and CurrentBlock both
+        /// return 0, and 0 is not a harmless default here — it's "midnight on day zero", which makes
+        /// EVERY block read as still in the future. The past-slot lockout vanishes, elapsed blocks
+        /// stop turning red, and IsLocked stops refusing bookings into times that have already gone.
+        /// The whole schedule silently fails OPEN, with nothing in the console to say so.
+        ///
+        /// Observed for real: a service instance that never had Initialize() run got registered over
+        /// the live one, and the only symptom was that the grid quietly stopped locking the past.
+        /// Re-resolving here means a service that missed its wiring repairs itself on first use, and
+        /// says so once if it genuinely can't.
+        /// </summary>
+        private SimulationTimeService Clock
+        {
+            get
+            {
+                if (_timeService != null) return _timeService;
+                ServiceLocator.TryGet(out _timeService);
+                if (_timeService == null && !_warnedNoClock)
+                {
+                    _warnedNoClock = true;
+                    Debug.LogError("[DockSchedule] No SimulationTimeService — the schedule can't tell " +
+                                   "which blocks have passed, so past slots will NOT lock. This service " +
+                                   "was probably never Initialize()d.");
+                }
+                return _timeService;
+            }
+        }
+        private bool _warnedNoClock;
+
+        public int CurrentDay => Clock?.Day ?? 0;
 
         /// <summary>Block containing the given hour.</summary>
         public static int BlockForHour(int hour) => Mathf.Clamp(hour / BlockHours, 0, BlocksPerDay - 1);
 
-        public int CurrentBlock => BlockForHour(_timeService?.Hour ?? 0);
+        public int CurrentBlock => BlockForHour(Clock?.Hour ?? 0);
 
         public static string BlockLabel(int blockIndex)
         {
@@ -201,8 +292,11 @@ namespace GameCore.Inventory
         /// that looks like a bug.</summary>
         public int CapacityPerBlock => OutboundDoors().Count;
 
+        /// <summary>Trailers standing at a door in this block. PARKED trailers are excluded — a parked
+        /// appointment is in the pool, not at a door, so it must not appear in the grid, block a door
+        /// another trailer could use, or count against capacity.</summary>
         public IEnumerable<DockAppointment> GetBlock(int day, int blockIndex)
-            => _appointments.Where(a => a.Day == day && a.BlockIndex == blockIndex)
+            => _appointments.Where(a => !a.Parked && a.Day == day && a.BlockIndex == blockIndex)
                             .OrderBy(a => a.DoorNumber);
 
         public bool HasRoom(int day, int blockIndex) => GetBlock(day, blockIndex).Count() < CapacityPerBlock;
@@ -210,9 +304,45 @@ namespace GameCore.Inventory
         public DockAppointment FindById(string id)
             => string.IsNullOrEmpty(id) ? null : _appointments.FirstOrDefault(a => a.Id == id);
 
-        /// <summary>The appointment an order is riding on, or null if it hasn't been scheduled.</summary>
+        /// <summary>Trailers the player has pulled off the grid, waiting in the pool to be put back.
+        /// Ordered soonest-first so the most urgent is leftmost, matching UnscheduledGroups.</summary>
+        public IEnumerable<DockAppointment> ParkedAppointments
+            => _appointments.Where(a => a.Parked).OrderBy(a => a.Day).ThenBy(a => a.BlockIndex);
+
+        /// <summary>
+        /// The appointment actually HOLDING A DOOR for this order, or null if nothing is.
+        ///
+        /// Parked appointments deliberately don't count. This is what callers mean when they ask "is
+        /// this freight booked?" — the missed-pickup sweep that loses accounts, and the Bulk Orders
+        /// tab's "NO DOOR BOOKED" flag both have to treat a parked trailer as unbooked, because it is.
+        /// UnscheduledGroups wants the other question and asks it directly (see IsOnAnyAppointment).
+        /// </summary>
         public DockAppointment FindForOrder(string orderId)
-            => string.IsNullOrEmpty(orderId) ? null : _appointments.FirstOrDefault(a => a.OrderIds.Contains(orderId));
+            => string.IsNullOrEmpty(orderId)
+             ? null
+             : _appointments.FirstOrDefault(a => !a.Parked && a.OrderIds.Contains(orderId));
+
+        /// <summary>Is this order attached to any appointment at all, parked or booked? Used only to
+        /// keep the pool from listing an order twice — once inside its parked trailer's box and again
+        /// as a loose stranded group.</summary>
+        private bool IsOnAnyAppointment(string orderId)
+            => !string.IsNullOrEmpty(orderId) && _appointments.Any(a => a.OrderIds.Contains(orderId));
+
+        /// <summary>
+        /// Is there already a trailer booked for this contract on this day?
+        ///
+        /// Keyed on CONTRACT, not customer: one customer can hold several contracts and each is its
+        /// own trailer, so a customer-level check would see a bulk drop already booked and skip
+        /// pre-booking that day's recurring run. What makes OrderArrivalService.MaintainRecurringSchedule
+        /// idempotent — it can run on every day roll and every signing without ever double-booking.
+        ///
+        /// Inbound appointments are excluded: they carry no ContractId, so they can't match, but the
+        /// filter is explicit rather than incidental.
+        /// </summary>
+        public bool HasAppointmentFor(string contractId, int day)
+            => !string.IsNullOrEmpty(contractId)
+            && _appointments.Any(a => a.Kind != AppointmentKind.Inbound
+                                   && a.Day == day && a.ContractId == contractId);
 
         /// <summary>Today-or-later appointments for a customer, earliest first.</summary>
         public IEnumerable<DockAppointment> UpcomingFor(string customerId)
@@ -327,7 +457,10 @@ namespace GameCore.Inventory
             reason = null;
             if (appt == null) { reason = "That appointment no longer exists."; return true; }
 
-            if (appt.Kind == AppointmentKind.Inbound)
+            // Only the "a truck is standing there right now" note is immovable. An inbound appointment
+            // carrying a PO number is a reservation for freight still at the supplier — the player
+            // raised it in Purchasing and is entitled to say when it should turn up.
+            if (appt.Kind == AppointmentKind.Inbound && string.IsNullOrEmpty(appt.ShipmentPoNumber))
             {
                 reason = "That's an inbound PO's truck taking a door — not a booking you can move.";
                 return true;
@@ -363,11 +496,61 @@ namespace GameCore.Inventory
         /// either way, so it never counts as a miss — there's nothing on record to have missed.
         /// </summary>
         public bool MissedRequestedSlot(DockAppointment appt)
+            => appt != null && WouldMissRequestedSlot(appt.ContractId, appt.BlockIndex);
+
+        /// <summary>
+        /// The same judgement asked BEFORE a move instead of after — would this contract's trailer be
+        /// off its requested hour if it sat in this block?
+        ///
+        /// Needed because the warning has to come first. MissedRequestedSlot can only answer for an
+        /// appointment that has already been moved, which is fine for reporting a penalty and useless
+        /// for offering the player a choice about incurring one.
+        ///
+        /// Answers false for anything with no contract on record (a Dev Console order) — there's
+        /// nothing it could be said to have missed.
+        /// </summary>
+        public bool WouldMissRequestedSlot(string contractId, int blockIndex)
+            => TryGetRequestedBlock(contractId, out int wanted) && blockIndex != wanted;
+
+        /// <summary>
+        /// THE SINGLE GATE ON OFF-SLOT PENALTIES. Returns true exactly once per appointment — the
+        /// first time that trailer is found sitting outside its customer's requested hour — and false
+        /// for every landing after that.
+        ///
+        /// Every path that penalizes an off-slot trailer must go through this and act only on true:
+        /// the player's own move or pool booking (ContractsPanel.AnnounceSlotResult) and the automatic
+        /// placement that couldn't get their hour (HandleOrderArrived). One gate rather than a flag
+        /// each caller checks for itself, because the rule is "one hit per trailer" and two call sites
+        /// each guarding independently would still be two hits.
+        ///
+        /// It also gates the FINE and the on-screen reaction, not just the satisfaction hit, so the
+        /// three can never disagree — no fine without an angry customer, and no angry face floating up
+        /// over a move that cost nothing.
+        ///
+        /// Returns false for a trailer already on its requested slot, and for anything with no
+        /// contract on record, so a caller can use it as the whole test.
+        /// </summary>
+        public bool TryClaimOffSlotPenalty(DockAppointment appt)
         {
-            if (appt == null || string.IsNullOrEmpty(appt.ContractId)) return false;
+            if (appt == null || appt.OffSlotPenaltyApplied) return false;
+            if (!MissedRequestedSlot(appt)) return false;
+
+            appt.OffSlotPenaltyApplied = true;
+            return true;
+        }
+
+        /// <summary>The block a contract's customer actually asked for, derived from CutoffHour — the
+        /// closest thing on record to "their slot", and the same value MaintainRecurringSchedule aims
+        /// its pre-bookings at, so the promise and the judgement can't drift apart.</summary>
+        public bool TryGetRequestedBlock(string contractId, out int blockIndex)
+        {
+            blockIndex = 0;
+            if (string.IsNullOrEmpty(contractId)) return false;
             if (!ServiceLocator.TryGet(out OrderArrivalService arrivals) || arrivals == null) return false;
-            var contract = arrivals.GetContract(appt.ContractId);
-            return contract != null && appt.BlockIndex != BlockForHour(contract.CutoffHour);
+            var contract = arrivals.GetContract(contractId);
+            if (contract == null) return false;
+            blockIndex = BlockForHour(contract.CutoffHour);
+            return true;
         }
 
         /// <summary>Does any order on this trailer still want a door? An order that's left the active
@@ -382,22 +565,58 @@ namespace GameCore.Inventory
             return false;
         }
 
-        /// <summary>Moves an existing appointment to a SPECIFIC block+door, keeping its orders — the
-        /// player's explicit choice of both, not an auto-picked door. Fails (leaving the original
-        /// untouched) if the destination door is taken, isn't outbound-capable, is in the past, or the
-        /// appointment is no longer a live plan.</summary>
+        /// <summary>
+        /// Moves an existing appointment to a SPECIFIC block+door, keeping its orders — the player's
+        /// explicit choice of both, not an auto-picked door. Fails (leaving the original untouched) if
+        /// the destination door is taken, isn't outbound-capable, is in the past, the appointment is no
+        /// longer a live plan, or the recurring move rule below refuses it.
+        ///
+        /// A RECURRING TRAILER MOVES TO ANY BLOCK, EARLIER OR LATER, exactly like a bulk one. It was
+        /// briefly pinned to its booked slot; that's been lifted (Tad's call, 2026-08-16) in favour of
+        /// letting the player make the trade knowingly — moving off the hour the customer asked for is
+        /// allowed, costs a fine and customer satisfaction, and the UI warns before it happens
+        /// (ContractsPanel.OnSlotClicked → the off-slot confirmation). A rule the player can break for
+        /// a stated price is a decision; a rule they can't break is just a wall.
+        ///
+        /// STILL PINNED TO ITS OWN DAY. Not a leftover — a recurring order exists on one specific day,
+        /// so dragging Thursday's trailer to Friday isn't rescheduling a pickup, it's shipping a day
+        /// late with the evidence moved out of sight; and dragging it to Wednesday would ship freight
+        /// the customer hasn't ordered yet. The day-level version of "ship it late anyway" is already
+        /// modelled properly, by leaving it where it is and eating the fee.
+        ///
+        /// Bulk is unrestricted in both: its deadline is a whole DAY rather than an hour, the player
+        /// placed it themselves, and moving it past that day is a legitimate (if costly) choice the
+        /// ordinary late fee already prices.
+        /// </summary>
         public bool TryMoveToDoor(string appointmentId, int day, int blockIndex, int doorNumber,
                                   out string failReason)
         {
             failReason = null;
             var appt = FindById(appointmentId);
             if (appt == null) { failReason = "That appointment no longer exists."; return false; }
-            if (appt.Day == day && appt.BlockIndex == blockIndex && appt.DoorNumber == doorNumber) return true;
+            // The "already there, nothing to do" shortcut must NOT fire for a parked trailer: putting
+            // one back down on the exact door it came off is a real action (it un-parks), and taking
+            // the shortcut would leave it stranded in the pool while reporting success.
+            if (!appt.Parked && appt.Day == day && appt.BlockIndex == blockIndex && appt.DoorNumber == doorNumber)
+                return true;
 
             // Checked here and not only in the UI: the panel decides what to grey out, but this is what
             // makes it true. A chip can also finish WHILE it sits selected, between the click that picked
             // it up and the click that puts it down.
             if (IsLocked(appt, out failReason)) return false;
+
+            if (appt.Kind == AppointmentKind.Outbound)
+            {
+                if (day != appt.Day)
+                {
+                    // No possessive on the customer name anywhere in these two reasons — plenty of the
+                    // authored companies already end in "s" ("Sneaky Pete's Seafood"), and "X's's" is
+                    // what you get for assuming otherwise.
+                    failReason = $"{appt.CustomerName} has a recurring order for day {appt.Day} — " +
+                                 $"a standing delivery can't be moved to another day.";
+                    return false;
+                }
+            }
 
             if (day < CurrentDay || (day == CurrentDay && blockIndex < CurrentBlock))
             {
@@ -421,12 +640,103 @@ namespace GameCore.Inventory
             appt.Day = day;
             appt.BlockIndex = blockIndex;
             appt.DoorNumber = doorNumber;
+            // Placing a parked trailer is how it gets back on the grid — this is the un-park. Same
+            // call the player uses to move a booked one, so a parked trailer is subject to exactly the
+            // same rules going back down as it was coming up.
+            appt.Parked = false;
             return true;
         }
 
         public bool Cancel(string appointmentId)
         {
             var appt = FindById(appointmentId);
+            if (appt == null) return false;
+            _appointments.Remove(appt);
+            return true;
+        }
+
+        /// <summary>
+        /// Pulls a trailer off the grid into the unscheduled pool WITHOUT destroying it — the player
+        /// picked it up to put it down somewhere else.
+        ///
+        /// Replaces Cancel on the return-to-pool path, and the difference is the whole point. Cancel
+        /// deleted the appointment and relied on the pool re-deriving a box from its orders, which
+        /// silently did nothing for a trailer that has no orders yet — precisely the case
+        /// MaintainRecurringSchedule creates every day, so unbooking a pre-booked recurring trailer
+        /// made it disappear with no way to get it back. Parking keeps the record, so the trailer sits
+        /// in the pool and can be re-placed, which is what makes shuffling doors around workable.
+        ///
+        /// It also closes a hole the old path left open: re-placing a parked trailer goes back through
+        /// TryMoveToDoor, so a recurring trailer still can't change its promised time — unbook and
+        /// rebook is no longer a way around the fixed slot.
+        ///
+        /// Refuses a locked appointment for the same reasons a move does, and refuses an inbound one:
+        /// that's a note that a PO's truck is at a door, not a booking anyone can pick up.
+        /// </summary>
+        public bool TryPark(string appointmentId, out string failReason)
+        {
+            failReason = null;
+            var appt = FindById(appointmentId);
+            if (appt == null) { failReason = "That appointment no longer exists."; return false; }
+            if (appt.Parked) return true;
+            if (IsLocked(appt, out failReason)) return false;
+
+            appt.Parked = true;
+            return true;
+        }
+
+        /// <summary>The appointment held for a given inbound PO, or null if none is.</summary>
+        public DockAppointment FindForPo(string poNumber)
+            => string.IsNullOrEmpty(poNumber)
+             ? null
+             : _appointments.FirstOrDefault(a => a.ShipmentPoNumber == poNumber);
+
+        /// <summary>
+        /// Puts a freshly-raised purchase order into the unscheduled pool as a PARKED inbound
+        /// appointment, so the player can drop it on the day, block and door they want it at.
+        ///
+        /// Parked rather than auto-placed on purpose. Inbound and outbound share the same doors, and
+        /// the whole reason the Schedule tab exists is to make the player decide who gets which one —
+        /// silently booking the first free slot would hand back the decision they just made by
+        /// choosing a delivery day. It also means a PO can't consume a door the player was saving
+        /// without them seeing it happen.
+        ///
+        /// Carries the PO's own delivery day so the box in the pool reads as the day the freight was
+        /// ordered for, and so placing it doesn't have to re-derive that from the shipment.
+        /// </summary>
+        public DockAppointment ParkInboundForPo(string poNumber, string supplierId, string supplierName,
+                                                int arrivalDay)
+        {
+            if (string.IsNullOrEmpty(poNumber)) return null;
+
+            var existing = FindForPo(poNumber);
+            if (existing != null) return existing; // already has one — never file a second
+
+            var appt = new DockAppointment
+            {
+                Id = System.Guid.NewGuid().ToString(),
+                Day = Mathf.Max(arrivalDay, CurrentDay),
+                // Aimed at the PO's own delivery day and the current block. Neither is honoured while
+                // it sits parked — a parked appointment occupies no door — but they're what the pool
+                // box displays and what the slot defaults to if the player never moves it.
+                BlockIndex = CurrentBlock,
+                DoorNumber = 0,
+                Kind = AppointmentKind.Inbound,
+                CustomerId = supplierId,
+                CustomerName = supplierName,
+                ShipmentPoNumber = poNumber,
+                Parked = true
+            };
+            _appointments.Add(appt);
+            Debug.Log($"[DockSchedule] PO {poNumber} ({supplierName}) parked in the unscheduled pool for day {appt.Day}.");
+            return appt;
+        }
+
+        /// <summary>Drops the appointment held for a PO — used when that PO is cancelled, so a
+        /// cancelled order doesn't leave a ghost box sitting in the pool forever.</summary>
+        public bool ReleasePo(string poNumber)
+        {
+            var appt = FindForPo(poNumber);
             if (appt == null) return false;
             _appointments.Remove(appt);
             return true;
@@ -467,8 +777,18 @@ namespace GameCore.Inventory
         {
             if (order == null) return;
 
-            var existing = UpcomingFor(order.CustomerId)
-                .FirstOrDefault(a => a.Kind != AppointmentKind.Inbound && a.ContractId == order.ContractId);
+            // Prefer a trailer booked for TODAY over merely the next one upcoming. With recurring
+            // accounts pre-booked a week ahead (OrderArrivalService.MaintainRecurringSchedule) there
+            // are now several matching appointments in front of an arriving order, and taking the
+            // earliest upcoming one is only right by accident: if today's block has already elapsed,
+            // "earliest upcoming" is TOMORROW's trailer, and today's freight would silently ride a
+            // slot booked for a different day's order. Falling through to auto-place instead puts it
+            // on today where its deadline actually is, or strands it visibly if the dock is full.
+            var candidates = UpcomingFor(order.CustomerId)
+                .Where(a => a.Kind != AppointmentKind.Inbound && a.ContractId == order.ContractId)
+                .ToList();
+            var existing = candidates.FirstOrDefault(a => a.Day == CurrentDay) ??
+                           (order.IsBulk ? candidates.FirstOrDefault() : null);
             if (existing != null)
             {
                 if (!existing.OrderIds.Contains(order.OrderId)) existing.OrderIds.Add(order.OrderId);
@@ -488,9 +808,20 @@ namespace GameCore.Inventory
                 return;
 
             appt.OrderIds.Add(order.OrderId);
-            if (MissedRequestedSlot(appt))
+            // Through the same one-shot gate the player's own moves use — a trailer that already cost
+            // satisfaction for being off-slot must not cost it again just because a second order
+            // joined it, and this path can run repeatedly for one appointment (once per arriving
+            // order on it).
+            if (TryClaimOffSlotPenalty(appt))
             {
-                UIToast.Show("Order successfully moved, but with a small penalty to satisfaction.");
+                // No confirmation dialog on this path and none wanted: the player didn't choose this.
+                // Auto-placement aims at the requested block and only lands elsewhere when the dock was
+                // genuinely full, so the wording says that rather than blaming them for a move they
+                // never made. Satisfaction still drops — the customer doesn't care whose fault it is —
+                // but no fine is charged here, because a fine is the price of a decision and there
+                // wasn't one.
+                UIToast.Show($"No door free at {order.CustomerName}'s usual time — booked into " +
+                             $"{BlockLabel(appt.BlockIndex)} instead. Satisfaction down.");
                 arrivals?.PenalizeSatisfaction(order.ContractId);
             }
         }
@@ -567,7 +898,11 @@ namespace GameCore.Inventory
             foreach (var order in orders.ActiveOrders)
             {
                 if (order == null || !NeedsAppointment(order)) continue;
-                if (FindForOrder(order.OrderId) != null) continue;
+                // IsOnAnyAppointment, not FindForOrder: an order riding a PARKED trailer is already
+                // represented in the pool by that trailer's own box. Testing "has a door" here instead
+                // would list it twice — once as the parked box, once as a loose stranded group — and
+                // booking either copy would leave the other behind.
+                if (IsOnAnyAppointment(order.OrderId)) continue;
 
                 string key = $"{order.CustomerId}|{order.ContractId}";
                 if (!byKey.TryGetValue(key, out var group))
@@ -633,10 +968,20 @@ namespace GameCore.Inventory
         private void OnHourChanged(string eventId, int newHour) => SweepElapsedAppointments();
 
         /// <summary>
-        /// Judges every appointment whose booked block has fully elapsed, once per hour tick. Two
-        /// outcomes, decided by whether the trailer's freight ever actually started loading — i.e.
-        /// whether ANY of its orders reached Loading or beyond, meaning a Dock Stocker actually claimed
-        /// the Load task and is (or was) physically carrying pallets onto it:
+        /// Judges every appointment whose booked block has fully elapsed, once per hour tick.
+        ///
+        /// THIS IS WHERE A RECURRING ORDER'S DEADLINE IS ENFORCED. A standing account's promise is a
+        /// two-hour window, not a day, so the fine can't wait for the midnight roll-up in
+        /// OrderService.OnDayChanged — by then the customer has been kept waiting most of a day and
+        /// the window it was measured against is long gone. Any order still on the trailer when its
+        /// block runs out has missed its deadline and is charged here: a one-time late fee at the
+        /// CONTRACT'S OWN advertised rate (OrderService.FineMissedDeadline, sharing OrderData.
+        /// HasBeenFined with the day-roll sweep so one miss can never be billed twice) plus a
+        /// customer-satisfaction hit, exactly the two penalties a late bulk order takes.
+        ///
+        /// The fine is charged whether or not loading ever started — a trailer half-loaded at the end
+        /// of its window is just as late as one nobody touched. What loading DOES decide is what
+        /// happens to the appointment itself:
         ///
         ///   NEVER STARTED   the door slot is cancelled outright (same Cancel a player's own "return to
         ///                   pool" click uses — see ContractsPanel.OnReturnAppointmentToPoolClicked) so
@@ -646,10 +991,12 @@ namespace GameCore.Inventory
         ///   ALREADY LOADING pulling the appointment out from under a Dock Stocker mid-load would desync
         ///                   TrailerLoadController, which is still driving a coroutine against these
         ///                   exact pallets/orders — so the appointment is left alone and the load is
-        ///                   allowed to finish. Instead each order on it eats a one-time 25% revenue
-        ///                   fine (OrderService.FineLateLoad) for running the door slot over. Tad's
-        ///                   explicit ask was that this should also cost some customer satisfaction —
-        ///                   not modelled here, see the TODO on FineLateLoad for why.
+        ///                   allowed to finish. It's already been fined; letting it finish is not
+        ///                   forgiveness, it's just not corrupting a running coroutine to make a point.
+        ///
+        /// An EMPTY elapsed appointment — a pre-booking from MaintainRecurringSchedule whose order
+        /// never arrived, or whose orders have all shipped — is simply removed. Nothing to fine and
+        /// nobody kept waiting; this is also what keeps stale pre-bookings from accumulating.
         ///
         /// Inbound appointments are never judged here — they're ShipmentService's note that a PO's
         /// truck is at a door, not a promise this service made to anyone.
@@ -657,9 +1004,20 @@ namespace GameCore.Inventory
         private void SweepElapsedAppointments()
         {
             if (!ServiceLocator.TryGet(out OrderService orderService) || orderService == null) return;
+            ServiceLocator.TryGet(out OrderArrivalService arrivals);
 
             int today = CurrentDay;
             int nowBlock = CurrentBlock;
+
+            // Inbound PO reservations whose day has fully passed are dropped rather than judged. There
+            // is no customer to disappoint and no order to fine — the freight either turned up (in
+            // which case ShipmentService has long since taken the appointment down) or the PO was
+            // cancelled. Without this a missed PO box would sit in the unscheduled pool forever.
+            // BookInboundNow's live-truck notes are still exempt entirely; they aren't reservations.
+            _appointments.RemoveAll(a => a.Kind == AppointmentKind.Inbound
+                                      && !string.IsNullOrEmpty(a.ShipmentPoNumber)
+                                      && a.Day < today);
+
             var elapsed = _appointments
                 .Where(a => a.Kind != AppointmentKind.Inbound &&
                             (a.Day < today || (a.Day == today && a.BlockIndex < nowBlock)))
@@ -670,6 +1028,21 @@ namespace GameCore.Inventory
                 var apptOrders = orderService.ActiveOrders
                     .Where(o => o != null && appt.OrderIds.Contains(o.OrderId))
                     .ToList();
+
+                // Everything still on this trailer missed the window it was promised. Shipped orders
+                // have already been archived out of ActiveOrders, so anything left here by definition
+                // did not go out in time.
+                foreach (var order in apptOrders)
+                {
+                    if (order.Status == OrderData.OrderStatus.Cancelled) continue;
+                    if (!orderService.FineMissedDeadline(order, appt.EndHour)) continue;
+
+                    // Satisfaction is docked once per order fined, alongside the money. Missing the
+                    // slot the customer was promised is precisely the case Tad asked satisfaction to
+                    // react to — it was a standing TODO on this method until the deadline became a
+                    // block rather than a day and gave it a definite moment to fire on.
+                    arrivals?.PenalizeSatisfaction(order.ContractId);
+                }
 
                 bool startedLoading = apptOrders.Any(o =>
                     o.Status == OrderData.OrderStatus.Loading ||
@@ -682,16 +1055,6 @@ namespace GameCore.Inventory
                     _appointments.Remove(appt);
                     Debug.LogWarning($"[DockSchedule] {who}'s {BlockLabel(appt.BlockIndex)} slot on day {appt.Day} " +
                                      $"elapsed with nothing loaded — released back to the unscheduled pool.");
-                    continue;
-                }
-
-                foreach (var order in apptOrders)
-                {
-                    if (order.HasBeenLateLoadFined) continue;
-                    if (order.Status != OrderData.OrderStatus.Loading &&
-                        order.Status != OrderData.OrderStatus.Loaded) continue;
-
-                    orderService.FineLateLoad(order);
                 }
             }
         }
@@ -708,7 +1071,10 @@ namespace GameCore.Inventory
             customerId = a.CustomerId,
             customerName = a.CustomerName,
             contractId = a.ContractId,
-            orderIds = new List<string>(a.OrderIds)
+            orderIds = new List<string>(a.OrderIds),
+            parked = a.Parked,
+            shipmentPoNumber = a.ShipmentPoNumber,
+            offSlotPenaltyApplied = a.OffSlotPenaltyApplied
         }).ToList();
 
         public void Import(List<DockAppointmentSnapshot> entries)
@@ -729,7 +1095,10 @@ namespace GameCore.Inventory
                     CustomerId = s.customerId,
                     CustomerName = s.customerName,
                     ContractId = s.contractId,
-                    OrderIds = s.orderIds ?? new List<string>()
+                    OrderIds = s.orderIds ?? new List<string>(),
+                    Parked = s.parked,
+                    ShipmentPoNumber = s.shipmentPoNumber,
+                    OffSlotPenaltyApplied = s.offSlotPenaltyApplied
                 });
             }
 

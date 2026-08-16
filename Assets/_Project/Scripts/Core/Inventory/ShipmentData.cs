@@ -20,9 +20,34 @@ namespace GameCore.Inventory
         public List<ShipmentLineItem> LineItems { get; set; } = new();
         public ShipmentStatus Status { get; set; } = ShipmentStatus.InTransit;
 
+        /// <summary>
+        /// True for a PO the PLAYER raised through the Purchasing panel, false for one the dev tools
+        /// or the random-delivery generator produced.
+        ///
+        /// Drives two things that have to differ. A player PO shows its own random number on the PO
+        /// List and is the player's money; a generated one is scenery for testing. And a player PO is
+        /// billed at creation — you pay when you order, not when the truck shows up — which must not
+        /// happen for generated ones or the dev buttons would quietly drain capital.
+        /// </summary>
+        public bool PlayerOrdered { get; set; }
+
         public ShipmentData(string supplierId, string supplierName, int arrivalDay, int arrivalMinute)
         {
             PONumber = PONumberGenerator.GetNextPONumber();
+            SupplierId = supplierId;
+            SupplierName = supplierName;
+            ArrivalDayNumber = arrivalDay;
+            ArrivalTimeMinute = arrivalMinute;
+        }
+
+        /// <summary>Creates a PO carrying a number chosen by the caller — the Purchasing panel shows
+        /// the number on screen BEFORE the order exists ("PO #: 837194" sits above the item list while
+        /// you're still filling it in), so the number has to be reserved first and handed in, not
+        /// minted here where the panel would never see it.</summary>
+        public ShipmentData(string poNumber, string supplierId, string supplierName,
+                            int arrivalDay, int arrivalMinute)
+        {
+            PONumber = string.IsNullOrEmpty(poNumber) ? PONumberGenerator.GetNextPONumber() : poNumber;
             SupplierId = supplierId;
             SupplierName = supplierName;
             ArrivalDayNumber = arrivalDay;
@@ -125,6 +150,9 @@ namespace GameCore.Inventory
         public int arrivalDayNumber;
         public int arrivalTimeMinute;
         public int status; // (int)ShipmentData.ShipmentStatus
+        /// <summary>False in a save written before player purchasing existed — correct, since every PO
+        /// in such a save came from the dev tools or the delivery generator.</summary>
+        public bool playerOrdered;
         public List<ShipmentLineItemSnapshot> lineItems = new();
     }
 

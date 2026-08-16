@@ -249,9 +249,18 @@ namespace GameCore.Labor
             // later.
             ChargeForGoods();
 
-            // Add PalletData script to the pallet
+            // Fill in the pallet's PalletData — REUSING the one TruckController already put on it when
+            // this pallet was built as trailer cargo, rather than adding a second.
+            //
+            // A bare AddComponent here gave every received pallet TWO PalletData components: the
+            // cargo one with an empty LoadId, and this one with the real plate. Measured live: 12
+            // pallet objects carrying 22 components. GetComponent<PalletData> returns whichever was
+            // added first, so half the callers in the project were reading the blank cargo record —
+            // no LoadId, staging-time SKU — off a pallet that had been properly received. That is the
+            // same shape as the old "hover tooltip stuck on one item" bug the cargo path was fixed for.
             var sku = _inventoryService?.GetSkuData(_palletMasterRecord.SkuId);
-            var palletData = _targetPallet.gameObject.AddComponent<PalletData>();
+            var palletData = _targetPallet.gameObject.GetComponent<PalletData>();
+            if (palletData == null) palletData = _targetPallet.gameObject.AddComponent<PalletData>();
             palletData.Initialize(
                 _palletMasterRecord.LoadId,
                 _palletMasterRecord.SkuId,
