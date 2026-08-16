@@ -283,6 +283,12 @@ namespace GameCore.Inventory
         /// <summary>Late fees charged against this contract's orders.</summary>
         public long LateFeesPaid;
 
+        /// <summary>0–100. Docked a small flat amount (OrderArrivalService.PenalizeSatisfaction) each
+        /// time a trailer for this contract lands away from the customer's own requested hour — during
+        /// auto-book or a manual move alike (see DockScheduleService.MissedRequestedSlot). Starts at a
+        /// perfect 100; nothing else currently reads this value except the Accounts tab's status line.</summary>
+        public float SatisfactionPercent = 100f;
+
         /// <summary>Share of delivered orders that were never fined, 0–1. Returns 1 before anything
         /// has shipped — a brand-new account reads as perfect rather than as 0%, which would look
         /// like a failing customer the moment you signed it.</summary>
@@ -305,6 +311,10 @@ namespace GameCore.Inventory
         public int ordersLate;
         public long revenueEarned;
         public long lateFeesPaid;
+        /// <summary>-1 in a save written before satisfaction existed — Import treats negative as "not
+        /// recorded" and defaults to a perfect 100, unlike ordersLate/lateFeesPaid a real 0 IS a
+        /// legitimate value here (fully dissatisfied), so 0 can't double as the "unset" sentinel.</summary>
+        public float satisfactionPercent = -1f;
         /// <summary>False in a save written before contract loss existed, which is correct — nothing
         /// in that save was ever lost.</summary>
         public bool lost;

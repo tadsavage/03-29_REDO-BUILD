@@ -434,6 +434,8 @@ public class ContractsPanel : IUIPanel
         // faster than a few times a second buys nothing. Scheduled ONCE here for the same reason as
         // the others: doing it per Rebuild would stack a poller per refresh.
         content.schedule.Execute(SyncScheduleClock).Every(200);
+        // A block only ever changes every 2 in-game hours — no need to poll as tightly as the clock.
+        content.schedule.Execute(SyncScheduleElapsed).Every(1000);
 
         footerMessage = new Label();
         ApplyFont(footerMessage, size: 15);
@@ -627,6 +629,13 @@ public class ContractsPanel : IUIPanel
     private Label _scheduleClockLabel;
     private string _lastScheduleClockText;
 
+    /// <summary>What schedule.CurrentDay/CurrentBlock were as of the Schedule tab's last build —
+    /// watermarked in BuildSchedule, watched by SyncScheduleElapsed. int.MinValue means "never built
+    /// yet," so the first poll after opening the tab can't mistake itself for a block change and force
+    /// a redundant immediate rebuild.</summary>
+    private int _lastLiveScheduleDay = int.MinValue;
+    private int _lastLiveScheduleBlock = int.MinValue;
+
     /// <summary>
     /// Slides the Completed header sideways by exactly what the ledger is scrolled, so the two stay
     /// in step once the window is dragged narrower than the columns need.
@@ -678,6 +687,28 @@ public class ContractsPanel : IUIPanel
         => ServiceLocator.TryGet(out SimulationTimeService time) && time != null
             ? $"Day {time.Day}   ·   {time.Hour:00}:{time.Minute:00}"
             : $"Day {CurrentDay()}";
+
+    /// <summary>
+    /// Notices when the real clock crosses into a new 2-hour block and rebuilds the grid so its rows
+    /// pick that up. Every row's past/future colouring (see BuildScheduleRow/BuildEmptySlot) is computed
+    /// from schedule.CurrentBlock at the moment the row is BUILT — the clock label ticks live on its
+    /// own (SyncScheduleClock), but the grid it sits above doesn't, so a slot that was still open at
+    /// 03:59 kept reading as open past 04:00 until something unrelated forced a rebuild (a click, a tab
+    /// switch). Gated to the Schedule tab: a rebuild is real work, and no other tab's content depends on
+    /// this.
+    /// </summary>
+    private void SyncScheduleElapsed()
+    {
+        if (_tab != Tab.Schedule) return;
+        var schedule = Schedule();
+        if (schedule == null) return;
+
+        int day = schedule.CurrentDay;
+        int block = schedule.CurrentBlock;
+        if (day == _lastLiveScheduleDay && block == _lastLiveScheduleBlock) return;
+
+        Rebuild(); // BuildSchedule re-stamps _lastLiveScheduleDay/_lastLiveScheduleBlock as it runs
+    }
 
     private void OnDevAddCustomer()
     {
@@ -1584,7 +1615,7 @@ public class ContractsPanel : IUIPanel
             : " · 0 late";
 
         return $"Days held: {daysHeld} · {next} · {signed.OrdersDelivered} shipped{lateBit} · " +
-               $"on-time {signed.OnTimeRate:P0}";
+               $"on-time {signed.OnTimeRate:P0} · satisfaction {signed.SatisfactionPercent:F0}%";
     }
 
     private void OnCancel(ContractData contract, SignedContract signed)
@@ -1616,6 +1647,13 @@ public class ContractsPanel : IUIPanel
             _footerMessage.text = "Dock schedule service isn't running — appointments can't be shown.";
             return;
         }
+
+        // Watermarks what "now" was as of THIS build, so SyncScheduleElapsed can tell when the real
+        // clock has crossed into a new block since — every block row's past/future colouring below is
+        // computed from schedule.CurrentBlock at build time and, without this, would otherwise only
+        // ever refresh on some unrelated rebuild (a click, a tab switch), not as time actually passes.
+        _lastLiveScheduleDay = schedule.CurrentDay;
+        _lastLiveScheduleBlock = schedule.CurrentBlock;
 
         // A held selection can go stale between rebuilds — the trailer may have loaded out, or its block
         // elapsed, while it sat picked up. Drop it here rather than leave empty slots advertising a move
@@ -2096,15 +2134,27 @@ public class ContractsPanel : IUIPanel
         spacer.style.height = ScheduleRowHeight;
         row.Add(spacer);
 
-        for (int i = 0; i < capacity; i++)
+        // Indexed by the door's OWN number, not by position among booked appointments — appts is
+        // whichever doors happen to be taken in this block, not necessarily the first N doors, so
+        // compacting them to the front (the old i < appts.Count approach) put a door-3 booking under
+        // the "Door 1" header the instant door 1 or 2 was still open. This is also what makes explicit
+        // door choice possible below: a click always names the exact door column it landed on.
+        foreach (int doorNumber in doors)
         {
-            var slot = i < appts.Count
-                ? BuildAppointmentChip(schedule, appts[i], arrivals)
-                : BuildEmptySlot(block, past);
+            var appt = appts.FirstOrDefault(a => a.DoorNumber == doorNumber);
+            bool isChip = appt != null;
+            var slot = isChip
+                ? BuildAppointmentChip(schedule, appt, arrivals)
+                : BuildEmptySlot(block, doorNumber, past);
             // Past blocks dim their SLOTS individually rather than the whole row. Row-level opacity
             // would also fade the frozen time cell, and a translucent frozen column lets the slots
             // show through it as they scroll under — exactly what freezing it was meant to prevent.
-            if (past) slot.style.opacity = 0.45f;
+            //
+            // Only booked chips fade via opacity here. A past EMPTY slot gets its own red tint instead
+            // (see BuildEmptySlot) — a faded version of the same blue "open" box read as barely
+            // different from a merely-quiet one; opacity on top of that tint would just wash it back
+            // out, undoing the contrast this was added for.
+            if (past && isChip) slot.style.opacity = 0.45f;
             row.Add(slot);
         }
 
@@ -2235,7 +2285,7 @@ public class ContractsPanel : IUIPanel
         return chip;
     }
 
-    private VisualElement BuildEmptySlot(int block, bool past)
+    private VisualElement BuildEmptySlot(int block, int doorNumber, bool past)
     {
         var slot = new VisualElement();
         slot.style.width = SlotWidth;
@@ -2246,15 +2296,22 @@ public class ContractsPanel : IUIPanel
         slot.style.paddingTop = 4; slot.style.paddingBottom = 4;
         slot.style.borderTopWidth = slot.style.borderBottomWidth =
             slot.style.borderLeftWidth = slot.style.borderRightWidth = 1;
+        // Past reads as red, not just a fainter version of the normal blue box — a faded "open" slot
+        // and a merely-quiet one were too close in contrast at a glance. Border, fill and label all
+        // shift together so it reads as "gone," not "dim."
         slot.style.borderTopColor = slot.style.borderBottomColor =
-            slot.style.borderLeftColor = slot.style.borderRightColor = new StyleColor(ColBlueEdge);
+            slot.style.borderLeftColor = slot.style.borderRightColor =
+                new StyleColor(past ? ColDanger : ColBlueEdge);
         slot.style.borderTopLeftRadius = slot.style.borderTopRightRadius =
             slot.style.borderBottomLeftRadius = slot.style.borderBottomRightRadius = 5;
 
+        if (past)
+            slot.style.backgroundColor = new StyleColor(new Color(ColDanger.r, ColDanger.g, ColDanger.b, 0.16f));
+
         bool booking = _selectedUnscheduledKey != null;
         bool canDrop = (booking || _selectedAppointmentId != null) && !past;
-        var label = MakeText(!canDrop ? "— open —" : booking ? "book here" : "move here", 11,
-                             canDrop ? ColOrangeText : ColEmptyText);
+        var label = MakeText(past ? "— past —" : !canDrop ? "— open —" : booking ? "book here" : "move here", 11,
+                             past ? ColDangerSoft : canDrop ? ColOrangeText : ColEmptyText);
         label.style.height = IconSizeTiny;
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
         slot.Add(label);
@@ -2262,7 +2319,7 @@ public class ContractsPanel : IUIPanel
         if (canDrop)
         {
             slot.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.18f));
-            slot.RegisterCallback<ClickEvent>(_ => OnSlotClicked(block));
+            slot.RegisterCallback<ClickEvent>(_ => OnSlotClicked(block, doorNumber));
         }
         return slot;
     }
@@ -2307,7 +2364,7 @@ public class ContractsPanel : IUIPanel
         Rebuild();
     }
 
-    private void OnSlotClicked(int block)
+    private void OnSlotClicked(int block, int doorNumber)
     {
         var schedule = Schedule();
         if (schedule == null) return;
@@ -2328,14 +2385,13 @@ public class ContractsPanel : IUIPanel
                 return;
             }
 
-            if (!schedule.TryBookGroup(_scheduleDay, block, group, out string bookWhy))
+            if (!schedule.TryBookGroupAtDoor(_scheduleDay, block, doorNumber, group, out var booked, out string bookWhy))
             {
                 UIToast.Show(bookWhy);
                 return;
             }
 
-            UIToast.Show($"{group.CustomerName} booked into {DockScheduleService.BlockLabel(block)} " +
-                         $"on day {_scheduleDay}.");
+            AnnounceSlotResult(schedule, booked, block, doorNumber);
             _selectedUnscheduledKey = null;
             Rebuild();
             return;
@@ -2343,14 +2399,37 @@ public class ContractsPanel : IUIPanel
 
         if (_selectedAppointmentId == null) return;
 
-        if (!schedule.TryMove(_selectedAppointmentId, _scheduleDay, block, out string why))
+        if (!schedule.TryMoveToDoor(_selectedAppointmentId, _scheduleDay, block, doorNumber, out string why))
         {
             UIToast.Show(why);
             return;
         }
 
+        AnnounceSlotResult(schedule, schedule.FindById(_selectedAppointmentId), block, doorNumber);
         _selectedAppointmentId = null;
         Rebuild();
+    }
+
+    /// <summary>
+    /// Shared post-booking/move toast — same wording either way, since both are the same underlying
+    /// event from the player's seat: a trailer just landed somewhere, whether it started in the pool or
+    /// was already on the grid. A plain confirmation when it landed on the customer's own requested
+    /// hour (their contract's CutoffHour); a small one-time satisfaction penalty plus an explicit
+    /// warning toast instead when it missed that hour — see DockScheduleService.MissedRequestedSlot.
+    /// </summary>
+    private void AnnounceSlotResult(DockScheduleService schedule, DockAppointment appt, int block, int doorNumber)
+    {
+        if (appt == null) return;
+
+        if (schedule.MissedRequestedSlot(appt))
+        {
+            UIToast.Show("Order successfully moved, but with a small penalty to satisfaction.");
+            Arrivals()?.PenalizeSatisfaction(appt.ContractId);
+            return;
+        }
+
+        UIToast.Show($"{appt.CustomerName} booked into {DockScheduleService.BlockLabel(block)}, door {doorNumber}, " +
+                     $"on day {_scheduleDay}.");
     }
 
     /// <summary>

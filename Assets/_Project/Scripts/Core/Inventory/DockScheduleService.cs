@@ -100,18 +100,18 @@ namespace GameCore.Inventory
     /// a PO arrive with nowhere to go, so ShipmentService books an Inbound appointment for the block
     /// its truck actually lands in and it consumes capacity like anything else.
     ///
-    /// RECURRING ORDERS AUTO-BOOK; BULK ORDERS GO TO THE POOL. A recurring order arrives on its own
-    /// schedule with no player action attached — it lands with no appointment covering its
-    /// customer+contract, so it's placed into the first block with room, walking forward from right
-    /// now toward the order's due day (never past it — a booking after the deadline would look handled
-    /// while still guaranteeing the fine). That placement is a starting point, not a lock: TryMove/
+    /// EVERY ARRIVAL AUTO-BOOKS ITS OWN REQUESTED HOUR, RECURRING OR BULK ALIKE. The target is the
+    /// contract's own CutoffHour — the closest thing on record to "the slot the customer actually
+    /// asked for" — walking forward block-by-block (and day-by-day) from there if that slot's already
+    /// taken, never past the order's due day (a booking after the deadline would look handled while
+    /// still guaranteeing the fine). That placement is a starting point, not a lock: TryMoveToDoor/
     /// IsLocked impose no extra restriction on an auto-placed appointment, so the player can drag it
-    /// anywhere else with room the same as a hand-booked one. A BULK order is different: signing one is
-    /// a direct, in-the-moment player action (clicking Sign on a contract card), so auto-placing it
-    /// would just be guessing on the player's behalf at the exact moment they were already choosing —
-    /// it lands unscheduled instead, for the same pick-then-place flow the stranded strip already
-    /// offers. Either way, freight that stays unscheduled past its due day costs the account after 30
-    /// days (OrderArrivalService.SweepMissedPickups).
+    /// anywhere else with room the same as a hand-booked one. Landing anywhere other than that
+    /// requested-hour block — during auto-book OR a manual move — costs a small customer-satisfaction
+    /// penalty (OrderArrivalService.PenalizeSatisfaction) and shows a toast; see MissedRequestedSlot.
+    /// Freight only ever reaches the unscheduled pool if TryAutoPlace genuinely finds no room anywhere
+    /// before the due day, and freight that stays unscheduled past its due day costs the account after
+    /// 30 days on top of that (OrderArrivalService.SweepMissedPickups).
     ///
     /// CAPACITY IS OUTBOUND-CAPABLE DOORS, NOT ALL DOORS. A door only counts if at least one of its
     /// shipping lanes will accept outbound work (LaneUsage.Outbound or Both — Both being the default,
@@ -258,12 +258,42 @@ namespace GameCore.Inventory
                 return false;
             }
 
+            return TryBookAtDoor(day, blockIndex, free, kind, customerId, customerName, contractId,
+                                 out booked, out failReason);
+        }
+
+        /// <summary>
+        /// Books ONE SPECIFIC door in a block. The primitive both TryBook (auto-picks the lowest free
+        /// door — arrivals, inbound POs) and TryBookGroupAtDoor (the player's explicit door choice from
+        /// the Schedule tab) route through, so there's exactly one place a DockAppointment gets
+        /// constructed. The block-range/no-doors-exist checks live in the callers, since what counts as
+        /// a valid request differs ("any door free" vs "THIS door free").
+        /// </summary>
+        private bool TryBookAtDoor(int day, int blockIndex, int doorNumber, AppointmentKind kind,
+                                   string customerId, string customerName, string contractId,
+                                   out DockAppointment booked, out string failReason)
+        {
+            booked = null;
+            failReason = null;
+
+            if (!OutboundDoors().Contains(doorNumber))
+            {
+                failReason = $"Door {doorNumber} isn't an outbound-capable door.";
+                return false;
+            }
+
+            if (GetBlock(day, blockIndex).Any(a => a.DoorNumber == doorNumber))
+            {
+                failReason = $"Door {doorNumber} is already booked in {BlockLabel(blockIndex)}.";
+                return false;
+            }
+
             booked = new DockAppointment
             {
                 Id = System.Guid.NewGuid().ToString(),
                 Day = day,
                 BlockIndex = blockIndex,
-                DoorNumber = free,
+                DoorNumber = doorNumber,
                 Kind = kind,
                 CustomerId = customerId,
                 CustomerName = customerName,
@@ -322,6 +352,24 @@ namespace GameCore.Inventory
 
         public bool IsLocked(DockAppointment appt) => IsLocked(appt, out _);
 
+        /// <summary>
+        /// Whether an appointment's block misses its own contract's requested hour (CutoffHour) — the
+        /// closest thing on record to "the slot the customer actually asked for" (see the pool-box
+        /// label in ContractsPanel.BuildPoolBox, which reads the same field the same way). Used to
+        /// decide whether a booking or move earns the "missed their slot" toast and satisfaction
+        /// penalty — see HandleOrderArrived (auto-book) and ContractsPanel.OnSlotClicked (manual).
+        ///
+        /// A Dev Console order (no ContractId) or a contract that no longer resolves can't be judged
+        /// either way, so it never counts as a miss — there's nothing on record to have missed.
+        /// </summary>
+        public bool MissedRequestedSlot(DockAppointment appt)
+        {
+            if (appt == null || string.IsNullOrEmpty(appt.ContractId)) return false;
+            if (!ServiceLocator.TryGet(out OrderArrivalService arrivals) || arrivals == null) return false;
+            var contract = arrivals.GetContract(appt.ContractId);
+            return contract != null && appt.BlockIndex != BlockForHour(contract.CutoffHour);
+        }
+
         /// <summary>Does any order on this trailer still want a door? An order that's left the active
         /// list entirely (shipped and archived, or cancelled) counts as no.</summary>
         private bool AnyOrderStillNeedsDock(DockAppointment appt)
@@ -334,15 +382,17 @@ namespace GameCore.Inventory
             return false;
         }
 
-        /// <summary>Moves an existing appointment to another block, keeping its orders. Fails (leaving
-        /// the original untouched) if the destination is full, in the past, or if the appointment is
-        /// no longer a live plan.</summary>
-        public bool TryMove(string appointmentId, int day, int blockIndex, out string failReason)
+        /// <summary>Moves an existing appointment to a SPECIFIC block+door, keeping its orders — the
+        /// player's explicit choice of both, not an auto-picked door. Fails (leaving the original
+        /// untouched) if the destination door is taken, isn't outbound-capable, is in the past, or the
+        /// appointment is no longer a live plan.</summary>
+        public bool TryMoveToDoor(string appointmentId, int day, int blockIndex, int doorNumber,
+                                  out string failReason)
         {
             failReason = null;
             var appt = FindById(appointmentId);
             if (appt == null) { failReason = "That appointment no longer exists."; return false; }
-            if (appt.Day == day && appt.BlockIndex == blockIndex) return true;
+            if (appt.Day == day && appt.BlockIndex == blockIndex && appt.DoorNumber == doorNumber) return true;
 
             // Checked here and not only in the UI: the panel decides what to grey out, but this is what
             // makes it true. A chip can also finish WHILE it sits selected, between the click that picked
@@ -355,19 +405,22 @@ namespace GameCore.Inventory
                 return false;
             }
 
-            var doors = OutboundDoors();
-            var taken = GetBlock(day, blockIndex).Where(a => a.Id != appointmentId)
-                                                 .Select(a => a.DoorNumber).ToHashSet();
-            int free = doors.FirstOrDefault(d => !taken.Contains(d));
-            if (free == 0)
+            if (!OutboundDoors().Contains(doorNumber))
             {
-                failReason = $"{BlockLabel(blockIndex)} is full.";
+                failReason = $"Door {doorNumber} isn't an outbound-capable door.";
+                return false;
+            }
+
+            bool takenByOther = GetBlock(day, blockIndex).Any(a => a.Id != appointmentId && a.DoorNumber == doorNumber);
+            if (takenByOther)
+            {
+                failReason = $"Door {doorNumber} is already booked in {BlockLabel(blockIndex)}.";
                 return false;
             }
 
             appt.Day = day;
             appt.BlockIndex = blockIndex;
-            appt.DoorNumber = free;
+            appt.DoorNumber = doorNumber;
             return true;
         }
 
@@ -396,18 +449,14 @@ namespace GameCore.Inventory
         // ── Arrival ──────────────────────────────────────────────────────────
 
         /// <summary>
-        /// An arriving order joins a trailer the player has already booked for that account. Otherwise,
-        /// a RECURRING order is auto-placed into the first block with room before its due day, so the
-        /// Schedule tab is a tool for overriding a plan that already works rather than a chore that must
-        /// be completed before anything ships — a player who never opens it doesn't lose accounts to a
-        /// due date they didn't know was ticking. The placement is just a default: nothing about
-        /// TryMove/IsLocked treats an auto-placed appointment any differently from a hand-booked one, so
-        /// the player is always free to drag it somewhere else.
-        ///
-        /// A BULK order never auto-places — it's left unscheduled, to surface in the stranded strip's
-        /// pool exactly like a recurring order that failed to find room. Signing a bulk offer is the
-        /// player choosing, right now, to take on that freight; handing them a box to place themselves
-        /// matches that moment better than a slot they never picked appearing on the grid behind them.
+        /// An arriving order joins a trailer the player has already booked for that account. Otherwise
+        /// it's auto-placed — RECURRING or BULK alike — targeting its own contract's requested hour
+        /// (CutoffHour) first and walking forward from there if that slot's taken, so the Schedule tab
+        /// is a tool for overriding a plan that already works rather than a chore that must be completed
+        /// before anything ships. The placement is just a default: nothing about TryMoveToDoor/IsLocked
+        /// treats an auto-placed appointment any differently from a hand-booked one, so the player is
+        /// always free to drag it somewhere else. It only ever lands in the unscheduled pool if TryAutoPlace
+        /// genuinely can't find room anywhere before the order's due day.
         ///
         /// The join branch stays for the same reason it always existed: same customer AND same contract
         /// shares a trailer. Matching on customer alone would put a bulk pallet drop on the same
@@ -426,22 +475,40 @@ namespace GameCore.Inventory
                 return;
             }
 
-            if (order.IsBulk) return; // stays unscheduled — the player places it from the pool
             if (CapacityPerBlock <= 0) return; // nothing to book against; stays unscheduled
 
-            if (TryAutoPlace(order, AppointmentKind.Outbound, out var appt))
-                appt.OrderIds.Add(order.OrderId);
+            ServiceLocator.TryGet(out OrderArrivalService arrivals);
+            int? requestedHour = !string.IsNullOrEmpty(order.ContractId)
+                ? arrivals?.GetContract(order.ContractId)?.CutoffHour
+                : null;
+
+            var kind = order.IsBulk ? AppointmentKind.Bulk : AppointmentKind.Outbound;
+            if (!TryAutoPlace(order, kind, requestedHour, out var appt)) return;
+
+            appt.OrderIds.Add(order.OrderId);
+            if (MissedRequestedSlot(appt))
+            {
+                UIToast.Show("Order successfully moved, but with a small penalty to satisfaction.");
+                arrivals?.PenalizeSatisfaction(order.ContractId);
+            }
         }
 
-        /// <summary>Books the first block with room, starting at the current block today and walking
-        /// forward. Never schedules past the order's due day — an appointment after the deadline is
-        /// worse than none, because it looks handled while guaranteeing the fine.</summary>
-        private bool TryAutoPlace(OrderData order, AppointmentKind kind, out DockAppointment booked)
+        /// <summary>
+        /// Books the customer's own requested hour (their contract's CutoffHour) if one was given and
+        /// hasn't already passed today, walking forward block-by-block — and day-by-day past midnight —
+        /// until room turns up. Falls back to starting from right now when there's no requested hour to
+        /// aim for (a Dev Console order, or a contract that no longer resolves), same as before this
+        /// existed. Never schedules past the order's due day — an appointment after the deadline is
+        /// worse than none, because it looks handled while guaranteeing the fine.
+        /// </summary>
+        private bool TryAutoPlace(OrderData order, AppointmentKind kind, int? requestedHour, out DockAppointment booked)
         {
             booked = null;
             int day = CurrentDay;
-            int block = CurrentBlock;
             int lastDay = Mathf.Max(order.DueDay, day);
+
+            int block = requestedHour.HasValue ? BlockForHour(requestedHour.Value) : CurrentBlock;
+            if (block < CurrentBlock) block = CurrentBlock; // their hour already passed today — can't book into the past
 
             while (day <= lastDay)
             {
@@ -478,12 +545,11 @@ namespace GameCore.Inventory
         /// <summary>
         /// Live orders no appointment is holding a door for, most urgent first.
         ///
-        /// Two kinds of occupant, one by design and one by exception. EVERY bulk order lands here on
-        /// arrival — HandleOrderArrived deliberately never auto-places one, so this pool is how the
-        /// player picks it up and places it. Recurring orders only show up here when TryAutoPlace
-        /// genuinely couldn't fit one before its due day (or it arrived while capacity was 0), or when
-        /// the player deliberately unbooked one. Anything still here when its due day passes costs the
-        /// account (OrderArrivalService.SweepMissedPickups).
+        /// The overflow view, not the primary one — recurring and bulk orders alike auto-place on
+        /// arrival now (HandleOrderArrived), so most freight never passes through here. What lands here
+        /// is freight TryAutoPlace genuinely couldn't fit before its due day (or that arrived while
+        /// capacity was 0), plus anything the player deliberately unbooked. Anything still here when its
+        /// due day passes costs the account (OrderArrivalService.SweepMissedPickups).
         /// </summary>
         public List<UnscheduledGroup> UnscheduledGroups()
         {
@@ -527,16 +593,18 @@ namespace GameCore.Inventory
         // TryMove could never find. Stranded freight books through UnscheduledGroups + TryBookGroup;
         // it is not an appointment until that call succeeds.
 
-        /// <summary>Books a stranded group into one specific block — the player's own choice from the
-        /// Schedule tab, as opposed to the sweep's first-fit. Same capacity rules as everything else;
-        /// the reason comes back verbatim for the UI to show.</summary>
-        public bool TryBookGroup(int day, int blockIndex, UnscheduledGroup group, out string failReason)
+        /// <summary>Books a stranded group into one specific block AND door — the player's own choice
+        /// of both from the Schedule tab, as opposed to the sweep's first-fit. Same capacity rules as
+        /// everything else; the reason comes back verbatim for the UI to show.</summary>
+        public bool TryBookGroupAtDoor(int day, int blockIndex, int doorNumber, UnscheduledGroup group,
+                                       out DockAppointment booked, out string failReason)
         {
+            booked = null;
             failReason = null;
             if (group == null) { failReason = "Nothing selected to book."; return false; }
 
-            if (!TryBook(day, blockIndex, group.Kind, group.CustomerId, group.CustomerName,
-                         group.ContractId, out var booked, out failReason))
+            if (!TryBookAtDoor(day, blockIndex, doorNumber, group.Kind, group.CustomerId, group.CustomerName,
+                               group.ContractId, out booked, out failReason))
                 return false;
 
             booked.OrderIds.AddRange(group.OrderIds);

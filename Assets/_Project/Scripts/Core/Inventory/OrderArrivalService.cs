@@ -300,6 +300,22 @@ namespace GameCore.Inventory
             signed.LateFeesPaid += fine;
         }
 
+        /// <summary>Flat penalty applied each time a trailer for this contract is booked or moved away
+        /// from the customer's own requested hour — see DockScheduleService.MissedRequestedSlot, the
+        /// sole caller. Small and flat on purpose, same reasoning as ContractLossCooldownDays: a tunable
+        /// curve now would be a placeholder pretending to be a system.</summary>
+        public const float SatisfactionPenaltyPerMiss = 5f;
+
+        /// <summary>Docks a small, flat amount of customer satisfaction for a signed contract. Silently
+        /// no-ops for a contract that isn't (or is no longer) signed — a Dev Console order or a lost
+        /// contract has nothing left to penalize.</summary>
+        public void PenalizeSatisfaction(string contractId)
+        {
+            var signed = GetSigned(contractId);
+            if (signed == null) return;
+            signed.SatisfactionPercent = Mathf.Max(0f, signed.SatisfactionPercent - SatisfactionPenaltyPerMiss);
+        }
+
         /// <summary>Resolves a finished order back to the contract that produced it. Matches on the
         /// stamped ContractId only — never falls back to CustomerId, because one customer may hold
         /// several contracts and a wrong attribution is worse than none. Dev Console orders carry no
@@ -726,6 +742,7 @@ namespace GameCore.Inventory
             ordersLate = s.OrdersLate,
             revenueEarned = s.RevenueEarned,
             lateFeesPaid = s.LateFeesPaid,
+            satisfactionPercent = s.SatisfactionPercent,
             lost = s.Lost,
             lostOnDay = s.LostOnDay
         }).ToList();
@@ -748,6 +765,7 @@ namespace GameCore.Inventory
                     OrdersLate = snap.ordersLate,
                     RevenueEarned = snap.revenueEarned,
                     LateFeesPaid = snap.lateFeesPaid,
+                    SatisfactionPercent = snap.satisfactionPercent >= 0f ? snap.satisfactionPercent : 100f,
                     Lost = snap.lost,
                     LostOnDay = snap.lostOnDay
                 });
