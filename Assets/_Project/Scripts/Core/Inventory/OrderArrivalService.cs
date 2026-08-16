@@ -371,6 +371,27 @@ namespace GameCore.Inventory
                 return true;
             }
 
+            // Pre-books the account's very first appointment right now, before any order exists to
+            // trigger DockScheduleService.HandleOrderArrived's own auto-place. Without this, a
+            // recurring account's slot didn't show up on the Schedule tab until its first order
+            // actually generated at the contract's cutoff hour — which could be a full day away (see
+            // the "never back-fill" comment above) and read as broken to a player who'd just signed and
+            // expected to see it immediately. TryGetNextArrival already knows exactly which day/hour
+            // that first order will land on; TryAutoPlace(day, hour, ...) books that same slot ahead of
+            // time as an empty booking. When the real order arrives later, HandleOrderArrived's own
+            // "join a trailer the player has already booked" branch finds it and just attaches the
+            // order — no double-booking, and the player can still drag it elsewhere in the meantime.
+            if (_dockSchedule != null && contract.Customer != null &&
+                TryGetNextArrival(contractId, out int arrivalDay, out int arrivalHour) &&
+                _dockSchedule.TryAutoPlace(arrivalDay, arrivalHour, arrivalDay + contract.LeadTimeDays,
+                    AppointmentKind.Outbound, contract.Customer.CustomerId, contract.Customer.CompanyName,
+                    contractId, out var appt)
+                && _dockSchedule.MissedRequestedSlot(appt))
+            {
+                UIToast.Show("Order successfully moved, but with a small penalty to satisfaction.");
+                PenalizeSatisfaction(contractId);
+            }
+
             Debug.Log($"[OrderArrivalService] Signed {contractId} ({contract.Customer?.CompanyName}) — " +
                       $"{contract.FrequencyLabel}, ~{contract.EstimatedCasesPerDay} cases/day, " +
                       $"due {contract.LeadTimeDays} day(s) out.");

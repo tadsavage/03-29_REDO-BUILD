@@ -483,7 +483,9 @@ namespace GameCore.Inventory
                 : null;
 
             var kind = order.IsBulk ? AppointmentKind.Bulk : AppointmentKind.Outbound;
-            if (!TryAutoPlace(order, kind, requestedHour, out var appt)) return;
+            if (!TryAutoPlace(CurrentDay, requestedHour, Mathf.Max(order.DueDay, CurrentDay), kind,
+                              order.CustomerId, order.CustomerName, order.ContractId, out var appt))
+                return;
 
             appt.OrderIds.Add(order.OrderId);
             if (MissedRequestedSlot(appt))
@@ -494,37 +496,42 @@ namespace GameCore.Inventory
         }
 
         /// <summary>
-        /// Books the customer's own requested hour (their contract's CutoffHour) if one was given and
-        /// hasn't already passed today, walking forward block-by-block — and day-by-day past midnight —
-        /// until room turns up. Falls back to starting from right now when there's no requested hour to
-        /// aim for (a Dev Console order, or a contract that no longer resolves), same as before this
-        /// existed. Never schedules past the order's due day — an appointment after the deadline is
-        /// worse than none, because it looks handled while guaranteeing the fine.
+        /// Books a customer's own requested hour if one was given and hasn't already passed today,
+        /// walking forward block-by-block — and day-by-day past midnight — until room turns up, never
+        /// past lastDay (an appointment after the deadline is worse than none, because it looks handled
+        /// while guaranteeing the fine). Falls back to starting from right now when there's no requested
+        /// hour to aim for (a Dev Console order, or a contract that no longer resolves).
+        ///
+        /// Public and built from primitives rather than an OrderData so two different callers share the
+        /// same placement logic: an arriving order (HandleOrderArrived) and a just-signed recurring
+        /// contract pre-booking its very first appointment BEFORE any order exists yet
+        /// (OrderArrivalService.Sign) — without the pre-book, a recurring account's slot didn't show up
+        /// on the Schedule tab until its first order actually generated at the contract's cutoff hour,
+        /// which read as broken to a player expecting to see it the moment they signed.
         /// </summary>
-        private bool TryAutoPlace(OrderData order, AppointmentKind kind, int? requestedHour, out DockAppointment booked)
+        public bool TryAutoPlace(int day, int? requestedHour, int lastDay, AppointmentKind kind,
+                                 string customerId, string customerName, string contractId,
+                                 out DockAppointment booked)
         {
             booked = null;
-            int day = CurrentDay;
-            int lastDay = Mathf.Max(order.DueDay, day);
 
             int block = requestedHour.HasValue ? BlockForHour(requestedHour.Value) : CurrentBlock;
-            if (block < CurrentBlock) block = CurrentBlock; // their hour already passed today — can't book into the past
+            if (day == CurrentDay && block < CurrentBlock) block = CurrentBlock; // their hour already passed today — can't book into the past
 
             while (day <= lastDay)
             {
                 for (; block < BlocksPerDay; block++)
                 {
                     if (!HasRoom(day, block)) continue;
-                    if (TryBook(day, block, kind, order.CustomerId, order.CustomerName, order.ContractId,
-                                out booked, out _))
+                    if (TryBook(day, block, kind, customerId, customerName, contractId, out booked, out _))
                         return true;
                 }
                 day++;
                 block = 0;
             }
 
-            Debug.LogWarning($"[DockSchedule] No free dock slot for {order.CustomerName} before day {order.DueDay} " +
-                             $"— order is unscheduled. Capacity is {CapacityPerBlock} door(s) per block.");
+            Debug.LogWarning($"[DockSchedule] No free dock slot for {customerName} before day {lastDay} " +
+                             $"— staying unscheduled. Capacity is {CapacityPerBlock} door(s) per block.");
             return false;
         }
 
