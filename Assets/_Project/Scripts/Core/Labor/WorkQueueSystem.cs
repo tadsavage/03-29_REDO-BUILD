@@ -169,7 +169,93 @@ namespace GameCore.Labor
 
         private EventManager _eventManager;
 
-        private void OnHourChanged(string eventId, int newHour) => ReleaseStaleAssignments();
+        private void OnHourChanged(string eventId, int newHour)
+        {
+            ReleaseStaleAssignments();
+            WarnAboutUnstaffedWork(newHour);
+        }
+
+        /// <summary>Roles already warned about today, so the player is told once rather than hourly.</summary>
+        private readonly HashSet<EmployeeRole> _unstaffedWarned = new();
+        private int _unstaffedWarnDay = -1;
+
+        /// <summary>
+        /// SAYS SO WHEN WORK CANNOT BE DONE BY ANYONE.
+        ///
+        /// A queue full of Available tasks and nobody employed who can take them is silent, invisible,
+        /// and fatal to the loop. Observed live on a real save: an order sat Pending behind an
+        /// OrderSelect task with no Order Selector on the payroll at all, while revenue for the week
+        /// ran $1,300 against $38,746 of expenses. Nothing anywhere said the building had no one who
+        /// could pick a case. The player's only clue was that the number never went up.
+        ///
+        /// Deliberately keyed on ROLE NOT HIRED rather than "task is old". A task waiting because
+        /// everyone is busy is a queue working correctly; a task waiting because the role doesn't
+        /// exist in the building is a dead end, and only the second one is worth interrupting for.
+        /// </summary>
+        private void WarnAboutUnstaffedWork(int hour)
+        {
+            var registry = EmployeeRegistry.Instance;
+            if (registry == null) return;
+
+            ServiceLocator.TryGet(out GameCore.Economy.SimulationTimeService clock);
+            int today = clock?.Day ?? 0;
+            if (today != _unstaffedWarnDay)
+            {
+                _unstaffedWarnDay = today;
+                _unstaffedWarned.Clear();
+            }
+
+            foreach (var group in _tasks.Where(t => t.Status == WorkTaskStatus.Available)
+                                        .GroupBy(t => t.RequiredRole))
+            {
+                var role = group.Key;
+                if (_unstaffedWarned.Contains(role)) continue;
+
+                // IsAvailableForWork, not just Active — it also excludes the injured, and an injured
+                // employee is exactly as able to clear this queue as one who was never hired.
+                bool anyoneHired = registry.All.Any(e => e != null && e.Record != null &&
+                                                         CanServe(e.Record.role, role) &&
+                                                         e.Record.IsAvailableForWork);
+                if (anyoneHired) continue;
+
+                _unstaffedWarned.Add(role);
+                int count = group.Count();
+                UIToast.Show($"{count} job(s) waiting that only a {Pretty(role)} can do — and you " +
+                             $"haven't hired one. Nothing on that queue will move until you do.", 5f);
+                Debug.LogWarning($"[WorkQueueSystem] {count} Available task(s) require role {role}, " +
+                                 $"which no active employee holds. That work cannot progress.");
+            }
+        }
+
+        /// <summary>
+        /// Can an employee of <paramref name="employeeRole"/> actually do work filed as
+        /// <paramref name="requiredRole"/>?
+        ///
+        /// A TASK'S RequiredRole IS NOT ALWAYS THE ONLY ROLE THAT CAN DO IT. Load tasks are filed as
+        /// <see cref="EmployeeRole.Loader"/> by OrderService, but TrailerLoadController accepts a
+        /// DockStockerOperator too — they drive the same equipment, and RoleSpecificAssignment maps
+        /// both roles to DriveDockstalker. The authority for this is TrailerLoadController's operator
+        /// check (`role != DockStockerOperator && role != Loader` → skip); this mirrors it.
+        ///
+        /// Without this, the unstaffed-work warning nagged "you haven't hired a Loader" every day at a
+        /// player whose DockStockerOperator was perfectly capable of loading the trailer — a false
+        /// alarm on a warning whose entire value is that it only fires when something is genuinely
+        /// impossible. **If a controller ever learns to accept a substitute role, add it here too.**
+        /// </summary>
+        private static bool CanServe(EmployeeRole employeeRole, EmployeeRole requiredRole)
+        {
+            if (employeeRole == requiredRole) return true;
+
+            // Loading: either dock-equipment role can run the trailer.
+            if (requiredRole == EmployeeRole.Loader && employeeRole == EmployeeRole.DockStockerOperator)
+                return true;
+
+            return false;
+        }
+
+        /// <summary>Role name with spaces, so a toast reads "Order Selector" not "OrderSelector".</summary>
+        private static string Pretty(EmployeeRole role)
+            => System.Text.RegularExpressions.Regex.Replace(role.ToString(), "(?<!^)([A-Z])", " $1");
 
         public void Shutdown()
         {

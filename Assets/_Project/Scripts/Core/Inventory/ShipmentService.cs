@@ -273,9 +273,112 @@ namespace GameCore.Inventory
             return true;
         }
 
+        // ── Supplier variance ────────────────────────────────────────────────
+
+        /// <summary>Fallback short-ship rate for freight with no vendor behind it — a spot-market
+        /// deal, or a PO raised before the vendor roster existed. Kept well under half on purpose: a
+        /// short load has to be an EVENT the player reacts to, and something that happens most times
+        /// is just a tax the player learns to pre-order against.</summary>
+        private const float DefaultShortShipmentChance = 0.25f;
+
+        /// <summary>
+        /// How likely this PO is to arrive short — the VENDOR'S own reliability where one is known.
+        ///
+        /// This is what turns the roster from a price list into a cast. A house that's 10% cheaper and
+        /// short-ships one order in three is a genuine decision against one that charges a premium and
+        /// almost never misses, and the player learns which is which the only way that matters: by
+        /// being let down.
+        /// </summary>
+        private static float ShortShipChanceFor(ShipmentData shipment)
+        {
+            var vendor = VendorRegistry.Load()?.GetById(shipment?.SupplierId);
+            return vendor != null ? vendor.ShortShipmentChance : DefaultShortShipmentChance;
+        }
+
+        private const int MinPalletsDropped = 1;
+        private const int MaxPalletsDropped = 3;
+
+        /// <summary>Tracks which POs have already been rolled, so a shipment that gets dispatched
+        /// twice (a re-spawn after a failed first attempt) can't be short-shipped twice.</summary>
+        private readonly HashSet<string> _varianceApplied = new();
+
+        /// <summary>Raised when a PO is short-shipped: (shipment, pallets dropped, dollars credited).
+        /// The panel and the toast listen; nothing here assumes a UI exists.</summary>
+        public static event System.Action<ShipmentData, int, int> OnShipmentShorted;
+
+        /// <summary>
+        /// Rolls what the supplier ACTUALLY put on the truck, once, at dispatch.
+        ///
+        /// Dispatch is the right moment for this and the alternatives are worse. Rolling at PO
+        /// creation would show the player a short order before the truck existed; rolling at
+        /// receiving would mean the trailer arrives carrying pallets that then have to vanish off it.
+        /// Rolling here mutates the manifest before TruckController.LoadShipment reads it, so the
+        /// physical trailer, the PO list and the receiving records all agree from the first frame.
+        ///
+        /// The player is CREDITED for what didn't come. POs are billed at creation, and being charged
+        /// for freight that never arrived reads as the game stealing from you rather than the supplier
+        /// letting you down — the interesting loss is the missing stock and the fill rate it costs,
+        /// not the money.
+        /// </summary>
+        private void ApplySupplierVariance(ShipmentData shipment)
+        {
+            if (shipment == null || string.IsNullOrEmpty(shipment.PONumber)) return;
+            if (!_varianceApplied.Add(shipment.PONumber)) return;
+
+            // Generated/dev-tool freight is scenery for testing; only the player's own money and fill
+            // rate are on the line, so only player POs carry risk.
+            if (!shipment.PlayerOrdered) return;
+
+            // A broker load is ALREADY the gamble. Its damaged pallets were rolled and priced in at
+            // offer time; short-shipping it on top would be charging the player twice for the same
+            // uncertainty, and the missing pallets would be indistinguishable from the junk they knew
+            // they were buying.
+            if (shipment.IsSalvage) return;
+
+            var deliverable = shipment.LineItems.Where(li => li != null && !li.Dropped).ToList();
+            if (deliverable.Count <= 1) return;   // never strand a single-pallet PO with nothing at all
+
+            if (Random.value > ShortShipChanceFor(shipment)) return;
+
+            // Never more than half the load, so a short shipment is a setback rather than a wipeout.
+            int maxDrop = Mathf.Min(MaxPalletsDropped, deliverable.Count / 2);
+            if (maxDrop < MinPalletsDropped) return;
+
+            int dropCount = Random.Range(MinPalletsDropped, maxDrop + 1);
+            int credited = 0;
+
+            for (int i = 0; i < dropCount; i++)
+            {
+                int idx = Random.Range(0, deliverable.Count);
+                var li = deliverable[idx];
+                deliverable.RemoveAt(idx);
+
+                li.Dropped = true;
+                credited += li.TotalCost;
+            }
+
+            if (credited > 0)
+                _moneyService?.AddCapital(credited, FinanceCategory.CasePick);
+
+            Debug.LogWarning($"[ShipmentService] PO {shipment.PONumber} short-shipped by {dropCount} " +
+                             $"pallet(s) — ${credited:N0} credited back.");
+
+            // Told LOUDLY, at dispatch, not discovered later on the PO list. A short load changes what
+            // the player can promise today, and finding out by noticing a thin trailer is not finding
+            // out. Same direct-UIToast pattern DockScheduleService and OrderArrivalService already use.
+            UIToast.Show($"PO {shipment.PONumber} short-shipped — {dropCount} pallet(s) didn't make " +
+                         $"the truck. ${credited:N0} credited back.");
+
+            OnShipmentShorted?.Invoke(shipment, dropCount, credited);
+        }
+
         private void TrySpawnTruck(ShipmentData shipment)
         {
             if (shipment == null || shipment.Status == ShipmentData.ShipmentStatus.Received || shipment.Status == ShipmentData.ShipmentStatus.Departed) return;
+
+            // Before the yard-manager lookup, so the manifest is settled no matter which branch below
+            // ends up spawning the truck.
+            ApplySupplierVariance(shipment);
 
             if (_yardManager == null) _yardManager = Object.FindAnyObjectByType<TruckYardManager>();
 
@@ -330,7 +433,8 @@ namespace GameCore.Inventory
                     arrivalDayNumber = s.ArrivalDayNumber,
                     arrivalTimeMinute = s.ArrivalTimeMinute,
                     status = (int)s.Status,
-                    playerOrdered = s.PlayerOrdered
+                    playerOrdered = s.PlayerOrdered,
+                    isSalvage = s.IsSalvage
                 };
                 foreach (var li in s.LineItems)
                 {
@@ -342,7 +446,9 @@ namespace GameCore.Inventory
                         unitCost = li.UnitCost,
                         shelfLifeDays = li.ShelfLifeDays,
                         floorSlotIndex = li.FloorSlotIndex,
-                        palletTier = li.PalletTier
+                        palletTier = li.PalletTier,
+                        dropped = li.Dropped,
+                        salvage = (int)li.Salvage
                     });
                 }
                 list.Add(snap);
@@ -367,7 +473,8 @@ namespace GameCore.Inventory
 
                 var shipment = new ShipmentData(snap.poNumber, snap.supplierId, snap.supplierName, snap.arrivalDayNumber, snap.arrivalTimeMinute, (ShipmentData.ShipmentStatus)snap.status)
                 {
-                    PlayerOrdered = snap.playerOrdered
+                    PlayerOrdered = snap.playerOrdered,
+                    IsSalvage = snap.isSalvage
                 };
                 foreach (var liSnap in snap.lineItems)
                 {
@@ -375,7 +482,9 @@ namespace GameCore.Inventory
                     {
                         ReceivedQuantity = liSnap.receivedQuantity,
                         FloorSlotIndex = liSnap.floorSlotIndex,
-                        PalletTier = liSnap.palletTier
+                        PalletTier = liSnap.palletTier,
+                        Dropped = liSnap.dropped,
+                        Salvage = (SalvageCondition)liSnap.salvage
                     };
                     shipment.LineItems.Add(li);
                 }

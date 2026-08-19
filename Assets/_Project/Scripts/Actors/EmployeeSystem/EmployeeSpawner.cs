@@ -268,6 +268,25 @@ public class EmployeeSpawner : MonoBehaviour
         {
             TryBoardExistingMHE(identity, record.role);
         }
+        else if (!record.hasSavedPosition)
+        {
+            // ── EVERY OTHER ROLE STARTS DOING ITS JOB ────────────────────────
+            //
+            // The MHE roles above got an automatic assignment; nobody else did. A freshly-hired
+            // Receiver or Order Selector spawned on Patrol with no task driver attached and simply
+            // walked around forever while their queue filled up — the ONLY way to make them work was
+            // to find them in the Roster and pick their assignment out of a dropdown by hand.
+            //
+            // Nothing said so. Observed live: an order sat Pending with an OrderSelect task Available
+            // and zero OrderSelectionTaskDriver components anywhere in the scene, because the one
+            // Receiver who did work had been assigned by hand at some point and had it persisted.
+            //
+            // RoleSpecificAssignment is the same map the Roster and Info card already use, so a hire
+            // now starts in exactly the state that dropdown would have put them in.
+            var roleAssignment = record.role.RoleSpecificAssignment();
+            if (roleAssignment.HasValue)
+                EmployeeAssignmentService.Assign(identity, roleAssignment.Value);
+        }
 
         return identity;
     }

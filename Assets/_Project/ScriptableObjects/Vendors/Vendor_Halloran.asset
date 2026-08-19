@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0859a5a4a9d173f4d9caa858be09c7ac, type: 3}
+  m_Name: Vendor_Halloran
+  m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.VendorData
+  _displayName: Halloran Household
+  _pitch: The best prices on the board and the worst fill rate. You know what you're
+    signing up for.
+  _icon: {fileID: 0}
+  _tier: 1
+  _reputationRequired: 60
+  _priceMultiplier: 0.9
+  _shortShipmentChance: 0.3
+  _minimumOrderCases: 0
+  _catalogue:
+  - {fileID: 11400000, guid: 80e10623902f4e1b8007a8263b47a8da, type: 2}
+  - {fileID: 11400000, guid: 5215e0936df84bf5b850d0ca1758992a, type: 2}
+  - {fileID: 11400000, guid: 65a0ac2faa324592b4f0f29ed1018e31, type: 2}
+  - {fileID: 11400000, guid: 474aed2b04c14412b1876edab3723e66, type: 2}
+  - {fileID: 11400000, guid: 073a78ee064440aba7c04b2c76c56881, type: 2}
+  - {fileID: 11400000, guid: 6a67f32ebcb347d9aa93a4c5a5c92243, type: 2}
+  - {fileID: 11400000, guid: a1318202efbe488cbda6f608fb602336, type: 2}
+  - {fileID: 11400000, guid: 4d42f3d1666f4b578d8d357ea73311db, type: 2}
+  - {fileID: 11400000, guid: 231922a4b39f4399a52f42756407d637, type: 2}
+  - {fileID: 11400000, guid: 7cc5ac53d10c4fa795952b50e286bb9a, type: 2}
+  - {fileID: 11400000, guid: 65ffa8dd50c64ffbad8c4a0635602ea1, type: 2}
+  - {fileID: 11400000, guid: a927fef5e1d042a3b0a611e286337d15, type: 2}
+  - {fileID: 11400000, guid: 6882b124d0fe4b8d8cf40e23a480c896, type: 2}
+  - {fileID: 11400000, guid: b1aba2d7b7a74105819ca60b574b3573, type: 2}

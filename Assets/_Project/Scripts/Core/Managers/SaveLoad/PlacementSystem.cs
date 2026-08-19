@@ -326,6 +326,15 @@ public class PlacementSystem : MonoBehaviour
         if (ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockScheduleService))
             save.dockAppointments = dockScheduleService.Export();
 
+        if (ServiceLocator.TryGet(out GameCore.Inventory.MarketService marketService))
+            save.market = marketService.Export();
+
+        if (ServiceLocator.TryGet(out GameCore.Inventory.ReputationService reputationService))
+            save.reputation = reputationService.Export();
+
+        if (ServiceLocator.TryGet(out GameCore.Inventory.BrokerService brokerService))
+            save.broker = brokerService.Export();
+
         if (ToolsWindowController.Instance != null)
         {
             var pos = ToolsWindowController.Instance.GetWindowPosition();
@@ -615,7 +624,12 @@ public class PlacementSystem : MonoBehaviour
 
     private void ApplySaveData(SaveData save)
     {
-        moneyService.SetMoney(save.money);
+        // RestoreCapital, NOT SetMoney: SetMoney books the difference between starting capital and
+        // the saved balance as a real "Debug" transaction, so every load charged that gap to lifetime
+        // expenses. On a real save that was $26,731 of $26,879 total — 99.4% of everything the player
+        // had apparently spent was one load correction, and it made a healthy economy read as a 30:1
+        // burn on every financial panel.
+        moneyService.RestoreCapital(save.money);
         moneyService.SetSpentToday(save.spentToday);
 
         // ── RESET TRUCK YARD ─────────────────────────────────────────────────
@@ -791,6 +805,17 @@ public class PlacementSystem : MonoBehaviour
         // already-restored order list keeps the two consistent from the first frame.
         if (ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockScheduleRestore))
             dockScheduleRestore.Import(save.dockAppointments);
+
+        // Prices and spot deals. Import re-seeds anything missing and tops the offer board back up,
+        // so a save written on day 3 and loaded on day 6 doesn't come back with three expired cards.
+        if (ServiceLocator.TryGet(out GameCore.Inventory.MarketService marketRestore))
+            marketRestore.Import(save.market);
+
+        if (ServiceLocator.TryGet(out GameCore.Inventory.ReputationService reputationRestore))
+            reputationRestore.Import(save.reputation);
+
+        if (ServiceLocator.TryGet(out GameCore.Inventory.BrokerService brokerRestore))
+            brokerRestore.Import(save.broker);
 
         if (save.cameraData != null && freeLookCamera != null)
             freeLookCamera.SetState(save.cameraData);

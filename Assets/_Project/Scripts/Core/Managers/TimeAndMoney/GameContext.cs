@@ -66,6 +66,9 @@ public class GameContext : MonoBehaviour
         var putawayLogic = new GameCore.Inventory.PutawayLogic();
         var orderArrivalService = new GameCore.Inventory.OrderArrivalService();
         var dockScheduleService = new GameCore.Inventory.DockScheduleService();
+        var marketService = new GameCore.Inventory.MarketService();
+        var reputationService = new GameCore.Inventory.ReputationService();
+        var brokerService = new GameCore.Inventory.BrokerService();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
@@ -80,6 +83,9 @@ public class GameContext : MonoBehaviour
         ServiceLocator.Register<GameCore.Inventory.PutawayLogic>(putawayLogic);
         ServiceLocator.Register<GameCore.Inventory.OrderArrivalService>(orderArrivalService);
         ServiceLocator.Register<GameCore.Inventory.DockScheduleService>(dockScheduleService);
+        ServiceLocator.Register<GameCore.Inventory.MarketService>(marketService);
+        ServiceLocator.Register<GameCore.Inventory.ReputationService>(reputationService);
+        ServiceLocator.Register<GameCore.Inventory.BrokerService>(brokerService);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
@@ -104,6 +110,17 @@ public class GameContext : MonoBehaviour
         // CasePrefab. The 99 Excel-imported SKUs live outside Resources and aren't picked up here —
         // that's a separate follow-up if/when those need real case visuals too.
         inventoryService.LoadSkuDatabase(Resources.LoadAll<SkuData>("Inventory/SKUs"));
+
+        // AFTER LoadSkuDatabase, not with the other services above: MarketService seeds a price and
+        // seven days of history for every SKU in the database on Initialize, and an empty database
+        // at that moment means an empty market with no prices and no spot deals for the session.
+        marketService.Initialize();
+        // Gates which vendors will deal with the player, and is the same score intended to drive
+        // customer contract arrival. Subscribes to OrderService's shipped/fined/cancelled events.
+        reputationService.Initialize();
+        // AFTER reputation: the broker reads the score to decide whether it will deal with the
+        // player at all, and resolves it out of the locator on Initialize.
+        brokerService.Initialize();
 
         // Defensive reset in case a same-process "New Game"/reload path ever re-runs GameContext.Awake()
         // without a full domain reload — SlotAssignmentService is in-memory only (see its own doc

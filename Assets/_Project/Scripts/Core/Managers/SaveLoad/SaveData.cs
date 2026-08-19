@@ -55,6 +55,20 @@ public class SaveData
     // repopulate as new orders arrive.
     public List<DockAppointmentSnapshot> dockAppointments = new();
 
+    /// <summary>Per-SKU market prices, their 7-day history, and today's spot deals.
+    /// Empty in a save written before the market existed — MarketService.Import treats that as
+    /// "no prices yet" and re-seeds from the SKU assets, so old saves come up with a fresh
+    /// market rather than a catalogue priced at zero.</summary>
+    public MarketSnapshot market = new();
+
+    /// <summary>The player's standing in the trade. Score 0 in a save written before reputation
+    /// existed, which is exactly right — that player hasn't earned anything yet.</summary>
+    public ReputationSnapshot reputation = new();
+
+    /// <summary>Live salvage offers AND their hidden contents. The contents must persist or a
+    /// reload would reroll the trailer, turning a sight-unseen gamble into a save-scum.</summary>
+    public BrokerSnapshot broker = new();
+
     // Former employees (terminated / resigned) — kept on file for rehire, union reinstatement,
     // and HR history. Populated from FormerEmployeeArchive. Absent in older saves (empty list).
     public List<EmployeeRecord> formerEmployees = new();

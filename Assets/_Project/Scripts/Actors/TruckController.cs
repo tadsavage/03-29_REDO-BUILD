@@ -407,6 +407,13 @@ private DockSlot        _dock;
             for (int i = 0; i < shipment.LineItems.Count; i++)
             {
                 var item = shipment.LineItems[i];
+
+                // SHORT-SHIPPED: ordered and paid for, but the supplier didn't put it on the truck.
+                // No pallet is built, so nothing physically arrives, ReceivedQuantity stays 0 and the
+                // line reports its full Shortage. The line item deliberately stays on the manifest —
+                // see ShipmentLineItem.Dropped for why it's a flag rather than a deletion.
+                if (item.Dropped) continue;
+
                 var sku = inventoryService?.GetSkuData(item.SkuId);
                 if (BuildOnePallet(loadParent, sku, item.SkuId, item.FloorSlotIndex, item.PalletTier, i))
                     built++;

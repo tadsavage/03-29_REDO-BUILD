@@ -1372,3 +1372,250 @@ Customers tab gets built toward it rather than away from it.
    tab worth opening more than once.
 7. Only 3 `ContractData` assets, so the Customers tab currently shows its empty state on Tad's save.
    Reputation-driven arrival will need a much deeper catalogue across the 26 authored customers.
+
+---
+
+## Purchasing & Vendor System — Phases 1, 2, 4 BUILT 2026-08-18; 3 partial, 5 designed
+
+> **See `PURCHASING_DESIGN.md` in the repo root for the full document.** This is a pointer, not a
+> summary — the design lives there so it's editable as one piece.
+
+The inbound half of the loop, and currently its weakest link. Today: one hardcoded supplier
+(`"PLAYER_SUPPLIER"` / `"Wholesale Supply"`, `PurchasingPanel.cs:968`), one never-moving price per
+SKU, and a truck that always carries exactly what was ordered. Tad: *"a two dimensional pick items
+from a list like you're at a restaurant."*
+
+**The agreed direction: vendor tiers gated by a Reputation score.**
+
+Four load-bearing decisions, so they don't get re-litigated:
+
+1. **ONE Reputation score, two consumers.** The vendor reputation is the SAME number as the
+   customer-side reputation designed in the 2026-08-01 session above — it gates which customers offer
+   you contracts AND which vendors answer your calls. One `ReputationService`, one number the player
+   reads, both halves of the game feeding the same spine. Do not build two.
+2. **Salvage, not contraband.** The Buccaneer-style "rare vendor with illegal goods" is reskinned to
+   unmanifested salvage / close-out loads bought sight-unseen. Same thrill, no
+   inspection/seizure/fines second failure system, and it's authentically warehouse. It's also the
+   natural entry vector for the deferred rat system (ship a contaminated pallet = −40 rep).
+3. **Tier 3 launches AMBIENT.** Caviar/seafood/rare beef are all cold chain, which needs
+   Perishable/Frozen storage + refrigerated rooms + power upkeep. Tier 3 ships with high-value
+   ambient goods (truffle oil, saffron, aged spirits, single-origin coffee); cold chain is its own
+   later milestone that reuses the tier structure.
+4. **The Anti-Obsolescence Rule.** Tiers differ on a **risk/velocity** axis, never strictly-better.
+   Staples = thin margin, constant demand, forgiving. Specialty = fat margin, lumpy demand,
+   slot-hungry, punishing to scratch. Otherwise ~25 of the 31 SKUs become dead content by hour three.
+
+**Cut:** the Oblivion-style persuasion/barter minigame (Tad self-rejected; the fantasy here is
+operational mastery, not social skill).
+
+**Two findings from the design review worth knowing before touching this code:**
+
+- **Receiving variance is plumbed but structurally impossible.** `ShipmentLineItem.Overage`/`.Shortage`
+  are computed and logged, but `UpdateReceivedQuantity` is called from exactly ONE place
+  (`ShipmentReceivingCoordinator.cs:96`) with the quantity of the pallet that physically arrived —
+  and the trailer is built from the PO. Received always equals ordered. The gun is built and unloaded.
+- **Current SKU margins run BACKWARDS from the intended tiering.** Water 5→12 is a 140% markup and
+  Salt 10→18 is 80%, while Maple Syrup 55→85 and Honey 42→65 are both 55%. The cheap staples are
+  currently the fattest margins. A repricing pass is required — and it's where the tiers actually get
+  their character, not cleanup.
+
+**Build order:** (1) ~~make purchasing a bet~~ **DONE**; (2) `VendorData` + `VendorRegistry` mirroring
+`ContractData`/`ContractRegistry`, plus the repricing/tier-assignment pass; (3) `ReputationService`;
+(4) the Broker (salvage loads, `PalletStatus.QAHold` write-offs); (5+) cold chain, rats.
+
+### Phase 1 — what's actually in the code now (live-verified 2026-08-18)
+
+- **`MarketService`** (`Core/Inventory/MarketService.cs`) — new `IService`. Per-SKU daily price on a
+  MEAN-REVERTING random walk clamped to 0.70x-1.35x of authored `BuyValue`, 7 days of history for the
+  sparkline, and the 3-a-day expiring spot-deal board. **Mean reversion is load-bearing** — a pure
+  random walk wanders to the clamp and the sparkline becomes a flat line against a wall.
+- **Registered in `GameContext` AFTER `inventoryService.LoadSkuDatabase(...)`, not with the other
+  services.** It seeds every price from the SKU database on `Initialize`, and an empty database at
+  that moment means a market with no prices and no deals for the entire session.
+- **`ShipmentLineItem.Dropped` + `ShipmentService.ApplySupplierVariance`** — 25% of PLAYER POs arrive
+  short by 1-3 pallets. Rolled ONCE at dispatch (`_varianceApplied` guards a re-spawn), before
+  `TruckController.LoadShipment` reads the manifest, so the physical trailer, the PO list and the
+  receiving records agree from the first frame. Never more than half a load, never a single-pallet
+  PO, never non-player freight. **The player is CREDITED for what didn't arrive** — being charged for
+  freight that never came reads as the game stealing from you; the interesting loss is the missing
+  stock and the fill rate it costs.
+- **`Dropped` is a FLAG, not a deletion.** `Quantity` is what was ORDERED; removing the line would
+  erase the evidence anything was missing. Left in place, `ReceivedQuantity` stays 0 and `Shortage`
+  finally reports something real — the first time that field has ever been non-zero.
+- **Every price on the panel goes through one `UnitPrice(sku)` helper** — item card, line cost, order
+  total, and the PO's actual `ShipmentLineItem`s — so the number quoted and the number charged cannot
+  diverge. Falls back to `BuyValue` if the market isn't running (usable, not free).
+- **`WAREHOUSE:` line** under the trailer meter reads `LocationStatusRegistry` (what the reach truck
+  obeys), NOT `LocationData` — see the split-brain note earlier in this file.
+- **UI gotcha:** the item card's price row MUST be `flexWrap = Wrap` with `flexShrink = 0` children.
+  The card body is what's left after a 116px icon and a 150px cost plate — under 250px at two
+  columns — so cost + trend chip + sparkline do not fit on one line. Without wrapping the chip
+  renders as "NORM" and the sparkline is clipped away entirely.
+
+**Bug found in verification, worth remembering:** `EnsureDealsForToday` originally re-read the clock
+instead of using the day carried by `OnDayChanged`. Those two can disagree, and when they did it
+expired the board against the NEW day then refused to rebuild it against the OLD one — the spot-deal
+board would have emptied at the first midnight and never come back. Anything reacting to
+`OnDayChanged` should trust the event's day, not re-read `SimulationTimeService.Day`.
+
+**Already in the code and unused, relevant here:** `PalletData.AreaCategory { Grocery, Perishable,
+Frozen }`, `PalletData.PalletStatus.QAHold`, `SignedContract.SatisfactionPercent` (the per-counterparty
+standing precedent to mirror for vendors), `ContractData.CreateRuntime` + `OrderArrivalService.AddOffer`
+(the runtime-counterparty-generation pattern).
+
+
+### Phase 2 — vendors, reputation, repricing (live-verified 2026-08-18)
+
+- **`VendorData` / `VendorRegistry`** (`Core/Inventory/`) mirror `ContractData`/`ContractRegistry`.
+  Registry asset at `Assets/_Project/Resources/VendorRegistry.asset`, vendors under
+  `Assets/_Project/ScriptableObjects/Vendors/`. **Loaded from Resources BY NAME** so it resolves in a
+  built player.
+- **Seven vendors on a LADDER, not at the band boundaries:** BulkBasin 0, Cornerstone 0, Halloran 60,
+  Fairweather 100, Meridian 160, VesselVine 250, Ambrose 340. Deliberate — unlocking in three lumps
+  at 100/300/600 would make the roster feel static between bands.
+- **Only THREE differentiating fields, all consumed:** `PriceMultiplier`, `ShortShipmentChance`
+  (drives `ShipmentService.ShortShipChanceFor`, replacing the flat 25%), `MinimumOrderCases`.
+  **On-time % and net-30 were drafted and CUT** — no late-delivery or trade-credit mechanic exists,
+  and unconsumed fields are how Overage/Shortage sat dead for months. Add them WITH their mechanic.
+- **`ReputationService`** was pulled forward from Phase 3 out of necessity: gating with no score
+  source means 13 buyable SKUs forever. Score 0-1000, bands Unknown/Known/Respected/Preferred/
+  Untouchable at 0/100/300/600/850, persisted via `SaveData.reputation`. **Three of five designed
+  inputs wired** (OnOrderShipped / OnOrderFined / OnOrderCancelled). Dock wait time and contamination
+  are NOT wired — no events exist for them yet.
+- **Reputation toasts only on BAND CHANGE**, not per event — "+5 reputation" on every shipped order is
+  noise on a number that moves all day.
+- **REPRICED all 31 SKUs** (0 unmapped). T1 30-40%, T2 50-56%, T3 100-117%. Catalogue splits 13/14/4.
+  This is what makes the tiers mean anything — before it, Water was a 140% markup and Maple Syrup 55%.
+- **One PO is one vendor.** `OnSelectVendor` clears the basket on switch. `SelectedVendor()`
+  re-anchors to the first unlocked house whenever the selection stops being valid, so a reputation
+  drop or an edited asset can't leave the panel pointing at a vendor that won't serve you.
+- **Spot deals are NOT vendor-gated on purpose** — separate channel, and an occasional early taste of
+  a Tier 3 item is a feature.
+- **UI gotchas, both cost a screenshot to find:** the vendor bar and its row need `flexShrink = 0` or
+  the wrapped second row draws straight over the trailer meter below it. And chip name/terms labels
+  must be `WhiteSpace.Normal` — at 148px wide, `NoWrap` clipped "Fairweather Trading Co." to
+  "Fairweather Tradi" and, worse, hid the "min 240" clause that REFUSES the PO.
+- **Locked-chip label says the NUMBER, not the band.** Naming the band a threshold sits in produced
+  "Needs 250 rep (Known)" for a player who was already Known.
+
+
+### Phase 4 — The Broker (salvage loads), live-verified 2026-08-18
+
+`BrokerService` + `Vendor_Broker` asset, gated at **600 reputation**. 35%/day chance of one
+unmanifested trailer, expires after 2 days.
+
+- **CONTENTS ARE ROLLED AT OFFER TIME AND PERSISTED** (`SaveData.broker` carries them). Not at
+  reveal. The trailer really does contain something specific before the player decides, so a reload
+  cannot reroll a bad load — a gamble you can save-scum isn't one.
+- Mix measured over 3,897 pallets: 59.4/20.1/15.2/5.4 vs targets 60/20/15/5
+  (ordinary/short-dated/damaged/jackpot).
+- **Short-dated stamps a real 4-day `ShelfLifeDays`** and rides the EXISTING receive path into a real
+  expiration day + the spoilage system. No new plumbing — that pipeline finally has a user.
+- **Damaged sets `Dropped = true`** so no pallet is built and none reaches inventory (refused at the
+  door), but the line item STAYS on the manifest carrying `Salvage = Damaged`. That's what lets the
+  PO list say "3 damaged, written off" instead of just showing a smaller trailer.
+- **Jackpot pool = SKUs no unlocked vendor carries**, so it's by construction something you can't buy.
+- **`ShipmentData.IsSalvage` hides the manifest** in the PO list until `AnyReceived` is true. This
+  concealment IS the product.
+- **The Broker is filtered out of `VendorRegistry.Unlocked`/`Locked`** — he has no catalogue, and as a
+  supplier chip he'd read "0 item(s) available for ordering", which looks like a bug. Still reachable
+  via `GetById`, which is how BrokerService reads his reputation gate.
+- `ApplySupplierVariance` **skips salvage** — the load is already the gamble; short-shipping it on top
+  would charge twice for the same uncertainty and be indistinguishable from the junk you knowingly bought.
+
+**BUG FOUND BY MEASURING, worth remembering as a pattern.** The asking price originally excluded
+damaged pallets, so it could never exceed usable value — **300 of 300 sampled loads were profitable**
+and the gamble had literally no downside. Pricing on the FULL manifest (junk included) is the whole
+risk. Now 40-92% of full manifest value: **88% profitable / 12% losses / +42% avg margin / worst
+−46%** over 800 loads. Lesson: a risk mechanic is worth simulating a few hundred times before
+believing it works — it read correctly and was inert.
+
+**Known limitation:** damaged product is refused at the door rather than physically arriving and
+needing disposal (the more interesting version, but it needs a disposal mechanic).
+`PalletMasterRecord` has no status field, so `PalletStatus.QAHold` remains unused — that's where it
+belongs when disposal lands.
+
+
+---
+
+## Session 2026-08-18 (late) — three loop-blocking bugs, all found by measuring
+
+Went looking for "what else is there to do" and found the outbound half of the loop dead and the
+financial reporting lying. None of these were visible from reading the code; all three were found by
+querying the running game.
+
+### 1. A freshly-hired Receiver or Order Selector never started working
+
+`EmployeeSpawner` gave an automatic assignment to the MHE roles only (`TryBoardExistingMHE` for
+ReachTruck / DockStocker / Loader). **Every other role spawned on Patrol with no task driver
+attached** — so a hired Order Selector walked around forever while OrderSelect tasks piled up, and the
+ONLY way to make them work was to find them in the Roster and pick their assignment out of a dropdown
+by hand. Nothing said so.
+
+Measured live: an order sat `Pending` behind an Available OrderSelect task with **zero
+`OrderSelectionTaskDriver` components anywhere in the scene**. The one Receiver who did work had been
+hand-assigned at some point and had it persisted via `record.currentAssignment`.
+
+**Fix:** fresh non-MHE hires now get `record.role.RoleSpecificAssignment()` applied at spawn — the
+same map the Roster and Info card already use, so a hire starts in exactly the state that dropdown
+would have produced. Verified: hiring an OrderSelector now yields `assignment=OrderSelection` with the
+driver attached.
+
+### 2. Nothing ever said "you have no one who can do this job"
+
+A queue full of Available tasks and nobody employed who can take them is silent and fatal.
+`WorkQueueSystem.WarnAboutUnstaffedWork` (on the existing hour tick) now toasts once per role per day
+when Available tasks require a role **no active employee holds**.
+
+**Keyed on ROLE-NOT-HIRED, not on task age** — deliberately. A task waiting because everyone is busy
+is a queue working correctly; a task waiting because the role doesn't exist in the building is a dead
+end, and only the second is worth interrupting for.
+
+**A TASK'S RequiredRole IS NOT ALWAYS THE ONLY ROLE THAT CAN DO IT — this warning got that wrong on
+its first pass.** `OrderService` files Load tasks as `EmployeeRole.Loader`, but
+`TrailerLoadController` (line ~194) accepts a **DockStockerOperator** too: they drive the same
+equipment, and `RoleSpecificAssignment` maps both to `DriveDockstalker`. Comparing roles exactly meant
+the warning nagged "you haven't hired a Loader" every day at a player whose dock stocker could load
+the trailer perfectly well — a false alarm on a warning whose entire value is that it only fires when
+something is genuinely impossible.
+
+`WorkQueueSystem.CanServe(employeeRole, requiredRole)` now encodes the substitution, mirroring
+TrailerLoadController's own operator check as the authority. **If any controller ever learns to accept
+a substitute role, add it there too.** Every other consumer is an exact match (ReachTruckOperator for
+Putaway/Replenish/PalletPick, DockStockerOperator for offload, Receiver, OrderSelector) — verified by
+reading each consumer's role check, not assumed.
+
+### 3. ⭐ `SetMoney` on save load was booking the whole balance delta as a "Debug" EXPENSE
+
+**This one poisoned every financial panel in the game.** `PlacementSystem.ApplySaveData` called
+`moneyService.SetMoney(save.money)`, and `SetMoney` records the delta as a real transaction. The game
+boots at the difficulty's starting capital ($120k Clerk) and then loads a save holding less — so
+**every single load charged the gap to lifetime expenses.**
+
+Measured on a real save: **$26,731 of $26,879 lifetime expenses — 99.4% of everything the player had
+apparently ever spent — was one load correction.** It also inflated `ExpensesThisHour`,
+`ExpensesThisWeek` ($38,746) and everything built on them. The genuine operating costs underneath were
+Wages $124, Groundskeeping $11, Maintenance $10, MHE $2.
+
+**There was never a balance problem.** The 30:1 "burn" was an artifact. New
+`MoneyService.RestoreCapital(int)` assigns the balance and fires `OnMoneyChanged` **without touching
+any ledger or counter**; `ApplySaveData` uses it. Verified after a real load: Debug portion **$0**,
+total lifetime expenses **$237**, all of it real.
+
+**Lesson worth keeping: restoring a balance is not a transaction.** Any future save-restore of a
+running total needs the same treatment.
+
+### Also: reputation now gates CUSTOMERS as well as vendors
+
+The second half of "one reputation, two consumers". `ContractData._reputationRequired` (0 in every
+asset authored before this, which is correct — those are starter accounts),
+`OrderArrivalService.AvailableOffers` filtered by it, and a new `ReputationLockedOffers` rendered as a
+greyed card on the Customers tab: *"WON'T DEAL WITH YOU YET — Needs 300 reputation (Respected) — you
+have 170. 130 to go."* Same reasoning as locked vendors: a door you can see is a goal.
+
+`CurrentReputation` is resolved LAZILY, not cached at Initialize — `OrderArrivalService` is
+constructed before `ReputationService` in `GameContext`, and a field captured at init would be null
+forever, silently reading as reputation 0 and locking every gated customer out of the game permanently.
+
+Authored ladder: `Contract_Starter` 0, `Contract_HighVolume` 250, `Contract_WholesaleTrailer` 400.
+Runtime BULK offers stay at 0 — walk-in business doesn't check your references.

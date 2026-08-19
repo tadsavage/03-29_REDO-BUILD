@@ -70,6 +70,16 @@ namespace GameCore.Inventory
                  "Weekly; bulk is OneTime and never re-fires.")]
         [SerializeField] private OrderFrequency _frequency = OrderFrequency.Daily;
 
+        /// <summary>
+        /// Reputation the player must hold before this customer will offer them work.
+        ///
+        /// The OTHER HALF of "one reputation, two consumers" (see PURCHASING_DESIGN.md). The same
+        /// score that decides which suppliers take your call decides which customers trust you with
+        /// their freight. 0 = a starter account anyone can have on day one, which is what every
+        /// contract authored before this field existed correctly defaults to.
+        /// </summary>
+        [SerializeField] private int _reputationRequired;
+
         [Header("Bulk (Bulk only)")]
         [Tooltip("How many SKUs the customer asks for. Each line is a whole number of pallets plus " +
                  "whatever part case is left over — 620 cases of a 60/pallet SKU is 10 pallets and " +
@@ -134,6 +144,7 @@ namespace GameCore.Inventory
         public CustomerData Customer => _customer;
         public string Pitch => _pitch;
         public ContractKind Kind => _kind;
+        public int ReputationRequired => _reputationRequired;
         public OrderFrequency Frequency => _frequency;
         public int BulkLinesMin => _bulkLinesMin;
         public int BulkLinesMax => _bulkLinesMax;
@@ -220,7 +231,8 @@ namespace GameCore.Inventory
             float payRateMultiplier, float lateFeePercent,
             OrderFrequency frequency = OrderFrequency.Daily,
             int bulkLinesMin = 1, int bulkLinesMax = 3,
-            int bulkPalletsPerLineMin = 1, int bulkPalletsPerLineMax = 10)
+            int bulkPalletsPerLineMin = 1, int bulkPalletsPerLineMax = 10,
+            int reputationRequired = 0)
         {
             var c = CreateInstance<ContractData>();
             // ContractId reads straight off name, so this IS the identity, not a display nicety.
@@ -247,6 +259,7 @@ namespace GameCore.Inventory
             c._bulkLinesMax = Mathf.Max(c._bulkLinesMin, bulkLinesMax);
             c._bulkPalletsPerLineMin = Mathf.Max(1, bulkPalletsPerLineMin);
             c._bulkPalletsPerLineMax = Mathf.Max(c._bulkPalletsPerLineMin, bulkPalletsPerLineMax);
+            c._reputationRequired = Mathf.Max(0, reputationRequired);
             return c;
         }
 

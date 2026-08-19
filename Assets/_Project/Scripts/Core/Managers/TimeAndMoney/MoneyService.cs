@@ -401,7 +401,35 @@ namespace GameCore.Economy
             RemoveCapital(amount, "Expense");
         }
 
-        /// <summary>DEBUG: Set money to exact amount (used by debug tools).</summary>
+        /// <summary>
+        /// Restores the balance from a save WITHOUT recording a transaction.
+        ///
+        /// SetMoney below books the difference as a real Debug expense or income, which is correct
+        /// for the Dev Console's cheat buttons and catastrophically wrong for a save load. The game
+        /// starts at the difficulty's starting capital and then loads a save holding less — so every
+        /// single load charged the gap to expenses.
+        ///
+        /// Measured on a real save: $26,731 of $26,879 LIFETIME expenses — 99.4% of everything the
+        /// player had apparently ever spent — was one save-load correction. It polluted the lifetime
+        /// ledger, ExpensesThisHour, ExpensesThisWeek and every panel built on them, and made a
+        /// perfectly healthy operating economy read as a 30:1 death spiral. The actual running costs
+        /// underneath it were Wages $124, Maintenance $10, MHE $2.
+        ///
+        /// Restoring a balance is not a transaction. It's the same money, remembered.
+        /// </summary>
+        public void RestoreCapital(int amount)
+        {
+            _currentCapital = amount;
+
+            // Still announces the change — the TopBar and every listener must repaint — but records
+            // nothing in _lifetimeExpenses/_lifetimeIncome or any of the today/hour counters.
+            _eventManager?.Publish(GameEvents.Economy.OnMoneyChanged, _currentCapital);
+            OnMoneyChanged?.Invoke();
+        }
+
+        /// <summary>DEBUG: Set money to exact amount (used by debug tools). Records the delta as a
+        /// Debug transaction — correct for a cheat button, WRONG for restoring a save. Use
+        /// <see cref="RestoreCapital"/> for that.</summary>
         public void SetMoney(int amount)
         {
             int delta = amount - _currentCapital;

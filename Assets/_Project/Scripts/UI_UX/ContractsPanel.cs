@@ -1065,6 +1065,9 @@ public class ContractsPanel : IUIPanel
         // Anything barred after a missed pickup, so a customer who has vanished from the board is
         // explained rather than just gone.
         var lost = arrivals.LostOffers.ToList();
+        // Customers who would deal with you if you were better regarded. Shown greyed for the same
+        // reason locked vendors are on the Purchasing panel — the ladder has to be visible to be a goal.
+        var repLocked = arrivals.ReputationLockedOffers.ToList();
 
         // Two panels, one per type — the decision the player is making is "which of these do I
         // want" WITHIN a type (compare two Bulk offers, or two Recurring ones), not across both, so
@@ -1075,11 +1078,11 @@ public class ContractsPanel : IUIPanel
 
         columns.Add(BuildOfferColumn("RECURRING ORDERS", ColBorder, RecurringHelperText,
             offers.Where(c => !c.IsBulk).ToList(), lost.Where(c => !c.IsBulk).ToList(),
-            arrivals, inv, marginRight: 12));
+            repLocked.Where(c => !c.IsBulk).ToList(), arrivals, inv, marginRight: 12));
 
         columns.Add(BuildOfferColumn("BULK ORDERS", ColBulkEdge, BulkHelperText,
             offers.Where(c => c.IsBulk).ToList(), lost.Where(c => c.IsBulk).ToList(),
-            arrivals, inv, marginRight: 0));
+            repLocked.Where(c => c.IsBulk).ToList(), arrivals, inv, marginRight: 0));
 
         _content.Add(columns);
 
@@ -1095,6 +1098,7 @@ public class ContractsPanel : IUIPanel
     /// grouping is new.</summary>
     private VisualElement BuildOfferColumn(string title, Color accent, string helperText,
                                            List<ContractData> offers, List<ContractData> lostOffers,
+                                           List<ContractData> repLockedOffers,
                                            OrderArrivalService arrivals, InventoryService inv,
                                            float marginRight)
     {
@@ -1122,7 +1126,7 @@ public class ContractsPanel : IUIPanel
         helper.style.marginBottom = 10;
         column.Add(helper);
 
-        if (offers.Count == 0 && lostOffers.Count == 0)
+        if (offers.Count == 0 && lostOffers.Count == 0 && repLockedOffers.Count == 0)
         {
             var none = MakeText("Nothing on offer right now — check back after the next contract rolls.",
                                 13, ColEmptyText);
@@ -1136,6 +1140,8 @@ public class ContractsPanel : IUIPanel
             column.Add(BuildOfferCard(contract, inv, row++));
         foreach (var contract in lostOffers)
             column.Add(BuildLostCard(contract, arrivals, row++));
+        foreach (var contract in repLockedOffers)
+            column.Add(BuildReputationLockedCard(contract, row++));
 
         return column;
     }
@@ -1422,6 +1428,35 @@ public class ContractsPanel : IUIPanel
                             14, ColSubtleText);
         wait.style.marginTop = 2;
         body.Add(wait);
+        card.Add(body);
+        return card;
+    }
+
+    /// <summary>
+    /// A customer who won't deal with you yet. Same greyed treatment as a lost account, different
+    /// reason and a different feeling: lost is a punishment with a timer, this is a target with a
+    /// number. States the gap explicitly, because "needs 300 reputation" when you have 170 is a goal
+    /// and "needs 300 reputation" on its own is just a wall.
+    /// </summary>
+    private VisualElement BuildReputationLockedCard(ContractData contract, int rowIndex)
+    {
+        int rep = ServiceLocator.TryGet<ReputationService>(out var r) && r != null ? r.Score : 0;
+
+        var card = MakeRow(rowIndex, ColSubtleText);
+        card.style.opacity = 0.55f;
+        card.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, IconSize, 8));
+
+        var body = new VisualElement();
+        body.style.flexGrow = 1;
+        body.Add(MakeText(contract.Customer != null ? contract.Customer.CompanyName : contract.ContractId,
+                          19, ColSubtleText, bold: true));
+        body.Add(MakeText("WON'T DEAL WITH YOU YET", 14, ColSubtleText, bold: true));
+        var need = MakeText($"Needs {contract.ReputationRequired} reputation " +
+                            $"({ReputationService.BandLabel(ReputationService.BandFor(contract.ReputationRequired))}) " +
+                            $"— you have {rep}. {contract.ReputationRequired - rep} to go.",
+                            14, ColSubtleText);
+        need.style.marginTop = 2;
+        body.Add(need);
         card.Add(body);
         return card;
     }

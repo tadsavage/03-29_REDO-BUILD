@@ -121,6 +121,11 @@ public class PurchasingPanel : IUIPanel
     /// <summary>The number shown at the top of the create tab. Reserved when the tab is opened rather
     /// than when the order is submitted, because the player reads it off the screen while filling the
     /// order in — it has to be the number they actually get.</summary>
+    /// <summary>Which supplier the Create tab is buying from. Persisted only for the life of the
+    /// panel — SelectedVendor() re-anchors it to the first unlocked house whenever it stops being a
+    /// valid choice.</summary>
+    private string _vendorId;
+
     private string _poNumber;
 
 
@@ -472,6 +477,9 @@ public class PurchasingPanel : IUIPanel
         idRow.Add(poPill);
 
         _tabHeader.Add(idRow);
+        // Supplier first: it decides what the catalogue below even contains, so it has to be read
+        // before the items, not after them.
+        _tabHeader.Add(BuildVendorBar());
         _tabHeader.Add(BuildCapacityMeter());
 
         // ── Two blue columns of item cards ──
@@ -491,6 +499,11 @@ public class PurchasingPanel : IUIPanel
             RefreshOrderTotal();
             return;
         }
+
+        // Above the catalogue: the broker's load if there is one, then today's expiring offers.
+        // Broker first — it appears rarely and costs four figures, so it outranks the spot board.
+        _content.Add(BuildSalvageStrip());
+        _content.Add(BuildSpotDealsStrip());
 
         var columns = new VisualElement();
         columns.style.flexDirection = FlexDirection.Row;
@@ -574,9 +587,30 @@ public class PurchasingPanel : IUIPanel
         name.style.whiteSpace = WhiteSpace.Normal;
         body.Add(name);
 
-        var cost = MakeText($"Item Cost: {Money(sku.BuyValue)}/case", 15, ColChipOutText, bold: true);
-        cost.style.marginTop = 1;
-        body.Add(cost);
+        // Price line: today's market price, how it sits against this SKU's normal, and the week
+        // behind it. The sparkline is the whole reason the price moving is a MECHANIC rather than
+        // noise — without a week of context, a number that changes every morning is just a number
+        // that changes every morning.
+        var priceRow = new VisualElement();
+        priceRow.style.flexDirection = FlexDirection.Row;
+        priceRow.style.alignItems = Align.Center;
+        priceRow.style.marginTop = 1;
+        // WRAPS, and every child refuses to shrink. The card body is what's left after a 116px icon
+        // and a 150px cost plate, which at two columns is under 250px — narrower than cost + chip +
+        // sparkline laid out in a line. Without this the chip renders as "NORM" and "10% O" and the
+        // sparkline is clipped away entirely. Wrapping drops them to a second line instead, and keeps
+        // doing the right thing as the window is dragged narrower.
+        priceRow.style.flexWrap = Wrap.Wrap;
+
+        var cost = MakeText($"Item Cost: {Money(UnitPrice(sku))}/case", 15, ColChipOutText, bold: true);
+        cost.style.marginTop = 0; cost.style.marginBottom = 0;
+        cost.style.flexShrink = 0;
+        cost.style.whiteSpace = WhiteSpace.NoWrap;
+        priceRow.Add(cost);
+
+        priceRow.Add(MakeTrendChip(sku));
+        priceRow.Add(MakeSparkline(sku));
+        body.Add(priceRow);
 
         // ── Quantity stepper, left-justified under the cost line ──
         var qtyRow = new VisualElement();
@@ -654,7 +688,7 @@ public class PurchasingPanel : IUIPanel
             field.SetValueWithoutNotify(q.ToString());
             // Always shows a figure, "$0" included — a plate that empties itself makes the card jump
             // every time a line is cleared, and a zero line cost is a real answer.
-            lineCost.text = Money(q * sku.BuyValue);
+            lineCost.text = Money(q * UnitPrice(sku));
 
             int pallets = TrailerCapacity.PalletsFor(sku, q);
             palletNote.text = pallets == 0
@@ -679,6 +713,607 @@ public class PurchasingPanel : IUIPanel
 
         Apply(Qty(skuId)); // paint the initial state through the same path
         return card;
+    }
+
+    // ── Vendor roster ────────────────────────────────────────────────────────
+
+    /// <summary>Sized so the whole roster fits on ONE row at the default modal width (7 x 148 + gaps
+    /// is under the ~1150px of usable header). It still wraps when the window is dragged narrower —
+    /// which is why the bar and its row both refuse to shrink; without that the wrapped second row
+    /// drew straight over the trailer meter below it.</summary>
+    private const float VendorChipMinWidth = 148f;
+
+    /// <summary>
+    /// The houses that will deal with you, and the ones that won't yet.
+    ///
+    /// LOCKED VENDORS ARE SHOWN, greyed, with what they'd cost you in reputation. A locked door you
+    /// can see is a goal; a locked door you can't see is just a smaller game — and the whole point of
+    /// tiering the roster is that the player knows there's something better to earn.
+    /// </summary>
+    private VisualElement BuildVendorBar()
+    {
+        var wrap = new VisualElement();
+        wrap.style.marginBottom = 10;
+        wrap.style.flexShrink = 0;
+
+        var registry = VendorRegistry.Load();
+        if (registry == null || registry.vendors.Count == 0) return wrap;
+
+        int rep = Reputation();
+        var unlocked = registry.Unlocked(rep);
+        var locked = registry.Locked(rep);
+
+        var head = new VisualElement();
+        head.style.flexDirection = FlexDirection.Row;
+        head.style.alignItems = Align.Center;
+        head.style.justifyContent = Justify.SpaceBetween;
+        head.style.marginBottom = 5;
+
+        var title = MakeText("SUPPLIER", 16, ColTitleText, bold: true);
+        title.style.whiteSpace = WhiteSpace.NoWrap;
+        head.Add(title);
+
+        // Reputation belongs HERE, next to the thing it gates, rather than on the TopBar with the
+        // money. It's not a resource you spend — it's the reason this row looks the way it does.
+        var band = ReputationService.BandFor(rep);
+        int next = ReputationService.NextBandThreshold(rep);
+        string repText = next < 0
+            ? $"Reputation {rep} · {ReputationService.BandLabel(band)}"
+            : $"Reputation {rep} · {ReputationService.BandLabel(band)} · {next - rep} to " +
+              $"{ReputationService.BandLabel(ReputationService.BandFor(next))}";
+        var repLabel = MakeText(repText, 14, ColSubtleText);
+        repLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        head.Add(repLabel);
+        wrap.Add(head);
+
+        // Resolved ONCE here rather than per chip: SelectedVendor() rescans the registry, allocates
+        // an Unlocked() list, and can re-anchor _vendorId as a side effect. Not something to run
+        // fourteen times to draw seven boxes.
+        var current = SelectedVendor();
+        string currentId = current != null ? current.VendorId : null;
+
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.flexWrap = Wrap.Wrap;
+        row.style.flexShrink = 0;
+        foreach (var v in unlocked) row.Add(BuildVendorChip(v, true, currentId));
+        foreach (var v in locked) row.Add(BuildVendorChip(v, false, currentId));
+        wrap.Add(row);
+
+        return wrap;
+    }
+
+    private VisualElement BuildVendorChip(VendorData vendor, bool unlocked, string currentId)
+    {
+        bool selected = unlocked && vendor.VendorId == currentId;
+
+        var chip = new VisualElement();
+        chip.style.minWidth = VendorChipMinWidth;
+        chip.style.flexGrow = 1;
+        chip.style.flexBasis = 0;
+        chip.style.marginRight = 6;
+        chip.style.marginBottom = 6;
+        chip.style.paddingTop = 5; chip.style.paddingBottom = 5;
+        chip.style.paddingLeft = 9; chip.style.paddingRight = 9;
+        chip.style.overflow = Overflow.Hidden;
+        chip.style.backgroundColor = new StyleColor(
+            !unlocked ? new Color(ColStat.r, ColStat.g, ColStat.b, 0.55f)
+            : selected ? new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.30f)
+                       : ColStat);
+        chip.style.borderTopWidth = chip.style.borderBottomWidth =
+            chip.style.borderLeftWidth = chip.style.borderRightWidth = 2;
+        var edge = !unlocked ? ColEmptyText : selected ? ColOrange : ColBlueEdge;
+        chip.style.borderTopColor = chip.style.borderBottomColor =
+            chip.style.borderLeftColor = chip.style.borderRightColor = new StyleColor(edge);
+        chip.style.borderTopLeftRadius = chip.style.borderTopRightRadius =
+            chip.style.borderBottomLeftRadius = chip.style.borderBottomRightRadius = 7;
+
+        var name = MakeText(vendor.DisplayName, 14,
+                            unlocked ? (selected ? ColOrangeText : ColTitleText) : ColEmptyText, bold: true);
+        name.style.marginTop = 0; name.style.marginBottom = 0;
+        // WRAPS rather than clipping. At 148px a chip has ~130px of usable width and half the roster
+        // is longer than that, so NoWrap turned "Fairweather Trading Co." into "Fairweather Tradi" —
+        // and a supplier's name is its identity, the one thing on the chip that must not be guessed
+        // at. The row stretches all chips to the tallest, so a two-line name costs alignment nothing.
+        name.style.whiteSpace = WhiteSpace.Normal;
+        chip.Add(name);
+
+        if (!unlocked)
+        {
+            // Just the number. Naming the band this threshold sits in read as "Needs 250 rep (Known)"
+            // to a player who was already Known — vendor thresholds are deliberately spaced BETWEEN
+            // band boundaries so the roster opens as a ladder, not in three lumps.
+            var need = MakeText($"Needs {vendor.ReputationRequired} rep · {vendor.ReputationRequired - Reputation()} to go",
+                                12, ColEmptyText);
+            need.style.marginTop = 1; need.style.marginBottom = 0;
+            need.style.whiteSpace = WhiteSpace.NoWrap;
+            chip.Add(need);
+            return chip;   // no click handler: an unearned vendor isn't a control
+        }
+
+        // The three axes that actually differ, in one line: price against the market, how often they
+        // short you, and the smallest order they'll take.
+        float pm = vendor.PriceMultiplier;
+        string priceTag = Mathf.Abs(pm - 1f) < 0.005f ? "market"
+                        : pm < 1f ? $"{Mathf.RoundToInt((1f - pm) * 100f)}% under"
+                                  : $"{Mathf.RoundToInt((pm - 1f) * 100f)}% over";
+        Color priceCol = Mathf.Abs(pm - 1f) < 0.005f ? ColSubtleText : pm < 1f ? ColMoney : ColDangerSoft;
+
+        var terms = MakeText($"{priceTag} · {vendor.ReliabilityPercent}% reliable" +
+                             (vendor.MinimumOrderCases > 0 ? $" · min {vendor.MinimumOrderCases:N0}" : ""),
+                             12, priceCol);
+        terms.style.marginTop = 1; terms.style.marginBottom = 0;
+        // Wraps for the same reason the name does — and this line matters more than it looks, because
+        // the minimum-order clause is the one term that will REFUSE a PO. Clipped to
+        // "market · 85% reliable · mi", it read as decoration right up until the order was rejected.
+        terms.style.whiteSpace = WhiteSpace.Normal;
+        chip.Add(terms);
+
+        chip.RegisterCallback<ClickEvent>(_ => OnSelectVendor(vendor));
+        return chip;
+    }
+
+    /// <summary>
+    /// Switches supplier, and throws the basket away when it isn't empty.
+    ///
+    /// ONE PO IS ONE VENDOR — a purchase order is an agreement with a specific house at their prices,
+    /// so a basket can't survive the switch. Carrying the lines over and silently repricing them
+    /// would be worse than clearing: the player would be looking at quantities they chose against
+    /// numbers that no longer applied.
+    /// </summary>
+    private void OnSelectVendor(VendorData vendor)
+    {
+        if (vendor == null || vendor.VendorId == _vendorId) return;
+
+        bool hadBasket = _basket.Count > 0;
+        _vendorId = vendor.VendorId;
+        _basket.Clear();
+        Rebuild();
+
+        UIToast.Show(hadBasket
+            ? $"Switched to {vendor.DisplayName} — the previous order was cleared, since a PO is with " +
+              $"one supplier at their prices."
+            : $"Buying from {vendor.DisplayName}.");
+    }
+
+    // ── Price trend widgets ──────────────────────────────────────────────────
+
+    private const float SparkHeight = 20f;
+    private const float SparkBarWidth = 5f;
+    private const float SparkBarGap = 2f;
+
+    /// <summary>How far off normal a price has to be before it's worth calling out. Under this it
+    /// reads "NORMAL" — a chip that lit up over a 1% wobble would cry wolf every morning.</summary>
+    private const float TrendDeadbandPercent = 3f;
+
+    /// <summary>
+    /// Today's price against this SKU's authored normal — NOT against yesterday.
+    ///
+    /// Yesterday is the wrong comparison to put on a buying decision: a price that fell 2% but is
+    /// still 20% over normal is not a bargain, and a chip saying "down" would be telling the player
+    /// to buy it. What matters is whether this is cheap for THIS ITEM.
+    /// </summary>
+    private VisualElement MakeTrendChip(SkuData sku)
+    {
+        var chip = new VisualElement();
+        chip.style.flexShrink = 0;
+        chip.style.marginLeft = 8;
+        chip.style.paddingLeft = 6; chip.style.paddingRight = 6;
+        chip.style.paddingTop = 1; chip.style.paddingBottom = 1;
+        chip.style.borderTopLeftRadius = chip.style.borderTopRightRadius =
+            chip.style.borderBottomLeftRadius = chip.style.borderBottomRightRadius = 4;
+
+        var market = Market();
+        if (market == null) return chip;   // no market running: make no claim about the price
+
+        float vsNormal = market.VsNormalPercent(sku);
+        bool cheap = vsNormal <= -TrendDeadbandPercent;
+        bool dear = vsNormal >= TrendDeadbandPercent;
+
+        string text = cheap ? $"{Mathf.RoundToInt(-vsNormal)}% UNDER"
+                    : dear ? $"{Mathf.RoundToInt(vsNormal)}% OVER"
+                           : "NORMAL";
+        Color fg = cheap ? ColMoney : dear ? ColDangerSoft : ColSubtleText;
+
+        chip.style.backgroundColor = new StyleColor(new Color(fg.r, fg.g, fg.b, 0.14f));
+
+        var label = MakeText(text, 12, fg, bold: true);
+        label.style.marginTop = 0; label.style.marginBottom = 0;
+        label.style.flexShrink = 0;
+        label.style.whiteSpace = WhiteSpace.NoWrap;
+        chip.Add(label);
+        return chip;
+    }
+
+    /// <summary>
+    /// Seven bars: this SKU's price for the last week, oldest on the left, today on the right.
+    ///
+    /// Scaled to its OWN min/max rather than to zero. A $20 item moving between $18 and $23 would be
+    /// seven near-identical full-height bars on a zero baseline — technically honest and completely
+    /// unreadable. Relative scaling is what makes the shape of the week visible at this size.
+    /// </summary>
+    private VisualElement MakeSparkline(SkuData sku)
+    {
+        var wrap = new VisualElement();
+        wrap.style.flexDirection = FlexDirection.Row;
+        wrap.style.alignItems = Align.FlexEnd;
+        wrap.style.height = SparkHeight;
+        wrap.style.marginLeft = 8;
+        wrap.style.flexShrink = 0;
+
+        var history = Market()?.History(sku.SkuId);
+        if (history == null || history.Count < 2) return wrap;
+
+        int min = history.Min();
+        int max = history.Max();
+        int range = Mathf.Max(1, max - min);
+
+        for (int i = 0; i < history.Count; i++)
+        {
+            // A floor of 3px so the week's low is still a visible bar rather than a gap in the chart.
+            float t = (history[i] - min) / (float)range;
+            var bar = new VisualElement();
+            bar.style.width = SparkBarWidth;
+            bar.style.height = 3f + t * (SparkHeight - 3f);
+            bar.style.marginRight = i == history.Count - 1 ? 0 : SparkBarGap;
+            bar.style.backgroundColor = new StyleColor(
+                i == history.Count - 1 ? ColPlateValue                                      // today
+                                       : new Color(ColBorder.r, ColBorder.g, ColBorder.b, 0.55f));
+            wrap.Add(bar);
+        }
+
+        return wrap;
+    }
+
+    // ── The broker: salvage loads ────────────────────────────────────────────
+
+    private static readonly Color ColSalvageBg   = new Color(0.10f, 0.09f, 0.08f, 0.95f);
+    private static readonly Color ColSalvageEdge = new Color(0x8A / 255f, 0x6B / 255f, 0x2E / 255f, 1f);
+    private static readonly Color ColSalvageText = new Color(0xD8 / 255f, 0xC6 / 255f, 0xA0 / 255f, 1f);
+
+    private static BrokerService Broker()
+        => ServiceLocator.TryGet<BrokerService>(out var b) ? b : null;
+
+    /// <summary>
+    /// An unmanifested trailer, sold as is.
+    ///
+    /// Deliberately styled AGAINST the rest of the panel — near-black with a dull brass edge instead
+    /// of the house navy-and-blue. Everything else on this screen is a catalogue with known contents
+    /// and a known price; this is neither, and it should not look like it belongs next to them.
+    /// </summary>
+    private VisualElement BuildSalvageStrip()
+    {
+        var wrap = new VisualElement();
+
+        var broker = Broker();
+        var offers = broker?.LiveOffers.ToList() ?? new List<SalvageOffer>();
+        if (offers.Count == 0) return wrap;   // collapses to nothing when the broker has nothing
+
+        wrap.style.marginBottom = 12;
+        foreach (var offer in offers) wrap.Add(BuildSalvageCard(offer));
+        return wrap;
+    }
+
+    private VisualElement BuildSalvageCard(SalvageOffer offer)
+    {
+        var card = new VisualElement();
+        card.style.flexDirection = FlexDirection.Row;
+        card.style.alignItems = Align.Center;
+        card.style.paddingTop = 10; card.style.paddingBottom = 10;
+        card.style.paddingLeft = 14; card.style.paddingRight = 14;
+        card.style.backgroundColor = new StyleColor(ColSalvageBg);
+        card.style.borderTopWidth = card.style.borderBottomWidth =
+            card.style.borderLeftWidth = card.style.borderRightWidth = 2;
+        card.style.borderTopColor = card.style.borderBottomColor =
+            card.style.borderLeftColor = card.style.borderRightColor = new StyleColor(ColSalvageEdge);
+        card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
+            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 8;
+
+        var body = new VisualElement();
+        body.style.flexGrow = 1;
+        body.style.flexShrink = 1;
+        body.style.overflow = Overflow.Hidden;
+
+        var head = MakeText("THE BROKER · CLOSE-OUT LOAD", 16, ColSalvageEdge, bold: true);
+        head.style.marginTop = 0; head.style.marginBottom = 0;
+        head.style.whiteSpace = WhiteSpace.NoWrap;
+        body.Add(head);
+
+        // The manifest is the whole product. It says how many pallets and nothing whatsoever about
+        // what's on them.
+        var manifest = MakeText(offer.ManifestLine, 24, ColSalvageText, bold: true);
+        manifest.style.marginTop = 2; manifest.style.marginBottom = 0;
+        manifest.style.whiteSpace = WhiteSpace.Normal;
+        body.Add(manifest);
+
+        var terms = MakeText("Contents not guaranteed. No returns. You find out on the dock.",
+                             13, ColSubtleText);
+        terms.style.marginTop = 3; terms.style.marginBottom = 0;
+        terms.style.whiteSpace = WhiteSpace.Normal;
+        body.Add(terms);
+        card.Add(body);
+
+        var take = new Button(() => OnTakeSalvage(offer)) { text = $"BUY AS IS · {offer.PriceLabel}" };
+        StyleActionButton(take, ColSalvageEdge, new Color(0.35f, 0.26f, 0.10f), new Color(0.62f, 0.48f, 0.22f));
+        take.style.width = StyleKeyword.Auto;
+        take.style.height = 48;
+        take.style.marginLeft = 14; take.style.marginRight = 0;
+        take.style.flexShrink = 0;
+        take.style.fontSize = 17;
+        card.Add(take);
+
+        return card;
+    }
+
+    private void OnTakeSalvage(SalvageOffer offer)
+    {
+        var broker = Broker();
+        if (broker == null) return;
+
+        if (!ServiceLocator.TryGet<ShipmentService>(out var shipments) || shipments == null)
+        {
+            UIToast.Show("Purchasing is unavailable — the shipment service isn't running.");
+            return;
+        }
+
+        if (ServiceLocator.TryGet<MoneyService>(out var money) && money != null &&
+            money.CurrentCapital < offer.Price)
+        {
+            ShowNotice($"Not enough capital for this load.\n\nIt costs {Money(offer.Price)} and you " +
+                       $"have {Money(money.CurrentCapital)}.");
+            return;
+        }
+
+        // Confirmed, unlike a spot deal. A spot deal is a known item at a known discount; this is a
+        // four-figure bet on a trailer nobody has opened, and it deserves one deliberate press.
+        ShowConfirm($"Buy this load as is?\n\n{offer.ManifestLine}\n{Money(offer.Price)}, paid now.\n\n" +
+                    $"The manifest is all you get. Some of it will be good, some of it will be " +
+                    $"short-dated, and some of it may be junk you paid for and can't sell.",
+                    () => CommitSalvage(offer, shipments, broker));
+    }
+
+    private void CommitSalvage(SalvageOffer offer, ShipmentService shipments, BrokerService broker)
+    {
+        // Claim BEFORE building, so a card left on screen across an expiry can't produce two trailers.
+        if (!broker.ClaimOffer(offer.Id))
+        {
+            UIToast.Show("That load has already gone.");
+            Rebuild();
+            return;
+        }
+
+        var items = broker.BuildLineItems(offer);
+        if (items.Count == 0)
+        {
+            UIToast.Show("Couldn't raise that PO — the load didn't resolve to any real SKUs.");
+            return;
+        }
+
+        var po = shipments.CreatePlayerPurchaseOrder(PONumberGenerator.GetRandomPONumber(),
+                                                     BrokerService.BrokerVendorId, "The Broker",
+                                                     items, Today());
+        if (po == null)
+        {
+            UIToast.Show("Couldn't raise that PO.");
+            return;
+        }
+
+        po.IsSalvage = true;
+
+        UIToast.Show($"Load bought — PO {po.PONumber}, {Money(po.TotalCost)}. Book it a door. " +
+                     $"You'll find out what's on it when it's broken down.");
+
+        _tab = Tab.PoList;
+        Rebuild();
+    }
+
+    // ── Spot deals ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The offer board: three discounted, whole-pallet loads that expire tonight.
+    ///
+    /// Sits at the TOP OF THE SCROLL VIEW rather than in the stationary header. It's the first thing
+    /// you see when the panel opens and then it scrolls away as you get to work, which is exactly its
+    /// weight in the decision — glance, decide, move on. Pinning it would cost the catalogue a
+    /// permanent strip of height for something you consider once.
+    /// </summary>
+    private VisualElement BuildSpotDealsStrip()
+    {
+        var wrap = new VisualElement();
+        wrap.style.marginBottom = 12;
+
+        var market = Market();
+        var deals = market?.LiveDeals.ToList() ?? new List<SpotDeal>();
+        if (deals.Count == 0) return wrap;   // collapses to nothing when the board is empty
+
+        var head = new VisualElement();
+        head.style.flexDirection = FlexDirection.Row;
+        head.style.alignItems = Align.Center;
+        head.style.justifyContent = Justify.SpaceBetween;
+        head.style.marginBottom = 6;
+
+        var title = MakeText("TODAY'S SPOT DEALS", 18, ColOrangeText, bold: true);
+        title.style.whiteSpace = WhiteSpace.NoWrap;
+        head.Add(title);
+
+        var expiry = MakeText("Gone at midnight", 14, ColSubtleText);
+        expiry.style.whiteSpace = WhiteSpace.NoWrap;
+        head.Add(expiry);
+        wrap.Add(head);
+
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Stretch;
+        foreach (var deal in deals) row.Add(BuildDealCard(deal));
+        wrap.Add(row);
+
+        return wrap;
+    }
+
+    private VisualElement BuildDealCard(SpotDeal deal)
+    {
+        var sku = FindSku(deal.SkuId);
+
+        var card = new VisualElement();
+        card.style.flexGrow = 1;
+        card.style.flexBasis = 0;
+        card.style.marginRight = 8;
+        card.style.paddingTop = 8; card.style.paddingBottom = 8;
+        card.style.paddingLeft = 10; card.style.paddingRight = 10;
+        card.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.12f));
+        card.style.borderTopWidth = card.style.borderBottomWidth =
+            card.style.borderLeftWidth = card.style.borderRightWidth = 2;
+        card.style.borderTopColor = card.style.borderBottomColor =
+            card.style.borderLeftColor = card.style.borderRightColor = new StyleColor(ColOrange);
+        card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
+            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 8;
+
+        var top = new VisualElement();
+        top.style.flexDirection = FlexDirection.Row;
+        top.style.alignItems = Align.Center;
+
+        if (sku != null && sku.Icon != null)
+        {
+            var icon = new VisualElement();
+            icon.style.width = 40; icon.style.height = 40;
+            icon.style.flexShrink = 0;
+            icon.style.marginRight = 8;
+            icon.style.backgroundImage = new StyleBackground(sku.Icon);
+            top.Add(icon);
+        }
+
+        var namePart = new VisualElement();
+        namePart.style.flexGrow = 1;
+        namePart.style.flexShrink = 1;
+        namePart.style.overflow = Overflow.Hidden;
+
+        var name = MakeText(sku != null ? sku.ItemDescription : deal.SkuId, 17, ColTitleText, bold: true);
+        name.style.marginTop = 0; name.style.marginBottom = 0;
+        name.style.whiteSpace = WhiteSpace.NoWrap;
+        namePart.Add(name);
+
+        var qty = MakeText($"{deal.Pallets} pallet(s) · {deal.TotalCases:N0} cases", 13, ColSubtleText);
+        qty.style.marginTop = 0; qty.style.marginBottom = 0;
+        qty.style.whiteSpace = WhiteSpace.NoWrap;
+        namePart.Add(qty);
+        top.Add(namePart);
+
+        // The discount is the headline — it's the reason to look at this card at all.
+        var pct = MakeText($"-{deal.DiscountPercent}%", 24, ColMoney, bold: true);
+        pct.style.marginTop = 0; pct.style.marginBottom = 0;
+        pct.style.flexShrink = 0;
+        pct.style.whiteSpace = WhiteSpace.NoWrap;
+        top.Add(pct);
+        card.Add(top);
+
+        var price = MakeText($"{Money(deal.UnitPrice)}/case (list {Money(deal.ListPriceWhenOffered)})",
+                             13, ColChipOutText);
+        price.style.marginTop = 4;
+        price.style.whiteSpace = WhiteSpace.NoWrap;
+        card.Add(price);
+
+        var take = new Button(() => OnTakeDeal(deal)) { text = $"TAKE · {Money(deal.TotalCost)}" };
+        StyleActionButton(take, ColOrange, ColOrangeEdge, ColOrangeHover);
+        // Overrides the shared action-button sizing: these three sit side by side inside a strip, not
+        // on the footer row where that fixed 240x56 belongs.
+        take.style.width = StyleKeyword.Auto;
+        take.style.height = 36;
+        take.style.marginTop = 6;
+        take.style.marginLeft = 0; take.style.marginRight = 0;
+        take.style.fontSize = 15;
+        card.Add(take);
+
+        return card;
+    }
+
+    /// <summary>
+    /// Takes a spot deal: claims it, then raises a PO for it immediately at the deal price.
+    ///
+    /// Straight to a PO rather than into the basket. A spot deal is a fixed load somebody else has
+    /// already built — letting the player edit the quantity would make it an ordinary catalogue line
+    /// with a discount, and the take-it-or-leave-it shape is the entire mechanic.
+    /// </summary>
+    private void OnTakeDeal(SpotDeal deal)
+    {
+        var market = Market();
+        var sku = FindSku(deal.SkuId);
+        if (market == null || sku == null)
+        {
+            UIToast.Show("That offer can't be filled — its item is no longer in the catalogue.");
+            return;
+        }
+
+        if (!ServiceLocator.TryGet<ShipmentService>(out var shipments) || shipments == null)
+        {
+            UIToast.Show("Purchasing is unavailable — the shipment service isn't running.");
+            return;
+        }
+
+        // Checked here and NOT on the basket path, deliberately: this is one click that commits the
+        // whole amount, with no running total to watch on the way. Being put into the red by a single
+        // button press is a different experience from spending down a number you were staring at.
+        if (ServiceLocator.TryGet<MoneyService>(out var money) && money != null &&
+            money.CurrentCapital < deal.TotalCost)
+        {
+            ShowNotice($"Not enough capital for this deal.\n\nIt costs {Money(deal.TotalCost)} and you " +
+                       $"have {Money(money.CurrentCapital)}.");
+            return;
+        }
+
+        var plan = TrailerCapacity.Plan(new List<(SkuData sku, int cases)> { (sku, deal.TotalCases) });
+        if (plan.OverCapacity)
+        {
+            ShowNotice("That deal is more than one trailer will hold.");
+            return;
+        }
+
+        // Claim BEFORE building the PO: the panel can sit open across midnight, and two clicks on a
+        // card that expired while it was on screen must not produce two trailers.
+        if (!market.ClaimDeal(deal.Id))
+        {
+            UIToast.Show("That offer has already gone.");
+            Rebuild();
+            return;
+        }
+
+        var items = plan.Pallets
+            .Select(pallet => new ShipmentLineItem(pallet.SkuId, pallet.Cases,
+                                                   deal.UnitPrice, sku.ShelfLifeDays)
+            {
+                FloorSlotIndex = pallet.FloorSlot,
+                PalletTier = pallet.Tier
+            })
+            .ToList();
+
+        var po = shipments.CreatePlayerPurchaseOrder(PONumberGenerator.GetRandomPONumber(),
+                                                     "SPOT_BROKER", "Spot Market", items, Today());
+        if (po == null)
+        {
+            UIToast.Show("Couldn't raise that PO — the deal didn't resolve to a real SKU.");
+            return;
+        }
+
+        UIToast.Show($"Deal taken — PO {po.PONumber}, {po.TotalUnits:N0} case(s) of " +
+                     $"{sku.ItemDescription} for {Money(po.TotalCost)}. Book it a door on the Scheduler.");
+
+        _tab = Tab.PoList;
+        Rebuild();
+    }
+
+    // ── Warehouse capacity ───────────────────────────────────────────────────
+
+    /// <summary>Reserve rack slots free right now, and how many exist. Reads the same
+    /// LocationStatusRegistry the reach truck obeys, NOT LocationData — the two can disagree, and the
+    /// registry is the one that decides whether an arriving pallet actually has somewhere to go.</summary>
+    private static (int free, int total) ReserveSlotAvailability()
+    {
+        int free = 0, total = 0;
+        foreach (var slot in SlotRegistry.ReserveSlots)
+        {
+            total++;
+            if (LocationStatusRegistry.IsAvailable(slot.Address)) free++;
+        }
+        return (free, total);
     }
 
     /// <summary>Cancel / order total / Create PO. In the STATIONARY header rather than the scroll
@@ -783,11 +1418,49 @@ public class PurchasingPanel : IUIPanel
         track.Add(_capacityFill);
         wrap.Add(track);
 
+        // WILL IT FIT IN THE BUILDING, not just on the truck.
+        //
+        // The trailer meter above answers "does this go on one load"; this answers "is there anywhere
+        // to put it when it lands". Rack space was always a binding constraint, but it bit hours
+        // later — the reach truck failing to find a reserve slot, long after the decision that caused
+        // it. A constraint the player can't feel while choosing isn't a constraint, it's a surprise.
+        _warehouseFitLabel = MakeText(string.Empty, 14, ColSubtleText);
+        _warehouseFitLabel.style.marginTop = 4;
+        _warehouseFitLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        wrap.Add(_warehouseFitLabel);
+
         return wrap;
     }
 
     private Label _capacityLabel;
     private VisualElement _capacityFill;
+    private Label _warehouseFitLabel;
+
+    /// <summary>Fills in the "will it fit in the building" line under the trailer meter.</summary>
+    private void RefreshWarehouseFit(TrailerLoadPlan plan)
+    {
+        if (_warehouseFitLabel == null) return;
+
+        var (free, total) = ReserveSlotAvailability();
+
+        // No racking placed yet is a normal early-game state, not an error — say nothing rather than
+        // reporting "0 slots free", which reads as the warehouse being full.
+        if (total == 0)
+        {
+            _warehouseFitLabel.text = string.Empty;
+            return;
+        }
+
+        int pallets = plan.Pallets.Count;
+        int overflow = Mathf.Max(0, pallets - free);
+
+        _warehouseFitLabel.text = overflow > 0
+            ? $"WAREHOUSE: {pallets} pallet(s) inbound · {free}/{total} reserve slots free · " +
+              $"{overflow} with nowhere to go"
+            : $"WAREHOUSE: {pallets} pallet(s) inbound · {free}/{total} reserve slots free";
+
+        _warehouseFitLabel.style.color = new StyleColor(overflow > 0 ? ColDangerSoft : ColSubtleText);
+    }
 
     private void RefreshOrderTotal()
     {
@@ -817,6 +1490,8 @@ public class PurchasingPanel : IUIPanel
             _capacityLabel.style.color = new StyleColor(plan.OverCapacity ? ColDangerSoft : ColSubtleText);
         }
 
+        RefreshWarehouseFit(plan);
+
         _footerMessage.text = _basket.Count == 0
             ? $"{OrderableSkus().Count} item(s) available for ordering. One trailer holds " +
               $"{TrailerCapacity.FloorSlots} floor positions — pallets over " +
@@ -831,7 +1506,7 @@ public class PurchasingPanel : IUIPanel
         foreach (var kv in _basket)
         {
             var sku = FindSku(kv.Key);
-            if (sku != null) total += kv.Value * sku.BuyValue;
+            if (sku != null) total += kv.Value * UnitPrice(sku);
         }
         return total;
     }
@@ -925,8 +1600,24 @@ public class PurchasingPanel : IUIPanel
             return;
         }
 
-        ShowConfirm($"Create PO number {_poNumber}?\n\n" +
-                    $"{_basket.Count} line(s) · {_basket.Values.Sum():N0} case(s) · " +
+        // MINIMUM ORDER. The third thing that separates one house from another: a specialty vendor
+        // won't break a load for you. Enforced at creation rather than by blocking the steppers,
+        // because unlike trailer capacity a small basket isn't WRONG — it just isn't finished, and
+        // refusing every keystroke on the way up to the minimum would be maddening.
+        var vendorForMin = SelectedVendor();
+        int cases = _basket.Values.Sum();
+        if (vendorForMin != null && cases < vendorForMin.MinimumOrderCases)
+        {
+            ShowNotice($"{vendorForMin.DisplayName} won't take an order this small.\n\n" +
+                       $"Their minimum is {vendorForMin.MinimumOrderCases:N0} cases and this order is " +
+                       $"{cases:N0}.\n\nAdd {vendorForMin.MinimumOrderCases - cases:N0} more, or buy " +
+                       $"from another supplier.");
+            return;
+        }
+
+        var vendorName = vendorForMin != null ? vendorForMin.DisplayName : "Wholesale Supply";
+        ShowConfirm($"Create PO number {_poNumber} with {vendorName}?\n\n" +
+                    $"{_basket.Count} line(s) · {cases:N0} case(s) · " +
                     $"{plan.Pallets.Count} pallet(s) · " +
                     $"{Money(BasketTotal())}\n\nIt will wait in the Scheduler's unscheduled pool " +
                     $"until you give it a door and time.",
@@ -958,15 +1649,19 @@ public class PurchasingPanel : IUIPanel
             var sku = FindSku(pallet.SkuId);
             if (sku == null) continue;
             items.Add(new ShipmentLineItem(pallet.SkuId, pallet.Cases,
-                                           Mathf.RoundToInt(sku.BuyValue), sku.ShelfLifeDays)
+                                           UnitPrice(sku), sku.ShelfLifeDays)
             {
                 FloorSlotIndex = pallet.FloorSlot,
                 PalletTier = pallet.Tier
             });
         }
 
-        var po = shipments.CreatePlayerPurchaseOrder(_poNumber, "PLAYER_SUPPLIER", "Wholesale Supply",
-                                                     items, Today());
+        var vendor = SelectedVendor();
+        var po = shipments.CreatePlayerPurchaseOrder(
+            _poNumber,
+            vendor != null ? vendor.VendorId : "PLAYER_SUPPLIER",
+            vendor != null ? vendor.DisplayName : "Wholesale Supply",
+            items, Today());
         if (po == null)
         {
             UIToast.Show("Couldn't raise that PO — nothing on it resolved to a real SKU.");
@@ -1129,6 +1824,40 @@ public class PurchasingPanel : IUIPanel
         // Collapsed stops here: the header alone already carries PO number, status, line/case counts
         // and total, which is everything needed to scan a list. The lines are the detail you open.
         if (!expanded) return card;
+
+        // ── A broker load keeps its secret until something has physically landed ──
+        //
+        // This is the whole mechanic. If the manifest were readable off the PO list the moment the
+        // trailer was bought, "sight-unseen" would be a flavour word rather than a rule, and the
+        // Receiver breaking the load down would be theatre confirming what the player already knew.
+        if (shipment.IsSalvage && !shipment.AnyReceived)
+        {
+            var sealedNote = MakeText("SEALED · contents unknown until it's broken down on the dock",
+                                      15, ColSalvageText, bold: true);
+            sealedNote.style.marginTop = 6;
+            sealedNote.style.paddingLeft = 8;
+            sealedNote.style.whiteSpace = WhiteSpace.Normal;
+            card.Add(sealedNote);
+            return card;
+        }
+
+        // ── Once it's been received, a broker load reports what it actually was ──
+        if (shipment.IsSalvage)
+        {
+            int damaged = shipment.LineItems.Count(li => li.Salvage == SalvageCondition.Damaged);
+            int shortDated = shipment.LineItems.Count(li => li.Salvage == SalvageCondition.ShortDated);
+            int jackpot = shipment.LineItems.Count(li => li.Salvage == SalvageCondition.Jackpot);
+            int good = shipment.LineItems.Count - damaged - shortDated - jackpot;
+
+            var verdict = MakeText(
+                $"BROKER LOAD · {good} good · {shortDated} short-dated · {damaged} damaged (written off)" +
+                (jackpot > 0 ? $" · {jackpot} SPECIALTY" : ""),
+                14, jackpot > 0 ? ColMoney : ColSalvageText, bold: true);
+            verdict.style.marginTop = 6;
+            verdict.style.paddingLeft = 8;
+            verdict.style.whiteSpace = WhiteSpace.Normal;
+            card.Add(verdict);
+        }
 
         // ── Line items ──
         foreach (var li in shipment.LineItems)
@@ -1355,6 +2084,58 @@ public class PurchasingPanel : IUIPanel
     private static int Today()
         => ServiceLocator.TryGet<SimulationTimeService>(out var t) && t != null ? t.Day : 1;
 
+    private static MarketService Market()
+        => ServiceLocator.TryGet<MarketService>(out var m) ? m : null;
+
+    private static int Reputation()
+        => ServiceLocator.TryGet<ReputationService>(out var r) && r != null ? r.Score : 0;
+
+    /// <summary>The vendor currently being bought from, or null if the roster is missing entirely
+    /// (in which case the panel falls back to the open market and behaves as it did before vendors).</summary>
+    private VendorData SelectedVendor()
+    {
+        var registry = VendorRegistry.Load();
+        if (registry == null) return null;
+
+        var unlocked = registry.Unlocked(Reputation());
+        if (unlocked.Count == 0) return null;
+
+        var chosen = unlocked.FirstOrDefault(v => v.VendorId == _vendorId);
+
+        // Re-anchors rather than showing an empty catalogue. The selected vendor can stop being a
+        // valid choice between openings — reputation can fall out of their band, or the asset can be
+        // edited — and a panel pointing at a vendor that no longer serves you looks broken.
+        if (chosen == null)
+        {
+            chosen = unlocked[0];
+            _vendorId = chosen.VendorId;
+        }
+        return chosen;
+    }
+
+    /// <summary>
+    /// What this SKU costs per case TODAY, from the vendor currently selected.
+    ///
+    /// Every price on this panel goes through here — the card, the line cost, the order total and the
+    /// line items the PO is actually built from — so the number the player reads and the number they
+    /// are charged cannot disagree. Falls back to the bare market price, then to the SKU's authored
+    /// BuyValue, so purchasing stays usable rather than free if either service is missing.
+    /// </summary>
+    private int UnitPrice(SkuData sku)
+    {
+        if (sku == null) return 0;
+
+        var vendor = SelectedVendor();
+        if (vendor != null)
+        {
+            int priced = vendor.PriceFor(sku, Market());
+            if (priced > 0) return priced;
+        }
+
+        var market = Market();
+        return market != null ? market.CurrentPrice(sku) : Mathf.RoundToInt(sku.BuyValue);
+    }
+
     /// <summary>
     /// Money, without the trailing ".00" that every figure on this panel was carrying.
     ///
@@ -1369,16 +2150,26 @@ public class PurchasingPanel : IUIPanel
          ? $"${amount:N0}"
          : $"${amount:N2}";
 
-    /// <summary>Every SKU the player can buy: one with a real cost and a committed Ti/Hi, since a SKU
-    /// with no pallet configuration can't be expressed as freight.</summary>
-    private static List<SkuData> OrderableSkus()
+    /// <summary>
+    /// Every SKU the player can buy RIGHT NOW: one with a real cost and a committed Ti/Hi (a SKU with
+    /// no pallet configuration can't be expressed as freight), and carried by the selected vendor.
+    ///
+    /// The vendor filter is the whole point of the roster — you don't shop a global catalogue and
+    /// pick a supplier afterwards, you walk into a house and see what they keep. Falls back to the
+    /// full catalogue when there's no roster at all, so a project without VendorRegistry.asset still
+    /// has a working purchasing screen.
+    /// </summary>
+    private List<SkuData> OrderableSkus()
     {
         var inv = Inventory();
         if (inv == null) return new List<SkuData>();
-        return inv.AllSkus
-            .Where(s => s != null && s.BuyValue > 0f && s.Ti > 0 && s.Hi > 0)
-            .OrderBy(s => s.ItemDescription, System.StringComparer.OrdinalIgnoreCase)
-            .ToList();
+
+        var all = inv.AllSkus.Where(s => s != null && s.BuyValue > 0f && s.Ti > 0 && s.Hi > 0);
+
+        var vendor = SelectedVendor();
+        if (vendor != null) all = all.Where(s => vendor.Carries(s.SkuId));
+
+        return all.OrderBy(s => s.ItemDescription, System.StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private static SkuData FindSku(string skuId)

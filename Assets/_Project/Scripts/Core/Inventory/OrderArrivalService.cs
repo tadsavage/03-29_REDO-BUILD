@@ -129,7 +129,36 @@ namespace GameCore.Inventory
         /// </summary>
         public IEnumerable<ContractData> AvailableOffers =>
             _catalog.Where(c => !_signed.Any(s => s.ContractId == c.ContractId && s.Active)
-                             && !IsInLossCooldown(c.ContractId));
+                             && !IsInLossCooldown(c.ContractId)
+                             && CurrentReputation >= c.ReputationRequired);
+
+        /// <summary>
+        /// The player's standing, or 0 if the reputation service isn't running.
+        ///
+        /// Resolved lazily rather than cached at Initialize: OrderArrivalService is constructed
+        /// before ReputationService in GameContext, and a field captured at init would be null
+        /// forever — which would silently read as reputation 0 and lock every gated customer out of
+        /// the game permanently.
+        /// </summary>
+        private int CurrentReputation
+        {
+            get
+            {
+                if (_reputation == null) ServiceLocator.TryGet(out _reputation);
+                return _reputation?.Score ?? 0;
+            }
+        }
+        private ReputationService _reputation;
+
+        /// <summary>
+        /// Customers who would deal with you if you were better regarded — shown greyed on the
+        /// Customers tab rather than hidden, for the same reason locked vendors are: a door you can
+        /// see is a goal, a door you can't is just a smaller game.
+        /// </summary>
+        public IEnumerable<ContractData> ReputationLockedOffers =>
+            _catalog.Where(c => !_signed.Any(s => s.ContractId == c.ContractId && s.Active)
+                             && !IsInLossCooldown(c.ContractId)
+                             && CurrentReputation < c.ReputationRequired);
 
         /// <summary>True while this contract is barred after being lost to a missed pickup. Reads the
         /// most recent record for the id, since a contract can be signed, lost, re-taken and lost
