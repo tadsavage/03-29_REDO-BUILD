@@ -1,4 +1,5 @@
 using GameCore.Economy;
+using GameCore.Inventory;
 using GameCore.Services;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +17,7 @@ public class TopBarUI : MonoBehaviour
     private Label _hourly;
     private Label _spent;
     private Label _time;
-    private Label _headcount;
+    private Label _reputation;
 
     private Button _saveButton;
     private Button _loadButton;
@@ -44,7 +45,7 @@ public class TopBarUI : MonoBehaviour
     private CapitalSummaryPanel _capitalPanel;          // "Capital" — revenue + single expense total + net
     private SpentTodayPanel _spentTodayPanel;           // "Spent Today" — today's spend by GL line
     private ShiftStatusPanel _shiftStatusPanel;         // "Time" — hours left in shift + overtime count
-    private StaffingPanel _staffingPanel;               // "Headcount" — employees by shift and role
+    private ReputationPanel _reputationPanel;           // "Reputation" — score, standing, next-band gap
     private ShiftManagerPanel _shiftManagerPanel;       // "5" key — define named shifts (first draft, UI only)
     public ShiftManagerPanel ShiftManagerPanel => _shiftManagerPanel;
     private SlotAssignmentPanel _slotAssignmentPanel;   // "6" key — assign SKUs to rack Pick slots
@@ -84,10 +85,10 @@ public class TopBarUI : MonoBehaviour
         _hourly     = topBar.Q<Label>("HourlyLabel");
         _spent      = topBar.Q<Label>("SpentLabel");
         _time       = topBar.Q<Label>("TimeLabel");
-        _headcount  = topBar.Q<Label>("CellLabel");  // Reuse the CellLabel position for Headcount
+        _reputation = topBar.Q<Label>("CellLabel");  // Reuse the CellLabel position — was Headcount
 
         if (_money == null || _hourly == null || _spent == null ||
-            _time  == null || _headcount  == null)
+            _time  == null || _reputation  == null)
         {
             Debug.LogError("One or more TopBar labels are missing.");
             return;
@@ -97,7 +98,7 @@ public class TopBarUI : MonoBehaviour
         _capitalPanel     = new CapitalSummaryPanel(root, _moneyService);
         _spentTodayPanel  = new SpentTodayPanel(root, _moneyService);
         _shiftStatusPanel = new ShiftStatusPanel(root, _timeService);
-        _staffingPanel    = new StaffingPanel(root);
+        _reputationPanel  = new ReputationPanel(root);
         _shiftManagerPanel = new ShiftManagerPanel(root, _timeService);
         _slotAssignmentPanel = new SlotAssignmentPanel(root);
         _workQueuePanel = new WorkQueuePanel(root);
@@ -124,13 +125,13 @@ public class TopBarUI : MonoBehaviour
         _hourly.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_breakdownPanel));
         _spent.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_spentTodayPanel));
         _time.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_shiftStatusPanel));
-        _headcount.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_staffingPanel));
+        _reputation.RegisterCallback<ClickEvent>(_ => ToggleExclusive(_reputationPanel));
 
         RegisterPanelHoverTracking(_money, _capitalPanel);
         RegisterPanelHoverTracking(_hourly, _breakdownPanel);
         RegisterPanelHoverTracking(_spent, _spentTodayPanel);
         RegisterPanelHoverTracking(_time, _shiftStatusPanel);
-        RegisterPanelHoverTracking(_headcount, _staffingPanel);
+        RegisterPanelHoverTracking(_reputation, _reputationPanel);
         root.schedule.Execute(PollPanelAutoClose).Every(100);
 
         // FPS moved to the draggable DevHudWindow (F8). The freed top-bar slot now holds
@@ -397,7 +398,7 @@ public class TopBarUI : MonoBehaviour
         _breakdownPanel?.Hide();
         _spentTodayPanel?.Hide();
         _shiftStatusPanel?.Hide();
-        _staffingPanel?.Hide();
+        _reputationPanel?.Hide();
         if (!wasOpen) panel.Show();
     }
 
@@ -424,7 +425,7 @@ public class TopBarUI : MonoBehaviour
                             : _breakdownPanel.IsVisible ? _breakdownPanel
                             : _spentTodayPanel.IsVisible ? _spentTodayPanel
                             : _shiftStatusPanel.IsVisible ? _shiftStatusPanel
-                            : _staffingPanel.IsVisible ? _staffingPanel
+                            : _reputationPanel.IsVisible ? _reputationPanel
                             : null;
 
         if (active == null)
@@ -462,6 +463,7 @@ public class TopBarUI : MonoBehaviour
     private int _lastRevenueYesterday = -1, _lastExpensesYesterday = -1;
     private int _lastRevenueWeek = -1, _lastExpensesWeek = -1;
     private int _lastMinute = -1, _lastHour = -1, _lastDay = -1;
+    private int _lastReputationScore = -1;
 
     private void Refresh()
     {
@@ -498,13 +500,14 @@ public class TopBarUI : MonoBehaviour
             _spent.text = $"Today: ${_lastExpensesToday:N0} | Yesterday: ${_lastExpensesYesterday:N0}";
         }
 
-        // Update headcount
-        var registry = EmployeeRegistry.Instance;
-        if (registry != null)
+        // Update reputation — resolved lazily (not cached at Init) for the same reason
+        // ReputationPanel does: GameContext can construct TopBarUI before ReputationService.
+        if (ServiceLocator.TryGet(out ReputationService reputation) && reputation != null &&
+            reputation.Score != _lastReputationScore)
         {
-            var activeCount = registry.All
-                .Count(e => e?.Record?.status == EmploymentStatus.Active);
-            _headcount.text = $"Headcount: {activeCount}";
+            _lastReputationScore = reputation.Score;
+            _reputation.text = $"Reputation: {ReputationService.BandLabel(reputation.Band)} ({reputation.Score})";
+            _reputationPanel?.RefreshIfVisible();
         }
 
         if (_timeService.Minute != _lastMinute ||
@@ -560,7 +563,7 @@ public class TopBarUI : MonoBehaviour
         _capitalPanel?.Dispose();
         _spentTodayPanel?.Dispose();
         _shiftStatusPanel?.Dispose();
-        _staffingPanel?.Dispose();
+        _reputationPanel?.Dispose();
         _shiftManagerPanel?.Dispose();
         _slotAssignmentPanel?.Dispose();
         _workQueuePanel?.Dispose();

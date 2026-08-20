@@ -80,6 +80,9 @@ public class MoveCommand : PlacementCommandBase
         Move(_oldRoot, _newRoot, _oldOffsets, _newOffsets, _newRotation);
         MoveRiders(forward: true);
 
+        if (IsFoundation(_data))
+            RegenerateYardFloor();
+
         PublishBuildEvent(GameEvents.Build.OnObjectMoved, new BuildingMoveData
         {
             FromX = _oldRoot.x,
@@ -98,6 +101,9 @@ public class MoveCommand : PlacementCommandBase
         if (_replaced.Count > 0)
             RestoreReplaced();
 
+        if (IsFoundation(_data))
+            RegenerateYardFloor();
+
         PublishBuildEvent(GameEvents.Build.OnObjectMoved, new BuildingMoveData
         {
             FromX = _newRoot.x,
@@ -106,6 +112,22 @@ public class MoveCommand : PlacementCommandBase
             ToY = _oldRoot.y,
             Rotation = (int)_oldRotation
         });
+    }
+
+    /// <summary>
+    /// Cells a Foundation/Grounds slab vacates or arrives on aren't necessarily covered by
+    /// individually-tracked floor tiles — most of the map is the single combined yard-floor mesh
+    /// (see YardFloorMeshBuilder), baked once with whatever had a real object on it at the time
+    /// excluded. Moving a foundation off/onto that mesh's territory doesn't touch the mesh itself,
+    /// so without this the vacated footprint stays a permanent hole (nothing else regenerates it
+    /// until the next full load) and the arrival cells can z-fight with the carpet still rendering
+    /// underneath. Mesh-only rebuild — see GameContext.RegenerateYardFloorMesh for why this doesn't
+    /// go through the much heavier PopulateYardFloors (grid rebuild + synchronous NavMesh bake).
+    /// </summary>
+    private void RegenerateYardFloor()
+    {
+        var ctx = Object.FindAnyObjectByType<GameContext>();
+        ctx?.RegenerateYardFloorMesh(_grid);
     }
 
     public override void Redo() => Execute();
@@ -176,10 +198,17 @@ public class MoveCommand : PlacementCommandBase
     /// Relocates the foundation's floor tiles in lockstep with the slab.
     /// forward = the slab moved old→new; !forward = an undo moving new→old.
     /// Floor tiles are 1×1, never rotate, and always sit directly on the foundation.
+    ///
+    /// Each rider gets the same lift-then-drop-with-dust-poof SmoothLanding treatment the main
+    /// instance gets below in Move() — they used to just pop into place instantly the moment the
+    /// slab landed, which read as one object landing softly and four others teleporting in.
     /// </summary>
     private void MoveRiders(bool forward)
     {
         if (_riders == null) return;
+
+        float offset = PreviewController.Instance != null ? PreviewController.Instance.OffsetMovePreview : 1.0f;
+        float smooth = PreviewController.Instance != null ? PreviewController.Instance.MoveSmoothTime : 0.1f;
 
         foreach (var r in _riders)
         {
@@ -200,6 +229,8 @@ public class MoveCommand : PlacementCommandBase
             if (bd != null)
                 bd.Initialize(toCell, 0f, tileOffsets, r.data);
 
+            // AddStackObject calls UpdateStackPositions internally, so transform.position already
+            // reflects the tile's correct final resting spot by the time we read it below.
             _grid.AddStackObject(toCell, r.instance, r.data);
 
             var po = r.instance.GetComponent<PlacedObject>();
@@ -209,6 +240,12 @@ public class MoveCommand : PlacementCommandBase
                 po.gridY = toCell.y;
                 po.rotation = 0;
             }
+
+            Vector3 finalPos = r.instance.transform.position;
+            var oldLanding = r.instance.GetComponent<SmoothLanding>();
+            if (oldLanding != null) Object.DestroyImmediate(oldLanding);
+            var landing = r.instance.AddComponent<SmoothLanding>();
+            landing.Initialize(finalPos + Vector3.up * offset, finalPos, smooth);
         }
     }
 
@@ -238,7 +275,11 @@ public class MoveCommand : PlacementCommandBase
 
             foreach (var entry in list)
             {
-                if (entry.data == null || !entry.data.isFloor) continue;
+                // isFloor alone isn't enough to identify "a floor covering to reveal" — Foundation/
+                // Grounds slabs are ALSO flagged isFloor (they're walkable) but are never one of this
+                // move's own riders, so excluding only IsFoundation(...) here would wrongly reveal (and
+                // reposition) some OTHER foundation slab that happens to be hidden at this cell.
+                if (entry.data == null || !entry.data.isFloor || IsFoundation(entry.data)) continue;
                 if (entry.instance == null || entry.instance.activeSelf) continue;
                 if (IsRider(entry.instance)) continue;
                 entry.instance.SetActive(true);
@@ -264,7 +305,15 @@ public class MoveCommand : PlacementCommandBase
 
             foreach (var entry in list)
             {
-                if (entry.data == null || !entry.data.isFloor) continue;
+                // isFloor alone isn't enough to identify "a floor covering to hide" — Foundation/
+                // Grounds slabs are ALSO flagged isFloor (they're walkable), and the slab THIS move
+                // just placed is obviously never in _riders (only its floor-pattern tiles are), so
+                // without the IsFoundation(...) exclusion this disabled the arriving foundation itself
+                // right after Move() activated it — stranding it inactive (its own SmoothLanding never
+                // gets an Update() tick on a disabled GameObject) and making UpdateStackPositions treat
+                // the cell as groundless when it positioned this foundation's own floor-tile riders,
+                // landing them at ~Y=0 instead of on top of the slab.
+                if (entry.data == null || !entry.data.isFloor || IsFoundation(entry.data)) continue;
                 if (entry.instance == null || !entry.instance.activeSelf) continue;
                 if (IsRider(entry.instance)) continue;
                 entry.instance.SetActive(false);

@@ -171,6 +171,26 @@ public override bool IsPlacementState => true;
         }
 
         Vector2Int root = _raycast.HitCell;
+
+        // If hovering an existing Foundation/Grounds slab (elevated ~1.06 above true ground),
+        // HitCell's deliberate ground-plane projection (see RaycastController's "Perspective
+        // Jumping" comment) can land a full cell off from what's visually under the cursor. That
+        // single-cell error becomes _dragStartCell below, and the entire drag-placement stride
+        // sequence in HandleDragPlacement is anchored to it — every subsequent block in the strip
+        // inherits the same offset relative to the real, existing foundation grid, so later blocks
+        // land straddling a neighbor and read as invalid ("shifts and won't place") even though the
+        // first block — nothing yet to misalign against — looked perfect. Correct it using the
+        // object-hit point instead, which IS accurate for whatever's actually under the cursor.
+        if (_raycast.HitObject != null)
+        {
+            var hoverBD = _raycast.HitObject.GetComponentInParent<BuildingData>();
+            if (hoverBD != null && hoverBD.Data != null &&
+                (hoverBD.Data.category == "Foundation" || hoverBD.Data.category == "Grounds"))
+            {
+                root = _grid.WorldToCell(_raycast.HitPoint);
+            }
+        }
+
         topBarUI?.SetCell(root.x, root.y);
 
         // -----------------------------------------------------

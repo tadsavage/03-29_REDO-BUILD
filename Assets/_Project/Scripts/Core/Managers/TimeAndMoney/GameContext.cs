@@ -293,6 +293,26 @@ public class GameContext : MonoBehaviour
         _isPopulatingYardFloors = false;
     }
 
+    /// <summary>
+    /// Rebuilds ONLY the combined yard-floor mesh — not the grid registry, not NavMesh. Call this
+    /// after a Foundation/Grounds object moves so cells it vacated get re-carpeted (instead of
+    /// staying a permanent hole) and cells it now occupies get correctly excluded from the carpet.
+    /// PopulateYardFloors bundles a full SyncAndBake (grid rebuild + synchronous NavMesh bake) meant
+    /// for load-time use only — far too expensive to run after every drag-move.
+    /// </summary>
+    public void RegenerateYardFloorMesh(PlacementGrid grid)
+    {
+        if (_yardFloorTile == null || grid == null) return;
+
+        if (_yardFloorMeshObject != null)
+        {
+            Destroy(_yardFloorMeshObject);
+            _yardFloorMeshObject = null;
+        }
+
+        _yardFloorMeshObject = YardFloorMeshBuilder.Build(grid, _yardFloorTile, transform);
+    }
+
     private void SyncAndBake(PlacementGrid grid)
     {
         if (grid != null)

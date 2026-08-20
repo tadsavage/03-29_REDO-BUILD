@@ -38,6 +38,9 @@ public class MoveState : PlacementStateBase
     private AisleInitializer _aisleInitializer;
     private AisleInitializer aisleInitializer => _aisleInitializer != null ? _aisleInitializer : _aisleInitializer = Object.FindAnyObjectByType<AisleInitializer>();
 
+    private GameContext _gameContext;
+    private GameContext gameContext => _gameContext != null ? _gameContext : _gameContext = Object.FindAnyObjectByType<GameContext>();
+
     // ---------------------------------------------------------
     // SELECTED OBJECT DATA
     // ---------------------------------------------------------
@@ -71,7 +74,10 @@ public class MoveState : PlacementStateBase
     private float _scrollCooldown = 0f;
     private const float ScrollThreshold = 0.01f;
 
-    private BuildingHighlighter _hoveredHighlighter;
+    // Every hovered highlighter — a bare object is just itself, but a Foundation/Grounds slab
+    // brings its floor-tile riders along so the whole footprint highlights (and reddens) as one
+    // group instead of just the slab mesh.
+    private readonly List<BuildingHighlighter> _hoveredHighlighters = new();
 
     // Floor tiles that travel with the foundation
     private struct RiderTile
@@ -205,14 +211,23 @@ public class MoveState : PlacementStateBase
         var hitBD = target.GetComponentInParent<BuildingData>();
         if (hitBD == null || hitBD.Data.isFloor || hitBD.Data.category == "Foundation" || hitBD.Data.category == "Grounds")
         {
-            GameObject top = _grid.GetTopObject(_raycast.HitCell);
+            // When we DID hit a Foundation/Grounds slab directly (its own collider), scan its own
+            // real footprint rather than trusting _raycast.HitCell — see FindTallestOnFootprint for
+            // why that cell can be a full grid square off from what's actually under the cursor for
+            // anything elevated above true ground level. Gated on ground/foundation specifically
+            // (not "!isFloor") since Foundation/Grounds are ALSO flagged isFloor.
+            GameObject top = (hitBD != null && IsGroundOrFoundation(hitBD.Data))
+                ? FindTallestOnFootprint(hitBD)
+                : _grid.GetTopObject(_raycast.HitCell);
             if (top != null) target = top;
         }
 
         var bd = target.GetComponentInParent<BuildingData>();
 
-        // Validate we found a movable object; floor tiles can only be replaced, not moved
-        if (bd == null || bd.Data == null || bd.Data.isFloor)
+        // Validate we found a movable object. Decorative floor-pattern tiles can only be replaced,
+        // not moved — but Foundation/Grounds slabs are ALSO flagged isFloor (they're walkable) while
+        // still being legitimately movable structural objects, so isFloor alone can't be the gate.
+        if (bd == null || bd.Data == null || (bd.Data.isFloor && !IsGroundOrFoundation(bd.Data)))
             return;
 
         // -----------------------------------------------------
@@ -303,6 +318,16 @@ public class MoveState : PlacementStateBase
                 }
                 _grid.UpdateStackPositions(cell);
             }
+
+            // Most of the map isn't individually-tracked floor tiles — it's the single combined
+            // yard-floor mesh (YardFloorMeshBuilder), baked once excluding whatever had a real
+            // object on it at bake time. The reveal above only handles per-cell registered floor
+            // tiles; it can't fix a mesh that was never told this footprint just emptied out. Without
+            // this, the vacated cells stay a visible hole in that mesh for the ENTIRE drag (the mesh
+            // isn't touched again until MoveCommand commits on drop) even though nothing is actually
+            // wrong with the grid data — regenerate now so the ground reads as unbroken the instant
+            // the slab lifts, not just after it lands.
+            gameContext?.RegenerateYardFloorMesh(_grid);
         }
 
         // Highlight + show ghost
@@ -314,6 +339,20 @@ public class MoveState : PlacementStateBase
         // It will then smooth-lift to the offset in the next frame.
         _preview.SnapTo(lastWorldPos, _originalRoot, _data);
         _lastHoverCell = _originalRoot;
+
+        // Give every rider its own ghost too, so the whole slab (foundation + floor pattern) lifts
+        // and follows the cursor as one group instead of the tiles just vanishing mid-drag.
+        // Positioned once immediately at the baseline so they don't flash at the origin for a frame
+        // before the first Update() call places them — MoveRiderGhosts reads the main ghost's
+        // just-snapped (un-lifted) height here, then tracks its lift every frame after.
+        if (_riders.Count > 0)
+        {
+            var riderSpecs = new List<(ObjDataSO, Vector2Int)>();
+            foreach (var r in _riders)
+                riderSpecs.Add((r.data, r.localOffset));
+            _preview.ShowRiderGhosts(riderSpecs);
+            _preview.MoveRiderGhosts(_originalRoot);
+        }
 
         _obj.SetActive(false);
         _hasSelection = true;
@@ -352,15 +391,31 @@ public class MoveState : PlacementStateBase
         }
 
         Vector2Int hitCell = _raycast.HitCell;
-        _indicator.ShowCell(hitCell);
         topBarUI?.SetCell(hitCell.x, hitCell.y);
 
         if (!_hasSelection)
         {
+            // Skip the raw single-cell indicator when hovering a Foundation/Grounds slab — its
+            // group highlight (below, via UpdateHoverHighlight) already gives accurate feedback
+            // using the object-hit raycast pass and this state's own footprint-aware lookup. This
+            // indicator instead uses the ground-projected HitCell, which RaycastController
+            // deliberately keeps anchored to the ground plane for movement-drag stability (see its
+            // "Perspective Jumping" comment) — for anything elevated, that can land a full cell off
+            // from what's visually under the cursor, showing up as a stray quad beside the correct
+            // highlight instead of on top of it.
+            var hoverBD = _raycast.HitObject != null ? _raycast.HitObject.GetComponentInParent<BuildingData>() : null;
+            bool hoveringFoundation = hoverBD != null && hoverBD.Data != null && IsGroundOrFoundation(hoverBD.Data);
+            if (hoveringFoundation)
+                _indicator.ClearAll();
+            else
+                _indicator.ShowCell(hitCell);
+
             UpdateHoverHighlight();
             TrySelectObject();
             return;
         }
+
+        _indicator.ShowCell(hitCell);
 
         if (!_raycast.HasHit)
         {
@@ -407,11 +462,18 @@ public class MoveState : PlacementStateBase
         // Move ghost
         Vector3 pos = _grid.GetCellCenter(newRoot);
         _preview.MoveTo(pos, newRoot, _data);
+        _preview.MoveRiderGhosts(newRoot);
 
         if (valid)
+        {
             _preview.SetGhostValid();
+            _preview.SetRiderGhostsValid();
+        }
         else
+        {
             _preview.SetGhostInvalid();
+            _preview.SetRiderGhostsInvalid();
+        }
     }
 
     // ---------------------------------------------------------
@@ -524,7 +586,6 @@ Vector2Int newRoot = hitCell - _selectionDelta;
     {
         if (_hasSelection) return;
 
-        BuildingHighlighter newHighlighter = null;
         bool isValid = true;
 
         // Apply "Trace to Top" - if hitting a stack but not the top, select the top.
@@ -532,15 +593,26 @@ Vector2Int newRoot = hitCell - _selectionDelta;
         var hitBD = target != null ? target.GetComponentInParent<BuildingData>() : null;
         if (hitBD == null || hitBD.Data.isFloor || hitBD.Data.category == "Foundation" || hitBD.Data.category == "Grounds")
         {
-            GameObject top = _grid.GetTopObject(_raycast.HitCell);
+            // When we DID hit a Foundation/Grounds slab directly, scan its own real footprint rather
+            // than _raycast.HitCell — see FindTallestOnFootprint. Same ground/foundation gate as
+            // TrySelectObject, not "!isFloor" (Foundation/Grounds are ALSO flagged isFloor).
+            GameObject top = (hitBD != null && IsGroundOrFoundation(hitBD.Data))
+                ? FindTallestOnFootprint(hitBD)
+                : _grid.GetTopObject(_raycast.HitCell);
             if (top != null) target = top;
         }
 
         BuildingData bd = target != null ? target.GetComponentInParent<BuildingData>() : null;
 
-        if (bd != null && bd.Data != null && !bd.Data.isFloor)
+        var newTargets = new List<BuildingHighlighter>();
+
+        // Same isFloor caveat as TrySelectObject: Foundation/Grounds are flagged isFloor too, but
+        // must still pass this gate to be highlighted (and to pull in their rider tiles) as a group.
+        if (bd != null && bd.Data != null && (!bd.Data.isFloor || IsGroundOrFoundation(bd.Data)))
         {
-            newHighlighter = bd.GetComponentInParent<BuildingHighlighter>();
+            var mainHighlighter = bd.GetComponentInParent<BuildingHighlighter>();
+            if (mainHighlighter != null) newTargets.Add(mainHighlighter);
+
             string cat = bd.Data.category;
 
             // Racks and Inventory (Pallets) are not movable.
@@ -553,21 +625,107 @@ Vector2Int newRoot = hitCell - _selectionDelta;
             {
                 // Normal objects check validity (usually true for already placed objects)
                 isValid = _validator.IsValidPlacement(bd.RootCell, bd.Offsets, bd.Data, bd.gameObject);
+
+                // A Foundation/Grounds slab brings its floor-tile riders along visually too — the
+                // player sees one object (the whole 2x2 footprint + its floor pattern), so it should
+                // highlight, and turn red when invalid, as one group rather than just the bare slab
+                // mesh with its tiles looking untouched.
+                if (cat == "Foundation" || cat == "Grounds")
+                {
+                    foreach (var rider in FindRiderTilesReadOnly(bd))
+                    {
+                        var rh = rider.GetComponent<BuildingHighlighter>();
+                        if (rh != null) newTargets.Add(rh);
+                    }
+                }
             }
         }
 
-        if (newHighlighter != _hoveredHighlighter)
+        if (!SameHighlighterSet(newTargets))
         {
             ClearHoverHighlight();
-            _hoveredHighlighter = newHighlighter;
-            if (_hoveredHighlighter != null)
+            _hoveredHighlighters.AddRange(newTargets);
+            foreach (var h in _hoveredHighlighters)
             {
                 if (isValid)
-                    _hoveredHighlighter.HighlightValid(true);
+                    h.HighlightValid(true);
                 else
-                    _hoveredHighlighter.HighlightInvalid(true);
+                    h.HighlightInvalid(true);
             }
         }
+    }
+
+    /// <summary>Foundation/Grounds slabs are flagged isFloor (they're walkable surface) even though
+    /// they're structural, movable objects — unlike a decorative floor-pattern tile, which is
+    /// isFloor and category "Floor" and can only be replaced, never picked up.</summary>
+    private bool IsGroundOrFoundation(ObjDataSO data)
+    {
+        return data != null && (data.category == "Foundation" || data.category == "Grounds");
+    }
+
+    private bool SameHighlighterSet(List<BuildingHighlighter> newTargets)
+    {
+        if (newTargets.Count != _hoveredHighlighters.Count) return false;
+        foreach (var h in newTargets)
+            if (!_hoveredHighlighters.Contains(h)) return false;
+        return true;
+    }
+
+    /// <summary>
+    /// Scans every cell of bd's own real footprint — not the single _raycast.HitCell — for
+    /// something non-floor stacked above it, and returns the first one found.
+    ///
+    /// _raycast.HitCell is derived from RaycastController's ground-level raycast pass, which uses
+    /// QueryTriggerInteraction.Ignore and so deliberately ignores a foundation's own (trigger)
+    /// collider — for anything elevated above true ground level, projecting that ground hit back to
+    /// the camera ray can land a full grid cell off from where the cursor visually is. Confirmed
+    /// empirically: hovering a 2x2 foundation's own floor tiles (sitting ~1m above true ground)
+    /// mapped HitCell to a cell consistently one off from the tile actually under the cursor —
+    /// which is what let _grid.GetTopObject(HitCell) occasionally resolve to an unrelated or
+    /// nonexistent object and silently fail to select/highlight the foundation at all. Scanning the
+    /// object's own already-known footprint sidesteps the mismatch instead of trusting that cell.
+    /// </summary>
+    private GameObject FindTallestOnFootprint(BuildingData bd)
+    {
+        if (bd == null || bd.Offsets == null) return null;
+
+        foreach (var o in bd.Offsets)
+        {
+            GameObject top = _grid.GetTopObject(bd.RootCell + o);
+            if (top == null || top == bd.gameObject) continue;
+
+            var topBd = top.GetComponentInParent<BuildingData>();
+            if (topBd != null && topBd.Data != null && !topBd.Data.isFloor)
+                return top;
+        }
+        return null;
+    }
+
+    /// <summary>Read-only twin of GatherRiderTiles — used for hover highlighting, where we must NOT
+    /// touch the grid or (de)activate anything, just find out which floor tiles are currently riding
+    /// this foundation so their highlighters can be included in the hover group.</summary>
+    private List<GameObject> FindRiderTilesReadOnly(BuildingData foundationBd)
+    {
+        var found = new List<GameObject>();
+        if (foundationBd == null || foundationBd.Offsets == null) return found;
+
+        float foundationY = foundationBd.transform.position.y;
+        foreach (var o in foundationBd.Offsets)
+        {
+            Vector2Int cell = foundationBd.RootCell + o;
+            var list = _grid.GetObjectsInCell(cell);
+            if (list == null) continue;
+
+            foreach (var entry in list)
+            {
+                if (entry.data == null || !entry.data.isFloor) continue;
+                if (entry.instance == null || !entry.instance.activeSelf) continue;
+                if (entry.data.id == 200) continue; // never the yard tile
+                if (entry.instance.transform.position.y > foundationY)
+                    found.Add(entry.instance);
+            }
+        }
+        return found;
     }
 
     private void GatherRiderTiles(float foundationY)
@@ -607,12 +765,13 @@ Vector2Int newRoot = hitCell - _selectionDelta;
 
     private void ClearHoverHighlight()
     {
-        if (_hoveredHighlighter != null)
+        foreach (var h in _hoveredHighlighters)
         {
-            _hoveredHighlighter.HighlightValid(false);
-            _hoveredHighlighter.HighlightInvalid(false);
-            _hoveredHighlighter = null;
+            if (h == null) continue;
+            h.HighlightValid(false);
+            h.HighlightInvalid(false);
         }
+        _hoveredHighlighters.Clear();
     }
 
     private bool IsObjectOccupied(BuildingData bd)

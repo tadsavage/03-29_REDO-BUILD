@@ -116,6 +116,7 @@ public class PreviewController : MonoBehaviour
         HideGhost();
         ClearMultiGhosts();
         ClearGhostPool();
+        ClearRiderGhosts();
 
         _currentPreview = null;
         _hasTarget = false;
@@ -345,6 +346,81 @@ public class PreviewController : MonoBehaviour
         }
 
         _multiGhosts.Clear();
+    }
+
+    // ---------------------------------------------------------
+    // RIDER GHOSTS (floor tiles that travel with a foundation/grounds slab)
+    // ---------------------------------------------------------
+    // A foundation's floor-tile "riders" (see MoveState.GatherRiderTiles / MoveCommand.MoveRiders)
+    // used to just vanish for the whole drag and pop back in at the end, while the foundation
+    // itself got a proper ghost that followed the cursor — one piece of the group visibly lifted,
+    // the other four disappeared. These give each rider its own ghost so the whole slab (footprint
+    // + its floor pattern) lifts and follows the cursor together, matching the single-object case.
+    private struct RiderGhost
+    {
+        public GameObject ghost;
+        public Vector2Int localOffset; // offset from the foundation's root cell, never rotates (1x1 tiles)
+    }
+    private readonly List<RiderGhost> _riderGhosts = new();
+
+    /// <summary>Creates one ghost per rider, replacing any already showing. Positions are set on
+    /// the next MoveRiderGhosts call — this only spawns them.</summary>
+    public void ShowRiderGhosts(List<(ObjDataSO data, Vector2Int localOffset)> riders)
+    {
+        ClearRiderGhosts();
+        if (riders == null) return;
+
+        foreach (var (data, localOffset) in riders)
+        {
+            if (data == null || data.prefab == null) continue;
+            var ghost = CreateGhostFromPrefab(data.prefab);
+            ghost.SetActive(true);
+            _riderGhosts.Add(new RiderGhost { ghost = ghost, localOffset = localOffset });
+        }
+    }
+
+    /// <summary>Repositions every rider ghost relative to the foundation's own ghost this frame —
+    /// call alongside MoveTo/SnapTo. Reads the main ghost's ACTUAL current transform.position.y
+    /// (not _targetPos, which is where it's headed) — Update()'s SmoothDamp is what makes the main
+    /// ghost lift smoothly off the ground on pickup, and riders need to inherit that same in-flight
+    /// height every frame rather than snapping straight to the fully-lifted target, or they'd pop up
+    /// instantly while the foundation is still visibly rising to meet them.</summary>
+    public void MoveRiderGhosts(Vector2Int foundationRoot)
+    {
+        if (_riderGhosts.Count == 0 || _currentPreview == null) return;
+
+        float y = _currentPreview.transform.position.y;
+
+        foreach (var r in _riderGhosts)
+        {
+            if (r.ghost == null) continue;
+            Vector3 pos = _grid.GetCellCenter(foundationRoot + r.localOffset);
+            pos.y = y;
+            r.ghost.transform.position = pos;
+        }
+    }
+
+    public void SetRiderGhostsValid()
+    {
+        foreach (var r in _riderGhosts)
+            if (r.ghost != null) ApplyFlatHighlight(r.ghost, HighlightGreen);
+    }
+
+    public void SetRiderGhostsInvalid()
+    {
+        foreach (var r in _riderGhosts)
+            if (r.ghost != null) ApplyFlatHighlight(r.ghost, HighlightRed);
+    }
+
+    public void ClearRiderGhosts()
+    {
+        foreach (var r in _riderGhosts)
+        {
+            if (r.ghost == null) continue;
+            _ghostRendererCache.Remove(r.ghost);
+            Destroy(r.ghost);
+        }
+        _riderGhosts.Clear();
     }
 
     // ---------------------------------------------------------
