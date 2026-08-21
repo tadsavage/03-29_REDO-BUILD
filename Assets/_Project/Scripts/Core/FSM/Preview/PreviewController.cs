@@ -390,6 +390,7 @@ public class PreviewController : MonoBehaviour
         if (_riderGhosts.Count == 0 || _currentPreview == null) return;
 
         float y = _currentPreview.transform.position.y;
+        Quaternion rot = _currentPreview.transform.rotation;
 
         foreach (var r in _riderGhosts)
         {
@@ -397,6 +398,7 @@ public class PreviewController : MonoBehaviour
             Vector3 pos = _grid.GetCellCenter(foundationRoot + r.localOffset);
             pos.y = y;
             r.ghost.transform.position = pos;
+            r.ghost.transform.rotation = rot;
         }
     }
 

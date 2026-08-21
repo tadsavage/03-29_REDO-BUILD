@@ -153,22 +153,43 @@ public class PlaceCommand : PlacementCommandBase
 
         // --- Auto-floor for foundations/grounds ---
         // Place one floor tile per footprint cell so the entire slab is covered.
+        //
+        // A combined prefab (FoundationFloorGroup present) already ships its 4 default tiles as
+        // real children — PlacementFinalizer just initialized/registered them at the correct cells
+        // above. Spawning 4 MORE here would double the tiles and double-charge for them, so this
+        // discovers the pre-existing children instead of calling FinalizePlacement again. A plain
+        // Foundation (no group) keeps the original spawn-4-new-instances behavior unchanged.
+        var floorGroup = _instance.GetComponent<FoundationFloorGroup>();
         if (_data.defaultFloorTile != null && _autoFloors.Count == 0)
         {
             _autoFloorData = _data.defaultFloorTile;
-            Vector2Int[] tileOffsets = _autoFloorData.GetFootprintOffsets(0f); // always 1×1
-
             _autoFloorTotalCost = 0;
-            foreach (var o in _offsets)
+
+            if (floorGroup != null && floorGroup.DefaultTiles != null)
             {
-                Vector2Int cellRoot = _root + o;
-                var tile = _finalizer.FinalizePlacement(cellRoot, tileOffsets, _autoFloorData, 0f, _autoFloorDisabled);
-                if (tile == null) continue;
-                tile.SetActive(true);
-                _autoFloors.Add(tile);
-                _autoFloorTotalCost += _autoFloorData.cost;
-                _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
-                _money.AddHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
+                foreach (var tilePO in floorGroup.DefaultTiles)
+                {
+                    if (tilePO == null) continue;
+                    _autoFloors.Add(tilePO.gameObject);
+                    _autoFloorTotalCost += _autoFloorData.cost;
+                    _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
+                    _money.AddHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
+                }
+            }
+            else
+            {
+                Vector2Int[] tileOffsets = _autoFloorData.GetFootprintOffsets(0f); // always 1×1
+                foreach (var o in _offsets)
+                {
+                    Vector2Int cellRoot = _root + o;
+                    var tile = _finalizer.FinalizePlacement(cellRoot, tileOffsets, _autoFloorData, 0f, _autoFloorDisabled);
+                    if (tile == null) continue;
+                    tile.SetActive(true);
+                    _autoFloors.Add(tile);
+                    _autoFloorTotalCost += _autoFloorData.cost;
+                    _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
+                    _money.AddHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
+                }
             }
         }
 

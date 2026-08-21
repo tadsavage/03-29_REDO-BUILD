@@ -226,7 +226,20 @@ public class PlacementGrid : MonoBehaviour
             var bd = entry.instance.GetComponent<BuildingData>();
             if (bd != null)
             {
-                if (bd.RootCell == cell)
+                // A floor tile that's a real Transform child of another PlacedObject (a combined
+                // Foundation's own default tiles) has its position governed entirely by Unity's
+                // parent-child hierarchy — it moves/rotates for free whenever the parent does.
+                // Repositioning it here with this cell's generic ground-stacking math is not just
+                // redundant, it's actively wrong: MoveState's pickup removes the foundation from
+                // the grid before removing its own tiles, and that removal's own UpdateStackPositions
+                // call can catch a tile ALONE in the cell's list for one call, with no ground entry
+                // ahead of it to establish stack height — collapsing the tile from foundation-top
+                // height (~1.085) down to bare-ground floor height (~0.025), invisible/buried inside
+                // the foundation mesh, with nothing ever correcting it afterward.
+                bool isParentedChild = entry.instance.transform.parent != null &&
+                    entry.instance.transform.parent.GetComponent<global::PlacedObject>() != null;
+
+                if (!isParentedChild && bd.RootCell == cell)
                 {
                     Vector3 pos = GetCellCenter(cell);
                     pos.y = yPos;

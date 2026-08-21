@@ -156,8 +156,15 @@ public override bool IsPlacementState => true;
             return;
         }
 
-        // Ensure preview is shown if we just left the UI
-        if (_currentData != null)
+        // Ensure preview is shown if we just left the UI. Gated on !_isDragging: this runs every
+        // frame, and during a drag the single hover-ghost was deliberately hidden by
+        // BeginSelectionCells() in favor of the per-cell multi-ghosts — without the guard, this
+        // call reactivates it every frame with nothing to ever hide it again until the drag ends,
+        // leaving it visibly stuck at wherever it was last positioned right before the drag began
+        // (frozen, since HandleDragPlacement's `return` skips the normal MoveTo call that would
+        // otherwise keep it tracking the cursor). It then sits duplicated on top of the drag-start
+        // segment for the whole drag — misread as that one segment floating at the wrong height.
+        if (_currentData != null && !_isDragging)
         {
             _preview.Show(_currentData);
         }
@@ -175,13 +182,20 @@ public override bool IsPlacementState => true;
         // If hovering an existing Foundation/Grounds slab (elevated ~1.06 above true ground),
         // HitCell's deliberate ground-plane projection (see RaycastController's "Perspective
         // Jumping" comment) can land a full cell off from what's visually under the cursor. That
-        // single-cell error becomes _dragStartCell below, and the entire drag-placement stride
-        // sequence in HandleDragPlacement is anchored to it — every subsequent block in the strip
-        // inherits the same offset relative to the real, existing foundation grid, so later blocks
-        // land straddling a neighbor and read as invalid ("shifts and won't place") even though the
-        // first block — nothing yet to misalign against — looked perfect. Correct it using the
-        // object-hit point instead, which IS accurate for whatever's actually under the cursor.
-        if (_raycast.HitObject != null)
+        // single-cell error becomes _dragStartCell below, so this correction matters for the very
+        // first cell of a drag (or an ordinary single-click placement) — using the object-hit
+        // point instead, which IS accurate for whatever's actually under the cursor.
+        //
+        // Gated on !_isDragging: this whole block re-runs every frame, and once a drag is already
+        // underway it becomes a second, DISCONTINUOUS source for `root` — the raycast toggles
+        // between hitting bare ground (plain HitCell) and grazing the existing foundation's own
+        // edge (this WorldToCell-on-HitPoint branch) as the cursor hovers near that boundary,
+        // jumping `root` between two independently-computed cells rather than smoothly crossing
+        // one. HandleDragPlacement's own stride-lock (see its kX/kY comment) already keeps the
+        // drag stable frame-to-frame as long as `currentCell` comes from ONE consistent source —
+        // reintroducing this swap mid-drag defeats that, and reads as the whole strip re-anchoring
+        // and overlapping the neighboring foundation the instant the cursor nears its edge.
+        if (!_isDragging && _raycast.HitObject != null)
         {
             var hoverBD = _raycast.HitObject.GetComponentInParent<BuildingData>();
             if (hoverBD != null && hoverBD.Data != null &&
@@ -420,14 +434,30 @@ public override bool IsPlacementState => true;
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
         Vector2Int stride = GetStride(offsets);
 
-        int stepX = (_dragStartCell.x <= currentCell.x) ? stride.x : -stride.x;
-        int stepY = (_dragStartCell.y <= currentCell.y) ? stride.y : -stride.y;
+        // How many whole stride-widths currentCell has moved from the drag's start, along each
+        // axis. Integer division truncates toward zero, so any currentCell still inside the FIRST
+        // segment's own footprint span (its stride width/height, in either direction from the
+        // start cell) maps to k=0 — the segment the drag began on never re-anchors just because
+        // the raw grid cell under the cursor changed while still hovering that same segment. For a
+        // multi-cell-wide object (e.g. a 2-wide foundation or a rack run), the old code used the
+        // raw currentCell directly as both the loop bound AND the direction test — so a cursor
+        // that dipped from one grid cell to another INSIDE the same first segment (e.g. local
+        // offset x=1 to x=0, never actually leaving the segment's own footprint) could flip
+        // stepX's sign and re-walk the whole strip from a different anchor, landing it overlapping
+        // itself. Quantizing by stride first keeps the strip's segment boundaries stable across
+        // that wobble; only once the cursor genuinely crosses into the NEXT stride-width does a
+        // new segment appear.
+        int kX = (currentCell.x - _dragStartCell.x) / stride.x;
+        int kY = (currentCell.y - _dragStartCell.y) / stride.y;
+
+        int stepX = kX >= 0 ? stride.x : -stride.x;
+        int stepY = kY >= 0 ? stride.y : -stride.y;
 
         int startX = _dragStartCell.x;
-        int endX = currentCell.x;
+        int endX = _dragStartCell.x + kX * stride.x;
 
         int startY = _dragStartCell.y;
-        int endY = currentCell.y;
+        int endY = _dragStartCell.y + kY * stride.y;
 
         _indicatorBuffer.Clear();
 

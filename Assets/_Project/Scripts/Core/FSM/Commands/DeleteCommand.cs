@@ -27,6 +27,14 @@ public class DeleteCommand : PlacementCommandBase
     private readonly List<GameObject> _attachedFloors = new();
     private int _attachedFloorsRefundTotal;
 
+    // A combined Foundation's own intact default tiles (FoundationFloorGroup) — refunded and pulled
+    // from the grid exactly like _attachedFloors (grid membership doesn't come from Transform
+    // parenting, so that part still needs doing explicitly), but WITHOUT their own sink/vibrate
+    // BuildingDestructionEffect: they're real children of _target, so its own effect + the
+    // SetActive(false) cascade already carries them visually for free. Kept separate from
+    // _attachedFloors specifically to skip that redundant per-tile effect.
+    private readonly List<GameObject> _ownedDefaultTiles = new();
+
     // Inactive floor tiles that were REPLACED on the foundation (the player dropped a custom tile
     // over the foundation's default tile — the default is disabled but stays in the grid at
     // foundation height). If left in the grid these get revealed as floating orphans when the
@@ -81,6 +89,7 @@ public class DeleteCommand : PlacementCommandBase
             }
             else
             {
+                var floorGroup = target.GetComponent<FoundationFloorGroup>();
                 HashSet<GameObject> seen = new HashSet<GameObject>();
                 foreach (var o in _offsets)
                 {
@@ -99,10 +108,22 @@ public class DeleteCommand : PlacementCommandBase
                         if (!seen.Add(entry.instance))
                             continue;
 
-                        if (entry.instance.activeSelf)
-                            _attachedFloors.Add(entry.instance);          // visible slab tile → sink + refund
+                        if (!entry.instance.activeSelf)
+                        {
+                            _hiddenFoundationFloors.Add(entry.instance); // replaced/hidden default → clear silently
+                            continue;
+                        }
+
+                        // An intact default child of THIS foundation rides its own destruction effect
+                        // and active-state cascade for free — route separately so Execute/Undo skip
+                        // the redundant per-tile BuildingDestructionEffect (still refunded + removed
+                        // from the grid explicitly, same as any other attached floor).
+                        bool isOwnedDefault = floorGroup != null &&
+                            floorGroup.Owns(entry.instance.GetComponent<PlacedObject>());
+                        if (isOwnedDefault)
+                            _ownedDefaultTiles.Add(entry.instance);
                         else
-                            _hiddenFoundationFloors.Add(entry.instance);  // replaced/hidden default → clear silently
+                            _attachedFloors.Add(entry.instance);          // visible slab tile → sink + refund
                     }
                 }
             }
@@ -166,6 +187,32 @@ public class DeleteCommand : PlacementCommandBase
             var effect = floor.GetComponent<BuildingDestructionEffect>();
             if (effect == null) effect = floor.AddComponent<BuildingDestructionEffect>();
             effect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed);
+        }
+
+        // 1a. Owned default tiles: refund + remove from grid explicitly (grid membership isn't tied
+        //     to Transform parenting), but NO per-tile BuildingDestructionEffect — they're real
+        //     children of _target, so its own effect below sinks them for free, and _target.SetActive
+        //     (also below, via BuildingDestructionEffect's completion) cascades to deactivate them too.
+        foreach (var floor in _ownedDefaultTiles)
+        {
+            if (floor == null) continue;
+            var po = floor.GetComponent<PlacedObject>();
+            if (po == null || po.data == null) continue;
+
+            var bd = floor.GetComponent<BuildingData>();
+            if (bd != null)
+                foreach (var fo in bd.Offsets)
+                    _grid.RemoveStackObject(bd.RootCell + fo, floor, po.data);
+            else
+                _grid.RemoveStackObject(_grid.WorldToCell(floor.transform.position), floor, po.data);
+
+            if (!_wasContaminated)
+            {
+                int refund = Mathf.RoundToInt(po.data.cost * _money.SellBackRate);
+                _money.Refund(refund, po.data.category);
+                _money.RemoveHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
+                _attachedFloorsRefundTotal += refund;
+            }
         }
 
         // 1.5 Clear any REPLACED default tiles (disabled, still in the grid at foundation height)
@@ -293,6 +340,26 @@ public class DeleteCommand : PlacementCommandBase
     {
         foreach (var floor in _reEnabledFloors)
             if (floor != null) floor.SetActive(true);
+
+        // Most of the yard isn't individually-tracked floor tiles — it's the single combined
+        // yard-floor mesh (YardFloorMeshBuilder), baked once excluding whatever footprint had a
+        // real object on it at bake time. RevealHiddenFloors only re-enables per-cell tile
+        // OBJECTS; a cell that was covered directly by the combined mesh's own exclusion has no
+        // such object to reveal, so without this the deleted foundation's footprint stays a
+        // permanent hole in the mesh — exactly what it looked like before the foundation existed,
+        // since nothing has ever told the mesh that cell is free again. Deferred to here (animation
+        // complete) rather than Execute() for the same reason _reEnabledFloors itself is deferred:
+        // regenerating immediately would show the mesh through the foundation while it's still
+        // visibly sinking, z-fighting/overlapping for the whole animation.
+        if (IsGround(_data))
+            RegenerateYardFloor();
+    }
+
+    /// <summary>See MoveCommand.RegenerateYardFloor — same mesh, same reasoning.</summary>
+    private void RegenerateYardFloor()
+    {
+        var ctx = Object.FindAnyObjectByType<GameContext>();
+        ctx?.RegenerateYardFloorMesh(_grid);
     }
 
     public override void Undo()
@@ -353,6 +420,33 @@ public class DeleteCommand : PlacementCommandBase
             }
         }
 
+        // 3a. Re-add owned default tiles to the grid and reverse their refund. Explicit SetActive(true)
+        //     here is redundant with _target's own reactivation cascade (they're its children) but
+        //     harmless — keeps this block symmetric with _attachedFloors instead of relying on cascade
+        //     timing relative to BuildingDestructionEffect.Abort() above.
+        foreach (var floor in _ownedDefaultTiles)
+        {
+            if (floor == null) continue;
+            floor.SetActive(true);
+
+            var po = floor.GetComponent<PlacedObject>();
+            if (po == null || po.data == null) continue;
+
+            var bd = floor.GetComponent<BuildingData>();
+            if (bd != null)
+                foreach (var fo in bd.Offsets)
+                    _grid.AddStackObject(bd.RootCell + fo, floor, po.data);
+            else
+                _grid.AddStackObject(_grid.WorldToCell(floor.transform.position), floor, po.data);
+
+            if (!_wasContaminated)
+            {
+                int refund = Mathf.RoundToInt(po.data.cost * _money.SellBackRate);
+                _money.Deduct(refund, po.data.category);
+                _money.AddHourlyCost(po.data.hourlyCost, FinanceCategory.ForHourlyCost(po.data.category), po.data.category);
+            }
+        }
+
         // 3b. Re-add the replaced/hidden default tiles to the grid (they stay inactive — they were
         //     disabled when a custom tile was dropped over them; restoring them keeps the pre-delete
         //     state so a further undo of that custom placement can reveal them correctly).
@@ -398,6 +492,11 @@ public class DeleteCommand : PlacementCommandBase
         var highlighter = _target.GetComponent<BuildingHighlighter>();
         if (highlighter != null)
             highlighter.HighlightDelete(false);
+
+        // The foundation is back immediately (no sink-away animation on the way back in), so no
+        // deferral needed here — mirrors the Execute()-side regeneration in RevealHiddenFloors.
+        if (IsGround(_data))
+            RegenerateYardFloor();
 
         NavMeshManager.Instance?.MarkDirty();
 

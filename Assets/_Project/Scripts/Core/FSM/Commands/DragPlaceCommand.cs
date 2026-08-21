@@ -100,7 +100,13 @@ public class DragPlaceCommand : PlacementCommandBase
             }
         }
 
-        // Auto-floor: place one floor tile per footprint cell for every ground placed
+        // Auto-floor: place one floor tile per footprint cell for every ground placed.
+        //
+        // A combined prefab (FoundationFloorGroup present) already ships its 4 default tiles as
+        // real children — PlacementFinalizer initialized/registered them at the correct cells when
+        // that instance was placed above. Spawning 4 MORE here would double the tiles and
+        // double-charge for them, so this discovers the pre-existing children instead of calling
+        // FinalizePlacement again. A plain Foundation (no group) keeps the original behavior.
         if (_data.defaultFloorTile != null && _autoFloors.Count == 0)
         {
             _autoFloorData = _data.defaultFloorTile;
@@ -111,6 +117,19 @@ public class DragPlaceCommand : PlacementCommandBase
                 var bd = instance.GetComponent<BuildingData>();
                 if (bd == null) continue;
                 Vector2Int root = bd.RootCell;
+
+                var floorGroup = instance.GetComponent<FoundationFloorGroup>();
+                if (floorGroup != null && floorGroup.DefaultTiles != null)
+                {
+                    foreach (var tilePO in floorGroup.DefaultTiles)
+                    {
+                        if (tilePO == null) continue;
+                        _autoFloors.Add(tilePO.gameObject);
+                        _money.Deduct(_autoFloorData.cost, _autoFloorData.category);
+                        _money.AddHourlyCost(_autoFloorData.hourlyCost, FinanceCategory.ForHourlyCost(_autoFloorData.category), _autoFloorData.category);
+                    }
+                    continue;
+                }
 
                 foreach (var o in _offsets)
                 {

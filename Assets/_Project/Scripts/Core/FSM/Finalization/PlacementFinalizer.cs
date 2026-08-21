@@ -154,6 +154,32 @@ public class PlacementFinalizer : MonoBehaviour
             _grid.AddStackObject(cell, instance, data);
         }
 
+        // A combined Foundation+FloorTile prefab ships its 4 default tiles as real prefab children
+        // (see FoundationFloorGroup) rather than relying on a separate auto-floor spawn step — they
+        // exist in the hierarchy already, but (unlike the root above) were never given a grid cell or
+        // BuildingData/PlacedObject identity, since that only happens at live placement time. Do that
+        // here, one cell per child in the group's canonical offset order, mirroring exactly what the
+        // root's own Initialize/AddStackObject calls just did.
+        var floorGroup = instance.GetComponent<FoundationFloorGroup>();
+        if (floorGroup != null && floorGroup.DefaultTiles != null)
+        {
+            for (int i = 0; i < floorGroup.DefaultTiles.Length && i < offsets.Length; i++)
+            {
+                var tilePO = floorGroup.DefaultTiles[i];
+                if (tilePO == null) continue;
+
+                Vector2Int tileCell = root + offsets[i];
+                var tileBD = tilePO.GetComponent<BuildingData>();
+                var tileOffsets = tilePO.data != null ? tilePO.data.GetFootprintOffsets(0f) : new[] { Vector2Int.zero };
+
+                tilePO.Initialize(tilePO.data, tileCell.x, tileCell.y, 0);
+                if (tileBD != null)
+                    tileBD.Initialize(tileCell, 0f, tileOffsets, tilePO.data);
+
+                _grid.AddStackObject(tileCell, tilePO.gameObject, tilePO.data);
+            }
+        }
+
         // For mobile agents, set Y from the actual renderer bounds of floor tiles in the cell.
         // objHeight is the tile's physical thickness (0.05f), not its elevation (1.06f),
         // so the stacking math would leave the agent at Y≈0 — fix that here.

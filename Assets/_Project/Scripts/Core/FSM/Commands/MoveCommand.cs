@@ -79,6 +79,7 @@ public class MoveCommand : PlacementCommandBase
 
         Move(_oldRoot, _newRoot, _oldOffsets, _newOffsets, _newRotation);
         MoveRiders(forward: true);
+        SyncDefaultChildrenGrid(forward: true);
 
         if (IsFoundation(_data))
             RegenerateYardFloor();
@@ -97,6 +98,7 @@ public class MoveCommand : PlacementCommandBase
     {
         Move(_newRoot, _oldRoot, _newOffsets, _oldOffsets, _oldRotation);
         MoveRiders(forward: false);
+        SyncDefaultChildrenGrid(forward: false);
 
         if (_replaced.Count > 0)
             RestoreReplaced();
@@ -197,7 +199,10 @@ public class MoveCommand : PlacementCommandBase
     /// <summary>
     /// Relocates the foundation's floor tiles in lockstep with the slab.
     /// forward = the slab moved old→new; !forward = an undo moving new→old.
-    /// Floor tiles are 1×1, never rotate, and always sit directly on the foundation.
+    /// Floor tiles are 1×1 so their CELL never needs to rotate, but their own mesh/texture isn't
+    /// rotationally symmetric (visible diagonal pattern) — so their transform rotation must still
+    /// track the foundation's, or they visibly stay facing whatever way they were at original
+    /// placement while the slab underneath turns.
     ///
     /// Each rider gets the same lift-then-drop-with-dust-poof SmoothLanding treatment the main
     /// instance gets below in Move() — they used to just pop into place instantly the moment the
@@ -209,6 +214,7 @@ public class MoveCommand : PlacementCommandBase
 
         float offset = PreviewController.Instance != null ? PreviewController.Instance.OffsetMovePreview : 1.0f;
         float smooth = PreviewController.Instance != null ? PreviewController.Instance.MoveSmoothTime : 0.1f;
+        float riderRotation = forward ? _newRotation : _oldRotation;
 
         foreach (var r in _riders)
         {
@@ -222,12 +228,13 @@ public class MoveCommand : PlacementCommandBase
             _grid.RemoveStackObject(fromCell, r.instance, r.data);
 
             r.instance.SetActive(true);
+            r.instance.transform.rotation = Quaternion.Euler(0f, riderRotation, 0f);
 
             Vector2Int[] tileOffsets = r.data.GetFootprintOffsets(0f); // 1×1 → {(0,0)}
 
             var bd = r.instance.GetComponent<BuildingData>();
             if (bd != null)
-                bd.Initialize(toCell, 0f, tileOffsets, r.data);
+                bd.Initialize(toCell, riderRotation, tileOffsets, r.data);
 
             // AddStackObject calls UpdateStackPositions internally, so transform.position already
             // reflects the tile's correct final resting spot by the time we read it below.
@@ -238,7 +245,7 @@ public class MoveCommand : PlacementCommandBase
             {
                 po.gridX = toCell.x;
                 po.gridY = toCell.y;
-                po.rotation = 0;
+                po.rotation = (int)(riderRotation / 90f);
             }
 
             Vector3 finalPos = r.instance.transform.position;
@@ -246,6 +253,51 @@ public class MoveCommand : PlacementCommandBase
             if (oldLanding != null) Object.DestroyImmediate(oldLanding);
             var landing = r.instance.AddComponent<SmoothLanding>();
             landing.Initialize(finalPos + Vector3.up * offset, finalPos, smooth);
+        }
+    }
+
+    /// <summary>
+    /// A combined Foundation's own default floor-tile children (FoundationFloorGroup) never went
+    /// through MoveState's rider pipeline — they move and rotate for free as real Unity children of
+    /// _instance the moment Move() repositions the parent above. The ONE thing that isn't free is
+    /// grid membership: PlacementGrid._cells is populated by explicit AddStackObject/RemoveStackObject
+    /// calls, not by Transform parenting, so each child's OWN cell registration still has to move
+    /// from its old cell to its new one — mirrors MoveRiders' grid bookkeeping exactly, minus all the
+    /// transform/rotation/SmoothLanding work (already handled by the parent). Skipped for anything
+    /// other than a combined foundation, and for any child that isn't intact (already swapped to a
+    /// custom tile, hence independent and already covered by the normal rider path instead).
+    /// </summary>
+    private void SyncDefaultChildrenGrid(bool forward)
+    {
+        var group = _instance != null ? _instance.GetComponent<FoundationFloorGroup>() : null;
+        if (group == null || group.DefaultTiles == null) return;
+
+        var fromOffsets = forward ? _oldOffsets : _newOffsets;
+        var toOffsets = forward ? _newOffsets : _oldOffsets;
+        Vector2Int fromRoot = forward ? _oldRoot : _newRoot;
+        Vector2Int toRoot = forward ? _newRoot : _oldRoot;
+
+        int count = Mathf.Min(group.DefaultTiles.Length, Mathf.Min(fromOffsets.Length, toOffsets.Length));
+        for (int i = 0; i < count; i++)
+        {
+            var tile = group.DefaultTiles[i];
+            if (tile == null || !tile.gameObject.activeSelf) continue; // swapped out — not ours to sync
+
+            Vector2Int fromCell = fromRoot + fromOffsets[i];
+            Vector2Int toCell = toRoot + toOffsets[i];
+
+            _grid.RemoveStackObject(fromCell, tile.gameObject, tile.data);
+            _grid.AddStackObject(toCell, tile.gameObject, tile.data);
+
+            tile.gridX = toCell.x;
+            tile.gridY = toCell.y;
+
+            var tileBD = tile.GetComponent<BuildingData>();
+            if (tileBD != null)
+            {
+                var tileOffsets = tile.data != null ? tile.data.GetFootprintOffsets(0f) : new[] { Vector2Int.zero };
+                tileBD.Initialize(toCell, 0f, tileOffsets, tile.data);
+            }
         }
     }
 

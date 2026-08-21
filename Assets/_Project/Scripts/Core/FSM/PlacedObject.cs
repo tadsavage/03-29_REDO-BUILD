@@ -54,9 +54,13 @@ public class PlacedObject : MonoBehaviour
     private void OnEnable()
     {
         // Prevent registration if this object is a child of another PlacedObject.
-        // This avoids nested components (like cases on a pallet) from being saved 
-        // as independent objects at (0,0).
-        if (transform.parent != null && transform.parent.GetComponentInParent<PlacedObject>() != null)
+        // This avoids nested components (like cases on a pallet) from being saved
+        // as independent objects at (0,0). RegisterDespiteNestedParent is an explicit opt-IN
+        // override for objects that DO need independent registration despite the nesting — e.g. a
+        // Foundation's own default floor-tile children — everything else keeps this guard's original
+        // behavior unchanged.
+        if (transform.parent != null && transform.parent.GetComponentInParent<PlacedObject>() != null
+            && GetComponent<RegisterDespiteNestedParent>() == null)
         {
             return;
         }

@@ -835,6 +835,32 @@ public class PlacementSystem : MonoBehaviour
         // everything else) is otherwise unchanged.
         var orderedObjects = save.placedObjects.OrderBy(o => SurfaceLoadPriority(registry.GetByID(o.id)));
 
+        // A combined-prefab Foundation (FoundationFloorGroup) ships its 4 default floor tiles as
+        // real prefab children — Instantiate (inside SpawnFromSave below) brings them along for
+        // free, and each self-registers into PlacedObjectRegistry via its own OnEnable
+        // (RegisterDespiteNestedParent), then gets placed into the grid by RebuildFromRegistry
+        // further down (which derives cell from world Transform position, not from anything set
+        // here). But BuildSaveData still wrote an ordinary SavedObject entry for each of those 4
+        // children too — they're PlacedObjectRegistry members like anything else — so without this
+        // precheck the loop below would ALSO spawn 4 independent FloorTile instances at the same
+        // cells, doubling them. Precompute which (cell, floorTileId) pairs a combined foundation's
+        // own defaults already cover so the loop can skip those redundant standalone entries and
+        // only spawn genuine customizations (a different id at that cell) or tiles outside any
+        // foundation's footprint.
+        var claimedDefaultTileCells = new HashSet<(Vector2Int cell, int id)>();
+        foreach (var groundSave in save.placedObjects)
+        {
+            ObjDataSO groundSo = registry.GetByID(groundSave.id);
+            if (groundSo == null) continue;
+            if (groundSo.category != "Foundation" && groundSo.category != "Grounds") continue;
+            if (groundSo.defaultFloorTile == null) continue;
+            if (groundSo.prefab == null || groundSo.prefab.GetComponent<FoundationFloorGroup>() == null) continue;
+
+            Vector2Int[] tileOffsets = groundSo.GetFootprintOffsets(-(groundSave.rot * 90f));
+            foreach (var o in tileOffsets)
+                claimedDefaultTileCells.Add((new Vector2Int(groundSave.x, groundSave.y) + o, groundSo.defaultFloorTile.id));
+        }
+
         foreach (var objSave in orderedObjects)
         {
             // Skip yard floor tiles from older saves that still have them serialized —
@@ -846,6 +872,16 @@ public class PlacementSystem : MonoBehaviour
             if (so == null)
             {
                 Debug.LogWarning($"[PlacementSystem] Skipping saved object with unknown id={objSave.id} at ({objSave.x},{objSave.y}) — not in ObjDataRegistry.");
+                continue;
+            }
+
+            // Skip a standalone Floor Tile entry that a combined Foundation's own prefab children
+            // already cover (see claimedDefaultTileCells above) — spawning it too would double the
+            // tile at this cell. Only an exact (cell, id) match at the default rotation is skipped;
+            // a swapped/custom tile has a different id and still spawns normally.
+            if (so.isFloor && objSave.rot == 0 &&
+                claimedDefaultTileCells.Contains((new Vector2Int(objSave.x, objSave.y), so.id)))
+            {
                 continue;
             }
             // Skip employee placements from OLDER saves — employees are restored from

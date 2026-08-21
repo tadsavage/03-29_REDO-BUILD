@@ -275,10 +275,37 @@ public class MoveState : PlacementStateBase
         // -----------------------------------------------------
         // RIDER TILES (Foundation Travel)
         // -----------------------------------------------------
-        // Only foundations/grounds carry "rider" tiles (like floor patterns) 
-        // with them when moved. Flavor items (lights), racks, and vehicles 
+        // Only foundations/grounds carry "rider" tiles (like floor patterns)
+        // with them when moved. Flavor items (lights), racks, and vehicles
         // should never pick up the floor beneath them.
-        if (_data != null && (_data.category == "Foundation" || _data.category == "Grounds"))
+        //
+        // A combined Foundation whose 4 default tiles are still intact (never swapped to a custom
+        // walkway/lane tile) doesn't need any of this — they're real Transform children of _obj now,
+        // so Move()/rotation on the parent already carries them for free (MoveCommand's
+        // SyncDefaultChildrenGrid handles the one thing Transform parenting doesn't: grid cell
+        // membership). Only fall back to gathering independent riders when there's no group, or when
+        // at least one cell has been swapped out (no longer intact) and is riding as a loose object.
+        var floorGroup = bd.GetComponent<FoundationFloorGroup>();
+        bool hasIntactDefaultChildren = floorGroup != null && floorGroup.AllDefaultTilesIntact();
+        if (hasIntactDefaultChildren)
+        {
+            // Vacate the children's own grid cells too, right now — otherwise the grid still thinks
+            // these cells are occupied for the whole drag (they only get cleared at drop time by
+            // MoveCommand), even though the whole group just visually lifted off. Index correlation
+            // between _offsets[i] and DefaultTiles[i] holds regardless of the foundation's current
+            // rotation (RotateOffsets preserves each corner's index slot as it rotates) — must use
+            // _offsets (the object's CURRENT, possibly-already-rotated footprint) here, not a
+            // freshly-recomputed unrotated one, since that's what the children were actually
+            // registered against. SyncDefaultChildrenGrid's own RemoveStackObject at drop is a safe
+            // no-op against this early removal.
+            for (int i = 0; i < floorGroup.DefaultTiles.Length && i < _offsets.Length; i++)
+            {
+                var tile = floorGroup.DefaultTiles[i];
+                if (tile == null) continue;
+                _grid.RemoveStackObject(_originalRoot + _offsets[i], tile.gameObject, tile.data);
+            }
+        }
+        else if (_data != null && (_data.category == "Foundation" || _data.category == "Grounds"))
         {
             GatherRiderTiles(foundationY);
         }
