@@ -1,16 +1,16 @@
 {
     "saveName": "slot_save",
-    "money": 13733,
-    "spentToday": 10368,
+    "money": 8159,
+    "spentToday": 15942,
     "cameraData": {
         "focusPoint": {
-            "x": 8.471048355102539,
+            "x": -17.212261199951173,
             "y": 0.0,
-            "z": 18.535306930541993
+            "z": 14.098855972290039
         },
         "distance": 45.0,
-        "pitch": 62.60795211791992,
-        "yaw": 538.7549438476563
+        "pitch": 40.0799560546875,
+        "yaw": 533.0311279296875
     },
     "placedObjects": [
         {
@@ -34132,6 +34132,26 @@
                 "z": 0.0,
                 "w": 0.0
             }
+        },
+        {
+            "id": 28,
+            "x": 48,
+            "y": 49,
+            "rot": 1,
+            "customData": "",
+            "worldY": 1.1100000143051148,
+            "hasTransform": true,
+            "pos": {
+                "x": -2.0375008583068849,
+                "y": 1.1100000143051148,
+                "z": -0.7124999761581421
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.7071068286895752,
+                "z": 0.0,
+                "w": 0.7071068286895752
+            }
         }
     ],
     "devSettings": [
@@ -34146,6 +34166,46 @@
         {
             "key": "Gate_Open_Close.arm_speed",
             "val": "80"
+        },
+        {
+            "key": "VehicleThrottleAudio.hearingDistance",
+            "val": "25"
+        },
+        {
+            "key": "VehicleThrottleAudio.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "VehicleThrottleAudio.maxPitch",
+            "val": "1"
+        },
+        {
+            "key": "VehicleThrottleAudio.engineVolume",
+            "val": "0.5"
+        },
+        {
+            "key": "VehicleThrottleAudio.pitchOffset",
+            "val": "0"
+        },
+        {
+            "key": "VehicleThrottleAudio.fadeSpeed",
+            "val": "4"
+        },
+        {
+            "key": "VehicleThrottleAudio._honker",
+            "val": "True"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkVolume",
+            "val": "1.5"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkPitch",
+            "val": "1.1"
+        },
+        {
+            "key": "VehicleThrottleAudio.honkProbability",
+            "val": "0.1"
         },
         {
             "key": "FreeLookCamera.pitchMin",
@@ -34190,6 +34250,34 @@
         {
             "key": "NavMeshManager._debounceTime",
             "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "0.6"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
         },
         {
             "key": "WallVisibilityManager.foundationHeight",
@@ -34691,20 +34779,24 @@
             {
                 "glLine": "Flavor",
                 "hourlyAmount": 40
+            },
+            {
+                "glLine": "Dock Stocker",
+                "hourlyAmount": 6
             }
         ],
         "fractionalByGLLine": [
             {
                 "glLine": "Loss Prevention",
-                "fractionalRemainder": 0.08332204818725586
+                "fractionalRemainder": 0.4166547954082489
             },
             {
                 "glLine": "Groundskeeping",
-                "fractionalRemainder": 0.1833290159702301
+                "fractionalRemainder": 0.24999544024467469
             },
             {
                 "glLine": "Walls",
-                "fractionalRemainder": 0.8000114560127258
+                "fractionalRemainder": 0.9333456158638
             },
             {
                 "glLine": "Doors",
@@ -34712,17 +34804,21 @@
             },
             {
                 "glLine": "Racking",
-                "fractionalRemainder": 0.43333378434181216
+                "fractionalRemainder": 0.7000004649162293
             },
             {
                 "glLine": "Flavor",
-                "fractionalRemainder": 0.3666665554046631
+                "fractionalRemainder": 0.0333331823348999
+            },
+            {
+                "glLine": "Dock Stocker",
+                "fractionalRemainder": 0.9000004529953003
             }
         ]
     },
     "time": {
-        "hour": 3,
-        "minute": 41,
+        "hour": 4,
+        "minute": 45,
         "day": 2,
         "fractionalMinutes": 0.0
     },

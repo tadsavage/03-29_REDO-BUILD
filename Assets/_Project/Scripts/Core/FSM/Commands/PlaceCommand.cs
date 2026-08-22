@@ -255,6 +255,15 @@ public class PlaceCommand : PlacementCommandBase
             _grid.RemoveStackObject(_root + o, _instance, _data);
         _instance.SetActive(false);
 
+        // Racking is tracked by RackCollectionDetector, which only learns a rack is gone via
+        // GameEvents.Build.OnObjectDeleted (fired by DeleteCommand). Undo() never fired that
+        // event, so undoing a fresh rack placement correctly removed the rack and refunded the
+        // money, but left its RackCollection alive with orphaned chevrons — nothing ever told
+        // the racking system the rack was gone. Fire the same notification DeleteCommand does so
+        // undo tears down the collection (and its child chevrons) exactly like a real delete.
+        if (_data != null && _data.category == "Racking")
+            PublishBuildEvent(GameEvents.Build.OnObjectDeleted, _instance.GetComponent<PlacedObject>());
+
         // 3. Reverse floor cost diff (re-charge old tiles we refunded)
         if (_data.isFloor && _replacedFloorsCost > 0)
         {

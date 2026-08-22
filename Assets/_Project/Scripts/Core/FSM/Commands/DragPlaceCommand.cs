@@ -193,6 +193,13 @@ public class DragPlaceCommand : PlacementCommandBase
 
             _money.Refund(_data.cost);
             _money.RemoveHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
+
+            // See PlaceCommand.Undo() for why: RackCollectionDetector only learns a rack is gone
+            // via GameEvents.Build.OnObjectDeleted (fired by DeleteCommand), so undoing a
+            // drag-placed rack row must fire it per-instance too, or every dragged rack's
+            // collection (and its chevrons) is orphaned instead of just the rack itself.
+            if (_data != null && _data.category == "Racking")
+                PublishBuildEvent(GameEvents.Build.OnObjectDeleted, instance.GetComponent<PlacedObject>());
         }
 
         // 3. Re-enable displaced floors and reverse their refund

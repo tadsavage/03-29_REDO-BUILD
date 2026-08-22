@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using SaveLoadSystem;
 using GameCore.Services;
@@ -250,11 +251,29 @@ public class GameContext : MonoBehaviour
 
     private bool _isPopulatingYardFloors;
 
-    // One merged mesh + one collider standing in for what used to be up to 10,000 individually
-    // Instantiate()'d yard tile GameObjects — see YardFloorMeshBuilder. Rebuilt (not reused)
-    // every call since which cells are "bare yard" vs covered by a real floor can change
-    // between loads.
-    private GameObject _yardFloorMeshObject;
+    // Chunked replacement for what used to be one giant merged mesh (and, before that, up to
+    // 10,000 individually Instantiate()'d yard tile GameObjects — see YardFloorMeshBuilder).
+    // A single combined mesh had to be destroyed and fully re-combined from ALL ~10,000 grid
+    // cells on every move/delete-undo of a Foundation/Grounds object — measured at ~22-27ms of
+    // synchronous main-thread work per call on a 100x100 grid, on dev hardware (worse on weaker
+    // CPUs), for a change that only ever touches a handful of cells. Chunking bounds a rebuild to
+    // the ChunkSize x ChunkSize cells actually affected instead of the whole grid.
+    private readonly Dictionary<Vector2Int, GameObject> _yardFloorChunks = new();
+
+    private void ClearYardFloorChunks()
+    {
+        foreach (var chunk in _yardFloorChunks.Values)
+            if (chunk != null) Destroy(chunk);
+        _yardFloorChunks.Clear();
+    }
+
+    private void RebuildYardFloorChunk(PlacementGrid grid, Vector2Int chunkCoord)
+    {
+        if (_yardFloorChunks.TryGetValue(chunkCoord, out var existing) && existing != null)
+            Destroy(existing);
+
+        _yardFloorChunks[chunkCoord] = YardFloorMeshBuilder.BuildChunk(grid, _yardFloorTile, chunkCoord, transform);
+    }
 
     // Rebuilds the yard floor carpet (every empty cell, minus anything with a real
     // floor/ground/foundation already there), then triggers a single NavMesh bake. Public so
@@ -262,8 +281,8 @@ public class GameContext : MonoBehaviour
     // aren't saved to disk (see PlacementSystem.BuildSaveData), so they must be regenerated
     // every time the world is rebuilt, not just on the initial scene Start. Kept as an
     // IEnumerator for call-site compatibility (callers StartCoroutine/yield this), even though
-    // the merged-mesh build itself completes synchronously — no more frame-budget spreading
-    // needed now that this isn't 10,000 individual Instantiate + placement-pipeline calls.
+    // the chunk builds themselves complete synchronously — no more frame-budget spreading needed
+    // now that this isn't 10,000 individual Instantiate + placement-pipeline calls.
     public IEnumerator PopulateYardFloors(PlacementGrid grid)
     {
         // Guard against two fills running concurrently (e.g. the initial GameContext.Start
@@ -278,14 +297,16 @@ public class GameContext : MonoBehaviour
 
         LoadingScreenManager.Instance?.SetProgress(0.5f);
 
-        if (_yardFloorMeshObject != null)
-        {
-            Destroy(_yardFloorMeshObject);
-            _yardFloorMeshObject = null;
-        }
+        ClearYardFloorChunks();
 
         if (_yardFloorTile != null)
-            _yardFloorMeshObject = YardFloorMeshBuilder.Build(grid, _yardFloorTile, transform);
+        {
+            int chunksX = Mathf.CeilToInt(grid.Width / (float)YardFloorMeshBuilder.ChunkSize);
+            int chunksY = Mathf.CeilToInt(grid.Height / (float)YardFloorMeshBuilder.ChunkSize);
+            for (int cx = 0; cx < chunksX; cx++)
+                for (int cy = 0; cy < chunksY; cy++)
+                    RebuildYardFloorChunk(grid, new Vector2Int(cx, cy));
+        }
         //else
         //    Debug.LogWarning("[GameContext] _yardFloorTile not assigned — skipping yard floor mesh.");
 
@@ -294,23 +315,28 @@ public class GameContext : MonoBehaviour
     }
 
     /// <summary>
-    /// Rebuilds ONLY the combined yard-floor mesh — not the grid registry, not NavMesh. Call this
-    /// after a Foundation/Grounds object moves so cells it vacated get re-carpeted (instead of
-    /// staying a permanent hole) and cells it now occupies get correctly excluded from the carpet.
-    /// PopulateYardFloors bundles a full SyncAndBake (grid rebuild + synchronous NavMesh bake) meant
-    /// for load-time use only — far too expensive to run after every drag-move.
+    /// Rebuilds ONLY the yard-floor chunk(s) that <paramref name="affectedCells"/> fall in — not
+    /// the grid registry, not NavMesh, not the rest of the map. Call this after a Foundation/
+    /// Grounds object is picked up, moved, or deleted/undone so cells it vacated get re-carpeted
+    /// (instead of staying a permanent hole) and cells it now occupies get correctly excluded from
+    /// the carpet — while keeping the cost proportional to the footprint that changed, not the
+    /// size of the map. PopulateYardFloors bundles a full SyncAndBake (grid rebuild + synchronous
+    /// NavMesh bake) meant for load-time use only — far too expensive to run after every drag-move.
     /// </summary>
-    public void RegenerateYardFloorMesh(PlacementGrid grid)
+    public void RegenerateYardFloorMesh(PlacementGrid grid, IEnumerable<Vector2Int> affectedCells)
     {
-        if (_yardFloorTile == null || grid == null) return;
+        if (_yardFloorTile == null || grid == null || affectedCells == null) return;
 
-        if (_yardFloorMeshObject != null)
+        HashSet<Vector2Int> touchedChunks = null;
+        foreach (var cell in affectedCells)
         {
-            Destroy(_yardFloorMeshObject);
-            _yardFloorMeshObject = null;
+            var chunkCoord = YardFloorMeshBuilder.CellToChunkCoord(cell);
+            (touchedChunks ??= new HashSet<Vector2Int>()).Add(chunkCoord);
         }
+        if (touchedChunks == null) return;
 
-        _yardFloorMeshObject = YardFloorMeshBuilder.Build(grid, _yardFloorTile, transform);
+        foreach (var chunkCoord in touchedChunks)
+            RebuildYardFloorChunk(grid, chunkCoord);
     }
 
     private void SyncAndBake(PlacementGrid grid)

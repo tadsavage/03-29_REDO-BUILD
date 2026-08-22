@@ -12,6 +12,19 @@ using UnityEngine.Rendering.Universal;
 /// additional-light shadow resolution, etc. are baked per-asset and nothing
 /// dirties the shared asset on disk.
 ///
+/// Each URP asset also points at its OWN ScriptableRendererData — PC_Renderer
+/// (Ultra), Good_Renderer, Toaster_Renderer — so the renderer feature set and
+/// the cavity material each preset uses are baked per-asset too. The cavity
+/// full-screen pass is the single most expensive thing in the frame and its
+/// cost is driven by the material's _Radius (the shader does a (2r+1)^2 loop
+/// with 4 normal-buffer taps per iteration), so each tier gets its own
+/// material: Cavity_Material06-07 r=3 (Ultra), Cavity_Material_Good r=1,
+/// Cavity_Material_Toaster r=0.5.
+///
+/// Nothing here mutates a renderer asset at runtime — an earlier version
+/// toggled features on PC_Renderer for every preset, which both corrupted the
+/// Ultra renderer while Toaster was selected and left the asset dirty on disk.
+///
 /// Assign the three URP assets, the three VolumeProfile assets (PP_Ultra,
 /// PP_Good, PP_Toaster) and the global Volume in the Inspector, then call
 /// ApplyPreset() from a settings menu or from DevSettings.
@@ -35,10 +48,6 @@ public class GraphicsPresetManager : MonoBehaviour
 
     [Header("Scene Volume")]
     [SerializeField] private Volume globalVolume;
-
-    [Header("Renderer Data")]
-    [Tooltip("Assign PC_Renderer.asset here to allow per-preset toggling of renderer features (SSAO / full-screen pass).")]
-    [SerializeField] private ScriptableRendererData rendererData;
 
     public static GraphicsPresetManager Instance { get; private set; }
     public Preset CurrentPreset { get; private set; } = Preset.Ultra;
@@ -85,7 +94,6 @@ public class GraphicsPresetManager : MonoBehaviour
     {
         FXPool.DisabledKeys.Remove("dust");
         SetPipeline(urpUltra);
-        SetRendererFeatures(true);
         SetVolume(profileUltra);
 
         QualitySettings.lodBias                  = 2.0f;
@@ -101,7 +109,6 @@ public class GraphicsPresetManager : MonoBehaviour
     {
         FXPool.DisabledKeys.Remove("dust");
         SetPipeline(urpGood);
-        SetRendererFeatures(true);
         SetVolume(profileGood);
 
         QualitySettings.lodBias                  = 1.5f;
@@ -117,7 +124,6 @@ public class GraphicsPresetManager : MonoBehaviour
     {
         FXPool.DisabledKeys.Add("dust");
         SetPipeline(urpToaster);
-        SetRendererFeatures(false);
         SetVolume(profileToaster);
 
         QualitySettings.lodBias                  = 0.7f;
@@ -138,21 +144,6 @@ public class GraphicsPresetManager : MonoBehaviour
         if (asset == null) return;
         // Overrides the pipeline for the active quality level; takes effect next frame.
         QualitySettings.renderPipeline = asset;
-    }
-
-    // SSAO and the cavity full-screen pass (FullScreenPassRendererFeature →
-    // Cavity_Material06-07) both follow the preset: on for Ultra/Good, off on Toaster
-    // to claw back frames on weak GPUs (a full-screen pass is real cost there).
-    private void SetRendererFeatures(bool enabled)
-    {
-        if (rendererData == null) return;
-        foreach (var feature in rendererData.rendererFeatures)
-        {
-            if (feature == null) continue;
-            if (feature.name == "ScreenSpaceAmbientOcclusion" ||
-                feature.name == "FullScreenPassRendererFeature")
-                feature.SetActive(enabled);
-        }
     }
 
     private void SetVolume(VolumeProfile profile)

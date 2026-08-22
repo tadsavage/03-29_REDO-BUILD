@@ -1619,3 +1619,132 @@ forever, silently reading as reputation 0 and locking every gated customer out o
 
 Authored ladder: `Contract_Starter` 0, `Contract_HighVolume` 250, `Contract_WholesaleTrailer` 400.
 Runtime BULK offers stay at 0 — walk-in business doesn't check your references.
+
+---
+
+## Graphics performance & quality presets (2026-08-21)
+
+Ultra sat at **26.5 FPS** at 1080p on a scene drawing only ~179k triangles / ~345 draw calls, and the
+three presets felt nearly identical. Profiled with `Time.unscaledDeltaTime` medians over 120–150 frame
+windows per config (medians, not means — each `Unity_RunCommand` compiles an assembly and stalls the
+editor, which poisons a mean). Result: **Ultra 26.5 → 60.8 FPS**, Good 125.5, Toaster 115.8.
+
+### The two real costs (everything else was noise)
+
+**1. Backdrop "groundrow" lights — 15ms.** `BackdropDepthLighting`'s three `Gap_*` rigs held **60 point
+lights at `range = 200`** (some up to 385), each flagged `shadows = Hard`. The renderer is **Forward+**
+(`m_RenderingMode: 2`), which bins lights into screen clusters — a range-200 light on a ~200-unit-wide
+backdrop lands in *every* cluster, so every pixel iterated all 60 lights. Disabling additional lights
+entirely took Ultra 36.5 → 81.4 FPS.
+
+Measured: **light COUNT is the lever, not range.** Range 120 × 60 lights was still 27.7 FPS; range 90
+only got to 44.6. But 20 lights at range 150 hit 64.3. Dropping range alone to 30/60 *does* hit ~95 FPS
+but visibly darkens the midground — those lights were doubling as a scene-wide ambient fill, not just
+backdrop lighting.
+
+Applied: **kept 24 of 60** (every 3rd child per rig), `range = 150`, **`intensity × 3`** to preserve the
+total fill, `shadows = None`. Screenshot-verified against the original. The `shadows = Hard` flag was
+always inert — `m_AdditionalLightShadowsSupported` is false in all three URP assets — but it's a trap
+if that's ever enabled.
+
+**2. The cavity full-screen pass — ~9.5ms.** `Assets/Plugins/cavifree-LowPolyShader/GetAverageCurvature.hlsl`
+runs a `(2r+1)²` nested loop and does **4 normal-buffer samples per iteration**:
+
+| `_Radius` | taps/pixel | @1080p |
+|---|---|---|
+| 5 (was Ultra + Good) | 484 | ~1.0 billion samples/frame |
+| 3 (now Ultra) | 196 | |
+| 1 (now Good) | 36 | |
+| 0.5 (Toaster) | 4 | |
+
+`_Radius` was **5** — cost is essentially linear in taps. r5→r1 saved 9.6ms; r1→off only saved 1.2ms
+more, so radius is the whole story. Note `int r = (int)radius`, so 0.5 → r=0 → one iteration.
+
+### Things that turned out NOT to matter (don't re-investigate)
+
+- **Post-processing: 0.9ms for the entire 19-effect PP_Ultra stack.** DoF, MotionBlur,
+  ScreenSpaceLensFlare, ChromaticAberration all measured within noise individually. It's a *look* lever,
+  not a perf lever.
+- **Shadows: ~0ms.** Distance 100→40 and 3→2 cascades changed nothing measurable.
+- **HDR color buffer precision** (64-bit vs 32-bit): 0.2ms.
+- **Dynamic batching:** disabling it was ~0.8ms *worse*. Left alone.
+- MSAA is real but secondary: 8×→4× = 3.6ms, 4×→off = 4.3ms.
+
+### Why the presets felt the same
+
+`URP_Good` pointed at **`PC_Renderer` — the same renderer as Ultra** — so Good inherited the identical
+radius-5 cavity pass, the single most expensive thing in the frame. Good also had `renderScale 1.0`
+(no fill-rate saving at all) and a main-light shadowmap of **512 while Toaster's was 1024** — backwards.
+
+Now each tier owns its renderer and cavity material:
+
+| | Ultra | Good | Toaster |
+|---|---|---|---|
+| URP asset | PC_RPAsset | URP_Good | URP_Toaster |
+| Renderer | PC_Renderer | **Good_Renderer** (new) | Toaster_Renderer |
+| Cavity material | Cavity_Material06-07 **r=3** | **Cavity_Material_Good r=1** (new) | Cavity_Material_Toaster r=0.5 |
+| MSAA | **4×** (was 8×) | 2× | off |
+| renderScale | 1.0 | **0.9** (was 1.0) | 0.77 + FSR |
+| Main shadowmap | 2048 | **1024** (was 512) | **512** (was 1024) |
+| SSAO | high | **downsampled, medium** | off |
+
+`GraphicsPresetManager.SetRendererFeatures()` was **deleted**. It toggled features on the single
+serialized `rendererData` (PC_Renderer) for *every* preset — so selecting Toaster disabled SSAO on the
+*Ultra* renderer (Toaster doesn't even use PC_Renderer) and left the asset dirty on disk. Each renderer
+data now carries its own feature set; nothing mutates a renderer asset at runtime.
+
+### Measurement caveat
+
+Below ~8ms everything is CPU/editor-bound, so Good (125.5) and Toaster (115.8) are indistinguishable
+*in the editor* — Toaster measuring marginally slower is noise, not a regression. Their extra savings
+only show on GPU-bound hardware, which is exactly the hardware Toaster exists for.
+
+### Known remaining headroom (not done)
+
+The cavity shader's inner loop re-samples each texel ~4× (each point's 4-tap cross overlaps its
+neighbours'). Because curvature is computed per-point and then **linearly** weight-averaged, it could be
+split into two passes — one computing per-pixel curvature, one blurring it — for roughly 4× on that
+effect, or ~18× with a separable blur approximation. A circular kernel (skip `i²+j² > r²`) is a free
+~40–48% with near-identical output.
+
+---
+
+## FloorTile.prefab had no collider — nothing could be placed on warehouse floor (2026-08-22)
+
+**Symptom:** could place on yard and shipping-lane tiles but not on regular floor tiles.
+
+**Not the validator.** `PlacementValidator.IsValidPlacement` returns true for every buildable object on a
+FloorTile cell — verified by sweeping all ~105 `ObjDataSO`s against a floor cell vs. a bare-yard cell
+(0 mismatches). `PlaceCommand.Execute()` also places and undoes correctly on FloorTile, Flr-ShipLane and
+bare yard. The whole grid/command layer was fine.
+
+**Root cause:** `FloorTile.prefab` was the only Floor prefab with **zero colliders**. Flr-Yard,
+Flr-ShipLane, Flr-Pedest and Flr-MHE all carry `BoxCollider center=(0,0,0) size=(1.325, 0.05, 1.325)`
+on the root, layer 3 (Ground). So all 1026 placed floor tiles were invisible to physics, and
+`RaycastController.Tick()` got neither an object hit nor a ground hit — `HasHit` stayed false and
+`BuildState` early-returns (`if (!_raycast.HasHit) { ClearAll(); Hide(); return; }`) long before any
+validation runs.
+
+It only showed up indoors because **`YardFloorMeshBuilder` deliberately skips cells already covered by a
+placed surface** — so under the warehouse floor there is no yard-mesh collider either. Outdoors the yard
+chunks provided a ground hit regardless; indoors there was nothing at all.
+
+**Fix:** added the matching BoxCollider to `FloorTile.prefab`. The 4 FloorTile children of
+`grd_Foundation_Combined` inherit it automatically.
+
+**`isTrigger` must be FALSE here** (matching Flr-Yard, not the other three). `RaycastController`'s ground
+pass uses `QueryTriggerInteraction.Ignore`, and that pass is what supplies `HitCell` — the deliberate
+parallax-free "anchor" (see its Perspective-Jumping comment). With a trigger collider the object pass
+still sets `HasHit`, but `HitCell` falls back to the object hit point, so anything hanging in front of a
+tile (a Round Light) resolves the cursor to the wrong cell. Measured over 586 on-screen floor cells:
+
+| | no collider | trigger | non-trigger |
+|---|---|---|---|
+| HasHit | 24 fail | 586 | 586 |
+| correct cell | 0 | 409 | **586** |
+
+NavMesh-neutral: all three `NavMeshSurface`s use `useGeometry = RenderMeshes`, so physics colliders never
+feed the bake (re-checked: 40/40 sampled floor cells still on the NavMesh).
+
+**Lesson:** when placement fails, check `RaycastController.HasHit` before suspecting `PlacementValidator` —
+a missing collider fails the gesture several steps before any rule is evaluated.

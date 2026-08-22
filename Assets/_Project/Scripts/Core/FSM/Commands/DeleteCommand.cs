@@ -355,11 +355,16 @@ public class DeleteCommand : PlacementCommandBase
             RegenerateYardFloor();
     }
 
-    /// <summary>See MoveCommand.RegenerateYardFloor — same mesh, same reasoning.</summary>
+    /// <summary>See MoveCommand.RegenerateYardFloor — same mesh, same reasoning. Only rebuilds the
+    /// chunk(s) this foundation's own footprint falls in, not the whole map.</summary>
     private void RegenerateYardFloor()
     {
         var ctx = Object.FindAnyObjectByType<GameContext>();
-        ctx?.RegenerateYardFloorMesh(_grid);
+        if (ctx == null) return;
+
+        var affectedCells = new List<Vector2Int>(_offsets.Length);
+        foreach (var o in _offsets) affectedCells.Add(_root + o);
+        ctx.RegenerateYardFloorMesh(_grid, affectedCells);
     }
 
     public override void Undo()

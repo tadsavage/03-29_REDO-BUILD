@@ -43,6 +43,11 @@ public class DockLedgeSetup : MonoBehaviour
     // ── Static registry ──────────────────────────────────────────────────────
     private static readonly List<DockLedgeSetup> s_all = new List<DockLedgeSetup>();
 
+    // Read-only view for NavMeshManager.AddDockTopNavMeshSources — avoids a redundant
+    // Object.FindObjectsByType<DockLedgeSetup>() scan every NavMesh rebake when this
+    // registry already tracks the exact same set incrementally via OnEnable/OnDisable.
+    public static IReadOnlyList<DockLedgeSetup> All => s_all;
+
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     private void Awake()

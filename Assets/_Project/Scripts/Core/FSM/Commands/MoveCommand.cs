@@ -118,18 +118,24 @@ public class MoveCommand : PlacementCommandBase
 
     /// <summary>
     /// Cells a Foundation/Grounds slab vacates or arrives on aren't necessarily covered by
-    /// individually-tracked floor tiles — most of the map is the single combined yard-floor mesh
+    /// individually-tracked floor tiles — most of the map is the chunked yard-floor mesh
     /// (see YardFloorMeshBuilder), baked once with whatever had a real object on it at the time
     /// excluded. Moving a foundation off/onto that mesh's territory doesn't touch the mesh itself,
     /// so without this the vacated footprint stays a permanent hole (nothing else regenerates it
     /// until the next full load) and the arrival cells can z-fight with the carpet still rendering
-    /// underneath. Mesh-only rebuild — see GameContext.RegenerateYardFloorMesh for why this doesn't
-    /// go through the much heavier PopulateYardFloors (grid rebuild + synchronous NavMesh bake).
+    /// underneath. Only rebuilds the chunk(s) the old + new footprint fall in — see
+    /// GameContext.RegenerateYardFloorMesh for why this doesn't go through the much heavier
+    /// PopulateYardFloors (grid rebuild + synchronous NavMesh bake, whole map).
     /// </summary>
     private void RegenerateYardFloor()
     {
         var ctx = Object.FindAnyObjectByType<GameContext>();
-        ctx?.RegenerateYardFloorMesh(_grid);
+        if (ctx == null) return;
+
+        var affectedCells = new List<Vector2Int>(_oldOffsets.Length + _newOffsets.Length);
+        foreach (var o in _oldOffsets) affectedCells.Add(_oldRoot + o);
+        foreach (var o in _newOffsets) affectedCells.Add(_newRoot + o);
+        ctx.RegenerateYardFloorMesh(_grid, affectedCells);
     }
 
     public override void Redo() => Execute();

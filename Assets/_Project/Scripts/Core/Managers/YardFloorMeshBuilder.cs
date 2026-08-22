@@ -24,9 +24,41 @@ using UnityEngine.Rendering;
 /// </summary>
 public static class YardFloorMeshBuilder
 {
+    // Cells per chunk on each axis. A move/delete-undo only ever needs to rebuild the 1-4 chunks
+    // its footprint touches instead of the whole grid — see GameContext's chunk dictionary and
+    // RegenerateYardFloorMesh(grid, affectedCells). 10 keeps a single chunk's rebuild cost small
+    // (100 cells vs. 10,000 on a 100x100 grid) while keeping the chunk count (draw calls) modest.
+    public const int ChunkSize = 10;
+
     public static GameObject Build(PlacementGrid grid, ObjDataSO yardTileData, Transform parent = null)
     {
-        if (grid == null || yardTileData == null || yardTileData.prefab == null)
+        if (grid == null) return null;
+        return BuildRegion(grid, yardTileData, 0, 0, grid.Width, grid.Height, "YardFloor", parent);
+    }
+
+    /// <summary>
+    /// Builds just one chunk's worth of the carpet (ChunkSize x ChunkSize cells, clipped to the
+    /// grid). Used by GameContext to rebuild only the chunk(s) a changed footprint falls in,
+    /// instead of re-combining every cell in the whole grid for a single move/delete-undo.
+    /// </summary>
+    public static GameObject BuildChunk(PlacementGrid grid, ObjDataSO yardTileData, Vector2Int chunkCoord, Transform parent = null)
+    {
+        if (grid == null) return null;
+
+        int minX = chunkCoord.x * ChunkSize;
+        int minY = chunkCoord.y * ChunkSize;
+        int maxX = Mathf.Min(minX + ChunkSize, grid.Width);
+        int maxY = Mathf.Min(minY + ChunkSize, grid.Height);
+
+        return BuildRegion(grid, yardTileData, minX, minY, maxX, maxY, $"YardFloor_Chunk_{chunkCoord.x}_{chunkCoord.y}", parent);
+    }
+
+    public static Vector2Int CellToChunkCoord(Vector2Int cell) =>
+        new Vector2Int(Mathf.FloorToInt(cell.x / (float)ChunkSize), Mathf.FloorToInt(cell.y / (float)ChunkSize));
+
+    private static GameObject BuildRegion(PlacementGrid grid, ObjDataSO yardTileData, int minX, int minY, int maxXExclusive, int maxYExclusive, string name, Transform parent)
+    {
+        if (yardTileData == null || yardTileData.prefab == null)
         {
             Debug.LogWarning("[YardFloorMeshBuilder] Missing grid or yard tile data — nothing built.");
             return null;
@@ -43,10 +75,12 @@ public static class YardFloorMeshBuilder
         Mesh sourceMesh = sourceMF.sharedMesh;
         Material sourceMat = sourceMR.sharedMaterial;
 
-        var combine = new List<CombineInstance>(grid.Width * grid.Height);
-        for (int x = 0; x < grid.Width; x++)
+        int width = Mathf.Max(0, maxXExclusive - minX);
+        int height = Mathf.Max(0, maxYExclusive - minY);
+        var combine = new List<CombineInstance>(width * height);
+        for (int x = minX; x < maxXExclusive; x++)
         {
-            for (int y = 0; y < grid.Height; y++)
+            for (int y = minY; y < maxYExclusive; y++)
             {
                 var cell = new Vector2Int(x, y);
 
@@ -77,7 +111,7 @@ public static class YardFloorMeshBuilder
             }
         }
 
-        var go = new GameObject("YardFloor");
+        var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         go.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
         go.transform.localScale = Vector3.one;
@@ -91,11 +125,12 @@ public static class YardFloorMeshBuilder
 
         var combinedMesh = new Mesh
         {
-            // 10,000 cells * 36 verts can exceed UInt16's 65,535-index ceiling.
+            // A full-grid region can exceed UInt16's 65,535-index ceiling (10,000 cells * 36
+            // verts); chunks stay well under it, but this is cheap enough to always set.
             indexFormat = IndexFormat.UInt32,
         };
         combinedMesh.CombineMeshes(combine.ToArray(), mergeSubMeshes: true, useMatrices: true);
-        combinedMesh.name = "YardFloor_Combined";
+        combinedMesh.name = name + "_Combined";
         combinedMesh.RecalculateBounds();
 
         var mf = go.AddComponent<MeshFilter>();

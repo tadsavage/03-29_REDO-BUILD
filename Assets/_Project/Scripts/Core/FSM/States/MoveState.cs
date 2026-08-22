@@ -346,15 +346,18 @@ public class MoveState : PlacementStateBase
                 _grid.UpdateStackPositions(cell);
             }
 
-            // Most of the map isn't individually-tracked floor tiles — it's the single combined
+            // Most of the map isn't individually-tracked floor tiles — it's the chunked
             // yard-floor mesh (YardFloorMeshBuilder), baked once excluding whatever had a real
             // object on it at bake time. The reveal above only handles per-cell registered floor
             // tiles; it can't fix a mesh that was never told this footprint just emptied out. Without
             // this, the vacated cells stay a visible hole in that mesh for the ENTIRE drag (the mesh
             // isn't touched again until MoveCommand commits on drop) even though nothing is actually
             // wrong with the grid data — regenerate now so the ground reads as unbroken the instant
-            // the slab lifts, not just after it lands.
-            gameContext?.RegenerateYardFloorMesh(_grid);
+            // the slab lifts, not just after it lands. Only the picked-up footprint's own chunk(s)
+            // are rebuilt, not the whole map.
+            var vacatedCells = new List<Vector2Int>(_offsets.Length);
+            foreach (var o in _offsets) vacatedCells.Add(_originalRoot + o);
+            gameContext?.RegenerateYardFloorMesh(_grid, vacatedCells);
         }
 
         // Highlight + show ghost

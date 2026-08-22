@@ -35,6 +35,16 @@ public class NavMeshManager : MonoBehaviour
     private readonly Dictionary<Vector2Int, PlacedObject> _floorTopCache = new();
     private PlacementGrid _grid;
 
+    // ── Incremental stair / racking caches ──────────────────────────────────────
+    // AddStairRampSources() used to call Object.FindObjectsByType<BuildingData>() — scanning
+    // EVERY placed object in the scene just to find the rare stair-capable ones — on every
+    // single rebake. BuildMarkups() did the same thing scanning ALL of PlacedObjectRegistry
+    // just to find Racking objects. Same shape of problem as the floor cache above (and same
+    // fix): maintain a small incremental list via the registry's (Un)Registered events instead
+    // of rescanning everything each time.
+    private readonly List<BuildingData> _stairBuildingDataCache = new();
+    private readonly List<PlacedObject> _rackingCache = new();
+
     private void Awake()
     {
         Instance = this;
@@ -55,16 +65,45 @@ public class NavMeshManager : MonoBehaviour
         // captured incrementally via the registry events instead of a re-scan.
         _grid = Object.FindAnyObjectByType<PlacementGrid>();
         foreach (var placed in PlacedObjectRegistry.All)
+        {
             TryAddFloorToCache(placed);
+            TryAddStairToCache(placed);
+            TryAddRackingToCache(placed);
+        }
 
         PlacedObjectRegistry.OnRegistered   += OnPlacedObjectRegistered;
         PlacedObjectRegistry.OnUnregistered += OnPlacedObjectUnregistered;
         PlacedObjectRegistry.OnCleared      += OnPlacedObjectsCleared;
     }
 
-    private void OnPlacedObjectsCleared() => _floorTopCache.Clear();
+    private void OnPlacedObjectsCleared()
+    {
+        _floorTopCache.Clear();
+        _stairBuildingDataCache.Clear();
+        _rackingCache.Clear();
+    }
 
-    private void OnPlacedObjectRegistered(PlacedObject placed) => TryAddFloorToCache(placed);
+    private void OnPlacedObjectRegistered(PlacedObject placed)
+    {
+        TryAddFloorToCache(placed);
+        TryAddStairToCache(placed);
+        TryAddRackingToCache(placed);
+    }
+
+    private void TryAddStairToCache(PlacedObject placed)
+    {
+        if (placed == null || placed.data == null || !placed.data.CanUseStairs) return;
+        var bd = placed.GetComponent<BuildingData>();
+        if (bd != null && !_stairBuildingDataCache.Contains(bd))
+            _stairBuildingDataCache.Add(bd);
+    }
+
+    private void TryAddRackingToCache(PlacedObject placed)
+    {
+        if (placed == null || placed.data == null || placed.data.category != RackingCategory) return;
+        if (!_rackingCache.Contains(placed))
+            _rackingCache.Add(placed);
+    }
 
     private void TryAddFloorToCache(PlacedObject placed)
     {
@@ -79,6 +118,13 @@ public class NavMeshManager : MonoBehaviour
 
     private void OnPlacedObjectUnregistered(PlacedObject placed)
     {
+        _rackingCache.Remove(placed);
+        if (placed != null)
+        {
+            var bd = placed.GetComponent<BuildingData>();
+            if (bd != null) _stairBuildingDataCache.Remove(bd);
+        }
+
         if (placed == null || placed.data == null || !placed.data.isFloor) return;
 
         var key = new Vector2Int(placed.gridX, placed.gridY);
@@ -255,10 +301,12 @@ public class NavMeshManager : MonoBehaviour
         // Auto-exclude all rack objects. Racks are instantiated at runtime from prefabs
         // so they can never appear in _alwaysExclude (which requires scene-instance references).
         // Marking the root excludes the entire rack hierarchy during CollectSources.
-        foreach (var placed in PlacedObjectRegistry.All)
+        // Reads the incrementally-maintained _rackingCache (see TryAddRackingToCache /
+        // OnPlacedObjectRegistered/Unregistered) instead of rescanning all of
+        // PlacedObjectRegistry (9,400+ entries) on every rebake.
+        foreach (var placed in _rackingCache)
         {
             if (placed == null || placed.gameObject == null) continue;
-            if (placed.data == null || placed.data.category != RackingCategory) continue;
             markups.Add(new NavMeshBuildMarkup { root = placed.transform, ignoreFromBuild = true });
         }
 
@@ -267,12 +315,14 @@ public class NavMeshManager : MonoBehaviour
 
     // Injects the nav_Plane_Transparent ramp mesh from each stairwell as a walkable source.
     // This makes the NavMesh visibly bake on the stair surface rather than using invisible links alone.
+    // Reads the incrementally-maintained _stairBuildingDataCache instead of
+    // Object.FindObjectsByType<BuildingData>() — that scanned EVERY placed object in the scene on
+    // every rebake just to find the rare stair-capable ones.
     private void AddStairRampSources(List<NavMeshBuildSource> sources)
     {
-        var stairObjects = Object.FindObjectsByType<BuildingData>();
-        foreach (var bd in stairObjects)
+        foreach (var bd in _stairBuildingDataCache)
         {
-            if (bd.Data == null || !bd.Data.CanUseStairs) continue;
+            if (bd == null || bd.Data == null || !bd.Data.CanUseStairs) continue;
 
             // Search all descendants, not just direct children
             foreach (Transform child in bd.GetComponentsInChildren<Transform>(includeInactive: false))
@@ -297,11 +347,13 @@ public class NavMeshManager : MonoBehaviour
     // Injects a thin walkable Box source at the top surface of every placed foundation
     // (detected via DockLedgeSetup). This guarantees the dock surface is NavMesh-walkable
     // even when the foundation geometry is not picked up by CollectSources (e.g. wrong layer).
+    // Reads DockLedgeSetup's own OnEnable/OnDisable-maintained static registry instead of a
+    // redundant Object.FindObjectsByType<DockLedgeSetup>() scan every rebake.
     private void AddDockTopNavMeshSources(List<NavMeshBuildSource> sources, int defaultArea)
     {
         int scanned = 0;
         int count   = 0;
-        foreach (var dock in Object.FindObjectsByType<DockLedgeSetup>())
+        foreach (var dock in DockLedgeSetup.All)
         {
             if (dock == null) continue;
             scanned++;
@@ -544,6 +596,58 @@ public class NavMeshManager : MonoBehaviour
     private List<NavMeshModifier> _modifierCache = new List<NavMeshModifier>();
     private float _lastModifierUpdate;
 
+    // GetWorldBounds() scans Object.FindObjectsByType<Renderer>() — every renderer in the scene
+    // (racks, pallets, trucks, workers, everything) — once PER SURFACE, and all 3 surfaces here
+    // use collectObjects=All. That's 3 full-scene renderer scans on every single debounced
+    // rebake (i.e. after every move/place/delete). Cached on the same 5s cadence as
+    // _modifierCache above — a single shared renderer scan refreshes all 3 surfaces' bounds
+    // together instead of each surface re-scanning independently every rebake. Correctness is
+    // unaffected by the staleness window: a slightly-stale (too-large) bounds just means
+    // NavMeshBuilder scans a bit more space, not that anything gets missed.
+    private readonly Dictionary<NavMeshSurface, Bounds> _worldBoundsCache = new();
+    private float _lastWorldBoundsUpdate;
+
+    private Bounds GetWorldBoundsCached(NavMeshSurface surface)
+    {
+        if (surface.collectObjects != CollectObjects.All)
+            return GetWorldBounds(surface);
+
+        bool stale = Time.realtimeSinceStartup - _lastWorldBoundsUpdate > 5f || _worldBoundsCache.Count == 0;
+        if (stale)
+        {
+            _worldBoundsCache.Clear();
+            var renderers = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+            foreach (var s in _surfaces)
+            {
+                if (s == null || s.collectObjects != CollectObjects.All) continue;
+
+                Bounds b = new Bounds();
+                bool hasBounds = false;
+                foreach (var r in renderers)
+                {
+                    if (r == null || ((1 << r.gameObject.layer) & s.layerMask) == 0) continue;
+                    if (!hasBounds) { b = r.bounds; hasBounds = true; }
+                    else b.Encapsulate(r.bounds);
+                }
+
+                _worldBoundsCache[s] = hasBounds
+                    ? Expand(b, 5f)
+                    : new Bounds(s.transform.position, Vector3.one * 10f);
+            }
+            _lastWorldBoundsUpdate = Time.realtimeSinceStartup;
+        }
+
+        return _worldBoundsCache.TryGetValue(surface, out var cached)
+            ? cached
+            : GetWorldBounds(surface);
+    }
+
+    private static Bounds Expand(Bounds b, float amount)
+    {
+        b.Expand(amount);
+        return b;
+    }
+
     private IEnumerator UpdateRoutine(bool immediate)
     {
         if (!immediate)
@@ -571,7 +675,7 @@ public class NavMeshManager : MonoBehaviour
 
                 var settings = surface.GetBuildSettings();
                 var sources = new List<NavMeshBuildSource>();
-                Bounds worldBounds = GetWorldBounds(surface);
+                Bounds worldBounds = GetWorldBoundsCached(surface);
 
                 if (surface.collectObjects == CollectObjects.Children)
                     NavMeshBuilder.CollectSources(surface.transform, surface.layerMask, surface.useGeometry, surface.defaultArea, markups, sources);
