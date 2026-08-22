@@ -33,6 +33,9 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
     private VisualElement _overlay;
     private VisualElement _modal;
     private Button _closeButton;
+    private ResizableWindow _resizer;   // edge grips + the title-bar resize button
+    private DraggableWindow _dragger;   // drag-by-title-bar + reset-on-X
+    private Button _scaleButton;
     private Label _employeeCountLabel;
     private ScrollView _scrollView;
     private VisualElement _listContainer;
@@ -86,15 +89,17 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
     // ─── Unity lifecycle ──────────────────────────────────────────────────────
     private void Awake()
     {
-        Debug.Log("[EmployeeListPanelController.Awake] Called");
+        // Newcomer wins — see the matching note in HiringBoardUI.Awake. This is a plain scene object,
+        // so on a scene load the fresh instance owns the live UIDocument; the old guard destroyed it
+        // instead and left key 4 unregistered for the rest of the session.
+        // First instance wins; the panel is DontDestroyOnLoad and outlives scene loads. See the fuller
+        // note in HiringBoardUI.Awake — re-registration after a scene load is handled in Update.
         if (Instance != null && Instance != this)
         {
-            Debug.Log("[EmployeeListPanelController.Awake] Instance already exists, destroying this one");
             Destroy(gameObject);
             return;
         }
         Instance = this;
-        Debug.Log("[EmployeeListPanelController.Awake] Set as Instance");
 
         // Register with UIKeyBindingManager for keybinding exclusivity (key 4)
         if (UIKeyBindingManager.Instance != null)
@@ -142,7 +147,7 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
             if (UIKeyBindingManager.Instance != null)
             {
                 Debug.Log("[EmployeeListPanelController] UIKeyBindingManager.Instance found, calling ToggleUI(4)");
-                UIKeyBindingManager.Instance.ToggleUI(4);
+                UIKeyBindingManager.Instance.ToggleUI(4, this);
             }
             else
             {
@@ -164,6 +169,11 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
         var root = _doc.rootVisualElement;
         if (root == null) return;
 
+        // Own document must draw above the HUD document (top bar + panels 5-9 built into it),
+        // matching HiringBoardUI/ToolsWindowController/EmployeeRosterUI. Without this the panel was
+        // left at its stale scene-serialized sortingOrder, well below UILayers.Hud.
+        _doc.sortingOrder = UILayers.WindowAboveHud;
+
         // Overlay / modal
         _overlay = root.Q<VisualElement>("employee-overlay");
         _modal = root.Q<VisualElement>("employee-modal");
@@ -174,6 +184,18 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
         if (_overlay != null) _overlay.style.bottom = BuildMenuUI.BottomHudReservedHeight;
         _closeButton = root.Q<Button>("close-button");
         _employeeCountLabel = root.Q<Label>("employee-count");
+
+        // Standard corner: resize on the left, close on the right — same chrome as ContractsPanel (6).
+        // onClose is null because the ClickEvent handler registered later already closes; wiring both
+        // would fire twice on a single click.
+        _resizer = new ResizableWindow(_modal, minW: 720f, minH: 420f, grip: 10f, titleInset: 62f);
+        (_scaleButton, _) = PanelTitleChrome.Adopt(_closeButton, _resizer, onClose: null);
+
+        // Drag the modal by its title bar (session-only position memory), same pattern as the
+        // Employee Roster (3) and Contracts (6) panels. Missing this was why the panel couldn't
+        // be moved at all — every other numbered panel wires a DraggableWindow, this one never did.
+        var titleBar = root.Q<VisualElement>(className: "title-bar");
+        _dragger = new DraggableWindow(_modal, titleBar, _closeButton);
 
         // List
         _scrollView = root.Q<ScrollView>("employee-scroll");
@@ -223,7 +245,7 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
         _actionRecover = root.Q<Button>("action-recover");
 
         // ── Wire events ───────────────────────────────────────────────────────
-        _closeButton?.RegisterCallback<ClickEvent>(_ => Close());
+        _closeButton?.RegisterCallback<ClickEvent>(_ => { _dragger?.ResetToOriginal(); Close(); });
 
         _filterAll?.RegisterCallback<ClickEvent>(_ => SetFilter("all"));
         _filterActive?.RegisterCallback<ClickEvent>(_ => SetFilter("active"));
@@ -255,6 +277,8 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
         _overlay.style.display = DisplayStyle.Flex;
         _overlay.pickingMode = PickingMode.Position;
         _modal.pickingMode = PickingMode.Position;
+        _resizer?.ResetToNormal();
+        PanelTitleChrome.SyncScaleGlyph(_scaleButton, _resizer);
         TrySubscribeToRegistry(); // ensure subscription alive on open
         RebuildList();
     }

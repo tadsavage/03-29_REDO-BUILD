@@ -19,7 +19,7 @@ using UnityEngine.UIElements;
 /// </summary>
 public class NewItemPanel : IUIPanel
 {
-    private static readonly Color ColBg         = new Color(20f / 255f, 28f / 255f, 38f / 255f, 0.92f);
+    private static readonly Color ColBg         = new Color(18f / 255f, 26f / 255f, 36f / 255f, 0.97f);
     private static readonly Color ColBorder     = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
     private static readonly Color ColTitleText  = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
     private static readonly Color ColSubtleText = new Color(0x7A / 255f, 0x99 / 255f, 0xB0 / 255f, 1f);
@@ -59,6 +59,9 @@ public class NewItemPanel : IUIPanel
         if (bold) el.style.unityFontStyleAndWeight = FontStyle.Bold;
         if (size > 0) el.style.fontSize = size;
     }
+
+    private ResizableWindow _resizer;   // edge grips + the title-bar resize button
+    private Button _scaleButton;
 
     private readonly VisualElement _overlay;
     private readonly VisualElement _tabContainer;
@@ -133,6 +136,8 @@ public class NewItemPanel : IUIPanel
         _visible = true;
         _overlay.style.display = DisplayStyle.Flex;
         _overlay.pickingMode = PickingMode.Position;
+        _resizer?.ResetToNormal();
+        PanelTitleChrome.SyncScaleGlyph(_scaleButton, _resizer);
         _lastRefreshTime = -10f; // Force immediate refresh
         Rebuild();
     }
@@ -967,8 +972,10 @@ public class NewItemPanel : IUIPanel
         titleBar.style.paddingLeft = 0;
         titleBar.style.paddingRight = 0;
 
+        // Balances the two corner buttons on the right so the centred title stays centred.
         var titleSpacer = new VisualElement();
-        titleSpacer.style.width = 28;
+        titleSpacer.style.width = PanelTitleChrome.ButtonSize * 2f + 6f;
+        titleSpacer.style.flexShrink = 0;
         titleBar.Add(titleSpacer);
 
         var title = new Label("Inventory Slotting");
@@ -978,21 +985,12 @@ public class NewItemPanel : IUIPanel
         title.style.unityTextAlign = TextAnchor.MiddleCenter;
         titleBar.Add(title);
 
-        var closeButton = new Button(Hide) { text = "✕" };
-        closeButton.style.width = 28; closeButton.style.height = 28;
-        closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
-        closeButton.style.color = new StyleColor(ColSubtleText);
-        closeButton.RegisterCallback<PointerEnterEvent>(_ =>
-        {
-            closeButton.style.backgroundColor = new StyleColor(new Color(0.8f, 0.3f, 0.2f, 1f));
-            closeButton.style.color = new StyleColor(Color.white);
-        });
-        closeButton.RegisterCallback<PointerLeaveEvent>(_ =>
-        {
-            closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
-            closeButton.style.color = new StyleColor(ColSubtleText);
-        });
+        // Standard corner: resize on the left, close on the right — same chrome as ContractsPanel (6).
+        // The resizer is built before the buttons because Adopt needs it to wire the left one.
+        _resizer = new ResizableWindow(modal, minW: 760f, minH: 700f, grip: 10f, titleInset: 62f);
+        var closeButton = new Button { text = "✕" };
         titleBar.Add(closeButton);
+        (_scaleButton, _) = PanelTitleChrome.Adopt(closeButton, _resizer, Hide);
         modal.Add(titleBar);
 
         new DraggableWindow(modal, titleBar, closeButton);

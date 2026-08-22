@@ -119,6 +119,9 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     {
         Instance = this;
         _doc = GetComponent<UIDocument>();
+        // Own document, so covering the top bar is purely a sortingOrder question — at its old 50 the
+        // HUD (999999) drew straight over it. Still below the toast, which has its own layer.
+        if (_doc != null) _doc.sortingOrder = UILayers.WindowAboveHud;
 
         // Register with UIKeyBindingManager for keybinding exclusivity (key 1)
         if (UIKeyBindingManager.Instance != null)
@@ -157,21 +160,15 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         // Add resizing capability (similar to Work Queue Panel)
         _resizeWindow = new ResizableWindow(_window, minW: 300f, minH: 250f, grip: 8f, titleInset: 32f);
 
-        Wire<Button>("tools-close",    root, b => b.clicked += () => Hide());
-        Wire<Button>("tools-scale",    root, b =>
+        // Corner buttons come from PanelTitleChrome so this panel matches ContractsPanel (key 6)
+        // exactly. The UXML's own "tools-scale" button is dropped in favour of the one the helper
+        // builds — keeping both would leave two resize buttons on the row.
+        var uxmlScale = root.Q<Button>("tools-scale");
+        uxmlScale?.RemoveFromHierarchy();
+        Wire<Button>("tools-close", root, b =>
         {
-            _scaleButton = b;
-            Color titleColor = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
-            b.clicked += () =>
-            {
-                _resizeWindow.CycleScale();
-                _resizeWindow.UpdateScaleButtonIcon(_scaleButton, 60f, titleColor);
-            };
-            ResizableWindow.AddStackedSquaresGlyph(b, 60f, titleColor, isFilled: false);
-            b.RegisterCallback<PointerEnterEvent>(_ =>
-                b.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
-            b.RegisterCallback<PointerLeaveEvent>(_ =>
-                b.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f)));
+            var (scale, _) = PanelTitleChrome.Adopt(b, _resizeWindow, Hide);
+            _scaleButton = scale;
         });
         Wire<Button>("tab-btn-dev",    root, b => { _tabDev      = b; b.clicked += () => SwitchTab("dev"); });
         Wire<Button>("tab-btn-settings", root, b => { _tabSettings = b; b.clicked += () => SwitchTab("settings"); });
@@ -383,6 +380,9 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         _window.style.display = DisplayStyle.Flex;
         SwitchTab(tab);
         _resizeWindow?.ResetToNormal();
+        // ResetToNormal drops the panel back to 1x, so the glyph has to follow or the button shows
+        // "restore" on a window that is already normal size.
+        PanelTitleChrome.SyncScaleGlyph(_scaleButton, _resizeWindow);
     }
 
     private bool IsTabActive(string tab)

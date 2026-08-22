@@ -47,6 +47,11 @@ public class BuildState : PlacementStateBase
     protected readonly List<Vector2Int> _indicatorBuffer = new();
     protected readonly List<Vector2Int> _footprintBuffer = new();
 
+    // Cells in the current drag that the grid would accept but the wallet won't. Kept so the cell
+    // indicator can be told about them — it's driven by a per-cell predicate that only knows about
+    // grid validity, and a green indicator under a red ghost reads as a bug.
+    protected readonly HashSet<Vector2Int> _unaffordableCells = new();
+
     // Objects ghosted with the orange-line shader during hover to show they will be replaced
     protected readonly Dictionary<Renderer, Material[]> _replacementOriginalMaterials = new();
     protected Material _ghostReplaceOrangeMat;
@@ -297,6 +302,13 @@ public override bool IsPlacementState => true;
 
         bool isValid = _validator.IsValidPlacement(root, offsets, _currentData);
 
+        // Money is part of validity, not just a label colour. An affordable-looking green ghost
+        // over a purchase that will be refused on click is the same lie the drag preview used to
+        // tell — see AffordableCount.
+        bool canAfford = _money.CanAfford(_currentData.cost);
+        if (!canAfford)
+            isValid = false;
+
         // Orange-tint objects that will be replaced so the player sees what disappears.
         ClearReplacementHighlights();
         if (isValid)
@@ -316,7 +328,6 @@ public override bool IsPlacementState => true;
         // COST PREVIEW
         // ---------------------------------------------------------
         int cost = _currentData.cost;
-        bool canAfford = _money.CanAfford(cost);
 
         _costUI.ShowCost(cost, canAfford);
         _costUI.SetScreenPosition(_raycast.RawHitPoint, Camera.main);
@@ -460,6 +471,13 @@ public override bool IsPlacementState => true;
         int endY = _dragStartCell.y + kY * stride.y;
 
         _indicatorBuffer.Clear();
+        _unaffordableCells.Clear();
+
+        // Ghosts past this many are drawn invalid even where the grid would accept them, so the
+        // drag stops "buying" the moment the money runs out. The loop walks outward from
+        // _dragStartCell, so what gets clipped is the far end nearest the cursor.
+        int budget = AffordableCount();
+        bool clipped = false;
 
         for (int x = startX; stepX > 0 ? x <= endX : x >= endX; x += stepX)
         {
@@ -498,6 +516,17 @@ public override bool IsPlacementState => true;
                 foreach (var o in offsets)
                     _indicatorBuffer.Add(cell + o);
 
+                if (valid && _dragCells.Count >= budget)
+                {
+                    // Placeable, just not payable. Mark the footprint so the cell indicator agrees
+                    // with the ghost instead of showing a green square under a red object.
+                    valid = false;
+                    clipped = true;
+                    _unaffordableCells.Add(cell);
+                    foreach (var o in offsets)
+                        _unaffordableCells.Add(cell + o);
+                }
+
                 if (valid)
                 {
                     _dragCells.Add(cell);
@@ -510,11 +539,10 @@ public override bool IsPlacementState => true;
             }
         }
 
-        _indicator.ShowCells(_indicatorBuffer, cell => IsFootprintValid(cell));
+        _indicator.ShowCells(_indicatorBuffer, cell => IsFootprintValid(cell) && !_unaffordableCells.Contains(cell));
 
         int totalCost = _dragCells.Count * _currentData.cost;
-        bool canAfford = _money.CanAfford(totalCost);
-        _costUI.ShowCost(totalCost, canAfford);
+        _costUI.ShowCost(totalCost, !clipped, clipped ? "max affordable" : null);
 
         if (Mouse.current.leftButton.wasReleasedThisFrame)
         {
@@ -571,6 +599,7 @@ public override bool IsPlacementState => true;
         _isDragging = false;
         _placeRequested = false;
         _dragCells.Clear();
+        _unaffordableCells.Clear();
         _costUI.Hide();
     }
 
@@ -604,6 +633,21 @@ public override bool IsPlacementState => true;
         int height = (maxY - minY) + 1;
 
         return new Vector2Int(width, height);
+    }
+
+    /// <summary>
+    /// How many copies of the current item the player can still pay for outright.
+    ///
+    /// This is the drag preview's budget: a drag never spends past it, so the release can't be
+    /// refused wholesale for being one segment too long — you get the segments you could afford
+    /// and the rest were never green in the first place. Free items (cost 0) are unlimited;
+    /// dividing by zero would otherwise throw here rather than anywhere useful.
+    /// </summary>
+    protected int AffordableCount()
+    {
+        int unit = _currentData != null ? _currentData.cost : 0;
+        if (unit <= 0) return int.MaxValue;
+        return Mathf.Max(0, _money.CurrentCapital / unit);
     }
 
     protected bool IsFootprintValid(Vector2Int root)

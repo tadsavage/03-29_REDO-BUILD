@@ -18,9 +18,10 @@ public class UIToast : MonoBehaviour
             enabled = false;
             return;
         }
-        // Toasts must sit ABOVE every other panel so warnings are always visible
-        // Set to maximum to ensure visibility above all modals (NewItemPanel, RackSetupUI, etc.)
-        doc.sortingOrder = 999999;
+        // This is the HUD document (top bar + the panels built into it), NOT the toast's layer — the
+        // toast moves to its own document below. Kept high because the panels built into this document
+        // have to cover the bottom bar.
+        doc.sortingOrder = UILayers.Hud;
         var root = doc.rootVisualElement;
         if (root == null)
         {
@@ -36,8 +37,57 @@ public class UIToast : MonoBehaviour
             enabled = false;
             return;
         }
+        MoveToOwnLayer(doc, root);
+
         _toast.style.position = Position.Absolute;
         _toast.style.opacity  = 0;
+    }
+
+    /// <summary>Sorting order of the toast's own document. Above every panel, including the windows
+    /// that deliberately outrank the HUD (see UILayers).</summary>
+    public const float ToastSortingOrder = 1000100f;
+
+    /// <summary>
+    /// Moves the toast onto a UIDocument of its own, above everything else.
+    ///
+    /// It is authored in HUD.uxml inside "Root" (.hud-root), a sibling of the top bar and in the SAME
+    /// document as it. That is a dead end for layering: documents are ordered against each other by
+    /// sortingOrder, so any window raised above the top bar's document was necessarily above the toast
+    /// too, and any window kept below the toast was stuck below the top bar. Panels 1/2/3 own separate
+    /// documents and hit exactly that wall. A dedicated top layer breaks the tie — the toast is no
+    /// longer bound to the HUD's sortingOrder, so windows are free to sit between the two.
+    ///
+    /// The stylesheets are carried across explicitly: USS is resolved per visual tree, so a label
+    /// moved to a fresh document would otherwise lose `.toast-label` entirely and render as bare text.
+    /// </summary>
+    private void MoveToOwnLayer(UIDocument sourceDoc, VisualElement sourceRoot)
+    {
+        // Created inactive so panelSettings is assigned BEFORE the document's first enable — a
+        // UIDocument builds its tree on enable, and configuring it afterwards is the documented way
+        // to end up with an empty panel.
+        var layerGo = new GameObject("[ToastLayer]");
+        layerGo.transform.SetParent(transform, worldPositionStays: false);
+        layerGo.SetActive(false);
+
+        var layerDoc = layerGo.AddComponent<UIDocument>();
+        layerDoc.panelSettings = sourceDoc.panelSettings; // same panel, so sortingOrder is comparable
+        layerDoc.sortingOrder = ToastSortingOrder;
+        layerGo.SetActive(true);
+
+        var layerRoot = layerDoc.rootVisualElement;
+        if (layerRoot == null)
+        {
+            // Never observed, but a silent failure here would leave the toast unparented and invisible.
+            Debug.LogWarning("[UIToast] Toast layer document produced no root; leaving the toast on the HUD.");
+            if (_toast.parent != sourceRoot) sourceRoot.Add(_toast);
+            return;
+        }
+
+        for (int i = 0; i < sourceRoot.styleSheets.count; i++)
+            layerRoot.styleSheets.Add(sourceRoot.styleSheets[i]);
+
+        layerRoot.pickingMode = PickingMode.Ignore;
+        layerRoot.Add(_toast); // reparents out of the HUD tree
     }
 
     private void Update()
@@ -86,6 +136,23 @@ public class UIToast : MonoBehaviour
     /// Deliberately not reparenting the label to the root instead: the wrapper may carry USS that
     /// positions or styles it.
     /// </summary>
+    /// <summary>
+    /// Re-asserts the toast's place at the very top after something else raised itself.
+    ///
+    /// RaiseAboveEverything only runs on Show, so a panel opened WHILE a toast is still on screen
+    /// would otherwise overtake it — sibling order is decided by whoever called BringToFront last.
+    /// Panels that deliberately raise themselves (the order screens, which must clear the top and
+    /// bottom bars) call this immediately afterwards so the toast keeps the top slot.
+    ///
+    /// No-op when no toast is showing, so callers can invoke it unconditionally.
+    /// </summary>
+    public static void KeepOnTop()
+    {
+        if (_toast == null || _toast.panel == null) return;
+        if (_timer <= 0f) return; // nothing on screen to protect
+        RaiseAboveEverything();
+    }
+
     private static void RaiseAboveEverything()
     {
         var e = (VisualElement)_toast;

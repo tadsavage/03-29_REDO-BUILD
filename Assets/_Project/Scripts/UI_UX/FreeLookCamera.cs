@@ -7,12 +7,12 @@ using UnityEngine.InputSystem;
 /// decoupled so none of them disturbs the others:
 ///
 /// WASD / Arrows — pan the focal point on the XZ plane (relative to current yaw)
-/// Right Mouse   — hold + drag to orbit (yaw = drag X, pitch = drag Y)
+/// Right Mouse   — hold + drag to translate the focal point ("grab" the play screen and drag it)
+/// Middle Mouse  — hold + drag to orbit (yaw = drag X, pitch = drag Y)
 /// Scroll Wheel  — zoom in / out (changes orbit distance only)
 /// Shift         — 3x speed for movement and zoom
-/// LMB + RMB     — move forward on XZ only
 ///
-/// Distance is controlled ONLY by zoom, pitch/yaw ONLY by orbit, focal point ONLY by pan.
+/// Distance is controlled ONLY by zoom, pitch/yaw ONLY by orbit, focal point ONLY by pan/drag.
 /// Nothing rewrites distance behind the user's back, so orbiting never dollies and panning
 /// never creeps. Camera world height is a natural consequence of distance + pitch.
 public class FreeLookCamera : MonoBehaviour
@@ -47,11 +47,16 @@ public class FreeLookCamera : MonoBehaviour
     [SerializeField] private float zMin =  -80f;
     [SerializeField] private float zMax =  80f;
 
+    [Header("Drag Pan (Right Mouse)")]
+    [Tooltip("World units the focal point travels per pixel of right-mouse drag, at defaultDistance. Scales with current zoom distance so the drag still feels 1:1 with the screen when zoomed in/out.")]
+    private float dragPanSensitivity = 0.001f;
+
     private Vector3 _focalPoint;
     private float   _yaw;
     private float   _pitch;
     private float   _distance;
     private bool    _orbiting;
+    private bool    _dragPanning;
     private bool    _stateLoadedFromSave;
 
     // Set when FocusOn snaps to a target outside the normal pan bounds (e.g. "find my
@@ -168,6 +173,7 @@ public class FreeLookCamera : MonoBehaviour
         float speed = fast ? moveSpeed * 3f : moveSpeed;
 
         ProcessPan(speed, overUI);
+        ProcessDragPan(overUI);
         ProcessOrbit(overUI);
         ProcessZoom(overUI, fast ? zoomSpeed * 3f : zoomSpeed);
         ProcessFollow();
@@ -188,6 +194,7 @@ public class FreeLookCamera : MonoBehaviour
     private void OnDisable()
     {
         _orbiting      = false;
+        _dragPanning   = false;
         Cursor.visible = true;
         CameraDevSettings.OnChanged -= ApplyDevSettings;
     }
@@ -209,9 +216,6 @@ public class FreeLookCamera : MonoBehaviour
         if (Keyboard.current[Key.A].isPressed || Keyboard.current[Key.LeftArrow].isPressed)
             delta -= flatRight;
 
-        if (!overUI && Mouse.current.leftButton.isPressed && Mouse.current.rightButton.isPressed)
-            delta += flatForward;
-
         if (delta.sqrMagnitude > 0.01f)
         {
             var move = delta.normalized * (speed * Time.unscaledDeltaTime);
@@ -229,14 +233,53 @@ public class FreeLookCamera : MonoBehaviour
         }
     }
 
-    private void ProcessOrbit(bool overUI)
+    /// <summary>Right-mouse "grab and drag" pan — translates the focal point opposite the drag
+    /// direction so the play screen moves WITH the mouse, like dragging a map. Distinct from
+    /// ProcessPan's WASD keys: this reads raw mouse delta rather than a fixed speed, and scales
+    /// with the current zoom distance so a given drag covers the same apparent screen distance
+    /// whether zoomed in or out.</summary>
+    private void ProcessDragPan(bool overUI)
     {
         if (Mouse.current.rightButton.wasPressedThisFrame && !overUI)
+        {
+            _dragPanning   = true;
+            Cursor.visible = false;
+        }
+        if (Mouse.current.rightButton.wasReleasedThisFrame)
+        {
+            _dragPanning   = false;
+            Cursor.visible = true;
+        }
+
+        if (!_dragPanning) return;
+
+        Vector2 delta = Mouse.current.delta.ReadValue();
+        if (delta.sqrMagnitude < 0.0001f) return;
+
+        var flatRot     = Quaternion.Euler(0f, _yaw, 0f);
+        var flatForward = flatRot * Vector3.forward;
+        var flatRight   = flatRot * Vector3.right;
+
+        float scale = dragPanSensitivity * Mathf.Max(_distance, 0.001f);
+        var move = (-flatRight * delta.x - flatForward * delta.y) * scale;
+
+        _focalPoint.x += move.x;
+        _focalPoint.z += move.z;
+        _followTarget = null;   // manual drag ends "follow selected employee"
+        _focusBeyondBounds = false;
+
+        _focalPoint.x = Mathf.Clamp(_focalPoint.x, xMin, xMax);
+        _focalPoint.z = Mathf.Clamp(_focalPoint.z, zMin, zMax);
+    }
+
+    private void ProcessOrbit(bool overUI)
+    {
+        if (Mouse.current.middleButton.wasPressedThisFrame && !overUI)
         {
             _orbiting      = true;
             Cursor.visible = false;
         }
-        if (Mouse.current.rightButton.wasReleasedThisFrame)
+        if (Mouse.current.middleButton.wasReleasedThisFrame)
         {
             _orbiting      = false;
             Cursor.visible = true;

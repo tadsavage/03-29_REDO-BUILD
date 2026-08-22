@@ -861,6 +861,12 @@ public class PlacementSystem : MonoBehaviour
                 claimedDefaultTileCells.Add((new Vector2Int(groundSave.x, groundSave.y) + o, groundSo.defaultFloorTile.id));
         }
 
+        // Counts of saved ids the registry can't resolve, summarised into ONE loud line after the
+        // loop. A per-object warning is technically the same information, but 270 identical lines
+        // scroll past as noise — which is exactly how a dropped registry entry once flattened an
+        // entire warehouse to Y=0 without anyone spotting the cause. See the summary below.
+        var unresolvedIds = new Dictionary<int, int>();
+
         foreach (var objSave in orderedObjects)
         {
             // Skip yard floor tiles from older saves that still have them serialized —
@@ -871,7 +877,8 @@ public class PlacementSystem : MonoBehaviour
             ObjDataSO so = registry.GetByID(objSave.id);
             if (so == null)
             {
-                Debug.LogWarning($"[PlacementSystem] Skipping saved object with unknown id={objSave.id} at ({objSave.x},{objSave.y}) — not in ObjDataRegistry.");
+                unresolvedIds.TryGetValue(objSave.id, out int seen);
+                unresolvedIds[objSave.id] = seen + 1;
                 continue;
             }
 
@@ -903,6 +910,24 @@ public class PlacementSystem : MonoBehaviour
             if (so.prefab != null && so.prefab.GetComponent<TruckController>() != null) continue;
 
             SpawnFromSave(so, objSave.x, objSave.y, objSave.rot, objSave.customData, objSave.worldY, objSave.hasTransform, objSave.pos, objSave.rotation);
+        }
+
+        // LogError, not a warning: an id the registry can't resolve means those objects are silently
+        // absent from the loaded world, and if any of them were GROUNDS everything that was stacked
+        // on top loses the height it was standing on and collapses toward Y=0 — the floor drops to
+        // half a tile-thickness, walls and racks follow it down, and nothing in the scene says why.
+        // That is a corrupted load, not a cosmetic hiccup, and it is almost always one cause: an
+        // ObjDataSO that still exists on disk but was dropped out of the ObjDataRegistry list.
+        if (unresolvedIds.Count > 0)
+        {
+            var parts = new List<string>();
+            int total = 0;
+            foreach (var kv in unresolvedIds) { parts.Add($"id {kv.Key} x{kv.Value}"); total += kv.Value; }
+            Debug.LogError(
+                $"[PlacementSystem] LOAD INCOMPLETE — {total} saved object(s) were skipped because their " +
+                $"id is not in the ObjDataRegistry: {string.Join(", ", parts)}. " +
+                "Add the matching ObjDataSO asset(s) back to the Obj Data Registry — if any of them are " +
+                "Grounds/Foundations, everything above them will have loaded at the wrong height.");
         }
 
         // Lower number restores first. Grounds/Foundations/floors must exist in the grid

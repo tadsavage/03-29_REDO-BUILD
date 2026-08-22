@@ -3713,7 +3713,7 @@ MonoBehaviour:
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
-  m_PanelSettings: {fileID: 11400000, guid: 90ee474b9d63d4f438bc0bac7f63bd60, type: 2}
+  m_PanelSettings: {fileID: 11400000, guid: e2fc98d7cf486f240a17690f369c5cfd, type: 2}
   m_ParentUI: {fileID: 0}
   sourceAsset: {fileID: 9197481963319205126, guid: f6e972210df832149891d17ddd4771bd, type: 3}
   m_SortingOrder: 0
@@ -4027,6 +4027,7 @@ MonoBehaviour:
   xMax: 40
   zMin: -40
   zMax: 40
+  dragPanSensitivity: 0.01
 --- !u!1 &618863190
 GameObject:
   m_ObjectHideFlags: 0
@@ -8426,6 +8427,54 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1 &1199371249
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1199371250}
+  - component: {fileID: 1199371251}
+  m_Layer: 0
+  m_Name: GlobalButtonUX
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1199371250
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1199371249}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1636985265}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1199371251
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1199371249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5484eff5403bc52419dd2068961b8e00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GlobalButtonUX
+  clickSfx: {fileID: 8300000, guid: fb78ff6ba1cd8594e9a9cca8859f00d2, type: 3}
+  clickVolume: 1
+  highlightColor: {r: 0.35, g: 0.55, b: 0.95, a: 0.55}
+  transitionSeconds: 0.12
 --- !u!1 &1262186255
 GameObject:
   m_ObjectHideFlags: 0
@@ -10356,6 +10405,7 @@ Transform:
   - {fileID: 763351024}
   - {fileID: 1901223421}
   - {fileID: 1262186256}
+  - {fileID: 1199371250}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1636985266

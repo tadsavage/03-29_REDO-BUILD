@@ -11,7 +11,7 @@
     left: 100px;
     top: 100px;
     width: 960px; height: 660px;
-    background-color: rgba(22, 30, 40, 0.98);
+    background-color: rgba(18, 26, 36, 0.97);
     border-width: 3px; border-color: #5C9BC4; border-radius: 14px;
     flex-shrink: 0; overflow: hidden;
     flex-direction: column;
@@ -21,6 +21,7 @@
 .title-bar {
     flex-direction: row; justify-content: space-between; align-items: center;
     padding: 14px 20px 8px 20px;
+    background-color: rgba(12, 18, 26, 1);
     border-bottom-width: 1px; border-bottom-color: rgba(92,155,196,0.35);
     flex-shrink: 0;
 }

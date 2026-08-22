@@ -66,6 +66,8 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
 
     private void Awake()
     {
+        // First instance wins; the panel is DontDestroyOnLoad and outlives scene loads. See the fuller
+        // note in HiringBoardUI.Awake — re-registration after a scene load is handled in Update.
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
 
@@ -79,6 +81,11 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         _doc = GetComponent<UIDocument>();
         var root = _doc != null ? _doc.rootVisualElement : null;
         if (root == null) { Debug.LogError("[EmployeeRosterUI] No rootVisualElement."); return; }
+
+        // Own document must draw above the HUD document (top bar + panels 5-9 built into it),
+        // matching HiringBoardUI/ToolsWindowController. Without this the roster was left at its
+        // stale scene-serialized sortingOrder, well below UILayers.Hud, so the top bar covered it.
+        _doc.sortingOrder = UILayers.WindowAboveHud;
 
         _overlay = root.Q<VisualElement>("er-overlay");
         _list    = root.Q<VisualElement>("er-list");
@@ -94,32 +101,12 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         var titleBar = root.Q<VisualElement>(className: "er-title-bar");
         _dragger = new DraggableWindow(_panel, titleBar, _close);
 
-        // Add scale button for resize/maximize
-        if (titleBar != null)
-        {
-            _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
-            _scaleBtn.style.width = 32; _scaleBtn.style.height = 32;
-            _scaleBtn.style.marginRight = 6;
-            ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, 32f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f), isFilled: false);
-            _scaleBtn.RegisterCallback<PointerEnterEvent>(_ =>
-                _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
-            _scaleBtn.RegisterCallback<PointerLeaveEvent>(_ =>
-                _scaleBtn.style.backgroundColor = new StyleColor(Color.clear));
-            // Insert before close button
-            titleBar.Insert(titleBar.childCount - 1, _scaleBtn);
-        }
-
+        // Resize + close corner, restyled to match the shared house look (Hiring Board, Employee
+        // List, Contracts, ...) instead of the smaller bespoke buttons this panel used to build.
         if (_panel != null)
         {
-            _resizeWindow = new ResizableWindow(_panel, minW: 400f, minH: 300f, grip: 8f, titleInset: 40f);
-            if (_scaleBtn != null)
-            {
-                _scaleBtn.clicked += () =>
-                {
-                    _resizeWindow.CycleScale();
-                    _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, 32f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f));
-                };
-            }
+            _resizeWindow = new ResizableWindow(_panel, minW: 400f, minH: 300f, grip: 8f, titleInset: 56f);
+            (_scaleBtn, _) = PanelTitleChrome.Adopt(_close, _resizeWindow, onClose: null);
         }
 
         if (_filter != null)
@@ -157,7 +144,7 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
             if (UIKeyBindingManager.Instance != null)
             {
                 Debug.Log("[EmployeeRosterUI] UIKeyBindingManager.Instance found, calling ToggleUI(3)");
-                UIKeyBindingManager.Instance.ToggleUI(3);
+                UIKeyBindingManager.Instance.ToggleUI(3, this);
             }
             else
             {

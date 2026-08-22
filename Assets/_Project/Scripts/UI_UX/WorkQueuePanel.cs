@@ -28,7 +28,7 @@ using UnityEngine.UIElements;
 /// </summary>
 public class WorkQueuePanel : IUIPanel
 {
-    private static readonly Color ColBg         = new Color(20f / 255f, 28f / 255f, 38f / 255f, 0.92f);
+    private static readonly Color ColBg         = new Color(18f / 255f, 26f / 255f, 36f / 255f, 0.97f);
     private static readonly Color ColBorder     = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
     private static readonly Color ColTitleText  = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
     private static readonly Color ColSubtleText = new Color(0x7A / 255f, 0x99 / 255f, 0xB0 / 255f, 1f);
@@ -277,7 +277,7 @@ public class WorkQueuePanel : IUIPanel
         titleBar.style.marginRight = -16;
         titleBar.style.paddingLeft = 16;
         titleBar.style.paddingRight = 16;
-        titleBar.style.backgroundColor = new StyleColor(new Color(0x2B / 255f, 0x6C / 255f, 0x94 / 255f, 0.92f));
+        titleBar.style.backgroundColor = new StyleColor(new Color(12f / 255f, 18f / 255f, 26f / 255f, 1f));
         titleBar.style.borderBottomWidth = 2;
         titleBar.style.borderBottomColor = new StyleColor(ColBorder);
         titleBar.style.marginBottom = 10;

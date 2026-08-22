@@ -35,7 +35,7 @@ public class ShiftManagerPanel : IUIPanel
     private const int StandardShiftMinutes = 510; // 8.5 hours — standard no-OT shift length
 
     // ── Palette — matches Employee Roster / Hiring Board (navy/blue + game orange accents) ──
-    private static readonly Color ColBg        = new Color(20f / 255f, 28f / 255f, 38f / 255f, 0.88f);
+    private static readonly Color ColBg        = new Color(18f / 255f, 26f / 255f, 36f / 255f, 0.97f);
     private static readonly Color ColBorder    = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
     private static readonly Color ColTitleText = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
     private static readonly Color ColSubtleText = new Color(0x7A / 255f, 0x99 / 255f, 0xB0 / 255f, 1f);
@@ -404,12 +404,6 @@ public class ShiftManagerPanel : IUIPanel
         titleBar.style.alignItems = Align.Center;
         titleBar.style.marginBottom = 10;
 
-        // Spacer the same width as the close button balances the close button's width
-        // so the centered title isn't visually pushed off-center.
-        var titleSpacer = new VisualElement();
-        titleSpacer.style.width = 28;
-        titleBar.Add(titleSpacer);
-
         var title = new Label("Shift Manager");
         ApplyFont(title, bold: true, size: 30);
         title.style.color = new StyleColor(ColTitleText);
@@ -417,48 +411,15 @@ public class ShiftManagerPanel : IUIPanel
         title.style.unityTextAlign = TextAnchor.MiddleCenter;
         titleBar.Add(title);
 
-        // Scale button (resize window)
-        _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
-        _scaleBtn.style.width = 28; _scaleBtn.style.height = 28;
-        _scaleBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
-        _scaleBtn.style.color = new StyleColor(ColSubtleText);
-        _scaleBtn.style.borderTopWidth = _scaleBtn.style.borderBottomWidth = 1;
-        _scaleBtn.style.marginRight = 6;
-        ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, 28f, ColTitleText, isFilled: false);
-        _scaleBtn.RegisterCallback<PointerEnterEvent>(_ =>
-            _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
-        _scaleBtn.RegisterCallback<PointerLeaveEvent>(_ =>
-            _scaleBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f)));
-        titleBar.Add(_scaleBtn);
-
-        var closeButton = new Button(OnCloseButtonClicked) { text = "✕" };
-        closeButton.style.width = 28; closeButton.style.height = 28;
-        closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
-        closeButton.style.color = new StyleColor(ColSubtleText);
-        closeButton.style.borderTopWidth = closeButton.style.borderBottomWidth = 1;
-
-        // Add red hover effect like other close buttons
-        closeButton.RegisterCallback<PointerEnterEvent>(_ =>
-        {
-            closeButton.style.backgroundColor = new StyleColor(new Color(0xE6 / 255f, 0x50 / 255f, 0x50 / 255f, 0.3f));
-            closeButton.style.color = new StyleColor(Color.white);
-        });
-        closeButton.RegisterCallback<PointerLeaveEvent>(_ =>
-        {
-            closeButton.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
-            closeButton.style.color = new StyleColor(ColSubtleText);
-        });
-
-        titleBar.Add(closeButton);
         modal.Add(titleBar);
 
+        // Resize + close corner, built via the shared house chrome (reference look: ContractsPanel /
+        // key 6) instead of this panel's previous bespoke thin-outline buttons.
+        _resizeWindow = new ResizableWindow(modal, minW: 600f, minH: 300f, grip: 8f, titleInset: 56f);
+        Button closeButton;
+        (_scaleBtn, closeButton) = PanelTitleChrome.Attach(titleBar, _resizeWindow, OnCloseButtonClicked);
+
         new DraggableWindow(modal, titleBar, closeButton);
-        _resizeWindow = new ResizableWindow(modal, minW: 600f, minH: 300f, grip: 8f, titleInset: 40f);
-        _scaleBtn.clicked += () =>
-        {
-            _resizeWindow.CycleScale();
-            _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, 28f, ColTitleText);
-        };
 
         // ── Day header row (shared across all shifts) ───────────────────────
         modal.Add(BuildDayHeaderRow());

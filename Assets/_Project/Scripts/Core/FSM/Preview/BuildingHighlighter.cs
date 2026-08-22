@@ -8,6 +8,8 @@ public class BuildingHighlighter : MonoBehaviour
     [SerializeField] private Color invalidColor = new Color(1.0f, 0.2f, 0.2f, 0.5f);
     [SerializeField] private Color deleteColor = new Color(1.0f, 0.9f, 0.0f, 0.5f); // Updated to Yellow
 
+    public static readonly Color GlobalDeleteColor = new Color(1.0f, 0.9f, 0.0f, 0.5f);
+
     private bool _isHighlighted;
 
     private readonly List<RendererData> _rendererData = new();
@@ -41,6 +43,13 @@ public class BuildingHighlighter : MonoBehaviour
         {
             if (r != null)
             {
+                // CRITICAL FIX: Prevent caching if the current material is already a highlight.
+                // Highlight materials are typically loaded from Resources and have distinct names.
+                if (r.sharedMaterial != null && (r.sharedMaterial.name.Contains("Placement-") || r.sharedMaterial.name.Contains("Ghost")))
+                {
+                    continue;
+                }
+
                 _rendererData.Add(new RendererData
                 {
                     renderer = r,
@@ -62,7 +71,7 @@ public class BuildingHighlighter : MonoBehaviour
 
     public void HighlightDelete(bool on)
     {
-        ApplyHighlight(on ? _deleteMat : null, on ? deleteColor : (Color?)null);
+        ApplyHighlight(on ? _deleteMat : null, on ? GlobalDeleteColor : (Color?)null);
     }
 
     public void ClearHighlight()
@@ -72,16 +81,12 @@ public class BuildingHighlighter : MonoBehaviour
 
     private void ApplyHighlight(Material highlightMat, Color? color)
     {
-        // For dynamic objects (Pallets with changing cases), we need to refresh the renderer list.
-        // However, we MUST only cache when we are NOT currently highlighted.
-        // If we cache while the red highlight is active, the "original" materials will be saved as RED,
-        // causing the highlight to get stuck forever as shown in your image.
-        bool isPallet = GetComponent<PalletBuilder>() != null;
-
         if (highlightMat != null)
         {
-            // Only cache if empty or if starting a new highlight session on a dynamic object.
-            if (_rendererData.Count == 0 || (isPallet && !_isHighlighted))
+            // Only cache original materials if we have none, OR if we are starting a new
+            // highlight session while unhighlighted. This ensures we don't accidentally
+            // cache a highlight material as 'original', which causes the 'trail' bug.
+            if (_rendererData.Count == 0 || !_isHighlighted)
             {
                 CacheRenderers();
             }
@@ -107,8 +112,13 @@ public class BuildingHighlighter : MonoBehaviour
             }
             else
             {
-                data.renderer.sharedMaterials = data.originalMaterials;
-                data.renderer.SetPropertyBlock(null);
+                // Verify we are not restoring a highlight material as original.
+                // If originalMaterials was null or corrupted, this could stay yellow.
+                if (data.originalMaterials != null)
+                {
+                    data.renderer.sharedMaterials = data.originalMaterials;
+                    data.renderer.SetPropertyBlock(null);
+                }
             }
         }
 

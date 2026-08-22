@@ -38,9 +38,21 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
     private VisualElement _tooltip;     // styled hover tooltip for trait words
     private Label _tooltipText;
     private DraggableWindow _dragger;   // drag-by-title-bar + reset-on-X
+    private ResizableWindow _resizer;   // edge grips + the title-bar resize button
+    private Button _scaleButton;
     private Button _closeButton;
     private Button _refreshButton;
     private Label _countLabel;
+
+    // Role filter. The selection is tracked as an enum, never as the dropdown's
+    // label text — labels carry a live count ("Receiver (4)") that changes as
+    // applicants are hired, so string matching would lose the selection.
+    private DropdownField _roleFilter;
+    private Button _filterClear;
+    private EmployeeRole? _filterRole;                 // null = All Roles
+    private readonly List<EmployeeRole?> _filterChoiceRoles = new List<EmployeeRole?>();
+    private bool _syncingFilter;                       // guards rebuild → SetValue → rebuild
+    private const string FilterAll = "All Roles";
 
     // Sortable column headers
     private Label _hApplicant, _hPosition, _hExperience, _hSalary;
@@ -60,15 +72,22 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
     // ─── Unity lifecycle ──────────────────────────────────────────────────────
     private void Awake()
     {
-        Debug.Log("[HiringBoardUI.Awake] Called");
+        // The FIRST instance wins and later copies destroy themselves. This is correct and load-bearing:
+        // this panel's GameObject lives in the DontDestroyOnLoad scene, so the original survives every
+        // scene load while the reloaded scene brings a fresh transient copy. Keeping the persistent one
+        // is what preserves its state; letting the newcomer win instead leaves the static pointing at a
+        // copy that is about to be destroyed (measured: Instance became a MissingReferenceException).
+        //
+        // What this does NOT solve — and what actually broke keys 2/3/4 — is that a scene load also
+        // builds a fresh UIKeyBindingManager with an empty registry, and the surviving panel's Awake
+        // has long since run, so nothing re-registers it. That is fixed in Update by passing `this` to
+        // ToggleUI, which re-asserts registration at the point of use.
         if (Instance != null && Instance != this)
         {
-            Debug.Log("[HiringBoardUI.Awake] Instance already exists, destroying this one");
             Destroy(gameObject);
             return;
         }
         Instance = this;
-        Debug.Log("[HiringBoardUI.Awake] Set as Instance");
 
         // Register with UIKeyBindingManager for keybinding exclusivity (key 2)
         if (UIKeyBindingManager.Instance != null)
@@ -94,6 +113,9 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
     private void OnEnable()
     {
         _doc = GetComponent<UIDocument>();
+        // Own document — at its old 95 the HUD (999999) drew over it, so it could never cover the top
+        // bar. Below the toast, which owns the layer above this one.
+        if (_doc != null) _doc.sortingOrder = UILayers.WindowAboveHud;
         var root = _doc != null ? _doc.rootVisualElement : null;
         if (root == null)
         {
@@ -107,6 +129,10 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
         _closeButton = root.Q<Button>("hb-close");
         _refreshButton = root.Q<Button>("hb-refresh");
         _countLabel = root.Q<Label>("hb-count");
+
+        _roleFilter  = root.Q<DropdownField>("hb-role-filter");
+        _filterClear = root.Q<Button>("hb-filter-clear");
+        BuildRoleFilter();
 
         _hApplicant  = root.Q<Label>("hb-h-applicant");
         _hPosition   = root.Q<Label>("hb-h-position");
@@ -136,6 +162,16 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
             _overlay.Add(_tooltip);
         }
 
+        // Standard corner: resize on the left, close on the right — same chrome as ContractsPanel (6).
+        // Built here rather than in the UXML so all five panels share one implementation.
+        // minH matches the .hb-scroll height (540) plus title/filter/header/footer chrome; vertical
+        // resize is off because the card list scrolls and a taller window shows no more of it.
+        _resizer = new ResizableWindow(_modal, minW: 720f, minH: 400f, grip: 10f,
+                                       titleInset: 62f, allowVerticalResize: false);
+        // onClose is null: the ClickEvent handler below already closes, and wiring both would fire
+        // twice on one click.
+        (_scaleButton, _) = PanelTitleChrome.Adopt(_closeButton, _resizer, onClose: null);
+
         // Red X → close AND reset position to the original spot next time.
         _closeButton?.RegisterCallback<ClickEvent>(_ => { _dragger?.ResetToOriginal(); Close(); });
         _refreshButton?.RegisterCallback<ClickEvent>(_ => HiringService.Instance?.RefreshRoster());
@@ -163,6 +199,11 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
             HiringService.Instance.OnRosterChanged -= RebuildList;
         _subscribed = false;
 
+        // Named handlers, so these actually unregister (the lambda-based
+        // Unregister calls below remove nothing — a different delegate instance).
+        _roleFilter?.UnregisterValueChangedCallback(OnRoleFilterChanged);
+        _filterClear?.UnregisterCallback<ClickEvent>(OnClearFilterClicked);
+
         // Unregister all UI callbacks to prevent duplicates on re-enable
         _closeButton?.UnregisterCallback<ClickEvent>(_ => { _dragger?.ResetToOriginal(); Close(); });
         _refreshButton?.UnregisterCallback<ClickEvent>(_ => HiringService.Instance?.RefreshRoster());
@@ -188,11 +229,12 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
         if (Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
         {
             Debug.Log("[HiringBoardUI] Digit2Key triggered, calling ToggleUI(2)");
-            // Route through UIKeyBindingManager for exclusivity
+            // Route through UIKeyBindingManager for exclusivity. Passing `this` re-asserts the
+            // registration, so a manager rebuilt by a scene load can't leave this key dead.
             if (UIKeyBindingManager.Instance != null)
             {
                 Debug.Log("[HiringBoardUI] UIKeyBindingManager.Instance found, calling ToggleUI(2)");
-                UIKeyBindingManager.Instance.ToggleUI(2);
+                UIKeyBindingManager.Instance.ToggleUI(2, this);
             }
             else
             {
@@ -217,6 +259,8 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
         _overlay.style.display = DisplayStyle.Flex;
         _overlay.pickingMode = PickingMode.Position;
         if (_modal != null) _modal.pickingMode = PickingMode.Position;
+        _resizer?.ResetToNormal();
+        PanelTitleChrome.SyncScaleGlyph(_scaleButton, _resizer);
         RebuildList();
     }
 
@@ -242,6 +286,98 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
     void IUIPanel.Show() => Open();
     void IUIPanel.Hide() => Close();
 
+    // ─── Role filter ───────────────────────────────────────────────────────────
+    /// <summary>
+    /// One-time wiring. The choice list itself is rebuilt per roster change by
+    /// <see cref="SyncRoleFilterChoices"/>.
+    /// </summary>
+    private void BuildRoleFilter()
+    {
+        if (_roleFilter == null) return;
+
+        _roleFilter.UnregisterValueChangedCallback(OnRoleFilterChanged);
+        _roleFilter.RegisterValueChangedCallback(OnRoleFilterChanged);
+
+        // ClickEvent (not Button.clicked) to match the close/refresh buttons above.
+        _filterClear?.UnregisterCallback<ClickEvent>(OnClearFilterClicked);
+        _filterClear?.RegisterCallback<ClickEvent>(OnClearFilterClicked);
+    }
+
+    private void OnClearFilterClicked(ClickEvent _) => ClearRoleFilter();
+
+    /// <summary>
+    /// Rebuilds the choices from the roles actually present on the board, each with
+    /// its applicant count.
+    ///
+    /// Deliberately NOT sourced from HiringCandidateGenerator's HireableRoles: that
+    /// array is only the fallback for an unforced Generate() call. The board's real
+    /// role mix comes from RolePoolConfig.startingSkilledRoles plus HiringService's
+    /// EnsureMinimumRole guarantees, which put Boss/Admin/Exterminator applicants on
+    /// the board — filtering built from HireableRoles would leave those unfilterable.
+    ///
+    /// The selected role is always kept in the list even when no applicant currently
+    /// holds it, so POST NEW LISTING (which regenerates the roster wholesale) can't
+    /// silently reset the player's filter.
+    /// </summary>
+    private void SyncRoleFilterChoices(IReadOnlyList<HiringCandidate> roster)
+    {
+        if (_roleFilter == null) return;
+
+        var counts = new Dictionary<EmployeeRole, int>();
+        foreach (var c in roster)
+        {
+            if (c == null) continue;
+            counts.TryGetValue(c.role, out int n);
+            counts[c.role] = n + 1;
+        }
+        if (_filterRole.HasValue && !counts.ContainsKey(_filterRole.Value))
+            counts[_filterRole.Value] = 0;
+
+        var choices = new List<string> { $"{FilterAll} ({roster.Count})" };
+        _filterChoiceRoles.Clear();
+        _filterChoiceRoles.Add(null);
+
+        // Enum declaration order, matching EmployeeRosterUI's role list — it groups
+        // the floor roles ahead of the indirect ones rather than scattering them.
+        foreach (EmployeeRole role in System.Enum.GetValues(typeof(EmployeeRole)))
+        {
+            if (!counts.TryGetValue(role, out int n)) continue;
+            choices.Add($"{role.DisplayName()} ({n})");
+            _filterChoiceRoles.Add(role);
+        }
+
+        int index = _filterChoiceRoles.IndexOf(_filterRole);
+        if (index < 0) { index = 0; _filterRole = null; }
+
+        _syncingFilter = true;
+        _roleFilter.choices = choices;
+        _roleFilter.SetValueWithoutNotify(choices[index]);
+        _syncingFilter = false;
+
+        bool active = _filterRole.HasValue;
+        _roleFilter.EnableInClassList("hb-filter-active", active);
+        if (_filterClear != null)
+            _filterClear.style.display = active ? DisplayStyle.Flex : DisplayStyle.None;
+    }
+
+    private void OnRoleFilterChanged(ChangeEvent<string> _)
+    {
+        if (_syncingFilter || _roleFilter == null) return;
+
+        int index = _roleFilter.index;
+        _filterRole = (index >= 0 && index < _filterChoiceRoles.Count)
+            ? _filterChoiceRoles[index]
+            : null;
+
+        RebuildList();
+    }
+
+    private void ClearRoleFilter()
+    {
+        _filterRole = null;
+        RebuildList();
+    }
+
     // ─── List building ─────────────────────────────────────────────────────────
     private void RebuildList()
     {
@@ -257,16 +393,28 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
         }
 
         var roster = service.Roster;
-        if (roster.Count == 0)
+        SyncRoleFilterChoices(roster);
+
+        // Filter a display copy so the service's roster order is untouched.
+        var display = new List<HiringCandidate>();
+        foreach (var candidate in roster)
         {
-            var empty = new Label("No candidates right now. Post a new listing.");
+            if (_filterRole.HasValue && candidate.role != _filterRole.Value) continue;
+            display.Add(candidate);
+        }
+
+        if (display.Count == 0)
+        {
+            // Distinguish "nobody applied" from "nobody matches your filter" —
+            // otherwise an active filter reads as an empty job market.
+            var empty = new Label(_filterRole.HasValue
+                ? $"No {_filterRole.Value.DisplayName()} applicants right now. Try another role or post a new listing."
+                : "No candidates right now. Post a new listing.");
             empty.AddToClassList("hb-empty");
             _list.Add(empty);
         }
         else
         {
-            // Sort a display copy so the service's roster order is untouched.
-            var display = new List<HiringCandidate>(roster);
             if (_hasSorted) display.Sort(CompareCandidates);
 
             foreach (var candidate in display)
@@ -274,7 +422,12 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
         }
 
         if (_countLabel != null)
-            _countLabel.text = roster.Count == 1 ? "1 candidate" : $"{roster.Count} candidates";
+        {
+            string noun = display.Count == 1 ? "candidate" : "candidates";
+            _countLabel.text = _filterRole.HasValue
+                ? $"{display.Count} {noun} · filtered from {roster.Count}"
+                : $"{display.Count} {noun}";
+        }
 
         UpdateHeaderArrows();
     }

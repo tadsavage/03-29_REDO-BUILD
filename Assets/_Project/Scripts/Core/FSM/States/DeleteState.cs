@@ -226,7 +226,11 @@ public class DeleteState : PlacementStateBase
 
     private void UpdateHoverDelete(Vector2Int cell)
     {
-        _indicator.ShowCell(cell);
+        // Only show indicator if we have a valid hit to avoid a permanent square trail
+        if (_raycast.HasHit)
+            _indicator.ShowCell(cell);
+        else
+            _indicator.ClearAll();
 
         BuildingData targetBd = null;
 
@@ -237,75 +241,39 @@ public class DeleteState : PlacementStateBase
             {
                 if (bd.Data.isFloor)
                 {
-                    // Hit a floor tile — redirect selection to the foundation it's riding on (if any).
-                    // Floor tiles with no foundation underneath (e.g. the default yard tile) stay unselectable.
+                    // Redirect to foundation. Yard pads (no group) are ignored.
                     targetBd = FindFoundationInCell(cell);
                 }
                 else
                 {
+                    // Non-floor objects (racks, walls) are directly deletable
                     targetBd = bd;
-                }
-            }
-        }
-
-        // Fallback to grid lookup for safety
-        if (targetBd == null)
-        {
-            var objs = _grid.GetObjectsInCell(cell);
-            if (objs != null && objs.Count > 0)
-            {
-                // Walk from top down; skip floor tiles
-                for (int i = objs.Count - 1; i >= 0; i--)
-                {
-                    var entry = objs[i];
-                    if (entry.data != null && entry.data.isFloor) continue;
-                    if (entry.instance != null)
-                    {
-                        if (entry.instance.GetComponent<EmployeeIdentity>() != null) continue; // employees: terminate, not delete
-                        targetBd = entry.instance.GetComponent<BuildingData>();
-                        break;
-                    }
                 }
             }
         }
 
         BuildingHighlighter newHover = targetBd != null ? targetBd.GetComponent<BuildingHighlighter>() : null;
 
-        // Build the highlight group. Default: the target itself, plus — for a Foundation/Grounds
-        // target — every floor tile occupying its footprint cells, so the whole slab (foundation
-        // + tiles on top) highlights together regardless of which piece was actually raycast.
-        // EXCEPTION: if the hovered cell's top tile is a revertable custom tile (not the
-        // foundation's default), a click here only reverts that single cell (TryRevertCustomTile)
-        // — it never touches the foundation or its other tiles — so only that one tile highlights.
+        // Build the highlight group (foundation + all tiles on it)
         HashSet<BuildingHighlighter> newGroup = new HashSet<BuildingHighlighter>();
         if (newHover != null)
         {
-            bool isFoundation = IsFoundationData(targetBd.Data);
-            bool singleCustomTile = isFoundation && ClassifyFoundationCell(targetBd, cell) == CellFloorKind.CustomRevertable;
+            newGroup.Add(newHover);
 
-            if (singleCustomTile)
+            // If it's a foundation, add all floor tiles on its footprint to the highlight group
+            if (targetBd != null && targetBd.GetComponent<FoundationFloorGroup>() != null && targetBd.Offsets != null)
             {
-                var tileHighlighter = FindTopFloorHighlighter(targetBd, cell);
-                if (tileHighlighter != null) newGroup.Add(tileHighlighter);
-            }
-            else
-            {
-                newGroup.Add(newHover);
-
-                if (isFoundation && targetBd.Offsets != null)
+                var root = targetBd.RootCell;
+                foreach (var o in targetBd.Offsets)
                 {
-                    var root = targetBd.RootCell;
-                    foreach (var o in targetBd.Offsets)
-                    {
-                        var footprintObjs = _grid.GetObjectsInCell(root + o);
-                        if (footprintObjs == null) continue;
+                    var footprintObjs = _grid.GetObjectsInCell(root + o);
+                    if (footprintObjs == null) continue;
 
-                        foreach (var entry in footprintObjs)
-                        {
-                            if (entry.instance == null || entry.data == null || !entry.data.isFloor) continue;
-                            var tileHighlighter = entry.instance.GetComponent<BuildingHighlighter>();
-                            if (tileHighlighter != null) newGroup.Add(tileHighlighter);
-                        }
+                    foreach (var entry in footprintObjs)
+                    {
+                        if (entry.instance == null || entry.data == null || !entry.data.isFloor) continue;
+                        var tileHighlighter = entry.instance.GetComponent<BuildingHighlighter>();
+                        if (tileHighlighter != null) newGroup.Add(tileHighlighter);
                     }
                 }
             }
@@ -369,66 +337,6 @@ public class DeleteState : PlacementStateBase
     private static bool IsFoundationData(ObjDataSO d)
         => d != null && (d.category == "Foundation" || d.category == "Grounds");
 
-    // If the top visible floor tile in `cell` (a foundation cell) is a CUSTOM tile rather than the
-    // foundation's default, swap it back to the default tile and return true — the foundation is
-    // left in place. Returns false when the tile is already the default (or there's nothing to
-    // revert), so the caller proceeds to delete the foundation itself.
-    private bool TryRevertCustomTile(BuildingData foundation, Vector2Int cell)
-    {
-        if (!TryBuildRevertCommand(foundation, cell, out var cmd)) return false;
-        _fsm.History.Push(cmd);
-        AudioManager.Play("Delete");
-        return true;
-    }
-
-    // The top floor of a foundation cell, for delete purposes:
-    //   BareOrDefault    — nothing on it, or the foundation's own default tile → deleting the
-    //                      foundation is allowed here.
-    //   CustomRevertable — a custom tile AND the foundation has a default configured → revert it.
-    //   CustomNoDefault  — a custom tile but NO default is configured → can't revert, but must NOT
-    //                      delete the foundation either (leave it alone).
-    private enum CellFloorKind { BareOrDefault, CustomRevertable, CustomNoDefault }
-
-    private CellFloorKind ClassifyFoundationCell(BuildingData foundation, Vector2Int cell)
-    {
-        var def = foundation?.Data?.defaultFloorTile;
-
-        ObjDataSO topFloor = null;
-        var objs = _grid.GetObjectsInCell(cell);
-        if (objs != null)
-            for (int i = objs.Count - 1; i >= 0; i--)
-            {
-                var e = objs[i];
-                if (e.instance == foundation.gameObject) continue; // the foundation's own entry — never its own "floor"
-                if (e.instance != null && e.instance.activeSelf && e.data != null && e.data.isFloor)
-                {
-                    topFloor = e.data;
-                    break;
-                }
-            }
-
-        if (topFloor == null) return CellFloorKind.BareOrDefault;
-        if (def != null && topFloor.id == def.id) return CellFloorKind.BareOrDefault;
-        return def != null ? CellFloorKind.CustomRevertable : CellFloorKind.CustomNoDefault;
-    }
-
-    // Builds (but does not push) the swap-to-default command for a foundation cell whose top tile is
-    // a revertable custom floor. Reuses PlaceCommand's floor-swap path, so it's undoable and refunds
-    // the cost difference. False when the tile is already default / bare / has no default configured,
-    // or the cell isn't inside this foundation's footprint.
-    private bool TryBuildRevertCommand(BuildingData foundation, Vector2Int cell, out PlaceCommand cmd)
-    {
-        cmd = null;
-        var def = foundation?.Data?.defaultFloorTile;
-        if (def == null) return false;
-        if (!FoundationCoversCell(foundation, cell)) return false;
-        if (ClassifyFoundationCell(foundation, cell) != CellFloorKind.CustomRevertable) return false;
-
-        var offsets = def.GetFootprintOffsets(0f);
-        cmd = new PlaceCommand(_grid, _finalizer, cell, offsets, def, 0f, _money);
-        return true;
-    }
-
     private static bool FoundationCoversCell(BuildingData foundation, Vector2Int cell)
     {
         if (foundation?.Offsets == null) return false;
@@ -438,7 +346,7 @@ public class DeleteState : PlacementStateBase
         return false;
     }
 
-    // True if any rack (category "Racking") sits anywhere in the drag rectangle. Drives the QoL
+    // True if any rack (category "Racking") sits anywhere in the drag rectangle.Drives the QoL
     // exception that spares foundations during a rack swipe (see UpdateDragDelete).
     private bool DragCapturesRack(List<Vector2Int> footprint)
     {

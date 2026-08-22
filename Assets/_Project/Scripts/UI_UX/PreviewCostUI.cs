@@ -17,13 +17,18 @@ public class PreviewCostUI : MonoBehaviour
         Hide();
     }
 
-    public void ShowCost(int cost, bool canAfford)
+    /// <param name="note">Optional parenthetical, e.g. "max affordable" when a drag has been
+    /// clipped to what the player can actually pay for. The bare total would otherwise look like
+    /// the player simply stopped dragging.</param>
+    public void ShowCost(int cost, bool canAfford, string note = null)
     {
         if (_label == null)
             return;
 
         _label.style.display = DisplayStyle.Flex;
-        _label.text = $"Build Cost: ${cost:N0}";
+        _label.text = string.IsNullOrEmpty(note)
+            ? $"Build Cost: ${cost:N0}"
+            : $"Build Cost: ${cost:N0} ({note})";
 
         // Off-White (#F5F6F9) when affordable; Pop-Orange (#FF7F11) when not
         _label.style.color = canAfford

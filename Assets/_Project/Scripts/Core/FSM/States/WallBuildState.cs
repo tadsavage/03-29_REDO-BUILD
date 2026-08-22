@@ -49,23 +49,36 @@ namespace GameCore.Core.FSM.States
                 targetCell = new Vector2Int(startCell.x, currentCell.y);
             }
 
-            // Generate cells along the line
-            int minX = Mathf.Min(startCell.x, targetCell.x);
-            int maxX = Mathf.Max(startCell.x, targetCell.x);
-            int minY = Mathf.Min(startCell.y, targetCell.y);
-            int maxY = Mathf.Max(startCell.y, targetCell.y);
+            // Generate cells along the line, walking OUTWARD FROM THE DRAG START rather than from
+            // min to max. The order is what decides which end of the run gets clipped when the
+            // budget runs out below — from the start outward, the segments you dragged over first
+            // keep their money and the far end nearest the cursor goes red.
+            int stepX = targetCell.x >= startCell.x ? 1 : -1;
+            int stepY = targetCell.y >= startCell.y ? 1 : -1;
 
             Vector2Int[] offsets = CurrentData.GetFootprintOffsets(-_currentRotation);
 
-            for (int x = minX; x <= maxX; x++)
+            _unaffordableCells.Clear();
+            int budget = AffordableCount();
+            bool clipped = false;
+
+            for (int x = startCell.x; stepX > 0 ? x <= targetCell.x : x >= targetCell.x; x += stepX)
             {
-                for (int y = minY; y <= maxY; y++)
+                for (int y = startCell.y; stepY > 0 ? y <= targetCell.y : y >= targetCell.y; y += stepY)
                 {
                     Vector2Int cell = new Vector2Int(x, y);
                     bool valid = _validator.IsValidPlacement(cell, offsets, CurrentData);
-                    
+
                     _indicatorBuffer.Add(cell);
                     foreach (var o in offsets) _indicatorBuffer.Add(cell + o);
+
+                    if (valid && _dragCells.Count >= budget)
+                    {
+                        valid = false;
+                        clipped = true;
+                        _unaffordableCells.Add(cell);
+                        foreach (var o in offsets) _unaffordableCells.Add(cell + o);
+                    }
 
                     if (valid)
                     {
@@ -79,10 +92,10 @@ namespace GameCore.Core.FSM.States
                 }
             }
 
-            _indicator.ShowCells(_indicatorBuffer, cell => IsFootprintValid(cell));
+            _indicator.ShowCells(_indicatorBuffer, cell => IsFootprintValid(cell) && !_unaffordableCells.Contains(cell));
 
             int totalCost = _dragCells.Count * CurrentData.cost;
-            _costUI.ShowCost(totalCost, _money.CanAfford(totalCost));
+            _costUI.ShowCost(totalCost, !clipped, clipped ? "max affordable" : null);
 
             if (Mouse.current.leftButton.wasReleasedThisFrame)
             {

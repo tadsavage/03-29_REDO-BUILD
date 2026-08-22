@@ -29,7 +29,7 @@ using GameCore.Services;
 public class PurchasingPanel : IUIPanel
 {
     // ── Palette (matches ContractsPanel exactly) ─────────────────────────────
-    private static readonly Color ColBg          = new Color(20f / 255f, 28f / 255f, 38f / 255f, 0.92f);
+    private static readonly Color ColBg          = new Color(18f / 255f, 26f / 255f, 36f / 255f, 0.97f);
     private static readonly Color ColBorder      = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
     private static readonly Color ColTitleText   = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
     private static readonly Color ColSubtleText  = new Color(0x7A / 255f, 0x99 / 255f, 0xB0 / 255f, 1f);
@@ -150,6 +150,11 @@ public class PurchasingPanel : IUIPanel
     {
         _visible = true;
         _overlay.style.display = DisplayStyle.Flex;
+        // Order screens sit above both bars — same reasoning as ContractsPanel.Show. This overlay was
+        // already full-screen (bottom = 0); the raise is what guarantees it beats the top bar and any
+        // panel opened before it, and KeepOnTop hands the top slot back to a visible toast.
+        _overlay.BringToFront();
+        UIToast.KeepOnTop();
         // A fresh number per opening. Nothing is spent by reserving one, and the alternative — one
         // number reused until an order is finally raised — means the number on screen changes meaning
         // depending on how many times you opened and abandoned the panel.

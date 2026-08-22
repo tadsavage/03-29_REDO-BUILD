@@ -36,6 +36,15 @@ public class ResizableWindow
 
     private bool _filled; // false = normal (1x), true = fill screen
 
+    /// <summary>
+    /// Screen-space height reserved for the top bar (TopBar.uss: 56px + 2px bottom border), kept
+    /// clear of on fill-screen. Without this, maximizing any resizable panel (e.g. Employee Roster,
+    /// key 3) grows it edge-to-edge from y=0 and it ends up sitting underneath the top bar's strip —
+    /// the mirror of BuildMenuUI.BottomHudReservedHeight, which already does the same job for the
+    /// bottom HUD.
+    /// </summary>
+    private const float TopBarReservedHeight = 58f;
+
     /// <summary>True while the user is actively dragging an edge.</summary>
     public bool IsResizing => _resizing;
 
@@ -235,6 +244,7 @@ public class ResizableWindow
         var (availW, availH) = GetFullScreenSize();
         if (availW <= 0f) availW = baseW;
         if (availH <= 0f) availH = baseH;
+        availH = Mathf.Max(baseH, availH - TopBarReservedHeight);
 
         const float margin = 0.98f; // slim breathing room so borders don't clip against the edges
         return Mathf.Max(1f, Mathf.Min(availW / baseW, availH / baseH) * margin);
@@ -261,7 +271,8 @@ public class ResizableWindow
             float scaledW = baseW * scale;
             float scaledH = baseH * scale;
             _panel.style.left = Mathf.Max(0f, (availW - scaledW) / 2f);
-            _panel.style.top = Mathf.Max(0f, (availH - scaledH) / 2f);
+            float freeH = Mathf.Max(0f, availH - TopBarReservedHeight - scaledH);
+            _panel.style.top = TopBarReservedHeight + freeH / 2f;
         }
 
         _panel.style.transformOrigin = new StyleTransformOrigin(new TransformOrigin(Length.Percent(0), Length.Percent(0)));

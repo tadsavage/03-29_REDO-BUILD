@@ -41,7 +41,7 @@ using GameCore.Services;
 /// </summary>
 public class ContractsPanel : IUIPanel
 {
-    private static readonly Color ColBg          = new Color(20f / 255f, 28f / 255f, 38f / 255f, 0.92f);
+    private static readonly Color ColBg          = new Color(18f / 255f, 26f / 255f, 36f / 255f, 0.97f);
     private static readonly Color ColBorder      = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
     private static readonly Color ColTitleText   = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
     private static readonly Color ColSubtleText  = new Color(0x7A / 255f, 0x99 / 255f, 0xB0 / 255f, 1f);
@@ -393,6 +393,11 @@ public class ContractsPanel : IUIPanel
     {
         _visible = true;
         _overlay.style.display = DisplayStyle.Flex;
+        // Order screens sit above both bars. Raising on every Show — not once at build time — because
+        // sibling order is decided by whoever raised LAST, so a panel opened after this one would
+        // otherwise end up in front. KeepOnTop puts an on-screen toast back above us straight after.
+        _overlay.BringToFront();
+        UIToast.KeepOnTop();
         if (_scheduleDay == int.MinValue) _scheduleDay = CurrentDay();
         Rebuild();
         CentreOnce();
@@ -454,10 +459,16 @@ public class ContractsPanel : IUIPanel
     {
         var overlay = new VisualElement { name = "contracts-overlay" };
         overlay.style.position = Position.Absolute;
-        // Stops above the bottom HUD so it can't cover the bar or the Build/Play tabs — see the note
-        // on workqueue-overlay in WorkQueuePanel.Build.
+        // FULL screen, deliberately including the bottom HUD strip. The order screens outrank both
+        // bars (Tad's call) — the window may be dragged over the bar and the Build/Play tabs and will
+        // draw on top of them. Other full-screen panels still stop at BuildMenuUI.
+        // BottomHudReservedHeight; this is the documented exception, not a change of house rule.
+        //
+        // Covering the bar costs nothing in clickability: this overlay is PickingMode.Ignore with no
+        // fill (see below), so only the modal's own rectangle is a hit target. The bar stays fully
+        // usable everywhere the window isn't actually sitting on it.
         overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0;
-        overlay.style.bottom = BuildMenuUI.BottomHudReservedHeight;
+        overlay.style.bottom = 0;
 
         // NOT a modal scrim. This element is a positioning frame for the window and nothing else: no
         // dimming fill, and Ignore so it never becomes a hit target. PickingMode.Ignore on a parent

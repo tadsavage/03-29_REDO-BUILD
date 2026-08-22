@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
 public class CellIndicatorController : MonoBehaviour
@@ -153,7 +153,7 @@ public class CellIndicatorController : MonoBehaviour
 
         if (_mode == IndicatorMode.Delete)
         {
-            _mpb.SetColor("_BaseColor", deleteColor);
+            _mpb.SetColor("_BaseColor", BuildingHighlighter.GlobalDeleteColor);
         }
         else if (_mode == IndicatorMode.Move)
         {

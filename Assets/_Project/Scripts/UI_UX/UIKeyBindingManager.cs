@@ -130,6 +130,29 @@ public class UIKeyBindingManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Toggle, re-asserting the panel's registration first.
+    ///
+    /// Registration made in a panel's Awake/Start is bound to whichever manager existed at that
+    /// moment. A scene load (loading a save, returning from the menu) builds a fresh manager with an
+    /// empty registry, and nothing re-registers into it — the panel's one-shot Awake has long since
+    /// run. The result was keys 2/3/4 going dead after a load while 1 and 5-9, which are registered
+    /// by TopBarUI/UIBootstrapper on the same fresh-scene path, kept working.
+    ///
+    /// Panels driving their own hotkey should call this overload: it costs a dictionary lookup per
+    /// keypress and makes a lost registry self-healing rather than permanent.
+    /// </summary>
+    public void ToggleUI(int keyNumber, IUIPanel panel)
+    {
+        if (panel != null &&
+            (!_uiPanels.TryGetValue(keyNumber, out var registered) || !ReferenceEquals(registered, panel)))
+        {
+            RegisterUI(keyNumber, panel, _floatingKeys.Contains(keyNumber));
+        }
+
+        ToggleUI(keyNumber);
+    }
+
     /// <summary>Toggle a UI panel: close others, open this one. If already open, close it.</summary>
     public void ToggleUI(int keyNumber)
     {
