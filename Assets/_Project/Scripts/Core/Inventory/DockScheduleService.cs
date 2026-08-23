@@ -89,6 +89,22 @@ namespace GameCore.Inventory
         /// </summary>
         public bool OffSlotPenaltyApplied;
 
+        /// <summary>
+        /// The DAY this trailer was originally booked for, which is what "a day late" is measured
+        /// against. Stamped once when the appointment is created and never changed by a move — that is
+        /// the entire point: after the player drags it, Day says where it IS and this says where it was
+        /// SUPPOSED to be, and the gap between them is the promise that got broken.
+        ///
+        /// The requested HOUR needs no equivalent field: it comes from the contract's CutoffHour, which
+        /// can't be moved by dragging a chip. The day can't be derived that way, because a recurring
+        /// account wants a trailer EVERY day and nothing in the contract says which one this is.
+        ///
+        /// 0 means "not recorded" — a save written before this existed. Treated as "no day
+        /// displacement" rather than "day zero", which would read every restored appointment as
+        /// catastrophically late the moment it was loaded.
+        /// </summary>
+        public int RequestedDay;
+
         public int StartHour => BlockIndex * DockScheduleService.BlockHours;
         public int EndHour => StartHour + DockScheduleService.BlockHours;
         public string TimeLabel => $"{StartHour:00}:00–{EndHour:00}:00";
@@ -143,6 +159,9 @@ namespace GameCore.Inventory
         /// forgiving default: at worst an already-penalized trailer can be charged once more after
         /// loading such a save, rather than a fresh trailer being wrongly treated as already paid.</summary>
         public bool offSlotPenaltyApplied;
+        /// <summary>0 in a save written before off-slot distance was measured. Read as "no baseline
+        /// recorded", which costs nothing — the forgiving default, matching offSlotPenaltyApplied.</summary>
+        public int requestedDay;
     }
 
     /// <summary>
@@ -427,7 +446,12 @@ namespace GameCore.Inventory
                 Kind = kind,
                 CustomerId = customerId,
                 CustomerName = customerName,
-                ContractId = contractId
+                ContractId = contractId,
+                // Where this trailer was MEANT to be. Every appointment is created on the day it's
+                // wanted — pre-booked recurring trailers by MaintainRecurringSchedule, everything else
+                // by the arrival or the player placing it — so creation day is the honest baseline.
+                // Moves deliberately leave it alone; see DockAppointment.RequestedDay.
+                RequestedDay = day
             };
             _appointments.Add(booked);
             return true;
@@ -466,7 +490,16 @@ namespace GameCore.Inventory
                 return true;
             }
 
-            if (appt.Day < CurrentDay || (appt.Day == CurrentDay && appt.BlockIndex < CurrentBlock))
+            // A PARKED trailer holds no door and no block — its stored Day/BlockIndex are only the
+            // pool box's display defaults (see ParkInboundForPo: "Neither is honoured while it sits
+            // parked"), not a slot it occupies, so its time can't have "passed". Judging it by that
+            // stale block is what silently stopped a PO raised earlier in the day from ever being
+            // placed once the clock moved past the block it happened to be parked at: IsLocked fired
+            // on the parked block and TryMoveToDoor refused before it ever looked at the future slot
+            // the player clicked. The real guard against landing on an elapsed slot is the DESTINATION
+            // check in TryMoveToDoor, which stands regardless of this.
+            if (!appt.Parked &&
+                (appt.Day < CurrentDay || (appt.Day == CurrentDay && appt.BlockIndex < CurrentBlock)))
             {
                 reason = $"{BlockLabel(appt.BlockIndex)} on day {appt.Day} has already passed.";
                 return true;
@@ -484,6 +517,81 @@ namespace GameCore.Inventory
         }
 
         public bool IsLocked(DockAppointment appt) => IsLocked(appt, out _);
+
+        /// <summary>
+        /// Has this trailer's work actually FINISHED — as opposed to merely being unmovable?
+        ///
+        /// Deliberately separate from <see cref="IsLocked"/>, which conflates three unrelated things:
+        /// "this is a truck-at-a-door note", "its block has elapsed", and "its work is done". Only the
+        /// last is completion. A booking whose block has passed with the freight still sitting there is
+        /// late, not finished, and striking it through would tell the player the opposite of the truth.
+        ///
+        /// Completion by kind:
+        ///   OUTBOUND      no order it carries still wants a door. That covers shipped AND cancelled —
+        ///                 both are "this trailer is no longer live work", which is exactly what a line
+        ///                 through it means. It is NOT complete while it has no orders yet: that's an
+        ///                 empty booking made ahead of the freight, the one thing most in need of doing.
+        ///   INBOUND (PO)  the purchase order has been received or has departed, or has left the
+        ///                 pending list altogether (ShipmentService.PurgeCompleted retires finished POs,
+        ///                 so "not found" here means done, not missing).
+        ///   INBOUND (note) BookInboundNow's record that a truck is at a door right now — finished
+        ///                 precisely when no inbound truck is at that door any more.
+        ///
+        /// A parked appointment is never complete: it holds no door and hasn't started.
+        /// </summary>
+        public bool IsComplete(DockAppointment appt)
+        {
+            if (appt == null || appt.Parked) return false;
+
+            if (appt.Kind == AppointmentKind.Inbound)
+            {
+                if (!string.IsNullOrEmpty(appt.ShipmentPoNumber))
+                {
+                    if (!ServiceLocator.TryGet(out ShipmentService shipments) || shipments == null)
+                        return false; // can't tell — never claim done
+
+                    ShipmentData po = null;
+                    foreach (var s in shipments.PendingShipments)
+                        if (s != null && s.PONumber == appt.ShipmentPoNumber) { po = s; break; }
+
+                    if (po == null) return true; // retired by PurgeCompleted = finished
+                    return po.Status == ShipmentData.ShipmentStatus.Received
+                        || po.Status == ShipmentData.ShipmentStatus.Departed
+                        || po.Status == ShipmentData.ShipmentStatus.Cancelled;
+                }
+
+                // A bare "truck is at this door" note: done when the truck has gone.
+                return !InboundTruckAtDoor(appt.DoorNumber);
+            }
+
+            // Outbound. An appointment with nothing on it yet is a plan, not finished work.
+            return appt.OrderIds.Count > 0 && !AnyOrderStillNeedsDock(appt);
+        }
+
+        // Doors with an inbound truck at them, refreshed at most this often. IsComplete is asked once
+        // per visible chip on a 1s UI tick, and an unguarded FindObjectsByType per chip is a scene-wide
+        // scan several times a second for an answer that cannot meaningfully change that fast.
+        private static readonly HashSet<int> _inboundDoorCache = new();
+        private static float _inboundDoorCacheTime = -1f;
+        private const float InboundDoorCacheSeconds = 0.25f;
+
+        /// <summary>Is an INBOUND truck currently docked at this door? Mirrors
+        /// StagingLaneAssignmentService.HasInboundTruckDocked; kept local so this service doesn't take a
+        /// dependency on the staging layer just to answer a scheduling question.</summary>
+        private static bool InboundTruckAtDoor(int doorNumber)
+        {
+            if (Time.unscaledTime - _inboundDoorCacheTime > InboundDoorCacheSeconds)
+            {
+                _inboundDoorCacheTime = Time.unscaledTime;
+                _inboundDoorCache.Clear();
+                foreach (var truck in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+                {
+                    if (truck == null || truck.IsOutbound) continue;
+                    if (truck.DockedAt != null) _inboundDoorCache.Add(truck.DockedAt.DoorNumber);
+                }
+            }
+            return _inboundDoorCache.Contains(doorNumber);
+        }
 
         /// <summary>
         /// Whether an appointment's block misses its own contract's requested hour (CutoffHour) — the
@@ -533,10 +641,111 @@ namespace GameCore.Inventory
         public bool TryClaimOffSlotPenalty(DockAppointment appt)
         {
             if (appt == null || appt.OffSlotPenaltyApplied) return false;
-            if (!MissedRequestedSlot(appt)) return false;
+            if (!MissedRequestedSlot(appt) && OffSlotDaysFrom(appt) == 0) return false;
 
             appt.OffSlotPenaltyApplied = true;
             return true;
+        }
+
+        // ── How badly a trailer misses the slot it was promised ──────────────
+        //
+        // PLACEHOLDER NUMBERS, deliberately. Tad's anchors: "a day late would be moderately significant
+        // like 10 points, whereas anything over two hours is 2 points". They are named constants in one
+        // place precisely so balancing is an edit, not an archaeology exercise.
+        //
+        // Charged per BLOCK and per DAY rather than as one curve over total hours, because those are
+        // the two units the player actually manipulates: they drag a chip up and down a column of
+        // two-hour blocks, or across to another day. A single hours-based formula would make a
+        // one-block nudge and a one-day slip differ only in magnitude, when they're different mistakes.
+
+        /// <summary>Reputation cost per 2-hour block away from the customer's requested hour.</summary>
+        public const int RepPointsPerBlockOff = 2;
+
+        /// <summary>Reputation cost per whole day away from the day the trailer was booked for.</summary>
+        public const int RepPointsPerDayOff = 10;
+
+        /// <summary>Ceiling on a single trailer's off-slot reputation hit. Without it, dragging one
+        /// chip a week out could cost 70 points in a single click — a whole reputation band — for one
+        /// mistake the player can still put right.</summary>
+        public const int MaxOffSlotRepPenalty = 30;
+
+        /// <summary>How many whole days this trailer sits from the day it was booked for. 0 when the
+        /// baseline was never recorded (pre-existing save) — see DockAppointment.RequestedDay.</summary>
+        public int OffSlotDaysFrom(DockAppointment appt)
+        {
+            if (appt == null || appt.RequestedDay <= 0) return 0;
+            // No contract means nobody asked for a slot, so there is no promise to have broken. This
+            // is what keeps a BULK trailer free to move: the player chose its day themselves, and its
+            // lateness is already priced by its own due-day fine rather than twice over here.
+            if (!TryGetRequestedBlock(appt.ContractId, out _)) return 0;
+            return Mathf.Abs(appt.Day - appt.RequestedDay);
+        }
+
+        /// <summary>How many 2-hour blocks this trailer sits from the hour its customer asked for.
+        /// 0 when there's no contract on record to have asked for anything.</summary>
+        public int OffSlotBlocksFrom(DockAppointment appt)
+        {
+            if (appt == null || !TryGetRequestedBlock(appt.ContractId, out int wanted)) return 0;
+            return Mathf.Abs(appt.BlockIndex - wanted);
+        }
+
+        /// <summary>
+        /// The reputation this landing costs. Scales with distance in both units, so nudging a trailer
+        /// one block earlier is a shrug and shipping it a day late is a real mark against the account.
+        ///
+        /// Returns 0 for anything with no promise to break — a bulk order the player placed themselves,
+        /// or freight with no contract on record. Never negative, never above the cap.
+        /// </summary>
+        public int OffSlotReputationCost(DockAppointment appt)
+        {
+            if (appt == null) return 0;
+
+            int cost = OffSlotBlocksFrom(appt) * RepPointsPerBlockOff
+                     + OffSlotDaysFrom(appt) * RepPointsPerDayOff;
+
+            return Mathf.Clamp(cost, 0, MaxOffSlotRepPenalty);
+        }
+
+        /// <summary>
+        /// The same sum asked BEFORE the move, so the confirmation dialog can quote a real price rather
+        /// than "a negative impact". Takes the destination explicitly because the appointment hasn't
+        /// been moved yet — reading it off the live object would price the move the player is trying to
+        /// get away FROM.
+        /// </summary>
+        public int PredictOffSlotReputationCost(string contractId, int requestedDay, int targetDay, int targetBlock)
+        {
+            // Same rule as OffSlotDaysFrom: no contract, no promise, no penalty.
+            if (!TryGetRequestedBlock(contractId, out int wanted)) return 0;
+
+            int blocks = Mathf.Abs(targetBlock - wanted);
+            int days = requestedDay > 0 ? Mathf.Abs(targetDay - requestedDay) : 0;
+
+            return Mathf.Clamp(blocks * RepPointsPerBlockOff + days * RepPointsPerDayOff,
+                               0, MaxOffSlotRepPenalty);
+        }
+
+        /// <summary>Predictive twin of DescribeOffSlot, for the same reason.</summary>
+        public string PredictDescribeOffSlot(string contractId, int requestedDay, int targetDay, int targetBlock)
+        {
+            if (!TryGetRequestedBlock(contractId, out int wanted)) return "on their requested slot";
+            int blocks = Mathf.Abs(targetBlock - wanted);
+            int days = requestedDay > 0 ? Mathf.Abs(targetDay - requestedDay) : 0;
+            return Describe(blocks, days);
+        }
+
+        /// <summary>Plain-language version of the same sum, for the warning dialog and the toast — the
+        /// player should be told what it costs BEFORE they commit, in the units they moved it in.</summary>
+        public string DescribeOffSlot(DockAppointment appt)
+            => Describe(OffSlotBlocksFrom(appt), OffSlotDaysFrom(appt));
+
+        private static string Describe(int blocks, int days)
+        {
+            if (blocks == 0 && days == 0) return "on their requested slot";
+
+            var parts = new List<string>();
+            if (days > 0) parts.Add($"{days} day{(days == 1 ? "" : "s")}");
+            if (blocks > 0) parts.Add($"{blocks * BlockHours} hour{(blocks * BlockHours == 1 ? "" : "s")}");
+            return string.Join(" and ", parts) + " off their slot";
         }
 
         /// <summary>The block a contract's customer actually asked for, derived from CutoffHour — the
@@ -784,14 +993,24 @@ namespace GameCore.Inventory
             // "earliest upcoming" is TOMORROW's trailer, and today's freight would silently ride a
             // slot booked for a different day's order. Falling through to auto-place instead puts it
             // on today where its deadline actually is, or strands it visibly if the dock is full.
+            // A recurring order can now be materialized DAYS before its delivery slot so the player can
+            // plan and pick it ahead of time. CreatedDayNumber is deliberately stamped with that slot
+            // by OrderArrivalService.GenerateFor(contract, scheduledDay), so attach this manifest to
+            // the appointment on THAT day — never blindly to CurrentDay. Otherwise the first future
+            // order could join today's pre-booked trailer, while the Recurring Orders tab correctly
+            // displays another future manifest for the same account.
+            int scheduledDay = !order.IsBulk && order.CreatedDayNumber >= CurrentDay
+                ? order.CreatedDayNumber
+                : CurrentDay;
             var candidates = UpcomingFor(order.CustomerId)
                 .Where(a => a.Kind != AppointmentKind.Inbound && a.ContractId == order.ContractId)
                 .ToList();
-            var existing = candidates.FirstOrDefault(a => a.Day == CurrentDay) ??
+            var existing = candidates.FirstOrDefault(a => a.Day == scheduledDay) ??
                            (order.IsBulk ? candidates.FirstOrDefault() : null);
             if (existing != null)
             {
                 if (!existing.OrderIds.Contains(order.OrderId)) existing.OrderIds.Add(order.OrderId);
+                ReconcileFutureRecurringAppointments();
                 return;
             }
 
@@ -803,11 +1022,12 @@ namespace GameCore.Inventory
                 : null;
 
             var kind = order.IsBulk ? AppointmentKind.Bulk : AppointmentKind.Outbound;
-            if (!TryAutoPlace(CurrentDay, requestedHour, Mathf.Max(order.DueDay, CurrentDay), kind,
+            if (!TryAutoPlace(scheduledDay, requestedHour, Mathf.Max(order.DueDay, scheduledDay), kind,
                               order.CustomerId, order.CustomerName, order.ContractId, out var appt))
                 return;
 
             appt.OrderIds.Add(order.OrderId);
+            ReconcileFutureRecurringAppointments();
             // Through the same one-shot gate the player's own moves use — a trailer that already cost
             // satisfaction for being off-slot must not cost it again just because a second order
             // joined it, and this path can run repeatedly for one appointment (once per arriving
@@ -825,6 +1045,39 @@ namespace GameCore.Inventory
                 arrivals?.PenalizeSatisfaction(order.ContractId);
             }
         }
+
+        /// <summary>
+        /// Repairs appointments written by the former early-generation behaviour, which attached a
+        /// future recurring manifest to the trailer booked for the day it was generated rather than its
+        /// own delivery day. For every future recurring order, its CreatedDayNumber is the delivery slot
+        /// stamped by OrderArrivalService.GenerateFor; move only that order ID to the matching existing
+        /// appointment. This is idempotent, preserves the player's chosen door/block/parked state, and
+        /// makes Schedule and Recurring Orders read the exact same order data after a save is loaded.
+        /// </summary>
+        private void ReconcileFutureRecurringAppointments()
+        {
+            if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return;
+
+            foreach (var order in orders.ActiveOrders)
+            {
+                if (order == null || order.IsBulk || string.IsNullOrEmpty(order.ContractId)
+                    || order.Status == OrderData.OrderStatus.Shipped
+                    || order.Status == OrderData.OrderStatus.Cancelled
+                    || order.CreatedDayNumber < CurrentDay) continue;
+
+                var target = _appointments.FirstOrDefault(a => a.Kind != AppointmentKind.Inbound
+                    && a.ContractId == order.ContractId && a.CustomerId == order.CustomerId
+                    && a.Day == order.CreatedDayNumber);
+                if (target == null) continue;
+
+                foreach (var appointment in _appointments)
+                {
+                    if (appointment != target) appointment.OrderIds.Remove(order.OrderId);
+                }
+                if (!target.OrderIds.Contains(order.OrderId)) target.OrderIds.Add(order.OrderId);
+            }
+        }
+
 
         /// <summary>
         /// Books a customer's own requested hour if one was given and hasn't already passed today,
@@ -965,7 +1218,11 @@ namespace GameCore.Inventory
             // the Schedule tab optional — the player rebooks, or loses the account.
         }
 
-        private void OnHourChanged(string eventId, int newHour) => SweepElapsedAppointments();
+        private void OnHourChanged(string eventId, int newHour)
+        {
+            SweepElapsedAppointments();
+            ReconcileFutureRecurringAppointments();
+        }
 
         /// <summary>
         /// Judges every appointment whose booked block has fully elapsed, once per hour tick.
@@ -1098,6 +1355,7 @@ namespace GameCore.Inventory
                     OrderIds = s.orderIds ?? new List<string>(),
                     Parked = s.parked,
                     ShipmentPoNumber = s.shipmentPoNumber,
+                    RequestedDay = s.requestedDay,
                     OffSlotPenaltyApplied = s.offSlotPenaltyApplied
                 });
             }

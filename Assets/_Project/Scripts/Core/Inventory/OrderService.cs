@@ -92,23 +92,17 @@ namespace GameCore.Inventory
             OnOrderArrived?.Invoke(order);
             Debug.Log($"[OrderService] New Order received: {order.OrderId} from {order.CustomerName} ({order.TotalUnits} units) — awaiting release to a staging lane.");
 
-            if (order.IsBulk)
-            {
-                FileBulkTasks(order);
-                return;
-            }
-
-            var task = _workQueue?.CreateTask(
-                WorkTaskType.OrderSelect,
-                EmployeeRole.OrderSelector,
-                palletId: null, // no single pallet — the selector builds one/two FOR this order
-                description: $"Select order for {order.CustomerName} ({order.TotalUnits} units)",
-                orderId: order.OrderId);
-            if (task != null) task.Status = WorkTaskStatus.Open;
+            // EVERY order splits the same way now, bulk or not: whole pallets to the Reach Trucks,
+            // only the sub-pallet remainder to a case picker. This used to be a bulk-only rule, which
+            // meant a recurring account ordering three full pallets of one SKU had a selector walk off
+            // 120 cases by hand while a reach truck stood idle — the same freight, moved the slow way,
+            // purely because of which contract type asked for it. Nothing about a case pick is right
+            // for a full pallet; the split is a property of the QUANTITY, not of the order type.
+            FileOrderTasks(order);
         }
 
         /// <summary>
-        /// Files the work for a BULK order: one PalletPick per whole pallet, plus a single OrderSelect
+        /// Files the work for ANY order: one PalletPick per whole pallet, plus a single OrderSelect
         /// covering every loose case left over across the whole order.
         /// </summary>
         /// <remarks>
@@ -123,7 +117,7 @@ namespace GameCore.Inventory
         /// to the case picker. That's the honest failure — it keeps the order fillable instead of
         /// filing pallet picks that could never resolve a source pallet.
         /// </remarks>
-        private void FileBulkTasks(OrderData order)
+        private void FileOrderTasks(OrderData order)
         {
             int palletTasks = 0;
             int looseCases = 0;
@@ -133,7 +127,7 @@ namespace GameCore.Inventory
                 int fullPallet = FullPalletCases(li.SkuId);
                 if (fullPallet <= 0)
                 {
-                    Debug.LogWarning($"[OrderService] SKU {li.SkuId} on bulk order {order.OrderId} has no " +
+                    Debug.LogWarning($"[OrderService] SKU {li.SkuId} on order {order.OrderId} has no " +
                                      $"committed Ti/Hi — its {li.QuantityNeeded} case(s) fall back to a case pick.");
                     looseCases += li.QuantityNeeded;
                     continue;
@@ -171,7 +165,7 @@ namespace GameCore.Inventory
                 if (st != null) st.Status = WorkTaskStatus.Open;
             }
 
-            Debug.Log($"[OrderService] BULK order {order.OrderId} ({order.CustomerName}): filed {palletTasks} " +
+            Debug.Log($"[OrderService] Order {order.OrderId} ({order.CustomerName}): filed {palletTasks} " +
                       $"pallet pick(s)" + (looseCases > 0 ? $" and 1 case pick for {looseCases} loose case(s)." : "."));
         }
 
@@ -217,7 +211,10 @@ namespace GameCore.Inventory
         public int SelectableRemaining(OrderData order, OrderLineItem line)
         {
             if (order == null || line == null) return 0;
-            if (!order.IsBulk) return line.QuantityRemaining;
+            // No IsBulk gate any more: every order can carry PalletPick tasks (see FileOrderTasks),
+            // so every order has to subtract what the Reach Trucks still owe. Leaving the gate in
+            // would let a selector hand-pick cases a pallet pick is already on its way with, and the
+            // order would be over-picked by exactly the pallet quantities.
             return Mathf.Max(0, line.QuantityRemaining - OutstandingPalletPickCases(order.OrderId, line.SkuId));
         }
 
@@ -227,7 +224,7 @@ namespace GameCore.Inventory
         /// pickable location for the pallet quantities.</summary>
         public bool RemainingIsAllPalletPick(OrderData order)
         {
-            if (order == null || !order.IsBulk) return false;
+            if (order == null) return false;
             if (order.IsFullyPicked) return false;
             return order.LineItems.All(li => SelectableRemaining(order, li) <= 0);
         }
@@ -390,9 +387,44 @@ namespace GameCore.Inventory
 
                 if (chosen == 0)
                 {
-                    failReason = customerOrder.Count > 1
-                        ? $"no free stage left for {group.CustomerName} — {customerOrder.Count} customers selected but only {claimed.Count} stage(s) could be assigned"
-                        : $"no available stage for {group.CustomerName}";
+                    // "no free stage" on its own reads as "the staging lanes are full", and that is
+                    // usually NOT what happened — every lane can be completely empty and the stage
+                    // still refused because another customer owns it, or an inbound trailer is sitting
+                    // on it. Naming the actual blocker per stage is the difference between a message
+                    // the player can act on and one that sends them to count pallets in an empty lane.
+                    if (customerOrder.Count > 1)
+                    {
+                        string taken = plan.Count > 0
+                            ? string.Join(", ", plan.Select(p => $"{p.CustomerName} → Stage {p.DoorNumber}"))
+                            : "none could be assigned";
+                        failReason = $"a stage holds one customer at a time, and all {allDoors.Count} " +
+                                     $"stage(s) are spoken for ({taken}) — {group.CustomerName} has " +
+                                     $"nowhere to stage. Release fewer customers at once, or add another " +
+                                     $"dock door";
+                    }
+                    else if (allDoors.Count == 0)
+                    {
+                        failReason = "there are no dock doors with staging lanes yet — place a shipping " +
+                                     "door and a row of lane tiles first";
+                    }
+                    else
+                    {
+                        // One customer, so the useful information is why EACH stage said no.
+                        var reasons = new List<string>();
+                        foreach (int door in allDoors)
+                        {
+                            var owner = StagingLaneAssignmentService.GetOwningCustomerIdForDoor(this, door);
+                            if (owner != null && owner != customerId)
+                            {
+                                reasons.Add($"Stage {door} is held by {owner}");
+                                continue;
+                            }
+                            StagingLaneAssignmentService.IsStageSelectableFor(this, inv, door, customerId, out string r);
+                            reasons.Add($"Stage {door}: {r ?? "unavailable"}");
+                        }
+                        failReason = $"no stage will take {group.CustomerName} — {string.Join("; ", reasons)}";
+                    }
+
                     plan = null;
                     return false;
                 }
@@ -557,7 +589,9 @@ namespace GameCore.Inventory
             if (_workQueue == null || orderIds == null || orderIds.Count == 0) return false;
 
             var orders = orderIds.Select(id => _activeOrders.FirstOrDefault(o => o.OrderId == id)).ToList();
-            if (orders.Any(o => o == null || o.Status != OrderData.OrderStatus.Staged)) return false;
+            // Same rule as the batch path — a partially picked order loads what it has. See
+            // CanStartLoading for why "Staged only" was wrong.
+            if (orders.Any(o => !CanStartLoading(o, out _))) return false;
 
             string customerId = orders[0].CustomerId;
             // Still one customer and one door per release, but NO LONGER one lane: staging overflows
@@ -607,6 +641,49 @@ namespace GameCore.Inventory
         /// Validates the whole batch before releasing any of it, so one bad order can't leave half the
         /// selection Loading and half Staged.
         /// </summary>
+        /// <summary>
+        /// May this order start loading?
+        ///
+        /// PARTIALLY PICKED COUNTS. This used to demand Staged — "every case accounted for" — which
+        /// meant an order the warehouse could only half fill could never begin loading at all: the
+        /// pallets sat in the lane, the trailer sat at the door, and the player's only move was to
+        /// wait for stock that might never come. Real docks load what they have and short the rest.
+        ///
+        /// What IS required is that something is actually there to load. An order with nothing picked
+        /// has nothing in the lane, and sending a loader to fetch it would just be a wasted trip that
+        /// then reports the trailer "Loaded" with an empty deck.
+        ///
+        /// Once loading begins the shortfall is the player's to resolve — top it up from a later
+        /// delivery and load again, or close out short and take the satisfaction hit (see
+        /// CloseOutOrders).
+        /// </summary>
+        public bool CanStartLoading(OrderData order, out string whyNot)
+        {
+            whyNot = null;
+            if (order == null) { whyNot = "no longer exists"; return false; }
+
+            if (order.Status != OrderData.OrderStatus.Staged &&
+                order.Status != OrderData.OrderStatus.PartiallyPicked)
+            {
+                whyNot = $"is {order.Status}, not staged or partially picked";
+                return false;
+            }
+
+            if (order.TotalUnitsPicked <= 0)
+            {
+                whyNot = "has nothing staged yet — there is nothing to load";
+                return false;
+            }
+
+            if (order.AssignedDoorNumber <= 0 || string.IsNullOrEmpty(order.AssignedLane))
+            {
+                whyNot = "has no staging lane recorded";
+                return false;
+            }
+
+            return true;
+        }
+
         public bool ReleaseOrdersToLoadingBatch(List<string> orderIds, out string failReason)
         {
             failReason = null;
@@ -619,9 +696,9 @@ namespace GameCore.Inventory
             {
                 var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
                 if (order == null) { failReason = $"order {id} no longer exists"; return false; }
-                if (order.Status != OrderData.OrderStatus.Staged)
+                if (!CanStartLoading(order, out string whyNot))
                 {
-                    failReason = $"{order.CustomerName}'s order is {order.Status}, not Staged";
+                    failReason = $"{order.CustomerName}'s order {whyNot}";
                     return false;
                 }
                 if (order.AssignedDoorNumber <= 0 || string.IsNullOrEmpty(order.AssignedLane))
@@ -724,13 +801,108 @@ namespace GameCore.Inventory
         /// would eventually disagree with the money that changed hands. The UI uses it to show the
         /// figure it just banked (see WorkQueuePanel / MoneyFlightFx). 0 whenever this returns
         /// false.</summary>
+        /// <summary>
+        /// May this order be closed out and billed?
+        ///
+        /// THE ONE HARD RULE IS AN EMPTY LANE. The player is free to close out short — that's the
+        /// whole point of being allowed to ship what they have — but not while their own freight is
+        /// still standing in the staging lane waiting for a loader. Billing a customer for cases that
+        /// are demonstrably still on the warehouse floor isn't a trade-off, it's a bug the player
+        /// would be able to farm.
+        ///
+        /// So: Loaded is always fine (the loader finished its pass and the lane is empty by
+        /// construction). Loading is fine too, PROVIDED nothing of this order is left in the lane —
+        /// that's the case where the trailer took everything there was and the order never reached
+        /// Loaded because there was nothing more to fetch.
+        /// </summary>
+        /// <summary>Satisfaction lost for a completely unfilled order. Scaled by the shortfall, so a
+        /// 95%-filled order is a shrug and a 33%-filled one hurts. Placeholder magnitude, like the
+        /// rest of the balance numbers.</summary>
+        public const float ShortShipSatisfactionPenalty = 30f;
+
+        /// <summary>
+        /// Docks customer satisfaction in proportion to how much of their order didn't turn up.
+        ///
+        /// Charged at SHIP time rather than at close-out, so it lands the same whether the player
+        /// closed out short deliberately or the deadline swept a half-filled order out from under
+        /// them — the customer's experience is identical either way, and gating it on the close-out
+        /// button would let the second route escape unpunished.
+        ///
+        /// Silent no-op for a full ship, and for anything with no contract behind it.
+        /// </summary>
+        private static void PenalizeShortShipment(OrderData order)
+        {
+            if (order == null || order.TotalUnits <= 0) return;
+
+            float filled = order.TotalUnitsPicked / (float)order.TotalUnits;
+            if (filled >= 0.999f) return;                       // shipped complete — nothing owed
+
+            if (!ServiceLocator.TryGet(out OrderArrivalService arrivals) || arrivals == null) return;
+
+            float penalty = ShortShipSatisfactionPenalty * (1f - filled);
+            arrivals.PenalizeSatisfaction(order.ContractId, penalty);
+
+            Debug.Log($"[OrderService] {order.CustomerName} shipped {filled:P0} filled " +
+                      $"({order.TotalUnitsPicked}/{order.TotalUnits}) — satisfaction −{penalty:F1}.");
+        }
+
+        public bool CanCloseOut(OrderData order, out string whyNot)
+        {
+            whyNot = null;
+            if (order == null) { whyNot = "no longer exists"; return false; }
+
+            if (order.Status == OrderData.OrderStatus.Loaded) return true;
+
+            if (order.Status != OrderData.OrderStatus.Loading)
+            {
+                whyNot = $"is {order.Status} — it has to be loading or loaded before it can be closed out";
+                return false;
+            }
+
+            if (StagedPalletsRemainingInLane(order) > 0)
+            {
+                whyNot = "still has pallets standing in its staging lane — load them first";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// How many staged pallets are still sitting in this order's lane.
+        ///
+        /// Counted from the world rather than from the order's own numbers, because the order records
+        /// cases and the lane holds pallets, and only the physical objects know which is actually
+        /// still there. Mirrors TrailerLoadController.FindStagedPalletsInLane, including its rule that
+        /// a parented pallet is mid-carry and therefore not standing in the lane.
+        /// </summary>
+        public int StagedPalletsRemainingInLane(OrderData order)
+        {
+            if (order == null || order.AssignedDoorNumber <= 0 || string.IsNullOrEmpty(order.AssignedLane))
+                return 0;
+
+            var grid = Object.FindFirstObjectByType<PlacementGrid>();
+            if (grid == null) return 0;
+
+            int count = 0;
+            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            {
+                if (pallet == null || pallet.transform.parent != null) continue;   // mid-carry
+                var cell = grid.WorldToCell(pallet.transform.position);
+                if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
+                if (slot.DoorNumber != order.AssignedDoorNumber || slot.Lane != order.AssignedLane) continue;
+                count++;
+            }
+            return count;
+        }
+
         public bool CloseOutOrders(List<string> orderIds, out int totalBilled)
         {
             totalBilled = 0;
             if (orderIds == null || orderIds.Count == 0) return false;
 
             var orders = orderIds.Select(id => _activeOrders.FirstOrDefault(o => o.OrderId == id)).ToList();
-            if (orders.Any(o => o == null || o.Status != OrderData.OrderStatus.Loaded)) return false;
+            if (orders.Any(o => !CanCloseOut(o, out _))) return false;
 
             var revenueByDoor = new Dictionary<int, int>();
             foreach (var order in orders)
@@ -848,6 +1020,7 @@ namespace GameCore.Inventory
 
             order.Status = OrderData.OrderStatus.Shipped;
             StampClosedNow(order);
+            PenalizeShortShipment(order);
             OnOrderShipped?.Invoke(order);
             // Terminal now — out of the working list before CloseOutOrders asks the door whether
             // anything there is still Loading/Loaded, so a just-shipped order can't hold its own
@@ -1184,21 +1357,13 @@ namespace GameCore.Inventory
                         if (t.Type == WorkTaskType.PalletPick) t.PalletId = null;
                     }
                 }
-                else if (order.IsBulk)
-                {
-                    // QuantityPicked was just zeroed above, so FileBulkTasks re-derives the same
-                    // pallet/remainder split the order arrived with.
-                    FileBulkTasks(order);
-                }
                 else
                 {
-                    var task = _workQueue?.CreateTask(
-                        WorkTaskType.OrderSelect,
-                        EmployeeRole.OrderSelector,
-                        palletId: null,
-                        description: $"Select order for {order.CustomerName} ({order.TotalUnits} units)",
-                        orderId: order.OrderId);
-                    if (task != null) task.Status = WorkTaskStatus.Open;
+                    // QuantityPicked was just zeroed above, so FileOrderTasks re-derives the same
+                    // pallet/remainder split the order arrived with. No bulk/non-bulk fork any more —
+                    // re-filing has to reproduce whatever ReceiveOrder would file today, and that is
+                    // now one path for every order.
+                    FileOrderTasks(order);
                 }
 
                 reset++;

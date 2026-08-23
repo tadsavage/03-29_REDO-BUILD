@@ -90,6 +90,20 @@ namespace GameCore.Inventory
         /// </summary>
         public const int ScheduleHorizonDays = 7;
 
+        /// <summary>
+        /// How far ahead of its scheduled slot a recurring order's real composition (SKUs and
+        /// quantities) is rolled and exposed to the player — Tad's ask: "all orders in the system,
+        /// whether they're for another day or not, should have a quantity if it's expected to
+        /// arrive within 48 hours or less."
+        ///
+        /// The order still carries the SAME DueDay it always would have (the scheduled slot's day),
+        /// it's just materialized into a real OrderData up to this many hours early instead of
+        /// exactly at the contract's cutoff hour on the day itself — so the Accounts tab and its
+        /// ORDER DETAILS pane have real cases/pallets to show, not a placeholder, the moment a
+        /// player is within planning range of it.
+        /// </summary>
+        public const int GenerateAheadHours = 48;
+
         private readonly List<SignedContract> _signed = new();
         private readonly List<ContractData> _catalog = new();
 
@@ -417,11 +431,26 @@ namespace GameCore.Inventory
         /// no-ops for a contract that isn't (or is no longer) signed — a Dev Console order or a lost
         /// contract has nothing left to penalize.</summary>
         public void PenalizeSatisfaction(string contractId)
+            => PenalizeSatisfaction(contractId, SatisfactionPenaltyPerMiss);
+
+        /// <summary>
+        /// Same hit at an explicit size, for offences that aren't "you moved my slot".
+        ///
+        /// Cancelling an order the customer already placed is categorically worse than shifting when
+        /// their trailer turns up — one is an inconvenience, the other is a refusal to supply — so it
+        /// can't share the per-miss constant. See CancelledOrderSatisfactionPenalty.
+        /// </summary>
+        public void PenalizeSatisfaction(string contractId, float amount)
         {
             var signed = GetSigned(contractId);
             if (signed == null) return;
-            signed.SatisfactionPercent = Mathf.Max(0f, signed.SatisfactionPercent - SatisfactionPenaltyPerMiss);
+            signed.SatisfactionPercent = Mathf.Max(0f, signed.SatisfactionPercent - Mathf.Abs(amount));
         }
+
+        /// <summary>Satisfaction lost when the player cancels an order outright. Deliberately several
+        /// times SatisfactionPenaltyPerMiss: refusing to supply is not a scheduling inconvenience.
+        /// Placeholder magnitude, like the rest of the balance numbers.</summary>
+        public const float CancelledOrderSatisfactionPenalty = 25f;
 
         /// <summary>Nudges customer satisfaction back up for an order that made its deadline. Capped at
         /// 100 — a perfect account can't bank credit against future lateness, which would let a player
@@ -638,7 +667,6 @@ namespace GameCore.Inventory
             foreach (var signed in _signed)
             {
                 if (!signed.Active) continue;
-                if (signed.LastGeneratedDay >= today) continue; // already delivered today
 
                 var contract = _catalog.FirstOrDefault(c => c.ContractId == signed.ContractId);
                 if (contract == null)
@@ -653,18 +681,27 @@ namespace GameCore.Inventory
                 // into IsBulk) predates Frequency and carries its Daily default — dropping this check
                 // would restart it, firing a daily order forever.
                 if (contract.IsOneTime || contract.IsBulk) continue;
-                if (newHour < contract.CutoffHour) continue;
-                // Weekly waits out the rest of its week. A contract that has never fired
-                // (LastGeneratedDay < 0) delivers on its first cutoff rather than making the player
-                // wait a week for anything at all to arrive.
-                if (contract.Frequency == OrderFrequency.Weekly &&
-                    signed.LastGeneratedDay >= 0 &&
-                    today - signed.LastGeneratedDay < 7) continue;
 
-                // Stamped BEFORE generating: a throw or an empty roll must not leave this contract
-                // eligible to fire again on the next hour tick of the same day.
-                signed.LastGeneratedDay = today;
-                GenerateFor(contract, today);
+                // Build the complete planning horizon, not only the very next 48-hour slot. The Schedule
+                // tab already reserves one recurring trailer per delivery day through ScheduleHorizonDays,
+                // and players need the real item quantities for every one of those pending shipments in
+                // order to pick them ahead of schedule. Generating every not-yet-generated delivery slot
+                // here makes the order manifest and its pre-booked trailer a one-to-one plan.
+                //
+                // `LastGeneratedDay` is safe as the single watermark because we always walk forward.
+                // Daily contracts generate consecutive days; weekly contracts find their single matching
+                // day in the same horizon. Skip today's slot after its requested cutoff—if it was not
+                // generated while current, it is a missed delivery rather than work that should appear
+                // retroactively on the planning board.
+                for (int scheduledDay = today; scheduledDay <= today + ScheduleHorizonDays; scheduledDay++)
+                {
+                    if (!DeliversOn(contract, signed, scheduledDay)) continue;
+                    if (signed.LastGeneratedDay >= scheduledDay) continue;
+                    if (scheduledDay == today && newHour > contract.CutoffHour) continue;
+
+                    signed.LastGeneratedDay = scheduledDay;
+                    GenerateFor(contract, scheduledDay);
+                }
             }
         }
 
@@ -845,8 +882,8 @@ namespace GameCore.Inventory
                 var offer = ContractData.CreateRuntime(
                     contractId, customer,
                     deadlineDays <= 0
-                        ? $"{customer.CompanyName} needs a full-pallet drop out TODAY. Cost of goods " +
-                          $"plus 5%, paid double if it makes the truck."
+                        ? "Contract pays Cost of Goods plus 5%, Double if the load ships on the same " +
+                          "day it was ordered!!!"
                         : $"{customer.CompanyName} wants a full-pallet drop. Cost of goods plus 5%.",
                     ContractKind.Bulk,
                     palletCount: 1,

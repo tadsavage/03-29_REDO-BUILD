@@ -257,7 +257,12 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
         if (_overlay == null) return;
         TrySubscribe();
         _overlay.style.display = DisplayStyle.Flex;
-        _overlay.pickingMode = PickingMode.Position;
+        // The overlay stays PickingMode.Ignore (its UXML default) rather than Position: it's a
+        // full-screen dim backdrop, and making it pickable would let it swallow every click on
+        // screen — including on the bottom play bar rendered in a different, lower-sorted
+        // UIDocument — so only the X inside the modal itself could ever close it. Only the modal
+        // box needs to capture clicks; that's what matches the other eight panels, where clicking
+        // this button again, or any other play-bar button, closes it normally.
         if (_modal != null) _modal.pickingMode = PickingMode.Position;
         _resizer?.ResetToNormal();
         PanelTitleChrome.SyncScaleGlyph(_scaleButton, _resizer);
@@ -268,7 +273,6 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
     {
         if (_overlay == null) return;
         _overlay.style.display = DisplayStyle.None;
-        _overlay.pickingMode = PickingMode.Ignore;
         if (_modal != null) _modal.pickingMode = PickingMode.Ignore;
     }
 

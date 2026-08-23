@@ -14,6 +14,7 @@ public static class CameraDevSettings
     private const string KeyPitchSensitivity  = "DevCam_PitchSensitivity";
     private const string KeyOrbitSensitivity  = "DevCam_OrbitSensitivity";
     private const string KeyMinCameraHeight   = "DevCam_MinCameraHeight";
+    private const string KeyRotateSpeed       = "DevCam_RotateSpeed";
 
     private const int   DefaultMoveSpeed        = 8;
     private const float DefaultZoomSpeed        = 4f;
@@ -22,12 +23,16 @@ public static class CameraDevSettings
     // Minimum camera world Y position — prevents clipping through the ground
     // when zooming/pitching low.
     private const float DefaultMinCameraHeight  = 2f;
+    // Degrees per second of yaw while Q/E is held. Unlike OrbitSensitivity (which is per pixel
+    // of mouse delta) this is time-based, so it can't be expressed in the same units.
+    private const float DefaultRotateSpeed      = 90f;
 
     public const int   MoveSpeedMin = 1,  MoveSpeedMax = 15;
     public const float ZoomSpeedMin = 1f, ZoomSpeedMax = 5f;
     public const float PitchSensitivityMin = 0f, PitchSensitivityMax = 0.5f;
     public const float OrbitSensitivityMin = 0f, OrbitSensitivityMax = 1f;
     public const float MinCameraHeightMin = 0f, MinCameraHeightMax = 5f;
+    public const float RotateSpeedMin = 15f, RotateSpeedMax = 240f;
 
     /// <summary>Fired whenever any setting changes, so live camera instances re-pull values
     /// immediately instead of waiting for their next Awake/scene load.</summary>
@@ -64,5 +69,13 @@ public static class CameraDevSettings
     {
         get => Mathf.Clamp(PlayerPrefs.GetFloat(KeyMinCameraHeight, DefaultMinCameraHeight), MinCameraHeightMin, MinCameraHeightMax);
         set { PlayerPrefs.SetFloat(KeyMinCameraHeight, Mathf.Clamp(value, MinCameraHeightMin, MinCameraHeightMax)); OnChanged?.Invoke(); }
+    }
+
+    /// <summary>Degrees of yaw per second while Q/E is held (keyboard camera rotation).
+    /// Shift multiplies this like it does move/zoom.</summary>
+    public static float RotateSpeed
+    {
+        get => Mathf.Clamp(PlayerPrefs.GetFloat(KeyRotateSpeed, DefaultRotateSpeed), RotateSpeedMin, RotateSpeedMax);
+        set { PlayerPrefs.SetFloat(KeyRotateSpeed, Mathf.Clamp(value, RotateSpeedMin, RotateSpeedMax)); OnChanged?.Invoke(); }
     }
 }

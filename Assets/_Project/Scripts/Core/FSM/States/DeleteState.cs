@@ -346,6 +346,146 @@ public class DeleteState : PlacementStateBase
         return false;
     }
 
+    private enum CellFloorKind
+    {
+        None,
+        Default,
+        CustomRevertable,
+        CustomNoDefault
+    }
+
+    private CellFloorKind ClassifyFoundationCell(BuildingData foundation, Vector2Int cell)
+    {
+        if (foundation == null || !FoundationCoversCell(foundation, cell))
+            return CellFloorKind.None;
+
+        var objs = _grid.GetObjectsInCell(cell);
+        if (objs == null) return CellFloorKind.None;
+
+        var floorGroup = foundation.GetComponent<FoundationFloorGroup>();
+
+        GameObject activeCustomFloor = null;
+        GameObject defaultFloor = null;
+
+        for (int i = objs.Count - 1; i >= 0; i--)
+        {
+            var entry = objs[i];
+            if (entry.instance == null || entry.data == null || !entry.data.isFloor || IsFoundationData(entry.data))
+                continue;
+            if (entry.data.id == 200) continue; // yard tile
+
+            bool isOwnedDefault = floorGroup != null && floorGroup.Owns(entry.instance.GetComponent<PlacedObject>());
+            if (!isOwnedDefault && foundation.Data != null && foundation.Data.defaultFloorTile != null && entry.data.id == foundation.Data.defaultFloorTile.id)
+                isOwnedDefault = true;
+
+            if (isOwnedDefault)
+            {
+                if (entry.instance.activeSelf)
+                    defaultFloor = entry.instance;
+                else if (defaultFloor == null)
+                    defaultFloor = entry.instance;
+            }
+            else if (entry.instance.activeSelf)
+            {
+                activeCustomFloor = entry.instance;
+            }
+        }
+
+        if (activeCustomFloor != null)
+        {
+            if (defaultFloor != null)
+                return CellFloorKind.CustomRevertable;
+
+            if (floorGroup != null && floorGroup.DefaultTiles != null && foundation.Offsets != null)
+            {
+                for (int i = 0; i < floorGroup.DefaultTiles.Length && i < foundation.Offsets.Length; i++)
+                {
+                    if (foundation.RootCell + foundation.Offsets[i] == cell && floorGroup.DefaultTiles[i] != null)
+                        return CellFloorKind.CustomRevertable;
+                }
+            }
+
+            if (foundation.Data != null && foundation.Data.defaultFloorTile != null)
+                return CellFloorKind.CustomRevertable;
+
+            return CellFloorKind.CustomNoDefault;
+        }
+
+        if (defaultFloor != null && defaultFloor.activeSelf)
+            return CellFloorKind.Default;
+
+        if (floorGroup != null && floorGroup.AllDefaultTilesIntact())
+            return CellFloorKind.Default;
+
+        return CellFloorKind.Default;
+    }
+
+    private bool TryBuildRevertCommand(BuildingData foundation, Vector2Int cell, out ICommand revert)
+    {
+        revert = null;
+        if (foundation == null || !FoundationCoversCell(foundation, cell))
+            return false;
+
+        var objs = _grid.GetObjectsInCell(cell);
+        if (objs == null) return false;
+
+        var floorGroup = foundation.GetComponent<FoundationFloorGroup>();
+
+        GameObject customFloor = null;
+        GameObject defaultFloor = null;
+
+        for (int i = objs.Count - 1; i >= 0; i--)
+        {
+            var entry = objs[i];
+            if (entry.instance == null || entry.data == null || !entry.data.isFloor || IsFoundationData(entry.data))
+                continue;
+            if (entry.data.id == 200) continue; // yard tile
+
+            bool isOwnedDefault = floorGroup != null && floorGroup.Owns(entry.instance.GetComponent<PlacedObject>());
+            if (!isOwnedDefault && foundation.Data != null && foundation.Data.defaultFloorTile != null && entry.data.id == foundation.Data.defaultFloorTile.id)
+                isOwnedDefault = true;
+
+            if (isOwnedDefault)
+            {
+                defaultFloor = entry.instance;
+            }
+            else if (entry.instance.activeSelf)
+            {
+                customFloor = entry.instance;
+            }
+        }
+
+        if (customFloor == null)
+            return false;
+
+        if (defaultFloor == null && floorGroup != null && floorGroup.DefaultTiles != null && foundation.Offsets != null)
+        {
+            for (int i = 0; i < floorGroup.DefaultTiles.Length && i < foundation.Offsets.Length; i++)
+            {
+                if (foundation.RootCell + foundation.Offsets[i] == cell)
+                {
+                    var po = floorGroup.DefaultTiles[i];
+                    if (po != null) defaultFloor = po.gameObject;
+                    break;
+                }
+            }
+        }
+
+        revert = new RevertFloorTileCommand(customFloor, defaultFloor, foundation, cell, _grid, _money);
+        return true;
+    }
+
+    private bool TryRevertCustomTile(BuildingData bd, Vector2Int cell)
+    {
+        if (TryBuildRevertCommand(bd, cell, out var revert))
+        {
+            _fsm.History.Push(revert);
+            AudioManager.Play("Delete");
+            return true;
+        }
+        return false;
+    }
+
     // True if any rack (category "Racking") sits anywhere in the drag rectangle.Drives the QoL
     // exception that spares foundations during a rack swipe (see UpdateDragDelete).
     private bool DragCapturesRack(List<Vector2Int> footprint)

@@ -7,6 +7,7 @@ using UnityEngine.InputSystem;
 /// decoupled so none of them disturbs the others:
 ///
 /// WASD / Arrows — pan the focal point on the XZ plane (relative to current yaw)
+/// Q / E         — rotate (yaw) around the focal point; Q counter-clockwise, E clockwise
 /// Right Mouse   — hold + drag to translate the focal point ("grab" the play screen and drag it)
 /// Middle Mouse  — hold + drag to orbit (yaw = drag X, pitch = drag Y)
 /// Scroll Wheel  — zoom in / out (changes orbit distance only)
@@ -28,6 +29,7 @@ public class FreeLookCamera : MonoBehaviour
     private float pitchSensitivity;
     private float zoomSpeed;
     private float minCameraHeight;
+    private float rotateSpeed;
 
     [Header("Pitch (Tilt) Limits")]
     [SerializeField] private float pitchMin       = 15f;
@@ -80,6 +82,12 @@ public class FreeLookCamera : MonoBehaviour
 
         ApplyDevSettings();
         EnsureDoorTriggerSetup();
+
+        // Auto-added for the same reason AgentTypeTag is above: nothing to wire in the Inspector and
+        // nothing to lose to a prefab revert. It disables itself if the Walls layer or the ghost
+        // material is missing, so adding it blind is safe.
+        if (GetComponent<WallSeeThrough>() == null)
+            gameObject.AddComponent<WallSeeThrough>();
     }
 
     /// <summary>
@@ -129,6 +137,7 @@ public class FreeLookCamera : MonoBehaviour
         orbitSensitivity = CameraDevSettings.OrbitSensitivity;
         pitchSensitivity = CameraDevSettings.PitchSensitivity;
         minCameraHeight  = CameraDevSettings.MinCameraHeight;
+        rotateSpeed      = CameraDevSettings.RotateSpeed;
     }
 
     private void Start()
@@ -174,13 +183,14 @@ public class FreeLookCamera : MonoBehaviour
 
         ProcessPan(speed, overUI);
         ProcessDragPan(overUI);
+        ProcessKeyboardRotate(fast);
         ProcessOrbit(overUI);
         ProcessZoom(overUI, fast ? zoomSpeed * 3f : zoomSpeed);
         ProcessFollow();
         ApplyTransform();
     }
 
-    // Track a followed target on the XZ plane (Y stays whatever the player set via Q/E).
+    // Track a followed target on the XZ plane (the player keeps orbit/zoom control).
     // ProcessPan clears _followTarget the moment the player pans manually, so this is a no-op
     // until then.
     private void ProcessFollow()
@@ -270,6 +280,28 @@ public class FreeLookCamera : MonoBehaviour
 
         _focalPoint.x = Mathf.Clamp(_focalPoint.x, xMin, xMax);
         _focalPoint.z = Mathf.Clamp(_focalPoint.z, zMin, zMax);
+    }
+
+    /// <summary>
+    /// Q/E yaw around the focal point — the keyboard equivalent of a middle-mouse orbit's
+    /// horizontal axis. Pitch is deliberately left out: it has hard limits and a wrong pitch is
+    /// far more disorienting to recover from than a wrong yaw, so it stays a mouse-only gesture.
+    ///
+    /// Not gated on overUI, unlike orbit/zoom/drag. Those all begin with a click or a scroll, so
+    /// letting them fire while the cursor sits over a panel would steal the panel's own input.
+    /// A held key isn't aimed at anything, and WASD panning already works regardless of where the
+    /// cursor happens to be resting — gating this would make the camera stop rotating whenever
+    /// the mouse drifted over the build menu, which reads as the key having failed.
+    /// Text fields and modals are already handled by the guard at the top of Update.
+    /// </summary>
+    private void ProcessKeyboardRotate(bool fast)
+    {
+        float dir = 0f;
+        if (Keyboard.current[Key.E].isPressed) dir += 1f;   // clockwise
+        if (Keyboard.current[Key.Q].isPressed) dir -= 1f;   // counter-clockwise
+        if (Mathf.Approximately(dir, 0f)) return;           // both held cancels out, as it should
+
+        _yaw += dir * rotateSpeed * (fast ? 3f : 1f) * Time.unscaledDeltaTime;
     }
 
     private void ProcessOrbit(bool overUI)
@@ -389,4 +421,9 @@ public class FreeLookCamera : MonoBehaviour
 
     /// <summary>The transform the camera is currently following, or null.</summary>
     public Transform FollowTarget => _followTarget;
+
+    /// <summary>The point the camera orbits and always keeps dead-centre on screen — i.e. what the
+    /// player is looking AT, as opposed to where the camera happens to be. WallSeeThrough needs it to
+    /// know which walls stand between the two.</summary>
+    public Vector3 FocalPoint => _focalPoint;
 }

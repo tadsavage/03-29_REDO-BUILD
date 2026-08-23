@@ -599,7 +599,10 @@ public class WorkQueuePanel : IUIPanel
     /// so they can be CANCELLED — nothing of either is physically committed yet.</summary>
     private static bool IsActionable(RowPhase phase) =>
         phase == RowPhase.Open || phase == RowPhase.Staged || phase == RowPhase.Loaded ||
-        phase == RowPhase.Available || phase == RowPhase.NoStock;
+        phase == RowPhase.Available || phase == RowPhase.NoStock ||
+        // Loading too: a trailer that took everything the lane had never reaches Loaded (there was
+        // nothing left to fetch), and close-out is the only way to bill it and free the door.
+        phase == RowPhase.Loading;
 
     /// <summary>Phases the Cancel Selected button acts on — mirrors OrderService.CanCancelOrder,
     /// which re-checks authoritatively before anything is actually cancelled.</summary>
@@ -843,6 +846,16 @@ public class WorkQueuePanel : IUIPanel
     {
         if (order.Status == OrderData.OrderStatus.Loading) return RowPhase.Loading;
         if (order.Status == OrderData.OrderStatus.Staged) return RowPhase.Staged;
+        // A PARTIALLY PICKED order with freight already in its lane is offered as Staged so the player
+        // can send it to a trailer. It used to fall through to its still-live pick task and render as
+        // Available — a phase with a disabled checkbox — so an order the warehouse could only half
+        // fill had no reachable action at all: the pallets sat in the lane and the trailer sat at the
+        // door. Loading what you have is the normal dock behaviour; the Fill Rate column is what tells
+        // the player it's short.
+        if (order.Status == OrderData.OrderStatus.PartiallyPicked
+            && order.TotalUnitsPicked > 0
+            && order.AssignedDoorNumber > 0
+            && !string.IsNullOrEmpty(order.AssignedLane)) return RowPhase.Staged;
         // Loaded had no branch at all, so it fell through to the task lookup below and returned null
         // (the OrderSelect task is long Complete by then) — no row, for the one phase whose row is the
         // ONLY way to reach close-out. Nothing could be billed and no outbound trailer could ever be
@@ -1131,8 +1144,14 @@ public class WorkQueuePanel : IUIPanel
         }
 
         ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
+        // An order is picked EITHER via a standard OrderSelect task OR, when it's a full-pallet order,
+        // via one or more PalletPick tasks instead — never both. Only matching OrderSelect here meant
+        // full-pallet orders always resolved `task == null` -> DeterminePhase returned null -> phases
+        // ended up EMPTY (not "one phase") -> the bottom bar wrongly reported a mixed selection ("check
+        // only Open orders together...") even when a single full-pallet order was checked by itself.
         var phases = checkedOrders
-            .Select(o => DeterminePhase(o, workQueue?.Tasks.FirstOrDefault(t => t.OrderId == o.OrderId && t.Type == WorkTaskType.OrderSelect)))
+            .Select(o => DeterminePhase(o, workQueue?.Tasks.FirstOrDefault(t => t.OrderId == o.OrderId
+                && (t.Type == WorkTaskType.OrderSelect || t.Type == WorkTaskType.PalletPick))))
             .Where(p => p.HasValue).Select(p => p.Value).Distinct().ToList();
 
         var customers = checkedOrders.Select(o => o.CustomerId).Distinct().ToList();
@@ -1247,6 +1266,30 @@ public class WorkQueuePanel : IUIPanel
             int doorCount = checkedOrders.Select(o => o.AssignedDoorNumber).Distinct().Count();
             string doors = doorCount == 1 ? "the trailer" : $"each of the {doorCount} trailers";
             SetBottomBar(ActionMode.CloseOut, $"Close out {checkedOrders.Count} order(s) {who} — bills them and releases {doors} once its whole load is closed out:", new List<string> { "Close Out" }, enableTarget: false);
+            return;
+        }
+
+        if (phases[0] == RowPhase.Loading)
+        {
+            // Only once nothing of theirs is left standing in the lane — billing a customer for cases
+            // still on the warehouse floor is the one thing close-out must never allow.
+            var blocked = checkedOrders.Where(o => !orderService.CanCloseOut(o, out _)).ToList();
+            if (blocked.Count > 0)
+            {
+                orderService.CanCloseOut(blocked[0], out string whyNot);
+                SetBottomBar(ActionMode.CloseOut,
+                    $"Can't close out yet — {blocked[0].CustomerName}'s order {whyNot}.",
+                    new List<string> { "—" }, enableTarget: false, enableSubmit: false);
+                return;
+            }
+
+            int shortCount = checkedOrders.Count(o => o.TotalUnitsPicked < o.TotalUnits);
+            string shortNote = shortCount > 0
+                ? $"  {shortCount} will ship SHORT — customer satisfaction takes the hit."
+                : string.Empty;
+            SetBottomBar(ActionMode.CloseOut,
+                $"Close out {checkedOrders.Count} order(s) with whatever made it onto the trailer." + shortNote,
+                new List<string> { "Close Out" }, enableTarget: false);
             return;
         }
 

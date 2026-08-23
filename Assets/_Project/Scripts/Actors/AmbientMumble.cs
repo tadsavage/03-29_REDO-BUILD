@@ -46,7 +46,7 @@ public class AmbientMumble : MonoBehaviour
             Reshuffle();
 
         _source.pitch = Random.Range(minPitch, maxPitch);
-        _source.PlayOneShot(_shuffled[_index], volume);
+        _source.PlayOneShot(_shuffled[_index], volume * AudioManager.GameVolumeLevel);
         _index++;
     }
 

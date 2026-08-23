@@ -53,6 +53,18 @@ public class GlobalButtonUX : MonoBehaviour
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        // The documents hooked above can OUTLIVE this component — TopBar's UIDocument is
+        // DontDestroyOnLoad, this GameObject is not — and a callback left pointing at a destroyed
+        // instance keeps being invoked, with a destroyed AudioSource behind it. That is what broke
+        // every close button in the game; see OnAnyButtonClicked.
+        foreach (var root in _hookedRoots)
+        {
+            if (root == null) continue;
+            root.UnregisterCallback<ClickEvent>(OnAnyButtonClicked, TrickleDown.TrickleDown);
+            root.UnregisterCallback<FocusOutEvent>(OnAnyButtonBlurred, TrickleDown.TrickleDown);
+        }
+        _hookedRoots.Clear();
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode) => HookAllDocuments();
@@ -73,17 +85,58 @@ public class GlobalButtonUX : MonoBehaviour
         root.RegisterCallback<FocusOutEvent>(OnAnyButtonBlurred, TrickleDown.TrickleDown);
     }
 
+    /// <summary>
+    /// EVERYTHING in here is decoration, so it is wrapped: an exception thrown from a UI Toolkit
+    /// callback aborts the REST of that event's propagation path, and this callback is registered
+    /// TrickleDown on the document ROOT — meaning it runs before every panel's own handler. A throw
+    /// here therefore silently eats the click for every button in the game.
+    ///
+    /// That is not hypothetical. A stale AudioSource reference (see PlayClick) made this line throw
+    /// on every click, and the visible symptom was the close buttons on panels 2/3/4 doing nothing —
+    /// nothing about the sound, and nothing in the console tying it to those panels. A cosmetic
+    /// feature must never be able to swallow input, whatever goes wrong inside it.
+    /// </summary>
     private void OnAnyButtonClicked(ClickEvent evt)
     {
         if (evt.target is not Button button) return;
 
-        if (clickSfx != null) _sfxSource.PlayOneShot(clickSfx, clickVolume);
+        try
+        {
+            PlayClick();
 
-        ApplyTransition(button);
-        if (!_originalBackgrounds.ContainsKey(button))
-            _originalBackgrounds[button] = button.style.backgroundColor;
+            ApplyTransition(button);
+            if (!_originalBackgrounds.ContainsKey(button))
+                _originalBackgrounds[button] = button.style.backgroundColor;
 
-        button.style.backgroundColor = new StyleColor(highlightColor);
+            button.style.backgroundColor = new StyleColor(highlightColor);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[GlobalButtonUX] Click decoration failed on '{button.name}' — the click " +
+                             $"itself still went through. {e.GetType().Name}: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Plays the click, re-acquiring the AudioSource if it has gone away.
+    ///
+    /// The old code null-checked the CLIP but not the SOURCE. `_sfxSource` is a component on this
+    /// GameObject, so it dies with it — and a callback registered on a surviving document root can
+    /// still reach this method afterwards, at which point the field is a destroyed-object reference
+    /// that throws on use rather than a plain null.
+    /// </summary>
+    private void PlayClick()
+    {
+        if (clickSfx == null) return;
+
+        // `== null` on a UnityEngine.Object is destroyed-aware, which a plain null check is not.
+        if (_sfxSource == null)
+        {
+            _sfxSource = gameObject.AddComponent<AudioSource>();
+            _sfxSource.playOnAwake = false;
+        }
+
+        _sfxSource.PlayOneShot(clickSfx, clickVolume * AudioManager.GameVolumeLevel);
     }
 
     private void OnAnyButtonBlurred(FocusOutEvent evt)
@@ -91,9 +144,19 @@ public class GlobalButtonUX : MonoBehaviour
         if (evt.target is not Button button) return;
         if (!_originalBackgrounds.TryGetValue(button, out var original)) return;
 
-        ApplyTransition(button);
-        button.style.backgroundColor = original;
-        _originalBackgrounds.Remove(button);
+        // Guarded for the same reason as the click handler — this one runs on the way to whatever
+        // else cares about focus leaving.
+        try
+        {
+            ApplyTransition(button);
+            button.style.backgroundColor = original;
+            _originalBackgrounds.Remove(button);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[GlobalButtonUX] Blur restore failed on '{button.name}'. " +
+                             $"{e.GetType().Name}: {e.Message}");
+        }
     }
 
     /// <summary>Makes the next background-color write animate instead of snap. Set every time

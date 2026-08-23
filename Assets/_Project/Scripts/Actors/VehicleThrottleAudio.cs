@@ -71,8 +71,9 @@ public class VehicleThrottleAudio : MonoBehaviour
         // Apply pitch offset to engine
         _engineSource.pitch = Mathf.Lerp(minPitch, maxPitch, speedPercent) + pitchOffset;
 
-        // 2. Volume Fading Logic (Engine)
-        _targetVolume = currentSpeed > 0.1f ? engineVolume : 0f;
+        // 2. Volume Fading Logic (Engine) — scaled by the Settings "Game" volume slider so a
+        // continuously-looping engine hum actually responds to it in real time, not just at play().
+        _targetVolume = (currentSpeed > 0.1f ? engineVolume : 0f) * AudioManager.GameVolumeLevel;
         _engineSource.volume = Mathf.MoveTowards(_engineSource.volume, _targetVolume, Time.deltaTime * fadeSpeed);
     }
 
@@ -92,7 +93,7 @@ public class VehicleThrottleAudio : MonoBehaviour
         {
             // Play on the dedicated honk source to ensure fixed pitch
             _honkSource.pitch = honkPitch;
-            _honkSource.PlayOneShot(honkClip, honkVolume);
+            _honkSource.PlayOneShot(honkClip, honkVolume * AudioManager.GameVolumeLevel);
             yield return new WaitForSeconds(0.25f);
         }
     }

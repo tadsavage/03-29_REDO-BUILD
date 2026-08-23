@@ -628,7 +628,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         // FreeLookCamera's move/zoom/focal-height speed and orbit/pitch sensitivity are no
         // longer [SerializeField] (see CameraDevSettings) — the generic reflection rows below
-        // can no longer see them. These five are the single authoritative place to edit them,
+        // can no longer see them. These six are the single authoritative place to edit them,
         // with the explicit ranges/types the design calls for instead of GetFloatRange's guesses.
         if (type.Name == "FreeLookCamera")
         {
@@ -649,6 +649,9 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             contentContainer.Add(BuildFloatSettingRow("Orbit Sensitivity",
                 CameraDevSettings.OrbitSensitivityMin, CameraDevSettings.OrbitSensitivityMax,
                 () => CameraDevSettings.OrbitSensitivity, v => CameraDevSettings.OrbitSensitivity = v));
+            contentContainer.Add(BuildFloatSettingRow("Rotate Speed (Q/E)",
+                CameraDevSettings.RotateSpeedMin, CameraDevSettings.RotateSpeedMax,
+                () => CameraDevSettings.RotateSpeed, v => CameraDevSettings.RotateSpeed = v));
             contentContainer.Add(BuildFloatSettingRow("Minimum Camera Height",
                 CameraDevSettings.MinCameraHeightMin, CameraDevSettings.MinCameraHeightMax,
                 () => CameraDevSettings.MinCameraHeight, v => CameraDevSettings.MinCameraHeight = v));

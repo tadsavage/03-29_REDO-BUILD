@@ -102,6 +102,11 @@ public class ContractsPanel : IUIPanel
     private const float OrangeButtonHeight = 30f;
 
     private const float IconSize    = 72f;   // Offers cards
+
+    /// <summary>Offer-card icons are drawn 10% wider than they are tall. The customer sprites are
+    /// not square, so a square box squeezed them horizontally. Width only — the height stays on
+    /// IconSize so every card on the board keeps the same baseline as the text beside it.</summary>
+    private const float OfferIconWidthScale = 1.1f;
     private const float IconSizeSm  = 44f;   // Accounts rows
     private const float IconSizeTiny = 18f;  // Schedule chips
 
@@ -151,6 +156,27 @@ public class ContractsPanel : IUIPanel
     private readonly VisualElement _tabHeader;
     private readonly ScrollView _content;
     private readonly Label _footerMessage;
+
+    /// <summary>
+    /// Accounts-tab two-pane layout: a scrolling list of account cards on the left and a stationary
+    /// "ORDER DETAILS" pane on the right that fills in for whichever card was last clicked. Sits
+    /// alongside _content rather than inside it — nesting a second ScrollView inside _content fights
+    /// Yoga's auto-height sizing, so this is a sibling that's shown/hidden in Rebuild() instead.
+    /// </summary>
+    private VisualElement _splitPane;
+    private ScrollView _orderListScroll;
+    private ScrollView _orderDetailsBody;
+
+    /// <summary>ContractId of the account card selected on the Accounts tab, driving _orderDetailsBody.
+    /// The bulk order whose contents the ORDER DETAILS pane is showing. Separate from the account
+    /// selection because the two tabs select different things — an ACCOUNT on Recurring, a single
+    /// ORDER on Bulk — and sharing one field made switching tabs show the wrong pane's contents.
+    private string _selectedBulkOrderId;
+
+    /// Null until the player clicks one; BuildAccounts defaults it to the first running account so the
+    /// details pane is never empty while accounts exist.</summary>
+    private string _selectedAccountContractId;
+
     /// <summary>The big heading in the title bar. Retitled per tab (see TitleFor) — a ledger of
     /// finished orders sitting under the words "OUTBOUND ORDER MANAGER" names the wrong thing.</summary>
     private Label _titleLabel;
@@ -364,15 +390,22 @@ public class ContractsPanel : IUIPanel
     /// <summary>Runs <paramref name="onYes"/> immediately if the player has turned the warning off,
     /// otherwise puts the prompt up and runs it only on Yes.</summary>
     private void ConfirmOffSlotMove(string customerName, string requestedLabel, string newLabel,
-                                    System.Action onYes)
+                                    System.Action onYes, int repCost = 0, string distance = null)
     {
         if (OffSlotWarningSuppressed) { onYes(); return; }
 
+        // Quoting the ACTUAL number, not "a negative impact". The penalty scales with distance now, so
+        // a warning that reads identically for a two-hour nudge and a three-day slip would hide the one
+        // thing the player is deciding about. A dialog that can't tell you the price isn't a choice.
+        string price = repCost > 0
+            ? $"\n\nThis lands {distance} — reputation −{repCost}, plus a fine on any order already on " +
+              $"the trailer, and this account's satisfaction drops."
+            : "\n\nA fine will be imposed as well as a hit to this account's satisfaction.";
+
         _confirmMessage.text =
             $"Customer will be dissatisfied if you make an appointment earlier or later than the " +
-            $"requested Appointment Timeslot. A fine will be imposed as well as having a negative " +
-            $"impact on Customer Satisfaction Level.\n\n" +
-            $"{customerName} asked for {requestedLabel}. You're moving them to {newLabel}.";
+            $"requested Appointment Timeslot.\n\n" +
+            $"{customerName} asked for {requestedLabel}. You're moving them to {newLabel}." + price;
         _confirmYesAction = onYes;
         _confirmSuppress.SetValueWithoutNotify(false);
         _confirmBlocker.style.display = DisplayStyle.Flex;
@@ -512,6 +545,30 @@ public class ContractsPanel : IUIPanel
         // Cycles normal / large / fill-screen (see ResizableWindow.CycleScale below). Same size as the
         // close button and on the same title-bar row, so the two sit flush together.
         const float titleBtnSize = 48f; // 1.5x the base 32px square button
+
+        // Return trip for PurchasingPanel.OpenScheduler, which closes itself to get here. Without it
+        // the only way back is to remember that purchasing lives on key 9 — a one-way hyperlink.
+        // Sits left of the window buttons so the destructive ✕ keeps the far corner it always has.
+        var backToPurchasing = new Button(OpenPurchasing) { text = "Back to Purchasing" };
+        ApplyFont(backToPurchasing, bold: true, size: 16);
+        backToPurchasing.style.height = titleBtnSize;
+        backToPurchasing.style.paddingLeft = backToPurchasing.style.paddingRight = 18;
+        backToPurchasing.style.marginRight = 10;
+        backToPurchasing.style.flexShrink = 0;   // the title flexGrows; without this the label squeezes
+        backToPurchasing.style.color = new StyleColor(ColOrangeText);
+        backToPurchasing.style.backgroundColor = new StyleColor(ColOrange);
+        backToPurchasing.style.borderTopWidth = backToPurchasing.style.borderBottomWidth =
+            backToPurchasing.style.borderLeftWidth = backToPurchasing.style.borderRightWidth = 2;
+        backToPurchasing.style.borderTopColor = backToPurchasing.style.borderBottomColor =
+            backToPurchasing.style.borderLeftColor = backToPurchasing.style.borderRightColor = new StyleColor(ColOrangeEdge);
+        backToPurchasing.style.borderTopLeftRadius = backToPurchasing.style.borderTopRightRadius =
+            backToPurchasing.style.borderBottomLeftRadius = backToPurchasing.style.borderBottomRightRadius = 8;
+        backToPurchasing.RegisterCallback<PointerEnterEvent>(_ =>
+            backToPurchasing.style.backgroundColor = new StyleColor(ColOrangeHover));
+        backToPurchasing.RegisterCallback<PointerLeaveEvent>(_ =>
+            backToPurchasing.style.backgroundColor = new StyleColor(ColOrange));
+        titleBar.Add(backToPurchasing);
+
         _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
         StyleSquareButton(_scaleBtn);
         _scaleBtn.style.width = titleBtnSize;
@@ -597,6 +654,38 @@ public class ContractsPanel : IUIPanel
         content.style.flexGrow = 1;
         modal.Add(content);
 
+        // Accounts tab's two-pane layout — a sibling of `content`, shown instead of it (see Rebuild).
+        var splitPane = new VisualElement();
+        splitPane.style.flexGrow = 1;
+        splitPane.style.flexDirection = FlexDirection.Row;
+        splitPane.style.display = DisplayStyle.None;
+        modal.Add(splitPane);
+
+        var orderListScroll = new ScrollView(ScrollViewMode.Vertical);
+        orderListScroll.style.flexGrow = 1;
+        orderListScroll.style.flexBasis = 0;
+        orderListScroll.style.marginRight = 12;
+        splitPane.Add(orderListScroll);
+
+        var orderDetailsBody = new ScrollView(ScrollViewMode.Vertical);
+        orderDetailsBody.style.flexGrow = 1;
+        orderDetailsBody.style.flexBasis = 0;
+        orderDetailsBody.style.backgroundColor = new StyleColor(ColStat);
+        orderDetailsBody.style.paddingTop = 14; orderDetailsBody.style.paddingBottom = 14;
+        orderDetailsBody.style.paddingLeft = 16; orderDetailsBody.style.paddingRight = 16;
+        orderDetailsBody.style.borderTopLeftRadius = orderDetailsBody.style.borderTopRightRadius =
+            orderDetailsBody.style.borderBottomLeftRadius = orderDetailsBody.style.borderBottomRightRadius = 10;
+        orderDetailsBody.style.borderTopWidth = orderDetailsBody.style.borderBottomWidth =
+            orderDetailsBody.style.borderLeftWidth = orderDetailsBody.style.borderRightWidth = 2;
+        orderDetailsBody.style.borderTopColor = orderDetailsBody.style.borderBottomColor =
+            orderDetailsBody.style.borderLeftColor = orderDetailsBody.style.borderRightColor = new StyleColor(ColBorder);
+        splitPane.Add(orderDetailsBody);
+
+        _splitPane = splitPane;
+        _orderListScroll = orderListScroll;
+        _orderDetailsBody = orderDetailsBody;
+
+
         // Polled rather than driven by horizontalScroller.valueChanged: that event does NOT fire when
         // scrollOffset is set programmatically, so the frozen column silently desynced from any scroll
         // the panel itself performed. Reading scrollOffset every frame catches the wheel, a scrollbar
@@ -658,9 +747,10 @@ public class ContractsPanel : IUIPanel
         var schedule = Schedule();
 
         int offerCount = arrivals != null ? arrivals.AvailableOffers.Count() : 0;
-        // Running accounts only — spent one-offs moved to the Completed tab, and a badge that still
-        // counted them would promise rows the tab no longer has.
-        int accountCount = arrivals != null ? arrivals.RunningAccounts.Count() : 0;
+        // The Accounts view is a forward work plan now: badge it with every unshipped recurring order,
+        // not merely the number of customer contracts. One account can have seven scheduled manifests
+        // through the planning horizon, and showing "1" there falsely suggests only one order exists.
+        int accountCount = PendingRecurringOrders().Count;
 
         string scheduleBadge = "—";
         if (schedule != null)
@@ -810,6 +900,8 @@ public class ContractsPanel : IUIPanel
     /// a redundant immediate rebuild.</summary>
     private int _lastLiveScheduleDay = int.MinValue;
     private int _lastLiveScheduleBlock = int.MinValue;
+    // Which chips read as finished at the last check — see SyncScheduleElapsed/CompletedSignature.
+    private string _lastCompletedSignature;
 
     /// <summary>
     /// Slides the Completed header sideways by exactly what the ledger is scrolled, so the two stay
@@ -880,9 +972,31 @@ public class ContractsPanel : IUIPanel
 
         int day = schedule.CurrentDay;
         int block = schedule.CurrentBlock;
-        if (day == _lastLiveScheduleDay && block == _lastLiveScheduleBlock) return;
 
+        // Completion lands whenever a truck departs or an order ships — not on a block boundary — so
+        // the block check alone would leave a finished trailer un-struck for up to two in-game hours.
+        // A signature over just the displayed day's chips is cheap and catches it within the tick.
+        string done = CompletedSignature(schedule);
+        bool completionChanged = done != _lastCompletedSignature;
+
+        if (day == _lastLiveScheduleDay && block == _lastLiveScheduleBlock && !completionChanged) return;
+
+        _lastCompletedSignature = done;
         Rebuild(); // BuildSchedule re-stamps _lastLiveScheduleDay/_lastLiveScheduleBlock as it runs
+    }
+
+    /// <summary>Which of the displayed day's appointments currently read as finished. Compared as a
+    /// string rather than diffed properly because it only has to answer "did anything change?" — the
+    /// rebuild does the real work.</summary>
+    private string CompletedSignature(DockScheduleService schedule)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var appt in schedule.Appointments)
+        {
+            if (appt == null || appt.Day != _scheduleDay) continue;
+            if (schedule.IsComplete(appt)) sb.Append(appt.Id).Append(';');
+        }
+        return sb.ToString();
     }
 
     private void OnDevAddCustomer()
@@ -979,6 +1093,8 @@ public class ContractsPanel : IUIPanel
         if (_titleLabel != null) _titleLabel.text = TitleFor(_tab);
         _tabHeader.Clear();
         _content.Clear();
+        _orderListScroll.Clear();
+        _orderDetailsBody.Clear();
         _scheduleTimeCells.Clear(); // stale cells belong to elements that were just destroyed
         _lastHScroll = float.NaN;   // force the next poll to re-apply the offset to the new cells
         _completedHeaderRow = null; // the strip was just cleared; this pointed into it
@@ -999,6 +1115,13 @@ public class ContractsPanel : IUIPanel
         _content.mode = _tab == Tab.Schedule || _tab == Tab.Completed
             ? ScrollViewMode.VerticalAndHorizontal
             : ScrollViewMode.Vertical;
+
+        // Accounts AND Bulk Orders own the two-pane split (card list + ORDER DETAILS); every other tab
+        // keeps the single full-width scroll view. Bulk was left out of the split originally and read
+        // as a different screen for the same job — both tabs are "pick a trailer, see what's on it".
+        bool splitTab = _tab == Tab.Accounts || _tab == Tab.BulkOrders;
+        _content.style.display = splitTab ? DisplayStyle.None : DisplayStyle.Flex;
+        _splitPane.style.display = splitTab ? DisplayStyle.Flex : DisplayStyle.None;
 
         // Completed reads the ORDER archive, not the contract system, so it's answered before the
         // arrivals guard below — a session with no OrderArrivalService can still have shipped freight,
@@ -1169,7 +1292,7 @@ public class ContractsPanel : IUIPanel
     {
         var card = MakeRow(rowIndex, AccentFor(contract));
         card.style.position = Position.Relative;
-        card.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, IconSize, 8));
+        card.Add(MakeOfferCardIcon(contract.Customer != null ? contract.Customer.Icon : null));
 
         var body = new VisualElement();
         body.style.flexGrow = 1;
@@ -1294,12 +1417,31 @@ public class ContractsPanel : IUIPanel
         box.style.borderTopLeftRadius = box.style.borderTopRightRadius =
             box.style.borderBottomLeftRadius = box.style.borderBottomRightRadius = 6;
 
-        // Absolute day as well as the countdown: the countdown is how it feels, the day number is
-        // what the player has to match against on the Schedule tab.
-        box.Add(DeadlineLine($"SHIP BY: DAY {CurrentDay() + contract.LeadTimeDays}", 13, text, bold: true));
-        box.Add(DeadlineLine(rush ? "SAME DAY — pays 2x on time" : $"{contract.DeadlineLabel} to book a door",
-                             11, rush ? ColWholesale : ColSubtleText));
-        box.Add(DeadlineLine("Miss it: fee, then refusal", 10, ColDangerSoft));
+        // "END OF DAY" spelled out, because the rule genuinely is end-of-day: OrderData.IsOverdue
+        // is strictly currentDay > DueDay, so the whole of day N is still on time. "SHIP BY: DAY 4"
+        // left it open whether day 4 was the last good day or the first late one.
+        int dueDay = CurrentDay() + contract.LeadTimeDays;
+        box.Add(DeadlineLine($"SHIP BY END OF DAY: {dueDay}", 13, text, bold: true));
+
+        // The "48 HRS to book a door" line is gone — it was LeadTimeDays x 24, i.e. the same deadline
+        // as the line above restated in hours, and two numbers for one deadline read as two deadlines.
+        // The same-day line stays: it isn't a lead time, it's the 2x bonus, which exists nowhere else
+        // on the card.
+        if (rush) box.Add(DeadlineLine("SAME DAY — pays 2x on time", 11, ColWholesale));
+
+        // Consequences, spelled out. WRAPS (DeadlineLine is deliberately NoWrap with a pinned height,
+        // so this can't use it) and pinned to the badge's full width so it sits along the bottom.
+        var consequence = MakeText(
+            $"If loading isn't finished by midnight on day {dueDay} — a " +
+            $"{contract.LateFeePercent:P0} fine is charged and customer's satisfaction drops.",
+            10, ColDangerSoft);
+        consequence.style.width = Length.Percent(100);
+        consequence.style.whiteSpace = WhiteSpace.Normal;
+        consequence.style.unityTextAlign = TextAnchor.UpperRight;
+        consequence.style.marginTop = 2;
+        consequence.style.marginBottom = 0;
+        consequence.style.marginLeft = 0; consequence.style.marginRight = 0;
+        box.Add(consequence);
 
         return box;
     }
@@ -1428,7 +1570,7 @@ public class ContractsPanel : IUIPanel
     {
         var card = MakeRow(rowIndex, ColDanger);
         card.style.opacity = 0.55f;
-        card.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, IconSize, 8));
+        card.Add(MakeOfferCardIcon(contract.Customer != null ? contract.Customer.Icon : null));
 
         var body = new VisualElement();
         body.style.flexGrow = 1;
@@ -1455,16 +1597,19 @@ public class ContractsPanel : IUIPanel
 
         var card = MakeRow(rowIndex, ColSubtleText);
         card.style.opacity = 0.55f;
-        card.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, IconSize, 8));
+        card.Add(MakeOfferCardIcon(contract.Customer != null ? contract.Customer.Icon : null));
 
         var body = new VisualElement();
         body.style.flexGrow = 1;
         body.Add(MakeText(contract.Customer != null ? contract.Customer.CompanyName : contract.ContractId,
                           19, ColSubtleText, bold: true));
         body.Add(MakeText("WON'T DEAL WITH YOU YET", 14, ColSubtleText, bold: true));
-        var need = MakeText($"Needs {contract.ReputationRequired} reputation " +
+        // "you have {rep}. {gap} to go" put a full stop between two numbers, so at rep 0 it rendered as
+        // "you have 0. 250 to go" and read as the decimal 0.250. Comma-joined into one clause instead —
+        // a separator that can never be mistaken for part of a number.
+        var need = MakeText($"Needs {contract.ReputationRequired:N0} reputation " +
                             $"({ReputationService.BandLabel(ReputationService.BandFor(contract.ReputationRequired))}) " +
-                            $"— you have {rep}. {contract.ReputationRequired - rep} to go.",
+                            $"— you have {rep:N0}, so {contract.ReputationRequired - rep:N0} to go.",
                             14, ColSubtleText);
         need.style.marginTop = 2;
         body.Add(need);
@@ -1553,6 +1698,8 @@ public class ContractsPanel : IUIPanel
     /// </summary>
     private void BuildBulkOrders(OrderArrivalService arrivals)
     {
+        // Renders into the SPLIT pane's list, not _content — Bulk now shares the Accounts layout, and
+        // _content is hidden on a split tab (see the splitTab gate in Rebuild).
         var intro = new Label("Bulk orders you've accepted. Each line ships as whole pallets out of reserve " +
                               "(a Pallet Pick for the Reach Trucks) plus any loose cases (a normal case pick). " +
                               "Anything still showing NO DOOR when its due day passes loses the account.");
@@ -1560,7 +1707,7 @@ public class ContractsPanel : IUIPanel
         intro.style.color = new StyleColor(ColSubtleText);
         intro.style.whiteSpace = WhiteSpace.Normal;
         intro.style.marginBottom = 8;
-        _content.Add(intro);
+        _orderListScroll.Add(intro);
 
         var live = LiveBulkOrders();
         if (live.Count == 0)
@@ -1571,7 +1718,8 @@ public class ContractsPanel : IUIPanel
             none.style.color = new StyleColor(ColSubtleText);
             none.style.whiteSpace = WhiteSpace.Normal;
             none.style.marginTop = 12;
-            _content.Add(none);
+            _orderListScroll.Add(none);
+            RefreshOrderDetailsForOrder(null, null);
             _footerMessage.text = "No bulk orders in progress.";
             return;
         }
@@ -1580,13 +1728,32 @@ public class ContractsPanel : IUIPanel
         int today = CurrentDay();
         int unbooked = 0;
 
+        // Default to the first bulk order so the details pane is never blank on first open — same
+        // reasoning as the Accounts tab.
+        if (_selectedBulkOrderId == null || live.All(o => o.OrderId != _selectedBulkOrderId))
+            _selectedBulkOrderId = live[0].OrderId;
+
         int row = 0;
+        OrderData selectedBulk = null;
         foreach (var order in live)
         {
             bool booked = schedule != null && schedule.FindForOrder(order.OrderId) != null;
             if (!booked) unbooked++;
-            _content.Add(BuildBulkOrderRow(order, booked, today, row++));
+
+            var bulkRow = BuildBulkOrderRow(order, booked, today, row++);
+            var captured = order;
+            bulkRow.RegisterCallback<ClickEvent>(evt =>
+            {
+                if (evt.target is Button) return;   // never let a row click swallow its own buttons
+                _selectedBulkOrderId = captured.OrderId;
+                Rebuild();
+            });
+            _orderListScroll.Add(bulkRow);
+
+            if (order.OrderId == _selectedBulkOrderId) selectedBulk = order;
         }
+
+        RefreshOrderDetailsForOrder(selectedBulk, selectedBulk?.CustomerName);
 
         _footerMessage.text = $"{live.Count} bulk order(s) in progress" +
                               (unbooked > 0
@@ -1627,44 +1794,18 @@ public class ContractsPanel : IUIPanel
 
         body.Add(MakeText(order.CustomerName, 17, ColTitleText, bold: true));
 
-        // One line per SKU, spelled out as the split the warehouse will actually work: N pallets plus
-        // whatever part case is left. That breakdown is the whole reason this tab exists.
-        ServiceLocator.TryGet<OrderService>(out var orders);
-        foreach (var li in order.LineItems)
-        {
-            int fullPallet = orders?.FullPalletCases(li.SkuId) ?? 0;
-            string split = fullPallet > 0
-                ? $"{li.QuantityNeeded / fullPallet} pallet(s)" +
-                  (li.QuantityNeeded % fullPallet > 0 ? $" + {li.QuantityNeeded % fullPallet} cs" : "")
-                : $"{li.QuantityNeeded} cs (no pallet maths)";
+        // Status trio now sits neatly under the customer name instead of floating in an
+        // absolutely-centered column of its own — and the per-SKU "520894 — 120 cs · 3 pallet(s)"
+        // breakdown that used to live here is gone: the ORDER DETAILS pane on the right already
+        // shows every line item, so repeating it on the card was redundant.
+        var statusValue = MakeText(BulkPhaseLabel(order), 15, ColMoney, bold: true);
+        statusValue.style.marginTop = 4;
+        body.Add(statusValue);
 
-            var lineText = MakeText($"{li.SkuId} — {li.QuantityNeeded} cs  ·  {split}", 13, ColSubtleText);
-            lineText.style.marginTop = 1;
-            body.Add(lineText);
-        }
-        leftSection.Add(body);
-        card.Add(leftSection);
-
-        // MIDDLE: Order Status section - anchored with absolute positioning so it sits at the
-        // true horizontal center of the card, regardless of how wide the left/right sections are
-        // (a flex-grow sibling would otherwise pull this section's own center off to one side).
-        var statusSection = new VisualElement();
-        statusSection.style.position = Position.Absolute;
-        statusSection.style.left = 0;
-        statusSection.style.right = 0;
-        statusSection.style.top = 0;
-        statusSection.style.bottom = 0;
-        statusSection.style.flexDirection = FlexDirection.Column;
-        statusSection.style.alignItems = Align.Center;
-        statusSection.style.justifyContent = Justify.Center;
-
-        var statusValue = MakeText(BulkPhaseLabel(order), 20, ColMoney, bold: true);
-        statusValue.style.marginBottom = 4;
-        statusSection.Add(statusValue);
-
-        var doorStatus = MakeText(booked ? "Door Booked" : "NO DOOR BOOKED", 14,
+        var doorStatus = MakeText(booked ? "Door Booked" : "NO DOOR BOOKED", 13,
                                   booked ? ColMoney : ColDangerSoft, bold: !booked);
-        statusSection.Add(doorStatus);
+        doorStatus.style.marginTop = 2;
+        body.Add(doorStatus);
 
         // THE DEADLINE, restated on the live card. The offer card said what the player was agreeing
         // to; this says how much of it is left. A rush is called out by name while it's still winnable
@@ -1678,9 +1819,11 @@ public class ContractsPanel : IUIPanel
                                  late ? ColDangerSoft : order.DueDay == today ? ColWholesale : ColSubtleText,
                                  bold: late || order.DueDay == today);
         dueStatus.style.marginTop = 2;
-        statusSection.Add(dueStatus);
+        body.Add(dueStatus);
 
-        card.Add(statusSection);
+        leftSection.Add(body);
+        card.Add(leftSection);
+
 
         // RIGHT: Order Status header + Cases/Pallets
         var right = new VisualElement();
@@ -1695,6 +1838,7 @@ public class ContractsPanel : IUIPanel
         right.Add(statusHeader);
 
         // Calculate expected pallets
+        ServiceLocator.TryGet<OrderService>(out var orders);
         int expectedPallets = 0;
         if (orders != null)
         {
@@ -1760,19 +1904,28 @@ public class ContractsPanel : IUIPanel
             none.style.color = new StyleColor(ColSubtleText);
             none.style.whiteSpace = WhiteSpace.Normal;
             none.style.marginTop = 12;
-            _content.Add(none);
+            _orderListScroll.Add(none);
+            RefreshOrderDetailsPane(null);
             return;
         }
 
-        _content.Add(BuildAccountsSummary(arrivals, running));
+        _orderListScroll.Add(BuildAccountsSummary(arrivals, running));
+
+        // Default to the first running account so the details pane is never empty on first open.
+        if (_selectedAccountContractId == null || running.All(s => s.ContractId != _selectedAccountContractId))
+            _selectedAccountContractId = running[0].ContractId;
 
         int row = 0;
+        ContractData selectedContract = null;
         foreach (var signed in running)
         {
             var contract = arrivals.GetContract(signed.ContractId);
             if (contract == null) continue;
-            _content.Add(BuildAccountRow(arrivals, signed, contract, row++));
+            _orderListScroll.Add(BuildAccountRow(arrivals, signed, contract, row++));
+            if (signed.ContractId == _selectedAccountContractId) selectedContract = contract;
         }
+
+        RefreshOrderDetailsPane(selectedContract);
 
         // Spent one-offs are NOT listed here any more. A delivered wholesale drop is a finished deal,
         // not an account you're running — it has nothing left to arrive and nothing to cancel, and its
@@ -1785,31 +1938,39 @@ public class ContractsPanel : IUIPanel
                               "board still has to ship.";
     }
 
+
     /// <summary>
-    /// Three numbers at the top of Accounts, and the middle one is the point of the tab: committed
-    /// volume against what the floor actually picked yesterday. A player can read every card on the
-    /// Offers tab and still have no idea whether one more account will break them — this is the
-    /// comparison that answers it.
+    /// Four lifetime-average numbers at the top of Accounts: Avg. Plts. Dly., Avg. Cases Dly.,
+    /// Avg. On-Time, Avg. Fill Rate %. All four come from FulfillmentStatsService, which tracks
+    /// every order ever shipped (not just this tab's currently-running accounts) and divides by
+    /// elapsed in-game days — so 240 pallets shipped by day 2 at noon (2.5 elapsed days) reads as
+    /// 96 plts/day.
+    ///
+    /// FulfillmentStatsService accumulates raw totals the instant an order ships, but only
+    /// recomputes these four averages once per in-game hour — reading its cached properties here
+    /// is always cheap and always current as of the last hour tick.
     /// </summary>
     private VisualElement BuildAccountsSummary(OrderArrivalService arrivals, List<SignedContract> running)
     {
-        int committed = running.Sum(s => arrivals.GetContract(s.ContractId)?.EstimatedCasesPerDay ?? 0);
-        int delivered = running.Sum(s => s.OrdersDelivered);
-        int late = running.Sum(s => s.OrdersLate);
-        float onTime = delivered <= 0 ? 1f : (delivered - late) / (float)delivered;
-
-        // Estimate pallets: assumes average pallet is ~24 cases (Ti * Hi, common value)
-        int estimatedPallets = Mathf.CeilToInt(committed / 24f);
-
         var strip = new VisualElement();
         strip.style.flexDirection = FlexDirection.Row;
         strip.style.marginBottom = 8;
 
-        strip.Add(MakeStatTile("COMMITTED / DAY", $"{committed:N0} cases", ColTitleText));
-        strip.Add(MakeStatTile("COMMITTED / DAY", $"{estimatedPallets:N0} pallets", ColTitleText));
-        strip.Add(MakeStatTile("ORDERS DELIVERED", $"{delivered:N0}", ColTitleText));
-        strip.Add(MakeStatTile("ON-TIME", $"{onTime:P0}",
-                               onTime >= 0.9f ? ColMoney : onTime >= 0.7f ? ColWholesale : ColDangerSoft));
+        if (!ServiceLocator.TryGet<FulfillmentStatsService>(out var stats) || stats == null)
+        {
+            strip.Add(MakeStatTile("AVG. PLTS. DLY.", "—", ColTitleText));
+            strip.Add(MakeStatTile("AVG. CASES DLY.", "—", ColTitleText));
+            strip.Add(MakeStatTile("AVG. ON-TIME", "—", ColTitleText));
+            strip.Add(MakeStatTile("AVG. FILL RATE %", "—", ColTitleText));
+            return strip;
+        }
+
+        strip.Add(MakeStatTile("AVG. PLTS. DLY.", $"{stats.AvgPalletsPerDay:N1}", ColTitleText));
+        strip.Add(MakeStatTile("AVG. CASES DLY.", $"{stats.AvgCasesPerDay:N0}", ColTitleText));
+        strip.Add(MakeStatTile("AVG. ON-TIME", $"{stats.AvgOnTimeRate:P0}",
+                               stats.AvgOnTimeRate >= 0.9f ? ColMoney : stats.AvgOnTimeRate >= 0.7f ? ColWholesale : ColDangerSoft));
+        strip.Add(MakeStatTile("AVG. FILL RATE %", $"{stats.AvgFillRate:P0}",
+                               stats.AvgFillRate >= 0.95f ? ColMoney : stats.AvgFillRate >= 0.6f ? ColWholesale : ColDangerSoft));
         return strip;
     }
 
@@ -1836,138 +1997,465 @@ public class ContractsPanel : IUIPanel
                                           ContractData contract, int rowIndex)
     {
         bool struggling = signed.OrdersLate > 0;
-        Color accent = struggling ? ColDanger : ColMoney;
+        bool selected = signed.ContractId == _selectedAccountContractId;
+        Color accent = selected ? ColOrange : struggling ? ColDanger : ColMoney;
 
         var card = MakeRow(rowIndex, accent);
-        card.style.position = Position.Relative;
+        // Stable name so the angry reaction can re-find this card after the Rebuild() that a cancel
+        // triggers — same trick as SlotElementName on the schedule grid, and for the same reason: the
+        // element the effect anchors to is destroyed between queuing and playing.
+        card.name = AccountCardName(signed.ContractId);
+        if (selected)
+        {
+            card.style.borderTopWidth = card.style.borderRightWidth = card.style.borderBottomWidth = 2;
+            card.style.borderTopColor = card.style.borderRightColor = card.style.borderBottomColor =
+                new StyleColor(ColOrange);
+        }
 
-        // Icon 30% larger (44 * 1.3 ≈ 57)
-        card.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, 57, 6));
+        // Icon + CANCEL stacked in one column. Icon size/position is untouched (57px, same margin);
+        // CANCEL now lives directly under it instead of off on the right beside the revenue figure.
+        var iconColumn = new VisualElement();
+        iconColumn.style.alignItems = Align.Center;
+        iconColumn.style.flexShrink = 0;
+        iconColumn.style.marginRight = 14;
 
+        iconColumn.Add(MakeIcon(contract.Customer != null ? contract.Customer.Icon : null, 57, 6, marginRight: 0));
+
+        var cancel = new Button(() => OnCancelNextOrder(contract, signed)) { text = "CANCEL" };
+        StyleGhostButton(cancel);
+        // Orange face, white text — this is the one destructive control on the card and it was reading
+        // as just another quiet link next to the icon.
+        cancel.style.backgroundColor = new StyleColor(ColOrange);
+        cancel.style.color = new StyleColor(Color.white);
+        cancel.style.borderTopColor = cancel.style.borderBottomColor =
+            cancel.style.borderLeftColor = cancel.style.borderRightColor = new StyleColor(ColOrangeEdge);
+        cancel.RegisterCallback<PointerEnterEvent>(_ => cancel.style.backgroundColor = new StyleColor(ColOrangeHover));
+        cancel.RegisterCallback<PointerLeaveEvent>(_ => cancel.style.backgroundColor = new StyleColor(ColOrange));
+        cancel.style.marginTop = 6;
+        cancel.tooltip = "Cancel this account's next order. Only possible while the work is still " +
+                         "unreleased — once it's on the floor the order has to ship.";
+        iconColumn.Add(cancel);
+
+        card.Add(iconColumn);
+
+        // Name + satisfaction — untouched.
         var body = new VisualElement();
-        body.style.flexGrow = 1;
-        body.style.flexShrink = 1;
+        body.style.flexGrow = 0;
+        body.style.flexShrink = 0;
+        body.style.width = 230;
+        body.style.marginRight = 20;
 
-        // Customer name font 25% larger (17 → 21)
         body.Add(MakeText(contract.Customer != null ? contract.Customer.CompanyName : contract.ContractId,
                           21, ColTitleText, bold: true));
 
-        // Add customer satisfaction (placeholder: "Unhappy" for now)
-        var satisfaction = MakeText("Customer Current Satisfaction: Unhappy", 13, ColSubtleText);
+        var satisfaction = MakeText($"Customer Current Satisfaction: {SatisfactionLabel(signed.SatisfactionPercent)}",
+                                    13, ColSubtleText);
         satisfaction.style.marginTop = 2;
+        satisfaction.style.whiteSpace = WhiteSpace.Normal;
         body.Add(satisfaction);
 
         card.Add(body);
 
-        // Status container box in the middle of the pane - two columns separated
-        var statusContainer = new VisualElement();
-        statusContainer.style.position = Position.Absolute;
-        statusContainer.style.top = 20;
-        statusContainer.style.left = 400;
-        statusContainer.style.width = 600;
-        statusContainer.style.height = 95;
-        statusContainer.style.flexDirection = FlexDirection.Row;
-        statusContainer.style.paddingTop = 2;
-        statusContainer.style.paddingBottom = 2;
-        statusContainer.style.paddingLeft = 0;
-        statusContainer.style.paddingRight = 0;
-        // Invisible: no background, no border
-        statusContainer.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 0f));
-        statusContainer.style.borderTopWidth = statusContainer.style.borderBottomWidth =
-            statusContainer.style.borderLeftWidth = statusContainer.style.borderRightWidth = 0;
+        // Every order through the planning horizon is real and can be picked early. Keep the next one
+        // for the headline statistics/cancel action, but also make the rest explicit on the account card
+        // so a single customer contract cannot look like it contains only one shipment.
+        var pendingOrders = PendingOrdersFor(signed.ContractId);
+        var nextOrder = pendingOrders.FirstOrDefault();
+        var plannedLabel = MakeText($"Pending orders: {pendingOrders.Count}", 13, ColWholesale, bold: true);
+        plannedLabel.style.marginTop = 5;
+        body.Add(plannedLabel);
 
-        int today = CurrentDay();
-        int daysHeld = Mathf.Max(0, today - signed.SignedOnDay);
-        string nextDrop = arrivals.TryGetNextArrival(signed.ContractId, out int day, out int hour)
-            ? (day == today ? $"{hour:00}:00 today" : $"{hour:00}:00 ON day {day}")
-            : "unknown";
+        // THREE days of lookahead, not the whole generated horizon. The full list ran to fourteen
+        // rows, which pushed the card's own statistics off the bottom and buried the near-term work
+        // the player can actually act on among orders a week out.
+        //
+        // Cut on distinct DAYS rather than a count of orders: an account can drop more than once on
+        // the same day (day 3 and day 4 each have two here), so "the first three orders" would show
+        // day 4 twice and day 5 not at all. The headline count above still reports every pending
+        // order, so nothing is hidden — this is a horizon, not a filter on the total.
+        const int LookaheadDays = 3;
+        var horizonDays = pendingOrders.Select(o => o.CreatedDayNumber)
+                                       .Distinct().OrderBy(d => d).Take(LookaheadDays).ToList();
 
-        // Calculate actual cases and pallets from orders
-        int totalCases = 0;
-        int totalPallets = 0;
-        if (ServiceLocator.TryGet<OrderService>(out var orderService) && orderService != null)
+        foreach (var plannedOrder in pendingOrders)
         {
-            foreach (var order in orderService.ActiveOrders.Concat(orderService.OrderHistory))
+            if (!horizonDays.Contains(plannedOrder.CreatedDayNumber)) continue;
+
+            float rowFill = ApproxFillRate(plannedOrder);
+
+            // Columns, not one run-on string. Fixed cell widths so the item counts, case counts and
+            // fill percentages form readable vertical columns down the card — scanning "which of
+            // these can I actually fill" is the whole reason this list is here, and that comparison
+            // is impossible when every row starts its numbers at a different x.
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.marginTop = 1;
+
+            void Cell(string text, float width, Color color, bool bold = false)
             {
-                if (order != null && order.ContractId == signed.ContractId)
-                {
-                    totalCases += order.TotalUnitsPicked;
-                    // Estimate pallets: assume ~24 cases per pallet average
-                    totalPallets += Mathf.CeilToInt(order.TotalUnitsPicked / 24f);
-                }
+                var c = MakeText(text, 12, color, bold: bold);
+                c.style.width = width;
+                c.style.flexShrink = 0;
+                c.style.whiteSpace = WhiteSpace.NoWrap;
+                c.style.overflow = Overflow.Hidden;
+                c.style.marginTop = 0; c.style.marginBottom = 0;
+                row.Add(c);
             }
+
+            Cell($"Day {plannedOrder.CreatedDayNumber}:", 48, ColWholesale, bold: true);
+            Cell($"{plannedOrder.LineItems.Count} item(s)", 62, ColSubtleText);
+            Cell($"{plannedOrder.TotalUnits:N0} cs", 46, ColSubtleText);
+            // Same colour thresholds as the card's own Approximate Fill Rate below, so a red row here
+            // and a red headline there mean the same thing.
+            Cell($"{rowFill:P0} fill", 62,
+                 rowFill >= 0.95f ? ColMoney : rowFill >= 0.6f ? ColWholesale : ColDangerSoft);
+
+            body.Add(row);
         }
 
-        float fillRate = CalculateLifetimeFillRate(signed.ContractId);
+        int today = CurrentDay();
+        // TryGetNextArrival reports the first slot that has NOT been generated yet. With the whole
+        // planning horizon now materialized, that would misleadingly point beyond the seven orders
+        // already visible and workable. The first pending manifest is the actual next shipment.
+        string nextDrop = nextOrder != null
+            ? (nextOrder.CreatedDayNumber == today
+                ? $"{contract.CutoffHour:00}:00 today"
+                : $"{contract.CutoffHour:00}:00 on day {nextOrder.CreatedDayNumber}")
+            : arrivals.TryGetNextArrival(signed.ContractId, out int day, out int hour)
+                ? (day == today ? $"{hour:00}:00 today" : $"{hour:00}:00 on day {day}")
+                : "unknown";
 
-        // Left column - 3 items stacked vertically
-        var leftColumn = new VisualElement();
-        leftColumn.style.flexDirection = FlexDirection.Column;
-        leftColumn.style.flexGrow = 0;
-        leftColumn.style.width = 280;
+        int cases = nextOrder?.TotalUnits ?? 0;
+        int pallets = Mathf.CeilToInt(cases / 24f);
+        float approxFill = ApproxFillRate(nextOrder);
 
-        var line1 = MakeText($"• Days Held: {daysHeld}", 20, ColSubtleText);
-        line1.style.marginBottom = 4;
-        leftColumn.Add(line1);
+        // ONE COLUMN, one variable per line, no bullets. Two columns split the five readings across a
+        // reading order the eye doesn't follow, and the bullets bought nothing — every line already
+        // starts with its own label. Font down to 15 and the gap to 1px so all five fit the card's
+        // height without the card growing; NoWrap on every line so a long value clips rather than
+        // silently becoming two lines and pushing the last reading out of view.
+        var stats = new VisualElement();
+        stats.style.flexGrow = 1;
+        stats.style.justifyContent = Justify.Center;
 
-        var line2 = MakeText($"• Next Order: {nextDrop}", 20, ColSubtleText);
-        line2.style.marginBottom = 4;
-        line2.style.whiteSpace = WhiteSpace.NoWrap;
-        leftColumn.Add(line2);
+        void Stat(string text, Color color, bool bold = false)
+        {
+            var line = MakeText(text, 15, color, bold: bold);
+            line.style.marginBottom = 1;
+            line.style.whiteSpace = WhiteSpace.NoWrap;
+            line.style.overflow = Overflow.Hidden;
+            stats.Add(line);
+        }
 
-        var line3 = MakeText($"• Shipped: {signed.OrdersDelivered}", 20, ColSubtleText);
-        leftColumn.Add(line3);
+        Stat($"Next Order: {nextDrop}", ColSubtleText);
+        // No "Shipped:" line. The next order has not been released yet by definition, so it read 0%
+        // on every account every time — a reading that never varies is not information.
+        Stat($"Cases: {cases:N0}", ColSubtleText);
+        Stat($"Pallets: {pallets:N0}", ColSubtleText);
+        Stat($"Approximate Fill Rate: {approxFill:P0}",
+             approxFill >= 0.95f ? ColMoney : approxFill >= 0.6f ? ColWholesale : ColDangerSoft,
+             bold: true);
 
-        statusContainer.Add(leftColumn);
+        card.Add(stats);
 
-        // Right column - 3 items stacked vertically
-        var rightColumn = new VisualElement();
-        rightColumn.style.flexDirection = FlexDirection.Column;
-        rightColumn.style.flexGrow = 0;
-        rightColumn.style.width = 200;
-        rightColumn.style.marginLeft = 220;
+        // Whole card selects the account for the ORDER DETAILS pane — except clicks that land on
+        // CANCEL, which must not also select the row it just cancelled.
+        card.RegisterCallback<ClickEvent>(evt =>
+        {
+            if (evt.target is Button) return;
+            _selectedAccountContractId = signed.ContractId;
+            Rebuild();
+        });
 
-        var line4 = MakeText($"• Cases: {totalCases}", 20, ColSubtleText);
-        line4.style.marginBottom = 6;
-        line4.style.marginTop = 0;
-        rightColumn.Add(line4);
-
-        var line5 = MakeText($"• Pallets: {totalPallets}", 20, ColSubtleText);
-        line5.style.marginBottom = 6;
-        line5.style.marginTop = 0;
-        rightColumn.Add(line5);
-
-        var line6 = MakeText($"• Fill Rate: {fillRate:P0}", 20, ColSubtleText);
-        line6.style.marginBottom = 0;
-        line6.style.marginTop = 0;
-        rightColumn.Add(line6);
-
-        statusContainer.Add(rightColumn);
-
-        card.Add(statusContainer);
-
-        var right = new VisualElement();
-        right.style.width = 190;
-        right.style.flexShrink = 0;
-        right.style.alignItems = Align.FlexEnd;
-
-        // Double dollar font (17 → 34)
-        right.Add(MakeText($"${signed.RevenueEarned:N0}", 34, ColMoney, bold: true));
-
-        // Double caption font (11 → 22)
-        var caption = MakeText("earned to date", 22, ColSubtleText);
-        caption.style.marginBottom = 5;
-        right.Add(caption);
-
-        var cancel = new Button(() => OnCancel(contract, signed)) { text = "CANCEL" };
-        StyleGhostButton(cancel);
-        right.Add(cancel);
-
-        card.Add(right);
         return card;
     }
 
+    /// <summary>Reads the real SignedContract.SatisfactionPercent instead of the old hard-coded
+    /// "Unhappy" placeholder.</summary>
+    private static string SatisfactionLabel(float satisfactionPercent) =>
+        satisfactionPercent >= 80f ? "Happy" : satisfactionPercent >= 50f ? "Neutral" : "Unhappy";
+
+    /// <summary>All unshipped recurring manifests currently planned for the named contract, earliest
+    /// delivery slot first. These are real future orders (not a forecast): OrderArrivalService creates
+    /// them across the ScheduleHorizonDays planning horizon so they can be released and picked early.</summary>
+    private static List<OrderData> PendingOrdersFor(string contractId)
+    {
+        if (string.IsNullOrEmpty(contractId) || !ServiceLocator.TryGet<OrderService>(out var orders) || orders == null)
+            return new List<OrderData>();
+
+        return orders.ActiveOrders
+            .Where(o => o != null && o.ContractId == contractId
+                     && !o.IsBulk
+                     && o.Status != OrderData.OrderStatus.Shipped
+                     && o.Status != OrderData.OrderStatus.Cancelled)
+            .OrderBy(o => o.CreatedDayNumber)
+            .ThenBy(o => o.DueDay)
+            .ThenBy(o => o.OrderId)
+            .ToList();
+    }
+
+    /// <summary>All unshipped recurring manifests across every active account. Used for the Recurring
+    /// Orders badge so the tab count represents actual available/plannable orders, not account count.</summary>
+    private static List<OrderData> PendingRecurringOrders()
+    {
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null)
+            return new List<OrderData>();
+
+        return orders.ActiveOrders
+            .Where(o => o != null && !o.IsBulk && !string.IsNullOrEmpty(o.ContractId)
+                     && o.Status != OrderData.OrderStatus.Shipped
+                     && o.Status != OrderData.OrderStatus.Cancelled)
+            .OrderBy(o => o.CreatedDayNumber)
+            .ThenBy(o => o.DueDay)
+            .ThenBy(o => o.OrderId)
+            .ToList();
+    }
+
+    /// <summary>The account's next planned order — the first unshipped manifest in delivery-slot order.
+    /// Cancellation remains intentionally limited to this earliest order.</summary>
+    private static OrderData CurrentOrderFor(string contractId)
+        => PendingOrdersFor(contractId).FirstOrDefault();
+
+    /// <summary>
+    /// "Approximate fill rate": per-SKU on-hand cases (capped at what's needed) summed over the whole
+    /// order, divided by total cases needed. 1000 cases of mayo ordered with 500 on the shelf reads as
+    /// 50% — exactly the number that's supposed to reward a player for carrying real inventory instead
+    /// of ordering everything just-in-time. No order on the board reads as a perfect 100%, not a 0%.
+    /// </summary>
+    private static float ApproxFillRate(OrderData order)
+    {
+        if (order == null || order.LineItems.Count == 0) return 1f;
+        if (!ServiceLocator.TryGet<InventoryService>(out var inventory) || inventory == null) return 0f;
+
+        int totalNeeded = 0;
+        int totalAvailable = 0;
+        foreach (var li in order.LineItems)
+        {
+            int onHand = inventory.GetTotalUnitsBySku(li.SkuId);
+            totalAvailable += Mathf.Min(onHand, li.QuantityNeeded);
+            totalNeeded += li.QuantityNeeded;
+        }
+        return totalNeeded > 0 ? totalAvailable / (float)totalNeeded : 1f;
+    }
+
+    /// <summary>
+    /// The right-hand "ORDER DETAILS" pane on the Accounts tab. Populated from whichever account card
+    /// was last clicked (_selectedAccountContractId) — per-SKU breakdown of the account's CURRENT
+    /// order: cases needed, pallets needed, cases on hand right now, and the anticipated fill rate for
+    /// that one SKU. Passing null clears it back to the "nothing selected" placeholder.
+    /// </summary>
+    private void RefreshOrderDetailsPane(ContractData contract)
+    {
+        _orderDetailsBody.Clear();
+
+        var title = MakeText("ORDER DETAILS", 22, ColTitleText, bold: true);
+        title.style.unityTextAlign = TextAnchor.MiddleCenter;
+        title.style.marginBottom = 14;
+        _orderDetailsBody.Add(title);
+
+        if (contract == null)
+        {
+            _orderDetailsBody.Add(MakeText("Select an account on the left to see its current order.",
+                                          15, ColSubtleText));
+            return;
+        }
+
+        var who = MakeText(contract.Customer != null ? contract.Customer.CompanyName : contract.ContractId,
+                           18, ColTitleText, bold: true);
+        who.style.marginBottom = 10;
+        _orderDetailsBody.Add(who);
+
+        var pendingOrders = PendingOrdersFor(contract.ContractId);
+        if (pendingOrders.Count == 0)
+        {
+            // Say WHEN, not just "nothing here". An account between orders is the normal state for
+            // most of the day, and a bare "no order" reads as a fault.
+            string when = Arrivals() != null
+                       && Arrivals().TryGetNextArrival(contract.ContractId, out int day, out int hour)
+                ? (day == CurrentDay() ? $"Their next order is raised at {hour:00}:00 today."
+                                       : $"Their next order is raised at {hour:00}:00 on day {day}.")
+                : "Their next order time isn't known.";
+
+            var none = MakeText($"Nothing on the board for this account right now. {when}", 15, ColSubtleText);
+            none.style.whiteSpace = WhiteSpace.Normal;
+            _orderDetailsBody.Add(none);
+            return;
+        }
+
+        // Do not silently collapse an account to its earliest order. Every order in the recurring
+        // planning horizon is a real, releasable manifest, so render each one with its slot day and
+        // individual item lines. The body is already a ScrollView, which keeps a long future plan
+        // navigable without hiding it or growing the modal off-screen.
+        foreach (var order in pendingOrders)
+        {
+            var orderHeading = MakeText(
+                $"DAY {order.CreatedDayNumber} · {order.TotalUnits:N0} CASES · {order.LineItems.Count} ITEM(S)",
+                14, ColWholesale, bold: true);
+            orderHeading.style.marginTop = 12;
+            orderHeading.style.marginBottom = 5;
+            _orderDetailsBody.Add(orderHeading);
+            AddOrderLineTable(order);
+        }
+    }
+
+    /// <summary>
+    /// Renders one order's contents as the ORDER DETAILS table. Shared by the Recurring tab (which
+    /// selects an ACCOUNT and shows its current order) and the Bulk tab (which selects the ORDER
+    /// directly) so the two can't drift into showing the same data differently.
+    /// </summary>
+    private void AddOrderLineTable(OrderData order)
+    {
+        ServiceLocator.TryGet<InventoryService>(out var inventory);
+        ServiceLocator.TryGet<OrderService>(out var orders);
+
+        var header = new VisualElement();
+        header.style.flexDirection = FlexDirection.Row;
+        header.style.marginBottom = 6;
+        header.Add(DetailSpacer(DetailIconSize + 8));           // sits over the item icons
+        header.Add(DetailHeaderCell("ITEM", 1.5f));
+        header.Add(DetailHeaderCell("ORDERED", 0.6f));
+        header.Add(DetailHeaderCell("ON HAND", 0.6f));
+        header.Add(DetailHeaderCell("FILL", 0.5f));
+        header.Add(DetailHeaderCell("PICK FACE", 0.9f));
+        _orderDetailsBody.Add(header);
+
+        foreach (var li in order.LineItems)
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.paddingTop = 5; row.style.paddingBottom = 5;
+            row.style.borderBottomWidth = 1;
+            row.style.borderBottomColor = new StyleColor(ColBlueEdge);
+
+            var sku = inventory?.GetSkuData(li.SkuId);
+            int onHand = inventory != null ? inventory.GetTotalUnitsBySku(li.SkuId) : 0;
+            int fullPallet = orders?.FullPalletCases(li.SkuId) ?? 0;
+            float lineFill = li.QuantityNeeded > 0
+                ? Mathf.Min(onHand, li.QuantityNeeded) / (float)li.QuantityNeeded : 1f;
+
+            row.Add(MakeIcon(sku != null ? sku.Icon : null, DetailIconSize, 4, marginRight: 8));
+
+            // Item number over description — the number is what the player matches against a rack
+            // label, the description is what tells them what it actually is.
+            var idBlock = new VisualElement();
+            idBlock.style.flexGrow = 1.5f; idBlock.style.flexBasis = 0;
+            idBlock.style.overflow = Overflow.Hidden;
+            var num = MakeText(li.SkuId, 18, ColTitleText, bold: true);
+            num.style.whiteSpace = WhiteSpace.NoWrap;
+            idBlock.Add(num);
+            if (sku != null && !string.IsNullOrEmpty(sku.ItemDescription))
+            {
+                var desc = MakeText(sku.ItemDescription, 17, ColSubtleText);
+                desc.style.whiteSpace = WhiteSpace.NoWrap;
+                idBlock.Add(desc);
+            }
+            row.Add(idBlock);
+
+            row.Add(DetailCell($"{li.QuantityNeeded:N0}", 0.6f, ColSubtleText, padLeft: NumericCellPadLeft));
+            row.Add(DetailCell($"{onHand:N0}", 0.6f, onHand >= li.QuantityNeeded ? ColMoney : ColDangerSoft,
+                               padLeft: NumericCellPadLeft));
+            row.Add(DetailCell($"{lineFill:P0}", 0.5f,
+                               lineFill >= 0.95f ? ColMoney : lineFill >= 0.6f ? ColWholesale : ColDangerSoft,
+                               bold: true));
+
+            row.Add(PickFaceCell(order, li, fullPallet));
+            _orderDetailsBody.Add(row);
+        }
+    }
+
+    /// <summary>Bulk's entry point to the details pane — it selects an ORDER rather than an account,
+    /// so it can't go through RefreshOrderDetailsPane's contract lookup.</summary>
+    private void RefreshOrderDetailsForOrder(OrderData order, string who)
+    {
+        _orderDetailsBody.Clear();
+
+        var title = MakeText("ORDER DETAILS", 22, ColTitleText, bold: true);
+        title.style.unityTextAlign = TextAnchor.MiddleCenter;
+        title.style.marginBottom = 14;
+        _orderDetailsBody.Add(title);
+
+        if (order == null)
+        {
+            _orderDetailsBody.Add(MakeText("Select a bulk order on the left to see what's on it.",
+                                           15, ColSubtleText));
+            return;
+        }
+
+        var name = MakeText(who ?? order.CustomerName, 18, ColTitleText, bold: true);
+        name.style.marginBottom = 10;
+        _orderDetailsBody.Add(name);
+
+        AddOrderLineTable(order);
+    }
+
+    private const float DetailIconSize = 60f;
+
+    private VisualElement DetailSpacer(float width)
+    {
+        var e = new VisualElement();
+        e.style.width = width; e.style.flexShrink = 0;
+        return e;
+    }
+
+    /// <summary>
+    /// Where a case picker will go for this line — or why they can't.
+    ///
+    /// A line the Reach Trucks take whole (a bulk order's full-pallet quantities) needs no pick face
+    /// and is reported as such rather than as a problem: flagging "no pick slot" on freight that was
+    /// never going to be hand-picked would send the player off assigning slots that change nothing.
+    ///
+    /// A case-pick line with no assigned slot IS a problem, and one the player can fix immediately —
+    /// so it says so in the cell where the address would have been, in smaller text so a row of them
+    /// reads as a to-do list rather than a wall of errors.
+    /// </summary>
+    private VisualElement PickFaceCell(OrderData order, OrderLineItem line, int fullPalletCases)
+    {
+        bool wholePallets = order.IsBulk && fullPalletCases > 0
+                            && line.QuantityNeeded % fullPalletCases == 0;
+
+        if (wholePallets)
+            return DetailCell("Pallet Picks", 0.9f, ColSubtleText);
+
+        var slots = SlotAssignmentService.GetSlotsForSku(line.SkuId);
+        if (slots != null && slots.Count > 0)
+        {
+            string text = slots.Count == 1 ? slots[0] : $"{slots[0]} +{slots.Count - 1}";
+            return DetailCell(text, 0.9f, ColChipOutText);
+        }
+
+        var warn = MakeText("Product needs a pickslot assigned", 10, ColDangerSoft);
+        warn.style.flexGrow = 0.9f; warn.style.flexBasis = 0;
+        warn.style.whiteSpace = WhiteSpace.Normal;
+        return warn;
+    }
+
+    private VisualElement DetailHeaderCell(string text, float flex)
+    {
+        var cell = MakeText(text, 12, ColSubtleText, bold: true);
+        cell.style.flexGrow = flex; cell.style.flexBasis = 0;
+        return cell;
+    }
+
+    /// <summary>The ORDERED/ON HAND figures are short next to their own headers, so at flex-basis 0
+    /// they sit visibly left of the header text above them. Nudged right rather than centred so the
+    /// column still reads as a left-aligned number list.</summary>
+    private const float NumericCellPadLeft = 12f;
+
+    private VisualElement DetailCell(string text, float flex, Color color, bool bold = false,
+                                     float padLeft = 0f)
+    {
+        var cell = MakeText(text, 14, color, bold: bold);
+        cell.style.flexGrow = flex; cell.style.flexBasis = 0;
+        if (padLeft > 0f) cell.style.paddingLeft = padLeft;
+        return cell;
+    }
+
     /// <summary>Calculate lifetime fill rate for a contract: (total cases shipped / total cases ordered) * 100%</summary>
+    /// <remarks>Unused since the Accounts tab redesign switched the card's fill-rate readout to
+    /// ApproxFillRate (per-SKU on-hand ÷ needed for the CURRENT order) — kept in case a lifetime figure
+    /// is wanted again on the Completed tab or elsewhere.</remarks>
     private float CalculateLifetimeFillRate(string contractId)
     {
         if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null)
@@ -2017,6 +2505,92 @@ public class ContractsPanel : IUIPanel
                $"on-time {signed.OnTimeRate:P0} · satisfaction {signed.SatisfactionPercent:F0}%";
     }
 
+    /// <summary>
+    /// Cancels this account's NEXT order — not the account itself.
+    ///
+    /// Only while the work is still unreleased. Once the player has pushed it to the floor there are
+    /// selectors walking to pick faces and possibly pallets already standing in a lane; unwinding that
+    /// from a button on a summary card would leave physical goods staged against an order that no
+    /// longer exists. "Released" is read off the live tasks rather than the order's status, because the
+    /// task list is what the floor is actually working from.
+    ///
+    /// Costs a large satisfaction hit and floats the angry reaction, same as a missed deadline —
+    /// refusing to supply an order the customer placed is the worst thing this panel can do to an
+    /// account short of dropping it.
+    /// </summary>
+    private void OnCancelNextOrder(ContractData contract, SignedContract signed)
+    {
+        string who = contract.Customer != null ? contract.Customer.CompanyName : contract.ContractId;
+
+        var order = CurrentOrderFor(contract.ContractId);
+        if (order == null)
+        {
+            UIToast.Show($"{who} has no order on the board to cancel.");
+            return;
+        }
+
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return;
+
+        if (OrderWorkIsOnTheFloor(order))
+        {
+            UIToast.Show($"{who}'s order is already released to the floor — it has to ship now.");
+            return;
+        }
+
+        int cancelled = orders.CancelOrders(new List<string> { order.OrderId });
+        if (cancelled == 0)
+        {
+            UIToast.Show($"Couldn't cancel {who}'s order.");
+            Rebuild();
+            return;
+        }
+
+        Arrivals()?.PenalizeSatisfaction(contract.ContractId,
+                                         OrderArrivalService.CancelledOrderSatisfactionPenalty);
+
+        UIToast.Show($"{who}'s order cancelled — satisfaction down hard. Future orders still arrive.");
+        PlayUnhappyOverAccountCard(contract.ContractId);
+        Rebuild();
+    }
+
+    /// <summary>
+    /// Has any of this order's work been handed to the floor yet?
+    ///
+    /// Anything past Open counts: Available means the player released it and a worker may already be
+    /// walking to it. Read from the live task list rather than OrderData.Status because a partially
+    /// picked order and a released-but-untouched one look the same from the status alone, and only one
+    /// of them is safe to cancel from here.
+    /// </summary>
+    private static bool OrderWorkIsOnTheFloor(OrderData order)
+    {
+        if (order == null) return false;
+        if (!ServiceLocator.TryGet<GameCore.Labor.WorkQueueSystem>(out var wq) || wq == null) return false;
+
+        foreach (var t in wq.Tasks)
+        {
+            if (t == null || t.OrderId != order.OrderId) continue;
+            if (t.Status == GameCore.Labor.WorkTaskStatus.Available
+             || t.Status == GameCore.Labor.WorkTaskStatus.Assigned
+             || t.Status == GameCore.Labor.WorkTaskStatus.Complete) return true;
+        }
+        return false;
+    }
+
+    private static string AccountCardName(string contractId) => $"acct-card-{contractId}";
+
+    /// <summary>Floats the angry-customer reaction over an account's card, the same effect a missed
+    /// slot plays over a schedule cell. Deferred a frame because the caller rebuilds immediately after
+    /// and the card being pointed at doesn't exist yet at the moment this is asked for.</summary>
+    private void PlayUnhappyOverAccountCard(string contractId)
+    {
+        string name = AccountCardName(contractId);
+        _overlay.schedule.Execute(() =>
+        {
+            var card = _orderListScroll?.Q(name) ?? _content?.Q(name);
+            if (card != null) UnhappyCustomerFx.Play(_overlay, card, 0);
+        }).ExecuteLater(16);
+    }
+
     private void OnCancel(ContractData contract, SignedContract signed)
     {
         var arrivals = Arrivals();
@@ -2033,6 +2607,7 @@ public class ContractsPanel : IUIPanel
         // Deliberately does NOT touch orders already on the board. Cancelling ends FUTURE arrivals;
         // work you already accepted still has a due date and still fines you for missing it.
         UIToast.Show($"{who} cancelled — no new orders. Anything already open still has to ship.");
+        if (_selectedAccountContractId == contract.ContractId) _selectedAccountContractId = null;
         Rebuild();
     }
 
@@ -2137,12 +2712,23 @@ public class ContractsPanel : IUIPanel
         header.style.flexDirection = FlexDirection.Column;
         header.style.marginBottom = 4;
 
-        // ── Top row: Day switcher centered, live clock riding alongside it ──
+        // ── Top row: compact legend on the left, day switcher + live clock pushed to the right ──
+        // The legend used to be its own full-width row inside BuildScheduleStrip below — moved up
+        // here, compacted, to free that space for the per-appointment item breakdown that replaced it
+        // (see the "PO/ORDER DETAILS" half of that strip). SpaceBetween does the shove: the legend
+        // takes only what it needs on the left, the switcher block sizes to its own content and sits
+        // on the right, and the gap between absorbs whatever room is left over.
+        var topRow = new VisualElement();
+        topRow.style.flexDirection = FlexDirection.Row;
+        topRow.style.alignItems = Align.Center;
+        topRow.style.justifyContent = Justify.SpaceBetween;
+        topRow.style.marginBottom = 4;
+        topRow.Add(BuildCompactLegend());
+
         var daySwitcher = new VisualElement();
         daySwitcher.style.flexDirection = FlexDirection.Row;
         daySwitcher.style.alignItems = Align.Center;
-        daySwitcher.style.justifyContent = Justify.Center;
-        daySwitcher.style.marginBottom = 4;
+        daySwitcher.style.flexShrink = 0;
 
         var prev = new Button(() => { _scheduleDay = Mathf.Max(today - ScheduleDaysBack, _scheduleDay - 1); Rebuild(); })
             { text = "◀" };
@@ -2175,17 +2761,65 @@ public class ContractsPanel : IUIPanel
         _lastScheduleClockText = _scheduleClockLabel.text;
         daySwitcher.Add(_scheduleClockLabel);
 
-        header.Add(daySwitcher);
+        topRow.Add(daySwitcher);
+        header.Add(topRow);
 
         return header;
     }
 
+    /// <summary>
+    /// Compact, single-row legend — swatch + label, three abbreviated entries — that sits to the left
+    /// of the day switcher in BuildScheduleHeader. This replaced a full stacked LEGEND column that
+    /// used to live inside BuildScheduleStrip; that space is now the "PO/ORDER DETAILS" breakdown for
+    /// whatever's currently selected, so the legend had to shrink to fit above the grid instead.
+    /// </summary>
+    private VisualElement BuildCompactLegend()
+    {
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.flexShrink = 1;
+        row.Add(MakeCompactLegendItem(ColChipOut, ColBlueEdge, "recurring"));
+        row.Add(MakeCompactLegendItem(ColChipBulk, ColBulkEdge, "bulk"));
+        row.Add(MakeCompactLegendItem(ColChipIn, ColOrangeEdge, "inbound PO"));
+        return row;
+    }
+
+    private VisualElement MakeCompactLegendItem(Color fill, Color edge, string text)
+    {
+        var item = new VisualElement();
+        item.style.flexDirection = FlexDirection.Row;
+        item.style.alignItems = Align.Center;
+        item.style.marginRight = 14;
+
+        var swatch = new VisualElement();
+        swatch.style.width = 11; swatch.style.height = 11;
+        swatch.style.flexShrink = 0;
+        swatch.style.marginRight = 5;
+        swatch.style.backgroundColor = new StyleColor(fill);
+        swatch.style.borderTopWidth = swatch.style.borderBottomWidth =
+            swatch.style.borderLeftWidth = swatch.style.borderRightWidth = 1;
+        swatch.style.borderTopColor = swatch.style.borderBottomColor =
+            swatch.style.borderLeftColor = swatch.style.borderRightColor = new StyleColor(edge);
+        swatch.style.borderTopLeftRadius = swatch.style.borderTopRightRadius =
+            swatch.style.borderBottomLeftRadius = swatch.style.borderBottomRightRadius = 3;
+        item.Add(swatch);
+
+        var label = MakeText(text, 11, ColSubtleText);
+        label.style.whiteSpace = WhiteSpace.NoWrap;
+        item.Add(label);
+        return item;
+    }
+
     // ── Schedule strip geometry ───────────────────────────────────────────────────────────────────
-    // Pool boxes are deliberately SMALL and uniform. This strip sits between the day switcher and the
-    // grid, so every pixel it takes is a block row you can't see; the full-name chips it replaced grew
-    // it past a third of the panel the moment a backlog built up.
-    private const float PoolBoxWidth  = 78f;
-    private const float PoolBoxHeight = 70f;
+    // Pool boxes read as a small pennant flag: a dark "pole" strip on the left, then a wider colored
+    // "flag" rectangle carrying the icon and details. Still deliberately compact — this strip sits
+    // between the day switcher and the grid, so every pixel it takes is a block row you can't see —
+    // but wide enough for an icon and a pallet count, which a bare 78x70 square never had room for.
+    private const float PoolBoxWidth  = 212f;
+    private const float PoolBoxHeight = 68f;
+    private const float PoolPoleWidth = 5f;
+    private const float PoolIconSize  = 36f;
     private const int   PoolMaxBoxes  = 10;
 
     /// <summary>
@@ -2239,7 +2873,7 @@ public class ContractsPanel : IUIPanel
         legendCaptionHalf.style.flexBasis = Length.Percent(50);
         legendCaptionHalf.style.flexGrow = 0; legendCaptionHalf.style.flexShrink = 0;
         legendCaptionHalf.style.alignItems = Align.Center;
-        legendCaptionHalf.Add(MakeStripCaption("LEGEND", ColSubtleText));
+        legendCaptionHalf.Add(MakeStripCaption("PO/ORDER DETAILS", ColSubtleText));
         captions.Add(legendCaptionHalf);
 
         var unscheduledCaptionHalf = new VisualElement();
@@ -2261,18 +2895,19 @@ public class ContractsPanel : IUIPanel
         halves.style.flexDirection = FlexDirection.Row;
         halves.style.alignItems = Align.Stretch;
 
-        // ── LEFT hemisphere: what the colours mean ──
+        // ── LEFT hemisphere: item numbers, descriptions and quantities for whatever's selected ──
+        // Used to be the LEGEND (three swatch rows) — that moved up into BuildScheduleHeader, compacted,
+        // to make room for this: click any inbound PO or outbound trailer (on the grid, parked, or
+        // still in the pool) and its contents show up here instead of having to open a separate panel.
         var left = new VisualElement();
         left.style.flexBasis = Length.Percent(50);
         left.style.flexGrow = 0; left.style.flexShrink = 0;
-        left.style.justifyContent = Justify.Center;
+        left.style.justifyContent = Justify.FlexStart;
         left.style.paddingTop = 6; left.style.paddingBottom = 6;
         left.style.paddingLeft = 14; left.style.paddingRight = 14;
         left.style.borderRightWidth = 2;
         left.style.borderRightColor = new StyleColor(ColBorder);
-        left.Add(MakeLegendRow(ColChipOut,  ColBlueEdge,   "recurring order"));
-        left.Add(MakeLegendRow(ColChipBulk, ColBulkEdge,   "bulk order"));
-        left.Add(MakeLegendRow(ColChipIn,   ColOrangeEdge, "inbound PO (shares the same doors)"));
+        left.Add(BuildPoOrderDetailsPanel(unscheduled));
         halves.Add(left);
 
         // ── RIGHT hemisphere: trailers with no door yet ──
@@ -2397,7 +3032,175 @@ public class ContractsPanel : IUIPanel
     }
 
     /// <summary>
-    /// One stranded trailer as a small colour-coded box. Fill and edge come from the same ChipFill/
+    /// Builds the "PO/ORDER DETAILS" pane that now occupies the left half of the schedule strip
+    /// (where the LEGEND used to live — see BuildCompactLegend for where that went). Shows item
+    /// number / description / quantity for whichever inbound PO or outbound trailer is currently
+    /// selected on the grid, parked, or still sitting in the unscheduled pool. Compressed on purpose
+    /// (11px rows) and capped to a scrollable height so a long manifest never pushes the grid down.
+    /// </summary>
+    private VisualElement BuildPoOrderDetailsPanel(List<UnscheduledGroup> unscheduled)
+    {
+        var container = new VisualElement();
+        container.style.width = Length.Percent(100);
+
+        var (title, lines) = ResolvePoOrderDetails(unscheduled);
+
+        if (!string.IsNullOrEmpty(title))
+        {
+            var who = MakeText(title, 12, ColTitleText, bold: true);
+            who.style.whiteSpace = WhiteSpace.NoWrap;
+            who.style.overflow = Overflow.Hidden;
+            who.style.marginBottom = 4;
+            container.Add(who);
+        }
+
+        if (lines == null || lines.Count == 0)
+        {
+            var empty = MakeText(
+                "Click an inbound PO or outbound order on the grid (or in the pool above) to see its " +
+                "item numbers, descriptions and quantities here.", 11, ColSubtleText);
+            empty.style.whiteSpace = WhiteSpace.Normal;
+            container.Add(empty);
+            return container;
+        }
+
+        var scroll = new ScrollView(ScrollViewMode.Vertical);
+        scroll.style.maxHeight = 96;
+        scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+        scroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
+
+        var header = new VisualElement();
+        header.style.flexDirection = FlexDirection.Row;
+        header.style.marginBottom = 2;
+        header.Add(PoDetailHeaderCell("ITEM #", 1.1f, 0));
+        header.Add(PoDetailHeaderCell("DESCRIPTION", 1.6f, 0));
+        header.Add(PoDetailHeaderCell("QTY", 0, PoDetailQtyColumnWidth));
+        scroll.Add(header);
+
+        foreach (var line in lines)
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.paddingTop = 1; row.style.paddingBottom = 1;
+
+            var skuLabel = MakeText(line.sku, 11, ColTitleText, bold: true);
+            skuLabel.style.flexBasis = 0; skuLabel.style.flexGrow = 1.1f;
+            skuLabel.style.whiteSpace = WhiteSpace.NoWrap; skuLabel.style.overflow = Overflow.Hidden;
+            row.Add(skuLabel);
+
+            var descLabel = MakeText(string.IsNullOrEmpty(line.desc) ? "—" : line.desc, 11, ColSubtleText);
+            descLabel.style.flexBasis = 0; descLabel.style.flexGrow = 1.6f;
+            descLabel.style.whiteSpace = WhiteSpace.NoWrap; descLabel.style.overflow = Overflow.Hidden;
+            row.Add(descLabel);
+
+            // Fixed width, not a flex share — a flex-grown QTY cell drifts left/right of the QTY
+            // header by however much room the ITEM#/DESCRIPTION text ahead of it actually used on
+            // that particular row, so the numbers never lined up under their own header. A fixed
+            // width matching the header cell's is what keeps every QTY value in one vertical column.
+            var qtyLabel = MakeText($"{line.qty:N0}", 11, ColSubtleText);
+            qtyLabel.style.width = PoDetailQtyColumnWidth; qtyLabel.style.flexShrink = 0; qtyLabel.style.flexGrow = 0;
+            qtyLabel.style.unityTextAlign = TextAnchor.MiddleRight;
+            row.Add(qtyLabel);
+
+            scroll.Add(row);
+        }
+        container.Add(scroll);
+        return container;
+    }
+
+    private const float PoDetailQtyColumnWidth = 44f;
+
+    private Label PoDetailHeaderCell(string text, float flexGrow, float fixedWidth)
+    {
+        var label = MakeText(text, 10, ColSubtleText, bold: true);
+        if (fixedWidth > 0)
+        {
+            label.style.width = fixedWidth; label.style.flexShrink = 0; label.style.flexGrow = 0;
+            label.style.unityTextAlign = TextAnchor.MiddleRight;
+        }
+        else
+        {
+            label.style.flexBasis = 0; label.style.flexGrow = flexGrow;
+        }
+        label.style.whiteSpace = WhiteSpace.NoWrap;
+        return label;
+    }
+
+    /// <summary>Figures out WHAT to show in the PO/Order Details pane: the selected grid/parked
+    /// appointment takes priority (an inbound PO reads its ShipmentData line items, an outbound
+    /// trailer reads its riding orders' line items), falling back to a selected-but-not-yet-booked
+    /// pool group. Returns (null, empty) when nothing is selected.</summary>
+    private (string title, List<(string sku, string desc, int qty)> lines) ResolvePoOrderDetails(
+        List<UnscheduledGroup> unscheduled)
+    {
+        var schedule = Schedule();
+        var appt = _selectedAppointmentId != null ? schedule?.FindById(_selectedAppointmentId) : null;
+        if (appt != null)
+        {
+            if (IsInboundPo(appt))
+            {
+                ServiceLocator.TryGet<ShipmentService>(out var shipments);
+                var shipment = shipments?.PendingShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber);
+                if (shipment == null)
+                    return ($"PO {appt.ShipmentPoNumber} — no longer on file", new List<(string, string, int)>());
+
+                // One row PER SKU, not per line item — a player PO builds one ShipmentLineItem per
+                // PALLET (see PalletCountForPO), so the same SKU can show up several times over. The
+                // manifest here is meant to answer "what's on this truck and how much", not "how many
+                // pallets", so totals it by SKU the same way BuildOrderLinesFor already does for orders.
+                ServiceLocator.TryGet<InventoryService>(out var inv);
+                var bySku = new Dictionary<string, int>();
+                foreach (var li in shipment.LineItems)
+                {
+                    bySku.TryGetValue(li.SkuId, out int existing);
+                    bySku[li.SkuId] = existing + li.Quantity;
+                }
+                var lines = bySku.Select(kv => (kv.Key, inv?.GetSkuData(kv.Key)?.ItemDescription, kv.Value)).ToList();
+                return ($"PO {appt.ShipmentPoNumber} — {appt.CustomerName}", lines);
+            }
+
+            return BuildOrderLinesFor(appt.OrderIds, appt.CustomerName);
+        }
+
+        if (_selectedUnscheduledKey != null)
+        {
+            var group = unscheduled.FirstOrDefault(g => g.Key == _selectedUnscheduledKey);
+            if (group != null) return BuildOrderLinesFor(group.OrderIds, group.CustomerName);
+        }
+
+        return (null, new List<(string, string, int)>());
+    }
+
+    /// <summary>Sums line-item quantities, by SKU, across every order riding one trailer — a
+    /// multi-order recurring/bulk trailer shows one combined manifest rather than one block per order.</summary>
+    private (string title, List<(string sku, string desc, int qty)> lines) BuildOrderLinesFor(
+        List<string> orderIds, string customerName)
+    {
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null
+            || orderIds == null || orderIds.Count == 0)
+            return ($"{customerName} — no items generated yet", new List<(string, string, int)>());
+
+        ServiceLocator.TryGet<InventoryService>(out var inv);
+        var bySku = new Dictionary<string, int>();
+        foreach (var id in orderIds)
+        {
+            var order = orders.ActiveOrders.FirstOrDefault(o => o.OrderId == id);
+            if (order == null) continue;
+            foreach (var li in order.LineItems)
+            {
+                bySku.TryGetValue(li.SkuId, out int existing);
+                bySku[li.SkuId] = existing + li.QuantityNeeded;
+            }
+        }
+
+        if (bySku.Count == 0) return ($"{customerName} — no items generated yet", new List<(string, string, int)>());
+
+        var lines = bySku.Select(kv => (kv.Key, inv?.GetSkuData(kv.Key)?.ItemDescription, kv.Value)).ToList();
+        return (customerName, lines);
+    }
+
+    /// <summary>
+    /// One stranded trailer as a small colour-coded flag. Fill and edge come from the same ChipFill/
     /// ChipEdge switch the booked chips in the grid use — a box in the pool and the chip it becomes
     /// once placed are the same trailer, so if they disagreed on colour the legend would be lying
     /// about one of them. Selection and lateness override the type colour: what you're holding and
@@ -2408,66 +3211,27 @@ public class ContractsPanel : IUIPanel
         bool selected = group.Key == _selectedUnscheduledKey;
         bool late = group.EarliestDueDay < today;
 
-        var box = new VisualElement();
-        box.style.width = PoolBoxWidth; box.style.height = PoolBoxHeight;
-        box.style.flexShrink = 0;
-        box.style.marginRight = 6; box.style.marginBottom = 6;
-        box.style.paddingTop = 4; box.style.paddingBottom = 4;
-        box.style.alignItems = Align.Center;
-        box.style.justifyContent = Justify.Center;
-        // Three stacked labels centred as a group can overrun a fixed-height box if their natural line
-        // height runs even slightly over what fits — clip rather than let the top/bottom lines spill
-        // past the border (they were doing exactly that before this was added).
-        box.style.overflow = Overflow.Hidden;
-        box.style.backgroundColor = new StyleColor(selected ? ColOrange : ChipFill(group.Kind));
-        box.style.borderTopWidth = box.style.borderBottomWidth =
-            box.style.borderLeftWidth = box.style.borderRightWidth = selected ? 3 : 2;
-        box.style.borderTopColor = box.style.borderBottomColor =
-            box.style.borderLeftColor = box.style.borderRightColor =
-                new StyleColor(selected ? ColOrangeText : late ? ColDanger : ChipEdge(group.Kind));
-        box.style.borderTopLeftRadius = box.style.borderTopRightRadius =
-            box.style.borderBottomLeftRadius = box.style.borderBottomRightRadius = 5;
+        Color fill = selected ? ColOrange : ChipFill(group.Kind);
+        Color edge = selected ? ColOrangeText : late ? ColDanger : ChipEdge(group.Kind);
+        Color ink  = selected ? ColOrangeText : late ? ColDangerSoft : ChipText(group.Kind);
 
-        Color ink = selected ? ColOrangeText : late ? ColDangerSoft : ChipText(group.Kind);
-
-        var code = MakeText(Abbreviate(group.CustomerName), 16, ink, bold: true);
-        code.style.unityTextAlign = TextAnchor.MiddleCenter;
-        code.style.whiteSpace = WhiteSpace.NoWrap;
-        code.style.marginTop = 0; code.style.marginBottom = 0;
-        box.Add(code);
-
-        // The slot the customer actually contracted for, split across the box's middle and bottom
-        // lines: due day on its own line, their contract's CutoffHour (the closest thing to an
-        // "expected receiving time" on record — there's no dedicated delivery-window field, CutoffHour
-        // is when THEIR order lands, reused here as the best available proxy for the hour they think of
-        // as "their" slot) on the line below it. Falls back to an em dash for a Dev Console order,
-        // which carries no ContractId and therefore no hour to show. Order count / days-late, shown
-        // here before, is still available on hover (see the tooltip below) rather than taking a line.
-        //
-        // RESOLVED (was a TODO here for the softer "missed the hour they actually wanted" case):
-        // satisfaction now moves in both directions and at both granularities. Landing a trailer
-        // anywhere other than the contract's requested block docks it (DockScheduleService.
-        // MissedRequestedSlot → OrderArrivalService.PenalizeSatisfaction), letting a recurring
-        // trailer's booked block elapse with freight still on it docks it again alongside the late fee
-        // (SweepElapsedAppointments), and every order that DOES make its deadline nudges it back up
-        // (HandleOrderShipped → RewardSatisfaction). The number lives on SignedContract.
-        // SatisfactionPercent and is shown on the Accounts tab.
+        // The slot the customer actually contracted for: their contract's CutoffHour (the closest
+        // thing to an "expected receiving time" on record) — falls back to an em dash for a Dev
+        // Console order, which carries no ContractId and therefore no hour to show.
         var contract = arrivals?.GetContract(group.ContractId);
+        string timeText = contract != null ? $"{contract.CutoffHour:00}:00" : "—";
+        string dayText = late ? $"{today - group.EarliestDueDay}d LATE" : $"Day {group.EarliestDueDay}";
 
-        var dayLabel = MakeText($"Day {group.EarliestDueDay}", 11, late ? ColDangerSoft : ink, bold: late);
-        dayLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
-        dayLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        dayLabel.style.marginTop = 0; dayLabel.style.marginBottom = 0;
-        box.Add(dayLabel);
+        int pallets = PalletCountForGroup(group);
+        string detail = $"{PalletLabel(pallets)} · {group.OrderIds.Count} order(s) · {timeText}";
 
-        // Same ink as the customer code and day line, not the muted ColSubtleText it had before — all
-        // three lines read as one piece of information now, not two important ones and a footnote.
-        var timeLabel = MakeText(contract != null ? $"{contract.CutoffHour:00}:00" : "—",
-                                 13, late ? ColDangerSoft : ink);
-        timeLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
-        timeLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        timeLabel.style.marginTop = 0; timeLabel.style.marginBottom = 0;
-        box.Add(timeLabel);
+        var box = BuildFlagBox(
+            icon: IconForCustomer(group.CustomerId, group.ContractId, arrivals),
+            title: group.CustomerName,
+            subtitle: dayText,
+            detail: detail,
+            fill: fill, edge: edge, ink: ink,
+            selected: selected);
 
         // Stopped here, not left to bubble: the pool container itself is a drop target for a held
         // appointment chip (see BuildScheduleStrip), and a click on one specific box means "select
@@ -2476,9 +3240,81 @@ public class ContractsPanel : IUIPanel
         string due = late ? $"{today - group.EarliestDueDay} day(s) LATE"
                    : group.EarliestDueDay == today ? "due today"
                    : $"due day {group.EarliestDueDay}";
-        box.tooltip = $"{group.CustomerName} · {group.OrderIds.Count} order(s) with no dock appointment · {due}\n" +
+        box.tooltip = $"{group.CustomerName} · {PalletLabel(pallets)} · {group.OrderIds.Count} order(s) with no dock appointment · {due}\n" +
                       (selected ? "Click again to put it down."
                                 : "Click, then click an open slot to book it.");
+        return box;
+    }
+
+    /// <summary>
+    /// Shared pennant-flag layout for every pool box: a dark "pole" strip on the left, a colour-coded
+    /// flag rectangle carrying the customer/vendor icon, then a title / subtitle / detail stack. Both
+    /// BuildPoolBox and BuildParkedBox funnel through here so a stranded customer order and a parked
+    /// trailer (including an inbound PO) look like the same family of thing, differing only in colour
+    /// and text.
+    /// </summary>
+    private VisualElement BuildFlagBox(Sprite icon, string title, string subtitle, string detail,
+                                       Color fill, Color edge, Color ink, bool selected)
+    {
+        var box = new VisualElement();
+        box.style.width = PoolBoxWidth; box.style.height = PoolBoxHeight;
+        box.style.flexShrink = 0;
+        box.style.flexDirection = FlexDirection.Row;
+        box.style.marginRight = 8; box.style.marginBottom = 6;
+        box.style.overflow = Overflow.Hidden;
+
+        // The "pole" — a slim dark strip the flag hangs off of, which is what makes the rectangle
+        // read as a pennant rather than just another chip.
+        var pole = new VisualElement();
+        pole.style.width = PoolPoleWidth;
+        pole.style.flexShrink = 0;
+        pole.style.backgroundColor = new StyleColor(ColBorder);
+        pole.style.borderTopLeftRadius = pole.style.borderBottomLeftRadius = 3;
+        box.Add(pole);
+
+        // The "flag" — the colour-coded body carrying the icon and text.
+        var flag = new VisualElement();
+        flag.style.flexGrow = 1;
+        flag.style.flexDirection = FlexDirection.Row;
+        flag.style.alignItems = Align.Center;
+        flag.style.paddingLeft = 8; flag.style.paddingRight = 8;
+        flag.style.backgroundColor = new StyleColor(fill);
+        flag.style.borderTopWidth = flag.style.borderBottomWidth = flag.style.borderRightWidth = selected ? 3 : 2;
+        flag.style.borderTopColor = flag.style.borderBottomColor = flag.style.borderRightColor = new StyleColor(edge);
+        flag.style.borderTopRightRadius = flag.style.borderBottomRightRadius = 5;
+        box.Add(flag);
+
+        var iconEl = MakeIcon(icon, PoolIconSize, 6, marginRight: 8);
+        iconEl.style.borderTopWidth = iconEl.style.borderBottomWidth =
+            iconEl.style.borderLeftWidth = iconEl.style.borderRightWidth = 2;
+        iconEl.style.borderTopColor = iconEl.style.borderBottomColor =
+            iconEl.style.borderLeftColor = iconEl.style.borderRightColor = new StyleColor(edge);
+        flag.Add(iconEl);
+
+        var textCol = new VisualElement();
+        textCol.style.flexGrow = 1;
+        textCol.style.flexShrink = 1;
+        textCol.style.overflow = Overflow.Hidden;
+
+        var titleLabel = MakeText(title, 15, ink, bold: true);
+        titleLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        titleLabel.style.overflow = Overflow.Hidden;
+        titleLabel.style.marginTop = 0; titleLabel.style.marginBottom = 0;
+        textCol.Add(titleLabel);
+
+        var subtitleLabel = MakeText(subtitle, 12, ink, bold: true);
+        subtitleLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        subtitleLabel.style.marginTop = 1; subtitleLabel.style.marginBottom = 0;
+        textCol.Add(subtitleLabel);
+
+        var detailLabel = MakeText(detail, 11, ink);
+        detailLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        detailLabel.style.overflow = Overflow.Hidden;
+        detailLabel.style.opacity = 0.85f;
+        detailLabel.style.marginTop = 1; detailLabel.style.marginBottom = 0;
+        textCol.Add(detailLabel);
+
+        flag.Add(textCol);
         return box;
     }
 
@@ -2499,58 +3335,43 @@ public class ContractsPanel : IUIPanel
         bool selected = appt.Id == _selectedAppointmentId;
         bool late = appt.Day < today;
 
-        var box = new VisualElement();
-        box.style.width = PoolBoxWidth; box.style.height = PoolBoxHeight;
-        box.style.flexShrink = 0;
-        box.style.marginRight = 6; box.style.marginBottom = 6;
-        box.style.paddingTop = 4; box.style.paddingBottom = 4;
-        box.style.alignItems = Align.Center;
-        box.style.justifyContent = Justify.Center;
-        box.style.overflow = Overflow.Hidden;
-        box.style.backgroundColor = new StyleColor(selected ? ColOrange : ChipFill(appt.Kind));
-        box.style.borderTopWidth = box.style.borderBottomWidth =
-            box.style.borderLeftWidth = box.style.borderRightWidth = selected ? 3 : 2;
-        box.style.borderTopColor = box.style.borderBottomColor =
-            box.style.borderLeftColor = box.style.borderRightColor =
-                new StyleColor(selected ? ColOrangeText : late ? ColDanger : ColOrange);
-        box.style.borderTopLeftRadius = box.style.borderTopRightRadius =
-            box.style.borderBottomLeftRadius = box.style.borderBottomRightRadius = 5;
-
-        Color ink = selected ? ColOrangeText : late ? ColDangerSoft : ChipText(appt.Kind);
-
         // An inbound PO reservation is identified by its PO NUMBER, not by initials of the supplier.
         // The supplier is the same wholesaler on every order; the number is what tells one delivery
         // from the next, and it's what the Purchasing panel showed the player when they raised it.
         bool isPo = !string.IsNullOrEmpty(appt.ShipmentPoNumber);
 
-        var code = MakeText(isPo ? "PO" : Abbreviate(appt.CustomerName), 16, ink, bold: true);
-        code.style.unityTextAlign = TextAnchor.MiddleCenter;
-        code.style.whiteSpace = WhiteSpace.NoWrap;
-        code.style.marginTop = 0; code.style.marginBottom = 0;
-        box.Add(code);
+        Color fill = selected ? ColOrange : ChipFill(appt.Kind);
+        Color edge = selected ? ColOrangeText : late ? ColDanger : ColOrange;
+        Color ink  = selected ? ColOrangeText : late ? ColDangerSoft : ChipText(appt.Kind);
 
-        var dayLabel = MakeText(isPo ? appt.ShipmentPoNumber : $"Day {appt.Day}",
-                                11, late ? ColDangerSoft : ink, bold: late);
-        dayLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
-        dayLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        dayLabel.style.marginTop = 0; dayLabel.style.marginBottom = 0;
-        box.Add(dayLabel);
+        string title, subtitle, detail;
+        int pallets;
+        if (isPo)
+        {
+            pallets = PalletCountForPO(appt.ShipmentPoNumber);
+            title = $"PO {appt.ShipmentPoNumber}";
+            subtitle = late ? $"{today - appt.Day}d LATE" : $"Day {appt.Day}";
+            detail = $"{PalletLabel(pallets)} · {appt.CustomerName}";
+        }
+        else
+        {
+            pallets = 0; // a held outbound trailer carries no line items of its own to count
+            title = appt.CustomerName;
+            subtitle = late ? $"{today - appt.Day}d LATE" : $"Day {appt.Day}";
+            detail = $"{DockScheduleService.BlockLabel(appt.BlockIndex)} · held";
+        }
 
-        // For a PO the DAY is the useful third line — it's freight that hasn't been given a time yet,
-        // so its own (placeholder) block index would be meaningless. For a parked outbound trailer the
-        // block IS its promise, so that's what shows.
-        var timeLabel = MakeText(isPo ? $"Day {appt.Day}" : $"{appt.StartHour:00}:00",
-                                 13, late ? ColDangerSoft : ink);
-        timeLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
-        timeLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        timeLabel.style.marginTop = 0; timeLabel.style.marginBottom = 0;
-        box.Add(timeLabel);
+        var box = BuildFlagBox(
+            icon: IconForCustomer(appt.CustomerId, appt.ContractId, Arrivals()),
+            title: title, subtitle: subtitle, detail: detail,
+            fill: fill, edge: edge, ink: ink,
+            selected: selected);
 
         // Same reason as BuildPoolBox: the pool container is itself a drop target, and a click on a
         // specific box must mean "select this one", never "also drop what I'm holding".
         box.RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); OnParkedClicked(appt); });
         box.tooltip = isPo
-            ? $"Inbound PO {appt.ShipmentPoNumber} from {appt.CustomerName} · wanted day {appt.Day}\n" +
+            ? $"Inbound PO {appt.ShipmentPoNumber} from {appt.CustomerName} · {PalletLabel(pallets)} · wanted day {appt.Day}\n" +
               $"No door booked — the truck won't leave the supplier until you give it one.\n" +
               (selected ? "Click an open slot to book it, or click again to let go."
                         : "Click, then click an open slot to book its door and time.")
@@ -2570,18 +3391,6 @@ public class ContractsPanel : IUIPanel
         _selectedAppointmentId = _selectedAppointmentId == appt.Id ? null : appt.Id;
         _selectedUnscheduledKey = null; // one thing in hand at a time
         Rebuild();
-    }
-
-    /// <summary>Three letters for a box only 58px wide: initials when the name has several words
-    /// ("Grizzly Ridge Jerky" → GRJ), otherwise the first three characters.</summary>
-    private static string Abbreviate(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) return "???";
-        var words = name.Split(new[] { ' ', '-', '&', '\'', '.' },
-                              System.StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length >= 2)
-            return new string(words.Take(3).Select(w => char.ToUpperInvariant(w[0])).ToArray());
-        return name.Substring(0, Mathf.Min(3, name.Length)).ToUpperInvariant();
     }
 
     /// <summary>
@@ -2784,6 +3593,22 @@ public class ContractsPanel : IUIPanel
         // unmistakably as finished next to a live chip in the row above.
         if (locked) chip.style.opacity = 0.45f;
 
+        // Struck through once the work is genuinely DONE — order shipped, or the inbound PO received
+        // and its truck gone. Keyed on IsComplete rather than the `locked` flag above: locked also
+        // covers "its block has elapsed", and a trailer that's late with freight still on it is the
+        // opposite of finished. Dimming alone wasn't enough to tell those two apart at a glance.
+        bool complete = schedule.IsComplete(appt);
+        if (complete) AddStrikeThrough(chip, text);
+
+        // An outbound trailer with nothing on it yet is a RESERVATION, not work. It looked identical
+        // to a loaded one, which is how a booking at 06:00 for an order that doesn't arrive until
+        // 17:00 reads as "the Work Queue is broken" rather than "there is nothing to pick yet".
+        // Drawn hollow — the kind's edge colour kept, the fill dropped — so it reads as an outline
+        // waiting to be filled in, without costing any of the ~110px the customer name has to live in.
+        bool awaitingFreight = !complete && appt.Kind != AppointmentKind.Inbound && appt.OrderIds.Count == 0;
+        if (awaitingFreight)
+            chip.style.backgroundColor = new StyleColor(new Color(fill.r, fill.g, fill.b, 0.12f));
+
         // The tiny customer icon, immediately left of the name.
         chip.Add(MakeIcon(IconForAppointment(appt, arrivals), IconSizeTiny, 3, marginRight: 5));
 
@@ -2802,6 +3627,7 @@ public class ContractsPanel : IUIPanel
         label.style.flexShrink = 1;
         label.style.overflow = Overflow.Hidden;
         label.style.whiteSpace = WhiteSpace.NoWrap;
+        if (awaitingFreight) label.style.opacity = 0.75f;
         chip.Add(label);
 
         var door = MakeText($"D{appt.DoorNumber}", 11, text, bold: true);
@@ -2818,12 +3644,75 @@ public class ContractsPanel : IUIPanel
         // The tooltip is where the specifics live, since the chip itself is only ~150px. An inbound
         // trailer carries a PO rather than orders, so counting OrderIds on it would always print
         // "0 order(s)" — true and useless.
+        // "Done" outranks the lock reason: when a trailer is finished, that IS why it can't be moved,
+        // and the generic lock text ("its block has passed") would name a lesser, less useful truth.
+        string state = complete
+            ? (IsInboundPo(appt) ? "received — this PO is done" : "shipped — this trailer is done")
+            : locked ? lockReason : "click to move";
+
+        // The single most useful thing to say about an empty trailer is WHEN it stops being empty.
+        // Without it the player is left to work out for themselves that a 06:00 booking can't be
+        // picked because the order it's for doesn't get raised until the contract's cutoff hour.
+        if (awaitingFreight)
+            state = ArrivalHintFor(appt, arrivals) + " · " + state;
+
         chip.tooltip = IsInboundPo(appt)
             ? $"Inbound PO {appt.ShipmentPoNumber} · {appt.CustomerName} · {appt.TimeLabel} · " +
-              $"door {appt.DoorNumber} · " + (locked ? lockReason : "click to move")
+              $"door {appt.DoorNumber} · " + state
             : $"{appt.CustomerName} · {appt.TimeLabel} · door {appt.DoorNumber} · " +
-              $"{appt.OrderIds.Count} order(s) · " + (locked ? lockReason : "click to move");
+              $"{appt.OrderIds.Count} order(s) · " + state;
         return chip;
+    }
+
+    /// <summary>
+    /// Why an outbound trailer is standing empty, in the player's terms.
+    ///
+    /// A recurring contract raises its order at its own CutoffHour, so a trailer booked earlier in the
+    /// day genuinely has nothing to carry yet — and that is invisible from the grid, which is what
+    /// makes an empty Work Queue look like a fault instead of a schedule. Naming the hour turns it
+    /// into a fact the player can plan around.
+    ///
+    /// Falls back to a plain statement when the contract can't be resolved (a Dev Console order, or a
+    /// runtime-generated offer that didn't survive a reload) rather than inventing an hour.
+    /// </summary>
+    private static string ArrivalHintFor(DockAppointment appt, OrderArrivalService arrivals)
+    {
+        var contract = arrivals != null && !string.IsNullOrEmpty(appt.ContractId)
+            ? arrivals.GetContract(appt.ContractId)
+            : null;
+
+        if (contract == null) return "no orders on it yet";
+
+        if (contract.Kind == ContractKind.Recurring)
+            return $"no orders on it yet — {appt.CustomerName}'s order is raised at {contract.CutoffHour:00}:00";
+
+        return "no orders on it yet — waiting on the order to be raised";
+    }
+
+    /// <summary>
+    /// Draws a line straight through a chip to mark it finished.
+    ///
+    /// A real overlay element rather than a rich-text strikethrough tag on the label: the chip is an
+    /// icon, a name and a door number, so a tag would only cross out the middle one and leave the rest
+    /// standing. The line has to span the whole chip to read as "this trailer is done".
+    ///
+    /// Absolutely positioned and PickingMode.Ignore so it neither takes part in the chip's row layout
+    /// nor swallows the click that selects/moves it. Added last so it draws over the contents.
+    /// </summary>
+    private static void AddStrikeThrough(VisualElement chip, Color ink)
+    {
+        var line = new VisualElement();
+        line.pickingMode = PickingMode.Ignore;
+        line.style.position = Position.Absolute;
+        line.style.left = 4;
+        line.style.right = 4;
+        line.style.top = Length.Percent(50);
+        line.style.height = 2;
+        line.style.marginTop = -1;   // centre the 2px rule on the 50% line
+        // Opaque even though the finished chip as a whole is dimmed — the strike is the signal, and a
+        // faded line on a faded chip is what made "done" hard to spot in the first place.
+        line.style.backgroundColor = new StyleColor(new Color(ink.r, ink.g, ink.b, 0.95f));
+        chip.Add(line);
     }
 
     /// <summary>True for a purchase order the player raised — an inbound appointment carrying a PO
@@ -3011,11 +3900,23 @@ public class ContractsPanel : IUIPanel
                                         System.Action onConfirmed)
     {
         bool alreadyPaid = existing != null && existing.OffSlotPenaltyApplied;
-        if (alreadyPaid || !schedule.WouldMissRequestedSlot(contractId, block)) { onConfirmed(); return; }
+        if (alreadyPaid) { onConfirmed(); return; }
+
+        // The DAY counts too, not just the hour. A trailer dragged to the right hour on the wrong day
+        // used to slip through silently — WouldMissRequestedSlot only ever compared blocks — which is
+        // the single biggest thing a customer would actually notice.
+        int requestedDay = existing != null ? existing.RequestedDay : _scheduleDay;
+        int cost = schedule.PredictOffSlotReputationCost(contractId, requestedDay, _scheduleDay, block);
+        if (cost <= 0 && !schedule.WouldMissRequestedSlot(contractId, block)) { onConfirmed(); return; }
 
         schedule.TryGetRequestedBlock(contractId, out int wanted);
-        ConfirmOffSlotMove(customerName, DockScheduleService.BlockLabel(wanted),
-                           DockScheduleService.BlockLabel(block), onConfirmed);
+        string requestedLabel = requestedDay > 0 && requestedDay != _scheduleDay
+            ? $"{DockScheduleService.BlockLabel(wanted)} on day {requestedDay}"
+            : DockScheduleService.BlockLabel(wanted);
+
+        ConfirmOffSlotMove(customerName, requestedLabel,
+                           $"{DockScheduleService.BlockLabel(block)} on day {_scheduleDay}", onConfirmed,
+                           cost, schedule.PredictDescribeOffSlot(contractId, requestedDay, _scheduleDay, block));
     }
 
     /// <summary>
@@ -3055,6 +3956,14 @@ public class ContractsPanel : IUIPanel
 
         Arrivals()?.PenalizeSatisfaction(appt.ContractId);
 
+        // Reputation, scaled by HOW FAR the trailer sits from what was promised — a one-block nudge is
+        // a shrug, a day's slip is a real mark. Satisfaction above is per-account; this is the
+        // building-wide score that gates which customers and vendors will deal with you at all, so a
+        // trailer moved badly is felt in both places. See DockScheduleService.OffSlotReputationCost.
+        int repCost = schedule.OffSlotReputationCost(appt);
+        if (repCost > 0 && ServiceLocator.TryGet<ReputationService>(out var rep) && rep != null)
+            rep.Add(-repCost, $"{appt.CustomerName} — {schedule.DescribeOffSlot(appt)}");
+
         int fined = 0;
         int fineTotal = 0;
         if (ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
@@ -3076,9 +3985,13 @@ public class ContractsPanel : IUIPanel
         // destroys the very cell the effect anchors to. See PlayPendingUnhappyFx.
         QueueUnhappyFx(block, doorNumber, fineTotal);
 
+        // The message names the DISTANCE and the reputation cost, not just that something happened —
+        // the whole point of scaling the penalty is lost if every landing reports the same sentence.
+        string repPart = repCost > 0 ? $", reputation −{repCost}" : "";
         UIToast.Show(fined > 0
-            ? $"{appt.CustomerName} moved off their requested slot — {fined} order(s) fined, satisfaction down."
-            : $"{appt.CustomerName} moved off their requested slot — satisfaction down.");
+            ? $"{appt.CustomerName} — {schedule.DescribeOffSlot(appt)}. {fined} order(s) fined, " +
+              $"satisfaction down{repPart}."
+            : $"{appt.CustomerName} — {schedule.DescribeOffSlot(appt)}. Satisfaction down{repPart}.");
     }
 
     /// <summary>Current capital, or 0 when the money service isn't up. Used to measure a fine by what
@@ -3146,25 +4059,81 @@ public class ContractsPanel : IUIPanel
     private Sprite IconForAppointment(DockAppointment appt, OrderArrivalService arrivals)
         => IconForCustomer(appt.CustomerId, appt.ContractId, arrivals);
 
-    /// <summary>Shared by booked chips and stranded ones — both identify a trailer the same way.</summary>
+    /// <summary>Shared by booked chips and stranded ones — both identify a trailer the same way.
+    /// Falls back to the VendorRegistry for inbound freight: an inbound appointment's CustomerId is
+    /// actually the SUPPLIER's VendorId (see DockScheduleService.ParkInboundForPo), which never
+    /// matches a CustomerData, so the customer-catalog lookups above always miss for it. Vendors carry
+    /// their own icon for exactly this reason.</summary>
     private Sprite IconForCustomer(string customerId, string contractId, OrderArrivalService arrivals)
     {
-        if (arrivals == null) return null;
-
-        if (!string.IsNullOrEmpty(contractId))
+        if (arrivals != null)
         {
-            var byContract = arrivals.GetContract(contractId);
-            if (byContract?.Customer != null) return byContract.Customer.Icon;
+            if (!string.IsNullOrEmpty(contractId))
+            {
+                var byContract = arrivals.GetContract(contractId);
+                if (byContract?.Customer != null) return byContract.Customer.Icon;
+            }
+
+            if (!string.IsNullOrEmpty(customerId))
+            {
+                foreach (var c in arrivals.Catalog)
+                    if (c?.Customer != null && c.Customer.CustomerId == customerId)
+                        return c.Customer.Icon;
+            }
         }
 
         if (!string.IsNullOrEmpty(customerId))
         {
-            foreach (var c in arrivals.Catalog)
-                if (c?.Customer != null && c.Customer.CustomerId == customerId)
-                    return c.Customer.Icon;
+            var vendor = VendorRegistry.Load()?.GetById(customerId);
+            if (vendor != null) return vendor.Icon;
         }
-        return null; // inbound suppliers have no CustomerData; the chip's tint carries the meaning
+
+        return null;
     }
+
+    /// <summary>How many whole pallets a stranded customer trailer represents, summed across every
+    /// line item of every order in the group. A part pallet still takes a whole one (see
+    /// TrailerCapacity.PalletsFor) — this is "how many pallet positions this trailer needs", not a
+    /// case count.</summary>
+    private static int PalletCountForGroup(UnscheduledGroup group)
+    {
+        if (group == null || group.OrderIds.Count == 0) return 0;
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return 0;
+
+        int pallets = 0;
+        foreach (var orderId in group.OrderIds)
+        {
+            var order = orders.ActiveOrders.FirstOrDefault(o => o.OrderId == orderId);
+            if (order == null) continue;
+
+            foreach (var li in order.LineItems)
+            {
+                int fullPallet = orders.FullPalletCases(li.SkuId);
+                if (fullPallet <= 0) continue;
+                pallets += Mathf.CeilToInt(li.QuantityNeeded / (float)fullPallet);
+            }
+        }
+        return pallets;
+    }
+
+    /// <summary>How many pallets an inbound PO's trailer is carrying. A player-raised PO builds one
+    /// ShipmentLineItem per pallet (see PurchasingPanel's cart -> TrailerCapacity.PlanLoad path), so
+    /// the line count IS the pallet count — no per-SKU maths needed the way a customer order needs.
+    /// Returns -1 if the PO can no longer be found (e.g. already departed), so callers can show
+    /// nothing rather than a misleading zero.</summary>
+    private static int PalletCountForPO(string poNumber)
+    {
+        if (string.IsNullOrEmpty(poNumber)) return -1;
+        if (!ServiceLocator.TryGet<ShipmentService>(out var shipments) || shipments == null) return -1;
+
+        var shipment = shipments.PendingShipments.FirstOrDefault(s => s.PONumber == poNumber);
+        return shipment?.LineItems.Count ?? -1;
+    }
+
+    /// <summary>Renders a whole-number pallet count as "N pallet(s)", or an em dash if it couldn't be
+    /// determined (PO already departed, order missing) — never a misleading "0".</summary>
+    private static string PalletLabel(int pallets)
+        => pallets < 0 ? "—" : pallets == 1 ? "1 pallet" : $"{pallets} pallets";
 
     // ── Tab 5: Completed ─────────────────────────────────────────────────────
 
@@ -3991,6 +4960,14 @@ public class ContractsPanel : IUIPanel
 
     /// <summary>Customer icon block. A null sprite falls back to a flat plate rather than collapsing,
     /// so rows stay aligned whether or not every CustomerData has art assigned.</summary>
+    /// <summary>An offer-board card icon: IconSize tall, OfferIconWidthScale wider than that.</summary>
+    private VisualElement MakeOfferCardIcon(Sprite sprite)
+    {
+        var icon = MakeIcon(sprite, IconSize, 8);
+        icon.style.width = IconSize * OfferIconWidthScale;
+        return icon;
+    }
+
     private VisualElement MakeIcon(Sprite sprite, float size, int radius, float marginRight = 14f)
     {
         var icon = new VisualElement();
@@ -4103,6 +5080,33 @@ public class ContractsPanel : IUIPanel
         b.style.marginLeft = 0; b.style.marginRight = 0;
         b.RegisterCallback<MouseEnterEvent>(_ => b.style.color = new StyleColor(ColDangerSoft));
         b.RegisterCallback<MouseLeaveEvent>(_ => b.style.color = new StyleColor(ColSubtleText));
+    }
+
+    /// <summary>
+    /// Closes this panel and opens the inbound Purchasing screen — the mirror of
+    /// PurchasingPanel.OpenScheduler, which is what sends the player here in the first place.
+    ///
+    /// Closes rather than layering, for the same reason that one does: both are full-size draggable
+    /// windows, and stacking them leaves two overlapping modals with no obvious way out. Routing
+    /// through the key manager rather than calling Show directly keeps the exclusivity every other
+    /// panel obeys, so Tab still closes it and opening a third panel still closes this.
+    ///
+    /// Says why if purchasing can't be reached, rather than reading as a dead button.
+    /// </summary>
+    private void OpenPurchasing()
+    {
+        Hide();
+
+        var topBar = UnityEngine.Object.FindAnyObjectByType<TopBarUI>();
+        var purchasing = topBar != null ? topBar.PurchasingPanel : null;
+        if (purchasing == null)
+        {
+            UIToast.Show("Couldn't open purchasing — the panel isn't loaded.");
+            return;
+        }
+
+        UIKeyBindingManager.Instance?.CloseAll();
+        purchasing.Show();
     }
 
     private static void StyleSquareButton(Button b)

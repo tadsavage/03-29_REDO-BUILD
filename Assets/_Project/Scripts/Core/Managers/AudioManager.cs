@@ -79,6 +79,15 @@ public class AudioManager : MonoBehaviour
     public void SetSfxVolume(float v)   { sfxVolume   = v; }
     public void SetMusicVolume(float v) { musicVolume = v; }
 
+    /// <summary>Current "Game" volume slider level (0-1), for the many gameplay AudioSources that
+    /// live outside AudioManager (doors, forklifts, ambient chatter, UI clicks) and play their own
+    /// one-shots directly. Each of those multiplies its own base volume by this at play time, so the
+    /// slider affects them immediately without needing a shared AudioMixer.</summary>
+    public static float GameVolumeLevel => instance != null ? instance.sfxVolume : 1f;
+
+    /// <summary>Current "Music" volume slider level (0-1).</summary>
+    public static float MusicVolumeLevel => instance != null ? instance.musicVolume : 1f;
+
     public static void Play(string soundName)
     {
         if (instance == null) return;

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class RollupDoorController : MonoBehaviour
 {
@@ -35,17 +36,43 @@ public class RollupDoorController : MonoBehaviour
     // it), not a coverage problem — so it's driven explicitly instead.
     private bool _forcedOpen;
 
-    /// <summary>Holds the door open (or opens it immediately) and ignores further OnTriggerExit closes
-    /// until released. Call with false once the truck actually departs — the truck's own exit through
-    /// the trigger will then close it normally.</summary>
+    // Everything currently standing in the doorway. The door used to open on ANY enter and close on
+    // ANY exit, with no idea how many things were inside — so with two agents in the doorway the
+    // first one out shut the door on the second. _forcedOpen was bolted on to stop trucks suffering
+    // that, but workers still did. Counting occupants fixes the actual problem, and is what lets
+    // SetForcedOpen(false) know whether it is safe to close.
+    private readonly HashSet<Collider> _inside = new HashSet<Collider>();
+
+    // A collider that is destroyed or disabled never fires OnTriggerExit — and a departing truck is
+    // destroyed, so its entry would sit in the set forever and wedge the door open. Swept while
+    // occupied rather than every frame; nothing needs sub-second accuracy here.
+    private const float StalePruneInterval = 0.5f;
+    private float _nextPruneTime;
+
+    /// <summary>
+    /// Holds the door open (or opens it immediately) and ignores occupant-driven closes until
+    /// released.
+    ///
+    /// Releasing it CLOSES the door if the doorway is empty, rather than waiting for a trigger exit
+    /// that may never arrive. The old code assumed "the truck's own exit through the trigger will
+    /// close it normally as it drives out", and that assumption fails in both directions: any exit
+    /// the truck did fire while the hold was active was deliberately swallowed below, and the truck
+    /// is destroyed on departure, so no exit event can be produced afterwards either. The result was
+    /// a dock door left standing open forever with nothing holding it — observed on door 1 with
+    /// panelY sitting at the fully-open endY, _forcedOpen false, and zero trucks alive in the scene.
+    /// </summary>
     public void SetForcedOpen(bool forced)
     {
         _forcedOpen = forced;
+
         if (forced)
         {
-            if (_moveCoroutine != null) StopCoroutine(_moveCoroutine);
-            _moveCoroutine = StartCoroutine(MoveDoor(endY));
+            OpenDoor();
+            return;
         }
+
+        PruneStaleOccupants();
+        if (_inside.Count == 0) CloseDoor();
     }
 
     private void Awake()
@@ -89,17 +116,50 @@ public class RollupDoorController : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // Triggers when an object enters the box collider
+        // Only the FIRST arrival opens the door — a second agent walking into an already-open
+        // doorway shouldn't restart the animation or re-trigger the sound.
+        if (!_inside.Add(other)) return;
+        if (_inside.Count == 1) OpenDoor();
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (!_inside.Remove(other)) return;
+
+        if (_forcedOpen) return;      // a truck is docked here — it decides when this door closes
+        if (_inside.Count > 0) return; // somebody is still standing in the doorway
+
+        CloseDoor();
+    }
+
+    private void Update()
+    {
+        // Cheap and only while something is (or claims to be) in the doorway.
+        if (_inside.Count == 0 || Time.time < _nextPruneTime) return;
+        _nextPruneTime = Time.time + StalePruneInterval;
+
+        int before = _inside.Count;
+        PruneStaleOccupants();
+        if (before > 0 && _inside.Count == 0 && !_forcedOpen) CloseDoor();
+    }
+
+    /// <summary>Drops occupants that can no longer report leaving — destroyed (a departed truck),
+    /// deactivated, or their collider switched off. Without this the door stays open forever waiting
+    /// on an OnTriggerExit that physics will never raise.</summary>
+    private void PruneStaleOccupants()
+    {
+        _inside.RemoveWhere(c => c == null || !c.enabled || !c.gameObject.activeInHierarchy);
+    }
+
+    private void OpenDoor()
+    {
         if (_moveCoroutine != null) StopCoroutine(_moveCoroutine);
         _moveCoroutine = StartCoroutine(MoveDoor(endY));
         PlayClip(openClip);
     }
 
-    private void OnTriggerExit(Collider other)
+    private void CloseDoor()
     {
-        if (_forcedOpen) return; // a truck is still docked here — ignore unrelated exits
-
-        // Triggers when the object leaves the box collider
         if (_moveCoroutine != null) StopCoroutine(_moveCoroutine);
         _moveCoroutine = StartCoroutine(MoveDoor(startY));
         PlayClip(closeClip);
@@ -108,7 +168,7 @@ public class RollupDoorController : MonoBehaviour
     private void PlayClip(AudioClip clip)
     {
         if (clip == null || audioSource == null) return;
-        audioSource.PlayOneShot(clip, doorVolume);
+        audioSource.PlayOneShot(clip, doorVolume * AudioManager.GameVolumeLevel);
     }
 
     private IEnumerator MoveDoor(float targetY)

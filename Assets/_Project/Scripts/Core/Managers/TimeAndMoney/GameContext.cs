@@ -38,10 +38,10 @@ public class GameContext : MonoBehaviour
         }
 
         // LOCKED to Clerk difficulty for equipment-first hiring model development
-        int difficulty = 0; // Clerk (easy): 120k starting capital, 100% sell-back rate, 4x faster hiring replenishment
+        int difficulty = 0; // Clerk (easy): 500k starting capital, 100% sell-back rate, 4x faster hiring replenishment
         int startingCapital = difficulty switch
         {
-            0 => 120000, // Clerk — easiest, more money
+            0 => 500000, // Clerk — easiest, more money
             1 => 100000, // Supervisor — normal
             2 => 80000,  // Manager — hardest, tight budget
             _ => 100000
@@ -70,6 +70,7 @@ public class GameContext : MonoBehaviour
         var marketService = new GameCore.Inventory.MarketService();
         var reputationService = new GameCore.Inventory.ReputationService();
         var brokerService = new GameCore.Inventory.BrokerService();
+        var fulfillmentStatsService = new GameCore.Inventory.FulfillmentStatsService();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
@@ -87,6 +88,7 @@ public class GameContext : MonoBehaviour
         ServiceLocator.Register<GameCore.Inventory.MarketService>(marketService);
         ServiceLocator.Register<GameCore.Inventory.ReputationService>(reputationService);
         ServiceLocator.Register<GameCore.Inventory.BrokerService>(brokerService);
+        ServiceLocator.Register<GameCore.Inventory.FulfillmentStatsService>(fulfillmentStatsService);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
@@ -105,6 +107,9 @@ public class GameContext : MonoBehaviour
         // Last: it resolves OrderService/InventoryService/SimulationTimeService out of the locator,
         // so everything it depends on must already be registered AND initialized.
         orderArrivalService.Initialize();
+        // Only needs OrderService and SimulationTimeService, both already registered above —
+        // order relative to dockSchedule/marketService/reputation doesn't matter.
+        fulfillmentStatsService.Initialize();
 
         // Load every SkuData asset that lives under a Resources folder (currently just the dummy
         // test SKU) so InventoryService.GetSkuData / TruckController.LoadShipment can resolve a

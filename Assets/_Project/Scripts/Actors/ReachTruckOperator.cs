@@ -259,10 +259,13 @@ namespace GameCore.Actors
                         continue;
                     }
                     if (!LaneNamingService.TryGetLaneGeometry(pd, pl, out _)) continue;
-                    // Only claimable while a reserve pallet of this SKU actually exists. Checked
-                    // WITHOUT reserving — reserving here would lock a slot for a task this truck may
-                    // yet lose to a higher-priority one on the same poll.
-                    if (!ReplenishmentService.TryFindOldestReserve(_inventoryService, t.SkuId, out _)) continue;
+                    // Only claimable while a pallet of this SKU actually exists SOMEWHERE the truck can
+                    // take it from. Must ask the same question TryBindPalletPickSource does — this gate
+                    // was still reserve-only after the bind widened to pick faces, so a pallet standing
+                    // in a pick slot was rejected here and the widened bind could never be reached.
+                    // Checked WITHOUT reserving: reserving here would lock a slot for a task this truck
+                    // may yet lose to a higher-priority one on the same poll.
+                    if (!ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, t.SkuId, out _)) continue;
                 }
 
                 if (t.Type == WorkTaskType.Putaway)
@@ -336,10 +339,13 @@ namespace GameCore.Actors
         /// </summary>
         private bool TryBindPalletPickSource(WorkTask task)
         {
-            if (!ReplenishmentService.TryFindOldestReserve(_inventoryService, task.SkuId, out var reserve))
+            // Reserve first, then a pick face — a whole pallet is a whole pallet wherever it's standing,
+            // and refusing to take one off a pick slot stalled orders with stock plainly on the shelf.
+            // See ReplenishmentService.TryFindOldestPalletAnywhere for why reserve keeps priority.
+            if (!ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, task.SkuId, out var reserve))
             {
                 Debug.LogWarning($"[ReachTruckOperator] '{name}' claimed PalletPick {task.TaskId} for SKU " +
-                                 $"{task.SkuId} but no reserve slot holds it any more.");
+                                 $"{task.SkuId} but no reserve or pick slot holds a pallet of it any more.");
                 return false;
             }
 
@@ -566,7 +572,10 @@ namespace GameCore.Actors
             float anchorY = _palletAnchor != null ? _palletAnchor.localPosition.y : 0f;
             float verticalOffset = (ForkBladeHeightOffset - PalletHalfHeight) - anchorY;
             pallet.localPosition = new Vector3(0, verticalOffset, 0);
-            pallet.localRotation = Quaternion.identity;
+            // Keep the pallet's own resting yaw instead of snapping to the carrier's (which faces
+            // INTO the lane, toward the pallet, i.e. 180° from the pallet's own forward) — that
+            // mismatch is what made every picked-up pallet visibly spin 180° on Y at grab.
+            pallet.rotation = originalPalletRot;
 
             // Disable NavMesh obstacle and modifier to stop carving
             NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
@@ -1058,13 +1067,30 @@ namespace GameCore.Actors
             }
 
             Vector3 depthAxis = Vector3.forward;
-            if (LaneNamingService.TryGetLaneGeometry(door, resolvedLane, out var geo))
+            bool haveGeo = LaneNamingService.TryGetLaneGeometry(door, resolvedLane, out var geo);
+            if (haveGeo)
                 depthAxis = geo.DepthAxis.sqrMagnitude > 0.0001f ? geo.DepthAxis.normalized : Vector3.forward;
 
-            // Open-floor leg to the lane. Approaching the slot from OUTSIDE the lane (backed off along
-            // the depth axis) rather than aiming straight at the slot keeps the truck from trying to
-            // path through the pallets already standing deeper in it.
-            Vector3 approach = slotPos - depthAxis * LaneApproachStandoff;
+            // Open-floor leg to the lane, entering from the LANE EXIT — the open far end — not the
+            // dock end. DepthAxis points FROM the dock wall outward through the lane (slot 1 is
+            // nearest the door), so the exit side of any slot is +depthAxis and the door side is
+            // -depthAxis. Backing off along -depthAxis put the truck between the slot and the dock,
+            // which meant driving in over the trailer/door end of the lane: through whatever is
+            // already staged there, and straight across the loader's working side.
+            //
+            // Entering from the exit is also always the clear side: TryGetNextFreeSlot fills a lane
+            // door-outward, so the free slot this pallet is going into is by construction the
+            // exit-most one and nothing stands between it and the open floor.
+            // Staging point is the LANE'S OWN ExitPoint (2m past the far slot) when geometry is
+            // available, NOT a standoff measured off the target slot. For a slot deep in the lane
+            // those are very different places: a standoff off slot 1 sits INSIDE the lane, so the
+            // NavMesh leg dropped the truck partway down it and the run-in started from a diagonal.
+            // Squaring up at the mouth means the whole insertion is one straight push along the lane
+            // axis however deep the slot is.
+            Vector3 laneInward = -depthAxis;                       // forks point toward the dock
+            Vector3 approach = haveGeo
+                ? geo.ExitPoint
+                : slotPos + depthAxis * LaneApproachStandoff;
             bool reachedLane = false;
             yield return SeekViaNavMesh(approach, $"pallet pick: → lane {door}{resolvedLane}", r => reachedLane = r);
             if (!reachedLane)
@@ -1082,12 +1108,23 @@ namespace GameCore.Actors
             // delivery: the NavMesh leg only guarantees arrival within the agent's stopping distance,
             // and setting a pallet down from a metre off-centre is what puts it across two cells.
             yield return DriveToPoint(transform, approach, PrecisePlaceThreshold);
-            yield return FaceForks(transform, depthAxis);
+            yield return FaceForks(transform, laneInward);
 
             if (_forks != null)
                 yield return LiftForksToWorldY(_forks, slotPos.y + ForkRackClearance);
 
-            yield return DriveToPoint(transform, slotPos - depthAxis * ForkSetDownStandoff, PrecisePlaceThreshold);
+            // Down the lane FORKS FIRST — DriveForksFirst, never DriveToPoint. DriveToPoint opens with
+            // RotateTo, which aims the BODY at the target and so instantly throws away the fork
+            // heading FaceForks just set: the truck spun round at the lane mouth and reversed in
+            // chassis-first. DriveForksFirst travels along the fork axis instead, steering gently to
+            // hold the lane centreline, so the pallet leads the way in exactly as it does when the
+            // truck presents at a rack bay.
+            Vector3 setDown = slotPos + depthAxis * ForkSetDownStandoff;
+            // Travel cap sized to THIS run rather than the default 8m: from the lane mouth to slot 1
+            // of a deep lane is longer than any in-aisle insertion, and the default would have cut
+            // the push short and left the pallet standing in the wrong slot.
+            float insertCap = PlanarDist(transform.position, setDown) + 2f;
+            yield return DriveForksFirst(transform, setDown, insertCap);
 
             if (_forks != null)
                 yield return LiftForks(_forks, _forks.localPosition.y - ForkDepositDrop);
@@ -1233,10 +1270,15 @@ namespace GameCore.Actors
             }
 
             // Seat the pallet on the forks (same snap-to-carry-pose used by the lane pickup).
+            // Captured BEFORE SetParent — the pallet hasn't moved since resting on the shelf, so
+            // this is its resting yaw, preserved through the reparent instead of snapping to the
+            // carrier's (which faces INTO the rack, toward the pallet, i.e. 180° off), which is
+            // what made every extracted pallet visibly spin 180° on Y at grab.
+            Quaternion restingRot = pallet.rotation;
             pallet.SetParent(_palletAnchor, worldPositionStays: false);
             float verticalOffset = (ForkBladeHeightOffset - PalletHalfHeight) - _palletAnchor.localPosition.y;
             pallet.localPosition = new Vector3(0, verticalOffset, 0);
-            pallet.localRotation = Quaternion.identity;
+            pallet.rotation = restingRot;
 
             // Lift a little to clear the shelf lip before the caller retracts.
             yield return LiftForks(_forks, _forks.localPosition.y + ForkRackClearance);
@@ -1673,8 +1715,9 @@ namespace GameCore.Actors
         //
         //  3. A hard travel cap (MaxLaneInsertTravel) is a final backstop so nothing here can ever
         //     drive to infinity again, mirroring DriveToGrab.
-        private IEnumerator DriveForksFirst(Transform t, Vector3 target)
+        private IEnumerator DriveForksFirst(Transform t, Vector3 target, float maxTravel = -1f)
         {
+            float travelCap = maxTravel > 0f ? maxTravel : MaxLaneInsertTravel;
             Vector3 flat = new Vector3(target.x, t.position.y, target.z);
             Vector3 to = flat - t.position; to.y = 0f;
             if (to.magnitude <= ArriveThreshold) { t.position = flat; yield break; }
@@ -1690,7 +1733,7 @@ namespace GameCore.Actors
                 if (Vector3.Dot(remaining, forkDir) <= ArriveThreshold) break;
 
                 // Hard backstop: never drive past the lane insertion limit, whatever the aim.
-                if (Vector3.Distance(startPos, t.position) >= MaxLaneInsertTravel) break;
+                if (Vector3.Distance(startPos, t.position) >= travelCap) break;
 
                 // Gentle lateral correction so heading error can't compound with depth. Gated to
                 // avoid jitter/spin when we're already essentially on-axis and close.

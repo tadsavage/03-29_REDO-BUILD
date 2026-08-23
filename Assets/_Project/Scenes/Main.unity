@@ -3879,6 +3879,7 @@ GameObject:
   - component: {fileID: 614450592}
   - component: {fileID: 614450596}
   - component: {fileID: 614450595}
+  - component: {fileID: 614450597}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -4027,7 +4028,23 @@ MonoBehaviour:
   xMax: 40
   zMin: -40
   zMax: 40
-  dragPanSensitivity: 0.01
+--- !u!114 &614450597
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 614450591}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3adc398edd96624b9ae12b6afa1a5e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WallSeeThrough
+  sightRadius: 4
+  scanInterval: 0.08
+  stopShortOfFocus: 3
+  solidWhenCameraAboveTop: 10
+  solidWhenCameraFartherThan: 20
 --- !u!1 &618863190
 GameObject:
   m_ObjectHideFlags: 0

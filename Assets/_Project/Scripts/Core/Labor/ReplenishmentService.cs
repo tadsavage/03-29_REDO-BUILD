@@ -89,25 +89,56 @@ namespace GameCore.Labor
         /// and handing it out twice is how two trucks get sent for one pallet.
         /// </summary>
         public static bool TryFindOldestReserve(InventoryService inventory, string skuId, out LocationData best)
+            => TryFindOldest(inventory, skuId, LocationRegistry.ReserveLocations, out best);
+
+        /// <summary>
+        /// A full pallet of this SKU anywhere in the racking — reserve first, then a PICK FACE.
+        ///
+        /// Outbound pallet picking asks this rather than TryFindOldestReserve, because a customer
+        /// ordering whole pallets should get whole pallets moved by a Reach Truck wherever they happen
+        /// to be standing. Refusing to take one off a pick face meant an order for three pallets could
+        /// stall with a full pallet sitting in a pick slot, and the alternative — a selector walking off
+        /// 120 cases by hand from that same face — is the slow way to move the identical freight.
+        ///
+        /// Reserve is still tried FIRST, and that ordering is the whole balance of it: pick faces exist
+        /// so case picking has somewhere to go, and stripping one to fill a pallet order strands every
+        /// case pick for that SKU until replenishment catches up. Reserve is the right source when it
+        /// exists; a pick face is the right source when it doesn't.
+        ///
+        /// NOT included: pallets already standing in a staging lane. Those are reachable in principle
+        /// (see ReachTruckOperator.FindExitAccessiblePallet) but the pickup path is a different
+        /// routine, and only the exit-most pallet of a lane can be taken at all — so it needs its own
+        /// work rather than being folded in here silently.
+        /// </summary>
+        public static bool TryFindOldestPalletAnywhere(InventoryService inventory, string skuId, out LocationData best)
+        {
+            if (TryFindOldest(inventory, skuId, LocationRegistry.ReserveLocations, out best)) return true;
+            return TryFindOldest(inventory, skuId, LocationRegistry.PickLocations, out best);
+        }
+
+        /// <summary>FIFO scan shared by both lookups above, so reserve and pick faces can't end up
+        /// rotating stock by different rules.</summary>
+        private static bool TryFindOldest(InventoryService inventory, string skuId,
+                                          System.Collections.Generic.IEnumerable<LocationData> locations, out LocationData best)
         {
             best = null;
-            if (inventory == null || string.IsNullOrEmpty(skuId)) return false;
+            if (inventory == null || string.IsNullOrEmpty(skuId) || locations == null) return false;
 
             int bestDay = int.MaxValue;
 
-            foreach (var reserve in LocationRegistry.ReserveLocations)
+            foreach (var location in locations)
             {
-                if (reserve.Status != LocationStatus.Occupied) continue;
-                if (reserve.SkuId != skuId) continue;
-                if (string.IsNullOrEmpty(reserve.PalletId)) continue;
+                if (location.Status != LocationStatus.Occupied) continue;
+                if (location.SkuId != skuId) continue;
+                if (string.IsNullOrEmpty(location.PalletId)) continue;
 
-                var record = inventory.GetPallet(reserve.PalletId);
+                var record = inventory.GetPallet(location.PalletId);
                 if (record == null) continue;
 
                 if (record.ReceivedDayNumber < bestDay)
                 {
                     bestDay = record.ReceivedDayNumber;
-                    best = reserve;
+                    best = location;
                 }
             }
 

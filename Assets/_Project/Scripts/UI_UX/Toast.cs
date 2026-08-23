@@ -92,9 +92,12 @@ public class UIToast : MonoBehaviour
 
     private void Update()
     {
+        // Unscaled: the duration itself is already scaled by game speed once, in Show() below.
+        // Decrementing with a SCALED deltaTime here would scale it a second time (and in the
+        // opposite direction), since Time.deltaTime is already multiplied by Time.timeScale.
         if (_timer > 0f)
         {
-            _timer -= Time.deltaTime;
+            _timer -= Time.unscaledDeltaTime;
             if (_timer <= 0f)
                 _toast.style.opacity = 0;
         }
@@ -111,7 +114,15 @@ public class UIToast : MonoBehaviour
 
         _toast.text             = msg;
         _toast.style.opacity    = 1;
-        _timer                  = _defaultDuration;
+
+        // The requested duration is scaled by the current game speed (Time.timeScale, set by
+        // TopBarUI's speed buttons): half speed keeps the toast up half as long in real time,
+        // double speed keeps it up twice as long. That way the toast always spans the same
+        // amount of IN-GAME time no matter how fast/slow the simulation is running. At 0×
+        // (paused) this multiplies out to 0, so the toast simply stays visible until the game
+        // is unpaused and the timer can start counting down again.
+        float gameSpeedScale = Time.timeScale;
+        _timer                  = _defaultDuration * gameSpeedScale;
 
         RaiseAboveEverything();
 

@@ -143,7 +143,7 @@ public class EntranceDoorController : MonoBehaviour
     private void PlayClip(AudioClip clip)
     {
         if (clip == null || audioSource == null) return;
-        audioSource.PlayOneShot(clip, doorVolume);
+        audioSource.PlayOneShot(clip, doorVolume * AudioManager.GameVolumeLevel);
     }
 
     private void StopMoving()

@@ -74,23 +74,23 @@ public class PurchasingPanel : IUIPanel
     /// two different KINDS of supplier — they aren't, they're just two halves of one list.</summary>
     private const float ItemColGap = 14f;
 
-    /// <summary>Item icon, doubled from 58. At the old size the art was decoration; at this size you
-    /// pick the row out by its picture instead of reading every name.</summary>
-    private const float IconSize = 116f;
+    /// <summary>Compact catalogue sizing keeps the ordering surface dominant: purchase controls are
+    /// a short dashboard above, while enough item cards remain visible to compare several SKUs without
+    /// immediately scrolling.</summary>
+    private const float IconSize = 84f;
+    private const int ItemNameFontSize = 22;
 
-    /// <summary>Item name size, doubled from 16 — the card's headline, and it was reading as a
-    /// caption next to the cost line beneath it.</summary>
-    private const int ItemNameFontSize = 32;
+    private const float QtyFieldWidth = 82f;
+    private const float StepButtonSize = 30f;
 
-    private const float QtyFieldWidth = 96f;
-    private const float StepButtonSize = 34f;
+    /// <summary>Compact commit controls: the prominent order total remains readable without taking a
+    /// full card-height away from the item catalogue.</summary>
+    private const float ActionButtonHeight = 42f;
+    private const float ActionButtonWidth  = 180f;
 
-    /// <summary>The two big commit buttons at the top of the create tab.</summary>
-    private const float ActionButtonHeight = 56f;
-    private const float ActionButtonWidth  = 240f;
-
-    /// <summary>Line-cost plate. Wide enough for "$12,345.00" without the figure wrapping.</summary>
-    private const float LineCostPlateWidth = 150f;
+    /// <summary>Line-cost plate stays legible but no longer steals item-description width in a
+    /// two-column catalogue.</summary>
+    private const float LineCostPlateWidth = 118f;
 
     /// <summary>Shared width for the stacked CANCEL PO / SCHEDULER buttons on a PO card, so they line
     /// up as one block rather than two ragged ends.</summary>
@@ -457,29 +457,61 @@ public class PurchasingPanel : IUIPanel
         idRow.style.flexDirection = FlexDirection.Row;
         idRow.style.alignItems = Align.Center;
         idRow.style.justifyContent = Justify.SpaceBetween;
-        idRow.style.marginBottom = 10;
+        idRow.style.marginBottom = 5;
 
-        var hint = MakeText("Raise the order, then book its door and time on the Scheduler.",
-                            16, ColSubtleText);
+        var hint = MakeText("Raise the PO, then assign its door and time on the Scheduler.",
+                             13, ColSubtleText);
+                            // removed duplicate compact-header font setting
         hint.style.whiteSpace = WhiteSpace.NoWrap;
         idRow.Add(hint);
 
+        // Button and PO pill share ONE right-hand group rather than being two more children of the
+        // row. idRow is SpaceBetween, which spreads its children across the full width — a third
+        // child would have been stranded in the middle of the row instead of sitting beside the pill.
+        var idRight = new VisualElement();
+        idRight.style.flexDirection = FlexDirection.Row;
+        // Stretch, so the button takes its height from the PO pill beside it instead of carrying a
+        // number of its own. The pill is content-sized — padding plus a 19pt Lilita label — so any
+        // hardcoded height here would be a guess that quietly stopped matching the moment that font
+        // size changed.
+        idRight.style.alignItems = Align.Stretch;
+        idRight.style.flexShrink = 0;
+        idRow.Add(idRight);
+
+        // The return leg of the trip the hint to the left describes. Scheduling is where a raised PO
+        // actually becomes a delivery, so "go there now" belongs next to the sentence telling the
+        // player that's where the decision gets made — and the Scheduler already has a matching
+        // "Back to Purchasing" button, so this closes the loop in both directions.
+        var toScheduler = new Button(() => OpenScheduler(null)) { text = "Back to Scheduler" };
+        StyleOrangeButton(toScheduler);
+        // Clears the fixed 30px StyleOrangeButton applies — an explicit height beats align-stretch,
+        // so without this the row would stretch around a button that refused to grow.
+        toScheduler.style.height = StyleKeyword.Auto;
+        toScheduler.style.flexShrink = 0;
+        toScheduler.style.marginRight = 10;
+        toScheduler.style.paddingLeft = 14; toScheduler.style.paddingRight = 14;
+        toScheduler.tooltip = "Close purchasing and open the Scheduler, where POs are given a day, " +
+                              "time block and door.";
+        idRight.Add(toScheduler);
+
         var poPill = new VisualElement();
         poPill.style.flexShrink = 0;
-        poPill.style.paddingLeft = 22; poPill.style.paddingRight = 22;
-        poPill.style.paddingTop = 6; poPill.style.paddingBottom = 6;
-        poPill.style.backgroundColor = new StyleColor(ColStat);
+        poPill.style.paddingLeft = 14; poPill.style.paddingRight = 14;
+        poPill.style.paddingTop = 3; poPill.style.paddingBottom = 3;
+        // Orange scheme, matching every other orange callout on this panel (spot deals card, active
+        // tab) — was a green-bordered ColStat pill; the LOAD COST readout above now owns green.
+        poPill.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.22f));
         poPill.style.borderTopWidth = poPill.style.borderBottomWidth =
             poPill.style.borderLeftWidth = poPill.style.borderRightWidth = 2;
         poPill.style.borderTopColor = poPill.style.borderBottomColor =
-            poPill.style.borderLeftColor = poPill.style.borderRightColor = new StyleColor(ColMoney);
+            poPill.style.borderLeftColor = poPill.style.borderRightColor = new StyleColor(ColOrangeEdge);
         poPill.style.borderTopLeftRadius = poPill.style.borderTopRightRadius =
             poPill.style.borderBottomLeftRadius = poPill.style.borderBottomRightRadius = 8;
-        var poLabel = MakeText($"PO #: {_poNumber}", 24, ColMoney, bold: true);
+        var poLabel = MakeText($"PO #: {_poNumber}", 19, ColOrangeText, bold: true);
         poLabel.style.marginTop = 0; poLabel.style.marginBottom = 0;
         poLabel.style.whiteSpace = WhiteSpace.NoWrap;
         poPill.Add(poLabel);
-        idRow.Add(poPill);
+        idRight.Add(poPill);
 
         _tabHeader.Add(idRow);
         // Supplier first: it decides what the catalogue below even contains, so it has to be read
@@ -617,11 +649,12 @@ public class PurchasingPanel : IUIPanel
         priceRow.Add(MakeSparkline(sku));
         body.Add(priceRow);
 
-        // ── Quantity stepper, left-justified under the cost line ──
+        // ── Quantity stepper — top-right corner of the card frame, stacked above the Line Cost
+        // plate (see the rightCol built below). Used to sit left-justified under the cost line in
+        // the card body; moved per repeated request to the upper-right corner instead.
         var qtyRow = new VisualElement();
         qtyRow.style.flexDirection = FlexDirection.Row;
         qtyRow.style.alignItems = Align.Center;
-        qtyRow.style.marginTop = 5;
 
         var minus = new Button { text = "–" };
         StyleStepButton(minus, ColDanger);
@@ -632,15 +665,16 @@ public class PurchasingPanel : IUIPanel
         var field = new TextField { value = Qty(skuId).ToString(), isDelayed = true };
         field.style.width = QtyFieldWidth;
         field.style.marginLeft = 6; field.style.marginRight = 6;
-        ApplyFont(field, bold: true, size: 15);
+        // Larger numeral improves scanability. Paired with StyleQtyField's taller field/zeroed
+        // padding below — bumping only the font size while the field stayed 30px tall clipped every
+        // digit's top and bottom off, leaving what looked like two stray dashes instead of "0".
+        ApplyFont(field, bold: true, size: 18);
         StyleQtyField(field);
         qtyRow.Add(field);
 
         var plus = new Button { text = "+" };
         StyleStepButton(plus, ColMoney);
         qtyRow.Add(plus);
-
-        body.Add(qtyRow);
 
         // Doubles as the per-line capacity readout once anything is ordered: how many pallets this
         // line becomes, and whether they stack. That's the information that explains the fill bar —
@@ -652,17 +686,21 @@ public class PurchasingPanel : IUIPanel
 
         card.Add(body);
 
-        // ── Line Cost plate, right-hand end of the card ──
-        // Its own dark plate with the caption stacked over the figure, per the mock. Kept OUT of the
-        // stepper row: that row is controls, this is the consequence of them, and putting the number
-        // that changes on its own plate is what makes the change visible.
+        // ── Right-hand column: quantity stepper stacked ABOVE the Line Cost plate, both pinned to
+        // the upper-right corner of the card frame. Card is Align.FlexStart, so this column starts
+        // flush with the card's top edge instead of centering down the middle.
+        var rightCol = new VisualElement();
+        rightCol.style.flexShrink = 0;
+        rightCol.style.alignItems = Align.FlexEnd;
+        rightCol.style.marginLeft = 10;
+        rightCol.Add(qtyRow);
+
         var plate = new VisualElement();
         plate.style.width = LineCostPlateWidth;
         plate.style.flexShrink = 0;
-        plate.style.alignSelf = Align.Center;
         plate.style.alignItems = Align.Center;
         plate.style.justifyContent = Justify.Center;
-        plate.style.marginLeft = 10;
+        plate.style.marginTop = 6;
         plate.style.paddingTop = 6; plate.style.paddingBottom = 6;
         plate.style.paddingLeft = 10; plate.style.paddingRight = 10;
         plate.style.backgroundColor = new StyleColor(ColPlateBg);
@@ -679,7 +717,8 @@ public class PurchasingPanel : IUIPanel
         lineCost.style.whiteSpace = WhiteSpace.NoWrap;
         plate.Add(lineCost);
 
-        card.Add(plate);
+        rightCol.Add(plate);
+        card.Add(rightCol);
 
         // One updater shared by all three controls, so the field, the line cost and the order total
         // can never disagree about what this line holds.
@@ -726,7 +765,7 @@ public class PurchasingPanel : IUIPanel
     /// is under the ~1150px of usable header). It still wraps when the window is dragged narrower —
     /// which is why the bar and its row both refuse to shrink; without that the wrapped second row
     /// drew straight over the trailer meter below it.</summary>
-    private const float VendorChipMinWidth = 148f;
+    private const float VendorChipMinWidth = 124f;
 
     /// <summary>
     /// The houses that will deal with you, and the ones that won't yet.
@@ -752,7 +791,10 @@ public class PurchasingPanel : IUIPanel
         head.style.flexDirection = FlexDirection.Row;
         head.style.alignItems = Align.Center;
         head.style.justifyContent = Justify.SpaceBetween;
-        head.style.marginBottom = 5;
+        head.style.marginBottom = 2;
+        // Vendor chips identify themselves; the separate SUPPLIER / reputation heading duplicated
+        // that information and consumed a full row above the catalogue.
+        head.style.display = DisplayStyle.None;
 
         var title = MakeText("SUPPLIER", 16, ColTitleText, bold: true);
         title.style.whiteSpace = WhiteSpace.NoWrap;
@@ -796,10 +838,10 @@ public class PurchasingPanel : IUIPanel
         chip.style.minWidth = VendorChipMinWidth;
         chip.style.flexGrow = 1;
         chip.style.flexBasis = 0;
-        chip.style.marginRight = 6;
-        chip.style.marginBottom = 6;
-        chip.style.paddingTop = 5; chip.style.paddingBottom = 5;
-        chip.style.paddingLeft = 9; chip.style.paddingRight = 9;
+        chip.style.marginRight = 4;
+        chip.style.marginBottom = 3;
+        chip.style.paddingTop = 3; chip.style.paddingBottom = 3;
+        chip.style.paddingLeft = 6; chip.style.paddingRight = 6;
         chip.style.overflow = Overflow.Hidden;
         chip.style.backgroundColor = new StyleColor(
             !unlocked ? new Color(ColStat.r, ColStat.g, ColStat.b, 0.55f)
@@ -813,7 +855,7 @@ public class PurchasingPanel : IUIPanel
         chip.style.borderTopLeftRadius = chip.style.borderTopRightRadius =
             chip.style.borderBottomLeftRadius = chip.style.borderBottomRightRadius = 7;
 
-        var name = MakeText(vendor.DisplayName, 14,
+        var name = MakeText(vendor.DisplayName, 12,
                             unlocked ? (selected ? ColOrangeText : ColTitleText) : ColEmptyText, bold: true);
         name.style.marginTop = 0; name.style.marginBottom = 0;
         // WRAPS rather than clipping. At 148px a chip has ~130px of usable width and half the roster
@@ -1329,7 +1371,7 @@ public class PurchasingPanel : IUIPanel
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
-        row.style.marginBottom = 10;
+        row.style.marginBottom = 5;
 
         // CANCEL is RED and CREATE PO is GREEN — the two irreversible ends of this screen, coloured
         // for what they do rather than both wearing the panel's orange. Orange still means "an action
@@ -1348,8 +1390,8 @@ public class PurchasingPanel : IUIPanel
         totalBox.style.justifyContent = Justify.Center;
         totalBox.style.flexGrow = 1;
         totalBox.style.height = ActionButtonHeight;
-        totalBox.style.marginLeft = 14; totalBox.style.marginRight = 14;
-        totalBox.style.paddingLeft = 18; totalBox.style.paddingRight = 18;
+        totalBox.style.marginLeft = 8; totalBox.style.marginRight = 8;
+        totalBox.style.paddingLeft = 12; totalBox.style.paddingRight = 12;
         totalBox.style.backgroundColor = new StyleColor(ColStat);
         totalBox.style.borderTopWidth = totalBox.style.borderBottomWidth =
             totalBox.style.borderLeftWidth = totalBox.style.borderRightWidth = 2;
@@ -1358,13 +1400,13 @@ public class PurchasingPanel : IUIPanel
         totalBox.style.borderTopLeftRadius = totalBox.style.borderTopRightRadius =
             totalBox.style.borderBottomLeftRadius = totalBox.style.borderBottomRightRadius = 8;
 
-        var totalCaption = MakeText("ORDER TOTAL:", 28, ColTitleText, bold: true);
-        totalCaption.style.marginRight = 14;
+        var totalCaption = MakeText("ORDER TOTAL:", 20, ColTitleText, bold: true);
+        totalCaption.style.marginRight = 8;
         totalCaption.style.marginTop = 0; totalCaption.style.marginBottom = 0;
         totalCaption.style.whiteSpace = WhiteSpace.NoWrap;
         totalBox.Add(totalCaption);
 
-        _orderTotalLabel = MakeText("$0", 30, ColMoney, bold: true);
+        _orderTotalLabel = MakeText("$0", 22, ColMoney, bold: true);
         _orderTotalLabel.style.marginTop = 0; _orderTotalLabel.style.marginBottom = 0;
         _orderTotalLabel.style.whiteSpace = WhiteSpace.NoWrap;
         totalBox.Add(_orderTotalLabel);
@@ -1396,17 +1438,17 @@ public class PurchasingPanel : IUIPanel
         top.style.justifyContent = Justify.SpaceBetween;
         top.style.marginBottom = 4;
 
-        var caption = MakeText("TRAILER LOAD", 16, ColTitleText, bold: true);
+        var caption = MakeText("TRAILER LOAD", 13, ColTitleText, bold: true);
         caption.style.whiteSpace = WhiteSpace.NoWrap;
         top.Add(caption);
 
-        _capacityLabel = MakeText(string.Empty, 16, ColSubtleText, bold: true);
+        _capacityLabel = MakeText(string.Empty, 13, ColSubtleText, bold: true);
         _capacityLabel.style.whiteSpace = WhiteSpace.NoWrap;
         top.Add(_capacityLabel);
         wrap.Add(top);
 
         var track = new VisualElement();
-        track.style.height = 22;
+        track.style.height = 14;
         track.style.backgroundColor = new StyleColor(ColStat);
         track.style.borderTopWidth = track.style.borderBottomWidth =
             track.style.borderLeftWidth = track.style.borderRightWidth = 2;
@@ -1422,6 +1464,42 @@ public class PurchasingPanel : IUIPanel
         _capacityFill.style.backgroundColor = new StyleColor(ColMoney);
         track.Add(_capacityFill);
         wrap.Add(track);
+
+        // Running dollar tab for the load being built — sits with the trailer readouts (not just the
+        // footer total) so the player sees what the load costs so far right alongside how full it is.
+        var costRow = new VisualElement();
+        // ORDER TOTAL below is the authoritative live cost. Hide this duplicate large readout so the
+        // compact summary deck gives its height back to the item catalogue.
+        costRow.style.display = DisplayStyle.None;
+        costRow.style.flexDirection = FlexDirection.Row;
+        costRow.style.alignItems = Align.Center;
+        costRow.style.justifyContent = Justify.SpaceBetween;
+        costRow.style.marginTop = 6;
+
+        var costCaption = MakeText("LOAD COST", 14, ColSubtleText, bold: true);
+        costCaption.style.whiteSpace = WhiteSpace.NoWrap;
+        costRow.Add(costCaption);
+
+        // Framed like the PO # pill above (green border + green-tinted fill) so the number the
+        // player is tracking while building the load reads as its own callout, not just body text.
+        var costPill = new VisualElement();
+        costPill.style.flexShrink = 0;
+        costPill.style.paddingLeft = 14; costPill.style.paddingRight = 14;
+        costPill.style.paddingTop = 4; costPill.style.paddingBottom = 4;
+        costPill.style.backgroundColor = new StyleColor(new Color(ColMoney.r, ColMoney.g, ColMoney.b, 0.18f));
+        costPill.style.borderTopWidth = costPill.style.borderBottomWidth =
+            costPill.style.borderLeftWidth = costPill.style.borderRightWidth = 2;
+        costPill.style.borderTopColor = costPill.style.borderBottomColor =
+            costPill.style.borderLeftColor = costPill.style.borderRightColor = new StyleColor(ColMoney);
+        costPill.style.borderTopLeftRadius = costPill.style.borderTopRightRadius =
+            costPill.style.borderBottomLeftRadius = costPill.style.borderBottomRightRadius = 8;
+
+        _loadCostLabel = MakeText("$0", 42, ColMoney, bold: true); // 50% bigger than the prior 28px
+        _loadCostLabel.style.marginTop = 0; _loadCostLabel.style.marginBottom = 0;
+        _loadCostLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        costPill.Add(_loadCostLabel);
+        costRow.Add(costPill);
+        wrap.Add(costRow);
 
         // WILL IT FIT IN THE BUILDING, not just on the truck.
         //
@@ -1440,6 +1518,7 @@ public class PurchasingPanel : IUIPanel
     private Label _capacityLabel;
     private VisualElement _capacityFill;
     private Label _warehouseFitLabel;
+    private Label _loadCostLabel;
 
     /// <summary>Fills in the "will it fit in the building" line under the trailer meter.</summary>
     private void RefreshWarehouseFit(TrailerLoadPlan plan)
@@ -1470,7 +1549,11 @@ public class PurchasingPanel : IUIPanel
     private void RefreshOrderTotal()
     {
         if (_orderTotalLabel == null) return;
-        _orderTotalLabel.text = Money(BasketTotal());
+        float basketTotal = BasketTotal();
+        _orderTotalLabel.text = Money(basketTotal);
+
+        if (_loadCostLabel != null)
+            _loadCostLabel.text = Money(basketTotal);
 
         var plan = CurrentPlan();
 
@@ -1740,7 +1823,7 @@ public class PurchasingPanel : IUIPanel
 
         bool expanded = !_collapsedPos.Contains(shipment.PONumber);
 
-        // ── Header row: disclosure arrow, PO number, supplier, status, totals, actions ──
+        // ── Header row: disclosure arrow, [PO number / customer name] stacked, status, totals, actions ──
         var header = new VisualElement();
         header.style.flexDirection = FlexDirection.Row;
         header.style.alignItems = Align.Center;
@@ -1752,25 +1835,43 @@ public class PurchasingPanel : IUIPanel
         arrow.style.marginTop = 0; arrow.style.marginBottom = 0;
         header.Add(arrow);
 
+        // PO number leads alone on its own line; the seller name and load status sit together on
+        // the line underneath it — status belongs next to WHO shipped it, not next to the PO number.
+        var titleCol = new VisualElement();
+        titleCol.style.marginRight = 12;
+        header.Add(titleCol);
+
         var po = MakeText($"PO {shipment.PONumber}", 18, ColTitleText, bold: true);
-        po.style.marginRight = 12;
         po.style.whiteSpace = WhiteSpace.NoWrap;
-        header.Add(po);
+        // This custom font renders taller than a Label's auto-computed layout box (the same mismatch
+        // that clipped the quantity field digits), so a plain auto-height stack overlaps the line
+        // below it. Reserving real height plus a margin gap is what actually separates the two lines.
+        po.style.height = 26;
+        po.style.marginBottom = 6;
+        titleCol.Add(po);
+
+        var subRow = new VisualElement();
+        subRow.style.flexDirection = FlexDirection.Row;
+        subRow.style.alignItems = Align.Center;
+        subRow.style.height = 20;
+        titleCol.Add(subRow);
 
         var supplier = MakeText(shipment.SupplierName, 14, ColSubtleText);
-        supplier.style.marginRight = 12;
+        supplier.style.marginRight = 8;
         supplier.style.whiteSpace = WhiteSpace.NoWrap;
-        header.Add(supplier);
+        subRow.Add(supplier);
 
         var status = MakeText($"[{shipment.Status}]", 13,
                               shipment.Status == ShipmentData.ShipmentStatus.Cancelled ? ColDangerSoft : ColChipOutText,
                               bold: true);
         status.style.whiteSpace = WhiteSpace.NoWrap;
-        header.Add(status);
+        subRow.Add(status);
 
         var spacer = new VisualElement(); spacer.style.flexGrow = 1; header.Add(spacer);
 
-        var summary = MakeText($"{shipment.LineItems.Count} line(s) · {shipment.TotalUnits:N0} case(s)",
+        // Pallets, not "lines" — each line item IS one physical pallet (see SubmitPurchaseOrder), so
+        // this is the trailer's actual pallet count, the number the player cares about at a glance.
+        var summary = MakeText($"{shipment.LineItems.Count} pallet(s) · {shipment.TotalUnits:N0} case(s)",
                                14, ColSubtleText);
         summary.style.marginRight = 14;
         summary.style.whiteSpace = WhiteSpace.NoWrap;
@@ -1819,13 +1920,6 @@ public class PurchasingPanel : IUIPanel
         });
         card.Add(header);
 
-        // Reads the DOCK APPOINTMENT, not ArrivalDayNumber. With the delivery-day picker gone, that
-        // field is just "the day the order was raised" and says nothing about when the truck comes —
-        // the booking does. An unbooked PO says so plainly, since that's the outstanding decision.
-        var when = MakeText(ScheduleTextFor(shipment), 13, ScheduledFor(shipment) == null ? ColDangerSoft : ColSubtleText);
-        when.style.marginTop = 2;
-        card.Add(when);
-
         // Collapsed stops here: the header alone already carries PO number, status, line/case counts
         // and total, which is everything needed to scan a list. The lines are the detail you open.
         if (!expanded) return card;
@@ -1865,16 +1959,36 @@ public class PurchasingPanel : IUIPanel
         }
 
         // ── Line items ──
-        foreach (var li in shipment.LineItems)
+        // Consolidated by SKU: each physical pallet is its own ShipmentLineItem (see
+        // SubmitPurchaseOrder), but the player wants to see "how much of this item, total" rather
+        // than a repeated row per pallet. The pallet count moves into the column that used to show
+        // per-pallet received quantity, since "how many pallets of this" is what mattered there.
+        var groupedLines = shipment.LineItems
+            .GroupBy(li => li.SkuId)
+            .Select(g => new
+            {
+                SkuId = g.Key,
+                TotalQty = g.Sum(li => li.Quantity),
+                PalletCount = g.Count(),
+                TotalCost = g.Sum(li => li.TotalCost)
+            });
+
+        // Collected so the inset below can be corrected against a real layout rather than guessed.
+        var lineRows = new List<(VisualElement Row, VisualElement Probe)>();
+
+        foreach (var g in groupedLines)
         {
-            var sku = FindSku(li.SkuId);
+            var sku = FindSku(g.SkuId);
             var line = new VisualElement();
             line.style.flexDirection = FlexDirection.Row;
             line.style.alignItems = Align.Center;
             line.style.marginTop = 3;
-            line.style.paddingLeft = 8;
+            // Lines up with the vendor name's text, not the arrow — the arrow is 18px wide and the
+            // card has 12px of its own left padding, so 18 of left padding here (card padding already
+            // covers the other 12) puts this row's left edge exactly under "Spot Market", not under ▼.
+            line.style.paddingLeft = 18;
 
-            var itemNo = MakeText(li.SkuId, 13, ColChipOutText);
+            var itemNo = MakeText(g.SkuId, 13, ColChipOutText);
             itemNo.style.width = 90;
             itemNo.style.whiteSpace = WhiteSpace.NoWrap;
             line.Add(itemNo);
@@ -1884,24 +1998,45 @@ public class PurchasingPanel : IUIPanel
             desc.style.whiteSpace = WhiteSpace.NoWrap;
             line.Add(desc);
 
-            var qty = MakeText($"{li.Quantity:N0} cs", 13, ColSubtleText);
+            var qty = MakeText($"{g.TotalQty:N0} cs", 13, ColSubtleText);
             qty.style.width = 90;
             qty.style.unityTextAlign = TextAnchor.MiddleRight;
             line.Add(qty);
 
-            // Received only matters once something has actually turned up; on a fresh PO it's noise.
-            var received = MakeText(li.ReceivedQuantity > 0 ? $"{li.ReceivedQuantity:N0} rcvd" : "—",
-                                    13, li.ReceivedQuantity >= li.Quantity ? ColMoney : ColSubtleText);
-            received.style.width = 100;
-            received.style.unityTextAlign = TextAnchor.MiddleRight;
-            line.Add(received);
+            var pallets = MakeText($"{g.PalletCount:N0} plt", 13, ColSubtleText);
+            pallets.style.width = 100;
+            pallets.style.unityTextAlign = TextAnchor.MiddleRight;
+            line.Add(pallets);
 
-            var lineCost = MakeText($"${li.TotalCost:N0}", 13, ColOrangeText);
+            var lineCost = MakeText($"${g.TotalCost:N0}", 13, ColOrangeText);
             lineCost.style.width = 90;
             lineCost.style.unityTextAlign = TextAnchor.MiddleRight;
             line.Add(lineCost);
 
             card.Add(line);
+            lineRows.Add((line, itemNo));
+        }
+
+        // MEASURED, not assumed. The 18px above is the arrow's box, which is the only part of the
+        // header's left inset this file can name — the rest is whatever the title column's labels
+        // resolve to under this font, and that left every line row sitting a few pixels left of the
+        // supplier name. Once the card has a real layout, the leftover difference between the first
+        // item number and the supplier label is applied to every row, so they line up exactly and
+        // stay lined up if the fonts or sizes change.
+        //
+        // Self-terminating rather than one-shot: correcting the padding fires another geometry pass,
+        // which measures ~0 difference and returns without touching anything. A one-shot would have
+        // to gamble on the first pass already having final font metrics.
+        if (lineRows.Count > 0)
+        {
+            card.RegisterCallback<GeometryChangedEvent>(_ =>
+            {
+                float delta = supplier.worldBound.x - lineRows[0].Probe.worldBound.x;
+                if (float.IsNaN(delta) || Mathf.Abs(delta) < 0.5f) return;
+
+                foreach (var lr in lineRows)
+                    lr.Row.style.paddingLeft = lr.Row.resolvedStyle.paddingLeft + delta;
+            });
         }
 
         return card;
@@ -2224,6 +2359,25 @@ public class PurchasingPanel : IUIPanel
         return label;
     }
 
+    /// <summary>
+    /// Overlays a thin horizontal line across the middle of a label — a simple "done, closed
+    /// business" strike-through for finished POs/orders. UI Toolkit's Label has no native
+    /// text-decoration support, so this adds a small absolutely-positioned child bar instead;
+    /// it stretches to the label's full width and centers vertically regardless of font size.
+    /// </summary>
+    private static void AddStrikeThrough(VisualElement target, Color lineColor)
+    {
+        var line = new VisualElement();
+        line.pickingMode = PickingMode.Ignore;
+        line.style.position = Position.Absolute;
+        line.style.left = 0; line.style.right = 0;
+        line.style.top = Length.Percent(50);
+        line.style.height = 2;
+        line.style.marginTop = -1;
+        line.style.backgroundColor = new StyleColor(lineColor);
+        target.Add(line);
+    }
+
     private static void StyleOrangeButton(Button b)
     {
         ApplyFont(b, bold: true, size: 15);
@@ -2247,7 +2401,7 @@ public class PurchasingPanel : IUIPanel
     /// buttons that happen to be at the ends of a row.</summary>
     private static void StyleActionButton(Button b, Color fill, Color edge, Color hover)
     {
-        ApplyFont(b, bold: true, size: 26);
+        ApplyFont(b, bold: true, size: 19);
         b.style.width = ActionButtonWidth;
         b.style.height = ActionButtonHeight;
         b.style.flexShrink = 0;
@@ -2320,7 +2474,10 @@ public class PurchasingPanel : IUIPanel
 
     private static void StyleQtyField(TextField field)
     {
-        field.style.height = StepButtonSize;
+        // Tall enough for the 18px numeral (see the field's ApplyFont call) — the field used to be
+        // pinned to StepButtonSize (30px), which fit the old 15px text but clipped the top/bottom off
+        // every digit once the font grew.
+        field.style.height = StepButtonSize + 6f;
         var input = field.Q(TextField.textInputUssName);
         if (input != null)
         {
@@ -2333,6 +2490,9 @@ public class PurchasingPanel : IUIPanel
             input.style.borderTopLeftRadius = input.style.borderTopRightRadius =
                 input.style.borderBottomLeftRadius = input.style.borderBottomRightRadius = 5;
             input.style.unityTextAlign = TextAnchor.MiddleCenter;
+            // UI Toolkit's default text-input padding was eating into the taller glyph's headroom —
+            // zero it out and let the field's own height (set above) be the only thing centering it.
+            input.style.paddingTop = 0; input.style.paddingBottom = 0;
         }
     }
 

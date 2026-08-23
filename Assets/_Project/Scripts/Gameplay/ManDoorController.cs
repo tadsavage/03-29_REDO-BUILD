@@ -96,7 +96,7 @@ public class ManDoorController : MonoBehaviour
                 Debug.LogWarning("AudioClip or AudioSource is missing. Cannot play door sound.");
                 return;
         }
-        audioSource.PlayOneShot(clip, doorVolume);
+        audioSource.PlayOneShot(clip, doorVolume * AudioManager.GameVolumeLevel);
     }
 
     private void StopMoving()

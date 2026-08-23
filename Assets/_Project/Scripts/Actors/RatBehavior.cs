@@ -413,7 +413,7 @@ public class RatBehavior : MonoBehaviour
     private void TryPlaySound(AudioClip clip)
     {
         if (clip != null && _spatialAudio != null)
-            _spatialAudio.PlayOneShot(clip);
+            _spatialAudio.PlayOneShot(clip, AudioManager.GameVolumeLevel);
     }
 
     // ── Wall-hugging direction ────────────────────────────────────────────────
