@@ -56,6 +56,14 @@ namespace GameCore.Inventory
         /// </summary>
         private const int MaxArchivedOrders = 250;
 
+        /// <summary>Priority a PalletPick task is filed at — well above WorkTask.DefaultPriority (100)
+        /// so a Reach Truck Operator clears every outbound pallet pick before touching a Putaway or
+        /// Replenish task once the pick is Available. Below ReplenishmentService.ReplenishPriority
+        /// (250)? No — deliberately ABOVE it: an empty pick face blocks a customer's trailer, which
+        /// outranks keeping a pick face topped up for a picker who isn't there yet.</summary>
+        private const int PalletPickPriority = 750;
+
+
         public void Initialize()
         {
             _inventoryService = ServiceLocator.Get<InventoryService>();
@@ -80,30 +88,93 @@ namespace GameCore.Inventory
             _assignedTasks.Clear();
         }
 
-        /// <summary>Add a new order to the system and file its WorkTask in the Open status — not yet
-        /// claimable by an Order Selector until the player releases it to a staging lane via the
-        /// Work Queue panel (see ReleaseOrdersToLane), which is what actually routes it to a
-        /// door/lane. One task per ORDER (not per line item) — a single selector works the whole
-        /// order continuously (walking between picks, building pallets) the same way a Receiver
-        /// works a whole lane, rather than splitting one order across multiple claimants.</summary>
+        /// <summary>Add a new order to the system and file its single placeholder WorkTask in the
+        /// Open status. Nothing about the order is real yet on purpose: no OrderNumber, no pallets
+        /// broken out, nothing reserved — the order sits in the Work Queue as one line (rendered as
+        /// e.g. "GroSel" by WorkQueuePanel) until the player actually commits it to a staging lane.
+        /// See ReleaseOrdersToLane, which is where all of that gets created for real.</summary>
         public void ReceiveOrder(OrderData order)
         {
             _activeOrders.Add(order);
             OnOrderArrived?.Invoke(order);
-            Debug.Log($"[OrderService] New Order received: {order.OrderId} from {order.CustomerName} ({order.TotalUnits} units) — awaiting release to a staging lane.");
-
-            // EVERY order splits the same way now, bulk or not: whole pallets to the Reach Trucks,
-            // only the sub-pallet remainder to a case picker. This used to be a bulk-only rule, which
-            // meant a recurring account ordering three full pallets of one SKU had a selector walk off
-            // 120 cases by hand while a reach truck stood idle — the same freight, moved the slow way,
-            // purely because of which contract type asked for it. Nothing about a case pick is right
-            // for a full pallet; the split is a property of the QUANTITY, not of the order type.
-            FileOrderTasks(order);
+            Debug.Log($"[OrderService] New order received: {order.OrderId} from {order.CustomerName} ({order.TotalUnits} units) — awaiting release to a staging lane.");
+            FilePlaceholderTask(order);
         }
 
         /// <summary>
-        /// Files the work for ANY order: one PalletPick per whole pallet, plus a single OrderSelect
-        /// covering every loose case left over across the whole order.
+        /// Files the single task that represents a just-arrived, not-yet-released order in the Work
+        /// Queue. It carries no SKU, no pallet, and reserves nothing — it exists only so the order has
+        /// a row and a phase (Open) before the player decides where it's going. ReleaseOrdersToLane
+        /// cancels this the moment the order is actually released, replacing it with the real,
+        /// individually-trackable tasks (see FileReleasedOrderTasks).
+        /// </summary>
+        private void FilePlaceholderTask(OrderData order)
+        {
+            var task = _workQueue?.CreateTask(
+                WorkTaskType.OrderSelect,
+                EmployeeRole.OrderSelector,
+                palletId: null,
+                description: $"Awaiting release to a staging lane — {order.CustomerName}",
+                area: DominantArea(order),
+                orderId: order.OrderId);
+            if (task != null) task.Status = WorkTaskStatus.Open;
+        }
+
+        /// <summary>Letter prefix for OrderData.OrderNumber, keyed by AreaCategory. Only Grocery is
+        /// reachable today — Perishable/Frozen inventory doesn't exist in the game yet — but the order
+        /// number format is written to support all three from day one so turning those areas on later
+        /// needs no numbering-scheme change.</summary>
+        private static readonly Dictionary<PalletData.AreaCategory, char> OrderNumberPrefixByArea = new()
+        {
+            { PalletData.AreaCategory.Grocery, 'G' },
+            { PalletData.AreaCategory.Perishable, 'P' },
+            { PalletData.AreaCategory.Frozen, 'F' }
+        };
+
+        /// <summary>Mints this order's player-facing OrderNumber — see OrderData.OrderNumber for the
+        /// format. Called from ReleaseOrdersToLane, not order arrival: an order isn't "real" with a
+        /// number of its own until the player actually commits it to a staging lane. Reads
+        /// _activeOrders/_orderHistory rather than a separate persisted counter: the sequence for
+        /// "the Nth order of this area released this day" can always be recomputed from the orders
+        /// that already carry a number, so there's nothing extra to save, and Import can backfill a
+        /// legacy order the same way it mints a new one.</summary>
+        private string GenerateOrderNumber(OrderData order)
+        {
+            char prefix = DominantOrderNumberPrefix(order);
+            int day = order.CreatedDayNumber;
+            int index = _activeOrders.Concat(_orderHistory)
+                .Count(o => o != order && o.CreatedDayNumber == day
+                            && !string.IsNullOrEmpty(o.OrderNumber) && o.OrderNumber[0] == prefix)
+                + 1;
+            return $"{prefix}{day:D3}{index}";
+        }
+
+        /// <summary>The area most of this order's line items belong to, by case count — not just a
+        /// distinct count of areas — so one Perishable line riding along on an otherwise all-Grocery
+        /// order doesn't flip the whole order's prefix/area. Falls back to Grocery for a line whose
+        /// SKU no longer resolves (deleted since the order was raised) or an order with no line items
+        /// yet (the placeholder task filed at arrival, before line-item area even matters).</summary>
+        private PalletData.AreaCategory DominantArea(OrderData order)
+        {
+            if (_inventoryService == null || order.LineItems.Count == 0) return PalletData.AreaCategory.Grocery;
+
+            return order.LineItems
+                .GroupBy(li => _inventoryService.GetSkuData(li.SkuId)?.StorageArea ?? PalletData.AreaCategory.Grocery)
+                .OrderByDescending(g => g.Sum(li => li.QuantityNeeded))
+                .First().Key;
+        }
+
+        /// <summary>Letter prefix matching DominantArea, for OrderNumber.</summary>
+        private char DominantOrderNumberPrefix(OrderData order)
+            => OrderNumberPrefixByArea.TryGetValue(DominantArea(order), out char c) ? c : 'G';
+
+
+        /// <summary>
+        /// Breaks a just-released order into the tasks a Reach Truck / Order Selector can actually
+        /// claim: one PalletPick per whole pallet, plus a single OrderSelect covering every loose case
+        /// left over across the whole order. Called once, from ReleaseOrdersToLane, at the moment the
+        /// player commits the order to a door/lane — everything here is filed straight as Available,
+        /// there's no Open step the way there was for the order's placeholder task.
         /// </summary>
         /// <remarks>
         /// 620 cases of a 60-per-pallet SKU is ten Reach Truck trips and one selector walking off
@@ -116,10 +187,19 @@ namespace GameCore.Inventory
         /// A SKU with no committed Ti/Hi can't express a full pallet, so its whole line falls through
         /// to the case picker. That's the honest failure — it keeps the order fillable instead of
         /// filing pallet picks that could never resolve a source pallet.
+        ///
+        /// Each PalletPick's source reserve pallet is found and locked (Reserve()) RIGHT NOW, at
+        /// release — not deferred to whichever Reach Truck eventually claims the task. This is the
+        /// order's product actually going on hold: from this point the same pallet can't be handed to
+        /// a second order or picked up by replenishment. If a line has run out of stock entirely, the
+        /// PalletPick is still filed (unassigned) so the order isn't silently short a task — a Reach
+        /// Truck resolves it the old way, at claim time, once stock exists again.
         /// </remarks>
-        private void FileOrderTasks(OrderData order)
+        private void FileReleasedOrderTasks(OrderData order, int doorNumber, string lane)
         {
+            string toLocation = $"{doorNumber}{lane}";
             int palletTasks = 0;
+            int unreservedPallets = 0;
             int looseCases = 0;
 
             foreach (var li in order.LineItems)
@@ -127,7 +207,7 @@ namespace GameCore.Inventory
                 int fullPallet = FullPalletCases(li.SkuId);
                 if (fullPallet <= 0)
                 {
-                    Debug.LogWarning($"[OrderService] SKU {li.SkuId} on order {order.OrderId} has no " +
+                    Debug.LogWarning($"[OrderService] SKU {li.SkuId} on order {order.OrderNumber} has no " +
                                      $"committed Ti/Hi — its {li.QuantityNeeded} case(s) fall back to a case pick.");
                     looseCases += li.QuantityNeeded;
                     continue;
@@ -139,17 +219,34 @@ namespace GameCore.Inventory
                 var area = _inventoryService?.GetSkuData(li.SkuId)?.StorageArea ?? PalletData.AreaCategory.Grocery;
                 for (int i = 0; i < pallets; i++)
                 {
-                    // PalletId and FromLocation stay null: the source reserve pallet is chosen when a
-                    // Reach Truck claims this, not now. See WorkTask.SkuId.
+                    string sourcePalletId = null;
+                    string sourceAddress = null;
+                    if (ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, li.SkuId, out var reserve))
+                    {
+                        reserve.Reserve(); // locks it on hold for this order — see remarks above.
+                        sourcePalletId = reserve.PalletId;
+                        sourceAddress = reserve.Address;
+                    }
+                    else
+                    {
+                        unreservedPallets++;
+                        Debug.LogWarning($"[OrderService] Order {order.OrderNumber}: no reserve or pick-face " +
+                                         $"pallet of {li.SkuId} left to fill a pallet pick — filed unassigned; a " +
+                                         $"Reach Truck resolves a source once one claims it.");
+                    }
+
                     var pt = _workQueue?.CreateTask(
                         WorkTaskType.PalletPick,
                         EmployeeRole.ReachTruckOperator,
-                        palletId: null,
+                        palletId: sourcePalletId,
                         description: $"Pallet pick — {fullPallet} cs of {li.SkuId} for {order.CustomerName}",
+                        fromLocation: sourceAddress,
+                        toLocation: toLocation,
                         area: area,
+                        priority: PalletPickPriority,
                         orderId: order.OrderId,
                         skuId: li.SkuId);
-                    if (pt != null) pt.Status = WorkTaskStatus.Open;
+                    if (pt != null) pt.Status = WorkTaskStatus.Available;
                     palletTasks++;
                 }
             }
@@ -162,11 +259,12 @@ namespace GameCore.Inventory
                     palletId: null,
                     description: $"Select {looseCases} loose case(s) for {order.CustomerName}",
                     orderId: order.OrderId);
-                if (st != null) st.Status = WorkTaskStatus.Open;
+                if (st != null) st.Status = WorkTaskStatus.Available;
             }
 
-            Debug.Log($"[OrderService] Order {order.OrderId} ({order.CustomerName}): filed {palletTasks} " +
-                      $"pallet pick(s)" + (looseCases > 0 ? $" and 1 case pick for {looseCases} loose case(s)." : "."));
+            Debug.Log($"[OrderService] Order {order.OrderNumber} released to {toLocation}: filed {palletTasks} " +
+                      $"pallet pick(s)" + (looseCases > 0 ? $" and 1 case pick for {looseCases} loose case(s)." : ".") +
+                      (unreservedPallets > 0 ? $" {unreservedPallets} filed without a source yet." : ""));
         }
 
         /// <summary>Cases in one full pallet of this SKU (Ti x Hi), or 0 if it has no committed pallet
@@ -465,25 +563,39 @@ namespace GameCore.Inventory
             return true;
         }
 
+        /// <summary>
+        /// The moment an order stops being a placeholder and becomes real: mints its player-facing
+        /// OrderNumber (unless it already has one — see remarks), cancels its placeholder task, and
+        /// breaks it into the individually-trackable PalletPick/OrderSelect tasks a Reach Truck or
+        /// Order Selector can claim, reserving each pallet's source right now (see
+        /// FileReleasedOrderTasks).
+        /// </summary>
+        /// <remarks>
+        /// An order can arrive here already carrying an OrderNumber: ReconcileStagedOrdersAgainstScene
+        /// resets a Staged/Loading order whose staged pallets didn't survive a save back to Pending
+        /// and unreleased, re-filing a fresh placeholder task — but a number once minted is the
+        /// order's identity from then on, so that path deliberately leaves OrderNumber alone. This is
+        /// what "release it again" actually re-releases, so the number must not change.
+        /// </remarks>
         public bool ReleaseOrdersToLane(List<string> orderIds, int doorNumber, string lane)
         {
             if (_workQueue == null || orderIds == null || orderIds.Count == 0 || string.IsNullOrEmpty(lane)) return false;
 
-            // Every live task for the order, not just its OrderSelect: a bulk order carries N
-            // PalletPicks and possibly a case pick, and releasing only one of them would leave the
-            // rest permanently Open — invisible to every operator and unreleasable a second time.
-            var pairs = new List<(OrderData order, List<WorkTask> tasks)>();
+            // Every order must still have only its placeholder task(s) live and Open — release
+            // replaces exactly those with the real, individually-trackable ones (see
+            // FileReleasedOrderTasks). An order with anything Available/Assigned/etc. has already
+            // been released once; releasing it again would double its work.
+            var pairs = new List<(OrderData order, List<WorkTask> placeholders)>();
             foreach (var id in orderIds)
             {
                 var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
                 if (order == null) return false;
 
-                var tasks = LiveTasksForOrder(id).ToList();
-                if (tasks.Count == 0) return false;
+                var placeholders = LiveTasksForOrder(id).ToList();
                 // All-or-nothing per order: a partly-released order would put half its work on the
                 // floor while the panel still offers it as releasable.
-                if (tasks.Any(t => t.Status != WorkTaskStatus.Open)) return false;
-                pairs.Add((order, tasks));
+                if (placeholders.Count == 0 || placeholders.Any(t => t.Status != WorkTaskStatus.Open)) return false;
+                pairs.Add((order, placeholders));
             }
 
             string customerId = pairs[0].order.CustomerId;
@@ -493,23 +605,20 @@ namespace GameCore.Inventory
             // of that door while it's in use.
             if (!StagingLaneAssignmentService.IsStageAvailableFor(this, doorNumber, customerId)) return false;
 
-            int released = 0;
-            foreach (var (order, tasks) in pairs)
+            foreach (var (order, placeholders) in pairs)
             {
+                foreach (var task in placeholders) task.Status = WorkTaskStatus.Cancelled;
+
                 order.AssignedDoorNumber = doorNumber;
                 order.AssignedLane = lane;
-                foreach (var task in tasks)
-                {
-                    task.Status = WorkTaskStatus.Available;
-                    // A PalletPick's destination is decided here, at release — it's the lane the
-                    // player just chose. The Reach Truck reads it off the task rather than looking the
-                    // order up, so the pallet can't land somewhere the order doesn't record.
-                    if (task.Type == WorkTaskType.PalletPick) task.AssignToLocation($"{doorNumber}{lane}");
-                    released++;
-                }
+                // Keep a number this order already earned (see remarks above) rather than minting a
+                // second one for the same order.
+                if (string.IsNullOrEmpty(order.OrderNumber)) order.OrderNumber = GenerateOrderNumber(order);
+                FileReleasedOrderTasks(order, doorNumber, lane);
             }
 
-            Debug.Log($"[OrderService] Released {pairs.Count} order(s) ({released} task(s)) for {customerId} to {doorNumber}{lane}.");
+            Debug.Log($"[OrderService] Released {pairs.Count} order(s) for {customerId} to {doorNumber}{lane}: " +
+                      string.Join(", ", pairs.Select(p => p.order.OrderNumber)));
             return true;
         }
 
@@ -547,6 +656,8 @@ namespace GameCore.Inventory
         {
             if (orderIds == null || orderIds.Count == 0) return 0;
 
+            ServiceLocator.TryGet<DockScheduleService>(out var schedule);
+
             int cancelled = 0;
             foreach (var id in orderIds)
             {
@@ -557,17 +668,33 @@ namespace GameCore.Inventory
                 // lazy query over it and the status writes below would change what it yields mid-walk.
                 foreach (var task in LiveTasksForOrder(id).ToList())
                 {
+                    // A released-but-unclaimed PalletPick already has its source reserve locked (see
+                    // FileReleasedOrderTasks) — cancelling has to hand that back, or the slot stays
+                    // Reserved forever with nothing left to ever claim it. A still-Open order (never
+                    // released) has no FromLocation yet, so this is a no-op for it.
+                    if (task.Type == WorkTaskType.PalletPick && !string.IsNullOrEmpty(task.FromLocation)
+                        && LocationRegistry.TryGet(task.FromLocation, out var reservedLocation)
+                        && reservedLocation.Status == LocationStatus.Reserved)
+                    {
+                        reservedLocation.Unreserve();
+                    }
+
                     task.Status = WorkTaskStatus.Cancelled;
                     task.AssignedToEmployeeGuid = null; // release the claim so nothing tries to "resume mine"
                 }
 
-                Debug.Log($"[OrderService] Order {order.OrderId} ({order.CustomerName}) cancelled by the player — " +
+                Debug.Log($"[OrderService] Order {order.OrderNumber ?? order.OrderId} ({order.CustomerName}) cancelled by the player — " +
                           $"{order.TotalUnitsPicked}/{order.TotalUnits} case(s) had been picked; released Stage {order.AssignedDoorNumber}.");
 
                 order.AssignedDoorNumber = 0;
                 order.AssignedLane = null;
                 order.Status = OrderData.OrderStatus.Cancelled;
                 StampClosedNow(order);
+                // Any reserve this order had locked was just handed back above. What's still real is
+                // the Schedule tab's appointment for this order: left alone it would squat on a door
+                // forever. Detach it, and park the trailer if this was the last order riding on it,
+                // freeing the door for a new booking.
+                schedule?.DetachCancelledOrder(order.OrderId);
                 OnOrderCancelled?.Invoke(order);
                 // Safe to mutate _activeOrders here: this loop walks orderIds, not the order list.
                 Archive(order);
@@ -1177,6 +1304,7 @@ namespace GameCore.Inventory
                 var snap = new OrderSnapshot
                 {
                     orderId = o.OrderId,
+                    orderNumber = o.OrderNumber,
                     customerId = o.CustomerId,
                     customerName = o.CustomerName,
                     deliveryAddress = o.DeliveryAddress,
@@ -1261,6 +1389,17 @@ namespace GameCore.Inventory
                     };
                     order.LineItems.Add(li);
                 }
+                // Backfill for a save written before OrderNumber existed — but only for an order that
+                // had already been released (AssignedDoorNumber != 0). An order still awaiting release
+                // legitimately has no OrderNumber under the current model (see ReleaseOrdersToLane);
+                // minting one here would let it collide with, or get skipped by, the real one release
+                // mints later. A released legacy order is backfilled the same way a new one is minted,
+                // off however many active+history orders already carry a number for this day/area,
+                // which by construction can never collide because Import processes the file in the
+                // same order Export wrote it.
+                order.OrderNumber = !string.IsNullOrEmpty(snap.orderNumber)
+                    ? snap.orderNumber
+                    : (order.AssignedDoorNumber != 0 ? GenerateOrderNumber(order) : null);
                 bool terminal = order.Status == OrderData.OrderStatus.Shipped
                              || order.Status == OrderData.OrderStatus.Cancelled;
                 if (terminal) _orderHistory.Add(order);
@@ -1359,11 +1498,11 @@ namespace GameCore.Inventory
                 }
                 else
                 {
-                    // QuantityPicked was just zeroed above, so FileOrderTasks re-derives the same
-                    // pallet/remainder split the order arrived with. No bulk/non-bulk fork any more —
-                    // re-filing has to reproduce whatever ReceiveOrder would file today, and that is
-                    // now one path for every order.
-                    FileOrderTasks(order);
+                    // QuantityPicked was just zeroed above, so this hands the order the same
+                    // placeholder task ReceiveOrder would file for a brand-new order — see
+                    // FilePlaceholderTask. The player has to release it again from scratch, which is
+                    // also exactly what re-derives the pallet/remainder split against current stock.
+                    FilePlaceholderTask(order);
                 }
 
                 reset++;

@@ -121,7 +121,7 @@ public class WorldHoverPopupUI : MonoBehaviour
         }
         else
         {
-            _hoverTimer += Time.deltaTime;
+            _hoverTimer += Time.unscaledDeltaTime;
             if (!_isVisible && _hoverTimer >= _hoverDelay)
                 ShowBuilding(_pendingName, _pendingCost, _pendingHourlyCost);
         }
@@ -168,7 +168,7 @@ public class WorldHoverPopupUI : MonoBehaviour
         }
         else
         {
-            _hoverTimer += Time.deltaTime;
+            _hoverTimer += Time.unscaledDeltaTime;
             if (!_isVisible && _hoverTimer >= _hoverDelay)
                 ShowPallet(_pendingPalletData);
         }
@@ -215,7 +215,7 @@ public class WorldHoverPopupUI : MonoBehaviour
         }
         else
         {
-            _hoverTimer += Time.deltaTime;
+            _hoverTimer += Time.unscaledDeltaTime;
             if (!_isVisible && _hoverTimer >= _hoverDelay)
                 ShowLocation(_pendingLocationData);
         }
@@ -468,7 +468,9 @@ private void ShowLocation(LocationData location)
         float uiY = (Screen.height - mousePos.y) * scaleY + 20f * scaleY;
 
         Vector2 target = new Vector2(uiX, uiY);
-        _smoothPos = Vector2.Lerp(_smoothPos, target, 1f - Mathf.Exp(-60f * Time.deltaTime));
+        // Unscaled: the popup chases the real mouse cursor, so its smoothing must not slow down
+        // with the simulation (and must keep tracking while paused).
+        _smoothPos = Vector2.Lerp(_smoothPos, target, 1f - Mathf.Exp(-60f * Time.unscaledDeltaTime));
 
         _cachedTranslateStyle.value = new Translate(_smoothPos.x, _smoothPos.y, 0);
         _popup.style.translate = _cachedTranslateStyle;
@@ -526,7 +528,7 @@ private void ShowLocation(LocationData location)
         }
         else
         {
-            _hoverTimer += Time.deltaTime;
+            _hoverTimer += Time.unscaledDeltaTime;
             if (!_isVisible && _hoverTimer >= _hoverDelay)
                 ShowPalletBuilder(sku, builder.TotalCases, builder);
         }

@@ -447,7 +447,13 @@ namespace GameCore.Actors
                                                                out var slot) &&
                     LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var slotPos))
                 {
-                    pos = slotPos;
+                    // Same stacking rule the reach trucks and the inbound offload use: XZ from the
+                    // slot, Y from the measured top of whatever is already in that cell. The previous
+                    // pallet of this order has already been unparented by the time we get here, so it
+                    // is counted and this one lands on top of it rather than through it.
+                    float baseY = TrailerOffloadController.StagingDropBaseY(
+                        order.AssignedDoorNumber, order.AssignedLane, slot.Cell, pallet.gameObject);
+                    pos = new Vector3(slotPos.x, baseY, slotPos.z);
                 }
                 else if (order != null)
                 {

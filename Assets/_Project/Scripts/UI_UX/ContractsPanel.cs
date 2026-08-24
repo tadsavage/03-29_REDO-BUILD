@@ -533,6 +533,14 @@ public class ContractsPanel : IUIPanel
         titleBar.style.alignItems = Align.Center;
         titleBar.style.height = 52;
         titleBar.style.marginBottom = 6;
+        // flexShrink 0 or the height above is a suggestion, not a rule. The modal is a fixed-height
+        // column, and this was its ONLY shrinkable child with a fixed height — every other row is
+        // flexShrink 0 or is the content that grows. So on a tab whose content overflows (Recurring
+        // Orders with a long ORDER DETAILS list is the easy repro) flex took the entire shortfall out
+        // of this row and crushed it 52 -> ~10px. The 48px buttons inside are flexShrink 0, so they
+        // did NOT shrink with it — they overflowed the collapsed row and spilled ~19px out through
+        // the top of the panel, which is what read as "the buttons are sitting too high".
+        titleBar.style.flexShrink = 0;
 
         var title = new Label(TitleFor(_tab));
         _titleLabel = title;
@@ -1764,7 +1772,18 @@ public class ContractsPanel : IUIPanel
     private VisualElement BuildBulkOrderRow(OrderData order, bool booked, int today, int rowIndex)
     {
         bool late = order.DueDay < today;
-        var card = MakeRow(rowIndex, !booked ? ColDanger : ColBulkEdge);
+        // Selection uses the same orange-border treatment as the Accounts (Recurring Orders) tab —
+        // the left accent stripe swaps to orange and a matching 2px border wraps the rest of the
+        // card, so the selected bulk order visibly stands out from the unbooked/booked accent colors.
+        bool selected = order.OrderId == _selectedBulkOrderId;
+        Color leftAccent = selected ? ColOrange : (!booked ? ColDanger : ColBulkEdge);
+        var card = MakeRow(rowIndex, leftAccent);
+        if (selected)
+        {
+            card.style.borderTopWidth = card.style.borderRightWidth = card.style.borderBottomWidth = 2;
+            card.style.borderTopColor = card.style.borderRightColor = card.style.borderBottomColor =
+                new StyleColor(ColOrange);
+        }
 
         // LEFT: Customer icon + name and order details
         var leftSection = new VisualElement();
@@ -1793,6 +1812,13 @@ public class ContractsPanel : IUIPanel
         body.style.alignItems = Align.FlexStart;
 
         body.Add(MakeText(order.CustomerName, 17, ColTitleText, bold: true));
+
+        // The player-facing order number (see OrderData.OrderNumber) — the same code that identifies
+        // this order's rows in the Work Queue, so a bulk order can be found in either place by the
+        // same short string instead of the raw GUID.
+        var orderNumberLabel = MakeText($"Order: {order.OrderNumber ?? "—"}", 13, ColChipOutText, bold: true);
+        orderNumberLabel.style.marginTop = 2;
+        body.Add(orderNumberLabel);
 
         // Status trio now sits neatly under the customer name instead of floating in an
         // absolutely-centered column of its own — and the per-SKU "520894 — 120 cs · 3 pallet(s)"
@@ -2104,6 +2130,7 @@ public class ContractsPanel : IUIPanel
             }
 
             Cell($"Day {plannedOrder.CreatedDayNumber}:", 48, ColWholesale, bold: true);
+            Cell(plannedOrder.OrderNumber ?? "—", 56, ColChipOutText, bold: true);
             Cell($"{plannedOrder.LineItems.Count} item(s)", 62, ColSubtleText);
             Cell($"{plannedOrder.TotalUnits:N0} cs", 46, ColSubtleText);
             // Same colour thresholds as the card's own Approximate Fill Rate below, so a red row here
@@ -2290,7 +2317,7 @@ public class ContractsPanel : IUIPanel
         foreach (var order in pendingOrders)
         {
             var orderHeading = MakeText(
-                $"DAY {order.CreatedDayNumber} · {order.TotalUnits:N0} CASES · {order.LineItems.Count} ITEM(S)",
+                $"ORDER {order.OrderNumber ?? "—"} · DAY {order.CreatedDayNumber} · {order.TotalUnits:N0} CASES · {order.LineItems.Count} ITEM(S)",
                 14, ColWholesale, bold: true);
             orderHeading.style.marginTop = 12;
             orderHeading.style.marginBottom = 5;
@@ -2384,8 +2411,12 @@ public class ContractsPanel : IUIPanel
         }
 
         var name = MakeText(who ?? order.CustomerName, 18, ColTitleText, bold: true);
-        name.style.marginBottom = 10;
+        name.style.marginBottom = 2;
         _orderDetailsBody.Add(name);
+
+        var orderNumberLabel = MakeText($"Order: {order.OrderNumber ?? "—"}", 13, ColChipOutText, bold: true);
+        orderNumberLabel.style.marginBottom = 10;
+        _orderDetailsBody.Add(orderNumberLabel);
 
         AddOrderLineTable(order);
     }
@@ -2712,23 +2743,35 @@ public class ContractsPanel : IUIPanel
         header.style.flexDirection = FlexDirection.Column;
         header.style.marginBottom = 4;
 
-        // ── Top row: compact legend on the left, day switcher + live clock pushed to the right ──
-        // The legend used to be its own full-width row inside BuildScheduleStrip below — moved up
-        // here, compacted, to free that space for the per-appointment item breakdown that replaced it
-        // (see the "PO/ORDER DETAILS" half of that strip). SpaceBetween does the shove: the legend
-        // takes only what it needs on the left, the switcher block sizes to its own content and sits
-        // on the right, and the gap between absorbs whatever room is left over.
+        // ── Top row: legend + day switcher in the LEFT half, live clock in the RIGHT half ──
+        // Deliberately mirrors BuildScheduleStrip's geometry below: two 50% halves that neither grow
+        // nor shrink, inside 2px of horizontal padding standing in for the strip wrapper's 2px
+        // border. That puts the boundary between these halves on exactly the same x as the divider
+        // between "PO/ORDER DETAILS" and "UNSCHEDULED TRAILERS", and keeps it there at any width.
+        //
+        // It used to be justifyContent = SpaceBetween with the whole switcher block on the right,
+        // which pinned it to the far edge of the panel — nowhere near that divider, and drifting
+        // further from it the wider the panel got. Anchoring both to the shared 50% line is what
+        // actually keeps the two partitions aligned.
         var topRow = new VisualElement();
         topRow.style.flexDirection = FlexDirection.Row;
         topRow.style.alignItems = Align.Center;
-        topRow.style.justifyContent = Justify.SpaceBetween;
         topRow.style.marginBottom = 4;
-        topRow.Add(BuildCompactLegend());
+        topRow.style.paddingLeft = 2; topRow.style.paddingRight = 2;
+
+        var leftHalf = new VisualElement();
+        leftHalf.style.flexBasis = Length.Percent(50);
+        leftHalf.style.flexGrow = 0; leftHalf.style.flexShrink = 0;
+        leftHalf.style.flexDirection = FlexDirection.Row;
+        leftHalf.style.alignItems = Align.Center;
+        leftHalf.style.overflow = Overflow.Hidden;
+        leftHalf.Add(BuildCompactLegend());
 
         var daySwitcher = new VisualElement();
         daySwitcher.style.flexDirection = FlexDirection.Row;
         daySwitcher.style.alignItems = Align.Center;
         daySwitcher.style.flexShrink = 0;
+        daySwitcher.style.marginLeft = 18;
 
         var prev = new Button(() => { _scheduleDay = Mathf.Max(today - ScheduleDaysBack, _scheduleDay - 1); Rebuild(); })
             { text = "◀" };
@@ -2749,19 +2792,40 @@ public class ContractsPanel : IUIPanel
         StyleSquareButton(next);
         next.style.width = 39; next.style.height = 39;
         daySwitcher.Add(next);
+        leftHalf.Add(daySwitcher);
 
-        // The live clock used to sit alone in a now-deleted rail under the legend — moved up next to
-        // the thing it actually answers ("is the block I'm looking at still ahead of right now?"),
-        // right beside the switcher that picks which day you're looking at.
-        var clockSep = MakeText("|", 22, ColBorder);
-        clockSep.style.marginLeft = 18; clockSep.style.marginRight = 12;
-        daySwitcher.Add(clockSep);
+        // The partition. A real 2px bar rather than a "|" glyph, so it is the same width and colour
+        // as the strip divider it has to line up with (that divider is the left hemisphere's 2px
+        // borderRight in the same ColBorder). marginLeft:auto pins it to the right edge of this half;
+        // marginRight:-1 pulls it back by half its own width so the 2px line straddles the boundary
+        // and its CENTRE — not its left edge — sits on the divider's x.
+        var clockSep = new VisualElement();
+        clockSep.style.width = 2;
+        clockSep.style.height = 28;
+        clockSep.style.flexShrink = 0;
+        clockSep.style.backgroundColor = new StyleColor(ColBorder);
+        clockSep.style.marginLeft = StyleKeyword.Auto;
+        clockSep.style.marginRight = -1;
+        leftHalf.Add(clockSep);
 
-        _scheduleClockLabel = MakeText(FormatScheduleClock(), 18, ColWholesale, bold: true);
+        topRow.Add(leftHalf);
+
+        // ── RIGHT half: the live clock, sitting just past the partition ──
+        // Same font size as the day-switcher label so the two read as one continuous line of header
+        // text rather than a heading with a footnote bolted on.
+        var rightHalf = new VisualElement();
+        rightHalf.style.flexBasis = Length.Percent(50);
+        rightHalf.style.flexGrow = 0; rightHalf.style.flexShrink = 0;
+        rightHalf.style.flexDirection = FlexDirection.Row;
+        rightHalf.style.alignItems = Align.Center;
+        rightHalf.style.overflow = Overflow.Hidden;
+
+        _scheduleClockLabel = MakeText(FormatScheduleClock(), 30, ColWholesale, bold: true);
+        _scheduleClockLabel.style.marginLeft = 14;
         _lastScheduleClockText = _scheduleClockLabel.text;
-        daySwitcher.Add(_scheduleClockLabel);
+        rightHalf.Add(_scheduleClockLabel);
 
-        topRow.Add(daySwitcher);
+        topRow.Add(rightHalf);
         header.Add(topRow);
 
         return header;
@@ -4734,7 +4798,7 @@ public class ContractsPanel : IUIPanel
         if (!HasClosedStamp(order))
             date.tooltip = "Ship date wasn't recorded for this deal — showing the day the order " +
                            "arrived instead. Deals closed out from now on carry their real pickup time.";
-        var orderNum = AddDoneCell(row, ShortOrderId(order.OrderId), DoneOrderWidth, ColSubtleText, DoneColumn.Order);
+        var orderNum = AddDoneCell(row, order.OrderNumber ?? ShortOrderId(order.OrderId), DoneOrderWidth, ColSubtleText, DoneColumn.Order);
         orderNum.tooltip = order.OrderId;
         AddDoneCell(row, order.CustomerName, DoneAccountWidth, ColTitleText, DoneColumn.Account, bold: true);
         AddDoneCell(row, OrderTypeLabel(order), DoneTypeWidth, OrderTypeColor(order), DoneColumn.Type);

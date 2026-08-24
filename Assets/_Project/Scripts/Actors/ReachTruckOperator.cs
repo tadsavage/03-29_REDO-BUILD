@@ -265,7 +265,13 @@ namespace GameCore.Actors
                     // in a pick slot was rejected here and the widened bind could never be reached.
                     // Checked WITHOUT reserving: reserving here would lock a slot for a task this truck
                     // may yet lose to a higher-priority one on the same poll.
-                    if (!ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, t.SkuId, out _)) continue;
+                    //
+                    // Skipped entirely when PalletId is already set: OrderService.FileReleasedOrderTasks
+                    // reserves the source pallet at release time now, not at claim time. That reserved
+                    // location sits at LocationStatus.Reserved (not Occupied), so re-running this same
+                    // query here would find nothing and wrongly reject a task that's already spoken for.
+                    if (string.IsNullOrEmpty(t.PalletId) &&
+                        !ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, t.SkuId, out _)) continue;
                 }
 
                 if (t.Type == WorkTaskType.Putaway)
@@ -312,7 +318,13 @@ namespace GameCore.Actors
 
             // NOW the source pallet is chosen and locked, once this truck definitely owns the task.
             // Doing it during the scan above would reserve a slot for every candidate considered.
-            if (best.Type == WorkTaskType.PalletPick && !TryBindPalletPickSource(best))
+            //
+            // Skipped when PalletId is already set: release-time reservation (see
+            // OrderService.FileReleasedOrderTasks) already picked and locked this task's source, so
+            // there's nothing left to bind. This only runs at all for a PalletPick that was filed
+            // unassigned because no stock existed yet at release — the fallback path this used to be
+            // the only path for.
+            if (best.Type == WorkTaskType.PalletPick && string.IsNullOrEmpty(best.PalletId) && !TryBindPalletPickSource(best))
             {
                 // Someone took the last reserve pallet between the scan and the claim. Hand the task
                 // straight back rather than starting a routine that has nothing to fetch.
@@ -1066,6 +1078,13 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // Claim it NOW, not on arrival. Nothing yields between the resolve above and this line, so
+            // no other delivery can interleave and be handed the same cell; from here until the pallet
+            // is standing in it, TryGetNextFreeSlot/CountFreeStagingSlotsInLane skip it. Released in
+            // Restore() (success) and AbortRoutine() (failure).
+            _inventoryService.TryReserveStagingSlot(slot.Cell);
+            _reservedStagingCell = slot.Cell;
+
             Vector3 depthAxis = Vector3.forward;
             bool haveGeo = LaneNamingService.TryGetLaneGeometry(door, resolvedLane, out var geo);
             if (haveGeo)
@@ -1104,14 +1123,32 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // ── Wait for exclusive lane entry ─────────────────────────────────────────────────
+            // Truck is parked at the lane mouth now — outside the slot area, on the open dock floor.
+            // If another delivery is currently mid-insertion into this SAME lane, its pallet may still
+            // be on forks (invisible to StagingDropBaseY — see InventoryService.TryEnterLaneForDelivery)
+            // so entering now would read the cell as it looked before that pallet landed and compute
+            // the same drop height. Sit right here and wait, exactly like a real truck queuing at a
+            // busy aisle, until the lane is free — then check the height fresh and deliver correctly.
+            while (!_inventoryService.TryEnterLaneForDelivery(door, resolvedLane))
+                yield return null;
+            _heldLaneLock = (door, resolvedLane);
+
             // Close the last stretch manually and square up on the slot, same reasoning as the rack
             // delivery: the NavMesh leg only guarantees arrival within the agent's stopping distance,
             // and setting a pallet down from a metre off-centre is what puts it across two cells.
             yield return DriveToPoint(transform, approach, PrecisePlaceThreshold);
             yield return FaceForks(transform, laneInward);
 
+            // Where this pallet will actually come to rest: the lane floor if the cell is empty, or the
+            // measured top of whatever is already stacked there. Resolved HERE, once the truck is at the
+            // lane mouth, so it reflects the cell as it is now — and reused for both the lift and the
+            // set-down so the mast height and the final resting height can never disagree.
+            float dropBaseY = TrailerOffloadController.StagingDropBaseY(door, resolvedLane, slot.Cell,
+                                                                       pallet != null ? pallet.gameObject : null);
+
             if (_forks != null)
-                yield return LiftForksToWorldY(_forks, slotPos.y + ForkRackClearance);
+                yield return LiftForksToWorldY(_forks, dropBaseY + ForkRackClearance);
 
             // Down the lane FORKS FIRST — DriveForksFirst, never DriveToPoint. DriveToPoint opens with
             // RotateTo, which aims the BODY at the target and so instantly throws away the fork
@@ -1140,7 +1177,9 @@ namespace GameCore.Actors
             // looking perfectly correct, the cell still read as free, and no loader would ever take
             // it. OrderSelectionTaskDriver leaves its staged pallets unparented for the same reason.
             pallet.SetParent(null, worldPositionStays: true);
-            pallet.position = slotPos;
+            // XZ from the slot, Y from the stack — a second pallet into the same cell lands on top of
+            // the first instead of inside it.
+            pallet.position = new Vector3(slotPos.x, dropBaseY, slotPos.z);
             pallet.rotation = Quaternion.LookRotation(depthAxis, Vector3.up);
             _carryOriginValid = false;
 
@@ -1366,6 +1405,11 @@ namespace GameCore.Actors
         {
             Debug.Log($"[ReachTruckOperator] ABORTING task. Pallet: {palletId}, Location: {reservedAddress}");
 
+            // Staging cells are reserved the same way rack addresses are (below) — give ours back so an
+            // aborted run doesn't strand a slot nothing can ever stage into again.
+            ReleaseStagingReservation();
+            ReleaseLaneLock();
+
             // Release the reserved destination. Prefer the LocationData instance (keeps its own
             // serialized _status field in sync) over PutawayLogic.CancelPutaway, which only touches
             // the separate LocationStatusRegistry dictionary and would otherwise leave the component's
@@ -1483,8 +1527,42 @@ namespace GameCore.Actors
         }
 
         /// <summary>Hands the vehicle back to its normal patrol AI and ends the task (frees _busy).</summary>
+        /// <summary>Staging cell this truck has claimed while driving a pallet to it, if any. See
+        /// InventoryService.TryReserveStagingSlot — held from the moment the slot is resolved until the
+        /// pallet is actually standing in it (or the run aborts), so a second delivery resolving during
+        /// the drive is handed the NEXT slot instead of this one.</summary>
+        private Vector2Int? _reservedStagingCell;
+
+        /// <summary>Hands back <see cref="_reservedStagingCell"/> if one is held. Called from both
+        /// choke points every path out of a delivery passes through — Restore() on success and
+        /// AbortRoutine() on failure — because a leaked reservation blocks that slot permanently.</summary>
+        private void ReleaseStagingReservation()
+        {
+            if (_reservedStagingCell == null) return;
+            _inventoryService?.ReleaseStagingSlot(_reservedStagingCell.Value);
+            _reservedStagingCell = null;
+        }
+
+        /// <summary>Lane this truck currently holds exclusive physical-entry rights to, if any. See
+        /// InventoryService.TryEnterLaneForDelivery — held from the moment the truck is let in at the
+        /// lane mouth until the pallet is standing on the ground (or the run aborts before entering),
+        /// so a second delivery arriving mid-insertion waits instead of racing the height check.</summary>
+        private (int Door, string Lane)? _heldLaneLock;
+
+        /// <summary>Hands back <see cref="_heldLaneLock"/> if one is held. Same two choke points as
+        /// ReleaseStagingReservation, for the same reason: skip either and the lane is stuck locked for
+        /// the rest of the session.</summary>
+        private void ReleaseLaneLock()
+        {
+            if (_heldLaneLock == null) return;
+            _inventoryService?.ReleaseLaneEntry(_heldLaneLock.Value.Door, _heldLaneLock.Value.Lane);
+            _heldLaneLock = null;
+        }
+
         private void Restore()
         {
+            ReleaseStagingReservation();
+            ReleaseLaneLock();
             SetDriveMode(DriveMode.Ai, "task complete — resuming patrol");
             _vehicleNav?.GoToRandomWaypoint();
             _busy = false;

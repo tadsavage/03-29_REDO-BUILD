@@ -100,7 +100,10 @@ public class FloatingMoneyText : MonoBehaviour
 
         if (_mode == Mode.Persistent) return;
 
-        _age += Time.deltaTime;
+        // Unscaled: this popup is UI feedback about a transaction that already happened, so it
+        // rises and fades over a fixed REAL duration at any game speed, and still completes
+        // (rather than hanging on screen forever) while the game is paused.
+        _age += Time.unscaledDeltaTime;
         float t = _age / Lifetime;
 
         // Ease-out rise.

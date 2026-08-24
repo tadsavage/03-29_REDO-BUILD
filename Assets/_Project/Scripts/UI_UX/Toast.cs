@@ -92,9 +92,8 @@ public class UIToast : MonoBehaviour
 
     private void Update()
     {
-        // Unscaled: the duration itself is already scaled by game speed once, in Show() below.
-        // Decrementing with a SCALED deltaTime here would scale it a second time (and in the
-        // opposite direction), since Time.deltaTime is already multiplied by Time.timeScale.
+        // Unscaled on purpose: a toast is real-time UI feedback, so it stays up for the same
+        // wall-clock duration at 4x as at 1/4x, and keeps counting down while the game is paused.
         if (_timer > 0f)
         {
             _timer -= Time.unscaledDeltaTime;
@@ -115,14 +114,15 @@ public class UIToast : MonoBehaviour
         _toast.text             = msg;
         _toast.style.opacity    = 1;
 
-        // The requested duration is scaled by the current game speed (Time.timeScale, set by
-        // TopBarUI's speed buttons): half speed keeps the toast up half as long in real time,
-        // double speed keeps it up twice as long. That way the toast always spans the same
-        // amount of IN-GAME time no matter how fast/slow the simulation is running. At 0×
-        // (paused) this multiplies out to 0, so the toast simply stays visible until the game
-        // is unpaused and the timer can start counting down again.
-        float gameSpeedScale = Time.timeScale;
-        _timer                  = _defaultDuration * gameSpeedScale;
+        // Deliberately NOT scaled by Time.timeScale. A toast reports something that just happened,
+        // so it belongs on screen for a fixed REAL duration regardless of simulation speed — and it
+        // must work while paused, which is exactly when the quick-save toast fires.
+        //
+        // The previous version multiplied the duration by Time.timeScale. At 0x that set _timer to
+        // 0, so Update's `if (_timer > 0f)` never ran, the opacity was never reset, and the toast
+        // stayed on screen permanently — it did not resume on unpause either, because Show() is
+        // what seeds the timer. At 1/4x it also flashed past four times too fast.
+        _timer = _defaultDuration;
 
         RaiseAboveEverything();
 

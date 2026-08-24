@@ -901,6 +901,29 @@ namespace GameCore.Inventory
              : _appointments.FirstOrDefault(a => a.ShipmentPoNumber == poNumber);
 
         /// <summary>
+        /// Called by OrderService.CancelOrders the moment a player cancels an order that was still
+        /// Open/Available (nothing physically committed yet). Strips the cancelled order's ID out of
+        /// every appointment carrying it, and parks any outbound appointment left holding zero orders
+        /// — freeing its door for a new booking rather than leaving a phantom trailer on the grid with
+        /// nothing left to ship.
+        ///
+        /// Inbound appointments are left alone even if this empties one: an Inbound entry is either a
+        /// "truck is physically at this door right now" note or a PO reservation, neither of which
+        /// this order's cancellation has any business tidying up.
+        /// </summary>
+        public void DetachCancelledOrder(string orderId)
+        {
+            if (string.IsNullOrEmpty(orderId)) return;
+
+            foreach (var appt in _appointments)
+            {
+                if (!appt.OrderIds.Remove(orderId)) continue;
+                if (appt.OrderIds.Count == 0 && appt.Kind != AppointmentKind.Inbound && !appt.Parked)
+                    TryPark(appt.Id, out _);
+            }
+        }
+
+        /// <summary>
         /// Puts a freshly-raised purchase order into the unscheduled pool as a PARKED inbound
         /// appointment, so the player can drop it on the day, block and door they want it at.
         ///

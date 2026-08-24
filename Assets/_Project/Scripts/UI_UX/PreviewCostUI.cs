@@ -53,7 +53,9 @@ public class PreviewCostUI : MonoBehaviour
         float uiY = (Screen.height - mousePos.y) * (layout.height / Screen.height);
 
         Vector2 target = new Vector2(uiX, uiY);
-        _smoothPos = Vector2.Lerp(_smoothPos, target, 1.0f - Mathf.Exp(-60f * Time.deltaTime));
+        // Unscaled: follows the real mouse cursor, so it must not lag with the simulation speed
+        // and must keep tracking while paused.
+        _smoothPos = Vector2.Lerp(_smoothPos, target, 1.0f - Mathf.Exp(-60f * Time.unscaledDeltaTime));
 
         // Use translate to avoid layout passes
         _label.style.translate = new Translate(_smoothPos.x, _smoothPos.y, 0);

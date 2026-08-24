@@ -380,18 +380,100 @@ namespace GameCore.Inventory
         /// </summary>
         public bool TryGetNextFreeSlot(int doorNumber, string lane, out LaneNamingService.LaneSlot slot)
         {
-            int maxHeight = LaneConfigRegistry.Get(doorNumber, lane).MaxStackHeight;
+            int maxHeight = Mathf.Max(1, LaneConfigRegistry.Get(doorNumber, lane).MaxStackHeight);
             var laneSlots = LaneNamingService.GetLane(doorNumber, lane);
-            var outboundOccupied = OutboundOccupiedCells(laneSlots);
+            var outboundByCell = OutboundPalletsByCell(laneSlots);
 
             foreach (var s in laneSlots)
             {
-                if (outboundOccupied.Contains(s.Cell)) continue;
-                int stacked = _palletsByLocation.TryGetValue(s.Cell, out var ids) ? ids.Count : 0;
-                if (stacked < maxHeight) { slot = s; return true; }
+                if (OccupiedTiersAt(s.Cell, outboundByCell) < maxHeight) { slot = s; return true; }
             }
             slot = default;
             return false;
+        }
+
+        // ── Lane entry mutual exclusion ───────────────────────────────────────────────────────
+        /// <summary>
+        /// True while exactly one MHE is physically inserting a pallet into this lane — driving down
+        /// it, lifting/lowering forks, and setting the pallet down.
+        ///
+        /// StagingDropBaseY measures whatever is PHYSICALLY standing in a cell (see its own doc); a
+        /// pallet still riding forks is invisible to that measurement. Tier reservations
+        /// (TryReserveStagingSlot) stop two deliveries from being handed the same CELL, but they don't
+        /// stop the height race: if truck B reaches the lane mouth while truck A is still driving its
+        /// pallet in, B's height read doesn't see A's pallet yet (still on forks) and both can compute
+        /// the same drop Y — landing on top of each other. This lock makes physical insertion into one
+        /// lane strictly serial, so by the time a second delivery is allowed in, the first one's pallet
+        /// is already standing there to be measured correctly.
+        /// </summary>
+        private readonly HashSet<(int Door, string Lane)> _laneEntryLocks = new HashSet<(int, string)>();
+
+        /// <summary>Claim exclusive physical entry to a lane. False if someone else already holds it —
+        /// the caller should wait outside (poll) rather than proceed. Every successful call MUST be
+        /// paired with ReleaseLaneEntry on every exit path, or the lane is blocked for the rest of the
+        /// session.</summary>
+        public bool TryEnterLaneForDelivery(int doorNumber, string lane) =>
+            _laneEntryLocks.Add((doorNumber, lane));
+
+        /// <summary>Hand the lane back once the pallet is down (or the delivery aborted). Safe to call
+        /// for a lane that was never locked.</summary>
+        public void ReleaseLaneEntry(int doorNumber, string lane) =>
+            _laneEntryLocks.Remove((doorNumber, lane));
+
+        // ── In-transit staging reservations ──────────────────────────────────────────────────
+        /// <summary>
+        /// Cells an MHE has committed to but has not reached yet.
+        ///
+        /// OutboundOccupiedCells only sees pallets that are already DROPPED and unparented — a pallet
+        /// riding a set of forks is deliberately excluded, because it is not standing in the lane yet.
+        /// That leaves a window the length of an entire drive between "which slot am I taking"
+        /// (resolved before the truck sets off, see ReachTruckOperator.DeliverPalletToStagingLane) and
+        /// "that slot now reads as taken" (only once the pallet is set down). Two deliveries that both
+        /// resolve inside that window were handed the SAME slot and drove their pallets into each
+        /// other — the second pallet clipping through the first instead of taking the next slot along.
+        ///
+        /// A rack destination never had this problem: ReachTruckOperator reserves the rack address
+        /// before pickup and releases it on abort. This is that same contract for staging slots.
+        /// </summary>
+        private readonly Dictionary<Vector2Int, int> _stagingSlotReservations = new Dictionary<Vector2Int, int>();
+
+        /// <summary>Books ONE TIER of a staging cell for a pallet on its way — a count, not a flag,
+        /// because these lanes stack (LaneConfig.MaxStackHeight, 2 by default) and two trucks heading
+        /// for the same cell is perfectly legal as long as they land on different tiers.
+        /// Resolve-then-reserve needs no locking: coroutines only interleave at yield points and callers
+        /// do both in one uninterrupted block. Every call MUST be paired with ReleaseStagingSlot on
+        /// every exit path, or that tier is blocked for the rest of the session.</summary>
+        public bool TryReserveStagingSlot(Vector2Int cell)
+        {
+            _stagingSlotReservations.TryGetValue(cell, out int n);
+            _stagingSlotReservations[cell] = n + 1;
+            return true;
+        }
+
+        /// <summary>Hand a tier back — on arrival (the dropped pallet takes over as the marker) or on
+        /// abort. Safe to call for a cell that was never reserved.</summary>
+        public void ReleaseStagingSlot(Vector2Int cell)
+        {
+            if (!_stagingSlotReservations.TryGetValue(cell, out int n)) return;
+            if (n <= 1) _stagingSlotReservations.Remove(cell);
+            else _stagingSlotReservations[cell] = n - 1;
+        }
+
+        /// <summary>How many pallets are currently en route to this cell.</summary>
+        public int ReservedTiersAt(Vector2Int cell) =>
+            _stagingSlotReservations.TryGetValue(cell, out int n) ? n : 0;
+
+        /// <summary>True while at least one pallet is en route to this cell.</summary>
+        public bool IsStagingSlotReserved(Vector2Int cell) => ReservedTiersAt(cell) > 0;
+
+        /// <summary>Pallets already standing in, or on their way to, one staging cell — inbound stock,
+        /// staged outbound freight and in-flight reservations together. This is the number that has to
+        /// stay under the lane MaxStackHeight.</summary>
+        private int OccupiedTiersAt(Vector2Int cell, Dictionary<Vector2Int, List<GameObject>> outboundByCell)
+        {
+            int inbound  = _palletsByLocation.TryGetValue(cell, out var ids) ? ids.Count : 0;
+            int outbound = outboundByCell.TryGetValue(cell, out var list) ? list.Count : 0;
+            return inbound + outbound + ReservedTiersAt(cell);
         }
 
         // A staged order's second pallet sits ~1.2m from its sibling along the lane's depth axis (see
@@ -405,10 +487,11 @@ namespace GameCore.Inventory
         /// are never added to _palletsByLocation, since they're not InventoryService-managed stock —
         /// so without this, TryGetNextFreeSlot can't see them and keeps handing out the same slot to
         /// every order staged into a lane.</summary>
-        private static HashSet<Vector2Int> OutboundOccupiedCells(List<LaneNamingService.LaneSlot> laneSlots)
+        private static Dictionary<Vector2Int, List<GameObject>> OutboundPalletsByCell(
+            List<LaneNamingService.LaneSlot> laneSlots)
         {
-            var occupied = new HashSet<Vector2Int>();
-            if (laneSlots.Count == 0) return occupied;
+            var byCell = new Dictionary<Vector2Int, List<GameObject>>();
+            if (laneSlots.Count == 0) return byCell;
 
             foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
             {
@@ -419,14 +502,29 @@ namespace GameCore.Inventory
                 foreach (var s in laneSlots)
                 {
                     if (!LaneNamingService.TryGetSlotWorldPos(s.Cell, out var slotPos)) continue;
-                    float sqrDist = (pallet.transform.position - slotPos).sqrMagnitude;
+                    // PLANAR distance: a pallet on tier 2 sits a metre above the slot's own world
+                    // position, and measuring in 3D would push it past OutboundClaimDistance and make
+                    // the cell read as emptier than it is.
+                    Vector3 d = pallet.transform.position - slotPos; d.y = 0f;
+                    float sqrDist = d.sqrMagnitude;
                     if (sqrDist < nearestSqrDist) { nearestSqrDist = sqrDist; nearestCell = s.Cell; }
                 }
 
-                if (nearestSqrDist < OutboundClaimDistance * OutboundClaimDistance)
-                    occupied.Add(nearestCell);
+                if (nearestSqrDist >= OutboundClaimDistance * OutboundClaimDistance) continue;
+                if (!byCell.TryGetValue(nearestCell, out var list))
+                    byCell[nearestCell] = list = new List<GameObject>();
+                list.Add(pallet.gameObject);
             }
-            return occupied;
+            return byCell;
+        }
+
+        /// <summary>Every staged outbound pallet standing in one cell. Callers that need a height
+        /// measure the objects themselves — see TrailerOffloadController.StagingDropBaseY.</summary>
+        public List<GameObject> GetOutboundPalletObjectsAt(int doorNumber, string lane, Vector2Int cell)
+        {
+            var laneSlots = LaneNamingService.GetLane(doorNumber, lane);
+            var byCell = OutboundPalletsByCell(laneSlots);
+            return byCell.TryGetValue(cell, out var list) ? list : new List<GameObject>();
         }
 
         /// <summary>Next open slot in one SPECIFIC outbound lane (door-outward, same scan
@@ -492,17 +590,15 @@ namespace GameCore.Inventory
             if (string.IsNullOrEmpty(lane) || !LaneAllowsPicking(doorNumber, lane)) return 0;
             if (StagingLaneAssignmentService.LaneHasInboundStock(this, doorNumber, lane)) return 0;
 
-            int maxHeight = LaneConfigRegistry.Get(doorNumber, lane).MaxStackHeight;
+            int maxHeight = Mathf.Max(1, LaneConfigRegistry.Get(doorNumber, lane).MaxStackHeight);
             var laneSlots = LaneNamingService.GetLane(doorNumber, lane);
-            var outboundOccupied = OutboundOccupiedCells(laneSlots);
+            var outboundByCell = OutboundPalletsByCell(laneSlots);
 
+            // TIERS, not cells: 8 slots at MaxStackHeight 2 holds 16 pallets, and
+            // TryFindStagingLaneForPallets compares this against a whole order pallet count.
             int free = 0;
             foreach (var s in laneSlots)
-            {
-                if (outboundOccupied.Contains(s.Cell)) continue;
-                int stacked = _palletsByLocation.TryGetValue(s.Cell, out var ids) ? ids.Count : 0;
-                if (stacked < maxHeight) free++;
-            }
+                free += Mathf.Max(0, maxHeight - OccupiedTiersAt(s.Cell, outboundByCell));
             return free;
         }
 

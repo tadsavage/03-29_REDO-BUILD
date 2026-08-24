@@ -116,12 +116,29 @@ public class ChevronController : MonoBehaviour
         }
     }
 
+    // Ground (floor/yard tiles) never used to carry a collider, so a chevron's own raycast never had
+    // competition. FloorTile.prefab now has one (see the placement-collider fix), and every rack row's
+    // chevrons sit directly on top of a FloorTile — the tile's thin collider (~5cm) falls squarely
+    // inside the chevron's own oversized click volume (its half-height is 0.18m, a deliberate fudge
+    // factor for easy clicking), so Physics.Raycast's CLOSEST-hit rule started returning the floor tile
+    // instead of the chevron sitting on it. Excluding Ground mirrors RaycastController's own
+    // object-mask/ground-mask split: ground is a fallback surface, never something that should outrank
+    // an interactive object standing on it. Cached once — LayerMask.NameToLayer never changes at runtime.
+    private static int _clickMask = int.MinValue;
+
     private bool IsPointerOverChevron()
     {
         if (Camera.main == null) return false;
 
+        if (_clickMask == int.MinValue)
+        {
+            int groundLayer = LayerMask.NameToLayer("Ground");
+            _clickMask = groundLayer >= 0 ? ~(1 << groundLayer) : ~0;
+        }
+
         Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
-        return Physics.Raycast(ray, out RaycastHit hit) && hit.collider.gameObject == gameObject;
+        return Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, _clickMask)
+            && hit.collider.gameObject == gameObject;
     }
 
     /// <summary>

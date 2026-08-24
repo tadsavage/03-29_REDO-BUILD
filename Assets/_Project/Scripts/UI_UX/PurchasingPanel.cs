@@ -227,17 +227,40 @@ public class PurchasingPanel : IUIPanel
         titleBar.style.alignItems = Align.Center;
         titleBar.style.justifyContent = Justify.Center;
         titleBar.style.marginBottom = 8;
+        // Same guard as ContractsPanel's title bar: without it, a full modal makes flex shrink this
+        // row while the 48px chrome buttons inside refuse to shrink, so they spill out over the top
+        // edge of the panel.
+        titleBar.style.flexShrink = 0;
 
         _titleLabel = MakeText("PURCHASING", 26, ColTitleText, bold: true);
         _titleLabel.style.flexGrow = 1;
         _titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         titleBar.Add(_titleLabel);
 
-        // Resize + close, the same pair ContractsPanel carries — square, blue-edged, flush together.
-        // Deliberately NOT the orange treatment: orange is this panel's "commit" colour (Create PO),
-        // and a window chrome button that looks like a submit button is a trap.
         const float titleBtnSize = 48f;
 
+        // Return leg of the trip the Inbound Order Creation hint describes: a raised PO still needs a
+        // day, time block and door, and that happens on the Scheduler. It used to sit down in that
+        // tab's body beside the PO pill, which meant it only existed on one of the three tabs and sat
+        // nowhere near the other navigation. Up here it is reachable from every tab, and it mirrors
+        // ContractsPanel, which carries its "Back to Purchasing" counterpart in exactly this slot.
+        // Left of the window buttons, so the destructive ✕ keeps the far corner it always has.
+        var toScheduler = new Button(() => OpenScheduler(null)) { text = "Back to Scheduler" };
+        StyleOrangeButton(toScheduler);
+        ApplyFont(toScheduler, bold: true, size: 16);
+        toScheduler.style.height = titleBtnSize;   // clears the helper's fixed 30px
+        toScheduler.style.paddingLeft = toScheduler.style.paddingRight = 18;
+        toScheduler.style.marginRight = 10;
+        toScheduler.style.flexShrink = 0;          // the title flexGrows; without this the label squeezes
+        toScheduler.style.borderTopLeftRadius = toScheduler.style.borderTopRightRadius =
+            toScheduler.style.borderBottomLeftRadius = toScheduler.style.borderBottomRightRadius = 8;
+        toScheduler.tooltip = "Close purchasing and open the Scheduler, where POs are given a day, " +
+                              "time block and door.";
+        titleBar.Add(toScheduler);
+
+        // Resize + close, the same pair ContractsPanel carries — square, blue-edged, flush together.
+        // Deliberately NOT the orange treatment: that is this panel's accent (active tab, PO pill and
+        // the Back button above); window chrome stays blue so a chrome button never reads as an action.
         _scaleBtn = new Button { tooltip = "Resize window (normal / large / fill screen)" };
         StyleSquareButton(_scaleBtn);
         _scaleBtn.style.width = titleBtnSize;
@@ -465,34 +488,6 @@ public class PurchasingPanel : IUIPanel
         hint.style.whiteSpace = WhiteSpace.NoWrap;
         idRow.Add(hint);
 
-        // Button and PO pill share ONE right-hand group rather than being two more children of the
-        // row. idRow is SpaceBetween, which spreads its children across the full width — a third
-        // child would have been stranded in the middle of the row instead of sitting beside the pill.
-        var idRight = new VisualElement();
-        idRight.style.flexDirection = FlexDirection.Row;
-        // Stretch, so the button takes its height from the PO pill beside it instead of carrying a
-        // number of its own. The pill is content-sized — padding plus a 19pt Lilita label — so any
-        // hardcoded height here would be a guess that quietly stopped matching the moment that font
-        // size changed.
-        idRight.style.alignItems = Align.Stretch;
-        idRight.style.flexShrink = 0;
-        idRow.Add(idRight);
-
-        // The return leg of the trip the hint to the left describes. Scheduling is where a raised PO
-        // actually becomes a delivery, so "go there now" belongs next to the sentence telling the
-        // player that's where the decision gets made — and the Scheduler already has a matching
-        // "Back to Purchasing" button, so this closes the loop in both directions.
-        var toScheduler = new Button(() => OpenScheduler(null)) { text = "Back to Scheduler" };
-        StyleOrangeButton(toScheduler);
-        // Clears the fixed 30px StyleOrangeButton applies — an explicit height beats align-stretch,
-        // so without this the row would stretch around a button that refused to grow.
-        toScheduler.style.height = StyleKeyword.Auto;
-        toScheduler.style.flexShrink = 0;
-        toScheduler.style.marginRight = 10;
-        toScheduler.style.paddingLeft = 14; toScheduler.style.paddingRight = 14;
-        toScheduler.tooltip = "Close purchasing and open the Scheduler, where POs are given a day, " +
-                              "time block and door.";
-        idRight.Add(toScheduler);
 
         var poPill = new VisualElement();
         poPill.style.flexShrink = 0;
@@ -511,7 +506,7 @@ public class PurchasingPanel : IUIPanel
         poLabel.style.marginTop = 0; poLabel.style.marginBottom = 0;
         poLabel.style.whiteSpace = WhiteSpace.NoWrap;
         poPill.Add(poLabel);
-        idRight.Add(poPill);
+        idRow.Add(poPill);
 
         _tabHeader.Add(idRow);
         // Supplier first: it decides what the catalogue below even contains, so it has to be read

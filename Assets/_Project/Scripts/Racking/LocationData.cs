@@ -105,6 +105,17 @@ namespace GameCore.Inventory
             LocationStatusRegistry.Reserve(_address);
         }
 
+        /// <summary>Hands a Reserved slot back without touching its stored inventory (Reserved to
+        /// Occupied) — for when the task that reserved it is cancelled before the pallet was ever
+        /// actually removed, e.g. OrderService.CancelOrders releasing a PalletPick's source reserve.
+        /// Unlike <see cref="Release"/>, the pallet is still physically there, so its fields must
+        /// stay intact rather than being cleared to vacant.</summary>
+        public void Unreserve()
+        {
+            _status = LocationStatus.Occupied;
+            LocationStatusRegistry.MarkOccupied(_address);
+        }
+
         /// <summary>
         /// Marks the slot occupied and stores the pallet's inventory details (Reserved to Occupied).
         /// </summary>

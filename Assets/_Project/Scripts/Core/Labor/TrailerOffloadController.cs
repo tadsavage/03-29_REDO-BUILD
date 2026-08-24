@@ -322,106 +322,136 @@ namespace GameCore.Labor
             yield return FaceDir(ds, entryPivot - ds.position);
             // 8. Pull up to a pivot just in front of the lane entry (outside the lane, door side).
             yield return DriveTailFirst(ds, entryPivot);
-            // 9. Spin IN PLACE at the lane entry so the forks (and the carried pallet) face straight
-            //    down the lane at the slot we're driving into — forks FIRST.
-            yield return FaceForks(ds, downLane);
 
-            // 9b. STACK APPROACH HEIGHT — raise so the CARRIED pallet's base rides exactly
-            //     StackApproachClearance above whatever it is going to land on, then drive over it at
-            //     that height. targetTopY is the measured TOP of the highest pallet already settled in
-            //     this cell, or the lane surface itself when the cell is empty.
-            //
-            //     The old version set the fork's local Y to `highestPalletHeight` — a pallet's top MINUS
-            //     its base, i.e. how TALL the pallet is. That conflates the size of an object with a
-            //     position on the mast: a 1.2m-tall pallet sent the forks to local Y 1.2 no matter how
-            //     high the stack it was landing on actually sat, which is why the load went up far more
-            //     than it ever needed to. The height we want is derived the same way DriveInToGrab
-            //     derives matchLocalY — measure the WORLD Y the load must reach, then shift the forks by
-            //     the difference — so it is correct for any pallet type and any tier.
-            float targetTopY = LaneSurfaceY; // empty cell → land on the lane surface itself
-            if (ServiceLocator.TryGet<InventoryService>(out var invStack) && invStack != null)
+            // ── Wait for exclusive lane entry ───────────────────────────────────────
+            // Parked at entryPivot now — outside the lane, on the dock, at its door-side mouth. One
+            // piece of equipment (dock stocker, reach truck — whatever else moves in here later) may
+            // be physically inside a lane at a time: StagingDropBaseY/ComputeDropBaseY both measure
+            // whatever is ALREADY STANDING in a cell, and a pallet still on forks is invisible to that
+            // measurement, so two deliveries mid-insertion at once can compute the same drop height
+            // and land on top of each other. Sit here and wait until the lane is free, then check
+            // the height fresh once inside. Same lock ReachTruckOperator waits on — keyed by
+            // (door, lane), so it serialises DS-vs-DS, truck-vs-truck, AND DS-vs-truck on any lane
+            // either can reach.
+            while (!inv.TryEnterLaneForDelivery(door, laneLetter))
+                yield return null;
+
+            try
             {
-                foreach (var rec in invStack.GetPalletsAtLocation(cell))
+                // 9. Spin IN PLACE at the lane entry so the forks (and the carried pallet) face straight
+                //    down the lane at the slot we're driving into — forks FIRST.
+                yield return FaceForks(ds, downLane);
+
+                // 9b. STACK APPROACH HEIGHT — raise so the CARRIED pallet's base rides exactly
+                //     StackApproachClearance above whatever it is going to land on, then drive over it at
+                //     that height. targetTopY is the measured TOP of the highest pallet already settled in
+                //     this cell, or the lane surface itself when the cell is empty.
+                //
+                //     The old version set the fork's local Y to `highestPalletHeight` — a pallet's top MINUS
+                //     its base, i.e. how TALL the pallet is. That conflates the size of an object with a
+                //     position on the mast: a 1.2m-tall pallet sent the forks to local Y 1.2 no matter how
+                //     high the stack it was landing on actually sat, which is why the load went up far more
+                //     than it ever needed to. The height we want is derived the same way DriveInToGrab
+                //     derives matchLocalY — measure the WORLD Y the load must reach, then shift the forks by
+                //     the difference — so it is correct for any pallet type and any tier.
+                float targetTopY = LaneSurfaceY; // empty cell → land on the lane surface itself
+                if (ServiceLocator.TryGet<InventoryService>(out var invStack) && invStack != null)
                 {
-                    var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
-                    if (go == null || go == pallet.gameObject) continue;
-                    if (go.transform.parent != null) continue; // skip carried pallets
-                    float top = MeasureTopY(go);
-                    if (top > targetTopY) targetTopY = top;
+                    foreach (var rec in invStack.GetPalletsAtLocation(cell))
+                    {
+                        var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
+                        if (go == null || go == pallet.gameObject) continue;
+                        if (go.transform.parent != null) continue; // skip carried pallets
+                        float top = MeasureTopY(go);
+                        if (top > targetTopY) targetTopY = top;
+                    }
                 }
-            }
-            if (forks != null)
-            {
-                // pallet.position.y is the carried pallet's BASE (DropPallet/ComputeDropBaseY both treat
-                // it that way), so this delta is exactly what the mast has to travel.
-                float approachLocalY = forks.localPosition.y + ((targetTopY + StackApproachClearance) - pallet.position.y);
-                Debug.Log($"[TrailerOffload] Stack approach: target top={targetTopY:F3}m, " +
-                          $"forks {forks.localPosition.y:F3} → {approachLocalY:F3} (+{StackApproachClearance:F2} clearance).");
-                yield return LiftForks(forks, approachLocalY);
-            }
+                if (forks != null)
+                {
+                    // pallet.position.y is the carried pallet's BASE (DropPallet/ComputeDropBaseY both treat
+                    // it that way), so this delta is exactly what the mast has to travel.
+                    float approachLocalY = forks.localPosition.y + ((targetTopY + StackApproachClearance) - pallet.position.y);
+                    Debug.Log($"[TrailerOffload] Stack approach: target top={targetTopY:F3}m, " +
+                              $"forks {forks.localPosition.y:F3} → {approachLocalY:F3} (+{StackApproachClearance:F2} clearance).");
+                    yield return LiftForks(forks, approachLocalY);
+                }
 
-            // 10. Drive forward down the lane until the carried pallet's XZ lines up over the target tile
-            //     (aim so the PALLET — offset ahead on the forks — lands on the tile, not the DS root).
-            Vector3 palletOffset = pallet.position - ds.position; palletOffset.y = 0f;
-            yield return DriveForksFirst(ds, targetXZ - palletOffset);
-            // 11. Register the pallet to InventoryService FIRST so it has a master record + link, THEN
-            //     compute where it lands. dropBaseY is derived from the pallets ALREADY SETTLED in this
-            //     cell, explicitly EXCLUDING this pallet (which is still up on the forks) — see
-            //     ComputeDropBaseY. This one value is the single source of truth: it positions the pallet
-            //     AND is recorded as its saved height, so the visual and the record can never disagree.
-            // Align the pallet lengthwise with the staging lane direction — no extra rotation.
-            // The pallet's long axis (world X = 48") should run parallel to the lane, matching how
-            // TestPalletSpawner and PalletPersistenceService place pallets.
-            Quaternion laneRotation = Quaternion.LookRotation(Flat(downLane));
-            // Lengthwise along the lane either way — but keep whichever end is already leading, so the
-            // pallet doesn't spin 180 at the moment it leaves the forks. Both variants look identical
-            // once parked; only the transition between them is visible.
-            Quaternion rotatedPlacement = NearestFacing(laneRotation, pallet.forward);
+                // 10. Drive forward down the lane until the carried pallet's XZ lines up over the target tile
+                //     (aim so the PALLET — offset ahead on the forks — lands on the tile, not the DS root).
+                Vector3 palletOffset = pallet.position - ds.position; palletOffset.y = 0f;
+                yield return DriveForksFirst(ds, targetXZ - palletOffset);
+                // 11. Register the pallet to InventoryService FIRST so it has a master record + link, THEN
+                //     compute where it lands. dropBaseY is derived from the pallets ALREADY SETTLED in this
+                //     cell, explicitly EXCLUDING this pallet (which is still up on the forks) — see
+                //     ComputeDropBaseY. This one value is the single source of truth: it positions the pallet
+                //     AND is recorded as its saved height, so the visual and the record can never disagree.
+                // Align the pallet lengthwise with the staging lane direction — no extra rotation.
+                // The pallet's long axis (world X = 48") should run parallel to the lane, matching how
+                // TestPalletSpawner and PalletPersistenceService place pallets.
+                Quaternion laneRotation = Quaternion.LookRotation(Flat(downLane));
+                // Lengthwise along the lane either way — but keep whichever end is already leading, so the
+                // pallet doesn't spin 180 at the moment it leaves the forks. Both variants look identical
+                // once parked; only the transition between them is visible.
+                Quaternion rotatedPlacement = NearestFacing(laneRotation, pallet.forward);
 
-            RegisterAndQueue(inv, truck, cell, pallet, rotatedPlacement, palletIndex);
+                RegisterAndQueue(inv, truck, cell, pallet, rotatedPlacement, palletIndex);
             
-            // Clear the reservation now that the pallet is registered in InventoryService
-            if (_pendingDrops.ContainsKey(cell))
-            {
-                _pendingDrops[cell]--;
-                if (_pendingDrops[cell] <= 0) _pendingDrops.Remove(cell);
+                // Clear the reservation now that the pallet is registered in InventoryService
+                if (_pendingDrops.ContainsKey(cell))
+                {
+                    _pendingDrops[cell]--;
+                    if (_pendingDrops[cell] <= 0) _pendingDrops.Remove(cell);
+                }
+
+                float dropBaseY = ComputeDropBaseY(cell, pallet.gameObject);
+
+                // 12. SEAT IT. Now parked directly over the target, lower SLOWLY (StackSeatLowerSpeed) by
+                //     the approach clearance until the carried pallet's base is exactly on dropBaseY — the
+                //     same authoritative value DropPallet is about to use. Targeting dropBaseY rather than
+                //     "the height we raised from" means the load comes to rest precisely on the stack with
+                //     nothing left for DropPallet to correct, so there is no snap at the end of the descent.
+                if (forks != null)
+                {
+                    float seatLocalY = forks.localPosition.y + (dropBaseY - pallet.position.y);
+                    yield return LiftForks(forks, seatLocalY, StackSeatLowerSpeed);
+                }
+
+                DropPallet(pallet, targetW, dropBaseY, palletWorldScale, rotatedPlacement);
+                // 12b. Record the authoritative base-Y everywhere the pallet's height is tracked.
+                RecordPalletHeight(pallet.gameObject, dropBaseY, inv);
+
+                // DIAGNOSTIC: exact landing of every offloaded pallet so a tower/mis-stack can be read
+                // straight from the Editor.log (cell, stack tier, computed base-Y, final world position,
+                // and how many pallets the inventory now believes are in this cell).
+                int nowInCell = inv.GetPalletsAtLocation(cell).Count;
+                Debug.Log($"[TrailerOffload][DROP] pallet#{palletIndex} → door {door} lane {laneLetter} cell ({cell.x},{cell.y}) " +
+                          $"tier={tier} dropBaseY={dropBaseY:F2} finalPos={pallet.position} cellCount(now)={nowInCell} " +
+                          $"cellCenter={targetW}");
+                // 12c. Reverse clear of the pallet just set down BEFORE touching the mast — dropping the
+                //      tines while still directly over it would drag them down its face.
+                yield return DriveTailFirst(ds, ds.position - downLane * LaneBackoutDistance);
+                // 12d. Forks are empty now — settle them to the return-trip height so the DS makes the whole
+                //      run back to the trailer at a consistent height rather than arriving still raised to
+                //      the last drop's stack height (which then had to be corrected mid-approach).
+                if (forks != null) yield return LiftForks(forks, forkRestY + LaneExitForkClearance);
+                // 13. Reverse straight back OUT of the lane to the entry pivot (never across the lanes) —
+                //     cab-first, forks trailing, no spin. From here the next iteration pulls up to the next
+                //     pallet's TrailerPivotPoint, which is where all trailer-side turning happens.
+                yield return DriveTailFirst(ds, entryPivot);
             }
-
-            float dropBaseY = ComputeDropBaseY(cell, pallet.gameObject);
-
-            // 12. SEAT IT. Now parked directly over the target, lower SLOWLY (StackSeatLowerSpeed) by
-            //     the approach clearance until the carried pallet's base is exactly on dropBaseY — the
-            //     same authoritative value DropPallet is about to use. Targeting dropBaseY rather than
-            //     "the height we raised from" means the load comes to rest precisely on the stack with
-            //     nothing left for DropPallet to correct, so there is no snap at the end of the descent.
-            if (forks != null)
+            finally
             {
-                float seatLocalY = forks.localPosition.y + (dropBaseY - pallet.position.y);
-                yield return LiftForks(forks, seatLocalY, StackSeatLowerSpeed);
+                // Covers normal completion AND an exception thrown mid-drop — e.g. the DS or the
+                // pallet being destroyed while this is actively running (several direct ds./forks.
+                // dereferences below aren't null-guarded, so that surfaces as an exception here rather
+                // than a graceful bail). NOT a guarantee against StopCoroutine or this component's own
+                // GameObject being destroyed while the coroutine sits paused at a yield — Unity does
+                // not run IEnumerator finally blocks for either of those (verified empirically; it's a
+                // known gap in Unity's coroutine scheduler, not a C# language limitation). Neither
+                // currently happens to this routine anywhere in the codebase, and a lock that outlives
+                // the routine only matters for the rest of the current session — it isn't persisted.
+                inv.ReleaseLaneEntry(door, laneLetter);
             }
-
-            DropPallet(pallet, targetW, dropBaseY, palletWorldScale, rotatedPlacement);
-            // 12b. Record the authoritative base-Y everywhere the pallet's height is tracked.
-            RecordPalletHeight(pallet.gameObject, dropBaseY, inv);
-
-            // DIAGNOSTIC: exact landing of every offloaded pallet so a tower/mis-stack can be read
-            // straight from the Editor.log (cell, stack tier, computed base-Y, final world position,
-            // and how many pallets the inventory now believes are in this cell).
-            int nowInCell = inv.GetPalletsAtLocation(cell).Count;
-            Debug.Log($"[TrailerOffload][DROP] pallet#{palletIndex} → door {door} lane {laneLetter} cell ({cell.x},{cell.y}) " +
-                      $"tier={tier} dropBaseY={dropBaseY:F2} finalPos={pallet.position} cellCount(now)={nowInCell} " +
-                      $"cellCenter={targetW}");
-            // 12c. Reverse clear of the pallet just set down BEFORE touching the mast — dropping the
-            //      tines while still directly over it would drag them down its face.
-            yield return DriveTailFirst(ds, ds.position - downLane * LaneBackoutDistance);
-            // 12d. Forks are empty now — settle them to the return-trip height so the DS makes the whole
-            //      run back to the trailer at a consistent height rather than arriving still raised to
-            //      the last drop's stack height (which then had to be corrected mid-approach).
-            if (forks != null) yield return LiftForks(forks, forkRestY + LaneExitForkClearance);
-            // 13. Reverse straight back OUT of the lane to the entry pivot (never across the lanes) —
-            //     cab-first, forks trailing, no spin. From here the next iteration pulls up to the next
-            //     pallet's TrailerPivotPoint, which is where all trailer-side turning happens.
-            yield return DriveTailFirst(ds, entryPivot);
         }
 
         /// <summary>
@@ -872,6 +902,47 @@ namespace GameCore.Labor
         /// "pallets float ~3m up" bug). This is the SINGLE source of truth: the same value positions the
         /// pallet AND is recorded as its saved height, so the visual and the record can't drift apart.
         /// </summary>
+        /// <summary>
+        /// Base Y for a pallet about to be set down in a staging cell — the ONE stacking rule, shared
+        /// by both directions. Inbound offload has always used this math (see ComputeDropBaseY below);
+        /// outbound staging now calls it too, so a staged pallet sits ON the one under it instead of
+        /// clipping through it.
+        ///
+        /// Measures the ACTUAL renderer top of whatever is already in the cell rather than assuming a
+        /// fixed per-tier height, because pallet types differ in height (a wire-tote pallet is well
+        /// taller than a standard case pallet). Two sources, because staged outbound freight is
+        /// deliberately dropped from InventoryService (see ReachTruckOperator's set-down) and so is
+        /// invisible to GetPalletsAtLocation:
+        ///   • inbound stock recorded against the cell, and
+        ///   • OutboundPalletBuilder pallets physically standing in it.
+        /// Anything still parented is riding forks and is not standing in the cell yet, so it is
+        /// skipped — the bug that produced "stacking to the ceiling" when it wasn't.
+        /// </summary>
+        public static float StagingDropBaseY(int doorNumber, string lane, Vector2Int cell, GameObject selfGO)
+        {
+            float highestTop = 0f;
+
+            if (ServiceLocator.TryGet<InventoryService>(out var inv) && inv != null)
+            {
+                foreach (var rec in inv.GetPalletsAtLocation(cell))
+                {
+                    var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
+                    if (go == null || go == selfGO || go.transform.parent != null) continue;
+                    float top = MeasureTopY(go);
+                    if (top > highestTop) highestTop = top;
+                }
+
+                foreach (var go in inv.GetOutboundPalletObjectsAt(doorNumber, lane, cell))
+                {
+                    if (go == null || go == selfGO || go.transform.parent != null) continue;
+                    float top = MeasureTopY(go);
+                    if (top > highestTop) highestTop = top;
+                }
+            }
+
+            return highestTop > 0f ? highestTop + StackGap : LaneSurfaceY;
+        }
+
         private float ComputeDropBaseY(Vector2Int cell, GameObject selfGO)
         {
             float baseY = LaneSurfaceY;

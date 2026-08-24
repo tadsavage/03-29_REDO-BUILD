@@ -40,7 +40,9 @@ public class PickSlotCameraFocus : MonoBehaviour
         if (Input.GetMouseButton(1)) // Right mouse drag for rotation
         {
             float deltaX = Input.GetAxis("Mouse X");
-            _camera.transform.RotateAround(_camera.transform.position, Vector3.up, deltaX * 100f * Time.deltaTime);
+            // Unscaled: this is direct mouse-drag camera control, which must stay responsive at any
+            // game speed and keep working while the game is paused.
+            _camera.transform.RotateAround(_camera.transform.position, Vector3.up, deltaX * 100f * Time.unscaledDeltaTime);
         }
 
         // Spacebar or any button click returns to normal view

@@ -71,6 +71,11 @@ public class FXPool : MonoBehaviour
         {
             var main = ps.main;
             main.stopAction = ParticleSystemStopAction.None;
+
+            // Unscaled: FX are presentation, not simulation. Without this they crawl at 1/4x and
+            // freeze outright at 0x — and because ReturnWhenDone() waits on ps.IsAlive(), a frozen
+            // system never finishes, so the pooled instance is never returned and the pool drains.
+            main.useUnscaledTime = true;
         }
 
         // Assign materials to all child renderers
@@ -90,6 +95,7 @@ public class FXPool : MonoBehaviour
         {
             var main = ps.main;
             main.stopAction = ParticleSystemStopAction.None;
+            main.useUnscaledTime = true;
         }
 
         return new FXObject

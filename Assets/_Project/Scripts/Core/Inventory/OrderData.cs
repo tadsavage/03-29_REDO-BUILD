@@ -13,6 +13,20 @@ namespace GameCore.Inventory
     public class OrderData
     {
         public string OrderId { get; private set; }
+
+        /// <summary>Player-facing order number — a letter for the dominant storage area on this
+        /// order (G = Grocery, P = Perishable, F = Frozen, once those exist), the day it was created
+        /// zero-padded to 3 digits, and a 1-digit sequence for the Nth order of that area raised that
+        /// same day. Example: the 2nd grocery order raised on day 1 reads "G0012".
+        ///
+        /// Recurring and Bulk orders share one sequence per area/day because both are minted through
+        /// OrderService.ReceiveOrder — there is no separate numbering system for either, which is what
+        /// lets a Work Queue entry, a Recurring Orders line and a Bulk Orders line all be found by the
+        /// same short code. Set once by OrderService.GenerateOrderNumber at creation; never
+        /// reassigned. Null for an order restored from a save written before this field existed until
+        /// OrderService.Import backfills it.</summary>
+        public string OrderNumber { get; set; }
+
         public string CustomerId { get; set; }
         public string CustomerName { get; set; }
         public string DeliveryAddress { get; set; }
@@ -285,6 +299,10 @@ namespace GameCore.Inventory
     public class OrderSnapshot
     {
         public string orderId;
+        /// <summary>Empty in a save written before OrderNumber existed — Import regenerates one on
+        /// load rather than leaving it blank, so an old save still gets friendly numbers going
+        /// forward.</summary>
+        public string orderNumber;
         public string customerId;
         public string customerName;
         public string deliveryAddress;

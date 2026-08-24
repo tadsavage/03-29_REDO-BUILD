@@ -16,14 +16,16 @@ namespace GameCore.Labor
     /// the trailer, backs into the next open cargo slot (reusing TruckController's own 12-slot cargo
     /// layout), sets the pallet down, and backs out again.
     ///
-    /// Self-bootstrapping like TrailerOffloadController (no scene wiring). Driven by an explicit
-    /// Load WorkTask (created by OrderService.ReleaseOrdersToLoading when the player releases a
-    /// customer's Staged orders to a door via the Work Queue panel) rather than any automatic
-    /// pallet-count threshold — polls for an Available Load task whose FromLocation ("3A") names a
-    /// lane with a docked, AwaitingLoad truck at that door, claims it, commandeers an idle manned
-    /// dock stocker the same way TrailerOffloadController does (disabling its patrol AiNavigation +
-    /// NavMeshAgent so this controller can move the transform directly), runs the sequence, then
-    /// restores the DS to patrol — the truck itself stays docked, awaiting the player's close-out.
+    /// Self-bootstrapping like TrailerOffloadController (no scene wiring). Driven by a Load WorkTask
+    /// whose FromLocation ("3A") names a lane with a docked, AwaitingLoad truck at that door. The task
+    /// is filed automatically (see AutoFileLoadTasks) the instant both are true — a Staged order and a
+    /// trailer already waiting at its door — rather than requiring the player to click "Assign" in the
+    /// Work Queue panel first; that manual action (OrderService.ReleaseOrdersToLoading) still exists for
+    /// a player who wants to summon a trailer proactively. Once a Load task exists, this polls for one
+    /// it can claim, commandeers an idle manned dock stocker the same way TrailerOffloadController does
+    /// (disabling its patrol AiNavigation + NavMeshAgent so this controller can move the transform
+    /// directly), runs the sequence, then restores the DS to patrol — the truck itself stays docked,
+    /// awaiting the player's close-out.
     /// A docked truck with no claimable task yet just waits (KeepDockAlive) instead of timing out
     /// empty.
     ///
@@ -104,6 +106,10 @@ namespace GameCore.Labor
 
             if (!ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) || workQueue == null) return;
 
+            // A Staged order with a trailer already waiting at its door needs no player action any
+            // more — file its Load task automatically the instant both are true. See AutoFileLoadTasks.
+            AutoFileLoadTasks();
+
             // Work a door's lanes in A -> B -> C order. GetPendingTasksForRole hands tasks back in
             // CREATION order, which is just the order the player happened to release lanes in — so a
             // stage whose B lane was released before its A lane got emptied B first, against the
@@ -160,6 +166,47 @@ namespace GameCore.Labor
             int depth = sequence / 2;   // 0 = nose … 5 = doors
             int side  = sequence % 2;   // alternate left / right
             return side * TruckController.PalletsPerRow + depth;
+        }
+
+        /// <summary>
+        /// Files the Load task for every Staged (or partially-picked-but-staged) order whose assigned
+        /// door already has a trailer sitting there AwaitingLoad — the player no longer has to check
+        /// it in the Work Queue panel and click "Assign" for this to happen. A trailer arriving at a
+        /// door with freight already staged for it IS the trigger now, exactly like a real dock: any
+        /// available dock stocker that can reach the lane just goes and gets it.
+        ///
+        /// Never summons a trailer on its own — OrderService.ReleaseOrdersToLoading has a branch that
+        /// spawns one when none is docked, but it's unreachable from here, since FindDockedOutboundTruck
+        /// + AwaitingLoad already proved one is. A door with nothing waiting at it yet is untouched;
+        /// the manual "Assign" action in the Work Queue panel still exists for a player who wants to
+        /// summon a trailer proactively rather than wait for its scheduled appointment.
+        /// </summary>
+        private void AutoFileLoadTasks()
+        {
+            if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return;
+
+            // Grouped by door, not by (door, customer): ReleaseOrdersToLoading itself refuses a
+            // mixed-customer batch, and a door is single-customer while occupied by construction, so
+            // grouping by door alone is enough and keeps every lane of a multi-lane stage together.
+            var orderIdsByDoor = new Dictionary<int, List<string>>();
+            foreach (var order in orderService.ActiveOrders)
+            {
+                if (!orderService.CanStartLoading(order, out _)) continue;
+                if (!orderIdsByDoor.TryGetValue(order.AssignedDoorNumber, out var ids))
+                {
+                    ids = new List<string>();
+                    orderIdsByDoor[order.AssignedDoorNumber] = ids;
+                }
+                ids.Add(order.OrderId);
+            }
+
+            foreach (var (door, orderIds) in orderIdsByDoor)
+            {
+                var truck = FindDockedOutboundTruck(door);
+                if (truck == null || !truck.AwaitingLoad) continue; // nothing waiting at this door yet
+
+                orderService.ReleaseOrdersToLoading(orderIds, door);
+            }
         }
 
         private static TruckController FindDockedOutboundTruck(int doorNumber)

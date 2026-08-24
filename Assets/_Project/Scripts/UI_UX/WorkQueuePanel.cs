@@ -946,7 +946,7 @@ public class WorkQueuePanel : IUIPanel
         // rather than "waiting on you to release it," which Priority (still "—" here) already conveys.
         string role = task != null ? task.RequiredRole.DisplayName()
             : phase == RowPhase.Staged ? EmployeeRole.Loader.DisplayName() : "—";
-        string taskName = task != null ? task.Type.ToString() : "—";
+        string taskName = TaskTypeLabel(order, phase, task);
         string from = OrderFromLocation(order, task, phase);
         string to = OrderToLocation(order, task, phase);
         string operatorName = phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "—";
@@ -962,7 +962,7 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, to, LocationWidth, ColSubtleText);
         AddRowCell(row, operatorName, OperatorWidth, ColTitleText);
         AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText);
-        AddRowCell(row, ShortId(order.OrderId), OrderWidth, ColSubtleText);
+        AddRowCell(row, order.OrderNumber ?? ShortId(order.OrderId), OrderWidth, ColSubtleText);
         var fill = AddRowCell(row, FillRateText(order), FillRateWidth, FillRateColor(order), bold: true);
         MakeFillRateClickable(fill, order);
         return row;
@@ -1040,6 +1040,42 @@ public class WorkQueuePanel : IUIPanel
         PalletData.AreaCategory.Perishable => "PER",
         PalletData.AreaCategory.Frozen => "FRO",
         _ => area.ToString()
+    };
+
+    /// <summary>The Task column's label. While the order is still OPEN — before the player has
+    /// clicked Assign Staging Lane — every order reads as ONE generic pick job named after its area
+    /// (GroSel/PerSel/FrzSel): the order hasn't actually been broken into Pallet Picks + a case pick
+    /// yet, even though the granular WorkTasks already exist underneath (unclaimable while Open — see
+    /// OrderService.FileOrderTasks). Once released, the granular tasks speak for themselves: a
+    /// PalletPick reads "Pallet Pick" and the leftover-case task reads CasePickGro/Per/Frz.</summary>
+    private static string TaskTypeLabel(OrderData order, RowPhase phase, WorkTask task)
+    {
+        if (phase == RowPhase.Open) return $"{OrderAreaCode(order)}Sel";
+        if (task == null) return "—";
+        return task.Type switch
+        {
+            WorkTaskType.PalletPick => "Pallet Pick",
+            WorkTaskType.OrderSelect => $"CasePick{AreaCodeShort(task.Area)}",
+            WorkTaskType.Load => "Load",
+            _ => task.Type.ToString()
+        };
+    }
+
+    /// <summary>Gro/Per/Frz — the short area code used by TaskTypeLabel, derived from
+    /// GetOrderAreaLabel so both share the same "which area does this order belong to" answer rather
+    /// than each re-deriving it (and possibly disagreeing) from the order's line items.</summary>
+    private static string OrderAreaCode(OrderData order) => GetOrderAreaLabel(order) switch
+    {
+        "PER" => "Per",
+        "FRO" => "Frz",
+        _ => "Gro" // GRO, Mixed, or unresolved all default to Gro until Perishable/Frozen exist
+    };
+
+    private static string AreaCodeShort(PalletData.AreaCategory area) => area switch
+    {
+        PalletData.AreaCategory.Perishable => "Per",
+        PalletData.AreaCategory.Frozen => "Frz",
+        _ => "Gro"
     };
 
     private static Color ColStatusColor(WorkTaskStatus status) => status switch
@@ -1252,8 +1288,21 @@ public class WorkQueuePanel : IUIPanel
             }
             else
             {
-                SetBottomBar(ActionMode.ReleaseToLane, $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a stage:",
-                    stageDoors.Select(d => $"Stage {d}").ToList());
+                // Default the dropdown to whatever door the Schedule tab already booked this order's
+                // trailer at, if that door still has a pickable stage — a reminder of the door plan
+                // already made, rather than silently offering the lowest free stage number instead.
+                ServiceLocator.TryGet<DockScheduleService>(out var schedule);
+                int? plannedDoor = schedule?.FindForOrder(checkedOrders[0].OrderId)?.DoorNumber;
+                bool plannedDoorAvailable = plannedDoor.HasValue && stageDoors.Contains(plannedDoor.Value);
+
+                string message = plannedDoorAvailable
+                    ? $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a stage (scheduled for Door {plannedDoor.Value}):"
+                    : $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a stage:";
+
+                SetBottomBar(ActionMode.ReleaseToLane, message, stageDoors.Select(d => $"Stage {d}").ToList());
+
+                if (plannedDoorAvailable)
+                    _targetDropdown.SetValueWithoutNotify($"Stage {plannedDoor.Value}");
             }
             return;
         }
