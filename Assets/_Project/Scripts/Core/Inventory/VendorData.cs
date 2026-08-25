@@ -22,7 +22,7 @@ namespace GameCore.Inventory
     }
 
     /// <summary>
-    /// One supplier: who they are, what they carry, what they charge, and how reliably they deliver.
+    /// One supplier: who they are, what they carry, and the smallest order they'll accept.
     ///
     /// Deliberately mirrors ContractData's shape and spirit — that's the outbound counterpart, and
     /// the two sides of the same trade should not look like they came from different games. Same
@@ -30,16 +30,14 @@ namespace GameCore.Inventory
     /// a vendor is a commercial relationship, and the same product should be able to appear at two
     /// houses on different terms.
     ///
-    /// THREE AXES OF DIFFERENCE, and only three, because all three are actually consumed today:
-    ///
-    ///   PRICE        <see cref="PriceMultiplier"/> against the market price of the day.
-    ///   RELIABILITY  <see cref="ShortShipmentChance"/> — how often they leave pallets behind.
-    ///   COMMITMENT   <see cref="MinimumOrderCases"/> — the size you have to buy to deal at all.
-    ///
-    /// On-time percentage and net-30 payment terms were both drafted and CUT rather than authored
-    /// unconsumed. Late delivery and trade credit don't exist yet, and a field nothing reads is how
-    /// this codebase ended up with Overage/Shortage sitting dead for months — see
-    /// ShipmentLineItem.Dropped for that story. Add them when the mechanic behind them lands.
+    /// REWORKED for the Partnership Level economy: cost, fill rate and damaged-goods rate are no
+    /// longer static per-vendor fields on this asset. They're derived, on demand, from a per-vendor
+    /// runtime Partnership Level (-100..100), randomized fresh each playthrough and owned by
+    /// VendorEconomyService/VendorRuntimeState — see PartnershipTierUtility.GetProfile. That's why
+    /// ReputationRequired, PriceMultiplier and ShortShipmentChance were removed from here outright
+    /// rather than kept alongside the new system: a static per-vendor multiplier and a
+    /// Partnership-driven modifier answering the same question would just be two numbers that could
+    /// disagree.
     /// </summary>
     [CreateAssetMenu(fileName = "Vendor_", menuName = "Warehouse/Vendor")]
     public class VendorData : ScriptableObject
@@ -51,22 +49,13 @@ namespace GameCore.Inventory
 
         [SerializeField] private VendorTier _tier = VendorTier.Staples;
 
-        [Tooltip("Reputation needed before this vendor will deal with you at all.")]
-        [SerializeField] private int _reputationRequired;
-
-        [Tooltip("Multiplier on the market price of the day. 0.90 = 10% cheaper than the market, " +
-                 "1.12 = a 12% premium for reliability.")]
-        [SerializeField] private float _priceMultiplier = 1f;
-
-        [Range(0f, 1f)]
-        [Tooltip("Chance a purchase order from this vendor arrives short by 1-3 pallets.")]
-        [SerializeField] private float _shortShipmentChance = 0.2f;
-
         [Tooltip("Smallest order this vendor will accept, in cases. 0 = no minimum.")]
         [SerializeField] private int _minimumOrderCases;
 
-        [Tooltip("The SKUs this vendor carries. A SKU may appear at more than one vendor.")]
-        [SerializeField] private List<SkuData> _catalogue = new();
+        [Tooltip("The SKUs this vendor carries, each with a rarity tier that gates it behind a " +
+                 "Partnership Level (see VendorEconomyService.GetAvailableCatalogue). A SKU may " +
+                 "appear at more than one vendor, at different rarities.")]
+        [SerializeField] private List<VendorCatalogueEntry> _catalogue = new();
 
         /// <summary>Identity is the asset name, same convention as ContractData.ContractId — it's
         /// stable, unique by construction, and what gets written into ShipmentData.SupplierId.</summary>
@@ -76,32 +65,14 @@ namespace GameCore.Inventory
         public string Pitch => _pitch;
         public Sprite Icon => _icon;
         public VendorTier Tier => _tier;
-        public int ReputationRequired => _reputationRequired;
-        public float PriceMultiplier => Mathf.Max(0.01f, _priceMultiplier);
-        public float ShortShipmentChance => Mathf.Clamp01(_shortShipmentChance);
         public int MinimumOrderCases => Mathf.Max(0, _minimumOrderCases);
-        public IReadOnlyList<SkuData> Catalogue => _catalogue;
-
-        /// <summary>Human-readable reliability, for the vendor card. Inverted from the raw chance
-        /// because "94% reliable" is a thing a player can compare at a glance and "0.06 short-ship
-        /// probability" is not.</summary>
-        public int ReliabilityPercent => Mathf.RoundToInt((1f - ShortShipmentChance) * 100f);
+        public IReadOnlyList<VendorCatalogueEntry> Catalogue => _catalogue;
 
         public bool Carries(string skuId)
         {
-            foreach (var s in _catalogue)
-                if (s != null && s.SkuId == skuId) return true;
+            foreach (var entry in _catalogue)
+                if (entry?.Sku != null && entry.Sku.SkuId == skuId) return true;
             return false;
-        }
-
-        /// <summary>What one case of this SKU costs HERE today: the market price, marked up or down by
-        /// this vendor's own multiplier. Returns 0 for anything they don't carry, so a caller can't
-        /// accidentally price a SKU against a vendor that never offered it.</summary>
-        public int PriceFor(SkuData sku, MarketService market)
-        {
-            if (sku == null || !Carries(sku.SkuId)) return 0;
-            int marketPrice = market != null ? market.CurrentPrice(sku) : Mathf.RoundToInt(sku.BuyValue);
-            return Mathf.Max(1, Mathf.RoundToInt(marketPrice * PriceMultiplier));
         }
     }
 }

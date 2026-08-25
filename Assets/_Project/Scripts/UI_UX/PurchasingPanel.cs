@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 using GameCore.Economy;
+using GameCore.Events;
 using GameCore.Inventory;
 using GameCore.Services;
 
@@ -126,6 +127,16 @@ public class PurchasingPanel : IUIPanel
     /// valid choice.</summary>
     private string _vendorId;
 
+    /// <summary>Set when the Create tab was opened via "Order from Vendor" on the VENDORS tab. While
+    /// true, the vendor-chip switcher is hidden and the catalogue is exclusively that vendor's
+    /// currently Partnership-unlocked items — you walked into a specific house rather than browsing
+    /// the whole roster. Cleared the moment the player manually switches vendors again.</summary>
+    private bool _exclusiveVendorFilter;
+
+    /// <summary>Shared Excel-style header sort/search state for the item grid — same controller class
+    /// the VENDORS tab uses for its own grid, so both cycle sort and filter identically.</summary>
+    private readonly ExcelHeaderSortController _itemSortController = new();
+
     private string _poNumber;
 
 
@@ -139,7 +150,34 @@ public class PurchasingPanel : IUIPanel
         _overlay = Build(out _modal, out _tabBar, out _tabHeader, out _content, out _footerMessage);
         root.Add(_overlay);
         _overlay.Add(BuildConfirmDialog());
+
+        _itemSortController.RegisterColumn("ItemName");
+        _itemSortController.RegisterColumn("Rarity");
+        _itemSortController.RegisterColumn("UnitCost");
+        _itemSortController.RegisterColumn("FillRate");
+        _itemSortController.OnStateChanged += Rebuild;
+
+        EventManager.Instance?.Subscribe<string>(GameEvents.Vendor.OnOrderFromVendorRequested, OnOrderFromVendorRequested);
+
         Hide();
+    }
+
+    public void Dispose()
+    {
+        EventManager.Instance?.Unsubscribe<string>(GameEvents.Vendor.OnOrderFromVendorRequested, OnOrderFromVendorRequested);
+        if (_overlay.parent != null) _overlay.RemoveFromHierarchy();
+    }
+
+    /// <summary>Routed here from the VENDORS tab's "Order from Vendor" button, via the central
+    /// EventManager rather than a direct ContractsPanel → PurchasingPanel call. Pins the Create tab
+    /// to exactly that vendor's catalogue and opens the panel.</summary>
+    private void OnOrderFromVendorRequested(string eventId, string vendorId)
+    {
+        if (string.IsNullOrEmpty(vendorId)) return;
+        _vendorId = vendorId;
+        _exclusiveVendorFilter = true;
+        _tab = Tab.Create;
+        Show();
     }
 
     public bool IsVisible => _visible;
@@ -149,6 +187,7 @@ public class PurchasingPanel : IUIPanel
     public void Show()
     {
         _visible = true;
+        OrdersPauseGate.Push(this);
         _overlay.style.display = DisplayStyle.Flex;
         // Order screens sit above both bars — same reasoning as ContractsPanel.Show. This overlay was
         // already full-screen (bottom = 0); the raise is what guarantees it beats the top bar and any
@@ -167,13 +206,9 @@ public class PurchasingPanel : IUIPanel
     public void Hide()
     {
         _visible = false;
+        OrdersPauseGate.Pop(this);
         HideConfirm();
         _overlay.style.display = DisplayStyle.None;
-    }
-
-    public void Dispose()
-    {
-        if (_overlay.parent != null) _overlay.RemoveFromHierarchy();
     }
 
     private void NewPoNumber() => _poNumber = PONumberGenerator.GetRandomPONumber();
@@ -510,8 +545,10 @@ public class PurchasingPanel : IUIPanel
 
         _tabHeader.Add(idRow);
         // Supplier first: it decides what the catalogue below even contains, so it has to be read
-        // before the items, not after them.
-        _tabHeader.Add(BuildVendorBar());
+        // before the items, not after them. Skipped entirely in the exclusive vendor filter — the
+        // player was routed here from one specific house on the VENDORS tab, not browsing the roster.
+        if (!_exclusiveVendorFilter) _tabHeader.Add(BuildVendorBar());
+        else _tabHeader.Add(BuildExclusiveVendorBanner());
         _tabHeader.Add(BuildCapacityMeter());
 
         // ── Two blue columns of item cards ──
@@ -536,6 +573,7 @@ public class PurchasingPanel : IUIPanel
         // Broker first — it appears rarely and costs four figures, so it outranks the spot board.
         _content.Add(BuildSalvageStrip());
         _content.Add(BuildSpotDealsStrip());
+        _content.Add(BuildItemSortBar());
 
         var columns = new VisualElement();
         columns.style.flexDirection = FlexDirection.Row;
@@ -555,6 +593,53 @@ public class PurchasingPanel : IUIPanel
 
         BuildCreateFooter();
         RefreshOrderTotal();
+    }
+
+    /// <summary>Excel-style "click to cycle sort, type to search" strip for the item catalogue —
+    /// same ExcelHeaderSortController the VENDORS tab's grid uses, so the two behave identically.</summary>
+    private VisualElement BuildItemSortBar()
+    {
+        var bar = new VisualElement();
+        bar.style.flexDirection = FlexDirection.Row;
+        bar.style.alignItems = Align.Center;
+        bar.style.marginBottom = 8;
+        bar.style.flexWrap = Wrap.Wrap;
+
+        var searchLabel = MakeText("Search:", 13, ColSubtleText);
+        searchLabel.style.marginRight = 4;
+        bar.Add(searchLabel);
+
+        var search = new TextField { value = _itemSortController.GetSearchText("ItemName") };
+        search.style.width = 160;
+        search.style.marginRight = 12;
+        search.RegisterValueChangedCallback(evt => _itemSortController.SetSearchText("ItemName", evt.newValue));
+        bar.Add(search);
+
+        bar.Add(MakeSortHeaderButton("Name", "ItemName"));
+        bar.Add(MakeSortHeaderButton("Rarity", "Rarity"));
+        bar.Add(MakeSortHeaderButton("Unit Cost", "UnitCost"));
+        bar.Add(MakeSortHeaderButton("Fill Rate", "FillRate"));
+
+        return bar;
+    }
+
+    private Button MakeSortHeaderButton(string label, string columnId)
+    {
+        var dir = _itemSortController.GetDirection(columnId);
+        string arrow = dir == ExcelHeaderSortController.SortDirection.Ascending ? " ▲"
+                      : dir == ExcelHeaderSortController.SortDirection.Descending ? " ▼" : "";
+
+        var btn = new Button(() => _itemSortController.OnHeaderClicked(columnId)) { text = label + arrow };
+        StyleSquareButton(btn);
+        btn.style.width = new StyleLength(StyleKeyword.Auto);
+        btn.style.height = new StyleLength(StyleKeyword.Auto);
+        btn.style.paddingTop = 5; btn.style.paddingBottom = 5;
+        btn.style.paddingLeft = 10; btn.style.paddingRight = 10;
+        btn.style.marginRight = 6;
+        if (dir != ExcelHeaderSortController.SortDirection.None)
+            btn.style.borderTopColor = btn.style.borderBottomColor =
+                btn.style.borderLeftColor = btn.style.borderRightColor = new StyleColor(ColOrange);
+        return btn;
     }
 
     private VisualElement MakeItemColumn(float marginRight)
@@ -762,12 +847,47 @@ public class PurchasingPanel : IUIPanel
     /// drew straight over the trailer meter below it.</summary>
     private const float VendorChipMinWidth = 124f;
 
+    /// <summary>Replaces the vendor-chip switcher while _exclusiveVendorFilter is on — names the one
+    /// house the player was routed to and offers the way back to browsing the full roster.</summary>
+    private VisualElement BuildExclusiveVendorBanner()
+    {
+        var vendor = SelectedVendor();
+
+        var wrap = new VisualElement();
+        wrap.style.flexDirection = FlexDirection.Row;
+        wrap.style.alignItems = Align.Center;
+        wrap.style.justifyContent = Justify.SpaceBetween;
+        wrap.style.marginBottom = 10;
+        wrap.style.flexShrink = 0;
+        wrap.style.paddingTop = 6; wrap.style.paddingBottom = 6;
+        wrap.style.paddingLeft = 10; wrap.style.paddingRight = 10;
+        wrap.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.18f));
+        wrap.style.borderTopLeftRadius = wrap.style.borderTopRightRadius =
+            wrap.style.borderBottomLeftRadius = wrap.style.borderBottomRightRadius = 8;
+
+        var label = MakeText(vendor != null
+            ? $"Ordering exclusively from {vendor.DisplayName}."
+            : "Ordering exclusively from the selected vendor.", 14, ColOrangeText, bold: true);
+        wrap.Add(label);
+
+        var browse = new Button(() =>
+        {
+            _exclusiveVendorFilter = false;
+            Rebuild();
+        })
+        { text = "Browse all vendors" };
+        StyleOrangeButton(browse);
+        ApplyFont(browse, bold: true, size: 13);
+        wrap.Add(browse);
+
+        return wrap;
+    }
+
     /// <summary>
-    /// The houses that will deal with you, and the ones that won't yet.
-    ///
-    /// LOCKED VENDORS ARE SHOWN, greyed, with what they'd cost you in reputation. A locked door you
-    /// can see is a goal; a locked door you can't see is just a smaller game — and the whole point of
-    /// tiering the roster is that the player knows there's something better to earn.
+    /// Every house — all 20 vendors deal with you from game start under the Partnership Level
+    /// rework. Each chip shows its current Partnership standing (colour-coded status text) and the
+    /// cost/fill terms that standing drives, so the roster still reads as a real cast of suppliers
+    /// rather than a flat list of names.
     /// </summary>
     private VisualElement BuildVendorBar()
     {
@@ -778,39 +898,24 @@ public class PurchasingPanel : IUIPanel
         var registry = VendorRegistry.Load();
         if (registry == null || registry.vendors.Count == 0) return wrap;
 
-        int rep = Reputation();
-        var unlocked = registry.Unlocked(rep);
-        var locked = registry.Locked(rep);
+        var all = registry.AllVendors;
 
         var head = new VisualElement();
         head.style.flexDirection = FlexDirection.Row;
         head.style.alignItems = Align.Center;
         head.style.justifyContent = Justify.SpaceBetween;
         head.style.marginBottom = 2;
-        // Vendor chips identify themselves; the separate SUPPLIER / reputation heading duplicated
-        // that information and consumed a full row above the catalogue.
+        // Vendor chips identify themselves; the separate SUPPLIER heading duplicated that
+        // information and consumed a full row above the catalogue.
         head.style.display = DisplayStyle.None;
 
         var title = MakeText("SUPPLIER", 16, ColTitleText, bold: true);
         title.style.whiteSpace = WhiteSpace.NoWrap;
         head.Add(title);
-
-        // Reputation belongs HERE, next to the thing it gates, rather than on the TopBar with the
-        // money. It's not a resource you spend — it's the reason this row looks the way it does.
-        var band = ReputationService.BandFor(rep);
-        int next = ReputationService.NextBandThreshold(rep);
-        string repText = next < 0
-            ? $"Reputation {rep} · {ReputationService.BandLabel(band)}"
-            : $"Reputation {rep} · {ReputationService.BandLabel(band)} · {next - rep} to " +
-              $"{ReputationService.BandLabel(ReputationService.BandFor(next))}";
-        var repLabel = MakeText(repText, 14, ColSubtleText);
-        repLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        head.Add(repLabel);
         wrap.Add(head);
 
-        // Resolved ONCE here rather than per chip: SelectedVendor() rescans the registry, allocates
-        // an Unlocked() list, and can re-anchor _vendorId as a side effect. Not something to run
-        // fourteen times to draw seven boxes.
+        // Resolved ONCE here rather than per chip: SelectedVendor() rescans the registry and can
+        // re-anchor _vendorId as a side effect. Not something to run twenty times to draw twenty boxes.
         var current = SelectedVendor();
         string currentId = current != null ? current.VendorId : null;
 
@@ -818,16 +923,18 @@ public class PurchasingPanel : IUIPanel
         row.style.flexDirection = FlexDirection.Row;
         row.style.flexWrap = Wrap.Wrap;
         row.style.flexShrink = 0;
-        foreach (var v in unlocked) row.Add(BuildVendorChip(v, true, currentId));
-        foreach (var v in locked) row.Add(BuildVendorChip(v, false, currentId));
+        foreach (var v in all) row.Add(BuildVendorChip(v, currentId));
         wrap.Add(row);
 
         return wrap;
     }
 
-    private VisualElement BuildVendorChip(VendorData vendor, bool unlocked, string currentId)
+    private static VendorEconomyService Economy()
+        => ServiceLocator.TryGet<VendorEconomyService>(out var e) ? e : null;
+
+    private VisualElement BuildVendorChip(VendorData vendor, string currentId)
     {
-        bool selected = unlocked && vendor.VendorId == currentId;
+        bool selected = vendor.VendorId == currentId;
 
         var chip = new VisualElement();
         chip.style.minWidth = VendorChipMinWidth;
@@ -839,19 +946,16 @@ public class PurchasingPanel : IUIPanel
         chip.style.paddingLeft = 6; chip.style.paddingRight = 6;
         chip.style.overflow = Overflow.Hidden;
         chip.style.backgroundColor = new StyleColor(
-            !unlocked ? new Color(ColStat.r, ColStat.g, ColStat.b, 0.55f)
-            : selected ? new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.30f)
-                       : ColStat);
+            selected ? new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.30f) : ColStat);
         chip.style.borderTopWidth = chip.style.borderBottomWidth =
             chip.style.borderLeftWidth = chip.style.borderRightWidth = 2;
-        var edge = !unlocked ? ColEmptyText : selected ? ColOrange : ColBlueEdge;
+        var edge = selected ? ColOrange : ColBlueEdge;
         chip.style.borderTopColor = chip.style.borderBottomColor =
             chip.style.borderLeftColor = chip.style.borderRightColor = new StyleColor(edge);
         chip.style.borderTopLeftRadius = chip.style.borderTopRightRadius =
             chip.style.borderBottomLeftRadius = chip.style.borderBottomRightRadius = 7;
 
-        var name = MakeText(vendor.DisplayName, 12,
-                            unlocked ? (selected ? ColOrangeText : ColTitleText) : ColEmptyText, bold: true);
+        var name = MakeText(vendor.DisplayName, 12, selected ? ColOrangeText : ColTitleText, bold: true);
         name.style.marginTop = 0; name.style.marginBottom = 0;
         // WRAPS rather than clipping. At 148px a chip has ~130px of usable width and half the roster
         // is longer than that, so NoWrap turned "Fairweather Trading Co." into "Fairweather Tradi" —
@@ -860,36 +964,28 @@ public class PurchasingPanel : IUIPanel
         name.style.whiteSpace = WhiteSpace.Normal;
         chip.Add(name);
 
-        if (!unlocked)
-        {
-            // Just the number. Naming the band this threshold sits in read as "Needs 250 rep (Known)"
-            // to a player who was already Known — vendor thresholds are deliberately spaced BETWEEN
-            // band boundaries so the roster opens as a ladder, not in three lumps.
-            var need = MakeText($"Needs {vendor.ReputationRequired} rep · {vendor.ReputationRequired - Reputation()} to go",
-                                12, ColEmptyText);
-            need.style.marginTop = 1; need.style.marginBottom = 0;
-            need.style.whiteSpace = WhiteSpace.NoWrap;
-            chip.Add(need);
-            return chip;   // no click handler: an unearned vendor isn't a control
-        }
+        // Partnership standing — colour-coded status text plus the two axes that actually differ:
+        // cost against the market and how often this house short-ships.
+        var economy = Economy();
+        int level = economy?.GetState(vendor.VendorId)?.PartnershipLevel ?? 0;
+        string status = PartnershipColorUtility.GetStatusText(level);
+        Color statusColor = PartnershipColorUtility.GetColor(level);
 
-        // The three axes that actually differ, in one line: price against the market, how often they
-        // short you, and the smallest order they'll take.
-        float pm = vendor.PriceMultiplier;
-        string priceTag = Mathf.Abs(pm - 1f) < 0.005f ? "market"
-                        : pm < 1f ? $"{Mathf.RoundToInt((1f - pm) * 100f)}% under"
-                                  : $"{Mathf.RoundToInt((pm - 1f) * 100f)}% over";
-        Color priceCol = Mathf.Abs(pm - 1f) < 0.005f ? ColSubtleText : pm < 1f ? ColMoney : ColDangerSoft;
-
-        var terms = MakeText($"{priceTag} · {vendor.ReliabilityPercent}% reliable" +
-                             (vendor.MinimumOrderCases > 0 ? $" · min {vendor.MinimumOrderCases:N0}" : ""),
-                             12, priceCol);
+        var terms = MakeText($"{status} ({level:+0;-0;0})", 12, statusColor, bold: true);
         terms.style.marginTop = 1; terms.style.marginBottom = 0;
-        // Wraps for the same reason the name does — and this line matters more than it looks, because
-        // the minimum-order clause is the one term that will REFUSE a PO. Clipped to
-        // "market · 85% reliable · mi", it read as decoration right up until the order was rejected.
         terms.style.whiteSpace = WhiteSpace.Normal;
         chip.Add(terms);
+
+        if (economy != null)
+        {
+            float fillRate = economy.GetFillRate(vendor.VendorId);
+            var fillLine = MakeText($"{fillRate:N0}% fill" +
+                                     (vendor.MinimumOrderCases > 0 ? $" · min {vendor.MinimumOrderCases:N0}" : ""),
+                                     11, ColSubtleText);
+            fillLine.style.marginTop = 1; fillLine.style.marginBottom = 0;
+            fillLine.style.whiteSpace = WhiteSpace.Normal;
+            chip.Add(fillLine);
+        }
 
         chip.RegisterCallback<ClickEvent>(_ => OnSelectVendor(vendor));
         return chip;
@@ -906,6 +1002,10 @@ public class PurchasingPanel : IUIPanel
     private void OnSelectVendor(VendorData vendor)
     {
         if (vendor == null || vendor.VendorId == _vendorId) return;
+
+        // Exiting the filtered view is just a normal chip click — a manual switch means the player
+        // is browsing the roster again, not shopping the one house they were routed to.
+        _exclusiveVendorFilter = false;
 
         bool hadBasket = _basket.Count > 0;
         _vendorId = vendor.VendorId;
@@ -2080,7 +2180,7 @@ public class PurchasingPanel : IUIPanel
             return;
         }
 
-        // Registered on key 6; routing through the manager is what closes any other open panel first.
+        // Registered on key 8; routing through the manager is what closes any other open panel first.
         UIKeyBindingManager.Instance?.CloseAll();
         contracts.ShowScheduleTab(shipment != null ? shipment.ArrivalDayNumber : 0);
     }
@@ -2226,30 +2326,32 @@ public class PurchasingPanel : IUIPanel
         => ServiceLocator.TryGet<ReputationService>(out var r) && r != null ? r.Score : 0;
 
     /// <summary>The vendor currently being bought from, or null if the roster is missing entirely
-    /// (in which case the panel falls back to the open market and behaves as it did before vendors).</summary>
+    /// (in which case the panel falls back to the open market and behaves as it did before vendors).
+    /// All 20 vendors are active from game start, so this only has to pick one — not gate one.</summary>
     private VendorData SelectedVendor()
     {
         var registry = VendorRegistry.Load();
         if (registry == null) return null;
 
-        var unlocked = registry.Unlocked(Reputation());
-        if (unlocked.Count == 0) return null;
+        var all = registry.AllVendors;
+        if (all.Count == 0) return null;
 
-        var chosen = unlocked.FirstOrDefault(v => v.VendorId == _vendorId);
+        var chosen = all.FirstOrDefault(v => v.VendorId == _vendorId);
 
         // Re-anchors rather than showing an empty catalogue. The selected vendor can stop being a
-        // valid choice between openings — reputation can fall out of their band, or the asset can be
-        // edited — and a panel pointing at a vendor that no longer serves you looks broken.
+        // valid choice between openings — the asset can be edited — and a panel pointing at a vendor
+        // that no longer exists looks broken.
         if (chosen == null)
         {
-            chosen = unlocked[0];
+            chosen = all[0];
             _vendorId = chosen.VendorId;
         }
         return chosen;
     }
 
     /// <summary>
-    /// What this SKU costs per case TODAY, from the vendor currently selected.
+    /// What this SKU costs per case TODAY, from the vendor currently selected — the market price
+    /// marked up or down by that vendor's current Partnership-driven cost modifier.
     ///
     /// Every price on this panel goes through here — the card, the line cost, the order total and the
     /// line items the PO is actually built from — so the number the player reads and the number they
@@ -2261,9 +2363,10 @@ public class PurchasingPanel : IUIPanel
         if (sku == null) return 0;
 
         var vendor = SelectedVendor();
-        if (vendor != null)
+        var economy = Economy();
+        if (vendor != null && economy != null)
         {
-            int priced = vendor.PriceFor(sku, Market());
+            int priced = Mathf.RoundToInt(economy.GetEffectiveCost(vendor.VendorId, sku, Market()));
             if (priced > 0) return priced;
         }
 
@@ -2293,6 +2396,10 @@ public class PurchasingPanel : IUIPanel
     /// pick a supplier afterwards, you walk into a house and see what they keep. Falls back to the
     /// full catalogue when there's no roster at all, so a project without VendorRegistry.asset still
     /// has a working purchasing screen.
+    ///
+    /// Under _exclusiveVendorFilter, the catalogue is narrowed further to exactly what that vendor's
+    /// current Partnership Level has unlocked (VendorEconomyService.GetAvailableCatalogue) — the
+    /// player walked into ONE house, and a house doesn't show you stock it won't sell you today.
     /// </summary>
     private List<SkuData> OrderableSkus()
     {
@@ -2302,9 +2409,55 @@ public class PurchasingPanel : IUIPanel
         var all = inv.AllSkus.Where(s => s != null && s.BuyValue > 0f && s.Ti > 0 && s.Hi > 0);
 
         var vendor = SelectedVendor();
-        if (vendor != null) all = all.Where(s => vendor.Carries(s.SkuId));
+        if (vendor != null)
+        {
+            if (_exclusiveVendorFilter && Economy() != null)
+            {
+                var unlockedIds = new HashSet<string>(Economy().GetAvailableCatalogue(vendor.VendorId)
+                    .Where(e => e?.Sku != null).Select(e => e.Sku.SkuId));
+                all = all.Where(s => unlockedIds.Contains(s.SkuId));
+            }
+            else
+            {
+                all = all.Where(s => vendor.Carries(s.SkuId));
+            }
+        }
 
-        return all.OrderBy(s => s.ItemDescription, System.StringComparer.OrdinalIgnoreCase).ToList();
+        var ordered = ApplyItemSort(all.ToList());
+
+        string nameFilter = _itemSortController.GetSearchText("ItemName");
+        if (!string.IsNullOrEmpty(nameFilter))
+            ordered = ordered.Where(s => s.ItemDescription.IndexOf(nameFilter, System.StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+
+        return ordered;
+    }
+
+    /// <summary>Applies the shared header-sort state to the catalogue. Falls back to the existing
+    /// alphabetical-by-description order when no column is actively sorted, matching the tab's
+    /// previous, un-sorted behaviour.</summary>
+    private List<SkuData> ApplyItemSort(List<SkuData> skus)
+    {
+        string column = _itemSortController.ActiveSortColumn;
+        if (column == null)
+            return skus.OrderBy(s => s.ItemDescription, System.StringComparer.OrdinalIgnoreCase).ToList();
+
+        bool ascending = _itemSortController.GetDirection(column) == ExcelHeaderSortController.SortDirection.Ascending;
+        var vendor = SelectedVendor();
+
+        System.Func<SkuData, object> keySelector = column switch
+        {
+            "ItemName" => s => s.ItemDescription,
+            "UnitCost" => s => UnitPrice(s),
+            "Rarity" => s => vendor != null
+                ? (int)(vendor.Catalogue.FirstOrDefault(e => e?.Sku != null && e.Sku.SkuId == s.SkuId)?.Rarity ?? ItemRarity.Common)
+                : 0,
+            "FillRate" => s => vendor != null ? Economy()?.GetFillRate(vendor.VendorId) ?? 0f : 0f,
+            _ => s => s.ItemDescription
+        };
+
+        return ascending
+            ? skus.OrderBy(keySelector).ToList()
+            : skus.OrderByDescending(keySelector).ToList();
     }
 
     private static SkuData FindSku(string skuId)

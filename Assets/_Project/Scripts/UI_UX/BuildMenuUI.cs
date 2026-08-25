@@ -79,7 +79,14 @@ public class BuildMenuUI : MonoBehaviour
     /// <summary>Which bottom bar is up. Build is the placement HUD; Play is the run-the-warehouse HUD.</summary>
     public enum HudMode { Build, Play }
 
-    private HudMode _mode = HudMode.Build;
+    // Mode tab hover copy — pulled out as named constants (rather than left in-place on the
+    // RegisterCallback calls) so the tooltip text and the button's own label can be found together.
+    private const string BuildTabTooltipText = "Everything you need to build your Empire";
+    private const string OrdersTabTooltipText = "Manage all orders, Inbound and Outbound";
+
+    // ORDERS (Play mode) is the default view on startup — players land in "run the warehouse" mode,
+    // with BUILD a deliberate switch away from it.
+    private HudMode _mode = HudMode.Play;
 
     /// <summary>Fires after the visible bar has actually swapped, so listeners can read the new mode.</summary>
     public Action<HudMode> OnHudModeChanged;
@@ -238,6 +245,12 @@ public class BuildMenuUI : MonoBehaviour
             if (_tabBuild != null) _tabBuild.clicked += () => SetHudMode(HudMode.Build);
             if (_tabPlay != null) _tabPlay.clicked += () => SetHudMode(HudMode.Play);
 
+            // UI Toolkit's built-in `tooltip` property only renders inside the Editor's own UI — a
+            // runtime UIDocument HUD like this one never shows it — so the mode tabs hook into the
+            // same cursor-following tooltip the rack chevrons use instead of a second implementation.
+            AttachModeTabTooltip(_tabBuild, BuildTabTooltipText);
+            AttachModeTabTooltip(_tabPlay, OrdersTabTooltipText);
+
             WirePlayBarButtons();
 
             _barCallbacksRegistered = true;
@@ -336,6 +349,29 @@ public class BuildMenuUI : MonoBehaviour
 
         // Prevent wheel events from zooming the camera when over the UI
         el.RegisterCallback<WheelEvent>(evt => evt.StopPropagation());
+    }
+
+    /// <summary>
+    /// Shows <paramref name="text"/> in the shared ChevronTooltipUI singleton while the cursor is over
+    /// <paramref name="tab"/>, and hides it on leave. Reuses that cursor-following tooltip rather than
+    /// building a second one, since UI Toolkit's built-in `tooltip` property never renders on a
+    /// runtime UIDocument HUD.
+    /// </summary>
+    private static void AttachModeTabTooltip(Button tab, string text)
+    {
+        if (tab == null) return;
+
+        tab.RegisterCallback<PointerEnterEvent>(_ => ChevronTooltipUI.Ensure().Show(GetMouseScreenPosition(), text));
+        tab.RegisterCallback<PointerLeaveEvent>(_ => ChevronTooltipUI.Ensure().Hide());
+    }
+
+    /// <summary>Mirrors ChevronTooltipUI's own cursor read so the tooltip's first frame lands under
+    /// the pointer immediately instead of snapping there on the next Update.</summary>
+    private static Vector2 GetMouseScreenPosition()
+    {
+        return UnityEngine.InputSystem.Mouse.current != null
+            ? UnityEngine.InputSystem.Mouse.current.position.ReadValue()
+            : (Vector2)Input.mousePosition;
     }
 
     /// <summary>Switches which bottom bar is up. No-ops if already in that mode.</summary>

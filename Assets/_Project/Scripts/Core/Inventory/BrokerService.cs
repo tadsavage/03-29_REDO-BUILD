@@ -38,7 +38,7 @@ namespace GameCore.Inventory
     /// </summary>
     public class BrokerService : IService
     {
-        /// <summary>The vendor asset that fronts these loads. Its ReputationRequired is the gate.</summary>
+        /// <summary>The vendor asset that fronts these loads.</summary>
         public const string BrokerVendorId = "Vendor_Broker";
 
         /// <summary>Chance per day that the Broker has anything at all. Deliberately not every day —
@@ -83,6 +83,7 @@ namespace GameCore.Inventory
         private InventoryService _inventory;
         private SimulationTimeService _clock;
         private ReputationService _reputation;
+        private VendorEconomyService _vendorEconomy;
 
         public IReadOnlyList<SalvageOffer> Offers => _offers;
 
@@ -97,6 +98,7 @@ namespace GameCore.Inventory
             ServiceLocator.TryGet(out _inventory);
             ServiceLocator.TryGet(out _clock);
             ServiceLocator.TryGet(out _reputation);
+            ServiceLocator.TryGet(out _vendorEconomy);
 
             if (_eventManager != null)
                 _eventManager.Subscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
@@ -110,17 +112,10 @@ namespace GameCore.Inventory
 
         public void ClearAll() => _offers.Clear();
 
-        /// <summary>True once the player has earned the Broker's attention. Reads the vendor asset
-        /// rather than a constant so the gate is tuned where every other vendor's gate is tuned.</summary>
-        public bool BrokerUnlocked
-        {
-            get
-            {
-                var vendor = VendorRegistry.Load()?.GetById(BrokerVendorId);
-                if (vendor == null) return false;
-                return (_reputation?.Score ?? 0) >= vendor.ReputationRequired;
-            }
-        }
+        /// <summary>True once the player has earned the Broker's attention. All 20 vendors —
+        /// including the Broker — are active from game start under the Partnership Level rework, so
+        /// this is now a straight existence check rather than a Reputation gate.</summary>
+        public bool BrokerUnlocked => VendorRegistry.Load()?.GetById(BrokerVendorId) != null;
 
         private void OnDayChanged(string eventId, int day)
         {
@@ -202,14 +197,13 @@ namespace GameCore.Inventory
         private List<SkuData> BuildJackpotPool(List<SkuData> eligible)
         {
             var registry = VendorRegistry.Load();
-            int rep = _reputation?.Score ?? 0;
 
-            if (registry != null)
+            if (registry != null && _vendorEconomy != null)
             {
                 var buyable = new HashSet<string>();
-                foreach (var v in registry.Unlocked(rep))
-                    foreach (var s in v.Catalogue)
-                        if (s != null) buyable.Add(s.SkuId);
+                foreach (var v in registry.AllVendors)
+                    foreach (var entry in _vendorEconomy.GetAvailableCatalogue(v.VendorId))
+                        if (entry?.Sku != null) buyable.Add(entry.Sku.SkuId);
 
                 var unreachable = eligible.Where(s => !buyable.Contains(s.SkuId)).ToList();
                 if (unreachable.Count > 0) return unreachable;

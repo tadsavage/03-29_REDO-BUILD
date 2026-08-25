@@ -17,12 +17,13 @@ MonoBehaviour:
     will say so.
   _icon: {fileID: 0}
   _tier: 2
-  _reputationRequired: 340
-  _priceMultiplier: 1.05
-  _shortShipmentChance: 0.07
   _minimumOrderCases: 240
   _catalogue:
-  - {fileID: 11400000, guid: 8218e61d0e6a4a7395bb2434ea42b965, type: 2}
-  - {fileID: 11400000, guid: 48bda9705e38450488dec71e3d9d4c03, type: 2}
-  - {fileID: 11400000, guid: 9df0c175eb2643fc8c6588d13cd7e5ec, type: 2}
-  - {fileID: 11400000, guid: f1e44d0bc4054c208629ca2f028ad154, type: 2}
+  - sku: {fileID: 11400000, guid: 8218e61d0e6a4a7395bb2434ea42b965, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 48bda9705e38450488dec71e3d9d4c03, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 9df0c175eb2643fc8c6588d13cd7e5ec, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: f1e44d0bc4054c208629ca2f028ad154, type: 2}
+    rarity: 0

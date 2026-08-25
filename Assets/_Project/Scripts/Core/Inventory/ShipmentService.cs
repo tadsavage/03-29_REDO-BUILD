@@ -282,17 +282,23 @@ namespace GameCore.Inventory
         private const float DefaultShortShipmentChance = 0.25f;
 
         /// <summary>
-        /// How likely this PO is to arrive short — the VENDOR'S own reliability where one is known.
+        /// How likely this PO is to arrive short — derived from the VENDOR'S current Partnership
+        /// Level fill rate where one is known (100% fill rate = 0% short-ship chance).
         ///
-        /// This is what turns the roster from a price list into a cast. A house that's 10% cheaper and
-        /// short-ships one order in three is a genuine decision against one that charges a premium and
-        /// almost never misses, and the player learns which is which the only way that matters: by
-        /// being let down.
+        /// This is what turns the roster from a price list into a cast. A house running a strained
+        /// Partnership and a poor fill rate is a genuine decision against one running Elite Partner
+        /// terms and almost never missing, and the player learns which is which the only way that
+        /// matters: by being let down.
         /// </summary>
         private static float ShortShipChanceFor(ShipmentData shipment)
         {
             var vendor = VendorRegistry.Load()?.GetById(shipment?.SupplierId);
-            return vendor != null ? vendor.ShortShipmentChance : DefaultShortShipmentChance;
+            if (vendor == null) return DefaultShortShipmentChance;
+
+            if (!ServiceLocator.TryGet<VendorEconomyService>(out var economy) || economy == null)
+                return DefaultShortShipmentChance;
+
+            return Mathf.Clamp01(1f - (economy.GetFillRate(vendor.VendorId) / 100f));
         }
 
         private const int MinPalletsDropped = 1;

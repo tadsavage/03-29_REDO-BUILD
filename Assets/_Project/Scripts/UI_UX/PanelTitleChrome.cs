@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 /// The standard pair of window buttons in the upper-right corner of a panel's title bar:
 /// a <b>resize/maximize</b> button on the LEFT and a <b>close</b> button on the RIGHT.
 ///
-/// Extracted from ContractsPanel (key 6), which is the reference look, so that panels 1/2/4/8 get
+/// Extracted from ContractsPanel (key 8), which is the reference look, so that panels 1/2/4/5 get
 /// the identical corner rather than four hand-copied near-misses that drift apart. Anything that
 /// wants that corner should call <see cref="Attach"/> instead of building its own buttons.
 ///

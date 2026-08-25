@@ -28,15 +28,22 @@ namespace GameCore.Inventory
     /// SatisfactionPercent (-5 a miss against +1 an on-time). A reputation you can rebuild in an
     /// afternoon isn't one the player protects.
     ///
-    /// SCOPE, stated honestly: the design lists five inputs. Three are wired here because their
-    /// events exist — orders shipped, orders fined for being late, orders cancelled. Driver wait time
-    /// at the dock and contaminated product are NOT wired, because neither raises an event yet and
-    /// authoring a handler for an event nobody sends is how this codebase grew its dead Overage /
-    /// Shortage plumbing. They go in when the mechanic behind them does.
+    /// SCOPE, stated honestly: the design lists five inputs. FOUR are wired here because their events
+    /// exist — orders shipped, orders fined for being late, orders cancelled, and (as of the Vendor
+    /// Partnership rework) a vendor's Partnership Level moving. Driver wait time at the dock and
+    /// contaminated product are NOT wired, because neither raises an event yet and authoring a
+    /// handler for an event nobody sends is how this codebase grew its dead Overage / Shortage
+    /// plumbing. They go in when the mechanic behind them does.
     /// </summary>
     public class ReputationService : IService
     {
         public const int MaxScore = 1000;
+
+        /// <summary>Scalar applied to a Vendor Partnership Level swing before it reaches this global
+        /// score. Partnership is per-vendor and is only ONE of several drivers feeding this single
+        /// global number — damped so no single vendor relationship can swing it on its own the way a
+        /// direct order outcome does.</summary>
+        public const float PartnershipContributionWeight = 0.5f;
 
         // Gains
         public const int PerfectOrderGain = 5;   // on time, 100% fill
@@ -96,6 +103,9 @@ namespace GameCore.Inventory
             OrderService.OnOrderFined += HandleOrderFined;
             OrderService.OnOrderCancelled -= HandleOrderCancelled;
             OrderService.OnOrderCancelled += HandleOrderCancelled;
+
+            VendorEconomyService.OnPartnershipLevelChanged -= HandleVendorPartnershipChanged;
+            VendorEconomyService.OnPartnershipLevelChanged += HandleVendorPartnershipChanged;
         }
 
         public void Shutdown()
@@ -103,6 +113,7 @@ namespace GameCore.Inventory
             OrderService.OnOrderShipped -= HandleOrderShipped;
             OrderService.OnOrderFined -= HandleOrderFined;
             OrderService.OnOrderCancelled -= HandleOrderCancelled;
+            VendorEconomyService.OnPartnershipLevelChanged -= HandleVendorPartnershipChanged;
         }
 
         public void ClearAll() => _score = 0;
@@ -164,6 +175,13 @@ namespace GameCore.Inventory
 
         private void HandleOrderCancelled(OrderData order)
             => Add(-CancelledOrderPenalty, $"order {order?.OrderId} was cancelled");
+
+        /// <summary>Rolls a per-vendor Partnership swing into the global score, damped by
+        /// PartnershipContributionWeight — reuses the existing Add() gain/loss/band-crossing pipeline
+        /// untouched, so OnReputationChanged and the UIToast band-crossing announcement continue to
+        /// work exactly as they do today for order-driven changes.</summary>
+        private void HandleVendorPartnershipChanged(string vendorId, int delta, string reason)
+            => Add(Mathf.RoundToInt(delta * PartnershipContributionWeight), $"vendor {vendorId} partnership: {reason}");
 
         // ── Persistence ──────────────────────────────────────────────────────
 

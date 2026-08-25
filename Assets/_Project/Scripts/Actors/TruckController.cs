@@ -1056,8 +1056,11 @@ private DockSlot        _dock;
     }
 
     // ── Route points (computed per-door from DockSlot offsets) ───────────────────
-    private Vector3 ApproachPoint() => _dock.ApproachDepartPoint;  // Xform 2
-    private Vector3 BackupPoint()   => _dock.BackupPoint;          // Xform 3
+    // Null-guarded like every other _dock read in this file (see BeginDeparture's comment) — an
+    // orphaned restore (dock lookup failed) leaves _dock null, and this fell back to the truck's own
+    // position instead of throwing every frame in Update() forever.
+    private Vector3 ApproachPoint() => _dock != null ? _dock.ApproachDepartPoint : transform.position;  // Xform 2
+    private Vector3 BackupPoint()   => _dock != null ? _dock.BackupPoint : transform.position;          // Xform 3
 
     // ── Main loop ────────────────────────────────────────────────────────────────
     private void Update()

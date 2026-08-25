@@ -12,7 +12,7 @@
         </ui:VisualElement>
     </ui:VisualElement>
 
-    <ui:VisualElement name="BottomBarBuildUI" picking-mode="Ignore" class="buildmenu-bottom-bar">
+    <ui:VisualElement name="BottomBarBuildUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
         <ui:VisualElement name="CategoryRow" picking-mode="Position" class="buildmenu-category-row"/>
         <ui:VisualElement name="UtilityRow" picking-mode="Position" class="buildmenu-utility-row"/>
     </ui:VisualElement>
@@ -24,7 +24,7 @@
          click and a keypress take the identical path — the key badge in each corner is the same
          number. If a hotkey is ever reassigned, the button follows it automatically; only the label,
          icon class and badge here need updating. -->
-    <ui:VisualElement name="BottomBarPlayUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
+    <ui:VisualElement name="BottomBarPlayUI" picking-mode="Ignore" class="buildmenu-bottom-bar">
         <ui:VisualElement name="PlayCategoryRow" picking-mode="Position" class="buildmenu-category-row">
 
             <ui:Button name="PlayBtn1" class="buildmenu-category-button playbar-button">
@@ -52,14 +52,14 @@
             </ui:Button>
 
             <ui:Button name="PlayBtn5" class="buildmenu-category-button playbar-button">
-                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-shiftmanager"/>
-                <ui:Label text="Shifts" class="buildmenu-category-label playbar-label"/>
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-newitem"/>
+                <ui:Label text="New Item" class="buildmenu-category-label playbar-label"/>
                 <ui:Label text="5" class="playbar-key"/>
             </ui:Button>
 
             <ui:Button name="PlayBtn6" class="buildmenu-category-button playbar-button">
-                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-contracts"/>
-                <ui:Label text="Contracts" class="buildmenu-category-label playbar-label"/>
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-shiftmanager"/>
+                <ui:Label text="Shifts" class="buildmenu-category-label playbar-label"/>
                 <ui:Label text="6" class="playbar-key"/>
             </ui:Button>
 
@@ -69,9 +69,11 @@
                 <ui:Label text="7" class="playbar-key"/>
             </ui:Button>
 
+            <!-- Contracts panel, relabeled "Orders" — kept next to Purchasing (9) since the two
+                 together cover outbound (Orders/Contracts) and inbound (Purchasing). -->
             <ui:Button name="PlayBtn8" class="buildmenu-category-button playbar-button">
-                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-newitem"/>
-                <ui:Label text="New Item" class="buildmenu-category-label playbar-label"/>
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-contracts"/>
+                <ui:Label text="Orders" class="buildmenu-category-label playbar-label"/>
                 <ui:Label text="8" class="playbar-key"/>
             </ui:Button>
 
@@ -86,8 +88,11 @@
     </ui:VisualElement>
 
     <!-- Sits directly on top of the bar's 2px border so the active tab reads as part of the bar. -->
+    <!-- BUILD / ORDERS tab hover tooltips are wired in BuildMenuUI.AttachModeTabTooltip, not the
+         built-in `tooltip` attribute — that property only renders inside the Editor's own UI and
+         never shows on a runtime UIDocument HUD like this one. -->
     <ui:VisualElement name="ModeTabs" picking-mode="Position" class="buildmenu-mode-tabs">
-        <ui:Button name="TabBuild" text="BUILD" class="buildmenu-mode-tab buildmenu-mode-tab-active"/>
-        <ui:Button name="TabPlay" text="PLAY" class="buildmenu-mode-tab"/>
+        <ui:Button name="TabPlay" text="ORDERS" class="buildmenu-mode-tab buildmenu-mode-tab-active"/>
+        <ui:Button name="TabBuild" text="BUILD" class="buildmenu-mode-tab"/>
     </ui:VisualElement>
 </ui:UXML>

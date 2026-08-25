@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 /// <summary>
 /// First-draft Shift Manager — lets the player define named shifts (e.g. "Day Shift", "Clean
 /// Shift", "Night Shift"), each with a Start/End time per day of week, or "Closed" for days with
-/// no shift that week. Bound to the "5" key (see TopBarUI).
+/// no shift that week. Bound to the "6" key (see TopBarUI).
 ///
 /// SCOPE NOTE (explicit, per Tad 2026-06-25/26): this is UI-only for now. Nothing here drives
 /// actual employee arrival/departure/overtime/attendance yet — EmployeeRecord.shift and
@@ -414,7 +414,7 @@ public class ShiftManagerPanel : IUIPanel
         modal.Add(titleBar);
 
         // Resize + close corner, built via the shared house chrome (reference look: ContractsPanel /
-        // key 6) instead of this panel's previous bespoke thin-outline buttons.
+        // key 8) instead of this panel's previous bespoke thin-outline buttons.
         _resizeWindow = new ResizableWindow(modal, minW: 600f, minH: 300f, grip: 8f, titleInset: 56f);
         Button closeButton;
         (_scaleBtn, closeButton) = PanelTitleChrome.Attach(titleBar, _resizeWindow, OnCloseButtonClicked);

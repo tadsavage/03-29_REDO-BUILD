@@ -82,11 +82,17 @@ public class ChevronTooltipUI : MonoBehaviour
         return existing != null ? existing.panelSettings : null;
     }
 
-    public void Show(Vector2 screenPos)
+    /// <summary>
+    /// Shows the tooltip at (and from then on, following) the cursor. <paramref name="text"/> lets
+    /// other hover affordances (e.g. the bottom bar's mode tabs) reuse this single floating tooltip
+    /// instead of building their own; omitting it keeps the original chevron message.
+    /// </summary>
+    public void Show(Vector2 screenPos, string text = null)
     {
         _visible = true;
         if (_label == null) return;
 
+        _label.text = text ?? TOOLTIP_TEXT;
         _label.style.opacity = 1f;
         PositionAt(screenPos);
     }
@@ -110,10 +116,15 @@ public class ChevronTooltipUI : MonoBehaviour
     {
         if (_label == null || _label.panel == null) return;
 
-        // ScreenToPanel already flips screen (Y-up-from-bottom) → panel (Y-down-from-top),
-        // so pass the raw cursor coords. Offset in screen space to place below-right.
+        // Mouse.current.position (like the legacy Input.mousePosition) is bottom-left origin,
+        // Y-up — ScreenToPanel expects top-left origin, Y-down, and does NOT flip it internally.
+        // Skipping this flip is invisible near the vertical screen center (the error is small)
+        // but grows toward the top/bottom edges, e.g. the bottom bar's mode tabs placed the
+        // tooltip near the top of the screen instead of just above the cursor.
+        float flippedY = Screen.height - screenPos.y;
+
         var panelPos = RuntimePanelUtils.ScreenToPanel(_label.panel,
-            new Vector2(screenPos.x + CURSOR_OFFSET_X, screenPos.y - CURSOR_OFFSET_Y));
+            new Vector2(screenPos.x + CURSOR_OFFSET_X, flippedY - CURSOR_OFFSET_Y));
         _label.style.left = panelPos.x;
         _label.style.top = panelPos.y;
     }

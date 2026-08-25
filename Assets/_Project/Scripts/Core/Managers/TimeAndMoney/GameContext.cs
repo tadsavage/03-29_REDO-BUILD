@@ -71,6 +71,8 @@ public class GameContext : MonoBehaviour
         var reputationService = new GameCore.Inventory.ReputationService();
         var brokerService = new GameCore.Inventory.BrokerService();
         var fulfillmentStatsService = new GameCore.Inventory.FulfillmentStatsService();
+        var vendorEconomyService = new GameCore.Inventory.VendorEconomyService();
+        var vendorPerformanceTracker = new GameCore.Inventory.VendorPerformanceTracker();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
@@ -89,6 +91,8 @@ public class GameContext : MonoBehaviour
         ServiceLocator.Register<GameCore.Inventory.ReputationService>(reputationService);
         ServiceLocator.Register<GameCore.Inventory.BrokerService>(brokerService);
         ServiceLocator.Register<GameCore.Inventory.FulfillmentStatsService>(fulfillmentStatsService);
+        ServiceLocator.Register<GameCore.Inventory.VendorEconomyService>(vendorEconomyService);
+        ServiceLocator.Register<GameCore.Inventory.VendorPerformanceTracker>(vendorPerformanceTracker);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
@@ -121,8 +125,14 @@ public class GameContext : MonoBehaviour
         // seven days of history for every SKU in the database on Initialize, and an empty database
         // at that moment means an empty market with no prices and no spot deals for the session.
         marketService.Initialize();
+        // Owns every vendor's randomized Partnership Level for this playthrough. Before reputation:
+        // it only needs VendorRegistry (a Resources asset), and reputation's own Initialize wires a
+        // subscription to its static OnPartnershipLevelChanged event.
+        vendorEconomyService.Initialize();
+        vendorPerformanceTracker.Initialize();
         // Gates which vendors will deal with the player, and is the same score intended to drive
-        // customer contract arrival. Subscribes to OrderService's shipped/fined/cancelled events.
+        // customer contract arrival. Subscribes to OrderService's shipped/fined/cancelled events, and
+        // (as of the Vendor Partnership rework) VendorEconomyService's partnership-changed event.
         reputationService.Initialize();
         // AFTER reputation: the broker reads the score to decide whether it will deal with the
         // player at all, and resolves it out of the locator on Initialize.

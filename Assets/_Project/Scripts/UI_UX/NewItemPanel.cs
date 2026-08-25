@@ -15,7 +15,7 @@ using UnityEngine.UIElements;
 ///   - Shows all slotted items with their Pick Loc
 ///   - Free Slot button to unassign and bring to dock
 ///   - Assign Extra Slot / Auto-Assign Extra Slot / Move Slot buttons
-/// Bound to the "8" key.
+/// Bound to the "5" key.
 /// </summary>
 public class NewItemPanel : IUIPanel
 {

@@ -147,7 +147,7 @@ public class ContractsPanel : IUIPanel
     /// Orders" — the enum name is unchanged), which lists finished wholesale CONTRACTS — this one is
     /// per ORDER, and it's the only place the money a shipment made (and what it cost to make it) is
     /// reported per deal.
-    private enum Tab { NewContracts, BulkOrders, Accounts, Schedule, Completed }
+    private enum Tab { NewContracts, BulkOrders, Accounts, Schedule, Completed, Vendors }
 
     private readonly VisualElement _overlay;
     private readonly VisualElement _modal;
@@ -267,6 +267,12 @@ public class ContractsPanel : IUIPanel
 
     private static Font _lilita;
 
+    /// <summary>The VENDORS tab's builder — constructed once alongside every other tab's state so
+    /// its own rows survive across Rebuild() calls the same way the Accounts/Schedule state does.</summary>
+    private VendorsTabView _vendorsTabView;
+    private VisualElement _vendorsTabRoot;
+    private VisualElement _vendorsPane;
+
     public ContractsPanel(VisualElement root)
     {
         _overlay = Build(out _modal, out _tabBar, out _tabHeader, out _content, out _footerMessage);
@@ -275,6 +281,12 @@ public class ContractsPanel : IUIPanel
         // dialog inside it would follow the window around and could sit half off-screen. The overlay
         // fills the panel's whole area, which is what a modal confirmation should darken and block.
         _overlay.Add(BuildOffSlotConfirm());
+
+        ServiceLocator.TryGet<GameCore.Inventory.VendorEconomyService>(out var vendorEconomy);
+        ServiceLocator.TryGet<GameCore.Inventory.VendorPerformanceTracker>(out var vendorTracker);
+        var vendorSfx = Resources.Load<GameCore.Inventory.VendorUiSfxConfig>("VendorUiSfx");
+        _vendorsTabView = new VendorsTabView(vendorEconomy, vendorTracker, vendorSfx, Hide);
+
         Hide();
     }
 
@@ -425,6 +437,7 @@ public class ContractsPanel : IUIPanel
     public void Show()
     {
         _visible = true;
+        OrdersPauseGate.Push(this);
         _overlay.style.display = DisplayStyle.Flex;
         // Order screens sit above both bars. Raising on every Show — not once at build time — because
         // sibling order is decided by whoever raised LAST, so a panel opened after this one would
@@ -473,6 +486,7 @@ public class ContractsPanel : IUIPanel
     public void Hide()
     {
         _visible = false;
+        OrdersPauseGate.Pop(this);
         _selectedAppointmentId = null;
         _selectedUnscheduledKey = null;
         CloseDoneDateFilterPopup();
@@ -693,6 +707,16 @@ public class ContractsPanel : IUIPanel
         _orderListScroll = orderListScroll;
         _orderDetailsBody = orderDetailsBody;
 
+        // VENDORS tab layout — a sibling of `content`/`splitPane`, shown instead of them (see
+        // Rebuild). Same reasoning as the Accounts two-pane split: VendorsTabView nests its own
+        // ScrollViews for the vendor list and the data grid body, and nesting THOSE inside `content`
+        // (itself a ScrollView) fights Yoga's auto-height sizing the same way the Accounts pane would.
+        var vendorsPane = new VisualElement();
+        vendorsPane.style.flexGrow = 1;
+        vendorsPane.style.display = DisplayStyle.None;
+        modal.Add(vendorsPane);
+        _vendorsPane = vendorsPane;
+
 
         // Polled rather than driven by horizontalScroller.valueChanged: that event does NOT fire when
         // scrollOffset is set programmatically, so the frozen column silently desynced from any scroll
@@ -777,6 +801,7 @@ public class ContractsPanel : IUIPanel
         _tabBar.Add(MakeTab("Bulk Orders", bulkCount.ToString(), Tab.BulkOrders));
         _tabBar.Add(MakeTab("Schedule", scheduleBadge, Tab.Schedule));
         _tabBar.Add(MakeTab("Completed", CompletedOrders().Count.ToString(), Tab.Completed));
+        _tabBar.Add(MakeTab("Vendors", string.Empty, Tab.Vendors));
     }
 
     /// <summary>
@@ -1093,7 +1118,9 @@ public class ContractsPanel : IUIPanel
     /// <summary>Heading for a tab. Only Completed differs today: the other three are all views of the
     /// contract board, which is what the panel is called.</summary>
     private static string TitleFor(Tab tab)
-        => tab == Tab.Completed ? "COMPLETED ORDERS" : "OUTBOUND ORDER MANAGER";
+        => tab == Tab.Completed ? "COMPLETED ORDERS"
+         : tab == Tab.Vendors ? "VENDORS"
+         : "OUTBOUND ORDER MANAGER";
 
     private void Rebuild()
     {
@@ -1128,8 +1155,9 @@ public class ContractsPanel : IUIPanel
         // keeps the single full-width scroll view. Bulk was left out of the split originally and read
         // as a different screen for the same job — both tabs are "pick a trailer, see what's on it".
         bool splitTab = _tab == Tab.Accounts || _tab == Tab.BulkOrders;
-        _content.style.display = splitTab ? DisplayStyle.None : DisplayStyle.Flex;
+        _content.style.display = splitTab || _tab == Tab.Vendors ? DisplayStyle.None : DisplayStyle.Flex;
         _splitPane.style.display = splitTab ? DisplayStyle.Flex : DisplayStyle.None;
+        _vendorsPane.style.display = _tab == Tab.Vendors ? DisplayStyle.Flex : DisplayStyle.None;
 
         // Completed reads the ORDER archive, not the contract system, so it's answered before the
         // arrivals guard below — a session with no OrderArrivalService can still have shipped freight,
@@ -1137,6 +1165,20 @@ public class ContractsPanel : IUIPanel
         if (_tab == Tab.Completed)
         {
             BuildCompleted();
+            return;
+        }
+
+        // VENDORS doesn't touch OrderArrivalService at all, so it's answered before the arrivals
+        // guard below, same reasoning as Completed. Built once and cached rather than torn down and
+        // rebuilt on every Rebuild() — its own rows already know how to refresh themselves.
+        if (_tab == Tab.Vendors)
+        {
+            if (_vendorsTabRoot == null)
+            {
+                _vendorsTabRoot = _vendorsTabView.Build();
+                _vendorsPane.Add(_vendorsTabRoot);
+            }
+            _vendorsTabView.Refresh();
             return;
         }
 

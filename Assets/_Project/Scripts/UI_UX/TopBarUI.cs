@@ -46,15 +46,15 @@ public class TopBarUI : MonoBehaviour
     private SpentTodayPanel _spentTodayPanel;           // "Spent Today" — today's spend by GL line
     private ShiftStatusPanel _shiftStatusPanel;         // "Time" — hours left in shift + overtime count
     private ReputationPanel _reputationPanel;           // "Reputation" — score, standing, next-band gap
-    private ShiftManagerPanel _shiftManagerPanel;       // "5" key — define named shifts (first draft, UI only)
+    private ShiftManagerPanel _shiftManagerPanel;       // "6" key — define named shifts (first draft, UI only)
     public ShiftManagerPanel ShiftManagerPanel => _shiftManagerPanel;
     private SlotAssignmentPanel _slotAssignmentPanel;   // "6" key — assign SKUs to rack Pick slots
     public SlotAssignmentPanel SlotAssignmentPanel => _slotAssignmentPanel;
     private WorkQueuePanel _workQueuePanel;             // "7" key — release orders to a staging lane / door
     public WorkQueuePanel WorkQueuePanel => _workQueuePanel;
-    private ContractsPanel _contractsPanel;             // "6" key — sign customer contracts (where demand comes from)
+    private ContractsPanel _contractsPanel;             // "8" key — sign customer contracts (where demand comes from); relabeled "Orders" on the play bar
     public ContractsPanel ContractsPanel => _contractsPanel;
-    private NewItemPanel _newItemPanel;                 // "8" key — assign pick slots to received items
+    private NewItemPanel _newItemPanel;                 // "5" key — assign pick slots to received items
     public NewItemPanel NewItemPanel => _newItemPanel;
     private PurchasingPanel _purchasingPanel;           // "9" key — raise POs to bring stock in
     public PurchasingPanel PurchasingPanel => _purchasingPanel;
@@ -106,17 +106,17 @@ public class TopBarUI : MonoBehaviour
         _newItemPanel = new NewItemPanel(root);
         _purchasingPanel = new PurchasingPanel(root);
 
-        // Register shift manager with UIKeyBindingManager for keybinding support (key 5)
+        // Register shift manager with UIKeyBindingManager for keybinding support (key 6)
         if (UIKeyBindingManager.Instance != null)
         {
-            UIKeyBindingManager.Instance.RegisterUI(5, _shiftManagerPanel);
+            UIKeyBindingManager.Instance.RegisterUI(5, _newItemPanel);
+            UIKeyBindingManager.Instance.RegisterUI(6, _shiftManagerPanel);
             // Key 7 — registration is also what makes Tab close it: PlacementStateMachine's Tab handler
             // closes panels through UIKeyBindingManager.CloseAll(), which only iterates the registry.
             // Contracts used to register floating: true so it could be read next to the Work Queue.
             // It's exclusive now by request — opening it clears the screen like any other panel.
-            UIKeyBindingManager.Instance.RegisterUI(6, _contractsPanel);
             UIKeyBindingManager.Instance.RegisterUI(7, _workQueuePanel);
-            UIKeyBindingManager.Instance.RegisterUI(8, _newItemPanel);
+            UIKeyBindingManager.Instance.RegisterUI(8, _contractsPanel);
             UIKeyBindingManager.Instance.RegisterUI(9, _purchasingPanel);
             // Note: SlotAssignmentPanel doesn't implement IUIPanel yet, can be accessed via UI button
         }
@@ -202,7 +202,7 @@ public class TopBarUI : MonoBehaviour
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit5Key.wasPressedThisFrame)
             keys.ToggleUI(5);
 
-        // 6 opens WHOLESALE CONTRACTS. The Slot Assignment panel that used to live here is still
+        // 6 opens the Shift Manager. The Slot Assignment panel that used to live here is still
         // reachable by clicking a rack (PlacementStateMachine -> ShowForAisle); it just no longer has
         // a number key of its own.
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit6Key.wasPressedThisFrame)
@@ -211,10 +211,11 @@ public class TopBarUI : MonoBehaviour
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit7Key.wasPressedThisFrame)
             keys.ToggleUI(7);
 
+        // 8 opens ORDERS (the Contracts panel, relabeled) — kept next to Purchasing on 9.
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit8Key.wasPressedThisFrame)
             keys.ToggleUI(8);
 
-        // 9 opens PURCHASING — the inbound counterpart to Contracts on 6.
+        // 9 opens PURCHASING — the inbound counterpart to Orders on 8.
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit9Key.wasPressedThisFrame)
             keys.ToggleUI(9);
 

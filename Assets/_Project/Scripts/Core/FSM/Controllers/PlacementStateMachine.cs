@@ -300,7 +300,7 @@ if (_currentState != _idleState)
         // -----------------------------------------------------
         if (Keyboard.current.tabKey.wasPressedThisFrame)
         {
-            // ShiftManagerPanel (key 5) needs special handling: TryClose saves changes if dirty
+            // ShiftManagerPanel (key 6) needs special handling: TryClose saves changes if dirty
             var shiftManager = _topBar != null ? _topBar.ShiftManagerPanel : null;
             if (shiftManager != null && shiftManager.IsOpen)
             {
@@ -308,7 +308,8 @@ if (_currentState != _idleState)
                 return; // Exit early since ShiftManager's TryClose handles hiding
             }
 
-            // Close all other keybinding UIs (1-4, 6-7)
+            // Close all other keybinding UIs (1-4, 7-9) — 5 and 6 are handled above/below with their
+            // own extra logic (NewItemPanel, ShiftManagerPanel) rather than left to CloseAll alone.
             var uiManager = UIKeyBindingManager.Instance;
             if (uiManager != null)
                 uiManager.CloseAll();
@@ -328,7 +329,7 @@ if (_currentState != _idleState)
             // Before that this comment described an intention, not behaviour: CloseAll() iterates the
             // registry, the panel wasn't in it, and Tab left the modal open.
 
-            // Close NewItemPanel (key 8) if open
+            // Close NewItemPanel (key 5) if open
             var newItemPanel = _topBar != null ? _topBar.NewItemPanel : null;
             if (newItemPanel != null && newItemPanel.IsVisible)
                 newItemPanel.Hide();

@@ -76,5 +76,12 @@ namespace GameCore.Events
         {
             public const string OnPlacedObjectHeightChanged = "Placement.OnPlacedObjectHeightChanged";
         }
+
+        /// <summary>Vendor economy events (Partnership Level, cross-tab "Order from Vendor" routing).</summary>
+        public static class Vendor
+        {
+            public const string OnPartnershipLevelChanged = "Vendor.OnPartnershipLevelChanged";
+            public const string OnOrderFromVendorRequested = "Vendor.OnOrderFromVendorRequested";
+        }
     }
 }

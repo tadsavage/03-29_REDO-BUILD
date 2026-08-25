@@ -160,7 +160,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         // Add resizing capability (similar to Work Queue Panel)
         _resizeWindow = new ResizableWindow(_window, minW: 300f, minH: 250f, grip: 8f, titleInset: 32f);
 
-        // Corner buttons come from PanelTitleChrome so this panel matches ContractsPanel (key 6)
+        // Corner buttons come from PanelTitleChrome so this panel matches ContractsPanel (key 8)
         // exactly. The UXML's own "tools-scale" button is dropped in favour of the one the helper
         // builds — keeping both would leave two resize buttons on the row.
         var uxmlScale = root.Q<Button>("tools-scale");
@@ -511,6 +511,13 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             c => ((WorldHoverPopupUI)c).IsEnabled,
             "DevSettings_ObjectHoverPopup"));
 
+        globalSection.Add(BuildStaticToggleRow(
+            "Pause Game while working on Orders",
+            "While checked, pauses the game (Time.timeScale = 0) whenever the Purchasing or "
+            + "Contracts panel is open, and resumes it once both are closed. Does nothing while unchecked.",
+            () => OrdersPauseGate.Enabled,
+            OrdersPauseGate.SetEnabled));
+
         _contentSettings.Add(globalSection);
 
         // ── Script sections ─────────────────────────────────────────────────
@@ -580,6 +587,26 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             foreach (var c in getAll()) setter(c, evt.newValue);
             if (prefsKey != null) PlayerPrefs.SetInt(prefsKey, evt.newValue ? 1 : 0);
         });
+        row.Add(toggle);
+        return row;
+    }
+
+    /// <summary>
+    /// Same look as BuildGlobalToggleRow, but for a setting backed by a static getter/setter pair
+    /// rather than a scanned set of scene MonoBehaviours — e.g. OrdersPauseGate, which has no
+    /// component instance to reflect a field on.
+    /// </summary>
+    private VisualElement BuildStaticToggleRow(
+        string label, string tooltip,
+        System.Func<bool> getter,
+        System.Action<bool> setter)
+    {
+        var row = new VisualElement(); row.AddToClassList("ds-row");
+        var lbl = new Label(label); lbl.AddToClassList("ds-label"); lbl.tooltip = tooltip;
+        row.Add(lbl);
+        var toggle = new Toggle { value = getter() };
+        toggle.AddToClassList("ds-toggle");
+        toggle.RegisterValueChangedCallback(evt => setter(evt.newValue));
         row.Add(toggle);
         return row;
     }
