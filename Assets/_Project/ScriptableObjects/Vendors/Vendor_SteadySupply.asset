@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0859a5a4a9d173f4d9caa858be09c7ac, type: 3}
+  m_Name: Vendor_SteadySupply
+  m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.VendorData
+  _displayName: Steady Supply Grocers
+  _pitch: The load you order without thinking. That's the whole business model.
+  _icon: {fileID: 0}
+  _tier: 0
+  _minimumOrderCases: 0
+  _catalogue:
+  - sku: {fileID: 11400000, guid: fd0d397a00b84ef3b58f7f799b4ebdfd, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 31e8e218dec14edc86cf3193d1218125, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 859bcac9b8db4ff89da404c9ede6c7c1, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 6f933ead3d8e4e6da6a909e35bf2da16, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 761ed4d5581b42109df40189fa433985, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 3a1521d4beaabbc48935c0e8067dbc2a, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 9a4d90355beff4440814802189861b47, type: 2}
+    rarity: 0

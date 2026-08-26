@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0859a5a4a9d173f4d9caa858be09c7ac, type: 3}
+  m_Name: Vendor_VintnersRow
+  m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.VendorData
+  _displayName: Vintner's Row Imports
+  _pitch: Top-shelf oil and roast, container-direct. They will remind you of the
+    minimum.
+  _icon: {fileID: 0}
+  _tier: 2
+  _minimumOrderCases: 480
+  _catalogue:
+  - sku: {fileID: 11400000, guid: c4607572df567c94690b572129066fe8, type: 2}
+    rarity: 2
+  - sku: {fileID: 11400000, guid: 9ac89295eca7d214fa071768b7b9122e, type: 2}
+    rarity: 1
+  - sku: {fileID: 11400000, guid: 786ee7b6156f6e140ab6eb0c15523c16, type: 2}
+    rarity: 1
+  - sku: {fileID: 11400000, guid: f1e44d0bc4054c208629ca2f028ad154, type: 2}
+    rarity: 3

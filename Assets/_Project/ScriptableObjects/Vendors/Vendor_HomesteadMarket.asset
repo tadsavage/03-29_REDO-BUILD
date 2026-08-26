@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0859a5a4a9d173f4d9caa858be09c7ac, type: 3}
+  m_Name: Vendor_HomesteadMarket
+  m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.VendorData
+  _displayName: Homestead Market Co.
+  _pitch: Condiments and dressings for the kitchen that actually cooks.
+  _icon: {fileID: 0}
+  _tier: 1
+  _minimumOrderCases: 0
+  _catalogue:
+  - sku: {fileID: 11400000, guid: a927fef5e1d042a3b0a611e286337d15, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: b1aba2d7b7a74105819ca60b574b3573, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 6330a851360649a4fb5d3e92146c76fd, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: d914d5320d61b21458b2427e0958aac9, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 02fcb3d866eb839418972683d6bbb238, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: c5d868a4cce7b7d43986802451fe20ac, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 81333583a03de3f4092b6956d81e63cf, type: 2}
+    rarity: 1

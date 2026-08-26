@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0859a5a4a9d173f4d9caa858be09c7ac, type: 3}
+  m_Name: Vendor_GoldenGroveGourmet
+  m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.VendorData
+  _displayName: Golden Grove Gourmet
+  _pitch: Nuts and dried fruit at a price that makes you double check the invoice.
+  _icon: {fileID: 0}
+  _tier: 2
+  _minimumOrderCases: 240
+  _catalogue:
+  - sku: {fileID: 11400000, guid: 9ac89295eca7d214fa071768b7b9122e, type: 2}
+    rarity: 1
+  - sku: {fileID: 11400000, guid: 786ee7b6156f6e140ab6eb0c15523c16, type: 2}
+    rarity: 1
+  - sku: {fileID: 11400000, guid: f46f01558013fcd4dab2796955dc7179, type: 2}
+    rarity: 1
+  - sku: {fileID: 11400000, guid: c4607572df567c94690b572129066fe8, type: 2}
+    rarity: 1
+  - sku: {fileID: 11400000, guid: 9df0c175eb2643fc8c6588d13cd7e5ec, type: 2}
+    rarity: 2

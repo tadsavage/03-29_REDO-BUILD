@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0859a5a4a9d173f4d9caa858be09c7ac, type: 3}
+  m_Name: Vendor_BlueRidgeProvisions
+  m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.VendorData
+  _displayName: Blue Ridge Provisions
+  _pitch: Snacks and sweets that move fast off an endcap. Minimum load, no exceptions.
+  _icon: {fileID: 0}
+  _tier: 1
+  _minimumOrderCases: 120
+  _catalogue:
+  - sku: {fileID: 11400000, guid: 7cc5ac53d10c4fa795952b50e286bb9a, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 65ffa8dd50c64ffbad8c4a0635602ea1, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: c1e200097c9034a40818a2b5a17b7bd3, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 5c86ee9eebfa8f147bfbf45fd686214f, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 8c22d5d4deb3bb04685a5b18867e0813, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 7044ddcfb484b864f8eeac5b37d50b5c, type: 2}
+    rarity: 0
+  - sku: {fileID: 11400000, guid: 6882b124d0fe4b8d8cf40e23a480c896, type: 2}
+    rarity: 1

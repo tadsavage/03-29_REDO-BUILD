@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0859a5a4a9d173f4d9caa858be09c7ac, type: 3}
+  m_Name: Vendor_HighlandReserve
+  m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.VendorData
+  _displayName: Highland Reserve Traders
+  _pitch: Coffee and syrup from people who talk about terroir. It's very good and
+    it's slow.
+  _icon: {fileID: 0}
+  _tier: 2
+  _minimumOrderCases: 360
+  _catalogue:
+  - sku: {fileID: 11400000, guid: f1e44d0bc4054c208629ca2f028ad154, type: 2}
+    rarity: 2
+  - sku: {fileID: 11400000, guid: 48bda9705e38450488dec71e3d9d4c03, type: 2}
+    rarity: 2
+  - sku: {fileID: 11400000, guid: 9df0c175eb2643fc8c6588d13cd7e5ec, type: 2}
+    rarity: 1
+  - sku: {fileID: 11400000, guid: 8218e61d0e6a4a7395bb2434ea42b965, type: 2}
+    rarity: 3
