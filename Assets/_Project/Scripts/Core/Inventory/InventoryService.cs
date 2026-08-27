@@ -271,6 +271,10 @@ namespace GameCore.Inventory
                 .ToList();
         }
 
+        /// <summary>Total on-hand units for a SKU across every non-contaminated pallet, wherever it's
+        /// sitting. Used by the VENDORS tab's "Pot Scratch Items" count (out-of-stock detection).</summary>
+        public int TotalOnHand(string skuId) => GetPalletsBySku(skuId).Sum(p => p.Quantity);
+
         /// <summary>Get all non-contaminated pallets at receiving staging (0,0).</summary>
         public List<PalletMasterRecord> GetReceivingPallets()
         {

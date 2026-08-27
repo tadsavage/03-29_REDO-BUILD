@@ -215,6 +215,18 @@ namespace GameCore.Labor
             DockEquipmentCommandeerRegistry.Release(slot);
             truck.CompleteOffload();
             Debug.Log($"[TrailerOffload] {truck.name} fully offloaded — released dock stocker to patrol.");
+
+            // VENDORS tab's "Avg Daily Pallets" — recorded here, the one place both the vendor
+            // (AssignedShipment.SupplierId) and the real pallet count (`pallets`, built at the top of
+            // this routine) are both in scope after a completed inbound offload.
+            var shipment = truck.AssignedShipment;
+            if (shipment != null && !string.IsNullOrEmpty(shipment.SupplierId) &&
+                ServiceLocator.TryGet<VendorPerformanceTracker>(out var perfTracker))
+            {
+                var gameCtx = UnityEngine.Object.FindAnyObjectByType<GameContext>();
+                int day = gameCtx != null ? gameCtx.TimeService.Day : 0;
+                perfTracker.RecordPallets(shipment.SupplierId, pallets.Count, day);
+            }
         }
 
         private IEnumerator OffloadOnePallet(Transform ds, Transform forks, float forkRestY,

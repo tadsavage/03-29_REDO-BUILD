@@ -73,6 +73,7 @@ public class GameContext : MonoBehaviour
         var fulfillmentStatsService = new GameCore.Inventory.FulfillmentStatsService();
         var vendorEconomyService = new GameCore.Inventory.VendorEconomyService();
         var vendorPerformanceTracker = new GameCore.Inventory.VendorPerformanceTracker();
+        var vendorDealService = new GameCore.Inventory.VendorDealService();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
@@ -93,6 +94,7 @@ public class GameContext : MonoBehaviour
         ServiceLocator.Register<GameCore.Inventory.FulfillmentStatsService>(fulfillmentStatsService);
         ServiceLocator.Register<GameCore.Inventory.VendorEconomyService>(vendorEconomyService);
         ServiceLocator.Register<GameCore.Inventory.VendorPerformanceTracker>(vendorPerformanceTracker);
+        ServiceLocator.Register<GameCore.Inventory.VendorDealService>(vendorDealService);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
@@ -130,6 +132,9 @@ public class GameContext : MonoBehaviour
         // subscription to its static OnPartnershipLevelChanged event.
         vendorEconomyService.Initialize();
         vendorPerformanceTracker.Initialize();
+        // After vendorEconomyService: rolls deals off each vendor's Partnership Level, which must
+        // already exist. Ticked in real seconds from TimeDriver.Update(), not from here.
+        vendorDealService.Initialize();
         // Gates which vendors will deal with the player, and is the same score intended to drive
         // customer contract arrival. Subscribes to OrderService's shipped/fined/cancelled events, and
         // (as of the Vendor Partnership rework) VendorEconomyService's partnership-changed event.

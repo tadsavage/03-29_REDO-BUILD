@@ -11,6 +11,11 @@ namespace GameCore.Inventory
         public string VendorId;
         public int PartnershipLevel;
 
+        /// <summary>Flavor-only travel time to the warehouse, in hours. No map/distance system exists
+        /// yet, so this is a fixed random roll for the session (like PartnershipLevel), not derived
+        /// from anything real. Set by VendorEconomyService.Initialize().</summary>
+        public float TravelTimeHours;
+
         public PartnershipTierProfile CurrentProfile => PartnershipTierUtility.GetProfile(PartnershipLevel);
     }
 }

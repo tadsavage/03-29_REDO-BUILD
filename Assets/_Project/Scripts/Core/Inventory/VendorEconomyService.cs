@@ -45,7 +45,10 @@ namespace GameCore.Inventory
                 _stateByVendorId[vendor.VendorId] = new VendorRuntimeState
                 {
                     VendorId = vendor.VendorId,
-                    PartnershipLevel = Random.Range(-100, 101)
+                    PartnershipLevel = Random.Range(-100, 101),
+                    // 1.0-4.0 hours in 0.5 steps: Random.Range(2,9) inclusive-exclusive gives 2..8,
+                    // times 0.5 gives 1.0..4.0.
+                    TravelTimeHours = Random.Range(2, 9) * 0.5f
                 };
             }
         }
@@ -109,5 +112,95 @@ namespace GameCore.Inventory
         public float GetDamagedGoodsRate(string vendorId) => GetState(vendorId)?.CurrentProfile.DamagedGoodsPercent ?? 0f;
 
         public int GetItemsAvailableCount(string vendorId) => GetAvailableCatalogue(vendorId).Count;
+
+        public float GetTravelTimeHours(string vendorId) => GetState(vendorId)?.TravelTimeHours ?? 0f;
+
+        /// <summary>
+        /// "Pot Scratch Items": how many of this vendor's catalogue SKUs are wanted by an active
+        /// outbound order right now with zero stock on hand, and aren't already covered by an
+        /// in-transit/receiving inbound shipment. Composes OrderService (demand), InventoryService
+        /// (on-hand stock) and ShipmentService (inbound coverage) — no single existing method answers
+        /// this, so it's assembled here rather than added to any one of those services.
+        /// </summary>
+        public int GetPotScratchCount(string vendorId)
+        {
+            var registry = VendorRegistry.Load();
+            var vendor = registry?.GetById(vendorId);
+            if (vendor == null) return 0;
+
+            ServiceLocator.TryGet<OrderService>(out var orders);
+            ServiceLocator.TryGet<InventoryService>(out var inventory);
+            ServiceLocator.TryGet<ShipmentService>(out var shipments);
+            if (orders == null || inventory == null) return 0;
+
+            var neededSkuIds = new HashSet<string>();
+            foreach (var order in orders.ActiveOrders)
+            {
+                if (order == null) continue;
+                if (order.Status != OrderData.OrderStatus.Pending &&
+                    order.Status != OrderData.OrderStatus.PartiallyPicked) continue;
+
+                foreach (var line in order.LineItems)
+                {
+                    if (line == null || string.IsNullOrEmpty(line.SkuId)) continue;
+                    if (orders.SelectableRemaining(order, line) > 0) neededSkuIds.Add(line.SkuId);
+                }
+            }
+
+            int count = 0;
+            foreach (var entry in vendor.Catalogue)
+            {
+                var sku = entry?.Sku;
+                if (sku == null || !neededSkuIds.Contains(sku.SkuId)) continue;
+                if (inventory.TotalOnHand(sku.SkuId) > 0) continue;
+
+                bool alreadyInbound = shipments != null && shipments.PendingShipments.Any(s =>
+                    s != null &&
+                    (s.Status == ShipmentData.ShipmentStatus.InTransit ||
+                     s.Status == ShipmentData.ShipmentStatus.Receiving ||
+                     s.Status == ShipmentData.ShipmentStatus.Delayed) &&
+                    s.LineItems.Any(li => li.SkuId == sku.SkuId && li.ReceivedQuantity < li.Quantity));
+                if (alreadyInbound) continue;
+
+                count++;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// "Best Price Items": how many SKUs in this vendor's currently-unlocked catalogue are cheaper
+        /// here (today's effective cost) than at every other vendor that also carries the same SKU.
+        /// Ties count as a win for both/all vendors carrying that price.
+        /// </summary>
+        public int GetBestPriceCount(string vendorId)
+        {
+            var registry = VendorRegistry.Load();
+            if (registry == null) return 0;
+
+            ServiceLocator.TryGet<MarketService>(out var market);
+            var mine = GetAvailableCatalogue(vendorId);
+            int count = 0;
+
+            foreach (var entry in mine)
+            {
+                var sku = entry?.Sku;
+                if (sku == null) continue;
+
+                float myCost = GetEffectiveCost(vendorId, sku, market);
+                bool isBest = true;
+
+                foreach (var other in registry.AllVendors)
+                {
+                    if (other == null || other.VendorId == vendorId) continue;
+                    if (!GetAvailableCatalogue(other.VendorId).Any(e => e?.Sku != null && e.Sku.SkuId == sku.SkuId)) continue;
+
+                    float otherCost = GetEffectiveCost(other.VendorId, sku, market);
+                    if (otherCost < myCost) { isBest = false; break; }
+                }
+
+                if (isBest) count++;
+            }
+            return count;
+        }
     }
 }

@@ -13,9 +13,11 @@ using UnityEngine.UIElements;
 /// the panel's own close button in its title bar, so it matches that button's size and sits on the
 /// same row (see <see cref="CycleScale"/>). Unlike the edge grips — which just stretch the layout
 /// box — clicking it uniformly scales the WHOLE panel (fonts, icons, everything) via a UI Toolkit
-/// transform, toggling between normal (1x) and fill-screen. Callers should call
+/// transform, toggling between normal (1x) and fill-screen. Most callers call
 /// <see cref="ResetToNormal"/> whenever the panel is (re)shown, so it always opens at normal size
-/// regardless of whatever it was left at last time it was closed.
+/// regardless of whatever it was left at last time it was closed; a panel with enough data to want
+/// starting maximized (e.g. PurchasingPanel) calls the mirror-image <see cref="FillScreen"/> instead —
+/// either way the panel opens at a consistent, deliberate size rather than wherever it was left.
 ///
 /// Session-only, like DraggableWindow: everything is written as inline styles on the panel, so a
 /// fresh UIDocument (new play session) starts back at the stylesheet size.
@@ -212,6 +214,27 @@ public class ResizableWindow
         if (!_filled) return;
         _filled = false;
         ApplyScale(1f);
+    }
+
+    /// <summary>The mirror of ResetToNormal — forces the panel to fill-screen instead of normal size.
+    /// For panels that should always open maximized (e.g. PurchasingPanel, once its VENDORS tab grew
+    /// too much data for the normal size to be worth opening to first). No-op if already filled, same
+    /// "don't jump on every open" guard as ResetToNormal.
+    ///
+    /// Deliberately does NOT commit `_filled = true` when ComputeFillScreenScale falls back to 1x —
+    /// that fallback also fires on the very first call of a session, before the panel's ever been
+    /// through a layout pass (resolvedStyle.width/height still 0). Committing anyway would "poison"
+    /// this panel as permanently filled without ever actually applying the scale, since every later
+    /// call would then see `_filled == true` and no-op forever. Callers should call this again after a
+    /// layout pass (e.g. the same deferred-schedule trick CentreOnce uses) if the first attempt might
+    /// be too early — PurchasingPanel.Show() does exactly that.</summary>
+    public void FillScreen()
+    {
+        if (_filled) return;
+        float scale = ComputeFillScreenScale();
+        if (scale <= 1f) return;
+        _filled = true;
+        ApplyScale(scale);
     }
 
     /// <summary>

@@ -11,9 +11,12 @@ using GameCore.Services;
 /// PURCHASING — where raw stock comes into the building. Play-bar key 9.
 ///
 /// The inbound counterpart to the Contracts panel: that one is demand the player accepts, this is
-/// supply the player commits to. Three tabs, mirroring the life of a purchase order:
+/// supply the player commits to. Four tabs, mirroring the life of a purchase order:
 ///
 ///   INBOUND ORDER CREATION  build a basket against the SKU database, pick a delivery day, raise it.
+///   VENDORS                 the supplier roster — partnership level, fill rate, catalogue — and the
+///                           "Order from Vendor" shortcut into a pinned Create tab. Moved here from
+///                           ContractsPanel: vendors are suppliers, so this is the inbound side's job.
 ///   PO LIST                 orders raised and not yet finished — what's coming and when.
 ///   ARCHIVED POS            finished orders, kept as a record of what's been bought.
 ///
@@ -70,6 +73,10 @@ public class PurchasingPanel : IUIPanel
     private const float ModalHeight = 760f;
     /// <summary>Narrowest the window can be dragged before the two item columns stop being readable.</summary>
     private const float ModalMinWidth = 900f;
+    /// <summary>Title-bar chrome buttons (resize, close). Also referenced from Show(), which is why
+    /// it's a field rather than the local const it used to be — Build()'s closures aren't reachable
+    /// from there.</summary>
+    private const float TitleButtonSize = 48f;
 
     /// <summary>Both item columns are BLUE. The mock had one column green and one blue, which reads as
     /// two different KINDS of supplier — they aren't, they're just two halves of one list.</summary>
@@ -98,7 +105,7 @@ public class PurchasingPanel : IUIPanel
     private const float ActionLinkWidth = 132f;
 
 
-    private enum Tab { Create, PoList, Archived }
+    private enum Tab { Create, Vendors, PoList, Archived }
     private Tab _tab = Tab.Create;
 
     private readonly VisualElement _overlay;
@@ -118,6 +125,11 @@ public class PurchasingPanel : IUIPanel
     /// <summary>The basket: SKU id → cases ordered. Only non-zero entries live here, so "is anything
     /// on this order" is a Count check rather than a scan of every SKU in the database.</summary>
     private readonly Dictionary<string, int> _basket = new();
+
+    /// <summary>SKU id -> discount percent, for cases added via a VENDORS-tab deal (see
+    /// AddDealToBasket). Read by DealMultiplier/UnitPrice; cleared everywhere `_basket` is cleared so a
+    /// discount can never outlive the order it was accepted onto.</summary>
+    private readonly Dictionary<string, float> _dealDiscountBySku = new();
 
     /// <summary>The number shown at the top of the create tab. Reserved when the tab is opened rather
     /// than when the order is submitted, because the player reads it off the screen while filling the
@@ -143,6 +155,14 @@ public class PurchasingPanel : IUIPanel
     private Label _orderTotalLabel;
     private static Font _lilita;
 
+    /// <summary>The VENDORS tab's builder — constructed once alongside every other tab's state so
+    /// its own rows survive across Rebuild() calls the same way the Create tab's basket does. Moved
+    /// here from ContractsPanel: vendors are suppliers, so browsing them belongs on the inbound
+    /// (purchasing) side, not the outbound (contracts) side.</summary>
+    private VendorsTabView _vendorsTabView;
+    private VisualElement _vendorsTabRoot;
+    private VisualElement _vendorsPane;
+
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     public PurchasingPanel(VisualElement root)
@@ -157,6 +177,11 @@ public class PurchasingPanel : IUIPanel
         _itemSortController.RegisterColumn("FillRate");
         _itemSortController.OnStateChanged += Rebuild;
 
+        ServiceLocator.TryGet<VendorEconomyService>(out var vendorEconomy);
+        ServiceLocator.TryGet<VendorPerformanceTracker>(out var vendorTracker);
+        var vendorSfx = Resources.Load<VendorUiSfxConfig>("VendorUiSfx");
+        _vendorsTabView = new VendorsTabView(vendorEconomy, vendorTracker, vendorSfx, Hide, AddDealToBasket);
+
         EventManager.Instance?.Subscribe<string>(GameEvents.Vendor.OnOrderFromVendorRequested, OnOrderFromVendorRequested);
 
         Hide();
@@ -168,9 +193,9 @@ public class PurchasingPanel : IUIPanel
         if (_overlay.parent != null) _overlay.RemoveFromHierarchy();
     }
 
-    /// <summary>Routed here from the VENDORS tab's "Order from Vendor" button, via the central
-    /// EventManager rather than a direct ContractsPanel → PurchasingPanel call. Pins the Create tab
-    /// to exactly that vendor's catalogue and opens the panel.</summary>
+    /// <summary>Routed here from this panel's own VENDORS tab's "Order from Vendor" button, via the
+    /// central EventManager rather than a direct call — VendorsTabView doesn't know which panel hosts
+    /// it. Pins the Create tab to exactly that vendor's catalogue and switches to it.</summary>
     private void OnOrderFromVendorRequested(string eventId, string vendorId)
     {
         if (string.IsNullOrEmpty(vendorId)) return;
@@ -178,6 +203,51 @@ public class PurchasingPanel : IUIPanel
         _exclusiveVendorFilter = true;
         _tab = Tab.Create;
         Show();
+    }
+
+    /// <summary>
+    /// "I'LL TAKE IT!" on a VENDORS-tab deal popup. Handed to VendorsTabView as a direct delegate at
+    /// construction rather than routed through EventManager like OnOrderFromVendorRequested — that one
+    /// predates the Vendors tab living in this same panel and had to cross panels; this one doesn't.
+    ///
+    /// Adds the deal's cases to whatever's currently being built for this vendor. Per the accepted
+    /// plan: if nothing's building yet, this starts the order; if something IS building for a
+    /// DIFFERENT vendor (a PO is one vendor at their prices, same rule OnSelectVendor already
+    /// enforces) or the deal simply won't fit on top of it, the in-progress basket is cleared and
+    /// replaced with just the deal — never silently dropped, always toasted.
+    ///
+    /// STAYS ON THE VENDORS TAB rather than jumping to Create — unlike "Order from Vendor" (which
+    /// exists specifically to take you shopping), accepting a deal is a quick grab you make while
+    /// browsing the roster, and per Tad's explicit request it shouldn't yank you away from that.
+    /// </summary>
+    public void AddDealToBasket(string vendorId, string skuId, int pallets, float discountPercent)
+    {
+        var sku = FindSku(skuId);
+        if (string.IsNullOrEmpty(vendorId) || sku == null) return;
+
+        int cases = Mathf.Max(1, pallets) * Mathf.Max(1, sku.Ti * sku.Hi);
+        bool sameVendorWithRoom = _vendorId == vendorId && _basket.Count > 0 &&
+            !TrailerCapacity.WouldOverflow(BasketLines(), sku, Qty(sku.SkuId) + cases, out _);
+
+        if (_basket.Count > 0 && !sameVendorWithRoom)
+        {
+            _basket.Clear();
+            _dealDiscountBySku.Clear();
+            UIToast.Show("The in-progress order was cleared to make room for the deal.");
+        }
+
+        _vendorId = vendorId;
+        _exclusiveVendorFilter = false;
+        SetQty(sku.SkuId, Qty(sku.SkuId) + cases);
+        _dealDiscountBySku[sku.SkuId] = discountPercent;
+
+        // Staying on the Vendors tab means the player never sees the basket update directly, so this
+        // toast is the only confirmation the deal actually landed.
+        string vendorName = VendorRegistry.Load()?.GetById(vendorId)?.DisplayName ?? vendorId;
+        UIToast.Show($"Added {cases:N0} case(s) of {sku.ItemDescription} at -{discountPercent:0}% to " +
+                     $"the PO for {vendorName} — check Inbound Order Creation to finish it.");
+
+        Rebuild(); // stays on whatever tab is current (Vendors) — see doc comment above
     }
 
     public bool IsVisible => _visible;
@@ -200,7 +270,18 @@ public class PurchasingPanel : IUIPanel
         if (_poNumber == null) NewPoNumber();
         Rebuild();
         CentreOnce();
-        _resizeWindow?.ResetToNormal();
+
+        // Always opens filled rather than normal size — the VENDORS tab alone now carries six data
+        // columns plus Partnership/Travel Time/buttons, and the Create/PO List tabs have plenty of
+        // their own rows too. Deferred one frame, same reason CentreOnce is: on the very first Show()
+        // of a session the panel hasn't been through a layout pass yet, so FillScreen's size math has
+        // nothing real to measure — see FillScreen's own doc comment for why it's safe to just call
+        // this again rather than needing a retry loop.
+        _overlay.schedule.Execute(() =>
+        {
+            _resizeWindow?.FillScreen();
+            if (_resizeWindow != null) _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, TitleButtonSize, ColTitleText);
+        }).ExecuteLater(16);
     }
 
     public void Hide()
@@ -272,8 +353,6 @@ public class PurchasingPanel : IUIPanel
         _titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         titleBar.Add(_titleLabel);
 
-        const float titleBtnSize = 48f;
-
         // Return leg of the trip the Inbound Order Creation hint describes: a raised PO still needs a
         // day, time block and door, and that happens on the Scheduler. It used to sit down in that
         // tab's body beside the PO pill, which meant it only existed on one of the three tabs and sat
@@ -283,7 +362,7 @@ public class PurchasingPanel : IUIPanel
         var toScheduler = new Button(() => OpenScheduler(null)) { text = "Back to Scheduler" };
         StyleOrangeButton(toScheduler);
         ApplyFont(toScheduler, bold: true, size: 16);
-        toScheduler.style.height = titleBtnSize;   // clears the helper's fixed 30px
+        toScheduler.style.height = TitleButtonSize;   // clears the helper's fixed 30px
         toScheduler.style.paddingLeft = toScheduler.style.paddingRight = 18;
         toScheduler.style.marginRight = 10;
         toScheduler.style.flexShrink = 0;          // the title flexGrows; without this the label squeezes
@@ -298,11 +377,11 @@ public class PurchasingPanel : IUIPanel
         // the Back button above); window chrome stays blue so a chrome button never reads as an action.
         _scaleBtn = new Button { tooltip = "Resize window (normal / large / fill screen)" };
         StyleSquareButton(_scaleBtn);
-        _scaleBtn.style.width = titleBtnSize;
-        _scaleBtn.style.height = titleBtnSize;
+        _scaleBtn.style.width = TitleButtonSize;
+        _scaleBtn.style.height = TitleButtonSize;
         _scaleBtn.style.marginRight = 6;
         _scaleBtn.style.flexShrink = 0;
-        ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, titleBtnSize, ColTitleText, isFilled: false);
+        ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, TitleButtonSize, ColTitleText, isFilled: false);
         _scaleBtn.RegisterCallback<PointerEnterEvent>(_ =>
             _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
         _scaleBtn.RegisterCallback<PointerLeaveEvent>(_ =>
@@ -311,8 +390,8 @@ public class PurchasingPanel : IUIPanel
 
         var close = new Button(Hide) { text = "✕" };
         StyleSquareButton(close);
-        close.style.width = titleBtnSize;
-        close.style.height = titleBtnSize;
+        close.style.width = TitleButtonSize;
+        close.style.height = TitleButtonSize;
         close.style.flexShrink = 0;
         ApplyFont(close, bold: true, size: 22);
         // Red on hover, darker red while held — the same three states ContractsPanel's close button
@@ -380,6 +459,15 @@ public class PurchasingPanel : IUIPanel
         content.style.flexGrow = 1;
         modal.Add(content);
 
+        // VENDORS tab layout — a sibling of `content`, shown instead of it (see Rebuild).
+        // VendorsTabView nests its own ScrollViews for the vendor list and the data grid body, and
+        // nesting THOSE inside `content` (itself a ScrollView) fights Yoga's auto-height sizing.
+        var vendorsPane = new VisualElement();
+        vendorsPane.style.flexGrow = 1;
+        vendorsPane.style.display = DisplayStyle.None;
+        modal.Add(vendorsPane);
+        _vendorsPane = vendorsPane;
+
         var footer = MakeText(string.Empty, 14, ColSubtleText);
         footer.style.marginTop = 6;
         footer.style.flexShrink = 0;
@@ -392,7 +480,7 @@ public class PurchasingPanel : IUIPanel
         _scaleBtn.clicked += () =>
         {
             _resizeWindow.CycleScale();
-            _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, titleBtnSize, ColTitleText);
+            _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, TitleButtonSize, ColTitleText);
         };
 
         modalOut = modal; tabBarOut = tabBar; tabHeaderOut = tabHeader;
@@ -428,8 +516,26 @@ public class PurchasingPanel : IUIPanel
         int archived = shipments?.ArchivedShipments.Count ?? 0;
 
         _tabBar.Add(MakeTab("Inbound Order Creation", Tab.Create, _basket.Count));
+        _tabBar.Add(MakeTab("Vendors", Tab.Vendors, 0));
         _tabBar.Add(MakeTab("PO List", Tab.PoList, live));
         _tabBar.Add(MakeTab("Archived POs", Tab.Archived, archived));
+
+        // VENDORS is a sibling pane shown instead of `content`, same as ContractsPanel's old
+        // Accounts/Bulk split — VendorsTabView owns its own scroll views. Built once and cached
+        // rather than torn down and rebuilt on every Rebuild(); its own rows already know how to
+        // refresh themselves.
+        _content.style.display = _tab == Tab.Vendors ? DisplayStyle.None : DisplayStyle.Flex;
+        _vendorsPane.style.display = _tab == Tab.Vendors ? DisplayStyle.Flex : DisplayStyle.None;
+        if (_tab == Tab.Vendors)
+        {
+            if (_vendorsTabRoot == null)
+            {
+                _vendorsTabRoot = _vendorsTabView.Build();
+                _vendorsPane.Add(_vendorsTabRoot);
+            }
+            _vendorsTabView.Refresh();
+            return;
+        }
 
         switch (_tab)
         {
@@ -442,6 +548,7 @@ public class PurchasingPanel : IUIPanel
     private static string TitleFor(Tab tab) => tab switch
     {
         Tab.Create => "INBOUND INVENTORY ORDERING",
+        Tab.Vendors => "VENDORS",
         Tab.PoList => "PURCHASE ORDERS — IN FLIGHT",
         _ => "PURCHASE ORDERS — ARCHIVE"
     };
@@ -1010,6 +1117,7 @@ public class PurchasingPanel : IUIPanel
         bool hadBasket = _basket.Count > 0;
         _vendorId = vendor.VendorId;
         _basket.Clear();
+        _dealDiscountBySku.Clear();
         Rebuild();
 
         UIToast.Show(hadBasket
@@ -1759,6 +1867,7 @@ public class PurchasingPanel : IUIPanel
     private void OnCancelOrder()
     {
         _basket.Clear();
+        _dealDiscountBySku.Clear();
         NewPoNumber();
         Hide();
     }
@@ -1854,8 +1963,17 @@ public class PurchasingPanel : IUIPanel
         UIToast.Show($"PO {po.PONumber} raised — {po.TotalUnits:N0} case(s), ${po.TotalCost:N0}. " +
                      $"Book it a door on the Scheduler.");
 
+        // VENDORS tab's "Avg Daily Spend" — recorded here, the one place a PO's real cost against a
+        // real vendor is known, rather than guessed from the basket (which a discount deal can undercut).
+        if (vendor != null)
+        {
+            ServiceLocator.TryGet<VendorPerformanceTracker>(out var perf);
+            perf?.RecordTransaction(vendor.VendorId, po.TotalCost, Today());
+        }
+
         // Fresh order state, then straight to the list so the player sees what they just created.
         _basket.Clear();
+        _dealDiscountBySku.Clear();
         NewPoNumber();
         _tab = Tab.PoList;
         Rebuild();
@@ -2361,7 +2479,11 @@ public class PurchasingPanel : IUIPanel
     private int UnitPrice(SkuData sku)
     {
         if (sku == null) return 0;
+        return Mathf.RoundToInt(BasePrice(sku) * DealMultiplier(sku.SkuId));
+    }
 
+    private int BasePrice(SkuData sku)
+    {
         var vendor = SelectedVendor();
         var economy = Economy();
         if (vendor != null && economy != null)
@@ -2373,6 +2495,12 @@ public class PurchasingPanel : IUIPanel
         var market = Market();
         return market != null ? market.CurrentPrice(sku) : Mathf.RoundToInt(sku.BuyValue);
     }
+
+    /// <summary>1.0 normally; a fraction below 1.0 for a case still carrying an accepted VENDORS-tab
+    /// deal discount (see AddDealToBasket). Cleared everywhere `_basket` is cleared, so a discount can
+    /// never survive past the order it was accepted onto.</summary>
+    private float DealMultiplier(string skuId)
+        => _dealDiscountBySku.TryGetValue(skuId, out float pct) ? Mathf.Clamp01(1f - pct / 100f) : 1f;
 
     /// <summary>
     /// Money, without the trailing ".00" that every figure on this panel was carrying.

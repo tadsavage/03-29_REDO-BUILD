@@ -4,9 +4,10 @@ using GameCore.Inventory;
 
 /// <summary>
 /// Single unified row of the VENDORS tab: icon, name + colour-coded status dot, Partnership Level,
-/// Fill Rate, Avg Daily Revenue, Items Available, and the orange "Order from Vendor" button — all in
-/// one horizontal VisualElement. Replaces the former VendorPartnershipListRow + VendorDataGridRow
-/// two-column split so the whole tab reads as one scrollable panel.
+/// Travel Time, Pot Scratch Items, Best Price Items, Avg Daily Spend, Avg Daily Pallets, Avg Hours in
+/// Door, the orange "Order from Vendor" button, and the red DEALS fill bar — all in one horizontal
+/// VisualElement. Replaces the former VendorPartnershipListRow + VendorDataGridRow two-column split so
+/// the whole tab reads as one scrollable panel.
 /// </summary>
 public class VendorRow
 {
@@ -25,6 +26,10 @@ public class VendorRow
     private static readonly Color ColDisabled    = new Color(0x3A / 255f, 0x3A / 255f, 0x3A / 255f, 1f);
     private static readonly Color ColOrangeText  = new Color(0xFD / 255f, 0xE8 / 255f, 0xCC / 255f, 1f);
     private static readonly Color ColMonogramText = new Color(0xF2 / 255f, 0xF6 / 255f, 0xF9 / 255f, 1f);
+
+    private static readonly Color ColDealRed     = new Color(0xB0 / 255f, 0x2E / 255f, 0x2A / 255f, 1f);
+    private static readonly Color ColDealRedEdge = new Color(0x6E / 255f, 0x1C / 255f, 0x19 / 255f, 1f);
+    private static readonly Color ColDealTrack   = new Color(0x22 / 255f, 0x2A / 255f, 0x33 / 255f, 1f);
 
     // A small fixed palette of muted tones, deterministically chosen per vendor via a hash of its
     // VendorId, so vendors without artwork are still visually distinguishable from one another.
@@ -51,10 +56,17 @@ public class VendorRow
     private readonly Label _nameLabel;
     private readonly Label _partnershipNumberLabel;
     private readonly Label _partnershipTierLabel;
-    private readonly Label _fillRateLabel;
-    private readonly Label _revenueLabel;
-    private readonly Label _itemsLabel;
+    private readonly Label _travelTimeLabel;
+    private readonly Label _potScratchLabel;
+    private readonly Label _bestPriceLabel;
+    private readonly Label _spendLabel;
+    private readonly Label _palletsLabel;
+    private readonly Label _dwellLabel;
     private readonly Button _orderButton;
+
+    private readonly VisualElement _dealBarRoot;
+    private readonly VisualElement _dealBarFill;
+    private readonly Label _dealBarLabel;
 
     private bool _selected;
     private int _stripeIndex;
@@ -62,6 +74,10 @@ public class VendorRow
     public VisualElement Root => _root;
     public event System.Action<VendorData> OnSelected;
     public event System.Action OnOrderClicked;
+
+    /// <summary>Fired when the red deal bar is clicked while a deal is live. VendorsTabView owns the
+    /// deal popup/modal — this row only reports the gesture, same division of labor as OnOrderClicked.</summary>
+    public event System.Action OnDealBarClicked;
 
     /// <summary>Played on hover (RowHoverClip) and on a successful order click (OrderClickSfx).</summary>
     public AudioClip HoverSfx { get; set; }
@@ -151,13 +167,22 @@ public class VendorRow
         partnershipCell.Add(_partnershipTierLabel);
         _root.Add(partnershipCell);
 
-        _fillRateLabel = AddCell(110);
-        _revenueLabel = AddCell(150);
-        _itemsLabel = AddCell(110);
+        _travelTimeLabel = AddCell(90);
+        _potScratchLabel = AddCell(110);
+        _bestPriceLabel  = AddCell(110);
+        _spendLabel      = AddCell(130);
+        _palletsLabel    = AddCell(110);
+        _dwellLabel      = AddCell(110);
 
         var spacer = new VisualElement();
         spacer.style.flexGrow = 1;
         _root.Add(spacer);
+
+        // DEALS bar sits LEFT of Order From Vendor, per Tad's explicit request — the reverse of the
+        // reference mock's [ORDER] [DEALS] reading order.
+        _dealBarRoot = BuildDealBar(out _dealBarFill, out _dealBarLabel);
+        _dealBarRoot.style.marginRight = 8;
+        _root.Add(_dealBarRoot);
 
         _orderButton = new Button(HandleOrderClicked) { text = "ORDER FROM VENDOR" };
         StyleOrderButton(_orderButton);
@@ -240,21 +265,95 @@ public class VendorRow
         _partnershipTierLabel.text = PartnershipColorUtility.GetStatusText(level);
         _partnershipTierLabel.style.color = new StyleColor(PartnershipColorUtility.GetColor(level));
 
-        float fillRate = _economy?.GetFillRate(_vendor.VendorId) ?? 0f;
-        _fillRateLabel.text = $"{fillRate:N0}%";
-        _fillRateLabel.style.color = new StyleColor(ColSubtle);
+        float travelHours = _economy?.GetTravelTimeHours(_vendor.VendorId) ?? 0f;
+        _travelTimeLabel.text = $"{travelHours:0.0} hrs";
+        _travelTimeLabel.style.color = new StyleColor(ColSubtle);
 
-        float avgRevenue = _tracker?.GetAverageDailyRevenue(_vendor.VendorId) ?? 0f;
-        _revenueLabel.text = Money(avgRevenue);
-        _revenueLabel.style.color = new StyleColor(ColMoney);
+        int potScratch = _economy?.GetPotScratchCount(_vendor.VendorId) ?? 0;
+        _potScratchLabel.text = potScratch.ToString();
+        _potScratchLabel.style.color = new StyleColor(potScratch > 0 ? ColDealRed : ColSubtle);
+
+        int bestPrice = _economy?.GetBestPriceCount(_vendor.VendorId) ?? 0;
+        _bestPriceLabel.text = bestPrice.ToString();
+        _bestPriceLabel.style.color = new StyleColor(ColSubtle);
+
+        float avgSpend = _tracker?.GetAverageDailyRevenue(_vendor.VendorId) ?? 0f;
+        _spendLabel.text = Money(avgSpend);
+        _spendLabel.style.color = new StyleColor(ColMoney);
+
+        float avgPallets = _tracker?.GetAverageDailyPallets(_vendor.VendorId) ?? 0f;
+        _palletsLabel.text = avgPallets.ToString("0.#");
+        _palletsLabel.style.color = new StyleColor(ColSubtle);
+
+        float avgDwell = _tracker?.GetAverageDwellHours(_vendor.VendorId) ?? 0f;
+        _dwellLabel.text = $"{avgDwell:0.#} hrs";
+        _dwellLabel.style.color = new StyleColor(ColSubtle);
 
         int itemsAvailable = _economy?.GetItemsAvailableCount(_vendor.VendorId) ?? 0;
-        _itemsLabel.text = itemsAvailable.ToString();
-        _itemsLabel.style.color = new StyleColor(ColSubtle);
-
         bool disabled = itemsAvailable <= 0;
         _orderButton.SetEnabled(!disabled);
         _orderButton.style.opacity = disabled ? 0.5f : 1f;
+    }
+
+    /// <summary>Polled independently of Refresh() (see VendorsTabView's fast timer) so the fill bar
+    /// drains smoothly in real time without re-pulling every other stat every 100ms.</summary>
+    public void RefreshDealBar(VendorDeal deal)
+    {
+        _dealBarRoot.style.display = deal != null ? DisplayStyle.Flex : DisplayStyle.None;
+        if (deal == null) return;
+
+        _dealBarFill.style.width = new Length(Mathf.Clamp01(deal.Fraction) * 100f, LengthUnit.Percent);
+        _dealBarLabel.text = $"DEAL! -{deal.DiscountPercent:0}%";
+    }
+
+    private VisualElement BuildDealBar(out VisualElement fill, out Label label)
+    {
+        var root = new VisualElement();
+        root.style.width = 120;
+        root.style.height = 34;
+        root.style.flexShrink = 0;
+        root.style.display = DisplayStyle.None;
+        root.style.backgroundColor = new StyleColor(ColDealTrack);
+        root.style.borderTopLeftRadius = root.style.borderTopRightRadius =
+            root.style.borderBottomLeftRadius = root.style.borderBottomRightRadius = 6;
+        root.style.borderTopWidth = root.style.borderBottomWidth =
+            root.style.borderLeftWidth = root.style.borderRightWidth = 2;
+        root.style.borderTopColor = root.style.borderBottomColor =
+            root.style.borderLeftColor = root.style.borderRightColor = new StyleColor(ColDealRedEdge);
+        root.style.overflow = Overflow.Hidden;
+        root.pickingMode = PickingMode.Position;
+
+        var fillEl = new VisualElement();
+        fillEl.style.position = Position.Absolute;
+        fillEl.style.left = 0; fillEl.style.top = 0; fillEl.style.bottom = 0;
+        fillEl.style.width = new Length(100f, LengthUnit.Percent);
+        fillEl.style.backgroundColor = new StyleColor(ColDealRed);
+        root.Add(fillEl);
+        fill = fillEl;
+
+        var labelEl = MakeCenteredLabel("DEAL!");
+        root.Add(labelEl);
+        label = labelEl;
+
+        root.RegisterCallback<ClickEvent>(evt =>
+        {
+            OnDealBarClicked?.Invoke();
+            evt.StopPropagation();
+        });
+
+        return root;
+    }
+
+    private static Label MakeCenteredLabel(string text)
+    {
+        var label = new Label(text);
+        label.style.position = Position.Absolute;
+        label.style.left = 0; label.style.right = 0; label.style.top = 0; label.style.bottom = 0;
+        label.style.unityTextAlign = TextAnchor.MiddleCenter;
+        label.style.color = new StyleColor(ColMonogramText);
+        label.style.unityFontStyleAndWeight = FontStyle.Bold;
+        label.style.fontSize = 12;
+        return label;
     }
 
     public void SetStripeIndex(int index)

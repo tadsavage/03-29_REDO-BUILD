@@ -69,17 +69,17 @@
                 <ui:Label text="7" class="playbar-key"/>
             </ui:Button>
 
-            <!-- Contracts panel, relabeled "Orders" — kept next to Purchasing (9) since the two
-                 together cover outbound (Orders/Contracts) and inbound (Purchasing). -->
+            <!-- Contracts panel, relabeled "Outbound" — kept next to Inbound (9) since the two
+                 together cover outbound (Outbound/Contracts) and inbound (Inbound). -->
             <ui:Button name="PlayBtn8" class="buildmenu-category-button playbar-button">
                 <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-contracts"/>
-                <ui:Label text="Orders" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="Outbound" class="buildmenu-category-label playbar-label"/>
                 <ui:Label text="8" class="playbar-key"/>
             </ui:Button>
 
             <ui:Button name="PlayBtn9" class="buildmenu-category-button playbar-button">
                 <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-purchasing"/>
-                <ui:Label text="Purchasing" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="Inbound" class="buildmenu-category-label playbar-label"/>
                 <ui:Label text="9" class="playbar-key"/>
             </ui:Button>
 
@@ -92,7 +92,7 @@
          built-in `tooltip` attribute — that property only renders inside the Editor's own UI and
          never shows on a runtime UIDocument HUD like this one. -->
     <ui:VisualElement name="ModeTabs" picking-mode="Position" class="buildmenu-mode-tabs">
-        <ui:Button name="TabPlay" text="ORDERS" class="buildmenu-mode-tab buildmenu-mode-tab-active"/>
+        <ui:Button name="TabPlay" text="OUTBOUND" class="buildmenu-mode-tab buildmenu-mode-tab-active"/>
         <ui:Button name="TabBuild" text="BUILD" class="buildmenu-mode-tab"/>
     </ui:VisualElement>
 </ui:UXML>

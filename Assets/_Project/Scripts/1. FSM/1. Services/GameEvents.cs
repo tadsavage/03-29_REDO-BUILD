@@ -82,6 +82,9 @@ namespace GameCore.Events
         {
             public const string OnPartnershipLevelChanged = "Vendor.OnPartnershipLevelChanged";
             public const string OnOrderFromVendorRequested = "Vendor.OnOrderFromVendorRequested";
+            /// <summary>Fired whenever a VendorDealService deal starts, expires, or is
+            /// claimed/cancelled for a vendor (payload: vendorId).</summary>
+            public const string OnDealChanged = "Vendor.OnDealChanged";
         }
     }
 }

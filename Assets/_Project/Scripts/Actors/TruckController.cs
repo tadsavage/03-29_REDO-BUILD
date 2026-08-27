@@ -115,6 +115,12 @@ public class TruckController : MonoBehaviour
     private bool  _offloadClaimed;
     private bool  _offloadComplete;
 
+    /// <summary>Sim-clock minute this INBOUND trailer docked, for the VENDORS tab's "Avg Hours in
+    /// Door" stat — real dwell time (docked-to-departed) belongs on the sim clock, same scale as
+    /// every other vendor stat, not on real wall-clock seconds like `_dockedTime`'s fallback-timeout
+    /// use above. -1 while not docked/not applicable.</summary>
+    private long _dockedAtSimMinute = -1;
+
     // ── Outbound loading (D1) handoff — mirrors the offload flags above, but for a
     // truck that arrives EMPTY and gets pallets driven ONTO it instead of off of it. Kept as
     // separate fields (not reused) so TrailerLoadController and TrailerOffloadController can never
@@ -1439,6 +1445,13 @@ private DockSlot        _dock;
         _loadClaimed     = false;
         _loadComplete    = false;
 
+        // Inbound only — outbound dwell isn't part of the vendor dwell-time stat.
+        if (!_isOutbound)
+        {
+            var gameCtx = FindAnyObjectByType<GameContext>();
+            _dockedAtSimMinute = gameCtx != null ? gameCtx.TimeService.TotalMinutesElapsed : -1;
+        }
+
         // Swing the barn doors fully open and ghost the trailer so the dock-stocker can reach the
         // product and it reads from inside the warehouse.
         OpenTrailerDoors();
@@ -1490,6 +1503,22 @@ private DockSlot        _dock;
             AssignedShipment.Status = GameCore.Inventory.ShipmentData.ShipmentStatus.Departed;
             if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipSvc))
                 shipSvc.PurgeCompleted();
+
+            // VENDORS tab's "Avg Hours in Door" — inbound only, and only once we actually have a real
+            // docked-at stamp (a truck that skipped Docked entirely, if that's ever possible, shouldn't
+            // report a bogus 0-hour dwell).
+            if (!_isOutbound && _dockedAtSimMinute >= 0 &&
+                !string.IsNullOrEmpty(AssignedShipment.SupplierId) &&
+                GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorPerformanceTracker perf))
+            {
+                var gameCtx = FindAnyObjectByType<GameContext>();
+                if (gameCtx != null)
+                {
+                    float hours = (gameCtx.TimeService.TotalMinutesElapsed - _dockedAtSimMinute) / 60f;
+                    perf.RecordDwellHours(AssignedShipment.SupplierId, Mathf.Max(0f, hours), gameCtx.TimeService.Day);
+                }
+            }
+            _dockedAtSimMinute = -1;
         }
 
         // Solid trailer + closed doors again before it drives off.
