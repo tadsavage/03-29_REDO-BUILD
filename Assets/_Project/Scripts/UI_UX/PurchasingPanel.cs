@@ -105,7 +105,7 @@ public class PurchasingPanel : IUIPanel
     private const float ActionLinkWidth = 132f;
 
 
-    private enum Tab { Create, Vendors, PoList, Archived }
+    private enum Tab { Create, Vendors, PoList, Archived, MultiVendor }
     private Tab _tab = Tab.Create;
 
     private readonly VisualElement _overlay;
@@ -130,6 +130,21 @@ public class PurchasingPanel : IUIPanel
     /// AddDealToBasket). Read by DealMultiplier/UnitPrice; cleared everywhere `_basket` is cleared so a
     /// discount can never outlive the order it was accepted onto.</summary>
     private readonly Dictionary<string, float> _dealDiscountBySku = new();
+
+    /// <summary>INBOUND ORDER CREATION NEW tab's baskets — one independent in-progress order PER
+    /// VENDOR (vendorId -> (skuId -> cases)), unlike `_basket`/`_vendorId` above which hold exactly one
+    /// order for whichever single vendor is currently selected. Deliberately separate state: the whole
+    /// point of this tab is comparing/building several vendors' loads side by side without one
+    /// clobbering another the way switching `_vendorId` on the old tab does.</summary>
+    private readonly Dictionary<string, Dictionary<string, int>> _multiBaskets = new();
+
+    /// <summary>Which vendor groups are expanded on the multi-vendor tab. Survives Rebuild() (that tab
+    /// rebuilds its content fresh every time, unlike VendorsTabView's cached root) so opening a
+    /// vendor's list doesn't collapse the moment a quantity change triggers a repaint.</summary>
+    private readonly HashSet<string> _expandedMultiVendors = new();
+
+    /// <summary>Vendor-name search filter for the multi-vendor tab's header search box.</summary>
+    private string _multiVendorSearchText = "";
 
     /// <summary>The number shown at the top of the create tab. Reserved when the tab is opened rather
     /// than when the order is submitted, because the player reads it off the screen while filling the
@@ -162,6 +177,11 @@ public class PurchasingPanel : IUIPanel
     private VendorsTabView _vendorsTabView;
     private VisualElement _vendorsTabRoot;
     private VisualElement _vendorsPane;
+
+    /// <summary>Root scroll view for the INBOUND ORDER CREATION NEW tab. Unlike _vendorsPane, this is
+    /// cleared and rebuilt every Rebuild() (matches Tab.Create's own always-rebuild convention) rather
+    /// than built once and cached — its content changes with every qty-stepper press.</summary>
+    private ScrollView _multiVendorPane;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -468,6 +488,15 @@ public class PurchasingPanel : IUIPanel
         modal.Add(vendorsPane);
         _vendorsPane = vendorsPane;
 
+        // MULTI-VENDOR tab layout — same "sibling pane, own scroll view" reasoning as VENDORS above:
+        // each vendor group nests its own detail ScrollView, and nesting that inside `content` (itself
+        // a ScrollView) fights Yoga's auto-height sizing the same way.
+        var multiVendorPane = new ScrollView(ScrollViewMode.Vertical);
+        multiVendorPane.style.flexGrow = 1;
+        multiVendorPane.style.display = DisplayStyle.None;
+        modal.Add(multiVendorPane);
+        _multiVendorPane = multiVendorPane;
+
         var footer = MakeText(string.Empty, 14, ColSubtleText);
         footer.style.marginTop = 6;
         footer.style.flexShrink = 0;
@@ -519,21 +548,32 @@ public class PurchasingPanel : IUIPanel
         _tabBar.Add(MakeTab("Vendors", Tab.Vendors, 0));
         _tabBar.Add(MakeTab("PO List", Tab.PoList, live));
         _tabBar.Add(MakeTab("Archived POs", Tab.Archived, archived));
+        _tabBar.Add(MakeTab("Inbound Order Creation New", Tab.MultiVendor,
+                             _multiBaskets.Count(kv => kv.Value.Count > 0)));
 
-        // VENDORS is a sibling pane shown instead of `content`, same as ContractsPanel's old
-        // Accounts/Bulk split — VendorsTabView owns its own scroll views. Built once and cached
-        // rather than torn down and rebuilt on every Rebuild(); its own rows already know how to
-        // refresh themselves.
-        _content.style.display = _tab == Tab.Vendors ? DisplayStyle.None : DisplayStyle.Flex;
+        // VENDORS and MULTI-VENDOR are sibling panes shown instead of `content`, same as
+        // ContractsPanel's old Accounts/Bulk split — both own their own scroll views nested inside,
+        // which fights Yoga's auto-height sizing if nested inside `content` (itself a ScrollView).
+        _content.style.display = (_tab == Tab.Vendors || _tab == Tab.MultiVendor) ? DisplayStyle.None : DisplayStyle.Flex;
         _vendorsPane.style.display = _tab == Tab.Vendors ? DisplayStyle.Flex : DisplayStyle.None;
+        _multiVendorPane.style.display = _tab == Tab.MultiVendor ? DisplayStyle.Flex : DisplayStyle.None;
+
         if (_tab == Tab.Vendors)
         {
+            // Built once and cached rather than torn down and rebuilt on every Rebuild() — its own
+            // rows already know how to refresh themselves.
             if (_vendorsTabRoot == null)
             {
                 _vendorsTabRoot = _vendorsTabView.Build();
                 _vendorsPane.Add(_vendorsTabRoot);
             }
             _vendorsTabView.Refresh();
+            return;
+        }
+
+        if (_tab == Tab.MultiVendor)
+        {
+            BuildMultiVendorTab();
             return;
         }
 
@@ -550,6 +590,8 @@ public class PurchasingPanel : IUIPanel
         Tab.Create => "INBOUND INVENTORY ORDERING",
         Tab.Vendors => "VENDORS",
         Tab.PoList => "PURCHASE ORDERS — IN FLIGHT",
+        Tab.MultiVendor => "INBOUND ORDER CREATION NEW",
+        Tab.Archived => "PURCHASE ORDERS — ARCHIVE",
         _ => "PURCHASE ORDERS — ARCHIVE"
     };
 
@@ -2791,5 +2833,526 @@ public class PurchasingPanel : IUIPanel
         if (font != null) element.style.unityFont = new StyleFont(font);
         element.style.fontSize = size;
         element.style.unityFontStyleAndWeight = bold ? FontStyle.Bold : FontStyle.Normal;
+    }
+
+    // ── INBOUND ORDER CREATION NEW — multi-vendor deal-shopping tab ────────────
+    //
+    // The old Create tab is "pick one vendor, build one basket." This tab is comparison shopping:
+    // vendors are the collapsible groups (icon, running totals, its own trailer fill-bar, its own
+    // DISPATCH ORDER), and expanding one lists that vendor's items — so the same SKU can legitimately
+    // appear under several different vendors at different Partnership-driven prices, and the player can
+    // build several vendors' loads side by side before dispatching any of them. Entirely additive:
+    // reads/writes `_multiBaskets` only, never touches `_basket`/`_vendorId`.
+
+    private void BuildMultiVendorTab()
+    {
+        _multiVendorPane.Clear();
+        _multiVendorPane.Add(BuildMultiVendorSearchBar());
+
+        var registry = VendorRegistry.Load();
+        var vendors = registry?.AllVendors ?? new List<VendorData>();
+        if (!string.IsNullOrEmpty(_multiVendorSearchText))
+            vendors = vendors.Where(v => v != null &&
+                v.DisplayName.IndexOf(_multiVendorSearchText, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+
+        if (vendors.Count == 0)
+        {
+            var none = MakeText("No vendors match that search.", 16, ColEmptyText);
+            none.style.unityTextAlign = TextAnchor.MiddleCenter;
+            none.style.marginTop = 30;
+            _multiVendorPane.Add(none);
+            return;
+        }
+
+        foreach (var vendor in vendors.Where(v => v != null)
+                                       .OrderBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase))
+            _multiVendorPane.Add(BuildMultiVendorGroup(vendor));
+    }
+
+    private VisualElement BuildMultiVendorSearchBar()
+    {
+        var bar = new VisualElement();
+        bar.style.flexDirection = FlexDirection.Row;
+        bar.style.alignItems = Align.Center;
+        bar.style.marginBottom = 10;
+        bar.style.flexShrink = 0;
+
+        var label = MakeText("Filter vendors:", 14, ColSubtleText);
+        label.style.marginRight = 8;
+        bar.Add(label);
+
+        var search = new TextField { value = _multiVendorSearchText };
+        search.style.width = 220;
+        search.RegisterValueChangedCallback(evt => { _multiVendorSearchText = evt.newValue; Rebuild(); });
+        bar.Add(search);
+
+        var hint = MakeText("The same item can appear under several vendors at different prices — " +
+                             "compare and build multiple loads at once.", 12, ColEmptyText);
+        hint.style.marginLeft = 16;
+        hint.style.whiteSpace = WhiteSpace.Normal;
+        hint.style.flexShrink = 1;
+        bar.Add(hint);
+
+        return bar;
+    }
+
+    /// <summary>One vendor's collapsible group: header (icon, name, running totals, trailer fill-bar,
+    /// DISPATCH ORDER) plus a detail list of that vendor's orderable items, shown/hidden by
+    /// `_expandedMultiVendors`. Mirrors ToolsWindowController.BuildShipmentRow's header/detail toggle —
+    /// the one existing expand/collapse precedent in this codebase.</summary>
+    private VisualElement BuildMultiVendorGroup(VendorData vendor)
+    {
+        string vendorId = vendor.VendorId;
+        bool expanded = _expandedMultiVendors.Contains(vendorId);
+
+        var container = new VisualElement();
+        container.style.marginBottom = 6;
+        container.style.overflow = Overflow.Hidden;
+        container.style.borderTopLeftRadius = container.style.borderTopRightRadius =
+            container.style.borderBottomLeftRadius = container.style.borderBottomRightRadius = 8;
+        container.style.borderTopWidth = container.style.borderBottomWidth =
+            container.style.borderLeftWidth = container.style.borderRightWidth = 2;
+        container.style.borderTopColor = container.style.borderBottomColor =
+            container.style.borderLeftColor = container.style.borderRightColor = new StyleColor(ColBorder);
+
+        var header = new VisualElement();
+        header.style.flexDirection = FlexDirection.Row;
+        header.style.alignItems = Align.Center;
+        header.style.paddingTop = 8; header.style.paddingBottom = 8;
+        header.style.paddingLeft = 10; header.style.paddingRight = 10;
+        header.style.backgroundColor = new StyleColor(ColStat);
+        header.pickingMode = PickingMode.Position;
+
+        var arrow = MakeText(expanded ? "▾" : "▸", 16, ColTitleText, bold: true);
+        arrow.style.width = 18;
+        arrow.style.unityTextAlign = TextAnchor.MiddleCenter;
+        header.Add(arrow);
+
+        var icon = new VisualElement();
+        icon.style.width = 36; icon.style.height = 36;
+        icon.style.flexShrink = 0;
+        icon.style.marginLeft = 6; icon.style.marginRight = 10;
+        icon.style.borderTopLeftRadius = icon.style.borderTopRightRadius =
+            icon.style.borderBottomLeftRadius = icon.style.borderBottomRightRadius = 5;
+        if (vendor.Icon != null) icon.style.backgroundImage = new StyleBackground(vendor.Icon);
+        else icon.style.backgroundColor = new StyleColor(ColBlueEdge);
+        header.Add(icon);
+
+        var name = MakeText(vendor.DisplayName, 17, ColTitleText, bold: true);
+        name.style.width = 220;
+        name.style.flexShrink = 0;
+        header.Add(name);
+
+        var stats = MakeText("", 13, ColSubtleText);
+        stats.style.flexGrow = 1;
+        stats.style.whiteSpace = WhiteSpace.NoWrap;
+        header.Add(stats);
+
+        var fillBarContainer = BuildTruckFillBar(out var fillElement);
+        header.Add(fillBarContainer);
+
+        var dispatch = new Button(() => DispatchVendorOrder(vendor)) { text = "DISPATCH ORDER" };
+        StyleActionButton(dispatch, ColCreateGreen, ColCreateGreenEdge, ColCreateGreenHover);
+        dispatch.style.marginLeft = 10;
+        dispatch.style.width = 170;
+        dispatch.style.height = 36;
+        header.Add(dispatch);
+
+        // Shared by the header's own initial paint and by every item row's qty change below — one
+        // place that reads the current basket and repaints the header, so stats/fill-bar/dispatch
+        // button can never disagree with what's actually in `_multiBaskets[vendorId]`. A TARGETED
+        // refresh rather than a full Rebuild(): a full Rebuild() would reset both this tab's outer
+        // scroll position and every expanded vendor's own inner scroll position back to the top on
+        // every single +/- press, which is exactly the annoyance BuildItemCard's own Apply() (on the
+        // old Create tab) already avoids the same way.
+        void RefreshHeader()
+        {
+            var lines = MultiBasketLines(vendorId);
+            var plan = TrailerCapacity.Plan(lines);
+            float cost = lines.Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
+            stats.text = $"{lines.Sum(l => l.cases):N0} case(s) · {plan.Pallets.Count:N0} pallet(s) · {Money(cost)}";
+            fillElement.style.width = Mathf.Clamp01(plan.Fill01) *
+                (TruckBoxRightFrac - TruckBoxLeftFrac) * TruckFillBarWidth;
+
+            bool hasItems = _multiBaskets.TryGetValue(vendorId, out var basket) && basket.Count > 0;
+            dispatch.SetEnabled(hasItems);
+            dispatch.style.opacity = hasItems ? 1f : 0.5f;
+        }
+        RefreshHeader();
+
+        var detail = new ScrollView(ScrollViewMode.Vertical);
+        detail.style.maxHeight = 340;
+        detail.style.paddingTop = 6; detail.style.paddingBottom = 6;
+        detail.style.paddingLeft = 8; detail.style.paddingRight = 8;
+        detail.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
+
+        var catalogue = Economy()?.GetAvailableCatalogue(vendorId) ?? new List<VendorCatalogueEntry>();
+        int shown = 0;
+        foreach (var entry in catalogue)
+        {
+            if (entry?.Sku == null) continue;
+            detail.Add(BuildMultiVendorItemRow(vendor, entry.Sku, shown, RefreshHeader));
+            shown++;
+        }
+        if (shown == 0)
+        {
+            var noneLabel = MakeText("This vendor has nothing orderable yet.", 13, ColEmptyText);
+            noneLabel.style.marginTop = 8;
+            detail.Add(noneLabel);
+        }
+
+        header.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            if (evt.target is Button) return; // let DISPATCH ORDER handle its own click
+            bool nowExpanded = detail.style.display == DisplayStyle.None;
+            detail.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+            arrow.text = nowExpanded ? "▾" : "▸";
+            if (nowExpanded) _expandedMultiVendors.Add(vendorId); else _expandedMultiVendors.Remove(vendorId);
+        });
+
+        container.Add(header);
+        container.Add(detail);
+        return container;
+    }
+
+    /// <summary>One SKU under one vendor's expanded list: icon, id/description, On Hand/On Order/In
+    /// Demand/Buy/Sell/Margin, and the same +/-/typed-field stepper `BuildItemCard` uses on the old
+    /// tab — writing into `_multiBaskets[vendorId]` instead of `_basket`. `onQtyChanged` is the owning
+    /// group's RefreshHeader, called instead of a full Rebuild() so this row's own scroll position
+    /// (and every other vendor's) survives a quantity change.</summary>
+    private VisualElement BuildMultiVendorItemRow(VendorData vendor, SkuData sku, int rowIndex, System.Action onQtyChanged)
+    {
+        string vendorId = vendor.VendorId;
+        string skuId = sku.SkuId;
+
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.paddingTop = 6; row.style.paddingBottom = 6;
+        row.style.paddingLeft = 8; row.style.paddingRight = 8;
+        row.style.marginBottom = 4;
+        row.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColCardEven : ColCardOdd);
+        row.style.borderTopLeftRadius = row.style.borderTopRightRadius =
+            row.style.borderBottomLeftRadius = row.style.borderBottomRightRadius = 6;
+
+        var icon = new VisualElement();
+        icon.style.width = 36; icon.style.height = 36;
+        icon.style.flexShrink = 0;
+        icon.style.marginRight = 8;
+        icon.style.borderTopLeftRadius = icon.style.borderTopRightRadius =
+            icon.style.borderBottomLeftRadius = icon.style.borderBottomRightRadius = 5;
+        if (sku.Icon != null) icon.style.backgroundImage = new StyleBackground(sku.Icon);
+        else icon.style.backgroundColor = new StyleColor(ColBlueEdge);
+        row.Add(icon);
+
+        var idCol = new VisualElement();
+        idCol.style.width = 190;
+        idCol.style.flexShrink = 0;
+        idCol.style.marginRight = 10;
+        var num = MakeText(sku.SkuId, 11, ColSubtleText);
+        num.style.marginTop = 0; num.style.marginBottom = 0;
+        idCol.Add(num);
+        var desc = MakeText(sku.ItemDescription, 14, ColTitleText, bold: true);
+        desc.style.whiteSpace = WhiteSpace.Normal;
+        desc.style.marginTop = 0;
+        idCol.Add(desc);
+        row.Add(idCol);
+
+        int onHand = Inventory()?.TotalOnHand(skuId) ?? 0;
+        int onOrder = Economy()?.GetTotalOnOrder(skuId) ?? 0;
+        int inDemand = Economy()?.GetTotalInDemand(skuId) ?? 0;
+        int buy = UnitPriceForVendor(vendorId, sku);
+        float sell = sku.SellValue;
+        float margin = sell > 0f ? (sell - buy) / sell : 0f;
+
+        row.Add(MultiVendorStatCell("ON HAND", onHand.ToString("N0"), ColSubtleText));
+        row.Add(MultiVendorStatCell("ON ORDER", onOrder.ToString("N0"), ColSubtleText));
+        row.Add(MultiVendorStatCell("IN DEMAND", inDemand.ToString("N0"), inDemand > onHand ? ColDanger : ColSubtleText));
+        row.Add(MultiVendorStatCell("BUY", Money(buy), ColChipOutText));
+        row.Add(MultiVendorStatCell("SELL", Money(sell), ColMoney));
+        row.Add(MultiVendorStatCell("MARGIN", $"{margin * 100f:0}%", margin >= 0f ? ColMoney : ColDanger));
+
+        var spacer = new VisualElement();
+        spacer.style.flexGrow = 1;
+        row.Add(spacer);
+
+        var qtyRow = new VisualElement();
+        qtyRow.style.flexDirection = FlexDirection.Row;
+        qtyRow.style.alignItems = Align.Center;
+        qtyRow.style.flexShrink = 0;
+
+        var minus = new Button { text = "–" };
+        StyleStepButton(minus, ColDanger);
+        qtyRow.Add(minus);
+
+        var field = new TextField { value = MultiQty(vendorId, skuId).ToString(), isDelayed = true };
+        field.style.width = QtyFieldWidth;
+        field.style.marginLeft = 6; field.style.marginRight = 6;
+        ApplyFont(field, bold: true, size: 16);
+        StyleQtyField(field);
+        qtyRow.Add(field);
+
+        var plus = new Button { text = "+" };
+        StyleStepButton(plus, ColMoney);
+        qtyRow.Add(plus);
+
+        row.Add(qtyRow);
+
+        void Apply(int newQty)
+        {
+            TryMultiSetQtyWithinCapacity(vendorId, sku, newQty);
+            field.SetValueWithoutNotify(MultiQty(vendorId, skuId).ToString());
+            onQtyChanged?.Invoke();
+        }
+
+        int step = Mathf.Max(1, sku.Ti * sku.Hi);
+        minus.clicked += () => Apply(MultiQty(vendorId, skuId) - step);
+        plus.clicked += () => Apply(MultiQty(vendorId, skuId) + step);
+        field.RegisterValueChangedCallback(evt =>
+            Apply(int.TryParse(evt.newValue, out int typed) ? typed : MultiQty(vendorId, skuId)));
+
+        return row;
+    }
+
+    private VisualElement MultiVendorStatCell(string caption, string value, Color valueColor)
+    {
+        var cell = new VisualElement();
+        cell.style.width = 84;
+        cell.style.flexShrink = 0;
+        cell.style.marginRight = 10;
+
+        var cap = MakeText(caption, 10, ColSubtleText, bold: true);
+        cap.style.marginTop = 0; cap.style.marginBottom = 0;
+        cell.Add(cap);
+
+        var val = MakeText(value, 15, valueColor, bold: true);
+        val.style.marginTop = 0; val.style.marginBottom = 0;
+        cell.Add(val);
+
+        return cell;
+    }
+
+    // ── Per-vendor basket (the multi-vendor tab's own state, separate from `_basket`) ────────────
+
+    private int MultiQty(string vendorId, string skuId)
+        => !string.IsNullOrEmpty(vendorId) && _multiBaskets.TryGetValue(vendorId, out var basket) &&
+           basket.TryGetValue(skuId, out int q) ? q : 0;
+
+    private void MultiSetQty(string vendorId, string skuId, int qty)
+    {
+        qty = Mathf.Max(0, qty);
+        if (!_multiBaskets.TryGetValue(vendorId, out var basket))
+        {
+            if (qty == 0) return;
+            basket = new Dictionary<string, int>();
+            _multiBaskets[vendorId] = basket;
+        }
+
+        if (qty == 0) basket.Remove(skuId);
+        else basket[skuId] = qty;
+
+        // An emptied-out vendor basket is removed entirely rather than left as an empty dictionary —
+        // that's what keeps the tab-bar badge (`_multiBaskets.Count(kv => kv.Value.Count > 0)`) and
+        // "does this vendor have an in-progress order" checks a simple Count/ContainsKey rather than
+        // needing to also check for an empty-but-present entry.
+        if (basket.Count == 0) _multiBaskets.Remove(vendorId);
+    }
+
+    private List<(SkuData sku, int cases)> MultiBasketLines(string vendorId)
+    {
+        var list = new List<(SkuData, int)>();
+        if (string.IsNullOrEmpty(vendorId) || !_multiBaskets.TryGetValue(vendorId, out var basket)) return list;
+
+        foreach (var kv in basket)
+        {
+            var sku = FindSku(kv.Key);
+            if (sku != null) list.Add((sku, kv.Value));
+        }
+        return list;
+    }
+
+    /// <summary>Same refusal rule as TrySetQtyWithinCapacity, scoped to one vendor's own basket instead
+    /// of the single shared `_basket` — a trailer is one trailer per vendor here too.</summary>
+    private bool TryMultiSetQtyWithinCapacity(string vendorId, SkuData sku, int newQty)
+    {
+        if (sku == null) return false;
+
+        if (newQty <= MultiQty(vendorId, sku.SkuId))
+        {
+            MultiSetQty(vendorId, sku.SkuId, newQty);
+            return true;
+        }
+
+        if (TrailerCapacity.WouldOverflow(MultiBasketLines(vendorId), sku, newQty, out _))
+        {
+            ShowNotice("This load is over capacity.\n\nEither remove pallets, or dispatch this order " +
+                       "and then start a new one for the rest.");
+            return false;
+        }
+
+        MultiSetQty(vendorId, sku.SkuId, newQty);
+        return true;
+    }
+
+    /// <summary>Same seam as BasePrice/UnitPrice, but parameterized on an explicit vendor instead of
+    /// reading SelectedVendor() — this tab prices several vendors at once, not just whichever one the
+    /// old tab's single `_vendorId` currently points at. Deliberately skips DealMultiplier: VENDORS-tab
+    /// deals target the old tab's single basket only, not this one.</summary>
+    private int UnitPriceForVendor(string vendorId, SkuData sku)
+    {
+        if (sku == null) return 0;
+
+        var economy = Economy();
+        if (economy != null)
+        {
+            int priced = Mathf.RoundToInt(economy.GetEffectiveCost(vendorId, sku, Market()));
+            if (priced > 0) return priced;
+        }
+
+        var market = Market();
+        return market != null ? market.CurrentPrice(sku) : Mathf.RoundToInt(sku.BuyValue);
+    }
+
+    // ── Truck fill-bar ───────────────────────────────────────────────────────
+
+    private const float TruckFillBarWidth = 140f;
+    /// <summary>Width:height of TruckFillSprite.png (1408x785).</summary>
+    private const float TruckSpriteAspect = 1408f / 785f;
+    // Trailer BOX sub-rectangle as a fraction of the whole sprite — measured by eye against the source
+    // PNG. The box is a plain axis-aligned rectangle (the cab/hood is the sloped remainder to the
+    // right), which is what makes a simple rectangular fill overlay accurate here with no masking.
+    private const float TruckBoxLeftFrac = 0.064f;
+    private const float TruckBoxRightFrac = 0.643f;   // the NOSE — front of the trailer, nearest the cab
+    private const float TruckBoxTopFrac = 0.274f;
+    private const float TruckBoxBottomFrac = 0.599f;
+
+    private static Texture2D _truckFillSprite;
+    private static Texture2D TruckFillSprite()
+    {
+        if (_truckFillSprite == null) _truckFillSprite = Resources.Load<Texture2D>("UI/TruckFillSprite");
+        return _truckFillSprite;
+    }
+
+    /// <summary>Sprite background plus a red fill rect clipped to just the trailer box, anchored at the
+    /// box's RIGHT edge (the nose) and growing LEFT as `fillElement.style.width` increases — fills
+    /// nose-to-rear as specced, not rear-to-nose. Caller owns repainting `fillElement.style.width`
+    /// (see BuildMultiVendorGroup's RefreshHeader) since the fill level changes independently of
+    /// rebuilding this whole element.</summary>
+    private VisualElement BuildTruckFillBar(out VisualElement fillElement)
+    {
+        float h = TruckFillBarWidth / TruckSpriteAspect;
+
+        var container = new VisualElement();
+        container.style.width = TruckFillBarWidth;
+        container.style.height = h;
+        container.style.flexShrink = 0;
+        container.style.marginLeft = 10;
+        container.style.marginRight = 4;
+        container.style.position = Position.Relative;
+
+        var image = new VisualElement();
+        image.style.position = Position.Absolute;
+        image.style.left = 0; image.style.top = 0; image.style.right = 0; image.style.bottom = 0;
+        var sprite = TruckFillSprite();
+        if (sprite != null)
+        {
+            image.style.backgroundImage = new StyleBackground(sprite);
+            image.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit;
+        }
+        container.Add(image);
+
+        var fill = new VisualElement();
+        fill.style.position = Position.Absolute;
+        fill.style.top = TruckBoxTopFrac * h;
+        fill.style.height = (TruckBoxBottomFrac - TruckBoxTopFrac) * h;
+        fill.style.right = (1f - TruckBoxRightFrac) * TruckFillBarWidth;
+        fill.style.width = 0f; // painted by the caller's RefreshHeader on the very next line
+        fill.style.backgroundColor = new StyleColor(new Color(0xE2 / 255f, 0x4B / 255f, 0x4A / 255f, 0.85f));
+        container.Add(fill);
+
+        fillElement = fill;
+        return container;
+    }
+
+    // ── Dispatch ─────────────────────────────────────────────────────────────
+
+    private void DispatchVendorOrder(VendorData vendor)
+    {
+        string vendorId = vendor.VendorId;
+        if (!_multiBaskets.TryGetValue(vendorId, out var basket) || basket.Count == 0)
+        {
+            UIToast.Show("Nothing on this order yet — set a quantity on at least one item.");
+            return;
+        }
+
+        var plan = TrailerCapacity.Plan(MultiBasketLines(vendorId));
+        if (plan.OverCapacity)
+        {
+            ShowNotice($"This load is over capacity — {plan.FloorSlotsUsed} floor positions needed, " +
+                       $"{TrailerCapacity.FloorSlots} available.\n\nEither remove pallets, or dispatch " +
+                       $"this order and then start a new one for the rest.");
+            return;
+        }
+
+        int cases = basket.Values.Sum();
+        if (cases < vendor.MinimumOrderCases)
+        {
+            ShowNotice($"{vendor.DisplayName} won't take an order this small.\n\n" +
+                       $"Their minimum is {vendor.MinimumOrderCases:N0} cases and this order is " +
+                       $"{cases:N0}.\n\nAdd {vendor.MinimumOrderCases - cases:N0} more, or dispatch a " +
+                       $"different vendor's order instead.");
+            return;
+        }
+
+        float cost = MultiBasketLines(vendorId).Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
+        ShowConfirm($"Dispatch an order to {vendor.DisplayName}?\n\n" +
+                    $"{basket.Count} line(s) · {cases:N0} case(s) · {plan.Pallets.Count} pallet(s) · " +
+                    $"{Money(cost)}\n\nIt will wait in the Scheduler's unscheduled pool until you give " +
+                    $"it a door and time.",
+                    () => CommitDispatchVendorOrder(vendor));
+    }
+
+    private void CommitDispatchVendorOrder(VendorData vendor)
+    {
+        string vendorId = vendor.VendorId;
+        var shipments = Shipments();
+        if (shipments == null)
+        {
+            UIToast.Show("Purchasing is unavailable — the shipment service isn't running.");
+            return;
+        }
+
+        var plan = TrailerCapacity.Plan(MultiBasketLines(vendorId));
+        var items = new List<ShipmentLineItem>();
+        foreach (var pallet in plan.Pallets)
+        {
+            var sku = FindSku(pallet.SkuId);
+            if (sku == null) continue;
+            items.Add(new ShipmentLineItem(pallet.SkuId, pallet.Cases,
+                                           UnitPriceForVendor(vendorId, sku), sku.ShelfLifeDays)
+            {
+                FloorSlotIndex = pallet.FloorSlot,
+                PalletTier = pallet.Tier
+            });
+        }
+
+        var po = shipments.CreatePlayerPurchaseOrder(PONumberGenerator.GetRandomPONumber(),
+                                                     vendorId, vendor.DisplayName, items, Today());
+        if (po == null)
+        {
+            UIToast.Show("Couldn't raise that PO — nothing on it resolved to a real SKU.");
+            return;
+        }
+
+        UIToast.Show($"PO {po.PONumber} raised with {vendor.DisplayName} — {po.TotalUnits:N0} case(s), " +
+                     $"{Money(po.TotalCost)}. Book it a door on the Scheduler.");
+
+        ServiceLocator.TryGet<VendorPerformanceTracker>(out var perf);
+        perf?.RecordTransaction(vendorId, po.TotalCost, Today());
+
+        _multiBaskets.Remove(vendorId);
+        _tab = Tab.PoList;
+        Rebuild();
     }
 }

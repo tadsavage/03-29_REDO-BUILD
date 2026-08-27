@@ -202,5 +202,60 @@ namespace GameCore.Inventory
             }
             return count;
         }
+
+        /// <summary>
+        /// Total quantity of this SKU currently needed by active outbound orders — the "IN DEMAND"
+        /// figure on the multi-vendor Inbound Order Creation New tab. A property of the SKU/warehouse,
+        /// not of any one vendor (every vendor's listing of this SKU shows the same number). Reuses the
+        /// exact per-line "remaining need" unit GetPotScratchCount already uses (SelectableRemaining),
+        /// just summed instead of turned into a yes/no set.
+        /// </summary>
+        public int GetTotalInDemand(string skuId)
+        {
+            if (string.IsNullOrEmpty(skuId)) return 0;
+            if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return 0;
+
+            int total = 0;
+            foreach (var order in orders.ActiveOrders)
+            {
+                if (order == null) continue;
+                if (order.Status != OrderData.OrderStatus.Pending &&
+                    order.Status != OrderData.OrderStatus.PartiallyPicked) continue;
+
+                foreach (var line in order.LineItems)
+                {
+                    if (line == null || line.SkuId != skuId) continue;
+                    total += orders.SelectableRemaining(order, line);
+                }
+            }
+            return total;
+        }
+
+        /// <summary>
+        /// Total quantity of this SKU already inbound on a live (not yet fully received) shipment —
+        /// the "ON ORDER" figure alongside GetTotalInDemand. Same shipment-status filter
+        /// GetPotScratchCount uses for "already covered," just summed rather than checked as a bool.
+        /// </summary>
+        public int GetTotalOnOrder(string skuId)
+        {
+            if (string.IsNullOrEmpty(skuId)) return 0;
+            if (!ServiceLocator.TryGet<ShipmentService>(out var shipments) || shipments == null) return 0;
+
+            int total = 0;
+            foreach (var s in shipments.PendingShipments)
+            {
+                if (s == null) continue;
+                if (s.Status != ShipmentData.ShipmentStatus.InTransit &&
+                    s.Status != ShipmentData.ShipmentStatus.Receiving &&
+                    s.Status != ShipmentData.ShipmentStatus.Delayed) continue;
+
+                foreach (var li in s.LineItems)
+                {
+                    if (li == null || li.SkuId != skuId) continue;
+                    total += Mathf.Max(0, li.Quantity - li.ReceivedQuantity);
+                }
+            }
+            return total;
+        }
     }
 }
