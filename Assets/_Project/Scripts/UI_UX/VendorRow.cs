@@ -108,9 +108,9 @@ public class VendorRow
 
         // Icon cell.
         var icon = new VisualElement();
-        icon.style.width = 32; icon.style.height = 32;
+        icon.style.width = 28; icon.style.height = 28;
         icon.style.flexShrink = 0;
-        icon.style.marginRight = 8;
+        icon.style.marginRight = 6;
         icon.style.alignItems = Align.Center;
         icon.style.justifyContent = Justify.Center;
         icon.style.borderTopLeftRadius = icon.style.borderTopRightRadius =
@@ -120,26 +120,26 @@ public class VendorRow
 
         // Name + status-dot cell — fixed width so it lines up under a "Vendor" header.
         var nameCell = new VisualElement();
-        nameCell.style.width = 220;
+        nameCell.style.width = 160;
         nameCell.style.flexShrink = 0;
         nameCell.style.flexDirection = FlexDirection.Row;
         nameCell.style.alignItems = Align.Center;
-        nameCell.style.marginRight = 24;
+        nameCell.style.marginRight = 16;
 
         _nameLabel = new Label(vendor != null ? vendor.DisplayName : "Unknown Vendor");
         _nameLabel.style.color = new StyleColor(ColTitle);
         _nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        _nameLabel.style.fontSize = 14;
+        _nameLabel.style.fontSize = 13;
         _nameLabel.style.flexGrow = 1;
         _nameLabel.style.whiteSpace = WhiteSpace.Normal;
         _nameLabel.style.marginRight = 6;
         nameCell.Add(_nameLabel);
 
         _statusDot = new VisualElement();
-        _statusDot.style.width = 12; _statusDot.style.height = 12;
+        _statusDot.style.width = 10; _statusDot.style.height = 10;
         _statusDot.style.flexShrink = 0;
         _statusDot.style.borderTopLeftRadius = _statusDot.style.borderTopRightRadius =
-            _statusDot.style.borderBottomLeftRadius = _statusDot.style.borderBottomRightRadius = 6;
+            _statusDot.style.borderBottomLeftRadius = _statusDot.style.borderBottomRightRadius = 5;
         nameCell.Add(_statusDot);
         _root.Add(nameCell);
 
@@ -148,31 +148,31 @@ public class VendorRow
         var partnershipCell = new VisualElement();
         partnershipCell.style.flexDirection = FlexDirection.Row;
         partnershipCell.style.alignItems = Align.Center;
-        partnershipCell.style.marginRight = 24;
+        partnershipCell.style.marginRight = 16;
 
         _partnershipNumberLabel = new Label();
-        _partnershipNumberLabel.style.width = 48;
+        _partnershipNumberLabel.style.width = 36;
         _partnershipNumberLabel.style.flexShrink = 0;
         _partnershipNumberLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        _partnershipNumberLabel.style.fontSize = 14;
+        _partnershipNumberLabel.style.fontSize = 13;
         partnershipCell.Add(_partnershipNumberLabel);
 
         _partnershipTierLabel = new Label();
-        _partnershipTierLabel.style.minWidth = 170;
+        _partnershipTierLabel.style.minWidth = 108;
         _partnershipTierLabel.style.flexShrink = 0;
-        _partnershipTierLabel.style.fontSize = 14;
+        _partnershipTierLabel.style.fontSize = 13;
         _partnershipTierLabel.style.overflow = Overflow.Hidden;
         _partnershipTierLabel.style.textOverflow = TextOverflow.Ellipsis;
         _partnershipTierLabel.style.whiteSpace = WhiteSpace.NoWrap;
         partnershipCell.Add(_partnershipTierLabel);
         _root.Add(partnershipCell);
 
-        _travelTimeLabel = AddCell(90);
-        _potScratchLabel = AddCell(110);
-        _bestPriceLabel  = AddCell(110);
-        _spendLabel      = AddCell(130);
-        _palletsLabel    = AddCell(110);
-        _dwellLabel      = AddCell(110);
+        _travelTimeLabel = AddCell(64);
+        _potScratchLabel = AddCell(84);
+        _bestPriceLabel  = AddCell(84);
+        _spendLabel      = AddCell(90);
+        _palletsLabel    = AddCell(84);
+        _dwellLabel      = AddCell(84);
 
         var spacer = new VisualElement();
         spacer.style.flexGrow = 1;
@@ -234,12 +234,12 @@ public class VendorRow
         icon.Add(monogram);
     }
 
-    private Label AddCell(float width, bool bold = false)
+    private Label AddCell(float width, bool bold = false, float marginRight = 12f)
     {
         var label = new Label();
         label.style.width = width;
         label.style.flexShrink = 0;
-        label.style.marginRight = 24;
+        label.style.marginRight = marginRight;
         label.style.color = new StyleColor(ColTitle);
         label.style.fontSize = 14;
         if (bold) label.style.unityFontStyleAndWeight = FontStyle.Bold;

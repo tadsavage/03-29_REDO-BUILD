@@ -366,7 +366,9 @@ public class TopBarUI : MonoBehaviour
         _spd2x?.RegisterCallback<ClickEvent>(_ => SetSpeed(2f));
         _spd3x?.RegisterCallback<ClickEvent>(_ => SetSpeed(3f));
 
-        SetSpeed(1f); // start at normal speed + highlight 1×
+        SetSpeed(0f); // always start paused — per Tad's explicit request, so a fresh session (or a
+                      // just-loaded save) never has trucks/employees/the clock already moving before
+                      // the player has had a chance to look at the state they're starting from.
     }
 
     // Holistic game speed: scales the whole simulation (clock, employees, animation).

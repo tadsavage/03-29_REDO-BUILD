@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -11,14 +11,20 @@ using GameCore.Services;
 /// PURCHASING — where raw stock comes into the building. Play-bar key 9.
 ///
 /// The inbound counterpart to the Contracts panel: that one is demand the player accepts, this is
-/// supply the player commits to. Four tabs, mirroring the life of a purchase order:
+/// supply the player commits to. Three tabs, mirroring the life of a purchase order:
 ///
-///   INBOUND ORDER CREATION  build a basket against the SKU database, pick a delivery day, raise it.
-///   VENDORS                 the supplier roster — partnership level, fill rate, catalogue — and the
-///                           "Order from Vendor" shortcut into a pinned Create tab. Moved here from
-///                           ContractsPanel: vendors are suppliers, so this is the inbound side's job.
+///   INBOUND ORDER CREATION  comparison shopping across every vendor at once — a collapsible group
+///                           per house, each with its own independent load, so the same SKU can be
+///                           priced and bought from several vendors side by side before any of them
+///                           dispatch. Replaced the old single-vendor "pick one house, build one
+///                           basket" Create tab entirely, taking over both its name and position.
+///   VENDORS                 the supplier roster — partnership level, fill rate, catalogue — plus The
+///                           Broker's salvage loads and the Spot Deals board (moved here once the old
+///                           Create tab that used to host them was removed), and the "Order from
+///                           Vendor" shortcut into Inbound Order Creation pre-filtered to one house.
+///                           Moved here from ContractsPanel: vendors are suppliers, so this is the
+///                           inbound side's job.
 ///   PO LIST                 orders raised and not yet finished — what's coming and when.
-///   ARCHIVED POS            finished orders, kept as a record of what's been bought.
 ///
 /// BUILT PROGRAMMATICALLY, like ShiftManagerPanel / WorkQueuePanel / ContractsPanel, rather than from
 /// a UXML+USS pair. This panel is a data list with per-row controls, not bespoke art, and the UXML
@@ -62,6 +68,11 @@ public class PurchasingPanel : IUIPanel
     private static readonly Color ColCreateGreenEdge  = new Color(0x24 / 255f, 0x66 / 255f, 0x33 / 255f, 1f);
     private static readonly Color ColCreateGreenHover = new Color(0x4C / 255f, 0xB8 / 255f, 0x65 / 255f, 1f);
 
+    // Multi-vendor tab's DEALS button — same red family as VendorRow's deal bar (ColDealRed there),
+    // reusing ColDanger as the fill so it also matches this tab's own truck-fill-bar red.
+    private static readonly Color ColDealRedEdge  = new Color(0x6E / 255f, 0x1C / 255f, 0x19 / 255f, 1f);
+    private static readonly Color ColDealRedHover = new Color(0xF0 / 255f, 0x6A / 255f, 0x69 / 255f, 1f);
+
     /// <summary>Line-cost plate colours, lifted from the mock: a near-black plate with a muted caption
     /// over a warm tan figure. Its own palette on purpose — it's the one number that changes as you
     /// press the steppers, and it has to pop off a card that's already blue-on-navy.</summary>
@@ -77,16 +88,6 @@ public class PurchasingPanel : IUIPanel
     /// it's a field rather than the local const it used to be — Build()'s closures aren't reachable
     /// from there.</summary>
     private const float TitleButtonSize = 48f;
-
-    /// <summary>Both item columns are BLUE. The mock had one column green and one blue, which reads as
-    /// two different KINDS of supplier — they aren't, they're just two halves of one list.</summary>
-    private const float ItemColGap = 14f;
-
-    /// <summary>Compact catalogue sizing keeps the ordering surface dominant: purchase controls are
-    /// a short dashboard above, while enough item cards remain visible to compare several SKUs without
-    /// immediately scrolling.</summary>
-    private const float IconSize = 84f;
-    private const int ItemNameFontSize = 22;
 
     private const float QtyFieldWidth = 82f;
     private const float StepButtonSize = 30f;
@@ -105,8 +106,11 @@ public class PurchasingPanel : IUIPanel
     private const float ActionLinkWidth = 132f;
 
 
-    private enum Tab { Create, Vendors, PoList, Archived, MultiVendor }
-    private Tab _tab = Tab.Create;
+    // MultiVendor is what's shown as "Inbound Order Creation" — the old single-vendor Create tab
+    // (which used to own that name) is gone; MultiVendor took over both its name and its position as
+    // the default/first tab.
+    private enum Tab { Vendors, PoList, MultiVendor }
+    private Tab _tab = Tab.MultiVendor;
 
     private readonly VisualElement _overlay;
     private readonly VisualElement _modal;
@@ -122,52 +126,25 @@ public class PurchasingPanel : IUIPanel
     private bool _dragging;
     private Vector2 _dragOffset;
 
-    /// <summary>The basket: SKU id → cases ordered. Only non-zero entries live here, so "is anything
-    /// on this order" is a Count check rather than a scan of every SKU in the database.</summary>
-    private readonly Dictionary<string, int> _basket = new();
-
-    /// <summary>SKU id -> discount percent, for cases added via a VENDORS-tab deal (see
-    /// AddDealToBasket). Read by DealMultiplier/UnitPrice; cleared everywhere `_basket` is cleared so a
-    /// discount can never outlive the order it was accepted onto.</summary>
-    private readonly Dictionary<string, float> _dealDiscountBySku = new();
-
-    /// <summary>INBOUND ORDER CREATION NEW tab's baskets — one independent in-progress order PER
-    /// VENDOR (vendorId -> (skuId -> cases)), unlike `_basket`/`_vendorId` above which hold exactly one
-    /// order for whichever single vendor is currently selected. Deliberately separate state: the whole
-    /// point of this tab is comparing/building several vendors' loads side by side without one
-    /// clobbering another the way switching `_vendorId` on the old tab does.</summary>
+    /// <summary>Inbound Order Creation's baskets — one independent in-progress load PER VENDOR
+    /// (vendorId -> (skuId -> cases)), so comparing/building several vendors' loads side by side never
+    /// has one clobbering another.</summary>
     private readonly Dictionary<string, Dictionary<string, int>> _multiBaskets = new();
 
-    /// <summary>Which vendor groups are expanded on the multi-vendor tab. Survives Rebuild() (that tab
-    /// rebuilds its content fresh every time, unlike VendorsTabView's cached root) so opening a
+    /// <summary>Which vendor groups are expanded on Inbound Order Creation. Survives Rebuild() (that
+    /// tab rebuilds its content fresh every time, unlike VendorsTabView's cached root) so opening a
     /// vendor's list doesn't collapse the moment a quantity change triggers a repaint.</summary>
     private readonly HashSet<string> _expandedMultiVendors = new();
 
-    /// <summary>Vendor-name search filter for the multi-vendor tab's header search box.</summary>
+    /// <summary>Vendor-name search filter for Inbound Order Creation's header search box.</summary>
     private string _multiVendorSearchText = "";
 
-    /// <summary>The number shown at the top of the create tab. Reserved when the tab is opened rather
-    /// than when the order is submitted, because the player reads it off the screen while filling the
-    /// order in — it has to be the number they actually get.</summary>
-    /// <summary>Which supplier the Create tab is buying from. Persisted only for the life of the
-    /// panel — SelectedVendor() re-anchors it to the first unlocked house whenever it stops being a
-    /// valid choice.</summary>
-    private string _vendorId;
+    /// <summary>Deal discounts claimed on Inbound Order Creation, keyed by DealKey(vendorId, skuId) —
+    /// this tab prices several vendors' loads at once, so the same SKU can carry a claimed discount
+    /// under one vendor while carrying none (or a different one) under another. Cleared per vendor
+    /// when that vendor's load dispatches (see CommitDispatchVendorOrder).</summary>
+    private readonly Dictionary<string, float> _multiDealDiscountByKey = new();
 
-    /// <summary>Set when the Create tab was opened via "Order from Vendor" on the VENDORS tab. While
-    /// true, the vendor-chip switcher is hidden and the catalogue is exclusively that vendor's
-    /// currently Partnership-unlocked items — you walked into a specific house rather than browsing
-    /// the whole roster. Cleared the moment the player manually switches vendors again.</summary>
-    private bool _exclusiveVendorFilter;
-
-    /// <summary>Shared Excel-style header sort/search state for the item grid — same controller class
-    /// the VENDORS tab uses for its own grid, so both cycle sort and filter identically.</summary>
-    private readonly ExcelHeaderSortController _itemSortController = new();
-
-    private string _poNumber;
-
-
-    private Label _orderTotalLabel;
     private static Font _lilita;
 
     /// <summary>The VENDORS tab's builder — constructed once alongside every other tab's state so
@@ -177,10 +154,12 @@ public class PurchasingPanel : IUIPanel
     private VendorsTabView _vendorsTabView;
     private VisualElement _vendorsTabRoot;
     private VisualElement _vendorsPane;
+    private VisualElement _vendorsDealsStrip;
 
-    /// <summary>Root scroll view for the INBOUND ORDER CREATION NEW tab. Unlike _vendorsPane, this is
-    /// cleared and rebuilt every Rebuild() (matches Tab.Create's own always-rebuild convention) rather
-    /// than built once and cached — its content changes with every qty-stepper press.</summary>
+    /// <summary>Root scroll view for the INBOUND ORDER CREATION tab (the multi-vendor one — the old
+    /// single-vendor Create tab that used to own that name is gone). Unlike _vendorsPane, this is
+    /// cleared and rebuilt every Rebuild() rather than built once and cached — its content changes
+    /// with every qty-stepper press.</summary>
     private ScrollView _multiVendorPane;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -191,18 +170,22 @@ public class PurchasingPanel : IUIPanel
         root.Add(_overlay);
         _overlay.Add(BuildConfirmDialog());
 
-        _itemSortController.RegisterColumn("ItemName");
-        _itemSortController.RegisterColumn("Rarity");
-        _itemSortController.RegisterColumn("UnitCost");
-        _itemSortController.RegisterColumn("FillRate");
-        _itemSortController.OnStateChanged += Rebuild;
-
         ServiceLocator.TryGet<VendorEconomyService>(out var vendorEconomy);
         ServiceLocator.TryGet<VendorPerformanceTracker>(out var vendorTracker);
         var vendorSfx = Resources.Load<VendorUiSfxConfig>("VendorUiSfx");
-        _vendorsTabView = new VendorsTabView(vendorEconomy, vendorTracker, vendorSfx, Hide, AddDealToBasket);
+        _vendorsTabView = new VendorsTabView(vendorEconomy, vendorTracker, vendorSfx, AddDealToBasket);
 
         EventManager.Instance?.Subscribe<string>(GameEvents.Vendor.OnOrderFromVendorRequested, OnOrderFromVendorRequested);
+
+        // The PO List's docked/UNLOADING status (see LiveDockStatus) only gets recomputed on a
+        // Rebuild(), and nothing else fires one while a truck rolls up to a door and starts unloading
+        // mid-view — so it would sit on "InTransit" the whole time the player was watching it happen.
+        // A light poll only while that tab is actually open and visible fixes it without adding a
+        // general-purpose refresh loop the rest of this panel doesn't need.
+        _overlay.schedule.Execute(() =>
+        {
+            if (_visible && _tab == Tab.PoList) Rebuild();
+        }).Every(1000);
 
         Hide();
     }
@@ -215,13 +198,16 @@ public class PurchasingPanel : IUIPanel
 
     /// <summary>Routed here from this panel's own VENDORS tab's "Order from Vendor" button, via the
     /// central EventManager rather than a direct call — VendorsTabView doesn't know which panel hosts
-    /// it. Pins the Create tab to exactly that vendor's catalogue and switches to it.</summary>
+    /// it. Switches to Inbound Order Creation (the multi-vendor tab — the old single-vendor Create tab
+    /// this used to point at is gone) with the search box narrowed to this vendor and its group
+    /// pre-expanded, so the player lands looking at exactly the house they asked for.</summary>
     private void OnOrderFromVendorRequested(string eventId, string vendorId)
     {
         if (string.IsNullOrEmpty(vendorId)) return;
-        _vendorId = vendorId;
-        _exclusiveVendorFilter = true;
-        _tab = Tab.Create;
+        var vendor = VendorRegistry.Load()?.GetById(vendorId);
+        _multiVendorSearchText = vendor?.DisplayName ?? string.Empty;
+        _expandedMultiVendors.Add(vendorId);
+        _tab = Tab.MultiVendor;
         Show();
     }
 
@@ -230,15 +216,16 @@ public class PurchasingPanel : IUIPanel
     /// construction rather than routed through EventManager like OnOrderFromVendorRequested — that one
     /// predates the Vendors tab living in this same panel and had to cross panels; this one doesn't.
     ///
-    /// Adds the deal's cases to whatever's currently being built for this vendor. Per the accepted
-    /// plan: if nothing's building yet, this starts the order; if something IS building for a
-    /// DIFFERENT vendor (a PO is one vendor at their prices, same rule OnSelectVendor already
-    /// enforces) or the deal simply won't fit on top of it, the in-progress basket is cleared and
-    /// replaced with just the deal — never silently dropped, always toasted.
+    /// Adds the deal's cases straight into that vendor's OWN Inbound Order Creation load
+    /// (`_multiBaskets[vendorId]`), discount-tracked the same way that tab's own DEALS button does
+    /// (`_multiDealDiscountByKey`) — the old single-vendor `_basket` this used to write into is gone
+    /// along with the Create tab. Nothing has to be cleared to make room for a different vendor's deal
+    /// any more: every vendor keeps its own independent load now.
     ///
-    /// STAYS ON THE VENDORS TAB rather than jumping to Create — unlike "Order from Vendor" (which
-    /// exists specifically to take you shopping), accepting a deal is a quick grab you make while
-    /// browsing the roster, and per Tad's explicit request it shouldn't yank you away from that.
+    /// STAYS ON THE VENDORS TAB rather than jumping to Inbound Order Creation — unlike "Order from
+    /// Vendor" (which exists specifically to take you shopping), accepting a deal is a quick grab you
+    /// make while browsing the roster, and per Tad's explicit request it shouldn't yank you away from
+    /// that.
     /// </summary>
     public void AddDealToBasket(string vendorId, string skuId, int pallets, float discountPercent)
     {
@@ -246,26 +233,23 @@ public class PurchasingPanel : IUIPanel
         if (string.IsNullOrEmpty(vendorId) || sku == null) return;
 
         int cases = Mathf.Max(1, pallets) * Mathf.Max(1, sku.Ti * sku.Hi);
-        bool sameVendorWithRoom = _vendorId == vendorId && _basket.Count > 0 &&
-            !TrailerCapacity.WouldOverflow(BasketLines(), sku, Qty(sku.SkuId) + cases, out _);
+        int newQty = MultiQty(vendorId, sku.SkuId) + cases;
 
-        if (_basket.Count > 0 && !sameVendorWithRoom)
+        if (TrailerCapacity.WouldOverflow(MultiBasketLines(vendorId), sku, newQty, out _))
         {
-            _basket.Clear();
-            _dealDiscountBySku.Clear();
-            UIToast.Show("The in-progress order was cleared to make room for the deal.");
+            UIToast.Show("That vendor's load doesn't have room for the deal — dispatch or trim it " +
+                         "first, then come back for it.");
+            return;
         }
 
-        _vendorId = vendorId;
-        _exclusiveVendorFilter = false;
-        SetQty(sku.SkuId, Qty(sku.SkuId) + cases);
-        _dealDiscountBySku[sku.SkuId] = discountPercent;
+        MultiSetQty(vendorId, sku.SkuId, newQty);
+        _multiDealDiscountByKey[DealKey(vendorId, sku.SkuId)] = discountPercent;
 
         // Staying on the Vendors tab means the player never sees the basket update directly, so this
         // toast is the only confirmation the deal actually landed.
         string vendorName = VendorRegistry.Load()?.GetById(vendorId)?.DisplayName ?? vendorId;
         UIToast.Show($"Added {cases:N0} case(s) of {sku.ItemDescription} at -{discountPercent:0}% to " +
-                     $"the PO for {vendorName} — check Inbound Order Creation to finish it.");
+                     $"the load for {vendorName} — check Inbound Order Creation to finish it.");
 
         Rebuild(); // stays on whatever tab is current (Vendors) — see doc comment above
     }
@@ -284,16 +268,12 @@ public class PurchasingPanel : IUIPanel
         // panel opened before it, and KeepOnTop hands the top slot back to a visible toast.
         _overlay.BringToFront();
         UIToast.KeepOnTop();
-        // A fresh number per opening. Nothing is spent by reserving one, and the alternative — one
-        // number reused until an order is finally raised — means the number on screen changes meaning
-        // depending on how many times you opened and abandoned the panel.
-        if (_poNumber == null) NewPoNumber();
         Rebuild();
         CentreOnce();
 
         // Always opens filled rather than normal size — the VENDORS tab alone now carries six data
-        // columns plus Partnership/Travel Time/buttons, and the Create/PO List tabs have plenty of
-        // their own rows too. Deferred one frame, same reason CentreOnce is: on the very first Show()
+        // columns plus Partnership/Travel Time/buttons, and Inbound Order Creation/PO List have plenty
+        // of their own rows too. Deferred one frame, same reason CentreOnce is: on the very first Show()
         // of a session the panel hasn't been through a layout pass yet, so FillScreen's size math has
         // nothing real to measure — see FillScreen's own doc comment for why it's safe to just call
         // this again rather than needing a retry loop.
@@ -311,8 +291,6 @@ public class PurchasingPanel : IUIPanel
         HideConfirm();
         _overlay.style.display = DisplayStyle.None;
     }
-
-    private void NewPoNumber() => _poNumber = PONumberGenerator.GetRandomPONumber();
 
     private void CentreOnce()
     {
@@ -488,6 +466,15 @@ public class PurchasingPanel : IUIPanel
         modal.Add(vendorsPane);
         _vendorsPane = vendorsPane;
 
+        // The Broker's salvage loads and the Spot Deals board — see the doc comment on this being
+        // populated in Rebuild() for why they live here now instead of the (removed) Create tab.
+        // A plain sibling ABOVE the vendor roster, not inside VendorsTabView's own root: it's rebuilt
+        // fresh every Rebuild() (offers expire/get claimed) while _vendorsTabRoot below is built once
+        // and cached, so the two need to stay independent.
+        _vendorsDealsStrip = new VisualElement();
+        _vendorsDealsStrip.style.flexShrink = 0;
+        _vendorsPane.Add(_vendorsDealsStrip);
+
         // MULTI-VENDOR tab layout — same "sibling pane, own scroll view" reasoning as VENDORS above:
         // each vendor group nests its own detail ScrollView, and nesting that inside `content` (itself
         // a ScrollView) fights Yoga's auto-height sizing the same way.
@@ -542,14 +529,11 @@ public class PurchasingPanel : IUIPanel
 
         var shipments = Shipments();
         int live = shipments?.PendingShipments.Count(s => s != null) ?? 0;
-        int archived = shipments?.ArchivedShipments.Count ?? 0;
 
-        _tabBar.Add(MakeTab("Inbound Order Creation", Tab.Create, _basket.Count));
+        _tabBar.Add(MakeTab("Inbound Order Creation", Tab.MultiVendor,
+                             _multiBaskets.Count(kv => kv.Value.Count > 0)));
         _tabBar.Add(MakeTab("Vendors", Tab.Vendors, 0));
         _tabBar.Add(MakeTab("PO List", Tab.PoList, live));
-        _tabBar.Add(MakeTab("Archived POs", Tab.Archived, archived));
-        _tabBar.Add(MakeTab("Inbound Order Creation New", Tab.MultiVendor,
-                             _multiBaskets.Count(kv => kv.Value.Count > 0)));
 
         // VENDORS and MULTI-VENDOR are sibling panes shown instead of `content`, same as
         // ContractsPanel's old Accounts/Bulk split — both own their own scroll views nested inside,
@@ -560,6 +544,16 @@ public class PurchasingPanel : IUIPanel
 
         if (_tab == Tab.Vendors)
         {
+            // The Broker's salvage loads and the Spot Deals board used to live inside the old
+            // single-vendor Create tab — neither is per-vendor (The Broker and Spot Market are their
+            // own one-click "buy now" boards, not part of any vendor's catalogue), so when that tab was
+            // removed they moved here instead: the tab that's already built around "deals" rather than
+            // being bolted onto whichever shopping tab happened to still exist. Rebuilt fresh every
+            // time (offers expire at midnight / get claimed), unlike _vendorsTabRoot below.
+            _vendorsDealsStrip.Clear();
+            _vendorsDealsStrip.Add(BuildSalvageStrip());
+            _vendorsDealsStrip.Add(BuildSpotDealsStrip());
+
             // Built once and cached rather than torn down and rebuilt on every Rebuild() — its own
             // rows already know how to refresh themselves.
             if (_vendorsTabRoot == null)
@@ -577,22 +571,14 @@ public class PurchasingPanel : IUIPanel
             return;
         }
 
-        switch (_tab)
-        {
-            case Tab.Create: BuildCreateTab(); break;
-            case Tab.PoList: BuildShipmentList(shipments?.PendingShipments, live: true); break;
-            default: BuildShipmentList(shipments?.ArchivedShipments, live: false); break;
-        }
+        BuildShipmentList(shipments?.PendingShipments, live: true);
     }
 
     private static string TitleFor(Tab tab) => tab switch
     {
-        Tab.Create => "INBOUND INVENTORY ORDERING",
         Tab.Vendors => "VENDORS",
-        Tab.PoList => "PURCHASE ORDERS — IN FLIGHT",
-        Tab.MultiVendor => "INBOUND ORDER CREATION NEW",
-        Tab.Archived => "PURCHASE ORDERS — ARCHIVE",
-        _ => "PURCHASE ORDERS — ARCHIVE"
+        Tab.MultiVendor => "INBOUND ORDER CREATION",
+        _ => "PURCHASE ORDERS — IN FLIGHT"
     };
 
     /// <summary>Folder-style tab, same construction as ContractsPanel's: the active one is taller,
@@ -642,619 +628,6 @@ public class PurchasingPanel : IUIPanel
         }
         button.RegisterCallback<ClickEvent>(_ => { _tab = tab; Rebuild(); });
         return button;
-    }
-
-    // ── Tab 1: Inbound Order Creation ────────────────────────────────────────
-
-    private void BuildCreateTab()
-    {
-        // The whole-order controls live in the STATIONARY header, not the scroll view: they apply to
-        // every line, and scrolling a 31-item catalogue away from the number you're ordering against
-        // (or the total you're watching) is exactly when you want them.
-        //
-        // NO DELIVERY-DAY PICKER. Every PO is scheduled by hand on the Scheduler after it's raised —
-        // it lands in the unscheduled pool and the player drops it on the day, block and door they
-        // want. A dropdown here was a second, weaker way to say the same thing, and the two could
-        // disagree: dispatch reads the APPOINTMENT when one exists, so a PO "ordered for Day 5" and
-        // placed on Day 3 arrived on Day 3 and the dropdown was simply a lie about it.
-        //
-        // What's left is identity — the PO number — plus a line telling the player where the timing
-        // decision actually gets made.
-        var idRow = new VisualElement();
-        idRow.style.flexDirection = FlexDirection.Row;
-        idRow.style.alignItems = Align.Center;
-        idRow.style.justifyContent = Justify.SpaceBetween;
-        idRow.style.marginBottom = 5;
-
-        var hint = MakeText("Raise the PO, then assign its door and time on the Scheduler.",
-                             13, ColSubtleText);
-                            // removed duplicate compact-header font setting
-        hint.style.whiteSpace = WhiteSpace.NoWrap;
-        idRow.Add(hint);
-
-
-        var poPill = new VisualElement();
-        poPill.style.flexShrink = 0;
-        poPill.style.paddingLeft = 14; poPill.style.paddingRight = 14;
-        poPill.style.paddingTop = 3; poPill.style.paddingBottom = 3;
-        // Orange scheme, matching every other orange callout on this panel (spot deals card, active
-        // tab) — was a green-bordered ColStat pill; the LOAD COST readout above now owns green.
-        poPill.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.22f));
-        poPill.style.borderTopWidth = poPill.style.borderBottomWidth =
-            poPill.style.borderLeftWidth = poPill.style.borderRightWidth = 2;
-        poPill.style.borderTopColor = poPill.style.borderBottomColor =
-            poPill.style.borderLeftColor = poPill.style.borderRightColor = new StyleColor(ColOrangeEdge);
-        poPill.style.borderTopLeftRadius = poPill.style.borderTopRightRadius =
-            poPill.style.borderBottomLeftRadius = poPill.style.borderBottomRightRadius = 8;
-        var poLabel = MakeText($"PO #: {_poNumber}", 19, ColOrangeText, bold: true);
-        poLabel.style.marginTop = 0; poLabel.style.marginBottom = 0;
-        poLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        poPill.Add(poLabel);
-        idRow.Add(poPill);
-
-        _tabHeader.Add(idRow);
-        // Supplier first: it decides what the catalogue below even contains, so it has to be read
-        // before the items, not after them. Skipped entirely in the exclusive vendor filter — the
-        // player was routed here from one specific house on the VENDORS tab, not browsing the roster.
-        if (!_exclusiveVendorFilter) _tabHeader.Add(BuildVendorBar());
-        else _tabHeader.Add(BuildExclusiveVendorBanner());
-        _tabHeader.Add(BuildCapacityMeter());
-
-        // ── Two blue columns of item cards ──
-        var skus = OrderableSkus();
-        if (skus.Count == 0)
-        {
-            var none = MakeText("No SKUs are available to order. Check that the SKU database is loaded.",
-                                16, ColEmptyText);
-            none.style.unityTextAlign = TextAnchor.MiddleCenter;
-            none.style.marginTop = 30;
-            _content.Add(none);
-
-            // Footer STILL gets built. Returning early here left the tab with no Cancel button and no
-            // way out but the ✕ — an empty catalogue is exactly the broken-looking state where the
-            // player most needs the normal controls to still be there.
-            BuildCreateFooter();
-            RefreshOrderTotal();
-            return;
-        }
-
-        // Above the catalogue: the broker's load if there is one, then today's expiring offers.
-        // Broker first — it appears rarely and costs four figures, so it outranks the spot board.
-        _content.Add(BuildSalvageStrip());
-        _content.Add(BuildSpotDealsStrip());
-        _content.Add(BuildItemSortBar());
-
-        var columns = new VisualElement();
-        columns.style.flexDirection = FlexDirection.Row;
-        columns.style.alignItems = Align.FlexStart;
-
-        var leftCol = MakeItemColumn(ItemColGap);
-        var rightCol = MakeItemColumn(0f);
-        columns.Add(leftCol);
-        columns.Add(rightCol);
-        _content.Add(columns);
-
-        // Split down the middle rather than alternating left/right, so the list reads top-to-bottom
-        // in each column like a page rather than zig-zagging across the gap.
-        int half = Mathf.CeilToInt(skus.Count / 2f);
-        for (int i = 0; i < skus.Count; i++)
-            (i < half ? leftCol : rightCol).Add(BuildItemCard(skus[i], i));
-
-        BuildCreateFooter();
-        RefreshOrderTotal();
-    }
-
-    /// <summary>Excel-style "click to cycle sort, type to search" strip for the item catalogue —
-    /// same ExcelHeaderSortController the VENDORS tab's grid uses, so the two behave identically.</summary>
-    private VisualElement BuildItemSortBar()
-    {
-        var bar = new VisualElement();
-        bar.style.flexDirection = FlexDirection.Row;
-        bar.style.alignItems = Align.Center;
-        bar.style.marginBottom = 8;
-        bar.style.flexWrap = Wrap.Wrap;
-
-        var searchLabel = MakeText("Search:", 13, ColSubtleText);
-        searchLabel.style.marginRight = 4;
-        bar.Add(searchLabel);
-
-        var search = new TextField { value = _itemSortController.GetSearchText("ItemName") };
-        search.style.width = 160;
-        search.style.marginRight = 12;
-        search.RegisterValueChangedCallback(evt => _itemSortController.SetSearchText("ItemName", evt.newValue));
-        bar.Add(search);
-
-        bar.Add(MakeSortHeaderButton("Name", "ItemName"));
-        bar.Add(MakeSortHeaderButton("Rarity", "Rarity"));
-        bar.Add(MakeSortHeaderButton("Unit Cost", "UnitCost"));
-        bar.Add(MakeSortHeaderButton("Fill Rate", "FillRate"));
-
-        return bar;
-    }
-
-    private Button MakeSortHeaderButton(string label, string columnId)
-    {
-        var dir = _itemSortController.GetDirection(columnId);
-        string arrow = dir == ExcelHeaderSortController.SortDirection.Ascending ? " ▲"
-                      : dir == ExcelHeaderSortController.SortDirection.Descending ? " ▼" : "";
-
-        var btn = new Button(() => _itemSortController.OnHeaderClicked(columnId)) { text = label + arrow };
-        StyleSquareButton(btn);
-        btn.style.width = new StyleLength(StyleKeyword.Auto);
-        btn.style.height = new StyleLength(StyleKeyword.Auto);
-        btn.style.paddingTop = 5; btn.style.paddingBottom = 5;
-        btn.style.paddingLeft = 10; btn.style.paddingRight = 10;
-        btn.style.marginRight = 6;
-        if (dir != ExcelHeaderSortController.SortDirection.None)
-            btn.style.borderTopColor = btn.style.borderBottomColor =
-                btn.style.borderLeftColor = btn.style.borderRightColor = new StyleColor(ColOrange);
-        return btn;
-    }
-
-    private VisualElement MakeItemColumn(float marginRight)
-    {
-        var column = new VisualElement();
-        column.style.flexGrow = 1;
-        column.style.flexBasis = 0;
-        column.style.marginRight = marginRight;
-        column.style.paddingTop = 10; column.style.paddingBottom = 10;
-        column.style.paddingLeft = 10; column.style.paddingRight = 10;
-        // BOTH columns blue. The mock had one green — that reads as two different kinds of supplier,
-        // and they're just two halves of one catalogue.
-        column.style.backgroundColor = new StyleColor(new Color(ColBorder.r, ColBorder.g, ColBorder.b, 0.06f));
-        column.style.borderTopWidth = column.style.borderBottomWidth =
-            column.style.borderLeftWidth = column.style.borderRightWidth = 2;
-        column.style.borderTopColor = column.style.borderBottomColor =
-            column.style.borderLeftColor = column.style.borderRightColor = new StyleColor(ColBorder);
-        column.style.borderTopLeftRadius = column.style.borderTopRightRadius =
-            column.style.borderBottomLeftRadius = column.style.borderBottomRightRadius = 10;
-        return column;
-    }
-
-    /// <summary>
-    /// One orderable SKU: icon, name, unit cost, the quantity stepper, case size, and the line total.
-    ///
-    /// The stepper sits LEFT-ALIGNED directly under the cost line, in the space the mock wasted on an
-    /// empty framed box. Everything the player reads about this item — name, cost, the number they're
-    /// changing — now sits on one left edge instead of the eye crossing the card to find the control.
-    /// </summary>
-    private VisualElement BuildItemCard(SkuData sku, int rowIndex)
-    {
-        string skuId = sku.SkuId;
-
-        var card = new VisualElement();
-        card.style.flexDirection = FlexDirection.Row;
-        card.style.alignItems = Align.FlexStart;
-        card.style.paddingTop = 8; card.style.paddingBottom = 8;
-        card.style.paddingLeft = 10; card.style.paddingRight = 10;
-        card.style.marginBottom = 6;
-        card.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColCardEven : ColCardOdd);
-        card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
-            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 8;
-        card.style.borderLeftWidth = 3;
-        card.style.borderLeftColor = new StyleColor(ColBlueEdge);
-
-        // Icon
-        var icon = new VisualElement();
-        icon.style.width = IconSize; icon.style.height = IconSize;
-        icon.style.flexShrink = 0;
-        icon.style.marginRight = 10;
-        icon.style.borderTopLeftRadius = icon.style.borderTopRightRadius =
-            icon.style.borderBottomLeftRadius = icon.style.borderBottomRightRadius = 6;
-        if (sku.Icon != null) icon.style.backgroundImage = new StyleBackground(sku.Icon);
-        else icon.style.backgroundColor = new StyleColor(ColBlueEdge);
-        card.Add(icon);
-
-        var body = new VisualElement();
-        body.style.flexGrow = 1;
-        body.style.flexShrink = 1;
-
-        var name = MakeText(sku.ItemDescription, ItemNameFontSize, ColTitleText, bold: true);
-        name.style.whiteSpace = WhiteSpace.Normal;
-        body.Add(name);
-
-        // Price line: today's market price, how it sits against this SKU's normal, and the week
-        // behind it. The sparkline is the whole reason the price moving is a MECHANIC rather than
-        // noise — without a week of context, a number that changes every morning is just a number
-        // that changes every morning.
-        var priceRow = new VisualElement();
-        priceRow.style.flexDirection = FlexDirection.Row;
-        priceRow.style.alignItems = Align.Center;
-        priceRow.style.marginTop = 1;
-        // WRAPS, and every child refuses to shrink. The card body is what's left after a 116px icon
-        // and a 150px cost plate, which at two columns is under 250px — narrower than cost + chip +
-        // sparkline laid out in a line. Without this the chip renders as "NORM" and "10% O" and the
-        // sparkline is clipped away entirely. Wrapping drops them to a second line instead, and keeps
-        // doing the right thing as the window is dragged narrower.
-        priceRow.style.flexWrap = Wrap.Wrap;
-
-        var cost = MakeText($"Item Cost: {Money(UnitPrice(sku))}/case", 15, ColChipOutText, bold: true);
-        cost.style.marginTop = 0; cost.style.marginBottom = 0;
-        cost.style.flexShrink = 0;
-        cost.style.whiteSpace = WhiteSpace.NoWrap;
-        priceRow.Add(cost);
-
-        priceRow.Add(MakeTrendChip(sku));
-        priceRow.Add(MakeSparkline(sku));
-        body.Add(priceRow);
-
-        // ── Quantity stepper — top-right corner of the card frame, stacked above the Line Cost
-        // plate (see the rightCol built below). Used to sit left-justified under the cost line in
-        // the card body; moved per repeated request to the upper-right corner instead.
-        var qtyRow = new VisualElement();
-        qtyRow.style.flexDirection = FlexDirection.Row;
-        qtyRow.style.alignItems = Align.Center;
-
-        var minus = new Button { text = "–" };
-        StyleStepButton(minus, ColDanger);
-        qtyRow.Add(minus);
-
-        // A typeable field, not a label: the player asked to be able to click in and type a quantity,
-        // and typing 240 is a great deal faster than pressing + 240 times.
-        var field = new TextField { value = Qty(skuId).ToString(), isDelayed = true };
-        field.style.width = QtyFieldWidth;
-        field.style.marginLeft = 6; field.style.marginRight = 6;
-        // Larger numeral improves scanability. Paired with StyleQtyField's taller field/zeroed
-        // padding below — bumping only the font size while the field stayed 30px tall clipped every
-        // digit's top and bottom off, leaving what looked like two stray dashes instead of "0".
-        ApplyFont(field, bold: true, size: 18);
-        StyleQtyField(field);
-        qtyRow.Add(field);
-
-        var plus = new Button { text = "+" };
-        StyleStepButton(plus, ColMoney);
-        qtyRow.Add(plus);
-
-        // Doubles as the per-line capacity readout once anything is ordered: how many pallets this
-        // line becomes, and whether they stack. That's the information that explains the fill bar —
-        // without it "why did adding 40 cases eat two slots?" has no answer on screen.
-        var palletNote = MakeText($"Case Size: {TrailerCapacity.CasesPerPallet(sku)} cases/pallet",
-                                  15, ColSubtleText);
-        palletNote.style.marginTop = 3;
-        body.Add(palletNote);
-
-        card.Add(body);
-
-        // ── Right-hand column: quantity stepper stacked ABOVE the Line Cost plate, both pinned to
-        // the upper-right corner of the card frame. Card is Align.FlexStart, so this column starts
-        // flush with the card's top edge instead of centering down the middle.
-        var rightCol = new VisualElement();
-        rightCol.style.flexShrink = 0;
-        rightCol.style.alignItems = Align.FlexEnd;
-        rightCol.style.marginLeft = 10;
-        rightCol.Add(qtyRow);
-
-        var plate = new VisualElement();
-        plate.style.width = LineCostPlateWidth;
-        plate.style.flexShrink = 0;
-        plate.style.alignItems = Align.Center;
-        plate.style.justifyContent = Justify.Center;
-        plate.style.marginTop = 6;
-        plate.style.paddingTop = 6; plate.style.paddingBottom = 6;
-        plate.style.paddingLeft = 10; plate.style.paddingRight = 10;
-        plate.style.backgroundColor = new StyleColor(ColPlateBg);
-        plate.style.borderTopLeftRadius = plate.style.borderTopRightRadius =
-            plate.style.borderBottomLeftRadius = plate.style.borderBottomRightRadius = 8;
-
-        var plateCaption = MakeText("Line Cost:", 15, ColPlateCaption, bold: true);
-        plateCaption.style.marginTop = 0; plateCaption.style.marginBottom = 0;
-        plateCaption.style.whiteSpace = WhiteSpace.NoWrap;
-        plate.Add(plateCaption);
-
-        var lineCost = MakeText("$0", 26, ColPlateValue, bold: true);
-        lineCost.style.marginTop = 0; lineCost.style.marginBottom = 0;
-        lineCost.style.whiteSpace = WhiteSpace.NoWrap;
-        plate.Add(lineCost);
-
-        rightCol.Add(plate);
-        card.Add(rightCol);
-
-        // One updater shared by all three controls, so the field, the line cost and the order total
-        // can never disagree about what this line holds.
-        void Apply(int newQty)
-        {
-            // Refused if it won't fit the trailer; the field then snaps back to what's actually on
-            // the order, so the number on screen is never a quantity the PO doesn't hold.
-            TrySetQtyWithinCapacity(sku, newQty);
-
-            int q = Qty(skuId);
-            field.SetValueWithoutNotify(q.ToString());
-            // Always shows a figure, "$0" included — a plate that empties itself makes the card jump
-            // every time a line is cleared, and a zero line cost is a real answer.
-            lineCost.text = Money(q * UnitPrice(sku));
-
-            int pallets = TrailerCapacity.PalletsFor(sku, q);
-            palletNote.text = pallets == 0
-                ? $"Case Size: {TrailerCapacity.CasesPerPallet(sku)} cases/pallet"
-                : $"{pallets} pallet(s) · {(sku.PltHeight > TrailerCapacity.StackableHeight ? "rides alone" : "stackable")}";
-
-            RefreshOrderTotal();
-        }
-
-        // Step by a PALLET, not a case. The player is buying freight — a pallet is the unit that
-        // arrives, occupies a rack slot and gets put away, and stepping one case at a time through a
-        // 200-case order is not a decision, it's an errand. Typing still gives exact case counts.
-        int step = Mathf.Max(1, sku.Ti * sku.Hi);
-        minus.clicked += () => Apply(Qty(skuId) - step);
-        plus.clicked += () => Apply(Qty(skuId) + step);
-        field.RegisterValueChangedCallback(evt =>
-        {
-            // Anything unparseable reverts to what was there rather than silently zeroing the line —
-            // a typo shouldn't quietly remove an item the player already added.
-            Apply(int.TryParse(evt.newValue, out int typed) ? typed : Qty(skuId));
-        });
-
-        Apply(Qty(skuId)); // paint the initial state through the same path
-        return card;
-    }
-
-    // ── Vendor roster ────────────────────────────────────────────────────────
-
-    /// <summary>Sized so the whole roster fits on ONE row at the default modal width (7 x 148 + gaps
-    /// is under the ~1150px of usable header). It still wraps when the window is dragged narrower —
-    /// which is why the bar and its row both refuse to shrink; without that the wrapped second row
-    /// drew straight over the trailer meter below it.</summary>
-    private const float VendorChipMinWidth = 124f;
-
-    /// <summary>Replaces the vendor-chip switcher while _exclusiveVendorFilter is on — names the one
-    /// house the player was routed to and offers the way back to browsing the full roster.</summary>
-    private VisualElement BuildExclusiveVendorBanner()
-    {
-        var vendor = SelectedVendor();
-
-        var wrap = new VisualElement();
-        wrap.style.flexDirection = FlexDirection.Row;
-        wrap.style.alignItems = Align.Center;
-        wrap.style.justifyContent = Justify.SpaceBetween;
-        wrap.style.marginBottom = 10;
-        wrap.style.flexShrink = 0;
-        wrap.style.paddingTop = 6; wrap.style.paddingBottom = 6;
-        wrap.style.paddingLeft = 10; wrap.style.paddingRight = 10;
-        wrap.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.18f));
-        wrap.style.borderTopLeftRadius = wrap.style.borderTopRightRadius =
-            wrap.style.borderBottomLeftRadius = wrap.style.borderBottomRightRadius = 8;
-
-        var label = MakeText(vendor != null
-            ? $"Ordering exclusively from {vendor.DisplayName}."
-            : "Ordering exclusively from the selected vendor.", 14, ColOrangeText, bold: true);
-        wrap.Add(label);
-
-        var browse = new Button(() =>
-        {
-            _exclusiveVendorFilter = false;
-            Rebuild();
-        })
-        { text = "Browse all vendors" };
-        StyleOrangeButton(browse);
-        ApplyFont(browse, bold: true, size: 13);
-        wrap.Add(browse);
-
-        return wrap;
-    }
-
-    /// <summary>
-    /// Every house — all 20 vendors deal with you from game start under the Partnership Level
-    /// rework. Each chip shows its current Partnership standing (colour-coded status text) and the
-    /// cost/fill terms that standing drives, so the roster still reads as a real cast of suppliers
-    /// rather than a flat list of names.
-    /// </summary>
-    private VisualElement BuildVendorBar()
-    {
-        var wrap = new VisualElement();
-        wrap.style.marginBottom = 10;
-        wrap.style.flexShrink = 0;
-
-        var registry = VendorRegistry.Load();
-        if (registry == null || registry.vendors.Count == 0) return wrap;
-
-        var all = registry.AllVendors;
-
-        var head = new VisualElement();
-        head.style.flexDirection = FlexDirection.Row;
-        head.style.alignItems = Align.Center;
-        head.style.justifyContent = Justify.SpaceBetween;
-        head.style.marginBottom = 2;
-        // Vendor chips identify themselves; the separate SUPPLIER heading duplicated that
-        // information and consumed a full row above the catalogue.
-        head.style.display = DisplayStyle.None;
-
-        var title = MakeText("SUPPLIER", 16, ColTitleText, bold: true);
-        title.style.whiteSpace = WhiteSpace.NoWrap;
-        head.Add(title);
-        wrap.Add(head);
-
-        // Resolved ONCE here rather than per chip: SelectedVendor() rescans the registry and can
-        // re-anchor _vendorId as a side effect. Not something to run twenty times to draw twenty boxes.
-        var current = SelectedVendor();
-        string currentId = current != null ? current.VendorId : null;
-
-        var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.flexWrap = Wrap.Wrap;
-        row.style.flexShrink = 0;
-        foreach (var v in all) row.Add(BuildVendorChip(v, currentId));
-        wrap.Add(row);
-
-        return wrap;
-    }
-
-    private static VendorEconomyService Economy()
-        => ServiceLocator.TryGet<VendorEconomyService>(out var e) ? e : null;
-
-    private VisualElement BuildVendorChip(VendorData vendor, string currentId)
-    {
-        bool selected = vendor.VendorId == currentId;
-
-        var chip = new VisualElement();
-        chip.style.minWidth = VendorChipMinWidth;
-        chip.style.flexGrow = 1;
-        chip.style.flexBasis = 0;
-        chip.style.marginRight = 4;
-        chip.style.marginBottom = 3;
-        chip.style.paddingTop = 3; chip.style.paddingBottom = 3;
-        chip.style.paddingLeft = 6; chip.style.paddingRight = 6;
-        chip.style.overflow = Overflow.Hidden;
-        chip.style.backgroundColor = new StyleColor(
-            selected ? new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.30f) : ColStat);
-        chip.style.borderTopWidth = chip.style.borderBottomWidth =
-            chip.style.borderLeftWidth = chip.style.borderRightWidth = 2;
-        var edge = selected ? ColOrange : ColBlueEdge;
-        chip.style.borderTopColor = chip.style.borderBottomColor =
-            chip.style.borderLeftColor = chip.style.borderRightColor = new StyleColor(edge);
-        chip.style.borderTopLeftRadius = chip.style.borderTopRightRadius =
-            chip.style.borderBottomLeftRadius = chip.style.borderBottomRightRadius = 7;
-
-        var name = MakeText(vendor.DisplayName, 12, selected ? ColOrangeText : ColTitleText, bold: true);
-        name.style.marginTop = 0; name.style.marginBottom = 0;
-        // WRAPS rather than clipping. At 148px a chip has ~130px of usable width and half the roster
-        // is longer than that, so NoWrap turned "Fairweather Trading Co." into "Fairweather Tradi" —
-        // and a supplier's name is its identity, the one thing on the chip that must not be guessed
-        // at. The row stretches all chips to the tallest, so a two-line name costs alignment nothing.
-        name.style.whiteSpace = WhiteSpace.Normal;
-        chip.Add(name);
-
-        // Partnership standing — colour-coded status text plus the two axes that actually differ:
-        // cost against the market and how often this house short-ships.
-        var economy = Economy();
-        int level = economy?.GetState(vendor.VendorId)?.PartnershipLevel ?? 0;
-        string status = PartnershipColorUtility.GetStatusText(level);
-        Color statusColor = PartnershipColorUtility.GetColor(level);
-
-        var terms = MakeText($"{status} ({level:+0;-0;0})", 12, statusColor, bold: true);
-        terms.style.marginTop = 1; terms.style.marginBottom = 0;
-        terms.style.whiteSpace = WhiteSpace.Normal;
-        chip.Add(terms);
-
-        if (economy != null)
-        {
-            float fillRate = economy.GetFillRate(vendor.VendorId);
-            var fillLine = MakeText($"{fillRate:N0}% fill" +
-                                     (vendor.MinimumOrderCases > 0 ? $" · min {vendor.MinimumOrderCases:N0}" : ""),
-                                     11, ColSubtleText);
-            fillLine.style.marginTop = 1; fillLine.style.marginBottom = 0;
-            fillLine.style.whiteSpace = WhiteSpace.Normal;
-            chip.Add(fillLine);
-        }
-
-        chip.RegisterCallback<ClickEvent>(_ => OnSelectVendor(vendor));
-        return chip;
-    }
-
-    /// <summary>
-    /// Switches supplier, and throws the basket away when it isn't empty.
-    ///
-    /// ONE PO IS ONE VENDOR — a purchase order is an agreement with a specific house at their prices,
-    /// so a basket can't survive the switch. Carrying the lines over and silently repricing them
-    /// would be worse than clearing: the player would be looking at quantities they chose against
-    /// numbers that no longer applied.
-    /// </summary>
-    private void OnSelectVendor(VendorData vendor)
-    {
-        if (vendor == null || vendor.VendorId == _vendorId) return;
-
-        // Exiting the filtered view is just a normal chip click — a manual switch means the player
-        // is browsing the roster again, not shopping the one house they were routed to.
-        _exclusiveVendorFilter = false;
-
-        bool hadBasket = _basket.Count > 0;
-        _vendorId = vendor.VendorId;
-        _basket.Clear();
-        _dealDiscountBySku.Clear();
-        Rebuild();
-
-        UIToast.Show(hadBasket
-            ? $"Switched to {vendor.DisplayName} — the previous order was cleared, since a PO is with " +
-              $"one supplier at their prices."
-            : $"Buying from {vendor.DisplayName}.");
-    }
-
-    // ── Price trend widgets ──────────────────────────────────────────────────
-
-    private const float SparkHeight = 20f;
-    private const float SparkBarWidth = 5f;
-    private const float SparkBarGap = 2f;
-
-    /// <summary>How far off normal a price has to be before it's worth calling out. Under this it
-    /// reads "NORMAL" — a chip that lit up over a 1% wobble would cry wolf every morning.</summary>
-    private const float TrendDeadbandPercent = 3f;
-
-    /// <summary>
-    /// Today's price against this SKU's authored normal — NOT against yesterday.
-    ///
-    /// Yesterday is the wrong comparison to put on a buying decision: a price that fell 2% but is
-    /// still 20% over normal is not a bargain, and a chip saying "down" would be telling the player
-    /// to buy it. What matters is whether this is cheap for THIS ITEM.
-    /// </summary>
-    private VisualElement MakeTrendChip(SkuData sku)
-    {
-        var chip = new VisualElement();
-        chip.style.flexShrink = 0;
-        chip.style.marginLeft = 8;
-        chip.style.paddingLeft = 6; chip.style.paddingRight = 6;
-        chip.style.paddingTop = 1; chip.style.paddingBottom = 1;
-        chip.style.borderTopLeftRadius = chip.style.borderTopRightRadius =
-            chip.style.borderBottomLeftRadius = chip.style.borderBottomRightRadius = 4;
-
-        var market = Market();
-        if (market == null) return chip;   // no market running: make no claim about the price
-
-        float vsNormal = market.VsNormalPercent(sku);
-        bool cheap = vsNormal <= -TrendDeadbandPercent;
-        bool dear = vsNormal >= TrendDeadbandPercent;
-
-        string text = cheap ? $"{Mathf.RoundToInt(-vsNormal)}% UNDER"
-                    : dear ? $"{Mathf.RoundToInt(vsNormal)}% OVER"
-                           : "NORMAL";
-        Color fg = cheap ? ColMoney : dear ? ColDangerSoft : ColSubtleText;
-
-        chip.style.backgroundColor = new StyleColor(new Color(fg.r, fg.g, fg.b, 0.14f));
-
-        var label = MakeText(text, 12, fg, bold: true);
-        label.style.marginTop = 0; label.style.marginBottom = 0;
-        label.style.flexShrink = 0;
-        label.style.whiteSpace = WhiteSpace.NoWrap;
-        chip.Add(label);
-        return chip;
-    }
-
-    /// <summary>
-    /// Seven bars: this SKU's price for the last week, oldest on the left, today on the right.
-    ///
-    /// Scaled to its OWN min/max rather than to zero. A $20 item moving between $18 and $23 would be
-    /// seven near-identical full-height bars on a zero baseline — technically honest and completely
-    /// unreadable. Relative scaling is what makes the shape of the week visible at this size.
-    /// </summary>
-    private VisualElement MakeSparkline(SkuData sku)
-    {
-        var wrap = new VisualElement();
-        wrap.style.flexDirection = FlexDirection.Row;
-        wrap.style.alignItems = Align.FlexEnd;
-        wrap.style.height = SparkHeight;
-        wrap.style.marginLeft = 8;
-        wrap.style.flexShrink = 0;
-
-        var history = Market()?.History(sku.SkuId);
-        if (history == null || history.Count < 2) return wrap;
-
-        int min = history.Min();
-        int max = history.Max();
-        int range = Mathf.Max(1, max - min);
-
-        for (int i = 0; i < history.Count; i++)
-        {
-            // A floor of 3px so the week's low is still a visible bar rather than a gap in the chart.
-            float t = (history[i] - min) / (float)range;
-            var bar = new VisualElement();
-            bar.style.width = SparkBarWidth;
-            bar.style.height = 3f + t * (SparkHeight - 3f);
-            bar.style.marginRight = i == history.Count - 1 ? 0 : SparkBarGap;
-            bar.style.backgroundColor = new StyleColor(
-                i == history.Count - 1 ? ColPlateValue                                      // today
-                                       : new Color(ColBorder.r, ColBorder.g, ColBorder.b, 0.55f));
-            wrap.Add(bar);
-        }
-
-        return wrap;
     }
 
     // ── The broker: salvage loads ────────────────────────────────────────────
@@ -1592,435 +965,6 @@ public class PurchasingPanel : IUIPanel
         Rebuild();
     }
 
-    // ── Warehouse capacity ───────────────────────────────────────────────────
-
-    /// <summary>Reserve rack slots free right now, and how many exist. Reads the same
-    /// LocationStatusRegistry the reach truck obeys, NOT LocationData — the two can disagree, and the
-    /// registry is the one that decides whether an arriving pallet actually has somewhere to go.</summary>
-    private static (int free, int total) ReserveSlotAvailability()
-    {
-        int free = 0, total = 0;
-        foreach (var slot in SlotRegistry.ReserveSlots)
-        {
-            total++;
-            if (LocationStatusRegistry.IsAvailable(slot.Address)) free++;
-        }
-        return (free, total);
-    }
-
-    /// <summary>Cancel / order total / Create PO. In the STATIONARY header rather than the scroll
-    /// view — the total is the number you watch while adding items, and a footer that scrolls away is
-    /// a footer you can't watch.</summary>
-    private void BuildCreateFooter()
-    {
-        var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.alignItems = Align.Center;
-        row.style.marginBottom = 5;
-
-        // CANCEL is RED and CREATE PO is GREEN — the two irreversible ends of this screen, coloured
-        // for what they do rather than both wearing the panel's orange. Orange still means "an action
-        // worth noticing" everywhere else; these two are the destination, so they get their own
-        // vocabulary and a size to match. Deliberately the only two buttons on the panel this big.
-        var cancel = new Button(OnCancelOrder) { text = "CANCEL" };
-        StyleActionButton(cancel, ColCancelRed, ColCancelRedEdge, ColCancelRedHover);
-        row.Add(cancel);
-
-        // The total sits BETWEEN them and stretches to fill whatever's left, so the number the player
-        // is watching is physically the largest thing on the row and the two buttons stay pinned to
-        // the outer edges at fixed widths regardless of how wide the window is dragged.
-        var totalBox = new VisualElement();
-        totalBox.style.flexDirection = FlexDirection.Row;
-        totalBox.style.alignItems = Align.Center;
-        totalBox.style.justifyContent = Justify.Center;
-        totalBox.style.flexGrow = 1;
-        totalBox.style.height = ActionButtonHeight;
-        totalBox.style.marginLeft = 8; totalBox.style.marginRight = 8;
-        totalBox.style.paddingLeft = 12; totalBox.style.paddingRight = 12;
-        totalBox.style.backgroundColor = new StyleColor(ColStat);
-        totalBox.style.borderTopWidth = totalBox.style.borderBottomWidth =
-            totalBox.style.borderLeftWidth = totalBox.style.borderRightWidth = 2;
-        totalBox.style.borderTopColor = totalBox.style.borderBottomColor =
-            totalBox.style.borderLeftColor = totalBox.style.borderRightColor = new StyleColor(ColBorder);
-        totalBox.style.borderTopLeftRadius = totalBox.style.borderTopRightRadius =
-            totalBox.style.borderBottomLeftRadius = totalBox.style.borderBottomRightRadius = 8;
-
-        var totalCaption = MakeText("ORDER TOTAL:", 20, ColTitleText, bold: true);
-        totalCaption.style.marginRight = 8;
-        totalCaption.style.marginTop = 0; totalCaption.style.marginBottom = 0;
-        totalCaption.style.whiteSpace = WhiteSpace.NoWrap;
-        totalBox.Add(totalCaption);
-
-        _orderTotalLabel = MakeText("$0", 22, ColMoney, bold: true);
-        _orderTotalLabel.style.marginTop = 0; _orderTotalLabel.style.marginBottom = 0;
-        _orderTotalLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        totalBox.Add(_orderTotalLabel);
-        row.Add(totalBox);
-
-        var create = new Button(OnCreatePoClicked) { text = "CREATE PO" };
-        StyleActionButton(create, ColCreateGreen, ColCreateGreenEdge, ColCreateGreenHover);
-        row.Add(create);
-
-        _tabHeader.Add(row);
-    }
-
-    /// <summary>
-    /// The trailer fill meter: how much of ONE trailer this order takes.
-    ///
-    /// Money answers "what does this cost"; this answers "does it physically go on the truck", which
-    /// is the constraint the player is actually working against and had no way to see. Reads in
-    /// 24ths (a short pallet is one, a tall one two) per the spec, with the floor-position count
-    /// beside it because that's the number that decides when it's full.
-    /// </summary>
-    private VisualElement BuildCapacityMeter()
-    {
-        var wrap = new VisualElement();
-        wrap.style.marginBottom = 10;
-
-        var top = new VisualElement();
-        top.style.flexDirection = FlexDirection.Row;
-        top.style.alignItems = Align.Center;
-        top.style.justifyContent = Justify.SpaceBetween;
-        top.style.marginBottom = 4;
-
-        var caption = MakeText("TRAILER LOAD", 13, ColTitleText, bold: true);
-        caption.style.whiteSpace = WhiteSpace.NoWrap;
-        top.Add(caption);
-
-        _capacityLabel = MakeText(string.Empty, 13, ColSubtleText, bold: true);
-        _capacityLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        top.Add(_capacityLabel);
-        wrap.Add(top);
-
-        var track = new VisualElement();
-        track.style.height = 14;
-        track.style.backgroundColor = new StyleColor(ColStat);
-        track.style.borderTopWidth = track.style.borderBottomWidth =
-            track.style.borderLeftWidth = track.style.borderRightWidth = 2;
-        track.style.borderTopColor = track.style.borderBottomColor =
-            track.style.borderLeftColor = track.style.borderRightColor = new StyleColor(ColBorder);
-        track.style.borderTopLeftRadius = track.style.borderTopRightRadius =
-            track.style.borderBottomLeftRadius = track.style.borderBottomRightRadius = 6;
-        track.style.overflow = Overflow.Hidden;
-
-        _capacityFill = new VisualElement();
-        _capacityFill.style.height = Length.Percent(100);
-        _capacityFill.style.width = Length.Percent(0);
-        _capacityFill.style.backgroundColor = new StyleColor(ColMoney);
-        track.Add(_capacityFill);
-        wrap.Add(track);
-
-        // Running dollar tab for the load being built — sits with the trailer readouts (not just the
-        // footer total) so the player sees what the load costs so far right alongside how full it is.
-        var costRow = new VisualElement();
-        // ORDER TOTAL below is the authoritative live cost. Hide this duplicate large readout so the
-        // compact summary deck gives its height back to the item catalogue.
-        costRow.style.display = DisplayStyle.None;
-        costRow.style.flexDirection = FlexDirection.Row;
-        costRow.style.alignItems = Align.Center;
-        costRow.style.justifyContent = Justify.SpaceBetween;
-        costRow.style.marginTop = 6;
-
-        var costCaption = MakeText("LOAD COST", 14, ColSubtleText, bold: true);
-        costCaption.style.whiteSpace = WhiteSpace.NoWrap;
-        costRow.Add(costCaption);
-
-        // Framed like the PO # pill above (green border + green-tinted fill) so the number the
-        // player is tracking while building the load reads as its own callout, not just body text.
-        var costPill = new VisualElement();
-        costPill.style.flexShrink = 0;
-        costPill.style.paddingLeft = 14; costPill.style.paddingRight = 14;
-        costPill.style.paddingTop = 4; costPill.style.paddingBottom = 4;
-        costPill.style.backgroundColor = new StyleColor(new Color(ColMoney.r, ColMoney.g, ColMoney.b, 0.18f));
-        costPill.style.borderTopWidth = costPill.style.borderBottomWidth =
-            costPill.style.borderLeftWidth = costPill.style.borderRightWidth = 2;
-        costPill.style.borderTopColor = costPill.style.borderBottomColor =
-            costPill.style.borderLeftColor = costPill.style.borderRightColor = new StyleColor(ColMoney);
-        costPill.style.borderTopLeftRadius = costPill.style.borderTopRightRadius =
-            costPill.style.borderBottomLeftRadius = costPill.style.borderBottomRightRadius = 8;
-
-        _loadCostLabel = MakeText("$0", 42, ColMoney, bold: true); // 50% bigger than the prior 28px
-        _loadCostLabel.style.marginTop = 0; _loadCostLabel.style.marginBottom = 0;
-        _loadCostLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        costPill.Add(_loadCostLabel);
-        costRow.Add(costPill);
-        wrap.Add(costRow);
-
-        // WILL IT FIT IN THE BUILDING, not just on the truck.
-        //
-        // The trailer meter above answers "does this go on one load"; this answers "is there anywhere
-        // to put it when it lands". Rack space was always a binding constraint, but it bit hours
-        // later — the reach truck failing to find a reserve slot, long after the decision that caused
-        // it. A constraint the player can't feel while choosing isn't a constraint, it's a surprise.
-        _warehouseFitLabel = MakeText(string.Empty, 14, ColSubtleText);
-        _warehouseFitLabel.style.marginTop = 4;
-        _warehouseFitLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        wrap.Add(_warehouseFitLabel);
-
-        return wrap;
-    }
-
-    private Label _capacityLabel;
-    private VisualElement _capacityFill;
-    private Label _warehouseFitLabel;
-    private Label _loadCostLabel;
-
-    /// <summary>Fills in the "will it fit in the building" line under the trailer meter.</summary>
-    private void RefreshWarehouseFit(TrailerLoadPlan plan)
-    {
-        if (_warehouseFitLabel == null) return;
-
-        var (free, total) = ReserveSlotAvailability();
-
-        // No racking placed yet is a normal early-game state, not an error — say nothing rather than
-        // reporting "0 slots free", which reads as the warehouse being full.
-        if (total == 0)
-        {
-            _warehouseFitLabel.text = string.Empty;
-            return;
-        }
-
-        int pallets = plan.Pallets.Count;
-        int overflow = Mathf.Max(0, pallets - free);
-
-        _warehouseFitLabel.text = overflow > 0
-            ? $"WAREHOUSE: {pallets} pallet(s) inbound · {free}/{total} reserve slots free · " +
-              $"{overflow} with nowhere to go"
-            : $"WAREHOUSE: {pallets} pallet(s) inbound · {free}/{total} reserve slots free";
-
-        _warehouseFitLabel.style.color = new StyleColor(overflow > 0 ? ColDangerSoft : ColSubtleText);
-    }
-
-    private void RefreshOrderTotal()
-    {
-        if (_orderTotalLabel == null) return;
-        float basketTotal = BasketTotal();
-        _orderTotalLabel.text = Money(basketTotal);
-
-        if (_loadCostLabel != null)
-            _loadCostLabel.text = Money(basketTotal);
-
-        var plan = CurrentPlan();
-
-        if (_capacityFill != null)
-        {
-            _capacityFill.style.width = Length.Percent(plan.Fill01 * 100f);
-            // Green while there's room, amber on the last slot or two, red once it won't fit. The
-            // amber band matters more than it looks: at 11/12 floors the next tall pallet is refused,
-            // and a bar that stayed green right up to the refusal would read as a bug.
-            _capacityFill.style.backgroundColor = new StyleColor(
-                plan.OverCapacity ? ColCancelRed
-                : plan.FloorSlotsUsed >= TrailerCapacity.FloorSlots - 1 ? ColOrange
-                : ColMoney);
-        }
-
-        if (_capacityLabel != null)
-        {
-            _capacityLabel.text =
-                $"{plan.UnitsUsed}/{TrailerCapacity.MaxUnits} slots  ·  " +
-                $"{plan.FloorSlotsUsed}/{TrailerCapacity.FloorSlots} floor positions" +
-                (plan.TallCount > 0 ? $"  ·  {plan.TallCount} tall" : "");
-            _capacityLabel.style.color = new StyleColor(plan.OverCapacity ? ColDangerSoft : ColSubtleText);
-        }
-
-        RefreshWarehouseFit(plan);
-
-        _footerMessage.text = _basket.Count == 0
-            ? $"{OrderableSkus().Count} item(s) available for ordering. One trailer holds " +
-              $"{TrailerCapacity.FloorSlots} floor positions — pallets over " +
-              $"{TrailerCapacity.StackableHeight:0.00}m ride alone, shorter ones stack two high."
-            : $"{_basket.Count} line(s) · {_basket.Values.Sum():N0} case(s) · " +
-              $"{plan.Pallets.Count} pallet(s) on PO {_poNumber}.";
-    }
-
-    private float BasketTotal()
-    {
-        float total = 0f;
-        foreach (var kv in _basket)
-        {
-            var sku = FindSku(kv.Key);
-            if (sku != null) total += kv.Value * UnitPrice(sku);
-        }
-        return total;
-    }
-
-    private int Qty(string skuId) => _basket.TryGetValue(skuId, out int q) ? q : 0;
-
-    private void SetQty(string skuId, int qty)
-    {
-        // Clamped at zero and stored only when non-zero: the basket is "what's on the order", and a
-        // zero line isn't on the order.
-        qty = Mathf.Max(0, qty);
-        if (qty == 0) _basket.Remove(skuId);
-        else _basket[skuId] = qty;
-    }
-
-    /// <summary>The basket as the capacity planner wants it: real SkuData plus case counts. Skips any
-    /// id that no longer resolves rather than planning around a null.</summary>
-    private List<(SkuData sku, int cases)> BasketLines()
-    {
-        var list = new List<(SkuData, int)>();
-        foreach (var kv in _basket)
-        {
-            var sku = FindSku(kv.Key);
-            if (sku != null) list.Add((sku, kv.Value));
-        }
-        return list;
-    }
-
-    private TrailerLoadPlan CurrentPlan() => TrailerCapacity.Plan(BasketLines());
-
-    /// <summary>
-    /// Applies a new case count for one SKU unless it would push the load past one trailer.
-    ///
-    /// The increase is REFUSED rather than allowed-and-flagged. A trailer is one trailer: there is no
-    /// such thing as a PO that's 130% loaded, so letting the basket go over and only complaining at
-    /// Create PO would mean building an order that can't exist and finding out at the end. Blocking
-    /// at the moment of the change is also what makes the message actionable — it names the two ways
-    /// forward while the player still has the item in hand.
-    ///
-    /// Reductions always go through: you can never fix an overfull load if it won't let you take
-    /// things off it.
-    /// </summary>
-    private bool TrySetQtyWithinCapacity(SkuData sku, int newQty)
-    {
-        if (sku == null) return false;
-
-        if (newQty <= Qty(sku.SkuId))   // removing or unchanged — never blocked
-        {
-            SetQty(sku.SkuId, newQty);
-            return true;
-        }
-
-        if (TrailerCapacity.WouldOverflow(BasketLines(), sku, newQty, out _))
-        {
-            ShowNotice("This load is over capacity.\n\nEither remove pallets, or create this PO and " +
-                       "then start a new PO for the rest.");
-            return false;
-        }
-
-        SetQty(sku.SkuId, newQty);
-        return true;
-    }
-
-    /// <summary>Cancel: closes the panel and throws the in-progress basket away, per the brief. The PO
-    /// number goes with it — that order never existed, and reusing its number on the next one would
-    /// make the number meaningless as an identifier.</summary>
-    private void OnCancelOrder()
-    {
-        _basket.Clear();
-        _dealDiscountBySku.Clear();
-        NewPoNumber();
-        Hide();
-    }
-
-    private void OnCreatePoClicked()
-    {
-        if (_basket.Count == 0)
-        {
-            UIToast.Show("Nothing on this order yet — set a quantity on at least one item.");
-            return;
-        }
-
-        // Backstop. TrySetQtyWithinCapacity already refuses anything that would overflow, so this
-        // shouldn't fire — but a PO that can't be loaded must never be creatable, and that guarantee
-        // belongs at the point of creation rather than resting on every edit path having behaved.
-        var plan = CurrentPlan();
-        if (plan.OverCapacity)
-        {
-            ShowNotice($"This load is over capacity — {plan.FloorSlotsUsed} floor positions needed, " +
-                       $"{TrailerCapacity.FloorSlots} available.\n\nEither remove pallets, or create " +
-                       $"this PO and then start a new PO for the rest.");
-            return;
-        }
-
-        // MINIMUM ORDER. The third thing that separates one house from another: a specialty vendor
-        // won't break a load for you. Enforced at creation rather than by blocking the steppers,
-        // because unlike trailer capacity a small basket isn't WRONG — it just isn't finished, and
-        // refusing every keystroke on the way up to the minimum would be maddening.
-        var vendorForMin = SelectedVendor();
-        int cases = _basket.Values.Sum();
-        if (vendorForMin != null && cases < vendorForMin.MinimumOrderCases)
-        {
-            ShowNotice($"{vendorForMin.DisplayName} won't take an order this small.\n\n" +
-                       $"Their minimum is {vendorForMin.MinimumOrderCases:N0} cases and this order is " +
-                       $"{cases:N0}.\n\nAdd {vendorForMin.MinimumOrderCases - cases:N0} more, or buy " +
-                       $"from another supplier.");
-            return;
-        }
-
-        var vendorName = vendorForMin != null ? vendorForMin.DisplayName : "Wholesale Supply";
-        ShowConfirm($"Create PO number {_poNumber} with {vendorName}?\n\n" +
-                    $"{_basket.Count} line(s) · {cases:N0} case(s) · " +
-                    $"{plan.Pallets.Count} pallet(s) · " +
-                    $"{Money(BasketTotal())}\n\nIt will wait in the Scheduler's unscheduled pool " +
-                    $"until you give it a door and time.",
-                    SubmitPurchaseOrder);
-    }
-
-    private void SubmitPurchaseOrder()
-    {
-        var shipments = Shipments();
-        if (shipments == null)
-        {
-            UIToast.Show("Purchasing is unavailable — the shipment service isn't running.");
-            return;
-        }
-
-        // ONE LINE ITEM PER PHYSICAL PALLET, each tagged with the floor slot and tier the capacity
-        // planner assigned it.
-        //
-        // This is what makes the trailer show what was actually bought. TruckController.LoadShipment
-        // has two branches: if every line carries FloorSlotIndex >= 0 it places each pallet exactly
-        // there and supports double-stacking; otherwise it falls back to building a fixed 12 pallets
-        // in a round-robin over the lines. Player POs used to hit that fallback — so a 4-case order
-        // and a 4000-case order both arrived as 12 full pallets in a rotation that had nothing to do
-        // with the order. Sending pre-planned pallets takes the good branch and the two agree.
-        var plan = CurrentPlan();
-        var items = new List<ShipmentLineItem>();
-        foreach (var pallet in plan.Pallets)
-        {
-            var sku = FindSku(pallet.SkuId);
-            if (sku == null) continue;
-            items.Add(new ShipmentLineItem(pallet.SkuId, pallet.Cases,
-                                           UnitPrice(sku), sku.ShelfLifeDays)
-            {
-                FloorSlotIndex = pallet.FloorSlot,
-                PalletTier = pallet.Tier
-            });
-        }
-
-        var vendor = SelectedVendor();
-        var po = shipments.CreatePlayerPurchaseOrder(
-            _poNumber,
-            vendor != null ? vendor.VendorId : "PLAYER_SUPPLIER",
-            vendor != null ? vendor.DisplayName : "Wholesale Supply",
-            items, Today());
-        if (po == null)
-        {
-            UIToast.Show("Couldn't raise that PO — nothing on it resolved to a real SKU.");
-            return;
-        }
-
-        UIToast.Show($"PO {po.PONumber} raised — {po.TotalUnits:N0} case(s), ${po.TotalCost:N0}. " +
-                     $"Book it a door on the Scheduler.");
-
-        // VENDORS tab's "Avg Daily Spend" — recorded here, the one place a PO's real cost against a
-        // real vendor is known, rather than guessed from the basket (which a discount deal can undercut).
-        if (vendor != null)
-        {
-            ServiceLocator.TryGet<VendorPerformanceTracker>(out var perf);
-            perf?.RecordTransaction(vendor.VendorId, po.TotalCost, Today());
-        }
-
-        // Fresh order state, then straight to the list so the player sees what they just created.
-        _basket.Clear();
-        _dealDiscountBySku.Clear();
-        NewPoNumber();
-        _tab = Tab.PoList;
-        Rebuild();
-    }
-
     // ── Tabs 2 & 3: PO list and archive ──────────────────────────────────────
 
     /// <summary>
@@ -2059,6 +1003,29 @@ public class PurchasingPanel : IUIPanel
         _footerMessage.text = live
             ? $"{shipments.Count} PO(s) in flight · {shipments.Sum(s => s?.TotalUnits ?? 0):N0} case(s) inbound."
             : $"{shipments.Count} archived PO(s).";
+    }
+
+    /// <summary>The PO list's Status column reads straight off ShipmentData.Status, which never
+    /// actually transitions into "Receiving" today — a trailer sitting at a door unloading still just
+    /// says "[InTransit]", which is what the player was seeing and asking to fix. There's no PO-to-door
+    /// registry to read this off directly, so it's answered by finding the live TruckController
+    /// carrying this PO and asking IT whether it's currently docked (TruckController.DockedAt is only
+    /// non-null while docked — see TruckController.cs). Returns null (fall back to the raw status
+    /// label) for anything not actively docked right now.</summary>
+    private static string LiveDockStatus(ShipmentData shipment)
+    {
+        if (shipment.Status != ShipmentData.ShipmentStatus.InTransit &&
+            shipment.Status != ShipmentData.ShipmentStatus.Receiving)
+            return null;
+
+        var trucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None);
+        foreach (var truck in trucks)
+        {
+            if (truck == null || truck.AssignedShipment == null) continue;
+            if (truck.AssignedShipment.PONumber != shipment.PONumber) continue;
+            if (truck.DockedAt != null) return $"UNLOADING · Door {truck.DockedAt.DoorNumber}";
+        }
+        return null;
     }
 
     private VisualElement BuildShipmentCard(ShipmentData shipment, int rowIndex, bool live)
@@ -2116,7 +1083,9 @@ public class PurchasingPanel : IUIPanel
         supplier.style.whiteSpace = WhiteSpace.NoWrap;
         subRow.Add(supplier);
 
-        var status = MakeText($"[{shipment.Status}]", 13,
+        string dockedLabel = LiveDockStatus(shipment);
+        var status = MakeText(dockedLabel ?? $"[{shipment.Status}]", 13,
+                              dockedLabel != null ? ColMoney :
                               shipment.Status == ShipmentData.ShipmentStatus.Cancelled ? ColDangerSoft : ColChipOutText,
                               bold: true);
         status.style.whiteSpace = WhiteSpace.NoWrap;
@@ -2243,7 +1212,13 @@ public class PurchasingPanel : IUIPanel
             // covers the other 12) puts this row's left edge exactly under "Spot Market", not under ▼.
             line.style.paddingLeft = 18;
 
-            var itemNo = MakeText(g.SkuId, 13, ColChipOutText);
+            // Netted the same way the multi-vendor tab's IN DEMAND column is — a SKU already covered by
+            // on-hand stock, other on-order POs, or cases sitting in an in-progress basket right now
+            // reads as normal again, not permanently red just because gross demand exists somewhere.
+            int lineNetDemand = Mathf.Max(0, (Economy()?.GetTotalInDemand(g.SkuId) ?? 0) -
+                (Inventory()?.TotalOnHand(g.SkuId) ?? 0) - (Economy()?.GetTotalOnOrder(g.SkuId) ?? 0) -
+                TotalInProgressCases(g.SkuId));
+            var itemNo = MakeText(g.SkuId, 13, lineNetDemand > 0 ? ColDanger : ColChipOutText);
             itemNo.style.width = 90;
             itemNo.style.whiteSpace = WhiteSpace.NoWrap;
             line.Add(itemNo);
@@ -2482,67 +1457,11 @@ public class PurchasingPanel : IUIPanel
     private static MarketService Market()
         => ServiceLocator.TryGet<MarketService>(out var m) ? m : null;
 
+    private static VendorEconomyService Economy()
+        => ServiceLocator.TryGet<VendorEconomyService>(out var e) ? e : null;
+
     private static int Reputation()
         => ServiceLocator.TryGet<ReputationService>(out var r) && r != null ? r.Score : 0;
-
-    /// <summary>The vendor currently being bought from, or null if the roster is missing entirely
-    /// (in which case the panel falls back to the open market and behaves as it did before vendors).
-    /// All 20 vendors are active from game start, so this only has to pick one — not gate one.</summary>
-    private VendorData SelectedVendor()
-    {
-        var registry = VendorRegistry.Load();
-        if (registry == null) return null;
-
-        var all = registry.AllVendors;
-        if (all.Count == 0) return null;
-
-        var chosen = all.FirstOrDefault(v => v.VendorId == _vendorId);
-
-        // Re-anchors rather than showing an empty catalogue. The selected vendor can stop being a
-        // valid choice between openings — the asset can be edited — and a panel pointing at a vendor
-        // that no longer exists looks broken.
-        if (chosen == null)
-        {
-            chosen = all[0];
-            _vendorId = chosen.VendorId;
-        }
-        return chosen;
-    }
-
-    /// <summary>
-    /// What this SKU costs per case TODAY, from the vendor currently selected — the market price
-    /// marked up or down by that vendor's current Partnership-driven cost modifier.
-    ///
-    /// Every price on this panel goes through here — the card, the line cost, the order total and the
-    /// line items the PO is actually built from — so the number the player reads and the number they
-    /// are charged cannot disagree. Falls back to the bare market price, then to the SKU's authored
-    /// BuyValue, so purchasing stays usable rather than free if either service is missing.
-    /// </summary>
-    private int UnitPrice(SkuData sku)
-    {
-        if (sku == null) return 0;
-        return Mathf.RoundToInt(BasePrice(sku) * DealMultiplier(sku.SkuId));
-    }
-
-    private int BasePrice(SkuData sku)
-    {
-        var vendor = SelectedVendor();
-        var economy = Economy();
-        if (vendor != null && economy != null)
-        {
-            int priced = Mathf.RoundToInt(economy.GetEffectiveCost(vendor.VendorId, sku, Market()));
-            if (priced > 0) return priced;
-        }
-
-        var market = Market();
-        return market != null ? market.CurrentPrice(sku) : Mathf.RoundToInt(sku.BuyValue);
-    }
-
-    /// <summary>1.0 normally; a fraction below 1.0 for a case still carrying an accepted VENDORS-tab
-    /// deal discount (see AddDealToBasket). Cleared everywhere `_basket` is cleared, so a discount can
-    /// never survive past the order it was accepted onto.</summary>
-    private float DealMultiplier(string skuId)
-        => _dealDiscountBySku.TryGetValue(skuId, out float pct) ? Mathf.Clamp01(1f - pct / 100f) : 1f;
 
     /// <summary>
     /// Money, without the trailing ".00" that every figure on this panel was carrying.
@@ -2557,78 +1476,6 @@ public class PurchasingPanel : IUIPanel
         => Mathf.Abs(amount - Mathf.Round(amount)) < 0.005f
          ? $"${amount:N0}"
          : $"${amount:N2}";
-
-    /// <summary>
-    /// Every SKU the player can buy RIGHT NOW: one with a real cost and a committed Ti/Hi (a SKU with
-    /// no pallet configuration can't be expressed as freight), and carried by the selected vendor.
-    ///
-    /// The vendor filter is the whole point of the roster — you don't shop a global catalogue and
-    /// pick a supplier afterwards, you walk into a house and see what they keep. Falls back to the
-    /// full catalogue when there's no roster at all, so a project without VendorRegistry.asset still
-    /// has a working purchasing screen.
-    ///
-    /// Under _exclusiveVendorFilter, the catalogue is narrowed further to exactly what that vendor's
-    /// current Partnership Level has unlocked (VendorEconomyService.GetAvailableCatalogue) — the
-    /// player walked into ONE house, and a house doesn't show you stock it won't sell you today.
-    /// </summary>
-    private List<SkuData> OrderableSkus()
-    {
-        var inv = Inventory();
-        if (inv == null) return new List<SkuData>();
-
-        var all = inv.AllSkus.Where(s => s != null && s.BuyValue > 0f && s.Ti > 0 && s.Hi > 0);
-
-        var vendor = SelectedVendor();
-        if (vendor != null)
-        {
-            if (_exclusiveVendorFilter && Economy() != null)
-            {
-                var unlockedIds = new HashSet<string>(Economy().GetAvailableCatalogue(vendor.VendorId)
-                    .Where(e => e?.Sku != null).Select(e => e.Sku.SkuId));
-                all = all.Where(s => unlockedIds.Contains(s.SkuId));
-            }
-            else
-            {
-                all = all.Where(s => vendor.Carries(s.SkuId));
-            }
-        }
-
-        var ordered = ApplyItemSort(all.ToList());
-
-        string nameFilter = _itemSortController.GetSearchText("ItemName");
-        if (!string.IsNullOrEmpty(nameFilter))
-            ordered = ordered.Where(s => s.ItemDescription.IndexOf(nameFilter, System.StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-
-        return ordered;
-    }
-
-    /// <summary>Applies the shared header-sort state to the catalogue. Falls back to the existing
-    /// alphabetical-by-description order when no column is actively sorted, matching the tab's
-    /// previous, un-sorted behaviour.</summary>
-    private List<SkuData> ApplyItemSort(List<SkuData> skus)
-    {
-        string column = _itemSortController.ActiveSortColumn;
-        if (column == null)
-            return skus.OrderBy(s => s.ItemDescription, System.StringComparer.OrdinalIgnoreCase).ToList();
-
-        bool ascending = _itemSortController.GetDirection(column) == ExcelHeaderSortController.SortDirection.Ascending;
-        var vendor = SelectedVendor();
-
-        System.Func<SkuData, object> keySelector = column switch
-        {
-            "ItemName" => s => s.ItemDescription,
-            "UnitCost" => s => UnitPrice(s),
-            "Rarity" => s => vendor != null
-                ? (int)(vendor.Catalogue.FirstOrDefault(e => e?.Sku != null && e.Sku.SkuId == s.SkuId)?.Rarity ?? ItemRarity.Common)
-                : 0,
-            "FillRate" => s => vendor != null ? Economy()?.GetFillRate(vendor.VendorId) ?? 0f : 0f,
-            _ => s => s.ItemDescription
-        };
-
-        return ascending
-            ? skus.OrderBy(keySelector).ToList()
-            : skus.OrderByDescending(keySelector).ToList();
-    }
 
     private static SkuData FindSku(string skuId)
     {
@@ -2660,11 +1507,6 @@ public class PurchasingPanel : IUIPanel
         return $"Arriving {day}, {DockScheduleService.BlockLabel(appt.BlockIndex)}, door {appt.DoorNumber}";
     }
 
-    // NOTE: the delivery-day picker and its helpers (DeliveryDayChoices / DeliveryChoiceIndex /
-    // DeliveryDayText / WeekdayName) were deleted along with the dropdown. Scheduling is manual —
-    // see the comment in BuildCreateTab. If a weekday label is ever wanted again, derive it from the
-    // in-game day count rather than DateTime.Now: EmployeeStatSystem.GetCurrentDayOfWeek still reads
-    // the real calendar and would drift from the game's own clock.
 
     // ── Styling ──────────────────────────────────────────────────────────────
 
@@ -2835,14 +1677,14 @@ public class PurchasingPanel : IUIPanel
         element.style.unityFontStyleAndWeight = bold ? FontStyle.Bold : FontStyle.Normal;
     }
 
-    // ── INBOUND ORDER CREATION NEW — multi-vendor deal-shopping tab ────────────
+    // ── INBOUND ORDER CREATION — multi-vendor deal-shopping tab ────────────────
     //
-    // The old Create tab is "pick one vendor, build one basket." This tab is comparison shopping:
-    // vendors are the collapsible groups (icon, running totals, its own trailer fill-bar, its own
-    // DISPATCH ORDER), and expanding one lists that vendor's items — so the same SKU can legitimately
-    // appear under several different vendors at different Partnership-driven prices, and the player can
-    // build several vendors' loads side by side before dispatching any of them. Entirely additive:
-    // reads/writes `_multiBaskets` only, never touches `_basket`/`_vendorId`.
+    // Comparison shopping: vendors are the collapsible groups (icon, running totals, its own trailer
+    // fill-bar, its own DISPATCH ORDER), and expanding one lists that vendor's items — so the same SKU
+    // can legitimately appear under several different vendors at different Partnership-driven prices,
+    // and the player can build several vendors' loads side by side before dispatching any of them.
+    // This tab replaced the old single-vendor "pick one house, build one basket" Create tab entirely,
+    // taking over both its name and its position as the first tab.
 
     private void BuildMultiVendorTab()
     {
@@ -2939,10 +1781,20 @@ public class PurchasingPanel : IUIPanel
         else icon.style.backgroundColor = new StyleColor(ColBlueEdge);
         header.Add(icon);
 
+        var nameCol = new VisualElement();
+        nameCol.style.width = 220;
+        nameCol.style.flexShrink = 0;
+        header.Add(nameCol);
+
         var name = MakeText(vendor.DisplayName, 17, ColTitleText, bold: true);
-        name.style.width = 220;
-        name.style.flexShrink = 0;
-        header.Add(name);
+        name.style.marginBottom = 2;
+        nameCol.Add(name);
+
+        int partnershipLevel = Economy()?.GetState(vendorId)?.PartnershipLevel ?? 0;
+        var partnership = MakeText(
+            $"{partnershipLevel:+0;-0;0}  {PartnershipColorUtility.GetStatusText(partnershipLevel)}",
+            12, PartnershipColorUtility.GetColor(partnershipLevel), bold: true);
+        nameCol.Add(partnership);
 
         var stats = MakeText("", 13, ColSubtleText);
         stats.style.flexGrow = 1;
@@ -2952,12 +1804,32 @@ public class PurchasingPanel : IUIPanel
         var fillBarContainer = BuildTruckFillBar(out var fillElement);
         header.Add(fillBarContainer);
 
+        // DISPATCH ORDER (top) and DEALS (bottom), stacked to the right of the truck sprite so their
+        // combined height matches the sprite's own height (TruckActionsColumnHeight == BuildTruckFillBar's
+        // `h`) and the two read as one unit rather than two mismatched buttons — per Tad's explicit
+        // request to move DEALS below DISPATCH ORDER and size them as evenly as possible.
+        var actionsColumn = new VisualElement();
+        actionsColumn.style.flexDirection = FlexDirection.Column;
+        actionsColumn.style.justifyContent = Justify.SpaceBetween;
+        actionsColumn.style.marginLeft = 10;
+        actionsColumn.style.width = 170;
+        actionsColumn.style.height = TruckActionsColumnHeight;
+        actionsColumn.style.flexShrink = 0;
+        header.Add(actionsColumn);
+
         var dispatch = new Button(() => DispatchVendorOrder(vendor)) { text = "DISPATCH ORDER" };
         StyleActionButton(dispatch, ColCreateGreen, ColCreateGreenEdge, ColCreateGreenHover);
-        dispatch.style.marginLeft = 10;
         dispatch.style.width = 170;
-        dispatch.style.height = 36;
-        header.Add(dispatch);
+        dispatch.style.height = TruckActionButtonHeight;
+        ApplyFont(dispatch, bold: true, size: 12);
+        actionsColumn.Add(dispatch);
+
+        var dealsBtn = new Button(() => OnMultiVendorDealClicked(vendor)) { text = "NO DEALS" };
+        StyleActionButton(dealsBtn, ColDanger, ColDealRedEdge, ColDealRedHover);
+        dealsBtn.style.width = 170;
+        dealsBtn.style.height = TruckActionButtonHeight;
+        ApplyFont(dealsBtn, bold: true, size: 17);
+        actionsColumn.Add(dealsBtn);
 
         // Shared by the header's own initial paint and by every item row's qty change below — one
         // place that reads the current basket and repaints the header, so stats/fill-bar/dispatch
@@ -2971,7 +1843,9 @@ public class PurchasingPanel : IUIPanel
             var lines = MultiBasketLines(vendorId);
             var plan = TrailerCapacity.Plan(lines);
             float cost = lines.Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
-            stats.text = $"{lines.Sum(l => l.cases):N0} case(s) · {plan.Pallets.Count:N0} pallet(s) · {Money(cost)}";
+            int critical = CountCriticalItems(vendorId);
+            stats.text = $"{lines.Sum(l => l.cases):N0} case(s) · {plan.Pallets.Count:N0} pallet(s) · " +
+                         $"{Money(cost)}    ·    [{critical}] critical items";
             fillElement.style.width = Mathf.Clamp01(plan.Fill01) *
                 (TruckBoxRightFrac - TruckBoxLeftFrac) * TruckFillBarWidth;
 
@@ -2980,6 +1854,19 @@ public class PurchasingPanel : IUIPanel
             dispatch.style.opacity = hasItems ? 1f : 0.5f;
         }
         RefreshHeader();
+
+        // Polled independently of RefreshHeader (same reasoning as VendorsTabView.PollDealBars) — the
+        // deal's live countdown/expiry has nothing to do with basket edits, so it gets its own light
+        // tick instead of piggybacking on qty-change repaints.
+        void RefreshDealButton()
+        {
+            var deal = Deals()?.GetActiveDeal(vendorId);
+            dealsBtn.text = deal != null ? $"DEAL! -{deal.DiscountPercent:0}%" : "NO DEALS";
+            dealsBtn.SetEnabled(deal != null);
+            dealsBtn.style.opacity = deal != null ? 1f : 0.5f;
+        }
+        RefreshDealButton();
+        header.schedule.Execute(RefreshDealButton).Every(250);
 
         var detail = new ScrollView(ScrollViewMode.Vertical);
         detail.style.maxHeight = 340;
@@ -3046,11 +1933,28 @@ public class PurchasingPanel : IUIPanel
         else icon.style.backgroundColor = new StyleColor(ColBlueEdge);
         row.Add(icon);
 
+        int onHand = Inventory()?.TotalOnHand(skuId) ?? 0;
+        int onOrder = Economy()?.GetTotalOnOrder(skuId) ?? 0;
+
+        // IN DEMAND is the REMAINING shortfall, not the raw outbound requirement — it has to fall as
+        // the player covers it. Per Tad's explicit request this now falls the MOMENT cases go onto a
+        // trailer's load, not just once that load is actually dispatched as a real PO — so it nets off
+        // on-hand stock, cases already on a dispatched PO (on-order), AND cases sitting in ANY
+        // in-progress basket right now (this tab's per-vendor baskets, and the old single-vendor tab's
+        // basket) — see TotalInProgressCases. Ordering enough to cover demand should read as "handled"
+        // (0) as soon as it's on a load, not stay pinned at the gross number until dispatch.
+        int grossInDemand = Economy()?.GetTotalInDemand(skuId) ?? 0;
+        int inProgress = TotalInProgressCases(skuId);
+        int inDemand = Mathf.Max(0, grossInDemand - onHand - onOrder - inProgress);
+
         var idCol = new VisualElement();
         idCol.style.width = 190;
         idCol.style.flexShrink = 0;
         idCol.style.marginRight = 10;
-        var num = MakeText(sku.SkuId, 11, ColSubtleText);
+        // Matches the NETTED figure, not the raw gross demand — a SKU that's fully covered (on hand,
+        // on order, or already loaded onto a trailer right now) has to read as normal again, not stay
+        // red forever just because someone somewhere still wants it in the abstract.
+        var num = MakeText(sku.SkuId, 11, inDemand > 0 ? ColDanger : ColSubtleText);
         num.style.marginTop = 0; num.style.marginBottom = 0;
         idCol.Add(num);
         var desc = MakeText(sku.ItemDescription, 14, ColTitleText, bold: true);
@@ -3059,16 +1963,15 @@ public class PurchasingPanel : IUIPanel
         idCol.Add(desc);
         row.Add(idCol);
 
-        int onHand = Inventory()?.TotalOnHand(skuId) ?? 0;
-        int onOrder = Economy()?.GetTotalOnOrder(skuId) ?? 0;
-        int inDemand = Economy()?.GetTotalInDemand(skuId) ?? 0;
         int buy = UnitPriceForVendor(vendorId, sku);
         float sell = sku.SellValue;
         float margin = sell > 0f ? (sell - buy) / sell : 0f;
 
         row.Add(MultiVendorStatCell("ON HAND", onHand.ToString("N0"), ColSubtleText));
         row.Add(MultiVendorStatCell("ON ORDER", onOrder.ToString("N0"), ColSubtleText));
-        row.Add(MultiVendorStatCell("IN DEMAND", inDemand.ToString("N0"), inDemand > onHand ? ColDanger : ColSubtleText));
+        var inDemandCell = MultiVendorStatCell("IN DEMAND", inDemand.ToString("N0"),
+                                                inDemand > 0 ? ColDanger : ColSubtleText, out var inDemandLabel);
+        row.Add(inDemandCell);
         row.Add(MultiVendorStatCell("BUY", Money(buy), ColChipOutText));
         row.Add(MultiVendorStatCell("SELL", Money(sell), ColMoney));
         row.Add(MultiVendorStatCell("MARGIN", $"{margin * 100f:0}%", margin >= 0f ? ColMoney : ColDanger));
@@ -3103,6 +2006,20 @@ public class PurchasingPanel : IUIPanel
         {
             TryMultiSetQtyWithinCapacity(vendorId, sku, newQty);
             field.SetValueWithoutNotify(MultiQty(vendorId, skuId).ToString());
+
+            // This row's own IN DEMAND number has to move the instant its qty changes, not wait for a
+            // full Rebuild() — that's the whole point of netting against in-progress cases. Other
+            // expanded vendor groups carrying the SAME sku won't see their copy update until the tab
+            // next rebuilds (switching tabs, dispatching, etc.) — an accepted gap, since chasing that
+            // live across every open group would mean a full Rebuild() on every keystroke/click here,
+            // which is exactly the scroll-position churn this targeted-refresh approach exists to avoid.
+            int newInDemand = Mathf.Max(0, (Economy()?.GetTotalInDemand(skuId) ?? 0) -
+                (Inventory()?.TotalOnHand(skuId) ?? 0) - (Economy()?.GetTotalOnOrder(skuId) ?? 0) -
+                TotalInProgressCases(skuId));
+            inDemandLabel.text = newInDemand.ToString("N0");
+            inDemandLabel.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColSubtleText);
+            num.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColSubtleText);
+
             onQtyChanged?.Invoke();
         }
 
@@ -3116,6 +2033,9 @@ public class PurchasingPanel : IUIPanel
     }
 
     private VisualElement MultiVendorStatCell(string caption, string value, Color valueColor)
+        => MultiVendorStatCell(caption, value, valueColor, out _);
+
+    private VisualElement MultiVendorStatCell(string caption, string value, Color valueColor, out Label valueLabel)
     {
         var cell = new VisualElement();
         cell.style.width = 84;
@@ -3129,8 +2049,43 @@ public class PurchasingPanel : IUIPanel
         var val = MakeText(value, 15, valueColor, bold: true);
         val.style.marginTop = 0; val.style.marginBottom = 0;
         cell.Add(val);
+        valueLabel = val;
 
         return cell;
+    }
+
+    /// <summary>Cases of this SKU sitting on ANY in-progress (not-yet-dispatched) load right now, across
+    /// every vendor's own `_multiBaskets` entry. Subtracted from gross demand so IN DEMAND falls the
+    /// moment cases go onto a trailer, not just once that trailer is actually dispatched as a real PO
+    /// (see BuildMultiVendorItemRow/Apply).</summary>
+    private int TotalInProgressCases(string skuId)
+    {
+        int total = 0;
+        foreach (var kv in _multiBaskets)
+            if (kv.Value.TryGetValue(skuId, out int mc)) total += mc;
+        return total;
+    }
+
+    /// <summary>How many distinct SKUs this vendor carries are still in NET demand right now — same
+    /// netting BuildMultiVendorItemRow's own IN DEMAND cell uses (on-hand + on-order + in-progress
+    /// subtracted off), so a vendor's "[N] critical items" count and its expanded rows' own red IN
+    /// DEMAND numbers can never disagree. Drives the vendor header's summary line.</summary>
+    private int CountCriticalItems(string vendorId)
+    {
+        var catalogue = Economy()?.GetAvailableCatalogue(vendorId) ?? new List<VendorCatalogueEntry>();
+        int count = 0;
+        foreach (var entry in catalogue)
+        {
+            var sku = entry?.Sku;
+            if (sku == null) continue;
+
+            int gross = Economy()?.GetTotalInDemand(sku.SkuId) ?? 0;
+            int onHand = Inventory()?.TotalOnHand(sku.SkuId) ?? 0;
+            int onOrder = Economy()?.GetTotalOnOrder(sku.SkuId) ?? 0;
+            int inProgress = TotalInProgressCases(sku.SkuId);
+            if (gross - onHand - onOrder - inProgress > 0) count++;
+        }
+        return count;
     }
 
     // ── Per-vendor basket (the multi-vendor tab's own state, separate from `_basket`) ────────────
@@ -3197,28 +2152,51 @@ public class PurchasingPanel : IUIPanel
 
     /// <summary>Same seam as BasePrice/UnitPrice, but parameterized on an explicit vendor instead of
     /// reading SelectedVendor() — this tab prices several vendors at once, not just whichever one the
-    /// old tab's single `_vendorId` currently points at. Deliberately skips DealMultiplier: VENDORS-tab
-    /// deals target the old tab's single basket only, not this one.</summary>
+    /// old tab's single `_vendorId` currently points at. Applies a claimed multi-vendor-tab deal
+    /// discount (see _multiDealDiscountByKey) on top of the vendor's own Partnership-driven price —
+    /// this tab has its own DEALS button per vendor group now, separate from the old tab's.</summary>
     private int UnitPriceForVendor(string vendorId, SkuData sku)
     {
         if (sku == null) return 0;
 
+        int baseCost;
         var economy = Economy();
         if (economy != null)
         {
             int priced = Mathf.RoundToInt(economy.GetEffectiveCost(vendorId, sku, Market()));
-            if (priced > 0) return priced;
+            baseCost = priced > 0 ? priced : FallbackMarketPrice(sku);
+        }
+        else
+        {
+            baseCost = FallbackMarketPrice(sku);
         }
 
+        float multiplier = _multiDealDiscountByKey.TryGetValue(DealKey(vendorId, sku.SkuId), out float pct)
+            ? Mathf.Clamp01(1f - pct / 100f) : 1f;
+        return Mathf.RoundToInt(baseCost * multiplier);
+    }
+
+    private static int FallbackMarketPrice(SkuData sku)
+    {
         var market = Market();
         return market != null ? market.CurrentPrice(sku) : Mathf.RoundToInt(sku.BuyValue);
     }
+
+    private static string DealKey(string vendorId, string skuId) => vendorId + "::" + skuId;
+
+    private static VendorDealService Deals()
+        => ServiceLocator.TryGet<VendorDealService>(out var d) ? d : null;
 
     // ── Truck fill-bar ───────────────────────────────────────────────────────
 
     private const float TruckFillBarWidth = 140f;
     /// <summary>Width:height of TruckFillSprite.png (1408x785).</summary>
     private const float TruckSpriteAspect = 1408f / 785f;
+    /// <summary>Height of the truck sprite at TruckFillBarWidth — the DISPATCH ORDER/DEALS column next
+    /// to it is sized to exactly match this, split evenly between the two buttons with a small gap.</summary>
+    private const float TruckActionsColumnHeight = TruckFillBarWidth / TruckSpriteAspect;
+    private const float TruckActionButtonGap = 6f;
+    private const float TruckActionButtonHeight = (TruckActionsColumnHeight - TruckActionButtonGap) / 2f;
     // Trailer BOX sub-rectangle as a fraction of the whole sprite — measured by eye against the source
     // PNG. The box is a plain axis-aligned rectangle (the cab/hood is the sloped remainder to the
     // right), which is what makes a simple rectangular fill overlay accurate here with no masking.
@@ -3250,10 +2228,16 @@ public class PurchasingPanel : IUIPanel
         container.style.marginLeft = 10;
         container.style.marginRight = 4;
         container.style.position = Position.Relative;
+        // Explicit, not just "unstyled default" — a VisualElement's background is transparent unless
+        // something says otherwise, but this one was showing up with an opaque light backing behind
+        // the sprite's own transparent PNG regardless, so force it rather than rely on nothing being
+        // set anywhere in the cascade.
+        container.style.backgroundColor = new StyleColor(Color.clear);
 
         var image = new VisualElement();
         image.style.position = Position.Absolute;
         image.style.left = 0; image.style.top = 0; image.style.right = 0; image.style.bottom = 0;
+        image.style.backgroundColor = new StyleColor(Color.clear);
         var sprite = TruckFillSprite();
         if (sprite != null)
         {
@@ -3273,6 +2257,47 @@ public class PurchasingPanel : IUIPanel
 
         fillElement = fill;
         return container;
+    }
+
+    // ── Multi-vendor DEALS button ────────────────────────────────────────────
+
+    /// <summary>Same VendorDealService deal that drives the VENDORS tab's red bar, but claiming it here
+    /// adds the cases straight into THIS vendor's `_multiBaskets` entry (with its own per-vendor discount
+    /// tracked in `_multiDealDiscountByKey`) instead of the old tab's single `_basket` — the two tabs'
+    /// baskets are independent, so a deal claimed here must land in the basket the player is actually
+    /// looking at. Reuses this panel's existing ShowConfirm rather than VendorsTabView's dedicated
+    /// pop/bounce modal, since that modal lives inside VendorsTabView's own (frequently hidden) content
+    /// tree and isn't visible while this tab is the active one.</summary>
+    private void OnMultiVendorDealClicked(VendorData vendor)
+    {
+        string vendorId = vendor.VendorId;
+        var deal = Deals()?.GetActiveDeal(vendorId);
+        if (deal == null) return; // expired between click and handler, or button was stale
+
+        var sku = Inventory()?.GetSkuData(deal.SkuId);
+        if (sku == null) return;
+
+        int cases = Mathf.Max(1, deal.Pallets) * Mathf.Max(1, sku.Ti * sku.Hi);
+        int newQty = MultiQty(vendorId, sku.SkuId) + cases;
+
+        if (TrailerCapacity.WouldOverflow(MultiBasketLines(vendorId), sku, newQty, out _))
+        {
+            ShowNotice($"This load doesn't have room for the deal — {deal.Pallets} pallet(s) of " +
+                       $"{sku.ItemDescription}.\n\nDispatch this vendor's order first, or start a new " +
+                       $"one, then come back for the deal.");
+            return;
+        }
+
+        ShowConfirm($"Deal at {vendor.DisplayName}: -{deal.DiscountPercent:0}% off {sku.ItemDescription}." +
+                    $"\n\n{deal.Pallets} pallet(s) · {cases} case(s). Add it to this vendor's order?",
+                    () =>
+                    {
+                        MultiSetQty(vendorId, sku.SkuId, newQty);
+                        _multiDealDiscountByKey[DealKey(vendorId, sku.SkuId)] = deal.DiscountPercent;
+                        Deals()?.ClaimDeal(vendorId);
+                        UIToast.Show($"Deal added to {vendor.DisplayName}'s order.");
+                        Rebuild();
+                    });
     }
 
     // ── Dispatch ─────────────────────────────────────────────────────────────
@@ -3352,6 +2377,10 @@ public class PurchasingPanel : IUIPanel
         perf?.RecordTransaction(vendorId, po.TotalCost, Today());
 
         _multiBaskets.Remove(vendorId);
+        string prefix = vendorId + "::";
+        foreach (var key in _multiDealDiscountByKey.Keys.Where(k => k.StartsWith(prefix)).ToList())
+            _multiDealDiscountByKey.Remove(key);
+
         _tab = Tab.PoList;
         Rebuild();
     }

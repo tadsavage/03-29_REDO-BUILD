@@ -40,16 +40,23 @@ public class BuildingDestructionEffect : MonoBehaviour
     {
         if (_isComplete) return;
 
-        _timer += Time.deltaTime;
+        // UNSCALED: the delete that triggered this effect already refunded money and removed the
+        // object from the grid synchronously in DeleteCommand.Execute(), regardless of game speed.
+        // Using scaled Time.deltaTime/Time.time here meant that while the game was Paused (0x, the
+        // TopBar speed control's own pause button — see TopBarUI.SetSpeed), the object was already
+        // logically deleted but sat there sinking forever, since a paused Time.timeScale never lets
+        // the animation actually finish and call SetActive(false) — it looked like the delete had
+        // silently failed even though the player had already been charged/refunded correctly.
+        _timer += Time.unscaledDeltaTime;
         float normalizedTime = Mathf.Clamp01(_timer / _duration);
 
         // Sink effect
         Vector3 sinkOffset = Vector3.down * (_sinkAmount * normalizedTime);
-        
+
         // Vibration effect (Sims 3 style)
         // Using sine waves with different frequencies for X and Z to make it look jittery
-        float jitterX = Mathf.Sin(Time.time * _vibrationSpeed) * _vibrationAmount;
-        float jitterZ = Mathf.Cos(Time.time * _vibrationSpeed * 1.1f) * _vibrationAmount;
+        float jitterX = Mathf.Sin(Time.unscaledTime * _vibrationSpeed) * _vibrationAmount;
+        float jitterZ = Mathf.Cos(Time.unscaledTime * _vibrationSpeed * 1.1f) * _vibrationAmount;
         
         // Decay vibration as it sinks? Or keep it constant. The request said "vibrate a little".
         // Let's keep it constant but slightly fade it out at the very end.

@@ -156,11 +156,11 @@ public class UIKeyBindingManager : MonoBehaviour
     /// <summary>Toggle a UI panel: close others, open this one. If already open, close it.</summary>
     public void ToggleUI(int keyNumber)
     {
-        Debug.Log($"[UIKeyBindingManager.ToggleUI] Called with keyNumber={keyNumber}, registered panels: {string.Join(", ", _uiPanels.Keys)}");
+        //Debug.Log($"[UIKeyBindingManager.ToggleUI] Called with keyNumber={keyNumber}, registered panels: {string.Join(", ", _uiPanels.Keys)}");
 
         if (!_uiPanels.ContainsKey(keyNumber))
         {
-            Debug.LogWarning($"[UIKeyBindingManager] No UI registered for key {keyNumber}.");
+            //Debug.LogWarning($"[UIKeyBindingManager] No UI registered for key {keyNumber}.");
             return;
         }
 

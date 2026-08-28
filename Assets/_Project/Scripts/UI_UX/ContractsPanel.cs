@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -87,9 +87,7 @@ public class ContractsPanel : IUIPanel
     // ResizableWindow below is tied to this same constant, so the player still can't drag it shorter
     // than the new default, same as before.
     private const float ModalHeight = 800f;
-    /// <summary>Narrowest the window can be dragged. Below this the tab bar itself starts wrapping.
-    /// The Completed tab can be narrowed past its own column total safely — it scrolls sideways, and
-    /// its header tracks the scroll (see SyncCompletedHeader).</summary>
+    /// <summary>Narrowest the window can be dragged. Below this the tab bar itself starts wrapping.</summary>
     private const float ModalMinWidth = 820f;
     /// <summary>Width of an offer card's right-hand action column. The commit button and the SHIP BY
     /// badge are both stretched to it, which is what makes them exactly the same width without either
@@ -147,7 +145,7 @@ public class ContractsPanel : IUIPanel
     /// Orders" — the enum name is unchanged), which lists finished wholesale CONTRACTS — this one is
     /// per ORDER, and it's the only place the money a shipment made (and what it cost to make it) is
     /// reported per deal.
-    private enum Tab { NewContracts, BulkOrders, Accounts, Schedule, Completed }
+    private enum Tab { NewContracts, BulkOrders, Accounts, Schedule }
 
     private readonly VisualElement _overlay;
     private readonly VisualElement _modal;
@@ -185,52 +183,6 @@ public class ContractsPanel : IUIPanel
     private ResizableWindow _resizeWindow;
 
     private Tab _tab = Tab.NewContracts;
-
-    /// <summary>Body text size on the Completed tab. Everything on that tab is sized off this, so the
-    /// whole ledger moves together — it was 12 and read as fine print next to the rest of the panel.
-    /// Column widths below are cut for THIS size; raising it again means widening them too.</summary>
-    private const int DoneFontSize = 16;
-
-    /// <summary>Completed-tab column widths. Fixed, like the Schedule grid's — a ledger only reads as
-    /// a ledger if the digits line up in a column, which flexible widths can't guarantee. Widening the
-    /// window therefore adds empty space on the right rather than stretching the columns; that's the
-    /// deliberate trade, because the header lives OUTSIDE the scroll view and any column that stretched
-    /// would drift from its rows by exactly the width of the vertical scrollbar.</summary>
-    private const float DoneDateWidth    = 150f;
-    /// <summary>Just the first 8 characters of OrderData.OrderId (a GUID) — enough to tell rows apart
-    /// at a glance without eating the width a full GUID would need. The full id is in the tooltip for
-    /// whenever "which exact order was this" actually matters (e.g. cross-checking a console log).</summary>
-    private const float DoneOrderWidth   = 100f;
-    private const float DoneAccountWidth = 260f;
-    private const float DoneTypeWidth    = 118f;
-    private const float DoneRevenueWidth = 128f;
-    private const float DoneProfitWidth  = 132f;
-    private const float DonePalletsWidth = 92f;
-    private const float DoneCasesWidth   = 92f;
-    private const float DoneFillWidth    = 178f;
-    /// <summary>Left indent shared by the Completed header and its rows, so the two line up.</summary>
-    private const float DoneRowIndent    = 10f;
-    /// <summary>Rows carry a 3px status stripe down their left edge, which pushes their content across
-    /// by 3px. The header wears the same border in a transparent colour purely so the two agree —
-    /// without it every heading sat 3px left of the column it names.</summary>
-    private const float DoneStripeWidth  = 3f;
-
-    private enum DoneColumn { Date, Order, Account, Type, Revenue, Profit, Pallets, Cases, FillRate }
-
-    /// <summary>Which column the Completed tab is sorted on. Date descending by default — the deal
-    /// that just left the dock is the one you opened the tab to find.</summary>
-    private DoneColumn _doneSort = DoneColumn.Date;
-    private bool _doneAscending;
-
-    /// <summary>Excel-style multi-select filter on the Shipped column — the only column that has one
-    /// today. Selecting specific day(s) narrows the ledger rows AND the Revenue/Net Profit/Fill Rate
-    /// stat strip to just those days, same as an Excel AutoFilter narrows a whole sheet by one column's
-    /// checked values. Inactive (every day implicitly included) until the player opens the dropdown and
-    /// unchecks something — see DoneDateFilterValue for what a "day" bucket is.</summary>
-    private readonly HashSet<string> _doneDateFilterSelection = new();
-    private bool _doneDateFilterActive;
-    private string _doneDateFilterSearch = "";
-    private VisualElement _doneDateFilterPopup;
 
     /// <summary>Day the Schedule tab is looking at. int.MinValue means "not set yet" — resolved to
     /// the live day on first Show so a panel built at startup doesn't pin itself to day 0.</summary>
@@ -436,7 +388,16 @@ public class ContractsPanel : IUIPanel
         if (_scheduleDay == int.MinValue) _scheduleDay = CurrentDay();
         Rebuild();
         CentreOnce();
-        _resizeWindow?.ResetToNormal();
+
+        // Always opens filled rather than normal size — same reasoning as PurchasingPanel.Show: the
+        // Schedule grid alone is one column per door, and the Accounts/Bulk two-pane split wants all
+        // the width it can get. Deferred one frame so FillScreen has a real layout to measure on the
+        // very first Show() of a session — see ResizableWindow.FillScreen's own doc comment.
+        _overlay.schedule.Execute(() =>
+        {
+            _resizeWindow?.FillScreen();
+            if (_resizeWindow != null) _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, 48f, ColTitleText);
+        }).ExecuteLater(16);
     }
 
     /// <summary>
@@ -478,7 +439,6 @@ public class ContractsPanel : IUIPanel
         OrdersPauseGate.Pop(this);
         _selectedAppointmentId = null;
         _selectedUnscheduledKey = null;
-        CloseDoneDateFilterPopup();
         _overlay.style.display = DisplayStyle.None;
     }
 
@@ -702,7 +662,6 @@ public class ContractsPanel : IUIPanel
         // drag, and a programmatic jump identically. Guarded on change, so the usual cost is one float
         // comparison. Scheduled ONCE here — doing it per Rebuild would stack a poller per refresh.
         content.schedule.Execute(SyncFrozenTimeColumn).Every(16);
-        content.schedule.Execute(SyncCompletedHeader).Every(16);
         content.schedule.Execute(SyncScheduleHeader).Every(16);
         // Coarser interval than the three above — this only ever displays whole minutes, so polling
         // faster than a few times a second buys nothing. Scheduled ONCE here for the same reason as
@@ -745,8 +704,6 @@ public class ContractsPanel : IUIPanel
         _selectedAppointmentId = null; // a half-finished move shouldn't survive a tab change
         _selectedUnscheduledKey = null;
         _clearContractsArmed = false;  // nor should a half-finished wipe
-        CloseDoneDateFilterPopup();    // it's a direct child of _modal, so it survives Rebuild() on
-                                        // its own tab, but not walking away to a different tab
         Rebuild();
     }
 
@@ -778,7 +735,6 @@ public class ContractsPanel : IUIPanel
         _tabBar.Add(MakeTab("Recurring Orders", accountCount.ToString(), Tab.Accounts));
         _tabBar.Add(MakeTab("Bulk Orders", bulkCount.ToString(), Tab.BulkOrders));
         _tabBar.Add(MakeTab("Schedule", scheduleBadge, Tab.Schedule));
-        _tabBar.Add(MakeTab("Completed", CompletedOrders().Count.ToString(), Tab.Completed));
     }
 
     /// <summary>
@@ -887,15 +843,9 @@ public class ContractsPanel : IUIPanel
     /// re-applies — freshly built cells start at left 0 regardless of where the view is scrolled.</summary>
     private float _lastHScroll = float.NaN;
 
-    /// <summary>The Completed tab's column header, which lives in the stationary strip ABOVE the
-    /// scroll view so it can't scroll away vertically. Null on every other tab.</summary>
-    private VisualElement _completedHeaderRow;
-    private float _lastCompletedHScroll = float.NaN;
-
-    /// <summary>The Schedule tab's "Door 1 / Door 2 / …" column header, same shape as
-    /// _completedHeaderRow — lives in the stationary strip above the grid and is slid sideways in
-    /// step with the grid's horizontal scroll so it stays lined up over the right columns. Null on
-    /// every other tab.</summary>
+    /// <summary>The Schedule tab's "Door 1 / Door 2 / …" column header — lives in the stationary
+    /// strip above the grid and is slid sideways in step with the grid's horizontal scroll so it stays
+    /// lined up over the right columns. Null on every other tab.</summary>
     private VisualElement _scheduleHeaderRow;
     private float _lastScheduleHScroll = float.NaN;
 
@@ -914,27 +864,14 @@ public class ContractsPanel : IUIPanel
     private string _lastCompletedSignature;
 
     /// <summary>
-    /// Slides the Completed header sideways by exactly what the ledger is scrolled, so the two stay
-    /// in step once the window is dragged narrower than the columns need.
+    /// Slides the Schedule tab's "Door 1 / Door 2 / …" header sideways by exactly what the grid is
+    /// scrolled, so the two stay in step once the window is dragged narrower than the columns need.
     ///
     /// The mirror image of SyncFrozenTimeColumn, which holds the Schedule tab's time cells STILL
     /// against a scrolling grid; here the header is outside the scroller and has to be made to move
     /// WITH it. Same mechanism either way: `left` on a relative element is a visual offset that
     /// doesn't disturb siblings or the element's own width.
     /// </summary>
-    private void SyncCompletedHeader()
-    {
-        if (_completedHeaderRow == null) return;
-
-        float x = _content.scrollOffset.x;
-        if (Mathf.Approximately(x, _lastCompletedHScroll)) return;
-        _lastCompletedHScroll = x;
-        _completedHeaderRow.style.left = -x;
-    }
-
-    /// <summary>The Schedule tab's mirror of SyncCompletedHeader — same reasoning, same mechanism,
-    /// separate field because the two headers belong to different tabs and are cleared independently
-    /// on Rebuild.</summary>
     private void SyncScheduleHeader()
     {
         if (_scheduleHeaderRow == null) return;
@@ -1092,11 +1029,7 @@ public class ContractsPanel : IUIPanel
         return btn;
     }
 
-    /// <summary>Heading for a tab. Only Completed differs today: the other three are all views of the
-    /// contract board, which is what the panel is called.</summary>
-    private static string TitleFor(Tab tab)
-        => tab == Tab.Completed ? "COMPLETED ORDERS"
-         : "OUTBOUND ORDER MANAGER";
+    private static string TitleFor(Tab tab) => "OUTBOUND ORDER MANAGER";
 
     private void Rebuild()
     {
@@ -1108,8 +1041,6 @@ public class ContractsPanel : IUIPanel
         _orderDetailsBody.Clear();
         _scheduleTimeCells.Clear(); // stale cells belong to elements that were just destroyed
         _lastHScroll = float.NaN;   // force the next poll to re-apply the offset to the new cells
-        _completedHeaderRow = null; // the strip was just cleared; this pointed into it
-        _lastCompletedHScroll = float.NaN;
         _scheduleHeaderRow = null;  // same reasoning, Schedule tab's own copy
         _lastScheduleHScroll = float.NaN;
         _scheduleClockLabel = null; // the rail was just cleared; this pointed into it
@@ -1119,11 +1050,7 @@ public class ContractsPanel : IUIPanel
         // Only the Schedule grid can outgrow the modal sideways — a row is one column per door, and
         // door count is unbounded. The card tabs stay vertical-only so their text can't be pushed
         // off-screen horizontally by a stray wide element.
-        // Schedule and Completed are the two grids that can outgrow the modal sideways — Schedule
-        // because a row is one column per door, Completed because the window can now be dragged
-        // narrower than its fixed column set. The card tabs stay vertical-only so their text can't be
-        // pushed off-screen horizontally by a stray wide element.
-        _content.mode = _tab == Tab.Schedule || _tab == Tab.Completed
+        _content.mode = _tab == Tab.Schedule
             ? ScrollViewMode.VerticalAndHorizontal
             : ScrollViewMode.Vertical;
 
@@ -1133,15 +1060,6 @@ public class ContractsPanel : IUIPanel
         bool splitTab = _tab == Tab.Accounts || _tab == Tab.BulkOrders;
         _content.style.display = splitTab ? DisplayStyle.None : DisplayStyle.Flex;
         _splitPane.style.display = splitTab ? DisplayStyle.Flex : DisplayStyle.None;
-
-        // Completed reads the ORDER archive, not the contract system, so it's answered before the
-        // arrivals guard below — a session with no OrderArrivalService can still have shipped freight,
-        // and hiding the ledger behind a service it doesn't use would be wrong.
-        if (_tab == Tab.Completed)
-        {
-            BuildCompleted();
-            return;
-        }
 
         var arrivals = Arrivals();
         if (arrivals == null)
@@ -1960,11 +1878,9 @@ public class ContractsPanel : IUIPanel
         // not an account you're running — it has nothing left to arrive and nothing to cancel, and its
         // SignedContract carries no useful figures either (the per-contract counters only accrue for
         // orders stamped with a ContractId, which these aren't), so the row read "$0 earned · 0
-        // shipped" forever while the real money sat on the Completed tab. That tab is where finished
-        // deals live now, per ORDER and with the actual revenue on them.
-        _footerMessage.text = $"{running.Count} recurring account(s) running. Finished one-offs are on the " +
-                              "Completed tab. Cancelling stops future orders; anything already on the " +
-                              "board still has to ship.";
+        // shipped" forever while the real money sat elsewhere.
+        _footerMessage.text = $"{running.Count} recurring account(s) running. Cancelling stops future " +
+                              "orders; anything already on the board still has to ship.";
     }
 
 
@@ -4201,811 +4117,6 @@ public class ContractsPanel : IUIPanel
     /// determined (PO already departed, order missing) — never a misleading "0".</summary>
     private static string PalletLabel(int pallets)
         => pallets < 0 ? "—" : pallets == 1 ? "1 pallet" : $"{pallets} pallets";
-
-    // ── Tab 5: Completed ─────────────────────────────────────────────────────
-
-    /// <summary>
-    /// The deals this tab reports: orders that were closed out and paid for.
-    ///
-    /// Cancelled orders share the same archive (OrderService.OrderHistory holds both) but are
-    /// deliberately excluded — a called-off order isn't a completed deal, it made no money and shipped
-    /// no freight, and it would sit in the ledger as a row of zeroes dragging every total down with it.
-    ///
-    /// The archive is capped at OrderService.MaxArchivedOrders and trims oldest-first, so a long game
-    /// shows the most recent N deals rather than all of them. Lifetime per-account totals live on the
-    /// Accounts tab, which accumulates them and never forgets.
-    /// </summary>
-    private static List<OrderData> CompletedOrders()
-    {
-        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null)
-            return new List<OrderData>();
-        return orders.OrderHistory
-            .Where(o => o != null && o.Status == OrderData.OrderStatus.Shipped)
-            .ToList();
-    }
-
-    /// <summary>CompletedOrders narrowed by the Shipped column's date filter, if active. This is what
-    /// every downstream reader of the tab (ledger rows, the Revenue/Net Profit/Fill Rate stat strip,
-    /// the footer summary) actually consumes — narrowing them all from one shared filtered list is what
-    /// makes picking a date range recompute everything together instead of just hiding rows.</summary>
-    private List<OrderData> FilteredCompletedOrders()
-    {
-        var deals = CompletedOrders();
-        if (!_doneDateFilterActive) return deals;
-        return deals.Where(o => _doneDateFilterSelection.Contains(DoneDateFilterValue(o))).ToList();
-    }
-
-    /// <summary>The bucket a deal's Shipped date filters into — one per in-game day, "Unknown" for the
-    /// rare pre-migration order with no date stamp at all. Deliberately day-granular (drops the HH:MM
-    /// ClosedDateText shows on the row itself) since a per-minute filter list would be unusable to scan
-    /// or check off.</summary>
-    private static string DoneDateFilterValue(OrderData order)
-    {
-        if (order == null) return "Unknown";
-        int day = HasClosedStamp(order) ? order.ClosedDayNumber
-                 : order.CreatedDayNumber > 0 ? order.CreatedDayNumber : -1;
-        return day >= 0 ? $"Day {day}" : "Unknown";
-    }
-
-    /// <summary>Numeric key behind a DoneDateFilterValue bucket, so the filter's checkbox list can sort
-    /// newest-first instead of "Day 10" alphabetically outranking "Day 2". Unknown sorts last.</summary>
-    private static int DoneDateFilterSortKey(string bucket)
-        => bucket.StartsWith("Day ") && int.TryParse(bucket.Substring(4), out int d) ? d : int.MinValue;
-
-    /// <summary>Every distinct Shipped-date bucket across the WHOLE archive, not just what's currently
-    /// filtered in — an Excel filter's own option list doesn't shrink as you narrow it, only the rows do.</summary>
-    private static List<string> CollectDoneDateBuckets()
-    {
-        var buckets = CompletedOrders().Select(DoneDateFilterValue).Distinct().ToList();
-        buckets.Sort((a, b) => DoneDateFilterSortKey(b).CompareTo(DoneDateFilterSortKey(a)));
-        return buckets;
-    }
-
-    private void BuildCompleted()
-    {
-        var allDeals = CompletedOrders();
-
-        if (allDeals.Count == 0)
-        {
-            var none = MakeText("Nothing shipped yet. Close a loaded trailer out on the Work Queue " +
-                                "(key 7) and the deal is recorded here.", 15, ColSubtleText);
-            none.style.marginTop = 12;
-            _content.Add(none);
-            _footerMessage.text = "No completed deals on record.";
-            return;
-        }
-
-        var deals = SortedCompleted();
-
-        // Both the stat strip and the column headings go in the STATIONARY strip above the scroll
-        // view, not in _content — a ledger whose headings (or totals) scroll off the top stops being
-        // readable the moment it's longer than the panel. Stats are added FIRST so the header ends up
-        // directly above row 1, the same "heading sits right on top of its data" layout every other
-        // tab uses — they used to be swapped, putting a gap of stat tiles between the header and what
-        // it names.
-        //
-        // Built off allDeals.Count > 0 rather than deals.Count > 0 — the header carries the Shipped
-        // filter dropdown, so it has to stay reachable even when the current filter selection hides
-        // every row, or narrowing to an empty date range would strand the player with no way back in.
-        _tabHeader.Add(BuildCompletedSummary(deals));
-
-        // Being outside the scroller is also why SyncCompletedHeader has to hand the header the
-        // horizontal scroll offset: vertical stillness is wanted here, horizontal stillness would be
-        // a bug — the header still has to slide with the ledger when it's scrolled sideways.
-        _completedHeaderRow = BuildCompletedHeader();
-        _tabHeader.Add(_completedHeaderRow);
-
-        if (deals.Count == 0)
-        {
-            var none = MakeText("No completed deals match the selected Shipped date(s). Open the " +
-                                "Shipped column's filter and check more days, or Clear Filter to see " +
-                                "everything.", 15, ColSubtleText);
-            none.style.marginTop = 12;
-            _content.Add(none);
-            _footerMessage.text = "No completed deals match the selected date(s).";
-            return;
-        }
-
-        for (int i = 0; i < deals.Count; i++)
-            _content.Add(BuildCompletedRow(deals[i], i));
-
-        int cases = deals.Sum(o => o.TotalUnitsPicked);
-        int ordered = deals.Sum(o => o.TotalUnits);
-        int short_ = deals.Count(o => o.TotalUnitsPicked < o.TotalUnits);
-        float pallets = deals.Sum(EffectivePallets);
-        // Spelled "about" rather than prefixed "~", for the same reason the cells dropped their tilde:
-        // in front of a number it reads as a minus sign. One decimal — summing scores of modelled
-        // fractions to two would be false precision.
-        string palletTotal = deals.All(HasPalletCount)
-            ? $"{pallets.ToString("N0")} pallet(s)"
-            : $"about {pallets.ToString("0.#")} pallet(s)";
-        _footerMessage.text = $"{deals.Count} completed deal(s) on record · {palletTotal}, " +
-                              $"{cases:N0} of {ordered:N0} case(s) shipped" +
-                              (short_ > 0 ? $" · {short_} shipped short" : " · none shipped short") +
-                              ". Click a column heading to re-sort.";
-    }
-
-    /// <summary>Three totals across everything on the tab. Net profit is the middle number on purpose:
-    /// revenue alone flatters a deal that cost almost as much to buy as it sold for.</summary>
-    private VisualElement BuildCompletedSummary(List<OrderData> deals)
-    {
-        int revenue = deals.Sum(o => o.ShippedRevenue);
-        int profit = deals.Sum(o => o.ShippedProfit);
-        int cases = deals.Sum(o => o.TotalUnitsPicked);
-        int ordered = deals.Sum(o => o.TotalUnits);
-        // Weighted by cases rather than averaging the per-order percentages: a 4-case order shipping
-        // short shouldn't move the service level as far as a 400-case one does.
-        float fill = ordered > 0 ? (float)cases / ordered : 1f;
-
-        var strip = new VisualElement();
-        strip.style.flexDirection = FlexDirection.Row;
-        strip.style.marginBottom = 8;
-        strip.Add(MakeStatTile("REVENUE", Money(revenue), ColMoney));
-        strip.Add(MakeStatTile("NET PROFIT", Money(profit), profit >= 0 ? ColMoney : ColDangerSoft));
-        strip.Add(MakeStatTile("FILL RATE", $"{fill:P0}",
-                               fill >= 0.99f ? ColMoney : fill >= 0.9f ? ColWholesale : ColDangerSoft));
-        return strip;
-    }
-
-    private List<OrderData> SortedCompleted()
-    {
-        var deals = FilteredCompletedOrders();
-
-        IEnumerable<OrderData> sorted = _doneSort switch
-        {
-            DoneColumn.Order    => deals.OrderBy(o => o.OrderId),
-            DoneColumn.Account  => deals.OrderBy(o => o.CustomerName),
-            DoneColumn.Type     => deals.OrderBy(OrderTypeLabel),
-            DoneColumn.Revenue  => deals.OrderBy(o => o.ShippedRevenue),
-            DoneColumn.Profit   => deals.OrderBy(o => o.ShippedProfit),
-            // Sorts on the same number the column shows, estimate included — a column that sorted on
-            // something other than its own visible values would read as broken.
-            DoneColumn.Pallets  => deals.OrderBy(EffectivePallets),
-            DoneColumn.Cases    => deals.OrderBy(o => o.TotalUnitsPicked),
-            DoneColumn.FillRate => deals.OrderBy(FillRatio),
-            _                   => deals.OrderBy(ClosedSortKey),
-        };
-
-        // Built ascending, then reversed — same shape the Work Queue's sorts use.
-        return (_doneAscending ? sorted : sorted.Reverse()).ToList();
-    }
-
-    /// <summary>
-    /// One comparable moment for "when this deal closed".
-    ///
-    /// Sorts on the SAME value the Shipped column displays, including the approximate arrival day a
-    /// legacy deal falls back to — a list that sorts by something other than the dates you can read
-    /// in it just looks broken. An order with neither stamp nor arrival day sorts to the very bottom
-    /// of a newest-first list rather than jumping to the top as day 0.
-    /// </summary>
-    private static long ClosedSortKey(OrderData order)
-    {
-        if (order == null) return long.MinValue;
-        if (HasClosedStamp(order))
-            return (long)order.ClosedDayNumber * 1440L + Mathf.Max(0, order.ClosedMinuteOfDay);
-        // Arrival day only — no time of day to go with it, so it lands at the start of that day and
-        // therefore below any real pickup stamped on the same day. That's the right way round: a
-        // guess should never outrank a fact.
-        return order.CreatedDayNumber > 0 ? (long)order.CreatedDayNumber * 1440L : long.MinValue;
-    }
-
-    private static float FillRatio(OrderData order)
-        => order == null || order.TotalUnits <= 0 ? 0f : (float)order.TotalUnitsPicked / order.TotalUnits;
-
-    private VisualElement BuildCompletedHeader()
-    {
-        var header = new VisualElement();
-        header.style.flexDirection = FlexDirection.Row;
-        header.style.paddingLeft = DoneRowIndent;
-        header.style.paddingBottom = 4;
-        header.style.marginBottom = 2;
-        header.style.borderBottomWidth = 1;
-        header.style.borderBottomColor = new StyleColor(ColBlueEdge);
-        // Invisible counterpart to a row's status stripe — see DoneStripeWidth.
-        header.style.borderLeftWidth = DoneStripeWidth;
-        header.style.borderLeftColor = new StyleColor(Color.clear);
-
-        header.Add(DoneDateHeaderCell());
-        header.Add(DoneHeaderCell("Order #", DoneOrderWidth, DoneColumn.Order));
-        header.Add(DoneHeaderCell("Account", DoneAccountWidth, DoneColumn.Account));
-        header.Add(DoneHeaderCell("Type", DoneTypeWidth, DoneColumn.Type));
-        header.Add(DoneHeaderCell("Revenue", DoneRevenueWidth, DoneColumn.Revenue));
-        header.Add(DoneHeaderCell("Net Profit", DoneProfitWidth, DoneColumn.Profit));
-        header.Add(DoneHeaderCell("Pallets", DonePalletsWidth, DoneColumn.Pallets));
-        header.Add(DoneHeaderCell("Cases", DoneCasesWidth, DoneColumn.Cases));
-        header.Add(DoneHeaderCell("Fill Rate", DoneFillWidth, DoneColumn.FillRate));
-        return header;
-    }
-
-    /// <summary>A sortable column heading: click to sort by it, click again to reverse.</summary>
-    private Button DoneHeaderCell(string text, float width, DoneColumn column)
-    {
-        bool active = _doneSort == column;
-
-        var head = new Button();
-        ApplyFont(head, bold: true, size: DoneFontSize);
-        head.text = active ? text + (_doneAscending ? " ▲" : " ▼") : text;
-        head.style.color = new StyleColor(active ? ColOrange : ColSubtleText);
-        head.style.width = width;
-        head.style.minWidth = width;
-        head.style.flexShrink = 0;
-        head.style.backgroundColor = new StyleColor(Color.clear);
-        head.style.borderTopWidth = head.style.borderBottomWidth =
-            head.style.borderLeftWidth = head.style.borderRightWidth = 0;
-        head.style.marginLeft = 0; head.style.marginRight = 0;
-        head.style.paddingLeft = 0; head.style.paddingRight = IsNumericDone(column) ? 10 : 0;
-        head.style.paddingTop = 0; head.style.paddingBottom = 0;
-        head.style.unityTextAlign = IsNumericDone(column) ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
-
-        head.clicked += () =>
-        {
-            if (_doneSort == column) _doneAscending = !_doneAscending;
-            else
-            {
-                _doneSort = column;
-                // Money, counts, fill and dates all read most-useful biggest-first; text reads A–Z.
-                _doneAscending = column == DoneColumn.Account || column == DoneColumn.Type
-                               || column == DoneColumn.Order;
-            }
-            Rebuild();
-        };
-        if (!active)
-        {
-            head.RegisterCallback<MouseEnterEvent>(_ => head.style.color = new StyleColor(ColTitleText));
-            head.RegisterCallback<MouseLeaveEvent>(_ => head.style.color = new StyleColor(ColSubtleText));
-        }
-        return head;
-    }
-
-    // ── Shipped column: Excel-style multi-select date filter ───────────────────
-
-    /// <summary>The Shipped column's header. Still click-to-sort like every other column (sort state
-    /// is unaffected by the filter and the popup's own sort buttons drive the same _doneSort field),
-    /// but also carries the dropdown arrow that opens the date filter popup — clicking the label
-    /// re-sorts, clicking the arrow (or anywhere else in the cell) opens the filter.</summary>
-    private VisualElement DoneDateHeaderCell()
-    {
-        bool sortActive = _doneSort == DoneColumn.Date;
-        Color idle = _doneDateFilterActive || sortActive ? ColOrange : ColSubtleText;
-
-        var container = new VisualElement();
-        container.style.flexDirection = FlexDirection.Row;
-        container.style.alignItems = Align.Center;
-        container.style.width = DoneDateWidth;
-        container.style.minWidth = DoneDateWidth;
-        container.style.flexShrink = 0;
-
-        var label = new Button { text = sortActive ? "Shipped" + (_doneAscending ? " ▲" : " ▼") : "Shipped" };
-        ApplyFont(label, bold: true, size: DoneFontSize);
-        label.style.color = new StyleColor(idle);
-        label.style.flexShrink = 0;
-        label.style.backgroundColor = new StyleColor(Color.clear);
-        label.style.borderTopWidth = label.style.borderBottomWidth =
-            label.style.borderLeftWidth = label.style.borderRightWidth = 0;
-        label.style.marginLeft = 0; label.style.marginRight = 0;
-        label.style.paddingLeft = 0; label.style.paddingRight = 0;
-        label.style.paddingTop = 0; label.style.paddingBottom = 0;
-        label.style.unityTextAlign = TextAnchor.MiddleLeft;
-        label.clicked += () =>
-        {
-            if (_doneSort == DoneColumn.Date) _doneAscending = !_doneAscending;
-            else { _doneSort = DoneColumn.Date; _doneAscending = false; }
-            Rebuild();
-        };
-        container.Add(label);
-
-        var icon = new Label("▼");
-        ApplyFont(icon, size: 10);
-        icon.style.color = new StyleColor(idle);
-        icon.style.marginLeft = 4;
-        icon.RegisterCallback<ClickEvent>(e =>
-        {
-            e.StopPropagation();
-            ToggleDoneDateFilterPopup(container);
-        });
-        container.Add(icon);
-
-        if (!sortActive && !_doneDateFilterActive)
-        {
-            container.RegisterCallback<PointerEnterEvent>(_ =>
-            {
-                label.style.color = new StyleColor(ColTitleText);
-                icon.style.color = new StyleColor(ColTitleText);
-            });
-            container.RegisterCallback<PointerLeaveEvent>(_ =>
-            {
-                label.style.color = new StyleColor(ColSubtleText);
-                icon.style.color = new StyleColor(ColSubtleText);
-            });
-        }
-
-        return container;
-    }
-
-    private void ToggleDoneDateFilterPopup(VisualElement anchor)
-    {
-        if (_doneDateFilterPopup != null) { CloseDoneDateFilterPopup(); return; }
-        OpenDoneDateFilterPopup(anchor);
-    }
-
-    private void OpenDoneDateFilterPopup(VisualElement anchor)
-    {
-        var allBuckets = CollectDoneDateBuckets();
-
-        // First open with nothing unchecked yet: start from "everything selected" so the popup reads
-        // as a full list with all boxes ticked, matching Excel's own first-open state.
-        if (!_doneDateFilterActive)
-        {
-            _doneDateFilterSelection.Clear();
-            foreach (var b in allBuckets) _doneDateFilterSelection.Add(b);
-        }
-
-        var anchorBounds = anchor.worldBound;
-        var modalBounds = _modal.worldBound;
-        float popupX = anchorBounds.x - modalBounds.x;
-        float popupY = anchorBounds.y + anchorBounds.height - modalBounds.y;
-
-        _doneDateFilterPopup = BuildDoneDateFilterPopup(allBuckets, popupX, popupY);
-        _modal.Add(_doneDateFilterPopup);
-    }
-
-    private void CloseDoneDateFilterPopup()
-    {
-        if (_doneDateFilterPopup != null)
-        {
-            _doneDateFilterPopup.RemoveFromHierarchy();
-            _doneDateFilterPopup = null;
-        }
-        _doneDateFilterSearch = "";
-    }
-
-    private VisualElement BuildDoneDateFilterPopup(List<string> allBuckets, float x, float y)
-    {
-        const float PopupWidth = 240f;
-        const float PopupMaxHeight = 380f;
-        const float ListMaxHeight = 220f;
-
-        var clickCatcher = new VisualElement();
-        clickCatcher.style.position = Position.Absolute;
-        clickCatcher.style.left = 0; clickCatcher.style.top = 0;
-        clickCatcher.style.right = 0; clickCatcher.style.bottom = 0;
-        clickCatcher.style.backgroundColor = new StyleColor(Color.clear);
-        clickCatcher.RegisterCallback<ClickEvent>(e =>
-        {
-            e.StopPropagation();
-            CloseDoneDateFilterPopup();
-        });
-
-        var panel = new VisualElement();
-        panel.style.position = Position.Absolute;
-        panel.style.left = x;
-        panel.style.top = y;
-        panel.style.width = PopupWidth;
-        panel.style.maxHeight = PopupMaxHeight;
-        panel.style.backgroundColor = new StyleColor(new Color(16f / 255f, 22f / 255f, 30f / 255f, 0.98f));
-        panel.style.borderTopWidth = panel.style.borderBottomWidth =
-            panel.style.borderLeftWidth = panel.style.borderRightWidth = 2;
-        panel.style.borderTopColor = panel.style.borderBottomColor =
-            panel.style.borderLeftColor = panel.style.borderRightColor = new StyleColor(ColBorder);
-        panel.style.borderTopLeftRadius = panel.style.borderTopRightRadius =
-            panel.style.borderBottomLeftRadius = panel.style.borderBottomRightRadius = 8;
-        panel.style.paddingTop = 8; panel.style.paddingBottom = 8;
-        panel.style.paddingLeft = 8; panel.style.paddingRight = 8;
-        panel.RegisterCallback<ClickEvent>(e => e.StopPropagation());
-        clickCatcher.Add(panel);
-
-        var searchField = new TextField { value = _doneDateFilterSearch };
-        ApplyFont(searchField, size: 12);
-        searchField.style.width = StyleKeyword.Auto;
-        searchField.style.marginBottom = 6;
-        searchField.style.color = new StyleColor(ColTitleText);
-        searchField.style.backgroundColor = new StyleColor(new Color(0x1A / 255f, 0x24 / 255f, 0x32 / 255f, 1f));
-        searchField.style.borderBottomWidth = 1;
-        searchField.style.borderBottomColor = new StyleColor(ColBorder);
-        searchField.style.borderTopWidth = searchField.style.borderLeftWidth = searchField.style.borderRightWidth = 0;
-        searchField.style.borderTopLeftRadius = searchField.style.borderTopRightRadius =
-            searchField.style.borderBottomLeftRadius = searchField.style.borderBottomRightRadius = 4;
-        searchField.RegisterValueChangedCallback(evt =>
-        {
-            _doneDateFilterSearch = evt.newValue ?? "";
-            RefreshDoneDateFilterList(panel, allBuckets);
-        });
-        panel.Add(searchField);
-
-        var selectAllToggle = new Toggle { label = "Select All", value = true };
-        selectAllToggle.name = "select-all-toggle";
-        ApplyFont(selectAllToggle, size: 12);
-        selectAllToggle.style.color = new StyleColor(ColTitleText);
-        selectAllToggle.style.marginBottom = 4;
-        selectAllToggle.RegisterValueChangedCallback(evt =>
-        {
-            var visible = FilterDoneBucketsBySearch(allBuckets, _doneDateFilterSearch);
-            if (evt.newValue) foreach (var v in visible) _doneDateFilterSelection.Add(v);
-            else foreach (var v in visible) _doneDateFilterSelection.Remove(v);
-            _doneDateFilterActive = _doneDateFilterSelection.Count < allBuckets.Count;
-            RefreshDoneDateFilterList(panel, allBuckets);
-            Rebuild();
-        });
-        panel.Add(selectAllToggle);
-
-        var itemScroll = new ScrollView
-        {
-            verticalScrollerVisibility = ScrollerVisibility.Auto,
-            horizontalScrollerVisibility = ScrollerVisibility.Hidden
-        };
-        itemScroll.style.maxHeight = ListMaxHeight;
-        itemScroll.style.marginBottom = 6;
-        itemScroll.name = "filter-list";
-        panel.Add(itemScroll);
-
-        PopulateDoneDateFilterList(itemScroll, allBuckets);
-
-        var sep = new VisualElement();
-        sep.style.height = 1;
-        sep.style.backgroundColor = new StyleColor(new Color(ColBorder.r, ColBorder.g, ColBorder.b, 0.4f));
-        sep.style.marginTop = 4; sep.style.marginBottom = 4;
-        panel.Add(sep);
-
-        var bottomRow = new VisualElement();
-        bottomRow.style.flexDirection = FlexDirection.Row;
-        bottomRow.style.alignItems = Align.Center;
-
-        var clearBtn = new Button(() =>
-        {
-            _doneDateFilterActive = false;
-            _doneDateFilterSelection.Clear();
-            foreach (var v in allBuckets) _doneDateFilterSelection.Add(v);
-            RefreshDoneDateFilterList(panel, allBuckets);
-            Rebuild();
-        }) { text = "Clear Filter" };
-        ApplyFont(clearBtn, size: 11);
-        clearBtn.style.backgroundColor = new StyleColor(Color.clear);
-        clearBtn.style.color = new StyleColor(ColTitleText);
-        clearBtn.style.borderTopWidth = clearBtn.style.borderBottomWidth =
-            clearBtn.style.borderLeftWidth = clearBtn.style.borderRightWidth = 0;
-        clearBtn.style.paddingLeft = 8; clearBtn.style.paddingRight = 8;
-        clearBtn.style.paddingTop = 4; clearBtn.style.paddingBottom = 4;
-        clearBtn.RegisterCallback<PointerEnterEvent>(_ => clearBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.08f)));
-        clearBtn.RegisterCallback<PointerLeaveEvent>(_ => clearBtn.style.backgroundColor = new StyleColor(Color.clear));
-        bottomRow.Add(clearBtn);
-
-        var countLabel = new Label();
-        ApplyFont(countLabel, size: 11);
-        countLabel.style.color = new StyleColor(ColSubtleText);
-        countLabel.style.marginLeft = 8;
-        countLabel.style.flexGrow = 1;
-        countLabel.style.unityTextAlign = TextAnchor.MiddleRight;
-        countLabel.name = "filter-count";
-        bottomRow.Add(countLabel);
-        panel.Add(bottomRow);
-
-        UpdateDoneDateFilterCount(panel, allBuckets);
-
-        return clickCatcher;
-    }
-
-    private static List<string> FilterDoneBucketsBySearch(List<string> allBuckets, string search)
-    {
-        if (string.IsNullOrWhiteSpace(search)) return allBuckets;
-        return allBuckets.Where(v => v.IndexOf(search, System.StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-    }
-
-    private void RefreshDoneDateFilterList(VisualElement popupPanel, List<string> allBuckets)
-    {
-        var scroll = popupPanel.Q<ScrollView>("filter-list");
-        if (scroll != null)
-        {
-            scroll.Clear();
-            PopulateDoneDateFilterList(scroll, allBuckets);
-        }
-
-        var selectAll = popupPanel.Q<Toggle>("select-all-toggle");
-        if (selectAll != null)
-        {
-            var visible = FilterDoneBucketsBySearch(allBuckets, _doneDateFilterSearch);
-            bool allVisibleSelected = visible.Count > 0 && visible.All(v => _doneDateFilterSelection.Contains(v));
-            selectAll.SetValueWithoutNotify(allVisibleSelected);
-        }
-
-        UpdateDoneDateFilterCount(popupPanel, allBuckets);
-    }
-
-    private void PopulateDoneDateFilterList(ScrollView scroll, List<string> allBuckets)
-    {
-        var visible = FilterDoneBucketsBySearch(allBuckets, _doneDateFilterSearch);
-
-        if (visible.Count == 0)
-        {
-            var empty = new Label("No dates match search.");
-            ApplyFont(empty, size: 11);
-            empty.style.color = new StyleColor(ColSubtleText);
-            empty.style.paddingLeft = 4;
-            empty.style.paddingTop = 4;
-            scroll.Add(empty);
-            return;
-        }
-
-        foreach (var bucket in visible)
-        {
-            var toggle = new Toggle { label = bucket, value = _doneDateFilterSelection.Contains(bucket) };
-            ApplyFont(toggle, size: 12);
-            toggle.style.color = new StyleColor(ColTitleText);
-            toggle.style.paddingLeft = 4;
-            toggle.style.marginBottom = 2;
-            toggle.style.whiteSpace = WhiteSpace.NoWrap;
-
-            string captured = bucket;
-            toggle.RegisterValueChangedCallback(evt =>
-            {
-                if (evt.newValue) _doneDateFilterSelection.Add(captured);
-                else _doneDateFilterSelection.Remove(captured);
-                _doneDateFilterActive = _doneDateFilterSelection.Count < allBuckets.Count;
-
-                var selectAll = scroll.parent?.Q<Toggle>("select-all-toggle");
-                if (selectAll != null)
-                {
-                    var visItems = FilterDoneBucketsBySearch(allBuckets, _doneDateFilterSearch);
-                    bool allVis = visItems.Count > 0 && visItems.All(v => _doneDateFilterSelection.Contains(v));
-                    selectAll.SetValueWithoutNotify(allVis);
-                }
-
-                UpdateDoneDateFilterCount(scroll.parent, allBuckets);
-                Rebuild();
-            });
-
-            scroll.Add(toggle);
-        }
-    }
-
-    private void UpdateDoneDateFilterCount(VisualElement popupPanel, List<string> allBuckets)
-    {
-        var label = popupPanel?.Q<Label>("filter-count");
-        if (label == null) return;
-
-        int selected = _doneDateFilterSelection.Count;
-        int total = allBuckets.Count;
-        label.text = _doneDateFilterActive ? $"{selected} of {total} selected" : $"{total} dates";
-    }
-
-    /// <summary>Columns whose cells are right-aligned so their digits stack. Heading and cell both read
-    /// this, so the two can't drift apart.</summary>
-    private static bool IsNumericDone(DoneColumn column) =>
-        column == DoneColumn.Revenue || column == DoneColumn.Profit ||
-        column == DoneColumn.Pallets || column == DoneColumn.Cases;
-
-    /// <summary>
-    /// One closed deal, as a table row rather than one of this panel's cards.
-    ///
-    /// Deliberately compressed — 3px of padding against a card's 10, no icon, no rounded plate — because
-    /// this tab is a ledger you scan down rather than a board you pick from. Fitting several times as
-    /// many deals in the same window is the whole point of the view. The left accent stripe is kept, so
-    /// a short-shipped deal is still findable at a glance without reading the Fill Rate column.
-    /// </summary>
-    private VisualElement BuildCompletedRow(OrderData order, int rowIndex)
-    {
-        bool shippedShort = order.TotalUnits > 0 && order.TotalUnitsPicked < order.TotalUnits;
-
-        var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.alignItems = Align.Center;
-        row.style.paddingTop = 3; row.style.paddingBottom = 3;
-        row.style.paddingLeft = DoneRowIndent; row.style.paddingRight = 8;
-        row.style.marginBottom = 1;
-        row.style.flexShrink = 0;
-        row.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColCardEven : ColCardOdd);
-        row.style.borderLeftWidth = 3;
-        row.style.borderLeftColor = new StyleColor(shippedShort ? ColWholesale : ColMoney);
-
-        var date = AddDoneCell(row, ClosedDateText(order), DoneDateWidth,
-                               HasClosedStamp(order) ? ColTitleText : ColSubtleText, DoneColumn.Date);
-        if (!HasClosedStamp(order))
-            date.tooltip = "Ship date wasn't recorded for this deal — showing the day the order " +
-                           "arrived instead. Deals closed out from now on carry their real pickup time.";
-        var orderNum = AddDoneCell(row, order.OrderNumber ?? ShortOrderId(order.OrderId), DoneOrderWidth, ColSubtleText, DoneColumn.Order);
-        orderNum.tooltip = order.OrderId;
-        AddDoneCell(row, order.CustomerName, DoneAccountWidth, ColTitleText, DoneColumn.Account, bold: true);
-        AddDoneCell(row, OrderTypeLabel(order), DoneTypeWidth, OrderTypeColor(order), DoneColumn.Type);
-        AddDoneCell(row, Money(order.ShippedRevenue), DoneRevenueWidth, ColMoney, DoneColumn.Revenue, bold: true);
-        AddDoneCell(row, Money(order.ShippedProfit), DoneProfitWidth,
-                    order.ShippedProfit >= 0 ? ColMoney : ColDangerSoft, DoneColumn.Profit, bold: true);
-        // Recorded counts read firmer than modelled ones — that's now the only visual difference
-        // between the two, since neither carries a prefix.
-        var pallets = AddDoneCell(row, PalletCountText(order), DonePalletsWidth,
-                                  HasPalletCount(order) ? ColTitleText : ColSubtleText, DoneColumn.Pallets);
-        if (!HasPalletCount(order))
-            pallets.tooltip = "Pallet-equivalents: cases picked ÷ (Ti × Hi). Under 1 means the deal " +
-                              "didn't fill a whole pallet. Estimated because this deal shipped before " +
-                              "pallet counts were recorded — deals closed out from now on carry the " +
-                              "loader's real count.";
-        AddDoneCell(row, order.TotalUnitsPicked.ToString("N0"), DoneCasesWidth, ColTitleText, DoneColumn.Cases);
-        AddDoneCell(row, FillText(order), DoneFillWidth,
-                    shippedShort ? ColWholesale : ColMoney, DoneColumn.FillRate, bold: true);
-        return row;
-    }
-
-    private Label AddDoneCell(VisualElement row, string text, float width, Color color,
-                              DoneColumn column, bool bold = false)
-    {
-        var label = new Label(string.IsNullOrEmpty(text) ? "—" : text);
-        ApplyFont(label, bold, DoneFontSize);
-        label.style.color = new StyleColor(color);
-        label.style.width = width;
-        label.style.minWidth = width;
-        label.style.flexShrink = 0;
-        // Zeroed explicitly. The theme's default Label margin is a few px, and the header cells are
-        // Buttons that zero their own — so leaving these alone made every column sit a little wider
-        // than its heading and the two drifted apart cumulatively, 43px out by the last column.
-        label.style.marginLeft = 0;
-        label.style.marginRight = 0;
-        label.style.marginTop = 0;
-        label.style.marginBottom = 0;
-        // NoWrap, unlike MakeText's rows — a wrapped account name would make one row taller than the
-        // rest and break the ledger's alignment.
-        label.style.whiteSpace = WhiteSpace.NoWrap;
-        label.style.overflow = Overflow.Hidden;
-        label.style.unityTextAlign = IsNumericDone(column) ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
-        if (IsNumericDone(column)) label.style.paddingRight = 10;
-        row.Add(label);
-        return label;
-    }
-
-    /// <summary>True if this deal carries a real recorded pickup moment. False for every order shipped
-    /// before OrderData.ClosedDayNumber existed — which is the whole archive of any save made before
-    /// this tab was built.</summary>
-    private static bool HasClosedStamp(OrderData order) => order != null && order.ClosedDayNumber > 0;
-
-    /// <summary>
-    /// "Day 14 · 15:20" — the in-game moment the trailer was closed out and picked up. There's no
-    /// calendar in this game, so the day number IS the date, shown the way the top bar shows it.
-    ///
-    /// A deal with no recorded pickup falls back to "~Day 12", the day the ORDER ARRIVED, which is
-    /// persisted on every order ever written. The tilde and the dimmer colour are load-bearing: it is
-    /// not the ship date and must never be read as one — it's only ever earlier, sometimes by days.
-    /// Shown anyway because a whole archive of "—" tells the player nothing at all, and an order's
-    /// arrival day still puts it in roughly the right place in a list sorted newest-first.
-    /// </summary>
-    private static string ClosedDateText(OrderData order)
-    {
-        if (order == null) return "—";
-        if (!HasClosedStamp(order))
-            return order.CreatedDayNumber > 0 ? $"~Day {order.CreatedDayNumber}" : "—";
-        if (order.ClosedMinuteOfDay < 0) return $"Day {order.ClosedDayNumber}";
-        return $"Day {order.ClosedDayNumber} · {order.ClosedMinuteOfDay / 60:00}:{order.ClosedMinuteOfDay % 60:00}";
-    }
-
-    /// <summary>How the deal reached the dock. Bulk is a real flag on the order (also covers the
-    /// retired wholesale concept, folded into it); anything else came from a contract, unless it has
-    /// no contract at all — which only a Dev Console order does.</summary>
-    private static string OrderTypeLabel(OrderData order)
-    {
-        if (order == null) return "—";
-        if (order.IsBulk) return "Bulk";
-        return string.IsNullOrEmpty(order.ContractId) ? "Manual" : "Contract";
-    }
-
-    /// <summary>Type colours reuse the families the rest of the panel already assigns these:
-    /// teal for bulk, blue for a standing contract.</summary>
-    private static Color OrderTypeColor(OrderData order) => OrderTypeLabel(order) switch
-    {
-        "Bulk" => ColChipBulkTx,
-        "Contract" => ColChipOutText,
-        _ => ColSubtleText,
-    };
-
-    /// <summary>
-    /// Pallets on the deal — the real count where we have it, an estimate where we don't.
-    ///
-    /// The real one is counted by the loader as it puts each pallet aboard (OrderData.PalletsShipped).
-    /// Deals shipped before that was recorded have nothing stored, so rather than a column of dashes
-    /// they get "~2", reconstructed from what IS persisted: the line items' picked quantities and each
-    /// SKU's Ti/Hi. Tilde-marked, exactly like the approximate ship dates, because it is a model of
-    /// what the selector would have built rather than a record of what it did.
-    /// </summary>
-    private string PalletCountText(OrderData order)
-    {
-        if (order == null) return "—";
-        if (order.PalletsShipped > 0) return order.PalletsShipped.ToString();
-        float est = EstimatePalletFraction(order);
-        // "0.##" so a whole pallet reads "2" rather than "2.00", while a part load keeps its precision.
-        //
-        // NO "~" prefix, unlike the approximate ship dates. A tilde in front of a bare decimal reads as
-        // a MINUS SIGN at this size — "~0.65" was being read as "-0.65", i.e. as a bug. "~Day 28" is
-        // safe because a word follows it; a number is not. Estimated rows are marked by the dimmer
-        // colour and the tooltip instead, which can't be misread as arithmetic.
-        return est > 0f ? est.ToString("0.##") : "—";
-    }
-
-    /// <summary>True when the row's pallet figure is a real recorded count rather than an estimate.</summary>
-    private static bool HasPalletCount(OrderData order) => order != null && order.PalletsShipped > 0;
-
-    /// <summary>The pallet figure this deal actually reports — the loader's recorded whole-pallet
-    /// count where we have it, the fractional estimate otherwise. What the column sorts on and what
-    /// the footer total sums. Clamped at zero so no row can ever pull the total downward.</summary>
-    private float EffectivePallets(OrderData order)
-        => HasPalletCount(order)
-         ? order.PalletsShipped
-         : Mathf.Max(0f, EstimatePalletFraction(order));
-
-    /// <summary>
-    /// How much pallet this order's picked cases actually amount to: cases / (Ti x Hi), summed across
-    /// the lines.
-    ///
-    /// Reported as a FRACTION, not rounded up to a whole pallet. 26 cases of a 40-per-pallet SKU is
-    /// 0.65 of a pallet, and saying "1" hides exactly the thing the number is for — how much of a
-    /// pallet the deal was really worth. A part load and a full one are different deals.
-    ///
-    /// Uses the SAME arithmetic OutboundPalletBuilder accumulates as it builds (one case occupies
-    /// 1/(Ti x Hi) of a reference pallet), so this is the selector's own cubing model rather than a
-    /// second, quietly different idea of how big a pallet is.
-    ///
-    /// Never negative: quantities shouldn't go below zero, but a bad line item shouldn't be able to
-    /// subtract freight off the rest of the order either. Returns 0 — rendered "—" — if any line's SKU
-    /// can't be resolved or carries no Ti/Hi, rather than silently reporting a figure that's missing a
-    /// line's worth of goods.
-    /// </summary>
-    private float EstimatePalletFraction(OrderData order)
-    {
-        if (order?.LineItems == null || order.LineItems.Count == 0) return 0f;
-
-        float pallets = 0f;
-        foreach (var li in order.LineItems)
-        {
-            if (li == null || li.QuantityPicked <= 0) continue;
-            int perPallet = CasesPerPallet(li.SkuId);
-            if (perPallet <= 0) return 0f;
-            pallets += li.QuantityPicked / (float)perPallet;
-        }
-        return Mathf.Max(0f, pallets);
-    }
-
-    /// <summary>
-    /// Ti x Hi for a SKU, or 0 if it can't be resolved.
-    ///
-    /// Cached because this is asked once per line item per row and the archive holds up to 250 deals —
-    /// AllSkus is an IEnumerable, so resolving each one by scanning it turns a tab switch into tens of
-    /// thousands of string compares. Filled on first use rather than at construction: the panel is
-    /// built at startup and InventoryService may not have loaded its catalog yet.
-    ///
-    /// An INSTANCE field, not a static one. The panel is rebuilt per play session, so the cache dies
-    /// with it — a static would survive domain reloads and hand the next session a catalog it never
-    /// loaded.
-    /// </summary>
-    private readonly Dictionary<string, int> _casesPerPallet = new();
-
-    private int CasesPerPallet(string skuId)
-    {
-        if (string.IsNullOrEmpty(skuId)) return 0;
-
-        if (_casesPerPallet.Count == 0)
-        {
-            if (!ServiceLocator.TryGet<InventoryService>(out var inv) || inv?.AllSkus == null) return 0;
-            foreach (var s in inv.AllSkus)
-                if (s != null && !string.IsNullOrEmpty(s.SkuId))
-                    _casesPerPallet[s.SkuId] = Mathf.Max(0, s.Ti * s.Hi);
-        }
-        return _casesPerPallet.TryGetValue(skuId, out int n) ? n : 0;
-    }
-
-    /// <summary>"85% · 17 / 20" — the percentage first because that's the KPI, the raw counts behind it
-    /// so a short is legible as cases rather than just as a number that isn't 100.</summary>
-    private static string FillText(OrderData order)
-    {
-        if (order == null || order.TotalUnits <= 0) return "—";
-        return $"{Mathf.RoundToInt(FillRatio(order) * 100f)}%  ·  {order.TotalUnitsPicked} / {order.TotalUnits}";
-    }
-
-    private static string Money(int amount)
-        => amount < 0 ? $"-${Mathf.Abs(amount):N0}" : $"${amount:N0}";
-
-    /// <summary>First 8 characters of a GUID order id — enough to tell rows apart at a glance and to
-    /// cross-reference a console log line (which also truncates ids this way — see WorkQueuePanel's
-    /// own ShortId), without spending the width a full GUID would need. The full id is on the cell's
-    /// tooltip for whenever the short form isn't enough.</summary>
-    private static string ShortOrderId(string orderId)
-    {
-        if (string.IsNullOrEmpty(orderId)) return "—";
-        return orderId.Length > 8 ? orderId.Substring(0, 8) : orderId;
-    }
 
     // ── Shared builders ──────────────────────────────────────────────────────
 

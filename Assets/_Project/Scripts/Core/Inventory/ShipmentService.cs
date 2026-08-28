@@ -400,7 +400,12 @@ namespace GameCore.Inventory
                     return;
                 }
 
-                _yardManager.SpawnNextTruck(shipment);
+                if (!_yardManager.SpawnNextTruck(shipment))
+                {
+                    HandleNoAvailableDoor(shipment);
+                    return;
+                }
+
                 Debug.Log($"[ShipmentService] Spawned truck for PO {shipment.PONumber}");
 
                 // Inbound and outbound share the same physical doors, so an arriving PO has to show
@@ -419,6 +424,50 @@ namespace GameCore.Inventory
             {
                 Debug.LogError("[ShipmentService] Cannot spawn truck: TruckYardManager not found in scene.");
             }
+        }
+
+        /// <summary>
+        /// Called when a PO's appointment came due and every door was occupied — the driver doesn't
+        /// wait around, he turns around and goes back to his facility (per Tad's spec: no queueing,
+        /// no silent retry). Three things happen, all-or-nothing per attempt:
+        ///   1. The appointment is handed back to the unscheduled pool via TryPark, so the player has
+        ///      to actively give it a new door/time rather than it silently re-attempting forever.
+        ///   2. The vendor's Partnership Level takes a flat -20 hit — a missed door is on the player,
+        ///      not the vendor, and the relationship pays for it.
+        ///   3. A toast tells the player exactly what happened and what to do about it.
+        ///
+        /// If there's no real appointment to release (a dev-tool order, or one whose booking was lost
+        /// — see DispatchDueShipments' fallback comment), none of the above fires: there's no pool box
+        /// to return it to, and parking nothing while still leaving the shipment InTransit would just
+        /// re-trigger this every tick forever. That case keeps the old silent-retry behavior instead.
+        /// </summary>
+        private void HandleNoAvailableDoor(ShipmentData shipment)
+        {
+            if (!ServiceLocator.TryGet(out DockScheduleService dockSchedule) || dockSchedule == null)
+                return;
+
+            var appt = dockSchedule.FindForPo(shipment.PONumber);
+            if (appt == null)
+            {
+                Debug.LogWarning($"[ShipmentService] No free door for PO {shipment.PONumber} and no " +
+                                  "appointment to release — will keep retrying.");
+                return;
+            }
+
+            dockSchedule.TryPark(appt.Id, out string failReason);
+            if (failReason != null)
+                Debug.LogWarning($"[ShipmentService] Couldn't park PO {shipment.PONumber}'s appointment " +
+                                  $"after a failed door attempt: {failReason}");
+
+            if (ServiceLocator.TryGet(out VendorEconomyService economy) && economy != null &&
+                !string.IsNullOrEmpty(shipment.SupplierId))
+            {
+                economy.AdjustPartnershipLevel(shipment.SupplierId, -20,
+                    $"No available door for PO {shipment.PONumber} — driver turned around");
+            }
+
+            UIToast.Show($"No available door for PO {shipment.PONumber}, driver has turned around and " +
+                         "went back to his facility - please reschedule him");
         }
 
         /// <summary>Flattens pending AND archived POs into one list for saving — archived rows are

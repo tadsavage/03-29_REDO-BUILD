@@ -148,7 +148,14 @@ public class DockSlot : MonoBehaviour
         {
             if (d == null) continue;
             int p = d.PersistedNumber;
-            if (p > 0) { d.SetNumber(p, false); used.Add(p); }
+            // used.Contains(p) here means a SECOND door in `All` claims the same persisted number as
+            // one already accepted this pass — normally impossible, but a reload can briefly leave a
+            // stale (about-to-be-destroyed) DockSlot and its freshly-restored replacement both in `All`
+            // at once with identical customData. Blindly keeping both would show two physical doors as
+            // the same door number (and downstream, LaneNamingService would fold their lanes together
+            // too). Treat the second claimant as unnumbered instead, so it falls through to the gap-fill
+            // loop below and gets its own number rather than colliding.
+            if (p > 0 && !used.Contains(p)) { d.SetNumber(p, false); used.Add(p); }
             else unnumbered.Add(d);
         }
 

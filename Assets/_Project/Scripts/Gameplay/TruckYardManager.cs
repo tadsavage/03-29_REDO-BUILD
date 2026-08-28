@@ -239,16 +239,19 @@ public class TruckYardManager : MonoBehaviour
         SpawnNextTruck(null);
     }
 
-    public void SpawnNextTruck(GameCore.Inventory.ShipmentData shipment)
+    /// <summary>Returns false (and spawns nothing) if every door is occupied — ShipmentService uses
+    /// this to tell an arriving PO's truck to turn around and go home instead of retrying forever with
+    /// no player feedback (see ShipmentService.HandleNoAvailableDoor).</summary>
+    public bool SpawnNextTruck(GameCore.Inventory.ShipmentData shipment)
     {
-        if (truckPrefab == null) { Debug.LogError("[TruckYardManager] Truck Prefab not assigned."); return; }
-        if (_spawnPoint == null) { Debug.LogError("[TruckYardManager] SpawnPoint child missing from guard shack."); return; }
+        if (truckPrefab == null) { Debug.LogError("[TruckYardManager] Truck Prefab not assigned."); return false; }
+        if (_spawnPoint == null) { Debug.LogError("[TruckYardManager] SpawnPoint child missing from guard shack."); return false; }
 
         var dock = FindFreeDock();
         if (dock == null)
         {
             Debug.LogWarning("[TruckYardManager] No free docks — truck not spawned.");
-            return;
+            return false;
         }
 
         var go  = Instantiate(truckPrefab, _spawnPoint.position, _spawnPoint.rotation);
@@ -278,6 +281,7 @@ public class TruckYardManager : MonoBehaviour
         }
 
         _activeTrucks++;
+        return true;
     }
 
     /// <summary>

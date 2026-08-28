@@ -1326,6 +1326,20 @@ public class PlacementSystem : MonoBehaviour
             {
                 Vector2Int cell = new Vector2Int(obj.gridX, obj.gridY);
                 grid.RemoveStackObject(cell, obj.gameObject, obj.data);
+
+                // Destroy() is deferred to end-of-frame, but a load can synchronously Instantiate the
+                // NEW placed objects (including doors) later in this SAME call stack (see
+                // PlacementSystem's save-load path, which calls AssignDoorNumbers() right after
+                // spawning). Until the deferred Destroy actually runs, an old DockSlot here is still
+                // sitting in DockSlot.All, so it and the freshly-restored door can briefly BOTH carry
+                // the same persisted door number — that's what produced two physical structures both
+                // reading as the same door after a reload. Disabling first fires DockSlot.OnDisable()
+                // (which removes it from DockSlot.All) immediately and synchronously, before Destroy
+                // ever runs, so the old door is already gone from the registry by the time the new one
+                // is numbered.
+                var dock = obj.GetComponent<DockSlot>();
+                if (dock != null) dock.enabled = false;
+
                 Destroy(obj.gameObject);
             }
         }

@@ -33,7 +33,6 @@ public class VendorsTabView
     private readonly VendorDealService _deals;
     private readonly InventoryService _inventory;
     private readonly VendorUiSfxConfig _sfx;
-    private readonly System.Action _hideOwner;
     private readonly System.Action<string, string, int, float> _onDealAccepted;
     private readonly ExcelHeaderSortController _sort = new();
 
@@ -48,13 +47,12 @@ public class VendorsTabView
     private float _lastHScroll = float.NaN;
 
     public VendorsTabView(VendorEconomyService economy, VendorPerformanceTracker tracker,
-                           VendorUiSfxConfig sfx, System.Action hideOwner,
+                           VendorUiSfxConfig sfx,
                            System.Action<string, string, int, float> onDealAccepted)
     {
         _economy = economy;
         _tracker = tracker;
         _sfx = sfx;
-        _hideOwner = hideOwner;
         _onDealAccepted = onDealAccepted;
         ServiceLocator.TryGet(out _deals);
         ServiceLocator.TryGet(out _inventory);
@@ -109,15 +107,15 @@ public class VendorsTabView
         _headerRow.style.paddingBottom = 4;
         _headerRow.style.paddingLeft = 10; _headerRow.style.paddingRight = 10;
 
-        _headerRow.Add(MakeFixedHeaderCell("Icon", 32, 8));
-        _headerRow.Add(MakeFixedHeaderCell("Vendor", 220, 24));
-        _headerRow.Add(MakeSortableHeaderCell("Partnership", ColPartnership, 48 + 170, 24));
-        _headerRow.Add(MakeSortableHeaderCell("Travel Time", ColTravelTime, 90, 24));
-        _headerRow.Add(MakeSortableHeaderCell("Pot Scratch Items", ColPotScratch, 110, 24));
-        _headerRow.Add(MakeSortableHeaderCell("Best Price Items", ColBestPrice, 110, 24));
-        _headerRow.Add(MakeSortableHeaderCell("Avg Daily Spend", ColAvgSpend, 130, 24));
-        _headerRow.Add(MakeSortableHeaderCell("Avg Daily Pallets", ColAvgPallets, 110, 24));
-        _headerRow.Add(MakeSortableHeaderCell("Avg Hours in Door", ColAvgDwell, 110, 24));
+        _headerRow.Add(MakeFixedHeaderCell("Icon", 28, 6));
+        _headerRow.Add(MakeFixedHeaderCell("Vendor", 160, 16));
+        _headerRow.Add(MakeSortableHeaderCell("Partnership", ColPartnership, 36 + 108, 16));
+        _headerRow.Add(MakeSortableHeaderCell("Travel Time", ColTravelTime, 64, 12));
+        _headerRow.Add(MakeSortableHeaderCell("Pot Scratch Items", ColPotScratch, 84, 12));
+        _headerRow.Add(MakeSortableHeaderCell("Best Price Items", ColBestPrice, 84, 12));
+        _headerRow.Add(MakeSortableHeaderCell("Avg Daily Spend", ColAvgSpend, 90, 12));
+        _headerRow.Add(MakeSortableHeaderCell("Avg Daily Pallets", ColAvgPallets, 84, 12));
+        _headerRow.Add(MakeSortableHeaderCell("Avg Hours in Door", ColAvgDwell, 84, 12));
         headerClip.Add(_headerRow);
 
         // VerticalAndHorizontal: six new columns plus the order button and deals bar push a row past
@@ -279,11 +277,15 @@ public class VendorsTabView
         foreach (var kv in _rowsByVendorId) kv.Value.SetSelected(kv.Key == _selectedVendorId);
     }
 
+    /// <summary>Publishes the request and nothing else — VendorsTabView now lives inside the same
+    /// PurchasingPanel instance that handles it (it used to live in a separate ContractsPanel, which is
+    /// why this used to also hide "the panel that owns this view" after publishing). With both on the
+    /// same panel, that Hide() call was undoing the Show()/tab-switch the event handler had just done —
+    /// the panel would flash open on Inbound Order Creation and then immediately close.</summary>
     private void OnOrderFromVendorClicked(VendorData vendor)
     {
         if (vendor == null) return;
         EventManager.Instance?.Publish(GameEvents.Vendor.OnOrderFromVendorRequested, vendor.VendorId);
-        _hideOwner?.Invoke();
     }
 
     private void OnPartnershipChanged(string eventId, string vendorId) => Refresh();
