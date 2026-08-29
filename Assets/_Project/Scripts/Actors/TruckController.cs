@@ -473,69 +473,84 @@ private DockSlot        _dock;
             return false;
         }
 
-        if (sku == null || sku.Prefab == null)
+        if (sku == null)
         {
-            Debug.LogWarning($"[TruckController] Missing SkuData or CasePrefab for SKU: {skuId} — slot {floorSlot} tier {tier} left empty.");
+            Debug.LogWarning($"[TruckController] Unknown SKU: {skuId} — slot {floorSlot} tier {tier} left empty.");
             return false;
         }
 
-        builder.casePrefab = sku.Prefab;
-        builder.linkedSku = sku; // CRITICAL: Link the SKU so PalletBuilder knows its real dimensions
-
-        // Cargo pallets must reflect the SKU's real, PalletOptimizer-verified Ti/Hi (the master
-        // record) — not PalletBuilder's own independent auto-layout guess — so the trailer
-        // visually shows the same load the inventory/putaway systems believe is there. If a SKU
-        // was never run through the optimizer (Ti/Hi still 0), fall back to PalletBuilder's own
-        // height-based auto-layout rather than building an empty pallet.
-        if (sku.Ti > 0 && sku.Hi > 0)
+        // Some hand-authored SkuData assets never got a case prefab assigned (missing art — see
+        // SkuData.Prefab). That used to be treated exactly like "SKU not found at all": the pallet
+        // was left completely uninitialized (no PalletData), which made TrailerOffloadController's
+        // RegisterAndQueue fall back to a dummy "PHYS" SKU and register 1 unit of dead-air inventory
+        // in exchange for the line item's real, already-charged cost — the item vanished on arrival.
+        // Now: still build real PalletData/cargo quantity below so the player actually receives what
+        // they paid for; only the case-stacking VISUAL is skipped when there's no prefab to stack.
+        bool hasCasePrefab = sku.Prefab != null;
+        if (!hasCasePrefab)
         {
-            builder.useTiHiOverride = true;
-            builder.manualTi = sku.Ti;
-            builder.manualHi = sku.Hi;
+            Debug.LogWarning($"[TruckController] SKU {skuId} ({sku.ItemDescription}) has no case prefab assigned — slot {floorSlot} tier {tier} will carry real cargo with a placeholder (bare pallet) visual.");
         }
-        builder.Build(deductMoney: false);
-
-        // FIX FLOATING CASES: Right after building, reposition cases so they sit on the pallet deck,
-        // not floating above it. Same fix applied in TrailerOffloadController.DropPallet() but we
-        // apply it here too so cases are positioned correctly from the moment they're built in the trailer.
-        var palletLoad = instance.transform.Find("PalletLoad");
-        if (palletLoad != null)
+        else
         {
-            const float palletDeckHeight = 0.165f;
-            float minCaseY = float.MaxValue;
-            var casesList = new System.Collections.Generic.List<Transform>();
+            builder.casePrefab = sku.Prefab;
+            builder.linkedSku = sku; // CRITICAL: Link the SKU so PalletBuilder knows its real dimensions
 
-            for (int i = 0; i < palletLoad.childCount; i++)
+            // Cargo pallets must reflect the SKU's real, PalletOptimizer-verified Ti/Hi (the master
+            // record) — not PalletBuilder's own independent auto-layout guess — so the trailer
+            // visually shows the same load the inventory/putaway systems believe is there. If a SKU
+            // was never run through the optimizer (Ti/Hi still 0), fall back to PalletBuilder's own
+            // height-based auto-layout rather than building an empty pallet.
+            if (sku.Ti > 0 && sku.Hi > 0)
             {
-                var child = palletLoad.GetChild(i);
-                casesList.Add(child);
-                if (child.localPosition.y < minCaseY)
-                    minCaseY = child.localPosition.y;
+                builder.useTiHiOverride = true;
+                builder.manualTi = sku.Ti;
+                builder.manualHi = sku.Hi;
             }
+            builder.Build(deductMoney: false);
 
-            // Shift all cases down so the lowest sits at pallet deck height
-            if (casesList.Count > 0 && minCaseY != float.MaxValue)
+            // FIX FLOATING CASES: Right after building, reposition cases so they sit on the pallet deck,
+            // not floating above it. Same fix applied in TrailerOffloadController.DropPallet() but we
+            // apply it here too so cases are positioned correctly from the moment they're built in the trailer.
+            var palletLoad = instance.transform.Find("PalletLoad");
+            if (palletLoad != null)
             {
-                float yOffset = minCaseY - palletDeckHeight;
-                foreach (var caseTransform in casesList)
+                const float palletDeckHeight = 0.165f;
+                float minCaseY = float.MaxValue;
+                var casesList = new System.Collections.Generic.List<Transform>();
+
+                for (int i = 0; i < palletLoad.childCount; i++)
                 {
-                    var pos = caseTransform.localPosition;
-                    pos.y -= yOffset;
-                    caseTransform.localPosition = pos;
+                    var child = palletLoad.GetChild(i);
+                    casesList.Add(child);
+                    if (child.localPosition.y < minCaseY)
+                        minCaseY = child.localPosition.y;
                 }
+
+                // Shift all cases down so the lowest sits at pallet deck height
+                if (casesList.Count > 0 && minCaseY != float.MaxValue)
+                {
+                    float yOffset = minCaseY - palletDeckHeight;
+                    foreach (var caseTransform in casesList)
+                    {
+                        var pos = caseTransform.localPosition;
+                        pos.y -= yOffset;
+                        caseTransform.localPosition = pos;
+                    }
+                }
+
+                // FIX CASE ORIENTATION: Zero out the default 90-degree Y rotation on PalletLoad
+                // so cases align properly with the pallet direction.
+                palletLoad.localRotation = Quaternion.identity;
             }
 
-            // FIX CASE ORIENTATION: Zero out the default 90-degree Y rotation on PalletLoad
-            // so cases align properly with the pallet direction.
-            palletLoad.localRotation = Quaternion.identity;
+            // Cargo pallets are unreceived inventory — their CASES (not the pallet base) must read
+            // as "ghosted" the moment they're built and stay that way through the dock-stocker
+            // offload. PalletBuilder.GhostCases saves each pallet's original case material so
+            // ReceiverReceivingWorkflow can restore it once a Receiver actually processes the pallet.
+            if (_cargoGhostMaterial != null)
+                builder.GhostCases(_cargoGhostMaterial);
         }
-
-        // Cargo pallets are unreceived inventory — their CASES (not the pallet base) must read
-        // as "ghosted" the moment they're built and stay that way through the dock-stocker
-        // offload. PalletBuilder.GhostCases saves each pallet's original case material so
-        // ReceiverReceivingWorkflow can restore it once a Receiver actually processes the pallet.
-        if (_cargoGhostMaterial != null)
-            builder.GhostCases(_cargoGhostMaterial);
 
         // CRITICAL FIX (2026-07-05): Each cargo pallet needs its own PalletData component with the
         // correct SKU so the hover tooltip shows the right item. Without this, all pallets resolve

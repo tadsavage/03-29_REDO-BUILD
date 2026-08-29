@@ -861,13 +861,24 @@ namespace GameCore.Labor
 
         private void RegisterAndQueue(InventoryService inv, TruckController truck, Vector2Int cell, Transform pallet, Quaternion rotation, int palletIndex = 0)
         {
-            // CRITICAL FIX (2026-07-09): Don't guess the SKU from the shipment list using the 
-            // spatial-sort index. TruckController.BuildOnePallet already attached PalletData with 
+            // CRITICAL FIX (2026-07-09): Don't guess the SKU from the shipment list using the
+            // spatial-sort index. TruckController.BuildOnePallet already attached PalletData with
             // the correct SKU and case quantity (Ti * Hi) — read those directly from the pallet
             // so we're byte-for-byte consistent with TestPalletSpawner.
             var pdata = pallet.gameObject.GetComponent<PalletData>();
-            string skuId = (pdata != null && !string.IsNullOrEmpty(pdata.ItemNumber)) ? pdata.ItemNumber : "PHYS";
-            int quantity = (pdata != null) ? pdata.CaseQuantity : 1;
+            if (pdata == null || string.IsNullOrEmpty(pdata.ItemNumber))
+            {
+                // PalletData never got initialized — a genuinely unresolvable SKU (not merely a
+                // missing case prefab; TruckController.BuildOnePallet now still initializes PalletData
+                // for those). Used to silently register a dummy "PHYS" SKU here — real money already
+                // spent turning into dead-air inventory nobody could ever pick or sell. Refuse instead:
+                // no receive task is queued and the pallet is left un-registered rather than lying
+                // about what's on it.
+                Debug.LogError($"[TrailerOffload] Pallet '{pallet.name}' has no valid SKU (PalletData never initialized) — skipping registration instead of creating phantom inventory.");
+                return;
+            }
+            string skuId = pdata.ItemNumber;
+            int quantity = pdata.CaseQuantity;
 
             var data = inv.RegisterPhysicalPallet(cell, skuId, quantity);
 

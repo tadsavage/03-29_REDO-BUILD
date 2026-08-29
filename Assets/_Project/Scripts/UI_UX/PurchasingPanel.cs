@@ -2190,20 +2190,20 @@ public class PurchasingPanel : IUIPanel
     // ── Truck fill-bar ───────────────────────────────────────────────────────
 
     private const float TruckFillBarWidth = 140f;
-    /// <summary>Width:height of TruckFillSprite.png (1408x785).</summary>
-    private const float TruckSpriteAspect = 1408f / 785f;
+    /// <summary>Width:height of TruckFillSprite.png (1408x768).</summary>
+    private const float TruckSpriteAspect = 1408f / 768f;
     /// <summary>Height of the truck sprite at TruckFillBarWidth — the DISPATCH ORDER/DEALS column next
     /// to it is sized to exactly match this, split evenly between the two buttons with a small gap.</summary>
     private const float TruckActionsColumnHeight = TruckFillBarWidth / TruckSpriteAspect;
     private const float TruckActionButtonGap = 6f;
     private const float TruckActionButtonHeight = (TruckActionsColumnHeight - TruckActionButtonGap) / 2f;
-    // Trailer BOX sub-rectangle as a fraction of the whole sprite — measured by eye against the source
-    // PNG. The box is a plain axis-aligned rectangle (the cab/hood is the sloped remainder to the
-    // right), which is what makes a simple rectangular fill overlay accurate here with no masking.
-    private const float TruckBoxLeftFrac = 0.064f;
-    private const float TruckBoxRightFrac = 0.643f;   // the NOSE — front of the trailer, nearest the cab
-    private const float TruckBoxTopFrac = 0.274f;
-    private const float TruckBoxBottomFrac = 0.599f;
+    // Trailer BOX sub-rectangle as a fraction of the whole sprite — measured against the source PNG.
+    // Unlike the previous sprite (cab on the right), this artwork has the cab on the LEFT, so the box's
+    // LEFT edge is the nose (nearest the cab) and its RIGHT edge is the rear.
+    private const float TruckBoxLeftFrac = 0.39f;     // the NOSE — front of the trailer, nearest the cab
+    private const float TruckBoxRightFrac = 0.92f;    // the rear of the trailer
+    private const float TruckBoxTopFrac = 0.32f;
+    private const float TruckBoxBottomFrac = 0.56f;
 
     private static Texture2D _truckFillSprite;
     private static Texture2D TruckFillSprite()
@@ -2213,10 +2213,10 @@ public class PurchasingPanel : IUIPanel
     }
 
     /// <summary>Sprite background plus a red fill rect clipped to just the trailer box, anchored at the
-    /// box's RIGHT edge (the nose) and growing LEFT as `fillElement.style.width` increases — fills
-    /// nose-to-rear as specced, not rear-to-nose. Caller owns repainting `fillElement.style.width`
-    /// (see BuildMultiVendorGroup's RefreshHeader) since the fill level changes independently of
-    /// rebuilding this whole element.</summary>
+    /// box's LEFT edge (the nose, nearest the cab) and growing RIGHT as `fillElement.style.width`
+    /// increases — fills nose-to-rear as specced, not rear-to-nose. Caller owns repainting
+    /// `fillElement.style.width` (see BuildMultiVendorGroup's RefreshHeader) since the fill level
+    /// changes independently of rebuilding this whole element.</summary>
     private VisualElement BuildTruckFillBar(out VisualElement fillElement)
     {
         float h = TruckFillBarWidth / TruckSpriteAspect;
@@ -2250,7 +2250,7 @@ public class PurchasingPanel : IUIPanel
         fill.style.position = Position.Absolute;
         fill.style.top = TruckBoxTopFrac * h;
         fill.style.height = (TruckBoxBottomFrac - TruckBoxTopFrac) * h;
-        fill.style.right = (1f - TruckBoxRightFrac) * TruckFillBarWidth;
+        fill.style.left = TruckBoxLeftFrac * TruckFillBarWidth;
         fill.style.width = 0f; // painted by the caller's RefreshHeader on the very next line
         fill.style.backgroundColor = new StyleColor(new Color(0xE2 / 255f, 0x4B / 255f, 0x4A / 255f, 0.85f));
         container.Add(fill);
