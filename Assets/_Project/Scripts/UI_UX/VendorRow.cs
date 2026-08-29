@@ -5,9 +5,13 @@ using GameCore.Inventory;
 /// <summary>
 /// Single unified row of the VENDORS tab: icon, name + colour-coded status dot, Partnership Level,
 /// Travel Time, Pot Scratch Items, Best Price Items, Avg Daily Spend, Avg Daily Pallets, Avg Hours in
-/// Door, the orange "Order from Vendor" button, and the red DEALS fill bar — all in one horizontal
-/// VisualElement. Replaces the former VendorPartnershipListRow + VendorDataGridRow two-column split so
-/// the whole tab reads as one scrollable panel.
+/// Door, and the orange "Order from Vendor" button — all in one horizontal VisualElement. Replaces
+/// the former VendorPartnershipListRow + VendorDataGridRow two-column split so the whole tab reads as
+/// one scrollable panel.
+///
+/// The red DEALS fill bar this row used to carry has moved to the INBOUND ORDER CREATION tab's own
+/// per-vendor group header (see PurchasingPanel.BuildMultiVendorGroup) — deals belong with the tab
+/// that actually builds and dispatches loads, not the vendor roster.
 /// </summary>
 public class VendorRow
 {
@@ -28,8 +32,6 @@ public class VendorRow
     private static readonly Color ColMonogramText = new Color(0xF2 / 255f, 0xF6 / 255f, 0xF9 / 255f, 1f);
 
     private static readonly Color ColDealRed     = new Color(0xB0 / 255f, 0x2E / 255f, 0x2A / 255f, 1f);
-    private static readonly Color ColDealRedEdge = new Color(0x6E / 255f, 0x1C / 255f, 0x19 / 255f, 1f);
-    private static readonly Color ColDealTrack   = new Color(0x22 / 255f, 0x2A / 255f, 0x33 / 255f, 1f);
 
     // A small fixed palette of muted tones, deterministically chosen per vendor via a hash of its
     // VendorId, so vendors without artwork are still visually distinguishable from one another.
@@ -64,20 +66,12 @@ public class VendorRow
     private readonly Label _dwellLabel;
     private readonly Button _orderButton;
 
-    private readonly VisualElement _dealBarRoot;
-    private readonly VisualElement _dealBarFill;
-    private readonly Label _dealBarLabel;
-
     private bool _selected;
     private int _stripeIndex;
 
     public VisualElement Root => _root;
     public event System.Action<VendorData> OnSelected;
     public event System.Action OnOrderClicked;
-
-    /// <summary>Fired when the red deal bar is clicked while a deal is live. VendorsTabView owns the
-    /// deal popup/modal — this row only reports the gesture, same division of labor as OnOrderClicked.</summary>
-    public event System.Action OnDealBarClicked;
 
     /// <summary>Played on hover (RowHoverClip) and on a successful order click (OrderClickSfx).</summary>
     public AudioClip HoverSfx { get; set; }
@@ -108,7 +102,7 @@ public class VendorRow
 
         // Icon cell.
         var icon = new VisualElement();
-        icon.style.width = 28; icon.style.height = 28;
+        icon.style.width = 32; icon.style.height = 32;
         icon.style.flexShrink = 0;
         icon.style.marginRight = 6;
         icon.style.alignItems = Align.Center;
@@ -120,7 +114,7 @@ public class VendorRow
 
         // Name + status-dot cell — fixed width so it lines up under a "Vendor" header.
         var nameCell = new VisualElement();
-        nameCell.style.width = 160;
+        nameCell.style.width = 190;
         nameCell.style.flexShrink = 0;
         nameCell.style.flexDirection = FlexDirection.Row;
         nameCell.style.alignItems = Align.Center;
@@ -129,7 +123,7 @@ public class VendorRow
         _nameLabel = new Label(vendor != null ? vendor.DisplayName : "Unknown Vendor");
         _nameLabel.style.color = new StyleColor(ColTitle);
         _nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        _nameLabel.style.fontSize = 13;
+        _nameLabel.style.fontSize = 20;
         _nameLabel.style.flexGrow = 1;
         _nameLabel.style.whiteSpace = WhiteSpace.Normal;
         _nameLabel.style.marginRight = 6;
@@ -143,46 +137,51 @@ public class VendorRow
         nameCell.Add(_statusDot);
         _root.Add(nameCell);
 
-        // Partnership cell — split into a fixed-width signed number and a clipped/ellipsized tier
-        // label so long tier names can never overflow into the Fill Rate cell.
+        // Partnership cell — a fixed-width container (matching the header's 44+190 cell exactly) so
+        // this column's footprint can never drift from the header regardless of content. The tier
+        // label is single-line again (no word wrap — per Tad's request, wrapping left too much dead
+        // space in the column and the two-line height made the grid feel sparse) and wide enough for
+        // the longest tier string ("Strained Relationship") to fit without wrapping; overflow/ellipsis
+        // stay on purely as a safety net in case an even longer tier name is added later. The gap
+        // before the next column is trimmed from 22 to 8 to slide the stat columns left and close the
+        // dead space that column's old fixed width left behind.
         var partnershipCell = new VisualElement();
+        partnershipCell.style.width = 44 + 190;
+        partnershipCell.style.flexShrink = 0;
         partnershipCell.style.flexDirection = FlexDirection.Row;
         partnershipCell.style.alignItems = Align.Center;
-        partnershipCell.style.marginRight = 16;
+        partnershipCell.style.overflow = Overflow.Hidden;
+        partnershipCell.style.marginRight = 8;
 
         _partnershipNumberLabel = new Label();
-        _partnershipNumberLabel.style.width = 36;
+        _partnershipNumberLabel.style.width = 44;
         _partnershipNumberLabel.style.flexShrink = 0;
         _partnershipNumberLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        _partnershipNumberLabel.style.fontSize = 13;
+        _partnershipNumberLabel.style.fontSize = 20;
         partnershipCell.Add(_partnershipNumberLabel);
 
         _partnershipTierLabel = new Label();
-        _partnershipTierLabel.style.minWidth = 108;
+        _partnershipTierLabel.style.width = 190;
         _partnershipTierLabel.style.flexShrink = 0;
-        _partnershipTierLabel.style.fontSize = 13;
+        _partnershipTierLabel.style.fontSize = 17;
         _partnershipTierLabel.style.overflow = Overflow.Hidden;
         _partnershipTierLabel.style.textOverflow = TextOverflow.Ellipsis;
         _partnershipTierLabel.style.whiteSpace = WhiteSpace.NoWrap;
         partnershipCell.Add(_partnershipTierLabel);
         _root.Add(partnershipCell);
 
-        _travelTimeLabel = AddCell(64);
-        _potScratchLabel = AddCell(84);
-        _bestPriceLabel  = AddCell(84);
-        _spendLabel      = AddCell(90);
-        _palletsLabel    = AddCell(84);
-        _dwellLabel      = AddCell(84);
+        // Columns after Partnership get generous, even spacing (see AddCell's marginRight default)
+        // so the grid reads as evenly ruled rather than bunched together.
+        _travelTimeLabel = AddCell(84);
+        _potScratchLabel = AddCell(104);
+        _bestPriceLabel  = AddCell(104);
+        _spendLabel      = AddCell(112);
+        _palletsLabel    = AddCell(104);
+        _dwellLabel      = AddCell(104);
 
         var spacer = new VisualElement();
         spacer.style.flexGrow = 1;
         _root.Add(spacer);
-
-        // DEALS bar sits LEFT of Order From Vendor, per Tad's explicit request — the reverse of the
-        // reference mock's [ORDER] [DEALS] reading order.
-        _dealBarRoot = BuildDealBar(out _dealBarFill, out _dealBarLabel);
-        _dealBarRoot.style.marginRight = 8;
-        _root.Add(_dealBarRoot);
 
         _orderButton = new Button(HandleOrderClicked) { text = "ORDER FROM VENDOR" };
         StyleOrderButton(_orderButton);
@@ -234,14 +233,14 @@ public class VendorRow
         icon.Add(monogram);
     }
 
-    private Label AddCell(float width, bool bold = false, float marginRight = 12f)
+    private Label AddCell(float width, bool bold = false, float marginRight = 22f)
     {
         var label = new Label();
         label.style.width = width;
         label.style.flexShrink = 0;
         label.style.marginRight = marginRight;
         label.style.color = new StyleColor(ColTitle);
-        label.style.fontSize = 14;
+        label.style.fontSize = 21;
         if (bold) label.style.unityFontStyleAndWeight = FontStyle.Bold;
         _root.Add(label);
         return label;
@@ -295,67 +294,6 @@ public class VendorRow
         _orderButton.style.opacity = disabled ? 0.5f : 1f;
     }
 
-    /// <summary>Polled independently of Refresh() (see VendorsTabView's fast timer) so the fill bar
-    /// drains smoothly in real time without re-pulling every other stat every 100ms.</summary>
-    public void RefreshDealBar(VendorDeal deal)
-    {
-        _dealBarRoot.style.display = deal != null ? DisplayStyle.Flex : DisplayStyle.None;
-        if (deal == null) return;
-
-        _dealBarFill.style.width = new Length(Mathf.Clamp01(deal.Fraction) * 100f, LengthUnit.Percent);
-        _dealBarLabel.text = $"DEAL! -{deal.DiscountPercent:0}%";
-    }
-
-    private VisualElement BuildDealBar(out VisualElement fill, out Label label)
-    {
-        var root = new VisualElement();
-        root.style.width = 120;
-        root.style.height = 34;
-        root.style.flexShrink = 0;
-        root.style.display = DisplayStyle.None;
-        root.style.backgroundColor = new StyleColor(ColDealTrack);
-        root.style.borderTopLeftRadius = root.style.borderTopRightRadius =
-            root.style.borderBottomLeftRadius = root.style.borderBottomRightRadius = 6;
-        root.style.borderTopWidth = root.style.borderBottomWidth =
-            root.style.borderLeftWidth = root.style.borderRightWidth = 2;
-        root.style.borderTopColor = root.style.borderBottomColor =
-            root.style.borderLeftColor = root.style.borderRightColor = new StyleColor(ColDealRedEdge);
-        root.style.overflow = Overflow.Hidden;
-        root.pickingMode = PickingMode.Position;
-
-        var fillEl = new VisualElement();
-        fillEl.style.position = Position.Absolute;
-        fillEl.style.left = 0; fillEl.style.top = 0; fillEl.style.bottom = 0;
-        fillEl.style.width = new Length(100f, LengthUnit.Percent);
-        fillEl.style.backgroundColor = new StyleColor(ColDealRed);
-        root.Add(fillEl);
-        fill = fillEl;
-
-        var labelEl = MakeCenteredLabel("DEAL!");
-        root.Add(labelEl);
-        label = labelEl;
-
-        root.RegisterCallback<ClickEvent>(evt =>
-        {
-            OnDealBarClicked?.Invoke();
-            evt.StopPropagation();
-        });
-
-        return root;
-    }
-
-    private static Label MakeCenteredLabel(string text)
-    {
-        var label = new Label(text);
-        label.style.position = Position.Absolute;
-        label.style.left = 0; label.style.right = 0; label.style.top = 0; label.style.bottom = 0;
-        label.style.unityTextAlign = TextAnchor.MiddleCenter;
-        label.style.color = new StyleColor(ColMonogramText);
-        label.style.unityFontStyleAndWeight = FontStyle.Bold;
-        label.style.fontSize = 12;
-        return label;
-    }
-
     public void SetStripeIndex(int index)
     {
         _stripeIndex = index;
@@ -388,11 +326,20 @@ public class VendorRow
         => Mathf.Abs(amount - Mathf.Round(amount)) < 0.005f ? $"${amount:N0}" : $"${amount:N2}";
 
     /// <summary>Duplicated locally rather than shared with ContractsPanel/PurchasingPanel's private
-    /// StyleSquareButton-style helpers — those are private to their own classes.</summary>
+    /// StyleSquareButton-style helpers — those are private to their own classes.
+    ///
+    /// Fixed width + word-wrap rather than the old single-line auto-width button: at the old size
+    /// "ORDER FROM VENDOR" needed ~250px on one line, which is most of the reason the grid needed a
+    /// horizontal scrollbar to reach it. Wrapping it onto two lines lets it shrink to about half that
+    /// footprint; the taller height (Y axis) gives the wrapped text room without clipping.</summary>
     private static void StyleOrderButton(Button b)
     {
-        b.style.height = 34;
-        b.style.paddingLeft = 14; b.style.paddingRight = 14;
+        b.style.width = 130;
+        b.style.height = 56;
+        b.style.flexShrink = 0;
+        b.style.whiteSpace = WhiteSpace.Normal;
+        b.style.unityTextAlign = TextAnchor.MiddleCenter;
+        b.style.paddingLeft = 6; b.style.paddingRight = 6;
         b.style.unityFontStyleAndWeight = FontStyle.Bold;
         b.style.fontSize = 13;
         b.style.color = new StyleColor(ColOrangeText);

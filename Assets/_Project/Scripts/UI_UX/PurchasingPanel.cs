@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -67,6 +67,10 @@ public class PurchasingPanel : IUIPanel
     private static readonly Color ColCreateGreen      = new Color(0x3E / 255f, 0xA1 / 255f, 0x55 / 255f, 1f);
     private static readonly Color ColCreateGreenEdge  = new Color(0x24 / 255f, 0x66 / 255f, 0x33 / 255f, 1f);
     private static readonly Color ColCreateGreenHover = new Color(0x4C / 255f, 0xB8 / 255f, 0x65 / 255f, 1f);
+    /// <summary>BUY price text — matches the orange Tad circled in his mockup.</summary>
+    private static readonly Color ColBuyPrice         = new Color(0xE0 / 255f, 0x8E / 255f, 0x30 / 255f, 1f);
+    /// <summary>SELL price text — matches the yellow Tad circled in his mockup.</summary>
+    private static readonly Color ColSellPrice        = new Color(0xE8 / 255f, 0xD4 / 255f, 0x3C / 255f, 1f);
 
     // Multi-vendor tab's DEALS button — same red family as VendorRow's deal bar (ColDealRed there),
     // reusing ColDanger as the fill so it also matches this tab's own truck-fill-bar red.
@@ -80,10 +84,15 @@ public class PurchasingPanel : IUIPanel
     private static readonly Color ColPlateCaption = new Color(0x9A / 255f, 0xA6 / 255f, 0xB2 / 255f, 1f);
     private static readonly Color ColPlateValue   = new Color(0xF0 / 255f, 0xC2 / 255f, 0x7A / 255f, 1f);
 
-    private const float ModalWidth  = 1180f;
-    private const float ModalHeight = 760f;
+    // Widened from the original 1180x760 once the VENDORS grid picked up six full-size data columns
+    // plus the wide "ORDER FROM VENDOR" button — at the old width that content needed an internal
+    // horizontal scrollbar to reach the button even at fill-screen scale (a transform scale zooms the
+    // whole panel, it doesn't add usable internal width). This is wide enough for every VENDORS column
+    // plus the button with no horizontal scroll on a normal desktop resolution.
+    private const float ModalWidth  = 1600f;
+    private const float ModalHeight = 820f;
     /// <summary>Narrowest the window can be dragged before the two item columns stop being readable.</summary>
-    private const float ModalMinWidth = 900f;
+    private const float ModalMinWidth = 1300f;
     /// <summary>Title-bar chrome buttons (resize, close). Also referenced from Show(), which is why
     /// it's a field rather than the local const it used to be — Build()'s closures aren't reachable
     /// from there.</summary>
@@ -136,8 +145,19 @@ public class PurchasingPanel : IUIPanel
     /// vendor's list doesn't collapse the moment a quantity change triggers a repaint.</summary>
     private readonly HashSet<string> _expandedMultiVendors = new();
 
-    /// <summary>Vendor-name search filter for Inbound Order Creation's header search box.</summary>
-    private string _multiVendorSearchText = "";
+    /// <summary>Vendor-filter state for Inbound Order Creation's header filter dropdown. Empty
+    /// `_multiVendorFilterVendorIds` means "no specific vendors chosen" (show all, subject to the
+    /// Critical Items toggle below) — a dropdown replacing the old free-text search box, per Tad's
+    /// request, and supporting more than one vendor selected at once.</summary>
+    private readonly HashSet<string> _multiVendorFilterVendorIds = new();
+
+    /// <summary>"Critical Items" special filter entry — shows only vendors currently carrying at
+    /// least one item in net demand (see CountCriticalItems), combined (AND) with any selected
+    /// vendors above.</summary>
+    private bool _multiVendorFilterCriticalOnly = false;
+
+    /// <summary>Whether the filter dropdown's popout panel is currently open.</summary>
+    private bool _multiVendorFilterOpen = false;
 
     /// <summary>Deal discounts claimed on Inbound Order Creation, keyed by DealKey(vendorId, skuId) —
     /// this tab prices several vendors' loads at once, so the same SKU can carry a claimed discount
@@ -154,7 +174,6 @@ public class PurchasingPanel : IUIPanel
     private VendorsTabView _vendorsTabView;
     private VisualElement _vendorsTabRoot;
     private VisualElement _vendorsPane;
-    private VisualElement _vendorsDealsStrip;
 
     /// <summary>Root scroll view for the INBOUND ORDER CREATION tab (the multi-vendor one — the old
     /// single-vendor Create tab that used to own that name is gone). Unlike _vendorsPane, this is
@@ -173,7 +192,7 @@ public class PurchasingPanel : IUIPanel
         ServiceLocator.TryGet<VendorEconomyService>(out var vendorEconomy);
         ServiceLocator.TryGet<VendorPerformanceTracker>(out var vendorTracker);
         var vendorSfx = Resources.Load<VendorUiSfxConfig>("VendorUiSfx");
-        _vendorsTabView = new VendorsTabView(vendorEconomy, vendorTracker, vendorSfx, AddDealToBasket);
+        _vendorsTabView = new VendorsTabView(vendorEconomy, vendorTracker, vendorSfx);
 
         EventManager.Instance?.Subscribe<string>(GameEvents.Vendor.OnOrderFromVendorRequested, OnOrderFromVendorRequested);
 
@@ -199,59 +218,17 @@ public class PurchasingPanel : IUIPanel
     /// <summary>Routed here from this panel's own VENDORS tab's "Order from Vendor" button, via the
     /// central EventManager rather than a direct call — VendorsTabView doesn't know which panel hosts
     /// it. Switches to Inbound Order Creation (the multi-vendor tab — the old single-vendor Create tab
-    /// this used to point at is gone) with the search box narrowed to this vendor and its group
+    /// this used to point at is gone) with the filter dropdown narrowed to this vendor and its group
     /// pre-expanded, so the player lands looking at exactly the house they asked for.</summary>
     private void OnOrderFromVendorRequested(string eventId, string vendorId)
     {
         if (string.IsNullOrEmpty(vendorId)) return;
-        var vendor = VendorRegistry.Load()?.GetById(vendorId);
-        _multiVendorSearchText = vendor?.DisplayName ?? string.Empty;
+        _multiVendorFilterVendorIds.Clear();
+        _multiVendorFilterVendorIds.Add(vendorId);
+        _multiVendorFilterCriticalOnly = false;
         _expandedMultiVendors.Add(vendorId);
         _tab = Tab.MultiVendor;
         Show();
-    }
-
-    /// <summary>
-    /// "I'LL TAKE IT!" on a VENDORS-tab deal popup. Handed to VendorsTabView as a direct delegate at
-    /// construction rather than routed through EventManager like OnOrderFromVendorRequested — that one
-    /// predates the Vendors tab living in this same panel and had to cross panels; this one doesn't.
-    ///
-    /// Adds the deal's cases straight into that vendor's OWN Inbound Order Creation load
-    /// (`_multiBaskets[vendorId]`), discount-tracked the same way that tab's own DEALS button does
-    /// (`_multiDealDiscountByKey`) — the old single-vendor `_basket` this used to write into is gone
-    /// along with the Create tab. Nothing has to be cleared to make room for a different vendor's deal
-    /// any more: every vendor keeps its own independent load now.
-    ///
-    /// STAYS ON THE VENDORS TAB rather than jumping to Inbound Order Creation — unlike "Order from
-    /// Vendor" (which exists specifically to take you shopping), accepting a deal is a quick grab you
-    /// make while browsing the roster, and per Tad's explicit request it shouldn't yank you away from
-    /// that.
-    /// </summary>
-    public void AddDealToBasket(string vendorId, string skuId, int pallets, float discountPercent)
-    {
-        var sku = FindSku(skuId);
-        if (string.IsNullOrEmpty(vendorId) || sku == null) return;
-
-        int cases = Mathf.Max(1, pallets) * Mathf.Max(1, sku.Ti * sku.Hi);
-        int newQty = MultiQty(vendorId, sku.SkuId) + cases;
-
-        if (TrailerCapacity.WouldOverflow(MultiBasketLines(vendorId), sku, newQty, out _))
-        {
-            UIToast.Show("That vendor's load doesn't have room for the deal — dispatch or trim it " +
-                         "first, then come back for it.");
-            return;
-        }
-
-        MultiSetQty(vendorId, sku.SkuId, newQty);
-        _multiDealDiscountByKey[DealKey(vendorId, sku.SkuId)] = discountPercent;
-
-        // Staying on the Vendors tab means the player never sees the basket update directly, so this
-        // toast is the only confirmation the deal actually landed.
-        string vendorName = VendorRegistry.Load()?.GetById(vendorId)?.DisplayName ?? vendorId;
-        UIToast.Show($"Added {cases:N0} case(s) of {sku.ItemDescription} at -{discountPercent:0}% to " +
-                     $"the load for {vendorName} — check Inbound Order Creation to finish it.");
-
-        Rebuild(); // stays on whatever tab is current (Vendors) — see doc comment above
     }
 
     public bool IsVisible => _visible;
@@ -346,10 +323,27 @@ public class PurchasingPanel : IUIPanel
         // edge of the panel.
         titleBar.style.flexShrink = 0;
 
-        _titleLabel = MakeText("PURCHASING", 26, ColTitleText, bold: true);
+        // A left spacer that mirrors the right-side button cluster's width, so the flexGrow title in
+        // the middle is centred against the WHOLE title bar rather than just the room left of the
+        // buttons — without this the text sits visibly left of true-centre by half the button
+        // cluster's width, since a flexGrow element's own MiddleCenter text only centres within its
+        // own box, not the full row. Width is set below once the button cluster (rightGroup) has
+        // actually been laid out, since "Back to Scheduler" is text-sized rather than fixed-width.
+        var leftSpacer = new VisualElement();
+        leftSpacer.style.flexShrink = 0;
+        titleBar.Add(leftSpacer);
+
+        _titleLabel = MakeText("PURCHASING", 39, ColTitleText, bold: true);
         _titleLabel.style.flexGrow = 1;
         _titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         titleBar.Add(_titleLabel);
+
+        var rightGroup = new VisualElement();
+        rightGroup.style.flexDirection = FlexDirection.Row;
+        rightGroup.style.alignItems = Align.Center;
+        rightGroup.style.flexShrink = 0;
+        rightGroup.RegisterCallback<GeometryChangedEvent>(_ =>
+            leftSpacer.style.width = rightGroup.resolvedStyle.width);
 
         // Return leg of the trip the Inbound Order Creation hint describes: a raised PO still needs a
         // day, time block and door, and that happens on the Scheduler. It used to sit down in that
@@ -368,7 +362,7 @@ public class PurchasingPanel : IUIPanel
             toScheduler.style.borderBottomLeftRadius = toScheduler.style.borderBottomRightRadius = 8;
         toScheduler.tooltip = "Close purchasing and open the Scheduler, where POs are given a day, " +
                               "time block and door.";
-        titleBar.Add(toScheduler);
+        rightGroup.Add(toScheduler);
 
         // Resize + close, the same pair ContractsPanel carries — square, blue-edged, flush together.
         // Deliberately NOT the orange treatment: that is this panel's accent (active tab, PO pill and
@@ -384,7 +378,7 @@ public class PurchasingPanel : IUIPanel
             _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
         _scaleBtn.RegisterCallback<PointerLeaveEvent>(_ =>
             _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.16f, 0.22f, 0.29f, 1f)));
-        titleBar.Add(_scaleBtn);
+        rightGroup.Add(_scaleBtn);
 
         var close = new Button(Hide) { text = "✕" };
         StyleSquareButton(close);
@@ -403,7 +397,8 @@ public class PurchasingPanel : IUIPanel
         close.RegisterCallback<PointerLeaveEvent>(_ => close.style.backgroundColor = closeNormalBg);
         close.RegisterCallback<PointerDownEvent>(_ => close.style.backgroundColor = closeActiveBg);
         close.RegisterCallback<PointerUpEvent>(_ => close.style.backgroundColor = closeHoverBg);
-        titleBar.Add(close);
+        rightGroup.Add(close);
+        titleBar.Add(rightGroup);
         modal.Add(titleBar);
 
         // Drag by the title bar. Implemented inline rather than through the DraggableWindow helper for
@@ -466,15 +461,6 @@ public class PurchasingPanel : IUIPanel
         modal.Add(vendorsPane);
         _vendorsPane = vendorsPane;
 
-        // The Broker's salvage loads and the Spot Deals board — see the doc comment on this being
-        // populated in Rebuild() for why they live here now instead of the (removed) Create tab.
-        // A plain sibling ABOVE the vendor roster, not inside VendorsTabView's own root: it's rebuilt
-        // fresh every Rebuild() (offers expire/get claimed) while _vendorsTabRoot below is built once
-        // and cached, so the two need to stay independent.
-        _vendorsDealsStrip = new VisualElement();
-        _vendorsDealsStrip.style.flexShrink = 0;
-        _vendorsPane.Add(_vendorsDealsStrip);
-
         // MULTI-VENDOR tab layout — same "sibling pane, own scroll view" reasoning as VENDORS above:
         // each vendor group nests its own detail ScrollView, and nesting that inside `content` (itself
         // a ScrollView) fights Yoga's auto-height sizing the same way.
@@ -530,7 +516,7 @@ public class PurchasingPanel : IUIPanel
         var shipments = Shipments();
         int live = shipments?.PendingShipments.Count(s => s != null) ?? 0;
 
-        _tabBar.Add(MakeTab("Inbound Order Creation", Tab.MultiVendor,
+        _tabBar.Add(MakeTab("Order", Tab.MultiVendor,
                              _multiBaskets.Count(kv => kv.Value.Count > 0)));
         _tabBar.Add(MakeTab("Vendors", Tab.Vendors, 0));
         _tabBar.Add(MakeTab("PO List", Tab.PoList, live));
@@ -544,16 +530,6 @@ public class PurchasingPanel : IUIPanel
 
         if (_tab == Tab.Vendors)
         {
-            // The Broker's salvage loads and the Spot Deals board used to live inside the old
-            // single-vendor Create tab — neither is per-vendor (The Broker and Spot Market are their
-            // own one-click "buy now" boards, not part of any vendor's catalogue), so when that tab was
-            // removed they moved here instead: the tab that's already built around "deals" rather than
-            // being bolted onto whichever shopping tab happened to still exist. Rebuilt fresh every
-            // time (offers expire at midnight / get claimed), unlike _vendorsTabRoot below.
-            _vendorsDealsStrip.Clear();
-            _vendorsDealsStrip.Add(BuildSalvageStrip());
-            _vendorsDealsStrip.Add(BuildSpotDealsStrip());
-
             // Built once and cached rather than torn down and rebuilt on every Rebuild() — its own
             // rows already know how to refresh themselves.
             if (_vendorsTabRoot == null)
@@ -1689,18 +1665,26 @@ public class PurchasingPanel : IUIPanel
     private void BuildMultiVendorTab()
     {
         _multiVendorPane.Clear();
-        _multiVendorPane.Add(BuildMultiVendorSearchBar());
+
+        // The Broker's salvage loads and the Spot Deals board live here now, at the top of Inbound
+        // Order Creation — this is the tab that actually builds and dispatches loads, so "deals" (a
+        // one-click way to fill part of a load cheaply) belongs here rather than on the vendor roster.
+        // Both collapse to nothing when empty (see their own doc comments), so this costs nothing on
+        // a day with no live offers.
+        _multiVendorPane.Add(BuildSalvageStrip());
+        _multiVendorPane.Add(BuildSpotDealsStrip());
+        _multiVendorPane.Add(BuildMultiVendorFilterBar());
 
         var registry = VendorRegistry.Load();
         var vendors = registry?.AllVendors ?? new List<VendorData>();
-        if (!string.IsNullOrEmpty(_multiVendorSearchText))
-            vendors = vendors.Where(v => v != null &&
-                v.DisplayName.IndexOf(_multiVendorSearchText, System.StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToList();
+        if (_multiVendorFilterVendorIds.Count > 0)
+            vendors = vendors.Where(v => v != null && _multiVendorFilterVendorIds.Contains(v.VendorId)).ToList();
+        if (_multiVendorFilterCriticalOnly)
+            vendors = vendors.Where(v => v != null && CountCriticalItems(v.VendorId) > 0).ToList();
 
         if (vendors.Count == 0)
         {
-            var none = MakeText("No vendors match that search.", 16, ColEmptyText);
+            var none = MakeText("No vendors match that filter.", 16, ColEmptyText);
             none.style.unityTextAlign = TextAnchor.MiddleCenter;
             none.style.marginTop = 30;
             _multiVendorPane.Add(none);
@@ -1712,31 +1696,125 @@ public class PurchasingPanel : IUIPanel
             _multiVendorPane.Add(BuildMultiVendorGroup(vendor));
     }
 
-    private VisualElement BuildMultiVendorSearchBar()
+    /// <summary>Header filter row: a multi-select dropdown (any number of vendors, plus a special
+    /// "Critical Items" entry that pulls up vendors currently carrying at least one item in net
+    /// demand) — replacing the old free-text search box, per Tad's explicit request.</summary>
+    private VisualElement BuildMultiVendorFilterBar()
     {
         var bar = new VisualElement();
         bar.style.flexDirection = FlexDirection.Row;
-        bar.style.alignItems = Align.Center;
+        bar.style.alignItems = Align.FlexStart;
         bar.style.marginBottom = 10;
         bar.style.flexShrink = 0;
+        bar.style.position = Position.Relative;
 
         var label = MakeText("Filter vendors:", 14, ColSubtleText);
         label.style.marginRight = 8;
+        label.style.marginTop = 8;
         bar.Add(label);
 
-        var search = new TextField { value = _multiVendorSearchText };
-        search.style.width = 220;
-        search.RegisterValueChangedCallback(evt => { _multiVendorSearchText = evt.newValue; Rebuild(); });
-        bar.Add(search);
+        var dropdownWrap = new VisualElement();
+        dropdownWrap.style.position = Position.Relative;
+        bar.Add(dropdownWrap);
+
+        var dropdownBtn = new Button { text = FilterSummaryText() };
+        dropdownBtn.style.width = 240;
+        dropdownBtn.style.height = 32;
+        ApplyFont(dropdownBtn, bold: true, size: 13);
+        dropdownBtn.style.backgroundColor = new StyleColor(ColStat);
+        dropdownBtn.style.color = new StyleColor(ColTitleText);
+        dropdownBtn.style.borderTopWidth = dropdownBtn.style.borderBottomWidth =
+            dropdownBtn.style.borderLeftWidth = dropdownBtn.style.borderRightWidth = 2;
+        dropdownBtn.style.borderTopColor = dropdownBtn.style.borderBottomColor =
+            dropdownBtn.style.borderLeftColor = dropdownBtn.style.borderRightColor = new StyleColor(ColBlueEdge);
+        dropdownBtn.style.borderTopLeftRadius = dropdownBtn.style.borderTopRightRadius =
+            dropdownBtn.style.borderBottomLeftRadius = dropdownBtn.style.borderBottomRightRadius = 6;
+        dropdownBtn.style.unityTextAlign = TextAnchor.MiddleLeft;
+        dropdownWrap.Add(dropdownBtn);
+
+        var popout = new VisualElement();
+        popout.style.position = Position.Absolute;
+        popout.style.top = 36;
+        popout.style.left = 0;
+        popout.style.width = 260;
+        popout.style.maxHeight = 320;
+        popout.style.backgroundColor = new StyleColor(ColBg);
+        popout.style.borderTopWidth = popout.style.borderBottomWidth =
+            popout.style.borderLeftWidth = popout.style.borderRightWidth = 2;
+        popout.style.borderTopColor = popout.style.borderBottomColor =
+            popout.style.borderLeftColor = popout.style.borderRightColor = new StyleColor(ColBorder);
+        popout.style.borderTopLeftRadius = popout.style.borderTopRightRadius =
+            popout.style.borderBottomLeftRadius = popout.style.borderBottomRightRadius = 6;
+        popout.style.paddingTop = 6; popout.style.paddingBottom = 6;
+        popout.style.paddingLeft = 4; popout.style.paddingRight = 4;
+        popout.style.display = _multiVendorFilterOpen ? DisplayStyle.Flex : DisplayStyle.None;
+        dropdownWrap.Add(popout);
+
+        var scroll = new ScrollView(ScrollViewMode.Vertical);
+        scroll.style.maxHeight = 300;
+        popout.Add(scroll);
+
+        var criticalToggle = new Toggle("Critical Items") { value = _multiVendorFilterCriticalOnly };
+        criticalToggle.style.marginBottom = 4;
+        criticalToggle.style.color = new StyleColor(ColDanger);
+        ApplyFont(criticalToggle, bold: true, size: 13);
+        criticalToggle.RegisterValueChangedCallback(evt =>
+        {
+            _multiVendorFilterCriticalOnly = evt.newValue;
+            dropdownBtn.text = FilterSummaryText();
+            Rebuild();
+        });
+        scroll.Add(criticalToggle);
+
+        var rule = new VisualElement();
+        rule.style.height = 1;
+        rule.style.marginTop = 2; rule.style.marginBottom = 4;
+        rule.style.backgroundColor = new StyleColor(ColBorder);
+        scroll.Add(rule);
+
+        var vendors = VendorRegistry.Load()?.AllVendors ?? new List<VendorData>();
+        foreach (var vendor in vendors.Where(v => v != null)
+                                       .OrderBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase))
+        {
+            string vendorId = vendor.VendorId;
+            var toggle = new Toggle(vendor.DisplayName) { value = _multiVendorFilterVendorIds.Contains(vendorId) };
+            ApplyFont(toggle, size: 13);
+            toggle.style.color = new StyleColor(ColTitleText);
+            toggle.RegisterValueChangedCallback(evt =>
+            {
+                if (evt.newValue) _multiVendorFilterVendorIds.Add(vendorId);
+                else _multiVendorFilterVendorIds.Remove(vendorId);
+                dropdownBtn.text = FilterSummaryText();
+                Rebuild();
+            });
+            scroll.Add(toggle);
+        }
+
+        dropdownBtn.clicked += () =>
+        {
+            _multiVendorFilterOpen = !_multiVendorFilterOpen;
+            popout.style.display = _multiVendorFilterOpen ? DisplayStyle.Flex : DisplayStyle.None;
+        };
 
         var hint = MakeText("The same item can appear under several vendors at different prices — " +
                              "compare and build multiple loads at once.", 12, ColEmptyText);
         hint.style.marginLeft = 16;
+        hint.style.marginTop = 8;
         hint.style.whiteSpace = WhiteSpace.Normal;
         hint.style.flexShrink = 1;
         bar.Add(hint);
 
         return bar;
+    }
+
+    private string FilterSummaryText()
+    {
+        int vendorCount = _multiVendorFilterVendorIds.Count;
+        if (vendorCount == 0 && !_multiVendorFilterCriticalOnly) return "All Vendors ▾";
+        var parts = new List<string>();
+        if (_multiVendorFilterCriticalOnly) parts.Add("Critical Items");
+        if (vendorCount > 0) parts.Add($"{vendorCount} vendor{(vendorCount == 1 ? "" : "s")}");
+        return string.Join(" + ", parts) + " ▾";
     }
 
     /// <summary>One vendor's collapsible group: header (icon, name, running totals, trailer fill-bar,
@@ -1796,10 +1874,42 @@ public class PurchasingPanel : IUIPanel
             12, PartnershipColorUtility.GetColor(partnershipLevel), bold: true);
         nameCol.Add(partnership);
 
-        var stats = MakeText("", 13, ColSubtleText);
-        stats.style.flexGrow = 1;
+        var statsRow = new VisualElement();
+        statsRow.style.flexDirection = FlexDirection.Row;
+        statsRow.style.alignItems = Align.Center;
+        statsRow.style.flexGrow = 1;
+        statsRow.style.flexWrap = Wrap.Wrap;
+        header.Add(statsRow);
+
+        var stats = MakeText("", 15, ColSubtleText);
         stats.style.whiteSpace = WhiteSpace.NoWrap;
-        header.Add(stats);
+        // Widened into its own fixed-width cell — stretched out to roughly where the truck fill bar's
+        // dead space used to start (per Tad's marked-up screenshot) — so every row's case/pallet/
+        // critical-items text lines up as a real column instead of hugging whatever length that row's
+        // own text happens to be.
+        stats.style.width = 380;
+        stats.style.flexShrink = 0;
+        statsRow.Add(stats);
+
+        // Cost of the load being built — centred in the dead space between the stats column and the
+        // truck fill bar (rather than hugging directly against the stats text) per Tad's explicit
+        // request. Twice the size of the other detail labels and painted the same green as DISPATCH
+        // ORDER, unchanged from before: it's the number that matters most once a truck starts filling
+        // up, it's just relocated and centred within its own flexGrow cell now.
+        var costBox = new VisualElement();
+        costBox.style.flexGrow = 1;
+        costBox.style.alignItems = Align.Center;
+        costBox.style.justifyContent = Justify.Center;
+        statsRow.Add(costBox);
+
+        var costLabel = MakeText("", 26, ColCreateGreen, bold: true);
+        costLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        costBox.Add(costLabel);
+
+        var costCaption = MakeText("Cost of Load", 11, ColCreateGreen, bold: true);
+        costCaption.style.whiteSpace = WhiteSpace.NoWrap;
+        costCaption.style.marginTop = 0;
+        costBox.Add(costCaption);
 
         var fillBarContainer = BuildTruckFillBar(out var fillElement);
         header.Add(fillBarContainer);
@@ -1824,12 +1934,18 @@ public class PurchasingPanel : IUIPanel
         ApplyFont(dispatch, bold: true, size: 12);
         actionsColumn.Add(dispatch);
 
-        var dealsBtn = new Button(() => OnMultiVendorDealClicked(vendor)) { text = "NO DEALS" };
-        StyleActionButton(dealsBtn, ColDanger, ColDealRedEdge, ColDealRedHover);
-        dealsBtn.style.width = 170;
-        dealsBtn.style.height = TruckActionButtonHeight;
-        ApplyFont(dealsBtn, bold: true, size: 17);
-        actionsColumn.Add(dealsBtn);
+        // Deals fill bar — the same countdown/drain visual the VENDORS tab's row used to carry,
+        // moved here (under DISPATCH ORDER) per Tad's explicit request: deals belong with the tab
+        // that actually builds and dispatches loads.
+        var dealsBar = BuildMultiVendorDealBar(out var dealsFill, out var dealsLabel);
+        dealsBar.style.width = 170;
+        dealsBar.style.height = TruckActionButtonHeight;
+        dealsBar.RegisterCallback<ClickEvent>(evt =>
+        {
+            OnMultiVendorDealClicked(vendor);
+            evt.StopPropagation();
+        });
+        actionsColumn.Add(dealsBar);
 
         // Shared by the header's own initial paint and by every item row's qty change below — one
         // place that reads the current basket and repaints the header, so stats/fill-bar/dispatch
@@ -1845,7 +1961,8 @@ public class PurchasingPanel : IUIPanel
             float cost = lines.Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
             int critical = CountCriticalItems(vendorId);
             stats.text = $"{lines.Sum(l => l.cases):N0} case(s) · {plan.Pallets.Count:N0} pallet(s) · " +
-                         $"{Money(cost)}    ·    [{critical}] critical items";
+                         $"[{critical}] critical items";
+            costLabel.text = Money(cost);
             fillElement.style.width = Mathf.Clamp01(plan.Fill01) *
                 (TruckBoxRightFrac - TruckBoxLeftFrac) * TruckFillBarWidth;
 
@@ -1855,18 +1972,21 @@ public class PurchasingPanel : IUIPanel
         }
         RefreshHeader();
 
-        // Polled independently of RefreshHeader (same reasoning as VendorsTabView.PollDealBars) — the
-        // deal's live countdown/expiry has nothing to do with basket edits, so it gets its own light
-        // tick instead of piggybacking on qty-change repaints.
+        // Polled at the same 100ms cadence VendorsTabView's old PollDealBars used (see its doc
+        // comment) — the deal's live countdown/expiry has nothing to do with basket edits, so it gets
+        // its own light tick instead of piggybacking on qty-change repaints.
         void RefreshDealButton()
         {
             var deal = Deals()?.GetActiveDeal(vendorId);
-            dealsBtn.text = deal != null ? $"DEAL! -{deal.DiscountPercent:0}%" : "NO DEALS";
-            dealsBtn.SetEnabled(deal != null);
-            dealsBtn.style.opacity = deal != null ? 1f : 0.5f;
+            dealsFill.style.display = deal != null ? DisplayStyle.Flex : DisplayStyle.None;
+            dealsLabel.text = deal != null ? $"DEAL! -{deal.DiscountPercent:0}%" : "NO DEALS";
+            if (deal != null)
+                dealsFill.style.width = new Length(Mathf.Clamp01(deal.Fraction) * 100f, LengthUnit.Percent);
+            dealsBar.style.opacity = deal != null ? 1f : 0.5f;
+            dealsBar.pickingMode = deal != null ? PickingMode.Position : PickingMode.Ignore;
         }
         RefreshDealButton();
-        header.schedule.Execute(RefreshDealButton).Every(250);
+        header.schedule.Execute(RefreshDealButton).Every(100);
 
         var detail = new ScrollView(ScrollViewMode.Vertical);
         detail.style.maxHeight = 340;
@@ -1879,7 +1999,8 @@ public class PurchasingPanel : IUIPanel
         foreach (var entry in catalogue)
         {
             if (entry?.Sku == null) continue;
-            detail.Add(BuildMultiVendorItemRow(vendor, entry.Sku, shown, RefreshHeader));
+            detail.Add(BuildMultiVendorItemRow(vendor, entry.Sku, shown, RefreshHeader,
+                () => PulsePalletAdded(costLabel)));
             shown++;
         }
         if (shown == 0)
@@ -1908,7 +2029,8 @@ public class PurchasingPanel : IUIPanel
     /// tab — writing into `_multiBaskets[vendorId]` instead of `_basket`. `onQtyChanged` is the owning
     /// group's RefreshHeader, called instead of a full Rebuild() so this row's own scroll position
     /// (and every other vendor's) survives a quantity change.</summary>
-    private VisualElement BuildMultiVendorItemRow(VendorData vendor, SkuData sku, int rowIndex, System.Action onQtyChanged)
+    private VisualElement BuildMultiVendorItemRow(VendorData vendor, SkuData sku, int rowIndex, System.Action onQtyChanged,
+        System.Action onPalletAdded = null)
     {
         string vendorId = vendor.VendorId;
         string skuId = sku.SkuId;
@@ -1972,8 +2094,8 @@ public class PurchasingPanel : IUIPanel
         var inDemandCell = MultiVendorStatCell("IN DEMAND", inDemand.ToString("N0"),
                                                 inDemand > 0 ? ColDanger : ColSubtleText, out var inDemandLabel);
         row.Add(inDemandCell);
-        row.Add(MultiVendorStatCell("BUY", Money(buy), ColChipOutText));
-        row.Add(MultiVendorStatCell("SELL", Money(sell), ColMoney));
+        row.Add(MultiVendorStatCell("BUY", Money(buy), ColBuyPrice));
+        row.Add(MultiVendorStatCell("SELL", Money(sell), ColSellPrice));
         row.Add(MultiVendorStatCell("MARGIN", $"{margin * 100f:0}%", margin >= 0f ? ColMoney : ColDanger));
 
         var spacer = new VisualElement();
@@ -2025,11 +2147,33 @@ public class PurchasingPanel : IUIPanel
 
         int step = Mathf.Max(1, sku.Ti * sku.Hi);
         minus.clicked += () => Apply(MultiQty(vendorId, skuId) - step);
-        plus.clicked += () => Apply(MultiQty(vendorId, skuId) + step);
+        plus.clicked += () =>
+        {
+            Apply(MultiQty(vendorId, skuId) + step);
+            PulsePalletAdded(field);
+            onPalletAdded?.Invoke();
+        };
         field.RegisterValueChangedCallback(evt =>
             Apply(int.TryParse(evt.newValue, out int typed) ? typed : MultiQty(vendorId, skuId)));
 
         return row;
+    }
+
+    /// <summary>Feedback for "a pallet just got added to this load": the qty field lerps up to 130%
+    /// of its normal size and back down to normal over a 1-second round trip, in the Lilita font this
+    /// whole panel already uses for its text (see ApplyFont) — per Tad's explicit request.</summary>
+    private static void PulsePalletAdded(VisualElement field)
+    {
+        field.style.transitionProperty = new List<StylePropertyName> { new StylePropertyName("scale") };
+        field.style.transitionDuration = new List<TimeValue> { new TimeValue(500, TimeUnit.Millisecond) };
+        field.style.transitionTimingFunction = new List<EasingFunction> { new EasingFunction(EasingMode.EaseOut) };
+        field.style.scale = new Scale(new Vector2(1.3f, 1.3f));
+
+        field.schedule.Execute(() =>
+        {
+            field.style.transitionTimingFunction = new List<EasingFunction> { new EasingFunction(EasingMode.EaseIn) };
+            field.style.scale = new Scale(Vector2.one);
+        }).ExecuteLater(500);
     }
 
     private VisualElement MultiVendorStatCell(string caption, string value, Color valueColor)
@@ -2261,7 +2405,54 @@ public class PurchasingPanel : IUIPanel
 
     // ── Multi-vendor DEALS button ────────────────────────────────────────────
 
-    /// <summary>Same VendorDealService deal that drives the VENDORS tab's red bar, but claiming it here
+    /// <summary>The countdown/drain fill-bar this vendor group's DEALS button uses — the same visual
+    /// the VENDORS tab's row used to carry (icon-red track, draining red fill, centred label), moved
+    /// here per Tad's explicit request since deals belong with the tab that builds and dispatches
+    /// loads. Caller (BuildMultiVendorGroup) owns repainting the fill width/label/opacity every tick
+    /// via RefreshDealButton — this only builds the static shell.</summary>
+    private VisualElement BuildMultiVendorDealBar(out VisualElement fill, out Label label)
+    {
+        var root = new VisualElement();
+        root.style.flexShrink = 0;
+        root.style.backgroundColor = new StyleColor(new Color(0x22 / 255f, 0x2A / 255f, 0x33 / 255f, 1f));
+        root.style.borderTopLeftRadius = root.style.borderTopRightRadius =
+            root.style.borderBottomLeftRadius = root.style.borderBottomRightRadius = 6;
+        root.style.borderTopWidth = root.style.borderBottomWidth =
+            root.style.borderLeftWidth = root.style.borderRightWidth = 2;
+        root.style.borderTopColor = root.style.borderBottomColor =
+            root.style.borderLeftColor = root.style.borderRightColor = new StyleColor(ColDealRedEdge);
+        root.style.overflow = Overflow.Hidden;
+        root.style.position = Position.Relative;
+        root.pickingMode = PickingMode.Position;
+
+        var fillEl = new VisualElement();
+        fillEl.style.position = Position.Absolute;
+        fillEl.style.left = 0; fillEl.style.top = 0; fillEl.style.bottom = 0;
+        fillEl.style.width = new Length(0f, LengthUnit.Percent);
+        fillEl.style.backgroundColor = new StyleColor(ColDanger);
+        fillEl.style.display = DisplayStyle.None;
+        root.Add(fillEl);
+        fill = fillEl;
+
+        var labelEl = new Label("NO DEALS");
+        labelEl.style.position = Position.Absolute;
+        labelEl.style.left = 0; labelEl.style.right = 0; labelEl.style.top = 0; labelEl.style.bottom = 0;
+        labelEl.style.unityTextAlign = TextAnchor.MiddleCenter;
+        labelEl.style.color = new StyleColor(Color.white);
+        ApplyFont(labelEl, bold: true, size: 15);
+        root.Add(labelEl);
+        label = labelEl;
+
+        root.RegisterCallback<MouseEnterEvent>(_ => root.style.backgroundColor =
+            new StyleColor(ColDealRedHover * 0.25f + new Color(0x22 / 255f, 0x2A / 255f, 0x33 / 255f, 0.75f)));
+        root.RegisterCallback<MouseLeaveEvent>(_ => root.style.backgroundColor =
+            new StyleColor(new Color(0x22 / 255f, 0x2A / 255f, 0x33 / 255f, 1f)));
+
+        return root;
+    }
+
+    /// <summary>Same VendorDealService deal that drives this vendor group's own fill-bar DEALS
+    /// button, but claiming it here
     /// adds the cases straight into THIS vendor's `_multiBaskets` entry (with its own per-vendor discount
     /// tracked in `_multiDealDiscountByKey`) instead of the old tab's single `_basket` — the two tabs'
     /// baskets are independent, so a deal claimed here must land in the basket the player is actually
