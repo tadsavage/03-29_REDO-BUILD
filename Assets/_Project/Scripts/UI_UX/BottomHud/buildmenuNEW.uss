@@ -104,6 +104,12 @@
     background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/ContractsThumb.png#ContractsThumb");
 }
 
+/* PLACEHOLDER ART: reuses the Work Queue thumb because Play Bar Icons has no scheduler image yet.
+   Drop a SchedulerThumb.png into Assets/_Project/Art/Icons/Play Bar Icons/ and repoint this rule. */
+.playbar-icon-scheduler {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/WorkQueueThumb.png?fileID=2800000&guid=32c13be7f77f7924b948b9f552fd630a&type=3#WorkQueueThumb");
+}
+
 /* ── Build / Play mode tabs ──────────────────────────────────────────────
    Anchored at bottom:120px — the bar's height, not BottomBarHeight (122) — so the
    tab's bottom edge overlaps the bar's 2px top border and the active tab reads as

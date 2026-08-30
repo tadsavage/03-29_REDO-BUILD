@@ -341,6 +341,16 @@ if (_currentState != _idleState)
     /// </summary>
 private void HandleIdleHover(bool tickRaycast = true)
     {
+        // World-hover tooltips (build cost cards, pallet/location readouts) must never bleed through
+        // a full-screen UI panel (Outbound/Inbound/Scheduler/etc.) sitting on top of the 3D view —
+        // the raycast has no idea the screen is covered, so without this it happily hits whatever's
+        // under the cursor in world space and shows a tooltip that reads as floating behind the UI.
+        if (UIKeyBindingManager.Instance != null && UIKeyBindingManager.Instance.CurrentOpenKey != -1)
+        {
+            _hoverUI.HideImmediate();
+            return;
+        }
+
         if (tickRaycast) _raycast.Tick();
 
         if (_raycast.HitObject != null)

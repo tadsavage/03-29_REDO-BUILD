@@ -236,6 +236,38 @@ public class ResizableWindow
         _filled = true;
         ApplyScale(scale);
     }
+    /// <summary>
+    /// True edge-to-edge maximize: sets the panel's REAL width/height to the full available screen
+    /// size, instead of FillScreen's uniform scale-transform (which preserves the panel's authored
+    /// aspect ratio and letterboxes whichever dimension doesn't match the screen's). Fonts/icons stay
+    /// at their authored size since this is a real layout resize, not a render transform.
+    ///
+    /// Independent of the FillScreen/CycleScale system — a panel using this should not also rely on
+    /// CycleScale's "shrink back to normal" step, since ApplyScale(1f) would compute its baseline off
+    /// whatever real size this method just set, not the panel's original authored size.
+    /// </summary>
+    public void FillScreenExact()
+    {
+        var (availW, availH) = GetFullScreenSize();
+        if (availW <= 0f || availH <= 0f) return;
+
+        const float margin = 0.99f; // slim breathing room so borders don't clip against the edges
+        float w = availW * margin;
+        float h = Mathf.Max(0f, availH - TopBarReservedHeight) * margin;
+
+        _panel.style.position = Position.Absolute;
+        _panel.style.right = StyleKeyword.Auto;
+        _panel.style.bottom = StyleKeyword.Auto;
+        _panel.style.width = w;
+        _panel.style.height = h;
+        _panel.style.left = (availW - w) / 2f;
+        _panel.style.top = TopBarReservedHeight + (availH - TopBarReservedHeight - h) / 2f;
+
+        _panel.style.transformOrigin = new StyleTransformOrigin(new TransformOrigin(Length.Percent(0), Length.Percent(0)));
+        _panel.style.scale = new StyleScale(new Scale(Vector3.one));
+        _filled = true;
+    }
+
 
     /// <summary>
     /// The true screen bounds to fill, NOT the panel's immediate parent — some panels sit inside an

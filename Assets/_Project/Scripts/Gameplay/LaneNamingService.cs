@@ -24,6 +24,13 @@ using GameCore.Events;
 /// </summary>
 public class LaneNamingService : MonoBehaviour
 {
+    /// <summary>Lets load/restore code force an immediate, synchronous re-tag once it knows every
+    /// placed object (doors AND lane tiles) is fully instantiated — the 1s heartbeat below exists to
+    /// self-heal the same gap probabilistically, but a save-restore knows exactly when it's done and
+    /// shouldn't have to wait on a timer for correct labels. See PlacementSystem.BakeAfterDestroyFlush,
+    /// which does the same thing for rack labels via AisleInitializer.RefreshAllRackLabelsAfterLoad.</summary>
+    public static LaneNamingService Instance => _instance;
+
     private static LaneNamingService _instance;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]

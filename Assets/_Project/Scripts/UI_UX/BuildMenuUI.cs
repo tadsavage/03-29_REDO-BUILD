@@ -260,7 +260,7 @@ public class BuildMenuUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Points PlayBtn1..9 at UIKeyBindingManager.ToggleUI with their own number, so a click is the
+    /// Points PlayBtn0..9 at UIKeyBindingManager.ToggleUI with their own number, so a click is the
     /// exact same call the number key makes — same exclusivity, same Shift Manager unsaved-changes
     /// prompt, same Tab-closes-everything registry. Nothing here knows which panel it opens, so
     /// reassigning a hotkey moves its button with it.
@@ -268,11 +268,11 @@ public class BuildMenuUI : MonoBehaviour
     /// <summary>How many numbered buttons the play bar has. Named rather than inline so adding a
     /// tenth means changing this and the UXML, not hunting a bare literal — the loop below warns per
     /// missing button, so a mismatch is loud rather than a silently dead button.</summary>
-    private const int PlayBarButtonCount = 9;
+    private const int PlayBarButtonCount = 10;
 
     private void WirePlayBarButtons()
     {
-        for (int i = 1; i <= PlayBarButtonCount; i++)
+        for (int i = 0; i < PlayBarButtonCount; i++)
         {
             var button = _root.Q<Button>($"PlayBtn{i}");
             if (button == null)

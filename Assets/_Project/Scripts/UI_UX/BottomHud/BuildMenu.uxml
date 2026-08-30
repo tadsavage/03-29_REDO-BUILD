@@ -83,6 +83,13 @@
                 <ui:Label text="9" class="playbar-key"/>
             </ui:Button>
 
+            <!-- Scheduler panel, extracted from the Outbound Order Manager's old Scheduler tab. -->
+            <ui:Button name="PlayBtn0" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-scheduler"/>
+                <ui:Label text="Scheduler" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="0" class="playbar-key"/>
+            </ui:Button>
+
         </ui:VisualElement>
         <ui:VisualElement name="PlayUtilityRow" picking-mode="Position" class="buildmenu-utility-row"/>
     </ui:VisualElement>

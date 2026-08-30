@@ -285,11 +285,16 @@ namespace GameCore.Inventory
             float discount = Random.Range(DealDiscountMin, DealDiscountMax);
             int listPrice = CurrentPrice(sku);
             int dealPrice = Mathf.Max(1, Mathf.RoundToInt(listPrice * (1f - discount)));
+            // A Spot Deal reads as an offer FROM somebody, same as every other card on this tab —
+            // picked at random rather than tied to the SKU's cheapest/current seller, since the whole
+            // point of a spot deal is that it's a one-off, not "this vendor's regular price."
+            string vendorId = RandomVendorId();
 
             return new SpotDeal
             {
                 Id = System.Guid.NewGuid().ToString("N").Substring(0, 8),
                 SkuId = sku.SkuId,
+                VendorId = vendorId,
                 Pallets = pallets,
                 CasesPerPallet = Mathf.Max(1, sku.Ti * sku.Hi),
                 UnitPrice = dealPrice,
@@ -297,6 +302,17 @@ namespace GameCore.Inventory
                 ExpiresAfterDay = today,      // gone at midnight — that's the pressure
                 Claimed = false
             };
+        }
+
+        /// <summary>Picks one vendor at random to attribute a Spot Deal to. Also used by Import to
+        /// backfill VendorId on deals from a save written before this field existed — null/empty
+        /// rather than a missing vendor reads as more broken than just picking one.</summary>
+        private static string RandomVendorId()
+        {
+            var vendors = VendorRegistry.Load()?.AllVendors;
+            return vendors != null && vendors.Count > 0
+                ? vendors[Random.Range(0, vendors.Count)].VendorId
+                : null;
         }
 
         private void ExpireDeals(int today)
@@ -340,6 +356,7 @@ namespace GameCore.Inventory
                 snap.deals.Add(new SpotDealSnapshot
                 {
                     id = d.Id,
+                    vendorId = d.VendorId,
                     skuId = d.SkuId,
                     pallets = d.Pallets,
                     casesPerPallet = d.CasesPerPallet,
@@ -378,6 +395,7 @@ namespace GameCore.Inventory
                 {
                     Id = d.id,
                     SkuId = d.skuId,
+                    VendorId = !string.IsNullOrEmpty(d.vendorId) ? d.vendorId : RandomVendorId(),
                     Pallets = d.pallets,
                     CasesPerPallet = d.casesPerPallet,
                     UnitPrice = d.unitPrice,
@@ -402,6 +420,7 @@ namespace GameCore.Inventory
     {
         public string Id;
         public string SkuId;
+        public string VendorId;
         public int Pallets;
         public int CasesPerPallet;
 
@@ -446,6 +465,7 @@ namespace GameCore.Inventory
     {
         public string id;
         public string skuId;
+        public string vendorId;
         public int pallets;
         public int casesPerPallet;
         public int unitPrice;

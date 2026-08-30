@@ -1084,6 +1084,15 @@ public class PlacementSystem : MonoBehaviour
             aisleInit.RefreshAllRackLabelsAfterLoad();
         }
 
+        // Same reasoning as the rack-label refresh above, for staging lanes: LaneNamingService
+        // otherwise relies on a 1s heartbeat to notice tiles restored from a save (they bypass the
+        // OnObjectPlaced event live placement fires), which left the labels wrong/blank for up to a
+        // second after a quickload — occasionally longer if the heartbeat's first pass raced doors or
+        // tiles that hadn't finished registering yet, since door OWNERSHIP is sticky once assigned.
+        // Doors and lane tiles are both fully instantiated by this point, so recomputing here now
+        // instead of waiting on the timer.
+        LaneNamingService.Instance?.Recompute();
+
         // Yard floor tiles aren't saved to disk (BuildSaveData skips id 200 — see comment
         // there), so they must be regenerated on every load, not just the initial scene
         // Start. PopulateYardFloors fills every empty cell and performs its own

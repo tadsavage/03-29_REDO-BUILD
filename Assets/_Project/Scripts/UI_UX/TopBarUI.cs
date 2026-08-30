@@ -54,6 +54,8 @@ public class TopBarUI : MonoBehaviour
     public WorkQueuePanel WorkQueuePanel => _workQueuePanel;
     private ContractsPanel _contractsPanel;             // "8" key — sign customer contracts (where demand comes from); relabeled "Orders" on the play bar
     public ContractsPanel ContractsPanel => _contractsPanel;
+    private SchedulerPanel _schedulerPanel;             // "0" key — standalone Scheduler (dock appointment grid)
+    public SchedulerPanel SchedulerPanel => _schedulerPanel;
     private NewItemPanel _newItemPanel;                 // "5" key — assign pick slots to received items
     public NewItemPanel NewItemPanel => _newItemPanel;
     private PurchasingPanel _purchasingPanel;           // "9" key — raise POs to bring stock in
@@ -103,6 +105,7 @@ public class TopBarUI : MonoBehaviour
         _slotAssignmentPanel = new SlotAssignmentPanel(root);
         _workQueuePanel = new WorkQueuePanel(root);
         _contractsPanel = new ContractsPanel(root);
+        _schedulerPanel = new SchedulerPanel(root);
         _newItemPanel = new NewItemPanel(root);
         _purchasingPanel = new PurchasingPanel(root);
 
@@ -118,6 +121,7 @@ public class TopBarUI : MonoBehaviour
             UIKeyBindingManager.Instance.RegisterUI(7, _workQueuePanel);
             UIKeyBindingManager.Instance.RegisterUI(8, _contractsPanel);
             UIKeyBindingManager.Instance.RegisterUI(9, _purchasingPanel);
+            UIKeyBindingManager.Instance.RegisterUI(0, _schedulerPanel);
             // Note: SlotAssignmentPanel doesn't implement IUIPanel yet, can be accessed via UI button
         }
 
@@ -218,6 +222,10 @@ public class TopBarUI : MonoBehaviour
         // 9 opens PURCHASING — the inbound counterpart to Orders on 8.
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit9Key.wasPressedThisFrame)
             keys.ToggleUI(9);
+
+        // 0 opens the standalone Scheduler panel (dock appointment grid).
+        if (!UIModalGuard.IsCapturing && Keyboard.current.digit0Key.wasPressedThisFrame)
+            keys.ToggleUI(0);
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {

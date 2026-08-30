@@ -203,9 +203,10 @@ namespace GameCore.Inventory
         public const int BlockHours = 2;
         public const int BlocksPerDay = 24 / BlockHours;
 
-        /// <summary>How many past days of appointments to keep. Purely so the Schedule tab can page
-        /// back a day to see what happened; older ones are dropped at each day roll.</summary>
-        private const int KeepPastDays = 2;
+        /// <summary>How many past days of appointments to keep once a day fully rolls over. Zero —
+        /// there's no need to look back at a past day's schedule, so a day's appointments are purged
+        /// the moment it stops being "today" rather than lingering around for archiving.</summary>
+        private const int KeepPastDays = 0;
 
         private readonly List<DockAppointment> _appointments = new();
         private EventManager _eventManager;

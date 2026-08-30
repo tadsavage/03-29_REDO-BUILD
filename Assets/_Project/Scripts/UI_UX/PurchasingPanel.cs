@@ -159,6 +159,16 @@ public class PurchasingPanel : IUIPanel
     /// <summary>Whether the filter dropdown's popout panel is currently open.</summary>
     private bool _multiVendorFilterOpen = false;
 
+    private enum MultiVendorSortMode { NameAZ, PartnershipHighToLow, PartnershipLowToHigh }
+
+    /// <summary>Sort order for the vendor groups on Inbound Order Creation. Defaults to alphabetical
+    /// so the list reads the same way it always has until the player deliberately asks for a
+    /// partnership-driven order.</summary>
+    private MultiVendorSortMode _multiVendorSortMode = MultiVendorSortMode.NameAZ;
+
+    /// <summary>Whether the sort dropdown's popout panel is currently open.</summary>
+    private bool _multiVendorSortOpen = false;
+
     /// <summary>Deal discounts claimed on Inbound Order Creation, keyed by DealKey(vendorId, skuId) —
     /// this tab prices several vendors' loads at once, so the same SKU can carry a claimed discount
     /// under one vendor while carrying none (or a different one) under another. Cleared per vendor
@@ -852,6 +862,17 @@ public class PurchasingPanel : IUIPanel
         price.style.marginTop = 4;
         price.style.whiteSpace = WhiteSpace.NoWrap;
         card.Add(price);
+        var dealVendor = VendorRegistry.Load()?.GetById(deal.VendorId);
+        if (dealVendor != null)
+        {
+            int dealVendorPartnership = Economy()?.GetState(deal.VendorId)?.PartnershipLevel ?? 0;
+            var vendorLine = MakeText($"{dealVendor.DisplayName} [{dealVendorPartnership:+0;-0;0}]",
+                                      17, Color.white, bold: true);
+            vendorLine.style.marginTop = 4;
+            vendorLine.style.whiteSpace = WhiteSpace.NoWrap;
+            card.Add(vendorLine);
+        }
+
 
         var take = new Button(() => OnTakeDeal(deal)) { text = $"TAKE · {Money(deal.TotalCost)}" };
         StyleActionButton(take, ColOrange, ColOrangeEdge, ColOrangeHover);
@@ -1284,16 +1305,16 @@ public class PurchasingPanel : IUIPanel
         Hide();
 
         var topBar = Object.FindAnyObjectByType<TopBarUI>();
-        var contracts = topBar != null ? topBar.ContractsPanel : null;
-        if (contracts == null)
+        var scheduler = topBar != null ? topBar.SchedulerPanel : null;
+        if (scheduler == null)
         {
-            UIToast.Show("Couldn't open the scheduler — the Outbound Order Manager isn't loaded.");
+            UIToast.Show("Couldn't open the scheduler — the Scheduler panel isn't loaded.");
             return;
         }
 
-        // Registered on key 8; routing through the manager is what closes any other open panel first.
+        // Registered on key 0; routing through the manager is what closes any other open panel first.
         UIKeyBindingManager.Instance?.CloseAll();
-        contracts.ShowScheduleTab(shipment != null ? shipment.ArrivalDayNumber : 0);
+        scheduler.ShowForDay(shipment != null ? shipment.ArrivalDayNumber : 0);
     }
 
     private void OnCancelPo(string poNumber)
@@ -1691,8 +1712,18 @@ public class PurchasingPanel : IUIPanel
             return;
         }
 
-        foreach (var vendor in vendors.Where(v => v != null)
-                                       .OrderBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase))
+        IOrderedEnumerable<VendorData> ordered = _multiVendorSortMode switch
+        {
+            MultiVendorSortMode.PartnershipHighToLow => vendors.Where(v => v != null)
+                .OrderByDescending(v => Economy()?.GetState(v.VendorId)?.PartnershipLevel ?? 0)
+                .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
+            MultiVendorSortMode.PartnershipLowToHigh => vendors.Where(v => v != null)
+                .OrderBy(v => Economy()?.GetState(v.VendorId)?.PartnershipLevel ?? 0)
+                .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
+            _ => vendors.Where(v => v != null)
+                .OrderBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
+        };
+        foreach (var vendor in ordered)
             _multiVendorPane.Add(BuildMultiVendorGroup(vendor));
     }
 
@@ -1701,6 +1732,15 @@ public class PurchasingPanel : IUIPanel
     /// demand) — replacing the old free-text search box, per Tad's explicit request.</summary>
     private VisualElement BuildMultiVendorFilterBar()
     {
+        // The popout lives directly on _modal rather than nested under its own trigger button —
+        // Position.Absolute only escapes its parent's LAYOUT box, not the document's PAINT order, so
+        // nested here it was still being drawn UNDER the vendor group rows added right after this bar
+        // (later siblings of a shared ancestor paint on top regardless of absolute positioning). A
+        // stale one from the previous Rebuild() (every filter change rebuilds this bar from scratch)
+        // is removed first so re-opening the filter doesn't stack duplicates on the modal.
+        _modal.Q<VisualElement>("MultiVendorFilterPopout")?.RemoveFromHierarchy();
+        _modal.Q<VisualElement>("MultiVendorSortPopout")?.RemoveFromHierarchy();
+
         var bar = new VisualElement();
         bar.style.flexDirection = FlexDirection.Row;
         bar.style.alignItems = Align.FlexStart;
@@ -1732,10 +1772,8 @@ public class PurchasingPanel : IUIPanel
         dropdownBtn.style.unityTextAlign = TextAnchor.MiddleLeft;
         dropdownWrap.Add(dropdownBtn);
 
-        var popout = new VisualElement();
+        var popout = new VisualElement { name = "MultiVendorFilterPopout" };
         popout.style.position = Position.Absolute;
-        popout.style.top = 36;
-        popout.style.left = 0;
         popout.style.width = 260;
         popout.style.maxHeight = 320;
         popout.style.backgroundColor = new StyleColor(ColBg);
@@ -1748,7 +1786,25 @@ public class PurchasingPanel : IUIPanel
         popout.style.paddingTop = 6; popout.style.paddingBottom = 6;
         popout.style.paddingLeft = 4; popout.style.paddingRight = 4;
         popout.style.display = _multiVendorFilterOpen ? DisplayStyle.Flex : DisplayStyle.None;
-        dropdownWrap.Add(popout);
+        _modal.Add(popout);
+
+        // Positions the popout in _modal's own local space off the trigger button's CURRENT world
+        // bound, since it's no longer nested inside dropdownWrap and can't rely on relative layout
+        // to sit under the button anymore.
+        void PositionPopout()
+        {
+            Vector2 local = _modal.WorldToLocal(new Vector2(dropdownBtn.worldBound.x, dropdownBtn.worldBound.yMax + 4));
+            float maxLeft = Mathf.Max(4f, _modal.resolvedStyle.width - 264f);
+            popout.style.left = Mathf.Clamp(local.x, 4f, maxLeft);
+            popout.style.top = local.y;
+            popout.BringToFront();
+        }
+
+        // Covers a Rebuild() that fires while the filter is already open (any toggle click rebuilds
+        // this whole bar) — the button isn't laid out yet on the same frame this method runs, so the
+        // reposition has to wait one frame, same as CentreOnce's first-show deferral elsewhere.
+        if (_multiVendorFilterOpen)
+            _modal.schedule.Execute(PositionPopout).ExecuteLater(0);
 
         var scroll = new ScrollView(ScrollViewMode.Vertical);
         scroll.style.maxHeight = 300;
@@ -1794,7 +1850,89 @@ public class PurchasingPanel : IUIPanel
         {
             _multiVendorFilterOpen = !_multiVendorFilterOpen;
             popout.style.display = _multiVendorFilterOpen ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_multiVendorFilterOpen) PositionPopout();
         };
+        // Sort dropdown — same custom-popout pattern as the vendor filter above (single-select: any
+        // option closes the popout and applies immediately, rather than needing an explicit confirm).
+        var sortWrap = new VisualElement();
+        sortWrap.style.position = Position.Relative;
+        sortWrap.style.marginLeft = 10;
+        bar.Add(sortWrap);
+
+        var sortBtn = new Button { text = SortSummaryText() };
+        sortBtn.style.width = 240;
+        sortBtn.style.height = 32;
+        ApplyFont(sortBtn, bold: true, size: 13);
+        sortBtn.style.backgroundColor = new StyleColor(ColStat);
+        sortBtn.style.color = new StyleColor(ColTitleText);
+        sortBtn.style.borderTopWidth = sortBtn.style.borderBottomWidth =
+            sortBtn.style.borderLeftWidth = sortBtn.style.borderRightWidth = 2;
+        sortBtn.style.borderTopColor = sortBtn.style.borderBottomColor =
+            sortBtn.style.borderLeftColor = sortBtn.style.borderRightColor = new StyleColor(ColBlueEdge);
+        sortBtn.style.borderTopLeftRadius = sortBtn.style.borderTopRightRadius =
+            sortBtn.style.borderBottomLeftRadius = sortBtn.style.borderBottomRightRadius = 6;
+        sortBtn.style.unityTextAlign = TextAnchor.MiddleLeft;
+        sortWrap.Add(sortBtn);
+
+        var sortPopout = new VisualElement { name = "MultiVendorSortPopout" };
+        sortPopout.style.position = Position.Absolute;
+        sortPopout.style.width = 240;
+        sortPopout.style.backgroundColor = new StyleColor(ColBg);
+        sortPopout.style.borderTopWidth = sortPopout.style.borderBottomWidth =
+            sortPopout.style.borderLeftWidth = sortPopout.style.borderRightWidth = 2;
+        sortPopout.style.borderTopColor = sortPopout.style.borderBottomColor =
+            sortPopout.style.borderLeftColor = sortPopout.style.borderRightColor = new StyleColor(ColBorder);
+        sortPopout.style.borderTopLeftRadius = sortPopout.style.borderTopRightRadius =
+            sortPopout.style.borderBottomLeftRadius = sortPopout.style.borderBottomRightRadius = 6;
+        sortPopout.style.paddingTop = 4; sortPopout.style.paddingBottom = 4;
+        sortPopout.style.paddingLeft = 4; sortPopout.style.paddingRight = 4;
+        sortPopout.style.display = _multiVendorSortOpen ? DisplayStyle.Flex : DisplayStyle.None;
+        _modal.Add(sortPopout);
+
+        void PositionSortPopout()
+        {
+            Vector2 local = _modal.WorldToLocal(new Vector2(sortBtn.worldBound.x, sortBtn.worldBound.yMax + 4));
+            float maxLeft = Mathf.Max(4f, _modal.resolvedStyle.width - 244f);
+            sortPopout.style.left = Mathf.Clamp(local.x, 4f, maxLeft);
+            sortPopout.style.top = local.y;
+            sortPopout.BringToFront();
+        }
+
+        if (_multiVendorSortOpen)
+            _modal.schedule.Execute(PositionSortPopout).ExecuteLater(0);
+
+        void AddSortOption(string optionLabel, MultiVendorSortMode mode)
+        {
+            bool selected = _multiVendorSortMode == mode;
+            var opt = new Button { text = (selected ? "✓ " : "    ") + optionLabel };
+            opt.style.width = new StyleLength(StyleKeyword.Auto);
+            opt.style.height = 30;
+            opt.style.marginLeft = 0; opt.style.marginRight = 0; opt.style.marginTop = 0; opt.style.marginBottom = 0;
+            opt.style.borderTopWidth = opt.style.borderBottomWidth =
+                opt.style.borderLeftWidth = opt.style.borderRightWidth = 0;
+            opt.style.backgroundColor = new StyleColor(selected ? ColCardEven : Color.clear);
+            opt.style.color = new StyleColor(selected ? ColOrangeText : ColTitleText);
+            ApplyFont(opt, bold: selected, size: 13);
+            opt.style.unityTextAlign = TextAnchor.MiddleLeft;
+            opt.clicked += () =>
+            {
+                _multiVendorSortMode = mode;
+                _multiVendorSortOpen = false;
+                Rebuild();
+            };
+            sortPopout.Add(opt);
+        }
+        AddSortOption("Name (A–Z)", MultiVendorSortMode.NameAZ);
+        AddSortOption("Partnership: High to Low", MultiVendorSortMode.PartnershipHighToLow);
+        AddSortOption("Partnership: Low to High", MultiVendorSortMode.PartnershipLowToHigh);
+
+        sortBtn.clicked += () =>
+        {
+            _multiVendorSortOpen = !_multiVendorSortOpen;
+            sortPopout.style.display = _multiVendorSortOpen ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_multiVendorSortOpen) PositionSortPopout();
+        };
+
 
         var hint = MakeText("The same item can appear under several vendors at different prices — " +
                              "compare and build multiple loads at once.", 12, ColEmptyText);
@@ -1816,6 +1954,13 @@ public class PurchasingPanel : IUIPanel
         if (vendorCount > 0) parts.Add($"{vendorCount} vendor{(vendorCount == 1 ? "" : "s")}");
         return string.Join(" + ", parts) + " ▾";
     }
+    private string SortSummaryText() => _multiVendorSortMode switch
+    {
+        MultiVendorSortMode.PartnershipHighToLow => "Sort: Partnership High to Low ▾",
+        MultiVendorSortMode.PartnershipLowToHigh => "Sort: Partnership Low to High ▾",
+        _ => "Sort: Name (A–Z) ▾",
+    };
+
 
     /// <summary>One vendor's collapsible group: header (icon, name, running totals, trailer fill-bar,
     /// DISPATCH ORDER) plus a detail list of that vendor's orderable items, shown/hidden by
@@ -2333,9 +2478,9 @@ public class PurchasingPanel : IUIPanel
 
     // ── Truck fill-bar ───────────────────────────────────────────────────────
 
-    private const float TruckFillBarWidth = 140f;
+    internal const float TruckFillBarWidth = 140f;
     /// <summary>Width:height of TruckFillSprite.png (1408x768).</summary>
-    private const float TruckSpriteAspect = 1408f / 768f;
+    internal const float TruckSpriteAspect = 1408f / 768f;
     /// <summary>Height of the truck sprite at TruckFillBarWidth — the DISPATCH ORDER/DEALS column next
     /// to it is sized to exactly match this, split evenly between the two buttons with a small gap.</summary>
     private const float TruckActionsColumnHeight = TruckFillBarWidth / TruckSpriteAspect;
@@ -2344,13 +2489,13 @@ public class PurchasingPanel : IUIPanel
     // Trailer BOX sub-rectangle as a fraction of the whole sprite — measured against the source PNG.
     // Unlike the previous sprite (cab on the right), this artwork has the cab on the LEFT, so the box's
     // LEFT edge is the nose (nearest the cab) and its RIGHT edge is the rear.
-    private const float TruckBoxLeftFrac = 0.39f;     // the NOSE — front of the trailer, nearest the cab
-    private const float TruckBoxRightFrac = 0.92f;    // the rear of the trailer
-    private const float TruckBoxTopFrac = 0.32f;
-    private const float TruckBoxBottomFrac = 0.56f;
+    internal const float TruckBoxLeftFrac = 0.39f;     // the NOSE — front of the trailer, nearest the cab
+    internal const float TruckBoxRightFrac = 0.92f;    // the rear of the trailer
+    internal const float TruckBoxTopFrac = 0.32f;
+    internal const float TruckBoxBottomFrac = 0.56f;
 
-    private static Texture2D _truckFillSprite;
-    private static Texture2D TruckFillSprite()
+    internal static Texture2D _truckFillSprite;
+    internal static Texture2D TruckFillSprite()
     {
         if (_truckFillSprite == null) _truckFillSprite = Resources.Load<Texture2D>("UI/TruckFillSprite");
         return _truckFillSprite;
@@ -2361,7 +2506,7 @@ public class PurchasingPanel : IUIPanel
     /// increases — fills nose-to-rear as specced, not rear-to-nose. Caller owns repainting
     /// `fillElement.style.width` (see BuildMultiVendorGroup's RefreshHeader) since the fill level
     /// changes independently of rebuilding this whole element.</summary>
-    private VisualElement BuildTruckFillBar(out VisualElement fillElement)
+    internal static VisualElement BuildTruckFillBar(out VisualElement fillElement)
     {
         float h = TruckFillBarWidth / TruckSpriteAspect;
 

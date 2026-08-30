@@ -4,18 +4,19 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Manages keybinding UIs (keys 1-8).
+/// Manages keybinding UIs (keys 0-9).
 /// Only one EXCLUSIVE keybind UI can be open at a time — toggling one closes any currently open one.
 /// Panels registered with floating: true opt out of that and coexist with whatever else is showing.
 /// Panels must implement IUIPanel to be registered.
 ///
 /// Keybindings:
+///   0 = Scheduler (SchedulerPanel) — dock appointment grid, extracted from ContractsPanel
 ///   1 = Dev Console (ToolsWindowController)
 ///   2 = Hiring Board (HiringBoardUI)
 ///   3 = Employee Roster (EmployeeRosterUI)
 ///   4 = Employee List (EmployeeListPanelController)
 ///   5 = Shift Manager (ShiftManagerPanel)
-///   6 = Contracts (ContractsPanel) — New Contracts / Bulk Orders / Accounts / Schedule. Replaced
+///   6 = Contracts (ContractsPanel) — New Contracts / Bulk Orders / Accounts. Replaced
 ///       Slot Assignment, which is now opened by clicking a rack rather than by a number key
 ///   7 = Work Queue
 ///   8 = New Item / Slotter
@@ -95,13 +96,13 @@ public class UIKeyBindingManager : MonoBehaviour
         _instance = this;
     }
 
-    /// <summary>Register a UI panel for a keybinding number (1-9). Pass floating: true for a window
+    /// <summary>Register a UI panel for a keybinding number (0-9). Pass floating: true for a window
     /// that should coexist with other panels instead of replacing them — see _floatingKeys.</summary>
     public void RegisterUI(int keyNumber, IUIPanel panel, bool floating = false)
     {
-        if (keyNumber < 1 || keyNumber > 9)
+        if (keyNumber < 0 || keyNumber > 9)
         {
-            Debug.LogError($"[UIKeyBindingManager] Invalid key number {keyNumber}. Must be 1-9.");
+            Debug.LogError($"[UIKeyBindingManager] Invalid key number {keyNumber}. Must be 0-9.");
             return;
         }
 
