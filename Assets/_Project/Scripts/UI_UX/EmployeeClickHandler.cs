@@ -78,11 +78,13 @@ public class EmployeeClickHandler : MonoBehaviour
         if (_identity != null && _identity.Record != null)
         {
             _employeeUI.Show(_identity.Record);
+            AudioManager.Play("UIClick");
         }
         else if (_employeeData != null)
         {
             _employeeData.EnsureConfigured();
             _employeeUI.Show(_employeeData);
+            AudioManager.Play("UIClick");
         }
         else
         {

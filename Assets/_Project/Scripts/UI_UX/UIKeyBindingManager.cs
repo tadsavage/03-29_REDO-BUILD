@@ -178,7 +178,7 @@ public class UIKeyBindingManager : MonoBehaviour
         // therefore whatever exclusive panel is showing — completely alone in both directions.
         if (_floatingKeys.Contains(keyNumber))
         {
-            if (panel.IsOpen) panel.Hide(); else panel.Show();
+            if (panel.IsOpen) panel.Hide(); else { panel.Show(); AudioManager.Play("UIClick"); }
             return;
         }
 
@@ -213,6 +213,7 @@ public class UIKeyBindingManager : MonoBehaviour
                     shiftManager.RequestClose(() =>
                     {
                         pendingPanel.Show();
+                        AudioManager.Play("UIClick");
                         _currentOpenKey = pendingKey;
                     });
                     return;
@@ -224,6 +225,7 @@ public class UIKeyBindingManager : MonoBehaviour
 
         // Open the requested panel
         panel.Show();
+        AudioManager.Play("UIClick");
         _currentOpenKey = keyNumber;
     }
 

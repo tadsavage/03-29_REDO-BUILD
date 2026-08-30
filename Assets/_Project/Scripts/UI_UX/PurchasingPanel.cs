@@ -145,6 +145,13 @@ public class PurchasingPanel : IUIPanel
     /// vendor's list doesn't collapse the moment a quantity change triggers a repaint.</summary>
     private readonly HashSet<string> _expandedMultiVendors = new();
 
+    /// <summary>Snapshot of _expandedMultiVendors taken the moment the Item filter goes from "All
+    /// Items" to a specific SKU — null whenever no item filter is active. Every vendor carrying the
+    /// selected item is force-expanded while searching (see AddItemOption's click handler below), and
+    /// this is what gets restored once the filter clears back to "All Items", so searching for an item
+    /// doesn't permanently blow away whatever the player had manually expanded before.</summary>
+    private HashSet<string> _expandedBeforeItemFilter = null;
+
     /// <summary>Vendor-filter state for Inbound Order Creation's header filter dropdown. Empty
     /// `_multiVendorFilterVendorIds` means "no specific vendors chosen" (show all, subject to the
     /// Critical Items toggle below) — a dropdown replacing the old free-text search box, per Tad's
@@ -168,6 +175,29 @@ public class PurchasingPanel : IUIPanel
 
     /// <summary>Whether the sort dropdown's popout panel is currently open.</summary>
     private bool _multiVendorSortOpen = false;
+
+    /// <summary>Item filter for Inbound Order Creation — narrows every expanded vendor group down to
+    /// one SKU, so "the same item can appear under several vendors at different prices" (see the hint
+    /// label) becomes something the player can actually line up side by side instead of expanding
+    /// every vendor and hunting for it. Null = "All Items".</summary>
+    private string _multiVendorItemFilterSkuId = null;
+
+    /// <summary>Whether the item filter dropdown's popout panel is currently open.</summary>
+    private bool _multiVendorItemFilterOpen = false;
+
+    /// <summary>Root passed into the constructor, kept for the lifetime of the panel — this is the
+    /// only ancestor common to every click on screen (including clicks that land on nothing and get
+    /// dispatched to the document root itself), so the global "close the open dropdown" capture
+    /// handler below is registered on it rather than on _overlay (whose own pickingMode is Ignore).</summary>
+    private readonly VisualElement _root;
+
+    /// <summary>Pending auto-close timers for the three Inbound Order Creation header dropdowns
+    /// (vendor filter, sort, item filter) — each one restarts on every interaction (open, or a
+    /// Rebuild() that happens while still open) and fires the popout closed after 3s of being left
+    /// alone, per Tad's request that the dropdown not require hunting for its own arrow to dismiss.</summary>
+    private IVisualElementScheduledItem _multiVendorFilterAutoClose;
+    private IVisualElementScheduledItem _multiVendorSortAutoClose;
+    private IVisualElementScheduledItem _multiVendorItemAutoClose;
 
     /// <summary>Deal discounts claimed on Inbound Order Creation, keyed by DealKey(vendorId, skuId) —
     /// this tab prices several vendors' loads at once, so the same SKU can carry a claimed discount
@@ -195,9 +225,16 @@ public class PurchasingPanel : IUIPanel
 
     public PurchasingPanel(VisualElement root)
     {
+        _root = root;
         _overlay = Build(out _modal, out _tabBar, out _tabHeader, out _content, out _footerMessage);
         root.Add(_overlay);
         _overlay.Add(BuildConfirmDialog());
+
+        // ROOT-LEVEL capture, same pattern SaveLoadWindowController uses for its own outside-click
+        // close — fires before any child can intercept, and worldBound hit-testing means it doesn't
+        // matter what's visually drawn on top. Registered once here (not rebuilt with the bar) so it
+        // always finds whichever popout/button instance is currently live via name lookup.
+        _root.RegisterCallback<PointerDownEvent>(OnGlobalPointerDownForDropdowns, TrickleDown.TrickleDown);
 
         ServiceLocator.TryGet<VendorEconomyService>(out var vendorEconomy);
         ServiceLocator.TryGet<VendorPerformanceTracker>(out var vendorTracker);
@@ -222,7 +259,79 @@ public class PurchasingPanel : IUIPanel
     public void Dispose()
     {
         EventManager.Instance?.Unsubscribe<string>(GameEvents.Vendor.OnOrderFromVendorRequested, OnOrderFromVendorRequested);
+        _root.UnregisterCallback<PointerDownEvent>(OnGlobalPointerDownForDropdowns, TrickleDown.TrickleDown);
         if (_overlay.parent != null) _overlay.RemoveFromHierarchy();
+    }
+
+    /// <summary>Closes whichever of the three Inbound Order Creation header dropdowns is open the
+    /// moment a left- or right-click lands outside both its popout and its own trigger button — the
+    /// trigger button itself is excluded so its own click handler keeps sole ownership of the
+    /// open/close toggle instead of this handler fighting it (see CloseMultiVendorPopoutIfOutside).</summary>
+    private void OnGlobalPointerDownForDropdowns(PointerDownEvent evt)
+    {
+        if (evt.button != 0 && evt.button != 1) return; // left or right only
+        Vector2 pos = evt.position;
+        CloseMultiVendorPopoutIfOutside(ref _multiVendorFilterOpen, "MultiVendorFilterPopout",
+            "MultiVendorFilterButton", pos, ref _multiVendorFilterAutoClose);
+        CloseMultiVendorPopoutIfOutside(ref _multiVendorSortOpen, "MultiVendorSortPopout",
+            "MultiVendorSortButton", pos, ref _multiVendorSortAutoClose);
+        CloseMultiVendorPopoutIfOutside(ref _multiVendorItemFilterOpen, "MultiVendorItemPopout",
+            "MultiVendorItemButton", pos, ref _multiVendorItemAutoClose);
+    }
+
+    private void CloseMultiVendorPopoutIfOutside(ref bool openFlag, string popoutName, string buttonName,
+        Vector2 pointerPos, ref IVisualElementScheduledItem autoClose)
+    {
+        if (!openFlag) return;
+        var popout = _modal.Q<VisualElement>(popoutName);
+        var button = _modal.Q<Button>(buttonName);
+        if ((popout != null && popout.worldBound.Contains(pointerPos)) ||
+            (button != null && button.worldBound.Contains(pointerPos)))
+            return; // click landed on the popout or its own trigger — the button's toggle handles it
+
+        openFlag = false;
+        if (popout != null) popout.style.display = DisplayStyle.None;
+        autoClose?.Pause();
+        autoClose = null;
+    }
+
+    /// <summary>(Re)starts the vendor filter popout's 3-second auto-close countdown — called both the
+    /// moment it opens and again on every Rebuild() that happens while it's still open (e.g. ticking a
+    /// vendor checkbox), so an active session keeps getting a fresh 3s rather than closing mid-pick.</summary>
+    private void ScheduleFilterAutoClose(VisualElement popout)
+    {
+        _multiVendorFilterAutoClose?.Pause();
+        IVisualElementScheduledItem filterScheduled = _modal.schedule.Execute(() =>
+        {
+            _multiVendorFilterOpen = false;
+            popout.style.display = DisplayStyle.None;
+        });
+        _multiVendorFilterAutoClose = filterScheduled;
+        _multiVendorFilterAutoClose.ExecuteLater(3000);
+    }
+
+    /// <summary>Same as ScheduleFilterAutoClose, for the sort popout.</summary>
+    private void ScheduleSortAutoClose(VisualElement popout)
+    {
+        _multiVendorSortAutoClose?.Pause();
+        _multiVendorSortAutoClose = _modal.schedule.Execute(() =>
+        {
+            _multiVendorSortOpen = false;
+            popout.style.display = DisplayStyle.None;
+        });
+        _multiVendorSortAutoClose.ExecuteLater(3000);
+    }
+
+    /// <summary>Same as ScheduleFilterAutoClose, for the item filter popout.</summary>
+    private void ScheduleItemAutoClose(VisualElement popout)
+    {
+        _multiVendorItemAutoClose?.Pause();
+        _multiVendorItemAutoClose = _modal.schedule.Execute(() =>
+        {
+            _multiVendorItemFilterOpen = false;
+            popout.style.display = DisplayStyle.None;
+        });
+        _multiVendorItemAutoClose.ExecuteLater(3000);
     }
 
     /// <summary>Routed here from this panel's own VENDORS tab's "Order from Vendor" button, via the
@@ -338,7 +447,7 @@ public class PurchasingPanel : IUIPanel
         // buttons — without this the text sits visibly left of true-centre by half the button
         // cluster's width, since a flexGrow element's own MiddleCenter text only centres within its
         // own box, not the full row. Width is set below once the button cluster (rightGroup) has
-        // actually been laid out, since "Back to Scheduler" is text-sized rather than fixed-width.
+        // actually been laid out, since the button cluster is text-sized rather than fixed-width.
         var leftSpacer = new VisualElement();
         leftSpacer.style.flexShrink = 0;
         titleBar.Add(leftSpacer);
@@ -361,7 +470,7 @@ public class PurchasingPanel : IUIPanel
         // nowhere near the other navigation. Up here it is reachable from every tab, and it mirrors
         // ContractsPanel, which carries its "Back to Purchasing" counterpart in exactly this slot.
         // Left of the window buttons, so the destructive ✕ keeps the far corner it always has.
-        var toScheduler = new Button(() => OpenScheduler(null)) { text = "Back to Scheduler" };
+        var toScheduler = new Button(() => OpenScheduler(null)) { text = "SCHEDULER" };
         StyleOrangeButton(toScheduler);
         ApplyFont(toScheduler, bold: true, size: 16);
         toScheduler.style.height = TitleButtonSize;   // clears the helper's fixed 30px
@@ -370,14 +479,32 @@ public class PurchasingPanel : IUIPanel
         toScheduler.style.flexShrink = 0;          // the title flexGrows; without this the label squeezes
         toScheduler.style.borderTopLeftRadius = toScheduler.style.borderTopRightRadius =
             toScheduler.style.borderBottomLeftRadius = toScheduler.style.borderBottomRightRadius = 8;
-        toScheduler.tooltip = "Close purchasing and open the Scheduler, where POs are given a day, " +
-                              "time block and door.";
+        RuntimeTooltip.Attach(toScheduler, "Close purchasing and open the Scheduler, where POs are given a day, " +
+                              "time block and door.");
+
+        // Sideways trip to the Outbound panel (key 8, "Orders" on the play bar) — same pattern as
+        // toScheduler above, just the other destination. Per Tad's ask, sitting right next to it.
+        var toOrders = new Button(OpenOrders) { text = "ORDERS" };
+        StyleOrangeButton(toOrders);
+        ApplyFont(toOrders, bold: true, size: 16);
+        toOrders.style.height = TitleButtonSize;
+        toOrders.style.paddingLeft = toOrders.style.paddingRight = 18;
+        toOrders.style.marginRight = 10;
+        toOrders.style.flexShrink = 0;
+        toOrders.style.borderTopLeftRadius = toOrders.style.borderTopRightRadius =
+            toOrders.style.borderBottomLeftRadius = toOrders.style.borderBottomRightRadius = 8;
+        RuntimeTooltip.Attach(toOrders, "Close purchasing and open Orders, where customer contracts are signed.");
+
+        // ORDERS then SCHEDULER — swapped from creation order per Tad's request, so ORDERS sits
+        // leftmost (closer to the title) and SCHEDULER sits to its right, closer to the window chrome.
+        rightGroup.Add(toOrders);
         rightGroup.Add(toScheduler);
 
         // Resize + close, the same pair ContractsPanel carries — square, blue-edged, flush together.
         // Deliberately NOT the orange treatment: that is this panel's accent (active tab, PO pill and
         // the Back button above); window chrome stays blue so a chrome button never reads as an action.
-        _scaleBtn = new Button { tooltip = "Resize window (normal / large / fill screen)" };
+        _scaleBtn = new Button();
+        RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)");
         StyleSquareButton(_scaleBtn);
         _scaleBtn.style.width = TitleButtonSize;
         _scaleBtn.style.height = TitleButtonSize;
@@ -390,7 +517,13 @@ public class PurchasingPanel : IUIPanel
             _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.16f, 0.22f, 0.29f, 1f)));
         rightGroup.Add(_scaleBtn);
 
-        var close = new Button(Hide) { text = "✕" };
+        // Routed through CloseAll(), not a bare Hide() — this panel is registered on key 9, and only
+        // UIKeyBindingManager.ToggleUI/CloseAll ever reset _currentOpenKey back to -1. A direct Hide()
+        // left it stuck, and PlacementStateMachine.HandleIdleHover gates the world hover popup on
+        // CurrentOpenKey == -1 — so clicking this ✕ silently killed every world tooltip afterward even
+        // though the panel had visibly closed. CloseAll() calls Hide() on every open registered panel
+        // (this one included) and THEN clears CurrentOpenKey, so it's a safe superset of the old call.
+        var close = new Button(() => { UIKeyBindingManager.Instance?.CloseAll(); AudioManager.Play("UIClose"); }) { text = "✕" };
         StyleSquareButton(close);
         close.style.width = TitleButtonSize;
         close.style.height = TitleButtonSize;
@@ -493,6 +626,7 @@ public class PurchasingPanel : IUIPanel
         {
             _resizeWindow.CycleScale();
             _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, TitleButtonSize, ColTitleText);
+            AudioManager.Play(_resizeWindow.IsFilled ? "UIMax" : "UIMin");
         };
 
         modalOut = modal; tabBarOut = tabBar; tabHeaderOut = tabHeader;
@@ -1088,7 +1222,15 @@ public class PurchasingPanel : IUIPanel
         status.style.whiteSpace = WhiteSpace.NoWrap;
         subRow.Add(status);
 
-        var spacer = new VisualElement(); spacer.style.flexGrow = 1; header.Add(spacer);
+        // Arrival data — when this PO's truck is actually coming and which door it's booked at, or
+        // that it isn't booked yet. ScheduledFor/ScheduleTextFor already existed for exactly this but
+        // were never wired into a row — this was a bare flexGrow spacer before.
+        bool scheduled = ScheduledFor(shipment) != null;
+        var arrival = MakeText(ScheduleTextFor(shipment), 13, scheduled ? ColSubtleText : ColDangerSoft, bold: !scheduled);
+        arrival.style.flexGrow = 1;
+        arrival.style.unityTextAlign = TextAnchor.MiddleCenter;
+        arrival.style.whiteSpace = WhiteSpace.NoWrap;
+        header.Add(arrival);
 
         // Pallets, not "lines" — each line item IS one physical pallet (see SubmitPurchaseOrder), so
         // this is the trailer's actual pallet count, the number the player cares about at a glance.
@@ -1317,6 +1459,24 @@ public class PurchasingPanel : IUIPanel
         scheduler.ShowForDay(shipment != null ? shipment.ArrivalDayNumber : 0);
     }
 
+    /// <summary>Closes this panel and opens Orders (key 8's ContractsPanel) — same shape as
+    /// OpenScheduler above, just the other destination, for the ORDERS button.</summary>
+    private void OpenOrders()
+    {
+        Hide();
+
+        var topBar = Object.FindAnyObjectByType<TopBarUI>();
+        var orders = topBar != null ? topBar.ContractsPanel : null;
+        if (orders == null)
+        {
+            UIToast.Show("Couldn't open orders — the Contracts panel isn't loaded.");
+            return;
+        }
+
+        UIKeyBindingManager.Instance?.CloseAll();
+        orders.Show();
+    }
+
     private void OnCancelPo(string poNumber)
     {
         var shipments = Shipments();
@@ -1496,7 +1656,7 @@ public class PurchasingPanel : IUIPanel
     private static string ScheduleTextFor(ShipmentData shipment)
     {
         var appt = ScheduledFor(shipment);
-        if (appt == null) return "NOT SCHEDULED — book a door on the Scheduler";
+        if (appt == null) return "No Appointment Set";
 
         string day = appt.Day == Today() ? "today"
                    : appt.Day == Today() + 1 ? "tomorrow"
@@ -1702,6 +1862,8 @@ public class PurchasingPanel : IUIPanel
             vendors = vendors.Where(v => v != null && _multiVendorFilterVendorIds.Contains(v.VendorId)).ToList();
         if (_multiVendorFilterCriticalOnly)
             vendors = vendors.Where(v => v != null && CountCriticalItems(v.VendorId) > 0).ToList();
+        if (!string.IsNullOrEmpty(_multiVendorItemFilterSkuId))
+            vendors = vendors.Where(v => v != null && VendorCarries(v.VendorId, _multiVendorItemFilterSkuId)).ToList();
 
         if (vendors.Count == 0)
         {
@@ -1740,6 +1902,14 @@ public class PurchasingPanel : IUIPanel
         // is removed first so re-opening the filter doesn't stack duplicates on the modal.
         _modal.Q<VisualElement>("MultiVendorFilterPopout")?.RemoveFromHierarchy();
         _modal.Q<VisualElement>("MultiVendorSortPopout")?.RemoveFromHierarchy();
+        _modal.Q<VisualElement>("MultiVendorItemPopout")?.RemoveFromHierarchy();
+
+        // Cancel any auto-close timer left over from the popout instances Rebuild() is about to
+        // replace — a fresh one gets started below (only if still open) so it always targets the
+        // live element rather than firing harmlessly on one already gone from the hierarchy.
+        _multiVendorFilterAutoClose?.Pause(); _multiVendorFilterAutoClose = null;
+        _multiVendorSortAutoClose?.Pause(); _multiVendorSortAutoClose = null;
+        _multiVendorItemAutoClose?.Pause(); _multiVendorItemAutoClose = null;
 
         var bar = new VisualElement();
         bar.style.flexDirection = FlexDirection.Row;
@@ -1758,6 +1928,7 @@ public class PurchasingPanel : IUIPanel
         bar.Add(dropdownWrap);
 
         var dropdownBtn = new Button { text = FilterSummaryText() };
+        dropdownBtn.name = "MultiVendorFilterButton";
         dropdownBtn.style.width = 240;
         dropdownBtn.style.height = 32;
         ApplyFont(dropdownBtn, bold: true, size: 13);
@@ -1850,7 +2021,8 @@ public class PurchasingPanel : IUIPanel
         {
             _multiVendorFilterOpen = !_multiVendorFilterOpen;
             popout.style.display = _multiVendorFilterOpen ? DisplayStyle.Flex : DisplayStyle.None;
-            if (_multiVendorFilterOpen) PositionPopout();
+            if (_multiVendorFilterOpen) { PositionPopout(); ScheduleFilterAutoClose(popout); }
+            else { _multiVendorFilterAutoClose?.Pause(); _multiVendorFilterAutoClose = null; }
         };
         // Sort dropdown — same custom-popout pattern as the vendor filter above (single-select: any
         // option closes the popout and applies immediately, rather than needing an explicit confirm).
@@ -1860,6 +2032,7 @@ public class PurchasingPanel : IUIPanel
         bar.Add(sortWrap);
 
         var sortBtn = new Button { text = SortSummaryText() };
+        sortBtn.name = "MultiVendorSortButton";
         sortBtn.style.width = 240;
         sortBtn.style.height = 32;
         ApplyFont(sortBtn, bold: true, size: 13);
@@ -1918,6 +2091,7 @@ public class PurchasingPanel : IUIPanel
             {
                 _multiVendorSortMode = mode;
                 _multiVendorSortOpen = false;
+                _multiVendorSortAutoClose?.Pause(); _multiVendorSortAutoClose = null;
                 Rebuild();
             };
             sortPopout.Add(opt);
@@ -1930,9 +2104,107 @@ public class PurchasingPanel : IUIPanel
         {
             _multiVendorSortOpen = !_multiVendorSortOpen;
             sortPopout.style.display = _multiVendorSortOpen ? DisplayStyle.Flex : DisplayStyle.None;
-            if (_multiVendorSortOpen) PositionSortPopout();
+            if (_multiVendorSortOpen) { PositionSortPopout(); ScheduleSortAutoClose(sortPopout); }
+            else { _multiVendorSortAutoClose?.Pause(); _multiVendorSortAutoClose = null; }
         };
 
+        // Item filter — same custom-popout pattern as Sort (single-select, picking an item applies
+        // immediately and closes). Narrows every vendor group down to one SKU so the same item can be
+        // compared across vendors without expanding each one and hunting for it.
+        var itemWrap = new VisualElement();
+        itemWrap.style.position = Position.Relative;
+        itemWrap.style.marginLeft = 10;
+        bar.Add(itemWrap);
+
+        var itemBtn = new Button { text = ItemFilterSummaryText() };
+        itemBtn.name = "MultiVendorItemButton";
+        itemBtn.style.width = 220;
+        itemBtn.style.height = 32;
+        ApplyFont(itemBtn, bold: true, size: 13);
+        itemBtn.style.backgroundColor = new StyleColor(ColStat);
+        itemBtn.style.color = new StyleColor(ColTitleText);
+        itemBtn.style.borderTopWidth = itemBtn.style.borderBottomWidth =
+            itemBtn.style.borderLeftWidth = itemBtn.style.borderRightWidth = 2;
+        itemBtn.style.borderTopColor = itemBtn.style.borderBottomColor =
+            itemBtn.style.borderLeftColor = itemBtn.style.borderRightColor = new StyleColor(ColBlueEdge);
+        itemBtn.style.borderTopLeftRadius = itemBtn.style.borderTopRightRadius =
+            itemBtn.style.borderBottomLeftRadius = itemBtn.style.borderBottomRightRadius = 6;
+        itemBtn.style.unityTextAlign = TextAnchor.MiddleLeft;
+        itemWrap.Add(itemBtn);
+
+        var itemPopout = new VisualElement { name = "MultiVendorItemPopout" };
+        itemPopout.style.position = Position.Absolute;
+        itemPopout.style.width = 260;
+        itemPopout.style.maxHeight = 320;
+        itemPopout.style.backgroundColor = new StyleColor(ColBg);
+        itemPopout.style.borderTopWidth = itemPopout.style.borderBottomWidth =
+            itemPopout.style.borderLeftWidth = itemPopout.style.borderRightWidth = 2;
+        itemPopout.style.borderTopColor = itemPopout.style.borderBottomColor =
+            itemPopout.style.borderLeftColor = itemPopout.style.borderRightColor = new StyleColor(ColBorder);
+        itemPopout.style.borderTopLeftRadius = itemPopout.style.borderTopRightRadius =
+            itemPopout.style.borderBottomLeftRadius = itemPopout.style.borderBottomRightRadius = 6;
+        itemPopout.style.paddingTop = 4; itemPopout.style.paddingBottom = 4;
+        itemPopout.style.paddingLeft = 4; itemPopout.style.paddingRight = 4;
+        itemPopout.style.display = _multiVendorItemFilterOpen ? DisplayStyle.Flex : DisplayStyle.None;
+        _modal.Add(itemPopout);
+
+        void PositionItemPopout()
+        {
+            Vector2 local = _modal.WorldToLocal(new Vector2(itemBtn.worldBound.x, itemBtn.worldBound.yMax + 4));
+            float maxLeft = Mathf.Max(4f, _modal.resolvedStyle.width - 264f);
+            itemPopout.style.left = Mathf.Clamp(local.x, 4f, maxLeft);
+            itemPopout.style.top = local.y;
+            itemPopout.BringToFront();
+        }
+
+        if (_multiVendorItemFilterOpen)
+            _modal.schedule.Execute(PositionItemPopout).ExecuteLater(0);
+
+        var itemScroll = new ScrollView(ScrollViewMode.Vertical);
+        itemScroll.style.maxHeight = 300;
+        itemPopout.Add(itemScroll);
+
+        void AddItemOption(string optionLabel, string skuId)
+        {
+            bool selected = _multiVendorItemFilterSkuId == skuId;
+            var opt = new Button { text = (selected ? "✓ " : "    ") + optionLabel };
+            opt.style.width = new StyleLength(StyleKeyword.Auto);
+            opt.style.height = 28;
+            opt.style.marginLeft = 0; opt.style.marginRight = 0; opt.style.marginTop = 0; opt.style.marginBottom = 0;
+            opt.style.borderTopWidth = opt.style.borderBottomWidth =
+                opt.style.borderLeftWidth = opt.style.borderRightWidth = 0;
+            opt.style.backgroundColor = new StyleColor(selected ? ColCardEven : Color.clear);
+            opt.style.color = new StyleColor(selected ? ColOrangeText : ColTitleText);
+            ApplyFont(opt, bold: selected, size: 13);
+            opt.style.unityTextAlign = TextAnchor.MiddleLeft;
+            opt.style.whiteSpace = WhiteSpace.NoWrap;
+            opt.clicked += () =>
+            {
+                ApplyItemFilterSelection(skuId);
+                _multiVendorItemFilterOpen = false;
+                _multiVendorItemAutoClose?.Pause(); _multiVendorItemAutoClose = null;
+                Rebuild();
+            };
+            itemScroll.Add(opt);
+        }
+        AddItemOption("All Items", null);
+
+        var itemRule = new VisualElement();
+        itemRule.style.height = 1;
+        itemRule.style.marginTop = 2; itemRule.style.marginBottom = 4;
+        itemRule.style.backgroundColor = new StyleColor(ColBorder);
+        itemScroll.Add(itemRule);
+
+        foreach (var (skuId, displayName) in AllCataloguedItems())
+            AddItemOption(displayName, skuId);
+
+        itemBtn.clicked += () =>
+        {
+            _multiVendorItemFilterOpen = !_multiVendorItemFilterOpen;
+            itemPopout.style.display = _multiVendorItemFilterOpen ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_multiVendorItemFilterOpen) { PositionItemPopout(); ScheduleItemAutoClose(itemPopout); }
+            else { _multiVendorItemAutoClose?.Pause(); _multiVendorItemAutoClose = null; }
+        };
 
         var hint = MakeText("The same item can appear under several vendors at different prices — " +
                              "compare and build multiple loads at once.", 12, ColEmptyText);
@@ -1941,6 +2213,14 @@ public class PurchasingPanel : IUIPanel
         hint.style.whiteSpace = WhiteSpace.Normal;
         hint.style.flexShrink = 1;
         bar.Add(hint);
+
+        // A Rebuild() can land here while a popout is still open (e.g. ticking a vendor checkbox, or
+        // the Critical Items toggle, both call Rebuild() without touching the *Open flag) — restart
+        // its 3s auto-close countdown against the freshly-built instance so an active pick session
+        // keeps getting a full 3s from its last interaction instead of inheriting a stale timer.
+        if (_multiVendorFilterOpen) ScheduleFilterAutoClose(popout);
+        if (_multiVendorSortOpen) ScheduleSortAutoClose(sortPopout);
+        if (_multiVendorItemFilterOpen) ScheduleItemAutoClose(itemPopout);
 
         return bar;
     }
@@ -1953,6 +2233,39 @@ public class PurchasingPanel : IUIPanel
         if (_multiVendorFilterCriticalOnly) parts.Add("Critical Items");
         if (vendorCount > 0) parts.Add($"{vendorCount} vendor{(vendorCount == 1 ? "" : "s")}");
         return string.Join(" + ", parts) + " ▾";
+    }
+
+    private string ItemFilterSummaryText()
+    {
+        if (string.IsNullOrEmpty(_multiVendorItemFilterSkuId)) return "Item: All ▾";
+        var name = AllCataloguedItems().FirstOrDefault(i => i.skuId == _multiVendorItemFilterSkuId).displayName;
+        return $"Item: {name ?? _multiVendorItemFilterSkuId} ▾";
+    }
+
+    /// <summary>Every distinct SKU carried by ANY vendor's catalogue, alphabetical by name — the
+    /// option list for the Item filter dropdown. Small enough (vendor catalogues, not the whole SKU
+    /// database) to just union on every open rather than caching.</summary>
+    private List<(string skuId, string displayName)> AllCataloguedItems()
+    {
+        var registry = VendorRegistry.Load();
+        var vendors = registry?.AllVendors ?? new List<VendorData>();
+        var seen = new Dictionary<string, string>(); // skuId -> displayName
+
+        foreach (var vendor in vendors)
+        {
+            if (vendor == null) continue;
+            var catalogue = Economy()?.GetAvailableCatalogue(vendor.VendorId) ?? new List<VendorCatalogueEntry>();
+            foreach (var entry in catalogue)
+            {
+                var sku = entry?.Sku;
+                if (sku == null || seen.ContainsKey(sku.SkuId)) continue;
+                seen[sku.SkuId] = string.IsNullOrEmpty(sku.ItemDescription) ? sku.SkuId : sku.ItemDescription;
+            }
+        }
+
+        return seen.Select(kv => (skuId: kv.Key, displayName: kv.Value))
+                   .OrderBy(i => i.displayName, System.StringComparer.OrdinalIgnoreCase)
+                   .ToList();
     }
     private string SortSummaryText() => _multiVendorSortMode switch
     {
@@ -2072,7 +2385,7 @@ public class PurchasingPanel : IUIPanel
         actionsColumn.style.flexShrink = 0;
         header.Add(actionsColumn);
 
-        var dispatch = new Button(() => DispatchVendorOrder(vendor)) { text = "DISPATCH ORDER" };
+        var dispatch = new Button(() => { AudioManager.Play("UIClick"); DispatchVendorOrder(vendor); }) { text = "DISPATCH ORDER" };
         StyleActionButton(dispatch, ColCreateGreen, ColCreateGreenEdge, ColCreateGreenHover);
         dispatch.style.width = 170;
         dispatch.style.height = TruckActionButtonHeight;
@@ -2087,6 +2400,7 @@ public class PurchasingPanel : IUIPanel
         dealsBar.style.height = TruckActionButtonHeight;
         dealsBar.RegisterCallback<ClickEvent>(evt =>
         {
+            AudioManager.Play("UIClick");
             OnMultiVendorDealClicked(vendor);
             evt.StopPropagation();
         });
@@ -2144,13 +2458,17 @@ public class PurchasingPanel : IUIPanel
         foreach (var entry in catalogue)
         {
             if (entry?.Sku == null) continue;
+            if (!string.IsNullOrEmpty(_multiVendorItemFilterSkuId) && entry.Sku.SkuId != _multiVendorItemFilterSkuId) continue;
             detail.Add(BuildMultiVendorItemRow(vendor, entry.Sku, shown, RefreshHeader,
                 () => PulsePalletAdded(costLabel)));
             shown++;
         }
         if (shown == 0)
         {
-            var noneLabel = MakeText("This vendor has nothing orderable yet.", 13, ColEmptyText);
+            var noneLabel = MakeText(
+                !string.IsNullOrEmpty(_multiVendorItemFilterSkuId)
+                    ? "This vendor doesn't carry that item."
+                    : "This vendor has nothing orderable yet.", 13, ColEmptyText);
             noneLabel.style.marginTop = 8;
             detail.Add(noneLabel);
         }
@@ -2158,6 +2476,7 @@ public class PurchasingPanel : IUIPanel
         header.RegisterCallback<PointerDownEvent>(evt =>
         {
             if (evt.target is Button) return; // let DISPATCH ORDER handle its own click
+            AudioManager.Play("UIClick");
             bool nowExpanded = detail.style.display == DisplayStyle.None;
             detail.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
             arrow.text = nowExpanded ? "▾" : "▸";
@@ -2291,9 +2610,14 @@ public class PurchasingPanel : IUIPanel
         }
 
         int step = Mathf.Max(1, sku.Ti * sku.Hi);
-        minus.clicked += () => Apply(MultiQty(vendorId, skuId) - step);
+        minus.clicked += () =>
+        {
+            AudioManager.Play("OrderDecrease");
+            Apply(MultiQty(vendorId, skuId) - step);
+        };
         plus.clicked += () =>
         {
+            AudioManager.Play("OrderIncrease");
             Apply(MultiQty(vendorId, skuId) + step);
             PulsePalletAdded(field);
             onPalletAdded?.Invoke();
@@ -2353,6 +2677,43 @@ public class PurchasingPanel : IUIPanel
         foreach (var kv in _multiBaskets)
             if (kv.Value.TryGetValue(skuId, out int mc)) total += mc;
         return total;
+    }
+
+    /// <summary>Sets the Item filter and expands/collapses vendor groups to match — every vendor
+    /// carrying the item pops open the moment a specific SKU is picked, and picking "All Items" (null)
+    /// puts every group back exactly how it was before searching (see _expandedBeforeItemFilter).
+    /// Switching directly from one SKU to another re-expands for the new item without touching the
+    /// saved pre-search snapshot, so the ORIGINAL state is still what comes back at the end.</summary>
+    private void ApplyItemFilterSelection(string skuId)
+    {
+        if (!string.IsNullOrEmpty(skuId))
+        {
+            if (_expandedBeforeItemFilter == null)
+                _expandedBeforeItemFilter = new HashSet<string>(_expandedMultiVendors);
+
+            var vendors = VendorRegistry.Load()?.AllVendors ?? new List<VendorData>();
+            foreach (var vendor in vendors)
+                if (vendor != null && VendorCarries(vendor.VendorId, skuId))
+                    _expandedMultiVendors.Add(vendor.VendorId);
+        }
+        else if (_expandedBeforeItemFilter != null)
+        {
+            _expandedMultiVendors.Clear();
+            foreach (var id in _expandedBeforeItemFilter) _expandedMultiVendors.Add(id);
+            _expandedBeforeItemFilter = null;
+        }
+
+        _multiVendorItemFilterSkuId = skuId;
+    }
+
+    /// <summary>True if this vendor's catalogue includes the given SKU — the gate the item filter uses
+    /// to hide vendor groups that don't carry the selected item at all.</summary>
+    private bool VendorCarries(string vendorId, string skuId)
+    {
+        var catalogue = Economy()?.GetAvailableCatalogue(vendorId) ?? new List<VendorCatalogueEntry>();
+        foreach (var entry in catalogue)
+            if (entry?.Sku != null && entry.Sku.SkuId == skuId) return true;
+        return false;
     }
 
     /// <summary>How many distinct SKUs this vendor carries are still in NET demand right now — same

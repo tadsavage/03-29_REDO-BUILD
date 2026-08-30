@@ -28,6 +28,14 @@ namespace GameCore.Actors
         private const float TaskPollInterval = 1f;
         private const float PickSecondsPerCase = 0.6f;
 
+        /// <summary>Retry interval while a fully/partially-picked order has nowhere to stage (every
+        /// lane full) — mirrors ReachTruckOperator's NoDestinationBackoff. Also the interval on which
+        /// the held WorkTask's AssignedAtRealtime is refreshed, which is load-bearing: without it,
+        /// WorkQueueSystem.ReleaseStaleAssignments (90s threshold) would eventually decide this claim
+        /// is abandoned and hand it to a second selector — who would then build a SECOND pallet for
+        /// the same order while this one is still physically carrying the first.</summary>
+        private const float StagingRetryInterval = 15f;
+
         /// <summary>A selector's jack carries exactly 2 empty CHEPs (one front, one back) per Tad's
         /// spec — never more, regardless of how much of the order is still unpicked.</summary>
         private const int MaxPalletsPerOrder = 2;
@@ -46,6 +54,11 @@ namespace GameCore.Actors
         private OrderData _currentOrder;
         private readonly List<OutboundPalletBuilder> _pallets = new();
 
+        // ── Staging-space-unavailable retry state (see StagingRetryInterval) ──────────────────────
+        private bool _waitingForStagingSpace;
+        private float _stagingRetryTimer;
+        private OrderData.OrderStatus _pendingCompletionStatus;
+
         private void Awake()
         {
             _nav = GetComponent<AiNavigation>();
@@ -56,7 +69,31 @@ namespace GameCore.Actors
 
         private void Update()
         {
-            if (_taskInProgress || _nav == null) return;
+            if (_nav == null) return;
+
+            // Holding already-picked pallets with nowhere to stage them — keep the claim alive
+            // (see StagingRetryInterval) and retry on an interval instead of claiming new work.
+            // Checked BEFORE the _taskInProgress early-return below since that flag stays true the
+            // whole time this driver is waiting.
+            if (_waitingForStagingSpace)
+            {
+                _stagingRetryTimer -= Time.deltaTime;
+                if (_stagingRetryTimer > 0f) return;
+                _stagingRetryTimer = StagingRetryInterval;
+
+                if (_currentTask != null) _currentTask.AssignedAtRealtime = Time.realtimeSinceStartup;
+                _waitingForStagingSpace = false; // FinishOrder re-sets this if still blocked
+                // Re-claim the busy flag before the retry's SeekPosition call — cleared above so the
+                // agent could patrol while waiting, but SeekPosition needs it set (same invariant the
+                // rest of this task's lifecycle holds from initial claim through to FinishOrderCleanup)
+                // or AiNavigation's own waypoint-progression fallback can hijack the destination before
+                // the arrival callback fires.
+                _nav.SetTaskBusy(true);
+                FinishOrder(_pendingCompletionStatus);
+                return;
+            }
+
+            if (_taskInProgress) return;
 
             if (_workQueue == null)
             {
@@ -394,10 +431,21 @@ namespace GameCore.Actors
             }
             else
             {
-                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) can't reach staging — {failReason}. Leaving pallet(s) where the selector currently stands.");
-                order.Status = completionStatus;
-                UnparentAllPallets();
-                FinishOrderCleanup(task);
+                // Do NOT mark the order Staged/complete and do NOT drop the pallets — that used to
+                // lie about the order's status and litter the aisles with untracked freight (see
+                // TrailerLoadController's own scan, which never finds a dropped-in-place pallet).
+                // The selector keeps carrying its pallet(s) and retries on a backoff, same honesty
+                // as ReachTruckOperator.DeliverPalletToStagingLane's "no free lane" path — the player
+                // can watch it patrol/wait and reassign the order to a different lane from the Work
+                // Queue (or wait for the lane to clear) rather than being told it already shipped.
+                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) can't reach staging — {failReason}. Waiting with the pallet(s), retrying in {StagingRetryInterval:F0}s.");
+                UIToast.Show($"Order Selector can't stage order for {order.CustomerName} — no free staging lane. Waiting to retry.");
+
+                _pendingCompletionStatus = completionStatus;
+                _waitingForStagingSpace = true;
+                _stagingRetryTimer = StagingRetryInterval;
+                _nav.SetTaskBusy(false);
+                _nav.Patrol();
             }
         }
 

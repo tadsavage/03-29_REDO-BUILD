@@ -100,7 +100,7 @@ public class WorkQueuePanel : IUIPanel
     private enum RowPhase { Open, Available, Assigned, Staged, Loading, Loaded, NoStock }
     // ReleaseToStagesAuto: a multi-customer Open selection, where the target dropdown is inert because
     // the stage is decided per customer by OrderService.TryPlanStageSpread rather than picked.
-    private enum ActionMode { None, ReleaseToLane, ReleaseToStagesAuto, ReleaseToLoading, ReleaseToLoadingAuto, CloseOut, Mixed }
+    private enum ActionMode { None, ReleaseToLane, ReleaseToStagesAuto, ReleaseToLoading, ReleaseToLoadingAuto, CloseOut, Mixed, ReassignLane }
 
     private readonly VisualElement _overlay;
     private readonly ScrollView _rowScroll;
@@ -112,7 +112,7 @@ public class WorkQueuePanel : IUIPanel
     private Button _scaleButton;
 
     private readonly HashSet<string> _checkedOrderIds = new();
-    private List<int> _dropdownStageDoors = new(); // choice index -> door number, when in stage mode ("Stage 3")
+    private List<(int door, string lane)> _dropdownLanes = new(); // choice index -> lane, when releasing to a staging lane ("1D")
     private List<int> _dropdownDoors = new();       // choice index -> door number, when in door mode
     private ActionMode _mode = ActionMode.None;
 
@@ -315,7 +315,13 @@ public class WorkQueuePanel : IUIPanel
         titleBar.Add(title);
 
         const float titleBtnSize = 63f; // 1.5x the base 42px square button
-        var closeButton = new Button(Hide) { text = "✕" };
+        // Routed through CloseAll(), not a bare Hide() — this panel is registered on key 7, and only
+        // UIKeyBindingManager.ToggleUI/CloseAll ever reset _currentOpenKey back to -1. A direct Hide()
+        // left it stuck, and PlacementStateMachine.HandleIdleHover gates the world hover popup on
+        // CurrentOpenKey == -1 — so clicking this ✕ silently killed every world tooltip afterward even
+        // though the panel had visibly closed. CloseAll() calls Hide() on every open registered panel
+        // (this one included) and THEN clears CurrentOpenKey, so it's a safe superset of the old call.
+        var closeButton = new Button(() => { UIKeyBindingManager.Instance?.CloseAll(); AudioManager.Play("UIClose"); }) { text = "✕" };
         ApplyFont(closeButton, bold: true, size: 30);
         closeButton.style.width = titleBtnSize;
         closeButton.style.height = titleBtnSize;
@@ -349,7 +355,8 @@ public class WorkQueuePanel : IUIPanel
             closeButton.style.backgroundColor = new StyleColor(new Color(0.8f, 0.3f, 0.2f, 1f)));
         // Cycles normal / large / fill-screen (see ResizableWindow.CycleScale below). Same size as the
         // close button and on the same title-bar row, so the two sit flush together.
-        _scaleButton = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+        _scaleButton = new Button { text = string.Empty };
+        RuntimeTooltip.Attach(_scaleButton, "Resize window (normal / large / fill screen)");
         _scaleButton.style.width = titleBtnSize;
         _scaleButton.style.height = titleBtnSize;
         _scaleButton.style.minWidth = titleBtnSize;
@@ -393,6 +400,7 @@ public class WorkQueuePanel : IUIPanel
         {
             _resizeWindow.CycleScale();
             _resizeWindow.UpdateScaleButtonIcon(_scaleButton, titleBtnSize, ColSubtleText);
+            AudioManager.Play(_resizeWindow.IsFilled ? "UIMax" : "UIMin");
         };
 
         // Column headers. The dark modal styling remains the new queue's visual shell;
@@ -981,7 +989,7 @@ public class WorkQueuePanel : IUIPanel
         if (cell == null || order == null) return;
 
         Color baseColor = FillRateColor(order);
-        cell.tooltip = "Click to see what was cut from this order.";
+        RuntimeTooltip.Attach(cell, "Click to see what was cut from this order.");
         cell.RegisterCallback<MouseEnterEvent>(_ => cell.style.color = new StyleColor(ColOrangeText));
         cell.RegisterCallback<MouseLeaveEvent>(_ => cell.style.color = new StyleColor(baseColor));
         cell.RegisterCallback<ClickEvent>(evt =>
@@ -1212,14 +1220,52 @@ public class WorkQueuePanel : IUIPanel
         // refusing the whole selection up front.
         string customerId = customers[0];
 
-        // Available (released, waiting on a selector) and No Stock (a legacy backorder record) have no
-        // Submit action of their own — Cancel Selected is the only thing that acts on them.
-        if (phases[0] == RowPhase.Available || phases[0] == RowPhase.NoStock)
+        // No Stock (a legacy backorder record) has no Submit action of its own — Cancel Selected is
+        // the only thing that acts on it.
+        if (phases[0] == RowPhase.NoStock)
         {
-            string what = phases[0] == RowPhase.Available
-                ? "already released and waiting for an Order Selector to claim them"
-                : "short of stock and stuck — nothing was ever picked for them";
-            SetBottomBar(ActionMode.None, $"These {checkedOrders.Count} order(s) are {what}. Use Cancel Selected to call them off.",
+            SetBottomBar(ActionMode.None, $"These {checkedOrders.Count} order(s) are short of stock and stuck — nothing was ever picked for them. Use Cancel Selected to call them off.",
+                new List<string> { "—" }, enableTarget: false, enableSubmit: false);
+            return;
+        }
+
+        // Available: released and waiting on an operator. Its lane can still be changed — the escape
+        // hatch for an order stuck because the lane it was released to filled up (see
+        // ReachTruckOperator's PalletPick backoff), and just as usefully lets the player redirect an
+        // order that hasn't even started picking yet. Restricted to the SAME door: this only ever
+        // changes which lane an order stages into, never which door its trailer will be at, so
+        // everything downstream (loading, close-out) that keys off AssignedDoorNumber is untouched.
+        if (phases[0] == RowPhase.Available)
+        {
+            var doors = checkedOrders.Select(o => o.AssignedDoorNumber).Where(d => d > 0).Distinct().ToList();
+            var currentLanes = checkedOrders.Select(o => o.AssignedLane).Where(l => !string.IsNullOrEmpty(l)).Distinct().ToList();
+
+            if (doors.Count == 1 && currentLanes.Count <= 1)
+            {
+                ServiceLocator.TryGet<InventoryService>(out var inv2);
+                int door = doors[0];
+                string currentLane = currentLanes.Count == 1 ? currentLanes[0] : null;
+
+                var candidateLanes = LaneNamingService.AllLanes()
+                    .Where(l => l.door == door && l.lane != currentLane)
+                    .Where(l => inv2 == null || inv2.LaneAllowsPicking(l.door, l.lane))
+                    .Where(l => !StagingLaneAssignmentService.LaneHasInboundStock(inv2, l.door, l.lane))
+                    .Where(l => !TrailerOffloadController.IsLanePendingInbound(l.door, l.lane))
+                    .OrderBy(l => l.lane)
+                    .ToList();
+                _dropdownLanes = candidateLanes;
+
+                if (candidateLanes.Count > 0)
+                {
+                    string laneNote = currentLane != null ? $" from lane {door}{currentLane}" : string.Empty;
+                    SetBottomBar(ActionMode.ReassignLane,
+                        $"{checkedOrders.Count} order(s) waiting for an Order Selector — move{laneNote} to a different lane, or Cancel Selected to call them off:",
+                        candidateLanes.Select(l => $"{l.door}{l.lane}").ToList());
+                    return;
+                }
+            }
+
+            SetBottomBar(ActionMode.None, $"These {checkedOrders.Count} order(s) are already released and waiting for an Order Selector to claim them. Use Cancel Selected to call them off.",
                 new List<string> { "—" }, enableTarget: false, enableSubmit: false);
             return;
         }
@@ -1250,59 +1296,60 @@ public class WorkQueuePanel : IUIPanel
                 return;
             }
 
-            // The player picks a STAGE (a door's whole set of staging lanes), not an individual lane.
-            // Staging starts in that door's first lane and overflows into the next as each fills, so
-            // offering 1A/1B/1C separately just asked the player to make a choice the system now makes
-            // for itself. One entry per door that has at least one pickable lane and isn't already
-            // held by a different customer.
-            // A stage is offered only if it has a pickable lane, isn't held by another customer, AND
-            // has no inbound activity (received pallets sitting in its lanes, or an inbound trailer
-            // docked at the door). Hiding those is what stops a stage being double-assigned — the
-            // selector staging onto tiles a dock stocker is still filling.
-            var stageDoors = LaneNamingService.AllLanes()
-                .Select(l => l.door)
-                .Distinct()
-                .Where(d => StagingLaneAssignmentService.IsStageSelectableFor(orderService, inv, d, customerId))
-                .OrderBy(d => d)
-                .ToList();
-            _dropdownStageDoors = stageDoors;
-
-            if (stageDoors.Count == 0)
+            // The player picks a specific LANE now, not a whole door's stage — a door with an inbound
+            // trailer docked can still offer its other, unoccupied lanes for outbound release (only the
+            // lane(s) the dock stocker is actually using are excluded). Every lane across every door is
+            // a candidate; each is independently gated the same way a single lane always was:
+            // pickable usage, no landed inbound stock, no pending inbound drop (see
+            // TrailerOffloadController.IsLanePendingInbound), and not already owned by a different
+            // customer's staging.
+            var allLanes = LaneNamingService.AllLanes();
+            var freeLanes = new List<(int door, string lane)>();
+            var occupiedLanes = new List<string>();
+            foreach (var (door, lane) in allLanes)
             {
-                // Say WHY, per door. A blank dropdown with a generic message is impossible to act on —
-                // the player can be staring at an empty dock with no idea what's blocking it.
-                var reasons = LaneNamingService.AllLanes()
-                    .Select(l => l.door)
-                    .Distinct()
-                    .OrderBy(d => d)
-                    .Select(d =>
-                    {
-                        StagingLaneAssignmentService.IsStageSelectableFor(orderService, inv, d, customerId, out string why);
-                        return $"Stage {d}: {why}";
-                    })
-                    .ToList();
+                bool pickable = inv == null || inv.LaneAllowsPicking(door, lane);
+                bool hasInboundStock = StagingLaneAssignmentService.LaneHasInboundStock(inv, door, lane);
+                bool pendingInbound = TrailerOffloadController.IsLanePendingInbound(door, lane);
+                bool availableForCustomer = StagingLaneAssignmentService.IsLaneAvailableFor(orderService, door, lane, customerId);
 
-                string detail = reasons.Count > 0 ? string.Join("   •   ", reasons) : "no staging lanes exist yet";
-                Debug.LogWarning($"[WorkQueuePanel] No stage available for {checkedOrders[0].CustomerName} — {string.Join(" | ", reasons)}");
-                SetBottomBar(ActionMode.ReleaseToLane, $"No available stage — {detail}", new List<string> { "—" }, enableTarget: false, enableSubmit: false);
+                if (pickable && !hasInboundStock && !pendingInbound && availableForCustomer)
+                    freeLanes.Add((door, lane));
+                else if (pickable)
+                    // Inbound-only lanes are never offered either way, so they're not worth listing as
+                    // "occupied" — only lanes that WOULD be candidates but are currently spoken for.
+                    occupiedLanes.Add($"{door}{lane}");
+            }
+            freeLanes = freeLanes.OrderBy(l => l.door).ThenBy(l => l.lane).ToList();
+            _dropdownLanes = freeLanes;
+
+            string occupiedNote = occupiedLanes.Count > 0
+                ? $"   (Occupied: {string.Join(", ", occupiedLanes.OrderBy(s => s))})"
+                : string.Empty;
+
+            if (freeLanes.Count == 0)
+            {
+                Debug.LogWarning($"[WorkQueuePanel] No staging lane available for {checkedOrders[0].CustomerName}.{occupiedNote}");
+                SetBottomBar(ActionMode.ReleaseToLane, $"No available staging lane.{occupiedNote}", new List<string> { "—" }, enableTarget: false, enableSubmit: false);
             }
             else
             {
                 // Default the dropdown to whatever door the Schedule tab already booked this order's
-                // trailer at, if that door still has a pickable stage — a reminder of the door plan
-                // already made, rather than silently offering the lowest free stage number instead.
+                // trailer at, if that door has a free lane — a reminder of the door plan already made,
+                // rather than silently offering the lowest free lane instead.
                 ServiceLocator.TryGet<DockScheduleService>(out var schedule);
                 int? plannedDoor = schedule?.FindForOrder(checkedOrders[0].OrderId)?.DoorNumber;
-                bool plannedDoorAvailable = plannedDoor.HasValue && stageDoors.Contains(plannedDoor.Value);
+                var plannedLane = plannedDoor.HasValue ? freeLanes.FirstOrDefault(l => l.door == plannedDoor.Value) : default;
+                bool plannedDoorAvailable = plannedDoor.HasValue && plannedLane != default;
 
                 string message = plannedDoorAvailable
-                    ? $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a stage (scheduled for Door {plannedDoor.Value}):"
-                    : $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a stage:";
+                    ? $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a staging lane (Door {plannedDoor.Value} scheduled):{occupiedNote}"
+                    : $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a staging lane:{occupiedNote}";
 
-                SetBottomBar(ActionMode.ReleaseToLane, message, stageDoors.Select(d => $"Stage {d}").ToList());
+                SetBottomBar(ActionMode.ReleaseToLane, message, freeLanes.Select(l => $"{l.door}{l.lane}").ToList());
 
                 if (plannedDoorAvailable)
-                    _targetDropdown.SetValueWithoutNotify($"Stage {plannedDoor.Value}");
+                    _targetDropdown.SetValueWithoutNotify($"{plannedLane.door}{plannedLane.lane}");
             }
             return;
         }
@@ -1392,8 +1439,9 @@ public class WorkQueuePanel : IUIPanel
                            : mode == ActionMode.ReleaseToLoadingAuto ? "Assign All"
                            : mode == ActionMode.CloseOut ? "Close Out"
                            : mode == ActionMode.ReleaseToStagesAuto ? "Release All"
+                           : mode == ActionMode.ReassignLane ? "Move"
                            : "Submit Selection";
-        _submitButton.SetEnabled(enableSubmit && (mode == ActionMode.ReleaseToLane || mode == ActionMode.ReleaseToStagesAuto || mode == ActionMode.ReleaseToLoading || mode == ActionMode.ReleaseToLoadingAuto || mode == ActionMode.CloseOut) && choices.Count > 0 && choices[0] != "—");
+        _submitButton.SetEnabled(enableSubmit && (mode == ActionMode.ReleaseToLane || mode == ActionMode.ReleaseToStagesAuto || mode == ActionMode.ReleaseToLoading || mode == ActionMode.ReleaseToLoadingAuto || mode == ActionMode.CloseOut || mode == ActionMode.ReassignLane) && choices.Count > 0 && choices[0] != "—");
         _submitButton.style.opacity = _submitButton.enabledSelf ? 1f : 0.5f;
     }
 
@@ -1409,8 +1457,9 @@ public class WorkQueuePanel : IUIPanel
         if (_mode == ActionMode.ReleaseToLane)
         {
             int idx = _targetDropdown.index;
-            if (idx < 0 || idx >= _dropdownStageDoors.Count) return;
-            ok = orderService.ReleaseOrdersToStage(orderIds, _dropdownStageDoors[idx]);
+            if (idx < 0 || idx >= _dropdownLanes.Count) return;
+            var (door, lane) = _dropdownLanes[idx];
+            ok = orderService.ReleaseOrdersToLane(orderIds, door, lane);
         }
         else if (_mode == ActionMode.ReleaseToStagesAuto)
         {
@@ -1444,6 +1493,38 @@ public class WorkQueuePanel : IUIPanel
         {
             ok = orderService.CloseOutOrders(orderIds, out billed);
         }
+        else if (_mode == ActionMode.ReassignLane)
+        {
+            int idx = _targetDropdown.index;
+            if (idx < 0 || idx >= _dropdownLanes.Count) return;
+            var (door, lane) = _dropdownLanes[idx];
+            ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue2);
+
+            ok = true;
+            foreach (var id in orderIds)
+            {
+                var order = orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == id);
+                if (order == null) { ok = false; continue; }
+
+                // Door is untouched — only which lane the order stages into changes, so the trailer
+                // (spawned/found at AssignedDoorNumber) and every close-out/loading lookup that keys
+                // off it are unaffected.
+                order.AssignedLane = lane;
+
+                // OrderSelect tasks read order.AssignedLane directly at delivery time (see
+                // OrderSelectionTaskDriver.FinishOrder) — nothing to touch there. PalletPick tasks
+                // carry their OWN destination baked into ToLocation at creation, so any of this
+                // order's still-open ones have to be redirected explicitly or they'd keep aiming at
+                // the lane just vacated.
+                if (workQueue2 != null)
+                    foreach (var t in workQueue2.Tasks.Where(t => t.OrderId == id && t.Type == WorkTaskType.PalletPick
+                                                                 && t.Status != WorkTaskStatus.Complete
+                                                                 && t.Status != WorkTaskStatus.Cancelled))
+                        t.AssignToLocation($"{door}{lane}");
+            }
+
+            if (ok) UIToast.Show($"Moved {orderIds.Count} order(s) to lane {door}{lane}.");
+        }
         else return;
 
         if (ok) _checkedOrderIds.Clear();
@@ -1462,10 +1543,6 @@ public class WorkQueuePanel : IUIPanel
                                label => ApplyFont(label, bold: true));
         }
     }
-
-    // REMOVED: ParseLeadingDoor(). It split a "3A" dropdown choice back into door + lane, which the
-    // stage dropdown no longer produces — the choice is a door number now and the lane is resolved by
-    // OrderService.ReleaseOrdersToStage.
 
     // ── Per-column autofilter (Excel-style dropdowns) ───────────────────────
 

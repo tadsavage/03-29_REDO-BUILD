@@ -507,40 +507,44 @@ public class SchedulerPanel : IUIPanel
 
         var title = new Label(TitleFor(_tab));
         _titleLabel = title;
-        ApplyFont(title, bold: true, size: 28);
+        ApplyFont(title, bold: true, size: 35); // 28 * 1.25 — 25% larger per design request
         title.style.color = new StyleColor(ColTitleText);
-        title.style.flexGrow = 1;
         title.style.unityTextAlign = TextAnchor.MiddleCenter;
+        // Absolute + full-width-of-titleBar rather than flexGrow: with flexGrow the title only
+        // centers in the space LEFT OVER after the ORDERS/PURCHASING/resize/close buttons (all of
+        // which sit to its right), which visibly drags it left of true screen center. Overlaying it
+        // across the whole title bar — independent of the button row's flow — centers it on the
+        // modal itself, matching the Day switcher bar directly below. Ignore picking so it never
+        // steals clicks from the buttons drawn on top of it.
+        title.style.position = Position.Absolute;
+        title.style.left = 0;
+        title.style.right = 0;
+        title.style.top = 0;
+        title.style.bottom = 0;
+        title.pickingMode = PickingMode.Ignore;
         titleBar.Add(title);
 
         // Cycles normal / large / fill-screen (see ResizableWindow.CycleScale below). Same size as the
         // close button and on the same title-bar row, so the two sit flush together.
         const float titleBtnSize = 48f; // 1.5x the base 32px square button
 
-        // Return trip for PurchasingPanel.OpenScheduler, which closes itself to get here. Without it
-        // the only way back is to remember that purchasing lives on key 9 — a one-way hyperlink.
-        // Sits left of the window buttons so the destructive ✕ keeps the far corner it always has.
-        var backToPurchasing = new Button(OpenPurchasing) { text = "Back to Purchasing" };
-        ApplyFont(backToPurchasing, bold: true, size: 16);
-        backToPurchasing.style.height = titleBtnSize;
-        backToPurchasing.style.paddingLeft = backToPurchasing.style.paddingRight = 18;
-        backToPurchasing.style.marginRight = 10;
-        backToPurchasing.style.flexShrink = 0;   // the title flexGrows; without this the label squeezes
-        backToPurchasing.style.color = new StyleColor(ColOrangeText);
-        backToPurchasing.style.backgroundColor = new StyleColor(ColOrange);
-        backToPurchasing.style.borderTopWidth = backToPurchasing.style.borderBottomWidth =
-            backToPurchasing.style.borderLeftWidth = backToPurchasing.style.borderRightWidth = 2;
-        backToPurchasing.style.borderTopColor = backToPurchasing.style.borderBottomColor =
-            backToPurchasing.style.borderLeftColor = backToPurchasing.style.borderRightColor = new StyleColor(ColOrangeEdge);
-        backToPurchasing.style.borderTopLeftRadius = backToPurchasing.style.borderTopRightRadius =
-            backToPurchasing.style.borderBottomLeftRadius = backToPurchasing.style.borderBottomRightRadius = 8;
-        backToPurchasing.RegisterCallback<PointerEnterEvent>(_ =>
-            backToPurchasing.style.backgroundColor = new StyleColor(ColOrangeHover));
-        backToPurchasing.RegisterCallback<PointerLeaveEvent>(_ =>
-            backToPurchasing.style.backgroundColor = new StyleColor(ColOrange));
+        // Cross-links to the other two outbound/inbound screens — the mirror of PurchasingPanel's own
+        // "Scheduler" button, which is what sends the player here in the first place. Sits left of the
+        // window buttons so the destructive ✕ keeps the far corner it always has.
+        var toOrders = new Button(OpenOrders) { text = "ORDERS" };
+        StyleCrossLinkButton(toOrders);
+        // The title label above is no longer in the flex flow (it's an absolute overlay), so this
+        // button group needs its own push to the right edge that the title's old flexGrow used to
+        // provide as a side effect.
+        toOrders.style.marginLeft = new StyleLength(StyleKeyword.Auto);
+        titleBar.Add(toOrders);
+
+        var backToPurchasing = new Button(OpenPurchasing) { text = "PURCHASING" };
+        StyleCrossLinkButton(backToPurchasing);
         titleBar.Add(backToPurchasing);
 
-        _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+        _scaleBtn = new Button { text = string.Empty };
+        RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)");
         StyleSquareButton(_scaleBtn);
         _scaleBtn.style.width = titleBtnSize;
         _scaleBtn.style.height = titleBtnSize;
@@ -552,7 +556,14 @@ public class SchedulerPanel : IUIPanel
             _scaleBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f)));
         titleBar.Add(_scaleBtn);
 
-        var close = new Button(Hide) { text = "✕" };
+        // Routed through CloseAll(), not a bare Hide() — this panel is registered on key 0, and only
+        // UIKeyBindingManager.ToggleUI/CloseAll ever reset _currentOpenKey back to -1. A direct Hide()
+        // left it stuck at 0 forever, and PlacementStateMachine.HandleIdleHover gates the world hover
+        // popup on CurrentOpenKey == -1 — so clicking this ✕ silently killed every world tooltip for
+        // the rest of the session even though the panel had visibly closed. CloseAll() calls Hide() on
+        // every open registered panel (this one included) and THEN clears CurrentOpenKey, so it's a
+        // safe superset of what the old direct call did.
+        var close = new Button(() => { UIKeyBindingManager.Instance?.CloseAll(); AudioManager.Play("UIClose"); }) { text = "✕" };
         StyleSquareButton(close);
         close.style.width = titleBtnSize;
         close.style.height = titleBtnSize;
@@ -701,6 +712,7 @@ public class SchedulerPanel : IUIPanel
         {
             _resizeWindow.CycleScale();
             _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, titleBtnSize, ColTitleText);
+            AudioManager.Play(_resizeWindow.IsFilled ? "UIMax" : "UIMin");
         };
 
         overlay.Add(modal);
@@ -1649,9 +1661,9 @@ public class SchedulerPanel : IUIPanel
         string due = late ? $"{today - group.EarliestDueDay} day(s) LATE"
                    : group.EarliestDueDay == today ? "due today"
                    : $"due day {group.EarliestDueDay}";
-        box.tooltip = $"{group.CustomerName} · {PalletLabel(pallets)} · {group.OrderIds.Count} order(s) with no dock appointment · {due}\n" +
+        RuntimeTooltip.Attach(box, $"{group.CustomerName} · {PalletLabel(pallets)} · {group.OrderIds.Count} order(s) with no dock appointment · {due}\n" +
                       (selected ? "Click again to put it down."
-                                : "Click, then click an open slot to book it.");
+                                : "Click, then click an open slot to book it."));
         return box;
     }
 
@@ -1779,7 +1791,7 @@ public class SchedulerPanel : IUIPanel
         // Same reason as BuildPoolBox: the pool container is itself a drop target, and a click on a
         // specific box must mean "select this one", never "also drop what I'm holding".
         box.RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); OnParkedClicked(appt); });
-        box.tooltip = isPo
+        RuntimeTooltip.Attach(box, isPo
             ? $"Inbound PO {appt.ShipmentPoNumber} from {appt.CustomerName} · {PalletLabel(pallets)} · wanted day {appt.Day}\n" +
               $"No door booked — the truck won't leave the supplier until you give it one.\n" +
               (selected ? "Click an open slot to book it, or click again to let go."
@@ -1787,7 +1799,7 @@ public class SchedulerPanel : IUIPanel
             : $"{appt.CustomerName} · held off the grid by you · " +
               $"{DockScheduleService.BlockLabel(appt.BlockIndex)} on day {appt.Day}\n" +
               (selected ? "Click an open slot to put it back, or click again to let go."
-                        : "Click, then click an open slot to put it back on the grid.");
+                        : "Click, then click an open slot to put it back on the grid."));
         return box;
     }
 
@@ -1850,6 +1862,41 @@ public class SchedulerPanel : IUIPanel
         _ => ColChipOutText
     };
 
+    /// <summary>What each timeline chip colour means — Recurring / Bulk / Inbound PO — one small
+    /// colour-coded chip per kind with its own name drawn INSIDE the coloured square rather than
+    /// beside a separate swatch, per Tad's ask. Built from ChipFill/ChipEdge/ChipText directly so it
+    /// can never disagree with what the real grid chips actually look like.</summary>
+    private VisualElement BuildScheduleLegend()
+    {
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.flexShrink = 0;
+
+        row.Add(BuildScheduleLegendChip(AppointmentKind.Outbound, "Recurring"));
+        row.Add(BuildScheduleLegendChip(AppointmentKind.Bulk, "Bulk"));
+        row.Add(BuildScheduleLegendChip(AppointmentKind.Inbound, "Inbound PO"));
+        return row;
+    }
+
+    private VisualElement BuildScheduleLegendChip(AppointmentKind kind, string label)
+    {
+        var chip = MakeText(label, 11, ChipText(kind), bold: true);
+        chip.style.unityTextAlign = TextAnchor.MiddleCenter;
+        chip.style.whiteSpace = WhiteSpace.NoWrap;
+        chip.style.marginLeft = 8;
+        chip.style.paddingTop = 3; chip.style.paddingBottom = 3;
+        chip.style.paddingLeft = 8; chip.style.paddingRight = 8;
+        chip.style.backgroundColor = new StyleColor(ChipFill(kind));
+        chip.style.borderTopWidth = chip.style.borderBottomWidth =
+            chip.style.borderLeftWidth = chip.style.borderRightWidth = 1;
+        chip.style.borderTopColor = chip.style.borderBottomColor =
+            chip.style.borderLeftColor = chip.style.borderRightColor = new StyleColor(ChipEdge(kind));
+        chip.style.borderTopLeftRadius = chip.style.borderTopRightRadius =
+            chip.style.borderBottomLeftRadius = chip.style.borderBottomRightRadius = 4;
+        return chip;
+    }
+
     /// <summary>
     /// One booked trailer. Locked ones — elapsed, already loaded, or an inbound PO's note — render as
     /// flat history: dimmed, no selection border, no click handler at all. They used to look and behave
@@ -1884,11 +1931,19 @@ public class SchedulerPanel : IUIPanel
     }
 
     /// <summary>
-    /// Draws a line straight through a chip to mark it finished.
+    /// Draws a diagonal line corner-to-corner through a chip to mark it finished — per Tad, a plain
+    /// horizontal strikethrough read too much like a text-editing mark; a diagonal reads as "closed
+    /// out" the way a cancelled stamp or a crossed-off ticket does.
     ///
     /// A real overlay element rather than a rich-text strikethrough tag on the label: the chip is an
     /// icon, a name and a door number, so a tag would only cross out the middle one and leave the rest
     /// standing. The line has to span the whole chip to read as "this trailer is done".
+    ///
+    /// The exact length and angle depend on the chip's own resolved size, which isn't known until
+    /// layout runs (chips are absolutely positioned at a percentage width of the lane), so both are
+    /// computed from the chip's geometry once it resolves — via Pythagoras/atan2, so the line always
+    /// reaches exactly corner-to-corner regardless of how wide a block happens to render — and
+    /// reapplied on every later GeometryChangedEvent (panel resize, block-count zoom change).
     ///
     /// Absolutely positioned and PickingMode.Ignore so it neither takes part in the chip's row layout
     /// nor swallows the click that selects/moves it. Added last so it draws over the contents.
@@ -1898,15 +1953,30 @@ public class SchedulerPanel : IUIPanel
         var line = new VisualElement();
         line.pickingMode = PickingMode.Ignore;
         line.style.position = Position.Absolute;
-        line.style.left = 4;
-        line.style.right = 4;
-        line.style.top = Length.Percent(50);
         line.style.height = 2;
-        line.style.marginTop = -1;   // centre the 2px rule on the 50% line
         // Opaque even though the finished chip as a whole is dimmed — the strike is the signal, and a
         // faded line on a faded chip is what made "done" hard to spot in the first place.
         line.style.backgroundColor = new StyleColor(new Color(ink.r, ink.g, ink.b, 0.95f));
         chip.Add(line);
+
+        void ApplyDiagonal(GeometryChangedEvent evt)
+        {
+            float w = chip.resolvedStyle.width;
+            float h = chip.resolvedStyle.height;
+            if (w <= 0f || h <= 0f) return;
+
+            float length = Mathf.Sqrt(w * w + h * h);
+            float angleDeg = Mathf.Atan2(h, w) * Mathf.Rad2Deg;
+
+            line.style.width = length;
+            // Centre the (now longer than the chip) line on the chip's own centre before rotating —
+            // rotation pivots around the element's own centre by default, so this is what lands the
+            // ends exactly on the chip's corners instead of somewhere off to one side.
+            line.style.left = (w - length) / 2f;
+            line.style.top = h / 2f - 1f;
+            line.style.rotate = new Rotate(new Angle(angleDeg, AngleUnit.Degree));
+        }
+        chip.RegisterCallback<GeometryChangedEvent>(ApplyDiagonal);
     }
 
     /// <summary>True for a purchase order the player raised — an inbound appointment carrying a PO
@@ -2094,6 +2164,8 @@ public class SchedulerPanel : IUIPanel
     private void AnnounceSlotResult(DockScheduleService schedule, DockAppointment appt, int block, int doorNumber)
     {
         if (appt == null) return;
+
+        AudioManager.Play("UIClick");
 
         // ONE penalty per trailer, decided in one place. TryClaimOffSlotPenalty returns true only the
         // first time this trailer is found off its customer's hour, so shuffling it between doors — or
@@ -2470,6 +2542,43 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
         purchasing.Show();
     }
 
+    /// <summary>Same trip as OpenPurchasing, to the outbound Orders/Contracts screen instead.</summary>
+    private void OpenOrders()
+    {
+        Hide();
+
+        var topBar = UnityEngine.Object.FindAnyObjectByType<TopBarUI>();
+        var orders = topBar != null ? topBar.ContractsPanel : null;
+        if (orders == null)
+        {
+            UIToast.Show("Couldn't open orders — the panel isn't loaded.");
+            return;
+        }
+
+        UIKeyBindingManager.Instance?.CloseAll();
+        orders.Show();
+    }
+
+    /// <summary>Shared styling for the title-bar cross-link buttons (ORDERS / PURCHASING).</summary>
+    private static void StyleCrossLinkButton(Button b)
+    {
+        ApplyFont(b, bold: true, size: 16);
+        b.style.height = 48f;
+        b.style.paddingLeft = b.style.paddingRight = 18;
+        b.style.marginRight = 10;
+        b.style.flexShrink = 0;   // the title flexGrows; without this the label squeezes
+        b.style.color = new StyleColor(ColOrangeText);
+        b.style.backgroundColor = new StyleColor(ColOrange);
+        b.style.borderTopWidth = b.style.borderBottomWidth =
+            b.style.borderLeftWidth = b.style.borderRightWidth = 2;
+        b.style.borderTopColor = b.style.borderBottomColor =
+            b.style.borderLeftColor = b.style.borderRightColor = new StyleColor(ColOrangeEdge);
+        b.style.borderTopLeftRadius = b.style.borderTopRightRadius =
+            b.style.borderBottomLeftRadius = b.style.borderBottomRightRadius = 8;
+        b.RegisterCallback<PointerEnterEvent>(_ => b.style.backgroundColor = new StyleColor(ColOrangeHover));
+        b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(ColOrange));
+    }
+
     private static void StyleSquareButton(Button b)
     {
         ApplyFont(b, bold: true, size: 15);
@@ -2576,7 +2685,7 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
         dayRow.style.justifyContent = Justify.Center;
         dayRow.style.paddingTop = 6; dayRow.style.paddingBottom = 4;
 
-        var prev = new Button(() => { _scheduleDay = Mathf.Max(today - ScheduleDaysBack, _scheduleDay - 1); Rebuild(); }) { text = "◀" };
+        var prev = new Button(() => { _scheduleDay = Mathf.Max(today - ScheduleDaysBack, _scheduleDay - 1); AudioManager.Play("SchedulerDayChange"); Rebuild(); }) { text = "◀" };
         StyleSquareButton(prev);
         prev.style.width = 30; prev.style.height = 30;
         dayRow.Add(prev);
@@ -2589,7 +2698,7 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
         dayLabel.style.marginLeft = 10; dayLabel.style.marginRight = 10;
         dayRow.Add(dayLabel);
 
-        var next = new Button(() => { _scheduleDay = Mathf.Min(today + ScheduleDaysAhead, _scheduleDay + 1); Rebuild(); }) { text = "▶" };
+        var next = new Button(() => { _scheduleDay = Mathf.Min(today + ScheduleDaysAhead, _scheduleDay + 1); AudioManager.Play("SchedulerDayChange"); Rebuild(); }) { text = "▶" };
         StyleSquareButton(next);
         next.style.width = 30; next.style.height = 30;
         dayRow.Add(next);
@@ -2732,6 +2841,14 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
                                  13, ColSubtleText);
             empty.style.whiteSpace = WhiteSpace.Normal;
             card.Add(empty);
+
+            // Fills the rest of this otherwise-empty row (only shown while nothing's selected) with
+            // what each chip colour on the grid means. BuildCompactLegend/MakeLegendRow already existed
+            // for a legend but were never actually wired into a row — see their doc comments — so this
+            // is a fresh one built to read ChipFill/ChipEdge/ChipText directly rather than resurrecting
+            // either, which keeps it impossible to drift out of sync with the real timeline chips.
+            var spacer = new VisualElement(); spacer.style.flexGrow = 1; card.Add(spacer);
+            card.Add(BuildScheduleLegend());
             return card;
         }
 
@@ -3024,7 +3141,13 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         for (int block = 0; block < DockScheduleService.BlocksPerDay; block++)
         {
-            var appt = schedule.GetBlock(_scheduleDay, block).FirstOrDefault(a => a.DoorNumber == doorNumber);
+            // includeClosedOut so a block whose window has elapsed still renders (struck through)
+            // instead of going blank — see DockAppointment.ClosedOut. Ordered so an active rebooking
+            // into the same now-freed slot is shown in preference to the stale closed-out record.
+            var appt = schedule.GetBlock(_scheduleDay, block, includeClosedOut: true)
+                .Where(a => a.DoorNumber == doorNumber)
+                .OrderBy(a => a.ClosedOut)
+                .FirstOrDefault();
             bool past = _scheduleDay < today || (_scheduleDay == today && block < schedule.CurrentBlock);
             VisualElement cell = appt != null
                 ? BuildNewSchedulerCell(schedule, appt, arrivals, past)
@@ -3062,8 +3185,15 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         if (locked || past) cell.style.opacity = 0.45f;
 
+        // IsComplete is computed independently from live state and takes priority: a trailer that's
+        // both ClosedOut (swept because its block elapsed) AND IsComplete (its freight actually went
+        // out/came in fine before that happened) reads as finished, not missed. ClosedOut on its own —
+        // swept with nothing to show for it — is the "block passed, nothing loaded/no truck showed"
+        // case and gets the red miss strike instead, per Tad: these should stay on the grid rather
+        // than vanish once their block passes.
         bool complete = schedule.IsComplete(appt);
         if (complete) AddStrikeThrough(cell, text);
+        else if (appt.ClosedOut) AddStrikeThrough(cell, ColDanger);
 
         bool awaitingFreight = !complete && appt.Kind != AppointmentKind.Inbound && appt.OrderIds.Count == 0;
         if (awaitingFreight)
@@ -3106,7 +3236,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         cell.RegisterCallback<MouseLeaveEvent>(_ => HideNewSchedulerTooltip());
 
         return cell;
-    }
+    }
     /// <summary>Third chip line: how many SKUs on an inbound PO are in net demand (same shortage
     /// definition PurchasingPanel.CountCriticalItems/BuildInboundTooltipContent use), or the overall
     /// fill rate across every order riding an outbound trailer. Null for a bare "truck at door, no PO
@@ -3242,7 +3372,14 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         col.Add(MakeText("Shipment data unavailable.", 12, ColSubtleText));
         return col;
     }
-    var shipment = shipments.PendingShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber);
+    // PurgeCompleted (ShipmentService) moves a finished PO out of PendingShipments the moment its
+    // truck departs — it isn't deleted, it's ARCHIVED, so a completed PO's tooltip can keep showing
+    // what actually arrived for the rest of that day. The appointment itself is what actually goes
+    // away at day rollover (DockScheduleService purges every appointment once its day stops being
+    // "today"), so falling back to the archive here is what makes this survive until 23:59 — no
+    // separate day-cutoff bookkeeping needed.
+    var shipment = shipments.PendingShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber)
+                 ?? shipments.ArchivedShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber);
     col.Add(MakeText($"PO {appt.ShipmentPoNumber}", 15, ColTitleText, bold: true));
     if (shipment == null)
     {
@@ -3250,19 +3387,26 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         return col;
     }
 
+    // Once the truck is done, show what was actually RECEIVED rather than what was ordered — a
+    // supplier shortage or a broker write-off means those can differ, and "received" is what the
+    // player actually needs to know once the trailer has already left.
+    bool received = shipment.Status == ShipmentData.ShipmentStatus.Received
+                 || shipment.Status == ShipmentData.ShipmentStatus.Departed;
+
     ServiceLocator.TryGet<InventoryService>(out var inv);
     ServiceLocator.TryGet<VendorEconomyService>(out var econ);
 
-    var bySku = new Dictionary<string, (int cases, int pallets)>();
+    var bySku = new Dictionary<string, (int ordered, int received, int pallets)>();
     foreach (var li in shipment.LineItems)
     {
         bySku.TryGetValue(li.SkuId, out var agg);
-        agg.cases += li.Quantity;
+        agg.ordered += li.Quantity;
+        agg.received += li.ReceivedQuantity;
         agg.pallets += 1;
         bySku[li.SkuId] = agg;
     }
 
-    var rows = new List<(SkuData sku, int cases, int pallets, int inDemand)>();
+    var rows = new List<(SkuData sku, int ordered, int received, int pallets, int inDemand)>();
     bool anyCritical = false;
     foreach (var kv in bySku)
     {
@@ -3271,10 +3415,10 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
             ? Mathf.Max(0, econ.GetTotalInDemand(kv.Key) - inv.TotalOnHand(kv.Key) - econ.GetTotalOnOrder(kv.Key))
             : 0;
         if (inDemand > 0) anyCritical = true;
-        rows.Add((sku, kv.Value.cases, kv.Value.pallets, inDemand));
+        rows.Add((sku, kv.Value.ordered, kv.Value.received, kv.Value.pallets, inDemand));
     }
 
-    if (anyCritical)
+    if (!received && anyCritical)
     {
         var badge = MakeText("CRITICAL LOAD — carrying item(s) the floor needs", 11, ColDangerSoft, bold: true);
         badge.style.marginTop = 2; badge.style.marginBottom = 2;
@@ -3291,18 +3435,37 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
                            13, ColSubtleText, bold: true));
     col.Add(vendorRow);
 
-    int totalCost = Mathf.RoundToInt(rows.Sum(r => r.cases * (r.sku?.BuyValue ?? 0f)));
-    var costLabel = MakeText($"Expected cost: ${totalCost:N0}", 12, ColOrangeText, bold: true);
-    costLabel.style.marginBottom = 6;
-    col.Add(costLabel);
+    if (received)
+    {
+        int shortfall = rows.Sum(r => r.ordered - r.received);
+        var costLabel = MakeText(
+            $"Received cost: ${shipment.TotalReceivedCost:N0}" +
+            (shortfall > 0 ? $" · {shortfall:N0} case(s) short" : string.Empty),
+            12, shortfall > 0 ? ColDangerSoft : ColOrangeText, bold: true);
+        costLabel.style.marginBottom = 6;
+        col.Add(costLabel);
+    }
+    else
+    {
+        int totalCost = Mathf.RoundToInt(rows.Sum(r => r.ordered * (r.sku?.BuyValue ?? 0f)));
+        var costLabel = MakeText($"Expected cost: ${totalCost:N0}", 12, ColOrangeText, bold: true);
+        costLabel.style.marginBottom = 6;
+        col.Add(costLabel);
+    }
 
     col.Add(BuildTooltipDivider());
 
     foreach (var row in rows.OrderBy(r => r.sku?.ItemNumber ?? 0))
-        col.Add(BuildTooltipItemRow(row.sku,
-            $"{row.cases:N0} case(s) · {PalletLabel(row.pallets)}" +
-            (row.inDemand > 0 ? $" · in demand: {row.inDemand:N0}" : string.Empty),
-            row.inDemand > 0));
+    {
+        string detail = received
+            ? (row.received < row.ordered
+                ? $"{row.received:N0}/{row.ordered:N0} case(s) received · {PalletLabel(row.pallets)}"
+                : $"{row.received:N0} case(s) received · {PalletLabel(row.pallets)}")
+            : $"{row.ordered:N0} case(s) · {PalletLabel(row.pallets)}" +
+              (row.inDemand > 0 ? $" · in demand: {row.inDemand:N0}" : string.Empty);
+        bool flagged = received ? row.received < row.ordered : row.inDemand > 0;
+        col.Add(BuildTooltipItemRow(row.sku, detail, flagged));
+    }
 
     return col;
 }

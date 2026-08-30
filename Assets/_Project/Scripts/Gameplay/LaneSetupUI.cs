@@ -23,6 +23,8 @@ public class LaneSetupUI : MonoBehaviour
     private IntegerField _maxStack;
     private DropdownField _usage;
     private DropdownField _order;
+    private Toggle _zoneToggle;
+    private TextField _zoneName;
 
     private int _door;
     private string _lane;
@@ -119,8 +121,21 @@ public class LaneSetupUI : MonoBehaviour
 
         _order = new DropdownField("Order", OrderChoices, 0);
         StyleField(_order, _order.labelElement);
-        _order.style.marginBottom = 16;
         panel.Add(_order);
+
+        // Standalone Zone — detaches this lane from its owning door for Pick-and-Deliver,
+        // Limbo/Penalty Box, QA, or Overflow use. The lane's NAME never changes shape (still
+        // "<prefix><letter>-<slot>") — only the prefix switches from a door number to this name.
+        _zoneToggle = new Toggle("Standalone Zone");
+        StyleField(_zoneToggle, _zoneToggle.labelElement);
+        panel.Add(_zoneToggle);
+
+        _zoneName = new TextField("Zone Name") { maxLength = 16 };
+        StyleField(_zoneName, _zoneName.labelElement);
+        _zoneName.style.marginBottom = 16;
+        panel.Add(_zoneName);
+
+        _zoneToggle.RegisterValueChangedCallback(evt => _zoneName.SetEnabled(evt.newValue));
 
         var buttons = new VisualElement();
         buttons.style.flexDirection = FlexDirection.Row;
@@ -145,11 +160,17 @@ public class LaneSetupUI : MonoBehaviour
         _lane = lane;
 
         var cfg = LaneConfigRegistry.Get(doorNumber, lane);
-        _title.text = $"Lane {doorNumber}{lane} Setup";
+        string prefix = ZoneRegistry.DisplayPrefix(doorNumber);
+        _title.text = $"Lane {prefix}{lane} Setup";
         _occupancy.text = BuildOccupancyText(doorNumber, lane);
         _maxStack.value = cfg.MaxStackHeight;
         _usage.index = UsageToIndex(cfg.Usage);
         _order.index = cfg.Order == LaneStackOrder.LIFO ? 1 : 0;
+
+        bool isZone = ZoneRegistry.IsZone(doorNumber);
+        _zoneToggle.SetValueWithoutNotify(isZone);
+        _zoneName.value = isZone ? prefix : string.Empty;
+        _zoneName.SetEnabled(isZone);
 
         _modal.style.display = DisplayStyle.Flex;
         UIModalGuard.Push(this); // suppress number-key panel hotkeys while typing here
@@ -169,8 +190,26 @@ public class LaneSetupUI : MonoBehaviour
             Usage = IndexToUsage(_usage.index),
             Order = _order.index == 1 ? LaneStackOrder.LIFO : LaneStackOrder.FIFO
         };
-        LaneConfigRegistry.Set(_door, _lane, cfg);
-        Debug.Log($"[LaneSetupUI] Lane {_door}{_lane} → MaxStack {cfg.MaxStackHeight}, {cfg.Usage}, {cfg.Order}");
+
+        // Zone status is applied FIRST, since it can change this lane's whole identity (door number
+        // -> zone pseudo-door, or back) — LaneConfigRegistry is keyed by that identity, so the config
+        // has to be written under whatever it ends up being, not whatever it was when the modal
+        // opened, or it would silently save under an orphaned key and read back as Default.
+        var anchorCell = LaneNamingService.GetLane(_door, _lane)[0].Cell;
+        string newZoneName = _zoneToggle.value ? _zoneName.value : null;
+        LaneNamingService.SetZoneTag(_door, _lane, newZoneName);
+
+        int finalDoor = _door;
+        if (LaneNamingService.TryGetSlot(anchorCell, out var resolvedSlot))
+        {
+            finalDoor = resolvedSlot.DoorNumber;
+            _lane = resolvedSlot.Lane;
+        }
+
+        LaneConfigRegistry.Set(finalDoor, _lane, cfg);
+
+        Debug.Log($"[LaneSetupUI] Lane {ZoneRegistry.DisplayPrefix(finalDoor)}{_lane} → MaxStack {cfg.MaxStackHeight}, " +
+                  $"{cfg.Usage}, {cfg.Order}, Zone={(string.IsNullOrEmpty(newZoneName) ? "none" : newZoneName)}");
         Hide();
     }
 

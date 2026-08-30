@@ -54,7 +54,10 @@ public static class LaneConfigRegistry
         var list = new List<LaneConfigEntry>();
         foreach (var kv in _byLane)
         {
-            int split = 0;
+            // A zone's pseudo-door id is negative (see ZoneRegistry) — its key ("-3A") carries a
+            // leading '-' the digit scan below must step over, or every zone lane's config would be
+            // silently skipped as "malformed" and never saved.
+            int split = kv.Key.Length > 0 && kv.Key[0] == '-' ? 1 : 0;
             while (split < kv.Key.Length && char.IsDigit(kv.Key[split])) split++;
             if (split == 0 || split >= kv.Key.Length) continue; // malformed key, skip
             var c = kv.Value;

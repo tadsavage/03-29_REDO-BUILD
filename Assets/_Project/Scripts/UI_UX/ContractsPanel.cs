@@ -328,7 +328,7 @@ public class ContractsPanel : IUIPanel
         // Return trip for PurchasingPanel.OpenScheduler, which closes itself to get here. Without it
         // the only way back is to remember that purchasing lives on key 9 — a one-way hyperlink.
         // Sits left of the window buttons so the destructive ✕ keeps the far corner it always has.
-        var backToPurchasing = new Button(OpenPurchasing) { text = "Back to Purchasing" };
+        var backToPurchasing = new Button(OpenPurchasing) { text = "PURCHASING" };
         ApplyFont(backToPurchasing, bold: true, size: 16);
         backToPurchasing.style.height = titleBtnSize;
         backToPurchasing.style.paddingLeft = backToPurchasing.style.paddingRight = 18;
@@ -348,7 +348,32 @@ public class ContractsPanel : IUIPanel
             backToPurchasing.style.backgroundColor = new StyleColor(ColOrange));
         titleBar.Add(backToPurchasing);
 
-        _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+        // Same trip, sideways instead of back — straight to the dock appointment grid (key 0's
+        // standalone Scheduler), so a player looking at a contract doesn't have to remember the hotkey
+        // to go check when a door's actually free. Same style/behaviour as PURCHASING, just its own
+        // destination, per Tad's ask for a duplicate button next to it.
+        var openScheduler = new Button(OpenScheduler) { text = "SCHEDULER" };
+        ApplyFont(openScheduler, bold: true, size: 16);
+        openScheduler.style.height = titleBtnSize;
+        openScheduler.style.paddingLeft = openScheduler.style.paddingRight = 18;
+        openScheduler.style.marginRight = 10;
+        openScheduler.style.flexShrink = 0;
+        openScheduler.style.color = new StyleColor(ColOrangeText);
+        openScheduler.style.backgroundColor = new StyleColor(ColOrange);
+        openScheduler.style.borderTopWidth = openScheduler.style.borderBottomWidth =
+            openScheduler.style.borderLeftWidth = openScheduler.style.borderRightWidth = 2;
+        openScheduler.style.borderTopColor = openScheduler.style.borderBottomColor =
+            openScheduler.style.borderLeftColor = openScheduler.style.borderRightColor = new StyleColor(ColOrangeEdge);
+        openScheduler.style.borderTopLeftRadius = openScheduler.style.borderTopRightRadius =
+            openScheduler.style.borderBottomLeftRadius = openScheduler.style.borderBottomRightRadius = 8;
+        openScheduler.RegisterCallback<PointerEnterEvent>(_ =>
+            openScheduler.style.backgroundColor = new StyleColor(ColOrangeHover));
+        openScheduler.RegisterCallback<PointerLeaveEvent>(_ =>
+            openScheduler.style.backgroundColor = new StyleColor(ColOrange));
+        titleBar.Add(openScheduler);
+
+        _scaleBtn = new Button { text = string.Empty };
+        RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)");
         StyleSquareButton(_scaleBtn);
         _scaleBtn.style.width = titleBtnSize;
         _scaleBtn.style.height = titleBtnSize;
@@ -360,7 +385,13 @@ public class ContractsPanel : IUIPanel
             _scaleBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f)));
         titleBar.Add(_scaleBtn);
 
-        var close = new Button(Hide) { text = "✕" };
+        // Routed through CloseAll(), not a bare Hide() — this panel is registered on key 8, and only
+        // UIKeyBindingManager.ToggleUI/CloseAll ever reset _currentOpenKey back to -1. A direct Hide()
+        // left it stuck, and PlacementStateMachine.HandleIdleHover gates the world hover popup on
+        // CurrentOpenKey == -1 — so clicking this ✕ silently killed every world tooltip afterward even
+        // though the panel had visibly closed. CloseAll() calls Hide() on every open registered panel
+        // (this one included) and THEN clears CurrentOpenKey, so it's a safe superset of the old call.
+        var close = new Button(() => { UIKeyBindingManager.Instance?.CloseAll(); AudioManager.Play("UIClose"); }) { text = "✕" };
         StyleSquareButton(close);
         close.style.width = titleBtnSize;
         close.style.height = titleBtnSize;
@@ -487,6 +518,7 @@ public class ContractsPanel : IUIPanel
         {
             _resizeWindow.CycleScale();
             _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, titleBtnSize, ColTitleText);
+            AudioManager.Play(_resizeWindow.IsFilled ? "UIMax" : "UIMin");
         };
 
         overlay.Add(modal);
@@ -549,20 +581,20 @@ public class ContractsPanel : IUIPanel
 
         var customer = new Button(OnDevAddCustomer) { text = "TEST CUSTOMER" };
         StyleDevButton(customer);
-        customer.tooltip = "Debug: put one new signable customer offer on this tab. Stands in for " +
-                           "reputation-driven arrival until that exists.";
+        RuntimeTooltip.Attach(customer, "Debug: put one new signable customer offer on this tab. Stands in for " +
+                           "reputation-driven arrival until that exists.");
         wrap.Add(customer);
 
         var truck = new Button(() => ToolsWindowController.Instance.SpawnOutboundTruckDebug()) { text = "OUTBOUND TRUCK" };
         StyleDevButton(truck);
-        truck.tooltip = "Debug: send an outbound truck to the first door with staged pallets.";
+        RuntimeTooltip.Attach(truck, "Debug: send an outbound truck to the first door with staged pallets.");
         wrap.Add(truck);
 
         var wipe = new Button(OnDevClearContracts) { text = "CLEAR CONTRACTS" };
         StyleDevButton(wipe);
-        wipe.tooltip = "Debug: wipe the contract board — drops every signed account and generated " +
+        RuntimeTooltip.Attach(wipe, "Debug: wipe the contract board — drops every signed account and generated " +
                        "offer, and restores the authored offers. Orders already on the floor are NOT " +
-                       "touched; clear those from the Work Queue.";
+                       "touched; clear those from the Work Queue.");
         wrap.Add(wipe);
 
         return wrap;
@@ -1629,8 +1661,8 @@ public class ContractsPanel : IUIPanel
         cancel.RegisterCallback<PointerEnterEvent>(_ => cancel.style.backgroundColor = new StyleColor(ColOrangeHover));
         cancel.RegisterCallback<PointerLeaveEvent>(_ => cancel.style.backgroundColor = new StyleColor(ColOrange));
         cancel.style.marginTop = 6;
-        cancel.tooltip = "Cancel this account's next order. Only possible while the work is still " +
-                         "unreleased — once it's on the floor the order has to ship.";
+        RuntimeTooltip.Attach(cancel, "Cancel this account's next order. Only possible while the work is still " +
+                         "unreleased — once it's on the floor the order has to ship.");
         iconColumn.Add(cancel);
 
         card.Add(iconColumn);
@@ -2431,6 +2463,24 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
 
         UIKeyBindingManager.Instance?.CloseAll();
         purchasing.Show();
+    }
+
+    /// <summary>Closes this panel and opens the standalone Scheduler (key 0's dock appointment grid) —
+    /// same shape as OpenPurchasing, just a different destination for the SCHEDULER button.</summary>
+    private void OpenScheduler()
+    {
+        Hide();
+
+        var topBar = UnityEngine.Object.FindAnyObjectByType<TopBarUI>();
+        var scheduler = topBar != null ? topBar.SchedulerPanel : null;
+        if (scheduler == null)
+        {
+            UIToast.Show("Couldn't open the scheduler — the panel isn't loaded.");
+            return;
+        }
+
+        UIKeyBindingManager.Instance?.CloseAll();
+        scheduler.Show();
     }
 
     private static void StyleSquareButton(Button b)

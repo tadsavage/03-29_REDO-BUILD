@@ -84,6 +84,7 @@ public class MHEOperatorSlot : MonoBehaviour
         if (_employeeUI == null || CurrentOperator.Record == null) return;
 
         _employeeUI.Show(CurrentOperator.Record);
+        AudioManager.Play("UIClick");
     }
 
     public void AssignOperator(EmployeeIdentity identity)

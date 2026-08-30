@@ -125,7 +125,8 @@ public class EmployeeInfoUI : MonoBehaviour
         // Add scale button for resize/maximize
         if (_closeButton != null && _headerRow != null)
         {
-            _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+            _scaleBtn = new Button { text = string.Empty };
+            RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)");
             _scaleBtn.style.width = 28; _scaleBtn.style.height = 28;
             _scaleBtn.style.marginRight = 6;
             ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, 28f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f), isFilled: false);
@@ -140,6 +141,7 @@ public class EmployeeInfoUI : MonoBehaviour
         if (_closeButton != null)
         {
             _closeButton.clicked += Hide;
+            _closeButton.clicked += () => AudioManager.Play("UIClose");
 
             // Red hover effect on close button
             _closeButton.RegisterCallback<PointerEnterEvent>(_ =>
@@ -164,6 +166,7 @@ public class EmployeeInfoUI : MonoBehaviour
                 {
                     _resizeWindow.CycleScale();
                     _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, 28f, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f));
+                    AudioManager.Play(_resizeWindow.IsFilled ? "UIMax" : "UIMin");
                 };
             }
         }

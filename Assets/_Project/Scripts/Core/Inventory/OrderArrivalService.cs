@@ -533,6 +533,26 @@ namespace GameCore.Inventory
             // against a grid that looks empty and only discovers the collision a week later.
             MaintainRecurringSchedule();
 
+            // Generate the FIRST delivery's real order/line items synchronously, right now — not on
+            // whatever OnHourChanged tick happens to fire next. Per Tad: the player needs to know what
+            // a brand-new account ordered immediately so shortages can be covered before that trailer's
+            // appointment block even opens. This only moves the ORDER DATA earlier; the appointment
+            // itself (booked just above by MaintainRecurringSchedule) still targets the correct first
+            // delivery day untouched — tomorrow for Daily, a week out for Weekly (see DeliversOn) — so
+            // the account still never delivers on its own signing day.
+            //
+            // Same "generate a future day's order before that day arrives" pattern OnHourChanged's own
+            // horizon sweep already relies on (see its doc comment) — this just guarantees day one of
+            // it happens at sign time instead of waiting for the next hour tick, rather than being a new
+            // kind of early generation.
+            for (int day = signDay + 1; day <= signDay + ScheduleHorizonDays; day++)
+            {
+                if (!DeliversOn(contract, signed, day)) continue;
+                signed.LastGeneratedDay = day;
+                GenerateFor(contract, day);
+                break; // only day one jumps the queue; the rest keep following the normal cadence
+            }
+
             Debug.Log($"[OrderArrivalService] Signed {contractId} ({contract.Customer?.CompanyName}) — " +
                       $"{contract.FrequencyLabel}, ~{contract.EstimatedCasesPerDay} cases/day, " +
                       $"ships in the {DockScheduleService.BlockLabel(DockScheduleService.BlockForHour(contract.CutoffHour))} slot.");

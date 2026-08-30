@@ -172,7 +172,8 @@ public class SlotAssignmentPanel
         titleBar.Add(title);
 
         // Scale button (resize window)
-        _scaleBtn = new Button { text = string.Empty, tooltip = "Resize window (normal / large / fill screen)" };
+        _scaleBtn = new Button { text = string.Empty };
+        RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)");
         _scaleBtn.style.width = 28; _scaleBtn.style.height = 28;
         _scaleBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f));
         _scaleBtn.style.color = new StyleColor(ColSubtleText);

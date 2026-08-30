@@ -150,6 +150,9 @@ public class GameContext : MonoBehaviour
         // without a full domain reload — SlotAssignmentService is in-memory only (see its own doc
         // comment) and would otherwise leak assignments from a previous session into a new one.
         SlotAssignmentService.ClearAll();
+        // Same reasoning: ZoneRegistry is persisted (see PlacementSystem's load path, which Imports
+        // it before this could matter for a real load) but must start empty for a brand-new game.
+        ZoneRegistry.ClearAll();
 
         // Wire timeDriver to use refactored TimeService
         timeDriver.Initialize(TimeService);

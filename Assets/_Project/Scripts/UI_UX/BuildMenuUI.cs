@@ -282,7 +282,14 @@ public class BuildMenuUI : MonoBehaviour
             }
 
             int key = i; // don't capture the loop variable
-            button.clicked += () => UIKeyBindingManager.Instance.ToggleUI(key);
+            // Blur immediately after handling the click: a runtime Button keeps keyboard/gamepad
+            // focus after being clicked and never releases it on its own, and Unity's default runtime
+            // theme paints the focused element with its own solid inline background/border color that
+            // sits ABOVE the USS cascade (inline styles beat every stylesheet rule, !important
+            // included) — that's the vivid blue fill that stuck around until the panel was closed.
+            // We already track "open" via the .selected class, so this control has no use for
+            // lingering focus once the click is done.
+            button.clicked += () => { UIKeyBindingManager.Instance.ToggleUI(key); button.Blur(); };
             _playBarButtons[key] = button;
         }
     }
@@ -466,7 +473,11 @@ public class BuildMenuUI : MonoBehaviour
             if (cat.icon != null) icon.style.backgroundImage = new StyleBackground(cat.icon);
 
             var capturedCat = cat;
-            button.clicked += () => OnCategoryClicked(capturedCat);
+            // See the matching comment in WirePlayBarButtons — a runtime Button keeps focus after a
+            // click and Unity's default theme paints the focused element with an inline color that
+            // beats the entire USS cascade, which is what made a selected category card look like a
+            // solid blue box instead of the intended dark card style.
+            button.clicked += () => { OnCategoryClicked(capturedCat); button.Blur(); };
             _categoryRow.Add(ve);
         }
     }

@@ -105,6 +105,15 @@ public class TopBarSettingsPanel : MonoBehaviour
         float mv = PlayerPrefs.GetFloat(MusicVolParam, 0.7f);
         if (_igGameVolumeSlider  != null) _igGameVolumeSlider.SetValueWithoutNotify(gv);
         if (_igMusicVolumeSlider != null) _igMusicVolumeSlider.SetValueWithoutNotify(mv);
+
+        // SetValueWithoutNotify above only moves the SLIDER — it deliberately skips the
+        // RegisterValueChangedCallback that actually calls SetVolume()/AudioManager.SetSfxVolume. That
+        // meant AudioManager's real playback volume was never synced to the stored setting until the
+        // player opened this panel and nudged a slider by hand — the exact "sound doesn't come on until
+        // I touch the settings" symptom. Push both values through for real, right here at Init, so
+        // playback is correct the moment the HUD boots rather than whenever the panel is next opened.
+        SetVolume(GameVolParam, gv);
+        SetVolume(MusicVolParam, mv);
     }
 
     private void ApplyGraphicsPreset(string preset, bool notify = true)

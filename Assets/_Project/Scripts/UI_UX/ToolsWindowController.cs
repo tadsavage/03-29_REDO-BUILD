@@ -449,7 +449,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         globalSection.AddToClassList("ds-global-section");
         var globalTitle = new Label("GLOBAL");
         globalTitle.AddToClassList("ds-global-title");
-        globalTitle.tooltip = "Scene-wide toggles that affect all objects.";
+        RuntimeTooltip.Attach(globalTitle, "Scene-wide toggles that affect all objects.");
         globalSection.Add(globalTitle);
 
         // Graphics preset — centered label above buttons
@@ -462,7 +462,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         presetLbl.style.unityTextAlign = TextAnchor.MiddleCenter;
         presetLbl.style.alignSelf = Align.Stretch;
         presetLbl.style.marginBottom = 6;
-        presetLbl.tooltip = "Switches the full graphics quality preset for the current session. Saved across sessions.";
+        RuntimeTooltip.Attach(presetLbl, "Switches the full graphics quality preset for the current session. Saved across sessions.");
         presetBlock.Add(presetLbl);
         var presetBtns = new VisualElement();
         presetBtns.style.flexDirection = FlexDirection.Row;
@@ -576,7 +576,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         string prefsKey = null)
     {
         var row = new VisualElement(); row.AddToClassList("ds-row");
-        var lbl = new Label(label); lbl.AddToClassList("ds-label"); lbl.tooltip = tooltip;
+        var lbl = new Label(label); lbl.AddToClassList("ds-label"); RuntimeTooltip.Attach(lbl, tooltip);
         row.Add(lbl);
         var all = getAll();
         bool cur = all.Length > 0 && getter(all[0]);
@@ -602,7 +602,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         System.Action<bool> setter)
     {
         var row = new VisualElement(); row.AddToClassList("ds-row");
-        var lbl = new Label(label); lbl.AddToClassList("ds-label"); lbl.tooltip = tooltip;
+        var lbl = new Label(label); lbl.AddToClassList("ds-label"); RuntimeTooltip.Attach(lbl, tooltip);
         row.Add(lbl);
         var toggle = new Toggle { value = getter() };
         toggle.AddToClassList("ds-toggle");
@@ -649,7 +649,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         var title = new Label(FormatName(type.Name).ToUpper());
         title.AddToClassList("ds-group-title");
-        if (ScriptDescriptions.TryGetValue(type.Name, out string desc)) title.tooltip = desc;
+        if (ScriptDescriptions.TryGetValue(type.Name, out string desc)) RuntimeTooltip.Attach(title, desc);
 
         group.Add(title);
 
@@ -888,7 +888,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         var row = new VisualElement(); row.AddToClassList("ds-row");
         var label = new Label(FormatName(field.Name)); label.AddToClassList("ds-label");
         var tooltipAttr = field.GetCustomAttribute<TooltipAttribute>();
-        if (tooltipAttr != null) label.tooltip = tooltipAttr.tooltip;
+        if (tooltipAttr != null) RuntimeTooltip.Attach(label, tooltipAttr.tooltip);
         row.Add(label);
 
         VisualElement control = null;
@@ -1367,7 +1367,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             () => pb.maxTotalHeight,
             v => { pb.maxTotalHeight = v; pb.SaveBuildState(); });
         heightRow.style.marginBottom = 2;
-        heightRow.Q<Label>(className: "ds-label").tooltip = "Target maximum height for the pallet load (meters). Range: 0.5 - 2.5m";
+        RuntimeTooltip.Attach(heightRow.Q<Label>(className: "ds-label"), "Target maximum height for the pallet load (meters). Range: 0.5 - 2.5m");
         group.Add(heightRow);
 
         // Space Between Cases
@@ -1375,7 +1375,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             () => pb.spaceBetweenCases,
             v => { pb.spaceBetweenCases = v; pb.SaveBuildState(); });
         spacingRow.style.marginBottom = 2;
-        spacingRow.Q<Label>(className: "ds-label").tooltip = "Minimum horizontal gap between cases on a layer.";
+        RuntimeTooltip.Attach(spacingRow.Q<Label>(className: "ds-label"), "Minimum horizontal gap between cases on a layer.");
         group.Add(spacingRow);
 
         // Vertical Gap
@@ -1383,7 +1383,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             () => pb.verticalGap,
             v => { pb.verticalGap = v; pb.SaveBuildState(); });
         gapRow.style.marginBottom = 2;
-        gapRow.Q<Label>(className: "ds-label").tooltip = "Vertical space between stacked layers (meters). Range: 0 - 0.05m";
+        RuntimeTooltip.Attach(gapRow.Q<Label>(className: "ds-label"), "Vertical space between stacked layers (meters). Range: 0 - 0.05m");
         group.Add(gapRow);
 
         // Crooked Cases
@@ -1391,7 +1391,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             () => pb.crookedCase,
             v => pb.crookedCase = v);
         crookedRow.style.marginBottom = 2;
-        crookedRow.Q<Label>(className: "ds-label").tooltip = "Adds random rotation deviation for a more natural, hand-stacked look.";
+        RuntimeTooltip.Attach(crookedRow.Q<Label>(className: "ds-label"), "Adds random rotation deviation for a more natural, hand-stacked look.");
         group.Add(crookedRow);
 
         // ── Ti / Hi (Compacted) ─────────────────────────────────────────────
@@ -1410,21 +1410,21 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             () => pb.manualTi,
             v => ApplyTiHiChange(pb, requestedTi: v, requestedHi: pb.manualHi));
         tiRow.style.marginBottom = 2;
-        tiRow.Q<Label>(className: "ds-label").tooltip = "Cases per layer. 0 = auto-calculate.";
+        RuntimeTooltip.Attach(tiRow.Q<Label>(className: "ds-label"), "Cases per layer. 0 = auto-calculate.");
         group.Add(tiRow);
 
         var hiRow = BuildIntSettingRow($"Hi (Current: {curHi})", 0, 30,
             () => pb.manualHi,
             v => ApplyTiHiChange(pb, requestedTi: pb.manualTi, requestedHi: v));
         hiRow.style.marginBottom = 2;
-        hiRow.Q<Label>(className: "ds-label").tooltip = "Number of layers. 0 = auto-calculate.";
+        RuntimeTooltip.Attach(hiRow.Q<Label>(className: "ds-label"), "Number of layers. 0 = auto-calculate.");
         group.Add(hiRow);
 
         // Optimizer Layer Utilization %
         var utilizationRow = new VisualElement(); utilizationRow.AddToClassList("ds-row");
         utilizationRow.style.marginBottom = 2;
         var utilizationLbl = new Label("Optimizer Layer Utilization"); utilizationLbl.AddToClassList("ds-label");
-        utilizationLbl.tooltip = "Efficiency: Total case footprint area / Pallet footprint (40\"x48\")";
+        RuntimeTooltip.Attach(utilizationLbl, "Efficiency: Total case footprint area / Pallet footprint (40\"x48\")");
         utilizationRow.Add(utilizationLbl);
         var utilizationValue = new Label("—%");
         utilizationValue.AddToClassList("ds-slider-value");

@@ -47,7 +47,7 @@ MonoBehaviour:
     pitch: 1.5
   - name: NewCell
     clip: {fileID: 8300000, guid: 676e3561d685a0d4d99c0ae53f679898, type: 3}
-    volume: 0.15
+    volume: 0
     pitch: 1
   - name: UI_Save
     clip: {fileID: 8300000, guid: 93ff3a175d3e92343aab50d5c1cac984, type: 3}
@@ -68,4 +68,32 @@ MonoBehaviour:
   - name: Rat_Gnaw
     clip: {fileID: 8300000, guid: c1a05b1df3e1274439f0fa5caef7faae, type: 3}
     volume: 0.1
+    pitch: 1
+  - name: UIClick
+    clip: {fileID: 8300000, guid: c88c77ea416b74b4c884e4bde7dfa65d, type: 3}
+    volume: 0.5
+    pitch: 1
+  - name: UIMax
+    clip: {fileID: 8300000, guid: b78ada59a4905334792a5f6e28c78c4f, type: 3}
+    volume: 0.5
+    pitch: 1
+  - name: UIMin
+    clip: {fileID: 8300000, guid: 9cbbe5c9fc57fbd40bcced24a28b2db4, type: 3}
+    volume: 0.5
+    pitch: 1
+  - name: UIClose
+    clip: {fileID: 8300000, guid: d3ccde93679eedf47b00ad0e42297c6d, type: 3}
+    volume: 0.5
+    pitch: 1
+  - name: SchedulerDayChange
+    clip: {fileID: 8300000, guid: 38c87fd2d4adade48a818c40c636b902, type: 3}
+    volume: 0.5
+    pitch: 1
+  - name: OrderIncrease
+    clip: {fileID: 8300000, guid: b222d45cf84b26844a22cd90e9a49dc3, type: 3}
+    volume: 0.5
+    pitch: 1
+  - name: OrderDecrease
+    clip: {fileID: 8300000, guid: 1f6dcd09458dfda4790144cfabb69788, type: 3}
+    volume: 0.5
     pitch: 1

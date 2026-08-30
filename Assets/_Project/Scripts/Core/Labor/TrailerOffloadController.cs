@@ -86,6 +86,19 @@ namespace GameCore.Labor
         private static TrailerOffloadController _instance;
         private static readonly Dictionary<Vector2Int, int> _pendingDrops = new();
 
+        /// <summary>True if any slot in this lane currently has a dock-stocker drop reserved but not
+        /// yet physically landed (see <see cref="TryFindLaneTarget"/>). Lets outbound-staging
+        /// selectability (<see cref="GameCore.Inventory.StagingLaneAssignmentService"/>) exclude a
+        /// lane the DS has already committed to, not just lanes that already hold landed stock —
+        /// otherwise there's a race window between "DS chose this lane" and "pallet lands" where the
+        /// lane reads as free to the outbound side.</summary>
+        public static bool IsLanePendingInbound(int door, string lane)
+        {
+            foreach (var slot in LaneNamingService.GetLane(door, lane))
+                if (_pendingDrops.TryGetValue(slot.Cell, out int p) && p > 0) return true;
+            return false;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
@@ -196,7 +209,7 @@ namespace GameCore.Labor
                 // Rig destroyed mid-run — stop dispatching pallets and FALL THROUGH to the restore
                 // block below, rather than piling up more exceptions and skipping cleanup entirely.
                 if (ds == null) break;
-                yield return OffloadOnePallet(ds, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, queue, i);
+                yield return OffloadOnePallet(ds, nav, agent, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, queue, i);
             }
 
             // ── Restore the DS to patrol ──
@@ -229,7 +242,7 @@ namespace GameCore.Labor
             }
         }
 
-        private IEnumerator OffloadOnePallet(Transform ds, Transform forks, float forkRestY,
+        private IEnumerator OffloadOnePallet(Transform ds, AiNavigation nav, NavMeshAgent agent, Transform forks, float forkRestY,
                                              TruckController truck, Transform pallet, Vector3 into,
                                              float openingLong, int doorNumber, Vector3 doorPos,
                                              InventoryService inv, WorkQueueSystem queue, int palletIndex = 0)
@@ -304,16 +317,64 @@ namespace GameCore.Labor
 
             // ── DROP OFF (enter the lane from its door-end entry, never across lanes) ──────
             // 7. Pick the next open Inbound/Both slot in one of THIS truck's dock-door lanes.
+            bool crossDoorLeg = false;
             if (!TryFindLaneTarget(inv, queue, doorNumber, doorPos, out int door, out string laneLetter, out var cell, out int tier))
             {
-                Debug.LogWarning($"[TrailerOffload] No free Inbound/Both staging-lane slot for door {doorNumber} — dropping pallet where the DS stands.");
-                DropPallet(pallet, ds.position, LaneSurfaceY, palletWorldScale, ds.rotation);
-                
-                // CRITICAL: Even if it's not in a lane, it must be registered to the inventory service
-                // so the Receiver can find it, and it must have a CurrentLocation (even if it's (0,0) or stand-still).
-                // We use (0,0) as the "no slot" fallback.
-                RegisterAndQueue(inv, truck, Vector2Int.zero, pallet, ds.rotation, palletIndex);
-                yield break;
+                // No room at this door — widen the search to every lane in the building (any door, any
+                // standalone Zone) before giving up. Preview only (reserve:false): nothing is claimed
+                // yet, since the player still has to say yes.
+                if (TryFindLaneTargetAnywhere(inv, queue, doorPos, out int farDoor, out string farLane, out var farCell, out int farTier, reserve: false))
+                {
+                    string farName = ZoneRegistry.DisplayPrefix(farDoor) + farLane;
+                    bool decided = false, approved = false;
+                    ConfirmationModal.Show(
+                        $"No more room for this PO in Door {doorNumber} to offload to — should the dock stocker use Staging Lane {farName} instead?",
+                        onYes: () => { approved = true; decided = true; },
+                        onNo:  () => { decided = true; });
+                    while (!decided) yield return null;
+
+                    if (approved)
+                    {
+                        // Re-resolve AND reserve atomically (no yield between them) — the preview above
+                        // yielded across the confirmation wait, so another dock stocker could have taken
+                        // the slot in the meantime. If it's gone now, fall through to drop-on-floor below
+                        // rather than driving to a target that no longer exists.
+                        if (TryFindLaneTargetAnywhere(inv, queue, doorPos, out farDoor, out farLane, out farCell, out farTier, reserve: true))
+                        {
+                            LaneEntryGeometry(LaneNamingService.GetLane(farDoor, farLane), doorPos, out Vector3 farEntryW, out Vector3 farDownLane);
+                            Vector3 farEntryPivot = new Vector3(farEntryW.x, ds.position.y, farEntryW.z) - farDownLane * PivotFrontDistance;
+
+                            bool arrived = false;
+                            yield return SeekViaNavMesh(ds, nav, agent, farEntryPivot, $"cross-door offload → {farName}", r => arrived = r);
+
+                            if (arrived)
+                            {
+                                door = farDoor; laneLetter = farLane; cell = farCell; tier = farTier;
+                                crossDoorLeg = true;
+                            }
+                            else
+                            {
+                                // Couldn't actually get there — release the reservation we just took so
+                                // it doesn't sit dead, then fall through to drop-on-floor below.
+                                _pendingDrops.TryGetValue(farCell, out int p);
+                                if (p > 0) { _pendingDrops[farCell] = p - 1; if (_pendingDrops[farCell] <= 0) _pendingDrops.Remove(farCell); }
+                                Debug.LogWarning($"[TrailerOffload] Approved cross-door move to {farName} but the dock stocker couldn't path there — dropping pallet where it stands instead.");
+                            }
+                        }
+                    }
+                }
+
+                if (!crossDoorLeg && string.IsNullOrEmpty(laneLetter))
+                {
+                    Debug.LogWarning($"[TrailerOffload] No free Inbound/Both staging-lane slot anywhere in the building — dropping pallet where the DS stands.");
+                    DropPallet(pallet, ds.position, LaneSurfaceY, palletWorldScale, ds.rotation);
+
+                    // CRITICAL: Even if it's not in a lane, it must be registered to the inventory service
+                    // so the Receiver can find it, and it must have a CurrentLocation (even if it's (0,0) or stand-still).
+                    // We use (0,0) as the "no slot" fallback.
+                    RegisterAndQueue(inv, truck, Vector2Int.zero, pallet, ds.rotation, palletIndex);
+                    yield break;
+                }
             }
 
             // Lane geometry: the ENTRY is the lane end nearest the dock DOOR (dock-stocker side); the
@@ -350,6 +411,16 @@ namespace GameCore.Labor
 
             try
             {
+                // Guard: the wait above (and the confirmation modal further up) can span many frames.
+                // If the pallet was destroyed out from under this coroutine in the meantime (e.g. a
+                // save/load restore recreating carried pallets — see CarriedPalletSnapshot), bail out
+                // here instead of driving on with a stale reference and crashing later in DropPallet.
+                if (pallet == null)
+                {
+                    Debug.LogWarning("[TrailerOffload] Carried pallet was destroyed while waiting for lane entry — aborting this offload run.");
+                    yield break;
+                }
+
                 // 9. Spin IN PLACE at the lane entry so the forks (and the carried pallet) face straight
                 //    down the lane at the slot we're driving into — forks FIRST.
                 yield return FaceForks(ds, downLane);
@@ -426,6 +497,16 @@ namespace GameCore.Labor
                 {
                     float seatLocalY = forks.localPosition.y + (dropBaseY - pallet.position.y);
                     yield return LiftForks(forks, seatLocalY, StackSeatLowerSpeed);
+                }
+
+                // Final guard before unparenting/positioning — the seat-lower lift above is itself a
+                // multi-frame yield. If the pallet vanished mid-descent, DropPallet's own null-check
+                // will also catch it, but bailing here also skips the now-meaningless height record
+                // and diagnostic log below.
+                if (pallet == null)
+                {
+                    Debug.LogWarning("[TrailerOffload] Carried pallet was destroyed while seating onto the stack — aborting this offload run.");
+                    yield break;
                 }
 
                 DropPallet(pallet, targetW, dropBaseY, palletWorldScale, rotatedPlacement);
@@ -676,6 +757,18 @@ namespace GameCore.Labor
 
         private void DropPallet(Transform pallet, Vector3 laneWorld, float baseY, Vector3 worldScale, Quaternion rotation)
         {
+            // Defense-in-depth: the coroutine that calls this can sit across many yields (driving,
+            // lane-entry waits, confirmation modals) between the last time `pallet` was known-good and
+            // this call. If something else destroyed it in the meantime (e.g. a save/load restore that
+            // recreated carried pallets — see CarriedPalletSnapshot's note on this exact window), `pallet`
+            // is a "fake null" Unity Object: still non-null in C# terms but with its native side gone, so
+            // any member access throws MissingReferenceException. Bail out cleanly instead of crashing.
+            if (pallet == null)
+            {
+                Debug.LogWarning("[TrailerOffload] DropPallet called with a pallet that was already destroyed — skipping.");
+                return;
+            }
+
             pallet.SetParent(null, worldPositionStays: true);
 
             // baseY is precomputed by ComputeDropBaseY (self-excluded, authoritative). Just place the
@@ -772,61 +865,240 @@ namespace GameCore.Labor
             {
                 if (doorNumber > 0 && d != doorNumber) continue; // only this truck's dock-door lanes
                 if (!inv.LaneAcceptsPutaway(d, lane)) continue;  // Inbound or Both only
+                if (!TryFindSlotInLane(inv, queue, d, lane, doorPos, out var chosenCell, out int chosenTier)) continue;
 
-                int maxH = LaneConfigRegistry.Get(d, lane).MaxStackHeight;
-                var slots = LaneNamingService.GetLane(d, lane);
-                if (slots.Count == 0) continue;
-
-                // Order ENTRY→FAR: entry = the end nearest the dock door (where the DS drives in).
-                var entryToFar = slots.OrderBy(s => (_grid.GetCellCenter(s.Cell) - doorPos).sqrMagnitude).ToList();
-
-                int chosenIndex = -1;
-                int chosenTier  = 0;
-                for (int idx = 0; idx < entryToFar.Count; idx++)
-                {
-                    var s = entryToFar[idx];
-                    var slotPallets = inv.GetPalletsAtLocation(s.Cell);
-                    int stacked = slotPallets.Count;
-                    int pending = _pendingDrops.TryGetValue(s.Cell, out int p) ? p : 0;
-                    int count   = stacked + pending;
-
-                    if (count == 0)
-                    {
-                        // Empty and reachable — remember it as the deepest reachable slot, keep going.
-                        chosenIndex = idx; chosenTier = 0;
-                        continue;
-                    }
-
-                    // Occupied slot: the DS cannot drive PAST it. It's the frontier. Room on top alone
-                    // isn't enough to stack here — a Reach Truck Operator locks in its Putaway target
-                    // (this cell's current top pallet) the instant it claims the task, but doesn't
-                    // physically remove it / update InventoryService until several seconds later after
-                    // the drive/grab animation. Stacking a new pallet on top during that window leaves it
-                    // floating in mid-air the moment the RTO drives off with the one underneath it — so
-                    // skip stacking (treat this slot as unusable, same as "full") whenever the current
-                    // top pallet already has an Assigned Putaway task in flight.
-                    bool topInFlight = stacked > 0 && IsPutawayInFlight(queue, slotPallets[stacked - 1].PalletId);
-                    if (count < maxH && !topInFlight)
-                    {
-                        // Room on top — stack HERE (this is the "one more on top" case).
-                        chosenIndex = idx; chosenTier = count;
-                    }
-                    // Full, partial-but-in-flight, or otherwise blocked — we can't go deeper. Stop.
-                    break;
-                }
-
-                if (chosenIndex >= 0)
-                {
-                    var chosen = entryToFar[chosenIndex];
-                    door = d; laneLetter = lane; cell = chosen.Cell; tier = chosenTier;
-
-                    // Reserve the slot immediately so other stockers don't target it.
-                    int pv = _pendingDrops.TryGetValue(cell, out int existing) ? existing : 0;
-                    _pendingDrops[cell] = pv + 1;
-                    return true;
-                }
+                door = d; laneLetter = lane; cell = chosenCell; tier = chosenTier;
+                // Reserve the slot immediately so other stockers don't target it.
+                int pv = _pendingDrops.TryGetValue(cell, out int existing) ? existing : 0;
+                _pendingDrops[cell] = pv + 1;
+                return true;
             }
             return false;
+        }
+
+        /// <summary>Widened fallback for when doorNumber's own lanes are completely full: searches
+        /// EVERY lane in the building (any door, any standalone Zone — see ZoneRegistry/LaneSetupUI's
+        /// Standalone Zone toggle), picking whichever has room AND is nearest doorPos, so the detour
+        /// is as short as possible. `reserve:false` previews the best candidate without claiming it
+        /// (for the confirmation prompt); call again with `reserve:true`, with NO yield in between, to
+        /// actually claim it — same atomicity TryFindLaneTarget's own single-call reservation relies
+        /// on, since another dock stocker's poll could otherwise interleave and take the same slot.</summary>
+        private bool TryFindLaneTargetAnywhere(InventoryService inv, WorkQueueSystem queue, Vector3 doorPos,
+                                               out int door, out string laneLetter, out Vector2Int cell, out int tier,
+                                               bool reserve)
+        {
+            door = 0; laneLetter = null; cell = default; tier = 0;
+            float bestDistSqr = float.MaxValue;
+
+            foreach (var (d, lane) in LaneNamingService.AllLanes())
+            {
+                if (!inv.LaneAcceptsPutaway(d, lane)) continue;
+                if (!TryFindSlotInLane(inv, queue, d, lane, doorPos, out var candCell, out int candTier)) continue;
+
+                float distSqr = (_grid.GetCellCenter(candCell) - doorPos).sqrMagnitude;
+                if (distSqr >= bestDistSqr) continue;
+
+                bestDistSqr = distSqr;
+                door = d; laneLetter = lane; cell = candCell; tier = candTier;
+            }
+
+            if (laneLetter == null) return false;
+
+            if (reserve)
+            {
+                int pv = _pendingDrops.TryGetValue(cell, out int existing) ? existing : 0;
+                _pendingDrops[cell] = pv + 1;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Open-floor travel leg for the CROSS-DOOR/Zone fallback only — drives ds via its own (normally
+        /// commandeered-off) AiNavigation/NavMeshAgent to a point, then hands control straight back so
+        /// the caller can resume scripted choreography. Ported from ReachTruckOperator.SeekViaNavMesh,
+        /// which is the proven, hardened version of this exact "walk an MHE unit to a point" pattern —
+        /// every piece of hardening here was earned there (see reachtruck-hybrid-navmesh-seekposition
+        /// and putaway-reachtruck-livelock-fix in project memory) and is reproduced deliberately rather
+        /// than simplified, since a trimmed version would likely rediscover the same failure modes
+        /// (silent 30s timeout on a never-issued destination, AiNavigation's own waypoint-progression
+        /// fallback hijacking the destination near arrival, a NavMesh rebake knocking the agent off
+        /// mid-leg). nav/agent are re-enabled for the duration of this call and disabled again before
+        /// returning — this is the DS's equivalent of ReachTruckOperator's SetDriveMode chokepoint,
+        /// just without a formal enum since this controller only ever needs the two states inline here.
+        /// </summary>
+        private IEnumerator SeekViaNavMesh(Transform ds, AiNavigation nav, NavMeshAgent agent, Vector3 target,
+                                           string phase, System.Action<bool> onDone)
+        {
+            if (nav == null || agent == null)
+            {
+                Debug.LogError($"[TrailerOffload] '{ds.name}' {phase}: no AiNavigation/NavMeshAgent on this dock stocker — cannot do an AI travel leg.");
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            agent.enabled = true;
+            nav.enabled = true;
+
+            // ── Wait for the agent to register with the NavMesh (load-bearing) ──
+            const float MaxRegisterWait = 1f;
+            float registerWaited = 0f;
+            while (!agent.isOnNavMesh && registerWaited < MaxRegisterWait)
+            {
+                agent.Warp(ds.position);
+                registerWaited += Time.deltaTime;
+                yield return null;
+            }
+
+            if (!agent.isOnNavMesh)
+            {
+                Debug.LogError($"[TrailerOffload] '{ds.name}' {phase}: agent could not register on the NavMesh " +
+                    $"at {ds.position} after {registerWaited:F2}s. No AI leg possible — aborting.");
+                nav.SetTaskBusy(false);
+                agent.enabled = false;
+                nav.enabled = false;
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            // ── Flatten the target to drive height, then snap to real navmesh (load-bearing) ──
+            Vector3 driveTarget = new Vector3(target.x, ds.position.y, target.z);
+            if (NavMesh.SamplePosition(driveTarget, out var groundHit, 4f, agent.areaMask))
+                driveTarget = groundHit.position;
+            else
+                Debug.LogWarning($"[TrailerOffload] '{ds.name}' {phase}: no navmesh within 4m of the " +
+                    $"floor-projected target {driveTarget} (anchor was {target}) — pathing to it raw.");
+
+            nav.CancelSeekPosition();
+            agent.Warp(ds.position);
+
+            // ── Claim the agent for this leg (load-bearing) — see AiNavigation's own waypoint-
+            // progression fallback / SetTaskBusy doc for why this guards against a destination hijack
+            // near arrival.
+            nav.SetTaskBusy(true);
+
+            bool arrived = false;
+            nav.SeekPosition(driveTarget, () => arrived = true);
+
+            yield return null;
+            if (!arrived && !agent.pathPending && !agent.hasPath)
+            {
+                Debug.LogError($"[TrailerOffload] '{ds.name}' {phase}: destination did not take — " +
+                    $"no path and none pending for driveTarget={driveTarget} (anchor={target}, " +
+                    $"from={ds.position}, onMesh={agent.isOnNavMesh}). Aborting leg immediately.");
+                nav.CancelSeekPosition();
+                nav.SetTaskBusy(false);
+                agent.enabled = false;
+                nav.enabled = false;
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            // ── Resilient wait — survives a NavMesh rebake mid-leg (load-bearing) ──
+            float elapsed = 0f;
+            float sinceRecheck = 0f;
+            int reissues = 0;
+            const float MaxSeekTime = 30f;
+            const float RecheckInterval = 0.5f;
+            const int MaxReissues = 10;
+
+            while (!arrived && nav.IsSeekingTask && elapsed < MaxSeekTime)
+            {
+                elapsed += Time.deltaTime;
+                sinceRecheck += Time.deltaTime;
+
+                if (sinceRecheck >= RecheckInterval)
+                {
+                    sinceRecheck = 0f;
+
+                    if (!agent.isOnNavMesh)
+                    {
+                        agent.Warp(ds.position);
+                    }
+                    else if (!agent.pathPending && !agent.hasPath && reissues < MaxReissues)
+                    {
+                        reissues++;
+                        Debug.LogWarning($"[TrailerOffload] '{ds.name}' {phase}: path lost mid-leg " +
+                            $"(likely a NavMesh rebake) — re-issuing destination (attempt {reissues}/{MaxReissues}).");
+                        nav.CancelSeekPosition();
+                        nav.SeekPosition(driveTarget, () => arrived = true);
+                    }
+                }
+
+                yield return null;
+            }
+
+            nav.SetTaskBusy(false);
+            agent.enabled = false;
+            nav.enabled = false;
+
+            if (!arrived)
+            {
+                Debug.LogError($"[TrailerOffload] '{ds.name}' {phase}: NO NAVMESH PATH. " +
+                    $"anchor={target} → driveTarget={driveTarget}, from={ds.position}, " +
+                    $"elapsed={elapsed:F1}s, timedOut={elapsed >= MaxSeekTime}, " +
+                    $"agentOnMesh={agent.isOnNavMesh}, pathStatus={(agent.isOnNavMesh ? agent.pathStatus.ToString() : "n/a")}. " +
+                    $"Refusing to straight-line through obstacles — aborting this leg.");
+            }
+
+            onDone?.Invoke(arrived);
+        }
+
+        /// <summary>The entry-to-far scan shared by TryFindLaneTarget (same-door, first-lane-wins) and
+        /// TryFindLaneTargetAnywhere (any lane, nearest-wins): walk one lane from its dock-door end
+        /// outward and return the deepest reachable slot with room, per the physical constraint that
+        /// the DS enters from one end and cannot drive through an occupied slot. Does NOT reserve —
+        /// callers decide when/whether to commit via _pendingDrops.</summary>
+        private bool TryFindSlotInLane(InventoryService inv, WorkQueueSystem queue, int d, string lane, Vector3 refPos,
+                                       out Vector2Int cell, out int tier)
+        {
+            cell = default; tier = 0;
+
+            int maxH = LaneConfigRegistry.Get(d, lane).MaxStackHeight;
+            var slots = LaneNamingService.GetLane(d, lane);
+            if (slots.Count == 0) return false;
+
+            // Order ENTRY→FAR: entry = the end nearest refPos (where the DS drives in).
+            var entryToFar = slots.OrderBy(s => (_grid.GetCellCenter(s.Cell) - refPos).sqrMagnitude).ToList();
+
+            int chosenIndex = -1;
+            int chosenTier  = 0;
+            for (int idx = 0; idx < entryToFar.Count; idx++)
+            {
+                var s = entryToFar[idx];
+                var slotPallets = inv.GetPalletsAtLocation(s.Cell);
+                int stacked = slotPallets.Count;
+                int pending = _pendingDrops.TryGetValue(s.Cell, out int p) ? p : 0;
+                int count   = stacked + pending;
+
+                if (count == 0)
+                {
+                    // Empty and reachable — remember it as the deepest reachable slot, keep going.
+                    chosenIndex = idx; chosenTier = 0;
+                    continue;
+                }
+
+                // Occupied slot: the DS cannot drive PAST it. It's the frontier. Room on top alone
+                // isn't enough to stack here — a Reach Truck Operator locks in its Putaway target
+                // (this cell's current top pallet) the instant it claims the task, but doesn't
+                // physically remove it / update InventoryService until several seconds later after
+                // the drive/grab animation. Stacking a new pallet on top during that window leaves it
+                // floating in mid-air the moment the RTO drives off with the one underneath it — so
+                // skip stacking (treat this slot as unusable, same as "full") whenever the current
+                // top pallet already has an Assigned Putaway task in flight.
+                bool topInFlight = stacked > 0 && IsPutawayInFlight(queue, slotPallets[stacked - 1].PalletId);
+                if (count < maxH && !topInFlight)
+                {
+                    // Room on top — stack HERE (this is the "one more on top" case).
+                    chosenIndex = idx; chosenTier = count;
+                }
+                // Full, partial-but-in-flight, or otherwise blocked — we can't go deeper. Stop.
+                break;
+            }
+
+            if (chosenIndex < 0) return false;
+            cell = entryToFar[chosenIndex].Cell;
+            tier = chosenTier;
+            return true;
         }
 
         // True if a Putaway task for this pallet is currently claimed (Assigned) by a Reach Truck

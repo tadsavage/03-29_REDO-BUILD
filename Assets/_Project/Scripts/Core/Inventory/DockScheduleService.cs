@@ -73,6 +73,21 @@ namespace GameCore.Inventory
         public bool Parked;
 
         /// <summary>
+        /// This block's time has been swept past by DockScheduleService.SweepElapsedAppointments — its
+        /// window has closed, so it no longer holds real dock capacity (GetBlock excludes it by default,
+        /// the same way it excludes Parked). It's kept in the list rather than deleted so the Scheduler
+        /// grid can still show it sitting in the block it happened in, instead of the slot just going
+        /// blank once the clock passes it.
+        ///
+        /// This flag only ever means "capacity is free" — it says nothing about whether the trailer's
+        /// work actually succeeded. Whether a closed-out chip reads as finished (a normal strike) or
+        /// missed (a red one) is decided at render time by IsComplete, which is computed independently
+        /// from live state and takes priority: a PO that came in fine before its block elapsed is
+        /// ClosedOut AND IsComplete, and renders as finished, not missed.
+        /// </summary>
+        public bool ClosedOut;
+
+        /// <summary>
         /// This trailer has already cost its customer satisfaction for sitting outside their requested
         /// hour. One offence per trailer, not one per click.
         ///
@@ -162,6 +177,10 @@ namespace GameCore.Inventory
         /// <summary>0 in a save written before off-slot distance was measured. Read as "no baseline
         /// recorded", which costs nothing — the forgiving default, matching offSlotPenaltyApplied.</summary>
         public int requestedDay;
+        /// <summary>False in a save written before ClosedOut existed — the forgiving default, same
+        /// reasoning as parked/offSlotPenaltyApplied. Worst case an old save's already-elapsed
+        /// appointments get re-swept (and re-closed) the next time SweepElapsedAppointments runs.</summary>
+        public bool closedOut;
     }
 
     /// <summary>
@@ -314,9 +333,13 @@ namespace GameCore.Inventory
 
         /// <summary>Trailers standing at a door in this block. PARKED trailers are excluded — a parked
         /// appointment is in the pool, not at a door, so it must not appear in the grid, block a door
-        /// another trailer could use, or count against capacity.</summary>
-        public IEnumerable<DockAppointment> GetBlock(int day, int blockIndex)
-            => _appointments.Where(a => !a.Parked && a.Day == day && a.BlockIndex == blockIndex)
+        /// another trailer could use, or count against capacity. CLOSED-OUT trailers (their block has
+        /// already been swept — see DockAppointment.ClosedOut) are excluded the same way by default,
+        /// since their window is over and the door is free again; pass includeClosedOut:true to also
+        /// get them back for DISPLAY purposes, which is all the Scheduler grid wants them for.</summary>
+        public IEnumerable<DockAppointment> GetBlock(int day, int blockIndex, bool includeClosedOut = false)
+            => _appointments.Where(a => !a.Parked && (includeClosedOut || !a.ClosedOut) &&
+                                        a.Day == day && a.BlockIndex == blockIndex)
                             .OrderBy(a => a.DoorNumber);
 
         public bool HasRoom(int day, int blockIndex) => GetBlock(day, blockIndex).Count() < CapacityPerBlock;
@@ -1300,12 +1323,18 @@ namespace GameCore.Inventory
                                       && a.Day < today);
 
             var elapsed = _appointments
-                .Where(a => a.Kind != AppointmentKind.Inbound &&
+                .Where(a => (a.Kind != AppointmentKind.Inbound || !string.IsNullOrEmpty(a.ShipmentPoNumber)) &&
                             (a.Day < today || (a.Day == today && a.BlockIndex < nowBlock)))
                 .ToList();
 
             foreach (var appt in elapsed)
             {
+                if (appt.Kind == AppointmentKind.Inbound)
+                {
+                    JudgeElapsedInboundAppointment(appt);
+                    continue;
+                }
+
                 var apptOrders = orderService.ActiveOrders
                     .Where(o => o != null && appt.OrderIds.Contains(o.OrderId))
                     .ToList();
@@ -1332,12 +1361,69 @@ namespace GameCore.Inventory
 
                 if (!startedLoading)
                 {
-                    string who = appt.CustomerName;
-                    _appointments.Remove(appt);
-                    Debug.LogWarning($"[DockSchedule] {who}'s {BlockLabel(appt.BlockIndex)} slot on day {appt.Day} " +
-                                     $"elapsed with nothing loaded — released back to the unscheduled pool.");
+                    appt.ClosedOut = true;
+                    Debug.LogWarning($"[DockSchedule] {appt.CustomerName}'s {BlockLabel(appt.BlockIndex)} slot on " +
+                                     $"day {appt.Day} elapsed with nothing loaded — door freed for rebooking, kept " +
+                                     "on the grid struck through as missed.");
                 }
             }
+        }
+
+        /// <summary>
+        /// The inbound-PO half of SweepElapsedAppointments — split out because its judgment is by
+        /// SHIPMENT STATUS rather than order status, and because "whose fault was it" actually matters
+        /// here in a way it doesn't for outbound (a customer order fined for lateness is late
+        /// regardless of why; an inbound PO's block can elapse for a reason that's on the vendor, or
+        /// one that's on the player, and only one of those should cost the vendor relationship
+        /// anything):
+        ///
+        ///   InTransit   the truck never turned up at all inside its promised window — that's on the
+        ///               VENDOR, not the player, and is judged exactly like ShipmentService.
+        ///               HandleNoAvailableDoor's "driver turned around" case (same -20 Partnership
+        ///               penalty, same toast style) since both are "this delivery didn't happen when
+        ///               it was supposed to, through no fault of the receiving dock". The appointment
+        ///               is released — same direct removal the outbound branch above uses, not
+        ///               TryPark, since TryPark's own IsLocked check refuses to park anything whose
+        ///               block has already passed.
+        ///   Receiving   the truck DID arrive and IS being worked — the player's own dock just didn't
+        ///               finish in time. Left alone entirely, mirroring the outbound branch's
+        ///               "already loading" exception: pulling the door out from under a live unload
+        ///               would desync whatever's mid-coroutine against it, and it isn't the vendor's
+        ///               fault regardless.
+        ///   Received/Departed/Cancelled/Delayed/not found   already resolved one way or another
+        ///               (IsComplete would already call these done, or ShipmentService's own retry/
+        ///               delay handling owns them) — just release the stale slot, no extra penalty.
+        /// </summary>
+        private void JudgeElapsedInboundAppointment(DockAppointment appt)
+        {
+            if (!ServiceLocator.TryGet(out ShipmentService shipments) || shipments == null)
+            {
+                appt.ClosedOut = true;
+                return;
+            }
+
+            ShipmentData po = null;
+            foreach (var s in shipments.PendingShipments)
+                if (s != null && s.PONumber == appt.ShipmentPoNumber) { po = s; break; }
+
+            // Truck is physically at the door working right now — let it finish, don't touch the slot.
+            if (po != null && po.Status == ShipmentData.ShipmentStatus.Receiving)
+                return;
+
+            if (po != null && po.Status == ShipmentData.ShipmentStatus.InTransit &&
+                ServiceLocator.TryGet(out VendorEconomyService economy) && economy != null &&
+                !string.IsNullOrEmpty(po.SupplierId))
+            {
+                economy.AdjustPartnershipLevel(po.SupplierId, -20,
+                    $"PO {po.PONumber}'s {BlockLabel(appt.BlockIndex)} slot on day {appt.Day} elapsed — driver never showed");
+                UIToast.Show($"PO {po.PONumber} never showed up for its {BlockLabel(appt.BlockIndex)} slot — " +
+                             "releasing the door and dinging the vendor relationship.");
+            }
+
+            appt.ClosedOut = true;
+            Debug.LogWarning($"[DockSchedule] Door {appt.DoorNumber}'s {BlockLabel(appt.BlockIndex)} slot on day " +
+                             $"{appt.Day} elapsed for PO {appt.ShipmentPoNumber} (status={po?.Status.ToString() ?? "not found"}) — " +
+                             "door freed for rebooking, kept on the grid (IsComplete decides finished vs missed).");
         }
 
         // ── Persistence ──────────────────────────────────────────────────────
@@ -1355,7 +1441,8 @@ namespace GameCore.Inventory
             orderIds = new List<string>(a.OrderIds),
             parked = a.Parked,
             shipmentPoNumber = a.ShipmentPoNumber,
-            offSlotPenaltyApplied = a.OffSlotPenaltyApplied
+            offSlotPenaltyApplied = a.OffSlotPenaltyApplied,
+            closedOut = a.ClosedOut
         }).ToList();
 
         public void Import(List<DockAppointmentSnapshot> entries)
@@ -1380,7 +1467,8 @@ namespace GameCore.Inventory
                     Parked = s.parked,
                     ShipmentPoNumber = s.shipmentPoNumber,
                     RequestedDay = s.requestedDay,
-                    OffSlotPenaltyApplied = s.offSlotPenaltyApplied
+                    OffSlotPenaltyApplied = s.offSlotPenaltyApplied,
+                    ClosedOut = s.closedOut
                 });
             }
 

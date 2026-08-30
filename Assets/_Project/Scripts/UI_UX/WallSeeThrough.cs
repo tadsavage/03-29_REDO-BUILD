@@ -66,7 +66,7 @@ public class WallSeeThrough : MonoBehaviour
              "looks like the building is missing pieces. Measured to the nearest point on the wall, not " +
              "its centre, so long wall runs behave the same along their whole length. Raise it very high " +
              "to disable this rule.")]
-    [SerializeField] private float solidWhenCameraFartherThan = 20f;
+    [SerializeField] private float solidWhenCameraFartherThan = 5f;
 
     private FreeLookCamera _camera;
     private PlacementGrid _grid;

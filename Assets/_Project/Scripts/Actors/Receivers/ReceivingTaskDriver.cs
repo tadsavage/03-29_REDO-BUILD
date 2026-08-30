@@ -84,13 +84,17 @@ namespace GameCore.Actors
             if (agent != null) _agentAreaMask = agent.areaMask;
 
             _workflow.OnWorkflowComplete += HandleWorkflowComplete;
+            _workflow.OnWorkflowCancelled += HandleWorkflowCancelled;
             ServiceLocator.TryGet(out _workQueue);
         }
 
         private void OnDestroy()
         {
             if (_workflow != null)
+            {
                 _workflow.OnWorkflowComplete -= HandleWorkflowComplete;
+                _workflow.OnWorkflowCancelled -= HandleWorkflowCancelled;
+            }
 
             // A receiver who is fired, or wiped by a scene clear, must not take her claim with her.
             // Without this the task stays Assigned to an employee who no longer exists — unclaimable
@@ -356,6 +360,22 @@ namespace GameCore.Actors
             // Resume the normal patrol loop between tasks — the next Update() tick will immediately
             // start polling for the next Receive task again.
             _nav?.Patrol();
+        }
+
+        /// <summary>Fired when ReceiverReceivingWorkflow aborts because the employee is too far from
+        /// the pallet (either the arrival callback fired early, or something knocked them out of range
+        /// mid-animation). Unlike HandleWorkflowComplete, the task was never actually finished, so it
+        /// goes back to the queue (same recovery shape as the deadlock watchdog above) instead of being
+        /// dropped — walking away and resuming patrol/polling switches the visible animation back to
+        /// normal movement immediately, since AiNavigation drives it from here on.</summary>
+        private void HandleWorkflowCancelled()
+        {
+            Debug.LogWarning($"[ReceivingTaskDriver] {name}: receive workflow cancelled (out of range) — releasing the task and resuming patrol.");
+            ReleaseClaimedTask("employee strayed outside receiving range");
+            _taskInProgress = false;
+            _holdingNearDock = false;
+            _nav.SetTaskBusy(false);
+            _nav.Patrol();
         }
 
         /// <summary>True if a dock stocker is still (or about to be) unloading a truck, or a Receive

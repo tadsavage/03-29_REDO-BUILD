@@ -154,6 +154,11 @@ namespace GameCore.Inventory
                 // dropdown while most of their lanes were empty. Per-lane is both less blunt and more
                 // correct: overflow simply never targets an occupied lane.
                 .Where(l => !LaneHasInboundStock(inv, l.door, l.lane))
+                // Also skip a lane the dock stocker has already committed to but not yet physically
+                // dropped into (GameCore.Labor.TrailerOffloadController._pendingDrops) — without this
+                // there's a race window between "DS chose this lane" and "pallet lands" where an
+                // outbound release could land in the same lane the DS is mid-insertion into.
+                .Where(l => !GameCore.Labor.TrailerOffloadController.IsLanePendingInbound(l.door, l.lane))
                 .Select(l => l.lane)
                 .OrderBy(l => l)
                 .ToList();

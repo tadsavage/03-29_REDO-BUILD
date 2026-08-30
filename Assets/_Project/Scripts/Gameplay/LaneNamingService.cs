@@ -100,7 +100,42 @@ public class LaneNamingService : MonoBehaviour
         return t != null ? t.GetComponent<TMP_Text>() : null;
     }
 
-    private struct Tile { public PlacedObject po; public TMP_Text label; public Vector3 pos; public Vector2Int cell; }
+    private struct Tile { public PlacedObject po; public TMP_Text label; public Vector3 pos; public Vector2Int cell; public string zoneTag; }
+
+    // Zone tag stored in a lane tile's PlacedObject.customData, alongside (and distinct from) the
+    // plain-int door-owner format OwnerNumber reads — a tile carrying this never gets door-claimed
+    // by ChooseDoorForNewTile below, since int.TryParse on "ZONE:name" always fails, which correctly
+    // routes it through the same unowned-tile path... except that path WOULD normally then hand it a
+    // door via nearest-door fallback. See Recompute(): zone tiles are still grouped/lettered under
+    // whichever door they resolve to geometrically (reusing that pass's depth-axis/lettering, which
+    // needs SOME directional reference), but their published IDENTITY (name, LaneSlot.DoorNumber,
+    // LaneGeometry key) is overridden to the zone afterward — geometry and identity are deliberately
+    // decoupled so a zone lane doesn't need its own from-scratch axis-detection logic.
+    private const string ZoneTagPrefix = "ZONE:";
+
+    private static bool TryReadZoneTag(PlacedObject po, out string zoneName)
+    {
+        zoneName = null;
+        if (po == null || string.IsNullOrEmpty(po.customData) || !po.customData.StartsWith(ZoneTagPrefix)) return false;
+        zoneName = po.customData.Substring(ZoneTagPrefix.Length);
+        return !string.IsNullOrEmpty(zoneName);
+    }
+
+    /// <summary>Tags (or un-tags, passing null/empty) every tile of one lane as belonging to a
+    /// standalone Zone instead of its geometrically-nearest door. Called by LaneSetupUI. Forces an
+    /// immediate Recompute so the change is visible without waiting on the 1s heartbeat.</summary>
+    public static void SetZoneTag(int doorNumber, string lane, string zoneNameOrNull)
+    {
+        string tag = string.IsNullOrWhiteSpace(zoneNameOrNull) ? null : ZoneTagPrefix + zoneNameOrNull.Trim();
+        var cells = new HashSet<Vector2Int>(GetLane(doorNumber, lane).ConvertAll(s => s.Cell));
+        foreach (var po in PlacedObjectRegistry.All)
+        {
+            if (po == null || !cells.Contains(new Vector2Int(po.gridX, po.gridY))) continue;
+            if (FindLaneLabel(po.gameObject) == null) continue; // only actual lane tiles
+            po.customData = tag ?? string.Empty;
+        }
+        _instance?.Recompute();
+    }
 
     /// <summary>
     /// The addressable "spot" a lane tile represents: door number + lane letter + slot index, where
@@ -114,7 +149,10 @@ public class LaneNamingService : MonoBehaviour
         public string Lane;    // "A", "B", …
         public int Slot;       // 1-based, counted out from the door
         public Vector2Int Cell;
-        public string Name => $"{DoorNumber}{Lane}-{Slot}";
+
+        /// <summary>Negative DoorNumber = a standalone Zone lane (see ZoneRegistry), so the display
+        /// name uses the zone's name instead of the raw pseudo-door id.</summary>
+        public string Name => $"{ZoneRegistry.DisplayPrefix(DoorNumber)}{Lane}-{Slot}";
     }
 
     // ── Lane Geometry ─────────────────────────────────────────────────────────────────────────────
@@ -185,8 +223,13 @@ public class LaneNamingService : MonoBehaviour
         => _worldPosByCell.TryGetValue(cell, out worldPos);
 
     /// <summary>
-    /// Parses a lane slot address of the form "{digits}{letters}-{digits}" (e.g. "1C-3")
-    /// into its components. Returns false if the string doesn't match the expected format.
+    /// Parses a lane slot address into its components. Two shapes:
+    ///   • Door lane: "{digits}{letters}-{digits}" (e.g. "1C-3") — door number, lane letter, slot.
+    ///   • Zone lane: "{zoneName}-{letters}-{digits}" (e.g. "QA-A-3") — a zone has no numeric prefix
+    ///     to split on, so it carries an extra dash between its name and lane letter instead. The
+    ///     zone name must already be registered (see ZoneRegistry) — an unrecognized name fails
+    ///     rather than silently minting a new zone from parsed text.
+    /// Returns false if the string doesn't match either format.
     /// </summary>
     public static bool TryParseLaneAddress(string address,
         out int    doorNumber,
@@ -199,12 +242,25 @@ public class LaneNamingService : MonoBehaviour
 
         if (string.IsNullOrEmpty(address)) return false;
 
-        int dash = address.IndexOf('-');
-        if (dash < 0) return false;
+        // Split on the LAST dash for the slot number — a door address has exactly one dash total
+        // ("1C-3"), so this is identical to splitting on the first; a zone address has two ("QA-A-3")
+        // and this correctly isolates the trailing slot digits either way.
+        int lastDash = address.LastIndexOf('-');
+        if (lastDash < 0) return false;
+        if (!int.TryParse(address.Substring(lastDash + 1), out slotNumber)) return false;
 
-        string prefix = address.Substring(0, dash);
+        string prefix = address.Substring(0, lastDash);
 
-        // Identify boundary between leading digits (door) and trailing letters (lane).
+        int zoneDash = prefix.LastIndexOf('-');
+        if (zoneDash >= 0)
+        {
+            // Zone shape: "{zoneName}-{letters}".
+            string zoneName = prefix.Substring(0, zoneDash);
+            laneLetter = prefix.Substring(zoneDash + 1);
+            return ZoneRegistry.TryGetPseudoDoor(zoneName, out doorNumber);
+        }
+
+        // Door shape: identify the boundary between leading digits (door) and trailing letters (lane).
         int numEnd = 0;
         while (numEnd < prefix.Length && char.IsDigit(prefix[numEnd])) numEnd++;
 
@@ -212,8 +268,7 @@ public class LaneNamingService : MonoBehaviour
 
         if (!int.TryParse(prefix.Substring(0, numEnd), out doorNumber)) return false;
         laneLetter = prefix.Substring(numEnd); // might be empty string, which is fine
-
-        return int.TryParse(address.Substring(dash + 1), out slotNumber);
+        return true;
     }
 
     // Depth (units out from the dock wall) that a lane may extend and still "belong" to a door. Used
@@ -254,13 +309,17 @@ public class LaneNamingService : MonoBehaviour
             if (po == null || !po.gameObject.activeInHierarchy) continue;
             var label = FindLaneLabel(po.gameObject);
             if (label != null)
+            {
+                TryReadZoneTag(po, out string zoneTag);
                 tiles.Add(new Tile
                 {
                     po = po,
                     label = label,
                     pos = po.transform.position,
-                    cell = new Vector2Int(po.gridX, po.gridY)
+                    cell = new Vector2Int(po.gridX, po.gridY),
+                    zoneTag = zoneTag
                 });
+            }
         }
         if (tiles.Count == 0) return;
 
@@ -282,6 +341,11 @@ public class LaneNamingService : MonoBehaviour
         foreach (var t in tiles)
         {
             int owner = OwnerNumber(t.po);
+            // Zone-tagged tiles never get a persisted door owner (writing one via SetOwner would
+            // clobber the tag) — they still need a GEOMETRY-ONLY door reference below (adjacency /
+            // nearest-door) purely to borrow that pass's depth-axis/lettering convention, so they go
+            // through the same unowned-tile resolution but skip every SetOwner call along the way.
+            if (!string.IsNullOrEmpty(t.zoneTag)) { unassigned.Add(t); continue; }
             if (owner > 0 && doorByNumber.ContainsKey(owner)) ownerByCell[t.cell] = owner; // (a)
             else unassigned.Add(t);
         }
@@ -296,7 +360,7 @@ public class LaneNamingService : MonoBehaviour
                 var t = unassigned[i];
                 if (!TryGetAdjacentOwner(ownerByCell, t.cell, out int adjOwner)) continue;
                 ownerByCell[t.cell] = adjOwner;
-                SetOwner(t.po, adjOwner);
+                if (string.IsNullOrEmpty(t.zoneTag)) SetOwner(t.po, adjOwner); // don't clobber a zone tag
                 unassigned.RemoveAt(i);
                 changed = true;
             }
@@ -308,7 +372,7 @@ public class LaneNamingService : MonoBehaviour
             var door = ChooseDoorForNewTile(doors, t.pos, cell);
             if (door == null) continue;
             ownerByCell[t.cell] = door.DoorNumber;
-            SetOwner(t.po, door.DoorNumber);
+            if (string.IsNullOrEmpty(t.zoneTag)) SetOwner(t.po, door.DoorNumber); // don't clobber a zone tag
         }
 
         // Group tiles under their resolved owner door.
@@ -352,12 +416,20 @@ public class LaneNamingService : MonoBehaviour
             for (int i = 0; i < keys.Count; i++)
             {
                 string letter = IndexToLetters(i);
-                string laneName = door.DoorNumber.ToString() + letter;
 
                 // Order this lane's tiles by depth so slot 1 is nearest the door (== load order), and
                 // publish each tile's addressable spot keyed by its grid cell for the inventory layer.
                 var laneTiles = lanes[keys[i]];
                 laneTiles.Sort((a, b) => Depth(a.pos).CompareTo(Depth(b.pos)));
+
+                // Geometry (depth axis, lettering, entry/exit points) always comes from `door` — the
+                // geometrically-nearest one, borrowed purely for its facing/wall-axis convention. But
+                // if any tile here is Zone-tagged, this lane's PUBLISHED IDENTITY (name, DoorNumber
+                // key, LaneGeometry key) is the zone's, not the door's — see SetZoneTag.
+                string zoneTag = laneTiles.Find(t => !string.IsNullOrEmpty(t.zoneTag)).zoneTag;
+                int identityDoor = string.IsNullOrEmpty(zoneTag) ? door.DoorNumber : ZoneRegistry.GetOrCreate(zoneTag);
+                string laneName = ZoneRegistry.DisplayPrefix(identityDoor) + letter;
+
                 int lastIndex = laneTiles.Count - 1;
                 for (int s = 0; s < laneTiles.Count; s++)
                 {
@@ -365,7 +437,7 @@ public class LaneNamingService : MonoBehaviour
                     int slot = s + 1;
                     _slotByCell[t.cell] = new LaneSlot
                     {
-                        DoorNumber = door.DoorNumber,
+                        DoorNumber = identityDoor,
                         Lane = letter,
                         Slot = slot,
                         Cell = t.cell
@@ -394,7 +466,7 @@ public class LaneNamingService : MonoBehaviour
 
                 if (laneTiles.Count > 0)
                 {
-                    string laneKey = LaneConfigRegistry.Key(door.DoorNumber, letter);
+                    string laneKey = LaneConfigRegistry.Key(identityDoor, letter);
                     // ExitPoint: 2 m past the far-end slot, along the depth direction (away from dock).
                     Vector3 exitPt = laneTiles[lastIndex].pos + depthAxis * ExitPointOffset;
                     exitPt.y = laneTiles[0].pos.y; // keep floor level

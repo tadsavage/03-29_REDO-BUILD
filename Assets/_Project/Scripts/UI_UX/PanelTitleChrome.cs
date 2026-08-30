@@ -59,7 +59,8 @@ public static class PanelTitleChrome
         Button scale = null;
         if (resizer != null)
         {
-            scale = new Button { text = string.Empty, tooltip = "Resize window (normal / fill screen)" };
+            scale = new Button { text = string.Empty };
+            RuntimeTooltip.Attach(scale, "Resize window (normal / fill screen)");
             StyleSquare(scale);
             scale.style.marginRight = ButtonGap;
             ResizableWindow.AddStackedSquaresGlyph(scale, ButtonSize, TitleText, isFilled: false);
@@ -69,11 +70,13 @@ public static class PanelTitleChrome
             {
                 resizer.CycleScale();
                 resizer.UpdateScaleButtonIcon(scale, ButtonSize, TitleText);
+                AudioManager.Play(resizer.IsFilled ? "UIMax" : "UIMin");
             };
             titleBar.Add(scale);
         }
 
-        var close = new Button(() => onClose?.Invoke()) { text = "✕", tooltip = "Close" };
+        var close = new Button(() => { onClose?.Invoke(); AudioManager.Play("UIClose"); }) { text = "✕" };
+        RuntimeTooltip.Attach(close, "Close");
         StyleSquare(close);
         ApplyFont(close, bold: true, size: 22);
         close.RegisterCallback<PointerEnterEvent>(_ => close.style.backgroundColor = new StyleColor(CloseHot));
@@ -108,18 +111,25 @@ public static class PanelTitleChrome
         StyleSquare(close);
         ApplyFont(close, bold: true, size: 22);
         if (string.IsNullOrEmpty(close.text)) close.text = "✕";
-        if (string.IsNullOrEmpty(close.tooltip)) close.tooltip = "Close";
+        // close.tooltip is still read here (never rendered — see RuntimeTooltip's doc comment) in case
+        // UXML authored a more specific string than the generic default.
+        RuntimeTooltip.Attach(close, string.IsNullOrEmpty(close.tooltip) ? "Close" : close.tooltip);
         close.RegisterCallback<PointerEnterEvent>(_ => close.style.backgroundColor = new StyleColor(CloseHot));
         close.RegisterCallback<PointerLeaveEvent>(_ => close.style.backgroundColor = new StyleColor(FaceBg));
         close.RegisterCallback<PointerDownEvent>(_ => close.style.backgroundColor = new StyleColor(ClosePress));
         close.RegisterCallback<PointerUpEvent>(_ => close.style.backgroundColor = new StyleColor(CloseHot));
+        // Always plays, independent of onClose — Adopt callers sometimes pass null because they've
+        // already wired their own close handler elsewhere (see the onClose doc below), and the sound
+        // still has to fire for that click either way.
+        close.clicked += () => AudioManager.Play("UIClose");
         if (onClose != null) close.clicked += () => onClose();
 
         Button scale = null;
         var row = close.parent;
         if (resizer != null && row != null)
         {
-            scale = new Button { text = string.Empty, tooltip = "Resize window (normal / fill screen)" };
+            scale = new Button { text = string.Empty };
+            RuntimeTooltip.Attach(scale, "Resize window (normal / fill screen)");
             StyleSquare(scale);
             scale.style.marginRight = ButtonGap;
             ResizableWindow.AddStackedSquaresGlyph(scale, ButtonSize, TitleText, isFilled: false);
@@ -129,6 +139,7 @@ public static class PanelTitleChrome
             {
                 resizer.CycleScale();
                 resizer.UpdateScaleButtonIcon(scale, ButtonSize, TitleText);
+                AudioManager.Play(resizer.IsFilled ? "UIMax" : "UIMin");
             };
             row.Insert(row.IndexOf(close), scale); // left of close, matching the reference corner
             Arrange(scale, close);

@@ -310,6 +310,7 @@ public class PlacementSystem : MonoBehaviour
 
         save.devSettings = CollectDevSettings();
         save.laneConfigs = LaneConfigRegistry.Export();
+        save.laneZones = ZoneRegistry.Export();
         save.slotAssignments = SlotAssignmentService.Export();
         save.shiftDefinitions = ShiftDefinitionRegistry.Export();
         save.locationStatuses = LocationStatusRegistry.Export();
@@ -761,6 +762,12 @@ public class PlacementSystem : MonoBehaviour
         }
 
         ApplySavedSettings(save);
+        // Must run BEFORE LaneNamingService.Instance?.Recompute() below (or its own heartbeat) —
+        // Recompute() calls ZoneRegistry.GetOrCreate() for every zone-tagged tile it finds, and an
+        // empty registry at that point would mint FRESH pseudo-door ids instead of the persisted
+        // ones, breaking every saved OrderData.AssignedDoorNumber/WorkTask.ToLocation that names a
+        // zone by its old id.
+        ZoneRegistry.Import(save.laneZones);
         LaneConfigRegistry.Import(save.laneConfigs);
         SlotAssignmentService.Import(save.slotAssignments);
         ShiftDefinitionRegistry.Import(save.shiftDefinitions);

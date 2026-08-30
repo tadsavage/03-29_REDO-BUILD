@@ -484,6 +484,7 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
 
         if (_infoUI == null) _infoUI = FindAnyObjectByType<EmployeeInfoUI>();
         _infoUI?.Show(identity.Record);
+        AudioManager.Play("UIClick");
 
         // Outline them in the world and make them the camera focal point.
         EmployeeHighlighter.Instance.FocusAndHighlight(identity);

@@ -48,6 +48,15 @@ namespace GameCore.Labor
         private float _animationCheckTimer;
         private const float AnimationLoopCheckInterval = 0.1f; // Check animation state 10x per second
 
+        // How close the receiver must actually be to the pallet to receive it — per Tad, "receiving
+        // from a mile away" is a real bug, not a stylistic nitpick: NavMesh arrival callbacks in this
+        // project have a documented history of firing early (PathPartial, patrol hijack, a rebake
+        // knocking the agent off mid-leg — see the receiver-deadlock notes elsewhere in this class'
+        // sibling ReceivingTaskDriver), and nothing here ever verified the callback's claim against
+        // reality. Checked both at the start (BeginReceivingAt) and continuously while receiving, since
+        // an already-in-progress receive could just as easily be knocked out of range mid-animation.
+        private const float MaxReceivingDistance = 2f;
+
         // The RF gun's "Infra-Red" beam (LineRenderer child) — off by default on the prop prefab,
         // only switched on for the duration of the receiving animation. Looked up lazily rather than
         // cached at Awake() since the RF gun is equipped by ReceivingEquipmentService separately and
@@ -57,6 +66,11 @@ namespace GameCore.Labor
 
         // Event fired when this workflow completes (caller can return to patrol/poll for next task)
         public event System.Action OnWorkflowComplete;
+
+        // Fired instead of OnWorkflowComplete when receiving is aborted because the employee strayed
+        // outside MaxReceivingDistance — distinct from a normal completion so ReceivingTaskDriver knows
+        // to hand the task BACK to the queue (it was never actually finished) rather than treat it as done.
+        public event System.Action OnWorkflowCancelled;
 
         /// <summary>True while this workflow actually has a pallet in hand. Exposed so the driver
         /// that owns the "task in progress" flag can verify it against reality instead of trusting
@@ -101,9 +115,51 @@ namespace GameCore.Labor
         {
             if (_state == ReceivingState.Receiving)
             {
+                if (IsOutOfRange())
+                {
+                    CancelReceiving("strayed outside receiving range mid-animation");
+                    return;
+                }
                 UpdateReceiving();
                 EnsureAnimationLooping();
             }
+        }
+
+        /// <summary>True once the employee is more than MaxReceivingDistance from the pallet they're
+        /// meant to be receiving. Planar (Y ignored) so standing at the correct XZ spot on a ramp or
+        /// slightly uneven floor never trips it.</summary>
+        private bool IsOutOfRange()
+        {
+            if (_targetPallet == null) return false;
+            Vector3 delta = _targetPallet.position - transform.position;
+            delta.y = 0f;
+            return delta.sqrMagnitude > MaxReceivingDistance * MaxReceivingDistance;
+        }
+
+        /// <summary>Aborts an in-progress (or never-actually-started) receive because the employee is
+        /// too far from the pallet. Stops the fill bar and animation IMMEDIATELY — not the usual
+        /// one-frame-deferred stop CompleteWorkflow uses for back-to-back pallets, since per Tad the
+        /// switch to walking has to be instant, not smoothed over for a same-task handoff that isn't
+        /// happening here. Fires OnWorkflowCancelled (not OnWorkflowComplete) so the caller hands the
+        /// task back to the queue instead of treating it as finished.</summary>
+        private void CancelReceiving(string reason)
+        {
+            Debug.LogWarning($"[ReceiverReceivingWorkflow] Cancelling receive for pallet " +
+                             $"{_currentTask?.PalletId} — {reason} (distance " +
+                             $"{(_targetPallet != null ? Vector3.Distance(transform.position, _targetPallet.position).ToString("F1") : "?")}m, " +
+                             $"max {MaxReceivingDistance}m).");
+
+            _fillBar?.CompleteReceiving(); // stops _isReceiving and hides the canvas — same effect a cancel needs, name notwithstanding
+            if (_animator != null) _animator.SetBool("isReceiving", false);
+            SetInfraRedBeam(false);
+            _agentAnimation?.ClearFaceOverride();
+
+            _state = ReceivingState.Idle;
+            _currentTask = null;
+            _targetPallet = null;
+            _palletMasterRecord = null;
+
+            OnWorkflowCancelled?.Invoke();
         }
 
         /// <summary>Ensures the receiving animation loops continuously while receiving is active.
@@ -155,6 +211,21 @@ namespace GameCore.Labor
 
             _currentTask = task;
             _targetPallet = palletTransform;
+
+            // The arrival callback that leads here (AiNavigation.SeekPosition's onArrived) has a
+            // documented history of firing while the agent is still well short of its destination
+            // (PathPartial, patrol hijack, a rebake knocking it off mid-leg) — verify it actually got
+            // here rather than trusting the callback fired for the right reason.
+            if (IsOutOfRange())
+            {
+                Debug.LogWarning($"[ReceiverReceivingWorkflow] Arrival callback fired for pallet " +
+                                 $"{task.PalletId} but the employee is {Vector3.Distance(transform.position, palletTransform.position):F1}m " +
+                                 $"away (max {MaxReceivingDistance}m) — refusing to start receiving.");
+                _currentTask = null;
+                _targetPallet = null;
+                OnWorkflowCancelled?.Invoke();
+                return;
+            }
 
             if (_inventoryService != null)
                 _palletMasterRecord = _inventoryService.GetPallet(task.PalletId);

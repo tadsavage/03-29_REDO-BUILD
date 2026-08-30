@@ -1070,7 +1070,9 @@ namespace GameCore.Actors
                 !LaneNamingService.TryGetSlotWorldPos(slot.Cell, out Vector3 slotPos))
             {
                 Debug.LogWarning($"[ReachTruckOperator] PalletPick: no free staging slot in Stage {door} " +
-                                 $"(started at {door}{lane}). Putting the pallet back and retrying later.");
+                                 $"(started at {door}{lane}). Putting the pallet back and retrying in {NoDestinationBackoff:F0}s.");
+                UIToast.Show($"Reach Truck can't deliver — Stage {door}{lane} is full.");
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
                 ReleaseCarriedPalletToOrigin(pallet);
                 if (obstacle != null) obstacle.enabled = true;
                 if (palletPOWasDisabled(pallet, out var po)) po.enabled = true;
@@ -1115,7 +1117,9 @@ namespace GameCore.Actors
             if (!reachedLane)
             {
                 Debug.LogWarning($"[ReachTruckOperator] PalletPick: no path to lane {door}{resolvedLane}. " +
-                                 $"Putting the pallet back.");
+                                 $"Putting the pallet back and retrying in {NoDestinationBackoff:F0}s.");
+                UIToast.Show($"Reach Truck can't reach Stage {door}{resolvedLane} — putting the pallet back.");
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
                 ReleaseCarriedPalletToOrigin(pallet);
                 if (obstacle != null) obstacle.enabled = true;
                 if (palletPOWasDisabled(pallet, out var po2)) po2.enabled = true;
@@ -1990,10 +1994,13 @@ namespace GameCore.Actors
                 return true;
             }
 
-            // Fallback: simplified parsing for "{Door}{Lane}" or "{Door}" formats
-            int numEnd = 0; 
+            // Fallback: simplified parsing for "{Door}{Lane}" or "{Door}" formats. A Zone's pseudo
+            // door number is negative (see ZoneRegistry), so the digit scan has to step over an
+            // optional leading '-' or a WorkTask.ToLocation like "-3A" would fail to parse entirely.
+            int numStart = s.Length > 0 && s[0] == '-' ? 1 : 0;
+            int numEnd = numStart;
             while (numEnd < s.Length && char.IsDigit(s[numEnd])) numEnd++;
-            if (numEnd == 0) return false;
+            if (numEnd == numStart) return false;
             if (!int.TryParse(s.Substring(0, numEnd), out door)) return false;
             lane = s.Substring(numEnd);
             return true;

@@ -85,8 +85,8 @@
     background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/ShiftManagerThumb.png?fileID=2800000&guid=59d3ed0b648f5e0459152b1fd1205a07&type=3#ShiftManagerThumb");
 }
 
-.playbar-icon-contracts {
-    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/ContractsThumb.png?fileID=2800000&guid=3d7daea61b3f9a84e82e83d9bfdf014b&type=3#ContractsThumb");
+.playbar-icon-outbound {
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/OutboundThumb.png?fileID=2800000&guid=bef9ffad1225b7c46ae53823f9de1e62&type=3#OutboundThumb");
 }
 
 .playbar-icon-workqueue {
@@ -104,10 +104,8 @@
     background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/ContractsThumb.png#ContractsThumb");
 }
 
-/* PLACEHOLDER ART: reuses the Work Queue thumb because Play Bar Icons has no scheduler image yet.
-   Drop a SchedulerThumb.png into Assets/_Project/Art/Icons/Play Bar Icons/ and repoint this rule. */
 .playbar-icon-scheduler {
-    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/WorkQueueThumb.png?fileID=2800000&guid=32c13be7f77f7924b948b9f552fd630a&type=3#WorkQueueThumb");
+    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/SchedulerThumb.png?fileID=2800000&guid=d366eaa448c876248bd93228cd2eb730&type=3#SchedulerThumb");
 }
 
 /* ── Build / Play mode tabs ──────────────────────────────────────────────
@@ -212,11 +210,51 @@
     opacity: 0.95;
 }
 
-/* Selected — blue fill */
+/* Selected — dark, near-neutral grey, matching the resting item-card look (see the "Rat"/"Fir Tree"
+   cards in .buildmenu-item-button) rather than any blue fill. Two rounds of feedback: the first pass
+   (a muted blue-grey at 0.85) still read as blue — this drops the color almost entirely and leans on
+   darkness + opacity instead, with only a faint blue tint left in the border so "selected" is still
+   distinguishable from the unselected card's near-identical (but lower-opacity, white-bordered) rest
+   state. */
 .buildmenu-category-button.selected {
-    background-color: rgba(76, 144, 192, 0.55);
-    border-color: rgb(92, 155, 196);
+    background-color: rgba(24, 30, 38, 0.92);
+    border-color: rgba(150, 190, 220, 0.3);
     opacity: 1;
+}
+
+/* Focus/Active — Unity's built-in runtime theme paints every Button with its own solid, fully-opaque
+   blue fill/border the instant it's pressed (:active) and/or focused (:focus), and a runtime Button
+   never blurs itself afterward, so that fill just sits there stuck on top of whichever state above is
+   actually meant to be showing (this is what made a play-bar button look like a bright opaque blue box
+   the instant you clicked it, staying that way until the panel was closed and something else took
+   focus). The previous pass only overrode :focus, at the same specificity as this stylesheet's other
+   two-selector rules — evidently still losing to the built-in theme, whose rule apparently carries
+   higher specificity (it likely qualifies by element type as well as pseudo-class). !important forces
+   every one of these combinations to win outright rather than re-litigating cascade order against an
+   opaque, unreadable built-in theme. Every state this bar cares about is already defined above, so
+   :focus/:active are simply reset back to match rest/hover/selected. */
+.buildmenu-category-button:focus,
+.buildmenu-category-button:active {
+    background-color: rgba(34, 44, 56, 0.55) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.buildmenu-category-button:focus:hover,
+.buildmenu-category-button:active:hover {
+    background-color: rgba(46, 60, 76, 0.65) !important;
+    border-color: rgba(92, 155, 196, 0.35) !important;
+}
+
+.buildmenu-category-button.selected:focus,
+.buildmenu-category-button.selected:active {
+    background-color: rgba(24, 30, 38, 0.92) !important;
+    border-color: rgba(150, 190, 220, 0.3) !important;
+}
+
+.buildmenu-category-button.selected:focus:hover,
+.buildmenu-category-button.selected:active:hover {
+    background-color: rgba(24, 30, 38, 0.92) !important;
+    border-color: rgba(150, 190, 220, 0.3) !important;
 }
 
 .buildmenu-category-icon {

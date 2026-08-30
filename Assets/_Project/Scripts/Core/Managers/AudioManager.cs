@@ -107,15 +107,17 @@ else
     {
         while (true)
         {
-            // If music is already playing, wait until it finishes
+            // Realtime, not WaitForSeconds — music scheduling is presentation, not simulation, so
+            // pausing (timeScale 0) must not freeze it forever and speeding up (2x/4x) must not compress
+            // how often a track gets a chance to play. WaitForSeconds is scaled and would do both.
             if (isMusicPlaying)
             {
-                yield return new WaitForSeconds(10f); // Check less frequently while playing
+                yield return new WaitForSecondsRealtime(10f); // Check less frequently while playing
                 continue;
             }
 
             // Wait for the interval
-            yield return new WaitForSeconds(freqCheckIntervalTime * 60f);
+            yield return new WaitForSecondsRealtime(freqCheckIntervalTime * 60f);
 
             // Roll for chance
             if (Random.Range(0f, 100f) <= likelihoodOfSongPlaying)
@@ -151,13 +153,19 @@ else
         AudioClip clip = playOrder[currentTrackIndex];
         
         musicSource.clip = clip;
+        // AudioSource playback itself always runs at real speed regardless of Time.timeScale — Unity
+        // doesn't scale audio automatically — but this coroutine's OWN fade/wait timers were built on
+        // Time.deltaTime, so at 0x (paused) a fade would freeze the track stuck at partial volume
+        // forever, and at 2x/4x the fades (and the "hold at full volume" middle section) would run
+        // faster than the audio itself, drifting out of sync with the clip. Time.unscaledDeltaTime
+        // keeps every fade/hold timer matched to the actual audio regardless of sim speed.
         musicSource.Play();
 
         // Fade In
         float timer = 0;
         while (timer < fadeDuration)
         {
-            timer += Time.deltaTime;
+            timer += Time.unscaledDeltaTime;
             musicSource.volume = Mathf.Lerp(0, 1f, timer / fadeDuration) * musicVolume;
             yield return null;
         }
@@ -169,7 +177,7 @@ else
             float elapsed = 0;
             while (elapsed < waitTime)
             {
-                elapsed += Time.deltaTime;
+                elapsed += Time.unscaledDeltaTime;
                 musicSource.volume = musicVolume;
                 yield return null;
             }
@@ -179,7 +187,7 @@ else
         timer = 0;
         while (timer < fadeDuration)
         {
-            timer += Time.deltaTime;
+            timer += Time.unscaledDeltaTime;
             musicSource.volume = Mathf.Lerp(1f, 0f, timer / fadeDuration) * musicVolume;
             yield return null;
         }

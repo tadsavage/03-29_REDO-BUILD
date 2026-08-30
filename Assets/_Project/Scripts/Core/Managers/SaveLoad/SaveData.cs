@@ -22,6 +22,10 @@ public class SaveData
     // Per-lane operational config (max stack, usage, FIFO/LIFO). Empty in older saves.
     public List<LaneConfigEntry> laneConfigs = new();
 
+    // Standalone lane Zone name -> pseudo-door-id identities (ZoneRegistry). Empty in older saves
+    // or if no zones have been created.
+    public List<ZoneEntry> laneZones = new();
+
     // Pick-slot -> SKU assignments from the Slotting UI (SlotAssignmentService). Empty in older saves.
     public List<SlotAssignmentEntry> slotAssignments = new();
 

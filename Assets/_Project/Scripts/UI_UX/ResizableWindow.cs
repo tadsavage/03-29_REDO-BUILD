@@ -38,6 +38,10 @@ public class ResizableWindow
 
     private bool _filled; // false = normal (1x), true = fill screen
 
+    /// <summary>True once the panel has been scaled up to fill-screen — the state <see cref="CycleScale"/>
+    /// just left it in, used by callers (e.g. PanelTitleChrome) to pick a maximize/minimize sound cue.</summary>
+    public bool IsFilled => _filled;
+
     /// <summary>
     /// Screen-space height reserved for the top bar (TopBar.uss: 56px + 2px bottom border), kept
     /// clear of on fill-screen. Without this, maximizing any resizable panel (e.g. Employee Roster,
