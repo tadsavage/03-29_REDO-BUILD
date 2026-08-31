@@ -94,6 +94,11 @@ namespace GameCore.Actors
         private float _pollTimer;
         private bool  _busy;
 
+        // Set once FindCarriedPallet() reports a stray passenger so the refusal in TryClaimAndStart()
+        // logs an Error a single time instead of once per poll. Cleared the moment the anchor is
+        // empty again (manually resolved), so a future recurrence still gets a fresh loud warning.
+        private bool _strayPalletWarned;
+
         // Throttled state dump so a stalled truck is diagnosable without flooding the console —
         // fires regardless of _busy/occupied/role so it can reveal exactly which precondition
         // is blocking Update() from ever reaching TryClaimAndStart().
@@ -132,6 +137,28 @@ namespace GameCore.Actors
                     _forkAxisSign = _forks.localPosition.z > 0f ? 1f : -1f;
             }
             _palletAnchor = FindDeepChild(transform, PalletAnchorChildName);
+        }
+
+        private void OnEnable()
+        {
+            // OnEnable re-runs right after Unity finishes a domain reload (a script recompile while
+            // Play Mode is running is treated as an implicit disable/enable of every active
+            // MonoBehaviour) even though Awake/Start do not. That reload silently kills any coroutine
+            // that was mid-carry AND resets plain fields like _busy back to false, so without this
+            // check the truck would just look idle next poll and claim a brand-new task on top of
+            // whatever pallet is still physically parented on its forks. Walk the hierarchy directly
+            // (not the cached _palletAnchor field, which is itself a casualty of the same reload)
+            // so this fires even before Start() has a chance to re-resolve anything.
+            Transform anchor = FindDeepChild(transform, PalletAnchorChildName);
+            PalletMasterLink stray = anchor != null ? anchor.GetComponentInChildren<PalletMasterLink>(true) : null;
+            if (stray != null)
+            {
+                Debug.LogError($"[ReachTruckOperator] '{name}' came back online already carrying " +
+                    $"pallet '{stray.PalletId}' ('{stray.name}') on its forks with nothing driving it " +
+                    $"— almost certainly a script recompile mid-Play killed its delivery coroutine. " +
+                    $"This truck will refuse new work until the pallet is manually resolved.");
+                _strayPalletWarned = true;
+            }
         }
 
         private void Update()
@@ -178,13 +205,52 @@ namespace GameCore.Actors
             int assignedToMe = _workQueue?.Tasks.Count(t =>
                 t.AssignedToEmployeeGuid == guid && t.Status == WorkTaskStatus.Assigned) ?? -1;
 
+            PalletMasterLink carried = FindCarriedPallet();
+
             Debug.Log($"[ReachTruckOperator] '{name}' diag: busy={_busy} occupied={occupied} " +
                 $"role={role} workQueueNull={_workQueue == null} " +
-                $"availablePutawayReplenish={availablePutawayOrReplenish} assignedToMe={assignedToMe}");
+                $"availablePutawayReplenish={availablePutawayOrReplenish} assignedToMe={assignedToMe} " +
+                $"carriedPallet={(carried != null ? carried.PalletId : "none")}");
+        }
+
+        /// <summary>
+        /// Looks for a pallet already riding this truck's fork anchor by walking the transform
+        /// hierarchy directly, rather than trusting the cached <see cref="_palletAnchor"/> field —
+        /// that field and <see cref="_busy"/> are plain fields with no [SerializeField], so neither
+        /// survives a mid-Play domain reload. Finding one here while <see cref="_busy"/> is false is
+        /// always an anomaly (normal carry always has _busy true for its whole duration) and means an
+        /// earlier delivery coroutine died mid-carry — most likely a script recompile while Play Mode
+        /// was running — without ever detaching its cargo. See reach-truck-stranded-carry-bug in
+        /// project memory for the incident this was written to catch.
+        /// </summary>
+        private PalletMasterLink FindCarriedPallet()
+        {
+            Transform anchor = _palletAnchor != null ? _palletAnchor : FindDeepChild(transform, PalletAnchorChildName);
+            return anchor != null ? anchor.GetComponentInChildren<PalletMasterLink>(true) : null;
         }
 
         private void TryClaimAndStart()
         {
+            // NEVER start a new routine while a pallet is already sitting on the forks with nothing
+            // driving it — that can only happen if an earlier carry coroutine died mid-flight, and
+            // grabbing a second pallet onto the same anchor would silently stack cargo the game can
+            // never account for again (see reach-truck-stranded-carry-bug). Refuse loudly instead.
+            PalletMasterLink stray = FindCarriedPallet();
+            if (stray != null)
+            {
+                if (!_strayPalletWarned)
+                {
+                    Debug.LogError($"[ReachTruckOperator] '{name}' already has pallet " +
+                        $"'{stray.PalletId}' ('{stray.name}') riding its forks with no task driving " +
+                        $"it — refusing to claim new work until this is manually resolved (see " +
+                        $"reach-truck-stranded-carry-bug in memory). This warning will not repeat " +
+                        $"until the stray pallet is cleared.");
+                    _strayPalletWarned = true;
+                }
+                return;
+            }
+            _strayPalletWarned = false;
+
             // Self-healing: release any task stuck in Assigned whose claiming operator/coroutine
             // died mid-task without completing or aborting it — otherwise it's permanently
             // invisible (GetPendingTasksForRole only returns Pending, and "resume mine" below
@@ -1361,6 +1427,18 @@ namespace GameCore.Actors
         {
             if (task == null) return;
             ResolveServices();
+
+            // This resume path is specifically for a task that hadn't reached pickup yet at save time
+            // (no carried-pallet snapshot exists for it) — the forks should be empty. If they're not,
+            // an earlier carry survived a previous reload/save unresolved; don't compound it.
+            PalletMasterLink stray = FindCarriedPallet();
+            if (stray != null)
+            {
+                Debug.LogError($"[ReachTruckOperator] '{name}' asked to resume task {task.TaskId} but " +
+                    $"is already carrying pallet '{stray.PalletId}' — refusing. Task left Assigned for " +
+                    $"manual review.");
+                return;
+            }
 
             _busy = true;
             StartCoroutine(PutawayRoutine(task));
