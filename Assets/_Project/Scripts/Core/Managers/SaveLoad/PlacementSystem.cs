@@ -512,11 +512,9 @@ public class PlacementSystem : MonoBehaviour
 
         foreach (var entry in PlacedObjectRegistry.All)
         {
-            // Yard floor tiles (id 200) aren't saved individually — they make up the vast
-            // majority of placedObjects (~9,400 of ~10,250) and are regenerated on load by
-            // GameContext.PopulateYardFloors, which fills every empty cell with the yard
-            // tile (skipping cells that already have a different floor). Saving/spawning
-            // them all individually is what caused the multi-second freeze on load.
+            // Yard floor tiles (id 200) aren't saved individually — this guard is now only a
+            // backward-compatibility safeguard for older saves. The yard ground is a static
+            // authored plane in the scene and is never populated or saved at runtime.
             if (entry.data.id == 200) continue;
 
             // Employees are persisted via employeeRecords (identity + position), NEVER as grid
@@ -876,9 +874,9 @@ public class PlacementSystem : MonoBehaviour
 
         foreach (var objSave in orderedObjects)
         {
-            // Skip yard floor tiles from older saves that still have them serialized —
-            // PopulateYardFloors regenerates these below, so spawning them here would
-            // re-introduce the load-time freeze for existing save files.
+            // Skip yard floor tiles (id 200) from older saves that still have them serialized —
+            // the yard ground is now a static authored plane in the scene, never spawned at
+            // runtime, so this guard only exists for backward compatibility with old save files.
             if (objSave.id == 200) continue;
 
             ObjDataSO so = registry.GetByID(objSave.id);
@@ -1100,14 +1098,13 @@ public class PlacementSystem : MonoBehaviour
         // instead of waiting on the timer.
         LaneNamingService.Instance?.Recompute();
 
-        // Yard floor tiles aren't saved to disk (BuildSaveData skips id 200 — see comment
-        // there), so they must be regenerated on every load, not just the initial scene
-        // Start. PopulateYardFloors fills every empty cell and performs its own
-        // RebuildFromRegistry + NavMesh bake when done.
+        // The yard ground is a static authored plane in the scene, so it never needs
+        // regenerating on load. Still rebuild the grid registry + NavMesh bake here so the
+        // world state is consistent immediately after a quickload/slot load.
         var ctx = Object.FindAnyObjectByType<GameContext>();
         if (ctx != null)
         {
-            yield return ctx.StartCoroutine(ctx.PopulateYardFloors(grid));
+            ctx.SyncAndBake(grid);
         }
         else if (NavMeshManager.Instance != null)
         {

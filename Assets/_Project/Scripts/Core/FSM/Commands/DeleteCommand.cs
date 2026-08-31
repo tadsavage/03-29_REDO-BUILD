@@ -340,31 +340,6 @@ public class DeleteCommand : PlacementCommandBase
     {
         foreach (var floor in _reEnabledFloors)
             if (floor != null) floor.SetActive(true);
-
-        // Most of the yard isn't individually-tracked floor tiles — it's the single combined
-        // yard-floor mesh (YardFloorMeshBuilder), baked once excluding whatever footprint had a
-        // real object on it at bake time. RevealHiddenFloors only re-enables per-cell tile
-        // OBJECTS; a cell that was covered directly by the combined mesh's own exclusion has no
-        // such object to reveal, so without this the deleted foundation's footprint stays a
-        // permanent hole in the mesh — exactly what it looked like before the foundation existed,
-        // since nothing has ever told the mesh that cell is free again. Deferred to here (animation
-        // complete) rather than Execute() for the same reason _reEnabledFloors itself is deferred:
-        // regenerating immediately would show the mesh through the foundation while it's still
-        // visibly sinking, z-fighting/overlapping for the whole animation.
-        if (IsGround(_data))
-            RegenerateYardFloor();
-    }
-
-    /// <summary>See MoveCommand.RegenerateYardFloor — same mesh, same reasoning. Only rebuilds the
-    /// chunk(s) this foundation's own footprint falls in, not the whole map.</summary>
-    private void RegenerateYardFloor()
-    {
-        var ctx = Object.FindAnyObjectByType<GameContext>();
-        if (ctx == null) return;
-
-        var affectedCells = new List<Vector2Int>(_offsets.Length);
-        foreach (var o in _offsets) affectedCells.Add(_root + o);
-        ctx.RegenerateYardFloorMesh(_grid, affectedCells);
     }
 
     public override void Undo()
@@ -497,11 +472,6 @@ public class DeleteCommand : PlacementCommandBase
         var highlighter = _target.GetComponent<BuildingHighlighter>();
         if (highlighter != null)
             highlighter.HighlightDelete(false);
-
-        // The foundation is back immediately (no sink-away animation on the way back in), so no
-        // deferral needed here — mirrors the Execute()-side regeneration in RevealHiddenFloors.
-        if (IsGround(_data))
-            RegenerateYardFloor();
 
         NavMeshManager.Instance?.MarkDirty();
 

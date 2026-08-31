@@ -81,9 +81,6 @@ public class MoveCommand : PlacementCommandBase
         MoveRiders(forward: true);
         SyncDefaultChildrenGrid(forward: true);
 
-        if (IsFoundation(_data))
-            RegenerateYardFloor();
-
         PublishBuildEvent(GameEvents.Build.OnObjectMoved, new BuildingMoveData
         {
             FromX = _oldRoot.x,
@@ -103,9 +100,6 @@ public class MoveCommand : PlacementCommandBase
         if (_replaced.Count > 0)
             RestoreReplaced();
 
-        if (IsFoundation(_data))
-            RegenerateYardFloor();
-
         PublishBuildEvent(GameEvents.Build.OnObjectMoved, new BuildingMoveData
         {
             FromX = _newRoot.x,
@@ -114,28 +108,6 @@ public class MoveCommand : PlacementCommandBase
             ToY = _oldRoot.y,
             Rotation = (int)_oldRotation
         });
-    }
-
-    /// <summary>
-    /// Cells a Foundation/Grounds slab vacates or arrives on aren't necessarily covered by
-    /// individually-tracked floor tiles — most of the map is the chunked yard-floor mesh
-    /// (see YardFloorMeshBuilder), baked once with whatever had a real object on it at the time
-    /// excluded. Moving a foundation off/onto that mesh's territory doesn't touch the mesh itself,
-    /// so without this the vacated footprint stays a permanent hole (nothing else regenerates it
-    /// until the next full load) and the arrival cells can z-fight with the carpet still rendering
-    /// underneath. Only rebuilds the chunk(s) the old + new footprint fall in — see
-    /// GameContext.RegenerateYardFloorMesh for why this doesn't go through the much heavier
-    /// PopulateYardFloors (grid rebuild + synchronous NavMesh bake, whole map).
-    /// </summary>
-    private void RegenerateYardFloor()
-    {
-        var ctx = Object.FindAnyObjectByType<GameContext>();
-        if (ctx == null) return;
-
-        var affectedCells = new List<Vector2Int>(_oldOffsets.Length + _newOffsets.Length);
-        foreach (var o in _oldOffsets) affectedCells.Add(_oldRoot + o);
-        foreach (var o in _newOffsets) affectedCells.Add(_newRoot + o);
-        ctx.RegenerateYardFloorMesh(_grid, affectedCells);
     }
 
     public override void Redo() => Execute();
