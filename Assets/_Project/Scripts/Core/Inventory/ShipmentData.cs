@@ -46,7 +46,10 @@ namespace GameCore.Inventory
 
         public ShipmentData(string supplierId, string supplierName, int arrivalDay, int arrivalMinute)
         {
-            PONumber = PONumberGenerator.GetNextPONumber();
+            // 'G' is hardcoded rather than derived from LineItems (still empty at this point anyway):
+            // Perishable/Frozen inventory doesn't exist in the game yet, so Grocery is the only
+            // reachable area — same fallback OrderService.DominantOrderNumberPrefix uses.
+            PONumber = OrderNumberGenerator.GetNext('I', 'G', arrivalDay);
             SupplierId = supplierId;
             SupplierName = supplierName;
             ArrivalDayNumber = arrivalDay;
@@ -60,7 +63,7 @@ namespace GameCore.Inventory
         public ShipmentData(string poNumber, string supplierId, string supplierName,
                             int arrivalDay, int arrivalMinute)
         {
-            PONumber = string.IsNullOrEmpty(poNumber) ? PONumberGenerator.GetNextPONumber() : poNumber;
+            PONumber = string.IsNullOrEmpty(poNumber) ? OrderNumberGenerator.GetNext('I', 'G', arrivalDay) : poNumber;
             SupplierId = supplierId;
             SupplierName = supplierName;
             ArrivalDayNumber = arrivalDay;

@@ -297,7 +297,11 @@ public class PurchasingPanel : IUIPanel
 
     /// <summary>(Re)starts the vendor filter popout's 3-second auto-close countdown — called both the
     /// moment it opens and again on every Rebuild() that happens while it's still open (e.g. ticking a
-    /// vendor checkbox), so an active session keeps getting a fresh 3s rather than closing mid-pick.</summary>
+    /// vendor checkbox), so an active session keeps getting a fresh 3s rather than closing mid-pick.
+    /// Also (re)wires the hover pause: per Tad, the countdown must only run while the player is
+    /// neither hovering nor interacting with the dropdown, so PointerEnter pauses it and PointerLeave
+    /// restarts a fresh 3s. Safe to register every call — popout is a freshly-built instance each time
+    /// (see the Rebuild-while-open comment below), never the same element twice.</summary>
     private void ScheduleFilterAutoClose(VisualElement popout)
     {
         _multiVendorFilterAutoClose?.Pause();
@@ -308,6 +312,9 @@ public class PurchasingPanel : IUIPanel
         });
         _multiVendorFilterAutoClose = filterScheduled;
         _multiVendorFilterAutoClose.ExecuteLater(3000);
+
+        popout.RegisterCallback<PointerEnterEvent>(_ => _multiVendorFilterAutoClose?.Pause());
+        popout.RegisterCallback<PointerLeaveEvent>(_ => { if (_multiVendorFilterOpen) ScheduleFilterAutoClose(popout); });
     }
 
     /// <summary>Same as ScheduleFilterAutoClose, for the sort popout.</summary>
@@ -320,6 +327,9 @@ public class PurchasingPanel : IUIPanel
             popout.style.display = DisplayStyle.None;
         });
         _multiVendorSortAutoClose.ExecuteLater(3000);
+
+        popout.RegisterCallback<PointerEnterEvent>(_ => _multiVendorSortAutoClose?.Pause());
+        popout.RegisterCallback<PointerLeaveEvent>(_ => { if (_multiVendorSortOpen) ScheduleSortAutoClose(popout); });
     }
 
     /// <summary>Same as ScheduleFilterAutoClose, for the item filter popout.</summary>
@@ -332,6 +342,9 @@ public class PurchasingPanel : IUIPanel
             popout.style.display = DisplayStyle.None;
         });
         _multiVendorItemAutoClose.ExecuteLater(3000);
+
+        popout.RegisterCallback<PointerEnterEvent>(_ => _multiVendorItemAutoClose?.Pause());
+        popout.RegisterCallback<PointerLeaveEvent>(_ => { if (_multiVendorItemFilterOpen) ScheduleItemAutoClose(popout); });
     }
 
     /// <summary>Routed here from this panel's own VENDORS tab's "Order from Vendor" button, via the
@@ -660,7 +673,7 @@ public class PurchasingPanel : IUIPanel
         var shipments = Shipments();
         int live = shipments?.PendingShipments.Count(s => s != null) ?? 0;
 
-        _tabBar.Add(MakeTab("Order", Tab.MultiVendor,
+        _tabBar.Add(MakeTab("Place Order", Tab.MultiVendor,
                              _multiBaskets.Count(kv => kv.Value.Count > 0)));
         _tabBar.Add(MakeTab("Vendors", Tab.Vendors, 0));
         _tabBar.Add(MakeTab("PO List", Tab.PoList, live));
@@ -874,7 +887,7 @@ public class PurchasingPanel : IUIPanel
             return;
         }
 
-        var po = shipments.CreatePlayerPurchaseOrder(PONumberGenerator.GetRandomPONumber(),
+        var po = shipments.CreatePlayerPurchaseOrder(OrderNumberGenerator.GetNext('I', 'G', Today()),
                                                      BrokerService.BrokerVendorId, "The Broker",
                                                      items, Today());
         if (po == null)
@@ -1081,7 +1094,7 @@ public class PurchasingPanel : IUIPanel
             })
             .ToList();
 
-        var po = shipments.CreatePlayerPurchaseOrder(PONumberGenerator.GetRandomPONumber(),
+        var po = shipments.CreatePlayerPurchaseOrder(OrderNumberGenerator.GetNext('I', 'G', Today()),
                                                      "SPOT_BROKER", "Spot Market", items, Today());
         if (po == null)
         {
@@ -1574,11 +1587,11 @@ public class PurchasingPanel : IUIPanel
     /// <summary>Same modal, one button — for telling the player something rather than asking. Reuses
     /// the dialog instead of a toast because an over-capacity load has to stop the interaction: a
     /// corner toast is exactly what someone spamming the + button doesn't read.</summary>
-    private void ShowNotice(string message)
+    private void ShowNotice(string message, string title = "TRAILER FULL")
     {
         _confirmMessage.text = message;
         _confirmYes = null;
-        _confirmTitle.text = "TRAILER FULL";
+        _confirmTitle.text = title;
         SetConfirmIsNotice(true);
         _confirmBlocker.style.display = DisplayStyle.Flex;
         _confirmBlocker.BringToFront();
@@ -3023,7 +3036,8 @@ public class PurchasingPanel : IUIPanel
             ShowNotice($"{vendor.DisplayName} won't take an order this small.\n\n" +
                        $"Their minimum is {vendor.MinimumOrderCases:N0} cases and this order is " +
                        $"{cases:N0}.\n\nAdd {vendor.MinimumOrderCases - cases:N0} more, or dispatch a " +
-                       $"different vendor's order instead.");
+                       $"different vendor's order instead.",
+                       title: "ORDER TOO SMALL");
             return;
         }
 
@@ -3059,7 +3073,7 @@ public class PurchasingPanel : IUIPanel
             });
         }
 
-        var po = shipments.CreatePlayerPurchaseOrder(PONumberGenerator.GetRandomPONumber(),
+        var po = shipments.CreatePlayerPurchaseOrder(OrderNumberGenerator.GetNext('I', 'G', Today()),
                                                      vendorId, vendor.DisplayName, items, Today());
         if (po == null)
         {

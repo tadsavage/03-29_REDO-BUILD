@@ -1043,39 +1043,53 @@ namespace GameCore.Inventory
             }
 
             var rand = new System.Random();
-            int orderCount = rand.Next(contract.OrdersPerDayMin, contract.OrdersPerDayMax + 1);
 
-            for (int i = 0; i < orderCount; i++)
+            // Used to roll a separate OrderData (its own OrderId/OrderNumber) per batch, and every
+            // batch for the same customer+contract on the same day joins the same trailer appointment
+            // (see HandleOrderArrived's join branch) -- so one recurring account's single daily
+            // delivery could show up in the Work Queue under two or three different order numbers for
+            // what was really one trailer. Per Tad: one accepted order = one order number. The
+            // OrdersPerDay roll still drives how much gets ordered today -- more batches means more
+            // total line variety/volume -- it just no longer mints a new order number per batch; every
+            // batch folds into the SAME OrderData, merging quantity into an existing line if a later
+            // batch happens to pick a SKU an earlier one already did.
+            int batchCount = rand.Next(contract.OrdersPerDayMin, contract.OrdersPerDayMax + 1);
+
+            var order = new OrderData(
+                customer.CustomerId,
+                customer.CompanyName,
+                $"{customer.CompanyName} Distribution Center",
+                today,
+                today + contract.LeadTimeDays,
+                _timeService.Minute)
+            {
+                ContractId = contract.ContractId,
+                LateFeePercent = contract.LateFeePercent
+            };
+
+            for (int i = 0; i < batchCount; i++)
             {
                 int lineCount = Mathf.Min(eligible.Count, rand.Next(contract.LineItemsMin, contract.LineItemsMax + 1));
                 var chosen = eligible.OrderBy(_ => rand.Next()).Take(lineCount).ToList();
 
-                var order = new OrderData(
-                    customer.CustomerId,
-                    customer.CompanyName,
-                    $"{customer.CompanyName} Distribution Center",
-                    today,
-                    today + contract.LeadTimeDays,
-                    _timeService.Minute)
-                {
-                    ContractId = contract.ContractId,
-                    LateFeePercent = contract.LateFeePercent
-                };
-
                 foreach (var sku in chosen)
                 {
                     int qty = rand.Next(contract.CasesPerLineMin, contract.CasesPerLineMax + 1);
-                    order.LineItems.Add(new OrderLineItem(
-                        sku.SkuId,
-                        qty,
-                        Mathf.RoundToInt(sku.BuyValue),
-                        Mathf.RoundToInt(sku.SellValue * contract.PayRateMultiplier)));
+                    var existingLine = order.LineItems.FirstOrDefault(li => li.SkuId == sku.SkuId);
+                    if (existingLine != null)
+                        existingLine.QuantityNeeded += qty;
+                    else
+                        order.LineItems.Add(new OrderLineItem(
+                            sku.SkuId,
+                            qty,
+                            Mathf.RoundToInt(sku.BuyValue),
+                            Mathf.RoundToInt(sku.SellValue * contract.PayRateMultiplier)));
                 }
-
-                _orderService.ReceiveOrder(order);
             }
 
-            Debug.Log($"[OrderArrivalService] {customer.CompanyName}: {orderCount} order(s) arrived on day {today}, " +
+            _orderService.ReceiveOrder(order);
+            Debug.Log($"[OrderArrivalService] {customer.CompanyName}: 1 order arrived on day {today} " +
+                      $"({order.LineItems.Count} line item(s) across {batchCount} batch(es)), " +
                       $"due day {today + contract.LeadTimeDays}.");
         }
 

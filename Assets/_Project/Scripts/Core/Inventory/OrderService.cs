@@ -88,16 +88,18 @@ namespace GameCore.Inventory
             _assignedTasks.Clear();
         }
 
-        /// <summary>Add a new order to the system and file its single placeholder WorkTask in the
-        /// Open status. Nothing about the order is real yet on purpose: no OrderNumber, no pallets
-        /// broken out, nothing reserved — the order sits in the Work Queue as one line (rendered as
-        /// e.g. "GroSel" by WorkQueuePanel) until the player actually commits it to a staging lane.
-        /// See ReleaseOrdersToLane, which is where all of that gets created for real.</summary>
+        /// <summary>Add a new order to the system, mint its player-facing OrderNumber, and file its
+        /// single placeholder WorkTask in the Open status. Per Tad: an accepted order gets its number
+        /// immediately, not only once the player commits it to a staging lane — nothing broken out or
+        /// reserved yet, but the order is "real" with a number of its own the moment it's accepted.
+        /// The order sits in the Work Queue as one line (rendered as e.g. "GroSel" by WorkQueuePanel)
+        /// until the player actually releases it. See ReleaseOrdersToLane for what happens then.</summary>
         public void ReceiveOrder(OrderData order)
         {
+            if (string.IsNullOrEmpty(order.OrderNumber)) order.OrderNumber = GenerateOrderNumber(order);
             _activeOrders.Add(order);
             OnOrderArrived?.Invoke(order);
-            Debug.Log($"[OrderService] New order received: {order.OrderId} from {order.CustomerName} ({order.TotalUnits} units) — awaiting release to a staging lane.");
+            Debug.Log($"[OrderService] New order received: {order.OrderNumber} ({order.OrderId}) from {order.CustomerName} ({order.TotalUnits} units) — awaiting release to a staging lane.");
             FilePlaceholderTask(order);
         }
 
@@ -131,23 +133,16 @@ namespace GameCore.Inventory
             { PalletData.AreaCategory.Frozen, 'F' }
         };
 
-        /// <summary>Mints this order's player-facing OrderNumber — see OrderData.OrderNumber for the
-        /// format. Called from ReleaseOrdersToLane, not order arrival: an order isn't "real" with a
-        /// number of its own until the player actually commits it to a staging lane. Reads
-        /// _activeOrders/_orderHistory rather than a separate persisted counter: the sequence for
-        /// "the Nth order of this area released this day" can always be recomputed from the orders
-        /// that already carry a number, so there's nothing extra to save, and Import can backfill a
-        /// legacy order the same way it mints a new one.</summary>
+        /// <summary>Mints this order's player-facing OrderNumber — house format "O{Area}{DueDay}{Seq}",
+        /// e.g. "OG5001" for a Grocery order due to ship day 5, the 1st outbound order ever. Called
+        /// from ReceiveOrder, at acceptance — an order is "real" with its own number the moment it's
+        /// accepted, not only once the player commits it to a staging lane. The day digit is DueDay
+        /// (when it's due to ship), not CreatedDayNumber (when it arrived) — those can differ, e.g. an
+        /// order accepted today with a lead time lands its number on the later ship day. The sequence
+        /// is OrderNumberGenerator's own persisted lifetime counter, not recomputed from existing
+        /// orders — see its doc comment for why it deliberately never resets per-day.</summary>
         private string GenerateOrderNumber(OrderData order)
-        {
-            char prefix = DominantOrderNumberPrefix(order);
-            int day = order.CreatedDayNumber;
-            int index = _activeOrders.Concat(_orderHistory)
-                .Count(o => o != order && o.CreatedDayNumber == day
-                            && !string.IsNullOrEmpty(o.OrderNumber) && o.OrderNumber[0] == prefix)
-                + 1;
-            return $"{prefix}{day:D3}{index}";
-        }
+            => OrderNumberGenerator.GetNext('O', DominantOrderNumberPrefix(order), order.DueDay);
 
         /// <summary>The area most of this order's line items belong to, by case count — not just a
         /// distinct count of areas — so one Perishable line riding along on an otherwise all-Grocery
@@ -611,8 +606,10 @@ namespace GameCore.Inventory
 
                 order.AssignedDoorNumber = doorNumber;
                 order.AssignedLane = lane;
-                // Keep a number this order already earned (see remarks above) rather than minting a
-                // second one for the same order.
+                // Every order is minted its OrderNumber at ReceiveOrder now, so this should always be
+                // a no-op by the time it's released — kept as a defensive fallback only, so an order
+                // that somehow reached here without one (e.g. a legacy save mid-migration) still gets
+                // a real number instead of shipping numberless.
                 if (string.IsNullOrEmpty(order.OrderNumber)) order.OrderNumber = GenerateOrderNumber(order);
                 FileReleasedOrderTasks(order, doorNumber, lane);
             }

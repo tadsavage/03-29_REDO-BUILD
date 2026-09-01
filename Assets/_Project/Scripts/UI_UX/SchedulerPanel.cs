@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 using GameCore.Economy;
+using GameCore.Events;
 using GameCore.Inventory;
 using GameCore.Services;
 
@@ -229,6 +230,12 @@ public class SchedulerPanel : IUIPanel
         // fills the panel's whole area, which is what a modal confirmation should darken and block.
         _overlay.Add(BuildOffSlotConfirm());
 
+        // Live refresh: the chips' out-of-stock counts/colors and any currently-open hover tooltip
+        // (short-shipped/needed-for-order highlighting) are all derived from live inventory, so they
+        // go stale the instant a pallet is actually received anywhere — not just on the next
+        // incidental Rebuild(). Per Tad's explicit call: wire this to the real receiving event.
+        EventManager.Instance?.Subscribe<PalletMasterRecord>(GameEvents.Inventory.OnPalletReceived, OnPalletReceivedForLiveRefresh);
+
         Hide();
     }
 
@@ -444,7 +451,18 @@ public class SchedulerPanel : IUIPanel
 
     public void Dispose()
     {
+        EventManager.Instance?.Unsubscribe<PalletMasterRecord>(GameEvents.Inventory.OnPalletReceived, OnPalletReceivedForLiveRefresh);
         if (_overlay.parent != null) _overlay.RemoveFromHierarchy();
+    }
+
+    /// <summary>Fires on every pallet formally received anywhere in the warehouse. Refreshes the
+    /// chips (if this panel is on screen) and any currently-open hover tooltip in place, so a live
+    /// figure like an "out of stock" count or a short-shipped highlight can't sit stale while the
+    /// player is looking right at it.</summary>
+    private void OnPalletReceivedForLiveRefresh(string eventId, PalletMasterRecord pallet)
+    {
+        if (_visible) Rebuild();
+        RefreshOpenTooltipContent();
     }
 
     // ── Shell ────────────────────────────────────────────────────────────────
@@ -507,7 +525,7 @@ public class SchedulerPanel : IUIPanel
 
         var title = new Label(TitleFor(_tab));
         _titleLabel = title;
-        ApplyFont(title, bold: true, size: 35); // 28 * 1.25 — 25% larger per design request
+        ApplyFont(title, bold: true, size: 44); // 35 * 1.25 — another 25% larger per Tad's explicit call
         title.style.color = new StyleColor(ColTitleText);
         title.style.unityTextAlign = TextAnchor.MiddleCenter;
         // Absolute + full-width-of-titleBar rather than flexGrow: with flexGrow the title only
@@ -1873,6 +1891,7 @@ public class SchedulerPanel : IUIPanel
         row.style.alignItems = Align.Center;
         row.style.flexShrink = 0;
 
+        row.Add(MakeText("Legend:", 17, ColSubtleText, bold: true)); // was 22 -- 25% smaller per Tad's explicit call
         row.Add(BuildScheduleLegendChip(AppointmentKind.Outbound, "Recurring"));
         row.Add(BuildScheduleLegendChip(AppointmentKind.Bulk, "Bulk"));
         row.Add(BuildScheduleLegendChip(AppointmentKind.Inbound, "Inbound PO"));
@@ -2868,7 +2887,7 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
         textCol.style.flexShrink = 1;
         textCol.style.overflow = Overflow.Hidden;
 
-        var nameLabel = MakeText(title, 15, ColTitleText, bold: true);
+        var nameLabel = MakeText(title, 20, ColTitleText, bold: true);
         nameLabel.style.whiteSpace = WhiteSpace.NoWrap;
         nameLabel.style.overflow = Overflow.Hidden;
         textCol.Add(nameLabel);
@@ -2876,7 +2895,7 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
         var (cases, pallets, critical, cost) = SummarizeOrderLines(lines);
 
         var statsLabel = MakeText($"{cases:N0} case(s) · {pallets:N0} pallet(s) · [{critical}] critical items",
-                                  11, ColSubtleText);
+                                  14, ColSubtleText);
         statsLabel.style.whiteSpace = WhiteSpace.NoWrap;
         textCol.Add(statsLabel);
 
@@ -2886,10 +2905,10 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
         costBox.style.alignItems = Align.Center;
         costBox.style.marginLeft = 8;
         costBox.style.flexShrink = 0;
-        var costLabel = MakeText($"${cost:N0}", 18, ColMoney, bold: true);
+        var costLabel = MakeText($"${cost:N0}", 23, ColMoney, bold: true);
         costLabel.style.whiteSpace = WhiteSpace.NoWrap;
         costBox.Add(costLabel);
-        var costCaption = MakeText("Cost of Load", 9, ColMoney, bold: true);
+        var costCaption = MakeText("Cost of Load", 12, ColMoney, bold: true);
         costCaption.style.whiteSpace = WhiteSpace.NoWrap;
         costBox.Add(costCaption);
         card.Add(costBox);
@@ -3199,12 +3218,17 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         if (awaitingFreight)
             cell.style.backgroundColor = new StyleColor(new Color(fill.r, fill.g, fill.b, 0.12f));
 
-        // Three lines: start/stop time, who it's for, then a compact summary -- critical items for
-        // an inbound PO, fill rate for an outbound trailer. Everything else (PO#, full item breakdown,
-        // revenue) still lives in the hover tooltip now that the taller row has room for it.
-        const int ChipFontSize = 17; // 50% larger than the original 11pt, per Tad's explicit call.
+        // Three lines: who it's for, its order/PO number, then a compact summary -- out of stock items
+        // for an inbound PO, fill rate for an outbound trailer. The raw time range used to be line 1
+        // but per Tad's explicit call was dropped — the chip's own position on the timeline already
+        // conveys when it's booked — in favor of the order number. Everything else (full item
+        // breakdown, revenue) still lives in the hover tooltip now that the taller row has room for it.
+        // Inbound POs run ~25% smaller than outbound -- per Tad, outbound sizing is exactly right and
+        // must not change, but inbound's longer vendor/PO text was reading oversized at the same size.
+        bool isInbound = IsInboundPo(appt);
+        int ChipFontSize = isInbound ? 11 : 14; // 14 * 0.75 = 10.5, rounded up for legibility
         // Zero out the default Label's built-in padding/margin (4px padding top+bottom, 4px/2px
-        // margin) before applying our own tight spacing -- three lines at the enlarged 17pt size
+        // margin) before applying our own tight spacing -- three lines at the enlarged font size
         // otherwise overflow the cell's own height with dead space, clipping the third line entirely.
         void TightenLine(VisualElement line, int marginTop)
         {
@@ -3212,20 +3236,24 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             line.style.marginTop = marginTop; line.style.marginBottom = 0;
         }
 
-        var time = MakeText(appt.TimeLabel, ChipFontSize, text, bold: true);
-        time.style.whiteSpace = WhiteSpace.NoWrap;
-        TightenLine(time, 0);
-        cell.Add(time);
-
         var who = MakeText(appt.CustomerName, ChipFontSize, text, bold: true);
         who.style.whiteSpace = WhiteSpace.NoWrap; who.style.overflow = Overflow.Hidden;
-        TightenLine(who, 1);
+        TightenLine(who, 0);
         cell.Add(who);
 
-        var summary = BuildChipSummaryLine(appt, ChipFontSize);
+        var orderLine = BuildChipOrderLine(appt, ChipFontSize, text);
+        orderLine.style.whiteSpace = WhiteSpace.NoWrap; orderLine.style.overflow = Overflow.Hidden;
+        TightenLine(orderLine, 1);
+        cell.Add(orderLine);
+
+        int SummaryFontSize = isInbound ? 16 : 21; // outbound: ChipFontSize*1.5 (unchanged); inbound: same -25% treatment (21*0.75=15.75)
+        var summary = BuildChipSummaryLine(appt, SummaryFontSize);
         if (summary != null)
         {
-            summary.style.whiteSpace = WhiteSpace.NoWrap; summary.style.overflow = Overflow.Hidden;
+            // Word-wrap rather than clip -- "2 out of stock item(s)" was truncating to "2 out of stock
+            // ite" at the cell's width. The outbound "X% In-Stock" text is short enough it never wraps
+            // anyway, so this is safe for both.
+            summary.style.whiteSpace = WhiteSpace.Normal; summary.style.overflow = Overflow.Visible;
             TightenLine(summary, 1);
             cell.Add(summary);
         }
@@ -3237,29 +3265,58 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         return cell;
     }
-    /// <summary>Third chip line: how many SKUs on an inbound PO are in net demand (same shortage
-    /// definition PurchasingPanel.CountCriticalItems/BuildInboundTooltipContent use), or the overall
-    /// fill rate across every order riding an outbound trailer. Null for a bare "truck at door, no PO
-    /// on file" note -- there's no shipment/order data yet to summarize.</summary>
+    /// <summary>Second chip line: this trailer's player-facing order number(s) for an outbound/bulk
+    /// appointment, or its PO number for an inbound one -- replaces the old raw time range now that
+    /// the chip's position on the timeline already conveys when it's scheduled.</summary>
+    private VisualElement BuildChipOrderLine(DockAppointment appt, int fontSize, Color color)
+    {
+        if (IsInboundPo(appt))
+            return MakeText($"Ordered: PO {appt.ShipmentPoNumber}", fontSize, color, bold: true);
+
+        if (appt.OrderIds.Count == 0 || !ServiceLocator.TryGet<OrderService>(out var orders) || orders == null)
+            return MakeText("No order yet", fontSize, color, bold: true);
+
+        var allOrders = orders.ActiveOrders.Concat(orders.OrderHistory).ToList();
+        var numbers = appt.OrderIds
+            .Select(id => allOrders.FirstOrDefault(o => o.OrderId == id)?.OrderNumber)
+            .Where(n => !string.IsNullOrEmpty(n))
+            .Distinct()
+            .ToList();
+
+        string label = numbers.Count > 0 ? $"Ordered: {string.Join(" + ", numbers)}" : "No order yet";
+        return MakeText(label, fontSize, color, bold: true);
+    }
+
+    /// <summary>Third chip line: how many SKUs on an inbound PO are OUT OF STOCK -- in demand from
+    /// pending outbound orders beyond what's actually received/on-hand (LIVE inventory only; stock
+    /// still in transit on another PO does NOT count, even though it's coming -- see
+    /// CountInboundOutOfStockItems) -- or the blended In-Stock coverage across every order riding an
+    /// outbound trailer -- same metric and color scale (<see cref="OutsColor"/>) as the per-SKU lines
+    /// in the hover tooltip, just rolled up to one trailer-wide number. Null for a bare "truck at
+    /// door, no PO on file" note -- there's no shipment/order data yet to summarize.</summary>
     private VisualElement BuildChipSummaryLine(DockAppointment appt, int fontSize)
     {
         if (IsInboundPo(appt))
         {
-            int critical = CountInboundCriticalItems(appt);
-            string label = critical > 0
-                ? $"{critical} critical item{(critical == 1 ? "" : "s")}"
-                : "No critical items";
-            return MakeText(label, fontSize, critical > 0 ? ColDangerSoft : ChipText(appt.Kind), bold: true);
+            int outOfStock = CountInboundOutOfStockItems(appt);
+            string label = outOfStock > 0
+                ? $"{outOfStock} out of stock item{(outOfStock == 1 ? "" : "s")}"
+                : "Nothing out of stock";
+            return MakeText(label, fontSize, outOfStock > 0 ? ColDangerSoft : ChipText(appt.Kind), bold: true);
         }
 
         if (appt.Kind == AppointmentKind.Inbound) return null; // bare note, nothing to summarize yet
 
-        float fillRate = ComputeOutboundFillRate(appt);
-        Color fillColor = fillRate >= 0.95f ? ColMoney : fillRate >= 0.6f ? ColWholesale : ColDangerSoft;
-        return MakeText($"{fillRate:P0} fill", fontSize, fillColor, bold: true);
+        int inStockPercent = ComputeOutboundInStockPercent(appt);
+        return MakeText($"{inStockPercent}% In-Stock", fontSize, OutsColor(inStockPercent), bold: true);
     }
 
-    private static int CountInboundCriticalItems(DockAppointment appt)
+    /// <summary>Per Tad: "out of stock" is judged purely against LIVE inventory (InventoryService.
+    /// TotalOnHand -- a pallet becomes part of the balance the moment it's received), never netted
+    /// against quantity still in transit on some other PO. Stock on order doesn't help the floor until
+    /// it's actually on the shelf, so it must not mask a real shortage here -- that's what the
+    /// separate "Pending Receipt" line on each item row is for instead.</summary>
+    private static int CountInboundOutOfStockItems(DockAppointment appt)
     {
         if (!ServiceLocator.TryGet<ShipmentService>(out var shipments) || shipments == null) return 0;
         var shipment = shipments.PendingShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber);
@@ -3270,29 +3327,44 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         int count = 0;
         foreach (var skuId in shipment.LineItems.Select(li => li.SkuId).Distinct())
         {
-            int inDemand = Mathf.Max(0, econ.GetTotalInDemand(skuId) - inv.TotalOnHand(skuId) - econ.GetTotalOnOrder(skuId));
-            if (inDemand > 0) count++;
+            int outOfStock = Mathf.Max(0, econ.GetTotalInDemand(skuId) - inv.TotalOnHand(skuId));
+            if (outOfStock > 0) count++;
         }
         return count;
     }
 
-    private static float ComputeOutboundFillRate(DockAppointment appt)
+    /// <summary>Blended on-hand coverage across every distinct SKU riding this trailer: how much of
+    /// everything ordered could be covered by what's currently on the shelf, capped per-SKU at 100% so
+    /// a surplus of one item can't paper over a shortage of another. Same ActiveOrders+OrderHistory
+    /// lookup as BuildOutboundTooltipContent, so the chip agrees with its own hover tooltip even after
+    /// an order archives out of ActiveOrders on close-out.</summary>
+    private static int ComputeOutboundInStockPercent(DockAppointment appt)
     {
         if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null || appt.OrderIds.Count == 0)
-            return 0f;
+            return 0;
+        if (!ServiceLocator.TryGet<InventoryService>(out var inv) || inv == null) return 0;
 
-        int needed = 0, picked = 0;
+        var allOrders = orders.ActiveOrders.Concat(orders.OrderHistory);
+        var neededBySku = new Dictionary<string, int>();
         foreach (var id in appt.OrderIds)
         {
-            var order = orders.ActiveOrders.FirstOrDefault(o => o.OrderId == id);
+            var order = allOrders.FirstOrDefault(o => o.OrderId == id);
             if (order == null) continue;
             foreach (var li in order.LineItems)
             {
-                needed += li.QuantityNeeded;
-                picked += li.QuantityPicked;
+                neededBySku.TryGetValue(li.SkuId, out int needed);
+                neededBySku[li.SkuId] = needed + li.QuantityNeeded;
             }
         }
-        return needed > 0 ? picked / (float)needed : 0f;
+        if (neededBySku.Count == 0) return 0;
+
+        int totalNeeded = 0, totalCovered = 0;
+        foreach (var kv in neededBySku)
+        {
+            totalNeeded += kv.Value;
+            totalCovered += Mathf.Min(inv.TotalOnHand(kv.Key), kv.Value);
+        }
+        return totalNeeded > 0 ? Mathf.Clamp(Mathf.RoundToInt(totalCovered / (float)totalNeeded * 100f), 0, 100) : 0;
     }
 
 
@@ -3322,12 +3394,18 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     // ── New Scheduler hover tooltip ───────────────────────────────────────────────
     private VisualElement _newSchedulerTooltip;
 
+    /// <summary>Appointment the open hover tooltip is currently showing, if any — lets a live
+    /// inventory event (see OnPalletReceivedForLiveRefresh) re-render the SAME tooltip's content in
+    /// place without needing the mouse to leave and re-enter the chip.</summary>
+    private DockAppointment _hoveredTooltipAppt;
+
     /// <summary>Builds the rich hover card for a timeline cell — an inbound PO's manifest or an
     /// outbound trailer's items — and positions it just below the hovered cell, clamped so it can't
     /// run off the modal's right/bottom edge.</summary>
     private void ShowNewSchedulerTooltip(DockAppointment appt, VisualElement cell)
     {
         if (_newSchedulerTooltip == null) return;
+        _hoveredTooltipAppt = appt;
         _newSchedulerTooltip.Clear();
 
         VisualElement content = IsInboundPo(appt) ? BuildInboundTooltipContent(appt)
@@ -3346,7 +3424,23 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
     private void HideNewSchedulerTooltip()
     {
+        _hoveredTooltipAppt = null;
         if (_newSchedulerTooltip != null) _newSchedulerTooltip.style.display = DisplayStyle.None;
+    }
+
+    /// <summary>Re-renders the currently-open hover tooltip's content in place — same position, fresh
+    /// numbers — without needing ShowNewSchedulerTooltip's full re-entry (which needs a `cell`
+    /// reference this doesn't have). No-op if no tooltip is actually open right now.</summary>
+    private void RefreshOpenTooltipContent()
+    {
+        if (_newSchedulerTooltip == null || _hoveredTooltipAppt == null) return;
+        if (_newSchedulerTooltip.style.display != DisplayStyle.Flex) return;
+
+        _newSchedulerTooltip.Clear();
+        VisualElement content = IsInboundPo(_hoveredTooltipAppt) ? BuildInboundTooltipContent(_hoveredTooltipAppt)
+            : _hoveredTooltipAppt.Kind == AppointmentKind.Inbound ? BuildInboundNoteTooltipContent(_hoveredTooltipAppt)
+            : BuildOutboundTooltipContent(_hoveredTooltipAppt);
+        _newSchedulerTooltip.Add(content);
     }
 
     private VisualElement BuildInboundNoteTooltipContent(DockAppointment appt)
@@ -3396,35 +3490,48 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     ServiceLocator.TryGet<InventoryService>(out var inv);
     ServiceLocator.TryGet<VendorEconomyService>(out var econ);
 
-    var bySku = new Dictionary<string, (int ordered, int received, int pallets)>();
+    var bySku = new Dictionary<string, (int ordered, int received, int pallets, int droppedPallets, int droppedCases)>();
     foreach (var li in shipment.LineItems)
     {
         bySku.TryGetValue(li.SkuId, out var agg);
         agg.ordered += li.Quantity;
         agg.received += li.ReceivedQuantity;
         agg.pallets += 1;
+        // Dropped means the supplier's short-shipment roll (ShipmentService.ApplySupplierVariance)
+        // picked this exact pallet — it will NEVER arrive, distinct from a pallet that's simply
+        // sitting in the lane waiting for a Receiver to walk over and process it. Tracked separately
+        // so the two states don't render identically (see the row loop below).
+        if (li.Dropped) { agg.droppedPallets += 1; agg.droppedCases += li.Quantity; }
         bySku[li.SkuId] = agg;
     }
 
-    var rows = new List<(SkuData sku, int ordered, int received, int pallets, int inDemand)>();
-    bool anyCritical = false;
+    // "Out of stock" is judged against LIVE inventory only (TotalOnHand — a pallet counts the moment
+    // it's received) — quantity still in transit on some OTHER PO does not cover a shortage here, per
+    // Tad, since it isn't actually on the shelf yet. That other-PO quantity is surfaced separately as
+    // each row's "Pending Receipt" instead, so the player can see relief is coming without it quietly
+    // erasing a real shortage from view.
+    var rows = new List<(SkuData sku, int ordered, int received, int pallets, int outOfStock, int pendingReceipt, int droppedPallets, int droppedCases)>();
+    bool anyOutOfStock = false;
     foreach (var kv in bySku)
     {
         var sku = inv?.GetSkuData(kv.Key);
-        int inDemand = econ != null && inv != null
-            ? Mathf.Max(0, econ.GetTotalInDemand(kv.Key) - inv.TotalOnHand(kv.Key) - econ.GetTotalOnOrder(kv.Key))
+        int outOfStock = econ != null && inv != null
+            ? Mathf.Max(0, econ.GetTotalInDemand(kv.Key) - inv.TotalOnHand(kv.Key))
             : 0;
-        if (inDemand > 0) anyCritical = true;
-        rows.Add((sku, kv.Value.ordered, kv.Value.received, kv.Value.pallets, inDemand));
+        int pendingReceipt = OtherPendingReceipt(shipments, shipment, kv.Key);
+        if (outOfStock > 0) anyOutOfStock = true;
+        rows.Add((sku, kv.Value.ordered, kv.Value.received, kv.Value.pallets, outOfStock, pendingReceipt,
+                 kv.Value.droppedPallets, kv.Value.droppedCases));
     }
 
-    if (!received && anyCritical)
+    if (!received && anyOutOfStock)
     {
-        var badge = MakeText("CRITICAL LOAD — carrying item(s) the floor needs", 11, ColDangerSoft, bold: true);
+        var badge = MakeText("OUT OF STOCK LOAD — carrying item(s) the floor needs", 11, ColDangerSoft, bold: true);
         badge.style.marginTop = 2; badge.style.marginBottom = 2;
         col.Add(badge);
     }
 
+    int totalPallets = rows.Sum(r => r.pallets);
     var vendor = VendorRegistry.Load()?.GetById(shipment.SupplierId);
     var vendorRow = new VisualElement();
     vendorRow.style.flexDirection = FlexDirection.Row;
@@ -3433,7 +3540,25 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     vendorRow.Add(MakeIcon(vendor?.Icon, 26, 5, marginRight: 8));
     vendorRow.Add(MakeText(vendor != null ? vendor.DisplayName : (shipment.SupplierId ?? "Unknown vendor"),
                            13, ColSubtleText, bold: true));
+    var vendorRowSpacer = new VisualElement(); vendorRowSpacer.style.flexGrow = 1;
+    vendorRow.Add(vendorRowSpacer);
+    // Total pallet count, to help the player judge door/lane capacity while booking this PO onto the
+    // Scheduler — per Tad's explicit call.
+    vendorRow.Add(MakeText($"Total: {PalletLabel(totalPallets)}", 13, ColTitleText, bold: true));
     col.Add(vendorRow);
+
+    // Per-item red now means "short-shipped" specifically (see the row loop below) — an item being
+    // out of stock on the floor no longer colors its own row, only the trailer-level chip/badge above.
+    var shortShipLegend = MakeText("Short-Shipped in Red", 10, ColDanger, bold: true);
+    shortShipLegend.style.marginBottom = 2;
+    col.Add(shortShipLegend);
+
+    // Still not enough live inventory to cover pending outbound orders — orange, whether or not this
+    // PO has arrived yet. Unlike a short-shipment (unknowable until departure/receipt), this is a
+    // fact we already know today, so per Tad it should show in advance rather than waiting.
+    var neededLegend = MakeText("Product needed for order in Orange", 10, ColWholesale, bold: true);
+    neededLegend.style.marginBottom = 4;
+    col.Add(neededLegend);
 
     if (received)
     {
@@ -3457,18 +3582,91 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
 
     foreach (var row in rows.OrderBy(r => r.sku?.ItemNumber ?? 0))
     {
-        string detail = received
+        // Short-shipped can only be KNOWN once the trailer has actually departed/been received — see
+        // ShipmentLineItem.Dropped. "Needed for order" (outOfStock) is different: it's a fact we
+        // already know today regardless of whether this PO has arrived, so — per Tad's explicit
+        // correction — it's allowed to flag orange in advance, while red stays strictly gated on
+        // `received`.
+        bool shortShipped = received && row.droppedPallets > 0;
+        string caseLine = received
             ? (row.received < row.ordered
                 ? $"{row.received:N0}/{row.ordered:N0} case(s) received · {PalletLabel(row.pallets)}"
                 : $"{row.received:N0} case(s) received · {PalletLabel(row.pallets)}")
-            : $"{row.ordered:N0} case(s) · {PalletLabel(row.pallets)}" +
-              (row.inDemand > 0 ? $" · in demand: {row.inDemand:N0}" : string.Empty);
-        bool flagged = received ? row.received < row.ordered : row.inDemand > 0;
-        col.Add(BuildTooltipItemRow(row.sku, detail, flagged));
+            : $"Expected: {row.ordered:N0} case(s) · Received: 0 · {PalletLabel(row.pallets)}";
+
+        Color? highlight = null;
+        if (shortShipped)
+        {
+            // Short-shipped is a PERMANENT discrepancy (the supplier never put it on the truck) — RED,
+            // and takes priority over the orange case below.
+            caseLine += $" · SHORT-SHIPPED: {row.droppedCases:N0} case(s) never arrived";
+            highlight = ColDanger;
+        }
+        else if (row.outOfStock > 0)
+        {
+            // Nothing WRONG here — just a fact worth flagging either way: the floor doesn't have
+            // enough live inventory of this SKU to cover pending outbound orders yet. ORANGE, whether
+            // this PO is still inbound or already landed. See "Pending Receipt" below for whether more
+            // relief is already on its way from elsewhere.
+            caseLine += " · needed for order";
+            highlight = ColWholesale;
+        }
+        // Neither: fully covers demand (once received) or nothing to flag yet — stays neutral/white.
+
+        var detailElement = BuildInboundItemDetail(caseLine, highlight != null ? row.pendingReceipt : 0, highlight);
+        col.Add(BuildTooltipItemRow(row.sku, detailElement, highlight));
     }
 
     return col;
 }
+
+    /// <summary>Builds an inbound item row's detail column: the existing case/pallet line, plus a
+    /// "Pending Receipt" line underneath when pendingReceipt > 0 -- quantity of this SKU already in
+    /// transit on some OTHER PO. Still counts as out of stock (it isn't on the shelf yet), but tells
+    /// the player relief is coming so they know to get it received before the outbound order that
+    /// needs it comes up on the Scheduler.</summary>
+    private VisualElement BuildInboundItemDetail(string caseLine, int pendingReceipt, Color? highlightColor = null)
+    {
+        var col = new VisualElement();
+
+        // Bold + the given highlight color (red for short-shipped, orange for still out of stock) for
+        // a genuine discrepancy — per Tad's explicit call. Neutral/unbolded otherwise, including the
+        // ordinary "not yet formally received" or "expected, not departed yet" states.
+        var caseLabel = MakeText(caseLine, 14, highlightColor ?? ColSubtleText, bold: highlightColor != null);
+        col.Add(caseLabel);
+
+        if (pendingReceipt > 0)
+        {
+            var pendingLabel = MakeText($"Pending Receipt: {pendingReceipt:N0}", 14, ColWholesale, bold: true);
+            col.Add(pendingLabel);
+        }
+
+        return col;
+    }
+
+    /// <summary>Quantity of this SKU already in transit on OTHER pending shipments — deliberately
+    /// excludes <paramref name="current"/> so a PO's own line doesn't echo its own quantity back at
+    /// itself as "Pending Receipt". Same status filter as VendorEconomyService.GetTotalOnOrder.</summary>
+    private static int OtherPendingReceipt(ShipmentService shipments, ShipmentData current, string skuId)
+    {
+        if (shipments == null || string.IsNullOrEmpty(skuId)) return 0;
+
+        int total = 0;
+        foreach (var s in shipments.PendingShipments)
+        {
+            if (s == null || s == current) continue;
+            if (s.Status != ShipmentData.ShipmentStatus.InTransit &&
+                s.Status != ShipmentData.ShipmentStatus.Receiving &&
+                s.Status != ShipmentData.ShipmentStatus.Delayed) continue;
+
+            foreach (var li in s.LineItems)
+            {
+                if (li == null || li.SkuId != skuId) continue;
+                total += Mathf.Max(0, li.Quantity - li.ReceivedQuantity);
+            }
+        }
+        return total;
+    }
 
     /// <summary>Customer, total expected revenue across every order riding this trailer, then one row
     /// per SKU — cases actually picked so far and the resulting fill rate.</summary>
@@ -3478,25 +3676,38 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
 
         if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null || appt.OrderIds.Count == 0)
         {
-            col.Add(MakeText(appt.CustomerName, 14, ColTitleText, bold: true));
-            col.Add(MakeText("No items generated yet.", 12, ColSubtleText));
+            col.Add(MakeText(appt.CustomerName, 18, ColTitleText, bold: true));
+            col.Add(MakeText("No items generated yet.", 16, ColSubtleText));
             return col;
         }
 
+        // Order stats stay visible through departure (looked up from OrderHistory too, since a
+        // shipped/cancelled order archives out of ActiveOrders the moment it closes out) but only for
+        // the day of this appointment — per Tad's request, once the in-game day rolls past appt.Day
+        // the numbers purge instead of showing stale data from a day that's already over.
+        int currentDay = Schedule()?.CurrentDay ?? appt.Day;
+        if (currentDay > appt.Day)
+        {
+            col.Add(MakeText(appt.CustomerName, 18, ColTitleText, bold: true));
+            col.Add(MakeText("Order data cleared — day has ended.", 16, ColSubtleText));
+            return col;
+        }
+
+        var allOrders = orders.ActiveOrders.Concat(orders.OrderHistory).ToList();
         var orderList = appt.OrderIds
-            .Select(id => orders.ActiveOrders.FirstOrDefault(o => o.OrderId == id))
+            .Select(id => allOrders.FirstOrDefault(o => o.OrderId == id))
             .Where(o => o != null).ToList();
         int totalRevenue = orderList.Sum(o => o.TotalRevenue);
 
-        col.Add(MakeText(appt.CustomerName, 15, ColTitleText, bold: true));
-        var revenueLabel = MakeText($"Expected revenue: ${totalRevenue:N0}", 12, ColMoney, bold: true);
+        col.Add(MakeText(appt.CustomerName, 20, ColTitleText, bold: true));
+        var revenueLabel = MakeText($"Expected revenue: ${totalRevenue:N0}", 16, ColMoney, bold: true);
         revenueLabel.style.marginBottom = 6;
         col.Add(revenueLabel);
         col.Add(BuildTooltipDivider());
 
         if (orderList.Count == 0)
         {
-            col.Add(MakeText("No items generated yet.", 12, ColSubtleText));
+            col.Add(MakeText("No items generated yet.", 16, ColSubtleText));
             return col;
         }
 
@@ -3514,8 +3725,8 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         foreach (var kv in bySku.OrderBy(k => inv?.GetSkuData(k.Key)?.ItemNumber ?? 0))
         {
             var sku = inv?.GetSkuData(kv.Key);
-            float fillRate = kv.Value.needed > 0 ? kv.Value.picked / (float)kv.Value.needed : 0f;
-            col.Add(BuildTooltipItemRow(sku, $"{kv.Value.picked:N0} case(s) shipped · {fillRate:P0} fill", false));
+            int onHand = inv?.TotalOnHand(kv.Key) ?? 0;
+            col.Add(BuildTooltipItemRow(sku, BuildOutboundItemDetail(kv.Value.needed, kv.Value.picked, onHand)));
         }
 
         return col;
@@ -3530,22 +3741,66 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         return divider;
     }
 
-    private VisualElement BuildTooltipItemRow(SkuData sku, string detail, bool critical)
+    /// <summary>Standard color for an "Outs" (on-hand stock coverage) percentage, anywhere one is
+    /// shown: 0% is fully out (red), 1-99% is partial coverage (orange), 100% is fully covered
+    /// (bright green). Per Tad, this is the house standard going forward for any stock-coverage
+    /// percentage, not just the order tooltip it was introduced for.</summary>
+    private static Color OutsColor(int pct)
+    {
+        if (pct <= 0) return ColDanger;
+        if (pct >= 100) return ColMoney;
+        return ColWholesale;
+    }
+
+    /// <summary>Builds the "Ordered: X    Shipped: X    In-Stock: X%" detail line for an outbound
+    /// order's item row, with only the percentage colored per <see cref="OutsColor"/> -- everything
+    /// else stays the neutral subtle color the rest of the tooltip uses.</summary>
+    private VisualElement BuildOutboundItemDetail(int ordered, int shipped, int onHand)
+    {
+        int outsPercent = ordered > 0 ? Mathf.Clamp(Mathf.RoundToInt(onHand / (float)ordered * 100f), 0, 100) : 100;
+
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.flexWrap = Wrap.Wrap;
+
+        var prefix = MakeText($"Ordered: {ordered:N0}    Shipped: {shipped:N0}    In-Stock: ", 14, ColSubtleText);
+        row.Add(prefix);
+
+        var outs = MakeText($"{outsPercent}%", 14, OutsColor(outsPercent), bold: true);
+        row.Add(outs);
+
+        return row;
+    }
+
+    private VisualElement BuildTooltipItemRow(SkuData sku, VisualElement detailElement, Color? highlightColor = null)
     {
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
-        row.style.marginBottom = 4;
+        row.style.marginBottom = 2; // was 4 -- compressed per Tad's request to fit more item lines vertically
 
-        row.Add(MakeIcon(sku?.Icon, 22, 4, marginRight: 8));
+        row.Add(MakeIcon(sku?.Icon, 44, 4, marginRight: 8)); // was 22 -- doubled per Tad's explicit call
 
         var textCol = new VisualElement();
         textCol.style.flexGrow = 1;
         textCol.style.overflow = Overflow.Hidden;
-        textCol.Add(MakeText(sku != null ? $"#{sku.ItemNumber} — {sku.ItemDescription}" : "Unknown item",
-                             12, ColTitleText, bold: true));
-        var detailLabel = MakeText(detail, 11, critical ? ColDangerSoft : ColSubtleText);
-        textCol.Add(detailLabel);
+
+        // Zero out the default Label's built-in padding/margin (same treatment BuildNewSchedulerCell's
+        // TightenLine gives the chip lines) -- without it the name and detail lines each carry the
+        // project's default Label spacing on top of our own, which is most of why item rows read so
+        // tall and loose to begin with.
+        // Item number + description also takes the highlight color (red = short-shipped, orange =
+        // still needed for pending orders) -- per Tad, not just the detail line below it.
+        var nameLabel = MakeText(sku != null ? $"#{sku.ItemNumber} — {sku.ItemDescription}" : "Unknown item",
+                                 16, highlightColor ?? ColTitleText, bold: true);
+        nameLabel.style.paddingTop = 0; nameLabel.style.paddingBottom = 0;
+        nameLabel.style.marginTop = 0; nameLabel.style.marginBottom = 0;
+        textCol.Add(nameLabel);
+
+        detailElement.style.paddingTop = 0; detailElement.style.paddingBottom = 0;
+        detailElement.style.marginTop = 0; detailElement.style.marginBottom = 0;
+        textCol.Add(detailElement);
+
         row.Add(textCol);
 
         return row;

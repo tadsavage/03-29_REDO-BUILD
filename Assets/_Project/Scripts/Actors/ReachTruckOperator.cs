@@ -461,15 +461,35 @@ namespace GameCore.Actors
                 List<PalletMasterRecord> pallets = _inventoryService?.GetPalletsAtLocation(slots[i].Cell);
                 if (pallets == null || pallets.Count == 0) continue;
 
-                PalletMasterRecord topmost = pallets[pallets.Count - 1];
-                PalletMasterLink   link    = PalletMasterLink.Find(topmost.PalletId);
-                if (link == null) return null;
+                // Topmost by ACTUAL measured world height, never by list order. InventoryService's
+                // per-cell list is append-order, which normally matches stacking order since a new
+                // drop always lands above whatever's already there — but it can drift (e.g. a pallet
+                // getting re-synced back into the list by PalletInventoryTracker's heartbeat lands at
+                // the END of the list while still sitting physically LOWER than an earlier entry). If
+                // that ever happens, pallets[Count-1] silently stops meaning "topmost" and a Reach
+                // Truck can reach straight through a pallet still resting on top of it — exactly the
+                // "grabbed the bottom pallet while another sat on top of it" bug this replaced. Picking
+                // by measured height is immune to that: whichever pallet is physically highest IS the
+                // one nothing else is resting on, regardless of how the list got ordered.
+                PalletMasterLink topmost = null;
+                float highestY = float.NegativeInfinity;
+                foreach (var rec in pallets)
+                {
+                    var candidate = PalletMasterLink.Find(rec.PalletId);
+                    if (candidate == null) continue;
+                    float y = candidate.transform.position.y;
+                    if (y > highestY) { highestY = y; topmost = candidate; }
+                }
+                if (topmost == null) return null;
 
-                // RULE: the exit-most pallet must be received before an RTO can take it.
-                if (link.GetComponent<PalletData>() == null) return null;
+                // RULE: the physically topmost pallet must be received before an RTO can take it — if
+                // it isn't, the WHOLE stack waits, even if something buried underneath is already
+                // received. Reaching past an unreceived pallet to grab one beneath it is exactly the
+                // immersion break this guards against.
+                if (topmost.GetComponent<PalletData>() == null) return null;
 
                 palletId = topmost.PalletId;
-                return link;
+                return topmost;
             }
             return null;
         }
