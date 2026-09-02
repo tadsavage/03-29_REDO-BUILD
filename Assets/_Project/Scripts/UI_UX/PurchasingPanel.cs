@@ -2321,7 +2321,7 @@ public class PurchasingPanel : IUIPanel
         header.Add(arrow);
 
         var icon = new VisualElement();
-        icon.style.width = 36; icon.style.height = 36;
+        icon.style.width = 45; icon.style.height = 45; // 36 * 1.25 per Tad's explicit call
         icon.style.flexShrink = 0;
         icon.style.marginLeft = 6; icon.style.marginRight = 10;
         icon.style.borderTopLeftRadius = icon.style.borderTopRightRadius =
@@ -2523,7 +2523,7 @@ public class PurchasingPanel : IUIPanel
             row.style.borderBottomLeftRadius = row.style.borderBottomRightRadius = 6;
 
         var icon = new VisualElement();
-        icon.style.width = 36; icon.style.height = 36;
+        icon.style.width = 45; icon.style.height = 45; // 36 * 1.25 per Tad's explicit call
         icon.style.flexShrink = 0;
         icon.style.marginRight = 8;
         icon.style.borderTopLeftRadius = icon.style.borderTopRightRadius =

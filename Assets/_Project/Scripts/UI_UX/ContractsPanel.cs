@@ -99,7 +99,7 @@ public class ContractsPanel : IUIPanel
     /// number that silently stops relating to the others if the base ever changes.</summary>
     private const float OrangeButtonHeight = 30f;
 
-    private const float IconSize    = 72f;   // Offers cards
+    private const float IconSize    = 108f;   // Offers cards -- 72 * 1.5 per Tad's explicit call
 
     /// <summary>Offer-card icons are drawn 10% wider than they are tall. The customer sprites are
     /// not square, so a square box squeezed them horizontally. Width only — the height stays on
@@ -779,8 +779,8 @@ public class ContractsPanel : IUIPanel
         header.style.marginBottom = 10;
 
         var intro = new Label("Take a contract to bring work in.  ·  Drag the title bar to move the window.");
-        ApplyFont(intro, size: 14);
-        intro.style.color = new StyleColor(ColSubtleText);
+        ApplyFont(intro, size: 21); // 14 * 1.5 per Tad's explicit call
+        intro.style.color = new StyleColor(Color.white);
         intro.style.whiteSpace = WhiteSpace.Normal;
         intro.style.flexGrow = 1;
         intro.style.flexShrink = 1;
@@ -850,7 +850,7 @@ public class ContractsPanel : IUIPanel
         column.style.marginRight = marginRight;
         column.style.paddingTop = 12; column.style.paddingBottom = 12;
         column.style.paddingLeft = 12; column.style.paddingRight = 12;
-        column.style.backgroundColor = new StyleColor(new Color(accent.r, accent.g, accent.b, 0.06f));
+        column.style.backgroundColor = new StyleColor(new Color(ColBg.r, ColBg.g, ColBg.b, 1f)); // opaque per Tad's explicit call
         column.style.borderTopWidth = column.style.borderBottomWidth =
             column.style.borderLeftWidth = column.style.borderRightWidth = 2;
         column.style.borderTopColor = column.style.borderBottomColor =
@@ -858,12 +858,12 @@ public class ContractsPanel : IUIPanel
         column.style.borderTopLeftRadius = column.style.borderTopRightRadius =
             column.style.borderBottomLeftRadius = column.style.borderBottomRightRadius = 10;
 
-        var titleLabel = MakeText(title, 24, ColTitleText, bold: true);
+        var titleLabel = MakeText(title, 36, Color.white, bold: true); // 24 * 1.5 per Tad's explicit call
         titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         titleLabel.style.alignSelf = Align.Stretch;
         column.Add(titleLabel);
 
-        var helper = MakeText(helperText, 13, ColSubtleText);
+        var helper = MakeText(helperText, 20, Color.white); // 13 * 1.5 per Tad's explicit call
         helper.style.marginTop = 4;
         helper.style.marginBottom = 10;
         column.Add(helper);
@@ -1209,16 +1209,23 @@ public class ContractsPanel : IUIPanel
 
         var body = new VisualElement();
         body.style.flexGrow = 1;
-        body.Add(MakeText(contract.Customer != null ? contract.Customer.CompanyName : contract.ContractId,
-                          19, ColSubtleText, bold: true));
-        body.Add(MakeText("WON'T DEAL WITH YOU YET", 14, ColSubtleText, bold: true));
+        // 19 * 1.5 per Tad's explicit call. FontStyle.Bold alone barely reads as bold with this
+        // project's single-weight Nunito Sans (no dedicated bold face for Unity to synthesize from —
+        // see the Scheduler sweep-badge fix), so a thin same-colour text outline fakes the extra
+        // stroke weight Tad's after.
+        var vendorName = MakeText(contract.Customer != null ? contract.Customer.CompanyName : contract.ContractId,
+                          29, Color.white, bold: true);
+        vendorName.style.unityTextOutlineWidth = 0.6f;
+        vendorName.style.unityTextOutlineColor = new StyleColor(Color.white);
+        body.Add(vendorName);
+        body.Add(MakeText("WON'T DEAL WITH YOU YET", 21, ColDanger, bold: true)); // 14 * 1.5, red per Tad's explicit call
         // "you have {rep}. {gap} to go" put a full stop between two numbers, so at rep 0 it rendered as
         // "you have 0. 250 to go" and read as the decimal 0.250. Comma-joined into one clause instead —
         // a separator that can never be mistaken for part of a number.
         var need = MakeText($"Needs {contract.ReputationRequired:N0} reputation " +
                             $"({ReputationService.BandLabel(ReputationService.BandFor(contract.ReputationRequired))}) " +
                             $"— you have {rep:N0}, so {contract.ReputationRequired - rep:N0} to go.",
-                            14, ColSubtleText);
+                            21, Color.white); // 14 * 1.5 per Tad's explicit call
         need.style.marginTop = 2;
         body.Add(need);
         card.Add(body);

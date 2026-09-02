@@ -55,7 +55,15 @@ namespace GameCore.Labor
         // sibling ReceivingTaskDriver), and nothing here ever verified the callback's claim against
         // reality. Checked both at the start (BeginReceivingAt) and continuously while receiving, since
         // an already-in-progress receive could just as easily be knocked out of range mid-animation.
-        private const float MaxReceivingDistance = 2f;
+        //
+        // Must comfortably clear ReceivingTaskDriver's StandoffDistance (1.75m from the pallet pivot)
+        // PLUS AiNavigation.SeekPosition's own arrival tolerance (remainingDistance <= 1.0m from the
+        // stand position) — worst case the arrival callback fires ~2.75m from the pallet. At the old
+        // 2f this rejected a real chunk of legitimate arrivals (observed live: "2.1m away (max 2m)"),
+        // which released the task back to the queue, got it immediately re-claimed by the same
+        // lane-sticky receiver, and re-triggered the same near-instant arrival/rejection — the
+        // receiver visibly shuffling back and forth instead of ever starting to receive.
+        private const float MaxReceivingDistance = 3f;
 
         // The RF gun's "Infra-Red" beam (LineRenderer child) — off by default on the prop prefab,
         // only switched on for the duration of the receiving animation. Looked up lazily rather than

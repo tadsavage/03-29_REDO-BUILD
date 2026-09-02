@@ -42,7 +42,7 @@ using GameCore.Services;
 /// </summary>
 public class SchedulerPanel : IUIPanel
 {
-    private static readonly Color ColBg          = new Color(18f / 255f, 26f / 255f, 36f / 255f, 0.97f);
+    private static readonly Color ColBg          = new Color(18f / 255f, 26f / 255f, 36f / 255f, 1f);
     private static readonly Color ColBorder      = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
     private static readonly Color ColTitleText   = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
     private static readonly Color ColSubtleText  = new Color(0x7A / 255f, 0x99 / 255f, 0xB0 / 255f, 1f);
@@ -50,8 +50,8 @@ public class SchedulerPanel : IUIPanel
     private static readonly Color ColOrangeEdge  = new Color(0x7A / 255f, 0x4C / 255f, 0x22 / 255f, 1f);
     private static readonly Color ColOrangeText  = new Color(0xFD / 255f, 0xE8 / 255f, 0xCC / 255f, 1f);
     private static readonly Color ColOrangeHover = new Color(0xC6 / 255f, 0x7F / 255f, 0x42 / 255f, 1f);
-    private static readonly Color ColCardEven    = new Color(36f / 255f, 48f / 255f, 62f / 255f, 0.65f);
-    private static readonly Color ColCardOdd     = new Color(30f / 255f, 40f / 255f, 52f / 255f, 0.65f);
+    private static readonly Color ColCardEven = new Color(36f / 255f, 48f / 255f, 62f / 255f, .65f);
+    private static readonly Color ColCardOdd = new Color(30f / 255f, 40f / 255f, 52f / 255f, .65f);
     private static readonly Color ColMoney       = new Color(0x7E / 255f, 0xD6 / 255f, 0x8A / 255f, 1f);
     private static readonly Color ColWholesale   = new Color(0xF2 / 255f, 0xC2 / 255f, 0x5A / 255f, 1f);
     private static readonly Color ColBlueEdge    = new Color(0x2C / 255f, 0x5E / 255f, 0x82 / 255f, 1f);
@@ -82,12 +82,12 @@ public class SchedulerPanel : IUIPanel
     /// way for the session. Widened from 1040 when the Completed tab's text went up to 16pt (needs
     /// ~1170), then again to fit the Order # column (adds ~100) — a default that clips its own ledger
     /// would make resizing a repair rather than a preference.</summary>
-    private const float ModalWidth  = 1340f;
+    private const float ModalWidth  = 1366f;
     // Raised from 680 so the Schedule tab's grid — a ScrollView that just fills whatever's left after
     // the fixed-height header strip — shows more block rows without scrolling. minH on the
     // ResizableWindow below is tied to this same constant, so the player still can't drag it shorter
     // than the new default, same as before.
-    private const float ModalHeight = 800f;
+    private const float ModalHeight = 920f;
     /// <summary>Narrowest the window can be dragged. Below this the tab bar itself starts wrapping.</summary>
     private const float ModalMinWidth = 820f;
     /// <summary>Width of an offer card's right-hand action column. The commit button and the SHIP BY
@@ -1438,7 +1438,7 @@ public class SchedulerPanel : IUIPanel
 
     private Label MakeStripCaption(string text, Color color)
     {
-        var caption = MakeText(text, 14, color, bold: true);
+        var caption = MakeText(text, 18, color, bold: true); // 14 * 1.25 per Tad's explicit call
         caption.style.marginBottom = 6;
         caption.style.whiteSpace = WhiteSpace.NoWrap;
         return caption;
@@ -1694,6 +1694,20 @@ public class SchedulerPanel : IUIPanel
     /// </summary>
     private VisualElement BuildFlagBox(Sprite icon, string title, string subtitle, string detail,
                                        Color fill, Color edge, Color ink, bool selected)
+        => BuildFlagBox(icon, title, subtitle, MakeFlagDetailText(detail, ink), fill, edge, ink, selected);
+
+    private Label MakeFlagDetailText(string detail, Color ink)
+    {
+        var detailLabel = MakeText(detail, 11, ink);
+        detailLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        detailLabel.style.overflow = Overflow.Hidden;
+        detailLabel.style.opacity = 0.85f;
+        detailLabel.style.marginTop = 1; detailLabel.style.marginBottom = 0;
+        return detailLabel;
+    }
+
+    private VisualElement BuildFlagBox(Sprite icon, string title, string subtitle, VisualElement detailElement,
+                                       Color fill, Color edge, Color ink, bool selected)
     {
         var box = new VisualElement();
         box.style.width = PoolBoxWidth; box.style.height = PoolBoxHeight;
@@ -1739,19 +1753,16 @@ public class SchedulerPanel : IUIPanel
         titleLabel.style.whiteSpace = WhiteSpace.NoWrap;
         titleLabel.style.overflow = Overflow.Hidden;
         titleLabel.style.marginTop = 0; titleLabel.style.marginBottom = 0;
+        titleLabel.style.paddingTop = 0; titleLabel.style.paddingBottom = 0;
         textCol.Add(titleLabel);
 
         var subtitleLabel = MakeText(subtitle, 12, ink, bold: true);
         subtitleLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        subtitleLabel.style.marginTop = 1; subtitleLabel.style.marginBottom = 0;
+        subtitleLabel.style.marginTop = 0; subtitleLabel.style.marginBottom = 0;
+        subtitleLabel.style.paddingTop = 0; subtitleLabel.style.paddingBottom = 0;
         textCol.Add(subtitleLabel);
 
-        var detailLabel = MakeText(detail, 11, ink);
-        detailLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        detailLabel.style.overflow = Overflow.Hidden;
-        detailLabel.style.opacity = 0.85f;
-        detailLabel.style.marginTop = 1; detailLabel.style.marginBottom = 0;
-        textCol.Add(detailLabel);
+        textCol.Add(detailElement);
 
         flag.Add(textCol);
         return box;
@@ -1783,26 +1794,48 @@ public class SchedulerPanel : IUIPanel
         Color edge = selected ? ColOrangeText : late ? ColDanger : ColOrange;
         Color ink  = selected ? ColOrangeText : late ? ColDangerSoft : ChipText(appt.Kind);
 
-        string title, subtitle, detail;
+        string title, subtitle;
+        VisualElement detailElement;
         int pallets;
         if (isPo)
         {
             pallets = PalletCountForPO(appt.ShipmentPoNumber);
             title = $"PO {appt.ShipmentPoNumber}";
             subtitle = late ? $"{today - appt.Day}d LATE" : $"Day {appt.Day}";
-            detail = $"{PalletLabel(pallets)} · {appt.CustomerName}";
+            // Pallet count was unreadable at the shared 11px detail size, and the vendor name was
+            // dead weight -- every PO parked here is the same wholesaler, so drop it and let the
+            // number that actually matters (for judging door/lane capacity) be twice as big instead.
+            var detailRow = new VisualElement();
+            detailRow.style.flexDirection = FlexDirection.Row;
+            detailRow.style.alignItems = Align.FlexEnd;
+            detailRow.style.opacity = 0.85f;
+            // Pulled up negative -- the 22px number's own line-height was pushing this row past the
+            // box's fixed height, clipping the title above and the number below. Zeroing pad/margin on
+            // both labels wasn't enough on its own since the taller line-height is baked into the font
+            // metrics, not spacing this code controls.
+            detailRow.style.marginTop = -5;
+            var countLabel = MakeText(pallets.ToString(), 22, ink, bold: true);
+            countLabel.style.marginRight = 4;
+            countLabel.style.marginTop = 0; countLabel.style.marginBottom = 0;
+            countLabel.style.paddingTop = 0; countLabel.style.paddingBottom = 0;
+            detailRow.Add(countLabel);
+            var unitLabel = MakeText(pallets == 1 ? "pallet" : "pallets", 19, ink); // 11 * 1.75 per Tad's explicit call
+            unitLabel.style.marginTop = 0; unitLabel.style.marginBottom = 0;
+            unitLabel.style.paddingTop = 0; unitLabel.style.paddingBottom = 0;
+            detailRow.Add(unitLabel);
+            detailElement = detailRow;
         }
         else
         {
             pallets = 0; // a held outbound trailer carries no line items of its own to count
             title = appt.CustomerName;
             subtitle = late ? $"{today - appt.Day}d LATE" : $"Day {appt.Day}";
-            detail = $"{DockScheduleService.BlockLabel(appt.BlockIndex)} · held";
+            detailElement = MakeFlagDetailText($"{DockScheduleService.BlockLabel(appt.BlockIndex)} · held", ink);
         }
 
         var box = BuildFlagBox(
             icon: IconForCustomer(appt.CustomerId, appt.ContractId, Arrivals()),
-            title: title, subtitle: subtitle, detail: detail,
+            title: title, subtitle: subtitle, detailElement: detailElement,
             fill: fill, edge: edge, ink: ink,
             selected: selected);
 
@@ -1891,7 +1924,7 @@ public class SchedulerPanel : IUIPanel
         row.style.alignItems = Align.Center;
         row.style.flexShrink = 0;
 
-        row.Add(MakeText("Legend:", 17, ColSubtleText, bold: true)); // was 22 -- 25% smaller per Tad's explicit call
+        row.Add(MakeText("Legend:", 17, Color.white, bold: true)); // was ColSubtleText -- too dim to read per Tad
         row.Add(BuildScheduleLegendChip(AppointmentKind.Outbound, "Recurring"));
         row.Add(BuildScheduleLegendChip(AppointmentKind.Bulk, "Bulk"));
         row.Add(BuildScheduleLegendChip(AppointmentKind.Inbound, "Inbound PO"));
@@ -2713,7 +2746,7 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
                     : _scheduleDay == today + 1 ? "tomorrow"
                     : _scheduleDay < today ? $"{today - _scheduleDay} day(s) ago"
                     : $"in {_scheduleDay - today} day(s)";
-        var dayLabel = MakeText($"Day {_scheduleDay} · {when}", 18, ColChipOutText, bold: true);
+        var dayLabel = MakeText($"Day {_scheduleDay} · {when}", 27, ColChipOutText, bold: true); // 18 * 1.5 per Tad's explicit call
         dayLabel.style.marginLeft = 10; dayLabel.style.marginRight = 10;
         dayRow.Add(dayLabel);
 
@@ -2738,14 +2771,14 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
         poolCaptionHalf.style.alignItems = Align.Center;
         poolCaptionHalf.Add(MakeStripCaption(
             poolCount == 0 ? "UNSCHEDULED TRAILERS" : $"UNSCHEDULED TRAILERS — {poolCount} ({strandedOrders} order(s))",
-            anyLate ? ColDangerSoft : ColSubtleText));
+            anyLate ? ColDangerSoft : Color.white));
         captions.Add(poolCaptionHalf);
 
         var detailsCaptionHalf = new VisualElement();
         detailsCaptionHalf.style.flexBasis = Length.Percent(50);
         detailsCaptionHalf.style.flexGrow = 0; detailsCaptionHalf.style.flexShrink = 0;
         detailsCaptionHalf.style.alignItems = Align.Center;
-        detailsCaptionHalf.Add(MakeStripCaption("PO/ORDER DETAILS", ColSubtleText));
+        detailsCaptionHalf.Add(MakeStripCaption("PO/ORDER DETAILS", Color.white));
         captions.Add(detailsCaptionHalf);
 
         wrapper.Add(captions);
@@ -2776,7 +2809,7 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
             var clear = MakeText(returningAppointment
                                      ? "Click here to pull that trailer off the grid — it'll wait here."
                                      : "Every trailer has a door. Nothing waiting.",
-                                 16, returningAppointment ? ColOrangeText : ColSubtleText);
+                                 23, returningAppointment ? ColOrangeText : Color.white); // 18 * 1.25 per Tad's explicit call
             clear.style.unityTextAlign = TextAnchor.MiddleCenter;
             clear.style.whiteSpace = WhiteSpace.Normal;
             left.Add(clear);
@@ -2817,7 +2850,7 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
                     : _selectedUnscheduledKey != null
                         ? "Now click an open stretch in the timeline — or click the box again to put it down."
                         : "Click a box, then click an open stretch in the timeline to book it.";
-            var hint = MakeText(hintText, 15,
+            var hint = MakeText(hintText, 20,
                                 returningAppointment || holdingParked || _selectedUnscheduledKey != null
                                     ? ColOrangeText : ColSubtleText);
             hint.style.marginTop = 2;
@@ -2857,7 +2890,7 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
         if (string.IsNullOrEmpty(title) || lines == null || lines.Count == 0)
         {
             var empty = MakeText("Click a trailer on the timeline, or a box in the pool, to see its load here.",
-                                 13, ColSubtleText);
+                                 18, Color.white); // set to 18 per Tad's explicit call
             empty.style.whiteSpace = WhiteSpace.Normal;
             card.Add(empty);
 
@@ -2995,8 +3028,13 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         halfTick.style.backgroundColor = new StyleColor(new Color(ColBlueEdge.r, ColBlueEdge.g, ColBlueEdge.b, 0.5f));
         cell.Add(halfTick);
 
-        var label = MakeText($"{h:00}:00", 10, ColSubtleText);
+        var label = MakeText($"{h:00}:00", 15, Color.white, bold: true); // 10 * 1.5 per Tad's explicit call
         label.style.marginLeft = 3;
+        // Default Label padding/margin pushed this past the ticker's 26px band and clipped the bottom
+        // border once the font grew -- zero it out so justifyContent:Center on the cell actually
+        // centers the text between the top/bottom blue border lines instead of overflowing past them.
+        label.style.marginTop = 0; label.style.marginBottom = 0;
+        label.style.paddingTop = 0; label.style.paddingBottom = 0;
         cell.Add(label);
 
         ticker.Add(cell);
@@ -3005,6 +3043,10 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
     var gridWrap = new VisualElement();
     gridWrap.style.position = Position.Relative;
+    // Trying opaque per Tad's request -- the schedule grid used to have no background at all here,
+    // letting the live warehouse view show straight through behind every door row. ColBg at full
+    // alpha (vs. the panel chrome's near-opaque 0.97) makes it a solid dark rectangle instead.
+    gridWrap.style.backgroundColor = new StyleColor(new Color(ColBg.r, ColBg.g, ColBg.b, 1f));
     root.Add(gridWrap);
 
     var laneOverlay = new VisualElement();
@@ -3066,7 +3108,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         _newSchedulerSweepLine = line2;
 
         var badge = new Label();
-        ApplyFont(badge, bold: true, size: 18);
+        ApplyFont(badge, bold: true, size: 23); // 18 * 1.25 per Tad's explicit call
         badge.style.position = Position.Absolute;
         badge.style.top = 0;
         badge.style.height = NewSchedulerBadgeHeight;
@@ -3075,6 +3117,11 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         badge.style.backgroundColor = new StyleColor(sweepColor);
         badge.style.color = new StyleColor(new Color(0.14f, 0.10f, 0.02f, 1f));
         badge.style.unityTextAlign = TextAnchor.MiddleCenter;
+        // FontStyle.Bold alone doesn't thicken this label -- Nunito Sans is loaded as a single-weight
+        // variable TTF with no dedicated bold face, so Unity has nothing heavier to synthesize. A thin
+        // text outline in the same ink colour fakes the extra stroke weight Tad's after.
+        badge.style.unityTextOutlineWidth = 0.6f;
+        badge.style.unityTextOutlineColor = new StyleColor(new Color(0.14f, 0.10f, 0.02f, 1f));
         badge.style.borderTopLeftRadius = badge.style.borderTopRightRadius =
             badge.style.borderBottomLeftRadius = badge.style.borderBottomRightRadius = 3;
         sweepHost.Add(badge);
@@ -3226,7 +3273,11 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         // Inbound POs run ~25% smaller than outbound -- per Tad, outbound sizing is exactly right and
         // must not change, but inbound's longer vendor/PO text was reading oversized at the same size.
         bool isInbound = IsInboundPo(appt);
-        int ChipFontSize = isInbound ? 11 : 14; // 14 * 0.75 = 10.5, rounded up for legibility
+        int ChipFontSize = isInbound ? 13 : 14; // was 11 for inbound -- too small to read per Tad
+        // Inbound chips render on a dark brown fill; ColWholesale (the standard chip text colour for
+        // this kind) reads too dim at chip size, even bold -- brighten just the label lines to white
+        // instead of dulling the meaning of the orange/red highlight colours used elsewhere.
+        Color labelColor = isInbound ? Color.white : text;
         // Zero out the default Label's built-in padding/margin (4px padding top+bottom, 4px/2px
         // margin) before applying our own tight spacing -- three lines at the enlarged font size
         // otherwise overflow the cell's own height with dead space, clipping the third line entirely.
@@ -3236,17 +3287,17 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             line.style.marginTop = marginTop; line.style.marginBottom = 0;
         }
 
-        var who = MakeText(appt.CustomerName, ChipFontSize, text, bold: true);
+        var who = MakeText(appt.CustomerName, ChipFontSize, labelColor, bold: true);
         who.style.whiteSpace = WhiteSpace.NoWrap; who.style.overflow = Overflow.Hidden;
         TightenLine(who, 0);
         cell.Add(who);
 
-        var orderLine = BuildChipOrderLine(appt, ChipFontSize, text);
+        var orderLine = BuildChipOrderLine(appt, ChipFontSize, labelColor);
         orderLine.style.whiteSpace = WhiteSpace.NoWrap; orderLine.style.overflow = Overflow.Hidden;
         TightenLine(orderLine, 1);
         cell.Add(orderLine);
 
-        int SummaryFontSize = isInbound ? 16 : 21; // outbound: ChipFontSize*1.5 (unchanged); inbound: same -25% treatment (21*0.75=15.75)
+        int SummaryFontSize = isInbound ? 18 : 21; // was 16 for inbound -- too small to read per Tad
         var summary = BuildChipSummaryLine(appt, SummaryFontSize);
         if (summary != null)
         {
@@ -3271,7 +3322,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     private VisualElement BuildChipOrderLine(DockAppointment appt, int fontSize, Color color)
     {
         if (IsInboundPo(appt))
-            return MakeText($"Ordered: PO {appt.ShipmentPoNumber}", fontSize, color, bold: true);
+            return MakeText($"Order#: {appt.ShipmentPoNumber}", fontSize, color, bold: true);
 
         if (appt.OrderIds.Count == 0 || !ServiceLocator.TryGet<OrderService>(out var orders) || orders == null)
             return MakeText("No order yet", fontSize, color, bold: true);
@@ -3302,7 +3353,10 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             string label = outOfStock > 0
                 ? $"{outOfStock} out of stock item{(outOfStock == 1 ? "" : "s")}"
                 : "Nothing out of stock";
-            return MakeText(label, fontSize, outOfStock > 0 ? ColDangerSoft : ChipText(appt.Kind), bold: true);
+            // Neutral case brightened to match the label lines above (see BuildNewSchedulerCell) --
+            // ChipText's dim orange was hard to read at chip size even bold.
+            Color neutral = new Color(1f, 0.92f, 0.78f);
+            return MakeText(label, fontSize, outOfStock > 0 ? ColDangerSoft : neutral, bold: true);
         }
 
         if (appt.Kind == AppointmentKind.Inbound) return null; // bare note, nothing to summarize yet
@@ -3543,8 +3597,14 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     var vendorRowSpacer = new VisualElement(); vendorRowSpacer.style.flexGrow = 1;
     vendorRow.Add(vendorRowSpacer);
     // Total pallet count, to help the player judge door/lane capacity while booking this PO onto the
-    // Scheduler — per Tad's explicit call.
-    vendorRow.Add(MakeText($"Total: {PalletLabel(totalPallets)}", 13, ColTitleText, bold: true));
+    // Scheduler — per Tad's explicit call. Big number over a "pallet(s)" caption, no "Total:" label.
+    var palletCountBlock = new VisualElement();
+    palletCountBlock.style.alignItems = Align.Center;
+    var palletCountNumber = MakeText(totalPallets.ToString(), 36, ColMoney, bold: true);
+    palletCountNumber.style.marginBottom = -4; // tighten the gap to the caption below
+    palletCountBlock.Add(palletCountNumber);
+    palletCountBlock.Add(MakeText(totalPallets == 1 ? "pallet" : "pallets", 13, ColTitleText, bold: true));
+    vendorRow.Add(palletCountBlock);
     col.Add(vendorRow);
 
     // Per-item red now means "short-shipped" specifically (see the row loop below) — an item being
