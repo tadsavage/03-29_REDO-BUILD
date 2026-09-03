@@ -74,8 +74,12 @@ public class WorkQueuePanel : IUIPanel
         private const float DelDateWidth = 92f;
         private const float SelectAllWidth = 130f;
         private const float CancelSelectedWidth = 168f;
-        private const float PriorityDropdownWidth = 84f;
-        private const float SetPriorityWidth = 118f;
+        // Per-row priority stepper (see BuildPriorityStepper) -- fits in the gap between the
+        // Priority and Role columns, narrow enough to never crowd Role's own text.
+        private const float PriorityStepperWidth = 24f;
+        private const int PriorityStep = 100;
+        private const int PriorityMin = 100;
+        private const int PriorityMax = 900;
     private static Font _lilita;
 
 
@@ -115,8 +119,6 @@ public class WorkQueuePanel : IUIPanel
     private readonly Button _submitButton;
     private Button _selectAllButton;
     private Button _cancelSelectedButton;
-    private DropdownField _priorityDropdown;
-    private Button _setPriorityButton;
     private Button _scaleButton;
     private Label _dayLabel;
     private Label _timeLabel;
@@ -368,32 +370,29 @@ public class WorkQueuePanel : IUIPanel
         _cancelSelectedButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
         titleBar.Add(_cancelSelectedButton);
 
-        // Priority: dropdown + button, independent of the release/Submit Selection flow below --
-        // reprioritizing a selection is its own action, not tied to whatever door/lane target that
-        // flow's dropdown is currently showing. Per Tad's explicit call: 100-900 in steps of 100,
-        // higher = more important = claimed first.
-        _priorityDropdown = new DropdownField(
-            new List<string> { "100", "200", "300", "400", "500", "600", "700", "800", "900" }, 0);
-        ApplyFont(_priorityDropdown, size: 13);
-        _priorityDropdown.style.width = PriorityDropdownWidth;
-        _priorityDropdown.style.marginLeft = 8;
-        _priorityDropdown.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
-        titleBar.Add(_priorityDropdown);
-
-        _setPriorityButton = StyleOrangeButton(new Button(SetPriorityForSelected) { text = "Set Priority" });
-        _setPriorityButton.style.width = SetPriorityWidth;
-        _setPriorityButton.style.marginLeft = 4;
-        _setPriorityButton.style.paddingLeft = 0;
-        _setPriorityButton.style.paddingRight = 0;
-        _setPriorityButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
-        titleBar.Add(_setPriorityButton);
-
+        // Centered on the title bar's full width via absolute positioning rather than a flexGrow
+        // spacer -- the left button cluster (Select All/Cancel Selected) and the right-side
+        // scale/close buttons are very unequal widths, so a flexGrow box centers the text in
+        // whatever space is left over between them, not on the panel's true horizontal centerline.
+        // Absolute positioning spanning the whole bar keeps the title centered on the panel
+        // regardless of how those clusters are sized. Priority is now set per-row via the small
+        // up/down stepper next to each row's Priority cell (see BuildPriorityStepper) rather than
+        // a title-bar dropdown + button, so there's no priority control here anymore.
         var title = new Label("Work Queue");
-        ApplyFont(title, bold: true, size: 26);
+        ApplyFont(title, bold: true, size: 39); // 26 * 1.5 -- per Tad's explicit call
         title.style.color = new StyleColor(ColTitleText);
-        title.style.flexGrow = 1;
+        title.style.position = Position.Absolute;
+        title.style.left = 0; title.style.right = 0; title.style.top = 0; title.style.bottom = 0;
         title.style.unityTextAlign = TextAnchor.MiddleCenter;
+        title.pickingMode = PickingMode.Ignore;
         titleBar.Add(title);
+
+        // Now that the title no longer sits in the flex flow (it's absolute, above), this flexGrow
+        // spacer takes over its old job of soaking up the leftover row width so the scale/close
+        // buttons added below stay pinned to the title bar's right edge.
+        var titleBarSpacer = new VisualElement();
+        titleBarSpacer.style.flexGrow = 1;
+        titleBar.Add(titleBarSpacer);
 
         const float titleBtnSize = 63f; // 1.5x the base 42px square button
         // Routed through CloseAll(), not a bare Hide() — this panel is registered on key 7, and only
@@ -537,7 +536,7 @@ public class WorkQueuePanel : IUIPanel
         header.Add(BuildFilterHeader("Item#", ItemNumberWidth, SortColumn.ItemNumber));
         header.Add(BuildFilterHeader("Area", AreaWidth, SortColumn.Area, marginLeft: 12f));
         header.Add(BuildFilterHeader("Priority", PriorityWidth, SortColumn.Priority));
-        header.Add(BuildFilterHeader("Role", RoleWidth, SortColumn.Role));
+        header.Add(BuildFilterHeader("Role", RoleWidth, SortColumn.Role, marginLeft: PriorityStepperWidth));
         header.Add(BuildFilterHeader("Task", TaskWidth - TaskIndent, SortColumn.Task, marginLeft: RoleTaskGap + TaskIndent));
         header.Add(BuildFilterHeader("Status", StatusWidth, SortColumn.Status));
         header.Add(BuildFilterHeader("From", LocationWidth, SortColumn.From));
@@ -564,14 +563,18 @@ public class WorkQueuePanel : IUIPanel
         bottomBar.style.alignItems = Align.FlexStart;
         bottomBar.style.borderTopWidth = 2;
         bottomBar.style.borderTopColor = new StyleColor(ColBorder);
-        bottomBar.style.paddingTop = 10;
+        bottomBar.style.paddingTop = 7.5f; // 10 * 0.75 -- per Tad's explicit call to shrink this bar 25%
 
-        bottomMessage = new Label("Check some Open orders to release them to a staging lane.");
-        ApplyFont(bottomMessage, size: 13);
+        bottomMessage = new Label("To select records for update Left-Click, Hold L-Ctrl while Left-Clicking to Select multiple records and if you hold SHIFT and DRAG across records you can select many records easily.");
+        // fontSize 9.75 = 13 * 0.75, and maxWidth 75% -- both dimensions of this box reduced 25%,
+        // per Tad's explicit call.
+        ApplyFont(bottomMessage);
+        bottomMessage.style.fontSize = 9.75f;
         bottomMessage.style.color = new StyleColor(ColSubtleText);
         bottomMessage.style.flexGrow = 1;
         bottomMessage.style.flexShrink = 1;
         bottomMessage.style.minWidth = 0;
+        bottomMessage.style.maxWidth = new Length(75, LengthUnit.Percent);
         bottomMessage.style.whiteSpace = WhiteSpace.Normal;
         bottomMessage.style.overflow = Overflow.Hidden;
         bottomBar.Add(bottomMessage);
@@ -865,31 +868,22 @@ public class WorkQueuePanel : IUIPanel
     {
         UpdateSelectAllButton();
         UpdateCancelSelectedButton();
-        UpdateSetPriorityButton();
     }
 
-    /// <summary>Enables Set Priority (and shows how many rows it'll touch) whenever anything is
-    /// checked -- unlike Cancel Selected there's no phase restriction, since reprioritizing is safe
-    /// on any actionable row.</summary>
-    private void UpdateSetPriorityButton()
-    {
-        if (_setPriorityButton == null) return;
-        int n = _checkedOrderIds.Count;
-        _setPriorityButton.SetEnabled(n > 0);
-        _setPriorityButton.text = n > 0 ? $"Set Priority ({n})" : "Set Priority";
-        _setPriorityButton.style.opacity = n > 0 ? 1f : 0.5f;
-        _priorityDropdown?.SetEnabled(n > 0);
-    }
-
-    /// <summary>Applies the chosen priority to every still-active task (not Complete/Cancelled)
+    /// <summary>Applies +/- one priority step to every still-active task (not Complete/Cancelled)
     /// belonging to each checked order -- not just the one task the Priority column currently
     /// displays for that row, so raising an order's priority speeds up everything left to do on it
-    /// (case picks, pallet picks, a load) rather than just whichever step happens to be shown.</summary>
-    private void SetPriorityForSelected()
+    /// (case picks, pallet picks, a load) rather than just whichever step happens to be shown.
+    /// If nothing is checked, the row whose stepper was clicked is selected first so the click
+    /// always has a visible target -- per Tad's explicit call. Clamped to 100-900 either way.</summary>
+    private void AdjustPriorityForSelected(string clickedOrderId, int delta)
     {
-        if (_checkedOrderIds.Count == 0) return;
+        if (_checkedOrderIds.Count == 0)
+        {
+            _checkedOrderIds.Add(clickedOrderId);
+            _selectionAnchorOrderId = clickedOrderId;
+        }
         if (!ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) || workQueue == null) return;
-        if (!int.TryParse(_priorityDropdown.value, out int priority)) return;
 
         int affectedOrders = 0;
         foreach (var orderId in _checkedOrderIds)
@@ -899,7 +893,7 @@ public class WorkQueuePanel : IUIPanel
                                                         && t.Status != WorkTaskStatus.Complete
                                                         && t.Status != WorkTaskStatus.Cancelled))
             {
-                t.SetPriority(priority);
+                t.SetPriority(Mathf.Clamp(t.Priority + delta, PriorityMin, PriorityMax));
                 any = true;
             }
             if (any) affectedOrders++;
@@ -909,7 +903,65 @@ public class WorkQueuePanel : IUIPanel
         RebuildRows();
 
         if (affectedOrders > 0)
-            UIToast.Show($"Set priority {priority} on {affectedOrders} order(s).");
+            UIToast.Show($"{(delta > 0 ? "Raised" : "Lowered")} priority on {affectedOrders} order(s).");
+    }
+
+    /// <summary>Same +/- one step per click, clamped to 100-900, for a standalone labor task row
+    /// (Putaway/Inbound receiving etc.) -- these have no order to group by, so the stepper just
+    /// acts on that single task directly.</summary>
+    private void AdjustTaskPriority(WorkTask task, int delta)
+    {
+        task.SetPriority(Mathf.Clamp(task.Priority + delta, PriorityMin, PriorityMax));
+        _liveSignature = null;
+        RebuildRows();
+    }
+
+    /// <summary>Small vertical up/down stepper that sits in the gap between the Priority and Role
+    /// columns -- replaces the old title-bar priority dropdown + Set Priority button with a
+    /// per-row control, per Tad's explicit call. <paramref name="onUp"/>/<paramref name="onDown"/>
+    /// decide what a click actually changes (the checked selection, or a single standalone task).</summary>
+    private VisualElement BuildPriorityStepper(System.Action onUp, System.Action onDown)
+    {
+        var stepper = new VisualElement();
+        stepper.style.width = PriorityStepperWidth;
+        stepper.style.minWidth = PriorityStepperWidth;
+        stepper.style.flexShrink = 0;
+        stepper.style.flexDirection = FlexDirection.Column;
+        stepper.style.justifyContent = Justify.Center;
+        stepper.style.alignItems = Align.Center;
+
+        stepper.Add(BuildStepperButton("\u25B2", onUp));
+        stepper.Add(BuildStepperButton("\u25BC", onDown));
+        return stepper;
+    }
+
+    private Button BuildStepperButton(string glyph, System.Action onClick)
+    {
+        var button = new Button(onClick) { text = glyph };
+        ApplyFont(button, bold: true, size: 7);
+        button.style.width = PriorityStepperWidth - 6f;
+        button.style.height = 11f;
+        button.style.minWidth = PriorityStepperWidth - 6f;
+        button.style.minHeight = 11f;
+        button.style.marginTop = 0; button.style.marginBottom = 1;
+        button.style.marginLeft = 0; button.style.marginRight = 0;
+        button.style.paddingTop = 0; button.style.paddingBottom = 0;
+        button.style.paddingLeft = 0; button.style.paddingRight = 0;
+        button.style.borderTopWidth = button.style.borderBottomWidth =
+            button.style.borderLeftWidth = button.style.borderRightWidth = 0;
+        button.style.borderTopLeftRadius = button.style.borderTopRightRadius =
+            button.style.borderBottomLeftRadius = button.style.borderBottomRightRadius = 3;
+        var idleColor = new Color(1f, 1f, 1f, 0.08f);
+        var hoverColor = new Color(1f, 1f, 1f, 0.22f);
+        button.style.backgroundColor = new StyleColor(idleColor);
+        button.style.color = new StyleColor(ColSubtleText);
+        // Stops the row's own click-to-select handler from also firing -- a stepper click must only
+        // ever change the CURRENT checked set (or select just this row if none is checked yet), never
+        // reset an existing multi-row selection down to one row the way a normal row click would.
+        button.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+        button.RegisterCallback<PointerEnterEvent>(_ => button.style.backgroundColor = new StyleColor(hoverColor));
+        button.RegisterCallback<PointerLeaveEvent>(_ => button.style.backgroundColor = new StyleColor(idleColor));
+        return button;
     }
 
     // ── Row-click selection ─────────────────────────────────────────────────
@@ -1159,7 +1211,11 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, ShortId(task.PalletId), PaletteIdWidth, ColTitleText);
         AddRowCell(row, itemNumber, ItemNumberWidth, ColTitleText);
         AddRowCell(row, AreaLabel(task.Area), AreaWidth, ColSubtleText, marginLeft: 12f);
-        AddRowCell(row, task.Priority.ToString(), PriorityWidth, ColTitleText);
+        // Right-aligned (not the usual MiddleCenter) with a small paddingRight buffer -- per Tad's
+        // explicit call to tighten the gap to the stepper's arrows without the number touching them.
+        AddRowCell(row, task.Priority.ToString(), PriorityWidth, ColTitleText, align: TextAnchor.MiddleRight, paddingRight: 6f);
+        row.Add(BuildPriorityStepper(() => AdjustTaskPriority(task, PriorityStep),
+                                      () => AdjustTaskPriority(task, -PriorityStep)));
         AddRowCell(row, task.RequiredRole.DisplayName(), RoleWidth, ColSubtleText);
         AddRowCell(row, task.Type.ToString(), TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
         AddRowCell(row, task.Status.ToString(), StatusWidth, ColStatusColor(task.Status), bold: true);
@@ -1224,7 +1280,25 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, paletteId, PaletteIdWidth, ColSubtleText);
         AddRowCell(row, itemNumber, ItemNumberWidth, ColTitleText);
         AddRowCell(row, area, AreaWidth, ColSubtleText, marginLeft: 12f);
-        AddRowCell(row, task != null ? task.Priority.ToString() : "—", PriorityWidth, ColTitleText);
+        // Right-aligned (not the usual MiddleCenter) with a small paddingRight buffer -- per Tad's
+        // explicit call to tighten the gap to the stepper's arrows without the number touching them.
+        AddRowCell(row, task != null ? task.Priority.ToString() : "—", PriorityWidth, ColTitleText, align: TextAnchor.MiddleRight, paddingRight: 6f);
+        if (task != null)
+        {
+            string orderId = order.OrderId;
+            row.Add(BuildPriorityStepper(() => AdjustPriorityForSelected(orderId, PriorityStep),
+                                          () => AdjustPriorityForSelected(orderId, -PriorityStep)));
+        }
+        else
+        {
+            // No live task on this row (e.g. Staged/Loaded with nothing left to prioritize) --
+            // a blank spacer of the same width keeps Role's column lined up with the header either way.
+            var stepperSpacer = new VisualElement();
+            stepperSpacer.style.width = PriorityStepperWidth;
+            stepperSpacer.style.minWidth = PriorityStepperWidth;
+            stepperSpacer.style.flexShrink = 0;
+            row.Add(stepperSpacer);
+        }
         AddRowCell(row, role, RoleWidth, ColSubtleText);
         AddRowCell(row, taskName, TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
         AddRowCell(row, PhaseLabel(phase), StatusWidth, PhaseColor(phase), bold: true);
@@ -1330,7 +1404,7 @@ public class WorkQueuePanel : IUIPanel
 
     // 15 = 12 * 1.25 -- every column got 25% bigger text except Customer Name, which stays at the
     // original 12 via an explicit override at its own call site, per Tad's explicit call.
-    private static Label AddRowCell(VisualElement row, string text, float width, Color color, bool bold = false, float marginLeft = 0f, float fontSize = 15f)
+    private static Label AddRowCell(VisualElement row, string text, float width, Color color, bool bold = false, float marginLeft = 0f, float fontSize = 15f, TextAnchor align = TextAnchor.MiddleCenter, float paddingRight = 0f)
     {
         var label = new Label(text ?? "—");
         ApplyFont(label, bold, (int)fontSize);
@@ -1338,13 +1412,14 @@ public class WorkQueuePanel : IUIPanel
         label.style.minWidth = width;
         label.style.marginLeft = marginLeft;
         label.style.marginRight = 0;
+        label.style.paddingRight = paddingRight;
         label.style.flexShrink = 0;
         label.style.color = new StyleColor(color);
         label.style.whiteSpace = WhiteSpace.NoWrap;
         // Centered to match the now-centered header text above it -- per Tad's explicit call
         // (headers were centered first, leaving data left-aligned underneath them, which read as
         // more misaligned than the original all-left-aligned layout).
-        label.style.unityTextAlign = TextAnchor.MiddleCenter;
+        label.style.unityTextAlign = align;
         row.Add(label);
         return label;
     }
@@ -1411,7 +1486,7 @@ public class WorkQueuePanel : IUIPanel
 
         if (checkedOrders.Count == 0)
         {
-            SetBottomBar(ActionMode.None, "Check some Open orders to release them to a staging lane, Staged orders to release them to a door for loading, or Loaded orders to close them out.", new List<string> { "—" });
+            SetBottomBar(ActionMode.None, "To select records for update Left-Click, Hold L-Ctrl while Left-Clicking to Select multiple records and if you hold SHIFT and DRAG across records you can select many records easily.", new List<string> { "—" });
             return;
         }
 

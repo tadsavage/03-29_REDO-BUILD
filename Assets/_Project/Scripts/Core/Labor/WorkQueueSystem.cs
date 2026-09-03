@@ -90,7 +90,8 @@ namespace GameCore.Labor
         public const int DefaultPriority = 100;
 
         /// <summary>Updates this task's priority after creation -- e.g. the player reprioritizing an
-        /// order from the Work Queue panel. See WorkQueuePanel.SetPriorityForSelected.</summary>
+        /// order from the Work Queue panel's per-row priority stepper. See
+        /// WorkQueuePanel.AdjustPriorityForSelected / AdjustTaskPriority.</summary>
         public void SetPriority(int priority) => Priority = priority;
 
         /// <summary>OrderData.OrderId this task is for — OrderSelect tasks only. Unlike
