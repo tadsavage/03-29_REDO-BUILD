@@ -80,13 +80,18 @@ namespace GameCore.Labor
         /// pulled from the SKU's StorageArea. Used for routing/display and downstream employee specialization.</summary>
         public PalletData.AreaCategory Area { get; }
 
-        /// <summary>Higher value = more urgent = claimed first (see ReachTruckOperator.TryClaimAndStart).
-        /// Default 100 for Putaway; Replenish tasks default to 250 (ReplenishmentService.ReplenishPriority)
-        /// since an empty pick slot blocks order picking and should jump the queue ahead of routine
-        /// putaways. Exists so claim ordering is real data instead of a hardcoded UI string.</summary>
-        public int Priority { get; }
+        /// <summary>Higher value = more urgent = claimed first (see ReachTruckOperator.TryClaimAndStart
+        /// and WorkQueueSystem.TryClaimNextTask). Default 100 for Putaway; Replenish tasks default to
+        /// 250 (ReplenishmentService.ReplenishPriority) since an empty pick slot blocks order picking
+        /// and should jump the queue ahead of routine putaways. Exists so claim ordering is real data
+        /// instead of a hardcoded UI string.</summary>
+        public int Priority { get; private set; }
 
         public const int DefaultPriority = 100;
+
+        /// <summary>Updates this task's priority after creation -- e.g. the player reprioritizing an
+        /// order from the Work Queue panel. See WorkQueuePanel.SetPriorityForSelected.</summary>
+        public void SetPriority(int priority) => Priority = priority;
 
         /// <summary>OrderData.OrderId this task is for — OrderSelect tasks only. Unlike
         /// Receive/Putaway/Replenish (which move one specific pallet, hence PalletId), an Order
@@ -331,10 +336,14 @@ namespace GameCore.Labor
         public List<WorkTask> GetPendingTasksForRole(EmployeeRole role)
             => _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available).ToList();
 
-        /// <summary>Claims the oldest available task for a role (FIFO). Marks it Assigned.</summary>
+        /// <summary>Claims the highest-priority available task for a role, ties broken oldest-first
+        /// (OrderByDescending is a stable sort, so equal-priority tasks fall back to FIFO -- the whole
+        /// queue's original behavior before priority became player-editable). Marks it Assigned.</summary>
         public bool TryClaimNextTask(EmployeeRole role, string employeeGuid, out WorkTask task)
         {
-            task = _tasks.FirstOrDefault(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available);
+            task = _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available)
+                         .OrderByDescending(t => t.Priority)
+                         .FirstOrDefault();
             if (task == null) return false;
             task.Status = WorkTaskStatus.Assigned;
             task.AssignedToEmployeeGuid = employeeGuid;

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using GameCore.Economy;
 using GameCore.Inventory;
 using GameCore.Labor;
 using GameCore.Services;
@@ -28,7 +29,7 @@ using UnityEngine.UIElements;
 /// </summary>
 public class WorkQueuePanel : IUIPanel
 {
-    private static readonly Color ColBg         = new Color(18f / 255f, 26f / 255f, 36f / 255f, 0.97f);
+    private static readonly Color ColBg         = new Color(18f / 255f, 26f / 255f, 36f / 255f, 1f); // fully opaque per Tad's explicit call
     private static readonly Color ColBorder     = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
     private static readonly Color ColTitleText  = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
     private static readonly Color ColSubtleText = new Color(0x7A / 255f, 0x99 / 255f, 0xB0 / 255f, 1f);
@@ -51,7 +52,6 @@ public class WorkQueuePanel : IUIPanel
     private static readonly Color ColStatusLoading   = new Color(0x7E / 255f, 0xD6 / 255f, 0xC8 / 255f, 1f);
         // Header row indent — must equal the data rows' paddingLeft so columns line up.
         private const float RowPaddingLeft = 6f;
-        private const float CheckboxWidth = 26f;
         private const float PaletteIdWidth = 92f;
         private const float ItemNumberWidth = 76f;
         private const float AreaWidth = 82f;
@@ -66,10 +66,16 @@ public class WorkQueuePanel : IUIPanel
         private const float LocationWidth = 72f;
         private const float OperatorWidth = 112f;
         private const float CustomerWidth = 116f;
+        // ~3 characters of breathing room between Customer and Order -- per Tad's explicit call, the
+        // two used to sit flush against each other with long customer names running right up to the
+        // order number.
+        private const float CustomerOrderGap = 22f;
         private const float OrderWidth = 104f;
-        private const float FillRateWidth = 92f;
+        private const float DelDateWidth = 92f;
         private const float SelectAllWidth = 130f;
         private const float CancelSelectedWidth = 168f;
+        private const float PriorityDropdownWidth = 84f;
+        private const float SetPriorityWidth = 118f;
     private static Font _lilita;
 
 
@@ -109,16 +115,26 @@ public class WorkQueuePanel : IUIPanel
     private readonly Button _submitButton;
     private Button _selectAllButton;
     private Button _cancelSelectedButton;
+    private DropdownField _priorityDropdown;
+    private Button _setPriorityButton;
     private Button _scaleButton;
+    private Label _dayLabel;
+    private Label _timeLabel;
 
     private readonly HashSet<string> _checkedOrderIds = new();
+    // Row-click selection (replaces the old per-row checkbox). Anchor is the last row clicked plain
+    // or ctrl -- shift-click/shift-drag measure their range from it. Rebuilt fresh every RebuildRows()
+    // pass so it can never point at a destroyed row.
+    private string _selectionAnchorOrderId;
+    private bool _isDragSelecting;
+    private readonly List<(string orderId, VisualElement row, bool isEven)> _selectableRows = new();
     private List<(int door, string lane)> _dropdownLanes = new(); // choice index -> lane, when releasing to a staging lane ("1D")
     private List<int> _dropdownDoors = new();       // choice index -> door number, when in door mode
     private ActionMode _mode = ActionMode.None;
 
     private bool _visible;
     private ResizableWindow _resizeWindow;
-    private enum SortColumn { PaletteId, ItemNumber, Area, Priority, Role, Task, Status, From, To, Operator, Customer, Order, FillRate }
+    private enum SortColumn { PaletteId, ItemNumber, Area, Priority, Role, Task, Status, From, To, Operator, Customer, Order, DelDate }
     private SortColumn _sortColumn = SortColumn.Priority;
     private bool _sortAscending;
 
@@ -165,6 +181,26 @@ public class WorkQueuePanel : IUIPanel
         _overlay = Build(out _rowScroll, out _bottomMessage, out _targetDropdown, out _submitButton);
         root.Add(_overlay);
         _overlay.schedule.Execute(RefreshIfVisible).Every(250);
+        // Ends a shift-drag range-select no matter which row (or gap between rows) the button comes
+        // up over. Registered once here rather than per-row since it isn't row-specific.
+        _overlay.RegisterCallback<PointerUpEvent>(_ => _isDragSelecting = false);
+        // Right-click anywhere in the panel clears the selection, on a row or off it -- rows only
+        // StopPropagation() on their own LEFT-click handling (see BuildRow), so a right-click on a
+        // row bubbles all the way up to here same as one on empty space.
+        _overlay.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            if (evt.button == 1) ClearSelection();
+        });
+        // Left-click on empty space WITHIN the row list also clears -- deliberately scoped to
+        // _rowScroll rather than the whole overlay: a blanket overlay-level handler would also fire
+        // (and clear the selection) on every click of Select All / Cancel Selected / a column header /
+        // Submit, since none of those StopPropagation() their own PointerDownEvent, which would break
+        // Cancel Selected and Submit acting on an empty set the instant they're clicked. An actual row
+        // still stops propagation before this fires, so this only catches genuinely empty space.
+        _rowScroll.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            if (evt.button == 0) ClearSelection();
+        });
         Hide();
     }
 
@@ -183,11 +219,36 @@ public class WorkQueuePanel : IUIPanel
         _overlay.style.display = DisplayStyle.Flex;
         _liveSignature = null;
         RebuildRows();
-        _resizeWindow?.ResetToNormal();
+
+        // Always opens filled rather than normal size, per Tad's explicit call -- same reasoning and
+        // same deferred-one-frame pattern as PurchasingPanel.Show(): on the very first Show() of a
+        // session the panel hasn't been through a layout pass yet, so FillScreen's size math has
+        // nothing real to measure (see FillScreen's own doc comment).
+        _overlay.schedule.Execute(() =>
+        {
+            _resizeWindow?.FillScreen();
+            if (_resizeWindow != null) _resizeWindow.UpdateScaleButtonIcon(_scaleButton, 63f, ColSubtleText); // titleBtnSize is a local const in the constructor, out of scope here
+        }).ExecuteLater(16);
     }
+    /// <summary>"Day 5  Time: 14:30" -- same format the persistent top bar uses. Ticks on every
+    /// 250ms poll independent of the row-signature diff below, since the clock moves even when
+    /// nothing in the queue has changed.</summary>
+    private void UpdateDayTimeLabel()
+    {
+        if (_dayLabel == null || _timeLabel == null) return;
+        int day = 0; float hour = 0f, minute = 0f;
+        if (ServiceLocator.TryGet(out SimulationTimeService time) && time != null)
+        {
+            day = time.Day; hour = time.Hour; minute = time.Minute;
+        }
+        _dayLabel.text = $"Day {day}";
+        _timeLabel.text = $"Time: {(int)hour:00}:{(int)minute:00}";
+    }
+
     private void RefreshIfVisible()
     {
         if (!_visible) return;
+        UpdateDayTimeLabel();
         string signature = BuildLiveSignature();
         if (signature == _liveSignature) return;
         _liveSignature = signature;
@@ -307,6 +368,26 @@ public class WorkQueuePanel : IUIPanel
         _cancelSelectedButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
         titleBar.Add(_cancelSelectedButton);
 
+        // Priority: dropdown + button, independent of the release/Submit Selection flow below --
+        // reprioritizing a selection is its own action, not tied to whatever door/lane target that
+        // flow's dropdown is currently showing. Per Tad's explicit call: 100-900 in steps of 100,
+        // higher = more important = claimed first.
+        _priorityDropdown = new DropdownField(
+            new List<string> { "100", "200", "300", "400", "500", "600", "700", "800", "900" }, 0);
+        ApplyFont(_priorityDropdown, size: 13);
+        _priorityDropdown.style.width = PriorityDropdownWidth;
+        _priorityDropdown.style.marginLeft = 8;
+        _priorityDropdown.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+        titleBar.Add(_priorityDropdown);
+
+        _setPriorityButton = StyleOrangeButton(new Button(SetPriorityForSelected) { text = "Set Priority" });
+        _setPriorityButton.style.width = SetPriorityWidth;
+        _setPriorityButton.style.marginLeft = 4;
+        _setPriorityButton.style.paddingLeft = 0;
+        _setPriorityButton.style.paddingRight = 0;
+        _setPriorityButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+        titleBar.Add(_setPriorityButton);
+
         var title = new Label("Work Queue");
         ApplyFont(title, bold: true, size: 26);
         title.style.color = new StyleColor(ColTitleText);
@@ -384,11 +465,53 @@ public class WorkQueuePanel : IUIPanel
             _scaleButton.style.color = new StyleColor(ColSubtleText);
         });
 
-        // Balances the two left-hand buttons so the title stays centred in the bar.
-        var titleSpacer = new VisualElement();
-        titleSpacer.style.width = SelectAllWidth + 8 + CancelSelectedWidth - titleBtnSize - 8 - titleBtnSize;
-        titleSpacer.style.flexShrink = 0;
-        titleBar.Add(titleSpacer);
+        // Was a bare spacer balancing the two left-hand buttons so the title stays centred --
+        // repurposed into a Day/Time badge per Tad's explicit call, same gold used by the Scheduler's
+        // own live-clock badge (SchedulerPanel's sweepColor) so the two read as the same kind of
+        // readout. Kept the same footprint/width so the title still centres correctly.
+        var dayTimeBadge = new VisualElement();
+        dayTimeBadge.style.width = SelectAllWidth + 8 + CancelSelectedWidth - titleBtnSize - 8 - titleBtnSize;
+        dayTimeBadge.style.height = titleBtnSize;
+        dayTimeBadge.style.flexShrink = 0;
+        // Switched from a flex-flow marginLeft hack to absolute positioning anchored off the title
+        // bar's right edge. The old approach sat this badge right after the title's flexGrow:1 box --
+        // pushing the margin further negative also handed the title MORE leftover width to grow into
+        // (Yoga counts a negative margin as shrinking this item's claimed space), so the badge's net
+        // screen position barely moved no matter how far the margin was pushed. Anchoring via `right`
+        // removes it from that flex negotiation entirely: this value now maps 1:1 to on-screen offset
+        // from the title bar's right edge, past the scale/close buttons. Per Tad's explicit call to
+        // move it another half inch left, this replaces the old (ineffective) -186 margin.
+        dayTimeBadge.style.position = Position.Absolute;
+        dayTimeBadge.style.right = 202;
+        dayTimeBadge.style.justifyContent = Justify.Center;
+        dayTimeBadge.style.alignItems = Align.Center;
+        // A tad darker than the Scheduler's own sweepColor gold (F5C73C) -- per Tad's explicit call.
+        dayTimeBadge.style.backgroundColor = new StyleColor(new Color(0xD8 / 255f, 0xAF / 255f, 0x35 / 255f, 1f));
+        dayTimeBadge.style.borderTopLeftRadius = dayTimeBadge.style.borderTopRightRadius =
+            dayTimeBadge.style.borderBottomLeftRadius = dayTimeBadge.style.borderBottomRightRadius = 6;
+        // Day on top, Time underneath, both centered -- per Tad's explicit call. Default VisualElement
+        // flexDirection is Column, so the badge's own justify/align-items above already centers this
+        // two-line stack both horizontally and vertically as a group.
+        _dayLabel = new Label();
+        ApplyFont(_dayLabel, bold: true, size: 18);
+        _dayLabel.style.color = new StyleColor(Color.white);
+        _dayLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        // Zeroed out -- the default Label's own padding/margin was the real gap between the two
+        // lines, same fix as the Scheduler tooltip's pallet-count badge earlier tonight. -4/-4 pulled
+        // them too close; backed off 50% to -2/-2 per Tad's explicit call.
+        _dayLabel.style.paddingTop = 0; _dayLabel.style.paddingBottom = 0;
+        // Nudged up a small amount, per Tad's explicit call.
+        _dayLabel.style.marginTop = -3; _dayLabel.style.marginBottom = -2;
+        dayTimeBadge.Add(_dayLabel);
+        _timeLabel = new Label();
+        ApplyFont(_timeLabel, bold: true, size: 18);
+        _timeLabel.style.color = new StyleColor(Color.white);
+        _timeLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        _timeLabel.style.paddingTop = 0; _timeLabel.style.paddingBottom = 0;
+        _timeLabel.style.marginTop = -2; _timeLabel.style.marginBottom = 0;
+        dayTimeBadge.Add(_timeLabel);
+        UpdateDayTimeLabel();
+        titleBar.Add(dayTimeBadge);
 
         titleBar.Add(_scaleButton);
         titleBar.Add(closeButton);
@@ -410,7 +533,6 @@ public class WorkQueuePanel : IUIPanel
         header.style.flexShrink = 0;
         header.style.overflow = Overflow.Hidden;
         header.style.paddingLeft = RowPaddingLeft;
-        header.Add(HeaderCell("", CheckboxWidth));
         header.Add(BuildFilterHeader("Palette ID", PaletteIdWidth, SortColumn.PaletteId));
         header.Add(BuildFilterHeader("Item#", ItemNumberWidth, SortColumn.ItemNumber));
         header.Add(BuildFilterHeader("Area", AreaWidth, SortColumn.Area, marginLeft: 12f));
@@ -421,9 +543,9 @@ public class WorkQueuePanel : IUIPanel
         header.Add(BuildFilterHeader("From", LocationWidth, SortColumn.From));
         header.Add(BuildFilterHeader("To", LocationWidth, SortColumn.To));
         header.Add(BuildFilterHeader("Operator", OperatorWidth, SortColumn.Operator));
-        header.Add(BuildFilterHeader("Customer", CustomerWidth, SortColumn.Customer));
-        header.Add(HeaderCell("Order", OrderWidth, SortColumn.Order));
-        header.Add(HeaderCell("Fill Rate", FillRateWidth, SortColumn.FillRate));
+        header.Add(BuildFilterHeader("Customer", CustomerWidth, SortColumn.Customer, fontSize: 12)); // stays original size -- every other column got 25% bigger, per Tad's explicit call
+        header.Add(HeaderCell("Order", OrderWidth, SortColumn.Order, marginLeft: CustomerOrderGap));
+        header.Add(HeaderCell("Del. Date", DelDateWidth, SortColumn.DelDate));
         modal.Add(header);
 
         rowScroll = new ScrollView
@@ -469,10 +591,10 @@ public class WorkQueuePanel : IUIPanel
         return overlay;
     }
 
-    private Button HeaderCell(string text, float width, SortColumn? sortColumn = null, float marginLeft = 0f)
+    private Button HeaderCell(string text, float width, SortColumn? sortColumn = null, float marginLeft = 0f, int fontSize = 15)
     {
         var header = new Button();
-        ApplyFont(header, bold: true, size: 12);
+        ApplyFont(header, bold: true, size: fontSize);
         header.style.color = new StyleColor(ColSubtleText);
         header.style.flexShrink = 0;
         header.style.width = width;
@@ -487,7 +609,7 @@ public class WorkQueuePanel : IUIPanel
         header.style.backgroundColor = new StyleColor(Color.clear);
         header.style.borderTopWidth = header.style.borderBottomWidth =
             header.style.borderLeftWidth = header.style.borderRightWidth = 0;
-        header.style.unityTextAlign = TextAnchor.MiddleLeft;
+        header.style.unityTextAlign = TextAnchor.MiddleCenter; // centered over its column, per Tad's explicit call
         header.text = text;
 
         if (sortColumn.HasValue)
@@ -543,6 +665,10 @@ public class WorkQueuePanel : IUIPanel
     {
         if (!_visible) return;
         _rowScroll.Clear();
+        // Every row element this tracks is about to be destroyed by the Clear() above -- drop the
+        // stale references so RefreshRowHighlights (fired by a selection change mid-drag) can never
+        // touch a dead VisualElement.
+        _selectableRows.Clear();
 
         ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
         // OrderSelect and PalletPick are excluded because both are ORDER work, already represented by
@@ -634,6 +760,12 @@ public class WorkQueuePanel : IUIPanel
         return ApplyOrderFilters(SortOrders(rows));
     }
 
+    /// <summary>Order ids for every row on screen right now that can be selected, in on-screen
+    /// order — the reference list shift-range math (click and drag) walks. Recomputed fresh each
+    /// call, never cached, so it can never disagree with what RebuildRows just rendered.</summary>
+    private List<string> VisibleSelectableOrderIds()
+        => BuildVisibleOrderRows().Where(r => IsActionable(r.phase)).Select(r => r.order.OrderId).ToList();
+
     /// <summary>
     /// The one task that stands for a whole order on its row.
     ///
@@ -673,10 +805,7 @@ public class WorkQueuePanel : IUIPanel
     /// checked, unchecks them instead. Filtered-out rows are left untouched either way.</summary>
     private void ToggleSelectAllVisible()
     {
-        var selectable = BuildVisibleOrderRows()
-            .Where(r => IsActionable(r.phase))
-            .Select(r => r.order.OrderId)
-            .ToList();
+        var selectable = VisibleSelectableOrderIds();
         if (selectable.Count == 0) return;
 
         if (selectable.All(_checkedOrderIds.Contains)) _checkedOrderIds.ExceptWith(selectable);
@@ -736,6 +865,142 @@ public class WorkQueuePanel : IUIPanel
     {
         UpdateSelectAllButton();
         UpdateCancelSelectedButton();
+        UpdateSetPriorityButton();
+    }
+
+    /// <summary>Enables Set Priority (and shows how many rows it'll touch) whenever anything is
+    /// checked -- unlike Cancel Selected there's no phase restriction, since reprioritizing is safe
+    /// on any actionable row.</summary>
+    private void UpdateSetPriorityButton()
+    {
+        if (_setPriorityButton == null) return;
+        int n = _checkedOrderIds.Count;
+        _setPriorityButton.SetEnabled(n > 0);
+        _setPriorityButton.text = n > 0 ? $"Set Priority ({n})" : "Set Priority";
+        _setPriorityButton.style.opacity = n > 0 ? 1f : 0.5f;
+        _priorityDropdown?.SetEnabled(n > 0);
+    }
+
+    /// <summary>Applies the chosen priority to every still-active task (not Complete/Cancelled)
+    /// belonging to each checked order -- not just the one task the Priority column currently
+    /// displays for that row, so raising an order's priority speeds up everything left to do on it
+    /// (case picks, pallet picks, a load) rather than just whichever step happens to be shown.</summary>
+    private void SetPriorityForSelected()
+    {
+        if (_checkedOrderIds.Count == 0) return;
+        if (!ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) || workQueue == null) return;
+        if (!int.TryParse(_priorityDropdown.value, out int priority)) return;
+
+        int affectedOrders = 0;
+        foreach (var orderId in _checkedOrderIds)
+        {
+            bool any = false;
+            foreach (var t in workQueue.Tasks.Where(t => t.OrderId == orderId
+                                                        && t.Status != WorkTaskStatus.Complete
+                                                        && t.Status != WorkTaskStatus.Cancelled))
+            {
+                t.SetPriority(priority);
+                any = true;
+            }
+            if (any) affectedOrders++;
+        }
+
+        _liveSignature = null; // priorities changed; force the next refresh tick to rebuild
+        RebuildRows();
+
+        if (affectedOrders > 0)
+            UIToast.Show($"Set priority {priority} on {affectedOrders} order(s).");
+    }
+
+    // ── Row-click selection ─────────────────────────────────────────────────
+    // Replaces the old per-row checkbox: the whole row is now the clickable target. Plain click
+    // selects only that row; ctrl-click toggles it without touching the rest; shift-click and
+    // shift-drag select the inclusive range between the last anchor and the row under the pointer.
+    // None of this calls the heavy RebuildRows() (which tears down and re-sorts every row) — a fast
+    // shift-drag can fire this many times a second, so selection changes only repaint the rows
+    // that already exist (RefreshRowHighlights) plus the two title-bar buttons and the bottom bar,
+    // same lightweight refresh the old checkbox's value-changed callback did.
+
+    /// <summary>Right-click anywhere, or a left-click on empty space in the row list — clears the
+    /// whole selection and its anchor. No-ops (skips the refresh) if nothing was selected.</summary>
+    private void ClearSelection()
+    {
+        if (_checkedOrderIds.Count == 0 && _selectionAnchorOrderId == null) return;
+        _checkedOrderIds.Clear();
+        _selectionAnchorOrderId = null;
+        _isDragSelecting = false;
+        RefreshRowHighlights();
+        RebuildBottomBar();
+        UpdateTitleBarButtons();
+    }
+
+    /// <summary>Row PointerDownEvent handler. Left button only.</summary>
+    private void HandleRowPointerDown(string orderId, bool ctrl, bool shift)
+    {
+        if (shift && _selectionAnchorOrderId != null)
+        {
+            ApplyRangeSelection(orderId);
+            return;
+        }
+
+        if (ctrl)
+        {
+            if (!_checkedOrderIds.Add(orderId)) _checkedOrderIds.Remove(orderId);
+        }
+        else
+        {
+            _checkedOrderIds.Clear();
+            _checkedOrderIds.Add(orderId);
+        }
+        _selectionAnchorOrderId = orderId;
+
+        RefreshRowHighlights();
+        RebuildBottomBar();
+        UpdateTitleBarButtons();
+    }
+
+    /// <summary>Selects every row between the anchor and <paramref name="toOrderId"/> inclusive, in
+    /// current on-screen order — shared by shift-click and shift-drag. Replaces rather than adds to
+    /// the existing selection, matching standard list/Explorer shift-range behaviour. The anchor
+    /// itself is left untouched so repeated shift-clicks/drag steps keep re-measuring from the same
+    /// starting row.</summary>
+    private void ApplyRangeSelection(string toOrderId)
+    {
+        var visible = VisibleSelectableOrderIds();
+        int a = visible.IndexOf(_selectionAnchorOrderId);
+        int b = visible.IndexOf(toOrderId);
+        if (a < 0 || b < 0) return;
+        if (a > b) (a, b) = (b, a);
+
+        _checkedOrderIds.Clear();
+        for (int i = a; i <= b; i++) _checkedOrderIds.Add(visible[i]);
+
+        RefreshRowHighlights();
+        RebuildBottomBar();
+        UpdateTitleBarButtons();
+    }
+
+    /// <summary>Recolors every currently-built row from _checkedOrderIds without touching the DOM —
+    /// the cheap counterpart to RebuildRows() for a selection-only change.</summary>
+    private void RefreshRowHighlights()
+    {
+        foreach (var (orderId, row, isEven) in _selectableRows)
+            row.style.backgroundColor = new StyleColor(RowBackground(isEven, _checkedOrderIds.Contains(orderId)));
+    }
+
+    /// <summary>The existing even/odd row stripe, blended toward the existing blue-hover accent when
+    /// selected — keeps the striping visible underneath rather than replacing it outright.</summary>
+    private static Color RowBackground(bool isEven, bool selected)
+    {
+        Color baseColor = isEven ? ColRowEven : ColRowOdd;
+        if (!selected) return baseColor;
+        Color hi = ColBlueHover;
+        const float t = 0.45f;
+        return new Color(
+            Mathf.Lerp(baseColor.r, hi.r, t),
+            Mathf.Lerp(baseColor.g, hi.g, t),
+            Mathf.Lerp(baseColor.b, hi.b, t),
+            Mathf.Max(baseColor.a, 0.9f));
     }
 
     /// <summary>Greys the button out when nothing on screen is checkable, and flips its label
@@ -743,10 +1008,7 @@ public class WorkQueuePanel : IUIPanel
     private void UpdateSelectAllButton()
     {
         if (_selectAllButton == null) return;
-        var selectable = BuildVisibleOrderRows()
-            .Where(r => IsActionable(r.phase))
-            .Select(r => r.order.OrderId)
-            .ToList();
+        var selectable = VisibleSelectableOrderIds();
 
         bool any = selectable.Count > 0;
         _selectAllButton.SetEnabled(any);
@@ -790,7 +1052,7 @@ public class WorkQueuePanel : IUIPanel
             SortColumn.Customer => rows.OrderBy(r => r.order.CustomerName),
             SortColumn.Order => rows.OrderBy(r => r.order.OrderId),
             SortColumn.ItemNumber => rows.OrderBy(r => GetOrderItemNumber(r.order)),
-            SortColumn.FillRate => rows.OrderBy(r => FillRatio(r.order)),
+            SortColumn.DelDate => rows.OrderBy(r => r.order?.DueDay ?? int.MaxValue),
             _ => rows.OrderBy(r => r.order.CreatedTimeMinute)
         };
         return (_sortAscending ? sorted : sorted.Reverse()).ToList();
@@ -892,9 +1154,6 @@ public class WorkQueuePanel : IUIPanel
         row.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColRowEven : ColRowOdd);
         row.style.flexShrink = 0;
 
-
-        AddRowCell(row, "", CheckboxWidth, ColSubtleText);
-
         string itemNumber = GetTaskItemNumber(task);
 
         AddRowCell(row, ShortId(task.PalletId), PaletteIdWidth, ColTitleText);
@@ -907,9 +1166,9 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, task.FromLocation ?? "—", LocationWidth, ColSubtleText);
         AddRowCell(row, task.ToLocation ?? "—", LocationWidth, ColSubtleText);
         AddRowCell(row, GetOperatorName(task.AssignedToEmployeeGuid), OperatorWidth, ColTitleText);
-        AddRowCell(row, "—", CustomerWidth, ColSubtleText);
-        AddRowCell(row, "—", OrderWidth, ColSubtleText);
-        AddRowCell(row, "—", FillRateWidth, ColSubtleText);
+        AddRowCell(row, "—", CustomerWidth, ColSubtleText, fontSize: 12); // Customer column stays original size
+        AddRowCell(row, "—", OrderWidth, ColSubtleText, marginLeft: CustomerOrderGap);
+        AddRowCell(row, "—", DelDateWidth, ColSubtleText);
         return row;
     }
 
@@ -921,26 +1180,29 @@ public class WorkQueuePanel : IUIPanel
         row.style.paddingTop = 4; row.style.paddingBottom = 4; row.style.paddingLeft = RowPaddingLeft;
         row.style.flexShrink = 0;
 
-        row.style.backgroundColor = new StyleColor(rowIndex % 2 == 0 ? ColRowEven : ColRowOdd);
-
         bool actionable = IsActionable(phase);
-        var checkbox = new Toggle { value = _checkedOrderIds.Contains(order.OrderId) };
-        // Toggle carries default theme margins; zero them so the checkbox slot is exactly
-        // CheckboxWidth and every column downstream lines up with its header.
-        checkbox.style.width = CheckboxWidth;
-        checkbox.style.minWidth = CheckboxWidth;
-        checkbox.style.flexShrink = 0;
-        checkbox.style.marginLeft = 0;
-        checkbox.style.marginRight = 0;
-        checkbox.SetEnabled(actionable);
-        checkbox.RegisterValueChangedCallback(evt =>
+        bool isEven = rowIndex % 2 == 0;
+        row.style.backgroundColor = new StyleColor(RowBackground(isEven, _checkedOrderIds.Contains(order.OrderId)));
+
+        // The row itself is the click target now (see the "Row-click selection" section below) --
+        // plain click selects only this row, ctrl-click toggles it, shift-click/shift-drag select
+        // the range from the last anchor. Only actionable rows participate, same as the old
+        // checkbox's SetEnabled(actionable) gate.
+        if (actionable)
         {
-            if (evt.newValue) _checkedOrderIds.Add(order.OrderId);
-            else _checkedOrderIds.Remove(order.OrderId);
-            RebuildBottomBar();
-            UpdateTitleBarButtons();
-        });
-        row.Add(checkbox);
+            row.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                if (evt.button != 0) return; // left button only
+                HandleRowPointerDown(order.OrderId, evt.ctrlKey, evt.shiftKey);
+                _isDragSelecting = evt.shiftKey;
+                evt.StopPropagation();
+            });
+            row.RegisterCallback<PointerEnterEvent>(_ =>
+            {
+                if (_isDragSelecting) ApplyRangeSelection(order.OrderId);
+            });
+            _selectableRows.Add((order.OrderId, row, isEven));
+        }
 
         string itemNumber = GetOrderItemNumber(order);
         string area = GetOrderAreaLabel(order);
@@ -969,40 +1231,11 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, from, LocationWidth, ColSubtleText);
         AddRowCell(row, to, LocationWidth, ColSubtleText);
         AddRowCell(row, operatorName, OperatorWidth, ColTitleText);
-        AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText);
-        AddRowCell(row, order.OrderNumber ?? ShortId(order.OrderId), OrderWidth, ColSubtleText);
-        var fill = AddRowCell(row, FillRateText(order), FillRateWidth, FillRateColor(order), bold: true);
-        MakeFillRateClickable(fill, order);
+        AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText, fontSize: 12); // Customer column stays original size, per Tad's explicit call
+        AddRowCell(row, order.OrderNumber ?? ShortId(order.OrderId), OrderWidth, ColSubtleText, marginLeft: CustomerOrderGap);
+        AddRowCell(row, DelDateText(order), DelDateWidth, ColSubtleText);
         return row;
     }
-
-    /// <summary>
-    /// Turns a Fill Rate cell into a button for the shorts breakdown. "16 / 23" says an order shipped
-    /// short but not WHAT was short, and that's the operationally useful part — one SKU 8 cases light
-    /// is a different problem from eight lines 1 case light.
-    ///
-    /// Underlined and hover-highlighted so it reads as clickable; the rest of the row isn't, and an
-    /// unmarked clickable cell in a table of dead ones is just a hidden feature.
-    /// </summary>
-    private void MakeFillRateClickable(Label cell, OrderData order)
-    {
-        if (cell == null || order == null) return;
-
-        Color baseColor = FillRateColor(order);
-        RuntimeTooltip.Attach(cell, "Click to see what was cut from this order.");
-        cell.RegisterCallback<MouseEnterEvent>(_ => cell.style.color = new StyleColor(ColOrangeText));
-        cell.RegisterCallback<MouseLeaveEvent>(_ => cell.style.color = new StyleColor(baseColor));
-        cell.RegisterCallback<ClickEvent>(evt =>
-        {
-            _shortsPopup ??= new OrderShortsPopup(_overlay.parent ?? _overlay);
-            _shortsPopup.ShowFor(order, evt.position);
-            evt.StopPropagation(); // don't let the click fall through to the row's checkbox
-        });
-    }
-
-    /// <summary>Built on first use rather than in the constructor — most sessions never open it, and
-    /// a panel that isn't built can't be a layout or z-order problem.</summary>
-    private OrderShortsPopup _shortsPopup;
 
     /// <summary>
     /// From/To mean different things either side of release, because the order itself does.
@@ -1095,10 +1328,12 @@ public class WorkQueuePanel : IUIPanel
         _ => ColSubtleText
     };
 
-    private static Label AddRowCell(VisualElement row, string text, float width, Color color, bool bold = false, float marginLeft = 0f)
+    // 15 = 12 * 1.25 -- every column got 25% bigger text except Customer Name, which stays at the
+    // original 12 via an explicit override at its own call site, per Tad's explicit call.
+    private static Label AddRowCell(VisualElement row, string text, float width, Color color, bool bold = false, float marginLeft = 0f, float fontSize = 15f)
     {
         var label = new Label(text ?? "—");
-        ApplyFont(label, bold, 12);
+        ApplyFont(label, bold, (int)fontSize);
         label.style.width = width;
         label.style.minWidth = width;
         label.style.marginLeft = marginLeft;
@@ -1106,27 +1341,20 @@ public class WorkQueuePanel : IUIPanel
         label.style.flexShrink = 0;
         label.style.color = new StyleColor(color);
         label.style.whiteSpace = WhiteSpace.NoWrap;
+        // Centered to match the now-centered header text above it -- per Tad's explicit call
+        // (headers were centered first, leaving data left-aligned underneath them, which read as
+        // more misaligned than the original all-left-aligned layout).
+        label.style.unityTextAlign = TextAnchor.MiddleCenter;
         row.Add(label);
         return label;
     }
 
-    /// <summary>"16 / 23" — cases picked over cases ordered. The raw material for the service-level
-    /// KPI: an order that ships short still ships, and this is the record of by how much.</summary>
-    private static string FillRateText(OrderData order)
-        => order == null ? "—" : $"{order.TotalUnitsPicked} / {order.TotalUnits}";
-
-    /// <summary>Green at 100%, amber short, red for nothing picked — only once picking has actually
-    /// started, so an unreleased order reads as neutral rather than a failure.</summary>
-    private static Color FillRateColor(OrderData order)
-    {
-        if (order == null || order.TotalUnits <= 0) return ColSubtleText;
-        if (order.TotalUnitsPicked >= order.TotalUnits) return ColStatusLoaded;
-        if (order.TotalUnitsPicked > 0) return ColStatusAssigned;
-        return ColSubtleText;
-    }
-
-    private static float FillRatio(OrderData order)
-        => order == null || order.TotalUnits <= 0 ? 0f : (float)order.TotalUnitsPicked / order.TotalUnits;
+    /// <summary>The date the customer ORIGINALLY wanted this order picked up — OrderData.DueDay is
+    /// set once when the order is raised and never touched by rescheduling, so this stays fixed even
+    /// if the order's dock appointment later gets dragged to a different day, per Tad's explicit call
+    /// that this must not track the current appointment date.</summary>
+    private static string DelDateText(OrderData order)
+        => order == null ? "—" : $"Day {order.DueDay}";
 
     private static string ShortId(string value)
     {
@@ -1649,7 +1877,7 @@ public class WorkQueuePanel : IUIPanel
     // ── Header construction ──
 
     /// <summary>Builds a clickable column header with a filter dropdown indicator.</summary>
-    private VisualElement BuildFilterHeader(string text, float width, SortColumn col, float marginLeft = 0f)
+    private VisualElement BuildFilterHeader(string text, float width, SortColumn col, float marginLeft = 0f, int fontSize = 15)
     {
         var filter = GetFilter(col);
 
@@ -1664,15 +1892,22 @@ public class WorkQueuePanel : IUIPanel
         container.style.marginLeft = marginLeft;
 
         filter.HeaderLabel = new Label(text);
-        ApplyFont(filter.HeaderLabel, bold: true, size: 12);
+        ApplyFont(filter.HeaderLabel, bold: true, size: fontSize);
         filter.HeaderLabel.style.color = new StyleColor(ColSubtleText);
         filter.HeaderLabel.style.flexGrow = 1;
+        filter.HeaderLabel.style.unityTextAlign = TextAnchor.MiddleCenter; // centered over its column, per Tad's explicit call
         container.Add(filter.HeaderLabel);
 
+        // Hidden rather than removed, per Tad's explicit call -- UpdateFilterHeaderAppearance still
+        // writes its color on every hover/active-filter change, and this stays the null-safe target
+        // for that instead of needing a guard everywhere it's touched. Visually gone, but the header
+        // is still just as clickable (ToggleFilterPopup is on the whole container, not the icon) and
+        // the active-filter state still shows via HeaderLabel's own color change.
         filter.HeaderIcon = new Label("\u25BC");
         ApplyFont(filter.HeaderIcon, size: 9);
         filter.HeaderIcon.style.color = new StyleColor(ColSubtleText);
         filter.HeaderIcon.style.marginLeft = 2;
+        filter.HeaderIcon.style.display = DisplayStyle.None;
         container.Add(filter.HeaderIcon);
 
         container.RegisterCallback<ClickEvent>(_ => ToggleFilterPopup(col, container));

@@ -53,7 +53,7 @@ public class SchedulerPanel : IUIPanel
     private static readonly Color ColCardEven = new Color(36f / 255f, 48f / 255f, 62f / 255f, .65f);
     private static readonly Color ColCardOdd = new Color(30f / 255f, 40f / 255f, 52f / 255f, .65f);
     private static readonly Color ColMoney       = new Color(0x7E / 255f, 0xD6 / 255f, 0x8A / 255f, 1f);
-    private static readonly Color ColWholesale   = new Color(0xF2 / 255f, 0xC2 / 255f, 0x5A / 255f, 1f);
+    private static readonly Color ColWholesale   = new Color(0xF3 / 255f, 0x9E / 255f, 0x47 / 255f, 1f); // warmed (more red, less yellow) and confirmed fully opaque per Tad's explicit call
     private static readonly Color ColBlueEdge    = new Color(0x2C / 255f, 0x5E / 255f, 0x82 / 255f, 1f);
     private static readonly Color ColDanger      = new Color(0xE2 / 255f, 0x4B / 255f, 0x4A / 255f, 1f);
     private static readonly Color ColDangerSoft  = new Color(0xF0 / 255f, 0x95 / 255f, 0x95 / 255f, 1f);
@@ -3528,7 +3528,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     // separate day-cutoff bookkeeping needed.
     var shipment = shipments.PendingShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber)
                  ?? shipments.ArchivedShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber);
-    col.Add(MakeText($"PO {appt.ShipmentPoNumber}", 15, ColTitleText, bold: true));
+    col.Add(MakeText($"PO {appt.ShipmentPoNumber}", 38, ColTitleText, bold: true)); // 19 * 2 per Tad's explicit call
     if (shipment == null)
     {
         col.Add(MakeText("No longer on file.", 12, ColSubtleText));
@@ -3580,7 +3580,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
 
     if (!received && anyOutOfStock)
     {
-        var badge = MakeText("OUT OF STOCK LOAD — carrying item(s) the floor needs", 11, ColDangerSoft, bold: true);
+        var badge = MakeText("OUT OF STOCK LOAD — CARRYING ITEM(S) THE FLOOR NEEDS", 14, ColDangerSoft, bold: true); // 11 * 1.25, all-caps per Tad's explicit call
         badge.style.marginTop = 2; badge.style.marginBottom = 2;
         col.Add(badge);
     }
@@ -3591,32 +3591,62 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     vendorRow.style.flexDirection = FlexDirection.Row;
     vendorRow.style.alignItems = Align.Center;
     vendorRow.style.marginTop = 6; vendorRow.style.marginBottom = 6;
-    vendorRow.Add(MakeIcon(vendor?.Icon, 26, 5, marginRight: 8));
-    vendorRow.Add(MakeText(vendor != null ? vendor.DisplayName : (shipment.SupplierId ?? "Unknown vendor"),
-                           13, ColSubtleText, bold: true));
-    var vendorRowSpacer = new VisualElement(); vendorRowSpacer.style.flexGrow = 1;
+    var vendorIcon = MakeIcon(vendor?.Icon, 73, 5, marginRight: 12);
+    vendorIcon.style.width = 73 * 0.9f; // squeezed 10% on X only per Tad's explicit call -- height stays 73
+    vendorRow.Add(vendorIcon);
+    var vendorNameLabel = MakeText(vendor != null ? vendor.DisplayName : (shipment.SupplierId ?? "Unknown vendor"),
+                           18, new Color(0xD0 / 255f, 0xEC / 255f, 0xFC / 255f, 1f), bold: true); // 26 * 0.7, even lighter blue, fully opaque per Tad's explicit call
+    // Wrapped to ~2 lines rather than one long line running past the badge, per Tad's explicit call --
+    // MakeText already sets WhiteSpace.Normal, this just gives it a width narrow enough to actually wrap.
+    // Narrowed from 170 -- that box's own dead space past the wrapped text was what stood between the
+    // name and the badge, so shrinking it (not just the gap after it) is what actually pulls the
+    // badge further left, per Tad's explicit call.
+    vendorNameLabel.style.width = 120;
+    vendorRow.Add(vendorNameLabel);
+    // Small fixed gap instead of a flexGrow spacer -- pulls the pallet badge in snug against the
+    // vendor name instead of pinning it to the row's far right edge, per Tad's explicit call to move
+    // it as far left as possible without clipping the icon/name.
+    var vendorRowSpacer = new VisualElement(); vendorRowSpacer.style.width = 4;
     vendorRow.Add(vendorRowSpacer);
     // Total pallet count, to help the player judge door/lane capacity while booking this PO onto the
-    // Scheduler — per Tad's explicit call. Big number over a "pallet(s)" caption, no "Total:" label.
+    // Scheduler — per Tad's explicit call. Big number over a "pallet(s)" caption, no "Total:" label,
+    // sitting on a solid blue badge circle per Tad's follow-up ask for visual appeal.
+    var palletCountBadge = new VisualElement();
+    palletCountBadge.style.width = 90; palletCountBadge.style.height = 90;
+    palletCountBadge.style.flexShrink = 0;
+    palletCountBadge.style.borderTopLeftRadius = palletCountBadge.style.borderTopRightRadius =
+        palletCountBadge.style.borderBottomLeftRadius = palletCountBadge.style.borderBottomRightRadius = 45;
+    palletCountBadge.style.backgroundColor = new StyleColor(ColBorder);
+    palletCountBadge.style.justifyContent = Justify.Center;
+    palletCountBadge.style.alignItems = Align.Center;
     var palletCountBlock = new VisualElement();
     palletCountBlock.style.alignItems = Align.Center;
-    var palletCountNumber = MakeText(totalPallets.ToString(), 36, ColMoney, bold: true);
-    palletCountNumber.style.marginBottom = -4; // tighten the gap to the caption below
+    var palletCountNumber = MakeText(totalPallets.ToString(), 44, ColMoney, bold: true); // 46 * 0.95; reverted back to money-green -- red didn't look good, per Tad's explicit call
+    // Zeroed out -- the default Label's own top/bottom padding was the real gap here, not the
+    // margin; a -4 margin on top of that padding still left "pallets" hanging visibly below the
+    // number instead of tucked right under it, per Tad's explicit call.
+    palletCountNumber.style.paddingTop = 0; palletCountNumber.style.paddingBottom = 0;
+    palletCountNumber.style.marginTop = 0; palletCountNumber.style.marginBottom = -6;
     palletCountBlock.Add(palletCountNumber);
-    palletCountBlock.Add(MakeText(totalPallets == 1 ? "pallet" : "pallets", 13, ColTitleText, bold: true));
-    vendorRow.Add(palletCountBlock);
+    // Back down to 13 (the +4pt bump was reverted) but staying all-caps, per Tad's explicit call.
+    var palletCountWord = MakeText(totalPallets == 1 ? "PALLET" : "PALLETS", 12, ColTitleText, bold: true); // 13 * 0.95; reverted back -- red didn't look good, per Tad's explicit call
+    palletCountWord.style.paddingTop = 0; palletCountWord.style.paddingBottom = 0;
+    palletCountWord.style.marginTop = -6; palletCountWord.style.marginBottom = 0;
+    palletCountBlock.Add(palletCountWord);
+    palletCountBadge.Add(palletCountBlock);
+    vendorRow.Add(palletCountBadge);
     col.Add(vendorRow);
 
     // Per-item red now means "short-shipped" specifically (see the row loop below) — an item being
     // out of stock on the floor no longer colors its own row, only the trailer-level chip/badge above.
-    var shortShipLegend = MakeText("Short-Shipped in Red", 10, ColDanger, bold: true);
+    var shortShipLegend = MakeText("SHORT-SHIPPED IN RED", 14, ColDanger, bold: true); // 10 * 1.35, all-caps per Tad's explicit call
     shortShipLegend.style.marginBottom = 2;
     col.Add(shortShipLegend);
 
     // Still not enough live inventory to cover pending outbound orders — orange, whether or not this
     // PO has arrived yet. Unlike a short-shipment (unknowable until departure/receipt), this is a
     // fact we already know today, so per Tad it should show in advance rather than waiting.
-    var neededLegend = MakeText("Product needed for order in Orange", 10, ColWholesale, bold: true);
+    var neededLegend = MakeText("PRODUCT NEEDED FOR ORDER IN ORANGE", 14, ColWholesale, bold: true); // 10 * 1.35, all-caps per Tad's explicit call
     neededLegend.style.marginBottom = 4;
     col.Add(neededLegend);
 
@@ -3633,7 +3663,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     else
     {
         int totalCost = Mathf.RoundToInt(rows.Sum(r => r.ordered * (r.sku?.BuyValue ?? 0f)));
-        var costLabel = MakeText($"Expected cost: ${totalCost:N0}", 12, ColOrangeText, bold: true);
+        var costLabel = MakeText($"Expected cost: ${totalCost:N0}", 16, ColOrangeText, bold: true); // 12 * 1.35 per Tad's explicit call
         costLabel.style.marginBottom = 6;
         col.Add(costLabel);
     }
@@ -3689,10 +3719,11 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     {
         var col = new VisualElement();
 
-        // Bold + the given highlight color (red for short-shipped, orange for still out of stock) for
-        // a genuine discrepancy — per Tad's explicit call. Neutral/unbolded otherwise, including the
-        // ordinary "not yet formally received" or "expected, not departed yet" states.
-        var caseLabel = MakeText(caseLine, 14, highlightColor ?? ColSubtleText, bold: highlightColor != null);
+        // White regardless of state — the red/orange highlight now lives on the item name line above
+        // (see BuildTooltipItemRow) instead of here, per Tad's explicit call that this detail text was
+        // hard to read. Still bold for a genuine discrepancy (red short-shipped / orange still out of
+        // stock) so the emphasis isn't lost, just not carried in the colour anymore.
+        var caseLabel = MakeText(caseLine, 14, Color.white, bold: highlightColor != null);
         col.Add(caseLabel);
 
         if (pendingReceipt > 0)
