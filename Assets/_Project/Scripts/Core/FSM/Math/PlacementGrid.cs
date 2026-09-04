@@ -188,6 +188,16 @@ public class PlacementGrid : MonoBehaviour
 
             bool isGround = IsGround(entry.data);
 
+            // Walls and doors that mutually replace each other (canBeReplacedByDoor /
+            // replacesWalls) occupy the SAME cell without being a real vertical stack — a
+            // Shipping Door sitting where a wall segment used to be must sit at the SAME base
+            // height as an ordinary wall, not on top of one. GetStackHeightIgnoringWalls()
+            // already excludes these from height math for validation/preview; this mirrors
+            // that exclusion here so a MOVE's final position (which recalculates via this
+            // method, unlike initial placement which uses PlacementFinalizer's renderer-bounds
+            // GetFloorTopY) doesn't stack a door's objHeight on top of a wall's.
+            bool isWallOrDoor = entry.data != null && (entry.data.canBeReplacedByDoor || entry.data.replacesWalls);
+
             // Mobile NavMesh agents (workers, boss, etc.) manage their own Y via
             // PlacementFinalizer (renderer-bounds snap) and AiNavigation.Start() (NavMesh snap).
             // Never override their position here — objHeight is a logical thickness (0.05f),
@@ -288,7 +298,7 @@ public class PlacementGrid : MonoBehaviour
                     groundHeightAdded = true;
                 }
             }
-            else
+            else if (!isWallOrDoor)
             {
                 currentY += entry.data.objHeight;
             }

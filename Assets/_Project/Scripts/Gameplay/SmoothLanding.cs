@@ -27,7 +27,13 @@ public class SmoothLanding : MonoBehaviour
     {
         if (!_isLanding) return;
 
-        transform.position = Vector3.SmoothDamp(transform.position, _targetPos, ref _velocity, _smoothTime);
+        // Unscaled: this is feedback about a placement action, not part of the simulation — with
+        // the default scaled Time.deltaTime, pausing (Time.timeScale = 0, common while carefully
+        // placing objects) freezes the SmoothDamp forever, stranding the object at its lifted
+        // start height (finalPos + OffsetMovePreview) instead of ever reaching _targetPos. This
+        // was confirmed live: walls/doors moved while paused settled at 1.61 instead of 1.11 —
+        // exactly finalY + OffsetMovePreview's default 0.5.
+        transform.position = Vector3.SmoothDamp(transform.position, _targetPos, ref _velocity, _smoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
 
         if (Vector3.SqrMagnitude(transform.position - _targetPos) < 0.0001f)
         {

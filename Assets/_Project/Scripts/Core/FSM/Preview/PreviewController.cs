@@ -17,7 +17,8 @@ public class PreviewController : MonoBehaviour
     public float CurrentRotation { get; private set; }
 
     private Vector3 _targetPos;
-    private Vector3 _velocity;
+    private Vector3 _velocity; // kept for the full-snap reset paths (SnapTo, far-away MoveTo)
+    private float _velocityY;  // Y-only SmoothDamp velocity for the lift/carry animation
     private bool _hasTarget;
 
     // ---------------------------------------------------------
@@ -121,6 +122,7 @@ public class PreviewController : MonoBehaviour
         _currentPreview = null;
         _hasTarget = false;
         _velocity = Vector3.zero;
+        _velocityY = 0f;
     }
 
     public void ResetAllVisuals()
@@ -202,17 +204,28 @@ public class PreviewController : MonoBehaviour
         {
             _currentPreview.transform.position = _targetPos;
             _velocity = Vector3.zero;
+            _velocityY = 0f;
             _hasTarget = false;
             return;
         }
 
-        // MOVE-PREVIEW MODE: keep the smooth lift animation. Snap only when the ghost
-        // is far away (first-show at prefab origin, or re-entry onto the grid).
+        // MOVE-PREVIEW MODE: X/Z must track the cursor with the SAME zero-lag as the cell
+        // indicator (CellIndicatorController never smooths) — otherwise the ghost visibly trails
+        // the indicator by several cells during a fast drag, which is exactly the mismatch this
+        // fixes. Only Y keeps the smooth lift/carry animation, handled by Update()'s SmoothDamp.
         _hasTarget = true;
-        if ((_currentPreview.transform.position - _targetPos).sqrMagnitude > 9f)
+        Vector3 current = _currentPreview.transform.position;
+
+        if ((current - _targetPos).sqrMagnitude > 9f)
         {
+            // Far away (first-show at prefab origin, or re-entry onto the grid) — full snap.
             _currentPreview.transform.position = _targetPos;
             _velocity = Vector3.zero;
+            _velocityY = 0f;
+        }
+        else
+        {
+            _currentPreview.transform.position = new Vector3(_targetPos.x, current.y, _targetPos.z);
         }
     }
 
@@ -221,6 +234,7 @@ public class PreviewController : MonoBehaviour
         _targetPos = CalculateTargetPos(_grid.GetCellCenter(cell), cell, data);
         _hasTarget = true; // We want it to start moving towards the target goal (lifting)
         _velocity = Vector3.zero;
+        _velocityY = 0f;
 
         if (_currentPreview != null)
         {
@@ -561,29 +575,29 @@ public class PreviewController : MonoBehaviour
         if (_currentPreview == null)
             return;
 
-        // Smooth follow with vertical offset (Lift) - only in Move Mode
+        // Smooth follow with vertical offset (Lift) - only in Move Mode.
+        // X/Z are already snapped instantly every frame by MoveTo() (matching the cell
+        // indicator's zero-lag tracking) — only Y is smoothed here, for the pickup/carry
+        // lift animation. Smoothing all three axes together (the old Vector3.SmoothDamp)
+        // made X/Z visibly lag behind the cursor during a fast drag.
         if (_hasTarget && !_deleteMode)
         {
             float adjustedSmooth = moveSmoothTime / Mathf.Max(0.01f, moveSmoothSpeed);
 
-            Vector3 finalTarget = _targetPos;
+            float targetY = _targetPos.y;
             if (_isMovePreviewMode)
             {
-                finalTarget.y += offsetMovePreview;
+                targetY += offsetMovePreview;
             }
 
-            _currentPreview.transform.position =
-                Vector3.SmoothDamp(
-                    _currentPreview.transform.position,
-                    finalTarget,
-                    ref _velocity,
-                    adjustedSmooth
-                );
+            Vector3 current = _currentPreview.transform.position;
+            float newY = Mathf.SmoothDamp(current.y, targetY, ref _velocityY, adjustedSmooth);
+            _currentPreview.transform.position = new Vector3(current.x, newY, current.z);
 
-            if ((_currentPreview.transform.position - finalTarget).sqrMagnitude < 0.01f)
+            if (Mathf.Abs(newY - targetY) < 0.01f)
             {
                 _hasTarget = false;
-                _velocity = Vector3.zero;
+                _velocityY = 0f;
             }
         }
     }

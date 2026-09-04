@@ -81,6 +81,15 @@ public class MoveCommand : PlacementCommandBase
         MoveRiders(forward: true);
         SyncDefaultChildrenGrid(forward: true);
 
+        // Physics.autoSyncTransforms is off project-wide (perf) — a script-driven transform.position
+        // write like Move()'s doesn't propagate to PhysX's collider bounds until the next physics
+        // step, and if the game is paused (Time.timeScale=0, no FixedUpdate ticks at all) that never
+        // happens on its own. Confirmed live: a moved foundation's collider bounds silently stayed
+        // several cells behind its visible mesh, so every raycast against it missed — "moved it and
+        // now it won't respond to clicks at all." One explicit sync here settles every transform this
+        // command touched (root + default-tile children + independent riders) in a single call.
+        Physics.SyncTransforms();
+
         PublishBuildEvent(GameEvents.Build.OnObjectMoved, new BuildingMoveData
         {
             FromX = _oldRoot.x,
@@ -99,6 +108,10 @@ public class MoveCommand : PlacementCommandBase
 
         if (_replaced.Count > 0)
             RestoreReplaced();
+
+        // See the matching comment in Execute() -- Undo() repositions the same transforms back, so
+        // it needs the same explicit sync.
+        Physics.SyncTransforms();
 
         PublishBuildEvent(GameEvents.Build.OnObjectMoved, new BuildingMoveData
         {

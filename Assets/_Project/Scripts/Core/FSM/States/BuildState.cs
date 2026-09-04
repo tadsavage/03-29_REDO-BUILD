@@ -112,12 +112,23 @@ public override bool IsPlacementState => true;
         _indicator.UseBuildMode();
         _raycast.EnableRay();
 
-        _preview.Show(_currentData);
-
         _placeRequested = false;
         _rotateRequested = false;
 
-        _currentRotation = _preview.CurrentRotation;
+        // Build mode requires ZERO-LAG instant snapping (see PreviewController.MoveTo's "BUILD
+        // MODE" branch and its LateUpdate() enforcement, both gated on !_isMovePreviewMode). Without
+        // this, the ghost falls back to MoveState's SmoothDamp path and visibly lags a cell or more
+        // behind the cursor while moving — exactly the "offset by up to 2 cells" symptom. MoveState
+        // sets this true and only resets it false in its own OnExit(), a one-way dependency, so
+        // force it off here unconditionally rather than trusting prior cleanup.
+        _preview.SetMovePreviewMode(false);
+
+        // Set rotation to 0 BEFORE showing the preview, so the ghost uses the correct rotation
+        // (not a stale rotation from a previous state like MoveState)
+        _preview.Rotate(0f);
+        _currentRotation = 0f;
+
+        _preview.Show(_currentData);
 
         _isDragging = false;
         _dragCells.Clear();
@@ -331,15 +342,9 @@ public override bool IsPlacementState => true;
         // ---------------------------------------------------------
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
-        // Snap to nearest replaceable target so door previews land on the correct
-        // cell even when the raycast hits an adjacent face. Walls (canBeReplacedByDoor)
-        // are 1×1 and place precisely — no snap needed, and snap would steal the
-        // cursor from the cell adjacent to a placed door (causing the "1-cell gap on X" bug).
-        if (_currentData.replacesWalls)
-            root = SnapToReplaceTarget(root, offsets, _currentData);
-        else
-            root = SnapFootprintToHover(root, offsets, _currentData);
-
+        // The ghost and indicators must follow the cursor exactly (like DeleteState)
+        // so they match what the player sees. Snapping only happens on PLACEMENT,
+        // not on preview — this way the preview accurately shows what's under the cursor.
         _preview.MoveTo(_grid.GetCellCenter(root), root, _currentData);
 
         bool isValid = _validator.IsValidPlacement(root, offsets, _currentData);

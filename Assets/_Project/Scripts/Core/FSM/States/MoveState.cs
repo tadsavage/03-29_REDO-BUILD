@@ -205,24 +205,10 @@ public class MoveState : PlacementStateBase
         if (!Mouse.current.leftButton.wasPressedThisFrame)
             return;
 
-        // Apply "Trace to Top" for selection - priority to grid data for clicking.
-        // If we hit the floor or a foundation, check if there's a stackable object on top of it.
-        GameObject target = _raycast.HitObject;
-        var hitBD = target.GetComponentInParent<BuildingData>();
-        if (hitBD == null || hitBD.Data.isFloor || hitBD.Data.category == "Foundation" || hitBD.Data.category == "Grounds")
-        {
-            // When we DID hit a Foundation/Grounds slab directly (its own collider), scan its own
-            // real footprint rather than trusting _raycast.HitCell — see FindTallestOnFootprint for
-            // why that cell can be a full grid square off from what's actually under the cursor for
-            // anything elevated above true ground level. Gated on ground/foundation specifically
-            // (not "!isFloor") since Foundation/Grounds are ALSO flagged isFloor.
-            GameObject top = (hitBD != null && IsGroundOrFoundation(hitBD.Data))
-                ? FindTallestOnFootprint(hitBD)
-                : _grid.GetTopObject(_raycast.HitCell);
-            if (top != null) target = top;
-        }
-
-        var bd = target.GetComponentInParent<BuildingData>();
+        // Apply "Trace to Top" for selection - priority to grid data for clicking, with a fallback
+        // to the owning Foundation/Grounds when a bare floor tile has nothing else stacked on it —
+        // see ResolveMoveTarget.
+        var bd = ResolveMoveTarget(_raycast.HitObject, _raycast.HitCell);
 
         // Validate we found a movable object. Decorative floor-pattern tiles can only be replaced,
         // not moved — but Foundation/Grounds slabs are ALSO flagged isFloor (they're walkable) while
@@ -420,7 +406,7 @@ public class MoveState : PlacementStateBase
             // "Perspective Jumping" comment) — for anything elevated, that can land a full cell off
             // from what's visually under the cursor, showing up as a stray quad beside the correct
             // highlight instead of on top of it.
-            var hoverBD = _raycast.HitObject != null ? _raycast.HitObject.GetComponentInParent<BuildingData>() : null;
+            var hoverBD = ResolveMoveTarget(_raycast.HitObject, hitCell);
             bool hoveringFoundation = hoverBD != null && hoverBD.Data != null && IsGroundOrFoundation(hoverBD.Data);
             if (hoveringFoundation)
                 _indicator.ClearAll();
@@ -605,21 +591,9 @@ Vector2Int newRoot = hitCell - _selectionDelta;
 
         bool isValid = true;
 
-        // Apply "Trace to Top" - if hitting a stack but not the top, select the top.
-        GameObject target = _raycast.HitObject;
-        var hitBD = target != null ? target.GetComponentInParent<BuildingData>() : null;
-        if (hitBD == null || hitBD.Data.isFloor || hitBD.Data.category == "Foundation" || hitBD.Data.category == "Grounds")
-        {
-            // When we DID hit a Foundation/Grounds slab directly, scan its own real footprint rather
-            // than _raycast.HitCell — see FindTallestOnFootprint. Same ground/foundation gate as
-            // TrySelectObject, not "!isFloor" (Foundation/Grounds are ALSO flagged isFloor).
-            GameObject top = (hitBD != null && IsGroundOrFoundation(hitBD.Data))
-                ? FindTallestOnFootprint(hitBD)
-                : _grid.GetTopObject(_raycast.HitCell);
-            if (top != null) target = top;
-        }
-
-        BuildingData bd = target != null ? target.GetComponentInParent<BuildingData>() : null;
+        // Apply "Trace to Top" - if hitting a stack but not the top, select the top; a bare floor
+        // tile with nothing on top redirects to its owning Foundation/Grounds — see ResolveMoveTarget.
+        BuildingData bd = ResolveMoveTarget(_raycast.HitObject, _raycast.HitCell);
 
         var newTargets = new List<BuildingHighlighter>();
 
@@ -678,6 +652,68 @@ Vector2Int newRoot = hitCell - _selectionDelta;
     private bool IsGroundOrFoundation(ObjDataSO data)
     {
         return data != null && (data.category == "Foundation" || data.category == "Grounds");
+    }
+
+    /// <summary>
+    /// Resolves what a raycast hit should mean for Move-mode selection/highlighting/hover-gating —
+    /// the single source of truth shared by TrySelectObject, UpdateHoverHighlight, and Update()'s
+    /// hoveringFoundation check, so all three agree on what's actually under the cursor.
+    ///
+    /// Rule A (see CLAUDE.md): a bare 1x1 floor tile can never be moved or highlighted on its own —
+    /// only the 2x2 Foundation/Grounds slab that parents it (and everything riding on it) can. First
+    /// traces UP to whatever's stacked ON TOP of the hovered footprint (a wall, a prop) exactly like
+    /// before — that still wins when present. Only when nothing is on top does a bare floor-tile hit
+    /// fall through to the Foundation/Grounds slab that owns its cell, so hovering/clicking ANY tile
+    /// of the slab treats the WHOLE parent (and its other riding tiles) as the target, per Tad's
+    /// explicit call.
+    /// </summary>
+    private BuildingData ResolveMoveTarget(GameObject hitObject, Vector2Int hitCell)
+    {
+        var hitBD = hitObject != null ? hitObject.GetComponentInParent<BuildingData>() : null;
+
+        if (hitBD == null || hitBD.Data.isFloor || hitBD.Data.category == "Foundation" || hitBD.Data.category == "Grounds")
+        {
+            // When we DID hit a Foundation/Grounds slab directly, scan its own real footprint rather
+            // than trusting hitCell — see FindTallestOnFootprint for why that cell can be a full grid
+            // square off from what's actually under the cursor for anything elevated above true
+            // ground level. Gated on ground/foundation specifically (not "!isFloor") since
+            // Foundation/Grounds are ALSO flagged isFloor.
+            GameObject top = (hitBD != null && IsGroundOrFoundation(hitBD.Data))
+                ? FindTallestOnFootprint(hitBD)
+                : _grid.GetTopObject(hitCell);
+            if (top != null)
+                return top.GetComponentInParent<BuildingData>();
+
+            // Nothing on top — if the raw hit was a bare floor tile (not the slab itself), redirect
+            // to the Foundation/Grounds that owns this cell instead of leaving the tile itself as the
+            // resolved target (which every caller then correctly refuses to move/highlight, per Rule A,
+            // but leaves the whole 2x2 unreachable from a click on any of its tiles).
+            if (hitBD != null && hitBD.Data.isFloor && !IsGroundOrFoundation(hitBD.Data))
+            {
+                var owner = FindFoundationInCell(hitCell);
+                if (owner != null) return owner;
+            }
+
+            return hitBD;
+        }
+
+        return hitBD;
+    }
+
+    /// <summary>The Foundation/Grounds slab occupying `cell`, or null. Mirrors
+    /// DeleteState.FindFoundationInCell — same redirect rule, same lookup.</summary>
+    private BuildingData FindFoundationInCell(Vector2Int cell)
+    {
+        var objs = _grid.GetObjectsInCell(cell);
+        if (objs == null) return null;
+        foreach (var entry in objs)
+        {
+            if (entry.instance == null) continue;
+            string cat = entry.data?.category;
+            if (cat == "Foundation" || cat == "Grounds")
+                return entry.instance.GetComponent<BuildingData>();
+        }
+        return null;
     }
 
     private bool SameHighlighterSet(List<BuildingHighlighter> newTargets)

@@ -39,6 +39,7 @@ public class DeleteState : PlacementStateBase
 
     private bool _isDragging;
     private Vector3 _dragStartWorld;
+    private Vector2Int _dragStartCell;
 
     public override bool IsPlacementState => true;
 
@@ -130,6 +131,28 @@ public class DeleteState : PlacementStateBase
 
         Vector3 hitPoint = _raycast.HitPoint;
         Vector2Int cell = _raycast.HitCell;
+
+        // Floor tiles that ride on an elevated Foundation/Grounds slab (Ship Lane, Pedestrian Lane,
+        // etc.) use TRIGGER colliders, so RaycastController's ground-only pass (which deliberately
+        // uses QueryTriggerInteraction.Ignore) skips right through them and hits the slab BENEATH
+        // instead — HitCell is then ground-projected from THAT lower point, not the tile's own
+        // surface, producing the same "perspective jumping" parallax error BuildState already
+        // corrects for when hovering a Foundation/Grounds slab directly (see its own OnEnter/Update
+        // comments). Confirmed live: reported as a diagonally-adjacent tile getting selected/deleted
+        // instead of the one actually under the cursor. HitPoint (unlike HitCell) already reflects
+        // the tile's own surface correctly here — objectHit's raycast pass DOES see triggers — so
+        // recomputing cell from it fixes the mismatch. Scoped to isFloor hits only: for a TALL
+        // non-floor object this would reintroduce the exact "clicked the top of a 10m pole" bug
+        // HitCell's ground-projection exists to avoid (see RaycastController's own comment).
+        if (_raycast.HitObject != null)
+        {
+            var hoverBd = _raycast.HitObject.GetComponentInParent<BuildingData>();
+            if (hoverBd != null && hoverBd.Data != null && hoverBd.Data.isFloor)
+            {
+                cell = _grid.WorldToCell(hitPoint);
+            }
+        }
+
         topBarUI?.SetCell(cell.x, cell.y);
 
         if (_raycast.HitObject != null)
@@ -161,11 +184,20 @@ public class DeleteState : PlacementStateBase
             _isDragging = false;
             _dragTargets.Clear();
             _dragStartWorld = hitPoint;
+            _dragStartCell = cell;
         }
 
+        // Cell-based, not raw world-distance-based: a 0.05 sqrMagnitude (~0.22 units) threshold is
+        // only ~17% of a cell (CellSize 1.33) — ordinary click jitter (hand tremor, trackpad, high-DPI
+        // mice moving a few pixels between mouse-down and mouse-up) crossed it easily, silently
+        // promoting an intended single-cell click into a drag whose rectangle spanned an adjacent
+        // cell too. UpdateDragDelete then reverted/deleted BOTH cells — reported live as "an extra
+        // delete cell that overrides the cell I actually wanted." Requiring the cursor to have
+        // actually crossed into a DIFFERENT grid cell (matching BuildState's own drag-start check)
+        // makes a same-cell click immune to sub-cell jitter by construction.
         if (Mouse.current.leftButton.isPressed && !_isDragging)
         {
-            if ((hitPoint - _dragStartWorld).sqrMagnitude > 0.05f)
+            if (cell != _dragStartCell)
             {
                 _isDragging = true;
                 ClearHover();
@@ -213,6 +245,20 @@ public class DeleteState : PlacementStateBase
                     return;
                 }
             }
+            else if (bd.Data.isFloor)
+            {
+                // _hover can now BE a custom floor tile directly (UpdateHoverDelete targets the
+                // tile itself, not its Foundation/Grounds parent, when hovering a non-default
+                // tile — see targetIsCustomTile). bd.Data here is the TILE's own data, whose
+                // category isn't Foundation/Grounds, so the branch above never fires for it.
+                // Revert via the parent's default tile instead of raw-deleting this GameObject.
+                var parentGround = FindFoundationInCell(cell);
+                if (parentGround != null && TryRevertCustomTile(parentGround, cell))
+                {
+                    ClearHover();
+                    return;
+                }
+            }
 
             // IMPORTANT: Clear highlight before deleting/disabling
             ClearHover();
@@ -233,6 +279,10 @@ public class DeleteState : PlacementStateBase
             _indicator.ClearAll();
 
         BuildingData targetBd = null;
+        // True when hover resolves to a single CUSTOM (non-default) floor tile riding on a
+        // Foundation/Grounds parent — a click there reverts just that tile (see TryRevertCustomTile),
+        // so the hover highlight must show only that one tile, not the whole slab group.
+        bool targetIsCustomTile = false;
 
         if (_raycast.HitObject != null)
         {
@@ -241,8 +291,28 @@ public class DeleteState : PlacementStateBase
             {
                 if (bd.Data.isFloor)
                 {
-                    // Redirect to foundation. Yard pads (no group) are ignored.
-                    targetBd = FindFoundationInCell(cell);
+                    // The ray hit a floor tile directly — bd is that TILE's own BuildingData (each
+                    // floor tile carries one). If its parent cell's ground is a Foundation/Grounds
+                    // slab AND this specific tile isn't the slab's own default tile, the player is
+                    // hovering a custom tile (e.g. a shipping/pedestrian lane) — target the tile
+                    // itself so hover feedback matches what a click actually does (revert just this
+                    // tile). Otherwise fall back to the whole-foundation default behavior.
+                    var parentGround = FindFoundationInCell(cell);
+                    bool isCustomTile = parentGround != null
+                        && IsFoundationData(parentGround.Data)
+                        && parentGround.Data.defaultFloorTile != null
+                        && bd.Data.id != parentGround.Data.defaultFloorTile.id;
+
+                    if (isCustomTile)
+                    {
+                        targetBd = bd;
+                        targetIsCustomTile = true;
+                    }
+                    else
+                    {
+                        // Redirect to foundation. Yard pads (no group) are ignored.
+                        targetBd = parentGround;
+                    }
                 }
                 else
                 {
@@ -260,8 +330,10 @@ public class DeleteState : PlacementStateBase
         {
             newGroup.Add(newHover);
 
-            // If it's a foundation, add all floor tiles on its footprint to the highlight group
-            if (targetBd != null && targetBd.GetComponent<FoundationFloorGroup>() != null && targetBd.Offsets != null)
+            // If it's a foundation, add all floor tiles on its footprint to the highlight group.
+            // Skipped for a single custom-tile target — that highlight must stay scoped to just
+            // the one tile a click would revert, not the whole slab.
+            if (!targetIsCustomTile && targetBd != null && targetBd.GetComponent<FoundationFloorGroup>() != null && targetBd.Offsets != null)
             {
                 var root = targetBd.RootCell;
                 foreach (var o in targetBd.Offsets)
