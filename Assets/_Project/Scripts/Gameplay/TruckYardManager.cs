@@ -32,6 +32,7 @@ public class TruckYardManager : MonoBehaviour
     private Transform       _gateEnterNoTurn;
     private Transform       _gateLeaveNoTurn;
     private Transform       _exitPoint;
+    private Transform       _doorWaitPoint;
     private Transform       _guardAnchors;
     private GuardController _guard;
     private int             _activeTrucks;
@@ -44,6 +45,11 @@ public class TruckYardManager : MonoBehaviour
         _gateEnterNoTurn = FindDeepChild("GateEnterNoTurn");
         _gateLeaveNoTurn = FindDeepChild("GateLeaveNoTurn");
         _exitPoint       = FindDeepChild("ExitPoint");
+        // Where a truck parks to wait when every door is occupied at arrival — Tad's spec: through the
+        // gate, turn right, a big loop, ~40m from the warehouse FACING it. Optional like
+        // GateEnterNoTurn/GateLeaveNoTurn above (no warning if missing) — a yard without one just falls
+        // back to the old immediate-turnaround behavior (see TruckController.BeginDoorWait).
+        _doorWaitPoint   = FindDeepChild("DoorWaitPoint");
         _guardAnchors    = FindDeepChild("GuardAnchors");
 
         if (_spawnPoint == null) Debug.LogWarning("[TruckYardManager] 'SpawnPoint' child not found in hierarchy.");
@@ -163,7 +169,8 @@ public class TruckYardManager : MonoBehaviour
             GateLeaveNoTurnPosition,
             ExitWaypointPosition,
             _guard,
-            OnTruckExited
+            OnTruckExited,
+            _doorWaitPoint
         );
 
         // Remove old handler if present using the dictionary lookup (lambdas aren't equal otherwise)
@@ -239,23 +246,28 @@ public class TruckYardManager : MonoBehaviour
         SpawnNextTruck(null);
     }
 
-    /// <summary>Returns false (and spawns nothing) if every door is occupied — ShipmentService uses
-    /// this to tell an arriving PO's truck to turn around and go home instead of retrying forever with
-    /// no player feedback (see ShipmentService.HandleNoAvailableDoor).</summary>
+    /// <summary>
+    /// Always spawns the truck now — per Tad's spec, a driver who shows up on time doesn't get turned
+    /// away sight unseen just because every door happens to be busy. If a door is free it docks exactly
+    /// as before; if not, it still queues at the gate, gets inspected, and drives on to park at the
+    /// yard's door-wait spot (see TruckController.AssignAndGoWaitForDoor/BeginDoorWait), where it waits
+    /// up to doorWaitMinutes for one to free up before giving up (still taking the late penalty at that
+    /// point — see TruckController.ApplyGaveUpWaitingForDoorPenalty).
+    ///
+    /// Only returns false for a genuine spawn failure (missing prefab/spawn point) or a duplicate PO
+    /// already in the yard — "no free door" is no longer one of those cases.
+    /// </summary>
     public bool SpawnNextTruck(GameCore.Inventory.ShipmentData shipment)
     {
         if (truckPrefab == null) { Debug.LogError("[TruckYardManager] Truck Prefab not assigned."); return false; }
         if (_spawnPoint == null) { Debug.LogError("[TruckYardManager] SpawnPoint child missing from guard shack."); return false; }
 
         var dock = FindFreeDock();
-        if (dock == null)
-        {
-            Debug.LogWarning("[TruckYardManager] No free docks — truck not spawned.");
-            return false;
-        }
 
         var go  = Instantiate(truckPrefab, _spawnPoint.position, _spawnPoint.rotation);
-        go.name = shipment != null ? $"Truck→PO_{shipment.PONumber}" : $"Truck→Door{dock.DoorNumber}";
+        go.name = shipment != null
+            ? $"Truck→PO_{shipment.PONumber}"
+            : (dock != null ? $"Truck→Door{dock.DoorNumber}" : "Truck→WaitingForDoor");
 
         var ctrl = go.GetComponent<TruckController>() ?? go.AddComponent<TruckController>();
 
@@ -264,15 +276,18 @@ public class TruckYardManager : MonoBehaviour
         Vector3? leaveNoTurn   = _gateLeaveNoTurn != null ? (Vector3?)_gateLeaveNoTurn.position : null;
         Vector3? exitPos       = _exitPoint       != null ? (Vector3?)_exitPoint.position       : null;
 
-        ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited);
+        ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited, _doorWaitPoint);
         ctrl.OnClearedGate += () => OnTruckClearedGate(ctrl);
-        
+
         if (shipment != null)
         {
             ctrl.LoadShipment(shipment);
         }
-        
-        ctrl.AssignAndGo(dock);
+
+        if (dock != null)
+            ctrl.AssignAndGo(dock);
+        else
+            ctrl.AssignAndGoWaitForDoor();
 
         if (_gateStop != null)
         {

@@ -409,28 +409,60 @@ namespace GameCore.Labor
                 yield return DriveTailFirst(ds, ds.position - downLane * depthPastPivot);
 
             yield return DriveTailFirst(ds, entryPivot);
-            // 2. Spin so the forks face straight down the lane — forks FIRST. All turning happens out
-            //    here at the pivot; the drive-in below never steers.
-            yield return FaceForks(ds, downLane);
-            // 3. Forks down to rest for the approach, then drive in from the lane ENTRY end.
-            if (forks != null) yield return LiftForks(forks, forkRestY);
-            yield return DriveInToGrab(ds, forks, forkRestY, palletT, downLane);
-            // 4. Seat the pallet on the forks (fixed carry pose).
-            Transform carrier = forks != null ? forks : ds;
-            // Captured BEFORE parenting — once it's a child, its world rotation is already whatever
-            // the carrier imposes and there's nothing left to compare against.
-            Vector3 palletFacingBeforePickup = palletT.forward;
-            palletT.SetParent(carrier, worldPositionStays: false);
-            palletT.localPosition = ForkCarryLocalPos;
-            palletT.localRotation = NearestFacing(Quaternion.Euler(ForkCarryLocalEuler),
-                                                  carrier.InverseTransformDirection(palletFacingBeforePickup));
-            // Riding the forks now — stop carving, or the pallet cuts a moving trench across the
-            // NavMesh and shoves every agent it passes.
-            pallet.SetNavObstacleActive(false);
-            // 4b. Lift to carry height — PalletLiftClearance off the deck, NOT the old fixed 1m.
-            if (forks != null) yield return LiftForks(forks, forks.localPosition.y + PalletLiftClearance);
-            // 5. Reverse straight back out to the staging-lane pivot — cab-first, no spin.
-            yield return DriveTailFirst(ds, entryPivot);
+
+            // ── Wait for exclusive lane entry ───────────────────────────────────────
+            // New rule: a vehicle may only enter a staging lane (or manipulate a pallet inside one) if
+            // no OTHER vehicle is currently in it — this loader is picking a pallet back OUT of the
+            // same lane a reach truck or dock stocker might still be dropping into. Same (door, lane)
+            // mutex ReachTruckOperator/TrailerOffloadController already wait on for the mirror-image
+            // (dropping in) case, so it serialises every vehicle kind against every other one on a
+            // shared lane. Receivers are exempt by design — they never call this, they work on foot.
+            ServiceLocator.TryGet<InventoryService>(out var inv);
+            if (inv != null)
+                while (!inv.TryEnterLaneForDelivery(laneSlot.DoorNumber, laneSlot.Lane))
+                    yield return null;
+
+            try
+            {
+                // The wait above can span many frames — if the pallet was destroyed out from under this
+                // coroutine in the meantime, bail rather than driving on with a stale reference.
+                if (palletT == null)
+                {
+                    Debug.LogWarning("[TrailerLoad] Staged pallet was destroyed while waiting for lane entry — skipping it.");
+                    yield break;
+                }
+
+                // 2. Spin so the forks face straight down the lane — forks FIRST. All turning happens out
+                //    here at the pivot; the drive-in below never steers.
+                yield return FaceForks(ds, downLane);
+                // 3. Forks down to rest for the approach, then drive in from the lane ENTRY end.
+                if (forks != null) yield return LiftForks(forks, forkRestY);
+                yield return DriveInToGrab(ds, forks, forkRestY, palletT, downLane);
+                // 4. Seat the pallet on the forks (fixed carry pose).
+                Transform carrier = forks != null ? forks : ds;
+                // Captured BEFORE parenting — once it's a child, its world rotation is already whatever
+                // the carrier imposes and there's nothing left to compare against.
+                Vector3 palletFacingBeforePickup = palletT.forward;
+                palletT.SetParent(carrier, worldPositionStays: false);
+                palletT.localPosition = ForkCarryLocalPos;
+                palletT.localRotation = NearestFacing(Quaternion.Euler(ForkCarryLocalEuler),
+                                                      carrier.InverseTransformDirection(palletFacingBeforePickup));
+                // Riding the forks now — stop carving, or the pallet cuts a moving trench across the
+                // NavMesh and shoves every agent it passes.
+                pallet.SetNavObstacleActive(false);
+                // 4b. Lift to carry height — PalletLiftClearance off the deck, NOT the old fixed 1m.
+                if (forks != null) yield return LiftForks(forks, forks.localPosition.y + PalletLiftClearance);
+                // 5. Reverse straight back out to the staging-lane pivot — cab-first, no spin.
+                yield return DriveTailFirst(ds, entryPivot);
+            }
+            finally
+            {
+                // Verified (see TrailerOffloadController's own note on this same pattern): Unity does
+                // NOT run an IEnumerator's finally on StopCoroutine/destroy, only when an exception
+                // propagates during active execution. Neither controller currently stops this coroutine
+                // externally, so this is the same best-effort guarantee already accepted elsewhere.
+                if (inv != null) inv.ReleaseLaneEntry(laneSlot.DoorNumber, laneSlot.Lane);
+            }
 
             // ── CARRY to the trailer and place in the next open cargo slot ───────────────────
             Vector3 into = TrailerIntoDir(truck);

@@ -1209,6 +1209,7 @@ namespace GameCore.Inventory
             int fine = Mathf.RoundToInt(rate * order.TotalRevenue);
             _moneyService?.RemoveCapital(fine, FinanceCategory.Fines);
             order.HasBeenFined = true;
+            order.LastFineAmount = fine;
             OnOrderFined?.Invoke(order, fine);
 
             Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) {why} — " +

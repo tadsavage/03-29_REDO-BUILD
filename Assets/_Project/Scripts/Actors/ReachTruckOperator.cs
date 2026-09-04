@@ -580,6 +580,35 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // ── Wait for exclusive lane entry ─────────────────────────────────────────────────
+            // Same (door, lane) mutex DeliverPalletToStagingLane waits on for the mirror-image (drop
+            // off) case — a putaway pickup is JUST AS MUCH "manipulating a pallet in the lane" as a
+            // delivery is, so a dock stocker mid-drop into this exact lane must not be able to overlap
+            // with an RTO mid-extraction from it. ReleaseLaneLock() is already called from both Restore()
+            // and AbortRoutine(), so every exit path below hands this back automatically.
+            while (!_inventoryService.TryEnterLaneForDelivery(door, lane))
+                yield return null;
+            _heldLaneLock = (door, lane);
+
+            // RE-VERIFY: `pallet` was resolved BEFORE the cross-warehouse NavMesh leg above (and the
+            // lane-entry wait just above), either of which can take many real seconds. In that window
+            // another vehicle can drop a fresh, UNRECEIVED pallet on top of this exact lane cell — the
+            // stale `pallet` reference would still be grabbed, yanking it out from underneath the new
+            // arrival and leaving that pallet floating in mid-air. This must never happen, so re-derive
+            // "what's actually accessible right now" with the same rule used at claim time and bail
+            // cleanly if it no longer matches, rather than grabbing whatever we originally locked onto.
+            Transform freshPallet = FindExitPallet(door, lane, out string freshPalletId);
+            if (freshPallet != pallet || freshPalletId != actualPalletId)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] Lane {door}{lane} changed while '{name}' was travelling — " +
+                                 $"{palletId} is no longer the accessible pallet (now '{freshPalletId ?? "none"}'). " +
+                                 "Releasing the reservation and re-queueing rather than reaching past whatever's now on top.");
+                _putawayLogic?.CancelPutaway(toAddress);
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
+
             Transform anchorFront = FindDeepChild(pallet, ChepAnchorFrontName);
             Transform anchorRear  = FindDeepChild(pallet, ChepAnchorRearName);
             Transform exitAnchor  = PickExitFacingAnchor(anchorFront, anchorRear, geo.DepthAxis);
@@ -660,6 +689,23 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // FINAL re-check, belt-and-suspenders alongside the one right after the NavMesh leg above:
+            // the grab-attempt loop just spent real time driving/lifting/re-measuring across up to
+            // MaxGrabAttempts tries. If something got dropped on top of this exact pallet during that
+            // window, the forks have merely touched it, not committed to carrying it — bail out here,
+            // before SetParent, rather than lift a pallet with something now resting on it. Reuses the
+            // same FindExitPallet rule as the earlier re-check rather than a bespoke cell lookup.
+            Transform stillTopmost = FindExitPallet(door, lane, out string stillTopmostId);
+            if (stillTopmost != pallet || stillTopmostId != actualPalletId)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] {palletId} is no longer topmost in its cell (something landed on it during the grab) — releasing and re-queueing instead of lifting through it.");
+                ReleaseCarriedPalletToOrigin(pallet);
+                _putawayLogic?.CancelPutaway(toAddress);
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
+
             Transform carrier = _palletAnchor != null ? _palletAnchor : (_forks != null ? _forks : transform);
 
             // RULE: Parent the pallet to the PalletAnchor.
@@ -730,6 +776,12 @@ namespace GameCore.Actors
 
             // 5. Leg 1 Back-out — destination was resolved + reserved before pickup (step 3).
             yield return ReverseToPoint(transform, exitPoint);
+
+            // Physically clear of the lane now (pallet riding the forks, truck backed out to the
+            // exit point) — hand the lane back so the next vehicle waiting on it can come in. Holding
+            // it any longer (through the whole rack-delivery leg below) would starve the lane for no
+            // reason; this RTO isn't touching it any more.
+            ReleaseLaneLock();
 
             // 7-9. Leg 2 rack travel + putdown — shared with ResumeDeliverToRack (a save/load
             // mid-carry restores the pallet already seated on the forks with toAddress already

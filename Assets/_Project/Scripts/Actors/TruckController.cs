@@ -22,6 +22,17 @@ using GameCore.Services;
 /// shack) used by every truck regardless of which door it's assigned. The door
 /// (Xform 4) is the assigned DockSlot's DockPosition / DockRotation — the reverse
 /// into the door is unchanged from before.
+///
+/// NO FREE DOOR AT ARRIVAL (2026-09): the truck still queues at the gate and gets
+/// inspected exactly as above — a driver who shows up on time isn't turned away
+/// sight unseen. After Xform 1 it instead curves to the yard's "DoorWaitPoint"
+/// (an optional named child, same convention as GateEnterNoTurn/GateLeaveNoTurn)
+/// and parks there, showing a world-space countdown (TruckDoorWaitBar). It polls
+/// for a freed-up door and, if one appears, drives in exactly like a normal
+/// arrival (rejoining the route above at Xform 2). If doorWaitMinutes (60 by
+/// default, in SIM minutes) elapses with nothing freeing up, it gives up — still
+/// takes the late penalty (appointment parked back to the pool + vendor
+/// Partnership −20) — and exits via the normal departure route.
 /// </summary>
 public class TruckController : MonoBehaviour
 {
@@ -39,11 +50,15 @@ public class TruckController : MonoBehaviour
         DepartToApproach,  // door → Xform 2
         ToLeaveNoTurn,     // Xform 2 → Xform 5
         ToExit,            // Xform 5 → Exit point
-        Exiting
+        Exiting,
+        ToDoorWait,        // Xform 1 → the door-wait park spot (no free door at arrival)
+        WaitingForDoor     // parked at the wait spot, polling for a door / counting down
     }
 
     [Header("Driving")]
-    [SerializeField] private float driveSpeed       = 2.5f;
+    // Doubled per Tad's explicit request 2026-09 — backing/approach legs were reading as taking
+    // "an hour" in practice. Pure speed constants; the Bézier/steering math is all speed-agnostic.
+    [SerializeField] private float driveSpeed       = 5.0f; // was 2.5
     [SerializeField] private float driveTurnSpeed   = 180f;
     [SerializeField] private float arrivedThreshold = 0.5f;
 
@@ -52,11 +67,13 @@ public class TruckController : MonoBehaviour
     [SerializeField] private float forwardDriveTension = 0.45f;
 
     [Header("Backup wait")]
-    [Tooltip("Seconds the truck sits still at Xform 3 before it starts backing up.")]
-    [SerializeField] private float backupWaitDuration = 1.5f;
+    [Tooltip("UNUSED by new gameplay (2026-09 backing simplification removed the stop-and-wait — see " +
+             "the ToBackup case in Update()). Kept only because WaitingAtBackup/BeginStraightReverse " +
+             "still exist to resume a save captured mid-maneuver under the old sequence.")]
+    [SerializeField] private float backupWaitDuration = 0.75f;
 
     [Header("Reversing — Bézier curve into the door")]
-    [SerializeField] private float reverseSpeed = 3f;
+    [SerializeField] private float reverseSpeed = 6f; // was 3 — doubled per Tad's request
     [Tooltip("0 = nearly straight, 1 = wide sweeping curve. 0.45 is a natural truck arc. Raise it to widen the back-in turn toward the blue-line shape.")]
     [SerializeField] private float reverseArcTension = 0.45f;
     [Tooltip("Begin the final back-in curve this far BEFORE the truck root reaches beginBackupTurn (≈ half the truck length). Blends the straight reverse into the curve as one smooth S instead of a kink.")]
@@ -83,8 +100,14 @@ public class TruckController : MonoBehaviour
     [Header("Unload & exit")]
     [SerializeField] private float unloadDuration = 7f;
     [Tooltip("If no dock stocker claims this docked truck within this many seconds, fall back to a bulk receive and depart so the dock doesn't wedge (e.g. no manned DS available).")]
-    [SerializeField] private float offloadFallbackTimeout = 45f;
-    [SerializeField] private float exitShrinkTime = 1.2f;
+    [SerializeField] private float offloadFallbackTimeout = 22.5f; // was 45 — halved per Tad's request
+    [SerializeField] private float exitShrinkTime = 0.6f; // was 1.2 — halved per Tad's request
+
+    [Header("Door wait (no free door at arrival, read-only — injected by TruckYardManager.Init)")]
+    [Tooltip("How many in-game minutes a truck waits for a door to free up before giving up and leaving (still taking the late penalty). Standard 60 per Tad's spec.")]
+    [SerializeField] private float doorWaitMinutes = 60f;
+    [Tooltip("Real seconds between checks for a newly-freed door while waiting.")]
+    [SerializeField] private float doorWaitPollSeconds = 2f;
 
     [Header("Trailer Doors")]
     [SerializeField] private float doorOpenSpeed = 150f;
@@ -236,6 +259,17 @@ private DockSlot        _dock;
     // Xform 2 (_drApproach-DepartPoint) and Xform 3 (_drBackup) are computed
     // per-door from DockSlot offsets — see ApproachPoint() / BackupPoint().
 
+    /// <summary>Where a truck parks to wait when every door is occupied at arrival — through the gate,
+    /// turn right, big loop, ~40m from the warehouse FACING it (Tad's spec). A single hand-placed scene
+    /// Transform in the yard, injected via Init() exactly like the other gate waypoints above; its own
+    /// rotation is the truck's final resting facing. Null means "no wait spot configured," in which
+    /// case a truck with no free door gives up immediately instead of waiting (see BeginDoorWait).</summary>
+    private Transform _doorWaitPoint;
+
+    private long  _doorWaitStartSimMinute = -1;
+    private float _doorWaitPollTimer;
+    private TruckDoorWaitBar _doorWaitBar;
+
     private float       _stateTimer;
     private float       _groundY;
     private Vector3     _currentTarget;
@@ -322,7 +356,8 @@ private DockSlot        _dock;
 
     // ── Setup ───────────────────────────────────────────────────────────────────
     public void Init(Vector3? gateStop, Vector3? gateEnterNoTurn, Vector3? gateLeaveNoTurn,
-                     Vector3? exitWaypoint, GuardController guard, System.Action onExited)
+                     Vector3? exitWaypoint, GuardController guard, System.Action onExited,
+                     Transform doorWaitPoint = null)
     {
         _gateStop        = gateStop;
         _gateEnterNoTurn = gateEnterNoTurn;
@@ -330,6 +365,32 @@ private DockSlot        _dock;
         _exitWaypoint    = exitWaypoint;
         _guard           = guard;
         _onExited        = onExited;
+        _doorWaitPoint   = doorWaitPoint;
+    }
+
+    /// <summary>Same entry sequence as AssignAndGo, but for a truck with NO free door at spawn time —
+    /// it still queues at the gate and gets inspected like any other arrival (this IS the truck showing
+    /// up on time), it just has nothing to back into yet. GuardClearedToEnter/ToEnterNoTurn route it to
+    /// the door-wait park spot instead of a door once it's through the gate.</summary>
+    public void AssignAndGoWaitForDoor()
+    {
+        _dock = null;
+
+        Vector3 firstTarget = _gateStop ?? (_doorWaitPoint != null ? _doorWaitPoint.position : transform.position);
+
+        Vector3 dir = firstTarget - transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude > 0.01f)
+            transform.rotation = Quaternion.LookRotation(dir.normalized);
+
+        if (_gateStop.HasValue)
+        {
+            _state = TruckState.Queuing;
+            _currentTarget = transform.position;
+            _useBezier = false;
+        }
+        else
+            GuardClearedToEnter();
     }
 
     public void AssignAndGo(DockSlot dock)
@@ -855,6 +916,22 @@ private DockSlot        _dock;
                 restoredState = TruckState.Idle;
                 StartCoroutine(ShrinkAndDestroy(exitShrinkTime));
                 break;
+
+            case TruckState.ToDoorWait:
+                // Bezier params were already restored generically above — resumes driving toward the
+                // wait spot exactly like DepartToApproach/ToLeaveNoTurn/ToExit do.
+                break;
+
+            case TruckState.WaitingForDoor:
+                // _doorWaitStartSimMinute is not persisted (a save mid-wait is a rare enough edge case
+                // not to warrant its own snapshot field this pass) — restart a fresh full wait window
+                // rather than resuming a stale one that would silently never time out (elapsed would
+                // read 0 forever). Forgiving default, same reasoning as every other "field didn't exist
+                // in this save" fallback in this codebase — costs the player a few extra minutes of
+                // waiting at worst, never a stuck truck.
+                transform.position = snap.worldPosition;
+                BeginWaitingForDoor();
+                return;
         }
 
         _state = restoredState;
@@ -1102,9 +1179,32 @@ private DockSlot        _dock;
                 break;
 
             case TruckState.ToEnterNoTurn:
-                // Xform 1 — roll through without stopping, straight on to Xform 2.
+                // Xform 1 — roll through without stopping, straight on to Xform 2 (or, if no door was
+                // free at arrival, on to the door-wait park spot instead).
                 if (DriveToward(_currentTarget))
-                    SetTarget(TruckState.ToApproach, ApproachPoint());
+                {
+                    if (_dock != null)
+                        SetTarget(TruckState.ToApproach, ApproachPoint());
+                    else
+                        BeginDoorWait();
+                }
+                break;
+
+            case TruckState.ToDoorWait:
+                // Xform 1 → the door-wait park spot, curving in ("turn right, make a big loop" per
+                // Tad's spec — achieved by the same forward-Bézier tension already used for every other
+                // curved leg, aimed at whatever point/rotation the scene's wait-spot Transform defines).
+                if (DriveToward(_currentTarget))
+                {
+                    // Snap to the wait spot's own rotation exactly — the Bézier tangent gets close but
+                    // "facing the warehouse" needs to be exact, not approximate.
+                    if (_doorWaitPoint != null) transform.rotation = _doorWaitPoint.rotation;
+                    BeginWaitingForDoor();
+                }
+                break;
+
+            case TruckState.WaitingForDoor:
+                UpdateWaitingForDoor();
                 break;
 
             case TruckState.ToApproach:
@@ -1114,20 +1214,27 @@ private DockSlot        _dock;
                 break;
 
             case TruckState.ToBackup:
-                // Xform 2 → Xform 3 (rounded corner). On arrival, face AWAY from the
-                // door along the Xform 3 → beginBackupTurn line, then stop and wait.
+                // Xform 2 → Xform 3 (rounded corner) — "pull in and turn." On arrival, snap to face
+                // AWAY from the door (the heading it needs to be backing FROM) and go straight into ONE
+                // continuous reverse curve into the dock — no intermediate stop-and-wait, no separate
+                // straight-then-curved split. Per Tad's explicit call: this collapsed a 3-leg-plus-a-
+                // wait backing maneuver (curve in, dwell, straight reverse, curved reverse) down to
+                // "pull in and turn, then reverse into the door" — two moves, not four.
                 if (DriveToward(_currentTarget))
                 {
-                    Vector3 awayDir = BackupPoint() - _dock.BeginBackupTurnPoint;
+                    Vector3 awayDir = -(_dock.DockRotation * Vector3.forward);
                     awayDir.y = 0f;
                     if (awayDir.sqrMagnitude > 0.01f)
                         transform.rotation = Quaternion.LookRotation(awayDir.normalized);
 
-                    _state      = TruckState.WaitingAtBackup;
-                    _stateTimer = backupWaitDuration;
+                    BeginFinalReverse();
                 }
                 break;
 
+            // WaitingAtBackup / Reversing are no longer entered by new gameplay (see ToBackup above)
+            // but are kept, along with BeginStraightReverse/StepStraightReverse below, purely so a save
+            // captured mid-maneuver under the OLD sequence still resumes correctly instead of getting
+            // stuck on an enum value nothing handles any more.
             case TruckState.WaitingAtBackup:
                 _stateTimer -= Time.deltaTime;
                 if (_stateTimer <= 0f) BeginStraightReverse();
@@ -1441,11 +1548,104 @@ private DockSlot        _dock;
         _clearedGate = true;
         OnClearedGate?.Invoke();
 
+        // BUG FIX (moved here from OnDocked, 2026-09): "arrived on time" means cleared the gate, not
+        // "already backed into a door" — a truck that has to wait for a free door (see
+        // AssignAndGoWaitForDoor below) is JUST as much "arrived" as one that docks immediately.
+        // Nothing else in the codebase ever set ShipmentStatus.Receiving despite
+        // DockScheduleService.JudgeElapsedInboundAppointment explicitly checking for it and letting a
+        // truck in that state finish without the "driver never showed" −20 penalty — so a shipment sat
+        // InTransit for its entire time in the yard, and a truck that showed up on time but then had to
+        // wait for a door (or was simply mid-unload) when its booked block happened to elapse was
+        // wrongly charged as a no-show. Setting it HERE is the single fix for both cases at once.
+        if (!_isOutbound && AssignedShipment != null)
+            AssignedShipment.Status = GameCore.Inventory.ShipmentData.ShipmentStatus.Receiving;
+
         // Xform 1: roll through the gate without stopping (straight leg).
         if (_gateEnterNoTurn.HasValue)
             SetTarget(TruckState.ToEnterNoTurn, _gateEnterNoTurn.Value);
-        else
+        else if (_dock != null)
             SetTarget(TruckState.ToApproach, ApproachPoint());
+        else
+            BeginDoorWait();
+    }
+
+    /// <summary>Routes a truck with no free door toward the yard's wait spot. Missing the scene
+    /// waypoint (never placed, or this yard has none configured) degrades to the OLD behavior — give up
+    /// immediately — rather than the truck sitting frozen mid-yard with nowhere to go.</summary>
+    private void BeginDoorWait()
+    {
+        if (_doorWaitPoint == null)
+        {
+            Debug.LogWarning("[TruckController] No door-wait park spot configured for this yard — " +
+                             "truck can't wait for a door, giving up immediately instead.");
+            BeginDeparture(succeeded: false);
+            return;
+        }
+
+        SetTargetCurved(TruckState.ToDoorWait, _doorWaitPoint.position, _doorWaitPoint.forward);
+    }
+
+    private void BeginWaitingForDoor()
+    {
+        _state = TruckState.WaitingForDoor;
+        var gameCtx = FindAnyObjectByType<GameContext>();
+        _doorWaitStartSimMinute = gameCtx != null ? gameCtx.TimeService.TotalMinutesElapsed : -1;
+        _doorWaitPollTimer = 0f;
+        if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
+        _doorWaitBar.Show(doorWaitMinutes, doorWaitMinutes);
+    }
+
+    /// <summary>Ticks the door-wait countdown (in SIM minutes, same clock the dock schedule's 2-hour
+    /// blocks run on — not real seconds, since "60 minutes" is a game-time promise) and polls for a
+    /// freed-up door. Claims the first one it finds and drives in exactly like a normal arrival the
+    /// moment one appears; gives up (still taking the late penalty) once the window runs out.</summary>
+    private void UpdateWaitingForDoor()
+    {
+        var gameCtx = FindAnyObjectByType<GameContext>();
+        if (gameCtx == null) return;
+
+        float elapsedMinutes = _doorWaitStartSimMinute >= 0
+            ? gameCtx.TimeService.TotalMinutesElapsed - _doorWaitStartSimMinute
+            : 0f;
+        float remaining = Mathf.Max(0f, doorWaitMinutes - elapsedMinutes);
+        _doorWaitBar?.Show(remaining, doorWaitMinutes);
+
+        if (remaining <= 0f)
+        {
+            _doorWaitBar?.Hide();
+            BeginDeparture(succeeded: false);
+            return;
+        }
+
+        _doorWaitPollTimer -= Time.deltaTime;
+        if (_doorWaitPollTimer > 0f) return;
+        _doorWaitPollTimer = doorWaitPollSeconds;
+
+        var freeDock = FindAnyFreeDock();
+        if (freeDock == null) return;
+
+        _dock = freeDock;
+        _dock.Claim();
+        _doorWaitBar?.Hide();
+
+        Vector3 ap = ApproachPoint();
+        Vector3 curveDir = ap - transform.position;
+        SetTargetCurved(TruckState.ToApproach, ap, curveDir);
+    }
+
+    /// <summary>Same random-pick-among-free-doors policy as TruckYardManager.FindFreeDock — kept local
+    /// (rather than routing back through the yard manager) since a waiting truck already knows the
+    /// full DockSlot registry directly.</summary>
+    private DockSlot FindAnyFreeDock()
+    {
+        List<DockSlot> free = null;
+        foreach (var d in DockSlot.All)
+        {
+            if (d == null || d.IsOccupied) continue;
+            free ??= new List<DockSlot>();
+            free.Add(d);
+        }
+        return free == null ? null : free[Random.Range(0, free.Count)];
     }
 
     private void OnDocked()
@@ -1497,53 +1697,109 @@ private DockSlot        _dock;
         }
     }
 
-    private void BeginDeparture()
+    private void BeginDeparture() => BeginDeparture(succeeded: true);
+
+    /// <summary><paramref name="succeeded"/> is false exactly once, for the door-wait give-up case
+    /// (UpdateWaitingForDoor's timeout / BeginDoorWait's missing-waypoint fallback) — a truck that
+    /// never got a door never delivered anything, so it must not be marked Departed (that reads as "PO
+    /// fulfilled" everywhere else in the code, e.g. DockScheduleService.IsComplete). Everything else
+    /// about leaving the yard — release the dock if one was somehow held, close up, roll out through
+    /// the gate — is identical either way, so this stays one method with one branch rather than two
+    /// near-duplicate exit routines drifting apart over time.</summary>
+    private void BeginDeparture(bool succeeded)
     {
         // Defensive null-guard: a truck should always have a claimed dock by the time it departs,
         // but an orphaned restore (dock lookup failed) previously left this null and threw here
         // every frame forever (the truck never actually left). Null-conditional so a bad restore
-        // degrades to "truck leaves without releasing a dock" instead of an infinite NRE loop.
+        // degrades to "truck leaves without releasing a dock" instead of an infinite NRE loop. Also
+        // covers the door-wait-timeout case cleanly: _dock is null there too (never claimed one).
         _dock?.LightController?.SetOccupied(false);
         // Release the rollup door's forced-open hold — the truck's own exit through the trigger will
         // close it normally as it drives out.
         _dock?.SetDoorForcedOpen(false);
         _dock?.Release();
 
-        // Mark shipment as Departed and retire it from the pending list. A departed PO has done its
-        // whole job — leaving it in PendingShipments meant the Dev Console's inbound list grew a red
-        // "[Departed]" row per truck forever and every one of them was re-serialised into every save.
-        // This truck keeps its own AssignedShipment reference, so nothing here loses data it still needs.
-        if (AssignedShipment != null)
+        if (succeeded)
         {
-            AssignedShipment.Status = GameCore.Inventory.ShipmentData.ShipmentStatus.Departed;
-            if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipSvc))
-                shipSvc.PurgeCompleted();
-
-            // VENDORS tab's "Avg Hours in Door" — inbound only, and only once we actually have a real
-            // docked-at stamp (a truck that skipped Docked entirely, if that's ever possible, shouldn't
-            // report a bogus 0-hour dwell).
-            if (!_isOutbound && _dockedAtSimMinute >= 0 &&
-                !string.IsNullOrEmpty(AssignedShipment.SupplierId) &&
-                GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorPerformanceTracker perf))
+            // Mark shipment as Departed and retire it from the pending list. A departed PO has done its
+            // whole job — leaving it in PendingShipments meant the Dev Console's inbound list grew a red
+            // "[Departed]" row per truck forever and every one of them was re-serialised into every save.
+            // This truck keeps its own AssignedShipment reference, so nothing here loses data it still needs.
+            if (AssignedShipment != null)
             {
-                var gameCtx = FindAnyObjectByType<GameContext>();
-                if (gameCtx != null)
+                AssignedShipment.Status = GameCore.Inventory.ShipmentData.ShipmentStatus.Departed;
+                if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipSvc))
+                    shipSvc.PurgeCompleted();
+
+                // VENDORS tab's "Avg Hours in Door" — inbound only, and only once we actually have a real
+                // docked-at stamp (a truck that skipped Docked entirely, if that's ever possible, shouldn't
+                // report a bogus 0-hour dwell).
+                if (!_isOutbound && _dockedAtSimMinute >= 0 &&
+                    !string.IsNullOrEmpty(AssignedShipment.SupplierId) &&
+                    GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorPerformanceTracker perf))
                 {
-                    float hours = (gameCtx.TimeService.TotalMinutesElapsed - _dockedAtSimMinute) / 60f;
-                    perf.RecordDwellHours(AssignedShipment.SupplierId, Mathf.Max(0f, hours), gameCtx.TimeService.Day);
+                    var gameCtx = FindAnyObjectByType<GameContext>();
+                    if (gameCtx != null)
+                    {
+                        float hours = (gameCtx.TimeService.TotalMinutesElapsed - _dockedAtSimMinute) / 60f;
+                        perf.RecordDwellHours(AssignedShipment.SupplierId, Mathf.Max(0f, hours), gameCtx.TimeService.Day);
+                    }
                 }
+                _dockedAtSimMinute = -1;
             }
-            _dockedAtSimMinute = -1;
+        }
+        else
+        {
+            ApplyGaveUpWaitingForDoorPenalty();
         }
 
         // Solid trailer + closed doors again before it drives off.
         SetDockedGhost(false);
         CloseTrailerDoors();
 
-        // Pull out forward to Xform 2, easing toward the exit direction.
+        // Pull out forward to Xform 2, easing toward the exit direction. ApproachPoint() falls back to
+        // the truck's current position when _dock is null (the give-up case), so this degrades to
+        // "curve straight from wherever it's parked toward the gate" with no special-casing needed.
         Vector3 ap   = ApproachPoint();
         Vector3 next = _gateLeaveNoTurn ?? _exitWaypoint ?? ap;
         SetTargetCurved(TruckState.DepartToApproach, ap, next - ap);
+    }
+
+    /// <summary>
+    /// The consequence for a driver who waited the full doorWaitMinutes with no door ever freeing up:
+    /// per Tad's spec, the appointment is handed back to the pool (the player must actively reschedule
+    /// it) and the vendor relationship still takes the same flat hit HandleNoAvailableDoor used to apply
+    /// immediately — the only thing that changed is WHEN it lands (after a real 60-minute wait instead
+    /// of instantly), not whether it happens. Deliberately does NOT touch AssignedShipment.Status — it
+    /// stays whatever it was (InTransit/Receiving), so DispatchDueShipments can re-attempt this same PO
+    /// once the player books it a new appointment, exactly like the old immediate-turnaround path did.
+    /// </summary>
+    private void ApplyGaveUpWaitingForDoorPenalty()
+    {
+        if (AssignedShipment == null) return;
+
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockSchedule) &&
+            dockSchedule != null)
+        {
+            var appt = dockSchedule.FindForPo(AssignedShipment.PONumber);
+            if (appt != null)
+            {
+                dockSchedule.TryPark(appt.Id, out string failReason);
+                if (failReason != null)
+                    Debug.LogWarning($"[TruckController] Couldn't park PO {AssignedShipment.PONumber}'s " +
+                                     $"appointment after giving up on a door: {failReason}");
+            }
+        }
+
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorEconomyService economy) &&
+            economy != null && !string.IsNullOrEmpty(AssignedShipment.SupplierId))
+        {
+            economy.AdjustPartnershipLevel(AssignedShipment.SupplierId, -20,
+                $"No door freed up for PO {AssignedShipment.PONumber} within {doorWaitMinutes:F0} minutes — driver gave up and left");
+        }
+
+        UIToast.Show($"No door freed up for PO {AssignedShipment.PONumber} in time — the driver has " +
+                     "left. Reschedule the appointment.");
     }
 
     /// <summary>

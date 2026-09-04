@@ -85,6 +85,12 @@ namespace GameCore.Inventory
         /// </summary>
         public bool HasBeenFined { get; set; }
 
+        /// <summary>Dollar amount of the fine actually charged when HasBeenFined was set — written once
+        /// by OrderService.ChargeLateFee. Exists so a caller (DockAppointment's "LATE" tooltip) can
+        /// show the real number that left the balance instead of recomputing LateFeePercent × revenue
+        /// a second time and risking the two disagreeing. 0 for an order never fined.</summary>
+        public int LastFineAmount { get; set; }
+
         /// <summary>RETIRED. Was the guard for a separate flat-25% "ran over its door slot while
         /// loading" fine (OrderService.FineLateLoad), which is gone: that fine only ever hit trailers
         /// that had already STARTED loading — so a trailer nobody touched all window went completely

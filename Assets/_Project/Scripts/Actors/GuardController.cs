@@ -33,10 +33,11 @@ public class GuardController : MonoBehaviour
     [SerializeField] private float arrivedThreshold = 0.5f;
 
     [Header("Timing")]
-    [SerializeField] private float waitAtGateStop = 3f;
-    [SerializeField] private float waitBeforeOpen = 1f;
-    [SerializeField] private float waitAtCheckRear = 2f;
-    [SerializeField] private float waitWavingIn   = 2.0f;
+    // All halved per Tad's "cut any time delays in half" request.
+    [SerializeField] private float waitAtGateStop = 1.5f;  // was 3
+    [SerializeField] private float waitBeforeOpen = 0.5f;  // was 1
+    [SerializeField] private float waitAtCheckRear = 1f;   // was 2
+    [SerializeField] private float waitWavingIn   = 1.0f;  // was 2
 
     [Header("Audio")]
     [SerializeField] private AudioClip footstepClip;

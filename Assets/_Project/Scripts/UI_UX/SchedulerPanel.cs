@@ -2031,6 +2031,60 @@ public class SchedulerPanel : IUIPanel
         chip.RegisterCallback<GeometryChangedEvent>(ApplyDiagonal);
     }
 
+    /// <summary>
+    /// Small square corner flag marking a chip as "this customer/vendor has already been burned once"
+    /// — DockAppointment.WasLate. Deliberately NOT the diagonal strike (see AddStrikeThrough): the
+    /// strike means "this slot's capacity is gone / nothing to do here", which is wrong the moment the
+    /// trailer is back on a live future slot. This badge means the opposite kind of thing — a fact
+    /// about the relationship, not the block — so it has to keep showing precisely when the strike
+    /// stops.
+    ///
+    /// Pinned to the bottom-left corner (Position.Absolute, PickingMode.Ignore so it can't steal the
+    /// chip's own click) rather than taking a line in the chip's own three-line text stack, which is
+    /// already tight (see BuildNewSchedulerCell) and would have to fight for space on every chip
+    /// instead of just the minority that are actually late.
+    /// </summary>
+    private void AddLateBadge(VisualElement chip)
+    {
+        var badge = new VisualElement();
+        badge.pickingMode = PickingMode.Ignore;
+        badge.style.position = Position.Absolute;
+        badge.style.left = 2; badge.style.bottom = 2;
+        badge.style.paddingLeft = 3; badge.style.paddingRight = 3;
+        badge.style.paddingTop = 1; badge.style.paddingBottom = 1;
+        badge.style.backgroundColor = new StyleColor(new Color(0.13f, 0.62f, 0.24f, 1f));
+        badge.style.borderTopLeftRadius = badge.style.borderTopRightRadius =
+            badge.style.borderBottomLeftRadius = badge.style.borderBottomRightRadius = 2;
+
+        var label = MakeText("LATE", 9, ColDanger, bold: true);
+        label.style.paddingTop = 0; label.style.paddingBottom = 0;
+        label.style.marginTop = 0; label.style.marginBottom = 0;
+        badge.Add(label);
+
+        chip.Add(badge);
+    }
+
+    /// <summary>
+    /// The tooltip half of the "LATE" corner badge — what the player sees when they actually hover the
+    /// chip to find out what happened. Two completely different consequences share the one WasLate
+    /// flag (see DockAppointment), so this picks whichever one is non-zero: a real dollar late fee for
+    /// an outbound customer order, or a vendor-partnership hit for an inbound PO whose driver never
+    /// showed. Per Tad's explicit call, the vendor case is reputation-only — it does NOT invent a
+    /// dollar figure for a delivery that was never actually billed in money.
+    /// </summary>
+    private void AddLatePenaltyTooltipLine(VisualElement col, DockAppointment appt)
+    {
+        if (!appt.WasLate) return;
+
+        string text = appt.LateFineAmount > 0
+            ? $"Late Penalty: ${appt.LateFineAmount:N0}"
+            : $"Late Penalty: -{appt.LateRelationshipPenalty} relationship";
+
+        var label = MakeText(text, 14, ColDanger, bold: true);
+        label.style.marginBottom = 4;
+        col.Add(label);
+    }
+
     /// <summary>True for a purchase order the player raised — an inbound appointment carrying a PO
     /// number, as opposed to BookInboundNow's note that a truck is currently at a door.</summary>
     private static bool IsInboundPo(DockAppointment appt)
@@ -2259,6 +2313,15 @@ public class SchedulerPanel : IUIPanel
                 fined++;
                 fineTotal += (int)Mathf.Max(0, before - _moneyBeforeFine());
             }
+        }
+
+        // Same "LATE" corner badge as a missed deadline — from the customer's seat, a trailer the
+        // player themselves moved off the promised hour is no different from one that simply ran out
+        // the clock. See DockScheduleService.SweepElapsedAppointments for the missed-deadline twin.
+        if (fineTotal > 0)
+        {
+            appt.WasLate = true;
+            appt.LateFineAmount += fineTotal;
         }
 
         // Queued rather than played now: the caller rebuilds the grid immediately after this, which
@@ -3261,6 +3324,12 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         if (complete) AddStrikeThrough(cell, text);
         else if (appt.ClosedOut) AddStrikeThrough(cell, ColDanger);
 
+        // Separate from the strike above on purpose. ClosedOut clears the moment the trailer is
+        // re-placed (TryMoveToDoor), which is what stops it reading as missed forever — but WasLate
+        // never clears, so a trailer that already burned its customer/vendor once still carries the
+        // warning after landing on a brand-new future slot, instead of looking like nothing happened.
+        if (appt.WasLate) AddLateBadge(cell);
+
         bool awaitingFreight = !complete && appt.Kind != AppointmentKind.Inbound && appt.OrderIds.Count == 0;
         if (awaitingFreight)
             cell.style.backgroundColor = new StyleColor(new Color(fill.r, fill.g, fill.b, 0.12f));
@@ -3297,7 +3366,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         TightenLine(orderLine, 1);
         cell.Add(orderLine);
 
-        int SummaryFontSize = isInbound ? 18 : 21; // was 16 for inbound -- too small to read per Tad
+        int SummaryFontSize = isInbound ? 12 : 14; // was 18/21 -- shrunk ~35% per Tad's request
         var summary = BuildChipSummaryLine(appt, SummaryFontSize);
         if (summary != null)
         {
@@ -3529,6 +3598,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     var shipment = shipments.PendingShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber)
                  ?? shipments.ArchivedShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber);
     col.Add(MakeText($"PO {appt.ShipmentPoNumber}", 38, ColTitleText, bold: true)); // 19 * 2 per Tad's explicit call
+    AddLatePenaltyTooltipLine(col, appt);
     if (shipment == null)
     {
         col.Add(MakeText("No longer on file.", 12, ColSubtleText));
@@ -3791,6 +3861,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         int totalRevenue = orderList.Sum(o => o.TotalRevenue);
 
         col.Add(MakeText(appt.CustomerName, 20, ColTitleText, bold: true));
+        AddLatePenaltyTooltipLine(col, appt);
         var revenueLabel = MakeText($"Expected revenue: ${totalRevenue:N0}", 16, ColMoney, bold: true);
         revenueLabel.style.marginBottom = 6;
         col.Add(revenueLabel);
@@ -3857,7 +3928,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         var prefix = MakeText($"Ordered: {ordered:N0}    Shipped: {shipped:N0}    In-Stock: ", 14, ColSubtleText);
         row.Add(prefix);
 
-        var outs = MakeText($"{outsPercent}%", 14, OutsColor(outsPercent), bold: true);
+        var outs = MakeText($"{outsPercent}%", 12, OutsColor(outsPercent), bold: true);
         row.Add(outs);
 
         return row;

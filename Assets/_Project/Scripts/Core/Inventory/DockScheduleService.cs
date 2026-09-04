@@ -105,6 +105,33 @@ namespace GameCore.Inventory
         public bool OffSlotPenaltyApplied;
 
         /// <summary>
+        /// This trailer has, at some point, actually missed a promised window and paid a real
+        /// consequence for it — set alongside <see cref="LateFineAmount"/>/<see
+        /// cref="LateRelationshipPenalty"/> the moment that consequence is charged (see
+        /// SweepElapsedAppointments' outbound branch and JudgeElapsedInboundAppointment's
+        /// driver-never-showed branch).
+        ///
+        /// Deliberately separate from <see cref="ClosedOut"/> and never cleared by it. ClosedOut only
+        /// means "this block's capacity is free" and gets reset the moment the trailer is re-placed on
+        /// the grid (TryMoveToDoor) — that's what stops a rescheduled trailer staying struck through
+        /// forever. But un-crossing it must not also erase the fact that this customer/vendor was
+        /// already burned once; WasLate is that permanent record, rendered as a small "LATE" corner
+        /// badge instead of the strike so the player is still warned after the trailer's back on a live
+        /// slot.
+        /// </summary>
+        public bool WasLate;
+
+        /// <summary>Dollar amount of the real late fee already charged against this trailer's order(s)
+        /// — see OrderData.LastFineAmount, summed at the moment SweepElapsedAppointments fines them.
+        /// 0 when the lateness cost reputation only (the inbound vendor case), never both at once.</summary>
+        public int LateFineAmount;
+
+        /// <summary>Magnitude of the vendor-partnership hit already charged for this PO missing its
+        /// window entirely (see JudgeElapsedInboundAppointment) — e.g. 20, always rendered as a
+        /// negative. 0 when this trailer's lateness was billed in dollars instead (the outbound case).</summary>
+        public int LateRelationshipPenalty;
+
+        /// <summary>
         /// The DAY this trailer was originally booked for, which is what "a day late" is measured
         /// against. Stamped once when the appointment is created and never changed by a move — that is
         /// the entire point: after the player drags it, Day says where it IS and this says where it was
@@ -181,6 +208,11 @@ namespace GameCore.Inventory
         /// reasoning as parked/offSlotPenaltyApplied. Worst case an old save's already-elapsed
         /// appointments get re-swept (and re-closed) the next time SweepElapsedAppointments runs.</summary>
         public bool closedOut;
+        /// <summary>False/0 in a save written before the LATE badge existed — the forgiving default,
+        /// same reasoning as the other penalty flags above.</summary>
+        public bool wasLate;
+        public int lateFineAmount;
+        public int lateRelationshipPenalty;
     }
 
     /// <summary>
@@ -693,6 +725,11 @@ namespace GameCore.Inventory
         /// mistake the player can still put right.</summary>
         public const int MaxOffSlotRepPenalty = 30;
 
+        /// <summary>Vendor-partnership hit for a PO's driver never showing up for its booked window —
+        /// see JudgeElapsedInboundAppointment. Named so the same number that's charged is the number
+        /// shown on the "LATE" tooltip, not a second copy that can drift.</summary>
+        public const int InboundLateRelationshipPenalty = 20;
+
         /// <summary>How many whole days this trailer sits from the day it was booked for. 0 when the
         /// baseline was never recorded (pre-existing save) — see DockAppointment.RequestedDay.</summary>
         public int OffSlotDaysFrom(DockAppointment appt)
@@ -877,6 +914,13 @@ namespace GameCore.Inventory
             // call the player uses to move a booked one, so a parked trailer is subject to exactly the
             // same rules going back down as it was coming up.
             appt.Parked = false;
+            // ClosedOut only ever meant "this block's capacity is free" — it must not survive a
+            // successful re-placement, which by the checks above is always onto a CURRENT-OR-FUTURE
+            // block. Without this, a trailer that was swept once (couldn't get a door in time / player
+            // rescheduled it) stayed struck through forever, even after landing on a brand-new future
+            // slot — reading as "already missed" for a delivery that hasn't happened yet. WasLate (see
+            // DockAppointment) is the permanent record of that history; this flag is just capacity.
+            appt.ClosedOut = false;
             return true;
         }
 
@@ -1352,6 +1396,13 @@ namespace GameCore.Inventory
                     // react to — it was a standing TODO on this method until the deadline became a
                     // block rather than a day and gave it a definite moment to fire on.
                     arrivals?.PenalizeSatisfaction(order.ContractId);
+
+                    // Same record JudgeElapsedInboundAppointment writes for the vendor side, just in
+                    // dollars instead of relationship points — what the "LATE" corner badge and its
+                    // tooltip key off. Summed rather than overwritten: several orders can ride one
+                    // trailer and each is fined independently.
+                    appt.WasLate = true;
+                    appt.LateFineAmount += order.LastFineAmount;
                 }
 
                 bool startedLoading = apptOrders.Any(o =>
@@ -1414,10 +1465,17 @@ namespace GameCore.Inventory
                 ServiceLocator.TryGet(out VendorEconomyService economy) && economy != null &&
                 !string.IsNullOrEmpty(po.SupplierId))
             {
-                economy.AdjustPartnershipLevel(po.SupplierId, -20,
+                economy.AdjustPartnershipLevel(po.SupplierId, -InboundLateRelationshipPenalty,
                     $"PO {po.PONumber}'s {BlockLabel(appt.BlockIndex)} slot on day {appt.Day} elapsed — driver never showed");
                 UIToast.Show($"PO {po.PONumber} never showed up for its {BlockLabel(appt.BlockIndex)} slot — " +
                              "releasing the door and dinging the vendor relationship.");
+
+                // Reputation-only per Tad's explicit call — no dollar fine exists for a vendor's own
+                // late delivery. WasLate/LateRelationshipPenalty are what the "LATE" corner badge and
+                // tooltip key off, surviving the ClosedOut reset above so the player is still told this
+                // PO already burned the relationship once, even after it's re-placed on a future slot.
+                appt.WasLate = true;
+                appt.LateRelationshipPenalty = InboundLateRelationshipPenalty;
             }
 
             appt.ClosedOut = true;
@@ -1442,7 +1500,10 @@ namespace GameCore.Inventory
             parked = a.Parked,
             shipmentPoNumber = a.ShipmentPoNumber,
             offSlotPenaltyApplied = a.OffSlotPenaltyApplied,
-            closedOut = a.ClosedOut
+            closedOut = a.ClosedOut,
+            wasLate = a.WasLate,
+            lateFineAmount = a.LateFineAmount,
+            lateRelationshipPenalty = a.LateRelationshipPenalty
         }).ToList();
 
         public void Import(List<DockAppointmentSnapshot> entries)
@@ -1468,7 +1529,10 @@ namespace GameCore.Inventory
                     ShipmentPoNumber = s.shipmentPoNumber,
                     RequestedDay = s.requestedDay,
                     OffSlotPenaltyApplied = s.offSlotPenaltyApplied,
-                    ClosedOut = s.closedOut
+                    ClosedOut = s.closedOut,
+                    WasLate = s.wasLate,
+                    LateFineAmount = s.lateFineAmount,
+                    LateRelationshipPenalty = s.lateRelationshipPenalty
                 });
             }
 

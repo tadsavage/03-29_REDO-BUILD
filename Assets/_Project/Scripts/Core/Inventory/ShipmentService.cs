@@ -427,19 +427,18 @@ namespace GameCore.Inventory
         }
 
         /// <summary>
-        /// Called when a PO's appointment came due and every door was occupied — the driver doesn't
-        /// wait around, he turns around and goes back to his facility (per Tad's spec: no queueing,
-        /// no silent retry). Three things happen, all-or-nothing per attempt:
-        ///   1. The appointment is handed back to the unscheduled pool via TryPark, so the player has
-        ///      to actively give it a new door/time rather than it silently re-attempting forever.
-        ///   2. The vendor's Partnership Level takes a flat -20 hit — a missed door is on the player,
-        ///      not the vendor, and the relationship pays for it.
-        ///   3. A toast tells the player exactly what happened and what to do about it.
+        /// SUPERSEDED for the "every door occupied" case (2026-09) — per Tad's revised spec, a truck
+        /// whose appointment comes due no longer turns around sight unseen just because every door is
+        /// busy at that exact instant. TruckYardManager.SpawnNextTruck now ALWAYS spawns the truck; if
+        /// no door is free it queues at the gate, gets inspected, and parks at the yard's wait spot for
+        /// up to TruckController.doorWaitMinutes (see AssignAndGoWaitForDoor/BeginDoorWait), applying
+        /// the same appointment-park + Partnership -20 consequence itself
+        /// (ApplyGaveUpWaitingForDoorPenalty) only if that whole wait expires with nothing freeing up.
         ///
-        /// If there's no real appointment to release (a dev-tool order, or one whose booking was lost
-        /// — see DispatchDueShipments' fallback comment), none of the above fires: there's no pool box
-        /// to return it to, and parking nothing while still leaving the shipment InTransit would just
-        /// re-trigger this every tick forever. That case keeps the old silent-retry behavior instead.
+        /// This method now only fires for a GENUINE spawn failure — SpawnNextTruck returning false
+        /// because the truck prefab or spawn point is missing, i.e. no truck could be created at all —
+        /// which is why the driver-turned-around framing below still fits: there's no truck standing
+        /// in the yard yet to wait around in that case.
         /// </summary>
         private void HandleNoAvailableDoor(ShipmentData shipment)
         {
