@@ -7,21 +7,23 @@ using GameCore.Services;
 /// Drives a truck through a simple scripted yard route using direct Transform movement.
 /// No NavMeshAgent — trucks follow a fixed set of waypoints.
 ///
-/// Route (clean 4-point maneuver + guard gate):
+/// Route:
 ///   Spawn → GateStop (guard inspection)
 ///   → Xform 1  GateEnterNoTurn        (drive through, NO stop)
 ///   → Xform 2  _drApproach-DepartPoint (drive straight, NO stop)
-///   → Xform 3  _drBackup               (slight curve in, then STOP, wait 1.5s, NO mesh spin)
-///   → reverse Bézier into the assigned door  (≈30° tractor/trailer jackknife)
+///   → drive straight to the door (DockSlot.DockPosition), then snap-rotate to face
+///     away from it (DockSlot.DockRotation) — an instant flip, not a reverse curve.
+///     Deliberately simple per Tad's call after the curved pull-in/reverse maneuver
+///     kept misreading as jerky no matter how it was tuned: driving straight in and
+///     flipping to "backed in" looks like a jump cut, but it's simple and reliable.
 ///   → Docked (unload timer)
 ///   → pull out forward to Xform 2
 ///   → Xform 5  GateLeaveNoTurn         (drive through, NO stop)
 ///   → Exit point → shrink + destroy
 ///
-/// Xform 2 and Xform 3 are SINGLE SHARED waypoints (named children of the guard
-/// shack) used by every truck regardless of which door it's assigned. The door
-/// (Xform 4) is the assigned DockSlot's DockPosition / DockRotation — the reverse
-/// into the door is unchanged from before.
+/// Xform 2 is a SINGLE SHARED waypoint (named child of the guard shack) used by
+/// every truck regardless of which door it's assigned. The door (Xform 4) is the
+/// assigned DockSlot's DockPosition / DockRotation.
 ///
 /// NO FREE DOOR AT ARRIVAL (2026-09): the truck still queues at the gate and gets
 /// inspected exactly as above — a driver who shows up on time isn't turned away
@@ -42,10 +44,10 @@ public class TruckController : MonoBehaviour
         Queuing, GuardCheck,   // lining up at / holding the gate
         ToEnterNoTurn,     // → Xform 1
         ToApproach,        // → Xform 2
-        ToBackup,          // → Xform 3 (slight curve)
-        WaitingAtBackup,   // stop at Xform 3, 1.5s
-        Reversing,         // Xform 3 → beginBackupTurn (curve)
-        ReversingToDock,   // beginBackupTurn → dock (straight back-in)
+        ToBackup,          // → the door, dead straight, then flip to face away (see Update())
+        WaitingAtBackup,   // RETIRED (old curved-turn-and-reverse maneuver) — kept only so an
+        Reversing,         // old save's stored enum ordinal never resolves to the wrong state.
+        ReversingToDock,   // Never entered by new gameplay; see RestoreFromSnapshot.
         Docked,
         DepartToApproach,  // door → Xform 2
         ToLeaveNoTurn,     // Xform 2 → Xform 5
@@ -58,44 +60,26 @@ public class TruckController : MonoBehaviour
     [Header("Driving")]
     // Doubled per Tad's explicit request 2026-09 — backing/approach legs were reading as taking
     // "an hour" in practice. Pure speed constants; the Bézier/steering math is all speed-agnostic.
-    [SerializeField] private float driveSpeed       = 5.0f; // was 2.5
+    // Doubled again 2026-09 per Tad's request ("have it go twice as fast").
+    [SerializeField] private float driveSpeed       = 10.0f; // was 5.0 (originally 2.5)
     [SerializeField] private float driveTurnSpeed   = 180f;
     [SerializeField] private float arrivedThreshold = 0.5f;
 
-    [Header("Forward Bézier curve (Xform 2 → 3 and depart)")]
+    [Header("Forward Bézier curve (door-wait / departure curves)")]
     [Tooltip("0 = nearly straight, 1 = wide sweeping curve. 0.45 reads as a natural truck arc.")]
     [SerializeField] private float forwardDriveTension = 0.45f;
-
-    [Header("Backup wait")]
-    [Tooltip("UNUSED by new gameplay (2026-09 backing simplification removed the stop-and-wait — see " +
-             "the ToBackup case in Update()). Kept only because WaitingAtBackup/BeginStraightReverse " +
-             "still exist to resume a save captured mid-maneuver under the old sequence.")]
-    [SerializeField] private float backupWaitDuration = 0.75f;
-
-    [Header("Reversing — Bézier curve into the door")]
-    [SerializeField] private float reverseSpeed = 6f; // was 3 — doubled per Tad's request
-    [Tooltip("0 = nearly straight, 1 = wide sweeping curve. 0.45 is a natural truck arc. Raise it to widen the back-in turn toward the blue-line shape.")]
-    [SerializeField] private float reverseArcTension = 0.45f;
-    [Tooltip("Begin the final back-in curve this far BEFORE the truck root reaches beginBackupTurn (≈ half the truck length). Blends the straight reverse into the curve as one smooth S instead of a kink.")]
-    [SerializeField] private float turnLeadDistance = 7f;
 
     [Header("Cab steering (tractor yaws at the hitch)")]
     [Tooltip("Turn the cab on its Y axis so it leads into curves, like a real tractor pivoting at the fifth wheel. Pure yaw — never touches X/Z.")]
     [SerializeField] private bool  articulateCab   = true;
     [Tooltip("Name of the cab child transform that pivots. Origin sits at the hitch, so it swings correctly.")]
     [SerializeField] private string cabChildName   = "Tractor";
-    [Tooltip("Most the cab can crank away from the trailer body, in degrees. ~30° simulates the trailer turn while backing.")]
+    [Tooltip("Most the cab can crank away from the trailer body, in degrees.")]
     [SerializeField] private float maxCabSteer     = 30f;
     [Tooltip("Maps how fast the body is turning (deg/sec) to cab steer angle while driving forward.")]
     [SerializeField] private float cabSteerGain    = 0.22f;
     [Tooltip("How quickly the cab swings toward its target steer angle, deg/sec.")]
     [SerializeField] private float cabSteerSlew    = 140f;
-
-    [Header("Cab steering — reversing into dock")]
-    [Tooltip("Cab steer gain used ONLY while backing into the dock. Higher keeps the tractor visibly cranked (~30°) while it tucks in.")]
-    [SerializeField] private float reverseCabSteerGain = 1.6f;
-    [Tooltip("Invert the cab crank direction while reversing — a real tractor steers opposite the trailer's swing when backing.")]
-    [SerializeField] private bool  invertCabSteerWhenReversing = true;
 
     [Header("Unload & exit")]
     [SerializeField] private float unloadDuration = 7f;
@@ -256,8 +240,8 @@ private DockSlot        _dock;
     private Vector3?         _gateLeaveNoTurn;   // Xform 5
     private Vector3?         _exitWaypoint;      // Exit point
     private System.Action    _onExited;
-    // Xform 2 (_drApproach-DepartPoint) and Xform 3 (_drBackup) are computed
-    // per-door from DockSlot offsets — see ApproachPoint() / BackupPoint().
+    // Xform 2 (_drApproach-DepartPoint) is computed per-door from DockSlot offsets —
+    // see ApproachPoint().
 
     /// <summary>Where a truck parks to wait when every door is occupied at arrival — through the gate,
     /// turn right, big loop, ~40m from the warehouse FACING it (Tad's spec). A single hand-placed scene
@@ -270,7 +254,6 @@ private DockSlot        _dock;
     private float _doorWaitPollTimer;
     private TruckDoorWaitBar _doorWaitBar;
 
-    private float       _stateTimer;
     private float       _groundY;
     private Vector3     _currentTarget;
     private Transform   _driverDoor;
@@ -285,15 +268,10 @@ private DockSlot        _dock;
     private float       _prevYaw;
     private bool        _cabInit;
 
-    // Bézier segments (forward smoothing legs and the reverse into the door)
+    // Bézier segments (forward smoothing legs — door-wait / departure curves)
     private Vector3 _bzP0, _bzP1, _bzP2, _bzP3;
     private float   _bzT;
     private float   _bzArcLen;
-
-    // Straight reverse (Xform 3 → beginBackupTurn) with gradual yaw
-    private Vector3    _revStraightStart, _revStraightTarget;
-    private float      _revStraightLen;
-    private Quaternion _revFromRot, _revToRot;
 
     public TruckState State => _state;
 
@@ -870,24 +848,20 @@ private DockSlot        _dock;
                 break;
 
             case TruckState.ToBackup:
-                // Re-derive the Bezier from current position toward BackupPoint.
-                if (_dock != null) BeginApproachToBackupCurve();
-                return;   // state already set by BeginApproachToBackupCurve
-
-            case TruckState.WaitingAtBackup:
-                // Reset the wait timer to 0 — BeginStraightReverse runs next frame.
-                _stateTimer    = 0f;
-                _currentTarget = _dock != null ? BackupPoint() : snap.worldPosition;
+                // Re-derive the straight-line target toward the door itself.
+                _currentTarget = _dock != null ? _dock.DockPosition : snap.worldPosition;
                 _useBezier     = false;
                 break;
 
+            case TruckState.WaitingAtBackup:
             case TruckState.Reversing:
-                // Mid-straight-reverse: put back into WaitingAtBackup so the path is
-                // cleanly re-derived from the current (restored) position.
-                _stateTimer = 0f;
-                _useBezier  = false;
-                _state      = TruckState.WaitingAtBackup;
-                return;
+                // Both retired by the 2026-09 straight-drive-then-flip rewrite — a save frozen
+                // mid-old-maneuver just resumes as the new simple "drive to the door" leg instead
+                // of re-deriving the retired backup waypoint.
+                restoredState  = TruckState.ToBackup;
+                _currentTarget = _dock != null ? _dock.DockPosition : snap.worldPosition;
+                _useBezier     = false;
+                break;
 
             case TruckState.ReversingToDock:
                 // Snap to the dock — the truck was almost there anyway.
@@ -1158,7 +1132,6 @@ private DockSlot        _dock;
     // orphaned restore (dock lookup failed) leaves _dock null, and this fell back to the truck's own
     // position instead of throwing every frame in Update() forever.
     private Vector3 ApproachPoint() => _dock != null ? _dock.ApproachDepartPoint : transform.position;  // Xform 2
-    private Vector3 BackupPoint()   => _dock != null ? _dock.BackupPoint : transform.position;          // Xform 3
 
     // ── Main loop ────────────────────────────────────────────────────────────────
     private void Update()
@@ -1208,45 +1181,31 @@ private DockSlot        _dock;
                 break;
 
             case TruckState.ToApproach:
-                // Xform 2 — straight, no stop, then a rounded Bézier corner to Xform 3.
+                // Xform 2 — straight, no stop, then straight on to the door itself. Per Tad's
+                // explicit call: scrapped the curved pull-in-and-turn/reverse choreography — drive
+                // straight at the door, then flip to face away once there (see ToBackup below).
+                // Looks like a jump cut, not a maneuver, but it's dead simple and never misreads.
                 if (DriveToward(_currentTarget))
-                    BeginApproachToBackupCurve();
+                    SetTarget(TruckState.ToBackup, _dock.DockPosition);
                 break;
 
             case TruckState.ToBackup:
-                // Xform 2 → Xform 3 (rounded corner) — "pull in and turn." On arrival, snap to face
-                // AWAY from the door (the heading it needs to be backing FROM) and go straight into ONE
-                // continuous reverse curve into the dock — no intermediate stop-and-wait, no separate
-                // straight-then-curved split. Per Tad's explicit call: this collapsed a 3-leg-plus-a-
-                // wait backing maneuver (curve in, dwell, straight reverse, curved reverse) down to
-                // "pull in and turn, then reverse into the door" — two moves, not four.
+                // Xform 2 → the door, dead straight (no curve, no Xform 3). On arrival, snap the
+                // facing to the dock's "backed in" rotation — an instant flip in place instead of a
+                // reverse curve.
                 if (DriveToward(_currentTarget))
                 {
-                    Vector3 awayDir = -(_dock.DockRotation * Vector3.forward);
-                    awayDir.y = 0f;
-                    if (awayDir.sqrMagnitude > 0.01f)
-                        transform.rotation = Quaternion.LookRotation(awayDir.normalized);
-
-                    BeginFinalReverse();
+                    transform.rotation = _dock.DockRotation;
+                    _state = TruckState.Docked;
+                    OnDocked();
                 }
                 break;
 
-            // WaitingAtBackup / Reversing are no longer entered by new gameplay (see ToBackup above)
-            // but are kept, along with BeginStraightReverse/StepStraightReverse below, purely so a save
-            // captured mid-maneuver under the OLD sequence still resumes correctly instead of getting
-            // stuck on an enum value nothing handles any more.
-            case TruckState.WaitingAtBackup:
-                _stateTimer -= Time.deltaTime;
-                if (_stateTimer <= 0f) BeginStraightReverse();
-                break;
-
-            case TruckState.Reversing:
-                StepStraightReverse();
-                break;
-
-            case TruckState.ReversingToDock:
-                StepFinalReverse();
-                break;
+            // WaitingAtBackup / Reversing / ReversingToDock: retired along with the old curved
+            // turn-and-reverse maneuver. Never entered by new gameplay, and RestoreFromSnapshot
+            // redirects any old save frozen in one straight into ToBackup instead of resuming here —
+            // kept only as TruckState enum members so an old save's stored ordinal never resolves to
+            // the wrong state.
 
             case TruckState.Docked:
                 _dockedTime += Time.deltaTime;
@@ -1326,11 +1285,7 @@ private DockSlot        _dock;
         float yawRate = Mathf.DeltaAngle(_prevYaw, curYaw) / dt;
         _prevYaw      = curYaw;
 
-        bool  reversing = _state == TruckState.Reversing || _state == TruckState.ReversingToDock;
-        float gain      = reversing ? reverseCabSteerGain : cabSteerGain;
-        float sign      = (reversing && invertCabSteerWhenReversing) ? -1f : 1f;
-
-        float steerTarget = Mathf.Clamp(yawRate * gain * sign, -maxCabSteer, maxCabSteer);
+        float steerTarget = Mathf.Clamp(yawRate * cabSteerGain, -maxCabSteer, maxCabSteer);
         _cabYaw           = Mathf.MoveTowards(_cabYaw, steerTarget, cabSteerSlew * dt);
 
         _cab.localRotation = Quaternion.Euler(0f, _cabYaw, 0f) * _cabRest;
@@ -1379,8 +1334,13 @@ private DockSlot        _dock;
         transform.rotation = Quaternion.RotateTowards(
             transform.rotation, desiredLinear, driveTurnSpeed * Time.deltaTime);
 
-        transform.position = Vector3.MoveTowards(
-            transform.position, flat, driveSpeed * Time.deltaTime);
+        // Drive along the truck's OWN heading, not straight at the target. A straight-line leg
+        // whose start heading doesn't already point at its target (e.g. the queue lane feeding
+        // into the gate at an angle) used to have the body slide/crab sideways toward the point
+        // while it separately spun to face it — two decoupled motions reading as an extra,
+        // unnatural move. Moving along transform.forward keeps facing and travel direction in
+        // agreement, so the truck arcs through a turn like a vehicle instead.
+        transform.position += transform.forward * driveSpeed * Time.deltaTime;
 
         return false;
     }
@@ -1399,104 +1359,6 @@ private DockSlot        _dock;
         _bzT = 0f;
         _bzArcLen = chord * 1.4f;
         _useBezier = true;
-    }
-
-    // ── Backup maneuver ───────────────────────────────────────────────────────────
-    // Xform 2 → Xform 3: rounded Bézier corner, control at (Xform2.x, Xform3.z).
-    private void BeginApproachToBackupCurve()
-    {
-        Vector3 x2     = ApproachPoint();
-        Vector3 x3     = BackupPoint();
-        Vector3 corner = new Vector3(x2.x, _groundY, x3.z);   // (ApproachDepart.x, Backup.z)
-
-        _bzP0 = new Vector3(transform.position.x, _groundY, transform.position.z);
-        _bzP1 = corner;
-        _bzP2 = corner;   // both controls at the corner → a clean rounded right-angle
-        _bzP3 = new Vector3(x3.x, _groundY, x3.z);
-        _bzT  = 0f;
-        _bzArcLen = (Vector3.Distance(_bzP0, corner) + Vector3.Distance(corner, _bzP3)) * 0.9f;
-        _useBezier = true;
-
-        _state         = TruckState.ToBackup;
-        _currentTarget = _bzP3;
-    }
-
-    // Xform 3 → beginBackupTurn: STRAIGHT reverse path while slowly yawing the mesh
-    // to the door-aligned heading (the door-relative "+X" target).
-    private void BeginStraightReverse()
-    {
-        _revStraightStart  = new Vector3(transform.position.x, _groundY, transform.position.z);
-        _revStraightTarget = new Vector3(_dock.BeginBackupTurnPoint.x, _groundY, _dock.BeginBackupTurnPoint.z);
-        _revStraightLen    = Mathf.Max(0.1f, Vector3.Distance(_revStraightStart, _revStraightTarget));
-        _revFromRot        = transform.rotation;
-        _revToRot          = _dock.DockRotation;   // door-relative, aligned to back in
-        _state             = TruckState.Reversing;
-    }
-
-    private void StepStraightReverse()
-    {
-        transform.position = Vector3.MoveTowards(transform.position, _revStraightTarget, reverseSpeed * Time.deltaTime);
-
-        float t = Mathf.Clamp01(Vector3.Distance(_revStraightStart, transform.position) / _revStraightLen);
-        transform.rotation = Quaternion.Slerp(_revFromRot, _revToRot, t);   // slow yaw, straight path
-
-        // Blend into the final curve ~half-a-truck before reaching beginBackupTurn
-        // so the straight reverse and the curve join as one smooth S (no kink). The
-        // truck is only partly yawed here, leaving real angle for the curve to resolve.
-        float lead = Mathf.Min(turnLeadDistance, _revStraightLen * 0.9f);
-        if (Vector3.Distance(transform.position, _revStraightTarget) <= Mathf.Max(arrivedThreshold, lead))
-            BeginFinalReverse();
-    }
-
-    // beginBackupTurn → dock: Bézier reverse into the door, ending at the dock
-    // position (dockOffset standoff). The dock direction shapes the curve.
-    private void BeginFinalReverse()
-    {
-        var p0   = new Vector3(transform.position.x, _groundY, transform.position.z);
-        var dock = new Vector3(_dock.DockPosition.x, _groundY, _dock.DockPosition.z);
-
-        var dockFwd = _dock.DockRotation * Vector3.forward; dockFwd.y = 0f; dockFwd.Normalize();
-        var back    = -transform.forward; back.y = 0f; back.Normalize();
-
-        float chord   = Vector3.Distance(p0, dock);
-        float tension = chord * reverseArcTension;
-
-        _bzP0 = p0;
-        _bzP1 = p0   + back    * tension;
-        _bzP2 = dock + dockFwd * tension;
-        _bzP3 = dock;
-        _bzT  = 0f;
-        _bzArcLen = chord * 1.5f;
-
-        _state = TruckState.ReversingToDock;
-    }
-
-    private void StepFinalReverse()
-    {
-        _bzT += (reverseSpeed / Mathf.Max(_bzArcLen, 0.1f)) * Time.deltaTime;
-
-        if (_bzT >= 1f)
-        {
-            transform.position = _bzP3;
-            transform.rotation = _dock.DockRotation;
-            _state = TruckState.Docked;
-            OnDocked();
-            return;
-        }
-
-        Vector3 pos = EvalBezier(_bzP0, _bzP1, _bzP2, _bzP3, _bzT);
-        pos.y = _groundY;
-        transform.position = pos;
-
-        // Mesh faces -tangent (cab points away from travel = reversing).
-        Vector3 tangent = EvalBezierTangent(_bzP0, _bzP1, _bzP2, _bzP3, _bzT);
-        tangent.y = 0f;
-        if (tangent.sqrMagnitude > 0.001f)
-        {
-            Quaternion desired = Quaternion.LookRotation(-tangent.normalized);
-            transform.rotation = Quaternion.RotateTowards(
-                transform.rotation, desired, 300f * Time.deltaTime);
-        }
     }
 
     private static Vector3 EvalBezier(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
