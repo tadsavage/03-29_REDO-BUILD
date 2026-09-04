@@ -186,12 +186,18 @@ public class ChevronController : MonoBehaviour
 
     private void HandleDoubleClick()
     {
-        float timeSinceLastClick = Time.time - _lastClickTime;
+        // Unscaled per Tad's request — chevrons must respond even while the game is paused
+        // (Time.timeScale = 0, see TopBarUI.SetSpeed). Time.time freezes at timeScale 0, so the old
+        // scaled read made every click while paused look like it landed within the double-click
+        // window (frozen Time.time - frozen _lastClickTime == 0), and made single vs. double clicks
+        // impossible to tell apart consistently. Same "feedback about input, not the simulation" rule
+        // already applied to UIToast/FloatingMoneyText/WorldHoverPopupUI elsewhere in this codebase.
+        float timeSinceLastClick = Time.unscaledTime - _lastClickTime;
 
         if (timeSinceLastClick < DOUBLE_CLICK_THRESHOLD)
             OpenSetup();
 
-        _lastClickTime = Time.time;
+        _lastClickTime = Time.unscaledTime;
     }
 
     private void OpenSetup()

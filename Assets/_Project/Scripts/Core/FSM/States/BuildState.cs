@@ -210,6 +210,32 @@ public override bool IsPlacementState => true;
             }
         }
 
+        // Stacking a rack on top of a LIVE rack row must land EXACTLY on the footprint of the rack
+        // underneath — not "the cell nearest the cursor," which is what every other branch here
+        // computes and is exactly the source of two related bugs Tad reported:
+        //   1. HitCell's ground-plane projection error (see the Foundation/Grounds comment above) is
+        //      much larger over a rack top than a Foundation slab, so even the object-hit-point
+        //      correction that fixes Foundation/Grounds can land a cell off here.
+        //   2. Even with an accurate hit point, a cursor-derived cell is only ONE cell of the hovered
+        //      rack's footprint — for a 2-wide rack, hovering its far half still resolves to a
+        //      DIFFERENT root than hovering its near half, so the new rack's own footprint (which can
+        //      be a completely different size/shape) has no reason to land flush with the one below.
+        // The fix for both: skip cell math entirely and read the hovered rack's OWN root cell straight
+        // off its BuildingData (set once at placement, in PlaceCommand/DragPlaceCommand). Whichever
+        // part of that rack the cursor is over, the new rack's root snaps to the SAME cell — so it's
+        // always flush with what's underneath regardless of either rack's footprint, and regardless of
+        // where inside the hovered footprint the mouse happens to sit. Not gated on !_isDragging either
+        // (see the Foundation comment for why that gate exists): a rack-stacking drag hovers the SAME
+        // rack row for its whole length, so there's no discontinuous-source toggle to guard against —
+        // and locking to a fixed root cell rather than a live hit point is what makes the anchor "show
+        // green and aligned, then never move again" per Tad's explicit ask.
+        if (_raycast.HitObject != null)
+        {
+            var hoverRack = _raycast.HitObject.GetComponentInParent<BuildingData>();
+            if (hoverRack != null && hoverRack.Data != null && hoverRack.Data.category == "Racking")
+                root = hoverRack.RootCell;
+        }
+
         topBarUI?.SetCell(root.x, root.y);
 
         // -----------------------------------------------------
@@ -245,6 +271,22 @@ public override bool IsPlacementState => true;
         if (_isDragging)
         {
             HandleDragPlacement(root);
+            return;
+        }
+
+        // Chevrons mark a deliberately OPEN cell at the edge of a rack run. Without this guard,
+        // hovering/clicking one here is ALSO seen as "place a new rack in this empty cell" — which
+        // succeeds, grows the collection, and makes ChevronSpawner destroy/recreate the very
+        // chevron GameObject the player just clicked. Its double-click timer lives on that
+        // instance, so the second click of an intended double-click lands on a fresh chevron with
+        // a reset timer and OpenSetup() never fires — read as "the aisle setup UI won't open."
+        // Treat it like hovering UI: suppress the ghost/placement so the click reaches
+        // ChevronController untouched.
+        if (_raycast.HitObject != null && _raycast.HitObject.GetComponent<ChevronController>() != null)
+        {
+            _indicator.ClearAll();
+            _preview.Hide();
+            _costUI.Hide();
             return;
         }
 
@@ -402,6 +444,11 @@ public override bool IsPlacementState => true;
             return;
 
         if (!_raycast.HasHit)
+            return;
+
+        // See the matching guard in Update() — a click on a chevron's (deliberately open) cell
+        // must not also register as "place a new rack here."
+        if (_raycast.HitObject != null && _raycast.HitObject.GetComponent<ChevronController>() != null)
             return;
 
         Vector2Int root = _raycast.HitCell;
