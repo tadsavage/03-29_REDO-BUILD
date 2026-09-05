@@ -93,6 +93,18 @@ namespace GameCore.Inventory
             : score < 850 ? 850
                           : -1;
 
+        /// <summary>Red at score 0, yellow at the midpoint, green at MaxScore — a single source of
+        /// truth for the read-at-a-glance color used by both the TopBar label and the Reputation
+        /// dropdown, so the two never drift apart.</summary>
+        public static Color ColorFor(int score)
+        {
+            float t = Mathf.Clamp01(score / (float)MaxScore);
+            Color red = new Color(0.90f, 0.25f, 0.20f);
+            Color yellow = new Color(0.95f, 0.80f, 0.20f);
+            Color green = new Color(0.35f, 0.85f, 0.45f);
+            return t < 0.5f ? Color.Lerp(red, yellow, t / 0.5f) : Color.Lerp(yellow, green, (t - 0.5f) / 0.5f);
+        }
+
         public void Initialize()
         {
             _eventManager = EventManager.Instance;

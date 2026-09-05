@@ -470,6 +470,9 @@ public class BuildMenuUI : MonoBehaviour
             }
 
             label.text = cat.displayName;
+            // "Loss Prevention" is the one category name too wide for the 90px card at nowrap —
+            // let it wrap to two lines instead of overrunning its neighbour.
+            if (cat.displayName == "Loss Prevention") label.AddToClassList("buildmenu-category-label-wrap");
             if (cat.icon != null) icon.style.backgroundImage = new StyleBackground(cat.icon);
 
             var capturedCat = cat;

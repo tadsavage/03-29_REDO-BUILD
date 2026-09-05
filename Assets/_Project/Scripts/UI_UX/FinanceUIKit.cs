@@ -53,6 +53,19 @@ public static class FinanceUIKit
     public const float ValueWidth   = 100f;
     public const string FontClass   = "fin-lilita";
 
+    // "Large" scheme — same font size as the Reputation dropdown, shared so every TopBar panel
+    // that adopts it (Capital/Hourly/Spent Today/Shift Status) reads consistently. Row/header
+    // height are deliberately NOT a full 2x (that made the 19-row Hourly panel run off the bottom
+    // of the screen) — tightened to the minimum that still comfortably fits a 26px label without
+    // clipping, rather than shrinking the font to solve the same problem.
+    public const float LargeKeySize    = 26f;
+    public const float LargeValueSize  = 26f;
+    public const float LargeHeaderSize = 28f;
+    public const float LargeRowHeight    = 43f;
+    public const float LargeHeaderHeight = 40f;
+    public const float LargeValueWidth = ValueWidth * 1.4f;
+    public const float LargeWidth      = Width * 1.3f;
+
     public static VisualElement Panel()
     {
         var panel = new VisualElement();
@@ -74,16 +87,19 @@ public static class FinanceUIKit
     }
 
     public static VisualElement SectionHeader(string text, Color bg, Color textColor)
+        => SectionHeader(text, bg, textColor, 14f, HeaderHeight);
+
+    public static VisualElement SectionHeader(string text, Color bg, Color textColor, float fontSize, float height)
     {
         var row = new VisualElement();
         row.style.backgroundColor = new StyleColor(bg);
-        row.style.height          = HeaderHeight;
+        row.style.height          = height;
         row.style.justifyContent  = Justify.Center;
         row.style.alignItems      = Align.Center;
         row.style.borderTopWidth  = 1f;
         row.style.borderTopColor  = new StyleColor(new Color(1f, 1f, 1f, 0.08f));
 
-        var lbl = Lbl(text, bold: true, size: 14f);
+        var lbl = Lbl(text, bold: true, size: fontSize);
         lbl.style.color          = new StyleColor(textColor);
         lbl.style.unityTextAlign = TextAnchor.MiddleCenter;
         row.Add(lbl);
@@ -91,19 +107,24 @@ public static class FinanceUIKit
     }
 
     public static VisualElement DataRow(string key, Label val, Color bg, bool expandable)
+        => DataRow(key, val, bg, expandable, 13f, RowHeight, ValueWidth);
+
+    public static VisualElement DataRow(string key, Label val, Color bg, bool expandable,
+        float keySize, float rowHeight, float valueWidth)
     {
         var row = new VisualElement();
         row.style.flexDirection   = FlexDirection.Row;
         row.style.backgroundColor = new StyleColor(bg);
-        row.style.height          = RowHeight;
+        row.style.height          = rowHeight;
         row.style.alignItems      = Align.Center;
 
-        var keyLbl = Lbl(expandable ? key + " ▾" : key, size: 13f);
+        var keyLbl = Lbl(expandable ? key + " ▾" : key, size: keySize);
         keyLbl.style.flexGrow    = 1f;
         keyLbl.style.paddingLeft = 10f;
         keyLbl.style.color       = new StyleColor(expandable ? ColLabelHover : ColLabelNormal);
 
-        val.style.width           = ValueWidth;
+        val.style.fontSize        = keySize;
+        val.style.width           = valueWidth;
         val.style.unityTextAlign  = TextAnchor.MiddleRight;
         val.style.paddingRight    = 10f;
         val.style.backgroundColor = new StyleColor(ColValueBg);
@@ -114,27 +135,44 @@ public static class FinanceUIKit
     }
 
     public static VisualElement TotalRow(string key, Label val, Color bg, Color keyColor)
+        => TotalRow(key, val, bg, keyColor, 13f, RowHeight + 2f, ValueWidth);
+
+    public static VisualElement TotalRow(string key, Label val, Color bg, Color keyColor,
+        float keySize, float rowHeight, float valueWidth)
     {
         var row = new VisualElement();
         row.style.flexDirection   = FlexDirection.Row;
         row.style.backgroundColor = new StyleColor(bg);
-        row.style.height          = RowHeight + 2f;
+        row.style.height          = rowHeight;
         row.style.alignItems      = Align.Center;
         row.style.borderTopWidth  = 1f;
         row.style.borderTopColor  = new StyleColor(new Color(1f, 1f, 1f, 0.08f));
 
-        var keyLbl = Lbl(key, bold: true, size: 13f);
+        var keyLbl = Lbl(key, bold: true, size: keySize);
         keyLbl.style.flexGrow    = 1f;
         keyLbl.style.paddingLeft = 10f;
         keyLbl.style.color       = new StyleColor(keyColor);
 
-        val.style.width          = ValueWidth;
+        val.style.fontSize       = keySize;
+        val.style.width          = valueWidth;
         val.style.unityTextAlign = TextAnchor.MiddleRight;
         val.style.paddingRight   = 10f;
 
         row.Add(keyLbl);
         row.Add(val);
         return row;
+    }
+
+    /// <summary>Flush against the trigger's own left edge and directly below it — shared by every
+    /// TopBar dropdown so each opens under ITS OWN box rather than Panel()'s generic top:44/left:0
+    /// default (which only happens to line up for Capital, the leftmost box).</summary>
+    public static void PositionUnderTrigger(VisualElement panel, VisualElement trigger)
+    {
+        if (trigger == null) return;
+        var b = trigger.worldBound;
+        if (float.IsNaN(b.x) || float.IsNaN(b.y)) return; // not yet laid out
+        panel.style.left = b.x;
+        panel.style.top = b.yMax;
     }
 
     public static VisualElement TipRow(string key, int value, bool alt)

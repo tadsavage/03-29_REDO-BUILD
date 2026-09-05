@@ -8,14 +8,16 @@ using static FinanceUIKit;
 public class ShiftStatusPanel : ITopBarPanel
 {
     readonly VisualElement _panel;
+    readonly VisualElement _trigger;
     readonly SimulationTimeService _time;
     Label _hoursLeftLabel;
     Label _overtimeCountLabel;
     bool _visible;
 
-    public ShiftStatusPanel(VisualElement root, SimulationTimeService time)
+    public ShiftStatusPanel(VisualElement root, SimulationTimeService time, VisualElement trigger = null)
     {
         _time = time;
+        _trigger = trigger;
         _panel = Build();
         _panel.style.display = DisplayStyle.None;
         root.Add(_panel);
@@ -29,6 +31,7 @@ public class ShiftStatusPanel : ITopBarPanel
     public void Show()
     {
         _visible = true;
+        PositionUnderTrigger(_panel, _trigger);
         _panel.style.display = DisplayStyle.Flex;
         Refresh();
     }
@@ -53,13 +56,14 @@ public class ShiftStatusPanel : ITopBarPanel
     VisualElement Build()
     {
         var panel = Panel();
-        panel.Add(SectionHeader("Shift Status", ColBlueDark, ColBlueTint));
+        panel.style.width = LargeWidth;
+        panel.Add(SectionHeader("Shift Status", ColBlueDark, ColBlueTint, LargeHeaderSize, LargeHeaderHeight));
 
         _hoursLeftLabel = ValueLabel(bold: true, color: ColOrange);
-        panel.Add(DataRow("Hours Left in Shift", _hoursLeftLabel, ColRowA, false));
+        panel.Add(DataRow("Hours Left in Shift", _hoursLeftLabel, ColRowA, false, LargeKeySize, LargeRowHeight, LargeValueWidth));
 
         _overtimeCountLabel = ValueLabel(bold: true, color: ColOrange);
-        panel.Add(DataRow("Employees on Overtime", _overtimeCountLabel, ColRowB, false));
+        panel.Add(DataRow("Employees on Overtime", _overtimeCountLabel, ColRowB, false, LargeKeySize, LargeRowHeight, LargeValueWidth));
 
         return panel;
     }

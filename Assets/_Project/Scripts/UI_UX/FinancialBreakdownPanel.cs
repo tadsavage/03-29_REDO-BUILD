@@ -5,51 +5,51 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using static FinanceUIKit;
 
-/// Per-category expense breakdown with drill-down tooltips — triggered by the "Hourly" label in
-/// TopBarUI. Revenue and Net Profit live on the Capital tab (CapitalSummaryPanel) instead. Hover
-/// an expandable expense row for its sub-breakdown.
+/// Per-category expense breakdown with inline drill-down — triggered by the "Hourly" label in
+/// TopBarUI. Revenue and Net Profit live on the Capital tab (CapitalSummaryPanel) instead. Click
+/// an expandable expense row to expand its sub-breakdown directly below it, the same inline-list
+/// pattern SpentTodayPanel uses for "Purchased Today" — no floating tooltip.
 public class FinancialBreakdownPanel : ITopBarPanel
 {
     // ── State ─────────────────────────────────────────────────────────────────
-    readonly VisualElement _root;
     readonly VisualElement _panel;
+    readonly VisualElement _trigger;
     readonly MoneyService  _money;
     readonly Dictionary<string, Label> _expenseValues = new();
-    readonly List<VisualElement>       _tooltips      = new();
+
+    // One entry per expandable category: its row, the inline detail list below it (initially
+    // collapsed), and whether it's currently expanded — so Refresh() can keep an open detail's
+    // numbers live without needing the row to be re-clicked.
+    class ExpandableRow
+    {
+        public string Category;
+        public VisualElement Row;
+        public Label Arrow;
+        public VisualElement Detail;
+        public bool Expanded;
+    }
+    readonly List<ExpandableRow> _expandables = new();
+
+    // Caps the scroll area so the 19-category list can't push the panel past the bottom bar —
+    // the literal "spread every row out" version of this panel ran off the bottom of the screen
+    // (see the 2026-09 TopBar font pass). The scrollbar lives on the LEFT per Tad's request.
+    const float ScrollMaxHeight = 620f;
+
+    Button _expandCollapseBtn;
+    bool   _allExpanded;
 
     Label _expenseTotalLabel;
     bool  _visible;
 
-    // Tracks each expandable row/tooltip pair's live hover state. A SINGLE poll (started once,
-    // never re-created) drives closing — this replaced an earlier design that created a fresh
-    // IVisualElementScheduledItem per mouse event and Pause()'d the previous one; that approach
-    // broke down after repeated hover cycles (stale scheduled items, races between independent
-    // per-tooltip timers) and tooltips would get permanently stuck open. One shared idle-timer
-    // checked on a fixed interval has no per-interaction state to corrupt.
-    class TooltipEntry
-    {
-        public VisualElement Row;
-        public VisualElement Tooltip;
-        public string Category;
-        public bool Hovered;
-    }
-    readonly List<TooltipEntry> _entries = new();
-    TooltipEntry _activeEntry;
-    float _idleMs;
-
     // ── Construction ─────────────────────────────────────────────────────────
-    public FinancialBreakdownPanel(VisualElement root, MoneyService money)
+    public FinancialBreakdownPanel(VisualElement root, MoneyService money, VisualElement trigger = null)
     {
-        _root  = root;
         _money = money;
+        _trigger = trigger;
         _panel = Build();
         _panel.style.display = DisplayStyle.None;
         root.Add(_panel);
-        // Add tooltips after the panel so they render on top.
-        foreach (var tt in _tooltips)
-            _root.Add(tt);
         _money.OnMoneyChanged += Refresh;
-        _panel.schedule.Execute(PollIdle).Every(100);
         Refresh();
     }
 
@@ -61,6 +61,7 @@ public class FinancialBreakdownPanel : ITopBarPanel
     public void Show()
     {
         _visible = true;
+        PositionUnderTrigger(_panel, _trigger);
         _panel.style.display = DisplayStyle.Flex;
         Refresh();
     }
@@ -69,78 +70,68 @@ public class FinancialBreakdownPanel : ITopBarPanel
     {
         _visible = false;
         _panel.style.display = DisplayStyle.None;
-        _activeEntry = null;
-        _idleMs = 0f;
-        foreach (var tt in _tooltips)
-            tt.style.display = DisplayStyle.None;
-    }
-
-    // Runs every 100ms for the lifetime of the panel. Closes the active tooltip once it's been
-    // unhovered for ~2s. Hovering (row OR tooltip) resets the idle clock back to zero.
-    void PollIdle()
-    {
-        if (_activeEntry == null) return;
-
-        if (!_visible || _activeEntry.Hovered)
-        {
-            _idleMs = 0f;
-            if (!_visible) { HideTooltip(_activeEntry.Tooltip); _activeEntry = null; }
-            return;
-        }
-
-        _idleMs += 100f;
-        if (_idleMs < 1500f) return;
-
-        HideTooltip(_activeEntry.Tooltip);
-        _activeEntry = null;
-        _idleMs = 0f;
-    }
-
-    void ActivateEntry(TooltipEntry entry)
-    {
-        if (_activeEntry == entry) return;
-        if (_activeEntry != null) HideTooltip(_activeEntry.Tooltip);
-
-        _activeEntry = entry;
-        _idleMs = 0f;
-
-        var tt = entry.Tooltip;
-        PopulateTooltip(tt, entry.Category);
-        tt.style.top       = entry.Row.worldBound.y;
-        tt.style.left      = Width;
-        tt.style.display   = DisplayStyle.Flex;
-        tt.style.translate = new Translate(0f, 0f);
-        tt.style.opacity   = 1f;
-    }
-
-    // Fades + slides a tooltip back toward the panel, then sets display:None once the
-    // transition finishes (display can't itself be animated in UI Toolkit).
-    static void HideTooltip(VisualElement tt)
-    {
-        tt.style.opacity   = 0f;
-        tt.style.translate = new Translate(-16f, 0f);
-        tt.schedule.Execute(() =>
-        {
-            if (tt.resolvedStyle.opacity <= 0.01f)
-                tt.style.display = DisplayStyle.None;
-        }).StartingIn(150);
     }
 
     public void Dispose()
     {
         if (_money != null) _money.OnMoneyChanged -= Refresh;
         if (_panel.parent != null) _panel.RemoveFromHierarchy();
-        foreach (var tt in _tooltips)
-            if (tt.parent != null) tt.RemoveFromHierarchy();
     }
 
     // ── Build ─────────────────────────────────────────────────────────────────
     VisualElement Build()
     {
         var panel = Panel();
+        panel.style.width = LargeWidth;
 
         // ── Expenses only — Revenue/Net Profit live on the Capital tab now ──
-        panel.Add(SectionHeader("Expenses", ColExpenseRed, ColExpenseWhite));
+        // Built directly (not via the shared SectionHeader) so the Expand/Collapse All button can
+        // sit in the same row as the title without touching the shared helper every other panel uses.
+        var header = new VisualElement();
+        header.style.flexDirection  = FlexDirection.Row;
+        header.style.backgroundColor = new StyleColor(ColExpenseRed);
+        header.style.height         = LargeHeaderHeight;
+        header.style.alignItems     = Align.Center;
+        header.style.borderTopWidth = 1f;
+        header.style.borderTopColor = new StyleColor(new Color(1f, 1f, 1f, 0.08f));
+
+        var titleLbl = Lbl("Expenses", bold: true, size: LargeHeaderSize);
+        titleLbl.style.color          = new StyleColor(ColExpenseWhite);
+        titleLbl.style.flexGrow       = 1f;
+        titleLbl.style.unityTextAlign = TextAnchor.MiddleCenter;
+        header.Add(titleLbl);
+
+        _expandCollapseBtn = new Button(ToggleExpandCollapseAll) { text = "Expand All" };
+        _expandCollapseBtn.style.backgroundColor    = new StyleColor(ColOrange);
+        _expandCollapseBtn.style.color              = new StyleColor(Color.white);
+        _expandCollapseBtn.style.fontSize           = 15f;
+        _expandCollapseBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
+        _expandCollapseBtn.style.unityTextAlign     = TextAnchor.MiddleCenter;
+        _expandCollapseBtn.style.whiteSpace         = WhiteSpace.Normal; // wrap "Collapse All" at this width rather than clip
+        _expandCollapseBtn.style.width              = 128f;
+        _expandCollapseBtn.style.height              = LargeHeaderHeight - 8f;
+        _expandCollapseBtn.style.marginRight        = 8f;
+        _expandCollapseBtn.style.marginTop          = 0f;
+        _expandCollapseBtn.style.marginBottom       = 0f;
+        _expandCollapseBtn.style.borderTopWidth     = 0f;
+        _expandCollapseBtn.style.borderBottomWidth  = 0f;
+        _expandCollapseBtn.style.borderLeftWidth    = 0f;
+        _expandCollapseBtn.style.borderRightWidth   = 0f;
+        _expandCollapseBtn.style.borderTopLeftRadius     = 4f;
+        _expandCollapseBtn.style.borderTopRightRadius    = 4f;
+        _expandCollapseBtn.style.borderBottomLeftRadius  = 4f;
+        _expandCollapseBtn.style.borderBottomRightRadius = 4f;
+        header.Add(_expandCollapseBtn);
+
+        panel.Add(header);
+
+        var scroll = new ScrollView(ScrollViewMode.Vertical);
+        scroll.style.maxHeight = ScrollMaxHeight;
+        scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden; // no horizontal scrollbar
+        PutScrollbarOnLeft(scroll);
+        StyleScrollbarToBlendIn(scroll);
+        panel.Add(scroll);
+
         for (int i = 0; i < FinanceCategory.ExpenseOrder.Length; i++)
         {
             var cat = FinanceCategory.ExpenseOrder[i];
@@ -159,97 +150,204 @@ public class FinancialBreakdownPanel : ITopBarPanel
                            || cat == FinanceCategory.Transportation;
 
             Color rowBg = i % 2 == 0 ? ColRowA : ColRowB;
-            var row     = DataRow(cat, val, rowBg, expandable);
-            panel.Add(row);
+
+            // Built directly (not via the shared DataRow's static " ▾" suffix) so the arrow can
+            // flip between collapsed/expanded and the row can carry a click handler.
+            var row = new VisualElement();
+            row.style.flexDirection   = FlexDirection.Row;
+            row.style.backgroundColor = new StyleColor(rowBg);
+            row.style.height          = LargeRowHeight;
+            row.style.alignItems      = Align.Center;
+
+            Label arrow = null;
+            if (expandable)
+            {
+                arrow = Lbl("▸", size: LargeKeySize); // ▸ collapsed
+                arrow.style.color        = new StyleColor(ColLabelHover);
+                arrow.style.paddingLeft  = 10f;
+                arrow.style.paddingRight = 4f;
+                row.Add(arrow);
+            }
+
+            var keyLbl = Lbl(cat, size: LargeKeySize);
+            keyLbl.style.flexGrow    = 1f;
+            keyLbl.style.paddingLeft = expandable ? 0f : 10f;
+            keyLbl.style.color       = new StyleColor(expandable ? ColLabelHover : ColLabelNormal);
+            row.Add(keyLbl);
+
+            val.style.fontSize        = LargeValueSize;
+            val.style.width           = LargeValueWidth;
+            val.style.unityTextAlign  = TextAnchor.MiddleRight;
+            val.style.paddingRight    = 10f;
+            val.style.backgroundColor = new StyleColor(ColValueBg);
+            row.Add(val);
+
+            scroll.Add(row);
 
             if (expandable)
-                AttachTooltip(row, cat, rowBg);
+            {
+                var detail = new VisualElement();
+                detail.style.display = DisplayStyle.None;
+                scroll.Add(detail);
+
+                var entry = new ExpandableRow { Category = cat, Row = row, Arrow = arrow, Detail = detail };
+                _expandables.Add(entry);
+
+                row.pickingMode = PickingMode.Position;
+                row.RegisterCallback<ClickEvent>(_ => ToggleExpanded(entry));
+            }
         }
         _expenseTotalLabel = ValueLabel(bold: true, color: ColExpenseWhite);
-        panel.Add(TotalRow("Total Expenses", _expenseTotalLabel, ColTotalBg, ColExpenseWhite));
+        panel.Add(TotalRow("Total Expenses", _expenseTotalLabel, ColTotalBg, ColExpenseWhite, LargeKeySize, LargeRowHeight + 2f, LargeValueWidth));
 
         return panel;
     }
 
-    // ── Tooltip ───────────────────────────────────────────────────────────────
-    void AttachTooltip(VisualElement row, string financeCategory, Color normalBg)
+    /// <summary>Reverses the ScrollView's internal content/scrollbar order so the vertical
+    /// scroller renders on the LEFT edge instead of Unity's default right — per Tad's request.</summary>
+    static void PutScrollbarOnLeft(ScrollView scroll)
     {
-        var tt = new VisualElement();
-        tt.style.position                   = Position.Absolute;
-        tt.style.width                      = TooltipWidth;
-        tt.style.backgroundColor            = new StyleColor(ColTooltipBg);
-        tt.style.borderTopLeftRadius        = 5f;
-        tt.style.borderTopRightRadius       = 5f;
-        tt.style.borderBottomLeftRadius     = 5f;
-        tt.style.borderBottomRightRadius    = 5f;
-        tt.style.borderTopWidth             = 1f;
-        tt.style.borderBottomWidth          = 1f;
-        tt.style.borderLeftWidth            = 1f;
-        tt.style.borderRightWidth           = 1f;
-        tt.style.borderTopColor             = new StyleColor(ColBorder);
-        tt.style.borderBottomColor          = new StyleColor(ColBorder);
-        tt.style.borderLeftColor            = new StyleColor(ColBorder);
-        tt.style.borderRightColor           = new StyleColor(ColBorder);
-        tt.style.display                    = DisplayStyle.None;
-        tt.style.opacity                     = 0f;
-        tt.style.translate                  = new Translate(-16f, 0f);
-        tt.style.transitionProperty          = new List<StylePropertyName> { new("opacity"), new("translate") };
-        tt.style.transitionDuration          = new List<TimeValue> { new(140, TimeUnit.Millisecond) };
-        tt.pickingMode                      = PickingMode.Position;
-        _tooltips.Add(tt);   // added to root AFTER panel in constructor
-
-        var entry = new TooltipEntry { Row = row, Tooltip = tt, Category = financeCategory };
-        _entries.Add(entry);
-
-        row.RegisterCallback<MouseEnterEvent>(_ =>
-        {
-            entry.Hovered = true;
-            row.style.backgroundColor = new StyleColor(ColHoverRow);
-            if (_visible) ActivateEntry(entry);
-        });
-        row.RegisterCallback<MouseLeaveEvent>(_ =>
-        {
-            entry.Hovered = false;
-            row.style.backgroundColor = new StyleColor(normalBg);
-        });
-        tt.RegisterCallback<MouseEnterEvent>(_ => entry.Hovered = true);
-        tt.RegisterCallback<MouseLeaveEvent>(_ => entry.Hovered = false);
+        var container = scroll.Q(className: "unity-scroll-view__content-and-vertical-scroll-container");
+        if (container != null) container.style.flexDirection = FlexDirection.RowReverse;
     }
 
-    void PopulateTooltip(VisualElement tt, string category)
+    /// <summary>Unity's default scroller is a light grey that reads as a bright line against this
+    /// panel's dark navy — recolor track/thumb/buttons to the panel's own palette so it blends in
+    /// instead of standing out. Scoped to the vertical scroller specifically (the horizontal one is
+    /// hidden). Verified against this Unity version's actual runtime hierarchy — the thumb's real
+    /// class is "unity-base-slider__dragger", NOT "unity-scroller__thumb" (that name doesn't exist
+    /// here, which is why the first pass at this had no visible effect).</summary>
+    static void StyleScrollbarToBlendIn(ScrollView scroll)
     {
-        tt.Clear();
+        var scroller = scroll.Q(className: "unity-scroll-view__vertical-scroller");
+        if (scroller == null) return;
 
-        var hdr = Lbl(TooltipTitle(category), bold: true, size: 12f);
-        hdr.style.backgroundColor       = new StyleColor(ColBlueDark);
-        hdr.style.color                 = new StyleColor(ColBlueTint);
-        hdr.style.paddingTop            = 5f;
-        hdr.style.paddingBottom         = 5f;
-        hdr.style.paddingLeft           = 8f;
-        hdr.style.borderTopLeftRadius   = 5f;
-        hdr.style.borderTopRightRadius  = 5f;
-        tt.Add(hdr);
+        scroller.style.backgroundColor = new StyleColor(ColBg);
+
+        var slider = scroller.Q(className: "unity-scroller__slider");
+        if (slider != null) slider.style.backgroundColor = new StyleColor(ColBg);
+
+        var tracker = scroller.Q(className: "unity-base-slider__tracker");
+        if (tracker != null) tracker.style.backgroundColor = new StyleColor(ColBg);
+
+        var thumb = scroller.Q(className: "unity-base-slider__dragger");
+        if (thumb != null) thumb.style.backgroundColor = new StyleColor(ColBorder);
+
+        var lowBtn = scroller.Q(className: "unity-scroller__low-button");
+        if (lowBtn != null) lowBtn.style.backgroundColor = new StyleColor(ColBg);
+
+        var highBtn = scroller.Q(className: "unity-scroller__high-button");
+        if (highBtn != null) highBtn.style.backgroundColor = new StyleColor(ColBg);
+    }
+
+    void ToggleExpanded(ExpandableRow entry) => SetExpanded(entry, !entry.Expanded);
+
+    void SetExpanded(ExpandableRow entry, bool expanded)
+    {
+        entry.Expanded = expanded;
+        entry.Arrow.text = expanded ? "▾" : "▸"; // ▾ expanded / ▸ collapsed
+        entry.Detail.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
+        if (expanded) PopulateDetail(entry);
+    }
+
+    /// <summary>The orange header button — expands every category on the first click, collapses
+    /// them all on the next, flipping its own label to match.</summary>
+    // Noticeably lighter than ColOrange for the button's "Collapse All" (expanded) state — NOT
+    // blue. Without the explicit re-assign + Blur() below, Unity's runtime theme paints a pressed
+    // Button with its own blue focus fill that outlives the click, the same issue already worked
+    // around for the category buttons in buildmenuNEW.uss.
+    static readonly Color LighterOrange = new Color(0.98f, 0.68f, 0.35f);
+
+    void ToggleExpandCollapseAll()
+    {
+        _allExpanded = !_allExpanded;
+        _expandCollapseBtn.text = _allExpanded ? "Collapse All" : "Expand All";
+        _expandCollapseBtn.style.backgroundColor = new StyleColor(_allExpanded ? LighterOrange : ColOrange);
+        _expandCollapseBtn.Blur();
+        foreach (var entry in _expandables)
+            SetExpanded(entry, _allExpanded);
+    }
+
+    // ── Inline detail list (replaces the old floating tooltip) ─────────────────
+    void PopulateDetail(ExpandableRow entry)
+    {
+        var detail = entry.Detail;
+        detail.Clear();
+
+        var hdr = Lbl(TooltipTitle(entry.Category), bold: true, size: DetailTextSize);
+        hdr.style.backgroundColor = new StyleColor(ColBlueDark);
+        hdr.style.color           = new StyleColor(ColBlueTint);
+        hdr.style.paddingTop      = 4f;
+        hdr.style.paddingBottom   = 4f;
+        hdr.style.paddingLeft     = 18f;
+        detail.Add(hdr);
 
         // Every expandable category shares the same generic per-category detail bucket
         // (MoneyService._lifetimeDetail, populated by RemoveCapital(amount, category, detailKey)
         // from PayrollService — wages — and EconomyService — ObjDataSO.GL_Line hourly costs).
         // Wages keys its detail by wage-tier or role name; everything else keys by GL_Line.
-        var detail = _money.GetLifetimeDetail(category);
-        string emptyMsg = category == FinanceCategory.Wages ? "No wages paid yet" : "No costs recorded yet";
-        if (detail == null || detail.Count == 0)
+        var detailData = _money.GetLifetimeDetail(entry.Category);
+        string emptyMsg = entry.Category == FinanceCategory.Wages ? "No wages paid yet" : "No costs recorded yet";
+        if (detailData == null || detailData.Count == 0)
         {
-            tt.Add(EmptyMsg(emptyMsg));
+            detail.Add(BigEmptyMsg(emptyMsg));
             return;
         }
         int idx = 0;
         bool any = false;
-        foreach (var kvp in detail)
+        foreach (var kvp in detailData)
         {
             if (kvp.Value <= 0) continue;
-            tt.Add(TipRow(DetailLabel(category, kvp.Key), kvp.Value, idx++ % 2 == 0));
+            var tip = BigTipRow(DetailLabel(entry.Category, kvp.Key), kvp.Value, idx++ % 2 == 0);
+            detail.Add(tip);
             any = true;
         }
-        if (!any) tt.Add(EmptyMsg(emptyMsg));
+        if (!any) detail.Add(BigEmptyMsg(emptyMsg));
+
+        // Indent the whole list slightly so it visibly nests under its parent category row.
+        detail.style.paddingLeft = 8f;
+    }
+
+    // Sub-text size for the detail list (header, empty message, line items) — "almost as big as"
+    // the LargeKeySize row font per Tad's request, not identical (still needs to read as nested).
+    const float DetailTextSize = 22f;
+
+    // Same "yellow with a hint of orange" used for the Reputation dropdown's "Known" band text.
+    static readonly Color KnownYellowOrange = new Color(0.95f, 0.75f, 0.25f);
+
+    static VisualElement BigEmptyMsg(string msg)
+    {
+        var lbl = Lbl(msg, size: DetailTextSize);
+        lbl.style.color         = new StyleColor(KnownYellowOrange);
+        lbl.style.paddingTop    = 6f;
+        lbl.style.paddingBottom = 6f;
+        lbl.style.paddingLeft   = 26f; // nudged past the "By X" sub-header's paddingLeft to read as aligned
+        return lbl;
+    }
+
+    static VisualElement BigTipRow(string key, int value, bool alt)
+    {
+        var row = new VisualElement();
+        row.style.flexDirection   = FlexDirection.Row;
+        row.style.backgroundColor = new StyleColor(alt ? ColRowA : ColRowB);
+        row.style.height          = DetailTextSize + 14f;
+        row.style.alignItems      = Align.Center;
+
+        var keyLbl = Lbl(key, size: DetailTextSize);
+        keyLbl.style.flexGrow    = 1f;
+        keyLbl.style.paddingLeft = 8f;
+        keyLbl.style.color       = new StyleColor(ColLabelNormal);
+
+        var valLbl = Lbl(FormatMoney(value), size: DetailTextSize);
+        valLbl.style.width           = LargeValueWidth;
+        valLbl.style.unityTextAlign  = TextAnchor.MiddleRight;
+        valLbl.style.paddingRight    = 8f;
+        valLbl.style.backgroundColor = new StyleColor(ColValueBg);
+        valLbl.style.color           = new StyleColor(ColOrange);
+
+        row.Add(keyLbl);
+        row.Add(valLbl);
+        return row;
     }
 
     // ── Label helpers ─────────────────────────────────────────────────────────
@@ -295,5 +393,9 @@ public class FinancialBreakdownPanel : ITopBarPanel
             if (_expenseValues.TryGetValue(cat, out var lbl)) lbl.text = FormatMoney(v);
         }
         _expenseTotalLabel.text = FormatMoney(totalExpense);
+
+        // Keep any currently-open detail list's numbers live rather than only refreshing on click.
+        foreach (var entry in _expandables)
+            if (entry.Expanded) PopulateDetail(entry);
     }
 }

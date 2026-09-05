@@ -96,11 +96,11 @@ public class TopBarUI : MonoBehaviour
             return;
         }
 
-        _breakdownPanel   = new FinancialBreakdownPanel(root, _moneyService);
-        _capitalPanel     = new CapitalSummaryPanel(root, _moneyService);
-        _spentTodayPanel  = new SpentTodayPanel(root, _moneyService);
-        _shiftStatusPanel = new ShiftStatusPanel(root, _timeService);
-        _reputationPanel  = new ReputationPanel(root);
+        _breakdownPanel   = new FinancialBreakdownPanel(root, _moneyService, _hourly.parent);
+        _capitalPanel     = new CapitalSummaryPanel(root, _moneyService, _money.parent);
+        _spentTodayPanel  = new SpentTodayPanel(root, _moneyService, _spent.parent);
+        _shiftStatusPanel = new ShiftStatusPanel(root, _timeService, _time.parent);
+        _reputationPanel  = new ReputationPanel(root, _reputation.parent);
         _shiftManagerPanel = new ShiftManagerPanel(root, _timeService);
         _slotAssignmentPanel = new SlotAssignmentPanel(root);
         _workQueuePanel = new WorkQueuePanel(root);
@@ -517,7 +517,8 @@ public class TopBarUI : MonoBehaviour
             reputation.Score != _lastReputationScore)
         {
             _lastReputationScore = reputation.Score;
-            _reputation.text = $"Reputation: {ReputationService.BandLabel(reputation.Band)} ({reputation.Score})";
+            _reputation.text = $"Rep: {ReputationService.BandLabel(reputation.Band)}";
+            _reputation.style.color = ReputationService.ColorFor(reputation.Score);
             _reputationPanel?.RefreshIfVisible();
         }
 

@@ -112,6 +112,13 @@ public class ChevronSpawner : MonoBehaviour
             pairs.TryGetValue(e.collection, out var pair);
             RefreshChevrons(e, pair);
         }
+
+        // Newly created/repositioned chevron colliders otherwise aren't registered with PhysX until
+        // the next FixedUpdate — which never comes while Time.timeScale is 0 (game paused). Without
+        // this, a chevron spawned while paused is invisible to ChevronController's Physics.Raycast
+        // until the player unpauses for at least one tick, which is exactly the "chevrons are
+        // unresponsive while paused" symptom Tad hit placing racks with the speed control at 0.
+        Physics.SyncTransforms();
     }
 
     /// <summary>Bounding box + run orientation of a collection in grid-cell space.</summary>

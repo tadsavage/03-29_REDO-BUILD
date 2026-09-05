@@ -48,7 +48,7 @@
 .playbar-label {
     /* Slightly larger than the build labels: play-bar names are shorter ("Purchasing", "Work Queue")
        so they still fit the 90px card at 13px, where "Loss Prevention" would not. */
-    font-size: 13px;
+    font-size: 18px;
 }
 
 /* Absolute so the badge costs no vertical space — the card is already full at
@@ -271,12 +271,21 @@
        15 characters against ~82px of content box; at 16px it overran the old 120px card too, which
        is why it looked like it was leaning on its neighbour. nowrap is kept deliberately — the card
        is only 104px tall with an 88px icon in it, so there is no room for a second line to wrap to. */
-    font-size: 12px;
+    font-size: 16px;
     -unity-text-letter-spacing: -1px;
     -unity-font-style: normal;
     color: #96BEDC;
     -unity-text-align: middle-center;
     -unity-text-wrap: nowrap;
+}
+
+/* "Loss Prevention" alone — too wide at nowrap even before this size bump. Wraps to two lines
+   and nudges up ~3pt so the extra line doesn't run into the card's bottom edge. */
+.buildmenu-category-label-wrap {
+    -unity-text-wrap: normal;
+    white-space: normal;
+    margin-top: -3px;
+    font-size: 14px;
 }
 
 .buildmenu-utility-button {
@@ -313,7 +322,7 @@
 
 .buildmenu-utility-label {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
-    font-size: 11px;
+    font-size: 15px;
     -unity-text-letter-spacing: -1px;
     -unity-font-style: bold;
     color: #96BEDC;

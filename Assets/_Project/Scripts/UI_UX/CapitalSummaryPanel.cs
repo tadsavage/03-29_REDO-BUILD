@@ -10,6 +10,7 @@ using static FinanceUIKit;
 public class CapitalSummaryPanel : ITopBarPanel
 {
     readonly VisualElement _panel;
+    readonly VisualElement _trigger;
     readonly MoneyService  _money;
     readonly Dictionary<string, Label> _incomeValues = new();
 
@@ -19,9 +20,10 @@ public class CapitalSummaryPanel : ITopBarPanel
     VisualElement _netRow;
     bool          _visible;
 
-    public CapitalSummaryPanel(VisualElement root, MoneyService money)
+    public CapitalSummaryPanel(VisualElement root, MoneyService money, VisualElement trigger = null)
     {
         _money = money;
+        _trigger = trigger;
         _panel = Build();
         _panel.style.display = DisplayStyle.None;
         root.Add(_panel);
@@ -36,6 +38,7 @@ public class CapitalSummaryPanel : ITopBarPanel
     public void Show()
     {
         _visible = true;
+        PositionUnderTrigger(_panel, _trigger);
         _panel.style.display = DisplayStyle.Flex;
         Refresh();
     }
@@ -55,20 +58,21 @@ public class CapitalSummaryPanel : ITopBarPanel
     VisualElement Build()
     {
         var panel = Panel();
+        panel.style.width = LargeWidth;
 
-        panel.Add(SectionHeader("Revenue", ColRevenueGreen, ColRevenueYellow));
+        panel.Add(SectionHeader("Revenue", ColRevenueGreen, ColRevenueYellow, LargeHeaderSize, LargeHeaderHeight));
         for (int i = 0; i < FinanceCategory.IncomeOrder.Length; i++)
         {
             var cat = FinanceCategory.IncomeOrder[i];
             var val = ValueLabel();
             _incomeValues[cat] = val;
-            panel.Add(DataRow(cat, val, i % 2 == 0 ? ColRowA : ColRowB, false));
+            panel.Add(DataRow(cat, val, i % 2 == 0 ? ColRowA : ColRowB, false, LargeKeySize, LargeRowHeight, LargeValueWidth));
         }
         _incomeTotalLabel = ValueLabel(bold: true, color: ColOrange);
-        panel.Add(TotalRow("Total Revenue", _incomeTotalLabel, ColTotalBg, ColOrange));
+        panel.Add(TotalRow("Total Revenue", _incomeTotalLabel, ColTotalBg, ColOrange, LargeKeySize, LargeRowHeight + 2f, LargeValueWidth));
 
         _expenseTotalLabel = ValueLabel(bold: true, color: ColBlueTint);
-        panel.Add(TotalRow("Total Expenses", _expenseTotalLabel, ColTotalBg, ColBlueTint));
+        panel.Add(TotalRow("Total Expenses", _expenseTotalLabel, ColTotalBg, ColBlueTint, LargeKeySize, LargeRowHeight + 2f, LargeValueWidth));
 
         _netRow = new VisualElement();
         _netRow.style.flexDirection   = FlexDirection.Row;
@@ -79,12 +83,12 @@ public class CapitalSummaryPanel : ITopBarPanel
         _netRow.style.borderTopColor  = new StyleColor(new Color(1f, 1f, 1f, 0.12f));
         _netRow.style.alignItems      = Align.Center;
 
-        var netKey = Lbl("Net Profit", bold: true, size: 14f);
+        var netKey = Lbl("Net Profit", bold: true, size: LargeKeySize);
         netKey.style.flexGrow    = 1f;
         netKey.style.paddingLeft = 10f;
 
-        _netLabel = Lbl("$0", bold: true, size: 14f);
-        _netLabel.style.width          = ValueWidth;
+        _netLabel = Lbl("$0", bold: true, size: LargeValueSize);
+        _netLabel.style.width          = LargeValueWidth;
         _netLabel.style.unityTextAlign = TextAnchor.MiddleRight;
         _netLabel.style.paddingRight   = 10f;
 

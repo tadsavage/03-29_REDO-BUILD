@@ -13,7 +13,7 @@
         <ui:VisualElement class="topbar-box">
             <ui:Label name="TimeLabel" class="topbar-time"/>
         </ui:VisualElement>
-        <ui:VisualElement name="VisualElement" class="topbar-box">
+        <ui:VisualElement name="VisualElement" class="topbar-box topbar-reputation-box">
             <ui:Label name="CellLabel" class="topbar-cell" text="Cell: (0,0)" />
         </ui:VisualElement>
         <ui:VisualElement name="SpeedBox" class="topbar-box">

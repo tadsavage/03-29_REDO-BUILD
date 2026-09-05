@@ -18,6 +18,7 @@ using static FinanceUIKit;
 public class SpentTodayPanel : ITopBarPanel
 {
     readonly VisualElement _panel;
+    readonly VisualElement _trigger;
     readonly VisualElement _purchasesListContainer;
     readonly MoneyService _money;
 
@@ -28,9 +29,10 @@ public class SpentTodayPanel : ITopBarPanel
 
     bool _visible;
 
-    public SpentTodayPanel(VisualElement root, MoneyService money)
+    public SpentTodayPanel(VisualElement root, MoneyService money, VisualElement trigger = null)
     {
         _money = money;
+        _trigger = trigger;
         _panel = Build(out _purchasesListContainer);
         _panel.style.display = DisplayStyle.None;
         root.Add(_panel);
@@ -45,6 +47,7 @@ public class SpentTodayPanel : ITopBarPanel
     public void Show()
     {
         _visible = true;
+        PositionUnderTrigger(_panel, _trigger);
         _panel.style.display = DisplayStyle.Flex;
         Refresh();
     }
@@ -64,29 +67,30 @@ public class SpentTodayPanel : ITopBarPanel
     VisualElement Build(out VisualElement purchasesListContainer)
     {
         var panel = Panel();
+        panel.style.width = LargeWidth;
 
-        panel.Add(SectionHeader("What We've Spent Today", ColBlueDark, ColBlueTint));
+        panel.Add(SectionHeader("What We've Spent Today", ColBlueDark, ColBlueTint, LargeHeaderSize, LargeHeaderHeight));
 
         // Purchases section
-        panel.Add(SectionHeader("Purchased Today", ColOrangeDark, ColOrange));
+        panel.Add(SectionHeader("Purchased Today", ColOrangeDark, ColOrange, LargeHeaderSize, LargeHeaderHeight));
         purchasesListContainer = new VisualElement();
         panel.Add(purchasesListContainer);
 
         _purchasesTotalLabel = ValueLabel(bold: true, color: ColOrange);
-        panel.Add(TotalRow("Purchases", _purchasesTotalLabel, ColTotalBg, ColOrange));
+        panel.Add(TotalRow("Purchases", _purchasesTotalLabel, ColTotalBg, ColOrange, LargeKeySize, LargeRowHeight + 2f, LargeValueWidth));
 
         // Upkeep costs section
         _upkeepCostLabel = ValueLabel(bold: true, color: ColBlueTint);
-        panel.Add(TotalRow("Upkeep Costs", _upkeepCostLabel, ColTotalBg, ColBlueTint));
+        panel.Add(TotalRow("Upkeep Costs", _upkeepCostLabel, ColTotalBg, ColBlueTint, LargeKeySize, LargeRowHeight + 2f, LargeValueWidth));
 
         // Wages section
         _wageCostLabel = ValueLabel(bold: true, color: ColBlueTint);
-        panel.Add(TotalRow("Wages", _wageCostLabel, ColTotalBg, ColBlueTint));
+        panel.Add(TotalRow("Wages", _wageCostLabel, ColTotalBg, ColBlueTint, LargeKeySize, LargeRowHeight + 2f, LargeValueWidth));
 
         // Total
         panel.Add(new VisualElement { style = { height = 4 } }); // spacer
         _totalSpentLabel = ValueLabel(bold: true, color: ColRevenueYellow);
-        panel.Add(TotalRow("Total Spent Today", _totalSpentLabel, ColTotalBg, ColRevenueYellow));
+        panel.Add(TotalRow("Total Spent Today", _totalSpentLabel, ColTotalBg, ColRevenueYellow, LargeKeySize, LargeRowHeight + 2f, LargeValueWidth));
 
         return panel;
     }
