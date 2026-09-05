@@ -751,6 +751,18 @@ PrefabInstance:
       propertyPath: m_StaticEditorFlags
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: -2720090226664753280, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -2720090226664753280, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -2720090226664753280, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -2148732228989760093, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
@@ -1245,24 +1257,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8ec9990e5410424282b0f31f1eee3a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TruckController
+  arcRadius: 9.25
+  cabSwivelSpeed: 20
+  slowReverseDistance: 2
+  slowReverseSpeed: 1.5
+  slowReverseCabAngle: 10
+  nav3ApproachCabAngle: -10
+  nav3StraightenDistance: 4
+  reverseToNav3CabAngle: 10
+  reverseArcCabAngle: 20
+  radiusCorrectionSpeed: 4
   driveSpeed: 2.5
   driveTurnSpeed: 75
   arrivedThreshold: 0.5
   forwardDriveTension: 0.8
-  backupWaitDuration: 1.5
-  reverseSpeed: 2
-  reverseArcTension: 0.75
-  turnLeadDistance: 7
   articulateCab: 1
   cabChildName: Tractor
   maxCabSteer: 45
   cabSteerGain: 0.25
   cabSteerSlew: 100
-  reverseCabSteerGain: 1.6
-  invertCabSteerWhenReversing: 1
   unloadDuration: 10
   offloadFallbackTimeout: 45
   exitShrinkTime: 1
+  doorWaitMinutes: 60
+  doorWaitPollSeconds: 2
   doorOpenSpeed: 150
   driverDoorOpenAngle: 170
   passengerDoorOpenAngle: -170
@@ -1275,6 +1293,9 @@ MonoBehaviour:
   palletLateralOffset: 0.6
   palletRowSpacing: 1.25
   _state: 0
+  legacyDockOffset: 3.5
+  legacyApproachDepartDepth: 9.5
+  legacyApproachDepartSide: 0
 --- !u!114 &8445657425572920845
 MonoBehaviour:
   m_ObjectHideFlags: 0

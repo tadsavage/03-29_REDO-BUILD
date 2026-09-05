@@ -4,55 +4,19 @@ using System.Linq;
 
 /// <summary>
 /// Marks a ShippingDoor as a dockable slot for trucks.
-/// Waypoints are computed at runtime from this object's transform + serialized offsets —
-/// no scene references needed, survives save/load cycles cleanly.
+/// The old drive-straight-then-flip waypoint/maneuver system (ApproachPoint, PullPastPoint,
+/// DockPosition, DockRotation, ApproachDepartPoint) has been stripped out — TruckController's
+/// references to those members need a replacement before it will compile again. Only
+/// flipYardSide survives from that system, kept for whatever draws the yard-side facing.
 /// </summary>
 public class DockSlot : MonoBehaviour
 {
     public static readonly List<DockSlot> All = new();
 
-    [Header("Lane offsets")]
-    [Tooltip("How far into the yard the traffic lane sits (approach + pull-past depth).")]
-    [SerializeField] private float laneDepth = 8f;
-
-    [Tooltip("How far past the door along the wall the truck pulls (≈ truck length + clearance).")]
-    [SerializeField] private float pullPastOffset = 6f;
-
-    [Tooltip("+1 = pull past to the right (default),  -1 = pull past to the left.")]
-    [SerializeField] private float pullPastSide = 1f;
-
-    public float PullPastSide => pullPastSide;
-
-    [Tooltip("How far out from the wall the truck center sits when fully docked.")]
-    [SerializeField] private float dockOffset = 3.5f;
-
     [Tooltip("Flip if waypoints appear on the wrong side of the door (inside building instead of yard).")]
     [SerializeField] private bool flipYardSide = false;
 
-    [Header("Truck maneuver points (drive-straight-then-flip route)")]
-    [Tooltip("Xform 2 (_drApproach-DepartPoint): straight-out distance from the door into the yard.")]
-    [SerializeField] private float approachDepartDepth = 9.5f;
-    [Tooltip("Xform 2 sideways offset from the door center along the wall (0 = centered on the door).")]
-    [SerializeField] private float approachDepartSide = 0f;
-
-    // ── Computed waypoints ────────────────────────────────────────────────────
-
-    private Vector3 YardForward => flipYardSide ? -transform.forward : transform.forward;
-    private Vector3 YardRight   => flipYardSide ? -transform.right   : transform.right;
-
-    public Vector3    ApproachPoint => transform.position + YardForward * laneDepth;
-    public Vector3    PullPastPoint => transform.position
-                                       + YardForward * laneDepth
-                                       + YardRight   * (pullPastOffset * pullPastSide);
-    public Vector3    DockPosition  => transform.position + YardForward * dockOffset;
-    public Quaternion DockRotation  => flipYardSide
-                                       ? transform.rotation * Quaternion.Euler(0, 180, 0)
-                                       : transform.rotation;
-
-    // Route points (per-door, computed from the serialized offsets above)
-    public Vector3 ApproachDepartPoint => transform.position
-                                          + YardForward * approachDepartDepth
-                                          + YardRight   * approachDepartSide;   // Xform 2
+    public bool FlipYardSide => flipYardSide;
 
     public bool IsOccupied { get; private set; }
 
@@ -176,19 +140,13 @@ public class DockSlot : MonoBehaviour
     {
         Vector3 pos = transform.position;
 
-        Vector3 x2 = ApproachDepartPoint;   // Xform 2
-        Vector3 dt = DockPosition;          // door (Xform 4)
-
         // Door
         Gizmos.color = IsOccupied ? Color.red : Color.green;
         Gizmos.DrawWireCube(pos, Vector3.one * 0.4f);
 
-        // Waypoint markers: Xform 2 (cyan), dock (magenta)
-        Gizmos.color = Color.cyan;    Gizmos.DrawWireSphere(x2, 0.4f);
-        Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(dt, 0.35f);
-
-        // Xform 2 → dock: straight drive-in, then an in-place flip to face away (no curve to draw).
-        Gizmos.color = Color.red;
-        Gizmos.DrawLine(x2, dt);
+        // Facing indicator, respecting flipYardSide.
+        Vector3 facing = flipYardSide ? -transform.forward : transform.forward;
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawLine(pos, pos + facing * 2f);
     }
 }

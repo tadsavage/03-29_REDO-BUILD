@@ -229,10 +229,17 @@ public class TopBarUI : MonoBehaviour
 
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
+            // Confirmation modals (ConfirmationModal.Show — the Yes/No prompts) only resolve through
+            // their own buttons. Escape must not dismiss them, and must not fall through to closing
+            // whatever panel is open behind them while a decision is still pending.
+            if (ConfirmationModal.IsOpen)
+            {
+                // handled: swallow the press, do nothing.
+            }
             // A hotkey-less sub-popup (the Work Queue's Fill Rate shorts readout) is the innermost
             // thing on screen, so it backs out first — and CloseAuxiliaries returning true is what
             // stops the same press falling through and opening the pause menu behind it.
-            if (keys.CloseAuxiliaries())
+            else if (keys.CloseAuxiliaries())
             {
                 // handled
             }
@@ -252,6 +259,14 @@ public class TopBarUI : MonoBehaviour
                 // outline/camera-follow focus via the card's Hide → DropFocus). Only when no
                 // card is open does Escape fall through to the pause menu.
                 _employeeInfoUI.Hide();
+            }
+            else if (keys.AnyPanelOpen)
+            {
+                // Any other non-modal UI (Shift Manager, Work Queue, Orders, Purchasing, Scheduler,
+                // New Item, Dev Console, Hiring Board, Employee Roster, Employee List) is open.
+                // Escape closes it and returns to the game screen instead of opening the pause menu
+                // on top of it.
+                keys.CloseAll();
             }
             else
             {

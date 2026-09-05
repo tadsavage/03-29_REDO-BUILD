@@ -87,11 +87,17 @@ public class SplashScreenController : MonoBehaviour
             audioSource.Play();
         }
 
-        // Fade In and Grow
+        // Fade In and Grow — unscaled time deliberately: TopBarUI.SetSpeed(0f) ("always start paused
+        // per Tad's explicit request") runs independently of this splash gating and can freeze
+        // Time.timeScale at 0 before or during this coroutine. On scaled time these loops would then
+        // never advance, the splash would never finish, and UIBootstrapper.InitializeAll() below
+        // would never run — confirmed live: the whole game stuck on the splash screen forever with
+        // Time.timeScale=0. This is presentation before gameplay even starts, so unscaled time is
+        // correct regardless — same reasoning already applied to UIToast/FloatingMoneyText elsewhere.
         float timer = 0;
         while (timer < fadeDuration)
         {
-            timer += Time.deltaTime;
+            timer += Time.unscaledDeltaTime;
             float progress = timer / fadeDuration;
             logoImage.color = new Color(1, 1, 1, Mathf.Lerp(0, 1, progress));
             logoGO.transform.localScale = Vector3.one * Mathf.Lerp(_startLogoSize, _maxLogoSize, progress);
@@ -101,13 +107,13 @@ public class SplashScreenController : MonoBehaviour
         logoGO.transform.localScale = Vector3.one * _maxLogoSize;
 
         // Hold
-        yield return new WaitForSeconds(displayDuration);
+        yield return new WaitForSecondsRealtime(displayDuration);
 
         // Fade Out
         timer = 0;
         while (timer < fadeDuration)
         {
-            timer += Time.deltaTime;
+            timer += Time.unscaledDeltaTime;
             float alpha = Mathf.Lerp(1, 0, timer / fadeDuration);
             logoImage.color = new Color(1, 1, 1, alpha);
             background.color = new Color(backgroundColor.r, backgroundColor.g, backgroundColor.b, alpha);

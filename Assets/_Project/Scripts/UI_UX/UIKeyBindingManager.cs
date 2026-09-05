@@ -259,6 +259,13 @@ public class UIKeyBindingManager : MonoBehaviour
     /// <summary>True while any hotkey-less popup is showing.</summary>
     public bool AnyAuxiliaryOpen => _auxiliaryPanels.Any(p => p != null && p.IsOpen);
 
+    /// <summary>
+    /// True while any registered hotkey panel (exclusive or floating) is showing — the "is a non-modal
+    /// UI open" check Escape needs before it's safe to fall through to the pause menu. Checked
+    /// separately from CurrentOpenKey because a floating panel is open without ever being "current".
+    /// </summary>
+    public bool AnyPanelOpen => _uiPanels.Values.Any(p => p != null && p.IsOpen);
+
     /// <summary>Close all keybind UIs.</summary>
     public void CloseAll()
     {

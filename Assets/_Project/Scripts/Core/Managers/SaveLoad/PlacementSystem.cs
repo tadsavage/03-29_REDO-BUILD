@@ -1329,6 +1329,13 @@ public class PlacementSystem : MonoBehaviour
 
     public void ClearAll()
     {
+        // Guards against grid.RemoveStackObject NRE-ing on a null _cells array further down —
+        // confirmed live (2026-09) crashing GameContext.Start()'s boot-time QuickLoad, blocking the
+        // whole game on the loading screen. grid.EnsureInitialized() is exactly the escape hatch
+        // PlacementGrid's own doc comment describes for "a load may have failed/early-returned and
+        // left _cells null" — a no-op if the grid is already initialized.
+        grid.EnsureInitialized();
+
         // Use a snapshot to avoid modification issues while iterating
         var snapshot = PlacedObjectRegistry.GetSnapshot();
         
