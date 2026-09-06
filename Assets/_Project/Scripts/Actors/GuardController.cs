@@ -51,6 +51,7 @@ public class GuardController : MonoBehaviour
     private Transform _gateStop;
     private Transform _checkRear1;
     private Transform _checkRear2;
+    private Gate_Open_Close _gateArm;
 
     private float           _stateTimer;
     private System.Action   _onCleared;
@@ -91,13 +92,14 @@ public class GuardController : MonoBehaviour
     }
 
     public void Init(Transform posted, Transform exitPost, Transform gateStop,
-                     Transform checkRear1, Transform checkRear2)
+                     Transform checkRear1, Transform checkRear2, Gate_Open_Close gateArm = null)
     {
         _posted     = posted;
         _exitPost   = exitPost;
         _gateStop   = gateStop;
         _checkRear1 = checkRear1;
         _checkRear2 = checkRear2;
+        _gateArm    = gateArm;
 
         if (posted != null)
         {
@@ -224,6 +226,13 @@ public class GuardController : MonoBehaviour
             case GuardState.MovingBackToGateStop:
                 if (HasArrived())
                 {
+                    // Tad's spec: the gate arm stays down through the whole inspection and only
+                    // raises right here — the guard is back at the driver, about to wave them
+                    // through — not the instant the truck's collider touched the trigger (the old,
+                    // confirmed-premature behavior). Fires before the wave itself, per "right before
+                    // he waves to go in."
+                    _gateArm?.RaiseArm();
+
                     _state      = GuardState.WavingIn;
                     _stateTimer = waitWavingIn;
                     StopMovement();

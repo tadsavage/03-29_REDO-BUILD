@@ -23,7 +23,25 @@ public class Gate_Open_Close : MonoBehaviour
     private float _target;
     private int   _agentsInside;
 
+    // Set true by TruckYardManager for the arm gating the inbound gate — Tad's spec: that arm must
+    // stay down through the whole guard inspection and only raise on GuardController's own cue
+    // (right as the guard gets back to the driver, just before waving them in), not the instant a
+    // truck's collider touches the trigger. Entry/exit tracking below is untouched either way, so
+    // the existing "close once everyone's out" behavior still applies once this arm is raised.
+    private bool _externallyControlled;
+
     private Transform Pivot => armPivot != null ? armPivot : transform;
+
+    /// <summary>Opt this arm out of the trigger-based auto-raise — something else (GuardController)
+    /// is now responsible for calling RaiseArm() at the right moment.</summary>
+    public void SetExternallyControlled(bool value) => _externallyControlled = value;
+
+    /// <summary>Raises the arm immediately, regardless of trigger state.</summary>
+    public void RaiseArm() => _target = rot_up;
+
+    /// <summary>Lowers the arm immediately, regardless of trigger state. Only meaningful once
+    /// _externallyControlled is set — see SetExternallyControlled.</summary>
+    public void LowerArm() => _target = rot_down;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -48,14 +66,19 @@ public class Gate_Open_Close : MonoBehaviour
     {
         if (!IsAgent(other)) return;
         _agentsInside++;
-        _target = rot_up;
+        if (!_externallyControlled)
+            _target = rot_up;
     }
 
     private void OnTriggerExit(Collider other)
     {
         if (!IsAgent(other)) return;
         _agentsInside = Mathf.Max(0, _agentsInside - 1);
-        if (_agentsInside == 0)
+        // Externally-controlled arms rely entirely on RaiseArm()/LowerArm() — auto-close-on-empty
+        // was unreliable here since the guard's own idle "Posted" stance sits inside this trigger,
+        // so _agentsInside depends on incidental guard movement as much as the truck actually
+        // passing through.
+        if (_agentsInside == 0 && !_externallyControlled)
             _target = rot_down;
     }
 

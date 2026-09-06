@@ -35,6 +35,7 @@ public class TruckYardManager : MonoBehaviour
     private Transform       _doorWaitPoint;
     private Transform       _guardAnchors;
     private GuardController _guard;
+    private Gate_Open_Close _gateArm;
     private int             _activeTrucks;
 
     private void Awake()
@@ -170,7 +171,8 @@ public class TruckYardManager : MonoBehaviour
             ExitWaypointPosition,
             _guard,
             OnTruckExited,
-            _doorWaitPoint
+            _doorWaitPoint,
+            _gateArm
         );
 
         // Remove old handler if present using the dictionary lookup (lambdas aren't equal otherwise)
@@ -276,7 +278,7 @@ public class TruckYardManager : MonoBehaviour
         Vector3? leaveNoTurn   = _gateLeaveNoTurn != null ? (Vector3?)_gateLeaveNoTurn.position : null;
         Vector3? exitPos       = _exitPoint       != null ? (Vector3?)_exitPoint.position       : null;
 
-        ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited, _doorWaitPoint);
+        ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited, _doorWaitPoint, _gateArm);
         ctrl.OnClearedGate += () => OnTruckClearedGate(ctrl);
 
         if (shipment != null)
@@ -330,7 +332,7 @@ public class TruckYardManager : MonoBehaviour
         Vector3? leaveNoTurn = _gateLeaveNoTurn != null ? (Vector3?)_gateLeaveNoTurn.position : null;
         Vector3? exitPos     = _exitPoint       != null ? (Vector3?)_exitPoint.position       : null;
 
-        ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited);
+        ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited, null, _gateArm);
         ctrl.OnClearedGate += () => OnTruckClearedGate(ctrl);
 
         ctrl.SetOutbound();
@@ -397,8 +399,19 @@ public class TruckYardManager : MonoBehaviour
             foundGuard = go.GetComponent<GuardController>() ?? go.AddComponent<GuardController>();
         }
 
+        // The inbound gate arm (Tad's spec, 2026-09): confirmed live that it was auto-raising the
+        // instant a vehicle touched its trigger collider — well before the guard had actually checked
+        // anyone in. Opt it out of that and hand control to GuardController, which raises it right as
+        // the guard gets back to the driver (see GuardState.WavingIn). Missing/renamed is non-fatal —
+        // the arm just falls back to its old trigger-based behavior, same as before this change.
+        _gateArm = transform.Find("Gate_Arm_Base1")?.GetComponent<Gate_Open_Close>();
+        if (_gateArm != null)
+            _gateArm.SetExternallyControlled(true);
+        else
+            Debug.LogWarning("[TruckYardManager] 'Gate_Arm_Base1' not found — gate arm keeps its old (premature) trigger-based behavior.");
+
         _guard = foundGuard;
-        _guard.Init(posted, exitPost, gateStop, checkRear1, checkRear2);
+        _guard.Init(posted, exitPost, gateStop, checkRear1, checkRear2, _gateArm);
     }
 
     // Numbering now lives in DockSlot.AssignDoorNumbers so it works with or without a guard shack
