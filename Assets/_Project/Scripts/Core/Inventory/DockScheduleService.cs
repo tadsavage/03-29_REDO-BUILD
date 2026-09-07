@@ -1102,6 +1102,7 @@ namespace GameCore.Inventory
             {
                 if (!existing.OrderIds.Contains(order.OrderId)) existing.OrderIds.Add(order.OrderId);
                 ReconcileFutureRecurringAppointments();
+                AnnounceOrderArrival(order, existing.DoorNumber);
                 return;
             }
 
@@ -1135,6 +1136,34 @@ namespace GameCore.Inventory
                              $"{BlockLabel(appt.BlockIndex)} instead. Satisfaction down.");
                 arrivals?.PenalizeSatisfaction(order.ContractId);
             }
+
+            AnnounceOrderArrival(order, appt.DoorNumber);
+        }
+
+        /// <summary>Guard-shack "new order arrived" line — pallet count and critical-item count use
+        /// the same math SchedulerPanel's order-details card already shows (FullPalletCases packing,
+        /// on-hand-can't-cover-this-line for critical), just narrated instead of drawn.</summary>
+        private static void AnnounceOrderArrival(OrderData order, int doorNumber)
+        {
+            if (order == null) return;
+            ServiceLocator.TryGet<OrderService>(out var orders);
+            ServiceLocator.TryGet<InventoryService>(out var inventory);
+
+            int pallets = 0;
+            int critical = 0;
+            foreach (var li in order.LineItems)
+            {
+                int fullPallet = orders != null ? orders.FullPalletCases(li.SkuId) : 0;
+                if (fullPallet > 0) pallets += Mathf.CeilToInt(li.QuantityNeeded / (float)fullPallet);
+
+                int onHand = inventory != null ? inventory.GetTotalUnitsBySku(li.SkuId) : 0;
+                if (onHand < li.QuantityNeeded) critical++;
+            }
+
+            string kindWord = order.IsBulk ? "Bulk order" : "Order";
+            string displayNumber = string.IsNullOrEmpty(order.OrderNumber) ? order.OrderId : order.OrderNumber;
+            SystemsLogWindow.LogGuard(
+                $"{kindWord} {displayNumber} going to Door {doorNumber} with {pallets} pallet(s) — {critical} critical item(s).");
         }
 
         /// <summary>

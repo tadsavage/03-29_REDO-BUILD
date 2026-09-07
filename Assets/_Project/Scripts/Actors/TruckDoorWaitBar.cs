@@ -105,7 +105,7 @@ public class TruckDoorWaitBar : MonoBehaviour
         // (i.e. right underneath the fill bar), not centered in the whole tall box.
         _label.alignment = TextAlignmentOptions.Top;
         _label.color = Color.white;
-        _label.enableWordWrapping = true;
+        _label.textWrappingMode = TextWrappingModes.Normal;
         // BUG FIX: confirmed live — the longer status messages ("Waiting for Door. I will wait for
         // N more minutes and then leave. My dispatcher is gonna hear about this!") spilled out past
         // the frame on both sides at a fixed fontSize=20, regardless of word-wrap being on. Auto-

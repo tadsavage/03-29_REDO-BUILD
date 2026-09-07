@@ -120,7 +120,7 @@ public class PlacementGrid : MonoBehaviour
 
     public List<PlacedObject> GetObjectsInCell(Vector2Int cell)
     {
-        if (!IsInsideGrid(cell))
+        if (!IsInsideGrid(cell) || _cells == null)
             return null;
 
         return _cells[cell.x, cell.y];
@@ -128,7 +128,7 @@ public class PlacementGrid : MonoBehaviour
 
     public bool IsOccupied(Vector2Int cell)
     {
-        if (!IsInsideGrid(cell))
+        if (!IsInsideGrid(cell) || _cells == null)
             return true;
 
         var list = _cells[cell.x, cell.y];
@@ -146,7 +146,7 @@ public class PlacementGrid : MonoBehaviour
 
     public GameObject GetTopObject(Vector2Int cell)
     {
-        if (!IsInsideGrid(cell))
+        if (!IsInsideGrid(cell) || _cells == null)
             return null;
 
         var list = _cells[cell.x, cell.y];

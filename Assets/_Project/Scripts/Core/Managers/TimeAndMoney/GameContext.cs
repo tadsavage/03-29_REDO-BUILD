@@ -191,6 +191,10 @@ public class GameContext : MonoBehaviour
 
         LoadingScreenManager.Instance?.SetProgress(0.25f);
 
+        // Session-start greeting in the Systems Log, distinct from WelcomeOverlayManager's one-time
+        // new-game boss popup below — this fires every session (new game OR loaded save).
+        SystemsLogWindow.LogSystem($"Message of the Day: GOOD DAY {PlayerPrefs.GetString("PlayerName", "Boss")}, let's get started!");
+
         bool isNewGame = PlayerPrefs.GetInt("IsNewGame", 0) == 1;
         bool fromMainMenu = PlayerPrefs.GetInt("FromMainMenu", 0) == 1;
         int loadSlotIndex = PlayerPrefs.GetInt("LoadSlotIndex", -1);

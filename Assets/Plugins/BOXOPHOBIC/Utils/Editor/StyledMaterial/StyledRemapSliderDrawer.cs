@@ -3,6 +3,7 @@
 using UnityEngine;
 using UnityEditor;
 using System;
+using Boxophobic.Constants;
 
 namespace Boxophobic.StyledGUI
 {
@@ -49,11 +50,6 @@ namespace Boxophobic.StyledGUI
                 fontSize = 9,
             };
 
-            var styleButton = new GUIStyle(EditorStyles.label)
-            {
-
-            };
-
             Vector4 propVector = prop.vectorValue;
 
             EditorGUI.BeginChangeCheck();
@@ -72,17 +68,20 @@ namespace Boxophobic.StyledGUI
             float y = position.y + top;
             float height = EditorGUIUtility.singleLineHeight;
 
-            EditorGUI.showMixedValue = prop.hasMixedValue;
-
-            Rect labelRect = new Rect(position.x, y, EditorGUIUtility.labelWidth, height);
+            Rect buttonRect = new Rect(position.x - 14, y, EditorGUIUtility.labelWidth - 1, height);
+            Rect labelRect = new Rect(position.x, y, EditorGUIUtility.labelWidth - 1, height);
             Rect sliderRect = new Rect(position.x + EditorGUIUtility.labelWidth + 3, y, position.width - EditorGUIUtility.labelWidth - 59, height);
             Rect popupRect = new Rect(position.xMax - 50, y, 50, height);
+            Rect arrowRect = new Rect(position.x - 14, position.y - 2, 18, 18);
 
-            if (GUI.Button(labelRect, label, styleButton))
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+
+            if (GUI.Button(buttonRect, "", GUIStyle.none))
             {
                 showAdvancedSettings = !showAdvancedSettings;
             }
 
+            EditorGUI.LabelField(labelRect, label);
             EditorGUI.MinMaxSlider(sliderRect, ref internalValueMin, ref internalValueMax, min, max);
 
             propVector.w = EditorGUI.Popup(popupRect, (int)propVector.w, new string[] { "Remap", "Invert" }, stylePopupMini);
@@ -91,6 +90,10 @@ namespace Boxophobic.StyledGUI
 
             if (showAdvancedSettings)
             {
+                GUI.color = new Color(1, 1, 1, 0.19f);
+                GUI.Label(arrowRect, "<size=8>▼</size>", Constant.HeaderStyle);
+                GUI.color = Color.white;
+
                 Rect minRect = new Rect(position.x, y, position.width, height);
 
                 internalValueMin = Mathf.Clamp(EditorGUI.Slider(minRect, "      Remap Min", internalValueMin, min, max), min, internalValueMax);
@@ -100,6 +103,12 @@ namespace Boxophobic.StyledGUI
                 Rect maxRect = new Rect(position.x, y, position.width, height);
 
                 internalValueMax = Mathf.Clamp(EditorGUI.Slider(maxRect, "      Remap Max", internalValueMax, min, max), internalValueMin, max);
+            }
+            else
+            {
+                GUI.color = new Color(1, 1, 1, 0.19f);
+                GUI.Label(arrowRect, "<size=8>►</size>", Constant.HeaderStyle);
+                GUI.color = Color.white;
             }
 
             EditorGUI.showMixedValue = false;

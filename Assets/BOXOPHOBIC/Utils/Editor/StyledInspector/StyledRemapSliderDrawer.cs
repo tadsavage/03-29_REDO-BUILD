@@ -1,5 +1,6 @@
 ﻿using UnityEditor;
 using UnityEngine;
+using Boxophobic.Constants;
 
 namespace Boxophobic.StyledGUI
 {
@@ -18,11 +19,6 @@ namespace Boxophobic.StyledGUI
             var popupStyle = new GUIStyle(EditorStyles.popup)
             {
                 fontSize = 9
-            };
-
-            var styleButton = new GUIStyle(EditorStyles.label)
-            {
-
             };
 
             EditorGUI.BeginChangeCheck();
@@ -52,15 +48,20 @@ namespace Boxophobic.StyledGUI
                 maxValue = value.x;
             }
 
+            float height = EditorGUIUtility.singleLineHeight;
+
             Rect line = position;
-            line.height = EditorGUIUtility.singleLineHeight;
+            line.height = height;
 
             Rect labelRect = line;
             labelRect.width = EditorGUIUtility.labelWidth;
 
+            Rect buttonRect = new Rect(position.x + 2, position.y, EditorGUIUtility.labelWidth - 1, height);
+            Rect arrowRect = new Rect(position.x + 2, position.y - 2, 18, 18);
+
             if (a.supportInvert)
             {
-                if (GUI.Button(labelRect, "", styleButton))
+                if (GUI.Button(buttonRect, "", GUIStyle.none))
                 {
                     a.showAdvancedSettings = !a.showAdvancedSettings;
                 }
@@ -78,7 +79,8 @@ namespace Boxophobic.StyledGUI
             }
             else
             {
-                if (GUI.Button(labelRect, "", styleButton))
+
+                if (GUI.Button(buttonRect, "", GUIStyle.none))
                 {
                     a.showAdvancedSettings = !a.showAdvancedSettings;
                 }
@@ -88,13 +90,23 @@ namespace Boxophobic.StyledGUI
 
             if (a.showAdvancedSettings)
             {
+                GUI.color = new Color(1, 1, 1, 0.19f);
+                GUI.Label(arrowRect, "<size=8>▼</size>", Constant.HeaderStyle);
+                GUI.color = Color.white;
+
                 line.y += EditorGUIUtility.singleLineHeight + 2;
 
-                minValue = EditorGUI.Slider(line, "      Remap Min", minValue, a.min, maxValue);
+                minValue = Mathf.Clamp(EditorGUI.Slider(line, "      Remap Min", minValue, a.min, a.max), a.min, maxValue);
 
                 line.y += EditorGUIUtility.singleLineHeight + 2;
 
-                maxValue = EditorGUI.Slider(line, "      Remap Max", maxValue, minValue, a.max);
+                maxValue = Mathf.Clamp(EditorGUI.Slider(line, "      Remap Max", maxValue, a.min, a.max), minValue, a.max);
+            }
+            else
+            {
+                GUI.color = new Color(1, 1, 1, 0.19f);
+                GUI.Label(arrowRect, "<size=8>►</size>", Constant.HeaderStyle);
+                GUI.color = Color.white;
             }
 
             if (EditorGUI.EndChangeCheck())

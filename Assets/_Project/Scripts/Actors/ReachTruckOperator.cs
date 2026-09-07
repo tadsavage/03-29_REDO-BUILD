@@ -153,11 +153,16 @@ namespace GameCore.Actors
             PalletMasterLink stray = anchor != null ? anchor.GetComponentInChildren<PalletMasterLink>(true) : null;
             if (stray != null)
             {
-                Debug.LogError($"[ReachTruckOperator] '{name}' came back online already carrying " +
+                // Deliberately do NOT set _strayPalletWarned here. TryClaimAndStart()'s own detection
+                // (same FindCarriedPallet() check, run every poll from Update()) is what actually
+                // triggers RecoverStrayPallet() — its gate is `if (!_strayPalletWarned)`, so pre-setting
+                // the flag here would permanently skip that call and deadlock the truck with no path
+                // back to work (this was a real bug: caught live when a mid-Play recompile during this
+                // session's own testing tripped this exact path and the truck never recovered).
+                Debug.Log($"[ReachTruckOperator] '{name}' came back online already carrying " +
                     $"pallet '{stray.PalletId}' ('{stray.name}') on its forks with nothing driving it " +
                     $"— almost certainly a script recompile mid-Play killed its delivery coroutine. " +
-                    $"This truck will refuse new work until the pallet is manually resolved.");
-                _strayPalletWarned = true;
+                    $"Auto-recovery will run on the next poll.");
             }
         }
 
@@ -234,18 +239,18 @@ namespace GameCore.Actors
             // NEVER start a new routine while a pallet is already sitting on the forks with nothing
             // driving it — that can only happen if an earlier carry coroutine died mid-flight, and
             // grabbing a second pallet onto the same anchor would silently stack cargo the game can
-            // never account for again (see reach-truck-stranded-carry-bug). Refuse loudly instead.
+            // never account for again (see reach-truck-stranded-carry-bug). Auto-recover by cleaning
+            // it up so the truck can get back to work.
             PalletMasterLink stray = FindCarriedPallet();
             if (stray != null)
             {
                 if (!_strayPalletWarned)
                 {
-                    Debug.LogError($"[ReachTruckOperator] '{name}' already has pallet " +
-                        $"'{stray.PalletId}' ('{stray.name}') riding its forks with no task driving " +
-                        $"it — refusing to claim new work until this is manually resolved (see " +
-                        $"reach-truck-stranded-carry-bug in memory). This warning will not repeat " +
-                        $"until the stray pallet is cleared.");
+                    Debug.LogWarning($"[ReachTruckOperator] '{name}' detected stray pallet " +
+                        $"'{stray.PalletId}' ('{stray.name}') on forks — auto-recovering by " +
+                        $"cleaning up and re-enabling physics.");
                     _strayPalletWarned = true;
+                    StartCoroutine(RecoverStrayPallet(stray));
                 }
                 return;
             }
@@ -1604,6 +1609,34 @@ namespace GameCore.Actors
 
             Restore();
             _carryOriginValid = false; // routine is over — don't let a stale carry pose leak into the next task.
+        }
+
+        /// <summary>
+        /// Auto-recovery for a pallet left on forks by a coroutine that died mid-flight.
+        /// Retracts forks, re-enables pallet physics, and re-enables the obstacle so it can be picked up again.
+        /// </summary>
+        private IEnumerator RecoverStrayPallet(PalletMasterLink strayLink)
+        {
+            if (strayLink == null) yield break;
+
+            Debug.Log($"[ReachTruckOperator] Starting recovery for stray pallet '{strayLink.PalletId}'");
+
+            // Retract and lift forks back to rest position
+            if (_forks != null)
+            {
+                yield return RetractForks(_forks, _forkRestLocalZ, -1f);
+                yield return LiftForks(_forks, _forkRestLocalY);
+            }
+
+            // Re-enable pallet physics and tracking
+            if (strayLink.TryGetComponent<NavMeshObstacle>(out var obstacle))
+                obstacle.enabled = true;
+
+            if (strayLink.TryGetComponent<PlacedObject>(out var po))
+                po.enabled = true;
+
+            Debug.Log($"[ReachTruckOperator] Recovery complete for pallet '{strayLink.PalletId}' — resuming work");
+            _strayPalletWarned = false; // clear flag so warning can fire again if needed
         }
 
         // ── Drive-mode chokepoint ─────────────────────────────────────────────────────────────────

@@ -109,6 +109,11 @@ public class UIToast : MonoBehaviour
 
     public static void Show(string msg, float _defaultDuration = 1.5f)
     {
+        // Mirrored into the Systems Log regardless of whether the toast label itself is ready —
+        // SystemsLogWindow.Log buffers until its own UI exists, so nothing said before that point
+        // is lost the way it would be with the early-return below.
+        SystemsLogWindow.Log(msg);
+
         if (_toast == null || _toast.panel == null) return;
 
         _toast.text             = msg;

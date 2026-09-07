@@ -30,9 +30,18 @@ namespace GameCore.Services
         {
             Type type = typeof(T);
 
-            if (_services.ContainsKey(type))
+            if (_services.TryGetValue(type, out var existing) && existing != null)
             {
-                Debug.LogWarning($"[ServiceLocator] Service {type.Name} already registered. Replacing.");
+                Debug.LogWarning($"[ServiceLocator] Service {type.Name} already registered. " +
+                                  "Shutting down the previous instance before replacing.");
+
+                // Without this, the OLD instance stays fully alive and subscribed to any STATIC events
+                // it registered in its own Initialize() (e.g. OrderService.OnOrderArrived) — it's gone
+                // from this registry so nothing can reach it through ServiceLocator, but nothing ever
+                // told it to stop listening either. Every subsequent event fires BOTH the old orphaned
+                // instance and the new one, which is exactly what caused guard-shack announcements to
+                // print twice: two live DockScheduleServices, only one of them actually reachable.
+                (existing as IService)?.Shutdown();
             }
 
             _services[type] = service;

@@ -3897,24 +3897,53 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         }
 
         ServiceLocator.TryGet<InventoryService>(out var inv);
-        var bySku = new Dictionary<string, (int needed, int picked)>();
+        ServiceLocator.TryGet<VendorEconomyService>(out var economy);
+        ServiceLocator.TryGet<ShipmentService>(out var shipments);
+        var dockSchedule = Schedule();
+        var bySku = new Dictionary<string, int>();
         foreach (var order in orderList)
             foreach (var li in order.LineItems)
             {
-                bySku.TryGetValue(li.SkuId, out var agg);
-                agg.needed += li.QuantityNeeded;
-                agg.picked += li.QuantityPicked;
-                bySku[li.SkuId] = agg;
+                bySku.TryGetValue(li.SkuId, out var needed);
+                bySku[li.SkuId] = needed + li.QuantityNeeded;
             }
 
         foreach (var kv in bySku.OrderBy(k => inv?.GetSkuData(k.Key)?.ItemNumber ?? 0))
         {
             var sku = inv?.GetSkuData(kv.Key);
             int onHand = inv?.TotalOnHand(kv.Key) ?? 0;
-            col.Add(BuildTooltipItemRow(sku, BuildOutboundItemDetail(kv.Value.needed, kv.Value.picked, onHand)));
+            int onPo = economy?.GetTotalOnOrder(kv.Key) ?? 0;
+            string nextPo = NextPoLabel(kv.Key, shipments, dockSchedule);
+            col.Add(BuildTooltipItemRow(sku, BuildOutboundItemDetail(kv.Value, onHand, onPo, nextPo)));
         }
 
         return col;
+    }
+
+    /// <summary>Soonest inbound PO still carrying this SKU, formatted as "Next PO: Day D HH:00" — or
+    /// "Nothing On Order" if nothing pending covers it. Mirrors OtherPendingReceipt's pending-status
+    /// filter (InTransit/Receiving/Delayed) so a line only counts freight that's genuinely still
+    /// coming, not something already fully received or long departed.</summary>
+    private static string NextPoLabel(string skuId, ShipmentService shipments, DockScheduleService dockSchedule)
+    {
+        if (shipments == null || dockSchedule == null || string.IsNullOrEmpty(skuId)) return "Nothing On Order";
+
+        DockAppointment earliest = null;
+        foreach (var s in shipments.PendingShipments)
+        {
+            if (s == null) continue;
+            if (s.Status != ShipmentData.ShipmentStatus.InTransit &&
+                s.Status != ShipmentData.ShipmentStatus.Receiving &&
+                s.Status != ShipmentData.ShipmentStatus.Delayed) continue;
+            if (!s.LineItems.Any(li => li != null && li.SkuId == skuId && li.Quantity > li.ReceivedQuantity)) continue;
+
+            var appt = dockSchedule.FindForPo(s.PONumber);
+            if (appt == null) continue;
+            if (earliest == null || (appt.Day * 24 + appt.StartHour) < (earliest.Day * 24 + earliest.StartHour))
+                earliest = appt;
+        }
+
+        return earliest == null ? "Nothing On Order" : $"Next PO: Day {earliest.Day} {earliest.StartHour:00}:00";
     }
 
     private VisualElement BuildTooltipDivider()
@@ -3937,24 +3966,23 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         return ColWholesale;
     }
 
-    /// <summary>Builds the "Ordered: X    Shipped: X    In-Stock: X%" detail line for an outbound
-    /// order's item row, with only the percentage colored per <see cref="OutsColor"/> -- everything
-    /// else stays the neutral subtle color the rest of the tooltip uses.</summary>
-    private VisualElement BuildOutboundItemDetail(int ordered, int shipped, int onHand)
+    /// <summary>Builds the two-line "Ordered: X | On-Hand: X | On PO: X" + "Next PO: Day D HH:00"
+    /// detail block for an outbound order's item row. "Shipped" was dropped per Tad — useless info,
+    /// this order hasn't picked yet. Both lines share the same neutral color/size so the second reads
+    /// as a continuation of the first, not a separate callout.</summary>
+    private VisualElement BuildOutboundItemDetail(int ordered, int onHand, int onPo, string nextPoLabel)
     {
-        int outsPercent = ordered > 0 ? Mathf.Clamp(Mathf.RoundToInt(onHand / (float)ordered * 100f), 0, 100) : 100;
+        var col = new VisualElement();
+        col.style.flexDirection = FlexDirection.Column;
 
-        var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.flexWrap = Wrap.Wrap;
+        var line1 = MakeText($"Ordered: {ordered:N0} | On-Hand: {onHand:N0} | On PO: {onPo:N0}", 14, ColSubtleText);
+        line1.style.flexWrap = Wrap.Wrap;
+        col.Add(line1);
 
-        var prefix = MakeText($"Ordered: {ordered:N0}    Shipped: {shipped:N0}    In-Stock: ", 14, ColSubtleText);
-        row.Add(prefix);
+        var line2 = MakeText(nextPoLabel, 14, ColSubtleText);
+        col.Add(line2);
 
-        var outs = MakeText($"{outsPercent}%", 12, OutsColor(outsPercent), bold: true);
-        row.Add(outs);
-
-        return row;
+        return col;
     }
 
     private VisualElement BuildTooltipItemRow(SkuData sku, VisualElement detailElement, Color? highlightColor = null)

@@ -369,7 +369,7 @@ namespace SaveLoadSystem
             indexLabel.text = "QUICKSAVE";
 
             // Check if quicksave file exists
-            string quicksavePath = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave.json");
+            string quicksavePath = System.IO.Path.Combine(SaveSystem.SaveFolder, "quicksave.json");
             bool hasQuicksave = System.IO.File.Exists(quicksavePath);
 
             if (!hasQuicksave)
@@ -408,7 +408,7 @@ namespace SaveLoadSystem
                 deleteBtn.style.display = DisplayStyle.Flex;
 
                 // Load thumbnail
-                string thumbPath = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave_thumb.png");
+                string thumbPath = System.IO.Path.Combine(SaveSystem.SaveFolder, "quicksave_thumb.png");
                 if (System.IO.File.Exists(thumbPath))
                 {
                     Texture2D thumb = SaveThumbnailCapture.LoadThumbnailFromDisk(thumbPath);
@@ -467,8 +467,8 @@ namespace SaveLoadSystem
                 // Delete button for quicksave
                 deleteBtn.clicked += () =>
                 {
-                    string qs = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave.json");
-                    string qst = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave_thumb.png");
+                    string qs = System.IO.Path.Combine(SaveSystem.SaveFolder, "quicksave.json");
+                    string qst = System.IO.Path.Combine(SaveSystem.SaveFolder, "quicksave_thumb.png");
                     if (System.IO.File.Exists(qs)) System.IO.File.Delete(qs);
                     if (System.IO.File.Exists(qst)) System.IO.File.Delete(qst);
                     RefreshSlotsSafe();

@@ -141,6 +141,27 @@ public class WallVisibilityManager : MonoBehaviour
     public void StepDown() => SetVisibilityMode((WallVisibilityMode)Mathf.Min((int)_currentMode + 1, (int)WallVisibilityMode.Lowered));
     public void StepUp()   => SetVisibilityMode((WallVisibilityMode)Mathf.Max((int)_currentMode - 1, (int)WallVisibilityMode.Full));
 
+    // The height most wall segments share (rounded to kill float-precision near-misses). Segments
+    // like ShippingDoor carry a taller bounds box than a plain wall panel and would otherwise skew
+    // the Mid-mode target — see the comment in SlideWallsRoutine.
+    private float GetMostCommonTopY()
+    {
+        var counts = new Dictionary<float, int>();
+        float best = foundationHeight + cutHeight;
+        int bestCount = 0;
+
+        foreach (var wall in _trackedWalls)
+        {
+            if (wall.transform == null) continue;
+            float key = Mathf.Round(wall.originalWorldTopY * 1000f) / 1000f;
+            counts.TryGetValue(key, out int c);
+            c++;
+            counts[key] = c;
+            if (c > bestCount) { bestCount = c; best = key; }
+        }
+        return best;
+    }
+
     private IEnumerator SlideWallsRoutine()
     {
         if (_audioSource != null && slideSound != null)
@@ -153,6 +174,15 @@ public class WallVisibilityManager : MonoBehaviour
         Dictionary<WallData, Vector3> endPositions = new Dictionary<WallData, Vector3>();
         float targetTopY = foundationHeight + cutHeight;
 
+        // Mid must also converge on ONE shared absolute height, the same way Lowered converges on
+        // targetTopY. Segments like ShippingDoor carry a taller bounds (door track/header) than a
+        // plain wall panel, so a per-wall PROPORTIONAL halfway point (old: loweredDelta * 0.5f) put
+        // taller segments at a lower absolute Y than their neighbours at Mid — a visible notch in the
+        // top line even though Lowered (which targets an absolute Y regardless of origin) looked flush.
+        // Use the most common wall top height as the reference "full" height so outliers snap level.
+        float referenceTopY = GetMostCommonTopY();
+        float midTargetTopY = Mathf.Lerp(referenceTopY, targetTopY, 0.5f);
+
         foreach (var wall in _trackedWalls)
         {
             if (wall.transform == null) continue;
@@ -160,11 +190,11 @@ public class WallVisibilityManager : MonoBehaviour
 
             // Full drop distance (negative) needed for this wall to reach its resting spot.
             float loweredDelta = (wall.originalWorldTopY > targetTopY) ? targetTopY - wall.originalWorldTopY : 0f;
+            float midDelta = (wall.originalWorldTopY > midTargetTopY) ? midTargetTopY - wall.originalWorldTopY : 0f;
 
-            // Mid stops halfway between the top and the resting spot.
             float appliedDelta = _currentMode switch
             {
-                WallVisibilityMode.Mid => loweredDelta * 0.5f,
+                WallVisibilityMode.Mid => midDelta,
                 WallVisibilityMode.Lowered => loweredDelta,
                 _ => 0f
             };
@@ -189,7 +219,7 @@ public class WallVisibilityManager : MonoBehaviour
         float elapsed = 0f;
         while (elapsed < slideDuration)
         {
-            elapsed += Time.deltaTime;
+            elapsed += Time.unscaledDeltaTime;
             float t = Mathf.SmoothStep(0f, 1f, elapsed / slideDuration);
 
             foreach (var wall in _trackedWalls)

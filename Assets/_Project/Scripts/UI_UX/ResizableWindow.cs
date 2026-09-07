@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -26,9 +27,24 @@ public class ResizableWindow
 {
     private enum Edge { Left, Right, Bottom, BottomRight }
 
+    /// <summary>Which edge grips to add — lets a caller opt into any subset instead of the fixed
+    /// "Left+Right, optionally +Bottom+BottomRight" the original bool constructor offers. E.g. a
+    /// dockable window that should only grow on its free edges (Left, Bottom) and never touch the
+    /// edges its own layout logic already owns.</summary>
+    [System.Flags]
+    public enum Edges
+    {
+        None = 0,
+        Left = 1,
+        Right = 2,
+        Bottom = 4,
+        BottomRight = 8,
+    }
+
     private readonly VisualElement _panel;
     private readonly float _minW;
     private readonly float _minH;
+    private readonly List<VisualElement> _grips = new List<VisualElement>();
 
     private bool _resizing;
     private int _pointerId = -1;
@@ -61,19 +77,33 @@ public class ResizableWindow
     /// grabbing near the top corners still drags the window rather than resizing it.</param>
     public ResizableWindow(VisualElement panel, float minW = 240f, float minH = 180f,
         float grip = 8f, float titleInset = 34f, bool allowVerticalResize = true)
+        : this(panel, minW, minH, grip, titleInset,
+               Edges.Left | Edges.Right | (allowVerticalResize ? (Edges.Bottom | Edges.BottomRight) : Edges.None))
+    {
+    }
+
+    /// <summary>Explicit-edges overload — for windows that only own a subset of their border (e.g. a
+    /// dockable panel whose top/right are already spoken for by other layout logic).</summary>
+    public ResizableWindow(VisualElement panel, float minW, float minH, float grip, float titleInset, Edges edges)
     {
         _panel = panel;
         _minW = minW;
         _minH = minH;
         if (_panel == null) return;
 
-        AddGrip(Edge.Right,       grip, titleInset);
-        AddGrip(Edge.Left,        grip, titleInset);
-        if (allowVerticalResize)
-        {
-            AddGrip(Edge.Bottom,      grip, titleInset);
-            AddGrip(Edge.BottomRight, grip, titleInset);
-        }
+        if ((edges & Edges.Right) != 0) AddGrip(Edge.Right, grip, titleInset);
+        if ((edges & Edges.Left) != 0) AddGrip(Edge.Left, grip, titleInset);
+        if ((edges & Edges.Bottom) != 0) AddGrip(Edge.Bottom, grip, titleInset);
+        if ((edges & Edges.BottomRight) != 0) AddGrip(Edge.BottomRight, grip, titleInset);
+    }
+
+    /// <summary>Enables/disables all grips at once without removing them — for a window that's only
+    /// resizable in one of its states (e.g. floating but not docked). Grips have no visible chrome
+    /// except an on-hover tint, so toggling picking mode alone is enough; nothing to show/hide.</summary>
+    public void SetInteractable(bool enabled)
+    {
+        foreach (var g in _grips)
+            g.pickingMode = enabled ? PickingMode.Position : PickingMode.Ignore;
     }
 
     private void AddGrip(Edge edge, float grip, float titleInset)
@@ -113,6 +143,7 @@ public class ResizableWindow
         h.RegisterCallback<PointerUpEvent>(e => OnUp(e, h));
 
         _panel.Add(h); // added after content → renders on top of the panel body
+        _grips.Add(h);
     }
 
     // ── Scale handle ─────────────────────────────────────────────────────────

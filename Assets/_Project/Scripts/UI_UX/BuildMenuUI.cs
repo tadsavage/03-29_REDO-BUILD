@@ -112,6 +112,24 @@ public class BuildMenuUI : MonoBehaviour
 
     public bool IsPointerOverBuildMenu { get; private set; }
 
+    /// <summary>Force-reconciles <see cref="IsPointerOverBuildMenu"/> against the pointer's ACTUAL
+    /// current position, rather than trusting the enter/leave events <see cref="RegisterBarPointerGuards"/>
+    /// relies on. Those events stop firing on the bar for the duration of a pointer CAPTURE held by some
+    /// other element — and a docked card being dragged out (DevHudWindow/SystemsLogWindow's drag-to-
+    /// undock) captures the pointer on itself for exactly that reason, right while the cursor sits over
+    /// the bar. The bar never gets a chance to fire its own PointerLeaveEvent as the drag carries the
+    /// cursor away, so the flag is left stuck true — camera orbit/pan/zoom then reads "over the build
+    /// menu" forever, no matter where the cursor actually is. Callers that reparent something out from
+    /// under an active capture should call this right after, using the current real pointer position.</summary>
+    public void SyncPointerOverBuildMenu(Vector2 screenPos)
+    {
+        var bar = ActiveBar;
+        var panel = bar?.panel;
+        if (bar == null || panel == null) { IsPointerOverBuildMenu = false; return; }
+        var panelPos = RuntimePanelUtils.ScreenToPanel(panel, screenPos);
+        IsPointerOverBuildMenu = bar.worldBound.Contains(panelPos);
+    }
+
     /// <summary>The live bottom-HUD menu, so other HUD pieces can parent themselves into the same
     /// document instead of floating in one of their own (see DevHudWindow).</summary>
     public static BuildMenuUI Instance { get; private set; }
@@ -486,15 +504,15 @@ public class BuildMenuUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Fills BOTH bars' utility rows from the same config list.
+    /// Fills the BUILD bar's utility row from the config list.
     ///
-    /// The play bar's row existed in the UXML from the start and was never populated, so switching to
-    /// Play lost Delete/Move/Undo/Redo/Lower/Raise — none of which are build-only actions. Undo in
-    /// particular is the one you want most when you've just done something in the wrong mode.
-    ///
-    /// Built twice rather than reparented on mode switch: a VisualElement has exactly one parent, so
-    /// a shared row would have to be moved every time the mode flips, and any handler or hover state
-    /// mid-flight would go with it. Two independent sets, one config.
+    /// The play bar had its own duplicate copy of this row for a while (Delete/Move/Undo/Redo/Lower/
+    /// Raise aren't build-only actions, and Undo especially is handy right after a mistake) — but Tad
+    /// asked for it back OUT of Outbound/Play: these are placement-editing actions, they don't apply
+    /// once you're managing orders, and hiding them frees up real space on that bar. Reversed here by
+    /// simply not populating the play row and hiding it outright — Ctrl+Z/Ctrl+Y still work everywhere
+    /// via PlacementStateMachine's global shortcut handling, so Undo/Redo aren't actually lost, just
+    /// not a button on this bar anymore.
     /// </summary>
     private void BuildUtilityButtons()
     {
@@ -506,10 +524,14 @@ public class BuildMenuUI : MonoBehaviour
 
         PopulateUtilityRow(_utilityRow);
 
-        // Absent only if the UXML changed; warn rather than fail, since the build bar still works.
-        if (_playUtilityRow != null) PopulateUtilityRow(_playUtilityRow);
-        else Debug.LogWarning("[BuildMenuUI] PlayUtilityRow not found — the play bar will have no " +
-                              "utility buttons.");
+        // Removed from the hierarchy outright, not just display:none — the Dev HUD's drag-to-dock
+        // ghost preview (DevHudWindow.ComputeInsertIndex) walks this same bar's direct children and
+        // compares each one's worldBound.center.x; a display:none sibling still enumerates as a child
+        // but reports degenerate (0,0) bounds, which would silently skew that index math by one slot.
+        // Fully removing it avoids that class of bug rather than relying on every future bar-child
+        // consumer to remember to skip hidden ones.
+        if (_playUtilityRow != null) _playUtilityRow.RemoveFromHierarchy();
+        else Debug.LogWarning("[BuildMenuUI] PlayUtilityRow not found.");
     }
 
     private void PopulateUtilityRow(VisualElement row)

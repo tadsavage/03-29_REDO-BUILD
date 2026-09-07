@@ -183,13 +183,9 @@ public class ChevronSpawner : MonoBehaviour
         Vector3 start = CorridorMid(low.runAlongY, ovMin, low.perpMax, high.perpMin);
         Vector3 end = CorridorMid(low.runAlongY, ovMax, low.perpMax, high.perpMin);
 
-        // Deterministic primary (lower instance id) hosts the two combined chevrons.
-        // GetInstanceID() is obsolete in favor of GetEntityId(), but that returns an EntityId struct
-        // whose ordering/comparison semantics aren't confirmed equivalent here — swapping it blind
-        // risks silently changing which collection becomes primary. Suppressed, not replaced.
-#pragma warning disable CS0618
-        bool lowIsPrimary = low.collection.GetInstanceID() <= high.collection.GetInstanceID();
-#pragma warning restore CS0618
+        // Deterministic primary (lower entity id) hosts the two combined chevrons.
+        // EntityId supports <= directly, so no int conversion/hashing is needed.
+        bool lowIsPrimary = low.collection.GetEntityId() <= high.collection.GetEntityId();
         RackCollection primary = lowIsPrimary ? low.collection : high.collection;
         RackCollection secondary = lowIsPrimary ? high.collection : low.collection;
 

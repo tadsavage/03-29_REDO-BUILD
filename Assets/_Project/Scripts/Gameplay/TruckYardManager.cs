@@ -287,9 +287,28 @@ public class TruckYardManager : MonoBehaviour
         }
 
         if (dock != null)
+        {
             ctrl.AssignAndGo(dock);
+
+            // Guard shack announcement — only for the "found a door immediately" case; the no-door
+            // case gets its own announcement from TruckController.BeginWaitingForDoor once the truck
+            // actually reaches the side lot and the 1-hour countdown starts.
+            if (shipment != null)
+            {
+                int pallets = shipment.LineItems.Count; // one ShipmentLineItem per pallet (see SchedulerPanel.PalletCountForPO)
+                int critical = GameCore.Inventory.CriticalStockCheck.CountCriticalLines(
+                    shipment.LineItems.Select(li => li.SkuId));
+                string criticalPhrase = critical > 0
+                    ? $"There are {critical} critical item(s) on this load."
+                    : "Looks like replenishment stock, nothing critical.";
+                SystemsLogWindow.LogGuard(
+                    $"PO {shipment.PONumber} inbound to Door {dock.DoorNumber} — {pallets} pallet(s). {criticalPhrase}");
+            }
+        }
         else
+        {
             ctrl.AssignAndGoWaitForDoor();
+        }
 
         if (_gateStop != null)
         {

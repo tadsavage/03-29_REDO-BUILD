@@ -3,16 +3,33 @@ using UnityEngine;
 
 public static class SaveSystem
 {
-    private static string SaveFolder =>
-        Path.Combine(Application.dataPath, "_Saves");
+    /// <summary>
+    /// Gets the save folder path. Uses Application.persistentDataPath for shipping builds,
+    /// but maintains backwards compatibility with editor saves.
+    /// </summary>
+    public static string SaveFolder
+    {
+        get
+        {
+            #if UNITY_EDITOR
+                // In editor, also check legacy location for existing saves
+                string legacyPath = Path.Combine(Application.dataPath, "_Saves");
+                if (Directory.Exists(legacyPath) && Directory.GetFiles(legacyPath).Length > 0)
+                    return legacyPath;
+            #endif
+            // Use persistent data path for built players and new saves
+            return Path.Combine(Application.persistentDataPath, "Saves");
+        }
+    }
 
     public static void Save(SaveData data)
     {
-        if (!Directory.Exists(SaveFolder))
-            Directory.CreateDirectory(SaveFolder);
+        string folder = SaveFolder;
+        if (!Directory.Exists(folder))
+            Directory.CreateDirectory(folder);
 
         string json = JsonUtility.ToJson(data, true);
-        string path = Path.Combine(SaveFolder, data.saveName + ".json");
+        string path = Path.Combine(folder, data.saveName + ".json");
         File.WriteAllText(path, json);
     }
 

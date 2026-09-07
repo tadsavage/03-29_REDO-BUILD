@@ -56,7 +56,7 @@ public class Gate_Open_Close : MonoBehaviour
     {
         if (Mathf.Approximately(_current, _target)) return;
 
-        _current = Mathf.MoveTowards(_current, _target, arm_speed * Time.deltaTime);
+        _current = Mathf.MoveTowards(_current, _target, arm_speed * Time.unscaledDeltaTime);
         ApplyRotation(_current);
     }
 

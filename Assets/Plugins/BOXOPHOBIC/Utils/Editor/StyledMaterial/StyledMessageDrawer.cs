@@ -134,7 +134,7 @@ namespace Boxophobic.StyledGUI
             {
                 if (!material.HasProperty(keyword) || material.GetFloat(keyword) != value)
                 {
-                    return 0;
+                    return -2;
                 }
             }
 

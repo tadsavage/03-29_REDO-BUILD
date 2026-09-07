@@ -1,5 +1,7 @@
 ﻿// Cristian Pop - https://boxophobic.com/
 
+using NUnit.Framework;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -15,218 +17,6 @@ namespace Boxophobic.Utility
 {
     public static class BoxoUtils
     {
-        public static ProjectData GetProjectData()
-        {
-            const string minimumVersionFor2021_3 = "2021.3.35";
-            const string minimumVersionFor2022_3 = "2022.3.18";
-            const string minimumVersionFor6000_0 = "6000.0.23";
-            const string minimumVersionFor6000_1 = "6000.1.0";
-            const string minimumVersionFor6000_2 = "6000.2.0";
-            const string minimumVersionFor6000_3 = "6000.3.0";
-            const string minimumVersionFor6000_4 = "6000.4.0";
-
-            var projectData = new ProjectData();
-
-            string pipeline = "Standard";
-
-            if (GraphicsSettings.defaultRenderPipeline != null)
-            {
-                if (GraphicsSettings.defaultRenderPipeline.GetType().ToString().Contains("Universal"))
-                {
-                    pipeline = "Universal";
-                }
-
-                if (GraphicsSettings.defaultRenderPipeline.GetType().ToString().Contains("HD"))
-                {
-                    pipeline = "High Definition";
-                }
-            }
-
-            if (QualitySettings.renderPipeline != null)
-            {
-                if (QualitySettings.renderPipeline.GetType().ToString().Contains("Universal"))
-                {
-                    pipeline = "Universal";
-                }
-
-                if (QualitySettings.renderPipeline.GetType().ToString().Contains("HD"))
-                {
-                    pipeline = "High Definition";
-                }
-            }
-
-            projectData.pipeline = pipeline;
-
-            var version = Application.unityVersion;
-
-            if (version.Contains("a") || version.Contains("b"))
-            {
-                projectData.isAlphaOrBetaRelease = true;
-            }
-
-            version = version.Replace("f", "x").Replace("a", "x").Replace("b", "x");
-
-            if (pipeline != "Standard")
-            {
-                var versionSplit = version.Split(".");
-
-                var version0 = int.Parse(versionSplit[0], CultureInfo.InvariantCulture);
-                var version1 = int.Parse(versionSplit[1], CultureInfo.InvariantCulture);
-                var version2Split = versionSplit[2].Split("x");
-                var version2 = int.Parse(version2Split[0], CultureInfo.InvariantCulture);
-
-                //if (version0 == 2021)
-                //{
-                //    var minimumSplit = minimumVersionFor2021_3.Split(".");
-                //    var minimum2 = int.Parse(minimumSplit[2], CultureInfo.InvariantCulture);
-
-                //    if (version1 != 3)
-                //    {
-                //        projectData.isSupported = false;
-                //    }
-                //    else
-                //    {
-                //        if (version2 < minimum2)
-                //        {
-                //            projectData.isSupported = false;
-                //        }
-                //    }
-
-                //    projectData.package = "2021.3+";
-                //}
-
-                if (version0 == 2022)
-                {
-                    var minimumSplit = minimumVersionFor2022_3.Split(".");
-                    var minimum2 = int.Parse(minimumSplit[2], CultureInfo.InvariantCulture);
-
-                    if (version1 != 3)
-                    {
-                        projectData.isSupported = false;
-                    }
-                    else
-                    {
-                        if (version2 < minimum2)
-                        {
-                            projectData.isSupported = false;
-                        }
-                    }
-
-                    projectData.package = "2022.3+";
-                }
-
-                if (version0 == 6000)
-                {
-                    if (version1 == 0)
-                    {
-                        var minimumSplit = minimumVersionFor6000_0.Split(".");
-                        var minimum2 = int.Parse(minimumSplit[2], CultureInfo.InvariantCulture);
-
-                        if (version2 < minimum2)
-                        {
-                            projectData.isSupported = false;
-                        }
-
-                        projectData.package = "6000.0+";
-                    }
-
-                    if (version1 == 1)
-                    {
-                        var minimumSplit = minimumVersionFor6000_1.Split(".");
-                        var minimum2 = int.Parse(minimumSplit[2], CultureInfo.InvariantCulture);
-
-                        if (version2 < minimum2)
-                        {
-                            projectData.isSupported = false;
-                        }
-
-                        projectData.isTechRelease = true;
-
-                        projectData.package = "6000.1+";
-                    }
-
-                    if (version1 == 2)
-                    {
-                        var minimumSplit = minimumVersionFor6000_2.Split(".");
-                        var minimum2 = int.Parse(minimumSplit[2], CultureInfo.InvariantCulture);
-
-                        if (version2 < minimum2)
-                        {
-                            projectData.isSupported = false;
-                        }
-
-                        projectData.isTechRelease = true;
-
-                        projectData.package = "6000.2+";
-                    }
-
-                    if (version1 == 3)
-                    {
-                        var minimumSplit = minimumVersionFor6000_2.Split(".");
-                        var minimum2 = int.Parse(minimumSplit[2], CultureInfo.InvariantCulture);
-
-                        if (version2 < minimum2)
-                        {
-                            projectData.isSupported = false;
-                        }
-
-                        projectData.package = "6000.3+";
-                    }
-
-                    if (version1 == 4)
-                    {
-                        var minimumSplit = minimumVersionFor6000_2.Split(".");
-                        var minimum2 = int.Parse(minimumSplit[2], CultureInfo.InvariantCulture);
-
-                        if (version2 < minimum2)
-                        {
-                            projectData.isSupported = false;
-                        }
-
-                        projectData.isTechRelease = true;
-
-                        projectData.package = "6000.4+";
-                    }
-                }
-
-                var minimum = minimumVersionFor2021_3;
-
-                if (version0 == 2022)
-                {
-                    minimum = minimumVersionFor2022_3;
-                }
-
-                if (version0 == 6000)
-                {
-                    minimum = minimumVersionFor6000_0;
-                }
-
-                if (version0 == 6001)
-                {
-                    minimum = minimumVersionFor6000_1;
-                }
-
-                if (version0 == 6002)
-                {
-                    minimum = minimumVersionFor6000_2;
-                }
-
-                if (version0 == 6003)
-                {
-                    minimum = minimumVersionFor6000_3;
-                }
-
-                if (version0 == 6004)
-                {
-                    minimum = minimumVersionFor6000_4;
-                }
-
-                projectData.minimum = minimum;
-            }
-
-            return projectData;
-        }
-
         public static string GetProjectPipeline()
         {
             string pipeline = "Standard";
@@ -547,6 +337,35 @@ namespace Boxophobic.Utility
             }
         }
 
+        public static void SetMaterialKeyword(Material material, string property, string[] keywords, int[] indices)
+        {
+            if (material.HasFloat(property))
+            {
+                var mode = material.GetFloat(property);
+
+                for (int i = 0; i < keywords.Length; i++)
+                {
+                    if (indices[i] == mode)
+                    {
+                        material.EnableKeyword(keywords[i]);
+                    }
+                    else
+                    {
+                        material.DisableKeyword(keywords[i]);
+                    }
+                }
+            }
+            else
+            {
+                material.EnableKeyword(keywords[0]);
+
+                for (int i = 1; i < keywords.Length; i++)
+                {
+                    material.DisableKeyword(keywords[i]);
+                }
+            }
+        }
+
         public static void SetMaterialKeyword(Material material, string parent, string property, string keyword)
         {
             if (material.HasFloat(parent) && material.HasFloat(property))
@@ -586,6 +405,40 @@ namespace Boxophobic.Utility
                     for (int i = 0; i < keywords.Length; i++)
                     {
                         if (i == propertyMode)
+                        {
+                            material.EnableKeyword(keywords[i]);
+                        }
+                        else
+                        {
+                            material.DisableKeyword(keywords[i]);
+                        }
+                    }
+                }
+                else
+                {
+                    material.EnableKeyword(keywords[0]);
+
+                    for (int i = 1; i < keywords.Length; i++)
+                    {
+                        material.DisableKeyword(keywords[i]);
+                    }
+                }
+            }
+        }
+
+        public static void SetMaterialKeyword(Material material, string parent, string property, string[] keywords, int[] indices)
+        {
+            if (material.HasFloat(parent) && material.HasFloat(property))
+            {
+                var parentMode = material.GetFloat(parent);
+
+                if (parentMode > 0)
+                {
+                    var propertyMode = material.GetFloat(property);
+
+                    for (int i = 0; i < keywords.Length; i++)
+                    {
+                        if (indices[i] == propertyMode)
                         {
                             material.EnableKeyword(keywords[i]);
                         }
@@ -719,11 +572,87 @@ namespace Boxophobic.Utility
             {
                 if (parentsMode)
                 {
-                    var propertyMode = material.GetInt(property);
+                    var propertyMode = material.GetFloat(property);
 
                     for (int i = 0; i < keywords.Length; i++)
                     {
                         if (i == propertyMode)
+                        {
+                            material.EnableKeyword(keywords[i]);
+                        }
+                        else
+                        {
+                            material.DisableKeyword(keywords[i]);
+                        }
+                    }
+                }
+                else
+                {
+                    material.EnableKeyword(keywords[0]);
+
+                    for (int i = 1; i < keywords.Length; i++)
+                    {
+                        material.DisableKeyword(keywords[i]);
+                    }
+                }
+            }
+        }
+
+        public static void SetMaterialKeyword(Material material, bool allParentsOn, string[] parents, string property, string[] keywords, int[] indices)
+        {
+            bool parentsMode = false;
+
+            if (allParentsOn)
+            {
+                int enableCount = 0;
+
+                for (int i = 0; i < parents.Length; i++)
+                {
+                    var parent = parents[i];
+
+                    if (material.HasProperty(parent))
+                    {
+                        if (material.GetFloat(parent) > 0)
+                        {
+                            enableCount++;
+                        }
+                    }
+                }
+
+                if (parents.Length == enableCount)
+                {
+                    parentsMode = true;
+                }
+            }
+            else
+            {
+                float enableFloat = 0;
+
+                for (int i = 0; i < parents.Length; i++)
+                {
+                    var parent = parents[i];
+
+                    if (material.HasProperty(parent))
+                    {
+                        enableFloat += material.GetFloat(parent);
+                    }
+                }
+
+                if (enableFloat > 0)
+                {
+                    parentsMode = true;
+                }
+            }
+
+            if (material.HasFloat(property))
+            {
+                if (parentsMode)
+                {
+                    var propertyMode = material.GetFloat(property);
+
+                    for (int i = 0; i < keywords.Length; i++)
+                    {
+                        if (indices[i] == propertyMode)
                         {
                             material.EnableKeyword(keywords[i]);
                         }
@@ -1324,6 +1253,26 @@ namespace Boxophobic.Utility
             return assetPath;
         }
 
+        public static void ImportPackage(string packagePath, bool interactive)
+        {
+#if UNITY_6000_6_OR_NEWER
+            UnityEditor.AssetPackage.Package.Import(packagePath, interactive);
+#else
+            AssetDatabase.ImportPackage(packagePath, interactive);
+#endif
+        }
+
+        public static void ExportPackage(string[] exportArr, string exportPath, string exportOrg, ExportPackageOptions exportOption)
+        {
+#if UNITY_6000_6_OR_NEWER
+            var parameters = new UnityEditor.AssetPackage.ExportPackageParameters(exportArr, exportPath, exportOrg, exportOption);
+
+            UnityEditor.AssetPackage.Package.Export(parameters);
+#else
+            AssetDatabase.ExportPackage(exportArr, exportPath, exportOption);
+#endif
+        }
+
         public static void SetDefineSymbol(string symbol)
         {
 #if UNITY_2023_1_OR_NEWER
@@ -1516,6 +1465,28 @@ namespace Boxophobic.Utility
 #else
             return Application.isBatchMode ||
                    SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null;
+#endif
+        }
+
+        public static Light[] FindAllLights()
+        {
+#if UNITY_6000_6_OR_NEWER
+            return UnityEngine.Object.FindObjectsByType<Light>();
+#elif UNITY_2023_1_OR_NEWER
+            return UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+#else
+            return UnityEngine.Object.FindObjectsOfType<Light>();
+#endif
+        }
+
+        public static GameObject[] FindAllGameObjects()
+        {
+#if UNITY_6000_6_OR_NEWER
+            return UnityEngine.Object.FindObjectsByType<GameObject>();
+#elif UNITY_2023_1_OR_NEWER
+            return UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+#else
+            return UnityEngine.Object.FindObjectsOfType<GameObject>();
 #endif
         }
 

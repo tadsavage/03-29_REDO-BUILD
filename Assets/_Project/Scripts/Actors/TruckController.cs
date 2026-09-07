@@ -2856,6 +2856,15 @@ private DockSlot        _dock;
         _doorWaitPollTimer = 0f;
         if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
         _doorWaitBar.ShowWaitingForDoor(doorWaitMinutes, doorWaitMinutes);
+
+        if (AssignedShipment != null)
+        {
+            int critical = GameCore.Inventory.CriticalStockCheck.CountCriticalLines(
+                AssignedShipment.LineItems.Select(li => li.SkuId));
+            SystemsLogWindow.LogGuard(
+                $"Another angry driver in the side lot — order number {AssignedShipment.PONumber}. " +
+                $"One hour to receive {critical} critical item(s).");
+        }
     }
 
     /// <summary>Ticks the door-wait countdown (in SIM minutes, same clock the dock schedule's 2-hour
@@ -3114,6 +3123,7 @@ private DockSlot        _dock;
 
         UIToast.Show($"No door freed up for PO {AssignedShipment.PONumber} in time — the driver has " +
                      "left. Reschedule the appointment.");
+        SystemsLogWindow.LogGuard($"Order# {AssignedShipment.PONumber} left the yard due to delays — you BLEW IT!");
     }
 
     /// <summary>

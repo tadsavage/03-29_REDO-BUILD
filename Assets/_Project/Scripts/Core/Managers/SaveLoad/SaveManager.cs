@@ -33,7 +33,7 @@ namespace SaveLoadSystem
             }
             Instance = this;
 
-            saveFolderPath = Path.Combine(Application.dataPath, "_Saves");
+            saveFolderPath = SaveSystem.SaveFolder;
             if (!Directory.Exists(saveFolderPath))
                 Directory.CreateDirectory(saveFolderPath);
 

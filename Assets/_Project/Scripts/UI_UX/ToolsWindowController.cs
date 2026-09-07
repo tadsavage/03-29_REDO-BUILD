@@ -1347,7 +1347,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
                         var t = UnityEditor.AssetPreview.GetAssetPreview(prefabForPreview);
                         if (t != null)
                             casePreview.image = t;
-                        else if (UnityEditor.AssetPreview.IsLoadingAssetPreview(prefabForPreview.GetInstanceID()))
+                        else if (UnityEditor.AssetPreview.IsLoadingAssetPreview(prefabForPreview.GetEntityId()))
                             _contentSettings.schedule.Execute(PollForPreview).ExecuteLater(100);
                     }
                     _contentSettings.schedule.Execute(PollForPreview).ExecuteLater(100);

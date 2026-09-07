@@ -102,7 +102,7 @@ public class MainMenuManager : MonoBehaviour
     }
 
     private static string SettingsPath =>
-        System.IO.Path.Combine(Application.dataPath, "_Saves", "settings.json");
+        System.IO.Path.Combine(SaveSystem.SaveFolder, "settings.json");
 
     // ── State ─────────────────────────────────────────────────────────────────
     private string _playerName;
@@ -386,7 +386,7 @@ public class MainMenuManager : MonoBehaviour
 
         // Autosave card — timestamp from file if it exists, otherwise empty
         {
-            string autoPath = System.IO.Path.Combine(Application.dataPath, "_Saves", "quicksave.json");
+            string autoPath = System.IO.Path.Combine(SaveSystem.SaveFolder, "quicksave.json");
             string autoTs = "";
             long autoTicks = 0;
             if (System.IO.File.Exists(autoPath))
@@ -407,7 +407,7 @@ public class MainMenuManager : MonoBehaviour
                 var md = allMetadata[i];
                 if (md == null || string.IsNullOrEmpty(md.gameDataFileName)) continue;
 
-                string dataPath = System.IO.Path.Combine(Application.dataPath, "_Saves", md.gameDataFileName);
+                string dataPath = System.IO.Path.Combine(SaveSystem.SaveFolder, md.gameDataFileName);
                 if (!System.IO.File.Exists(dataPath)) continue;
 
                 AddSlotCard(i, md.saveName, md.timestamp, md.timestampTicks);
@@ -416,7 +416,7 @@ public class MainMenuManager : MonoBehaviour
         else
         {
             // Fallback: scan disk directly if SaveManager not available
-            string saveDir = System.IO.Path.Combine(Application.dataPath, "_Saves");
+            string saveDir = SaveSystem.SaveFolder;
             if (!System.IO.Directory.Exists(saveDir)) return;
 
             for (int i = 0; i < 8; i++)
@@ -449,7 +449,7 @@ public class MainMenuManager : MonoBehaviour
         else
         {
             // Fallback: construct path directly (MainMenu scene has no SaveManager)
-            string saveDir = System.IO.Path.Combine(Application.dataPath, "_Saves");
+            string saveDir = SaveSystem.SaveFolder;
             thumbPath = System.IO.Path.Combine(saveDir,
                 slotIndex < 0 ? "quicksave_thumb.png" : $"slot_{slotIndex}_thumb.png");
         }
@@ -736,7 +736,7 @@ public class MainMenuManager : MonoBehaviour
             gameVolume  = _gameVolumeSlider  != null ? _gameVolumeSlider.value  : 1f,
             musicVolume = _musicVolumeSlider != null ? _musicVolumeSlider.value : 0.7f,
         };
-        string dir = System.IO.Path.Combine(Application.dataPath, "_Saves");
+        string dir = SaveSystem.SaveFolder;
         if (!System.IO.Directory.Exists(dir))
             System.IO.Directory.CreateDirectory(dir);
         System.IO.File.WriteAllText(SettingsPath, JsonUtility.ToJson(data, true));
