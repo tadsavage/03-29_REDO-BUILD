@@ -1154,6 +1154,16 @@ namespace GameCore.Labor
 
             var data = inv.RegisterPhysicalPallet(cell, skuId, quantity);
 
+            // BUG FIX: ShipmentReceivingCoordinator.LinkPalletToShipment was never called anywhere in
+            // the codebase, so its _palletToShipmentMap was permanently empty and OnPalletReceived's
+            // lookup always missed — every PO's ReceivedQuantity stayed 0 forever, no matter how much
+            // actually got received, which is what made a fully-delivered load's Scheduler tooltip read
+            // as 100% short-shipped. This is the one place a cargo pallet's PalletId is freshly minted
+            // (RegisterPhysicalPallet, just above) with the source truck (and its AssignedShipment)
+            // still in scope, so it's the correct place to finally make that link.
+            if (truck.AssignedShipment != null && ServiceLocator.TryGet(out ShipmentReceivingCoordinator receivingCoordinator))
+                receivingCoordinator.LinkPalletToShipment(data.PalletId, truck.AssignedShipment);
+
             // LoadId is a "license plate" assigned AT RECEIVING (ReceiverReceivingWorkflow), not here —
             // this pallet is still ghosted/unreceived the moment it lands in the lane.
             PalletMasterLink.Attach(pallet.gameObject, data.PalletId);

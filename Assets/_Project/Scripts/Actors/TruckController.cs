@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using GameCore.Services;
 
@@ -57,6 +58,27 @@ public class TruckController : MonoBehaviour
         Exiting,
         ToDoorWait,        // Xform 1 → the door-wait park spot (no free door at arrival)
         WaitingForDoor,    // parked at the wait spot, polling for a door / counting down
+        // SideLot (2026-09): superseded the very next session by the 3-state Entry/Anchor version
+        // below once the prefab grew a dedicated SideLotEntry marker — kept inert, not deleted, per
+        // this file's own retired-state convention (an old save's stored ordinal never resolves to
+        // the wrong state).
+        ToSideLot,
+        ReversingOutOfSideLot,
+
+        ToSideLotEntry,          // straight drive from wherever to the SideLot's Entry marker
+                                 // (further out from the fence than the Anchor) — no curve, no
+                                 // dedicated facing step; DriveToward's normal turn-while-moving is
+                                 // all it gets, per Tad's "don't worry about rotating for now"
+        FacingSideLotAnchor,     // at Entry: rotate in place to face the Anchor — squares the truck
+                                 // up perpendicular to the barrier ahead, like backing a real trailer
+                                 // into a straight lot, before pulling forward
+        ToSideLotAnchor,         // straight drive forward from Entry into the Anchor — already
+                                 // facing it correctly courtesy of FacingSideLotAnchor
+        ReversingToSideLotEntry, // a door freed up — straight-line reverse from the Anchor back to
+                                 // Entry (transform.position translation only, no rotation change,
+                                 // same idiom as ReversingToTruckNavPoint3), then hands off to
+                                 // FacingTruckNavPoint0 with the assigned dock's own TruckNavPoint0
+                                 // as target — skips re-entering through the gate entirely
 
         // Backing-maneuver rebuild (2026-09), built one leg at a time. DevCheckpoint_GateEnterNoTurn
         // was step 1's dead-end (stop at GateEnterNoTurn); step 2 moved the dead-end further out to
@@ -132,7 +154,17 @@ public class TruckController : MonoBehaviour
         // reached, before FacingTruckNavPoint3 takes over cab control for its own purpose (looking
         // at TruckNavPoint3) — same "drive leg, then a dedicated ease-the-cab state" shape as
         // StraighteningAtNavPoint4/StraighteningAtNavPoint5 elsewhere in this chain.
-        StraighteningAtNavPoint2
+        StraighteningAtNavPoint2,
+
+        // Step 16 (2026-09-06, Tad's spec): FacingTruckNavPoint1 used to finish by instantly
+        // snapping the root's rotation to match the cab's now-fixed heading — confirmed-live as a
+        // jarring 1-frame teleport of the whole trailer. This state replaces that snap: the
+        // tractor's world heading is locked (it does NOT rotate again), the rig is towed forward
+        // at the regular driveSpeed along that fixed heading, and the root/trailer gradually
+        // RotateTowards-catches up to it — the cab's local rotation is recomputed every frame so its WORLD heading stays
+        // pinned even as the root rotates underneath it. Hands off to ToTruckNavPoint1 once the
+        // trailer's rotation is close enough to match.
+        TrailerAligningToNavPoint1
     }
 
     [Header("Backing maneuver (2026-09 rebuild)")]
@@ -144,6 +176,8 @@ public class TruckController : MonoBehaviour
     [SerializeField] private float slowReverseDistance = 2f;
     [Tooltip("Meters/second the body moves during ReversingStraightSlow — deliberately much slower than driveSpeed so it reads as a slow, careful backing move.")]
     [SerializeField] private float slowReverseSpeed = 1.5f;
+    [Tooltip("Meters/second while pulling forward from the SideLot's Entry marker into its Anchor (ToSideLotAnchor) — slower than driveSpeed so the final rotate-and-line-up reads as a careful pull-in, not a normal drive.")]
+    [SerializeField] private float sideLotPullInSpeed = 3f;
     [Tooltip("Degrees the tractor mesh (cosmetic only) is turned to, locally, relative to the trailer, while ReversingStraightSlow/ReversingToTruckNavPoint5 are underway.")]
     [SerializeField] private float slowReverseCabAngle = 10f;
     [Tooltip("Degrees the tractor mesh (cosmetic only) holds while driving from TruckNavPoint2 to TruckNavPoint3 — negative reads as countersteering into the upcoming line-up.")]
@@ -157,6 +191,9 @@ public class TruckController : MonoBehaviour
     [SerializeField] private float nav1ApproachCabAngle = -12.5f;
     [Tooltip("Meters of remaining distance to TruckNavPoint1 at which the tractor starts easing toward nav1ApproachCabAngle instead of holding rest.")]
     [SerializeField] private float nav1CabEngageDistance = 4f;
+
+    [Tooltip("Degrees/second the trailer (root) rotates to catch up with the tractor's fixed heading during TrailerAligningToNavPoint1. Slower than driveTurnSpeed so it reads as being towed into alignment, not snapping.")]
+    [SerializeField] private float trailerCatchUpTurnSpeed = 60f;
 
     [Tooltip("Degrees the tractor mesh (cosmetic only) cranks out to, locally, while backing around TruckPivot1 toward TruckNavPoint5 (Tad's spec: +20°).")]
     [SerializeField] private float reverseArcCabAngle = 20f;
@@ -316,6 +353,19 @@ public class TruckController : MonoBehaviour
     /// productively waiting — e.g. for its lane to reach the load-start pallet threshold.</summary>
     public void KeepDockAlive() => _dockedTime = Mathf.Min(_dockedTime, offloadFallbackTimeout - 5f);
 
+    /// <summary>Recovery hook for a truck caught holding an invalid/duplicate dock reference (e.g. a
+    /// save/restore mismatch that let two trucks end up both pointed at the same door — see the
+    /// RestoreFromSnapshot fix above). Deliberately does NOT call _dock.Release() — if another truck
+    /// legitimately holds that DockSlot, this truck's own claim was never valid to begin with, and
+    /// releasing it would wrongly free the door out from under whoever actually owns it. Just forgets
+    /// the reference and re-runs the normal "no free door" decision (SideLot, then the generic wait
+    /// point, then give up) from wherever it's currently sitting.</summary>
+    public void RerouteAwayFromDock()
+    {
+        _dock = null;
+        BeginDoorWait();
+    }
+
     // ── Persistence read-only state ──────────────────────────────────────────────
 
     /// <summary>True if this truck is in any departure/exit state and should NOT be saved.</summary>
@@ -386,6 +436,21 @@ private DockSlot        _dock;
     private long  _doorWaitStartSimMinute = -1;
     private float _doorWaitPollTimer;
     private TruckDoorWaitBar _doorWaitBar;
+
+    /// <summary>Set while this truck is waiting in a SideLotController's claimed spot instead of the
+    /// generic _doorWaitPoint — null the rest of the time. Drives the UpdateWaitingForDoor branch that
+    /// reverses back out to the gate instead of curving straight to ApproachPoint(), and the "PARKED ·
+    /// Side Lot" status shown in PurchasingPanel/SchedulerPanel via IsInSideLot below.</summary>
+    private SideLotController _sideLot;
+    /// <summary>The specific parking Slot (one of possibly several on _sideLot) this truck claimed —
+    /// see SideLotController.Slot. Null whenever _sideLot is null.</summary>
+    private SideLotController.Slot _sideLotSlot;
+    public bool IsInSideLot => _sideLot != null;
+
+    // World heading the tractor locked onto when it finished its cosmetic swivel in
+    // FacingTruckNavPoint1 — held fixed for the whole of TrailerAligningToNavPoint1 while the
+    // trailer (root) rotates to catch up to it. See that state's enum comment.
+    private Quaternion  _lockedTractorHeadingNav1;
 
     private float       _groundY;
     private Vector3     _currentTarget;
@@ -908,6 +973,27 @@ private DockSlot        _dock;
         {
             _dock = dock;
             _dock.Claim();
+        }
+        else if (snap.assignedDoorNumber > 0 &&
+                 restoredState != TruckState.Idle && restoredState != TruckState.Queuing &&
+                 restoredState != TruckState.GuardCheck)
+        {
+            // BUG FIX: the saved door either no longer exists or was already claimed by another
+            // truck that restored first (e.g. a save written mid-inconsistency, or two trucks
+            // recorded against the same door). Silently leaving _dock null here while resuming a
+            // dock-dependent state (ToBackup/Docked/any backing leg) is what produced a truck
+            // sitting dead in the yard forever — DockPositionFor(_dock)/ApproachPoint() etc. all
+            // NRE on a null dock, throwing every frame in Update() with the state never advancing.
+            // Don't resume the saved state at all in that case: re-run the exact same "no free
+            // door" decision a live truck makes instead (SideLot, then the generic wait point,
+            // then give up) from wherever it was left sitting.
+            Debug.LogWarning($"[TruckController.RestoreFromSnapshot] {name}: saved door " +
+                $"{snap.assignedDoorNumber} unavailable on restore (state was {restoredState}) — " +
+                "routing to BeginDoorWait() instead of resuming a dock-dependent state with no dock.");
+            _groundY = snap.worldPosition.y;
+            transform.SetPositionAndRotation(snap.worldPosition, snap.worldRotation);
+            BeginDoorWait();
+            return;
         }
 
         // ── Transform ─────────────────────────────────────────────────────────────
@@ -1433,6 +1519,19 @@ private DockSlot        _dock;
                     // same trigger volume.
                     _gateArm?.LowerArm();
 
+                    // BUG FIX: a truck sent in via AssignAndGoWaitForDoor (no free door at spawn, see
+                    // that method) still rolls through this same no-turn gate leg — GuardClearedToEnter
+                    // routes EVERY truck through ToEnterNoTurn first, dock-assigned or not — but with
+                    // _dock null, FindDockWaypoint below always returns null too, so this used to fall
+                    // through to the "no TruckNavPoint0" dead-end and the truck sat stuck at the gate
+                    // forever instead of parking at the door-wait spot. Route dock-less trucks to
+                    // BeginDoorWait() here instead of ever attempting dock-relative navigation.
+                    if (_dock == null)
+                    {
+                        BeginDoorWait();
+                        break;
+                    }
+
                     var nav0 = FindDockWaypoint("TruckNavPoint0");
                     if (nav0 != null)
                     {
@@ -1443,8 +1542,6 @@ private DockSlot        _dock;
                     {
                         Debug.LogWarning("[TruckController] Dock has no TruckNavPoint0 (BackInSystem child) — stopping at the gate instead.");
                         _state = TruckState.DevCheckpoint_GateEnterNoTurn;
-                        Time.timeScale = 0f;
-                        UIToast.Show("Ok, done for now — what's next???");
                     }
                 }
                 break;
@@ -1468,6 +1565,15 @@ private DockSlot        _dock;
                         SetTarget(TruckState.ToTruckNavPoint0, _currentTarget);
                     }
                 }
+                else
+                {
+                    // Same degenerate-vector bug as FacingTruckNavPoint1 (see its fix) — here it spins
+                    // the WHOLE BODY instead of just the cab, which reads as the truck "doing laps" in
+                    // place. Root already sits at (or effectively at) TruckNavPoint0's XZ position —
+                    // nothing meaningful to face — so just move on instead of feeding LookRotation a
+                    // near-zero vector.
+                    SetTarget(TruckState.ToTruckNavPoint0, _currentTarget);
+                }
                 break;
             }
 
@@ -1480,25 +1586,17 @@ private DockSlot        _dock;
 
             case TruckState.FacingTruckNavPoint1:
             {
-                // Cosmetic ONLY (Tad's spec) — the TRACTOR turns to face TruckNavPoint1, not the
-                // root/trailer, which stays put for this whole state (same "parked, cab looks toward
-                // the next point" shape as FacingTruckNavPoint3/FacingTruckNavPoint4 below). Turns via
-                // the natural/shortest direction toward the target (2026-09-05: dropped the earlier
-                // hardcoded counterclockwise-only stepping — that was a hard requirement for a
-                // DIFFERENT leg, ReversingArcAroundPivot1, and forcing it here too meant a
-                // mirrored/FlipYardSide door whose short way happens to be clockwise would spin the
-                // tractor the long way around instead). Same RotateTowards pattern as
-                // FacingTruckNavPoint3/FacingTruckNavPoint4 below.
-                // ToTruckNavPoint1 then drives normally (DriveToward turns the root itself while it
-                // moves) and eases the cab's now-large local offset back down to 0° over the course
-                // of that drive — the "rotate it back to 0 while moving forward" half of the spec.
+                // Cosmetic ONLY (Tad's spec) — the TRACTOR turns to face TruckNavPoint1, root parked
+                // at TruckNavPoint0 for the duration. Once it's done, ToTruckNavPoint1 snaps the ROOT
+                // to this same heading and drives a pure STRAIGHT LINE — no gradual turn-while-moving
+                // (that arced the whole truck out wide instead of a clean straight shot, which is what
+                // read as "weird maneuvering"/endlessly re-attempting the backing leg — Tad's explicit
+                // call to remove it).
                 var nav1 = FindDockWaypoint("TruckNavPoint1");
                 if (nav1 == null)
                 {
                     Debug.LogWarning("[TruckController] Dock has no TruckNavPoint1 (BackInSystem child) — stopping here instead.");
                     _state = TruckState.DevCheckpoint_FacingNav1;
-                    Time.timeScale = 0f;
-                    UIToast.Show("Ok, done for now — what's next???");
                     break;
                 }
 
@@ -1524,8 +1622,25 @@ private DockSlot        _dock;
                     if (Quaternion.Angle(_cab.localRotation, desiredLocal) <= 0.5f)
                     {
                         _cab.localRotation = desiredLocal;
-                        SetTarget(TruckState.ToTruckNavPoint1, nav1.position);
+                        // BUG FIX: used to snap transform.rotation to desiredWorld here — confirmed
+                        // live as a jarring 1-frame teleport of the whole trailer. The tractor's
+                        // heading is done rotating and must not move again, but the trailer/root
+                        // needs to swing into alignment gradually while being towed forward, not
+                        // snap. TrailerAligningToNavPoint1 owns that transition.
+                        _lockedTractorHeadingNav1 = desiredWorld;
+                        _currentTarget = nav1.position;
+                        _state = TruckState.TrailerAligningToNavPoint1;
                     }
+                }
+                else
+                {
+                    // BUG FIX: root already sits at (or effectively at) TruckNavPoint1's XZ position —
+                    // confirmed live as the cause of a truck "circling repeatedly" forever in this
+                    // state. There's no meaningful direction to compute a facing rotation from here,
+                    // and feeding a near-zero-length vector into LookRotation is numerically unstable
+                    // (tiny per-frame float noise flips the result wildly, reading as the tractor
+                    // spinning in place instead of settling). Nothing to face — just move on.
+                    SetTarget(TruckState.ToTruckNavPoint1, nav1.position);
                 }
                 break;
             }
@@ -1534,19 +1649,78 @@ private DockSlot        _dock;
                 // Retired dead-end — see enum comment. Nothing advances out of this automatically.
                 break;
 
+            case TruckState.TrailerAligningToNavPoint1:
+            {
+                // The tractor's world heading (_lockedTractorHeadingNav1) is fixed — it does NOT
+                // rotate again in this state, per Tad's spec ("its DONE ROTATING, keep the rotation
+                // fixed... while the trailer rotates to match up with it"). The trailer (this
+                // transform, the actual root) is what's still catching up: towed forward at the
+                // regular driveSpeed along that fixed heading while its own rotation gradually
+                // swings into line with it — the visual read is the trailer swinging into alignment behind a tractor
+                // that's already pointed the right way, not an instant snap.
+                //
+                // BUG FIX: this state used to only hand off once the trailer's ROTATION caught up
+                // to the locked heading, with no distance check of its own. Confirmed live — on a
+                // short nav0→nav1 leg, moving forward the whole rotation-catch-up duration overshot
+                // TruckNavPoint1 before the rotation ever finished; ToTruckNavPoint1 then inherited
+                // a target that was already behind the truck and, having no way to reverse course,
+                // drove on forever off the map. Distance-to-target is now checked exactly like
+                // ToTruckNavPoint1 checks it, and wins over the rotation-catch-up check if the rig
+                // reaches the target first.
+                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
+                Vector3 toTarget = flat - transform.position;
+                toTarget.y = 0f;
+                if (toTarget.magnitude < arrivedThreshold)
+                {
+                    transform.position = flat;
+                    transform.rotation = _lockedTractorHeadingNav1;
+                    if (_cab != null) _cab.localRotation = _cabRest;
+                    SetTarget(TruckState.ToTruckNavPoint1, _currentTarget);
+                    break;
+                }
+
+                transform.position += (_lockedTractorHeadingNav1 * Vector3.forward) * driveSpeed * Time.deltaTime;
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, _lockedTractorHeadingNav1, trailerCatchUpTurnSpeed * Time.deltaTime);
+
+                // Cab's LOCAL rotation is recomputed every frame from the root's current (still
+                // catching-up) rotation so the cab's WORLD rotation stays pinned to
+                // _lockedTractorHeadingNav1 the whole time — the tractor visually doesn't move at
+                // all while the trailer swings underneath it.
+                if (_cab != null)
+                    _cab.localRotation = Quaternion.Inverse(transform.rotation) * _lockedTractorHeadingNav1;
+
+                if (Quaternion.Angle(transform.rotation, _lockedTractorHeadingNav1) <= 1f)
+                {
+                    transform.rotation = _lockedTractorHeadingNav1;
+                    if (_cab != null) _cab.localRotation = _cabRest;
+                    SetTarget(TruckState.ToTruckNavPoint1, _currentTarget);
+                }
+                break;
+            }
+
             case TruckState.ToTruckNavPoint1:
             {
-                // Already facing it (FacingTruckNavPoint1 just finished turning) — straight drive,
-                // no more turning needed on the root. Tractor mesh (cosmetic only): holds rest until
-                // within nav1CabEngageDistance of TruckNavPoint1, then eases toward
-                // nav1ApproachCabAngle so it's already countersteering by the time the Nav1→Nav2 arc
-                // begins (Tad's spec) — same "hold, then ease near arrival" shape as
-                // nav3ApproachCabAngle's leg, just inverted (rest→angle instead of angle→rest).
-                bool arrived = DriveToward(_currentTarget);
+                // Pure straight-line translation — root was already snapped to face TruckNavPoint1 in
+                // FacingTruckNavPoint1 above, so no rotation happens here at all (see that state's
+                // comment for why: DriveToward's gradual turn-while-moving swung the whole truck out
+                // in a wide arc for this leg instead of a clean straight shot).
+                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
+                Vector3 toTarget = flat - transform.position;
+                toTarget.y = 0f;
+                bool arrived = toTarget.magnitude < arrivedThreshold;
 
+                if (arrived)
+                    transform.position = flat;
+                else
+                    transform.position += transform.forward * driveSpeed * Time.deltaTime;
+
+                // Tractor mesh (cosmetic only): holds rest until within nav1CabEngageDistance of
+                // TruckNavPoint1, then eases toward nav1ApproachCabAngle so it's already
+                // countersteering by the time the Nav1→Nav2 arc begins (Tad's spec) — same "hold,
+                // then ease near arrival" shape as nav3ApproachCabAngle's leg, just inverted
+                // (rest→angle instead of angle→rest).
                 if (_cab != null)
                 {
-                    Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
                     float distRemaining = Vector3.Distance(
                         new Vector3(transform.position.x, 0f, transform.position.z),
                         new Vector3(flat.x, 0f, flat.z));
@@ -1568,8 +1742,6 @@ private DockSlot        _dock;
                     {
                         Debug.LogWarning("[TruckController] Dock has no TruckNavPoint2 (BackInSystem child) — stopping here instead.");
                         _state = TruckState.DevCheckpoint_AtNav1;
-                        Time.timeScale = 0f;
-                        UIToast.Show("Ok, done for now — what's next???");
                     }
                 }
                 break;
@@ -1620,8 +1792,6 @@ private DockSlot        _dock;
                 {
                     Debug.LogWarning("[TruckController] Dock has no TruckNavPoint3 (BackInSystem child) — stopping here instead.");
                     _state = TruckState.DevCheckpoint_TractorFacingNav3;
-                    Time.timeScale = 0f;
-                    UIToast.Show("Ok, done for now — what's next???");
                     break;
                 }
 
@@ -1638,6 +1808,13 @@ private DockSlot        _dock;
                         _cab.localRotation = desiredLocal;
                         BeginDriveToTruckNavPoint3();
                     }
+                }
+                else
+                {
+                    // Same degenerate-vector bug as FacingTruckNavPoint1 — root already sits at (or
+                    // effectively at) TruckNavPoint3's XZ, nothing meaningful to face. Move on instead
+                    // of feeding LookRotation a near-zero vector.
+                    BeginDriveToTruckNavPoint3();
                 }
                 break;
             }
@@ -1687,8 +1864,6 @@ private DockSlot        _dock;
                 {
                     Debug.LogWarning("[TruckController] Dock has no TruckNavPoint4 (BackInSystem child) — stopping here instead.");
                     _state = TruckState.DevCheckpoint_TractorFacingNav4;
-                    Time.timeScale = 0f;
-                    UIToast.Show("Ok, done for now — what's next???");
                     break;
                 }
 
@@ -1705,6 +1880,13 @@ private DockSlot        _dock;
                         _cab.localRotation = desiredLocal;
                         BeginDriveToTruckNavPoint4();
                     }
+                }
+                else
+                {
+                    // Same degenerate-vector bug as FacingTruckNavPoint1 — root already sits at (or
+                    // effectively at) TruckNavPoint4's XZ, nothing meaningful to face. Move on instead
+                    // of feeding LookRotation a near-zero vector.
+                    BeginDriveToTruckNavPoint4();
                 }
                 break;
             }
@@ -1840,8 +2022,6 @@ private DockSlot        _dock;
                     transform.rotation = desiredRoot;
                     if (_cab != null) _cab.localRotation = _cabRest;
                     _state = TruckState.DevCheckpoint_AtNavPoint5;
-                    Time.timeScale = 0f;
-                    UIToast.Show("Almost there!");
                 }
                 break;
             }
@@ -1872,8 +2052,6 @@ private DockSlot        _dock;
                 {
                     transform.position = flat;
                     _state = TruckState.DevCheckpoint_AtNavPoint3Reverse;
-                    Time.timeScale = 0f;
-                    UIToast.Show("Ok, done for now — what's next???");
                     break;
                 }
 
@@ -1900,9 +2078,174 @@ private DockSlot        _dock;
                 }
                 break;
 
+            case TruckState.ToSideLot:
+                // Same curve-in/snap idiom as ToDoorWait just above, aimed at the SideLotController's
+                // anchor instead — "pulling in from the side that doesn't have the Jersey barrier" is
+                // whatever the anchor's own authored rotation already encodes, same as _doorWaitPoint.
+                if (DriveToward(_currentTarget))
+                {
+                    if (_sideLotSlot != null && _sideLotSlot.Anchor != null) transform.rotation = _sideLotSlot.Anchor.rotation;
+                    BeginWaitingForDoor();
+                }
+                break;
+
+            case TruckState.ToSideLotEntry:
+                // Straight drive to the Entry marker — no curve, DriveToward's normal turn-while-
+                // moving is all the rotation it gets on this leg (per Tad's explicit call, "don't
+                // worry about rotating for now"). Arrival hands off to FacingSideLotAnchor instead of
+                // pulling straight into the Anchor.
+                if (DriveToward(_currentTarget))
+                {
+                    if (_sideLotSlot != null && _sideLotSlot.Anchor != null)
+                    {
+                        _currentTarget = _sideLotSlot.Anchor.position;
+                        _state = TruckState.FacingSideLotAnchor;
+                    }
+                    else
+                    {
+                        // No Anchor somehow (shouldn't happen — BeginDoorWait already required one to
+                        // pick this SideLot) — treat the Entry point itself as good enough to wait at.
+                        BeginWaitingForDoor();
+                    }
+                }
+                break;
+
+            case TruckState.FacingSideLotAnchor:
+            {
+                // Rotate in place to square up perpendicular to the barrier ahead — real trailers
+                // don't drift-turn into a straight lot, they line up first. Same rotate-in-place idiom
+                // as FacingTruckNavPoint0 above.
+                Vector3 toAnchor = _currentTarget - transform.position;
+                toAnchor.y = 0f;
+                if (toAnchor.sqrMagnitude > 0.0001f)
+                {
+                    Quaternion desired = Quaternion.LookRotation(toAnchor.normalized);
+                    transform.rotation = Quaternion.RotateTowards(transform.rotation, desired, driveTurnSpeed * Time.deltaTime);
+
+                    if (Quaternion.Angle(transform.rotation, desired) <= 0.5f)
+                    {
+                        transform.rotation = desired;
+                        SetTarget(TruckState.ToSideLotAnchor, _currentTarget);
+                    }
+                }
+                else
+                {
+                    // Same degenerate-vector bug as FacingTruckNavPoint1 — Entry and Anchor happening
+                    // to sit at the same XZ would spin the whole body forever. Nothing meaningful to
+                    // face — just move on.
+                    SetTarget(TruckState.ToSideLotAnchor, _currentTarget);
+                }
+                break;
+            }
+
+            case TruckState.ToSideLotAnchor:
+            {
+                // Straight pull forward into the Anchor — already squared up by FacingSideLotAnchor,
+                // so this is a plain forward translation at sideLotPullInSpeed (slower than driveSpeed,
+                // reads as a careful final pull-in), no further rotation needed.
+                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
+                Vector3 toTarget = flat - transform.position;
+                toTarget.y = 0f;
+
+                if (toTarget.magnitude < arrivedThreshold)
+                {
+                    transform.position = flat;
+                    if (_sideLotSlot != null && _sideLotSlot.Anchor != null) transform.rotation = _sideLotSlot.Anchor.rotation;
+                    BeginWaitingForDoor();
+                    break;
+                }
+
+                transform.position += transform.forward * sideLotPullInSpeed * Time.deltaTime;
+                break;
+            }
+
             case TruckState.WaitingForDoor:
                 UpdateWaitingForDoor();
                 break;
+
+            case TruckState.ReversingOutOfSideLot:
+            {
+                // Straight-line reverse back to GateEnterNoTurn — same shape as ReversingToTruckNavPoint3
+                // (translate toward the target, root rotation untouched; DriveToward's own rotate-toward-
+                // heading in the very next state re-aligns it once it starts driving forward again).
+                // Same "who's calling" branch as ReversingToSideLotEntry above: a claimed _dock means a
+                // door freed up and this reverse is on its way back IN to grab it; no _dock means this
+                // is a give-up timeout and the truck needs to actually leave, not re-enter the gate.
+                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
+                Vector3 toTarget = flat - transform.position;
+                toTarget.y = 0f;
+
+                if (toTarget.magnitude < arrivedThreshold)
+                {
+                    transform.position = flat;
+                    _sideLotSlot?.Release();
+                    _sideLotSlot = null;
+                    _sideLot = null;
+
+                    if (_dock == null)
+                    {
+                        BeginDeparture(succeeded: false);
+                        break;
+                    }
+
+                    if (_gateEnterNoTurn.HasValue)
+                        SetTarget(TruckState.ToEnterNoTurn, _gateEnterNoTurn.Value);
+                    break;
+                }
+
+                Vector3 step = toTarget.normalized * slowReverseSpeed * Time.deltaTime;
+                if (step.magnitude > toTarget.magnitude) step = toTarget;
+                transform.position += step;
+                break;
+            }
+
+            case TruckState.ReversingToSideLotEntry:
+            {
+                // "Use a transform move backup until the tractor is lined up with the entry" — straight-
+                // line reverse translation (root rotation untouched) from the Anchor back to Entry, same
+                // idiom as ReversingOutOfSideLot/ReversingToTruckNavPoint3 above. On arrival, this state
+                // serves two different callers that both back out to the same Entry marker: a door that
+                // freed up (UpdateWaitingForDoor claims _dock BEFORE starting the reverse) drives
+                // straight onto that door's TruckNavPoint0; a give-up timeout (_dock stays null — never
+                // claimed one) instead runs the normal give-up departure from here, exactly as if it had
+                // just started that departure from a stand-still.
+                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
+                Vector3 toTarget = flat - transform.position;
+                toTarget.y = 0f;
+
+                if (toTarget.magnitude < arrivedThreshold)
+                {
+                    transform.position = flat;
+                    _sideLotSlot?.Release();
+                    _sideLotSlot = null;
+                    _sideLot = null;
+
+                    if (_dock == null)
+                    {
+                        BeginDeparture(succeeded: false);
+                        break;
+                    }
+
+                    var nav0 = FindDockWaypoint("TruckNavPoint0");
+                    if (nav0 != null)
+                    {
+                        _currentTarget = nav0.position;
+                        _state = TruckState.FacingTruckNavPoint0;
+                    }
+                    else if (_gateEnterNoTurn.HasValue)
+                    {
+                        // Fallback: this door has no TruckNavPoint0 marker — re-enter through the gate
+                        // like the old ReversingOutOfSideLot path did, rather than getting stuck.
+                        SetTarget(TruckState.ToEnterNoTurn, _gateEnterNoTurn.Value);
+                    }
+                    break;
+                }
+
+                Vector3 step = toTarget.normalized * slowReverseSpeed * Time.deltaTime;
+                if (step.magnitude > toTarget.magnitude) step = toTarget;
+                transform.position += step;
+                break;
+            }
 
             case TruckState.ToApproach:
                 // Xform 2 — straight, no stop, then straight on to the door itself. REVERTED
@@ -2024,7 +2367,7 @@ private DockSlot        _dock;
         // (holds nav1ApproachCabAngle through the arc), and StraighteningAtNavPoint2 (eases back to
         // rest) likewise.
         if (_state == TruckState.FacingTruckNavPoint3 || _state == TruckState.DevCheckpoint_TractorFacingNav3 ||
-            _state == TruckState.FacingTruckNavPoint1 ||
+            _state == TruckState.FacingTruckNavPoint1 || _state == TruckState.TrailerAligningToNavPoint1 ||
             _state == TruckState.ToTruckNavPoint1 || _state == TruckState.ToTruckNavPoint2 ||
             _state == TruckState.StraighteningAtNavPoint2 ||
             _state == TruckState.ToTruckNavPoint3 ||
@@ -2101,6 +2444,19 @@ private DockSlot        _dock;
         Quaternion desiredLinear = Quaternion.LookRotation(toTarget.normalized);
         transform.rotation = Quaternion.RotateTowards(
             transform.rotation, desiredLinear, driveTurnSpeed * Time.deltaTime);
+
+        // BUG FIX: confirmed live — a truck circling Door 2 forever instead of ever docking. This
+        // pursuit model (rotate a bit toward the target, then always drive forward along the
+        // CURRENT heading) has an inherent minimum turning radius of driveSpeed / turnRate. Any
+        // caller whose target can end up close AND badly misaligned (e.g. ToBackup's straight-line
+        // fallback, reached by a generic-wait truck resuming toward a door from whatever heading it
+        // happened to be idling at) can have that target sit inside the achievable turning radius —
+        // forward motion then can never close the remaining distance, so the truck just orbits it
+        // forever. Holding position while sharply misaligned removes the failure mode entirely: a
+        // stationary rotation has no minimum radius, so the heading always converges; only once
+        // roughly aligned does it proceed to drive. Well-aligned legs (the overwhelming majority of
+        // DriveToward's callers) never hit this branch, so their behavior is unchanged.
+        if (Quaternion.Angle(transform.rotation, desiredLinear) > 60f) return false;
 
         // Drive along the truck's OWN heading, not straight at the target. A straight-line leg
         // whose start heading doesn't already point at its target (e.g. the queue lane feeding
@@ -2421,6 +2777,16 @@ private DockSlot        _dock;
         if (!_isOutbound && AssignedShipment != null)
             AssignedShipment.Status = GameCore.Inventory.ShipmentData.ShipmentStatus.Receiving;
 
+        // Status banner starts the moment the truck clears the gate — green "Heading to Door X" if a
+        // door is already assigned (set via AssignAndGo before spawn/gate-clear), red "Heading to Side
+        // Lot" otherwise. Inbound only; outbound trucks don't run the door-wait flow at all.
+        if (!_isOutbound)
+        {
+            if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
+            if (_dock != null) _doorWaitBar.ShowHeadingToDoor(_dock.DoorNumber);
+            else _doorWaitBar.ShowHeadingToSideLot();
+        }
+
         // Xform 1: roll through the gate without stopping (straight leg).
         if (_gateEnterNoTurn.HasValue)
             SetTarget(TruckState.ToEnterNoTurn, _gateEnterNoTurn.Value);
@@ -2430,15 +2796,51 @@ private DockSlot        _dock;
             BeginDoorWait();
     }
 
-    /// <summary>Routes a truck with no free door toward the yard's wait spot. Missing the scene
-    /// waypoint (never placed, or this yard has none configured) degrades to the OLD behavior — give up
-    /// immediately — rather than the truck sitting frozen mid-yard with nowhere to go.</summary>
+    /// <summary>Routes a truck with no free door toward somewhere to wait. Tries an unoccupied
+    /// SideLotController first (claimed immediately — before the truck physically arrives — so two
+    /// trucks clearing the gate close together can't both target the same spot), then falls back to
+    /// the generic _doorWaitPoint, then to the OLD behavior — give up immediately — if neither is
+    /// available, rather than the truck sitting frozen mid-yard with nowhere to go. A second truck
+    /// needing to wait while the lot is already occupied deliberately falls all the way through to
+    /// give-up rather than queueing for the lot — no gate-side queueing exists for it yet.</summary>
     private void BeginDoorWait()
     {
+        // BUG FIX (Tad's spec): used to treat a whole SideLotController as one shared spot
+        // (!l.IsOccupied), so only the very first truck ever routed here — every SideLot actually has
+        // several independent parking slots (one per Jersey_barrier segment), so this now searches
+        // every lot for its own first free Slot instead of asking the lot itself if it's "occupied".
+        SideLotController.Slot slot = null;
+        SideLotController lot = null;
+        foreach (var candidate in SideLotController.All)
+        {
+            if (candidate == null) continue;
+            slot = candidate.FindFreeSlot();
+            if (slot != null) { lot = candidate; break; }
+        }
+
+        if (slot != null)
+        {
+            slot.Claim(this);
+            _sideLot = lot;
+            _sideLotSlot = slot;
+
+            // Straight drive to the Entry marker first (further out from the fence), not a curve —
+            // per Tad's explicit call, no need to worry about rotating on this leg at all.
+            // ToSideLotEntry hands off to FacingSideLotAnchor (rotate in place to square up with the
+            // barrier) then ToSideLotAnchor (straight pull forward) once it arrives. A SideLot placed
+            // before the Entry marker existed falls back to the old curve-straight-to-Anchor behavior.
+            if (slot.Entry != null)
+                SetTarget(TruckState.ToSideLotEntry, slot.Entry.position);
+            else
+                SetTargetCurved(TruckState.ToSideLot, slot.Anchor.position, slot.Anchor.forward);
+            return;
+        }
+
         if (_doorWaitPoint == null)
         {
             Debug.LogWarning("[TruckController] No door-wait park spot configured for this yard — " +
                              "truck can't wait for a door, giving up immediately instead.");
+            _doorWaitBar?.Hide();
             BeginDeparture(succeeded: false);
             return;
         }
@@ -2450,10 +2852,10 @@ private DockSlot        _dock;
     {
         _state = TruckState.WaitingForDoor;
         var gameCtx = FindAnyObjectByType<GameContext>();
-        _doorWaitStartSimMinute = gameCtx != null ? gameCtx.TimeService.TotalMinutesElapsed : -1;
+        _doorWaitStartSimMinute = gameCtx != null && gameCtx.TimeService != null ? gameCtx.TimeService.TotalMinutesElapsed : -1;
         _doorWaitPollTimer = 0f;
         if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
-        _doorWaitBar.Show(doorWaitMinutes, doorWaitMinutes);
+        _doorWaitBar.ShowWaitingForDoor(doorWaitMinutes, doorWaitMinutes);
     }
 
     /// <summary>Ticks the door-wait countdown (in SIM minutes, same clock the dock schedule's 2-hour
@@ -2463,17 +2865,36 @@ private DockSlot        _dock;
     private void UpdateWaitingForDoor()
     {
         var gameCtx = FindAnyObjectByType<GameContext>();
-        if (gameCtx == null) return;
+        if (gameCtx == null || gameCtx.TimeService == null) return;
 
         float elapsedMinutes = _doorWaitStartSimMinute >= 0
             ? gameCtx.TimeService.TotalMinutesElapsed - _doorWaitStartSimMinute
             : 0f;
         float remaining = Mathf.Max(0f, doorWaitMinutes - elapsedMinutes);
-        _doorWaitBar?.Show(remaining, doorWaitMinutes);
+        _doorWaitBar?.ShowWaitingForDoor(remaining, doorWaitMinutes);
 
         if (remaining <= 0f)
         {
             _doorWaitBar?.Hide();
+
+            // BUG FIX (Tad's spec): a truck that gave up while parked in the SideLot used to call
+            // BeginDeparture directly from right where it sat — inside the fenced lot — which then
+            // curved it straight toward the gate through the barrier instead of actually driving out.
+            // It needs to back straight out to the Entry marker first (identical maneuver to the
+            // "a door freed up" case below), THEN run the normal give-up departure. _dock stays null
+            // here (never claimed one) — that's exactly what ReversingToSideLotEntry's arrival check
+            // uses to tell "backing out to grab a door" apart from "backing out to give up and leave".
+            if (_sideLotSlot != null)
+            {
+                if (_sideLotSlot.Entry != null)
+                    SetTarget(TruckState.ReversingToSideLotEntry, _sideLotSlot.Entry.position);
+                else if (_gateEnterNoTurn.HasValue)
+                    SetTarget(TruckState.ReversingOutOfSideLot, _gateEnterNoTurn.Value);
+                else
+                    BeginDeparture(succeeded: false);
+                return;
+            }
+
             BeginDeparture(succeeded: false);
             return;
         }
@@ -2487,7 +2908,21 @@ private DockSlot        _dock;
 
         _dock = freeDock;
         _dock.Claim();
-        _doorWaitBar?.Hide();
+        _doorWaitBar?.ShowHeadingToDoor(_dock.DoorNumber);
+
+        if (_sideLotSlot != null)
+        {
+            // Reverse straight back out first — can't curve directly to ApproachPoint() from inside the
+            // fenced lot the way a generic _doorWaitPoint truck can. Backs up to the Entry marker (per
+            // Tad's spec) and rejoins the backing pipeline at TruckNavPoint0 from there — see
+            // ReversingToSideLotEntry's case body. Falls back to the old all-the-way-through-the-gate
+            // retreat for a SideLot placed before the Entry marker existed.
+            if (_sideLotSlot.Entry != null)
+                SetTarget(TruckState.ReversingToSideLotEntry, _sideLotSlot.Entry.position);
+            else if (_gateEnterNoTurn.HasValue)
+                SetTarget(TruckState.ReversingOutOfSideLot, _gateEnterNoTurn.Value);
+            return;
+        }
 
         Vector3 ap = ApproachPoint();
         Vector3 curveDir = ap - transform.position;
@@ -2512,6 +2947,9 @@ private DockSlot        _dock;
     private void OnDocked()
     {
         _dock.LightController?.SetOccupied(true);
+
+        // Docked and being offloaded/loaded now — the "Heading to Door X" banner has done its job.
+        _doorWaitBar?.Hide();
 
         // Reset offload/load handoff — the truck now waits in Docked until a dock stocker offloads
         // or loads it (TrailerOffloadController / TrailerLoadController) or the fallback timeout fires.
@@ -2579,6 +3017,13 @@ private DockSlot        _dock;
         // close it normally as it drives out.
         _dock?.SetDoorForcedOpen(false);
         _dock?.Release();
+        // A truck that timed out waiting in the SideLot (give-up path) needs to free its slot too —
+        // the normal path already clears _sideLotSlot in ReversingToSideLotEntry/ReversingOutOfSideLot
+        // before ever reaching here; this only matters for the rare no-Entry-and-no-gate edge case
+        // that calls BeginDeparture directly from BeginDoorWait/UpdateWaitingForDoor.
+        _sideLotSlot?.Release();
+        _sideLotSlot = null;
+        _sideLot = null;
 
         if (succeeded)
         {
@@ -2607,6 +3052,14 @@ private DockSlot        _dock;
                     }
                 }
                 _dockedAtSimMinute = -1;
+            }
+
+            // Blue "trailer offloaded, departing" banner with the shipment's actual case tally —
+            // inbound only, since "cases received" has no meaning for an outbound (loading) truck.
+            if (!_isOutbound && AssignedShipment != null)
+            {
+                if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
+                _doorWaitBar.ShowDeparting(AssignedShipment.TotalReceivedUnits, AssignedShipment.TotalUnits);
             }
         }
         else

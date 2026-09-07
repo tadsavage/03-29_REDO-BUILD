@@ -1,5 +1,36 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7227356808425216903
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3011404958279989713}
+  m_Layer: 0
+  m_Name: SideLotAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3011404958279989713
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7227356808425216903}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -1, z: -0, w: 0}
+  m_LocalPosition: {x: 0, y: -0, z: -5}
+  m_LocalScale: {x: 1.3249999, y: 1, z: 1.3249999}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6465630804920445577}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &6840365477748486463
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -54,7 +85,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 528984789186780086, guid: 5388dc498d14f8441a80a5fc2642dd2d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3011404958279989713}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 872718046146347276, guid: 5388dc498d14f8441a80a5fc2642dd2d, type: 3}
       insertIndex: -1
@@ -91,6 +125,17 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  worldSpaceYHeight: 0
+  hasSavedTransform: 0
+  savedWorldPos: {x: 0, y: 0, z: 0}
+  savedWorldRot: {x: 0, y: 0, z: 0, w: 0}
+  isRackLive: 0
+  rackAisle: -1
+  rackBay: -1
+  rackLevelIndex: -1
+  rackAisleFacing: {x: 0, y: 0, z: 0}
+  rackTravelDir: {x: 0, y: 0, z: 0}
+  rackLevelChar: 
 --- !u!114 &631437138430180952
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -140,3 +185,8 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 2, y: 0.7395102, z: 0.60871816}
   m_Center: {x: 0, y: 0.3697551, z: 0}
+--- !u!4 &6465630804920445577 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 528984789186780086, guid: 5388dc498d14f8441a80a5fc2642dd2d, type: 3}
+  m_PrefabInstance: {fileID: 6840365477748486463}
+  m_PrefabAsset: {fileID: 0}

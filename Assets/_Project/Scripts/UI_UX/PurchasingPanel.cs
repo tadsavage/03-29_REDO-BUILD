@@ -1168,6 +1168,7 @@ public class PurchasingPanel : IUIPanel
             if (truck == null || truck.AssignedShipment == null) continue;
             if (truck.AssignedShipment.PONumber != shipment.PONumber) continue;
             if (truck.DockedAt != null) return $"UNLOADING · Door {truck.DockedAt.DoorNumber}";
+            if (truck.IsInSideLot) return "PARKED · Side Lot";
         }
         return null;
     }

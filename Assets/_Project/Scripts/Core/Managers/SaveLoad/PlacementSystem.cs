@@ -51,8 +51,13 @@ public class PlacementSystem : MonoBehaviour
     }
     private void Update()
     {
+        // Unscaled: this is a debounce against key-repeat, not a simulation tick. Scaled Time.deltaTime
+        // is 0 while the game is paused (Time.timeScale = 0 via the speed menu), which used to leave
+        // this cooldown stuck forever after the first F5/F9 press of a paused session — every press
+        // after that first one was silently swallowed until the player unpaused long enough for real
+        // time to tick it down. That's exactly the "works about 1 in 10 times while paused" symptom.
         if (quicksaveTimer > 0f)
-            quicksaveTimer -= Time.deltaTime;
+            quicksaveTimer -= Time.unscaledDeltaTime;
 
         // F5/F9 stand down while a text-entry modal owns the keyboard — quick-saving or, far worse,
         // quick-LOADING out from under the Save/Load dialog the player is mid-way through using is

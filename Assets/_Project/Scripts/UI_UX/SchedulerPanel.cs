@@ -2085,6 +2085,28 @@ public class SchedulerPanel : IUIPanel
         col.Add(label);
     }
 
+    /// <summary>Same live-status-override idea as PurchasingPanel.LiveDockStatus — a PO's trailer
+    /// parked in the SideLot waiting for a door doesn't show up anywhere else on this tooltip
+    /// (ShipmentData.Status stays InTransit/Receiving the whole time), so it's found the same way:
+    /// by matching the live TruckController carrying this PO.</summary>
+    private void AddSideLotTooltipLine(VisualElement col, string poNumber)
+    {
+        if (string.IsNullOrEmpty(poNumber)) return;
+
+        var trucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None);
+        foreach (var truck in trucks)
+        {
+            if (truck == null || truck.AssignedShipment == null) continue;
+            if (truck.AssignedShipment.PONumber != poNumber) continue;
+            if (!truck.IsInSideLot) continue;
+
+            var label = MakeText("PARKED · Side Lot", 14, ColDanger, bold: true);
+            label.style.marginBottom = 4;
+            col.Add(label);
+            return;
+        }
+    }
+
     /// <summary>True for a purchase order the player raised — an inbound appointment carrying a PO
     /// number, as opposed to BookInboundNow's note that a truck is currently at a door.</summary>
     private static bool IsInboundPo(DockAppointment appt)
@@ -3599,6 +3621,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
                  ?? shipments.ArchivedShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber);
     col.Add(MakeText($"PO {appt.ShipmentPoNumber}", 38, ColTitleText, bold: true)); // 19 * 2 per Tad's explicit call
     AddLatePenaltyTooltipLine(col, appt);
+    AddSideLotTooltipLine(col, appt.ShipmentPoNumber);
     if (shipment == null)
     {
         col.Add(MakeText("No longer on file.", 12, ColSubtleText));

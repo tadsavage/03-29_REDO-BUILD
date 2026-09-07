@@ -1289,26 +1289,28 @@ MonoBehaviour:
   cabSwivelSpeed: 20
   slowReverseDistance: 2
   slowReverseSpeed: 1.5
+  sideLotPullInSpeed: 3
   slowReverseCabAngle: 10
   nav3ApproachCabAngle: -10
   nav3StraightenDistance: 4
   reverseToNav3CabAngle: 10
   nav1ApproachCabAngle: -12.5
   nav1CabEngageDistance: 4
+  trailerCatchUpTurnSpeed: 60
   reverseArcCabAngle: 20
-  radiusCorrectionSpeed: 4
-  driveSpeed: 4
-  driveTurnSpeed: 75
+  radiusCorrectionSpeed: 3
+  driveSpeed: 6
+  driveTurnSpeed: 50
   arrivedThreshold: 0.5
-  forwardDriveTension: 0.8
+  forwardDriveTension: 0.45
   articulateCab: 1
   cabChildName: Tractor
-  maxCabSteer: 45
+  maxCabSteer: 35
   cabSteerGain: 0.25
   cabSteerSlew: 100
   unloadDuration: 10
-  offloadFallbackTimeout: 45
-  exitShrinkTime: 1
+  offloadFallbackTimeout: 60
+  exitShrinkTime: 1.5
   doorWaitMinutes: 60
   doorWaitPollSeconds: 2
   doorOpenSpeed: 150

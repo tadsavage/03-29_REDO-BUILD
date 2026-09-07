@@ -1217,7 +1217,7 @@ public class WorkQueuePanel : IUIPanel
         row.Add(BuildPriorityStepper(() => AdjustTaskPriority(task, PriorityStep),
                                       () => AdjustTaskPriority(task, -PriorityStep)));
         AddRowCell(row, task.RequiredRole.DisplayName(), RoleWidth, ColSubtleText);
-        AddRowCell(row, task.Type.ToString(), TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
+        AddRowCell(row, WorkTaskTypeDisplayName(task.Type), TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
         AddRowCell(row, task.Status.ToString(), StatusWidth, ColStatusColor(task.Status), bold: true);
         AddRowCell(row, task.FromLocation ?? "—", LocationWidth, ColSubtleText);
         AddRowCell(row, task.ToLocation ?? "—", LocationWidth, ColSubtleText);
@@ -1372,9 +1372,18 @@ public class WorkQueuePanel : IUIPanel
             WorkTaskType.PalletPick => "Pallet Pick",
             WorkTaskType.OrderSelect => $"CasePick{AreaCodeShort(task.Area)}",
             WorkTaskType.Load => "Load",
-            _ => task.Type.ToString()
+            _ => WorkTaskTypeDisplayName(task.Type)
         };
     }
+
+    /// <summary>Player-facing name for a WorkTaskType — mostly just the enum name, except where that
+    /// reads wrong: the moves from reserve locations to picking locations are called "Replenishment"
+    /// (Tad's spec), not the enum's internal "Replenish".</summary>
+    private static string WorkTaskTypeDisplayName(WorkTaskType type) => type switch
+    {
+        WorkTaskType.Replenish => "Replenishment",
+        _ => type.ToString()
+    };
 
     /// <summary>Gro/Per/Frz — the short area code used by TaskTypeLabel, derived from
     /// GetOrderAreaLabel so both share the same "which area does this order belong to" answer rather
