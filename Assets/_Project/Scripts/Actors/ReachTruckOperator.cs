@@ -1122,6 +1122,18 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // Sourced from a pallet still standing in a staging lane rather than a rack/reserve
+            // address — its Putaway task was cancelled at release instead of letting it go through
+            // putaway and a replenish trip back out (see OrderService.FileReleasedOrderTasks). The
+            // pickup half is a lane extraction, the same mechanic PutawayRoutine uses to pull a
+            // pallet OUT of a lane, rather than PickupFromReserve.
+            if (!string.IsNullOrEmpty(reserveAddress) &&
+                reserveAddress.StartsWith("STG", System.StringComparison.OrdinalIgnoreCase))
+            {
+                yield return PalletPickFromLaneRoutine(task, reserveAddress, door, lane);
+                yield break;
+            }
+
             Debug.Log($"[ReachTruckOperator] '{name}' STARTING pallet pick {task.TaskId}: {palletId} " +
                       $"{reserveAddress} -> {door}{lane}");
 
@@ -1193,6 +1205,174 @@ namespace GameCore.Actors
             }
 
             yield return DeliverPalletToStagingLane(pallet, palletId, skuId, palletCases, door, lane, task, obstacle);
+        }
+
+        /// <summary>
+        /// Pickup half of a PalletPick sourced from a staging lane instead of a rack/reserve address —
+        /// a Reach Truck grabbing a pallet that's still sitting where it was offloaded (its Putaway
+        /// task cancelled at release, see OrderService.FileReleasedOrderTasks) and carrying it straight
+        /// to the outbound order's lane, skipping the putaway-then-replenish round trip entirely.
+        ///
+        /// Mirrors PutawayRoutine's own lane-extraction steps (1-6) almost verbatim — same
+        /// FindExitPallet, same re-verification-after-travel gates, same grab loop — just without the
+        /// rack-destination reservation Putaway needs and this doesn't. Once seated on the forks it
+        /// hands off to DeliverPalletToStagingLane, identical to a reserve-sourced pallet pick.
+        /// </summary>
+        private IEnumerator PalletPickFromLaneRoutine(WorkTask task, string fromLocationRaw, int destDoor, string destLane)
+        {
+            string palletId = task.PalletId;
+
+            if (!TryParseLaneName(fromLocationRaw, out int srcDoor, out string srcLane) ||
+                !LaneNamingService.TryGetLaneGeometry(srcDoor, srcLane, out var geo))
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: cannot resolve source lane " +
+                                 $"geometry for '{fromLocationRaw}'.");
+                yield return AbortRoutine(task, palletId, null);
+                yield break;
+            }
+
+            Vector3 exitPoint = new Vector3(geo.ExitPoint.x, transform.position.y, geo.ExitPoint.z);
+
+            Transform pallet = FindExitPallet(srcDoor, srcLane, out string actualPalletId);
+            if (pallet == null)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: source lane {srcDoor}{srcLane} " +
+                                 $"is empty or unreceived. Aborting.");
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
+
+            if (actualPalletId != palletId)
+            {
+                Debug.Log($"[ReachTruckOperator] PalletPick substitution: target {palletId} buried — picking " +
+                          $"accessible {actualPalletId} from same lane.");
+                palletId = actualPalletId;
+                task.PalletId = actualPalletId;
+            }
+
+            var record = _inventoryService?.GetPallet(palletId);
+            if (record == null)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: no inventory record for {palletId}. Aborting.");
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
+            // Captured now, same as the reserve-sourced routine — once the slot clears these are gone.
+            int palletCases = record.Quantity;
+            string skuId = record.SkuId;
+
+            Vector3 originalPalletPos = pallet.position;
+            Quaternion originalPalletRot = pallet.rotation;
+            _carryOriginPos = originalPalletPos;
+            _carryOriginRot = originalPalletRot;
+            _carryOriginValid = true;
+
+            bool reachedLane = false;
+            yield return SeekViaNavMesh(exitPoint, $"pallet pick: → source lane {srcDoor}{srcLane} exit", r => reachedLane = r);
+            if (!reachedLane)
+            {
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
+
+            while (!_inventoryService.TryEnterLaneForDelivery(srcDoor, srcLane))
+                yield return null;
+            _heldLaneLock = (srcDoor, srcLane);
+
+            // Re-verify after the travel + lane-entry wait, same reasoning as PutawayRoutine — the
+            // exit-most pallet may have changed while this truck was en route.
+            Transform freshPallet = FindExitPallet(srcDoor, srcLane, out string freshPalletId);
+            if (freshPallet != pallet || freshPalletId != actualPalletId)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: lane {srcDoor}{srcLane} changed " +
+                                 $"while '{name}' was travelling — re-queueing rather than reaching past whatever's now on top.");
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
+
+            Transform anchorFront = FindDeepChild(pallet, ChepAnchorFrontName);
+            Transform anchorRear  = FindDeepChild(pallet, ChepAnchorRearName);
+            Transform exitAnchor  = PickExitFacingAnchor(anchorFront, anchorRear, geo.DepthAxis);
+            if (exitAnchor == null)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: pallet {palletId} missing anchors.");
+                yield return AbortRoutine(task, palletId, null);
+                yield break;
+            }
+
+            const int MaxGrabAttempts = 3;
+            bool grabbed = false;
+            for (int attempt = 0; attempt < MaxGrabAttempts && !grabbed; attempt++)
+            {
+                Vector3 outward = Flat(exitPoint - pallet.position);
+                yield return DriveToPoint(transform, exitAnchor.position);
+                yield return FaceForks(transform, -outward);
+                if (_forks != null)
+                {
+                    float targetY = pallet.position.y + PalletHalfHeight;
+                    yield return LiftForksToWorldY(_forks, targetY);
+                }
+                bool ok = false;
+                yield return InsertToGrab(pallet, r => ok = r);
+                grabbed = ok;
+                if (!grabbed) yield return ReverseToPoint(transform, exitAnchor.position);
+            }
+
+            if (!grabbed)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: could not seat {palletId} " +
+                                 $"after {MaxGrabAttempts} attempts — restoring it and aborting.");
+                ReleaseCarriedPalletToOrigin(pallet);
+                yield return AbortRoutine(task, palletId, null);
+                yield break;
+            }
+
+            Transform stillTopmost = FindExitPallet(srcDoor, srcLane, out string stillTopmostId);
+            if (stillTopmost != pallet || stillTopmostId != actualPalletId)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: {palletId} is no longer topmost " +
+                                 $"in its cell — releasing and re-queueing instead of lifting through it.");
+                ReleaseCarriedPalletToOrigin(pallet);
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
+
+            Transform carrier = _palletAnchor != null ? _palletAnchor : (_forks != null ? _forks : transform);
+            pallet.SetParent(carrier, worldPositionStays: false);
+            float anchorY = _palletAnchor != null ? _palletAnchor.localPosition.y : 0f;
+            float verticalOffset = (ForkBladeHeightOffset - PalletHalfHeight) - anchorY;
+            pallet.localPosition = new Vector3(0, verticalOffset, 0);
+            pallet.rotation = originalPalletRot;
+
+            NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
+            if (obstacle != null) obstacle.enabled = false;
+
+            var modifierType = System.Type.GetType("UnityEngine.AI.NavMeshModifier, Assembly-CSharp")
+                                ?? System.Type.GetType("UnityEngine.AI.NavMeshModifier");
+            if (modifierType != null)
+            {
+                var modifier = pallet.GetComponent(modifierType);
+                if (modifier != null) modifierType.GetProperty("enabled").SetValue(modifier, false);
+            }
+
+            _inventoryService?.MovePallet(palletId, new Vector2Int(-1, -1));
+
+            PlacedObject palletPO = pallet.GetComponent<PlacedObject>();
+            if (palletPO != null) palletPO.enabled = false;
+
+            if (_forks != null)
+            {
+                yield return RetractForks(_forks, _forkRestLocalZ);
+                yield return LiftForks(_forks, ForkTravelHeight);
+            }
+
+            yield return ReverseToPoint(transform, exitPoint);
+            ReleaseLaneLock();
+
+            yield return DeliverPalletToStagingLane(pallet, palletId, skuId, palletCases, destDoor, destLane, task, obstacle);
         }
 
         /// <summary>

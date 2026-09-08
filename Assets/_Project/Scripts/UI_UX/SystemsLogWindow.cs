@@ -39,8 +39,8 @@ public class SystemsLogWindow : MonoBehaviour
     private const float CardPadding = 12f;
     // 35% smaller than the title's 22/18 — the timestamp+message text was reading too heavy against
     // the "LOG" header at full size.
-    private const float FloatingEntryFontSize = 14.3f;
-    private const float DockedEntryFontSize = 11.7f;
+    private const float FloatingEntryFontSize = 21.45f; // was 14.3 -- bumped 50% per Tad's explicit call
+    private const float DockedEntryFontSize = 17.55f; // was 11.7 -- bumped 50% per Tad's explicit call
     private const float WheelScrollSpeed = 28f;
 
     // Matches DevHudWindow's own palette — Cell label color for message text, title color for the

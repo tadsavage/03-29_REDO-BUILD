@@ -705,8 +705,11 @@ public class SchedulerPanel : IUIPanel
         _newSchedulerTooltip = new VisualElement();
         _newSchedulerTooltip.style.position = Position.Absolute;
         _newSchedulerTooltip.style.display = DisplayStyle.None;
-        _newSchedulerTooltip.pickingMode = PickingMode.Ignore;
-        _newSchedulerTooltip.style.width = 340;
+        // Was PickingMode.Ignore (pass-through) -- now Position so the tooltip itself can catch
+        // MouseEnter/Leave (to stay open while the player's cursor is over it) and mouse-wheel
+        // scroll events on the ScrollView below, per Tad's explicit call.
+        _newSchedulerTooltip.pickingMode = PickingMode.Position;
+        _newSchedulerTooltip.style.width = 460; // widened further per Tad's explicit call
         _newSchedulerTooltip.style.backgroundColor = new StyleColor(ColBg);
         _newSchedulerTooltip.style.borderTopWidth = _newSchedulerTooltip.style.borderBottomWidth =
             _newSchedulerTooltip.style.borderLeftWidth = _newSchedulerTooltip.style.borderRightWidth = 2;
@@ -717,6 +720,15 @@ public class SchedulerPanel : IUIPanel
             _newSchedulerTooltip.style.borderBottomLeftRadius = _newSchedulerTooltip.style.borderBottomRightRadius = 8;
         _newSchedulerTooltip.style.paddingTop = 10; _newSchedulerTooltip.style.paddingBottom = 10;
         _newSchedulerTooltip.style.paddingLeft = 12; _newSchedulerTooltip.style.paddingRight = 12;
+        _newSchedulerTooltip.RegisterCallback<MouseLeaveEvent>(_ => HideNewSchedulerTooltip());
+
+        // Content scrolls vertically once it's taller than the space left below the hovered cell,
+        // rather than running off the bottom of the modal -- max-height is set per-show once we
+        // know how much room is actually available (see ShowNewSchedulerTooltip).
+        _newSchedulerTooltipScroll = new ScrollView(ScrollViewMode.Vertical);
+        _newSchedulerTooltipScroll.style.overflow = Overflow.Hidden;
+        _newSchedulerTooltip.Add(_newSchedulerTooltipScroll);
+
         modal.Add(_newSchedulerTooltip);
         modal.Add(footerMessage);
 
@@ -1659,7 +1671,7 @@ public class SchedulerPanel : IUIPanel
         // Console order, which carries no ContractId and therefore no hour to show.
         var contract = arrivals?.GetContract(group.ContractId);
         string timeText = contract != null ? $"{contract.CutoffHour:00}:00" : "—";
-        string dayText = late ? $"{today - group.EarliestDueDay}d LATE" : $"Day {group.EarliestDueDay}";
+        string dayText = late ? $"{today - group.EarliestDueDay}d LATE" : DeadlineLabel(group.EarliestDueDay);
 
         int pallets = PalletCountForGroup(group);
         string detail = $"{PalletLabel(pallets)} · {group.OrderIds.Count} order(s) · {timeText}";
@@ -1676,13 +1688,37 @@ public class SchedulerPanel : IUIPanel
         // appointment chip (see BuildScheduleStrip), and a click on one specific box means "select
         // this box" — never also "drop what I'm holding into the pool at large."
         box.RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); OnUnscheduledClicked(group); });
-        string due = late ? $"{today - group.EarliestDueDay} day(s) LATE"
-                   : group.EarliestDueDay == today ? "due today"
-                   : $"due day {group.EarliestDueDay}";
-        RuntimeTooltip.Attach(box, $"{group.CustomerName} · {PalletLabel(pallets)} · {group.OrderIds.Count} order(s) with no dock appointment · {due}\n" +
-                      (selected ? "Click again to put it down."
-                                : "Click, then click an open slot to book it."));
+
+        // Same rich hover card a booked grid chip shows (full line-item breakdown, fill rate, etc.)
+        // rather than a plain text tooltip — per Tad's explicit call, built from a throwaway
+        // DockAppointment standing in for this group since it has no real appointment yet.
+        var syntheticAppt = new DockAppointment
+        {
+            Kind = group.Kind,
+            CustomerId = group.CustomerId,
+            CustomerName = group.CustomerName,
+            ContractId = group.ContractId,
+            OrderIds = group.OrderIds,
+            Day = group.EarliestDueDay,
+        };
+        box.RegisterCallback<MouseEnterEvent>(_ => ShowNewSchedulerTooltip(syntheticAppt, box));
+        box.RegisterCallback<MouseLeaveEvent>(evt =>
+        {
+            if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
+                _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
+            HideNewSchedulerTooltip();
+        });
         return box;
+    }
+
+    /// <summary>"DEADLINE: D{day} {hh:00}" — the day and block-start hour after which a not-yet-shipped
+    /// trailer starts costing a late penalty (the last bookable block of its due day). Replaces the old
+    /// plain "Day N" subtitle on pool/parked boxes, per Tad's explicit call — the day alone didn't say
+    /// how much of it was actually left.</summary>
+    private static string DeadlineLabel(int dueDay)
+    {
+        int lastBlockHour = (DockScheduleService.BlocksPerDay - 1) * DockScheduleService.BlockHours;
+        return $"DEADLINE: D{dueDay} {lastBlockHour:00}:00";
     }
 
     /// <summary>
@@ -1801,7 +1837,7 @@ public class SchedulerPanel : IUIPanel
         {
             pallets = PalletCountForPO(appt.ShipmentPoNumber);
             title = $"PO {appt.ShipmentPoNumber}";
-            subtitle = late ? $"{today - appt.Day}d LATE" : $"Day {appt.Day}";
+            subtitle = late ? $"{today - appt.Day}d LATE" : DeadlineLabel(appt.Day);
             // Pallet count was unreadable at the shared 11px detail size, and the vendor name was
             // dead weight -- every PO parked here is the same wholesaler, so drop it and let the
             // number that actually matters (for judging door/lane capacity) be twice as big instead.
@@ -1829,7 +1865,7 @@ public class SchedulerPanel : IUIPanel
         {
             pallets = 0; // a held outbound trailer carries no line items of its own to count
             title = appt.CustomerName;
-            subtitle = late ? $"{today - appt.Day}d LATE" : $"Day {appt.Day}";
+            subtitle = late ? $"{today - appt.Day}d LATE" : DeadlineLabel(appt.Day);
             detailElement = MakeFlagDetailText($"{DockScheduleService.BlockLabel(appt.BlockIndex)} · held", ink);
         }
 
@@ -1842,15 +1878,17 @@ public class SchedulerPanel : IUIPanel
         // Same reason as BuildPoolBox: the pool container is itself a drop target, and a click on a
         // specific box must mean "select this one", never "also drop what I'm holding".
         box.RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); OnParkedClicked(appt); });
-        RuntimeTooltip.Attach(box, isPo
-            ? $"Inbound PO {appt.ShipmentPoNumber} from {appt.CustomerName} · {PalletLabel(pallets)} · wanted day {appt.Day}\n" +
-              $"No door booked — the truck won't leave the supplier until you give it one.\n" +
-              (selected ? "Click an open slot to book it, or click again to let go."
-                        : "Click, then click an open slot to book its door and time.")
-            : $"{appt.CustomerName} · held off the grid by you · " +
-              $"{DockScheduleService.BlockLabel(appt.BlockIndex)} on day {appt.Day}\n" +
-              (selected ? "Click an open slot to put it back, or click again to let go."
-                        : "Click, then click an open slot to put it back on the grid."));
+
+        // Same rich hover card a booked grid chip shows — per Tad's explicit call. This box already
+        // carries a real DockAppointment, so no throwaway stand-in is needed the way BuildPoolBox
+        // needs one.
+        box.RegisterCallback<MouseEnterEvent>(_ => ShowNewSchedulerTooltip(appt, box));
+        box.RegisterCallback<MouseLeaveEvent>(evt =>
+        {
+            if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
+                _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
+            HideNewSchedulerTooltip();
+        });
         return box;
     }
 
@@ -2500,6 +2538,32 @@ public class SchedulerPanel : IUIPanel
     private static string PalletLabel(int pallets)
         => pallets < 0 ? "—" : pallets == 1 ? "1 pallet" : $"{pallets} pallets";
 
+    /// <summary>How many pallets a booked appointment's trailer represents — the same question
+    /// PalletCountForGroup/PalletCountForPO answer for a pool box, asked of a live DockAppointment
+    /// instead, for the grid chip's own "Pallets: N" line.</summary>
+    private static int PalletCountForAppointment(DockAppointment appt)
+    {
+        if (appt == null) return 0;
+        if (IsInboundPo(appt)) return PalletCountForPO(appt.ShipmentPoNumber);
+
+        if (appt.OrderIds.Count == 0 || !ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return 0;
+
+        int pallets = 0;
+        foreach (var orderId in appt.OrderIds)
+        {
+            var order = orders.ActiveOrders.FirstOrDefault(o => o.OrderId == orderId);
+            if (order == null) continue;
+
+            foreach (var li in order.LineItems)
+            {
+                int fullPallet = orders.FullPalletCases(li.SkuId);
+                if (fullPallet <= 0) continue;
+                pallets += Mathf.CeilToInt(li.QuantityNeeded / (float)fullPallet);
+            }
+        }
+        return pallets;
+    }
+
     // ── Shared builders ──────────────────────────────────────────────────────
 
     private VisualElement MakeRow(int rowIndex, Color leftAccent)
@@ -2737,7 +2801,7 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
     // treatment and the PO/Order Details card are new.
 
     private const float NewSchedulerDoorLabelWidth = 90f;
-    private const float NewSchedulerRowHeight = 102f;
+    private const float NewSchedulerRowHeight = 118f; // was 102 -- grown to fit the chip's new "Pallets: N" bottom line
     private const float NewSchedulerTickerHeight = 26f;
     private const float NewSchedulerBadgeHeight = 29f;
     private const float NewSchedulerBadgeWidth = 74f;
@@ -3400,10 +3464,26 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             cell.Add(summary);
         }
 
+        // Bottom line: how many pallets this trailer represents — per Tad's explicit call, so a
+        // player scanning the grid doesn't have to open the hover tooltip just to gauge trailer size.
+        int palletCount = PalletCountForAppointment(appt);
+        var palletsLine = MakeText($"Pallets: {(palletCount < 0 ? "—" : palletCount.ToString())}", SummaryFontSize, labelColor);
+        palletsLine.style.whiteSpace = WhiteSpace.NoWrap; palletsLine.style.overflow = Overflow.Hidden;
+        TightenLine(palletsLine, 1);
+        cell.Add(palletsLine);
+
         if (!locked) cell.RegisterCallback<ClickEvent>(_ => OnChipClicked(appt));
 
         cell.RegisterCallback<MouseEnterEvent>(_ => ShowNewSchedulerTooltip(appt, cell));
-        cell.RegisterCallback<MouseLeaveEvent>(_ => HideNewSchedulerTooltip());
+        // Don't hide if the cursor is heading straight into the tooltip (now interactive, for
+        // mouse-wheel scrolling on long item lists) -- the tooltip's own MouseLeaveEvent covers
+        // hiding once the cursor actually leaves it.
+        cell.RegisterCallback<MouseLeaveEvent>(evt =>
+        {
+            if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
+                _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
+            HideNewSchedulerTooltip();
+        });
 
         return cell;
     }
@@ -3538,6 +3618,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
     // ── New Scheduler hover tooltip ───────────────────────────────────────────────
     private VisualElement _newSchedulerTooltip;
+    private ScrollView _newSchedulerTooltipScroll;
 
     /// <summary>Appointment the open hover tooltip is currently showing, if any — lets a live
     /// inventory event (see OnPalletReceivedForLiveRefresh) re-render the SAME tooltip's content in
@@ -3551,18 +3632,29 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     {
         if (_newSchedulerTooltip == null) return;
         _hoveredTooltipAppt = appt;
-        _newSchedulerTooltip.Clear();
+        _newSchedulerTooltipScroll.Clear();
+        _newSchedulerTooltipScroll.scrollOffset = Vector2.zero;
 
         VisualElement content = IsInboundPo(appt) ? BuildInboundTooltipContent(appt)
             : appt.Kind == AppointmentKind.Inbound ? BuildInboundNoteTooltipContent(appt)
             : BuildOutboundTooltipContent(appt);
-        _newSchedulerTooltip.Add(content);
+        _newSchedulerTooltipScroll.Add(content);
 
-        Vector2 local = _modal.WorldToLocal(new Vector2(cell.worldBound.x, cell.worldBound.yMax + 6));
-        float maxLeft = Mathf.Max(4f, _modal.resolvedStyle.width - 356f);
+        // Overlaps the cell by a few px instead of sitting just below it — a real gap there let the
+        // mouse cross empty space between the two and lose the tooltip before it reached it (a
+        // problem now that the tooltip needs to be hovered to mouse-wheel scroll it), per Tad's
+        // explicit call.
+        Vector2 local = _modal.WorldToLocal(new Vector2(cell.worldBound.x, cell.worldBound.yMax - 4));
+        float maxLeft = Mathf.Max(4f, _modal.resolvedStyle.width - 476f);
         float maxTop = Mathf.Max(4f, _modal.resolvedStyle.height - 60f);
+        float top = Mathf.Clamp(local.y, 4f, maxTop);
         _newSchedulerTooltip.style.left = Mathf.Clamp(local.x, 4f, maxLeft);
-        _newSchedulerTooltip.style.top = Mathf.Clamp(local.y, 4f, maxTop);
+        _newSchedulerTooltip.style.top = top;
+        // Cap the scroll area to whatever room is left below it in the modal, rather than letting
+        // tall item lists (see BuildOutboundTooltipContent) push the tooltip off the bottom edge --
+        // it scrolls internally instead, per Tad's explicit call.
+        _newSchedulerTooltipScroll.style.maxHeight =
+            Mathf.Max(120f, _modal.resolvedStyle.height - top - 36f);
         _newSchedulerTooltip.style.display = DisplayStyle.Flex;
         _newSchedulerTooltip.BringToFront();
     }
@@ -3581,11 +3673,11 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         if (_newSchedulerTooltip == null || _hoveredTooltipAppt == null) return;
         if (_newSchedulerTooltip.style.display != DisplayStyle.Flex) return;
 
-        _newSchedulerTooltip.Clear();
+        _newSchedulerTooltipScroll.Clear();
         VisualElement content = IsInboundPo(_hoveredTooltipAppt) ? BuildInboundTooltipContent(_hoveredTooltipAppt)
             : _hoveredTooltipAppt.Kind == AppointmentKind.Inbound ? BuildInboundNoteTooltipContent(_hoveredTooltipAppt)
             : BuildOutboundTooltipContent(_hoveredTooltipAppt);
-        _newSchedulerTooltip.Add(content);
+        _newSchedulerTooltipScroll.Add(content);
     }
 
     private VisualElement BuildInboundNoteTooltipContent(DockAppointment appt)
@@ -3860,8 +3952,8 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
 
         if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null || appt.OrderIds.Count == 0)
         {
-            col.Add(MakeText(appt.CustomerName, 18, ColTitleText, bold: true));
-            col.Add(MakeText("No items generated yet.", 16, ColSubtleText));
+            col.Add(MakeText(appt.CustomerName, 27, ColTitleText, bold: true));
+            col.Add(MakeText("No items generated yet.", 24, ColSubtleText));
             return col;
         }
 
@@ -3872,8 +3964,8 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         int currentDay = Schedule()?.CurrentDay ?? appt.Day;
         if (currentDay > appt.Day)
         {
-            col.Add(MakeText(appt.CustomerName, 18, ColTitleText, bold: true));
-            col.Add(MakeText("Order data cleared — day has ended.", 16, ColSubtleText));
+            col.Add(MakeText(appt.CustomerName, 27, ColTitleText, bold: true));
+            col.Add(MakeText("Order data cleared — day has ended.", 24, ColSubtleText));
             return col;
         }
 
@@ -3883,16 +3975,16 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
             .Where(o => o != null).ToList();
         int totalRevenue = orderList.Sum(o => o.TotalRevenue);
 
-        col.Add(MakeText(appt.CustomerName, 20, ColTitleText, bold: true));
+        col.Add(MakeText(appt.CustomerName, 30, ColTitleText, bold: true));
         AddLatePenaltyTooltipLine(col, appt);
-        var revenueLabel = MakeText($"Expected revenue: ${totalRevenue:N0}", 16, ColMoney, bold: true);
+        var revenueLabel = MakeText($"Expected revenue: ${totalRevenue:N0}", 24, ColMoney, bold: true);
         revenueLabel.style.marginBottom = 6;
         col.Add(revenueLabel);
         col.Add(BuildTooltipDivider());
 
         if (orderList.Count == 0)
         {
-            col.Add(MakeText("No items generated yet.", 16, ColSubtleText));
+            col.Add(MakeText("No items generated yet.", 24, ColSubtleText));
             return col;
         }
 
@@ -3914,7 +4006,10 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
             int onHand = inv?.TotalOnHand(kv.Key) ?? 0;
             int onPo = economy?.GetTotalOnOrder(kv.Key) ?? 0;
             string nextPo = NextPoLabel(kv.Key, shipments, dockSchedule);
-            col.Add(BuildTooltipItemRow(sku, BuildOutboundItemDetail(kv.Value, onHand, onPo, nextPo)));
+            // On-hand alone already covers what this trailer needs -- item reads green, per Tad's
+            // explicit call, same as everywhere else "good coverage" is called out (see OutsColor).
+            Color? itemColor = onHand >= kv.Value ? ColMoney : (Color?)null;
+            col.Add(BuildTooltipItemRow(sku, BuildOutboundItemDetail(kv.Value, onHand, onPo, nextPo), itemColor));
         }
 
         return col;
@@ -3968,18 +4063,27 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
 
     /// <summary>Builds the two-line "Ordered: X | On-Hand: X | On PO: X" + "Next PO: Day D HH:00"
     /// detail block for an outbound order's item row. "Shipped" was dropped per Tad — useless info,
-    /// this order hasn't picked yet. Both lines share the same neutral color/size so the second reads
-    /// as a continuation of the first, not a separate callout.</summary>
+    /// this order hasn't picked yet. The second line calls out whether the shortfall is actually
+    /// covered: red for "Nothing On Order" (nothing coming, still short), orange for "Next PO: ..."
+    /// (fill qty is on an order, just not here yet), or green "Sufficient BOH" when nothing's on
+    /// order because nothing needs to be — on-hand alone already covers what's needed — per Tad's
+    /// explicit call.</summary>
     private VisualElement BuildOutboundItemDetail(int ordered, int onHand, int onPo, string nextPoLabel)
     {
         var col = new VisualElement();
         col.style.flexDirection = FlexDirection.Column;
 
-        var line1 = MakeText($"Ordered: {ordered:N0} | On-Hand: {onHand:N0} | On PO: {onPo:N0}", 14, ColSubtleText);
+        var line1 = MakeText($"Ordered: {ordered:N0} | On-Hand: {onHand:N0} | On PO: {onPo:N0}", 19, ColTitleText);
         line1.style.flexWrap = Wrap.Wrap;
+        line1.style.marginBottom = 0;
         col.Add(line1);
 
-        var line2 = MakeText(nextPoLabel, 14, ColSubtleText);
+        bool nothingOnOrder = nextPoLabel == "Nothing On Order";
+        bool sufficientBoh = nothingOnOrder && onHand >= ordered;
+        string line2Text = sufficientBoh ? "Sufficient BOH" : nextPoLabel;
+        Color line2Color = sufficientBoh ? ColMoney : nothingOnOrder ? ColDanger : ColWholesale;
+        var line2 = MakeText(line2Text, 19, line2Color, bold: true);
+        line2.style.marginTop = -2; // butt up against line1 per Tad's explicit call
         col.Add(line2);
 
         return col;
@@ -3992,7 +4096,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         row.style.alignItems = Align.Center;
         row.style.marginBottom = 2; // was 4 -- compressed per Tad's request to fit more item lines vertically
 
-        row.Add(MakeIcon(sku?.Icon, 44, 4, marginRight: 8)); // was 22 -- doubled per Tad's explicit call
+        row.Add(MakeIcon(sku?.Icon, 57, 4, marginRight: 8)); // was 44 -- upsized 30% more per Tad's explicit call
 
         var textCol = new VisualElement();
         textCol.style.flexGrow = 1;
@@ -4005,7 +4109,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         // Item number + description also takes the highlight color (red = short-shipped, orange =
         // still needed for pending orders) -- per Tad, not just the detail line below it.
         var nameLabel = MakeText(sku != null ? $"#{sku.ItemNumber} — {sku.ItemDescription}" : "Unknown item",
-                                 16, highlightColor ?? ColTitleText, bold: true);
+                                 24, highlightColor ?? ColTitleText, bold: true);
         nameLabel.style.paddingTop = 0; nameLabel.style.paddingBottom = 0;
         nameLabel.style.marginTop = 0; nameLabel.style.marginBottom = 0;
         textCol.Add(nameLabel);

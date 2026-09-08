@@ -222,13 +222,16 @@ public class WorkQueuePanel : IUIPanel
         _liveSignature = null;
         RebuildRows();
 
-        // Always opens filled rather than normal size, per Tad's explicit call -- same reasoning and
-        // same deferred-one-frame pattern as PurchasingPanel.Show(): on the very first Show() of a
-        // session the panel hasn't been through a layout pass yet, so FillScreen's size math has
-        // nothing real to measure (see FillScreen's own doc comment).
+        // Always opens filled rather than normal size, per Tad's explicit call. Uses FillScreenExact
+        // (true edge-to-edge, same as ContractsPanel/SchedulerPanel's "Order screens") rather than
+        // FillScreen's uniform scale-transform -- FillScreen preserves the panel's authored aspect
+        // ratio and letterboxes whichever dimension doesn't match the screen, which read as "large but
+        // not actually maximized" next to panels that fill edge-to-edge. Deferred one frame so there's
+        // a real layout to measure on the very first Show() of a session (see FillScreenExact's own
+        // doc comment).
         _overlay.schedule.Execute(() =>
         {
-            _resizeWindow?.FillScreen();
+            _resizeWindow?.FillScreenExact();
             if (_resizeWindow != null) _resizeWindow.UpdateScaleButtonIcon(_scaleButton, 63f, ColSubtleText); // titleBtnSize is a local const in the constructor, out of scope here
         }).ExecuteLater(16);
     }
@@ -469,8 +472,9 @@ public class WorkQueuePanel : IUIPanel
         // own live-clock badge (SchedulerPanel's sweepColor) so the two read as the same kind of
         // readout. Kept the same footprint/width so the title still centres correctly.
         var dayTimeBadge = new VisualElement();
-        dayTimeBadge.style.width = SelectAllWidth + 8 + CancelSelectedWidth - titleBtnSize - 8 - titleBtnSize;
-        dayTimeBadge.style.height = titleBtnSize;
+        // Shrunk 20% per Tad's explicit call (the text inside grew 20% the other way, see below).
+        dayTimeBadge.style.width = (SelectAllWidth + 8 + CancelSelectedWidth - titleBtnSize - 8 - titleBtnSize) * 0.8f;
+        dayTimeBadge.style.height = titleBtnSize * 0.8f;
         dayTimeBadge.style.flexShrink = 0;
         // Switched from a flex-flow marginLeft hack to absolute positioning anchored off the title
         // bar's right edge. The old approach sat this badge right after the title's flexGrow:1 box --
@@ -492,7 +496,7 @@ public class WorkQueuePanel : IUIPanel
         // flexDirection is Column, so the badge's own justify/align-items above already centers this
         // two-line stack both horizontally and vertically as a group.
         _dayLabel = new Label();
-        ApplyFont(_dayLabel, bold: true, size: 18);
+        ApplyFont(_dayLabel, bold: true, size: 22); // was 18 -- bumped 20% per Tad's explicit call, badge shrunk 20% the other way
         _dayLabel.style.color = new StyleColor(Color.white);
         _dayLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         // Zeroed out -- the default Label's own padding/margin was the real gap between the two
@@ -503,7 +507,7 @@ public class WorkQueuePanel : IUIPanel
         _dayLabel.style.marginTop = -3; _dayLabel.style.marginBottom = -2;
         dayTimeBadge.Add(_dayLabel);
         _timeLabel = new Label();
-        ApplyFont(_timeLabel, bold: true, size: 18);
+        ApplyFont(_timeLabel, bold: true, size: 22); // was 18 -- bumped 20% per Tad's explicit call, badge shrunk 20% the other way
         _timeLabel.style.color = new StyleColor(Color.white);
         _timeLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         _timeLabel.style.paddingTop = 0; _timeLabel.style.paddingBottom = 0;
@@ -532,7 +536,7 @@ public class WorkQueuePanel : IUIPanel
         header.style.flexShrink = 0;
         header.style.overflow = Overflow.Hidden;
         header.style.paddingLeft = RowPaddingLeft;
-        header.Add(BuildFilterHeader("Palette ID", PaletteIdWidth, SortColumn.PaletteId));
+        header.Add(HeaderCell("Del. Date", DelDateWidth, SortColumn.DelDate));
         header.Add(BuildFilterHeader("Item#", ItemNumberWidth, SortColumn.ItemNumber));
         header.Add(BuildFilterHeader("Area", AreaWidth, SortColumn.Area, marginLeft: 12f));
         header.Add(BuildFilterHeader("Priority", PriorityWidth, SortColumn.Priority));
@@ -544,7 +548,7 @@ public class WorkQueuePanel : IUIPanel
         header.Add(BuildFilterHeader("Operator", OperatorWidth, SortColumn.Operator));
         header.Add(BuildFilterHeader("Customer", CustomerWidth, SortColumn.Customer, fontSize: 12)); // stays original size -- every other column got 25% bigger, per Tad's explicit call
         header.Add(HeaderCell("Order", OrderWidth, SortColumn.Order, marginLeft: CustomerOrderGap));
-        header.Add(HeaderCell("Del. Date", DelDateWidth, SortColumn.DelDate));
+        header.Add(BuildFilterHeader("Palette ID", PaletteIdWidth, SortColumn.PaletteId));
         modal.Add(header);
 
         rowScroll = new ScrollView
@@ -553,7 +557,10 @@ public class WorkQueuePanel : IUIPanel
             horizontalScrollerVisibility = ScrollerVisibility.Hidden
         };
         rowScroll.style.flexGrow = 1;
-        rowScroll.style.maxHeight = 520;
+        // Was a hard maxHeight: 520 cap -- harmless back when the modal only ever opened at its normal
+        // authored size, but now that it opens filled (FillScreenExact, see Show()) that cap left a
+        // huge dead gap between the last row and the bottom bar instead of letting flexGrow actually
+        // use the extra room, per Tad's explicit call.
         rowScroll.style.overflow = Overflow.Hidden;
         modal.Add(rowScroll);
 
@@ -566,10 +573,10 @@ public class WorkQueuePanel : IUIPanel
         bottomBar.style.paddingTop = 7.5f; // 10 * 0.75 -- per Tad's explicit call to shrink this bar 25%
 
         bottomMessage = new Label("To select records for update Left-Click, Hold L-Ctrl while Left-Clicking to Select multiple records and if you hold SHIFT and DRAG across records you can select many records easily.");
-        // fontSize 9.75 = 13 * 0.75, and maxWidth 75% -- both dimensions of this box reduced 25%,
-        // per Tad's explicit call.
+        // Was 9.75, bumped to 29, then cut 50% back down to 14.5 -- per Tad's explicit calls. Word-wraps
+        // (see WhiteSpace.Normal below) inside the same 75%-width box rather than widening it.
         ApplyFont(bottomMessage);
-        bottomMessage.style.fontSize = 9.75f;
+        bottomMessage.style.fontSize = 14.5f;
         bottomMessage.style.color = new StyleColor(ColSubtleText);
         bottomMessage.style.flexGrow = 1;
         bottomMessage.style.flexShrink = 1;
@@ -676,10 +683,14 @@ public class WorkQueuePanel : IUIPanel
         ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
         // OrderSelect and PalletPick are excluded because both are ORDER work, already represented by
         // the order rows below — and a bulk order files one PalletPick per pallet, so ten of them
-        // would bury its own order row under ten near-identical task rows.
+        // would bury its own order row under ten near-identical task rows. A Putaway task whose pallet
+        // hasn't actually been received yet (no item number to show — see GetTaskItemNumber) is also
+        // excluded per Tad's explicit call: it clutters the queue with a row nobody can act on until
+        // receiving actually finishes, at which point it reappears with real data on its own.
         var taskRows = workQueue?.Tasks
             .Where(t => t.Type != WorkTaskType.OrderSelect && t.Type != WorkTaskType.PalletPick
-                     && t.Status != WorkTaskStatus.Complete)
+                     && t.Status != WorkTaskStatus.Complete
+                     && (t.Type != WorkTaskType.Putaway || GetTaskItemNumber(t) != "—"))
             .ToList() ?? new List<WorkTask>();
         taskRows = SortTasks(taskRows);
         taskRows = ApplyTaskFilters(taskRows);
@@ -711,8 +722,37 @@ public class WorkQueuePanel : IUIPanel
             .Select(r => r.order.OrderId).ToHashSet();
         _checkedOrderIds.RemoveWhere(id => !stillActionable.Contains(id));
 
-        foreach (var task in taskRows)
-            _rowScroll.Add(BuildTaskRow(task, _rowScroll.childCount));
+        void AddTaskRows()
+        {
+            foreach (var task in taskRows)
+                _rowScroll.Add(BuildTaskRow(task, _rowScroll.childCount));
+        }
+
+        void AddOrderRows()
+        {
+            foreach (var (order, phase, task) in rows)
+            {
+                // A live picking task's PalletId is only known once the selector actually builds one --
+                // while that's still the case there's exactly one row. Once the task is gone (Staged/
+                // Loading/Loaded), the order may have several OutboundPalletBuilder instances; each now
+                // gets its own row instead of one row listing "Pallets 1, 2, 3" together, per Tad's
+                // explicit call.
+                if (!string.IsNullOrEmpty(task?.PalletId))
+                {
+                    _rowScroll.Add(BuildRow(order, phase, task, _rowScroll.childCount, GetPalletLoadId(task.PalletId)));
+                    continue;
+                }
+
+                int palletCount = GetStagedPalletCount(order);
+                if (palletCount == 0)
+                {
+                    _rowScroll.Add(BuildRow(order, phase, task, _rowScroll.childCount, "—"));
+                    continue;
+                }
+                for (int i = 1; i <= palletCount; i++)
+                    _rowScroll.Add(BuildRow(order, phase, task, _rowScroll.childCount, $"Pallet {i}"));
+            }
+        }
 
         if (rows.Count == 0 && taskRows.Count == 0)
         {
@@ -721,10 +761,22 @@ public class WorkQueuePanel : IUIPanel
             empty.style.color = new StyleColor(ColSubtleText);
             _rowScroll.Add(empty);
         }
+        // Task rows (Putaway/Replenish) carry no real delivery date -- always "ZZZZZ" in the Del. Date
+        // column (see BuildTaskRow) so they sort as the "largest" possible value under a plain string
+        // sort. That's fine for every OTHER column, where task rows belonging up top is the point, but
+        // for Del. Date specifically it read as broken: sorting Descending should put the dateless rows
+        // at the BOTTOM (nothing to rank them by), not pin them to the top regardless of direction the
+        // way appending them first always did. Only Del. Date reorders the two row groups; every other
+        // column keeps task rows leading, unchanged.
+        else if (_sortColumn == SortColumn.DelDate)
+        {
+            AddOrderRows();
+            AddTaskRows();
+        }
         else
         {
-            foreach (var (order, phase, task) in rows)
-                _rowScroll.Add(BuildRow(order, phase, task, _rowScroll.childCount));
+            AddTaskRows();
+            AddOrderRows();
         }
 
         RebuildBottomBar();
@@ -1156,13 +1208,21 @@ public class WorkQueuePanel : IUIPanel
     /// identity of its own.</summary>
     private static string GetStagedPalletLabel(OrderData order)
     {
-        if (order == null) return "\u2014";
-        int count = Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
-            .Count(p => p != null && p.OrderId == order.OrderId);
+        int count = GetStagedPalletCount(order);
         if (count == 0) return "\u2014";
 
         var labels = Enumerable.Range(1, count).Select(i => i.ToString());
         return count == 1 ? $"Pallet {labels.First()}" : $"Pallets {string.Join(", ", labels)}";
+    }
+
+    /// <summary>How many of the order's own OutboundPalletBuilder instances currently exist \u2014 used to
+    /// expand a Staged/Loading/Loaded order into one Palette ID row per pallet (see RebuildRows)
+    /// instead of the old single row listing every pallet's number crammed together.</summary>
+    private static int GetStagedPalletCount(OrderData order)
+    {
+        if (order == null) return 0;
+        return Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
+            .Count(p => p != null && p.OrderId == order.OrderId);
     }
     private RowPhase? DeterminePhase(OrderData order, WorkTask task)
     {
@@ -1208,7 +1268,10 @@ public class WorkQueuePanel : IUIPanel
 
         string itemNumber = GetTaskItemNumber(task);
 
-        AddRowCell(row, ShortId(task.PalletId), PaletteIdWidth, ColTitleText);
+        // These rows are always inbound-side labor (Putaway/Replenish) -- never tied to a customer
+        // order, so there's never a real delivery date to show here. Sorts to the very end of the
+        // Del. Date column rather than reading as missing data, per Tad's explicit call.
+        AddRowCell(row, "ZZZZZ", DelDateWidth, ColSubtleText);
         AddRowCell(row, itemNumber, ItemNumberWidth, ColTitleText);
         AddRowCell(row, AreaLabel(task.Area), AreaWidth, ColSubtleText, marginLeft: 12f);
         // Right-aligned (not the usual MiddleCenter) with a small paddingRight buffer -- per Tad's
@@ -1222,13 +1285,13 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, task.FromLocation ?? "—", LocationWidth, ColSubtleText);
         AddRowCell(row, task.ToLocation ?? "—", LocationWidth, ColSubtleText);
         AddRowCell(row, GetOperatorName(task.AssignedToEmployeeGuid), OperatorWidth, ColTitleText);
-        AddRowCell(row, "—", CustomerWidth, ColSubtleText, fontSize: 12); // Customer column stays original size
+        AddRowCell(row, "—", CustomerWidth, ColSubtleText, fontSize: 15); // Customer column stays proportionally smaller — was 12, bumped 25% same as everything else
         AddRowCell(row, "—", OrderWidth, ColSubtleText, marginLeft: CustomerOrderGap);
-        AddRowCell(row, "—", DelDateWidth, ColSubtleText);
+        AddRowCell(row, GetPalletLoadId(task.PalletId), PaletteIdWidth, ColTitleText);
         return row;
     }
 
-    private VisualElement BuildRow(OrderData order, RowPhase phase, WorkTask task, int rowIndex)
+    private VisualElement BuildRow(OrderData order, RowPhase phase, WorkTask task, int rowIndex, string paletteId)
     {
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
@@ -1262,10 +1325,6 @@ public class WorkQueuePanel : IUIPanel
 
         string itemNumber = GetOrderItemNumber(order);
         string area = GetOrderAreaLabel(order);
-        // A Staged/Loading order's picking task carried no PalletId (a selector's pallet is only
-        // known once actually built) — once that task is also gone, look up the real staged pallet
-        // instead of showing a permanent blank.
-        string paletteId = !string.IsNullOrEmpty(task?.PalletId) ? ShortId(task.PalletId) : GetStagedPalletLabel(order);
         // Staged has no live task (the OrderSelect that built the pallet already completed, and no
         // Load task exists until the player releases it to a door) — but the ROLE that will pick it
         // up next is not actually unknown, it's always Loader. Showing "—" there read as missing data
@@ -1277,7 +1336,7 @@ public class WorkQueuePanel : IUIPanel
         string to = OrderToLocation(order, task, phase);
         string operatorName = phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "—";
 
-        AddRowCell(row, paletteId, PaletteIdWidth, ColSubtleText);
+        AddRowCell(row, DelDateText(order), DelDateWidth, ColSubtleText);
         AddRowCell(row, itemNumber, ItemNumberWidth, ColTitleText);
         AddRowCell(row, area, AreaWidth, ColSubtleText, marginLeft: 12f);
         // Right-aligned (not the usual MiddleCenter) with a small paddingRight buffer -- per Tad's
@@ -1305,9 +1364,9 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, from, LocationWidth, ColSubtleText);
         AddRowCell(row, to, LocationWidth, ColSubtleText);
         AddRowCell(row, operatorName, OperatorWidth, ColTitleText);
-        AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText, fontSize: 12); // Customer column stays original size, per Tad's explicit call
+        AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText, fontSize: 15); // Customer column stays proportionally smaller — was 12, bumped 25% same as everything else
         AddRowCell(row, order.OrderNumber ?? ShortId(order.OrderId), OrderWidth, ColSubtleText, marginLeft: CustomerOrderGap);
-        AddRowCell(row, DelDateText(order), DelDateWidth, ColSubtleText);
+        AddRowCell(row, paletteId, PaletteIdWidth, ColSubtleText);
         return row;
     }
 
@@ -1413,7 +1472,7 @@ public class WorkQueuePanel : IUIPanel
 
     // 15 = 12 * 1.25 -- every column got 25% bigger text except Customer Name, which stays at the
     // original 12 via an explicit override at its own call site, per Tad's explicit call.
-    private static Label AddRowCell(VisualElement row, string text, float width, Color color, bool bold = false, float marginLeft = 0f, float fontSize = 15f, TextAnchor align = TextAnchor.MiddleCenter, float paddingRight = 0f)
+    private static Label AddRowCell(VisualElement row, string text, float width, Color color, bool bold = false, float marginLeft = 0f, float fontSize = 18.75f, TextAnchor align = TextAnchor.MiddleCenter, float paddingRight = 0f)
     {
         var label = new Label(text ?? "—");
         ApplyFont(label, bold, (int)fontSize);
@@ -1444,6 +1503,20 @@ public class WorkQueuePanel : IUIPanel
     {
         if (string.IsNullOrEmpty(value)) return "—";
         return value.Length > 8 ? value.Substring(0, 8) : value;
+    }
+
+    /// <summary>The player-facing numeric "license plate" for a pallet (PalletMasterRecord.LoadId) --
+    /// what actually shows on the pallet in the game world, as opposed to PalletId, which is an
+    /// internal GUID this panel used to display directly (alphanumeric, and matching nothing the
+    /// player can see). LoadId isn't assigned until the pallet is actually received (see
+    /// ReceiverReceivingWorkflow), so a still-inbound pallet correctly shows nothing here yet rather
+    /// than an ID for freight that doesn't physically exist as a real pallet in the world.</summary>
+    private static string GetPalletLoadId(string palletId)
+    {
+        if (string.IsNullOrEmpty(palletId)) return "—";
+        if (!ServiceLocator.TryGet<InventoryService>(out var inventory) || inventory == null) return "—";
+        var pallet = inventory.GetPallet(palletId);
+        return !string.IsNullOrEmpty(pallet?.LoadId) ? pallet.LoadId : "—";
     }
 
 
@@ -1863,7 +1936,7 @@ public class WorkQueuePanel : IUIPanel
     {
         return col switch
         {
-            SortColumn.PaletteId => ShortId(task.PalletId),
+            SortColumn.PaletteId => GetPalletLoadId(task.PalletId),
             SortColumn.ItemNumber => GetTaskItemNumber(task),
             SortColumn.Area => AreaLabel(task.Area),
             SortColumn.Priority => task.Priority.ToString(),
@@ -1883,7 +1956,7 @@ public class WorkQueuePanel : IUIPanel
     {
         return col switch
         {
-            SortColumn.PaletteId => !string.IsNullOrEmpty(task?.PalletId) ? ShortId(task.PalletId) : GetStagedPalletLabel(order),
+            SortColumn.PaletteId => !string.IsNullOrEmpty(task?.PalletId) ? GetPalletLoadId(task.PalletId) : GetStagedPalletLabel(order),
             SortColumn.ItemNumber => GetOrderItemNumber(order),
             SortColumn.Area => GetOrderAreaLabel(order),
             SortColumn.Priority => task != null ? task.Priority.ToString() : "\u2014",
