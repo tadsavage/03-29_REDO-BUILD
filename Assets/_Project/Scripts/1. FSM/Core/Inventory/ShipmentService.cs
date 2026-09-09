@@ -273,6 +273,81 @@ namespace GameCore.Inventory
             return true;
         }
 
+        // ── Shortage resolution: backfill or credit ──────────────────────────
+
+        /// <summary>Accepts the vendor's credit for every unresolved short-shipped line on this PO
+        /// instead of asking for a replacement delivery. No money moves here — ApplySupplierVariance
+        /// already refunded the dropped pallets' cost at dispatch — this just marks those lines
+        /// permanently settled so ShipmentData.IsFullyReceived can stop waiting on them, and closes the
+        /// PO out if that was the only thing left outstanding.</summary>
+        public void RequestCredit(ShipmentData shipment)
+        {
+            if (shipment == null || !shipment.HasUnresolvedShortage) return;
+            if (shipment.Status == ShipmentData.ShipmentStatus.Cancelled) return; // expired PO — too late
+
+            int cases = 0;
+            foreach (var li in shipment.LineItems.Where(li => li.Dropped && !li.CreditTaken && li.ReceivedQuantity < li.Quantity))
+            {
+                cases += li.Quantity;
+                li.CreditTaken = true;
+            }
+
+            Debug.Log($"[ShipmentService] Credit accepted for {cases} short case(s) on PO {shipment.PONumber}.");
+            SystemsLogWindow.Log($"Accepted credit for {cases} short case(s) on PO {shipment.PONumber}.");
+
+            if (ServiceLocator.TryGet<ShipmentReceivingCoordinator>(out var coordinator) && coordinator != null)
+                coordinator.CompleteIfFullyReceived(shipment);
+        }
+
+        /// <summary>Asks the vendor to make good on every unresolved short-shipped line with a free
+        /// replacement delivery. Reopens those lines (clears Dropped) and re-enters the SAME
+        /// ShipmentData into the normal dispatch pipeline — same PO number, same object — so a real
+        /// truck eventually spawns, its pallets link back to THIS shipment (TrailerOffloadController
+        /// links pallets to TruckController.AssignedShipment, which LoadShipment sets to whatever was
+        /// passed to it), and receiving them satisfies the reopened line items directly. That's what
+        /// makes "PO shows received-in-full once the backfill arrives" fall out for free instead of
+        /// needing a second PO object reconciled back into this one.
+        ///
+        /// No charge — ApplySupplierVariance's refund already made the player whole for these cases;
+        /// backfill is the vendor delivering what was already paid for.</summary>
+        public void RequestBackfill(ShipmentData shipment)
+        {
+            if (shipment == null || !shipment.HasUnresolvedShortage) return;
+            if (shipment.Status == ShipmentData.ShipmentStatus.Cancelled) return; // expired PO — too late
+
+            var shortLines = shipment.LineItems
+                .Where(li => li.Dropped && !li.CreditTaken && li.ReceivedQuantity < li.Quantity)
+                .ToList();
+            if (shortLines.Count == 0) return;
+
+            foreach (var li in shortLines)
+                li.Dropped = false; // ordinary expected line again — still short until physically received
+
+            // A truck that already delivered/departed moves its PO to the archive (PurgeCompleted) even
+            // though this shortage was never resolved — pull it back into the pending list so the
+            // normal InTransit-gated dispatch loop (DispatchDueShipments) will pick it up again once
+            // the player schedules the backfill appointment.
+            _archivedShipments.Remove(shipment);
+            if (!_pendingShipments.Contains(shipment))
+                _pendingShipments.Add(shipment);
+            shipment.Status = ShipmentData.ShipmentStatus.InTransit;
+
+            int today = Clock != null ? Clock.Day : 1;
+            if (ServiceLocator.TryGet(out DockScheduleService dockSchedule) && dockSchedule != null)
+            {
+                // Clear out whatever's left of the original (already closed-out) booking first so the
+                // fresh park below can't collide with it.
+                dockSchedule.ReleasePo(shipment.PONumber);
+                dockSchedule.ParkInboundForPo(shipment.PONumber, shipment.SupplierId, shipment.SupplierName, today);
+            }
+
+            int cases = shortLines.Sum(li => li.Quantity);
+            Debug.Log($"[ShipmentService] Backfill requested for PO {shipment.PONumber} — {cases} case(s), " +
+                      "free of charge, waiting in the Scheduler's unscheduled pool.");
+            SystemsLogWindow.LogGuard($"{shipment.SupplierName} is backfilling {cases} case(s) for PO " +
+                                       $"{shipment.PONumber} — check the Scheduler.");
+        }
+
         // ── Supplier variance ────────────────────────────────────────────────
 
         /// <summary>Fallback short-ship rate for freight with no vendor behind it — a spot-market
@@ -502,6 +577,7 @@ namespace GameCore.Inventory
                         floorSlotIndex = li.FloorSlotIndex,
                         palletTier = li.PalletTier,
                         dropped = li.Dropped,
+                        creditTaken = li.CreditTaken,
                         salvage = (int)li.Salvage
                     });
                 }
@@ -538,6 +614,7 @@ namespace GameCore.Inventory
                         FloorSlotIndex = liSnap.floorSlotIndex,
                         PalletTier = liSnap.palletTier,
                         Dropped = liSnap.dropped,
+                        CreditTaken = liSnap.creditTaken,
                         Salvage = (SalvageCondition)liSnap.salvage
                     };
                     shipment.LineItems.Add(li);

@@ -3865,6 +3865,9 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
             12, shortfall > 0 ? ColDangerSoft : ColOrangeText, bold: true);
         costLabel.style.marginBottom = 6;
         col.Add(costLabel);
+
+        if (shipment.HasUnresolvedShortage)
+            col.Add(BuildShortageResolutionButtons(shipment));
     }
     else
     {
@@ -3915,6 +3918,44 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
 
     return col;
 }
+
+    /// <summary>Two buttons shown under a short-shipped PO's cost line once it's received: Request
+    /// Backfill (free replacement delivery, scheduled like any other PO) or Request Credit (accept the
+    /// vendor's refund — already applied at dispatch — and stop asking). Rebuilds the tooltip in place
+    /// afterward so the buttons disappear the moment the shortage is resolved.</summary>
+    private VisualElement BuildShortageResolutionButtons(ShipmentData shipment)
+    {
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.marginBottom = 8;
+
+        var backfill = new Button(() =>
+        {
+            if (ServiceLocator.TryGet<ShipmentService>(out var svc) && svc != null)
+                svc.RequestBackfill(shipment);
+            RefreshOpenTooltipContent();
+        })
+        { text = "REQUEST BACKFILL" };
+        StyleOrangeButton(backfill);
+        backfill.style.height = OrangeButtonHeight;
+        backfill.style.marginRight = 8;
+        row.Add(backfill);
+
+        var credit = new Button(() =>
+        {
+            if (ServiceLocator.TryGet<ShipmentService>(out var svc) && svc != null)
+                svc.RequestCredit(shipment);
+            RefreshOpenTooltipContent();
+        })
+        { text = "REQUEST CREDIT" };
+        StyleOrangeButton(credit);
+        credit.style.height = OrangeButtonHeight;
+        credit.style.backgroundColor = new StyleColor(ColStat);
+        credit.style.color = new StyleColor(ColSubtleText);
+        row.Add(credit);
+
+        return row;
+    }
 
     /// <summary>Builds an inbound item row's detail column: the existing case/pallet line, plus a
     /// "Pending Receipt" line underneath when pendingReceipt > 0 -- quantity of this SKU already in

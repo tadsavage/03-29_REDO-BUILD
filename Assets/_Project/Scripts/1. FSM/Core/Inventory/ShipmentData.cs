@@ -101,8 +101,16 @@ namespace GameCore.Inventory
         /// <summary>Total shortage across all line items (positive = less received than expected).</summary>
         public int TotalShortage => LineItems.Sum(item => item.Shortage);
 
-        /// <summary>Check if all line items have been fully received.</summary>
-        public bool IsFullyReceived => LineItems.Count > 0 && LineItems.All(item => item.ReceivedQuantity >= item.Quantity);
+        /// <summary>Check if all line items have been fully received — a line the player accepted
+        /// CreditTaken on is exempted permanently instead of blocking this forever, since a credited
+        /// shortage was never going to physically arrive.</summary>
+        public bool IsFullyReceived => LineItems.Count > 0 &&
+            LineItems.All(item => item.ReceivedQuantity >= item.Quantity || (item.Dropped && item.CreditTaken));
+
+        /// <summary>True while this PO has a short-shipped line the player hasn't yet requested a
+        /// backfill or accepted credit for — drives the Scheduler's Request Backfill/Request Credit
+        /// buttons.</summary>
+        public bool HasUnresolvedShortage => LineItems.Any(li => li.Dropped && !li.CreditTaken && li.ReceivedQuantity < li.Quantity);
 
         /// <summary>Update received quantity for a specific line item SKU. Picks the first line
         /// item for that SKU that ISN'T already fully received — a shipment with multiple pallets
@@ -155,6 +163,13 @@ namespace GameCore.Inventory
         /// ordered and Overage/Shortage were structurally always zero.
         /// </summary>
         public bool Dropped { get; set; }
+
+        /// <summary>
+        /// True once the player has accepted the vendor's credit for this short-shipped line instead
+        /// of requesting a backfill delivery. Permanently exempts the line from
+        /// <see cref="ShipmentData.IsFullyReceived"/> — set by ShipmentService.RequestCredit.
+        /// </summary>
+        public bool CreditTaken { get; set; }
 
         /// <summary>
         /// What this pallet turned out to be, when it came off a BROKER load. Ordinary for everything
@@ -214,6 +229,9 @@ namespace GameCore.Inventory
         /// <summary>False in a save written before supplier variance existed — correct, since every
         /// PO in such a save arrived complete by construction.</summary>
         public bool dropped;
+        /// <summary>False in a save written before backfill/credit existed — correct, since no such
+        /// resolution could have been recorded yet.</summary>
+        public bool creditTaken;
         /// <summary>0 (Ordinary) in a save written before broker loads existed — correct, since every
         /// PO in such a save came through a normal vendor.</summary>
         public int salvage;

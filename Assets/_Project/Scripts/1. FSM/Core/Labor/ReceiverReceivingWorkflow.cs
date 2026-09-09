@@ -42,7 +42,6 @@ namespace GameCore.Labor
         private EventManager _eventManager;
         private InventoryService _inventoryService;
         private WorkQueueSystem _workQueue;
-        private MoneyService _moneyService;
 
         // Track animation state to ensure it loops while receiving
         private float _animationCheckTimer;
@@ -116,7 +115,6 @@ namespace GameCore.Labor
             _eventManager = EventManager.Instance;
             ServiceLocator.TryGet<InventoryService>(out _inventoryService);
             ServiceLocator.TryGet<WorkQueueSystem>(out _workQueue);
-            ServiceLocator.TryGet<MoneyService>(out _moneyService);
         }
 
         private void Update()
@@ -322,11 +320,9 @@ namespace GameCore.Labor
             if (string.IsNullOrEmpty(_palletMasterRecord.LoadId))
                 _palletMasterRecord.LoadId = GameCore.Labor.LoadIDGenerator.Generate();
 
-            // Pay the vendor for the wholesale cost of the goods — the moment a pallet is actually
-            // received (not when it's staged) is when we're on the hook for it. Lump-summed under
-            // FinanceCategory.PurchasedGoods for now; per Tad, break it out further (by vendor/SKU)
-            // later.
-            ChargeForGoods();
+            // Goods are paid for at PO dispatch (ShipmentService.CreatePlayerPurchaseOrder), not here —
+            // charging again on physical receipt double-billed the player for every pallet. See
+            // ShipmentService's "MONEY: goods are paid for when ORDERED" doc comment.
 
             // Fill in the pallet's PalletData — REUSING the one TruckController already put on it when
             // this pallet was built as trailer cargo, rather than adding a second.
@@ -374,28 +370,6 @@ namespace GameCore.Labor
             Debug.Log($"[ReceiverReceivingWorkflow] Pallet {_palletMasterRecord.PalletId} receiving complete");
 
             CompleteWorkflow();
-        }
-
-        /// <summary>Deducts quantity x SkuData.UnitCost from capital — the wholesale cost owed to the
-        /// vendor for this pallet — and shows the same floating "-$X" popup used for build-menu
-        /// purchases. No-op (with a warning) if the SKU can't be resolved, so a bad/test SKU doesn't
-        /// throw away the whole receiving flow over a missing cost.</summary>
-        private void ChargeForGoods()
-        {
-            if (_moneyService == null) return;
-
-            var sku = _inventoryService?.GetSkuData(_palletMasterRecord.SkuId);
-            if (sku == null)
-            {
-                Debug.LogWarning($"[ReceiverReceivingWorkflow] No SkuData for '{_palletMasterRecord.SkuId}' — cannot charge for goods on pallet {_palletMasterRecord.PalletId}.");
-                return;
-            }
-
-            int totalCost = Mathf.RoundToInt(sku.BuyValue * _palletMasterRecord.Quantity);
-            if (totalCost <= 0) return;
-
-            _moneyService.Deduct(totalCost, FinanceCategory.PurchasedGoods);
-            FloatingMoneyText.Show(_targetPallet.position + Vector3.up * 1.5f, -totalCost);
         }
 
         private void ChangePalletMaterial(GameObject palletGO, Material newMaterial)

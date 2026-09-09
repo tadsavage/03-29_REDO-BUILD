@@ -730,6 +730,15 @@ namespace GameCore.Inventory
         /// shown on the "LATE" tooltip, not a second copy that can drift.</summary>
         public const int InboundLateRelationshipPenalty = 20;
 
+        /// <summary>How many in-game HOURS a player has to fully receive a scheduled PO before it's
+        /// lost outright — no refund, no backfill/credit. Measured from the appointment's own booked
+        /// start, not from CurrentDay/CurrentBlock — see SweepReceiveDeadlines.</summary>
+        public const int ReceiveDeadlineHours = 8;
+
+        /// <summary>Vendor-partnership hit for a PO expiring unreceived — worse than
+        /// InboundLateRelationshipPenalty since this is a total order loss, not just a slow door.</summary>
+        public const int ReceiveDeadlineRelationshipPenalty = 35;
+
         /// <summary>How many whole days this trailer sits from the day it was booked for. 0 when the
         /// baseline was never recorded (pre-existing save) — see DockAppointment.RequestedDay.</summary>
         public int OffSlotDaysFrom(DockAppointment appt)
@@ -1341,7 +1350,71 @@ namespace GameCore.Inventory
         private void OnHourChanged(string eventId, int newHour)
         {
             SweepElapsedAppointments();
+            SweepReceiveDeadlines();
             ReconcileFutureRecurringAppointments();
+        }
+
+        /// <summary>
+        /// Enforces the hard 8-hour receive-or-lose-it deadline: distinct from
+        /// JudgeElapsedInboundAppointment's 2-hour "driver never showed" judgment (which only fires
+        /// once, right when the booked BLOCK elapses, and only catches a truck that never even
+        /// dispatched). This checks EVERY still-open inbound PO appointment, every hour, against its own
+        /// booked start time — so it also catches a PO that dispatched, got a door, and is just taking
+        /// far too long to fully receive (or one still sitting parked in the unscheduled pool).
+        ///
+        /// On expiry: the PO is cancelled outright — no refund (already paid at dispatch, and nothing
+        /// arrived), no backfill/credit option (RequestBackfill/RequestCredit both refuse a Cancelled
+        /// shipment). Any live truck still around for it is forced out. Per Tad's spec: "if we don't
+        /// receive within 8 hours of the scheduler's appt - we lose the order and get nothing, driver
+        /// leaves - no credit and no backfill."
+        /// </summary>
+        private void SweepReceiveDeadlines()
+        {
+            if (!ServiceLocator.TryGet(out ShipmentService shipments) || shipments == null) return;
+            if (Clock == null) return;
+
+            long nowMinutes = Clock.TotalMinutesElapsed;
+
+            foreach (var appt in _appointments.ToList())
+            {
+                if (appt.Kind != AppointmentKind.Inbound || string.IsNullOrEmpty(appt.ShipmentPoNumber)) continue;
+                if (appt.ClosedOut) continue;
+                // Still sitting in the unscheduled pool — the 8-hour clock is "since the scheduler's
+                // APPOINTMENT", which doesn't exist yet for a PO the player hasn't placed on a door/block.
+                if (appt.Parked) continue;
+
+                ShipmentData po = shipments.PendingShipments.FirstOrDefault(s => s != null && s.PONumber == appt.ShipmentPoNumber);
+                if (po == null) continue; // already archived/gone — nothing left to expire
+                if (po.Status == ShipmentData.ShipmentStatus.Received ||
+                    po.Status == ShipmentData.ShipmentStatus.Departed ||
+                    po.Status == ShipmentData.ShipmentStatus.Cancelled) continue;
+
+                long apptStartMinutes = (long)(appt.Day - 1) * 24 * 60 + appt.StartHour * 60;
+                if (nowMinutes - apptStartMinutes < ReceiveDeadlineHours * 60) continue;
+
+                // Force out any live truck still sitting on this PO before cancelling — ForceDeparture
+                // internally marks the shipment Departed, which we immediately override to Cancelled
+                // below so the PO doesn't read as fulfilled.
+                var truck = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+                    .FirstOrDefault(t => t != null && t.AssignedShipment == po);
+                truck?.ForceDeparture();
+
+                po.Status = ShipmentData.ShipmentStatus.Cancelled;
+                appt.ClosedOut = true;
+                appt.WasLate = true;
+
+                if (ServiceLocator.TryGet(out VendorEconomyService economy) && economy != null &&
+                    !string.IsNullOrEmpty(po.SupplierId))
+                {
+                    economy.AdjustPartnershipLevel(po.SupplierId, -ReceiveDeadlineRelationshipPenalty,
+                        $"PO {po.PONumber} expired at the dock — {ReceiveDeadlineHours} hours passed with no full receipt");
+                }
+
+                UIToast.Show($"PO {po.PONumber} expired — {ReceiveDeadlineHours} hours passed with no full " +
+                             "receipt. Order lost, no refund.");
+                SystemsLogWindow.LogWarning($"PO {po.PONumber} expired at the dock — {ReceiveDeadlineHours} " +
+                                             "hours passed with no full receipt. Order lost, no refund.");
+            }
         }
 
         /// <summary>

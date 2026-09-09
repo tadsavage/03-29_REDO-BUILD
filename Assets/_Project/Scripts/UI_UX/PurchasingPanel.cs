@@ -2346,6 +2346,16 @@ public class PurchasingPanel : IUIPanel
             12, PartnershipColorUtility.GetColor(partnershipLevel), bold: true);
         nameCol.Add(partnership);
 
+        // Vendor minimums — red while unmet, green once the current basket meets or exceeds both. Only
+        // shown when this vendor actually has a minimum (most don't).
+        Label requirementsLabel = null;
+        if (vendor.MinimumOrderCases > 0 || vendor.MinimumOrderDollars > 0)
+        {
+            requirementsLabel = MakeText("", 11, ColSubtleText, bold: true);
+            requirementsLabel.style.marginTop = 2;
+            nameCol.Add(requirementsLabel);
+        }
+
         var statsRow = new VisualElement();
         statsRow.style.flexDirection = FlexDirection.Row;
         statsRow.style.alignItems = Align.Center;
@@ -2431,17 +2441,30 @@ public class PurchasingPanel : IUIPanel
         {
             var lines = MultiBasketLines(vendorId);
             var plan = TrailerCapacity.Plan(lines);
+            int cases = lines.Sum(l => l.cases);
             float cost = lines.Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
             int critical = CountCriticalItems(vendorId);
-            stats.text = $"{lines.Sum(l => l.cases):N0} case(s) · {plan.Pallets.Count:N0} pallet(s) · " +
+            stats.text = $"{cases:N0} case(s) · {plan.Pallets.Count:N0} pallet(s) · " +
                          $"[{critical}] critical items";
             costLabel.text = Money(cost);
             fillElement.style.width = Mathf.Clamp01(plan.Fill01) *
                 (TruckBoxRightFrac - TruckBoxLeftFrac) * TruckFillBarWidth;
 
             bool hasItems = _multiBaskets.TryGetValue(vendorId, out var basket) && basket.Count > 0;
-            dispatch.SetEnabled(hasItems);
-            dispatch.style.opacity = hasItems ? 1f : 0.5f;
+            bool meetsMinimums = cases >= vendor.MinimumOrderCases && cost >= vendor.MinimumOrderDollars;
+
+            if (requirementsLabel != null)
+            {
+                var parts = new List<string>();
+                if (vendor.MinimumOrderCases > 0) parts.Add($"{vendor.MinimumOrderCases:N0} cases");
+                if (vendor.MinimumOrderDollars > 0) parts.Add(Money(vendor.MinimumOrderDollars));
+                requirementsLabel.text = $"Min: {string.Join(" · ", parts)}";
+                requirementsLabel.style.color = new StyleColor(meetsMinimums ? ColCreateGreen : ColDangerSoft);
+            }
+
+            bool canDispatch = hasItems && meetsMinimums;
+            dispatch.SetEnabled(canDispatch);
+            dispatch.style.opacity = canDispatch ? 1f : 0.5f;
         }
         RefreshHeader();
 
@@ -3032,6 +3055,8 @@ public class PurchasingPanel : IUIPanel
         }
 
         int cases = basket.Values.Sum();
+        float cost = MultiBasketLines(vendorId).Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
+
         if (cases < vendor.MinimumOrderCases)
         {
             ShowNotice($"{vendor.DisplayName} won't take an order this small.\n\n" +
@@ -3041,8 +3066,14 @@ public class PurchasingPanel : IUIPanel
                        title: "ORDER TOO SMALL");
             return;
         }
-
-        float cost = MultiBasketLines(vendorId).Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
+        if (cost < vendor.MinimumOrderDollars)
+        {
+            ShowNotice($"{vendor.DisplayName} won't take an order this small.\n\n" +
+                       $"Their minimum is {Money(vendor.MinimumOrderDollars)} and this order is " +
+                       $"{Money(cost)}.\n\nAdd more, or dispatch a different vendor's order instead.",
+                       title: "ORDER TOO SMALL");
+            return;
+        }
         ShowConfirm($"Dispatch an order to {vendor.DisplayName}?\n\n" +
                     $"{basket.Count} line(s) · {cases:N0} case(s) · {plan.Pallets.Count} pallet(s) · " +
                     $"{Money(cost)}\n\nIt will wait in the Scheduler's unscheduled pool until you give " +

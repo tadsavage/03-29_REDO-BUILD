@@ -105,6 +105,19 @@ namespace GameCore.Inventory
             }
         }
 
+        /// <summary>Public entry point for anything OUTSIDE the per-pallet receiving path that can also
+        /// make a shipment fully received — e.g. ShipmentService.RequestCredit accepting a shortage
+        /// credit. Runs the exact same completion routine a physically-received pallet would trigger,
+        /// so there's one place that flips Status/fires events, not two that could drift apart. No-op
+        /// if the shipment isn't actually fully received yet.</summary>
+        public void CompleteIfFullyReceived(ShipmentData shipment)
+        {
+            if (shipment == null) return;
+            if (shipment.Status == ShipmentData.ShipmentStatus.Received) return;
+            if (!shipment.IsFullyReceived) return;
+            OnShipmentFullyReceived(shipment);
+        }
+
         /// <summary>Called when all pallets from a shipment have been received.</summary>
         private void OnShipmentFullyReceived(ShipmentData shipment)
         {

@@ -52,6 +52,9 @@ namespace GameCore.Inventory
         [Tooltip("Smallest order this vendor will accept, in cases. 0 = no minimum.")]
         [SerializeField] private int _minimumOrderCases;
 
+        [Tooltip("Smallest order this vendor will accept, in dollars. 0 = no minimum.")]
+        [SerializeField] private int _minimumOrderDollars;
+
         [Tooltip("The SKUs this vendor carries, each with a rarity tier that gates it behind a " +
                  "Partnership Level (see VendorEconomyService.GetAvailableCatalogue). A SKU may " +
                  "appear at more than one vendor, at different rarities.")]
@@ -66,6 +69,7 @@ namespace GameCore.Inventory
         public Sprite Icon => _icon;
         public VendorTier Tier => _tier;
         public int MinimumOrderCases => Mathf.Max(0, _minimumOrderCases);
+        public int MinimumOrderDollars => Mathf.Max(0, _minimumOrderDollars);
         public IReadOnlyList<VendorCatalogueEntry> Catalogue => _catalogue;
 
         public bool Carries(string skuId)

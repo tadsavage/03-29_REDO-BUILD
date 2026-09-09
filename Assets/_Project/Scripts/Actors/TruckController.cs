@@ -249,8 +249,8 @@ public class TruckController : MonoBehaviour
     [SerializeField] private float exitShrinkTime = 0.6f; // was 1.2 — halved per Tad's request
 
     [Header("Door wait (no free door at arrival, read-only — injected by TruckYardManager.Init)")]
-    [Tooltip("How many in-game minutes a truck waits for a door to free up before giving up and leaving (still taking the late penalty). Standard 60 per Tad's spec.")]
-    [SerializeField] private float doorWaitMinutes = 60f;
+    [Tooltip("How many in-game minutes a truck waits for a door to free up before giving up and leaving (still taking the late penalty). 120 = 2 in-game hours, per Tad's dock-punctuality spec.")]
+    [SerializeField] private float doorWaitMinutes = 120f;
     [Tooltip("Real seconds between checks for a newly-freed door while waiting.")]
     [SerializeField] private float doorWaitPollSeconds = 2f;
 
@@ -579,6 +579,7 @@ private DockSlot        _dock;
         }
         _dock = dock;
         _dock.Claim();
+        ApplyOnTimeDoorBonus();
 
         Vector3 firstTarget = _gateStop ?? ApproachPoint();
 
@@ -657,6 +658,12 @@ private DockSlot        _dock;
                 // line reports its full Shortage. The line item deliberately stays on the manifest —
                 // see ShipmentLineItem.Dropped for why it's a flag rather than a deletion.
                 if (item.Dropped) continue;
+
+                // Already satisfied — a BACKFILL run (ShipmentService.RequestBackfill) re-enters the
+                // SAME ShipmentData/PO into the dispatch pipeline with only its short lines reopened,
+                // so this truck's manifest can be a mix of already-received and newly-reopened lines.
+                // Without this guard every already-delivered pallet on the PO would be built again.
+                if (item.ReceivedQuantity >= item.Quantity) continue;
 
                 var sku = inventoryService?.GetSkuData(item.SkuId);
                 if (BuildOnePallet(loadParent, sku, item.SkuId, item.FloorSlotIndex, item.PalletTier, i))
@@ -2917,6 +2924,7 @@ private DockSlot        _dock;
 
         _dock = freeDock;
         _dock.Claim();
+        ApplyOnTimeDoorBonus();
         _doorWaitBar?.ShowHeadingToDoor(_dock.DoorNumber);
 
         if (_sideLotSlot != null)
@@ -3121,9 +3129,39 @@ private DockSlot        _dock;
                 $"No door freed up for PO {AssignedShipment.PONumber} within {doorWaitMinutes:F0} minutes — driver gave up and left");
         }
 
+        // Missing the 2-hour door window also costs real money — 10% of the load's total cost, on top
+        // of the vendor-standing hit above. Per Tad's spec.
+        int penalty = 0;
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Economy.MoneyService money) && money != null)
+        {
+            penalty = Mathf.RoundToInt(AssignedShipment.TotalCost * 0.10f);
+            if (penalty > 0)
+                money.Deduct(penalty, FinanceCategory.Fines);
+        }
+
         UIToast.Show($"No door freed up for PO {AssignedShipment.PONumber} in time — the driver has " +
-                     "left. Reschedule the appointment.");
-        SystemsLogWindow.LogGuard($"Order# {AssignedShipment.PONumber} left the yard due to delays — you BLEW IT!");
+                     $"left. Charged ${penalty:N0} (10% of the load) and vendor standing took a hit. Reschedule the appointment.");
+        SystemsLogWindow.LogWarning($"Order# {AssignedShipment.PONumber} left the yard due to delays — " +
+                                     $"charged ${penalty:N0} and vendor standing took a hit. You BLEW IT!");
+    }
+
+    /// <summary>Counterpart to ApplyGaveUpWaitingForDoorPenalty — rewards vendor standing when an
+    /// inbound trailer gets a door within the doorWaitMinutes window (whether immediately at spawn, via
+    /// AssignAndGo, or after a real wait, via UpdateWaitingForDoor's success branch). Per Tad's spec:
+    /// "getting drivers out on time will always increase our standing."</summary>
+    private void ApplyOnTimeDoorBonus()
+    {
+        if (_isOutbound || AssignedShipment == null || string.IsNullOrEmpty(AssignedShipment.SupplierId))
+            return;
+
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorEconomyService economy) &&
+            economy != null)
+        {
+            economy.AdjustPartnershipLevel(AssignedShipment.SupplierId, 5,
+                $"PO {AssignedShipment.PONumber} got a door within {doorWaitMinutes:F0} minutes");
+        }
+
+        SystemsLogWindow.LogGuard($"PO {AssignedShipment.PONumber} got a door on time — vendor standing improved.");
     }
 
     /// <summary>
