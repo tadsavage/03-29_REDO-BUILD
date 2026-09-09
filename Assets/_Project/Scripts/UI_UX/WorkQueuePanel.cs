@@ -1319,7 +1319,9 @@ public class WorkQueuePanel : IUIPanel
             row.RegisterCallback<PointerEnterEvent>(_ =>
             {
                 if (_isDragSelecting) ApplyRangeSelection(order.OrderId);
+                CustomCursorService.SetHoveringInteractable(true);
             });
+            row.RegisterCallback<PointerLeaveEvent>(_ => CustomCursorService.SetHoveringInteractable(false));
             _selectableRows.Add((order.OrderId, row, isEven));
         }
 
@@ -2075,8 +2077,13 @@ public class WorkQueuePanel : IUIPanel
                 filter.HeaderLabel.style.color = new StyleColor(ColTitleText);
                 filter.HeaderIcon.style.color = new StyleColor(ColTitleText);
             }
+            CustomCursorService.SetHoveringInteractable(true);
         });
-        container.RegisterCallback<PointerLeaveEvent>(_ => UpdateFilterHeaderAppearance(col));
+        container.RegisterCallback<PointerLeaveEvent>(_ =>
+        {
+            UpdateFilterHeaderAppearance(col);
+            CustomCursorService.SetHoveringInteractable(false);
+        });
 
         UpdateFilterHeaderAppearance(col);
         return container;

@@ -1701,9 +1701,14 @@ public class SchedulerPanel : IUIPanel
             OrderIds = group.OrderIds,
             Day = group.EarliestDueDay,
         };
-        box.RegisterCallback<MouseEnterEvent>(_ => ShowNewSchedulerTooltip(syntheticAppt, box));
+        box.RegisterCallback<MouseEnterEvent>(_ =>
+        {
+            ShowNewSchedulerTooltip(syntheticAppt, box);
+            CustomCursorService.SetHoveringInteractable(true);
+        });
         box.RegisterCallback<MouseLeaveEvent>(evt =>
         {
+            CustomCursorService.SetHoveringInteractable(false);
             if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
                 _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
             HideNewSchedulerTooltip();
@@ -1882,9 +1887,14 @@ public class SchedulerPanel : IUIPanel
         // Same rich hover card a booked grid chip shows — per Tad's explicit call. This box already
         // carries a real DockAppointment, so no throwaway stand-in is needed the way BuildPoolBox
         // needs one.
-        box.RegisterCallback<MouseEnterEvent>(_ => ShowNewSchedulerTooltip(appt, box));
+        box.RegisterCallback<MouseEnterEvent>(_ =>
+        {
+            ShowNewSchedulerTooltip(appt, box);
+            CustomCursorService.SetHoveringInteractable(true);
+        });
         box.RegisterCallback<MouseLeaveEvent>(evt =>
         {
+            CustomCursorService.SetHoveringInteractable(false);
             if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
                 _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
             HideNewSchedulerTooltip();
@@ -2951,6 +2961,8 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
         {
             left.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.12f));
             left.RegisterCallback<ClickEvent>(_ => OnReturnAppointmentToPoolClicked());
+            left.RegisterCallback<MouseEnterEvent>(_ => CustomCursorService.SetHoveringInteractable(true));
+            left.RegisterCallback<MouseLeaveEvent>(_ => CustomCursorService.SetHoveringInteractable(false));
         }
 
         if (poolCount == 0)
@@ -3474,12 +3486,19 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         if (!locked) cell.RegisterCallback<ClickEvent>(_ => OnChipClicked(appt));
 
-        cell.RegisterCallback<MouseEnterEvent>(_ => ShowNewSchedulerTooltip(appt, cell));
+        cell.RegisterCallback<MouseEnterEvent>(_ =>
+        {
+            ShowNewSchedulerTooltip(appt, cell);
+            // Only a genuinely clickable chip gets the select cursor -- a locked one still shows its
+            // tooltip (informational) but a click does nothing, so promising "select" would be a lie.
+            if (!locked) CustomCursorService.SetHoveringInteractable(true);
+        });
         // Don't hide if the cursor is heading straight into the tooltip (now interactive, for
         // mouse-wheel scrolling on long item lists) -- the tooltip's own MouseLeaveEvent covers
         // hiding once the cursor actually leaves it.
         cell.RegisterCallback<MouseLeaveEvent>(evt =>
         {
+            if (!locked) CustomCursorService.SetHoveringInteractable(false);
             if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
                 _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
             HideNewSchedulerTooltip();
@@ -3612,6 +3631,8 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         cell.Add(label);
 
         cell.RegisterCallback<ClickEvent>(_ => OnSlotClicked(block, doorNumber));
+        cell.RegisterCallback<MouseEnterEvent>(_ => CustomCursorService.SetHoveringInteractable(true));
+        cell.RegisterCallback<MouseLeaveEvent>(_ => CustomCursorService.SetHoveringInteractable(false));
         return cell;
     }
 

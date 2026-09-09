@@ -63,6 +63,8 @@ public class GlobalButtonUX : MonoBehaviour
             if (root == null) continue;
             root.UnregisterCallback<ClickEvent>(OnAnyButtonClicked, TrickleDown.TrickleDown);
             root.UnregisterCallback<FocusOutEvent>(OnAnyButtonBlurred, TrickleDown.TrickleDown);
+            root.UnregisterCallback<MouseOverEvent>(OnAnyButtonHoverEnter);
+            root.UnregisterCallback<MouseOutEvent>(OnAnyButtonHoverLeave);
         }
         _hookedRoots.Clear();
     }
@@ -83,6 +85,27 @@ public class GlobalButtonUX : MonoBehaviour
         // dragging (several panels do this) still sees the click on the way down.
         root.RegisterCallback<ClickEvent>(OnAnyButtonClicked, TrickleDown.TrickleDown);
         root.RegisterCallback<FocusOutEvent>(OnAnyButtonBlurred, TrickleDown.TrickleDown);
+
+        // Select cursor over every Button in the game, the same "one place" reasoning as the rest of
+        // this class — per Tad's explicit call. MouseEnterEvent/MouseLeaveEvent were tried first and
+        // silently never fired here: those two don't propagate at all in UI Toolkit (no bubble, no
+        // trickle-down capture either — they only ever reach a handler registered directly on the
+        // element itself), so a ROOT registration for them is a no-op no matter which phase you ask
+        // for. MouseOverEvent/MouseOutEvent are the bubbling counterparts (same relationship as DOM's
+        // mouseenter/mouseleave vs. mouseover/mouseout) and correctly reach a root-level handler on
+        // their way up from whatever was actually entered/left, registered normally (bubble phase).
+        root.RegisterCallback<MouseOverEvent>(OnAnyButtonHoverEnter);
+        root.RegisterCallback<MouseOutEvent>(OnAnyButtonHoverLeave);
+    }
+
+    private void OnAnyButtonHoverEnter(MouseOverEvent evt)
+    {
+        if (evt.target is Button) CustomCursorService.SetHoveringInteractable(true);
+    }
+
+    private void OnAnyButtonHoverLeave(MouseOutEvent evt)
+    {
+        if (evt.target is Button) CustomCursorService.SetHoveringInteractable(false);
     }
 
     /// <summary>

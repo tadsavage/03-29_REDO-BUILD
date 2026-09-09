@@ -205,6 +205,21 @@ public class PlacementStateMachine : MonoBehaviour
                 // We don't call raycast.Tick() again here because IdleState already did it.
                 HandleIdleHover(tickRaycast: false);
 
+                // Select cursor whenever the thing under the mouse right now is something a click
+                // (or Shift+click, for lights) actually does something to — per Tad's explicit call,
+                // reusing this same hover raycast rather than adding a second one. Mirrors exactly
+                // the components/gates the click handlers below (and EmployeeClickHandler,
+                // MHEOperatorSlot, SideLotController in their own Update()s) already check.
+                //
+                // Skipped entirely (not just told "false") whenever the pointer is over UI: this runs
+                // every single frame, while GlobalButtonUX's hover-cursor only fires ONCE on the
+                // MouseOverEvent that enters a button. Calling SetHoveringInteractable(false) here
+                // unconditionally clobbered that "true" back off the very next frame — the select
+                // cursor would flash on for an instant over a button and immediately vanish. Over UI,
+                // this system has nothing useful to say either way, so it just stays out of it.
+                if (!_raycast.IsPointerOverUI)
+                    CustomCursorService.SetHoveringInteractable(IsHoveringClickableWorldObject());
+
                 // Ctrl + Left Click on a pallet opens PalletBuilder UI. Shift+Click is reserved for
                 // Slot Assignment — this used to be bound to Shift and directly duplicated
                 // PalletBuilder.OnMouseDown's own click handling (which is Ctrl-gated), so the two
@@ -256,6 +271,13 @@ public class PlacementStateMachine : MonoBehaviour
                     }
                 }
             }
+        }
+        else if (_raycast == null || !_raycast.IsPointerOverUI)
+        {
+            // Not idle (Build/Move/Delete/etc.) -- nothing here reads as a click-to-select target the
+            // same way, so don't leave the select cursor stuck on from whatever was last hovered. Same
+            // "stay out of it over UI" guard as the idle branch above -- this also runs every frame.
+            CustomCursorService.SetHoveringInteractable(false);
         }
         // Removed forced hide here as it conflicts with states that want to show hover info (like Delete/Move)
 
@@ -437,6 +459,36 @@ private void HandleIdleHover(bool tickRaycast = true)
 
         // No hit or no building/pallet → hide popup
         _hoverUI.TickHover(false, null, 0, 0, Vector3.zero, null);
+    }
+
+    /// <summary>True when the object directly under the cursor right now is something a click (or a
+    /// Shift+click, for lights) actually acts on — the same set of components the click handlers just
+    /// below this check (and EmployeeClickHandler/MHEOperatorSlot/SideLotController in their own
+    /// Update()s) look for. Reuses _raycast.HitObject/IsPointerOverUI rather than raycasting again —
+    /// HandleIdleHover already resolved both this frame.</summary>
+    private bool IsHoveringClickableWorldObject()
+    {
+        // Same guard HandleIdleHover uses: a full-screen UI panel covers the 3D view without the
+        // raycast knowing it's there, and HandleIdleHover skips re-ticking the raycast in that case —
+        // so _raycast.HitObject would otherwise be stale, left over from before the panel opened.
+        if (UIKeyBindingManager.Instance != null && UIKeyBindingManager.Instance.CurrentOpenKey != -1) return false;
+        if (_raycast == null || _raycast.IsPointerOverUI || _raycast.HitObject == null) return false;
+
+        var hit = _raycast.HitObject;
+
+        if (hit.GetComponentInParent<EmployeeClickHandler>() != null) return true;
+
+        var mheSlot = hit.GetComponentInParent<MHEOperatorSlot>();
+        if (mheSlot != null && mheSlot.IsOccupied) return true;
+
+        if (hit.GetComponentInParent<SideLotController>() != null) return true;
+
+        // Lights only act on Shift+click (see the block below) -- showing the select cursor on a
+        // plain hover would promise a click does something it doesn't.
+        bool shiftHeld = Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
+        if (shiftHeld && hit.GetComponentInParent<Light>() != null) return true;
+
+        return false;
     }
 
     private void OnEnable() => _actions?.Enable();
