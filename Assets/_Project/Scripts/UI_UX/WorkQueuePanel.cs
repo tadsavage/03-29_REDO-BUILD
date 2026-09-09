@@ -287,6 +287,26 @@ public class WorkQueuePanel : IUIPanel
         if (_overlay.parent != null) _overlay.RemoveFromHierarchy();
     }
 
+    /// <summary>Closes this panel and opens the standalone Scheduler (key 0's dock appointment grid) —
+    /// same cross-navigation pattern ContractsPanel.OpenScheduler/PurchasingPanel.OpenScheduler already
+    /// use. Routed through UIKeyBindingManager.CloseAll() rather than a bare Hide() so the key-binding
+    /// registry's exclusivity/CurrentOpenKey bookkeeping stays correct.</summary>
+    private void OpenScheduler()
+    {
+        Hide();
+
+        var topBar = Object.FindAnyObjectByType<TopBarUI>();
+        var scheduler = topBar != null ? topBar.SchedulerPanel : null;
+        if (scheduler == null)
+        {
+            UIToast.Show("Couldn't open the scheduler — the panel isn't loaded.");
+            return;
+        }
+
+        UIKeyBindingManager.Instance?.CloseAll();
+        scheduler.Show();
+    }
+
     // ── Shell ────────────────────────────────────────────────────────────────
     private VisualElement Build(out ScrollView rowScroll, out Label bottomMessage,
         out DropdownField targetDropdown, out Button submitButton)
@@ -473,7 +493,8 @@ public class WorkQueuePanel : IUIPanel
         // readout. Kept the same footprint/width so the title still centres correctly.
         var dayTimeBadge = new VisualElement();
         // Shrunk 20% per Tad's explicit call (the text inside grew 20% the other way, see below).
-        dayTimeBadge.style.width = (SelectAllWidth + 8 + CancelSelectedWidth - titleBtnSize - 8 - titleBtnSize) * 0.8f;
+        float dayTimeBadgeWidth = (SelectAllWidth + 8 + CancelSelectedWidth - titleBtnSize - 8 - titleBtnSize) * 0.8f;
+        dayTimeBadge.style.width = dayTimeBadgeWidth;
         dayTimeBadge.style.height = titleBtnSize * 0.8f;
         dayTimeBadge.style.flexShrink = 0;
         // Switched from a flex-flow marginLeft hack to absolute positioning anchored off the title
@@ -515,6 +536,18 @@ public class WorkQueuePanel : IUIPanel
         dayTimeBadge.Add(_timeLabel);
         UpdateDayTimeLabel();
         titleBar.Add(dayTimeBadge);
+
+        // Straight to the dock appointment grid — same "orange button, own destination" link
+        // ContractsPanel/PurchasingPanel already use to cross-navigate to the Scheduler. Absolutely
+        // positioned (not flex flow) so it can't disturb the Select All/Cancel Selected widths or the
+        // scale/close buttons' flush-right stacking — anchored just left of the day/time badge, which
+        // occupies right:202 through right:(202+dayTimeBadge width).
+        var openScheduler = new Button(OpenScheduler) { text = "SCHEDULER" };
+        StyleButton(openScheduler, ColOrange, ColOrangeEdge, Color.white, ColOrangeHover);
+        openScheduler.style.height = titleBtnSize * 0.8f;
+        openScheduler.style.position = Position.Absolute;
+        openScheduler.style.right = 202 + dayTimeBadgeWidth + 10;
+        titleBar.Add(openScheduler);
 
         titleBar.Add(_scaleButton);
         titleBar.Add(closeButton);

@@ -1,7 +1,19 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace GameCore.Inventory
 {
+    /// <summary>One concrete SKU/quantity line of a bulk offer's preview — rolled ONCE when the offer
+    /// is generated (OrderArrivalService.RollBulkPreview) and reused both for the ACCEPT OFFER tooltip
+    /// and for the real order OrderArrivalService.GenerateBulk builds on Accept, so what the player
+    /// previews on hover is exactly what they get — never a second, independently-rolled list.</summary>
+    [System.Serializable]
+    public class BulkPreviewLine
+    {
+        public string SkuId;
+        public int Quantity;
+    }
+
     /// <summary>
     /// Recurring = a standing account that sends work every day until cancelled — mixed case-pick
     /// orders. Bulk = a single order a customer places off the cuff, priced off cost of goods, in
@@ -89,6 +101,11 @@ namespace GameCore.Inventory
         [SerializeField, Min(1)] private int _bulkPalletsPerLineMin = 1;
         [SerializeField, Min(1)] private int _bulkPalletsPerLineMax = 10;
 
+        /// <summary>The concrete SKU/quantity lines this bulk offer will deliver, rolled once at offer
+        /// creation. Empty for a non-bulk (Recurring) contract, or for a bulk offer authored/created
+        /// before this existed — GenerateBulk falls back to rolling fresh in that case.</summary>
+        [SerializeField] private List<BulkPreviewLine> _bulkPreviewLines = new();
+
         [Header("Legacy Wholesale field (retired OneOffWholesale kind only)")]
         [Tooltip("Unused by anything current — kept only so an authored OneOffWholesale asset (now " +
                  "treated as Bulk) still deserializes its old value without warnings.")]
@@ -151,6 +168,13 @@ namespace GameCore.Inventory
         public int BulkPalletsPerLineMin => _bulkPalletsPerLineMin;
         public int BulkPalletsPerLineMax => _bulkPalletsPerLineMax;
         public int PalletCount => _palletCount;
+
+        /// <summary>The concrete lines rolled for this bulk offer — see the field's own doc comment.</summary>
+        public IReadOnlyList<BulkPreviewLine> BulkPreviewLines => _bulkPreviewLines;
+
+        /// <summary>Sets the offer's rolled preview lines. Called once, right after the offer is
+        /// created (OrderArrivalService), before it's ever shown to the player.</summary>
+        public void SetBulkPreviewLines(List<BulkPreviewLine> lines) => _bulkPreviewLines = lines ?? new List<BulkPreviewLine>();
         public int OrdersPerDayMin => _ordersPerDayMin;
         public int OrdersPerDayMax => _ordersPerDayMax;
         public int LineItemsMin => _lineItemsMin;
@@ -412,5 +436,10 @@ namespace GameCore.Inventory
         /// <summary>Day this offer was rolled onto the board. The daily roll clears offers older than
         /// today, so without this a restored offer would be immortal.</summary>
         public int createdOnDay;
+        /// <summary>The offer's rolled bulk preview lines (see BulkPreviewLine) — empty in a save
+        /// written before this existed, or for a non-bulk contract. Without persisting these, a
+        /// reloaded bulk offer's ACCEPT OFFER tooltip would show nothing, and Accepting it would roll
+        /// a DIFFERENT list than whatever the player saw before the save.</summary>
+        public List<BulkPreviewLine> bulkPreviewLines = new();
     }
 }

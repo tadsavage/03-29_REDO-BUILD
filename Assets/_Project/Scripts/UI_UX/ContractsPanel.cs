@@ -896,6 +896,34 @@ public class ContractsPanel : IUIPanel
     private static Color TypeTextFor(ContractData c)
         => c.IsBulk ? ColChipBulkTx : ColChipOutText;
 
+    /// <summary>Plain-text stock check for a bulk offer's ACCEPT ORDER button — per Tad's ask, "the
+    /// regular order detail tooltip" for whether we have the product or not. Reads
+    /// ContractData.BulkPreviewLines (rolled once at offer creation, the same list GenerateBulk builds
+    /// the real order from on Accept) against live on-hand inventory.</summary>
+    private string BuildBulkStockTooltip(ContractData contract, InventoryService inv)
+    {
+        var lines = contract?.BulkPreviewLines;
+        if (lines == null || lines.Count == 0)
+            return "Product not determined yet.";
+
+        var sb = new System.Text.StringBuilder();
+        bool anyShort = false;
+        foreach (var line in lines)
+        {
+            var sku = inv?.GetSkuData(line.SkuId);
+            string name = sku != null ? sku.ItemDescription : line.SkuId;
+            int onHand = inv != null ? inv.TotalOnHand(line.SkuId) : 0;
+            bool have = onHand >= line.Quantity;
+            if (!have) anyShort = true;
+            sb.Append($"{name}: need {line.Quantity:N0}, have {onHand:N0} — ")
+              .Append(have ? "OK" : $"SHORT {line.Quantity - onHand:N0}")
+              .Append('\n');
+        }
+
+        sb.Insert(0, anyShort ? "SOME PRODUCT NOT ON HAND:\n" : "ALL PRODUCT ON HAND:\n");
+        return sb.ToString().TrimEnd();
+    }
+
     private VisualElement BuildOfferCard(ContractData contract, InventoryService inv, int rowIndex)
     {
         var card = MakeRow(rowIndex, AccentFor(contract));
@@ -944,6 +972,12 @@ public class ContractsPanel : IUIPanel
         // underneath it as the two things that qualify the decision.
         var sign = new Button(() => OnSign(contract)) { text = contract.IsBulk ? "ACCEPT ORDER" : "SIGN CONTRACT" };
         StyleOrangeButton(sign);
+        // Bulk offers roll their SKUs once, at offer creation (OrderArrivalService.RollDailyBulkOffers)
+        // — this is exactly that same list, so what's previewed here is what GenerateBulk builds on
+        // Accept, never a second independently-rolled order. Recurring contracts don't have this
+        // (their line items are rolled fresh each arrival day, not up front), so no tooltip for those.
+        if (contract.IsBulk)
+            RuntimeTooltip.Attach(sign, BuildBulkStockTooltip(contract, inv));
         // 25% taller than the shared 30px orange button, and stretched to the column rather than
         // sized to its own text. Both matter: the height makes it the obvious target on the card, and
         // the stretch is what lets the deadline badge below match its width WITHOUT measuring

@@ -918,6 +918,11 @@ namespace GameCore.Inventory
                     bulkLinesMin: 1, bulkLinesMax: 3,
                     bulkPalletsPerLineMin: 1, bulkPalletsPerLineMax: 10);
 
+                // Rolled ONCE here, at offer creation — not at Accept. This is what the ACCEPT OFFER
+                // tooltip shows and exactly what GenerateBulk builds the real order from, so the
+                // player never sees a preview that Accept then contradicts.
+                offer.SetBulkPreviewLines(RollBulkPreview(offer, rand));
+
                 if (!AddOffer(offer)) continue;
                 _generatedOfferDay[contractId] = today;
             }
@@ -943,13 +948,55 @@ namespace GameCore.Inventory
         }
 
         /// <summary>
-        /// One bulk order: 1–3 lines, each a whole number of FULL PALLETS of a SKU plus whatever part
-        /// case the customer happened to ask for on top.
+        /// Rolls the concrete SKU/quantity lines for a bulk offer: 1–3 lines, each a whole number of
+        /// FULL PALLETS of a SKU plus whatever part case the customer happened to ask for on top.
         ///
         /// That remainder is the interesting half. 620 cases of a 60-per-pallet SKU is ten pallets and
         /// twenty loose cases — ten PalletPick tasks for a Reach Truck and one ordinary case pick for
         /// a selector, both staged into the same lane and loaded onto the same trailer. Rounding it up
         /// to eleven pallets would have been simpler and would have deleted the mechanic.
+        ///
+        /// Called ONCE, at offer creation (RollDailyBulkOffers) — not at Accept. The result is stored
+        /// on the offer (ContractData.BulkPreviewLines) so the ACCEPT OFFER tooltip and the real order
+        /// GenerateBulk builds always agree.
+        /// </summary>
+        /// <summary>Public wrapper for external callers that create a Bulk ContractData outside
+        /// RollDailyBulkOffers (currently just ToolsWindowController's dev "TEST CUSTOMER" button) —
+        /// rolls and stores the offer's preview lines so its ACCEPT OFFER tooltip and eventual
+        /// GenerateBulk agree, same as the normal daily roll. No-op for a non-bulk contract.</summary>
+        public void RollAndSetBulkPreview(ContractData contract)
+        {
+            if (contract == null || !contract.IsBulk) return;
+            contract.SetBulkPreviewLines(RollBulkPreview(contract, new System.Random()));
+        }
+
+        private List<BulkPreviewLine> RollBulkPreview(ContractData contract, System.Random rand)
+        {
+            var eligible = _inventoryService.AllSkus
+                .Where(s => s != null && s.BuyValue > 0f && s.Ti > 0 && s.Hi > 0)
+                .ToList();
+            if (eligible.Count == 0) return new List<BulkPreviewLine>();
+
+            int lineCount = Mathf.Min(eligible.Count,
+                rand.Next(contract.BulkLinesMin, contract.BulkLinesMax + 1));
+            var chosen = eligible.OrderBy(_ => rand.Next()).Take(lineCount).ToList();
+
+            var lines = new List<BulkPreviewLine>();
+            foreach (var sku in chosen)
+            {
+                int fullPallet = sku.Ti * sku.Hi;
+                int pallets = rand.Next(contract.BulkPalletsPerLineMin, contract.BulkPalletsPerLineMax + 1);
+                // A remainder about a third of the time — always a real part case, never a second full
+                // pallet's worth, so the split into "pallet picks plus one case pick" stays honest.
+                int remainder = rand.Next(0, 3) == 0 ? rand.Next(1, fullPallet) : 0;
+                int qty = pallets * fullPallet + remainder;
+                lines.Add(new BulkPreviewLine { SkuId = sku.SkuId, Quantity = qty });
+            }
+            return lines;
+        }
+
+        /// <summary>
+        /// Turns a bulk offer's rolled preview (ContractData.BulkPreviewLines) into a real OrderData.
         ///
         /// PRICING is cost of goods plus a 5% surcharge, deliberately ignoring both the SKU's SellValue
         /// and the contract's PayRateMultiplier: bulk is a low-margin volume deal priced off what the
@@ -964,19 +1011,18 @@ namespace GameCore.Inventory
                 return;
             }
 
-            var eligible = _inventoryService.AllSkus
-                .Where(s => s != null && s.BuyValue > 0f && s.Ti > 0 && s.Hi > 0)
-                .ToList();
-            if (eligible.Count == 0)
+            // Normally already rolled at offer creation (RollDailyBulkOffers). Falls back to rolling
+            // now only for an offer that somehow reached Accept with no preview — an authored bulk
+            // ContractData asset predating this, or a preview roll that came up empty because no
+            // eligible SKUs existed at the time.
+            var lines = contract.BulkPreviewLines;
+            if (lines == null || lines.Count == 0)
+                lines = RollBulkPreview(contract, new System.Random());
+            if (lines.Count == 0)
             {
                 Debug.LogWarning("[OrderArrivalService] No SKUs with committed Ti/Hi — bulk order not generated.");
                 return;
             }
-
-            var rand = new System.Random();
-            int lineCount = Mathf.Min(eligible.Count,
-                rand.Next(contract.BulkLinesMin, contract.BulkLinesMax + 1));
-            var chosen = eligible.OrderBy(_ => rand.Next()).Take(lineCount).ToList();
 
             // DueDay = today + the deadline the offer advertised. today + 0 is a SAME-DAY RUSH: the
             // order is born already due, so OrderData.IsSameDayRush is true and ShipOrder pays double
@@ -997,21 +1043,22 @@ namespace GameCore.Inventory
 
             int totalCases = 0;
             int totalPallets = 0;
-            foreach (var sku in chosen)
+            foreach (var line in lines)
             {
-                int fullPallet = sku.Ti * sku.Hi;
-                int pallets = rand.Next(contract.BulkPalletsPerLineMin, contract.BulkPalletsPerLineMax + 1);
-                // A remainder about a third of the time — always a real part case, never a second full
-                // pallet's worth, so the split into "pallet picks plus one case pick" stays honest.
-                int remainder = rand.Next(0, 3) == 0 ? rand.Next(1, fullPallet) : 0;
-                int qty = pallets * fullPallet + remainder;
+                var sku = _inventoryService.GetSkuData(line.SkuId);
+                if (sku == null)
+                {
+                    Debug.LogWarning($"[OrderArrivalService] Bulk offer '{contract.ContractId}' previewed " +
+                                     $"SKU '{line.SkuId}', which no longer resolves — line skipped.");
+                    continue;
+                }
 
-                totalCases += qty;
-                totalPallets += pallets;
+                totalCases += line.Quantity;
+                totalPallets += sku.Ti > 0 && sku.Hi > 0 ? line.Quantity / (sku.Ti * sku.Hi) : 0;
 
                 order.LineItems.Add(new OrderLineItem(
                     sku.SkuId,
-                    qty,
+                    line.Quantity,
                     Mathf.RoundToInt(sku.BuyValue),
                     Mathf.RoundToInt(sku.BuyValue * BulkSurchargeMultiplier)));
             }
@@ -1181,7 +1228,8 @@ namespace GameCore.Inventory
                     leadTimeDays = c.LeadTimeDays,
                     payRateMultiplier = c.PayRateMultiplier,
                     lateFeePercent = c.LateFeePercent,
-                    createdOnDay = kv.Value
+                    createdOnDay = kv.Value,
+                    bulkPreviewLines = c.BulkPreviewLines.Select(l => new BulkPreviewLine { SkuId = l.SkuId, Quantity = l.Quantity }).ToList()
                 });
             }
             return list;
@@ -1228,6 +1276,7 @@ namespace GameCore.Inventory
                     (OrderFrequency)s.frequency,
                     s.bulkLinesMin, s.bulkLinesMax,
                     s.bulkPalletsPerLineMin, s.bulkPalletsPerLineMax);
+                offer.SetBulkPreviewLines(s.bulkPreviewLines?.Select(l => new BulkPreviewLine { SkuId = l.SkuId, Quantity = l.Quantity }).ToList());
 
                 if (!AddOffer(offer)) continue;
                 _generatedOfferDay[s.contractId] = s.createdOnDay;

@@ -1735,6 +1735,8 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             frequency: bulk ? GameCore.Inventory.OrderFrequency.OneTime
                             : GameCore.Inventory.OrderFrequency.Daily);
 
+        arrivals.RollAndSetBulkPreview(contract);
+
         if (!arrivals.AddOffer(contract))
         {
             Debug.LogWarning($"[DevConsole] Offer {contract.ContractId} already on the board.");
