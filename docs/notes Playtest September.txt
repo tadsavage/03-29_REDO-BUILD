@@ -1,6 +1,5 @@
-09-5
 
-*********************COMPLETE*******************************************************************************************************
+*********************COMPLETE*********************************************************09-5
 Add role filter to hiring board - Complete 
 Swap input actions From middle mouse button to right mouse button. Right mouse button should drag while middle mouse button should scroll and pan. - Complete
 Delete mode highlighting objects in more colors than I care for Orange yellow red, Need just one color - Complete 
@@ -33,9 +32,58 @@ Fix truck backup - Complete
 FPS, Cell and Graphics mode not formatted correctly anymore. - Completed and DOCKABLE!
 Conversation History - Complete
 
+
 09-07
-We need to be able to raise priorities of putaways
 New Mouse Pointers
-Dock Lanes dont initialize while game is paused in game speed
+09-08
+On Scheduler we should see 
+Camera needs to be able to get to edge of playfield
+Playfield edge needs volume modifiers that will blur just the edges like TPH does
+Need to compress Dev and Log UI down better when on build tab - nothing fits. Can everything just scale down better maybe? We could make Utility into a grid of 6 buttons. Maybe when we go to build tab game auto pauses and pusts a message in that says BUILD MODE = GAME PAUSED 
+When we close the LOG - need way to bring it back.
+Lower Raise should not play niose if there are no walls
+Dust Poof Blows - needs something
+Chevrons are ugly - signs at ends of aisle can define - we click on them. Should be able to change names in mid game even if pallets are in there
+When you create walls we should automate corner and intersection creation
+Need capacity report - Total picks/reserves/occupied vs empty
+Need some sort of yard definition for footprint of guard house so there arent goofy truck issues for players. 
+Sidelot should come with lights and not open the UI when we place on it
+Were going to need to start thinking about art for UI.
+Test the Asset pack for men
+Critical Items needs to be on the Items dropdown
+New customers, Bulk or otherwise should appear in CHAT
+For reputation bottom Line should read - At X points you will become POPULAR! These kind of milestones need to be celebrated with Fireworks or something.
+Purchase UI when we are buying stuff and building loads there should ne a section in the iddle that lists the requirements for each vendor to dispatch. And the button should be grayed out, as a matter of fact they should all be grayed out until that cap is met. Perhaps a visual representation on the truck icon showing how many pallets we need to fill up to?
+Holy shit! were paying for the loads up front??? Turn that shit off for now. Should ne paying for whatever we receive on the dock.
+Less jerky trucks backing in.
+Why is there a guidance sprite showing at Vector3.zero
+Turn down bloom a little more.
+When we hover over the ACCEPT OFFER button for a bulk order we should have a tooltip telling if we have the product or not.
+Back up noise for trucks - plus some moke when they start and stop.
+Post build receivers dont have RF guns nor do they have receiving progress bars.
+Raisins, Almonds and Olive Oil have shit TiHis and all share the same model. Fix these models.
+Tool tips start to disappear - Exit game and restart seems to fix it - seems to happen when we are looking at tooltips in UIs like Scheduler Maybe.
+Putaways stopped happening and then all the sudden they were happening and they showed up in WQ?
+Shomehow a receiving became cancelled in WQ? Now no one will do puts from that lane?
+Bulk Orders all say we expect to make $12.5k???
+We need a Scheduler Button on the WQ.
+Make sure in Purchasing screen that Critical Items is showing the TOTAL demand for all orders coming in.
+On the Order Details Tooltip next to each items name in Light Blue it should say how many pallets of that item we need, UNLESS its case pick it can just say <1 pallet.
+
+
+
+
+
+
+
+FINANCIAL PLANS
+Capital - Ask AI to list out all the ways we have to make money, do not include deleting or undoing placed objects. Total Expenses should Read - what you spent Today. Net Profit doesnt need a tooltip. At the top should be 4 buttons, Today, Week, Quarter, All-Time.
+Hourly Expenses - Remove Last Hour and just put Hourly Expenses. Sub Header Reads: What you spend each hour. It should have all expenses with a regular frequency. Wages, Utilities, Maintenance and Upkeep, Subscriptions?
+Todays Expenses - What we spent today with an arrow to go back in time Day 2, Day 1, etc. Upkeep and Wages need to be broke out better.
+Should have space for another button after this that will be Financials with all sorts of data.
+
+
+
+ 
 
 
