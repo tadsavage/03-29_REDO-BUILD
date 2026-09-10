@@ -2,7 +2,9 @@
     "name": "GameCore.Core.FSM.Editor",
     "rootNamespace": "",
     "references": [
-        "GameCore.Simulation"
+        "GameCore.Simulation",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"

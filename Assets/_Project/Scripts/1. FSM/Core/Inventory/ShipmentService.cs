@@ -200,7 +200,8 @@ namespace GameCore.Inventory
         /// than filing a PO for nothing.
         /// </summary>
         public ShipmentData CreatePlayerPurchaseOrder(string poNumber, string supplierId, string supplierName,
-                                                      List<ShipmentLineItem> items, int arrivalDay)
+                                                      List<ShipmentLineItem> items, int arrivalDay,
+                                                      int deliveryFee = 0)
         {
             if (items == null || items.Count == 0) return null;
 
@@ -210,7 +211,8 @@ namespace GameCore.Inventory
 
             var shipment = new ShipmentData(poNumber, supplierId, supplierName, day, minute)
             {
-                PlayerOrdered = true
+                PlayerOrdered = true,
+                DeliveryFee = Mathf.Max(0, deliveryFee)
             };
             shipment.LineItems.AddRange(items);
             _pendingShipments.Add(shipment);
@@ -219,6 +221,9 @@ namespace GameCore.Inventory
             // Deduct(), not RemoveCapital(): this is a one-time purchase, and Deduct is what routes it
             // into the Spent Today panel's Purchases section instead of being counted as hourly upkeep.
             if (cost > 0) _moneyService?.Deduct(cost, "Inventory");
+            // Delivery fee is a separate line from goods cost — freight, not inventory — so it gets its
+            // own GL category rather than being folded into the same "Inventory" deduction above.
+            if (shipment.DeliveryFee > 0) _moneyService?.Deduct(shipment.DeliveryFee, FinanceCategory.Transportation);
 
             // Straight into the Schedule tab's unscheduled pool. The delivery day says WHICH day the
             // freight is wanted; the pool is where the player says which door and which two-hour block
@@ -261,6 +266,8 @@ namespace GameCore.Inventory
 
             if (shipment.PlayerOrdered && shipment.TotalCost > 0)
                 _moneyService?.AddCapital(shipment.TotalCost, FinanceCategory.CasePick);
+            if (shipment.PlayerOrdered && shipment.DeliveryFee > 0)
+                _moneyService?.AddCapital(shipment.DeliveryFee, FinanceCategory.Transportation);
 
             // Take its door reservation down with it, whether it was still in the pool or already
             // placed on the grid — a cancelled PO holding a slot would keep a door out of use for
@@ -563,7 +570,8 @@ namespace GameCore.Inventory
                     arrivalTimeMinute = s.ArrivalTimeMinute,
                     status = (int)s.Status,
                     playerOrdered = s.PlayerOrdered,
-                    isSalvage = s.IsSalvage
+                    isSalvage = s.IsSalvage,
+                    deliveryFee = s.DeliveryFee
                 };
                 foreach (var li in s.LineItems)
                 {
@@ -604,7 +612,8 @@ namespace GameCore.Inventory
                 var shipment = new ShipmentData(snap.poNumber, snap.supplierId, snap.supplierName, snap.arrivalDayNumber, snap.arrivalTimeMinute, (ShipmentData.ShipmentStatus)snap.status)
                 {
                     PlayerOrdered = snap.playerOrdered,
-                    IsSalvage = snap.isSalvage
+                    IsSalvage = snap.isSalvage,
+                    DeliveryFee = snap.deliveryFee
                 };
                 foreach (var liSnap in snap.lineItems)
                 {

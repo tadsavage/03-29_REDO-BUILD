@@ -44,10 +44,10 @@ public class FreeLookCamera : MonoBehaviour
     [SerializeField] private float defaultDistance = 15f;
 
     [Header("Focal Point XZ Bounds")]
-    [SerializeField] private float xMin = -80f;
-    [SerializeField] private float xMax =  80f;
-    [SerializeField] private float zMin =  -80f;
-    [SerializeField] private float zMax =  80f;
+    [SerializeField] private float xMin = -180f;
+    [SerializeField] private float xMax =  180f;
+    [SerializeField] private float zMin =  -180f;
+    [SerializeField] private float zMax =  180f;
 
     [Header("Drag Pan (Right Mouse)")]
     [Tooltip("World units the focal point travels per pixel of right-mouse drag, at defaultDistance. Scales with current zoom distance so the drag still feels 1:1 with the screen when zoomed in/out.")]

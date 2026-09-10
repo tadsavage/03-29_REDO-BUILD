@@ -30,6 +30,12 @@ namespace GameCore.Inventory
         public float FillRatePercent;
         public float DamagedGoodsPercent;
         public ItemRarity MaxRarityUnlocked;
+
+        /// <summary>Delivery fee as a percentage of load cost — 0% at the best relationship tier up to
+        /// 15% at the worst, 1.5% per tier. Separate from CostModifierPercent (which prices the goods
+        /// themselves): this prices the freight, and unlike a late-delivery penalty it scales smoothly
+        /// with standing rather than staying fixed.</summary>
+        public float DeliveryFeePercent;
     }
 
     /// <summary>
@@ -72,67 +78,67 @@ namespace GameCore.Inventory
                 {
                     Tier = tier, DisplayLabel = "Elite Partner", HexColor = "#3EC15A",
                     CostModifierPercent = -20f, FillRatePercent = 99f, DamagedGoodsPercent = 0.5f,
-                    MaxRarityUnlocked = ItemRarity.Exotic
+                    MaxRarityUnlocked = ItemRarity.Exotic, DeliveryFeePercent = 0f
                 },
                 PartnershipTier.PlusFour => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Trusted Partner", HexColor = "#5ECB6C",
                     CostModifierPercent = -15f, FillRatePercent = 96f, DamagedGoodsPercent = 1f,
-                    MaxRarityUnlocked = ItemRarity.Exotic
+                    MaxRarityUnlocked = ItemRarity.Exotic, DeliveryFeePercent = 1.5f
                 },
                 PartnershipTier.PlusThree => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Preferred Buyer", HexColor = "#8CD98A",
                     CostModifierPercent = -10f, FillRatePercent = 93f, DamagedGoodsPercent = 2f,
-                    MaxRarityUnlocked = ItemRarity.Rare
+                    MaxRarityUnlocked = ItemRarity.Rare, DeliveryFeePercent = 3f
                 },
                 PartnershipTier.PlusTwo => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Valued Customer", HexColor = "#B7E39B",
                     CostModifierPercent = -5f, FillRatePercent = 90f, DamagedGoodsPercent = 3f,
-                    MaxRarityUnlocked = ItemRarity.Rare
+                    MaxRarityUnlocked = ItemRarity.Rare, DeliveryFeePercent = 4.5f
                 },
                 PartnershipTier.PlusOne => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Friendly Terms", HexColor = "#D7EFB0",
                     CostModifierPercent = -2f, FillRatePercent = 87f, DamagedGoodsPercent = 4f,
-                    MaxRarityUnlocked = ItemRarity.Uncommon
+                    MaxRarityUnlocked = ItemRarity.Uncommon, DeliveryFeePercent = 6f
                 },
                 PartnershipTier.Neutral => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Neutral Relationship", HexColor = "#C9C9C9",
                     CostModifierPercent = 0f, FillRatePercent = 85f, DamagedGoodsPercent = 5f,
-                    MaxRarityUnlocked = ItemRarity.Uncommon
+                    MaxRarityUnlocked = ItemRarity.Uncommon, DeliveryFeePercent = 7.5f
                 },
                 PartnershipTier.MinusOne => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Strained Relationship", HexColor = "#F0C77A",
                     CostModifierPercent = 3f, FillRatePercent = 80f, DamagedGoodsPercent = 7f,
-                    MaxRarityUnlocked = ItemRarity.Uncommon
+                    MaxRarityUnlocked = ItemRarity.Uncommon, DeliveryFeePercent = 9f
                 },
                 PartnershipTier.MinusTwo => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Cold Terms", HexColor = "#F0A85A",
                     CostModifierPercent = 7f, FillRatePercent = 74f, DamagedGoodsPercent = 9f,
-                    MaxRarityUnlocked = ItemRarity.Common
+                    MaxRarityUnlocked = ItemRarity.Common, DeliveryFeePercent = 10.5f
                 },
                 PartnershipTier.MinusThree => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Distrustful", HexColor = "#E88A4C",
                     CostModifierPercent = 12f, FillRatePercent = 66f, DamagedGoodsPercent = 12f,
-                    MaxRarityUnlocked = ItemRarity.Common
+                    MaxRarityUnlocked = ItemRarity.Common, DeliveryFeePercent = 12f
                 },
                 PartnershipTier.MinusFour => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Hostile Terms", HexColor = "#E2634A",
                     CostModifierPercent = 18f, FillRatePercent = 55f, DamagedGoodsPercent = 16f,
-                    MaxRarityUnlocked = ItemRarity.Common
+                    MaxRarityUnlocked = ItemRarity.Common, DeliveryFeePercent = 13.5f
                 },
                 _ => new PartnershipTierProfile
                 {
                     Tier = tier, DisplayLabel = "Burned Bridge", HexColor = "#C4433D",
                     CostModifierPercent = 25f, FillRatePercent = 40f, DamagedGoodsPercent = 22f,
-                    MaxRarityUnlocked = ItemRarity.Common
+                    MaxRarityUnlocked = ItemRarity.Common, DeliveryFeePercent = 15f
                 },
             };
         }

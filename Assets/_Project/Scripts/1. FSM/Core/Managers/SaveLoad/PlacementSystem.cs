@@ -1414,6 +1414,20 @@ public class PlacementSystem : MonoBehaviour
         "NavMeshManager", "VehicleThrottleAudio", "AmbientMumble", "PalletBuilder",
     };
 
+    // Fixed design bounds, not "dev-tunable balance settings" — they don't belong in a save's
+    // devSettings snapshot. Baking them in here means a save written while they held one value
+    // silently stomps a since-changed Inspector value back to the stale saved one on every load
+    // (confirmed 2026-09-09: quicksave.json had FreeLookCamera.xMin/xMax/zMin/zMax = -40/40/-40/40
+    // baked in, which kept re-clamping a freshly-set -180/180 back down on every load). Listed here
+    // (rather than only skipped in CollectDevSettings) so already-saved stale entries are also
+    // ignored on ApplyDevSettings, without needing every existing save file edited.
+    private static readonly HashSet<string> DevScanExcludedFields = new()
+    {
+        "FreeLookCamera.xMin", "FreeLookCamera.xMax",
+        "FreeLookCamera.zMin", "FreeLookCamera.zMax",
+        "FreeLookCamera.pitchMin", "FreeLookCamera.pitchMax",
+    };
+
     private static readonly BindingFlags DevFieldFlags =
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
@@ -1432,6 +1446,7 @@ public class PlacementSystem : MonoBehaviour
             foreach (var field in mb.GetType().GetFields(DevFieldFlags))
             {
                 if (!IsTunableField(field)) continue;
+                if (DevScanExcludedFields.Contains($"{typeName}.{field.Name}")) continue;
                 var val = field.GetValue(mb);
                 if (val == null) continue;
                 result.Add(new DevSettingEntry
@@ -1459,6 +1474,7 @@ public class PlacementSystem : MonoBehaviour
 
         foreach (var entry in settings)
         {
+            if (DevScanExcludedFields.Contains(entry.key)) continue;
             int dot = entry.key.IndexOf('.');
             if (dot < 0) continue;
             string typeName  = entry.key.Substring(0, dot);

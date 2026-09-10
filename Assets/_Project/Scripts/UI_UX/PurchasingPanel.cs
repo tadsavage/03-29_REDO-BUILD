@@ -67,6 +67,11 @@ public class PurchasingPanel : IUIPanel
     private static readonly Color ColCreateGreen      = new Color(0x3E / 255f, 0xA1 / 255f, 0x55 / 255f, 1f);
     private static readonly Color ColCreateGreenEdge  = new Color(0x24 / 255f, 0x66 / 255f, 0x33 / 255f, 1f);
     private static readonly Color ColCreateGreenHover = new Color(0x4C / 255f, 0xB8 / 255f, 0x65 / 255f, 1f);
+    /// <summary>DISPATCH ORDER while the vendor's minimum purchase isn't met yet — a dark, cool gray
+    /// distinct from the normal green, per Tad's explicit request.</summary>
+    private static readonly Color ColDispatchGray      = new Color(0x4A / 255f, 0x54 / 255f, 0x5C / 255f, 1f);
+    private static readonly Color ColDispatchGrayEdge  = new Color(0x30 / 255f, 0x38 / 255f, 0x3E / 255f, 1f);
+    private static readonly Color ColDispatchGrayHover = new Color(0x5A / 255f, 0x64 / 255f, 0x6C / 255f, 1f);
     /// <summary>BUY price text — matches the orange Tad circled in his mockup.</summary>
     private static readonly Color ColBuyPrice         = new Color(0xE0 / 255f, 0x8E / 255f, 0x30 / 255f, 1f);
     /// <summary>SELL price text — matches the yellow Tad circled in his mockup.</summary>
@@ -905,209 +910,6 @@ public class PurchasingPanel : IUIPanel
         Rebuild();
     }
 
-    // ── Spot deals ───────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// The offer board: three discounted, whole-pallet loads that expire tonight.
-    ///
-    /// Sits at the TOP OF THE SCROLL VIEW rather than in the stationary header. It's the first thing
-    /// you see when the panel opens and then it scrolls away as you get to work, which is exactly its
-    /// weight in the decision — glance, decide, move on. Pinning it would cost the catalogue a
-    /// permanent strip of height for something you consider once.
-    /// </summary>
-    private VisualElement BuildSpotDealsStrip()
-    {
-        var wrap = new VisualElement();
-        wrap.style.marginBottom = 12;
-
-        var market = Market();
-        var deals = market?.LiveDeals.ToList() ?? new List<SpotDeal>();
-        if (deals.Count == 0) return wrap;   // collapses to nothing when the board is empty
-
-        var head = new VisualElement();
-        head.style.flexDirection = FlexDirection.Row;
-        head.style.alignItems = Align.Center;
-        head.style.justifyContent = Justify.SpaceBetween;
-        head.style.marginBottom = 6;
-
-        var title = MakeText("TODAY'S SPOT DEALS", 18, ColOrangeText, bold: true);
-        title.style.whiteSpace = WhiteSpace.NoWrap;
-        head.Add(title);
-
-        var expiry = MakeText("Gone at midnight", 14, ColSubtleText);
-        expiry.style.whiteSpace = WhiteSpace.NoWrap;
-        head.Add(expiry);
-        wrap.Add(head);
-
-        var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.alignItems = Align.Stretch;
-        foreach (var deal in deals) row.Add(BuildDealCard(deal));
-        wrap.Add(row);
-
-        return wrap;
-    }
-
-    private VisualElement BuildDealCard(SpotDeal deal)
-    {
-        var sku = FindSku(deal.SkuId);
-
-        var card = new VisualElement();
-        card.style.flexGrow = 1;
-        card.style.flexBasis = 0;
-        card.style.marginRight = 8;
-        card.style.paddingTop = 8; card.style.paddingBottom = 8;
-        card.style.paddingLeft = 10; card.style.paddingRight = 10;
-        card.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.12f));
-        card.style.borderTopWidth = card.style.borderBottomWidth =
-            card.style.borderLeftWidth = card.style.borderRightWidth = 2;
-        card.style.borderTopColor = card.style.borderBottomColor =
-            card.style.borderLeftColor = card.style.borderRightColor = new StyleColor(ColOrange);
-        card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
-            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 8;
-
-        var top = new VisualElement();
-        top.style.flexDirection = FlexDirection.Row;
-        top.style.alignItems = Align.Center;
-
-        if (sku != null && sku.Icon != null)
-        {
-            var icon = new VisualElement();
-            icon.style.width = 40; icon.style.height = 40;
-            icon.style.flexShrink = 0;
-            icon.style.marginRight = 8;
-            icon.style.backgroundImage = new StyleBackground(sku.Icon);
-            top.Add(icon);
-        }
-
-        var namePart = new VisualElement();
-        namePart.style.flexGrow = 1;
-        namePart.style.flexShrink = 1;
-        namePart.style.overflow = Overflow.Hidden;
-
-        var name = MakeText(sku != null ? sku.ItemDescription : deal.SkuId, 17, ColTitleText, bold: true);
-        name.style.marginTop = 0; name.style.marginBottom = 0;
-        name.style.whiteSpace = WhiteSpace.NoWrap;
-        namePart.Add(name);
-
-        var qty = MakeText($"{deal.Pallets} pallet(s) · {deal.TotalCases:N0} cases", 13, ColSubtleText);
-        qty.style.marginTop = 0; qty.style.marginBottom = 0;
-        qty.style.whiteSpace = WhiteSpace.NoWrap;
-        namePart.Add(qty);
-        top.Add(namePart);
-
-        // The discount is the headline — it's the reason to look at this card at all.
-        var pct = MakeText($"-{deal.DiscountPercent}%", 24, ColMoney, bold: true);
-        pct.style.marginTop = 0; pct.style.marginBottom = 0;
-        pct.style.flexShrink = 0;
-        pct.style.whiteSpace = WhiteSpace.NoWrap;
-        top.Add(pct);
-        card.Add(top);
-
-        var price = MakeText($"{Money(deal.UnitPrice)}/case (list {Money(deal.ListPriceWhenOffered)})",
-                             13, ColChipOutText);
-        price.style.marginTop = 4;
-        price.style.whiteSpace = WhiteSpace.NoWrap;
-        card.Add(price);
-        var dealVendor = VendorRegistry.Load()?.GetById(deal.VendorId);
-        if (dealVendor != null)
-        {
-            int dealVendorPartnership = Economy()?.GetState(deal.VendorId)?.PartnershipLevel ?? 0;
-            var vendorLine = MakeText($"{dealVendor.DisplayName} [{dealVendorPartnership:+0;-0;0}]",
-                                      17, Color.white, bold: true);
-            vendorLine.style.marginTop = 4;
-            vendorLine.style.whiteSpace = WhiteSpace.NoWrap;
-            card.Add(vendorLine);
-        }
-
-
-        var take = new Button(() => OnTakeDeal(deal)) { text = $"TAKE · {Money(deal.TotalCost)}" };
-        StyleActionButton(take, ColOrange, ColOrangeEdge, ColOrangeHover);
-        // Overrides the shared action-button sizing: these three sit side by side inside a strip, not
-        // on the footer row where that fixed 240x56 belongs.
-        take.style.width = StyleKeyword.Auto;
-        take.style.height = 36;
-        take.style.marginTop = 6;
-        take.style.marginLeft = 0; take.style.marginRight = 0;
-        take.style.fontSize = 15;
-        card.Add(take);
-
-        return card;
-    }
-
-    /// <summary>
-    /// Takes a spot deal: claims it, then raises a PO for it immediately at the deal price.
-    ///
-    /// Straight to a PO rather than into the basket. A spot deal is a fixed load somebody else has
-    /// already built — letting the player edit the quantity would make it an ordinary catalogue line
-    /// with a discount, and the take-it-or-leave-it shape is the entire mechanic.
-    /// </summary>
-    private void OnTakeDeal(SpotDeal deal)
-    {
-        var market = Market();
-        var sku = FindSku(deal.SkuId);
-        if (market == null || sku == null)
-        {
-            UIToast.Show("That offer can't be filled — its item is no longer in the catalogue.");
-            return;
-        }
-
-        if (!ServiceLocator.TryGet<ShipmentService>(out var shipments) || shipments == null)
-        {
-            UIToast.Show("Purchasing is unavailable — the shipment service isn't running.");
-            return;
-        }
-
-        // Checked here and NOT on the basket path, deliberately: this is one click that commits the
-        // whole amount, with no running total to watch on the way. Being put into the red by a single
-        // button press is a different experience from spending down a number you were staring at.
-        if (ServiceLocator.TryGet<MoneyService>(out var money) && money != null &&
-            money.CurrentCapital < deal.TotalCost)
-        {
-            ShowNotice($"Not enough capital for this deal.\n\nIt costs {Money(deal.TotalCost)} and you " +
-                       $"have {Money(money.CurrentCapital)}.");
-            return;
-        }
-
-        var plan = TrailerCapacity.Plan(new List<(SkuData sku, int cases)> { (sku, deal.TotalCases) });
-        if (plan.OverCapacity)
-        {
-            ShowNotice("That deal is more than one trailer will hold.");
-            return;
-        }
-
-        // Claim BEFORE building the PO: the panel can sit open across midnight, and two clicks on a
-        // card that expired while it was on screen must not produce two trailers.
-        if (!market.ClaimDeal(deal.Id))
-        {
-            UIToast.Show("That offer has already gone.");
-            Rebuild();
-            return;
-        }
-
-        var items = plan.Pallets
-            .Select(pallet => new ShipmentLineItem(pallet.SkuId, pallet.Cases,
-                                                   deal.UnitPrice, sku.ShelfLifeDays)
-            {
-                FloorSlotIndex = pallet.FloorSlot,
-                PalletTier = pallet.Tier
-            })
-            .ToList();
-
-        var po = shipments.CreatePlayerPurchaseOrder(OrderNumberGenerator.GetNext('I', 'G', Today()),
-                                                     "SPOT_BROKER", "Spot Market", items, Today());
-        if (po == null)
-        {
-            UIToast.Show("Couldn't raise that PO — the deal didn't resolve to a real SKU.");
-            return;
-        }
-
-        UIToast.Show($"Deal taken — PO {po.PONumber}, {po.TotalUnits:N0} case(s) of " +
-                     $"{sku.ItemDescription} for {Money(po.TotalCost)}. Book it a door on the Scheduler.");
-
-        _tab = Tab.PoList;
-        Rebuild();
-    }
 
     // ── Tabs 2 & 3: PO list and archive ──────────────────────────────────────
 
@@ -1709,6 +1511,46 @@ public class PurchasingPanel : IUIPanel
         target.Add(line);
     }
 
+    /// <summary>A small light-blue-bordered plate for a 2-3 line vertical stat — same border language
+    /// as the vendor group container itself (ColBorder, 2px, 8px radius), just sized for one number
+    /// instead of a whole row. Shared by the Delivery Fee and Cost Collected boxes on the multi-vendor
+    /// header.</summary>
+    private VisualElement BuildBorderedStatBox(float width, float height)
+    {
+        var box = new VisualElement();
+        box.style.width = width;
+        box.style.height = height;
+        box.style.flexShrink = 0;
+        box.style.marginLeft = 10;
+        box.style.alignItems = Align.Center;
+        box.style.justifyContent = Justify.Center;
+        box.style.paddingTop = 6; box.style.paddingBottom = 6;
+        box.style.paddingLeft = 6; box.style.paddingRight = 6;
+        box.style.backgroundColor = new StyleColor(ColBg);
+        box.style.borderTopLeftRadius = box.style.borderTopRightRadius =
+            box.style.borderBottomLeftRadius = box.style.borderBottomRightRadius = 8;
+        box.style.borderTopWidth = box.style.borderBottomWidth =
+            box.style.borderLeftWidth = box.style.borderRightWidth = 2;
+        box.style.borderTopColor = box.style.borderBottomColor =
+            box.style.borderLeftColor = box.style.borderRightColor = new StyleColor(ColBorder);
+        return box;
+    }
+
+    /// <summary>Grows the Minimum Dispatch Requirements box by 15% then shrinks it back to normal —
+    /// the feedback for clicking DISPATCH ORDER while its minimum isn't met, per Tad's explicit
+    /// request. 0.5s out, 0.5s back, 1s total. Scales from the box's own center (transformOrigin),
+    /// not its top-left corner, so it reads as a pulse rather than an expansion toward one side.</summary>
+    private static void PulseRequirementsBox(VisualElement box)
+    {
+        box.style.transformOrigin = new TransformOrigin(Length.Percent(50), Length.Percent(50));
+        box.style.transitionProperty = new List<StylePropertyName> { new StylePropertyName("scale") };
+        box.style.transitionDuration = new List<TimeValue> { new TimeValue(0.5f, TimeUnit.Second) };
+        box.style.transitionTimingFunction = new List<EasingFunction> { new EasingFunction(EasingMode.EaseInOut) };
+
+        box.style.scale = new Scale(new Vector3(1.15f, 1.15f, 1f));
+        box.schedule.Execute(() => box.style.scale = new Scale(Vector3.one)).StartingIn(500);
+    }
+
     private static void StyleOrangeButton(Button b)
     {
         ApplyFont(b, bold: true, size: 15);
@@ -1861,13 +1703,12 @@ public class PurchasingPanel : IUIPanel
     {
         _multiVendorPane.Clear();
 
-        // The Broker's salvage loads and the Spot Deals board live here now, at the top of Inbound
-        // Order Creation — this is the tab that actually builds and dispatches loads, so "deals" (a
-        // one-click way to fill part of a load cheaply) belongs here rather than on the vendor roster.
-        // Both collapse to nothing when empty (see their own doc comments), so this costs nothing on
-        // a day with no live offers.
+        // The Broker's salvage loads live here at the top of Inbound Order Creation — this is the tab
+        // that actually builds and dispatches loads, so a one-click way to fill part of a load cheaply
+        // belongs here rather than on the vendor roster. Collapses to nothing when empty (see its own
+        // doc comment), so this costs nothing on a day with no live offers. The Spot Deals board that
+        // used to sit here too is gone per Tad's explicit request.
         _multiVendorPane.Add(BuildSalvageStrip());
-        _multiVendorPane.Add(BuildSpotDealsStrip());
         _multiVendorPane.Add(BuildMultiVendorFilterBar());
 
         var registry = VendorRegistry.Load();
@@ -2346,16 +2187,6 @@ public class PurchasingPanel : IUIPanel
             12, PartnershipColorUtility.GetColor(partnershipLevel), bold: true);
         nameCol.Add(partnership);
 
-        // Vendor minimums — red while unmet, green once the current basket meets or exceeds both. Only
-        // shown when this vendor actually has a minimum (most don't).
-        Label requirementsLabel = null;
-        if (vendor.MinimumOrderCases > 0 || vendor.MinimumOrderDollars > 0)
-        {
-            requirementsLabel = MakeText("", 11, ColSubtleText, bold: true);
-            requirementsLabel.style.marginTop = 2;
-            nameCol.Add(requirementsLabel);
-        }
-
         var statsRow = new VisualElement();
         statsRow.style.flexDirection = FlexDirection.Row;
         statsRow.style.alignItems = Align.Center;
@@ -2363,35 +2194,121 @@ public class PurchasingPanel : IUIPanel
         statsRow.style.flexWrap = Wrap.Wrap;
         header.Add(statsRow);
 
-        var stats = MakeText("", 15, ColSubtleText);
-        stats.style.whiteSpace = WhiteSpace.NoWrap;
-        // Widened into its own fixed-width cell — stretched out to roughly where the truck fill bar's
-        // dead space used to start (per Tad's marked-up screenshot) — so every row's case/pallet/
-        // critical-items text lines up as a real column instead of hugging whatever length that row's
-        // own text happens to be.
-        stats.style.width = 380;
-        stats.style.flexShrink = 0;
-        statsRow.Add(stats);
+        // Cases / pallets / critical items — stacked one per line per Tad's explicit request,
+        // replacing the old single "N case(s) · N pallet(s) · [N] critical items" run-on line.
+        var statsCol = new VisualElement();
+        statsCol.style.width = 170;
+        statsCol.style.flexShrink = 0;
+        statsRow.Add(statsCol);
 
-        // Cost of the load being built — centred in the dead space between the stats column and the
-        // truck fill bar (rather than hugging directly against the stats text) per Tad's explicit
-        // request. Twice the size of the other detail labels and painted the same green as DISPATCH
-        // ORDER, unchanged from before: it's the number that matters most once a truck starts filling
-        // up, it's just relocated and centred within its own flexGrow cell now.
-        var costBox = new VisualElement();
-        costBox.style.flexGrow = 1;
-        costBox.style.alignItems = Align.Center;
-        costBox.style.justifyContent = Justify.Center;
+        var statCritical = MakeText("", 14, ColSubtleText);
+        statCritical.style.whiteSpace = WhiteSpace.NoWrap;
+        statsCol.Add(statCritical);
+
+        var statCases = MakeText("", 14, ColSubtleText);
+        statCases.style.whiteSpace = WhiteSpace.NoWrap;
+        statCases.style.marginTop = 2;
+        statsCol.Add(statCases);
+
+        var statPallets = MakeText("", 14, ColSubtleText);
+        statPallets.style.whiteSpace = WhiteSpace.NoWrap;
+        statPallets.style.marginTop = 2;
+        statsCol.Add(statPallets);
+
+        // All three plates below (Delivery Fee, Cost Collected, Minimum Dispatch Requirements) share
+        // this height so they read as a matched row of cards rather than three different sizes — per
+        // Tad's explicit request. Sized for the tallest content: the Requirements box's 2-line wrapped
+        // header + divider + 2 more lines.
+        const float statBoxHeight = 150f;
+
+        // Delivery fee — live, color-coded to the vendor's relationship status (cheaper freight from
+        // vendors in good standing, pricier from ones you've burned). Per Tad's explicit request this
+        // is its own box, separate from Minimum Dispatch Requirements, so it can update in real time
+        // as the basket changes.
+        var deliveryFeeBox = BuildBorderedStatBox(120, statBoxHeight);
+        deliveryFeeBox.style.marginLeft = 24;
+        statsRow.Add(deliveryFeeBox);
+
+        var deliveryFeeLabel = MakeText("", 22, ColSubtleText, bold: true);
+        deliveryFeeLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        deliveryFeeBox.Add(deliveryFeeLabel);
+
+        var deliveryFeeCaption = MakeText("Delivery Fee", 11, ColSubtleText, bold: true);
+        deliveryFeeCaption.style.whiteSpace = WhiteSpace.NoWrap;
+        deliveryFeeBox.Add(deliveryFeeCaption);
+
+        var deliveryFeePctLabel = MakeText("", 11, ColSubtleText, bold: true);
+        deliveryFeePctLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        deliveryFeeBox.Add(deliveryFeePctLabel);
+
+        // Cost of the load being built — moved into its own bordered box (was floating loose in the
+        // dead space between the stats column and the truck fill bar) per Tad's explicit request, and
+        // relabelled to say when the money actually leaves the player's account.
+        var costBox = BuildBorderedStatBox(150, statBoxHeight);
+        costBox.style.marginLeft = 24;
         statsRow.Add(costBox);
 
         var costLabel = MakeText("", 26, ColCreateGreen, bold: true);
         costLabel.style.whiteSpace = WhiteSpace.NoWrap;
         costBox.Add(costLabel);
 
-        var costCaption = MakeText("Cost of Load", 11, ColCreateGreen, bold: true);
-        costCaption.style.whiteSpace = WhiteSpace.NoWrap;
-        costCaption.style.marginTop = 0;
+        var costCaption = MakeText("Cost Collected Upon\nReceipt of Goods", 11, ColCreateGreen, bold: true);
+        costCaption.style.unityTextAlign = TextAnchor.MiddleCenter;
+        costCaption.style.marginTop = 2;
         costBox.Add(costCaption);
+
+        // Minimum Dispatch Requirements — always shown (unlike the old requirementsLabel, which only
+        // existed for vendors that actually had a minimum) since the penalty line applies to every
+        // vendor's truck, not just the ones with a purchase minimum. Pushed well clear of the Cost
+        // Collected box (large marginLeft) and given the same height as the two plates to its left,
+        // per Tad's explicit request.
+        var requirementsBox = new VisualElement();
+        requirementsBox.style.width = 190;
+        requirementsBox.style.height = statBoxHeight;
+        requirementsBox.style.flexShrink = 0;
+        requirementsBox.style.marginLeft = 70;
+        requirementsBox.style.justifyContent = Justify.Center;
+        requirementsBox.style.paddingTop = 4; requirementsBox.style.paddingBottom = 4;
+        requirementsBox.style.paddingLeft = 8; requirementsBox.style.paddingRight = 8;
+        requirementsBox.style.backgroundColor = new StyleColor(ColOrange);
+        requirementsBox.style.borderTopLeftRadius = requirementsBox.style.borderTopRightRadius =
+            requirementsBox.style.borderBottomLeftRadius = requirementsBox.style.borderBottomRightRadius = 6;
+        statsRow.Add(requirementsBox);
+
+        var requirementsHeader = MakeText("Minimum Dispatch Requirements", 14, ColOrangeText, bold: true);
+        requirementsHeader.style.unityTextAlign = TextAnchor.MiddleCenter;
+        requirementsHeader.style.whiteSpace = WhiteSpace.Normal;
+        // Tightens the gap between this label's own two wrapped lines ("Minimum Dispatch" /
+        // "Requirements") — at 14px the default line spacing pushed the box's total content past its
+        // fixed height and clipped the last line. Squishing every multi-line label here, plus the
+        // margins between them below, is what gets it all back inside the box per Tad's explicit
+        // request, without shrinking the font back down.
+        requirementsHeader.style.unityParagraphSpacing = -4;
+        requirementsBox.Add(requirementsHeader);
+
+        // A real horizontal rule in normal document flow, not AddUnderline's absolutely-positioned
+        // overlay — that trick (see AddStrikeThrough) works for a single-line label but not this
+        // 2-line wrapped header: the overlay anchors to the label's own box, which the header's text
+        // wrapping doesn't always resize before the overlay is measured, so the line ended up cutting
+        // across "Requirements" instead of sitting under it. A plain sibling element flows below the
+        // header exactly, whatever height the header ends up wrapping to.
+        var requirementsRule = new VisualElement();
+        requirementsRule.style.height = 1;
+        requirementsRule.style.marginTop = 2;
+        requirementsRule.style.marginBottom = 2;
+        requirementsRule.style.backgroundColor = new StyleColor(ColOrangeText);
+        requirementsBox.Add(requirementsRule);
+
+        var requirementsMinLine = MakeText("", 14, ColOrangeText, bold: true);
+        requirementsMinLine.style.unityTextAlign = TextAnchor.MiddleCenter;
+        requirementsMinLine.style.unityParagraphSpacing = -4;
+        requirementsBox.Add(requirementsMinLine);
+
+        var requirementsPenaltyLine = MakeText("Penalties incurred at 2 hrs. or more", 14, ColOrangeText);
+        requirementsPenaltyLine.style.unityTextAlign = TextAnchor.MiddleCenter;
+        requirementsPenaltyLine.style.marginTop = 2;
+        requirementsPenaltyLine.style.unityParagraphSpacing = -4;
+        requirementsBox.Add(requirementsPenaltyLine);
 
         var fillBarContainer = BuildTruckFillBar(out var fillElement);
         header.Add(fillBarContainer);
@@ -2409,11 +2326,51 @@ public class PurchasingPanel : IUIPanel
         actionsColumn.style.flexShrink = 0;
         header.Add(actionsColumn);
 
-        var dispatch = new Button(() => { AudioManager.Play("UIClick"); DispatchVendorOrder(vendor); }) { text = "DISPATCH ORDER" };
-        StyleActionButton(dispatch, ColCreateGreen, ColCreateGreenEdge, ColCreateGreenHover);
+        // Tracks whether the vendor's minimum purchase is currently met — set by RefreshHeader below,
+        // read by the hover handlers just below it. A captured local rather than re-registering hover
+        // callbacks on every basket edit (RegisterCallback has no "replace" — calling it again would
+        // just stack a second handler on top of the first).
+        bool dispatchMeetsMinimums = true;
+
+        // DISPATCH ORDER is deliberately never SetEnabled(false): a disabled Button swallows its own
+        // click, and clicking while the minimum isn't met is exactly the moment that should trigger
+        // the Minimum Dispatch Requirements box's pulse, per Tad's explicit request. Only its color
+        // and (for an empty basket — see RefreshHeader's opacity line) its opacity change; it stays
+        // clickable throughout.
+        var dispatch = new Button(() =>
+        {
+            AudioManager.Play("UIClick");
+            if (!dispatchMeetsMinimums) PulseRequirementsBox(requirementsBox);
+            DispatchVendorOrder(vendor);
+        })
+        { text = "DISPATCH ORDER" };
+        ApplyFont(dispatch, bold: true, size: 12);
         dispatch.style.width = 170;
         dispatch.style.height = TruckActionButtonHeight;
-        ApplyFont(dispatch, bold: true, size: 12);
+        dispatch.style.flexShrink = 0;
+        dispatch.style.color = new StyleColor(Color.white);
+        dispatch.style.borderTopWidth = dispatch.style.borderBottomWidth =
+            dispatch.style.borderLeftWidth = dispatch.style.borderRightWidth = 3;
+        dispatch.style.borderTopLeftRadius = dispatch.style.borderTopRightRadius =
+            dispatch.style.borderBottomLeftRadius = dispatch.style.borderBottomRightRadius = 8;
+        dispatch.style.marginLeft = 0; dispatch.style.marginRight = 0;
+        dispatch.style.paddingLeft = 10; dispatch.style.paddingRight = 10;
+
+        void ApplyDispatchColor(bool meetsMinimumsNow)
+        {
+            dispatchMeetsMinimums = meetsMinimumsNow;
+            Color fill = meetsMinimumsNow ? ColCreateGreen : ColDispatchGray;
+            Color edge = meetsMinimumsNow ? ColCreateGreenEdge : ColDispatchGrayEdge;
+            dispatch.style.backgroundColor = new StyleColor(fill);
+            dispatch.style.borderTopColor = dispatch.style.borderBottomColor =
+                dispatch.style.borderLeftColor = dispatch.style.borderRightColor = new StyleColor(edge);
+        }
+        ApplyDispatchColor(true);
+
+        dispatch.RegisterCallback<MouseEnterEvent>(_ => dispatch.style.backgroundColor =
+            new StyleColor(dispatchMeetsMinimums ? ColCreateGreenHover : ColDispatchGrayHover));
+        dispatch.RegisterCallback<MouseLeaveEvent>(_ => dispatch.style.backgroundColor =
+            new StyleColor(dispatchMeetsMinimums ? ColCreateGreen : ColDispatchGray));
         actionsColumn.Add(dispatch);
 
         // Deals fill bar — the same countdown/drain visual the VENDORS tab's row used to carry,
@@ -2444,27 +2401,53 @@ public class PurchasingPanel : IUIPanel
             int cases = lines.Sum(l => l.cases);
             float cost = lines.Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
             int critical = CountCriticalItems(vendorId);
-            stats.text = $"{cases:N0} case(s) · {plan.Pallets.Count:N0} pallet(s) · " +
-                         $"[{critical}] critical items";
+            statCritical.text = $"[{critical}] critical items";
+            statCases.text = $"{cases:N0} case(s)";
+            statPallets.text = $"{plan.Pallets.Count:N0} pallet(s)";
             costLabel.text = Money(cost);
             fillElement.style.width = Mathf.Clamp01(plan.Fill01) *
                 (TruckBoxRightFrac - TruckBoxLeftFrac) * TruckFillBarWidth;
 
+            // Delivery fee — scales with the SAME partnershipLevel snapshot the relationship badge
+            // above already shows (captured once when this row was built, not re-fetched here), so the
+            // fee's tier can never disagree with the tier the player sees printed next to the vendor's
+            // name. Color-coded to match, per Tad's explicit request.
+            float feePercent = PartnershipTierUtility.GetProfile(partnershipLevel).DeliveryFeePercent;
+            int fee = DeliveryFeeFor(partnershipLevel, cost);
+            var feeColor = new StyleColor(PartnershipColorUtility.GetColor(partnershipLevel));
+            deliveryFeeLabel.text = Money(fee);
+            deliveryFeeLabel.style.color = feeColor;
+            deliveryFeeCaption.style.color = feeColor;
+            deliveryFeePctLabel.text = $"{feePercent:0.#}% Charged";
+            deliveryFeePctLabel.style.color = feeColor;
+
             bool hasItems = _multiBaskets.TryGetValue(vendorId, out var basket) && basket.Count > 0;
             bool meetsMinimums = cases >= vendor.MinimumOrderCases && cost >= vendor.MinimumOrderDollars;
 
-            if (requirementsLabel != null)
+            bool hasMinimum = vendor.MinimumOrderCases > 0 || vendor.MinimumOrderDollars > 0;
+            if (hasMinimum)
             {
                 var parts = new List<string>();
                 if (vendor.MinimumOrderCases > 0) parts.Add($"{vendor.MinimumOrderCases:N0} cases");
                 if (vendor.MinimumOrderDollars > 0) parts.Add(Money(vendor.MinimumOrderDollars));
-                requirementsLabel.text = $"Min: {string.Join(" · ", parts)}";
-                requirementsLabel.style.color = new StyleColor(meetsMinimums ? ColCreateGreen : ColDangerSoft);
+                requirementsMinLine.text = $"{string.Join(" · ", parts)} Purchased";
             }
+            else
+            {
+                requirementsMinLine.text = "No minimum purchase required";
+            }
+            // Same color as the header/penalty lines above and below it, per Tad's explicit request —
+            // whether the minimum is met is now the DISPATCH ORDER button's job to signal (gray vs
+            // green), not this box's.
+            requirementsMinLine.style.color = new StyleColor(ColOrangeText);
 
-            bool canDispatch = hasItems && meetsMinimums;
-            dispatch.SetEnabled(canDispatch);
-            dispatch.style.opacity = canDispatch ? 1f : 0.5f;
+            // Color reflects the minimum purchase alone (green once met or there is none, dark gray
+            // otherwise) — see ApplyDispatchColor above. Opacity separately reflects only whether
+            // there's anything on this order at all. The button stays enabled either way (no popup or
+            // toast left for either case — see DispatchVendorOrder), so clicking a dimmed/empty order
+            // is simply a no-op rather than something that needs its own message.
+            ApplyDispatchColor(meetsMinimums);
+            dispatch.style.opacity = hasItems ? 1f : 0.5f;
         }
         RefreshHeader();
 
@@ -2863,6 +2846,17 @@ public class PurchasingPanel : IUIPanel
         return Mathf.RoundToInt(baseCost * multiplier);
     }
 
+    /// <summary>Freight surcharge for a load of the given goods cost, scaled by the given partnership
+    /// level — 0% at the best relationship tier up to 15% at the worst (see
+    /// PartnershipTierProfile.DeliveryFeePercent). Takes the level as a parameter, rather than looking
+    /// it up itself, so a caller displaying a live header and a caller charging at dispatch can be
+    /// handed the exact same snapshot and never disagree on the tier.</summary>
+    private static int DeliveryFeeFor(int partnershipLevel, float cost)
+    {
+        float feePercent = PartnershipTierUtility.GetProfile(partnershipLevel).DeliveryFeePercent;
+        return Mathf.RoundToInt(cost * feePercent / 100f);
+    }
+
     private static int FallbackMarketPrice(SkuData sku)
     {
         var market = Market();
@@ -3038,12 +3032,10 @@ public class PurchasingPanel : IUIPanel
 
     private void DispatchVendorOrder(VendorData vendor)
     {
+        // No toast here — the button's dimmed opacity (see RefreshHeader) is enough of a signal that
+        // there's nothing to dispatch; a click on it does nothing rather than popping a message.
         string vendorId = vendor.VendorId;
-        if (!_multiBaskets.TryGetValue(vendorId, out var basket) || basket.Count == 0)
-        {
-            UIToast.Show("Nothing on this order yet — set a quantity on at least one item.");
-            return;
-        }
+        if (!_multiBaskets.TryGetValue(vendorId, out var basket) || basket.Count == 0) return;
 
         var plan = TrailerCapacity.Plan(MultiBasketLines(vendorId));
         if (plan.OverCapacity)
@@ -3057,31 +3049,21 @@ public class PurchasingPanel : IUIPanel
         int cases = basket.Values.Sum();
         float cost = MultiBasketLines(vendorId).Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
 
-        if (cases < vendor.MinimumOrderCases)
-        {
-            ShowNotice($"{vendor.DisplayName} won't take an order this small.\n\n" +
-                       $"Their minimum is {vendor.MinimumOrderCases:N0} cases and this order is " +
-                       $"{cases:N0}.\n\nAdd {vendor.MinimumOrderCases - cases:N0} more, or dispatch a " +
-                       $"different vendor's order instead.",
-                       title: "ORDER TOO SMALL");
-            return;
-        }
-        if (cost < vendor.MinimumOrderDollars)
-        {
-            ShowNotice($"{vendor.DisplayName} won't take an order this small.\n\n" +
-                       $"Their minimum is {Money(vendor.MinimumOrderDollars)} and this order is " +
-                       $"{Money(cost)}.\n\nAdd more, or dispatch a different vendor's order instead.",
-                       title: "ORDER TOO SMALL");
-            return;
-        }
+        // No modal here — the DISPATCH ORDER button already goes gray and pulses the Minimum Dispatch
+        // Requirements box on this exact click (see BuildMultiVendorGroup), which Tad found sufficient
+        // feedback on its own; the "ORDER TOO SMALL" popup this used to show was redundant with it.
+        if (cases < vendor.MinimumOrderCases || cost < vendor.MinimumOrderDollars) return;
+        int partnershipLevel = Economy()?.GetState(vendorId)?.PartnershipLevel ?? 0;
+        int deliveryFee = DeliveryFeeFor(partnershipLevel, cost);
+
         ShowConfirm($"Dispatch an order to {vendor.DisplayName}?\n\n" +
                     $"{basket.Count} line(s) · {cases:N0} case(s) · {plan.Pallets.Count} pallet(s) · " +
-                    $"{Money(cost)}\n\nIt will wait in the Scheduler's unscheduled pool until you give " +
-                    $"it a door and time.",
-                    () => CommitDispatchVendorOrder(vendor));
+                    $"{Money(cost)} + {Money(deliveryFee)} delivery fee\n\nIt will wait in the " +
+                    $"Scheduler's unscheduled pool until you give it a door and time.",
+                    () => CommitDispatchVendorOrder(vendor, deliveryFee));
     }
 
-    private void CommitDispatchVendorOrder(VendorData vendor)
+    private void CommitDispatchVendorOrder(VendorData vendor, int deliveryFee)
     {
         string vendorId = vendor.VendorId;
         var shipments = Shipments();
@@ -3106,7 +3088,8 @@ public class PurchasingPanel : IUIPanel
         }
 
         var po = shipments.CreatePlayerPurchaseOrder(OrderNumberGenerator.GetNext('I', 'G', Today()),
-                                                     vendorId, vendor.DisplayName, items, Today());
+                                                     vendorId, vendor.DisplayName, items, Today(),
+                                                     deliveryFee);
         if (po == null)
         {
             UIToast.Show("Couldn't raise that PO — nothing on it resolved to a real SKU.");
@@ -3114,7 +3097,8 @@ public class PurchasingPanel : IUIPanel
         }
 
         UIToast.Show($"PO {po.PONumber} raised with {vendor.DisplayName} — {po.TotalUnits:N0} case(s), " +
-                     $"{Money(po.TotalCost)}. Book it a door on the Scheduler.");
+                     $"{Money(po.TotalCost)} + {Money(po.DeliveryFee)} delivery fee. Book it a door on " +
+                     $"the Scheduler.");
 
         ServiceLocator.TryGet<VendorPerformanceTracker>(out var perf);
         perf?.RecordTransaction(vendorId, po.TotalCost, Today());

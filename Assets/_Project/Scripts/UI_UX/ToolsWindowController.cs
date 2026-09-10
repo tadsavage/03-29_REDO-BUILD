@@ -683,9 +683,19 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
                 CameraDevSettings.MinCameraHeightMin, CameraDevSettings.MinCameraHeightMax,
                 () => CameraDevSettings.MinCameraHeight, v => CameraDevSettings.MinCameraHeight = v));
 
-            // Add reflection-based fields to the content
+            // Add reflection-based fields to the content. xMin/xMax/zMin/zMax/pitchMin/pitchMax
+            // are excluded: GetFloatRange guesses a slider range from the field name, and none of
+            // its patterns fit these (xMin/xMax/zMin/zMax fall through to a (0,100) default that
+            // clips off negative bounds entirely; "pitchMin"/"pitchMax" match the "pitch" audio-pitch
+            // pattern and get squeezed into (0.1,3)). Building the slider assigns Slider.value, which
+            // Unity clamps to that wrong range and then fires the change callback — silently
+            // overwriting a correctly-set Inspector value (e.g. xMin=-180) the moment this panel is
+            // built, with no player interaction needed. Confirmed 2026-09-09: xMin/xMax/zMin/zMax set
+            // to -180/180 in the Inspector were being clobbered to 0/100.
+            var skipFromGenericPanel = new HashSet<string> { "xMin", "xMax", "zMin", "zMax", "pitchMin", "pitchMax" };
             foreach (var field in fields)
             {
+                if (skipFromGenericPanel.Contains(field.Name)) continue;
                 var row = BuildFieldRow(field, target);
                 if (row != null) contentContainer.Add(row);
             }

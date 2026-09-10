@@ -31,6 +31,13 @@ namespace GameCore.Inventory
         /// </summary>
         public bool PlayerOrdered { get; set; }
 
+        /// <summary>Freight surcharge charged alongside goods cost when a player PO is raised — 0 for
+        /// non-player shipments. Stored (rather than recomputed from the vendor's CURRENT partnership
+        /// level) so a later cancel refunds exactly what was charged, even if the relationship has
+        /// since moved — see PurchasingPanel.CommitDispatchVendorOrder / PartnershipTierProfile.
+        /// DeliveryFeePercent.</summary>
+        public int DeliveryFee { get; set; }
+
         /// <summary>
         /// True for a trailer bought sight-unseen from the broker.
         ///
@@ -213,6 +220,9 @@ namespace GameCore.Inventory
         /// in such a save came from the dev tools or the delivery generator.</summary>
         public bool playerOrdered;
         public bool isSalvage;
+        /// <summary>0 in a save written before delivery fees existed — correct, since no such PO was
+        /// ever charged one.</summary>
+        public int deliveryFee;
         public List<ShipmentLineItemSnapshot> lineItems = new();
     }
 
