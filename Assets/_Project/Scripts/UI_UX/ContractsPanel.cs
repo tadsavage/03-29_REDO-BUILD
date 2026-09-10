@@ -101,10 +101,12 @@ public class ContractsPanel : IUIPanel
 
     private const float IconSize    = 108f;   // Offers cards -- 72 * 1.5 per Tad's explicit call
 
-    /// <summary>Offer-card icons are drawn 10% wider than they are tall. The customer sprites are
-    /// not square, so a square box squeezed them horizontally. Width only — the height stays on
-    /// IconSize so every card on the board keeps the same baseline as the text beside it.</summary>
-    private const float OfferIconWidthScale = 1.1f;
+    /// <summary>Offer-card icons are drawn wider than they are tall. The customer sprites are square
+    /// on disk, so stretching them to fill a box this much wider than it is tall is what keeps them
+    /// from reading as vertically squeezed/stretched — 1.1 wasn't enough of a correction. Width only —
+    /// the height stays on IconSize so every card on the board keeps the same baseline as the text
+    /// beside it.</summary>
+    private const float OfferIconWidthScale = 1.4f;
     private const float IconSizeSm  = 44f;   // Accounts rows
     private const float IconSizeTiny = 18f;  // Schedule chips
 
@@ -896,18 +898,25 @@ public class ContractsPanel : IUIPanel
     private static Color TypeTextFor(ContractData c)
         => c.IsBulk ? ColChipBulkTx : ColChipOutText;
 
-    /// <summary>Plain-text stock check for a bulk offer's ACCEPT ORDER button — per Tad's ask, "the
-    /// regular order detail tooltip" for whether we have the product or not. Reads
+    /// <summary>Rich stock-check tooltip for a bulk offer's ACCEPT ORDER button — per Tad's ask, "the
+    /// regular order detail tooltip" for whether we have the product or not, laid out as a header plus
+    /// one icon+text row per line (matching Tad's mockup) rather than a flat block of text. Reads
     /// ContractData.BulkPreviewLines (rolled once at offer creation, the same list GenerateBulk builds
     /// the real order from on Accept) against live on-hand inventory.</summary>
-    private string BuildBulkStockTooltip(ContractData contract, InventoryService inv)
+    private VisualElement BuildBulkStockTooltip(ContractData contract, InventoryService inv)
     {
+        var body = new VisualElement();
+        body.pickingMode = PickingMode.Ignore;
+
         var lines = contract?.BulkPreviewLines;
         if (lines == null || lines.Count == 0)
-            return "Product not determined yet.";
+        {
+            body.Add(MakeText("Product not determined yet.", 13, ColSubtleText));
+            return body;
+        }
 
-        var sb = new System.Text.StringBuilder();
         bool anyShort = false;
+        var rows = new List<VisualElement>();
         foreach (var line in lines)
         {
             var sku = inv?.GetSkuData(line.SkuId);
@@ -915,13 +924,49 @@ public class ContractsPanel : IUIPanel
             int onHand = inv != null ? inv.TotalOnHand(line.SkuId) : 0;
             bool have = onHand >= line.Quantity;
             if (!have) anyShort = true;
-            sb.Append($"{name}: need {line.Quantity:N0}, have {onHand:N0} — ")
-              .Append(have ? "OK" : $"SHORT {line.Quantity - onHand:N0}")
-              .Append('\n');
+
+            var row = new VisualElement { pickingMode = PickingMode.Ignore };
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.marginTop = 5;
+
+            var icon = new VisualElement { pickingMode = PickingMode.Ignore };
+            icon.style.width = 30; icon.style.height = 30;
+            icon.style.flexShrink = 0;
+            icon.style.marginRight = 8;
+            icon.style.borderTopLeftRadius = icon.style.borderTopRightRadius =
+                icon.style.borderBottomLeftRadius = icon.style.borderBottomRightRadius = 4;
+            if (sku != null && sku.Icon != null) icon.style.backgroundImage = new StyleBackground(sku.Icon);
+            else icon.style.backgroundColor = new StyleColor(ColBlueEdge);
+            row.Add(icon);
+
+            var textCol = new VisualElement { pickingMode = PickingMode.Ignore };
+            textCol.style.flexGrow = 1;
+            textCol.style.flexShrink = 1;
+
+            var nameLabel = MakeText(name, 13, ColTitleText, bold: true);
+            nameLabel.style.whiteSpace = WhiteSpace.Normal;
+            textCol.Add(nameLabel);
+
+            string statusText = have
+                ? $"On hand: {onHand:N0} — enough"
+                : $"SHORT {line.Quantity - onHand:N0} — need {line.Quantity:N0}, have {onHand:N0}";
+            var statusLabel = MakeText(statusText, 12, have ? ColMoney : ColDanger, bold: !have);
+            statusLabel.style.whiteSpace = WhiteSpace.Normal;
+            textCol.Add(statusLabel);
+
+            row.Add(textCol);
+            rows.Add(row);
         }
 
-        sb.Insert(0, anyShort ? "SOME PRODUCT NOT ON HAND:\n" : "ALL PRODUCT ON HAND:\n");
-        return sb.ToString().TrimEnd();
+        var header = MakeText(anyShort ? "SOME PRODUCT NOT ON HAND" : "ALL PRODUCT ON HAND",
+                              14, anyShort ? ColDanger : ColMoney, bold: true);
+        header.style.borderBottomWidth = 1;
+        header.style.borderBottomColor = new StyleColor(ColBorder);
+        header.style.paddingBottom = 5;
+        body.Add(header);
+        foreach (var row in rows) body.Add(row);
+        return body;
     }
 
     private VisualElement BuildOfferCard(ContractData contract, InventoryService inv, int rowIndex)
@@ -977,7 +1022,7 @@ public class ContractsPanel : IUIPanel
         // Accept, never a second independently-rolled order. Recurring contracts don't have this
         // (their line items are rolled fresh each arrival day, not up front), so no tooltip for those.
         if (contract.IsBulk)
-            RuntimeTooltip.Attach(sign, BuildBulkStockTooltip(contract, inv));
+            RuntimeTooltip.AttachRich(sign, () => BuildBulkStockTooltip(contract, inv));
         // 25% taller than the shared 30px orange button, and stretched to the column rather than
         // sized to its own text. Both matter: the height makes it the obvious target on the card, and
         // the stretch is what lets the deadline badge below match its width WITHOUT measuring
@@ -1085,6 +1130,7 @@ public class ContractsPanel : IUIPanel
         consequence.style.marginLeft = 0; consequence.style.marginRight = 0;
         box.Add(consequence);
 
+        AttachHoverGrow(box);
         return box;
     }
 
@@ -1159,7 +1205,35 @@ public class ContractsPanel : IUIPanel
                              10, ColSubtleText));
         box.Add(DeadlineLine("Miss the slot: fee + satisfaction", 10, ColDangerSoft));
 
+        AttachHoverGrow(box);
         return box;
+    }
+
+    /// <summary>Grows <paramref name="target"/> ~30% on hover and eases back to normal size on
+    /// pointer-leave — the SHIP BY badge is dense, small-print text (a fine, a percentage, a day
+    /// number), and this is a cheap way to let the player read it up close without a click. Scale is a
+    /// pure paint-time transform and does NOT reflow the box's own layout rect — but it does NOT take
+    /// the box out of document flow either, which is exactly what broke the first version of this:
+    /// that version called BringToFront() on the enclosing card so the enlarged badge would draw over
+    /// the next card in the scroll list. In UI Toolkit a flex container's child ORDER is both paint
+    /// order and layout order — there is no separate z-index — so BringToFront() on a card inside the
+    /// offer column physically moved that card to the END of the list. The card then jumped out from
+    /// under the pointer, firing PointerLeave, which un-scaled it — but nothing ever moved it back,
+    /// so every hover permanently shuffled the list, and hovering a badge whose card had just moved
+    /// span the same feedback loop again. No reordering here now, on purpose: the badge simply grows
+    /// in place from its TOP edge (so it doesn't also creep upward into the button above it) and may
+    /// slightly overlap the card below while hovered — a fixed cosmetic trade-off, not a bug.</summary>
+    private static void AttachHoverGrow(VisualElement target, float scaleAmount = 1.3f, int durationMs = 140)
+    {
+        target.style.transitionProperty = new List<StylePropertyName> { new StylePropertyName("scale") };
+        target.style.transitionDuration = new List<TimeValue> { new TimeValue(durationMs, TimeUnit.Millisecond) };
+        target.style.transitionTimingFunction =
+            new List<EasingFunction> { new EasingFunction(EasingMode.EaseOutCubic) };
+        target.style.transformOrigin = new TransformOrigin(Length.Percent(50), Length.Percent(0));
+
+        target.RegisterCallback<PointerEnterEvent>(_ =>
+            target.style.scale = new Scale(new Vector3(scaleAmount, scaleAmount, 1f)));
+        target.RegisterCallback<PointerLeaveEvent>(_ => target.style.scale = new Scale(Vector3.one));
     }
 
     /// <summary>The BULK ORDER / RECURRING ORDER badge, sitting directly under the customer name.
@@ -1296,9 +1370,11 @@ public class ContractsPanel : IUIPanel
     /// every contract look like a cost. The estimate caveat lives in the caption underneath instead,
     /// where it can't be mistaken for arithmetic.
     ///
-    /// Averaged over every sellable SKU rather than the ones this contract will actually roll — the
-    /// roll happens at arrival, so there's nothing more specific to read. Good enough to rank two
-    /// offers against each other; not a forecast.
+    /// A bulk offer's line items are rolled once at offer creation (ContractData.BulkPreviewLines), so
+    /// its figure is computed from those exact lines. A recurring contract's volume is rolled fresh on
+    /// each arrival day instead, so there's nothing more specific to read yet — its figure is averaged
+    /// over every sellable SKU. Good enough to rank two recurring offers against each other; not a
+    /// forecast.
     /// </summary>
     private static string EstimatedValueText(ContractData c, InventoryService inv)
     {
@@ -1310,7 +1386,26 @@ public class ContractsPanel : IUIPanel
         if (c.IsBulk)
         {
             // Priced off BUY value, not sell — a bulk order pays cost of goods plus 5%, so estimating
-            // it from SellValue like the others would overstate every card on the board.
+            // it from SellValue like the others would overstate every card on the board. Computed from
+            // THIS contract's own rolled BulkPreviewLines (exactly what GenerateBulk will build on
+            // Accept) rather than an average over every SKU in the game — averaging ignored the actual
+            // roll entirely, so every bulk card on the board showed the identical figure.
+            var lines = c.BulkPreviewLines;
+            if (lines != null && lines.Count > 0)
+            {
+                float total = 0f;
+                foreach (var line in lines)
+                {
+                    var sku = inv.GetSkuData(line.SkuId);
+                    if (sku == null || sku.BuyValue <= 0f) continue;
+                    total += line.Quantity * sku.BuyValue;
+                }
+                if (total > 0f)
+                    return $"+${Mathf.RoundToInt(total * OrderArrivalService.BulkSurchargeMultiplier):N0}";
+            }
+
+            // Fallback for a preview that hasn't been rolled yet (shouldn't happen once offers always
+            // roll at creation) — an average estimate is better than nothing here.
             var palletCapable = sellable.Where(s => s.Ti > 0 && s.Hi > 0 && s.BuyValue > 0f).ToList();
             if (palletCapable.Count == 0) return $"x{OrderArrivalService.BulkSurchargeMultiplier:0.00}";
             float avgPalletCost = palletCapable.Average(s => s.Ti * s.Hi * s.BuyValue);
