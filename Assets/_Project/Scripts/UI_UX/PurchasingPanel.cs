@@ -158,14 +158,17 @@ public class PurchasingPanel : IUIPanel
     private HashSet<string> _expandedBeforeItemFilter = null;
 
     /// <summary>Vendor-filter state for Inbound Order Creation's header filter dropdown. Empty
-    /// `_multiVendorFilterVendorIds` means "no specific vendors chosen" (show all, subject to the
-    /// Critical Items toggle below) — a dropdown replacing the old free-text search box, per Tad's
-    /// request, and supporting more than one vendor selected at once.</summary>
+    /// `_multiVendorFilterVendorIds` means "no specific vendors chosen" (show all) — a dropdown
+    /// replacing the old free-text search box, per Tad's request, and supporting more than one vendor
+    /// selected at once.</summary>
     private readonly HashSet<string> _multiVendorFilterVendorIds = new();
 
-    /// <summary>"Critical Items" special filter entry — shows only vendors currently carrying at
-    /// least one item in net demand (see CountCriticalItems), combined (AND) with any selected
-    /// vendors above.</summary>
+    /// <summary>"Critical Items" special filter — shows only vendors currently carrying at least one
+    /// item in net demand (see CountCriticalItems), combined (AND) with any selected vendors above.
+    /// The TOGGLE for this lives on the ITEM filter dropdown (see BuildMultiVendorItemFilter), not
+    /// here — moved there per Tad's request, since "critical" is a property of items, not vendors.
+    /// The flag itself stays here because it still gates the VENDOR LIST (BuildMultiVendorTab), same
+    /// as before the toggle moved.</summary>
     private bool _multiVendorFilterCriticalOnly = false;
 
     /// <summary>Whether the filter dropdown's popout panel is currently open.</summary>
@@ -1836,24 +1839,10 @@ public class PurchasingPanel : IUIPanel
         scroll.style.maxHeight = 300;
         popout.Add(scroll);
 
-        var criticalToggle = new Toggle("Critical Items") { value = _multiVendorFilterCriticalOnly };
-        criticalToggle.style.marginBottom = 4;
-        criticalToggle.style.color = new StyleColor(ColDanger);
-        ApplyFont(criticalToggle, bold: true, size: 13);
-        criticalToggle.RegisterValueChangedCallback(evt =>
-        {
-            _multiVendorFilterCriticalOnly = evt.newValue;
-            dropdownBtn.text = FilterSummaryText();
-            Rebuild();
-        });
-        scroll.Add(criticalToggle);
-
-        var rule = new VisualElement();
-        rule.style.height = 1;
-        rule.style.marginTop = 2; rule.style.marginBottom = 4;
-        rule.style.backgroundColor = new StyleColor(ColBorder);
-        scroll.Add(rule);
-
+        // The "Critical Items" toggle used to live here — moved to the ITEM filter dropdown (see
+        // BuildMultiVendorItemFilter) per Tad's request, since "critical" is a property of items, not
+        // vendors. _multiVendorFilterCriticalOnly still gates this vendor list below; only the widget
+        // that sets it moved.
         var vendors = VendorRegistry.Load()?.AllVendors ?? new List<VendorData>();
         foreach (var vendor in vendors.Where(v => v != null)
                                        .OrderBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase))
@@ -2019,6 +2008,28 @@ public class PurchasingPanel : IUIPanel
         itemScroll.style.maxHeight = 300;
         itemPopout.Add(itemScroll);
 
+        // "Critical Items" toggle — moved here from the VENDOR filter dropdown per Tad's request
+        // (same Toggle widget, same styling, same _multiVendorFilterCriticalOnly flag; only its
+        // location changed). Sits above "All Items"/the SKU list exactly like it sat above the vendor
+        // checkbox list before the move.
+        var criticalToggle = new Toggle("Critical Items") { value = _multiVendorFilterCriticalOnly };
+        criticalToggle.style.marginBottom = 4;
+        criticalToggle.style.color = new StyleColor(ColDanger);
+        ApplyFont(criticalToggle, bold: true, size: 13);
+        criticalToggle.RegisterValueChangedCallback(evt =>
+        {
+            _multiVendorFilterCriticalOnly = evt.newValue;
+            itemBtn.text = ItemFilterSummaryText();
+            Rebuild();
+        });
+        itemScroll.Add(criticalToggle);
+
+        var criticalRule = new VisualElement();
+        criticalRule.style.height = 1;
+        criticalRule.style.marginTop = 2; criticalRule.style.marginBottom = 4;
+        criticalRule.style.backgroundColor = new StyleColor(ColBorder);
+        itemScroll.Add(criticalRule);
+
         void AddItemOption(string optionLabel, string skuId)
         {
             bool selected = _multiVendorItemFilterSkuId == skuId;
@@ -2080,21 +2091,27 @@ public class PurchasingPanel : IUIPanel
         return bar;
     }
 
+    // Deliberately does NOT mention _multiVendorFilterCriticalOnly — that flag's own toggle control
+    // now lives on the ITEM filter button (see ItemFilterSummaryText), so its summary belongs there
+    // too, not duplicated onto this button as well.
     private string FilterSummaryText()
     {
         int vendorCount = _multiVendorFilterVendorIds.Count;
-        if (vendorCount == 0 && !_multiVendorFilterCriticalOnly) return "All Vendors ▾";
-        var parts = new List<string>();
-        if (_multiVendorFilterCriticalOnly) parts.Add("Critical Items");
-        if (vendorCount > 0) parts.Add($"{vendorCount} vendor{(vendorCount == 1 ? "" : "s")}");
-        return string.Join(" + ", parts) + " ▾";
+        if (vendorCount == 0) return "All Vendors ▾";
+        return $"{vendorCount} vendor{(vendorCount == 1 ? "" : "s")} ▾";
     }
 
     private string ItemFilterSummaryText()
     {
-        if (string.IsNullOrEmpty(_multiVendorItemFilterSkuId)) return "Item: All ▾";
-        var name = AllCataloguedItems().FirstOrDefault(i => i.skuId == _multiVendorItemFilterSkuId).displayName;
-        return $"Item: {name ?? _multiVendorItemFilterSkuId} ▾";
+        var parts = new List<string>();
+        if (_multiVendorFilterCriticalOnly) parts.Add("Critical Items");
+        if (!string.IsNullOrEmpty(_multiVendorItemFilterSkuId))
+        {
+            var name = AllCataloguedItems().FirstOrDefault(i => i.skuId == _multiVendorItemFilterSkuId).displayName;
+            parts.Add(name ?? _multiVendorItemFilterSkuId);
+        }
+        if (parts.Count == 0) return "Item: All ▾";
+        return $"Item: {string.Join(" + ", parts)} ▾";
     }
 
     /// <summary>Every distinct SKU carried by ANY vendor's catalogue, alphabetical by name — the

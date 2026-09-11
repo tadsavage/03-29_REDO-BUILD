@@ -48,18 +48,19 @@ New Mouse Pointers-COMPLETE
 09-10 On the Order Details Tooltip next to each items name in Light Blue it should say how many pallets of that item we need, UNLESS its case pick it can just say <1 plt-COMPLETE
 09-10 Tool tips start to disappear - Exit game and restart seems to fix it - seems to happen when we are looking at tooltips in UIs like  Scheduler - COMPLETE
 09-10 If we don't receive an Inbound PO within 8 hours of appt - we lose the order and get nothing.- Complete 
-
+09-11 Critical Items needs to be on the Items dropdown - Complete
+09-11 When we hover over the ACCEPT OFFER button for a bulk order we should have a tooltip telling if we have the product or not. - Complete
+09-11 Put aways stopped happening and then all the sudden they were happening and they showed up in WQ?- MAYBE
+09-11 Somehow a receiving became cancelled in WQ? Now no one will do puts from that lane? - MAYBE
+09-11 Purchase UI when we are buying stuff and building loads there should ne a section in the middle that lists the requirements for each                            	vendor to dispatch. And the button should be grayed out, as a matter of fact they should all be grayed out until that cap is met. 	Perhaps a visual representation on the truck icon showing how many pallets we need to fill up to?
+09-11 Why is there a guidance sprite showing at Vector3.zero - Complete in Play
+09-11 Turn down bloom a little more. - Complete
 
 I want a tooltip to appear when i mouse over a tractor or trailer that tells me why they are there. 
 If we are shorted we should see a button on the scheduler to request back fill or credit.
-
 Getting drivers out on time (within 2 hours) will always increase our standing with vendor - not getting them received is a penalty getting charged for 10% of the load and a hit to standing.
-Critical Items needs to be on the Items dropdown
-When we hover over the ACCEPT OFFER button for a bulk order we should have a tooltip telling if we have the product or not.
 Playfield edge needs volume modifiers that will blur just the edges like TPH does
 Need to compress Dev and Log UI down better when on build tab - nothing fits. Can everything just scale down better maybe? We could make Utility into a grid of 6 buttons. Maybe when we go to build tab game auto pauses and puts a message in that says BUILD MODE = GAME PAUSED 
-Put aways stopped happening and then all the sudden they were happening and they showed up in WQ?
-Somehow a receiving became cancelled in WQ? Now no one will do puts from that lane?
 Make sure in Purchasing screen that Critical Items is showing the TOTAL demand for all orders coming in.
 Lower Raise should not play noise if there are no walls
 Dust Poof Blows - needs something
@@ -72,10 +73,8 @@ Were going to need to start thinking about art for UI.
 Test the Asset pack for men
 New customers, Bulk or otherwise should appear in CHAT
 For reputation bottom Line should read - At X points you will become POPULAR! These kind of milestones need to be celebrated with Fireworks or something.
-Purchase UI when we are buying stuff and building loads there should ne a section in the middle that lists the requirements for each vendor to dispatch. And the button should be grayed out, as a matter of fact they should all be grayed out until that cap is met. Perhaps a visual representation on the truck icon showing how many pallets we need to fill up to?
 Less jerky trucks backing in.
-Why is there a guidance sprite showing at Vector3.zero
-Turn down bloom a little more.
+
 Back up noise for trucks - plus some smoke when they start and stop.
 Post build receivers don't have RF guns nor do they have receiving progress bars.
 Raisins, Almonds and Olive Oil have shit TixHi's and all share the same model. Fix these models.

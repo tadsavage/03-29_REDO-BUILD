@@ -152,6 +152,27 @@ public class ContractsPanel : IUIPanel
 
     private readonly VisualElement _overlay;
     private readonly VisualElement _modal;
+
+    /// <summary>State for the SHIP BY badge's hover-grow (see AttachHoverGrow) — only ever one badge
+    /// grown at a time, so a single slot is enough, same shape as RuntimeTooltip's single active
+    /// target. Tracks the badge currently reparented into `_modal` so it can be un-reparented back
+    /// into its card's own layout on pointer-leave.</summary>
+    private VisualElement _hoverGrowBox;
+    private VisualElement _hoverGrowParent;
+    private VisualElement _hoverGrowPlaceholder;
+    /// <summary>True only while LiftBadgeAboveEverything/LowerBadgeBackIntoCard are actively calling
+    /// RemoveFromHierarchy()/Add() on the badge — both fire DetachFromPanelEvent SYNCHRONOUSLY, which
+    /// would otherwise re-enter the DetachFromPanelEvent safety-net handler mid-reparent and corrupt
+    /// the move (Unity throws "Modifying the parent of a VisualElement while it's already being
+    /// modified" if this isn't guarded).</summary>
+    private bool _hoverGrowBusy;
+    /// <summary>The scheduled item that applies the grow transform one frame after Lift — cancelled by
+    /// Lower if a leave arrives before it's fired. Without this, a fast enter-then-leave (both before
+    /// the next frame tick) let this stale callback fire AFTER Lower had already reset scale/translate
+    /// back to identity, re-applying the grown scale with nothing left to ever reset it again — found
+    /// by scripting exactly that sequence, where the badge ended up permanently stuck enlarged.</summary>
+    private IVisualElementScheduledItem _hoverGrowPendingApply;
+
     private readonly VisualElement _tabBar;
     /// <summary>Stationary strip between the tab bar and the scroll view. See Build.</summary>
     private readonly VisualElement _tabHeader;
@@ -1118,10 +1139,13 @@ public class ContractsPanel : IUIPanel
 
         // Consequences, spelled out. WRAPS (DeadlineLine is deliberately NoWrap with a pinned height,
         // so this can't use it) and pinned to the badge's full width so it sits along the bottom.
+        // White, not ColDangerSoft — the soft-red only reads clearly against the neutral/blue-tinted
+        // badges elsewhere. Against THIS badge's own warm yellow/orange tint (edge = ColWholesale on
+        // a rush order) red-on-orange has almost no contrast and was reported as "hardly visible".
         var consequence = MakeText(
             $"If loading isn't finished by midnight on day {dueDay} — a " +
             $"{contract.LateFeePercent:P0} fine is charged and customer's satisfaction drops.",
-            10, ColDangerSoft);
+            10, Color.white);
         consequence.style.width = Length.Percent(100);
         consequence.style.whiteSpace = WhiteSpace.Normal;
         consequence.style.unityTextAlign = TextAnchor.UpperRight;
@@ -1209,31 +1233,158 @@ public class ContractsPanel : IUIPanel
         return box;
     }
 
-    /// <summary>Grows <paramref name="target"/> ~30% on hover and eases back to normal size on
+    /// <summary>Grows <paramref name="box"/> 50% on hover and eases back to normal size on
     /// pointer-leave — the SHIP BY badge is dense, small-print text (a fine, a percentage, a day
-    /// number), and this is a cheap way to let the player read it up close without a click. Scale is a
-    /// pure paint-time transform and does NOT reflow the box's own layout rect — but it does NOT take
-    /// the box out of document flow either, which is exactly what broke the first version of this:
-    /// that version called BringToFront() on the enclosing card so the enlarged badge would draw over
-    /// the next card in the scroll list. In UI Toolkit a flex container's child ORDER is both paint
-    /// order and layout order — there is no separate z-index — so BringToFront() on a card inside the
-    /// offer column physically moved that card to the END of the list. The card then jumped out from
-    /// under the pointer, firing PointerLeave, which un-scaled it — but nothing ever moved it back,
-    /// so every hover permanently shuffled the list, and hovering a badge whose card had just moved
-    /// span the same feedback loop again. No reordering here now, on purpose: the badge simply grows
-    /// in place from its TOP edge (so it doesn't also creep upward into the button above it) and may
-    /// slightly overlap the card below while hovered — a fixed cosmetic trade-off, not a bug.</summary>
-    private static void AttachHoverGrow(VisualElement target, float scaleAmount = 1.3f, int durationMs = 140)
+    /// number), and this is a cheap way to let the player read it up close without a click.
+    ///
+    /// FIRST VERSION scaled the badge in place, still parented inside its own card. That broke twice:
+    /// (1) an early attempt called BringToFront() on the enclosing card to fix z-order, but in UI
+    /// Toolkit a flex container's child ORDER is both paint order and layout order — there is no
+    /// separate z-index — so that physically moved the card to the end of the offer list, which then
+    /// jumped the card out from under the pointer and permanently reshuffled the list on every hover.
+    /// (2) with BringToFront() removed, the badge grew correctly but stayed BEHIND later cards in the
+    /// list, because it was still a normal-flow child of its own small card and everything after that
+    /// card in the document paints on top of it regardless of visual scale — visible as the badge
+    /// growing UNDER the next card's ACCEPT ORDER button instead of over it.
+    ///
+    /// THIS VERSION reparents the actual badge element into `_modal` (the panel's own top-level root)
+    /// for the duration of the hover, as `position: Absolute` pinned to its exact on-screen rect at
+    /// the moment of pickup — so nothing visually jumps — then BringToFront()'d there. `_modal` sits
+    /// above every card, so this is genuine z-order, not a flex hack, and reordering _modal's OWN
+    /// children this way is safe: none of its other children are laid out relative to this badge.
+    /// A same-size placeholder is left behind in the badge's original slot so the card's own layout
+    /// (and the spacing of every card after it) doesn't shift while the badge is away. On
+    /// pointer-leave the badge shrinks back to normal size first, then — only after that transition
+    /// finishes — is moved back into its placeholder's slot and the placeholder removed, so the
+    /// re-parent itself is never seen mid-animation.
+    ///
+    /// The badge sits flush against the right edge of its column (OfferActionColWidth), which is
+    /// itself flush against the right edge of the card — so growing symmetrically from center would
+    /// push the enlarged box's right edge straight off the screen. Fixed two ways together: the
+    /// transform origin is biased toward the right edge (grows mostly left/down instead of in all
+    /// directions), and an explicit leftward translate shifts the whole grown box further left, so
+    /// there's real margin from the screen edge even accounting for a badge that's already near it.
+    /// </summary>
+    private void AttachHoverGrow(VisualElement box, float scaleAmount = 1.5f, int durationMs = 140,
+        float leftShift = 40f)
     {
-        target.style.transitionProperty = new List<StylePropertyName> { new StylePropertyName("scale") };
-        target.style.transitionDuration = new List<TimeValue> { new TimeValue(durationMs, TimeUnit.Millisecond) };
-        target.style.transitionTimingFunction =
-            new List<EasingFunction> { new EasingFunction(EasingMode.EaseOutCubic) };
-        target.style.transformOrigin = new TransformOrigin(Length.Percent(50), Length.Percent(0));
+        box.style.transitionProperty = new List<StylePropertyName>
+            { new StylePropertyName("scale"), new StylePropertyName("translate") };
+        box.style.transitionDuration = new List<TimeValue>
+            { new TimeValue(durationMs, TimeUnit.Millisecond), new TimeValue(durationMs, TimeUnit.Millisecond) };
+        box.style.transitionTimingFunction = new List<EasingFunction>
+            { new EasingFunction(EasingMode.EaseOutCubic), new EasingFunction(EasingMode.EaseOutCubic) };
+        // Biased toward the right edge (85%, not 100%) rather than fully pinned to it — growing
+        // straight off the right edge with zero rightward bleed reads as the badge sliding rather
+        // than growing. The explicit translate below is what actually guarantees the screen-edge
+        // clearance; this just keeps most of the growth going the useful direction.
+        box.style.transformOrigin = new TransformOrigin(Length.Percent(85), Length.Percent(0));
 
-        target.RegisterCallback<PointerEnterEvent>(_ =>
-            target.style.scale = new Scale(new Vector3(scaleAmount, scaleAmount, 1f)));
-        target.RegisterCallback<PointerLeaveEvent>(_ => target.style.scale = new Scale(Vector3.one));
+        box.RegisterCallback<PointerEnterEvent>(_ => LiftBadgeAboveEverything(box, scaleAmount, leftShift));
+        box.RegisterCallback<PointerLeaveEvent>(_ => LowerBadgeBackIntoCard(box, durationMs));
+        // A card that vanishes mid-hover (a panel Rebuild() while grown) gets no PointerLeaveEvent —
+        // snap back immediately rather than leaving the badge permanently stuck floating in _modal.
+        // GUARD: RemoveFromHierarchy()/Add() below both fire this same event SYNCHRONOUSLY as part of
+        // our OWN controlled reparenting (not just external teardown) — without the _hoverGrowBusy
+        // check this re-entered LowerBadgeBackIntoCard mid-move and threw "Modifying the parent of a
+        // VisualElement while it's already being modified", found by scripting a fast enter+leave.
+        box.RegisterCallback<DetachFromPanelEvent>(_ =>
+        {
+            if (!_hoverGrowBusy && _hoverGrowBox == box) LowerBadgeBackIntoCard(box, 0);
+        });
+    }
+
+    private void LiftBadgeAboveEverything(VisualElement box, float scaleAmount, float leftShift)
+    {
+        if (_hoverGrowBox == box) return; // already lifted
+        if (_hoverGrowBox != null) LowerBadgeBackIntoCard(_hoverGrowBox, 0); // only one at a time
+
+        VisualElement parent = box.parent;
+        if (parent == null) return;
+        int index = parent.IndexOf(box);
+        Rect worldRect = box.worldBound;
+        Vector2 localPos = _modal.WorldToLocal(worldRect.position);
+
+        var placeholder = new VisualElement { pickingMode = PickingMode.Ignore };
+        placeholder.style.width = worldRect.width;
+        placeholder.style.height = worldRect.height;
+        placeholder.style.marginTop = box.resolvedStyle.marginTop;
+        parent.Insert(index, placeholder);
+
+        _hoverGrowBox = box;
+        _hoverGrowParent = parent;
+        _hoverGrowPlaceholder = placeholder;
+
+        _hoverGrowBusy = true;
+        box.RemoveFromHierarchy();
+        box.style.position = Position.Absolute;
+        box.style.left = localPos.x;
+        box.style.top = localPos.y;
+        box.style.width = worldRect.width;
+        box.style.height = worldRect.height;
+        box.style.marginTop = 0;
+        _modal.Add(box);
+        _hoverGrowBusy = false;
+        box.BringToFront();
+
+        // Deferred a frame so the reparent above lands in the layout pass before the transform
+        // transition starts — starting both in the same call can skip straight to the end state.
+        // Tracked so a fast Leave (see LowerBadgeBackIntoCard) can cancel this before it fires.
+        // ExecuteLater() configures the delay and returns void (not the scheduled item itself) — the
+        // item to hang onto is the one Execute() returns, before ExecuteLater() is called on it.
+        _hoverGrowPendingApply = box.schedule.Execute(() =>
+        {
+            if (_hoverGrowBox != box) return;
+            box.style.scale = new Scale(new Vector3(scaleAmount, scaleAmount, 1f));
+            box.style.translate = new Translate(-leftShift, 0);
+        });
+        _hoverGrowPendingApply.ExecuteLater(0);
+    }
+
+    private void LowerBadgeBackIntoCard(VisualElement box, int durationMs)
+    {
+        if (_hoverGrowBox != box) return;
+        // Cancel the still-pending "apply grow" callback from Lift FIRST — otherwise a fast
+        // enter-then-leave (both before the next frame tick) lets it fire after the resets below,
+        // permanently re-stamping the grown scale with nothing left to ever undo it.
+        _hoverGrowPendingApply?.Pause();
+        _hoverGrowPendingApply = null;
+        box.style.scale = new Scale(Vector3.one);
+        box.style.translate = new Translate(0, 0);
+
+        void Restore()
+        {
+            if (_hoverGrowBox != box) return; // a newer lift already took over and will clean up itself
+            box.style.position = Position.Relative;
+            box.style.left = StyleKeyword.Null;
+            box.style.top = StyleKeyword.Null;
+            box.style.width = StyleKeyword.Null;
+            box.style.height = StyleKeyword.Null;
+            box.style.marginTop = StyleKeyword.Null;
+
+            _hoverGrowBusy = true;
+            box.RemoveFromHierarchy();
+            if (_hoverGrowParent != null && _hoverGrowPlaceholder?.parent == _hoverGrowParent)
+            {
+                int idx = _hoverGrowParent.IndexOf(_hoverGrowPlaceholder);
+                _hoverGrowParent.Insert(idx, box);
+                _hoverGrowPlaceholder.RemoveFromHierarchy();
+            }
+            else
+            {
+                _hoverGrowParent?.Add(box);
+            }
+            _hoverGrowBusy = false;
+
+            _hoverGrowBox = null;
+            _hoverGrowParent = null;
+            _hoverGrowPlaceholder = null;
+        }
+
+        // durationMs = 0 means "snap back now" (panel is rebuilding or the card is gone) — otherwise
+        // wait for the shrink transition to actually finish so the re-parent isn't seen mid-animation.
+        if (durationMs <= 0) Restore();
+        else box.schedule.Execute(Restore).ExecuteLater(durationMs);
     }
 
     /// <summary>The BULK ORDER / RECURRING ORDER badge, sitting directly under the customer name.
