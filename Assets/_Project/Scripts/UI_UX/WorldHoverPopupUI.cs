@@ -25,6 +25,7 @@ public class WorldHoverPopupUI : MonoBehaviour
     private VisualElement _truckPopup;
     private VisualElement _truckCommentFill;
     private Label _truckCommentLabel;
+    private Image _truckVendorIcon;
     private Label _truckVendorLabel;
     private Label _truckOrderLabel;
     private Label _truckApptLabel;
@@ -811,10 +812,10 @@ private void ShowLocation(LocationData location)
         commentBox.style.marginBottom = 8;
         commentBox.style.position = Position.Relative;
         commentBox.style.overflow = Overflow.Hidden;
-        // Very dark gray base — this is what's visible whenever there's no active driver message
-        // (fill width stays at 0%, see ShowTruck's else-branch below), per Tad's ask. The status fill
-        // sits on top of this and covers it once a message/color/progress is actually set.
-        commentBox.style.backgroundColor = new Color(0.14f, 0.14f, 0.15f, 0.85f);
+        // Light gray base — this is what's visible whenever there's no active driver message (fill
+        // width stays at 0%, see ShowTruck's else-branch below), per Tad's ask. The status fill sits
+        // on top of this and covers it once a message/color/progress is actually set.
+        commentBox.style.backgroundColor = new Color(0.78f, 0.78f, 0.8f, 0.9f);
         var commentRadius = new Length(4, LengthUnit.Pixel);
         commentBox.style.borderTopLeftRadius = commentRadius;
         commentBox.style.borderTopRightRadius = commentRadius;
@@ -845,23 +846,39 @@ private void ShowLocation(LocationData location)
 
         _truckPopup.Add(commentBox);
 
-        // ── Vendor / order # / appointment time ──
+        // ── Vendor icon + name / order # / appointment time ──
+        var vendorRow = new VisualElement();
+        vendorRow.pickingMode = PickingMode.Ignore;
+        vendorRow.style.flexDirection = FlexDirection.Row;
+        vendorRow.style.alignItems = Align.Center;
+
+        _truckVendorIcon = new Image();
+        _truckVendorIcon.pickingMode = PickingMode.Ignore;
+        _truckVendorIcon.style.width = 20;
+        _truckVendorIcon.style.height = 20;
+        _truckVendorIcon.style.marginRight = 6;
+        _truckVendorIcon.style.display = DisplayStyle.None;
+        vendorRow.Add(_truckVendorIcon);
+
         _truckVendorLabel = new Label { text = "" };
         _truckVendorLabel.pickingMode = PickingMode.Ignore;
         _truckVendorLabel.style.fontSize = 14;
         _truckVendorLabel.style.color = new Color(0.9f, 0.95f, 1f, 1f);
         _truckVendorLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        _truckPopup.Add(_truckVendorLabel);
+        vendorRow.Add(_truckVendorLabel);
 
+        _truckPopup.Add(vendorRow);
+
+        // Font sizes bumped 50% (11 -> 17) per Tad's ask.
         _truckOrderLabel = new Label { text = "" };
         _truckOrderLabel.pickingMode = PickingMode.Ignore;
-        _truckOrderLabel.style.fontSize = 11;
+        _truckOrderLabel.style.fontSize = 17;
         _truckOrderLabel.style.color = new Color(0.75f, 0.85f, 0.95f, 1f);
         _truckPopup.Add(_truckOrderLabel);
 
         _truckApptLabel = new Label { text = "" };
         _truckApptLabel.pickingMode = PickingMode.Ignore;
-        _truckApptLabel.style.fontSize = 11;
+        _truckApptLabel.style.fontSize = 17;
         _truckApptLabel.style.color = new Color(0.75f, 0.85f, 0.95f, 1f);
         _truckApptLabel.style.marginBottom = 6;
         _truckPopup.Add(_truckApptLabel);
@@ -965,14 +982,16 @@ private void ShowLocation(LocationData location)
 
         ServiceLocator.TryGet<DockScheduleService>(out var dockSchedule);
         ServiceLocator.TryGet<InventoryService>(out var inventory);
+        ServiceLocator.TryGet<OrderService>(out var orderServiceForCritical);
 
         Color borderColor = TruckRecurringColor;
         string vendor = null;
+        string vendorId = null;
         string orderInfo = null;
         string apptInfo = null;
         int doorNumber = 0;
         float progress = 0f;
-        var items = new List<(string desc, int qty, int pallets)>();
+        var items = new List<(string desc, int qty, int pallets, int criticalCases)>();
 
         if (!truck.IsOutbound)
         {
@@ -983,6 +1002,7 @@ private void ShowLocation(LocationData location)
             if (shipment != null)
             {
                 vendor = shipment.SupplierName;
+                vendorId = shipment.SupplierId;
                 orderInfo = $"PO {shipment.PONumber}";
                 var appt = dockSchedule?.FindForPo(shipment.PONumber);
                 apptInfo = appt != null ? $"Appt: {appt.TimeLabel}" : null;
@@ -995,6 +1015,22 @@ private void ShowLocation(LocationData location)
                 int offloaded = Mathf.Max(0, totalAtDock - remainingOnTrailer);
                 progress = totalAtDock > 0 ? Mathf.Clamp01(offloaded / (float)totalAtDock) : 0f;
 
+                // How many cases of each line are urgently needed once they land — on-hand stock
+                // that can't cover the combined demand across every active order for that SKU.
+                // Mirrors CriticalStockCheck's own definition, but capped to this line's own
+                // quantity since a case can only be "critical" up to how much of it is arriving.
+                var neededCache = new Dictionary<string, int>();
+                int NeededFor(string skuId)
+                {
+                    if (neededCache.TryGetValue(skuId, out var cached)) return cached;
+                    int needed = orderServiceForCritical?.ActiveOrders
+                        .SelectMany(o => o.LineItems)
+                        .Where(oli => oli.SkuId == skuId)
+                        .Sum(oli => oli.QuantityNeeded) ?? 0;
+                    neededCache[skuId] = needed;
+                    return needed;
+                }
+
                 foreach (var li in shipment.LineItems)
                 {
                     if (li == null || li.Dropped) continue;
@@ -1003,7 +1039,9 @@ private void ShowLocation(LocationData location)
                     int ti = sku != null && sku.Ti > 0 ? sku.Ti : 1;
                     int hi = sku != null && sku.Hi > 0 ? sku.Hi : 1;
                     int pallets = Mathf.Max(1, Mathf.CeilToInt(li.Quantity / (float)(ti * hi)));
-                    items.Add((desc, li.Quantity, pallets));
+                    int onHand = inventory?.GetTotalUnitsBySku(li.SkuId) ?? 0;
+                    int criticalCases = Mathf.Clamp(NeededFor(li.SkuId) - onHand, 0, li.Quantity);
+                    items.Add((desc, li.Quantity, pallets, criticalCases));
                 }
             }
             else
@@ -1058,11 +1096,11 @@ private void ShowLocation(LocationData location)
                         if (existingIdx >= 0)
                         {
                             var e = items[existingIdx];
-                            items[existingIdx] = (e.desc, e.qty + li.QuantityNeeded, e.pallets + pallets);
+                            items[existingIdx] = (e.desc, e.qty + li.QuantityNeeded, e.pallets + pallets, 0);
                         }
                         else
                         {
-                            items.Add((desc, li.QuantityNeeded, pallets));
+                            items.Add((desc, li.QuantityNeeded, pallets, 0));
                         }
                     }
                 }
@@ -1089,17 +1127,32 @@ private void ShowLocation(LocationData location)
         if (waitBar != null && waitBar.HasMessage)
         {
             _truckCommentLabel.text = waitBar.CurrentMessage;
+            _truckCommentLabel.style.color = Color.white;
             var c = waitBar.CurrentColor;
             _truckCommentFill.style.backgroundColor = new Color(c.r, c.g, c.b, 0.35f);
             _truckCommentFill.style.width = new Length(Mathf.Clamp01(waitBar.CurrentFillAmount) * 100f, LengthUnit.Percent);
         }
         else
         {
-            _truckCommentLabel.text = "—";
+            // Labelled placeholder instead of a lone "—" — this bar is about to carry live driver
+            // comments, and a bare dash reads as broken UI while a truck just sits waiting for a door.
+            _truckCommentLabel.text = "Delay Timer Bar";
+            _truckCommentLabel.style.color = new Color(0.2f, 0.2f, 0.22f, 1f);
             _truckCommentFill.style.width = new Length(0, LengthUnit.Percent);
         }
 
         _truckVendorLabel.text = string.IsNullOrEmpty(vendor) ? "Unknown" : vendor;
+
+        var vendorData = !string.IsNullOrEmpty(vendorId) ? VendorRegistry.Load()?.GetById(vendorId) : null;
+        if (vendorData != null && vendorData.Icon != null)
+        {
+            _truckVendorIcon.sprite = vendorData.Icon;
+            _truckVendorIcon.style.display = DisplayStyle.Flex;
+        }
+        else
+        {
+            _truckVendorIcon.style.display = DisplayStyle.None;
+        }
 
         _truckOrderLabel.text = orderInfo ?? "";
         _truckOrderLabel.style.display = string.IsNullOrEmpty(orderInfo) ? DisplayStyle.None : DisplayStyle.Flex;
@@ -1131,13 +1184,17 @@ private void ShowLocation(LocationData location)
         }
         else
         {
-            foreach (var (desc, qty, pallets) in items)
+            foreach (var (desc, qty, pallets, criticalCases) in items)
             {
-                var row = new Label($"{desc}  x{qty}  ({pallets} plt)");
+                string text = $"{desc}  x{qty}  ({pallets} plt)";
+                if (criticalCases > 0) text += $"  — {criticalCases} critical";
+                var row = new Label(text);
                 row.pickingMode = PickingMode.Ignore;
-                row.style.fontSize = 10;
-                row.style.color = new Color(0.85f, 0.9f, 0.95f, 1f);
-                row.style.marginBottom = 1;
+                row.style.fontSize = 13;
+                row.style.color = criticalCases > 0
+                    ? new Color(1f, 0.55f, 0.4f, 1f)
+                    : new Color(0.85f, 0.9f, 0.95f, 1f);
+                row.style.marginBottom = 2;
                 _truckItemsList.Add(row);
             }
         }
