@@ -253,8 +253,9 @@ public class TruckYardManager : MonoBehaviour
     /// away sight unseen just because every door happens to be busy. If a door is free it docks exactly
     /// as before; if not, it still queues at the gate, gets inspected, and drives on to park at the
     /// yard's door-wait spot (see TruckController.AssignAndGoWaitForDoor/BeginDoorWait), where it waits
-    /// up to doorWaitMinutes for one to free up before giving up (still taking the late penalty at that
-    /// point — see TruckController.ApplyGaveUpWaitingForDoorPenalty).
+    /// until one frees up — governed by TruckController's unified 8-hour inbound dwell clock
+    /// (UpdateInboundDwellClock), which degrades vendor standing gradually at 2/4/6 hours and only
+    /// loses the load outright at 8 hours if nothing has come off the trailer yet.
     ///
     /// Only returns false for a genuine spawn failure (missing prefab/spawn point) or a duplicate PO
     /// already in the yard — "no free door" is no longer one of those cases.

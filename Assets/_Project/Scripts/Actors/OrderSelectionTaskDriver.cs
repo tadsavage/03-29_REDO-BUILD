@@ -181,6 +181,9 @@ namespace GameCore.Actors
                 return;
             }
 
+            // SeekPosition silently no-ops if a stale seek is already flagged — see the matching fix
+            // in ReceivingTaskDriver/ReachTruckOperator/TrailerOffloadController for the same landmine.
+            _nav.CancelSeekPosition();
             _nav.SeekPosition(location.WorldPosition, () => StartCoroutine(PickRoutine(location, lineItem, takeQty)));
         }
 
@@ -417,6 +420,8 @@ namespace GameCore.Actors
             {
                 Vector3 targetPos = stagingPos.Value;
                 Vector3 axis = depthAxis;
+                // Same silent-no-op guard as the pick-location seek above.
+                _nav.CancelSeekPosition();
                 _nav.SeekPosition(targetPos, () =>
                 {
                     PlacePalletsAtStagingSlot(order, targetPos, axis);

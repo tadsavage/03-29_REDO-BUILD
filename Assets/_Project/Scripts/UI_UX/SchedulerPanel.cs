@@ -3907,7 +3907,19 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
             // enough live inventory of this SKU to cover pending outbound orders yet. ORANGE, whether
             // this PO is still inbound or already landed. See "Pending Receipt" below for whether more
             // relief is already on its way from elsewhere.
-            caseLine += " · needed for order";
+            //
+            // row.pallets above is the physical pallet count for the WHOLE line (one per
+            // ShipmentLineItem) — it has nothing to do with how much is actually needed. A bare
+            // "· needed for order" sitting right after "· 1 pallet" read as if a full pallet were
+            // required, even when the real shortfall is a handful of cases. Only round up to pallets
+            // here once the shortfall itself is a full pallet or more; otherwise state the exact case
+            // count so a partial need never gets inflated into "1 pallet", per Tad's explicit call.
+            int ti = row.sku != null && row.sku.Ti > 0 ? row.sku.Ti : 1;
+            int hi = row.sku != null && row.sku.Hi > 0 ? row.sku.Hi : 1;
+            int perPallet = Mathf.Max(1, ti * hi);
+            caseLine += row.outOfStock < perPallet
+                ? $" · {row.outOfStock:N0} case(s) needed for order"
+                : $" · {PalletLabel(Mathf.CeilToInt(row.outOfStock / (float)perPallet))} needed for order";
             highlight = ColWholesale;
         }
         // Neither: fully covers demand (once received) or nothing to flag yet — stays neutral/white.

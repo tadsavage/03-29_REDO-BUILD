@@ -32,12 +32,12 @@ using GameCore.Services;
 /// inspected exactly as above — a driver who shows up on time isn't turned away
 /// sight unseen. After Xform 1 it instead curves to the yard's "DoorWaitPoint"
 /// (an optional named child, same convention as GateEnterNoTurn/GateLeaveNoTurn)
-/// and parks there, showing a world-space countdown (TruckDoorWaitBar). It polls
-/// for a freed-up door and, if one appears, drives in exactly like a normal
-/// arrival (rejoining the route above at Xform 2). If doorWaitMinutes (60 by
-/// default, in SIM minutes) elapses with nothing freeing up, it gives up — still
-/// takes the late penalty (appointment parked back to the pool + vendor
-/// Partnership −20) — and exits via the normal departure route.
+/// and parks there, showing the unified 8-hour inbound dwell-clock ladder (TruckDoorWaitBar —
+/// see TruckController.UpdateInboundDwellClock). It polls for a freed-up door and, if one appears,
+/// drives in exactly like a normal arrival (rejoining the route above at Xform 2). If the whole
+/// 8-hour dwell clock elapses with nothing ever offloaded, the driver gives up — the load is lost
+/// (no refund) and vendor Partnership takes its biggest hit (−15) — and exits via the normal
+/// departure route.
 /// </summary>
 public class TruckController : MonoBehaviour
 {
@@ -249,9 +249,7 @@ public class TruckController : MonoBehaviour
     [SerializeField] private float exitShrinkTime = 0.6f; // was 1.2 — halved per Tad's request
 
     [Header("Door wait (no free door at arrival, read-only — injected by TruckYardManager.Init)")]
-    [Tooltip("How many in-game minutes a truck waits for a door to free up before giving up and leaving (still taking the late penalty). 120 = 2 in-game hours, per Tad's dock-punctuality spec.")]
-    [SerializeField] private float doorWaitMinutes = 120f;
-    [Tooltip("Real seconds between checks for a newly-freed door while waiting.")]
+    [Tooltip("Real seconds between checks for a newly-freed door while waiting. The wait itself no longer has its own timeout — see the unified 8-hour dwell clock, TruckController.UpdateInboundDwellClock.")]
     [SerializeField] private float doorWaitPollSeconds = 2f;
 
     [Header("Trailer Doors")]
@@ -321,8 +319,19 @@ public class TruckController : MonoBehaviour
     /// <summary>The Load container holding this truck's cargo pallets as children, or null.</summary>
     public Transform LoadContainer => transform.Find("Trailer/LorryTrailer/Load") ?? FindDeepChild(transform, "Load");
 
+    /// <summary>Snapshot of LoadContainer.childCount taken the instant offload is claimed — before
+    /// TrailerOffloadController starts reparenting pallets out one at a time. LoadContainer's own
+    /// childCount then tracks what's LEFT on the trailer, so (TotalPalletsAtDock - childCount) is how
+    /// many have actually been dropped in the lane so far — used by the hover tooltip's load-progress
+    /// bar so it advances the moment a pallet lands, not on some case-count proxy.</summary>
+    public int TotalPalletsAtDock { get; private set; }
+
     /// <summary>Marks this truck as being actively offloaded so no other offloader claims it.</summary>
-    public void ClaimForOffload() => _offloadClaimed = true;
+    public void ClaimForOffload()
+    {
+        _offloadClaimed = true;
+        TotalPalletsAtDock = LoadContainer != null ? LoadContainer.childCount : 0;
+    }
 
     /// <summary>Called by the offload controller once every pallet is off — lets the truck depart.</summary>
     public void CompleteOffload() => _offloadComplete = true;
@@ -383,6 +392,11 @@ public class TruckController : MonoBehaviour
     /// <summary>The dock slot claimed by this truck regardless of current state (set at AssignAndGo time).</summary>
     public DockSlot AssignedDock => _dock;
 
+    /// <summary>The driver's status/message tracker (see TruckDoorWaitBar) — WorldHoverPopupUI's truck
+    /// tooltip reads CurrentMessage/CurrentColor/CurrentFillAmount off this rather than duplicating the
+    /// driver-comment logic. Null until the first Show* call lazily creates it.</summary>
+    public TruckDoorWaitBar DoorWaitBar => _doorWaitBar;
+
     /// <summary>Seconds the truck has been in the Docked state (used by offload fall-back timer).</summary>
     public float DockedTime => _dockedTime;
 
@@ -433,9 +447,24 @@ private DockSlot        _dock;
     /// case a truck with no free door gives up immediately instead of waiting (see BeginDoorWait).</summary>
     private Transform _doorWaitPoint;
 
-    private long  _doorWaitStartSimMinute = -1;
     private float _doorWaitPollTimer;
     private TruckDoorWaitBar _doorWaitBar;
+
+    // ── Unified 8-hour inbound dwell clock (2026-09-10, Tad's ladder spec) ─────────────────────
+    // Replaces the old flat "give up after doorWaitMinutes with no door" penalty, which Tad called
+    // out as too harsh (2 hours). Runs from the moment the truck clears the gate — see
+    // GuardClearedToEnter — independent of door/dock state, and degrades vendor standing gradually
+    // instead of an all-or-nothing cutoff. See UpdateInboundDwellClock.
+    private const float InboundDeadlineHours = 8f;
+    private const float InboundTier1Hours = 2f; // -3, bar turns yellow
+    private const float InboundTier2Hours = 4f; // -5, bar turns orange
+    private const float InboundTier3Hours = 6f; // -10, bar turns red
+    private const int InboundTier1Penalty = 3;
+    private const int InboundTier2Penalty = 5;
+    private const int InboundTier3Penalty = 10;
+    private const int InboundFinalPenalty = 15;
+    private long _inboundClockStartSimMinute = -1;
+    private int  _inboundPenaltyTierApplied; // 0=none, 1/2/3 = that rung fired, 4 = final (8h) resolved
 
     /// <summary>Set while this truck is waiting in a SideLotController's claimed spot instead of the
     /// generic _doorWaitPoint — null the rest of the time. Drives the UpdateWaitingForDoor branch that
@@ -1139,12 +1168,11 @@ private DockSlot        _dock;
                 break;
 
             case TruckState.WaitingForDoor:
-                // _doorWaitStartSimMinute is not persisted (a save mid-wait is a rare enough edge case
-                // not to warrant its own snapshot field this pass) — restart a fresh full wait window
-                // rather than resuming a stale one that would silently never time out (elapsed would
-                // read 0 forever). Forgiving default, same reasoning as every other "field didn't exist
-                // in this save" fallback in this codebase — costs the player a few extra minutes of
-                // waiting at worst, never a stuck truck.
+                // _inboundClockStartSimMinute is not persisted — UpdateInboundDwellClock lazily
+                // re-initializes it to "now" on the next tick, so a restored truck gets a fresh full
+                // 8-hour window rather than resuming a stale one. Forgiving default, same reasoning as
+                // every other "field didn't exist in this save" fallback in this codebase — costs the
+                // player a few extra hours of grace at worst, never a stuck truck.
                 transform.position = snap.worldPosition;
                 BeginWaitingForDoor();
                 return;
@@ -1498,6 +1526,7 @@ private DockSlot        _dock;
     {
         UpdateDoors();
         UpdateCabSteering();
+        UpdateInboundDwellClock();
 
         switch (_state)
         {
@@ -2772,6 +2801,17 @@ private DockSlot        _dock;
         _clearedGate = true;
         OnClearedGate?.Invoke();
 
+        // Unified 8-hour inbound dwell clock starts the instant the truck clears the gate — Tad's
+        // spec: "every timer bar should run for 8 hours length and should initiate as soon as he
+        // proceeds through the gate." See UpdateInboundDwellClock.
+        if (!_isOutbound)
+        {
+            var gameCtxClock = FindAnyObjectByType<GameContext>();
+            _inboundClockStartSimMinute = gameCtxClock != null && gameCtxClock.TimeService != null
+                ? gameCtxClock.TimeService.TotalMinutesElapsed : -1;
+            _inboundPenaltyTierApplied = 0;
+        }
+
         // BUG FIX (moved here from OnDocked, 2026-09): "arrived on time" means cleared the gate, not
         // "already backed into a door" — a truck that has to wait for a free door (see
         // AssignAndGoWaitForDoor below) is JUST as much "arrived" as one that docks immediately.
@@ -2858,11 +2898,9 @@ private DockSlot        _dock;
     private void BeginWaitingForDoor()
     {
         _state = TruckState.WaitingForDoor;
-        var gameCtx = FindAnyObjectByType<GameContext>();
-        _doorWaitStartSimMinute = gameCtx != null && gameCtx.TimeService != null ? gameCtx.TimeService.TotalMinutesElapsed : -1;
         _doorWaitPollTimer = 0f;
-        if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
-        _doorWaitBar.ShowWaitingForDoor(doorWaitMinutes, doorWaitMinutes);
+        // Bar/message is now driven every frame by UpdateInboundDwellClock (the unified 8-hour
+        // ladder), not a fixed countdown started here — see that method.
 
         if (AssignedShipment != null)
         {
@@ -2874,47 +2912,12 @@ private DockSlot        _dock;
         }
     }
 
-    /// <summary>Ticks the door-wait countdown (in SIM minutes, same clock the dock schedule's 2-hour
-    /// blocks run on — not real seconds, since "60 minutes" is a game-time promise) and polls for a
-    /// freed-up door. Claims the first one it finds and drives in exactly like a normal arrival the
-    /// moment one appears; gives up (still taking the late penalty) once the window runs out.</summary>
+    /// <summary>Polls for a freed-up door while parked. Claims the first one it finds and drives in
+    /// exactly like a normal arrival the moment one appears. No longer times out on its own — a truck
+    /// with no door just keeps waiting/polling here until either a door frees up or the unified
+    /// 8-hour dwell clock (UpdateInboundDwellClock) forces it to give up.</summary>
     private void UpdateWaitingForDoor()
     {
-        var gameCtx = FindAnyObjectByType<GameContext>();
-        if (gameCtx == null || gameCtx.TimeService == null) return;
-
-        float elapsedMinutes = _doorWaitStartSimMinute >= 0
-            ? gameCtx.TimeService.TotalMinutesElapsed - _doorWaitStartSimMinute
-            : 0f;
-        float remaining = Mathf.Max(0f, doorWaitMinutes - elapsedMinutes);
-        _doorWaitBar?.ShowWaitingForDoor(remaining, doorWaitMinutes);
-
-        if (remaining <= 0f)
-        {
-            _doorWaitBar?.Hide();
-
-            // BUG FIX (Tad's spec): a truck that gave up while parked in the SideLot used to call
-            // BeginDeparture directly from right where it sat — inside the fenced lot — which then
-            // curved it straight toward the gate through the barrier instead of actually driving out.
-            // It needs to back straight out to the Entry marker first (identical maneuver to the
-            // "a door freed up" case below), THEN run the normal give-up departure. _dock stays null
-            // here (never claimed one) — that's exactly what ReversingToSideLotEntry's arrival check
-            // uses to tell "backing out to grab a door" apart from "backing out to give up and leave".
-            if (_sideLotSlot != null)
-            {
-                if (_sideLotSlot.Entry != null)
-                    SetTarget(TruckState.ReversingToSideLotEntry, _sideLotSlot.Entry.position);
-                else if (_gateEnterNoTurn.HasValue)
-                    SetTarget(TruckState.ReversingOutOfSideLot, _gateEnterNoTurn.Value);
-                else
-                    BeginDeparture(succeeded: false);
-                return;
-            }
-
-            BeginDeparture(succeeded: false);
-            return;
-        }
-
         _doorWaitPollTimer -= Time.deltaTime;
         if (_doorWaitPollTimer > 0f) return;
         _doorWaitPollTimer = doorWaitPollSeconds;
@@ -2925,7 +2928,6 @@ private DockSlot        _dock;
         _dock = freeDock;
         _dock.Claim();
         ApplyOnTimeDoorBonus();
-        _doorWaitBar?.ShowHeadingToDoor(_dock.DoorNumber);
 
         if (_sideLotSlot != null)
         {
@@ -3081,7 +3083,13 @@ private DockSlot        _dock;
         }
         else
         {
-            ApplyGaveUpWaitingForDoorPenalty();
+            // The unified 8-hour dwell clock (ResolveInboundDeadline) already applied its own
+            // penalty, cancelled the shipment, and logged the loss before triggering this departure
+            // in the ordinary "couldn't get a door in time" case — skip so it isn't double-charged.
+            // Only a genuine "nowhere to wait at all" config failure (BeginDoorWait, before the
+            // ladder ever gets a chance to fire) reaches this branch unresolved.
+            if (_inboundPenaltyTierApplied < 4)
+                ApplyNoWaitSpotPenalty();
         }
 
         // Solid trailer + closed doors again before it drives off.
@@ -3096,16 +3104,11 @@ private DockSlot        _dock;
         SetTargetCurved(TruckState.DepartToApproach, ap, next - ap);
     }
 
-    /// <summary>
-    /// The consequence for a driver who waited the full doorWaitMinutes with no door ever freeing up:
-    /// per Tad's spec, the appointment is handed back to the pool (the player must actively reschedule
-    /// it) and the vendor relationship still takes the same flat hit HandleNoAvailableDoor used to apply
-    /// immediately — the only thing that changed is WHEN it lands (after a real 60-minute wait instead
-    /// of instantly), not whether it happens. Deliberately does NOT touch AssignedShipment.Status — it
-    /// stays whatever it was (InTransit/Receiving), so DispatchDueShipments can re-attempt this same PO
-    /// once the player books it a new appointment, exactly like the old immediate-turnaround path did.
-    /// </summary>
-    private void ApplyGaveUpWaitingForDoorPenalty()
+    /// <summary>Fallback penalty for the rare case a truck clears the gate with no door AND no
+    /// configured place to wait at all (see BeginDoorWait) — a level-authoring gap, not normal
+    /// gameplay. The unified 8-hour dwell clock (UpdateInboundDwellClock/ResolveInboundDeadline) is
+    /// what now judges every ordinary "couldn't get a door in time" case.</summary>
+    private void ApplyNoWaitSpotPenalty()
     {
         if (AssignedShipment == null) return;
 
@@ -3114,41 +3117,26 @@ private DockSlot        _dock;
         {
             var appt = dockSchedule.FindForPo(AssignedShipment.PONumber);
             if (appt != null)
-            {
-                dockSchedule.TryPark(appt.Id, out string failReason);
-                if (failReason != null)
-                    Debug.LogWarning($"[TruckController] Couldn't park PO {AssignedShipment.PONumber}'s " +
-                                     $"appointment after giving up on a door: {failReason}");
-            }
+                dockSchedule.TryPark(appt.Id, out _);
         }
 
         if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorEconomyService economy) &&
             economy != null && !string.IsNullOrEmpty(AssignedShipment.SupplierId))
         {
             economy.AdjustPartnershipLevel(AssignedShipment.SupplierId, -20,
-                $"No door freed up for PO {AssignedShipment.PONumber} within {doorWaitMinutes:F0} minutes — driver gave up and left");
+                $"No wait spot configured for PO {AssignedShipment.PONumber} — driver turned around immediately");
         }
 
-        // Missing the 2-hour door window also costs real money — 10% of the load's total cost, on top
-        // of the vendor-standing hit above. Per Tad's spec.
-        int penalty = 0;
-        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Economy.MoneyService money) && money != null)
-        {
-            penalty = Mathf.RoundToInt(AssignedShipment.TotalCost * 0.10f);
-            if (penalty > 0)
-                money.Deduct(penalty, FinanceCategory.Fines);
-        }
-
-        UIToast.Show($"No door freed up for PO {AssignedShipment.PONumber} in time — the driver has " +
-                     $"left. Charged ${penalty:N0} (10% of the load) and vendor standing took a hit. Reschedule the appointment.");
-        SystemsLogWindow.LogWarning($"Order# {AssignedShipment.PONumber} left the yard due to delays — " +
-                                     $"charged ${penalty:N0} and vendor standing took a hit. You BLEW IT!");
+        UIToast.Show($"No door or wait spot available for PO {AssignedShipment.PONumber} — the driver " +
+                     "turned around. Reschedule the appointment.");
+        SystemsLogWindow.LogWarning($"PO {AssignedShipment.PONumber} turned around immediately — no door " +
+                                     "or wait spot was available. Vendor standing took a -20 hit.");
     }
 
-    /// <summary>Counterpart to ApplyGaveUpWaitingForDoorPenalty — rewards vendor standing when an
-    /// inbound trailer gets a door within the doorWaitMinutes window (whether immediately at spawn, via
-    /// AssignAndGo, or after a real wait, via UpdateWaitingForDoor's success branch). Per Tad's spec:
-    /// "getting drivers out on time will always increase our standing."</summary>
+    /// <summary>Rewards vendor standing when an inbound trailer gets a door (whether immediately at
+    /// spawn, via AssignAndGo, or after a real wait, via UpdateWaitingForDoor's success branch) before
+    /// the unified 8-hour dwell clock ever dings it. Per Tad's spec: "getting drivers out on time will
+    /// always increase our standing."</summary>
     private void ApplyOnTimeDoorBonus()
     {
         if (_isOutbound || AssignedShipment == null || string.IsNullOrEmpty(AssignedShipment.SupplierId))
@@ -3158,10 +3146,197 @@ private DockSlot        _dock;
             economy != null)
         {
             economy.AdjustPartnershipLevel(AssignedShipment.SupplierId, 5,
-                $"PO {AssignedShipment.PONumber} got a door within {doorWaitMinutes:F0} minutes");
+                $"PO {AssignedShipment.PONumber} got a door before the dwell clock penalized it");
         }
 
         SystemsLogWindow.LogGuard($"PO {AssignedShipment.PONumber} got a door on time — vendor standing improved.");
+    }
+
+    /// <summary>
+    /// Unified 8-hour inbound dwell clock (2026-09-10, Tad's ladder spec). Ticks every frame for every
+    /// live inbound truck, independent of _state — queued, waiting for a door, or already docked all
+    /// count identically, because the promise being measured is "how long has this driver been sitting
+    /// in our yard," not "how long has he had a door." Started at GuardClearedToEnter; lazily
+    /// re-initialized here for a truck restored mid-wait (a save doesn't persist the start minute —
+    /// same forgiving-default reasoning the old _doorWaitStartSimMinute restore path used: costs a few
+    /// extra in-game hours of grace at worst, never a permanently-stuck penalty).
+    ///
+    /// Ladder: 0-2h green ("I hope this drop goes smooth..."), 2h -3 vendor / yellow ("Still here, at
+    /// this clown factory."), 4h -5 vendor / orange ("This ain't worth it..."), 6h -10 vendor / red
+    /// (same orange line — Tad didn't give red its own), 8h -15 vendor AND the load is lost outright —
+    /// but ONLY if nothing has come off the trailer yet (see ResolveInboundDeadline). A truck already
+    /// mid-unload is left alone by this method; DockScheduleService's own 8-hour "no full receipt"
+    /// deadline (measured from the appointment, not the gate) still governs that case independently.
+    /// </summary>
+    private void UpdateInboundDwellClock()
+    {
+        if (_isOutbound || AssignedShipment == null) return;
+        if (_state == TruckState.Queuing || _state == TruckState.GuardCheck) return; // not through the gate yet
+        if (_state == TruckState.Exiting || _state == TruckState.Idle) return;
+        if (_inboundPenaltyTierApplied >= 4) return; // already resolved — nothing left to tick
+
+        var gameCtx = FindAnyObjectByType<GameContext>();
+        if (gameCtx == null || gameCtx.TimeService == null) return;
+
+        if (_inboundClockStartSimMinute < 0)
+            _inboundClockStartSimMinute = gameCtx.TimeService.TotalMinutesElapsed;
+
+        float elapsedHours = (gameCtx.TimeService.TotalMinutesElapsed - _inboundClockStartSimMinute) / 60f;
+        float frac = Mathf.Clamp01(1f - elapsedHours / InboundDeadlineHours);
+
+        Color color;
+        string quote;
+        if (elapsedHours < InboundTier1Hours)
+        {
+            color = TruckDoorWaitBar.DwellGreenColor;
+            quote = "I hope this drop goes smooth, I gotta take a dump.";
+        }
+        else if (elapsedHours < InboundTier2Hours)
+        {
+            color = TruckDoorWaitBar.DwellYellowColor;
+            quote = "Still here, at this clown factory.";
+        }
+        else if (elapsedHours < InboundTier3Hours)
+        {
+            color = TruckDoorWaitBar.DwellOrangeColor;
+            quote = "This ain't worth it, as soon as I finish my beer I'm out!";
+        }
+        else
+        {
+            color = TruckDoorWaitBar.DwellRedColor;
+            quote = "This ain't worth it, as soon as I finish my beer I'm out!";
+        }
+
+        if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
+        _doorWaitBar.ShowDwellStatus(frac, color, quote);
+
+        // Ladder rungs — sequential ifs (not else-if) so a big elapsed jump (e.g. a time-scale skip)
+        // fires every rung it passed through in one tick rather than only the highest.
+        if (_inboundPenaltyTierApplied < 1 && elapsedHours >= InboundTier1Hours)
+        {
+            _inboundPenaltyTierApplied = 1;
+            ApplyDwellPenalty(InboundTier1Penalty, InboundTier1Hours);
+        }
+        if (_inboundPenaltyTierApplied < 2 && elapsedHours >= InboundTier2Hours)
+        {
+            _inboundPenaltyTierApplied = 2;
+            ApplyDwellPenalty(InboundTier2Penalty, InboundTier2Hours);
+        }
+        if (_inboundPenaltyTierApplied < 3 && elapsedHours >= InboundTier3Hours)
+        {
+            _inboundPenaltyTierApplied = 3;
+            ApplyDwellPenalty(InboundTier3Penalty, InboundTier3Hours);
+        }
+        if (_inboundPenaltyTierApplied < 4 && elapsedHours >= InboundDeadlineHours)
+        {
+            _inboundPenaltyTierApplied = 4;
+            ResolveInboundDeadline();
+        }
+    }
+
+    /// <summary>One rung of the dwell-clock ladder — a vendor-relationship hit only, no dollar cost
+    /// and no cancellation. Fires once per rung, in order, from UpdateInboundDwellClock.</summary>
+    private void ApplyDwellPenalty(int amount, float hourMark)
+    {
+        if (AssignedShipment == null) return;
+
+        string doorLabel = _dock != null ? $"Door {_dock.DoorNumber}" : "the yard";
+
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorEconomyService economy) &&
+            economy != null && !string.IsNullOrEmpty(AssignedShipment.SupplierId))
+        {
+            economy.AdjustPartnershipLevel(AssignedShipment.SupplierId, -amount,
+                $"PO {AssignedShipment.PONumber} has waited {hourMark:F0} hours at {doorLabel} with nothing offloaded");
+        }
+
+        SystemsLogWindow.LogWarning($"PO {AssignedShipment.PONumber} at {doorLabel} has been waiting " +
+                                     $"{hourMark:F0} hours — vendor standing took a -{amount} hit.");
+    }
+
+    /// <summary>The 8-hour mark: the driver is done waiting. If nothing has come off the trailer yet,
+    /// the load is lost outright (no refund — already paid at dispatch) and the vendor relationship
+    /// takes the ladder's biggest hit. A truck already mid-unload is left alone — the door/lane it's
+    /// occupying is doing real work, and DockScheduleService's own full-receipt deadline (a separate
+    /// 8-hour clock measured from the appointment) is what judges that case.</summary>
+    private void ResolveInboundDeadline()
+    {
+        if (AssignedShipment == null) return;
+
+        bool anyOffloaded = LoadContainer != null && TotalPalletsAtDock > 0 &&
+                             LoadContainer.childCount < TotalPalletsAtDock;
+        if (anyOffloaded) return;
+
+        int lostValue = AssignedShipment.TotalCost;
+        string po = AssignedShipment.PONumber;
+        string doorLabel = _dock != null ? $"Door {_dock.DoorNumber}" : "the yard";
+
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorEconomyService economy) &&
+            economy != null && !string.IsNullOrEmpty(AssignedShipment.SupplierId))
+        {
+            economy.AdjustPartnershipLevel(AssignedShipment.SupplierId, -InboundFinalPenalty,
+                $"PO {po} left the yard after 8 hours — nothing was ever offloaded");
+        }
+
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockSchedule) &&
+            dockSchedule != null)
+        {
+            var appt = dockSchedule.FindForPo(po);
+            if (appt != null)
+                dockSchedule.TryPark(appt.Id, out _);
+        }
+
+        AssignedShipment.Status = GameCore.Inventory.ShipmentData.ShipmentStatus.Cancelled;
+
+        if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
+        _doorWaitBar.ShowDwellStatus(0f, TruckDoorWaitBar.DwellRedColor, "Is Biden running this shitshow?!?");
+
+        UIToast.Show($"PO {po} left the yard — 8 hours passed with nothing offloaded. Lost the load " +
+                     $"(${lostValue:N0}, no refund) and took a -{InboundFinalPenalty} vendor hit.");
+        SystemsLogWindow.LogWarning($"PO {po} at {doorLabel} waited 8 hours and left — sorry boss, " +
+                                     $"that's a lost load worth ${lostValue:N0} and a vendor hit of " +
+                                     $"-{InboundFinalPenalty}.");
+
+        ForceLeaveNow();
+    }
+
+    /// <summary>Abandons whatever the truck is doing and heads for the gate — used only by
+    /// ResolveInboundDeadline, which unlike ForceDeparture (Docked-only) must also cover a truck still
+    /// queued, parked in the side lot, or waiting for a door. Releases whatever it was holding first so
+    /// the slot doesn't wait around for a truck that's already leaving.</summary>
+    private void ForceLeaveNow()
+    {
+        if (_dock != null) { _dock.Release(); _dock = null; }
+
+        if (_state == TruckState.Docked)
+        {
+            _dockedAtSimMinute = -1;
+            SetDockedGhost(false);
+            CloseTrailerDoors();
+            Vector3 apDocked = ApproachPoint();
+            Vector3 nextDocked = _gateLeaveNoTurn ?? _exitWaypoint ?? apDocked;
+            SetTargetCurved(TruckState.DepartToApproach, apDocked, nextDocked - apDocked);
+            return;
+        }
+
+        if (_sideLotSlot != null)
+        {
+            if (_sideLotSlot.Entry != null)
+            {
+                SetTarget(TruckState.ReversingToSideLotEntry, _sideLotSlot.Entry.position);
+                return;
+            }
+            if (_gateEnterNoTurn.HasValue)
+            {
+                SetTarget(TruckState.ReversingOutOfSideLot, _gateEnterNoTurn.Value);
+                return;
+            }
+        }
+
+        SetDockedGhost(false);
+        CloseTrailerDoors();
+        Vector3 ap = ApproachPoint();
+        Vector3 next = _gateLeaveNoTurn ?? _exitWaypoint ?? ap;
+        SetTargetCurved(TruckState.DepartToApproach, ap, next - ap);
     }
 
     /// <summary>

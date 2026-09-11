@@ -2,6 +2,7 @@ using GameCore.Economy;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using SaveLoadSystem;
 
@@ -347,6 +348,20 @@ public class BuildMenuUI : MonoBehaviour
     private void Update()
     {
         SyncPlayBarSelection();
+
+        // Self-heal IsPointerOverBuildMenu every frame instead of only at specific chokepoints
+        // (UIKeyBindingManager opening/closing a panel, DevHudWindow/SystemsLogWindow detaching mid-
+        // drag). The flag is normally driven by PointerEnter/PointerLeave events on the bar, which is
+        // fragile: ANY new element that ends up covering the bar without the cursor genuinely crossing
+        // its boundary (a panel opened some other way, a modal, pointer capture held by something
+        // else) leaves it stuck true forever with no Leave event ever coming to clear it. Every reader
+        // of this flag (RaycastController's tooltip/hover gate, FreeLookCamera's orbit/pan/zoom gate)
+        // then reads "over UI" no matter where the cursor actually is — this is what silently killed
+        // both world tooltips and right-drag/scroll camera control at once. Only correcting the TRUE
+        // case (never forcing it true) leaves the event-driven "just entered the bar" side effects
+        // (submenu close-timer pause, etc.) alone; this purely catches the stuck-true direction.
+        if (IsPointerOverBuildMenu && Mouse.current != null)
+            SyncPointerOverBuildMenu(Mouse.current.position.ReadValue());
     }
 
     /// <summary>

@@ -24,6 +24,14 @@ public class TruckDoorWaitBar : MonoBehaviour
     private static readonly Color NoDoorColor = new Color(0.75f, 0.2f, 0.2f, 1f);           // red — no door yet
     private static readonly Color DepartingColor = new Color(0.2f, 0.45f, 0.85f, 1f);       // blue — leaving
 
+    // Unified 8-hour inbound dwell-clock tiers (2026-09-10) — yellow/orange sit between the two
+    // colors already used for the green (has-a-door) and red (no-door/gave-up) states above, so the
+    // ladder reads as one continuous progression rather than four unrelated colors.
+    public static readonly Color DwellYellowColor = new Color(0.85f, 0.75f, 0.15f, 1f);
+    public static readonly Color DwellOrangeColor = new Color(0.85f, 0.5f, 0.1f, 1f);
+    public static Color DwellGreenColor => HeadingToDoorColor;
+    public static Color DwellRedColor => NoDoorColor;
+
     // How far below the canvas's own bottom edge (0) the label's anchor extends, in the canvas's
     // normalized 0-1 anchor space. Kept in sync with labelRect.anchorMin.y below so the background
     // and frame both stretch far enough down to stay behind the wrapped label text.
@@ -35,6 +43,18 @@ public class TruckDoorWaitBar : MonoBehaviour
     private TextMeshProUGUI _label;
     private Camera _mainCamera;
     private readonly List<Image> _frameEdges = new List<Image>();
+
+    // Tracked so the world hover tooltip (which replaced this as the always-visible floating
+    // banner — see PrepareToShow below) can read the driver's current status/message/fill without
+    // this component ever actually showing its own world-space canvas any more.
+    private string _currentMessage;
+    private Color _currentColor = NoDoorColor;
+    private float _currentFillAmount;
+
+    public string CurrentMessage => _currentMessage;
+    public Color CurrentColor => _currentColor;
+    public float CurrentFillAmount => _currentFillAmount;
+    public bool HasMessage => !string.IsNullOrEmpty(_currentMessage);
 
     // BUG FIX: confirmed live via a controlled isolated test — Image.Type.Filled does NOT clip at
     // all without a Sprite assigned in this project's render setup; it just draws the full rect
@@ -181,11 +201,16 @@ public class TruckDoorWaitBar : MonoBehaviour
             if (_frameEdges[i] != null) _frameEdges[i].color = color;
     }
 
-    /// <summary>Ensures the canvas is built and active before any status is shown.</summary>
+    /// <summary>Ensures the canvas exists so the fill/label/frame objects are available to write
+    /// state into. Deliberately does NOT activate the canvas any more — this banner used to float
+    /// above every truck's cab at all times, which the world hover tooltip (WorldHoverPopupUI.
+    /// TickHoverTruck) replaced per Tad's request: "take the fill bar off and implement it here."
+    /// The Show*/Hide methods below still run in full (so _currentMessage/_currentColor/
+    /// _currentFillAmount stay accurate for the tooltip to read), they just never show this
+    /// component's own world-space canvas.</summary>
     private void PrepareToShow()
     {
         EnsureBuilt();
-        if (!_canvas.gameObject.activeSelf) _canvas.gameObject.SetActive(true);
     }
 
     /// <summary>Truck has a door assigned and is heading straight to it — shown the moment it clears
@@ -197,6 +222,10 @@ public class TruckDoorWaitBar : MonoBehaviour
         if (_fillImage != null) _fillImage.fillAmount = 1f;
         if (_label != null) _label.text = $"Heading to Door {doorNumber}";
         FaceCamera();
+
+        _currentColor = HeadingToDoorColor;
+        _currentFillAmount = 1f;
+        _currentMessage = $"Heading to Door {doorNumber}";
     }
 
     /// <summary>Truck has no door assigned and is heading to the side lot (or generic wait point) —
@@ -208,28 +237,30 @@ public class TruckDoorWaitBar : MonoBehaviour
         if (_fillImage != null) _fillImage.fillAmount = 1f;
         if (_label != null) _label.text = "Heading to Side Lot";
         FaceCamera();
+
+        _currentColor = NoDoorColor;
+        _currentFillAmount = 1f;
+        _currentMessage = "Heading to Side Lot";
     }
 
-    /// <summary>Truck is parked and waiting for a door to free up. <paramref name="minutesRemaining"/>
-    /// and <paramref name="minutesTotal"/> are in-game SIM minutes, not real seconds.</summary>
-    public void ShowWaitingForDoor(float minutesRemaining, float minutesTotal)
+    /// <summary>Unified 8-hour inbound dwell-clock display (2026-09-10, Tad's ladder spec) — driven
+    /// every frame by TruckController.UpdateInboundDwellClock regardless of yard state (queued,
+    /// waiting for a door, or already docked), superseding the old fixed-window ShowWaitingForDoor
+    /// countdown. <paramref name="fillFraction"/> is 1 at gate-clear and 0 at the 8-hour mark;
+    /// <paramref name="color"/>/<paramref name="message"/> are whichever tier (green/yellow/orange/
+    /// red) the elapsed time currently falls in, and the message is the driver's mood one-liner for
+    /// that tier rather than a countdown readout.</summary>
+    public void ShowDwellStatus(float fillFraction, Color color, string message)
     {
         PrepareToShow();
-        SetColor(NoDoorColor);
-
-        // BUG FIX (Tad's spec): "the fill rate bar... is supposed to go down to reflect running out
-        // of time" — this used to compute 1 - remaining/total, which FILLS UP toward full as the
-        // deadline approaches. A depleting bar (starts full, drains to empty at the deadline) reads
-        // correctly as "running out," so it's remaining/total instead.
-        float frac = minutesTotal > 0f ? Mathf.Clamp01(minutesRemaining / minutesTotal) : 0f;
-        if (_fillImage != null) _fillImage.fillAmount = frac;
-
-        int mins = Mathf.CeilToInt(Mathf.Max(0f, minutesRemaining));
-        if (_label != null)
-            _label.text = $"Waiting for Door. I will wait for {mins} more minute{(mins == 1 ? "" : "s")} " +
-                           "and then leave. My dispatcher is gonna hear about this!";
-
+        SetColor(color);
+        if (_fillImage != null) _fillImage.fillAmount = Mathf.Clamp01(fillFraction);
+        if (_label != null) _label.text = message;
         FaceCamera();
+
+        _currentColor = color;
+        _currentFillAmount = Mathf.Clamp01(fillFraction);
+        _currentMessage = message;
     }
 
     /// <summary>Truck has finished offloading and is departing the yard.</summary>
@@ -238,14 +269,27 @@ public class TruckDoorWaitBar : MonoBehaviour
         PrepareToShow();
         SetColor(DepartingColor);
         if (_fillImage != null) _fillImage.fillAmount = 1f;
-        if (_label != null)
-            _label.text = $"My trailer is offloaded, I am departing. {casesReceived} out of {casesExpected} cases received.";
+
+        // A fully-received trailer gets a friendlier line than the plain receipt count — the
+        // driver-comment examples Tad gave ("that was quick, you guys know what you're doing!")
+        // were specifically about a clean, complete unload, not every departure.
+        string message = casesExpected > 0 && casesReceived >= casesExpected
+            ? "That was quick, you guys know what you're doing!"
+            : $"My trailer is offloaded, I am departing. {casesReceived} out of {casesExpected} cases received.";
+
+        if (_label != null) _label.text = message;
         FaceCamera();
+
+        _currentColor = DepartingColor;
+        _currentFillAmount = 1f;
+        _currentMessage = message;
     }
 
     public void Hide()
     {
         if (_canvas != null) _canvas.gameObject.SetActive(false);
+        _currentMessage = null;
+        _currentFillAmount = 0f;
     }
 
     private void FaceCamera()

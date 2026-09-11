@@ -55,6 +55,11 @@ public class DevHudWindow : MonoBehaviour
     private const string PrefKeyX = "DevHudWindow_X";
     private const string PrefKeyY = "DevHudWindow_Y";
 
+    // Small always-present tab shown ONLY while the panel itself is hidden (X button, or F8) — same
+    // pattern as SystemsLogWindow's own reopen tab, stacked directly above it (bottom:162 vs the log's
+    // bottom:130) so closing this one leaves a way back in rather than depending on remembering F8.
+    private VisualElement _reopenTab;
+
     private void OnEnable()
     {
         _doc = GetComponent<UIDocument>();
@@ -251,6 +256,58 @@ public class DevHudWindow : MonoBehaviour
 
         if (_docked) ApplyDockedLayout();
         else ApplyFloatingLayout();
+
+        BuildReopenTab();
+        SyncReopenTabVisibility();
+    }
+
+    /// <summary>Small always-present tab, separate from _panel entirely, so closing this HUD (X or F8)
+    /// still leaves something on screen to bring it back with — mirrors SystemsLogWindow's own reopen
+    /// tab exactly, stacked just above it. Lives on _docRoot directly rather than inside the bar, so it
+    /// works the same whether the panel is currently docked or floating.</summary>
+    private void BuildReopenTab()
+    {
+        if (_reopenTab != null || _docRoot == null) return;
+
+        _reopenTab = new Button(ToggleVisibility) { text = "▲ FPS" };
+        // Explicit, not just the Button default — RaycastController.Start() does a ONE-TIME sweep at
+        // scene start that force-sets pickingMode=Ignore on every UIDocument root AND its direct
+        // children (so world-click raycasts aren't blocked by an empty full-screen overlay). This HUD
+        // builds its UI in OnEnable(), which runs before that sweep, so this tab — a direct child of
+        // _docRoot — got caught by it and was silently unclickable. SystemsLogWindow's own reopen tab
+        // escaped the same sweep purely because it bootstraps later (RuntimeInitializeOnLoadMethod
+        // AfterSceneLoad, after Start() has already run) — asserting this explicitly here removes the
+        // dependency on that timing coincidence.
+        _reopenTab.pickingMode = PickingMode.Position;
+        _reopenTab.style.position = Position.Absolute;
+        _reopenTab.style.right = 16;
+        _reopenTab.style.bottom = 162; // stacked just above SystemsLogWindow's reopen tab at bottom:130
+        _reopenTab.style.paddingLeft = 10;
+        _reopenTab.style.paddingRight = 10;
+        _reopenTab.style.paddingTop = 4;
+        _reopenTab.style.paddingBottom = 4;
+        _reopenTab.style.fontSize = 12;
+        _reopenTab.style.unityFontStyleAndWeight = FontStyle.Bold;
+        _reopenTab.style.color = Color.white;
+        _reopenTab.style.backgroundColor = new Color(0.078f, 0.110f, 0.173f, 0.92f);
+        SetBorder(_reopenTab, new Color(0.35f, 0.55f, 0.85f, 0.9f), 1f);
+        SetRadius(_reopenTab, 4f);
+        _reopenTab.RegisterCallback<PointerEnterEvent>(_ =>
+            _reopenTab.style.backgroundColor = new Color(0.12f, 0.18f, 0.28f, 0.95f));
+        _reopenTab.RegisterCallback<PointerLeaveEvent>(_ =>
+            _reopenTab.style.backgroundColor = new Color(0.078f, 0.110f, 0.173f, 0.92f));
+
+        _docRoot.Add(_reopenTab);
+    }
+
+    /// <summary>Shown exactly when the panel itself is hidden — never both at once. Reads the inline
+    /// style we just set (not resolvedStyle) so this is correct the instant it's called, without
+    /// waiting on a layout pass.</summary>
+    private void SyncReopenTabVisibility()
+    {
+        if (_reopenTab == null || _panel == null) return;
+        bool panelHidden = _panel.style.display == DisplayStyle.None;
+        _reopenTab.style.display = panelHidden ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
     /// <summary>The floating window's look — restored whenever the card leaves the bar, whether at
@@ -740,6 +797,17 @@ public class DevHudWindow : MonoBehaviour
     {
         TrySubscribeSave();
 
+        // Self-heal against RaycastController.Start()'s one-time sweep, which force-sets
+        // pickingMode=Ignore on every UIDocument root's DIRECT CHILDREN and runs AFTER this window's
+        // OnEnable() builds _reopenTab — so setting pickingMode=Position at construction (see
+        // BuildReopenTab) gets silently clobbered back to Ignore moments later regardless, making the
+        // tab look right but not actually be clickable. Confirmed live: explicit assignment at build
+        // time did not survive. Reasserting here every frame is a one-enum-comparison cost and can't
+        // be beaten by ANY one-time sweep running at any point in the boot order, present or future —
+        // same self-heal shape as BuildMenuUI.IsPointerOverBuildMenu's own fix earlier this session.
+        if (_reopenTab != null && _reopenTab.pickingMode != PickingMode.Position)
+            _reopenTab.pickingMode = PickingMode.Position;
+
         // Smoothed FPS
         float dt = Time.unscaledDeltaTime;
         if (dt > 0f)
@@ -776,6 +844,7 @@ public class DevHudWindow : MonoBehaviour
     private void Hide()
     {
         if (_panel != null) _panel.style.display = DisplayStyle.None;
+        SyncReopenTabVisibility();
     }
 
     private void ToggleVisibility()
@@ -783,6 +852,7 @@ public class DevHudWindow : MonoBehaviour
         if (_panel == null) return;
         bool visible = _panel.resolvedStyle.display != DisplayStyle.None;
         _panel.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
+        SyncReopenTabVisibility();
     }
 
     private void CyclePreset()

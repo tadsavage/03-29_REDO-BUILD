@@ -17,6 +17,7 @@ public class DraggableWindow
 {
     private readonly VisualElement _panel;
     private readonly VisualElement _closeButton;
+    private readonly VisualElement[] _extraExcluded;
     private bool _dragging;
     private int _pointerId = -1;
     private Vector2 _pointerStart;
@@ -50,10 +51,11 @@ public class DraggableWindow
     /// <summary>Fired on pointer-up after a drag, once the panel's new inline position is set.</summary>
     public event System.Action OnDragEnd;
 
-    public DraggableWindow(VisualElement panel, VisualElement handle, VisualElement closeButton)
+    public DraggableWindow(VisualElement panel, VisualElement handle, VisualElement closeButton, params VisualElement[] extraExcluded)
     {
         _panel = panel;
         _closeButton = closeButton;
+        _extraExcluded = extraExcluded;
         if (_panel == null || handle == null) return;
         handle.RegisterCallback<PointerDownEvent>(OnDown);
         _panel.RegisterCallback<PointerMoveEvent>(OnMove);
@@ -236,7 +238,12 @@ public class DraggableWindow
     private bool IsOverClose(VisualElement t)
     {
         for (var e = t; e != null; e = e.parent)
+        {
             if (e == _closeButton) return true;
+            if (_extraExcluded != null)
+                foreach (var excluded in _extraExcluded)
+                    if (e == excluded) return true;
+        }
         return false;
     }
 }

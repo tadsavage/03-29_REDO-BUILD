@@ -1411,9 +1411,12 @@ namespace GameCore.Inventory
                 }
 
                 UIToast.Show($"PO {po.PONumber} expired — {ReceiveDeadlineHours} hours passed with no full " +
-                             "receipt. Order lost, no refund.");
+                             $"receipt. Lost the load (${po.TotalCost:N0}, no refund) and took a " +
+                             $"-{ReceiveDeadlineRelationshipPenalty} vendor hit.");
                 SystemsLogWindow.LogWarning($"PO {po.PONumber} expired at the dock — {ReceiveDeadlineHours} " +
-                                             "hours passed with no full receipt. Order lost, no refund.");
+                                             $"hours passed with no full receipt. Order lost, no refund — " +
+                                             $"that's ${po.TotalCost:N0} down the drain and a vendor hit of " +
+                                             $"-{ReceiveDeadlineRelationshipPenalty}.");
             }
         }
 

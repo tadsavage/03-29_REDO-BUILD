@@ -65,12 +65,20 @@ public class SystemsLogWindow : MonoBehaviour
     private Label _titleSubLabel;
     private VisualElement _headerDivider;
     private Button _closeButton;
+    private Button _clearButton;
     private ScrollView _scroll;
     private DraggableWindow _dragger;
     private ResizableWindow _resizeWindow;
     private VisualElement _dockGhost;
     private bool _docked;
     private bool _built;
+
+    // Small persistent tab shown ONLY while the panel itself is hidden (X button, or F7). Without
+    // this, closing the panel left no trace anywhere on screen — F7 still worked but nothing told a
+    // player it existed, so "closed" silently meant "gone for the rest of the session" as far as
+    // discoverability goes. Lives directly on _docRoot (not inside _panel or the bar), so it survives
+    // regardless of docked/floating state and regardless of the panel's own visibility.
+    private VisualElement _reopenTab;
 
     private const string DockedTitle = "LOG";
     private const string FloatingSubtitle = "Drag to move, adj. size on left and bottom by dragging";
@@ -138,6 +146,15 @@ public class SystemsLogWindow : MonoBehaviour
             ToggleVisibility();
 
         PollManualWheelScroll();
+
+        // Self-heal against RaycastController.Start()'s one-time sweep (force-sets pickingMode=Ignore
+        // on every UIDocument root's direct children). This window currently escapes it purely because
+        // it bootstraps after that Start() already ran — confirmed on DevHudWindow that when a window
+        // builds its tab BEFORE that sweep, the explicit pickingMode=Position set at construction gets
+        // silently clobbered back to Ignore regardless. Reasserting here removes the dependency on that
+        // timing coincidence ever holding, at the cost of one enum comparison per frame.
+        if (_reopenTab != null && _reopenTab.pickingMode != PickingMode.Position)
+            _reopenTab.pickingMode = PickingMode.Position;
     }
 
     // ── Build / bootstrap ────────────────────────────────────────────
@@ -216,6 +233,16 @@ public class SystemsLogWindow : MonoBehaviour
         titleTextRow.style.justifyContent = Justify.Center;
         titleTextRow.style.alignItems = Align.FlexEnd;
         titleTextRow.style.flexShrink = 1;
+        // CLEAR and X are Position.Absolute (see below), so they contribute nothing to this row's own
+        // flex sizing — without a reserved margin here, centering this row across the FULL bar width
+        // let its content grow right underneath both buttons once the panel got narrow enough (CLEAR
+        // overlapping "LOG", the drag hint overlapping the X). These margins carve out a safe zone
+        // sized to each button's max width across both docked/floating layouts (clear is a constant
+        // 46px in both; close is 30px floating / 24px docked, so 40 covers either) plus a small gap,
+        // so the wrapping subtitle text (already WhiteSpace.Normal) wraps within that zone instead of
+        // spilling under a button.
+        titleTextRow.style.marginLeft = 56;
+        titleTextRow.style.marginRight = 40;
 
         var title = new Label(DockedTitle);
         title.style.color = TitleColor;
@@ -258,6 +285,32 @@ public class SystemsLogWindow : MonoBehaviour
         close.style.color = Color.white;
         SetRadius(close, 3f);
 
+        // Pinned to the top-left corner, mirroring the close button's pin to the top-right — same
+        // reasoning: pulled out of the flex flow (Position.Absolute) so it can't skew titleTextRow's
+        // centering. Orange/white matches the house palette used elsewhere for small utility buttons
+        // (e.g. the Remove button on ShiftManagerPanel, #B5743A).
+        var clear = new Button(ClearLog) { text = "CLEAR" };
+        clear.style.position = Position.Absolute;
+        clear.style.left = 6;
+        clear.style.top = 5;
+        clear.style.fontSize = 10;
+        clear.style.width = 46; // fixed, constant across docked/floating — see titleTextRow's margin comment
+        clear.style.height = 30;
+        clear.style.paddingLeft = 6;
+        clear.style.paddingRight = 6;
+        clear.style.paddingTop = 0;
+        clear.style.paddingBottom = 0;
+        clear.style.marginLeft = 0;
+        clear.style.marginRight = 0;
+        clear.style.marginTop = 0;
+        clear.style.marginBottom = 0;
+        clear.style.backgroundColor = new Color(0.71f, 0.45f, 0.23f, 1f); // #B5743A
+        clear.style.color = Color.white;
+        clear.style.unityFontStyleAndWeight = FontStyle.Bold;
+        SetRadius(clear, 3f);
+        SetBorder(clear, Color.white, 1f);
+
+        titleBar.Add(clear);
         titleBar.Add(titleTextRow);
         titleBar.Add(close);
 
@@ -294,9 +347,10 @@ public class SystemsLogWindow : MonoBehaviour
         _titleSubLabel = titleSub;
         _headerDivider = headerDivider;
         _closeButton = close;
+        _clearButton = clear;
         _scroll = scroll;
 
-        _dragger = new DraggableWindow(_panel, titleBar, close);
+        _dragger = new DraggableWindow(_panel, titleBar, close, clear);
         _dragger.OnDragStart += OnDragStart;
         _dragger.OnDragMove += OnDragMove;
         _dragger.OnDragEnd += OnDragEnd;
@@ -309,6 +363,55 @@ public class SystemsLogWindow : MonoBehaviour
 
         if (_docked) ApplyDockedLayout();
         else ApplyFloatingLayout();
+
+        BuildReopenTab();
+        SyncReopenTabVisibility();
+    }
+
+    /// <summary>Small always-present tab, separate from _panel entirely, so closing the log (X or F7)
+    /// still leaves something on screen to bring it back with — clicking this just calls the same
+    /// ToggleVisibility() F7 does. Lives on _docRoot directly rather than inside the bar, so it works
+    /// the same whether the panel is currently docked or floating.</summary>
+    private void BuildReopenTab()
+    {
+        if (_reopenTab != null || _docRoot == null) return;
+
+        _reopenTab = new Button(ToggleVisibility) { text = "▲ LOG" };
+        // Explicit, not just the Button default — see the matching comment in DevHudWindow.
+        // BuildReopenTab: RaycastController.Start() does a one-time sweep that force-sets
+        // pickingMode=Ignore on every UIDocument root and its direct children, and this tab currently
+        // only escapes it because this window bootstraps after that sweep already ran. Asserting it
+        // here removes the dependency on that timing coincidence.
+        _reopenTab.pickingMode = PickingMode.Position;
+        _reopenTab.style.position = Position.Absolute;
+        _reopenTab.style.right = 16;
+        _reopenTab.style.bottom = 130; // just above BuildMenuUI's 122px bottom bar
+        _reopenTab.style.paddingLeft = 10;
+        _reopenTab.style.paddingRight = 10;
+        _reopenTab.style.paddingTop = 4;
+        _reopenTab.style.paddingBottom = 4;
+        _reopenTab.style.fontSize = 12;
+        _reopenTab.style.unityFontStyleAndWeight = FontStyle.Bold;
+        _reopenTab.style.color = Color.white;
+        _reopenTab.style.backgroundColor = new Color(0.078f, 0.110f, 0.173f, 0.92f);
+        SetBorder(_reopenTab, new Color(0.35f, 0.55f, 0.85f, 0.9f), 1f);
+        SetRadius(_reopenTab, 4f);
+        _reopenTab.RegisterCallback<PointerEnterEvent>(_ =>
+            _reopenTab.style.backgroundColor = new Color(0.12f, 0.18f, 0.28f, 0.95f));
+        _reopenTab.RegisterCallback<PointerLeaveEvent>(_ =>
+            _reopenTab.style.backgroundColor = new Color(0.078f, 0.110f, 0.173f, 0.92f));
+
+        _docRoot.Add(_reopenTab);
+    }
+
+    /// <summary>Shown exactly when the panel itself is hidden — never both at once. Reads the inline
+    /// style we just set (not resolvedStyle) so this is correct the instant it's called, without
+    /// waiting on a layout pass.</summary>
+    private void SyncReopenTabVisibility()
+    {
+        if (_reopenTab == null || _panel == null) return;
+        bool panelHidden = _panel.style.display == DisplayStyle.None;
+        _reopenTab.style.display = panelHidden ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
     // ── Layouts ───────────────────────────────────────────────────────
@@ -343,6 +446,11 @@ public class SystemsLogWindow : MonoBehaviour
             _closeButton.style.width = 30;
             _closeButton.style.height = 30;
             _closeButton.style.fontSize = 16;
+        }
+        if (_clearButton != null)
+        {
+            _clearButton.style.height = 30;
+            _clearButton.style.fontSize = 10;
         }
 
         _resizeWindow?.SetInteractable(true);
@@ -389,6 +497,11 @@ public class SystemsLogWindow : MonoBehaviour
             _closeButton.style.width = 24;
             _closeButton.style.height = 24;
             _closeButton.style.fontSize = 13;
+        }
+        if (_clearButton != null)
+        {
+            _clearButton.style.height = 22;
+            _clearButton.style.fontSize = 8;
         }
 
         // Resizing only makes sense while floating — the docked card's size is owned by ApplyDockedLayout
@@ -622,6 +735,13 @@ public class SystemsLogWindow : MonoBehaviour
     private void Hide()
     {
         if (_panel != null) _panel.style.display = DisplayStyle.None;
+        SyncReopenTabVisibility();
+    }
+
+    /// <summary>Wipes every entry currently shown — does not affect future logging.</summary>
+    private void ClearLog()
+    {
+        _scroll?.contentContainer.Clear();
     }
 
     private void ToggleVisibility()
@@ -629,6 +749,7 @@ public class SystemsLogWindow : MonoBehaviour
         if (_panel == null) return;
         bool visible = _panel.resolvedStyle.display != DisplayStyle.None;
         _panel.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
+        SyncReopenTabVisibility();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

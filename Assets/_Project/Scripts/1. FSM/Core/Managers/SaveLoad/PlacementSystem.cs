@@ -798,6 +798,30 @@ public class PlacementSystem : MonoBehaviour
             int releasedCount = LocationStatusRegistry.ReleaseUnclaimedReservations(claimedAddresses);
             if (releasedCount > 0)
                 Debug.Log($"[PlacementSystem] Released {releasedCount} orphaned Reserved location(s) on load with no matching in-progress task.");
+
+            // Assigned Receiver/OrderSelector tasks have no save-load resume path — unlike MHE tasks,
+            // which MHEOperatorPersistenceService explicitly re-attaches to a real physical carry,
+            // ReceivingTaskDriver/OrderSelectionTaskDriver only track "I'm working on this" in a plain
+            // in-memory field (_taskInProgress/_claimedTask) that a freshly-instantiated driver
+            // component never re-populates from a loaded task. Left Assigned, such a task is invisible
+            // FOREVER: GetPendingTasksForRole/TryClaimNextTask only ever return Available tasks, and
+            // the employee it's "assigned" to has no memory of ever claiming it. Release them back to
+            // Available so a live driver picks them up fresh on its next poll. Confirmed live on
+            // 2026-09-10: a Receive task survived a save/load still Assigned to an employee whose
+            // fresh driver had _taskInProgress=false — permanently stuck with no watchdog able to
+            // reach it (the in-session stuck-flag watchdog only fires from a LIVE claim going stale,
+            // not from one that was never re-claimed in the first place).
+            int releasedTasks = 0;
+            foreach (var t in workQueueSystem.Tasks)
+            {
+                if (t.Status != GameCore.Labor.WorkTaskStatus.Assigned) continue;
+                if (t.RequiredRole != EmployeeRole.Receiver && t.RequiredRole != EmployeeRole.OrderSelector) continue;
+                t.Status = GameCore.Labor.WorkTaskStatus.Available;
+                t.AssignedToEmployeeGuid = null;
+                releasedTasks++;
+            }
+            if (releasedTasks > 0)
+                Debug.Log($"[PlacementSystem] Released {releasedTasks} orphaned Assigned Receiver/OrderSelector task(s) on load — no resume path exists for these roles.");
         }
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipmentService))

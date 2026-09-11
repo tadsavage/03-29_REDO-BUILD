@@ -179,6 +179,7 @@ public class UIKeyBindingManager : MonoBehaviour
         if (_floatingKeys.Contains(keyNumber))
         {
             if (panel.IsOpen) panel.Hide(); else { panel.Show(); AudioManager.Play("UIClick"); }
+            SyncPointerOverBuildMenu();
             return;
         }
 
@@ -192,6 +193,7 @@ public class UIKeyBindingManager : MonoBehaviour
         {
             panel.Hide();
             _currentOpenKey = -1;
+            SyncPointerOverBuildMenu();
             return;
         }
 
@@ -215,6 +217,7 @@ public class UIKeyBindingManager : MonoBehaviour
                         pendingPanel.Show();
                         AudioManager.Play("UIClick");
                         _currentOpenKey = pendingKey;
+                        SyncPointerOverBuildMenu();
                     });
                     return;
                 }
@@ -227,6 +230,24 @@ public class UIKeyBindingManager : MonoBehaviour
         panel.Show();
         AudioManager.Play("UIClick");
         _currentOpenKey = keyNumber;
+        SyncPointerOverBuildMenu();
+    }
+
+    /// <summary>Force-reconciles BuildMenuUI.IsPointerOverBuildMenu against where the cursor actually
+    /// is. A full-screen panel opened from a play-bar button appears directly on top of BuildMenuUI's
+    /// bottom bar while the mouse is still resting on it (that's how the click happened) — the mouse
+    /// never physically crosses the bar's boundary, it's just occluded now, so the bar never gets its
+    /// own PointerLeaveEvent and IsPointerOverBuildMenu (an event-driven flag, not recomputed
+    /// per-frame) sticks at true forever. RaycastController.CheckIfPointerOverUI() checks that flag
+    /// FIRST, so once it's stuck, EVERY world hover tooltip dies game-wide — this was the "tooltips
+    /// stop working after I open Scheduler/Orders/Contracts" bug. Same reconciliation
+    /// DevHudWindow/SystemsLogWindow already use when detaching mid-drag, called at every chokepoint a
+    /// hotkey panel opens or closes through so it covers all nine, not just the panel that exposed it,
+    /// and the reverse direction (closing a panel that was covering the bar) too.</summary>
+    private static void SyncPointerOverBuildMenu()
+    {
+        if (Mouse.current != null && BuildMenuUI.Instance != null)
+            BuildMenuUI.Instance.SyncPointerOverBuildMenu(Mouse.current.position.ReadValue());
     }
 
     /// <summary>Register a hotkey-less popup so Tab still closes it. See _auxiliaryPanels.</summary>
@@ -277,6 +298,7 @@ public class UIKeyBindingManager : MonoBehaviour
                 panel.Hide();
         }
         _currentOpenKey = -1;
+        SyncPointerOverBuildMenu();
     }
 
     /// <summary>Get the currently open keybind UI number, or -1 if none.</summary>

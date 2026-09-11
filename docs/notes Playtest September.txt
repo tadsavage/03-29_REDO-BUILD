@@ -33,27 +33,40 @@ FPS, Cell and Graphics mode not formatted correctly anymore. - Completed and DOC
 Conversation History - Complete
 09-07 
 New Mouse Pointers-COMPLETE
-09-08
-Camera needs to be able to get to edge of playfield - COMPLETE
-Playfield edge needs to be transparent 20% when the camera looks through it - COMPLETE
-On Purchasing we should see data that shows vendor requirements - ie. plt and $ min order. - Complete
+09-08 Camera needs to be able to get to edge of playfield - COMPLETE
+09-08 Playfield edge needs to be transparent 20% when the camera looks through it - COMPLETE
+09-08 On Purchasing we should see data that shows vendor requirements - ie. plt and $ min order. - Complete
+09-08 We should only get charged for goods on the purchasing screens, not on the dock. - Complete
+
+09-10 Holy shit! were paying for the loads up front??? Turn that shit off for now. Should ne paying for whatever we receive on the dock. -COMPLETE
+09-10 Than we have this text word wrap if the LOG gets narrowed too much so nothing overlaps.
+09-10 We need a Scheduler Button on the WQ. -COMPLETE
+09-10 Bulk Orders all say we expect to make $12.5k -COMPLETE
+09-10 LOG - need a clear log button -COMPLETE
+09-10 When we close the LOG - need way to bring it back. -COMPLETE
+09-10 When we close the FPS DEV TOOLS - need way to bring it back. -COMPLETE
+09-10 On the Order Details Tooltip next to each items name in Light Blue it should say how many pallets of that item we need, UNLESS its case pick it can just say <1 plt-COMPLETE
+09-10
+09-10
 
 
-09-08
 
-We should only get charged for goods on the purchasing screens, not on the dock. If we are shorted we should see a button on the scheduler to request back fill or credit. If we don't receive within 4 hours of appt - we lose the order and get nothing. Getting drivers out on time (within 2 hours) will always increase our standing with vendor - not getting them received is a penalty getting charged for 10% of the load and a hit to standing.
 
+Tool tips start to disappear - Exit game and restart seems to fix it - seems to happen when we are looking at tooltips in UIs like  Scheduler Maybe.
+
+
+
+I want a tooltip to appear when i mouse over a tractor or trailer that tells me why they are there. 
+If we are shorted we should see a button on the scheduler to request back fill or credit.
+If we don't receive an Inbound PO within 4 hours of appt - we lose the order and get nothing. 
+Getting drivers out on time (within 2 hours) will always increase our standing with vendor - not getting them received is a penalty getting charged for 10% of the load and a hit to standing.
+Critical Items needs to be on the Items dropdown
 When we hover over the ACCEPT OFFER button for a bulk order we should have a tooltip telling if we have the product or not.
 Playfield edge needs volume modifiers that will blur just the edges like TPH does
 Need to compress Dev and Log UI down better when on build tab - nothing fits. Can everything just scale down better maybe? We could make Utility into a grid of 6 buttons. Maybe when we go to build tab game auto pauses and puts a message in that says BUILD MODE = GAME PAUSED 
-When we close the LOG - need way to bring it back.
-Tool tips start to disappear - Exit game and restart seems to fix it - seems to happen when we are looking at tooltips in UIs like Scheduler Maybe.
 Put aways stopped happening and then all the sudden they were happening and they showed up in WQ?
 Somehow a receiving became cancelled in WQ? Now no one will do puts from that lane?
-Bulk Orders all say we expect to make $12.5
 Make sure in Purchasing screen that Critical Items is showing the TOTAL demand for all orders coming in.
-On the Order Details Tooltip next to each items name in Light Blue it should say how many pallets of that item we need, UNLESS its case pick it can just say <1 pallet.12.5k???
-We need a Scheduler Button on the WQ.
 Lower Raise should not play noise if there are no walls
 Dust Poof Blows - needs something
 Chevrons are ugly - signs at ends of aisle can define - we click on them. Should be able to change names in mid game even if pallets are in there
@@ -63,17 +76,16 @@ Need some sort of yard definition for footprint of guard house so there aren't g
 Side lot should come with lights and not open the UI when we place on it
 Were going to need to start thinking about art for UI.
 Test the Asset pack for men
-Critical Items needs to be on the Items dropdown
 New customers, Bulk or otherwise should appear in CHAT
 For reputation bottom Line should read - At X points you will become POPULAR! These kind of milestones need to be celebrated with Fireworks or something.
 Purchase UI when we are buying stuff and building loads there should ne a section in the middle that lists the requirements for each vendor to dispatch. And the button should be grayed out, as a matter of fact they should all be grayed out until that cap is met. Perhaps a visual representation on the truck icon showing how many pallets we need to fill up to?
-Holy shit! were paying for the loads up front??? Turn that shit off for now. Should ne paying for whatever we receive on the dock.
 Less jerky trucks backing in.
 Why is there a guidance sprite showing at Vector3.zero
 Turn down bloom a little more.
 Back up noise for trucks - plus some smoke when they start and stop.
 Post build receivers don't have RF guns nor do they have receiving progress bars.
 Raisins, Almonds and Olive Oil have shit TixHi's and all share the same model. Fix these models.
+
 
 FINANCIAL PLANS
 Capital - Ask AI to list out all the ways we have to make money, do not include deleting or undoing placed objects. Total Expenses should Read - what you spent Today. Net Profit doesnt need a tooltip. At the top should be 4 buttons, Today, Week, Quarter, All-Time.

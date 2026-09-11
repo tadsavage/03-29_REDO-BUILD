@@ -178,6 +178,15 @@ namespace GameCore.Actors
             // arrive — AiNavigation.SeekPosition silently no-oping on an already-set _seekingTask, a
             // NavMesh rebake knocking the agent off mid-leg, patrol hijacking the destination — leaves
             // the task claimed with nothing running. That is what the watchdog above now cleans up.
+            //
+            // CancelSeekPosition() first: SeekPosition's own guard (`if (_seekingTask) return;`) is a
+            // silent no-op when a stale seek is still flagged from a previous claim/rebake — no
+            // destination is (re)issued and the arrival callback never fires, so the employee just
+            // keeps doing whatever AiNavigation was already doing (reads as "still patrolling") until
+            // whatever set the stale flag eventually resolves on its own. Same fix already applied to
+            // ReachTruckOperator/TrailerOffloadController for the identical landmine — this call site
+            // never got it.
+            _nav.CancelSeekPosition();
             _nav.SeekPosition(standPosition, () => _workflow.BeginReceivingAt(task, palletTransform));
         }
 

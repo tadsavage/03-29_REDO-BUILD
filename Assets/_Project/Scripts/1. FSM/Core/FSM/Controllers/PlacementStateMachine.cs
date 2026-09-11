@@ -414,6 +414,13 @@ private void HandleIdleHover(bool tickRaycast = true)
                     return;
                 }
 
+                var truckHit = go.GetComponentInParent<TruckController>();
+                if (truckHit != null)
+                {
+                    _hoverUI.TickHoverTruck(true, truckHit, hitPoint, Camera.main);
+                    return;
+                }
+
                 // Rack label hit -- resolve LocationData via the label's own address text. Must
                 // be the label's OWN direct child, not a deep GetComponentInChildren -- that
                 // would match ANY TMP label anywhere under a hit object (e.g. the rack's own big

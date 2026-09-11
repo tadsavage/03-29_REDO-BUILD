@@ -512,10 +512,11 @@ namespace GameCore.Inventory
         /// SUPERSEDED for the "every door occupied" case (2026-09) — per Tad's revised spec, a truck
         /// whose appointment comes due no longer turns around sight unseen just because every door is
         /// busy at that exact instant. TruckYardManager.SpawnNextTruck now ALWAYS spawns the truck; if
-        /// no door is free it queues at the gate, gets inspected, and parks at the yard's wait spot for
-        /// up to TruckController.doorWaitMinutes (see AssignAndGoWaitForDoor/BeginDoorWait), applying
-        /// the same appointment-park + Partnership -20 consequence itself
-        /// (ApplyGaveUpWaitingForDoorPenalty) only if that whole wait expires with nothing freeing up.
+        /// no door is free it queues at the gate, gets inspected, and parks at the yard's wait spot
+        /// (see AssignAndGoWaitForDoor/BeginDoorWait), governed from there by TruckController's
+        /// unified 8-hour inbound dwell clock (UpdateInboundDwellClock) — a graduated vendor-standing
+        /// ladder at 2/4/6 hours, and only at 8 hours (if nothing has come off the trailer) is the load
+        /// actually lost.
         ///
         /// This method now only fires for a GENUINE spawn failure — SpawnNextTruck returning false
         /// because the truck prefab or spawn point is missing, i.e. no truck could be created at all —
