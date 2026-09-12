@@ -35,6 +35,8 @@ public class WorldHoverPopupUI : MonoBehaviour
         public VisualElement CommentFill;
         public Label CommentLabel;
         public Image VendorIcon;
+        public VisualElement VendorIconFrame;
+        public VisualElement VendorIconBorder;
         public Label VendorLabel;
         public Label OrderLabel;
         public Label ApptLabel;
@@ -42,11 +44,27 @@ public class WorldHoverPopupUI : MonoBehaviour
         public Label DoorLabel;
         public VisualElement LoadFill;
         public Label LoadPercentLabel;
+        public Label TotalPalletsLabel;
         public VisualElement ItemsList;
     }
 
     private TruckPopupUI _hoverTruckUI;
     private TruckPopupUI _pinnedTruckUI;
+
+    // Cached Lilita One font asset for badge/label text that needs the house display font.
+    private static Font _lilita;
+    private static Font LilitaFont()
+    {
+        if (_lilita != null) return _lilita;
+#if UNITY_EDITOR
+        string[] guids = UnityEditor.AssetDatabase.FindAssets("LilitaOne-Regular t:Font");
+        if (guids.Length > 0)
+            _lilita = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
+#else
+        _lilita = Resources.Load<Font>("LilitaOne-Regular");
+#endif
+        return _lilita;
+    }
     private TruckController _pendingTruck;
     private bool _isTruckMode;
     // Guards SweepOrphanTruckPopups so it only runs once per script-recompile lifetime, not once per
@@ -56,19 +74,18 @@ public class WorldHoverPopupUI : MonoBehaviour
     // The one truck currently pinned open by a click (null when none is). Distinct from
     // _pendingTruck, which only tracks what the cursor is hovering right now.
     private TruckController _pinnedTruck;
-    // World-space height above a truck's pivot the pinned popup anchors to — clears the cab roof.
-    private const float PinnedPopupWorldHeight = 3f;
-    // True once the player has manually dragged the pinned popup — PositionPinnedPopup then leaves
-    // it alone instead of re-anchoring it above the truck every frame. Reset on each fresh pin.
+    // True once the player has manually dragged the pinned popup — PositionPinnedPopupAtBottomLeft
+    // then leaves it alone instead of re-anchoring it to the fixed corner every frame. Reset on each
+    // fresh pin.
     private bool _pinnedPopupManuallyPositioned;
 
     // Order-type colors — deliberately match the Scheduler's own legend (Recurring/Bulk/Inbound PO)
     // so the tooltip's frame "corresponds to the order types on the scheduler" per Tad's spec. Kept
     // as a bright/saturated trio here rather than SchedulerPanel's muted chip-edge colors, since this
     // border has to read as a "thick colored line" at a glance, not blend into a dark chip.
-    private static readonly Color TruckRecurringColor = new Color(0x4A / 255f, 0x90 / 255f, 0xD9 / 255f, 1f); // blue
-    private static readonly Color TruckBulkColor      = new Color(0x4C / 255f, 0xAF / 255f, 0x50 / 255f, 1f); // green
-    private static readonly Color TruckInboundColor   = new Color(0xE6 / 255f, 0x7E / 255f, 0x22 / 255f, 1f); // orange
+    private static readonly Color TruckRecurringColor = TruckOrderColors.Recurring; // blue
+    private static readonly Color TruckBulkColor      = TruckOrderColors.Bulk;      // green
+    private static readonly Color TruckInboundColor   = TruckOrderColors.Inbound;   // orange
     // "Make the fill bar the same color as the receiving progress bar" — ReceivingFillBarCanvas's
     // fill sprite is a blue button graphic (button_blue_default_2), so this matches that family.
     private static readonly Color TruckLoadFillColor  = new Color(0x4A / 255f, 0x90 / 255f, 0xD9 / 255f, 1f);
@@ -720,82 +737,30 @@ private void ShowLocation(LocationData location)
     }
 
     // ---------------------------------------------------------
-    // TRUCK HOVER (tractor/trailer — vendor/order/appointment/door/items/load progress)
+    // TRUCK HOVER (regular mouse-over) — same Name/Purchase Cost/Hourly Cost card used for
+    // ShippingDoor etc. The detailed vendor/order/appointment card only ever shows for the one
+    // truck currently pinned (see ToggleTruckPin) — clicked, not hovered — per Tad's ask.
     // ---------------------------------------------------------
-    public void TickHoverTruck(bool hovering, TruckController truck, Vector3 worldPos, Camera cam)
+    public void TickHoverTruckSummary(bool hovering, TruckController truck, Vector3 worldPos, Camera cam)
     {
-        if (!IsEnabled) { HideImmediate(); return; }
-
-        // Only show in IdleState
-        if (_fsm != null && !(_fsm.CurrentState is IdleState))
-        { HideImmediate(); return; }
-
-        if (!hovering || truck == null)
+        // The pinned truck's own detailed popup already covers this exact truck's info — a second,
+        // overlapping generic card for the same truck would just be redundant.
+        if (!hovering || truck == null || truck == _pinnedTruck)
         {
-            _isHovering = false;
-            _hoverTimer = 0f;
-            HideImmediate();
+            TickHover(false, null, 0, 0, Vector3.zero, null);
             return;
         }
 
-        // The pinned popup already shows this exact truck, persistently — a second, overlapping
-        // cursor-following copy of the same info would just be visual noise, so skip it.
-        if (truck == _pinnedTruck)
-        {
-            _isHovering = false;
-            _hoverTimer = 0f;
-            HideTruckPopup();
-            _isVisible = false;
-            return;
-        }
+        TickHover(true, ResolveTruckSummaryName(truck), 0, 0, worldPos, cam);
+    }
 
-        if (_popup != null)
-        {
-            _popup.style.display = DisplayStyle.None;
-            _popup.RemoveFromClassList("show");
-        }
-
-        bool isNewTarget = !_isHovering || !_isTruckMode || truck != _pendingTruck;
-
-        _pendingTruck = truck;
-        _pendingPalletData = null;
-        _pendingName = null;
-        _pendingCost = 0;
-        _pendingHourlyCost = 0;
-        _pendingLocationData = null;
-        _isPalletMode = false;
-        _isLocationMode = false;
-        _isTruckMode = true;
-
-        _hoverTruckUI ??= BuildTruckPopupUI();
-
-        if (_hoverTruckUI == null) return;
-
-        if (isNewTarget)
-        {
-            _isHovering = true;
-            _hoverTimer = 0f;
-            RenderTruck(_hoverTruckUI, truck);
-            ShowTruckPopupElement(_hoverTruckUI.Popup);
-            _isVisible = true;
-        }
-        else
-        {
-            _hoverTimer += Time.unscaledDeltaTime;
-            if (!_isVisible && _hoverTimer >= _hoverDelay)
-            {
-                RenderTruck(_hoverTruckUI, truck);
-                ShowTruckPopupElement(_hoverTruckUI.Popup);
-                _isVisible = true;
-            }
-            else if (_isVisible)
-                // Keep refreshing every frame while already showing — otherwise the load %, item
-                // critical counts, etc. only update when the mouse leaves and re-enters the truck.
-                RenderTruck(_hoverTruckUI, truck);
-        }
-
-        if (_isVisible)
-            FollowCursor();
+    /// <summary>Best identifying label for a truck's regular hover card — the vendor it's carrying
+    /// a shipment for when known, otherwise a generic fallback.</summary>
+    private static string ResolveTruckSummaryName(TruckController truck)
+    {
+        var shipment = truck.AssignedShipment;
+        if (shipment != null && !string.IsNullOrEmpty(shipment.SupplierName)) return shipment.SupplierName;
+        return truck.IsOutbound ? "Outbound Trailer" : "Truck";
     }
 
     // ---------------------------------------------------------
@@ -806,8 +771,21 @@ private void ShowLocation(LocationData location)
     {
         if (_pinnedTruck != null)
         {
+            // Any bottom-bar panel (Scheduler, Purchasing, New Item, Work Queue, Contracts, etc.)
+            // taking over the screen closes the pin outright — same routine as clicking the truck a
+            // second time (UnpinTruck) — rather than leaving it fighting the new panel for z-order.
+            // Driven by panel state (AnyPanelOpen) instead of hooking every place a panel can be
+            // opened from, since several of them (WorkQueuePanel.OpenScheduler and its siblings on
+            // ContractsPanel/PurchasingPanel) call Show() directly instead of routing through
+            // UIKeyBindingManager.ToggleUI, so there's no single call site to intercept.
+            if (UIKeyBindingManager.Instance != null && UIKeyBindingManager.Instance.AnyPanelOpen)
+            {
+                UnpinTruck();
+                return;
+            }
+
             RenderTruck(_pinnedTruckUI, _pinnedTruck);
-            PositionPinnedPopup();
+            PositionPinnedPopupAtBottomLeft();
         }
         else if (_pinnedTruckUI != null && _pinnedTruckUI.Popup.style.display == DisplayStyle.Flex)
         {
@@ -841,23 +819,32 @@ private void ShowLocation(LocationData location)
             EnablePinnedPopupDragging(_pinnedTruckUI.Popup);
         }
 
-        // A fresh pin always starts anchored to the truck — only dragging it by hand should stop
-        // PositionPinnedPopup from following the truck; a brand-new pin shouldn't inherit wherever
-        // the popup happened to be left after the LAST truck was dragged around.
+        // A fresh pin always starts fresh — only dragging it by hand (or the initial placement
+        // below) should mark it manually positioned; a brand-new pin shouldn't inherit wherever the
+        // popup happened to be left after the LAST truck was dragged around.
         _pinnedPopupManuallyPositioned = false;
 
         _pinnedTruck = truck;
         RenderTruck(_pinnedTruckUI, truck);
         ShowTruckPopupElement(_pinnedTruckUI.Popup);
-        PositionPinnedPopup();
+        // Fixed near the lower-left corner of the viewport (per Tad's reference mockup) rather than
+        // anchored to the truck's world position or centered on the cursor — a world anchor point (a
+        // fixed height above the truck's pivot) can land outside the viewport entirely when the
+        // camera is zoomed in close on a large truck, even though the truck itself is fully visible,
+        // sending the popup flying off-screen. A fixed screen corner is always on-screen and always
+        // in the same familiar spot. _pinnedPopupManuallyPositioned stays false here (unlike the old
+        // mouse-center placement) so Update() keeps re-anchoring it to that corner every frame — see
+        // PositionPinnedPopupAtBottomLeft's comment for why a one-time placement isn't enough — until
+        // the player drags it by hand.
+        PositionPinnedPopupAtBottomLeft();
         TruckHighlighter.Instance.Highlight(truck);
         AudioManager.Play("UIClick");
     }
 
     /// <summary>Lets the player grab a pinned truck popup anywhere on it and drag it to a fixed
-    /// spot on screen. Once dragged, PositionPinnedPopup stops re-anchoring it above the truck for
-    /// the rest of this pin — re-pinning (a fresh ToggleTruckPin) resets that. Only wired onto
-    /// _pinnedTruckUI, never _hoverTruckUI: the transient hover popup stays click-through so it
+    /// spot on screen. Once dragged, PositionPinnedPopupAtBottomLeft stops re-anchoring it to the
+    /// corner for the rest of this pin — re-pinning (a fresh ToggleTruckPin) resets that. Only wired
+    /// onto _pinnedTruckUI, never _hoverTruckUI: the transient hover popup stays click-through so it
     /// never blocks clicking the truck underneath it.</summary>
     private void EnablePinnedPopupDragging(VisualElement popup)
     {
@@ -887,9 +874,9 @@ private void ShowLocation(LocationData location)
             float newLeft = elementStart.x + delta.x;
             float newTop = elementStart.y + delta.y;
 
-            // Same clamp FollowCursor/PositionPinnedPopup use — left/top are the visual right/bottom
-            // edge (see the -100%/-100% translate comment above), so keeping them inside
-            // [box size, viewport size] keeps the WHOLE box on screen, not just this one edge.
+            // Same clamp FollowCursor/PositionPinnedPopupAtBottomLeft use — left/top are the visual
+            // right/bottom edge (see the -100%/-100% translate comment above), so keeping them
+            // inside [box size, viewport size] keeps the WHOLE box on screen, not just this one edge.
             if (_root != null)
             {
                 var layout = _root.layout;
@@ -928,44 +915,49 @@ private void ShowLocation(LocationData location)
         _pinnedPopupManuallyPositioned = false;
     }
 
-    /// <summary>Anchors the pinned popup's bottom-right corner (the same -100%/-100%-translated
-    /// corner FollowCursor drives) above the pinned truck's current world position instead of the
-    /// cursor — moves with the truck as it drives, and gets the same viewport clamp FollowCursor
-    /// uses so it can't slide off-screen either.</summary>
-    private void PositionPinnedPopup()
-    {
-        if (_pinnedTruck == null || _pinnedTruckUI == null || _root == null) return;
-        if (_pinnedPopupManuallyPositioned) return;
+    /// <summary>Fixed screen-space margins for the pinned popup's default position (see
+    /// PositionPinnedPopupAtBottomLeft) — 30px in from the left edge of the viewport, 50px above the
+    /// top of BuildMenuUI's bottom HUD bar, per Tad's reference mockup.</summary>
+    private const float PinnedPopupLeftMargin = 30f;
+    private const float PinnedPopupBottomMargin = 50f;
 
-        var cam = Camera.main;
-        if (cam == null) return;
+    /// <summary>Keeps the pinned popup sitting in a fixed spot near the lower-left corner of the
+    /// viewport — its LEFT edge 30px in from the viewport's left edge, its BOTTOM edge 50px above
+    /// the top of BuildMenuUI's bottom HUD bar — instead of anchoring to the truck's world position
+    /// or the cursor. Re-run every frame from Update() (like the old world-anchor logic it replaced)
+    /// rather than computed once at pin time: RenderTruck can change the popup's own width/height
+    /// frame to frame (e.g. its item list growing), and since the box is translated -100%/-100% (see
+    /// the comment on _popup in Init()), a stale left/top computed for an OLDER, smaller size would
+    /// leave the box's edges anywhere but where they're supposed to be once it resizes. Recomputing
+    /// from the CURRENT resolvedStyle size every frame keeps both edges pinned correctly regardless.
+    /// Stops entirely once the player drags the popup by hand (_pinnedPopupManuallyPositioned) —
+    /// re-pinning (a fresh ToggleTruckPin) resets that.</summary>
+    private void PositionPinnedPopupAtBottomLeft()
+    {
+        if (_pinnedTruckUI == null || _root == null) return;
+        if (_pinnedPopupManuallyPositioned) return;
 
         var layout = _root.layout;
         if (layout.width <= 0 || layout.height <= 0) return;
 
-        Vector3 anchorWorld = _pinnedTruck.transform.position + Vector3.up * PinnedPopupWorldHeight;
-        Vector3 sp = cam.WorldToScreenPoint(anchorWorld);
-        if (sp.z < 0)
-        {
-            // Truck is behind the camera — nothing sane to anchor to this frame, just hide it
-            // rather than pin it to a nonsense position; it reappears once the truck's back in view.
-            _pinnedTruckUI.Popup.style.display = DisplayStyle.None;
-            return;
-        }
-        _pinnedTruckUI.Popup.style.display = DisplayStyle.Flex;
+        var popup = _pinnedTruckUI.Popup;
+        float boxWidth = popup.resolvedStyle.width;
+        float boxHeight = popup.resolvedStyle.height;
+        if (boxWidth <= 0 || boxHeight <= 0) return; // not laid out yet — retried next frame
 
-        float scaleX = layout.width / Screen.width;
-        float scaleY = layout.height / Screen.height;
-        float uiX = sp.x * scaleX;
-        float uiY = (Screen.height - sp.y) * scaleY;
+        // The popup's translate is -100%/-100% (its bottom-right corner sits at left/top), so the
+        // box's LEFT edge only lands at PinnedPopupLeftMargin once left is pushed out by the box's
+        // own current width, and its BOTTOM edge only lands PinnedPopupBottomMargin above the bar
+        // once top is pulled up by that margin plus the bar's own reserved height.
+        float left = PinnedPopupLeftMargin + boxWidth;
+        float top = layout.height - BuildMenuUI.BottomHudReservedHeight - PinnedPopupBottomMargin;
 
-        float boxWidth = _pinnedTruckUI.Popup.resolvedStyle.width;
-        float boxHeight = _pinnedTruckUI.Popup.resolvedStyle.height;
-        float clampedX = boxWidth > 0 ? Mathf.Clamp(uiX, boxWidth, layout.width) : uiX;
-        float clampedY = boxHeight > 0 ? Mathf.Clamp(uiY, boxHeight, layout.height) : uiY;
+        // Keep it fully on screen even if the popup somehow ends up larger than the viewport.
+        left = Mathf.Clamp(left, boxWidth, layout.width);
+        top = Mathf.Clamp(top, boxHeight, layout.height);
 
-        _pinnedTruckUI.Popup.style.left = clampedX;
-        _pinnedTruckUI.Popup.style.top = clampedY;
+        popup.style.left = left;
+        popup.style.top = top;
     }
 
     private void HideTruckPopup()
@@ -1017,9 +1009,14 @@ private void ShowLocation(LocationData location)
         ui.Popup = popup;
         popup.AddToClassList("world-hover-popup");
         // See the matching comment on _popup in Init() — anchors this box's bottom-right corner (not
-        // top-left) to whatever left/top FollowCursor (or PositionPinnedPopup) drives it to.
+        // top-left) to whatever left/top FollowCursor (or PositionPinnedPopupAtBottomLeft) drives it to.
         popup.style.translate = new Translate(Length.Percent(-100f), Length.Percent(-100f), 0f);
-        popup.pickingMode = PickingMode.Ignore;
+        // Position (not Ignore) — this instance is only ever built for the PINNED truck (the
+        // transient hover-follow instance was retired, see TickHoverTruckSummary), and a pinned
+        // card should block clicks to whatever's underneath it, scoped to exactly its own
+        // rectangle — nothing else on screen. Also lets EnablePinnedPopupDragging's pointer
+        // callbacks below actually receive events.
+        popup.pickingMode = PickingMode.Position;
         // Explicit rather than relying on the inherited USS class value — matches the house
         // semi-transparent dark navy used elsewhere (SystemsLogWindow's floating panel, etc.).
         popup.style.backgroundColor = new Color(0.078f, 0.110f, 0.173f, 0.94f);
@@ -1043,7 +1040,10 @@ private void ShowLocation(LocationData location)
         // this corner.
         var doorBadge = new VisualElement();
         ui.DoorBadge = doorBadge;
-        doorBadge.pickingMode = PickingMode.Ignore;
+        // Position, not Ignore — the badge hangs partly outside the main popup box (overflow
+        // visible), so without this that overhanging sliver would be click-through even though
+        // it's visually part of the truck UI.
+        doorBadge.pickingMode = PickingMode.Position;
         doorBadge.style.position = Position.Absolute;
         doorBadge.style.top = -28;
         doorBadge.style.right = -28;
@@ -1073,6 +1073,9 @@ private void ShowLocation(LocationData location)
         doorLabel.style.fontSize = 22;
         doorLabel.style.color = badgeBorderColor;
         doorLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        // Door number uses the house display font (Lilita One) per Tad's ask.
+        var lilita = LilitaFont();
+        if (lilita != null) doorLabel.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(lilita));
         doorBadge.Add(doorLabel);
         // NOT added to popup here — added last, at the bottom of this method, so it paints on
         // top of every other row it overhangs (the comment bar, item list, etc.) instead of sitting
@@ -1084,6 +1087,8 @@ private void ShowLocation(LocationData location)
         commentBox.style.height = 40;
         commentBox.style.marginTop = 4;
         commentBox.style.marginBottom = 8;
+        // Background spans the full popup width (runs underneath the door badge circle on
+        // purpose) — only the text inside it is inset, see commentLabel.style.right below.
         commentBox.style.position = Position.Relative;
         commentBox.style.overflow = Overflow.Hidden;
         // Medium-dark gray base — this is what's visible whenever there's no active driver message
@@ -1112,7 +1117,9 @@ private void ShowLocation(LocationData location)
         commentLabel.pickingMode = PickingMode.Ignore;
         commentLabel.style.position = Position.Absolute;
         commentLabel.style.left = 4;
-        commentLabel.style.right = 4;
+        // Inset further than the box itself so the text stops before the door badge circle,
+        // while the commentBox background (above) keeps running underneath it — per Tad's ask.
+        commentLabel.style.right = 44;
         commentLabel.style.top = 2;
         commentLabel.style.bottom = 2;
         commentLabel.style.fontSize = 16; // bumped to 16px per Tad's ask
@@ -1132,29 +1139,72 @@ private void ShowLocation(LocationData location)
         vendorLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
         popup.Add(vendorLabel);
 
-        // ── Vendor icon — big, top-right, sized/positioned where Tad's mockup drew it (below the
-        // door badge, roughly spanning the PO/Appt lines) rather than a small inline icon next to
-        // the name.
+        // ── Vendor icon frame — a fixed square footprint (the border lives here, so it stays put
+        // regardless of how the icon graphic inside is scaled) — big, top-right, sized/positioned
+        // where Tad's mockup drew it (below the door badge, roughly spanning the PO/Appt lines)
+        // rather than a small inline icon next to the name.
+        var vendorIconFrame = new VisualElement();
+        ui.VendorIconFrame = vendorIconFrame;
+        vendorIconFrame.pickingMode = PickingMode.Ignore;
+        vendorIconFrame.style.position = Position.Absolute;
+        // Bounding box measured directly off a live capture: top matches the PO number row's top
+        // edge, width equals height so the border is a tight square around the icon. Shifted 8px
+        // left of the popup's inner (padded) edge per Tad's ask, so it sits close to the popup's
+        // right border without touching it. Overflow visible so the icon graphic inside (scaled
+        // taller, see below) can bleed past this frame's edges without growing the frame/border
+        // itself.
+        vendorIconFrame.style.top = 106;
+        vendorIconFrame.style.height = 69;
+        vendorIconFrame.style.width = 69;
+        vendorIconFrame.style.right = 12;
+        vendorIconFrame.style.overflow = Overflow.Visible;
+        vendorIconFrame.style.display = DisplayStyle.None;
+        popup.Add(vendorIconFrame);
+
         var vendorIcon = new Image();
         ui.VendorIcon = vendorIcon;
         vendorIcon.pickingMode = PickingMode.Ignore;
-        vendorIcon.style.position = Position.Absolute;
-        vendorIcon.style.top = 76; // pushed further down per Tad's follow-up, over the PO/Appt lines
-        vendorIcon.style.right = 0;
-        vendorIcon.style.width = 95;  // stretched larger (was 70x70) per Tad's follow-up
-        vendorIcon.style.height = 100;
-        vendorIcon.style.borderTopLeftRadius = 6;
-        vendorIcon.style.borderTopRightRadius = 6;
-        vendorIcon.style.borderBottomLeftRadius = 6;
-        vendorIcon.style.borderBottomRightRadius = 6;
-        vendorIcon.style.display = DisplayStyle.None;
-        popup.Add(vendorIcon);
+        vendorIcon.style.width = new Length(100, LengthUnit.Percent);
+        vendorIcon.style.height = new Length(100, LengthUnit.Percent);
+        // Icon graphic scaled up per Tad's ask — Y already 30% taller, both axes now +10% more
+        // on top of that (1.0->1.1 X, 1.3->1.43 Y), then a further +5% on both axes on top of that
+        // (1.1->1.155 X, 1.43->1.5015 Y) per follow-up ask, then narrowed back down 7% on both axes
+        // (1.155->1.07415 X, 1.5015->1.396395 Y) per a later follow-up ask. Frame position/size and
+        // the border below are untouched by this — the border is a separate element painted after
+        // this icon (see vendorIconBorder) so it always renders on top and the icon, however far it
+        // bleeds past the frame's edges, can never visually cover it.
+        vendorIcon.style.scale = new Scale(new Vector3(1.07415f, 1.396395f, 1f));
+        vendorIconFrame.Add(vendorIcon);
+
+        // Border painted as its OWN element, added AFTER the icon so it always renders on top of
+        // it. The icon above sits at 100% of this same box but is scaled up and the frame has
+        // Overflow.Visible, so without this separate top-layer element the icon graphic would paint
+        // over and hide the border beneath it.
+        var vendorIconBorder = new VisualElement();
+        ui.VendorIconBorder = vendorIconBorder;
+        vendorIconBorder.pickingMode = PickingMode.Ignore;
+        vendorIconBorder.style.position = Position.Absolute;
+        vendorIconBorder.style.top = 0;
+        vendorIconBorder.style.left = 0;
+        vendorIconBorder.style.width = new Length(100, LengthUnit.Percent);
+        vendorIconBorder.style.height = new Length(100, LengthUnit.Percent);
+        // Thin frame matching the popup's own border width/color (color set per order-type in
+        // RenderTruck, alongside ui.Popup's border) per Tad's ask.
+        vendorIconBorder.style.borderTopWidth = 4;
+        vendorIconBorder.style.borderBottomWidth = 4;
+        vendorIconBorder.style.borderLeftWidth = 4;
+        vendorIconBorder.style.borderRightWidth = 4;
+        vendorIconBorder.style.borderTopLeftRadius = 6;
+        vendorIconBorder.style.borderTopRightRadius = 6;
+        vendorIconBorder.style.borderBottomLeftRadius = 6;
+        vendorIconBorder.style.borderBottomRightRadius = 6;
+        vendorIconFrame.Add(vendorIconBorder);
 
         // Font sizes bumped 50% (11 -> 17) per Tad's ask.
         var orderLabel = new Label { text = "" };
         ui.OrderLabel = orderLabel;
         orderLabel.pickingMode = PickingMode.Ignore;
-        orderLabel.style.fontSize = 21; // 17 -> 21, +25% per Tad's ask
+        orderLabel.style.fontSize = 27; // 21 -> 27, +30% per Tad's ask
         orderLabel.style.color = new Color(0.75f, 0.85f, 0.95f, 1f);
         popup.Add(orderLabel);
 
@@ -1186,7 +1236,7 @@ private void ShowLocation(LocationData location)
         var body = new VisualElement();
         body.pickingMode = PickingMode.Ignore;
         body.style.flexGrow = 1;
-        body.style.height = 22;
+        body.style.height = 33; // 22 -> 33, +50% on the Y axis per Tad's ask
         body.style.position = Position.Relative;
         body.style.overflow = Overflow.Hidden;
         body.style.backgroundColor = new Color(0.06f, 0.07f, 0.09f, 1f); // darker gray per Tad's ask
@@ -1219,12 +1269,22 @@ private void ShowLocation(LocationData location)
         loadPercentLabel.style.top = 0;
         loadPercentLabel.style.bottom = 0;
         loadPercentLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
-        loadPercentLabel.style.fontSize = 16; // 13 -> 16, +25% per Tad's follow-up ask
+        loadPercentLabel.style.fontSize = 21; // 16 -> 21, +30% more per Tad's ask
         loadPercentLabel.style.color = Color.white;
         body.Add(loadPercentLabel);
 
         iconRow.Add(body);
         popup.Add(iconRow);
+
+        // ── Total pallet count — heads the manifest, right under the progress bar ──
+        var totalPalletsLabel = new Label { text = "" };
+        ui.TotalPalletsLabel = totalPalletsLabel;
+        totalPalletsLabel.pickingMode = PickingMode.Ignore;
+        totalPalletsLabel.style.fontSize = 16;
+        totalPalletsLabel.style.color = new Color(0.85f, 0.9f, 0.95f, 1f);
+        totalPalletsLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+        totalPalletsLabel.style.marginBottom = 4;
+        popup.Add(totalPalletsLabel);
 
         // ── Item / pallet-qty list ──
         var itemsList = new VisualElement();
@@ -1261,6 +1321,7 @@ private void ShowLocation(LocationData location)
         string apptInfo = null;
         int doorNumber = 0;
         float progress = 0f;
+        int totalPalletCount = 0;
         var items = new List<(string desc, int qty, int pallets, int criticalCases)>();
 
         if (!truck.IsOutbound)
@@ -1280,6 +1341,11 @@ private void ShowLocation(LocationData location)
                 // Physical pallets-off-the-trailer progress, not case-received progress — advances the
                 // instant the dock stocker drops a pallet in the lane (TotalPalletsAtDock snapshotted
                 // at ClaimForOffload; LoadContainer.childCount then tracks what's left ON the trailer).
+                // Stays 0 until an offloader actually claims the truck, which is fine for the progress
+                // BAR (there's genuinely nothing offloaded yet) but wrong for the TOTAL PALLETS count
+                // below — that has to read the full manifest the moment the popup opens, not wait for
+                // docking/claiming, so it's computed separately from the same LineItems the item list
+                // underneath is built from (see the loop below).
                 int totalAtDock = truck.TotalPalletsAtDock;
                 int remainingOnTrailer = truck.LoadContainer != null ? truck.LoadContainer.childCount : 0;
                 int offloaded = Mathf.Max(0, totalAtDock - remainingOnTrailer);
@@ -1313,6 +1379,11 @@ private void ShowLocation(LocationData location)
                     int criticalCases = Mathf.Clamp(NeededFor(li.SkuId) - onHand, 0, li.Quantity);
                     items.Add((desc, li.Quantity, pallets, criticalCases));
                 }
+
+                // Read off the manifest built just above, not TotalPalletsAtDock (which stays 0 until
+                // an offloader actually claims this truck) — the player expects this count the moment
+                // the popup opens, well before the truck has even backed into a door.
+                totalPalletCount = items.Sum(it => it.pallets);
             }
             else
             {
@@ -1381,6 +1452,7 @@ private void ShowLocation(LocationData location)
 
                 int loadedPallets = truck.LoadContainer != null ? truck.LoadContainer.childCount : 0;
                 progress = totalPallets > 0 ? Mathf.Clamp01(loadedPallets / (float)totalPallets) : 0f;
+                totalPalletCount = totalPallets;
             }
             else
             {
@@ -1392,6 +1464,13 @@ private void ShowLocation(LocationData location)
         ui.Popup.style.borderBottomColor = borderColor;
         ui.Popup.style.borderLeftColor = borderColor;
         ui.Popup.style.borderRightColor = borderColor;
+
+        // Vendor icon's border (painted on top of the icon, see construction) always matches the
+        // popup's own border color, per Tad's ask.
+        ui.VendorIconBorder.style.borderTopColor = borderColor;
+        ui.VendorIconBorder.style.borderBottomColor = borderColor;
+        ui.VendorIconBorder.style.borderLeftColor = borderColor;
+        ui.VendorIconBorder.style.borderRightColor = borderColor;
 
         var waitBar = truck.DoorWaitBar;
         if (waitBar != null && waitBar.HasMessage)
@@ -1417,11 +1496,11 @@ private void ShowLocation(LocationData location)
         if (vendorData != null && vendorData.Icon != null)
         {
             ui.VendorIcon.sprite = vendorData.Icon;
-            ui.VendorIcon.style.display = DisplayStyle.Flex;
+            ui.VendorIconFrame.style.display = DisplayStyle.Flex;
         }
         else
         {
-            ui.VendorIcon.style.display = DisplayStyle.None;
+            ui.VendorIconFrame.style.display = DisplayStyle.None;
         }
 
         ui.OrderLabel.text = orderInfo ?? "";
@@ -1442,6 +1521,8 @@ private void ShowLocation(LocationData location)
 
         ui.LoadFill.style.width = new Length(progress * 100f, LengthUnit.Percent);
         ui.LoadPercentLabel.text = $"{Mathf.RoundToInt(progress * 100f)}%";
+
+        ui.TotalPalletsLabel.text = $"TOTAL PALLETS: {totalPalletCount}";
 
         ui.ItemsList.Clear();
         if (items.Count == 0)

@@ -285,6 +285,24 @@ public class TruckDoorWaitBar : MonoBehaviour
         _currentMessage = message;
     }
 
+    /// <summary>Truck beat its offload Standard (TruckController.ApplyOffloadStandardBonus) and is
+    /// departing happy — the driver's own line, replacing the plain ShowDeparting message whenever
+    /// the vendor actually earns this bonus.</summary>
+    public void ShowOnTimeDeparture(int bonusPoints)
+    {
+        PrepareToShow();
+        SetColor(DepartingColor);
+        if (_fillImage != null) _fillImage.fillAmount = 1f;
+
+        string message = $"Hell Yeah — I'm out on time. Where's my beer? (Vendor Relationship +{bonusPoints}!)";
+        if (_label != null) _label.text = message;
+        FaceCamera();
+
+        _currentColor = DepartingColor;
+        _currentFillAmount = 1f;
+        _currentMessage = message;
+    }
+
     public void Hide()
     {
         if (_canvas != null) _canvas.gameObject.SetActive(false);

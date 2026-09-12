@@ -225,6 +225,16 @@ namespace GameCore.Inventory
             // own GL category rather than being folded into the same "Inventory" deduction above.
             if (shipment.DeliveryFee > 0) _moneyService?.Deduct(shipment.DeliveryFee, FinanceCategory.Transportation);
 
+            // Vendor rating reward: +1 Partnership Level per $1000 spent on goods, per Tad's explicit
+            // ask — "buy product, gain standing." Delivery fee is excluded since that's freight paid
+            // for the trip, not money paid TO the vendor for product.
+            int partnershipGain = cost / 1000;
+            if (partnershipGain > 0 && ServiceLocator.TryGet(out VendorEconomyService economy) && economy != null)
+            {
+                economy.AdjustPartnershipLevel(supplierId, partnershipGain,
+                    $"PO {shipment.PONumber} — ${cost:N0} spent on goods");
+            }
+
             // Straight into the Schedule tab's unscheduled pool. The delivery day says WHICH day the
             // freight is wanted; the pool is where the player says which door and which two-hour block
             // it turns up in — the same decision they make for every outbound trailer, against the
@@ -282,25 +292,55 @@ namespace GameCore.Inventory
 
         // ── Shortage resolution: backfill or credit ──────────────────────────
 
-        /// <summary>Accepts the vendor's credit for every unresolved short-shipped line on this PO
-        /// instead of asking for a replacement delivery. No money moves here — ApplySupplierVariance
-        /// already refunded the dropped pallets' cost at dispatch — this just marks those lines
-        /// permanently settled so ShipmentData.IsFullyReceived can stop waiting on them, and closes the
-        /// PO out if that was the only thing left outstanding.</summary>
+        /// <summary>Accepts the vendor's credit for this PO's outstanding shortage instead of a
+        /// replacement delivery — either the original unresolved short-shipped lines, or (if a backfill
+        /// was already auto-queued — see RequestBackfill/ShipmentData.IsBackfillPending) the still-owed
+        /// backfill lines, cancelling that queued redelivery in the process. No money moves either way —
+        /// ApplySupplierVariance already refunded the missing pallets' cost at dispatch — this just marks
+        /// the lines permanently settled so ShipmentData.IsFullyReceived can stop waiting on them, and
+        /// closes the PO out if that was the only thing left outstanding.</summary>
         public void RequestCredit(ShipmentData shipment)
         {
-            if (shipment == null || !shipment.HasUnresolvedShortage) return;
+            if (shipment == null) return;
             if (shipment.Status == ShipmentData.ShipmentStatus.Cancelled) return; // expired PO — too late
 
+            bool cancelingBackfill = shipment.IsBackfillPending;
+            var lines = (cancelingBackfill
+                    ? shipment.BackfillLineItems
+                    : shipment.LineItems.Where(li => li.Dropped && !li.CreditTaken && li.ReceivedQuantity < li.Quantity))
+                .ToList();
+            if (lines.Count == 0) return;
+
             int cases = 0;
-            foreach (var li in shipment.LineItems.Where(li => li.Dropped && !li.CreditTaken && li.ReceivedQuantity < li.Quantity))
+            foreach (var li in lines)
             {
-                cases += li.Quantity;
+                cases += li.Quantity - li.ReceivedQuantity;
                 li.CreditTaken = true;
+                li.Dropped = false; // settled for credit, not a delivery still owed — not a live shortage either way
             }
 
-            Debug.Log($"[ShipmentService] Credit accepted for {cases} short case(s) on PO {shipment.PONumber}.");
-            SystemsLogWindow.Log($"Accepted credit for {cases} short case(s) on PO {shipment.PONumber}.");
+            if (cancelingBackfill)
+            {
+                shipment.IsBackfillPending = false;
+
+                // Pull the queued redelivery back out of dispatch and the Scheduler's pool/grid — the
+                // vendor isn't sending it anymore, the player is taking the credit instead.
+                if (ServiceLocator.TryGet(out DockScheduleService dockSchedule) && dockSchedule != null)
+                    dockSchedule.ReleasePo(shipment.PONumber);
+                _pendingShipments.Remove(shipment);
+                shipment.Status = ShipmentData.ShipmentStatus.Departed; // settled — no further delivery is coming
+                PurgeCompleted();
+
+                Debug.Log($"[ShipmentService] Backfill for PO {shipment.PONumber} cancelled — credit " +
+                          $"accepted for {cases} outstanding case(s) instead.");
+                SystemsLogWindow.Log($"Cancelled the backfill for PO {shipment.PONumber} — took credit " +
+                                      $"for {cases} case(s) instead.");
+            }
+            else
+            {
+                Debug.Log($"[ShipmentService] Credit accepted for {cases} short case(s) on PO {shipment.PONumber}.");
+                SystemsLogWindow.Log($"Accepted credit for {cases} short case(s) on PO {shipment.PONumber}.");
+            }
 
             if (ServiceLocator.TryGet<ShipmentReceivingCoordinator>(out var coordinator) && coordinator != null)
                 coordinator.CompleteIfFullyReceived(shipment);
@@ -329,6 +369,13 @@ namespace GameCore.Inventory
 
             foreach (var li in shortLines)
                 li.Dropped = false; // ordinary expected line again — still short until physically received
+
+            // Flips the moment this method runs, whether it was triggered automatically (a short
+            // trailer's departure — see TruckController.BeginDeparture) or by the player's own Request
+            // Backfill button. Distinct from HasUnresolvedShortage, which goes false right above this —
+            // see ShipmentData.IsBackfillPending for what reads this instead: the Scheduler's BACKFILL
+            // stamp and tooltip, for as long as this redelivery is outstanding.
+            shipment.IsBackfillPending = true;
 
             // A truck that already delivered/departed moves its PO to the archive (PurgeCompleted) even
             // though this shortage was never resolved — pull it back into the pending list so the
@@ -572,7 +619,8 @@ namespace GameCore.Inventory
                     status = (int)s.Status,
                     playerOrdered = s.PlayerOrdered,
                     isSalvage = s.IsSalvage,
-                    deliveryFee = s.DeliveryFee
+                    deliveryFee = s.DeliveryFee,
+                    isBackfillPending = s.IsBackfillPending
                 };
                 foreach (var li in s.LineItems)
                 {
@@ -614,7 +662,8 @@ namespace GameCore.Inventory
                 {
                     PlayerOrdered = snap.playerOrdered,
                     IsSalvage = snap.isSalvage,
-                    DeliveryFee = snap.deliveryFee
+                    DeliveryFee = snap.deliveryFee,
+                    IsBackfillPending = snap.isBackfillPending
                 };
                 foreach (var liSnap in snap.lineItems)
                 {

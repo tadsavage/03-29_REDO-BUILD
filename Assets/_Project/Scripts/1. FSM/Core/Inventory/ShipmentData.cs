@@ -51,6 +51,28 @@ namespace GameCore.Inventory
         /// decide whether a salvage manifest is still a secret.</summary>
         public bool AnyReceived => LineItems.Any(li => li.ReceivedQuantity > 0);
 
+        /// <summary>
+        /// True from the moment a short-shipped PO's replacement delivery is automatically requeued
+        /// into the Scheduler's unscheduled pool (see ShipmentService.RequestBackfill, called the
+        /// instant the original trailer departs short) until the backfill is fully received, or the
+        /// player cancels it and settles for the vendor's credit instead (ShipmentService.RequestCredit).
+        ///
+        /// Distinct from <see cref="HasUnresolvedShortage"/>, which goes false the moment a backfill is
+        /// queued — RequestBackfill clears Dropped on the reopened lines so they read as ordinary
+        /// in-transit stock again. This flag is what the Scheduler checks instead, to keep the pool/grid
+        /// block stamped BACKFILL and its tooltip showing the still-owed quantities for as long as that
+        /// redelivery is outstanding.
+        /// </summary>
+        public bool IsBackfillPending { get; set; }
+
+        /// <summary>Line items still outstanding while this PO's backfill redelivery is pending — the
+        /// previously short-shipped lines RequestBackfill reopened. Drives the BACKFILL block's own
+        /// pallet count (just what's still owed, not the whole original order — see
+        /// SchedulerPanel.BackfillPalletCountForPO) and its tooltip's item list. Meaningless (and
+        /// unused) unless <see cref="IsBackfillPending"/> is true.</summary>
+        public IEnumerable<ShipmentLineItem> BackfillLineItems =>
+            LineItems.Where(li => li.ReceivedQuantity < li.Quantity && !li.CreditTaken);
+
         public ShipmentData(string supplierId, string supplierName, int arrivalDay, int arrivalMinute)
         {
             // 'G' is hardcoded rather than derived from LineItems (still empty at this point anyway):
@@ -123,10 +145,21 @@ namespace GameCore.Inventory
         /// item for that SKU that ISN'T already fully received — a shipment with multiple pallets
         /// of the same SKU (the common case: one line item per pallet) has multiple line items
         /// sharing a SkuId, and always filling the first match would leave every other one stuck
-        /// at 0 forever, so IsFullyReceived would never become true even once every pallet is in.</summary>
+        /// at 0 forever, so IsFullyReceived would never become true even once every pallet is in.
+        ///
+        /// Dropped lines are excluded from the match: a pallet ApplySupplierVariance flagged Dropped
+        /// never physically made the truck, so it can never be the one a real incoming pallet is
+        /// crediting. Without this exclusion, a physically-received pallet's cases could land on a
+        /// same-SKU sibling that was actually dropped — filling that dropped line's ReceivedQuantity
+        /// up to its own Quantity and making it read as fully received. HasUnresolvedShortage
+        /// (Dropped && ReceivedQuantity &lt; Quantity) would then go false for a pallet that never
+        /// arrived, silently swallowing both the automatic backfill request (TruckController.
+        /// BeginDeparture) and the tooltip's manual Request Backfill/Accept Credit buttons — while the
+        /// short-shipped display kept showing red regardless, since that reads Dropped alone.</summary>
         public void UpdateReceivedQuantity(string skuId, int additionalQuantity)
         {
-            var lineItem = LineItems.FirstOrDefault(li => li.SkuId == skuId && li.ReceivedQuantity < li.Quantity);
+            var lineItem = LineItems.FirstOrDefault(li =>
+                li.SkuId == skuId && !li.Dropped && li.ReceivedQuantity < li.Quantity);
             if (lineItem != null)
             {
                 lineItem.ReceivedQuantity = Mathf.Min(lineItem.ReceivedQuantity + additionalQuantity, lineItem.Quantity);
@@ -223,6 +256,9 @@ namespace GameCore.Inventory
         /// <summary>0 in a save written before delivery fees existed — correct, since no such PO was
         /// ever charged one.</summary>
         public int deliveryFee;
+        /// <summary>False in a save written before automatic backfill existed — correct, since no such
+        /// PO could have had a redelivery queued yet.</summary>
+        public bool isBackfillPending;
         public List<ShipmentLineItemSnapshot> lineItems = new();
     }
 

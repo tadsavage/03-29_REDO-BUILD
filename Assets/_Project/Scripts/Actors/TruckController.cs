@@ -466,6 +466,22 @@ private DockSlot        _dock;
     private long _inboundClockStartSimMinute = -1;
     private int  _inboundPenaltyTierApplied; // 0=none, 1/2/3 = that rung fired, 4 = final (8h) resolved
 
+    // ── Offload "Standard" (Tad's naming, 2026 — first entry in what he's explicit will grow into a
+    // much larger task-time-allowance system; a per-task figure like "a dock stocker gets 10 minutes"
+    // isn't tracked yet, only this warehouse-level total). Clock is _dockedAtSimMinute (set in
+    // OnDocked, i.e. once the driver is actually AT the door — the ~1 hour it takes to get there isn't
+    // charged against this) to the sim-minute BeginDeparture runs at (i.e. the moment the last pallet
+    // comes off the trailer and CompleteOffload fires) — see ApplyOffloadStandardBonus.
+    private const float OffloadStandardBaseMinutes = 60f; // flat 1 hour, Tad's spec
+    private const float OffloadStandardMinutesPerPallet = 10f; // + 10 min per pallet, Tad's spec
+    private const int OffloadStandardBonusPoints = 5;
+
+    /// <summary>Set true by ApplyOffloadStandardBonus when the Standard was beaten, read (and
+    /// cleared) by BeginDeparture right after CloseTrailerDoors() — the world-space reward text has
+    /// to wait for that exact "doors closed, pulling out" moment even though the vendor-standing
+    /// change/log/driver-note all fire earlier, at CompleteOffload time.</summary>
+    private bool _pendingOffloadStandardFx;
+
     /// <summary>Set while this truck is waiting in a SideLotController's claimed spot instead of the
     /// generic _doorWaitPoint — null the rest of the time. Drives the UpdateWaitingForDoor branch that
     /// reverses back out to the gate instead of curving straight to ApproachPoint(), and the "PARKED ·
@@ -2352,6 +2368,17 @@ private DockSlot        _dock;
                 // Pull out forward to Xform 2, then on to Xform 5 without stopping.
                 if (DriveToward(_currentTarget))
                 {
+                    // Truck has now physically cleared the dock stall — safe to free the door for
+                    // another truck. Deferred from BeginDeparture/ForceLeaveNow (see their comments)
+                    // so the door doesn't read as free, and get claimed by a waiting/newly-spawned
+                    // truck, while this truck is still backing/pulling out of that same physical space.
+                    if (_dock != null)
+                    {
+                        _dock.LightController?.SetOccupied(false);
+                        _dock.Release();
+                        _dock = null;
+                    }
+
                     if (_gateLeaveNoTurn.HasValue)
                     {
                         Vector3 afterGate = _exitWaypoint ?? _gateLeaveNoTurn.Value;
@@ -3026,16 +3053,23 @@ private DockSlot        _dock;
     /// near-duplicate exit routines drifting apart over time.</summary>
     private void BeginDeparture(bool succeeded)
     {
-        // Defensive null-guard: a truck should always have a claimed dock by the time it departs,
-        // but an orphaned restore (dock lookup failed) previously left this null and threw here
-        // every frame forever (the truck never actually left). Null-conditional so a bad restore
-        // degrades to "truck leaves without releasing a dock" instead of an infinite NRE loop. Also
-        // covers the door-wait-timeout case cleanly: _dock is null there too (never claimed one).
-        _dock?.LightController?.SetOccupied(false);
+        // Captured before anything below has a chance to reset _dockedAtSimMinute (the VENDORS-tab
+        // dwell-hours block a little further down zeroes it back to -1) — ApplyOffloadStandardBonus
+        // needs the same "docked to last pallet off" window that block measures, just compared
+        // against the Standard's allowance instead of logged as a raw stat.
+        long dockedAtSimMinuteForStandard = _dockedAtSimMinute;
+
+        // NOTE: the door itself (_dock.Release() / its dock light) is deliberately NOT freed here —
+        // this truck is still physically parked in the stall and is about to spend several seconds
+        // slowly pulling out (DepartToApproach). Releasing this early let a waiting/newly-spawned
+        // truck claim the "free" door and start backing in while this one was still there, so the two
+        // trucks overlapped at the same door. The dock is now released once this truck actually
+        // clears the stall — see the DepartToApproach arrival check in Update(). _dock itself stays
+        // set (not nulled) until then so ApproachPoint() below still resolves correctly.
+        //
         // Release the rollup door's forced-open hold — the truck's own exit through the trigger will
         // close it normally as it drives out.
         _dock?.SetDoorForcedOpen(false);
-        _dock?.Release();
         // A truck that timed out waiting in the SideLot (give-up path) needs to free its slot too —
         // the normal path already clears _sideLotSlot in ReversingToSideLotEntry/ReversingOutOfSideLot
         // before ever reaching here; this only matters for the rare no-Entry-and-no-gate edge case
@@ -3054,7 +3088,19 @@ private DockSlot        _dock;
             {
                 AssignedShipment.Status = GameCore.Inventory.ShipmentData.ShipmentStatus.Departed;
                 if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipSvc))
+                {
+                    // Inbound trailer leaving short: queue the vendor's make-good delivery automatically
+                    // rather than waiting on the player to notice and ask for it via the tooltip's
+                    // Request Backfill button — per Tad's explicit call. RequestBackfill re-parks this
+                    // same PO in the Scheduler's unscheduled pool and is itself what flips Status back to
+                    // InTransit, so the PurgeCompleted() call right below leaves it pending, not archived.
+                    // The player can still cancel the queued redelivery afterward for a straight credit
+                    // instead — see ShipmentService.RequestCredit.
+                    if (!_isOutbound && AssignedShipment.HasUnresolvedShortage)
+                        shipSvc.RequestBackfill(AssignedShipment);
+
                     shipSvc.PurgeCompleted();
+                }
 
                 // VENDORS tab's "Avg Hours in Door" — inbound only, and only once we actually have a real
                 // docked-at stamp (a truck that skipped Docked entirely, if that's ever possible, shouldn't
@@ -3075,10 +3121,14 @@ private DockSlot        _dock;
 
             // Blue "trailer offloaded, departing" banner with the shipment's actual case tally —
             // inbound only, since "cases received" has no meaning for an outbound (loading) truck.
+            // Beating the offload Standard overrides this with the driver's own happy line instead
+            // (ApplyOffloadStandardBonus already wrote it into _doorWaitBar when true).
             if (!_isOutbound && AssignedShipment != null)
             {
                 if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
-                _doorWaitBar.ShowDeparting(AssignedShipment.TotalReceivedUnits, AssignedShipment.TotalUnits);
+                bool beatStandard = ApplyOffloadStandardBonus(dockedAtSimMinuteForStandard);
+                if (!beatStandard)
+                    _doorWaitBar.ShowDeparting(AssignedShipment.TotalReceivedUnits, AssignedShipment.TotalUnits);
             }
         }
         else
@@ -3096,6 +3146,17 @@ private DockSlot        _dock;
         SetDockedGhost(false);
         CloseTrailerDoors();
 
+        // Per Tad's explicit ask: the green reward callout plays "as soon as the doors close and
+        // they pull out" — right here, not back in ApplyOffloadStandardBonus (which only fires the
+        // vendor-standing change/log/driver-note; the world-space FX waits for this exact moment).
+        if (_pendingOffloadStandardFx)
+        {
+            _pendingOffloadStandardFx = false;
+            Vector3 fxOrigin = (_cab != null ? _cab.position : transform.position) + Vector3.up * 2.4f;
+            VendorRelationshipFx.Show(fxOrigin, $"Vendor Relationship +{OffloadStandardBonusPoints}!");
+        }
+
+
         // Pull out forward to Xform 2, easing toward the exit direction. ApproachPoint() falls back to
         // the truck's current position when _dock is null (the give-up case), so this degrades to
         // "curve straight from wherever it's parked toward the gate" with no special-casing needed.
@@ -3104,10 +3165,11 @@ private DockSlot        _dock;
         SetTargetCurved(TruckState.DepartToApproach, ap, next - ap);
     }
 
-    /// <summary>Fallback penalty for the rare case a truck clears the gate with no door AND no
+    /// <summary>Fallback handling for the rare case a truck clears the gate with no door AND no
     /// configured place to wait at all (see BeginDoorWait) — a level-authoring gap, not normal
     /// gameplay. The unified 8-hour dwell clock (UpdateInboundDwellClock/ResolveInboundDeadline) is
-    /// what now judges every ordinary "couldn't get a door in time" case.</summary>
+    /// what now judges every ordinary "couldn't get a door in time" case. No vendor standing penalty
+    /// here per Tad's explicit ask — this is a level-authoring gap, not something the vendor did.</summary>
     private void ApplyNoWaitSpotPenalty()
     {
         if (AssignedShipment == null) return;
@@ -3120,17 +3182,10 @@ private DockSlot        _dock;
                 dockSchedule.TryPark(appt.Id, out _);
         }
 
-        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorEconomyService economy) &&
-            economy != null && !string.IsNullOrEmpty(AssignedShipment.SupplierId))
-        {
-            economy.AdjustPartnershipLevel(AssignedShipment.SupplierId, -20,
-                $"No wait spot configured for PO {AssignedShipment.PONumber} — driver turned around immediately");
-        }
-
         UIToast.Show($"No door or wait spot available for PO {AssignedShipment.PONumber} — the driver " +
                      "turned around. Reschedule the appointment.");
         SystemsLogWindow.LogWarning($"PO {AssignedShipment.PONumber} turned around immediately — no door " +
-                                     "or wait spot was available. Vendor standing took a -20 hit.");
+                                     "or wait spot was available.");
     }
 
     /// <summary>Rewards vendor standing when an inbound trailer gets a door (whether immediately at
@@ -3150,6 +3205,47 @@ private DockSlot        _dock;
         }
 
         SystemsLogWindow.LogGuard($"PO {AssignedShipment.PONumber} got a door on time — vendor standing improved.");
+    }
+
+    /// <summary>The warehouse's first "Standard" (Tad's naming) — a task-level time allowance the
+    /// player can beat or miss. This one covers the whole offload: 1 hour flat plus
+    /// OffloadStandardMinutesPerPallet per pallet, measured from the moment the driver is actually AT
+    /// the door (<paramref name="dockedAtSimMinute"/>, OnDocked's stamp — the ~1 hour it takes to get
+    /// there isn't part of this clock) to right now, which BeginDeparture only reaches once
+    /// CompleteOffload has fired — i.e. the instant the last pallet comes off the trailer.
+    /// Returns true when the Standard was beaten, so BeginDeparture knows to skip the plain
+    /// departing banner in favor of the driver's happy line, and to fire the world-space reward text
+    /// once the doors actually close.</summary>
+    private bool ApplyOffloadStandardBonus(long dockedAtSimMinute)
+    {
+        if (_isOutbound || AssignedShipment == null || string.IsNullOrEmpty(AssignedShipment.SupplierId))
+            return false;
+        if (dockedAtSimMinute < 0) return false;
+
+        var gameCtx = FindAnyObjectByType<GameContext>();
+        if (gameCtx == null) return false;
+
+        float elapsedMinutes = gameCtx.TimeService.TotalMinutesElapsed - dockedAtSimMinute;
+        float allowedMinutes = OffloadStandardBaseMinutes +
+            OffloadStandardMinutesPerPallet * Mathf.Max(1, TotalPalletsAtDock);
+        if (elapsedMinutes > allowedMinutes) return false;
+
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorEconomyService economy) &&
+            economy != null)
+        {
+            economy.AdjustPartnershipLevel(AssignedShipment.SupplierId, OffloadStandardBonusPoints,
+                $"PO {AssignedShipment.PONumber} — offloaded in {elapsedMinutes:0} of {allowedMinutes:0} " +
+                "min (beat the offload Standard)");
+        }
+
+        SystemsLogWindow.LogSystem($"PO {AssignedShipment.PONumber} beat the offload Standard — " +
+            $"{elapsedMinutes:0} of {allowedMinutes:0} min at the door. Vendor standing +{OffloadStandardBonusPoints}!");
+
+        if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
+        _doorWaitBar.ShowOnTimeDeparture(OffloadStandardBonusPoints);
+
+        _pendingOffloadStandardFx = true;
+        return true;
     }
 
     /// <summary>
@@ -3301,12 +3397,11 @@ private DockSlot        _dock;
 
     /// <summary>Abandons whatever the truck is doing and heads for the gate — used only by
     /// ResolveInboundDeadline, which unlike ForceDeparture (Docked-only) must also cover a truck still
-    /// queued, parked in the side lot, or waiting for a door. Releases whatever it was holding first so
-    /// the slot doesn't wait around for a truck that's already leaving.</summary>
+    /// queued, parked in the side lot, or waiting for a door. Does NOT release a held dock up front —
+    /// same reasoning as BeginDeparture: this truck (if docked) is still physically in the stall and
+    /// needs to drive out first, so the door frees itself once DepartToApproach actually arrives.</summary>
     private void ForceLeaveNow()
     {
-        if (_dock != null) { _dock.Release(); _dock = null; }
-
         if (_state == TruckState.Docked)
         {
             _dockedAtSimMinute = -1;

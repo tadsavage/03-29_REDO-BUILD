@@ -38,9 +38,6 @@ public class TruckHighlighter : MonoBehaviour
     public static bool HasInstance => _instance != null;
 
     [Header("Outline look")]
-    [Tooltip("Outline colour. Bright blue for high visibility.")]
-    [SerializeField] private Color _outlineColor = new Color(0.706f, 0.784f, 0.851f, 1f);
-
     [Tooltip("Outline thickness in world units.")]
     [SerializeField, Range(0f, 0.2f)] private float _outlineWidth = 0.06f;
 
@@ -108,7 +105,6 @@ public class TruckHighlighter : MonoBehaviour
 
         _maskMat = new Material(maskShader) { renderQueue = 3000, hideFlags = HideFlags.HideAndDontSave };
         _fillMat = new Material(fillShader) { renderQueue = 3001, hideFlags = HideFlags.HideAndDontSave };
-        _fillMat.SetColor("_OutlineColor", _outlineColor);
         _fillMat.SetFloat("_OutlineWidth", _outlineWidth);
         return true;
     }
@@ -116,6 +112,10 @@ public class TruckHighlighter : MonoBehaviour
     private void BuildOutline(TruckController truck)
     {
         if (!EnsureMaterials()) return;
+
+        // Color the outline by order type (orange inbound / green bulk / blue recurring) — same
+        // classification WorldHoverPopupUI's tooltip border uses, so the two always agree.
+        _fillMat.SetColor("_OutlineColor", TruckOrderColors.GetColor(truck));
 
         // The cargo riding in LoadContainer (every pallet/case currently on the trailer) is excluded
         // — outlining "the truck" should mean the vehicle itself, not every individual box inside it.

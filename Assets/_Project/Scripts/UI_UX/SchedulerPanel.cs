@@ -57,6 +57,9 @@ public class SchedulerPanel : IUIPanel
     private static readonly Color ColBlueEdge    = new Color(0x2C / 255f, 0x5E / 255f, 0x82 / 255f, 1f);
     private static readonly Color ColDanger      = new Color(0xE2 / 255f, 0x4B / 255f, 0x4A / 255f, 1f);
     private static readonly Color ColDangerSoft  = new Color(0xF0 / 255f, 0x95 / 255f, 0x95 / 255f, 1f);
+    // Really light blue used for the diagonal BACKFILL stamp (see AddBackfillStamp) — per Tad's
+    // explicit ask, replacing the red it used to share with genuine danger/warning states.
+    private static readonly Color ColBackfillStamp = new Color(0xBF / 255f, 0xE3 / 255f, 0xFF / 255f, 1f);
     private static readonly Color ColStat        = new Color(30f / 255f, 40f / 255f, 52f / 255f, 1f);
 
     // Schedule chip fills — one per AppointmentKind, matching the legend at the foot of that tab.
@@ -220,6 +223,7 @@ public class SchedulerPanel : IUIPanel
     private bool _placed; // false until the first Show centres it
 
     private static Font _nunito;
+    private static Font _lilita;
 
         public SchedulerPanel(VisualElement root)
     {
@@ -1431,6 +1435,13 @@ public class SchedulerPanel : IUIPanel
     private const float PoolIconSize  = 36f;
     private const int   PoolMaxBoxes  = 10;
 
+    // Shared hover-grow factor for grid cells, pool boxes, and parked boxes alike (see their own
+    // MouseEnterEvent handlers) -- also read by ShowNewSchedulerTooltip, which has to compensate for
+    // it: the `scale` USS transform grows a box visually without changing its layout/worldBound (the
+    // transform is purely a render-time effect), so a tooltip anchored off the box's un-grown
+    // worldBound.yMax would land partway up the now-larger box instead of just below it.
+    private const float CellHoverGrowScale = 1.5f;
+
     /// <summary>
     /// The bordered strip under the day switcher, split into two hemispheres by a vertical rule:
     /// LEGEND on the left, the stranded-trailer POOL on the right. The in-game clock used to live on a
@@ -1705,10 +1716,14 @@ public class SchedulerPanel : IUIPanel
         {
             ShowNewSchedulerTooltip(syntheticAppt, box);
             CustomCursorService.SetHoveringInteractable(true);
+            box.style.scale = new Scale(new Vector3(CellHoverGrowScale, CellHoverGrowScale, 1f));
+            // Bring to front so the enlarged box draws over its neighbours instead of under them.
+            box.BringToFront();
         });
         box.RegisterCallback<MouseLeaveEvent>(evt =>
         {
             CustomCursorService.SetHoveringInteractable(false);
+            box.style.scale = new Scale(Vector3.one);
             if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
                 _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
             HideNewSchedulerTooltip();
@@ -1756,6 +1771,14 @@ public class SchedulerPanel : IUIPanel
         box.style.flexDirection = FlexDirection.Row;
         box.style.marginRight = 8; box.style.marginBottom = 6;
         box.style.overflow = Overflow.Hidden;
+
+        // Same hover-grow the booked grid cells use (BuildNewSchedulerCell) — per Tad's explicit
+        // call, so a trailer waiting in the pool (parked or never-yet-scheduled) reads as
+        // consistently hoverable as one already sitting on the timeline. The actual scale set/reset
+        // lives in each caller's own MouseEnter/MouseLeave (BuildPoolBox/BuildParkedBox already
+        // register those for the tooltip) — this just arms the transition so the change animates.
+        box.style.transitionProperty = new List<StylePropertyName> { new StylePropertyName("scale") };
+        box.style.transitionDuration = new List<TimeValue> { new TimeValue(0.12f, TimeUnit.Second) };
 
         // The "pole" — a slim dark strip the flag hangs off of, which is what makes the rectangle
         // read as a pennant rather than just another chip.
@@ -1880,6 +1903,10 @@ public class SchedulerPanel : IUIPanel
             fill: fill, edge: edge, ink: ink,
             selected: selected);
 
+        // A vendor's automatically-queued make-good redelivery — see ShipmentData.IsBackfillPending —
+        // gets stamped on top so the player can spot it in the pool without opening the tooltip.
+        if (isPo && IsBackfillPo(appt)) AddBackfillStamp(box);
+
         // Same reason as BuildPoolBox: the pool container is itself a drop target, and a click on a
         // specific box must mean "select this one", never "also drop what I'm holding".
         box.RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); OnParkedClicked(appt); });
@@ -1891,10 +1918,14 @@ public class SchedulerPanel : IUIPanel
         {
             ShowNewSchedulerTooltip(appt, box);
             CustomCursorService.SetHoveringInteractable(true);
+            box.style.scale = new Scale(new Vector3(CellHoverGrowScale, CellHoverGrowScale, 1f));
+            // Bring to front so the enlarged box draws over its neighbours instead of under them.
+            box.BringToFront();
         });
         box.RegisterCallback<MouseLeaveEvent>(evt =>
         {
             CustomCursorService.SetHoveringInteractable(false);
+            box.style.scale = new Scale(Vector3.one);
             if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
                 _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
             HideNewSchedulerTooltip();
@@ -2080,6 +2111,55 @@ public class SchedulerPanel : IUIPanel
     }
 
     /// <summary>
+    /// Bold light-blue diagonal "BACKFILL" stamp (Lilita One font) overlaid corner-to-corner across
+    /// a pool box or grid cell whose PO has an automatically-queued make-good redelivery outstanding
+    /// (see ShipmentData.IsBackfillPending / IsBackfillPo) — stays until that redelivery is fully
+    /// received, or the player cancels it for a straight credit instead (the Cancel Backfill button
+    /// in BuildBackfillTooltipContent, via ShipmentService.RequestCredit).
+    ///
+    /// Same corner-to-corner geometry as AddStrikeThrough — a text label instead of a plain line, added
+    /// last so it draws over everything else already on the chip, including a strike-through on the
+    /// rare chip that's somehow both.
+    /// </summary>
+    private void AddBackfillStamp(VisualElement chip)
+    {
+        // Font size (and the diagonal strip height it sits in) bumped 35% -- 15 -> 20, 18 -> 24 --
+        // per Tad's explicit call.
+        var stamp = MakeText("BACKFILL", 20, ColBackfillStamp, bold: true);
+        ApplyLilitaFont(stamp);
+        stamp.pickingMode = PickingMode.Ignore;
+        stamp.style.position = Position.Absolute;
+        stamp.style.unityTextAlign = TextAnchor.MiddleCenter;
+        stamp.style.whiteSpace = WhiteSpace.NoWrap;
+        stamp.style.paddingTop = 0; stamp.style.paddingBottom = 0;
+        stamp.style.marginTop = 0; stamp.style.marginBottom = 0;
+        // Nunito Sans has no dedicated bold face (same issue BuildNewSchedulerCell's sweep badge
+        // works around) -- a thin outline in near-black ink both thickens the stroke and keeps it
+        // legible over any of the chip's own fill colours underneath.
+        stamp.style.unityTextOutlineWidth = 0.7f;
+        stamp.style.unityTextOutlineColor = new StyleColor(new Color(0.05f, 0.02f, 0.02f, 1f));
+        chip.Add(stamp);
+
+        const float StampStripHeight = 24f; // 18 * 1.35, kept in step with the bumped font size
+        void ApplyDiagonal(GeometryChangedEvent evt)
+        {
+            float w = chip.resolvedStyle.width;
+            float h = chip.resolvedStyle.height;
+            if (w <= 0f || h <= 0f) return;
+
+            float length = Mathf.Sqrt(w * w + h * h);
+            float angleDeg = Mathf.Atan2(h, w) * Mathf.Rad2Deg;
+
+            stamp.style.width = length;
+            stamp.style.height = StampStripHeight;
+            stamp.style.left = (w - length) / 2f;
+            stamp.style.top = h / 2f - StampStripHeight / 2f;
+            stamp.style.rotate = new Rotate(new Angle(angleDeg, AngleUnit.Degree));
+        }
+        chip.RegisterCallback<GeometryChangedEvent>(ApplyDiagonal);
+    }
+
+    /// <summary>
     /// Small square corner flag marking a chip as "this customer/vendor has already been burned once"
     /// — DockAppointment.WasLate. Deliberately NOT the diagonal strike (see AddStrikeThrough): the
     /// strike means "this slot's capacity is gone / nothing to do here", which is wrong the moment the
@@ -2160,6 +2240,24 @@ public class SchedulerPanel : IUIPanel
     private static bool IsInboundPo(DockAppointment appt)
         => appt != null && appt.Kind == AppointmentKind.Inbound
         && !string.IsNullOrEmpty(appt.ShipmentPoNumber);
+
+    /// <summary>The live ShipmentData behind a PO number, pending or already archived — the one place
+    /// every PO-number lookup in this file (pallet counts, the BACKFILL stamp, the tooltip) should go
+    /// through, so they can never disagree about which shipment a number resolves to.</summary>
+    private static ShipmentData ShipmentForPO(string poNumber)
+    {
+        if (string.IsNullOrEmpty(poNumber)) return null;
+        if (!ServiceLocator.TryGet<ShipmentService>(out var shipments) || shipments == null) return null;
+        return shipments.PendingShipments.FirstOrDefault(s => s.PONumber == poNumber)
+            ?? shipments.ArchivedShipments.FirstOrDefault(s => s.PONumber == poNumber);
+    }
+
+    /// <summary>True while this appointment's PO has an automatically-queued backfill redelivery
+    /// outstanding (see ShipmentData.IsBackfillPending) — drives the red diagonal BACKFILL stamp on
+    /// both the pool box and the scheduled grid cell, and the good-faith tooltip rewrite, for as long
+    /// as the vendor's make-good load hasn't fully arrived (or been cancelled for credit instead).</summary>
+    private static bool IsBackfillPo(DockAppointment appt)
+        => IsInboundPo(appt) && (ShipmentForPO(appt.ShipmentPoNumber)?.IsBackfillPending ?? false);
 
     /// <summary>What a grid chip calls itself. Outbound trailers are identified by the CUSTOMER whose
     /// freight they carry; inbound ones by what they are, since the supplier is the same every time.
@@ -2665,6 +2763,28 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
     if (f != null) el.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(f));
     if (bold) el.style.unityFontStyleAndWeight = FontStyle.Bold;
     if (size > 0) el.style.fontSize = size;
+}
+
+private static Font LilitaFont()
+{
+    if (_lilita != null) return _lilita;
+#if UNITY_EDITOR
+    string[] guids = UnityEditor.AssetDatabase.FindAssets("LilitaOne-Regular t:Font");
+    if (guids.Length > 0)
+        _lilita = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
+#else
+    _lilita = Resources.Load<Font>("LilitaOne-Regular");
+#endif
+    return _lilita;
+}
+
+/// <summary>Applies the Lilita One display font on top of whatever ApplyFont/MakeText already set —
+/// used for the BACKFILL grid stamp per Tad's explicit ask, everything else in this panel stays on
+/// the house Nunito Sans body font.</summary>
+private static void ApplyLilitaFont(VisualElement el)
+{
+    var f = LilitaFont();
+    if (f != null) el.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(f));
 }
 
     private static void StyleOrangeButton(Button b)
@@ -3410,6 +3530,13 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             cell.style.borderBottomLeftRadius = cell.style.borderBottomRightRadius = 4;
         cell.style.overflow = Overflow.Hidden;
 
+        // Grow 50% on hover so the fine print (order #/PO, item summary, pallet count) is readable
+        // without opening the tooltip — per Tad's explicit ask. Scales from the cell's own center
+        // (UI Toolkit's default transform origin), so it grows evenly over its neighbours rather
+        // than shifting sideways.
+        cell.style.transitionProperty = new List<StylePropertyName> { new StylePropertyName("scale") };
+        cell.style.transitionDuration = new List<TimeValue> { new TimeValue(0.12f, TimeUnit.Second) };
+
         if (locked || past) cell.style.opacity = 0.45f;
 
         // IsComplete is computed independently from live state and takes priority: a trailer that's
@@ -3484,6 +3611,11 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         TightenLine(palletsLine, 1);
         cell.Add(palletsLine);
 
+        // Same automatically-queued backfill redelivery the pool box stamps (see BuildParkedBox) —
+        // stays on the scheduled grid cell too once the player places it on a door, per Tad's explicit
+        // call, until the redelivery is fully received or cancelled for credit.
+        if (IsBackfillPo(appt)) AddBackfillStamp(cell);
+
         if (!locked) cell.RegisterCallback<ClickEvent>(_ => OnChipClicked(appt));
 
         cell.RegisterCallback<MouseEnterEvent>(_ =>
@@ -3492,6 +3624,9 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             // Only a genuinely clickable chip gets the select cursor -- a locked one still shows its
             // tooltip (informational) but a click does nothing, so promising "select" would be a lie.
             if (!locked) CustomCursorService.SetHoveringInteractable(true);
+            cell.style.scale = new Scale(new Vector3(CellHoverGrowScale, CellHoverGrowScale, 1f));
+            // Bring to front so the enlarged cell draws over its neighbours instead of under them.
+            cell.BringToFront();
         });
         // Don't hide if the cursor is heading straight into the tooltip (now interactive, for
         // mouse-wheel scrolling on long item lists) -- the tooltip's own MouseLeaveEvent covers
@@ -3499,6 +3634,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         cell.RegisterCallback<MouseLeaveEvent>(evt =>
         {
             if (!locked) CustomCursorService.SetHoveringInteractable(false);
+            cell.style.scale = new Scale(Vector3.one);
             if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
                 _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
             HideNewSchedulerTooltip();
@@ -3665,7 +3801,16 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         // mouse cross empty space between the two and lose the tooltip before it reached it (a
         // problem now that the tooltip needs to be hovered to mouse-wheel scroll it), per Tad's
         // explicit call.
-        Vector2 local = _modal.WorldToLocal(new Vector2(cell.worldBound.x, cell.worldBound.yMax - 4));
+        //
+        // `cell` is about to hover-grow (CellHoverGrowScale, applied right after this call returns by
+        // the caller's own MouseEnterEvent handler) — that `scale` transform makes it visually bigger
+        // without touching layout, so worldBound.yMax reports the UN-grown bottom edge regardless of
+        // call order. Grown symmetrically about the cell's own center, half of that growth lands below
+        // the un-grown edge — accounting for it here is what keeps the tooltip anchored just under the
+        // cell's true (grown) bottom instead of drifting up into it and covering its own (and
+        // neighboring cells') text.
+        float grownExtra = (CellHoverGrowScale - 1f) * cell.resolvedStyle.height / 2f;
+        Vector2 local = _modal.WorldToLocal(new Vector2(cell.worldBound.x, cell.worldBound.yMax + grownExtra - 4));
         float maxLeft = Mathf.Max(4f, _modal.resolvedStyle.width - 476f);
         float maxTop = Mathf.Max(4f, _modal.resolvedStyle.height - 60f);
         float top = Mathf.Clamp(local.y, 4f, maxTop);
@@ -3741,6 +3886,13 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         return col;
     }
 
+    // A vendor's automatically-queued make-good redelivery reads completely differently from an
+    // ordinary PO — no cost-of-goods figure (nothing is being charged), good-faith framing, and a
+    // Cancel Backfill option instead of the usual expected/received breakdown — so it gets its own
+    // tooltip body entirely rather than threading extra branches through the logic below.
+    if (shipment.IsBackfillPending)
+        return BuildBackfillTooltipContent(col, shipment, appt);
+
     // Once the truck is done, show what was actually RECEIVED rather than what was ordered — a
     // supplier shortage or a broker write-off means those can differ, and "received" is what the
     // player actually needs to know once the trailer has already left.
@@ -3801,7 +3953,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     vendorIcon.style.width = 73 * 0.9f; // squeezed 10% on X only per Tad's explicit call -- height stays 73
     vendorRow.Add(vendorIcon);
     var vendorNameLabel = MakeText(vendor != null ? vendor.DisplayName : (shipment.SupplierId ?? "Unknown vendor"),
-                           18, new Color(0xD0 / 255f, 0xEC / 255f, 0xFC / 255f, 1f), bold: true); // 26 * 0.7, even lighter blue, fully opaque per Tad's explicit call
+                           24, new Color(0xD0 / 255f, 0xEC / 255f, 0xFC / 255f, 1f), bold: true); // 18 * 1.35 per Tad's explicit call
     // Wrapped to ~2 lines rather than one long line running past the badge, per Tad's explicit call --
     // MakeText already sets WhiteSpace.Normal, this just gives it a width narrow enough to actually wrap.
     // Narrowed from 170 -- that box's own dead space past the wrapped text was what stood between the
@@ -3887,11 +4039,19 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         // correction — it's allowed to flag orange in advance, while red stays strictly gated on
         // `received`.
         bool shortShipped = received && row.droppedPallets > 0;
-        string caseLine = received
-            ? (row.received < row.ordered
-                ? $"{row.received:N0}/{row.ordered:N0} case(s) received · {PalletLabel(row.pallets)}"
-                : $"{row.received:N0} case(s) received · {PalletLabel(row.pallets)}")
-            : $"Expected: {row.ordered:N0} case(s) · Received: 0 · {PalletLabel(row.pallets)}";
+
+        // Pallets here are CASES divided by the SKU's own per-pallet capacity (Ti * Hi), shown to one
+        // decimal place -- distinct from row.pallets (a physical line-item count) below, which the
+        // "needed for order" addendum still uses for how many WHOLE pallets a shortfall rounds up to.
+        int ti = row.sku != null && row.sku.Ti > 0 ? row.sku.Ti : 1;
+        int hi = row.sku != null && row.sku.Hi > 0 ? row.sku.Hi : 1;
+        int perPallet = Mathf.Max(1, ti * hi);
+        string PalletsDecimal(int cases) => (cases / (float)perPallet).ToString("0.0");
+
+        // Ordered AND received side by side, always -- per Tad's explicit call, so the player can
+        // tell at a glance whether a PO came in complete without doing the shortfall math themselves.
+        string caseLine = $"{row.ordered:N0} case(s) ({PalletsDecimal(row.ordered)} pallets) ordered | " +
+                           $"{row.received:N0} case(s) ({PalletsDecimal(row.received)} pallets) received";
 
         Color? highlight = null;
         if (shortShipped)
@@ -3914,9 +4074,6 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
             // required, even when the real shortfall is a handful of cases. Only round up to pallets
             // here once the shortfall itself is a full pallet or more; otherwise state the exact case
             // count so a partial need never gets inflated into "1 pallet", per Tad's explicit call.
-            int ti = row.sku != null && row.sku.Ti > 0 ? row.sku.Ti : 1;
-            int hi = row.sku != null && row.sku.Hi > 0 ? row.sku.Hi : 1;
-            int perPallet = Mathf.Max(1, ti * hi);
             caseLine += row.outOfStock < perPallet
                 ? $" · {row.outOfStock:N0} case(s) needed for order"
                 : $" · {PalletLabel(Mathf.CeilToInt(row.outOfStock / (float)perPallet))} needed for order";
@@ -3930,6 +4087,68 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
 
     return col;
 }
+
+    /// <summary>Tooltip body for a PO whose short-shipped lines are being redelivered under the
+    /// Scheduler's automatic backfill (see ShipmentService.RequestBackfill / ShipmentData.
+    /// IsBackfillPending) — replaces the ordinary expected-cost/line breakdown with the good-faith
+    /// framing Tad asked for. No cost-of-goods figure: nothing is being charged here — the vendor
+    /// already refunded the missing pallets at dispatch (ApplySupplierVariance) and this delivery is
+    /// what they still owe on top of that — so a dollar figure would misstate what's actually
+    /// happening. Takes the header BuildInboundTooltipContent already built (PO number / late-penalty
+    /// / side-lot lines) so the two tooltips share one title block instead of drifting apart.</summary>
+    private VisualElement BuildBackfillTooltipContent(VisualElement col, ShipmentData shipment, DockAppointment appt)
+    {
+        var vendor = VendorRegistry.Load()?.GetById(shipment.SupplierId);
+        string vendorName = vendor != null ? vendor.DisplayName : (shipment.SupplierId ?? "The vendor");
+
+        var badge = MakeText("BACKFILL — GOOD FAITH REDELIVERY", 14, ColDanger, bold: true);
+        badge.style.marginTop = 2; badge.style.marginBottom = 2;
+        col.Add(badge);
+
+        var noteLabel = MakeText(
+            $"{vendorName} shorted this load. In good faith they're sending the shorted quantities " +
+            "listed below — no charges will be incurred.",
+            13, ColSubtleText);
+        noteLabel.style.whiteSpace = WhiteSpace.Normal;
+        noteLabel.style.marginBottom = 6;
+        col.Add(noteLabel);
+
+        col.Add(BuildTooltipDivider());
+
+        ServiceLocator.TryGet<InventoryService>(out var inv);
+        var backfillLines = shipment.BackfillLineItems.ToList();
+        foreach (var li in backfillLines.OrderBy(li => inv?.GetSkuData(li.SkuId)?.ItemNumber ?? 0))
+        {
+            var sku = inv?.GetSkuData(li.SkuId);
+            int owed = li.Quantity - li.ReceivedQuantity;
+            // One ShipmentLineItem IS one pallet (same convention PalletCountForPO relies on), so a
+            // still-owed line is always exactly 1 pallet — never derived from case count.
+            string caseLine = $"{owed:N0} case(s) owed · {PalletLabel(1)}";
+            col.Add(BuildTooltipItemRow(sku, BuildInboundItemDetail(caseLine, 0, ColDanger), ColDanger));
+        }
+
+        int totalCasesOwed = backfillLines.Sum(li => li.Quantity - li.ReceivedQuantity);
+        var totalsLabel = MakeText(
+            $"Backfill total: {totalCasesOwed:N0} case(s) · {PalletLabel(backfillLines.Count)}",
+            12, ColDangerSoft, bold: true);
+        totalsLabel.style.marginTop = 2; totalsLabel.style.marginBottom = 6;
+        col.Add(totalsLabel);
+
+        var cancelBtn = new Button(() =>
+        {
+            if (ServiceLocator.TryGet<ShipmentService>(out var svc) && svc != null)
+                svc.RequestCredit(shipment);
+            RefreshOpenTooltipContent();
+        })
+        { text = "CANCEL BACKFILL — TAKE CREDIT INSTEAD" };
+        StyleOrangeButton(cancelBtn);
+        cancelBtn.style.height = OrangeButtonHeight;
+        cancelBtn.style.backgroundColor = new StyleColor(ColStat);
+        cancelBtn.style.color = new StyleColor(ColSubtleText);
+        col.Add(cancelBtn);
+
+        return col;
+    }
 
     /// <summary>Two buttons shown under a short-shipped PO's cost line once it's received: Request
     /// Backfill (free replacement delivery, scheduled like any other PO) or Request Credit (accept the

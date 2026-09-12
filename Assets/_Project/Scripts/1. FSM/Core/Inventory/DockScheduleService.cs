@@ -735,10 +735,6 @@ namespace GameCore.Inventory
         /// start, not from CurrentDay/CurrentBlock — see SweepReceiveDeadlines.</summary>
         public const int ReceiveDeadlineHours = 8;
 
-        /// <summary>Vendor-partnership hit for a PO expiring unreceived — worse than
-        /// InboundLateRelationshipPenalty since this is a total order loss, not just a slow door.</summary>
-        public const int ReceiveDeadlineRelationshipPenalty = 35;
-
         /// <summary>How many whole days this trailer sits from the day it was booked for. 0 when the
         /// baseline was never recorded (pre-existing save) — see DockAppointment.RequestedDay.</summary>
         public int OffSlotDaysFrom(DockAppointment appt)
@@ -1403,20 +1399,11 @@ namespace GameCore.Inventory
                 appt.ClosedOut = true;
                 appt.WasLate = true;
 
-                if (ServiceLocator.TryGet(out VendorEconomyService economy) && economy != null &&
-                    !string.IsNullOrEmpty(po.SupplierId))
-                {
-                    economy.AdjustPartnershipLevel(po.SupplierId, -ReceiveDeadlineRelationshipPenalty,
-                        $"PO {po.PONumber} expired at the dock — {ReceiveDeadlineHours} hours passed with no full receipt");
-                }
-
                 UIToast.Show($"PO {po.PONumber} expired — {ReceiveDeadlineHours} hours passed with no full " +
-                             $"receipt. Lost the load (${po.TotalCost:N0}, no refund) and took a " +
-                             $"-{ReceiveDeadlineRelationshipPenalty} vendor hit.");
+                             $"receipt. Lost the load (${po.TotalCost:N0}, no refund).");
                 SystemsLogWindow.LogWarning($"PO {po.PONumber} expired at the dock — {ReceiveDeadlineHours} " +
                                              $"hours passed with no full receipt. Order lost, no refund — " +
-                                             $"that's ${po.TotalCost:N0} down the drain and a vendor hit of " +
-                                             $"-{ReceiveDeadlineRelationshipPenalty}.");
+                                             $"that's ${po.TotalCost:N0} down the drain.");
             }
         }
 

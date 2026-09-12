@@ -2354,11 +2354,12 @@ public class PurchasingPanel : IUIPanel
         // the Minimum Dispatch Requirements box's pulse, per Tad's explicit request. Only its color
         // and (for an empty basket — see RefreshHeader's opacity line) its opacity change; it stays
         // clickable throughout.
-        var dispatch = new Button(() =>
+        Button dispatch = null;
+        dispatch = new Button(() =>
         {
             AudioManager.Play("UIClick");
             if (!dispatchMeetsMinimums) PulseRequirementsBox(requirementsBox);
-            DispatchVendorOrder(vendor);
+            DispatchVendorOrder(vendor, dispatch);
         })
         { text = "DISPATCH ORDER" };
         ApplyFont(dispatch, bold: true, size: 12);
@@ -3049,7 +3050,7 @@ public class PurchasingPanel : IUIPanel
 
     // ── Dispatch ─────────────────────────────────────────────────────────────
 
-    private void DispatchVendorOrder(VendorData vendor)
+    private void DispatchVendorOrder(VendorData vendor, VisualElement dispatchButton)
     {
         // No toast here — the button's dimmed opacity (see RefreshHeader) is enough of a signal that
         // there's nothing to dispatch; a click on it does nothing rather than popping a message.
@@ -3074,6 +3075,14 @@ public class PurchasingPanel : IUIPanel
         if (cases < vendor.MinimumOrderCases || cost < vendor.MinimumOrderDollars) return;
         int partnershipLevel = Economy()?.GetState(vendorId)?.PartnershipLevel ?? 0;
         int deliveryFee = DeliveryFeeFor(partnershipLevel, cost);
+
+        // Fires immediately on click, ahead of the confirm dialog below, per Tad's explicit ask —
+        // by this point every validation above has already passed, so it only ever plays for a
+        // genuinely valid dispatch. The number previews the same $1000-per-point rule ShipmentService.
+        // CreatePlayerPurchaseOrder actually applies once the PO is raised.
+        int partnershipGainPreview = Mathf.FloorToInt(cost / 1000f);
+        DispatchRewardFx.Play(_overlay, dispatchButton,
+            $"THANKS FOR YOUR BUSINESS! +{partnershipGainPreview} REPUTATION GAIN");
 
         ShowConfirm($"Dispatch an order to {vendor.DisplayName}?\n\n" +
                     $"{basket.Count} line(s) · {cases:N0} case(s) · {plan.Pallets.Count} pallet(s) · " +

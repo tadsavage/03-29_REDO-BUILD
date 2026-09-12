@@ -83,6 +83,18 @@ public class UIBootstrapper : MonoBehaviour
         // Root fills the screen — must be Ignore so it doesn't block game-world raycasts.
         _hudDocument.rootVisualElement.pickingMode = PickingMode.Ignore;
 
+        // This document hosts every panel TopBarUI builds on it (Scheduler, Purchasing, NewItemPanel,
+        // WorkQueuePanel, ContractsPanel, etc.) plus the truck world-hover popup's SIBLING content —
+        // but the popup itself actually lives on BottomBar's own UIDocument (sortingOrder 120, set in
+        // BuildMenuUI.Awake), since WorldHoverPopupUI.Init is handed a VisualElement fetched from
+        // BuildMenuUI's own root. Left at its scene-serialized 20, this document's panels — the
+        // scheduler/order/purchasing/new-item screens the player opens from the bottom bar — drew
+        // BEHIND the pinned truck tooltip instead of in front of it. UILayers.Hud (999999) is the
+        // value the rest of the layer system (WindowAboveHud = 1000000 on HiringBoard/EmployeeRoster/
+        // ToolsWindow/EmployeeListPanel) already assumes this document sits at — wiring it up here
+        // fixes the ordering without touching any of those other documents.
+        _hudDocument.sortingOrder = UILayers.Hud;
+
         // Preview cost UI
         if (_costUI != null) _costUI.Init(_hudDocument);
 

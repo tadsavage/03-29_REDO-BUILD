@@ -417,15 +417,16 @@ private void HandleIdleHover(bool tickRaycast = true)
                 var truckHit = go.GetComponentInParent<TruckController>();
                 if (truckHit != null)
                 {
-                    // Left OR right click pins/unpins this exact truck — outline + persistent
-                    // tooltip that survives the cursor moving away, closed by clicking it again.
-                    if (!_raycast.IsPointerOverUI &&
-                        (Mouse.current.leftButton.wasPressedThisFrame || Mouse.current.rightButton.wasPressedThisFrame))
+                    // Left click pins/unpins this exact truck — outline + persistent detailed
+                    // tooltip that survives the cursor moving away, closed by left-clicking it
+                    // again. Per Tad's ask, mousing over a truck shows only the regular Name/Cost
+                    // hover card (TickHoverTruckSummary) — the detailed card is click-only.
+                    if (!_raycast.IsPointerOverUI && Mouse.current.leftButton.wasPressedThisFrame)
                     {
                         _hoverUI.ToggleTruckPin(truckHit);
                     }
 
-                    _hoverUI.TickHoverTruck(true, truckHit, hitPoint, Camera.main);
+                    _hoverUI.TickHoverTruckSummary(true, truckHit, hitPoint, Camera.main);
                     return;
                 }
 
