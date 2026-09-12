@@ -929,9 +929,6 @@ PrefabInstance:
       addedObject: {fileID: 5772971941250231083}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 5486685947978845608}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 8535206635699553760}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 61245818d93edf240a8a9c737f6e72ee, type: 3}
       insertIndex: -1
@@ -1089,25 +1086,6 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
---- !u!114 &5486685947978845608
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5600343475338616855}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d9b3b9e29f9727440abb52245c9fc723, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NavAgentGuidance
-  showGuidanceLine: 1
-  colorType: 7
-  lineWidth: 0.25
-  isDashed: 1
-  pointsPerSegment: 10
-  verticalOffset: 0.05
-  guidanceMaterial: {fileID: -876546973899608171, guid: dea41a882d6ef87489402d2409c08094, type: 3}
 --- !u!114 &8535206635699553760
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1311,7 +1289,6 @@ MonoBehaviour:
   unloadDuration: 10
   offloadFallbackTimeout: 60
   exitShrinkTime: 1.5
-  doorWaitMinutes: 60
   doorWaitPollSeconds: 2
   doorOpenSpeed: 150
   driverDoorOpenAngle: 170

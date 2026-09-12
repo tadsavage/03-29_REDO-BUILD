@@ -164,7 +164,7 @@ public class PurchasingPanel : IUIPanel
     private readonly HashSet<string> _multiVendorFilterVendorIds = new();
 
     /// <summary>"Critical Items" special filter — shows only vendors currently carrying at least one
-    /// item in net demand (see CountCriticalItems), combined (AND) with any selected vendors above.
+    /// item in net demand (see TotalCriticalShortfall), combined (AND) with any selected vendors above.
     /// The TOGGLE for this lives on the ITEM filter dropdown (see BuildMultiVendorItemFilter), not
     /// here — moved there per Tad's request, since "critical" is a property of items, not vendors.
     /// The flag itself stays here because it still gates the VENDOR LIST (BuildMultiVendorTab), same
@@ -1719,7 +1719,7 @@ public class PurchasingPanel : IUIPanel
         if (_multiVendorFilterVendorIds.Count > 0)
             vendors = vendors.Where(v => v != null && _multiVendorFilterVendorIds.Contains(v.VendorId)).ToList();
         if (_multiVendorFilterCriticalOnly)
-            vendors = vendors.Where(v => v != null && CountCriticalItems(v.VendorId) > 0).ToList();
+            vendors = vendors.Where(v => v != null && TotalCriticalShortfall(v.VendorId) > 0).ToList();
         if (!string.IsNullOrEmpty(_multiVendorItemFilterSkuId))
             vendors = vendors.Where(v => v != null && VendorCarries(v.VendorId, _multiVendorItemFilterSkuId)).ToList();
 
@@ -2417,7 +2417,7 @@ public class PurchasingPanel : IUIPanel
             var plan = TrailerCapacity.Plan(lines);
             int cases = lines.Sum(l => l.cases);
             float cost = lines.Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
-            int critical = CountCriticalItems(vendorId);
+            int critical = TotalCriticalShortfall(vendorId);
             statCritical.text = $"[{critical}] critical items";
             statCases.text = $"{cases:N0} case(s)";
             statPallets.text = $"{plan.Pallets.Count:N0} pallet(s)";
@@ -2592,7 +2592,7 @@ public class PurchasingPanel : IUIPanel
 
         row.Add(MultiVendorStatCell("ON HAND", onHand.ToString("N0"), ColSubtleText));
         row.Add(MultiVendorStatCell("ON ORDER", onOrder.ToString("N0"), ColSubtleText));
-        var inDemandCell = MultiVendorStatCell("IN DEMAND", inDemand.ToString("N0"),
+        var inDemandCell = MultiVendorStatCell("TOTAL SHORTFALL", inDemand.ToString("N0"),
                                                 inDemand > 0 ? ColDanger : ColSubtleText, out var inDemandLabel);
         row.Add(inDemandCell);
         row.Add(MultiVendorStatCell("BUY", Money(buy), ColBuyPrice));
@@ -2753,14 +2753,16 @@ public class PurchasingPanel : IUIPanel
         return false;
     }
 
-    /// <summary>How many distinct SKUs this vendor carries are still in NET demand right now — same
-    /// netting BuildMultiVendorItemRow's own IN DEMAND cell uses (on-hand + on-order + in-progress
-    /// subtracted off), so a vendor's "[N] critical items" count and its expanded rows' own red IN
-    /// DEMAND numbers can never disagree. Drives the vendor header's summary line.</summary>
-    private int CountCriticalItems(string vendorId)
+    /// <summary>Total shortfall quantity (cases) across every SKU this vendor carries that's still in
+    /// NET demand right now — same netting BuildMultiVendorItemRow's own TOTAL SHORTFALL cell uses
+    /// (on-hand + on-order + in-progress subtracted off gross order demand), summed rather than
+    /// counted as distinct SKUs, so a vendor's "[N] critical items" figure reads as "how many cases
+    /// are we still short" instead of "how many different SKUs". Drives the vendor header's summary
+    /// line.</summary>
+    private int TotalCriticalShortfall(string vendorId)
     {
         var catalogue = Economy()?.GetAvailableCatalogue(vendorId) ?? new List<VendorCatalogueEntry>();
-        int count = 0;
+        int totalShortfall = 0;
         foreach (var entry in catalogue)
         {
             var sku = entry?.Sku;
@@ -2770,9 +2772,9 @@ public class PurchasingPanel : IUIPanel
             int onHand = Inventory()?.TotalOnHand(sku.SkuId) ?? 0;
             int onOrder = Economy()?.GetTotalOnOrder(sku.SkuId) ?? 0;
             int inProgress = TotalInProgressCases(sku.SkuId);
-            if (gross - onHand - onOrder - inProgress > 0) count++;
+            totalShortfall += Mathf.Max(0, gross - onHand - onOrder - inProgress);
         }
-        return count;
+        return totalShortfall;
     }
 
     // ── Per-vendor basket (the multi-vendor tab's own state, separate from `_basket`) ────────────

@@ -11,8 +11,10 @@ public class NavAgentGuidance : MonoBehaviour
     }
 
     [Header("Visibility")]
-    [Tooltip("Turn the guidance line on or off for this agent.")]
-    public bool showGuidanceLine = true;
+    [Tooltip("Turn the guidance line on or off for this agent. Off by default — this is a dev/debug " +
+             "path visual (toggled globally via Dev Tools > Show Guidance Lines), not something meant " +
+             "to render during normal play.")]
+    public bool showGuidanceLine = false;
 
     [Header("Visuals")]
     [Tooltip("Choose the color of the guidance line.")]

@@ -417,6 +417,14 @@ private void HandleIdleHover(bool tickRaycast = true)
                 var truckHit = go.GetComponentInParent<TruckController>();
                 if (truckHit != null)
                 {
+                    // Left OR right click pins/unpins this exact truck — outline + persistent
+                    // tooltip that survives the cursor moving away, closed by clicking it again.
+                    if (!_raycast.IsPointerOverUI &&
+                        (Mouse.current.leftButton.wasPressedThisFrame || Mouse.current.rightButton.wasPressedThisFrame))
+                    {
+                        _hoverUI.ToggleTruckPin(truckHit);
+                    }
+
                     _hoverUI.TickHoverTruck(true, truckHit, hitPoint, Camera.main);
                     return;
                 }
