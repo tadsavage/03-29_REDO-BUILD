@@ -130,6 +130,10 @@ public class WallVisibilityManager : MonoBehaviour
         _currentMode = mode;
         RefreshWallList();
 
+        // No walls placed yet — there's nothing to slide, so skip the coroutine entirely
+        // rather than let it play slideSound for a no-op transition.
+        if (_trackedWalls.Count == 0) return;
+
         if (_activeSlideCoroutine != null) StopCoroutine(_activeSlideCoroutine);
         _activeSlideCoroutine = StartCoroutine(SlideWallsRoutine());
     }

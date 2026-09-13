@@ -133,7 +133,16 @@ public class PlacementFinalizer : MonoBehaviour
         }
 
         if (!silent && FXPool.Instance != null)
-            FXPool.Instance.Play("dust", pos);
+        {
+            // Foundations raise the ground up to a fixed top surface height (matches
+            // WallVisibilityManager's foundationHeight constant) — the dust poof should appear
+            // at that surface, not at pos.y (the foundation's base/pivot height at ground level).
+            Vector3 fxPos = pos;
+            if (data.category == "Foundation")
+                fxPos.y = 1.06f;
+
+            FXPool.Instance.Play("dust", fxPos);
+        }
 
         // Initialize PlacedObject
         var po = instance.GetComponent<PlacedObject>();

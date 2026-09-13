@@ -4858,7 +4858,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FXPool
   entries:
   - key: dust
-    prefab: {fileID: 6656116618551341391, guid: bdf277fe876c56f4591de572bf4f7ff9, type: 3}
+    prefab: {fileID: 8224869300702003435, guid: 6c8499308af8e3544907e8bba6718a72, type: 3}
     preload: 200
 --- !u!4 &499553980
 Transform:
@@ -5818,8 +5818,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 614450591}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.26356646, y: -0.10472528, z: 0.028796937, w: -0.9585072}
-  m_LocalPosition: {x: 3.186041, y: 10.887293, z: -50.351635}
+  m_LocalRotation: {x: -0.20246267, y: 0.055379283, z: -0.011468493, w: -0.97765565}
+  m_LocalPosition: {x: -35.971252, y: 17.871647, z: -33.082798}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -8471,7 +8471,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.Volume
   m_IsGlobal: 1
-  priority: 0
+  priority: 1
   blendDistance: 0
   weight: 1
   sharedProfile: {fileID: 11400000, guid: 6c5dcd4fb59116d44b6f9f3ec6011a51, type: 2}
@@ -14729,7 +14729,7 @@ MonoBehaviour:
   m_IsGlobal: 1
   priority: 2
   blendDistance: 0
-  weight: 1
+  weight: 0
   sharedProfile: {fileID: 11400000, guid: 05f51974ad314de4987a1198c43efc28, type: 2}
 --- !u!114 &1778536584
 MonoBehaviour:

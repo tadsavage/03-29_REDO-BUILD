@@ -173,12 +173,21 @@
 .buildmenu-utility-row {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
+    align-content: center;
     flex-grow: 0;
     flex-shrink: 0;
-    /* Explicitly prevent your utilities row from over-expanding */
-    max-width: 520px !important;
+    /* Fixed (not max-) width: a cap alone still let the flex layout shrink this row below
+       150px in narrower/free-aspect windows, which wrapped it to 2-per-row instead of 3
+       (Delete/Move, Undo/Redo, Lower/Raise) instead of the intended 3-per-row grid.
+       Per-button footprint is width(42) + padding(2+2) + border(1+1) + margin(4+4) = 56px,
+       so 3 buttons need 168px minimum — 176px adds a small rounding buffer. */
+    width: 176px !important;
+    flex-shrink: 0 !important;
+    /* Nudge the 2-row grid up off the bottom bar's lower edge / screen edge. */
+    translate: 0 -10px;
 }
 
 /* Category buttons — card face.
@@ -289,8 +298,8 @@
 }
 
 .buildmenu-utility-button {
-    width: 84px;
-    height: 84px;
+    width: 42px;
+    height: 42px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -299,7 +308,7 @@
     border-radius: 6px;
     border-width: 1px;
     border-color: rgba(255, 255, 255, 0.08);
-    padding: 4px;
+    padding: 2px;
     margin: 4px;
     opacity: 1;
 }
@@ -311,18 +320,18 @@
 }
 
 .buildmenu-utility-icon {
-    width: 56px;
-    height: 56px;
+    width: 28px;
+    height: 28px;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     -unity-background-image-tint-color: #96BEDC;
 }
 
 .buildmenu-utility-label {
     -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
-    font-size: 15px;
+    font-size: 8px;
     -unity-text-letter-spacing: -1px;
     -unity-font-style: bold;
     color: #96BEDC;

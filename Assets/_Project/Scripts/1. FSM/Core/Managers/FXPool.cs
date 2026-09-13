@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
 public class FXPool : MonoBehaviour
@@ -29,6 +29,12 @@ public class FXPool : MonoBehaviour
     {
         public GameObject go;
         public ParticleSystem[] systems;
+
+        // Support for Animator/SpriteRenderer-driven FX (e.g. a sprite-sequence smoke poof)
+        // alongside the original ParticleSystem-only FX. When systems is empty and animator
+        // is set, lifetime is timed off animatorDuration instead of ParticleSystem.IsAlive().
+        public Animator animator;
+        public float animatorDuration;
     }
 
     private readonly Dictionary<string, Queue<FXObject>> _pools =
@@ -98,10 +104,29 @@ public class FXPool : MonoBehaviour
             main.useUnscaledTime = true;
         }
 
+        // Animator-driven FX (e.g. a sprite-sequence smoke poof) have no ParticleSystem to time
+        // against — read the assigned clip's length directly off the controller so ReturnWhenDone
+        // can wait for the correct duration instead of returning the instance to the pool before
+        // it has even played.
+        Animator animator = null;
+        float animatorDuration = 0f;
+        if (systems.Length == 0)
+        {
+            animator = go.GetComponentInChildren<Animator>(true);
+            if (animator != null && animator.runtimeAnimatorController != null)
+            {
+                var clips = animator.runtimeAnimatorController.animationClips;
+                if (clips != null && clips.Length > 0)
+                    animatorDuration = clips[0].length;
+            }
+        }
+
         return new FXObject
         {
             go = go,
-            systems = systems
+            systems = systems,
+            animator = animator,
+            animatorDuration = animatorDuration
         };
     }
     public static readonly System.Collections.Generic.HashSet<string> DisabledKeys =
@@ -149,6 +174,18 @@ public class FXPool : MonoBehaviour
         foreach (var ps in fx.systems)
             ps.Play(true);
 
+        // Animator-driven FX don't restart on their own: re-enabling the GameObject resumes the
+        // state machine wherever it was left (frozen on the last frame, since the clip doesn't
+        // loop) rather than replaying from the start. Play() back into the same state at
+        // normalizedTime 0 forces a clean restart — Rebind() (tried first) tears down and rebuilds
+        // the whole playable graph, which proved unreliable and only ever showed a single frame.
+        if (fx.animator != null)
+        {
+            int stateHash = fx.animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
+            fx.animator.Play(stateHash, 0, 0f);
+            fx.animator.Update(0f);
+        }
+
         StartCoroutine(ReturnWhenDone(key, fx));
     }
 
@@ -163,24 +200,34 @@ public class FXPool : MonoBehaviour
 
     private System.Collections.IEnumerator ReturnWhenDone(string key, FXObject fx)
     {
-        bool alive = true;
-        while (alive)
+        if (fx.systems.Length == 0 && fx.animator != null)
         {
-            alive = false;
-
-            foreach (var ps in fx.systems)
+            // Animator-driven FX (no ParticleSystem) — wait for its clip's real duration instead
+            // of ParticleSystem.IsAlive(), which would immediately report "not alive" and return
+            // this instance to the pool (deactivating it) before the animation ever plays.
+            yield return new WaitForSecondsRealtime(fx.animatorDuration > 0f ? fx.animatorDuration : 1f);
+        }
+        else
+        {
+            bool alive = true;
+            while (alive)
             {
-                if (ps == null || ps.Equals(null))
-                    continue;
+                alive = false;
 
-                if (ps.IsAlive(true))
+                foreach (var ps in fx.systems)
                 {
-                    alive = true;
-                    break;
-                }
-            }
+                    if (ps == null || ps.Equals(null))
+                        continue;
 
-            yield return null;
+                    if (ps.IsAlive(true))
+                    {
+                        alive = true;
+                        break;
+                    }
+                }
+
+                yield return null;
+            }
         }
 
         // The instance may have been destroyed (scene change / pool rebuild) — drop it.
