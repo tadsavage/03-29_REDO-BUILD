@@ -264,7 +264,7 @@ public class DeleteState : PlacementStateBase
             ClearHover();
 
             // Single delete = single command
-            _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid, _money, _destructionDuration, _destructionSinkAmount, _destructionVibrationAmount, _destructionVibrationSpeed));
+            _fsm.History.Push(new DeleteCommand(bd.gameObject, _grid, _finalizer, _money, _destructionDuration, _destructionSinkAmount, _destructionVibrationAmount, _destructionVibrationSpeed));
 
             AudioManager.Play("Delete");
         }
@@ -770,7 +770,7 @@ public class DeleteState : PlacementStateBase
                     var bd = h.GetComponent<BuildingData>();
                     if (bd != null)
                     {
-                        _fsm.History.AddToBatch(new DeleteCommand(bd.gameObject, _grid, _money, _destructionDuration, _destructionSinkAmount, _destructionVibrationAmount, _destructionVibrationSpeed));
+                        _fsm.History.AddToBatch(new DeleteCommand(bd.gameObject, _grid, _finalizer, _money, _destructionDuration, _destructionSinkAmount, _destructionVibrationAmount, _destructionVibrationSpeed));
                     }
                 }
             }

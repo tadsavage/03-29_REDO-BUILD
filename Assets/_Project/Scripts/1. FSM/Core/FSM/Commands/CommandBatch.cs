@@ -1,4 +1,6 @@
-public class CommandBatch : ICommand
+using UnityEngine;
+
+public class CommandBatch : ICommand, IWallInstanceRelocatable
 {
     private readonly ICommand[] _commands;
 
@@ -24,5 +26,12 @@ public class CommandBatch : ICommand
     {
         foreach (var cmd in _commands)
             cmd.Redo();
+    }
+
+    public void RelocateWallInstance(GameObject oldInstance, GameObject newInstance)
+    {
+        foreach (var cmd in _commands)
+            if (cmd is IWallInstanceRelocatable relocatable)
+                relocatable.RelocateWallInstance(oldInstance, newInstance);
     }
 }

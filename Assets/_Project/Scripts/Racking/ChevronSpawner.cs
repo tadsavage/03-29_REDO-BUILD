@@ -233,13 +233,20 @@ public class ChevronSpawner : MonoBehaviour
         return mid;
     }
 
+    // The ChevronRight/ChevronLeft artwork (Assets/_Project/Art/Icons) points along the sprite's own
+    // local +X (screen-right) in its unrotated 2D texture. All the yaw math below assumes a sprite
+    // whose point direction is local +Y (screen-up) — that was true of the old placeholder icon it
+    // replaced. This corrective spin (in the sprite's own flat plane, applied before the lie-flat
+    // tilt) remaps +X to +Y so the rest of the pipeline doesn't need to change.
+    private static readonly Quaternion ChevronArtCorrection = Quaternion.Euler(0f, 0f, 90f);
+
     /// <summary>Flat resting orientation that points a chevron down the run.</summary>
     private Quaternion FacingDown(bool runAlongY)
     {
         Vector3 runWorldDir = runAlongY ? Vector3.forward : Vector3.right;
         // Flat arrow lies along +Z after Euler(90,0,0), so yaw from +Z to the run.
         float yaw = Vector3.SignedAngle(Vector3.forward, runWorldDir, Vector3.up);
-        return Quaternion.AngleAxis(yaw, Vector3.up) * Quaternion.Euler(90f, 0f, 0f);
+        return Quaternion.AngleAxis(yaw, Vector3.up) * Quaternion.Euler(90f, 0f, 0f) * ChevronArtCorrection;
     }
 
     private void RefreshChevrons(AisleExtent ext, FacingPair pair)

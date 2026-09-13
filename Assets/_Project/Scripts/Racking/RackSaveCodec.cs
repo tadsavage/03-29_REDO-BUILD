@@ -84,6 +84,13 @@ public static class RackSaveCodec
         po.rackAisleFacing = face;
         po.rackTravelDir = travel;
         po.rackLevelChar = levelChar;
+
+        // AisleRegistry lives only in memory and is never itself persisted, so a loaded save
+        // starts with it empty — without this, every restored aisle number silently reads as
+        // "unused" and RackSetupUI's duplicate-aisle check (and edit-mode dropdown prefill) has
+        // nothing to check against. Re-register on every restored rack (idempotent) so the
+        // registry is fully rebuilt by the time the player can open any setup/edit modal.
+        AisleRegistry.RegisterLevel(aisle, level, levelChar == "0" ? "Pick" : "Reserve");
     }
 
     private static float ParseF(string s, CultureInfo c) =>

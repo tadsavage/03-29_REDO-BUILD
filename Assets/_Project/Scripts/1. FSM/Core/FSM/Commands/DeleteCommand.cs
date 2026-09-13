@@ -5,9 +5,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-public class DeleteCommand : PlacementCommandBase
+public class DeleteCommand : PlacementCommandBase, IWallInstanceRelocatable
 {
     private readonly PlacementGrid _grid;
+    private readonly PlacementFinalizer _finalizer;
     private readonly ObjDataSO _data;
     private readonly Vector2Int[] _offsets;
     private readonly Vector2Int _root;
@@ -18,7 +19,9 @@ public class DeleteCommand : PlacementCommandBase
     private readonly float _vibrationAmount;
     private readonly float _vibrationSpeed;
 
-    private readonly GameObject _target;
+    // Not readonly: RelocateWallInstance() below updates this if the target gets swapped for a
+    // different wall shape (Wall<->Corner<->T-Wall) while this command still sits in history.
+    private GameObject _target;
 
     // Floors that were hidden under the foundation and get revealed when it's deleted
     private readonly List<GameObject> _reEnabledFloors = new();
@@ -52,12 +55,13 @@ public class DeleteCommand : PlacementCommandBase
 
     private static bool IsGround(ObjDataSO d) => d != null && (d.category == "Foundation" || d.category == "Grounds");
 
-    public DeleteCommand(GameObject target, PlacementGrid grid, MoneyService money,
+    public DeleteCommand(GameObject target, PlacementGrid grid, PlacementFinalizer finalizer, MoneyService money,
         float duration, float sinkAmount, float vibrationAmount, float vibrationSpeed)
         : base($"Delete {target?.GetComponent<BuildingData>()?.Data?.objName ?? "Object"}")
     {
         _target = target;
         _grid = grid;
+        _finalizer = finalizer;
         _money = money;
         _duration = duration;
         _sinkAmount = sinkAmount;
@@ -186,7 +190,7 @@ public class DeleteCommand : PlacementCommandBase
             // Animation: floor tile sinks along with the foundation
             var effect = floor.GetComponent<BuildingDestructionEffect>();
             if (effect == null) effect = floor.AddComponent<BuildingDestructionEffect>();
-            effect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed);
+            effect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed, po.data.footprint);
         }
 
         // 1a. Owned default tiles: refund + remove from grid explicitly (grid membership isn't tied
@@ -299,11 +303,14 @@ public class DeleteCommand : PlacementCommandBase
 
         var foundationEffect = _target.GetComponent<BuildingDestructionEffect>();
         if (foundationEffect == null) foundationEffect = _target.AddComponent<BuildingDestructionEffect>();
-        foundationEffect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed);
+        foundationEffect.Initialize(_duration, _sinkAmount, _vibrationAmount, _vibrationSpeed, _data.footprint);
         foundationEffect.OnComplete = RevealHiddenFloors;
 
         // 5. NavMesh: always rebake when a foundation is deleted (floor surface changes)
         NavMeshManager.Instance?.MarkDirty();
+
+        if (_data != null && _data.category == "Walls")
+            WallConnectivityManager.Instance?.RecomputeArea(_grid, _finalizer, _money, _root);
 
         PublishBuildEvent(GameEvents.Build.OnObjectDeleted, _target.GetComponent<PlacedObject>());
     }
@@ -475,11 +482,20 @@ public class DeleteCommand : PlacementCommandBase
 
         NavMeshManager.Instance?.MarkDirty();
 
+        if (_data != null && _data.category == "Walls")
+            WallConnectivityManager.Instance?.RecomputeArea(_grid, _finalizer, _money, _root);
+
         PublishBuildEvent(GameEvents.Build.OnObjectPlaced, _target.GetComponent<PlacedObject>());
     }
 
     public override void Redo()
     {
         Execute();
+    }
+
+
+    public void RelocateWallInstance(GameObject oldInstance, GameObject newInstance)
+    {
+        if (ReferenceEquals(_target, oldInstance)) _target = newInstance;
     }
 }

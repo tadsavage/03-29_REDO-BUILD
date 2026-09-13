@@ -124,6 +124,10 @@ public class SlotRegistry : MonoBehaviour
         em.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
     }
 
+    /// <summary>Forces an immediate rebuild rather than waiting for the 1s heartbeat — used by
+    /// AisleRenameService so a just-submitted rename's new addresses are queryable immediately.</summary>
+    public static void ForceRecompute() => _instance?.Recompute();
+
     public void Recompute()
     {
         _slotsByAddress.Clear(); // source of truth is live geometry — full rebuild every pass

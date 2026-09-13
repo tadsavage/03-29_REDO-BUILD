@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 public class CommandHistory
 {
@@ -87,6 +88,34 @@ public class CommandHistory
 
     public int UndoCount => _undo.Count;
     public int RedoCount => _redo.Count;
+
+    // ---------------------------------------------------------
+    // WALL SHAPE-SWAP RELOCATION
+    // ---------------------------------------------------------
+    /// <summary>
+    /// Called by WallConnectivityManager immediately after it destroys a wall-family GameObject
+    /// and replaces it with a new one (Wall/Corner/T-Wall auto-swap). Walks every command still
+    /// reachable from the undo stack, the redo stack, and any in-progress batch, and gives each
+    /// one that implements IWallInstanceRelocatable a chance to swap its own cached reference —
+    /// otherwise an EARLIER command's later Undo()/Redo() would silently no-op on a GameObject
+    /// that's since been destroyed. See IWallInstanceRelocatable for the full story.
+    /// </summary>
+    public void RelocateWallInstance(GameObject oldInstance, GameObject newInstance)
+    {
+        if (oldInstance == null || newInstance == null || ReferenceEquals(oldInstance, newInstance))
+            return;
+
+        foreach (var cmd in _undo) RelocateOne(cmd, oldInstance, newInstance);
+        foreach (var cmd in _redo) RelocateOne(cmd, oldInstance, newInstance);
+        if (_currentBatch != null)
+            foreach (var cmd in _currentBatch) RelocateOne(cmd, oldInstance, newInstance);
+    }
+
+    private static void RelocateOne(ICommand cmd, GameObject oldInstance, GameObject newInstance)
+    {
+        if (cmd is IWallInstanceRelocatable relocatable)
+            relocatable.RelocateWallInstance(oldInstance, newInstance);
+    }
 
     public void Clear()
     {

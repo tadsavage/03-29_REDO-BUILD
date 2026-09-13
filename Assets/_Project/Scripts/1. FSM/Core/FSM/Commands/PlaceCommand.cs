@@ -4,7 +4,7 @@ using GameCore.Events;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlaceCommand : PlacementCommandBase
+public class PlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
 {
     private readonly PlacementGrid _grid;
     private readonly PlacementFinalizer _finalizer;
@@ -224,6 +224,9 @@ public class PlaceCommand : PlacementCommandBase
         if (NeedsNavMesh(_data) || _disabledFloors.Count > 0)
             NavMeshManager.Instance?.MarkDirty();
 
+        if (_data != null && _data.category == "Walls")
+            WallConnectivityManager.Instance?.RecomputeArea(_grid, _finalizer, _money, _root);
+
         PublishBuildEvent(GameEvents.Build.OnObjectPlaced, _instance.GetComponent<PlacedObject>());
     }
 
@@ -326,6 +329,9 @@ public class PlaceCommand : PlacementCommandBase
 
         if (NeedsNavMesh(_data) || revealedFloor)
             NavMeshManager.Instance?.MarkDirty();
+
+        if (_data != null && _data.category == "Walls")
+            WallConnectivityManager.Instance?.RecomputeArea(_grid, _finalizer, _money, _root);
     }
 
     public override void Redo()
@@ -438,9 +444,19 @@ public class PlaceCommand : PlacementCommandBase
         if (NeedsNavMesh(_data))
             NavMeshManager.Instance?.MarkDirty();
 
+        if (_data != null && _data.category == "Walls")
+            WallConnectivityManager.Instance?.RecomputeArea(_grid, _finalizer, _money, _root);
+
         PublishBuildEvent(GameEvents.Build.OnObjectPlaced, _instance.GetComponent<PlacedObject>());
     }
 
     private static bool NeedsNavMesh(ObjDataSO d) =>
         d.isFloor || d.pathfindingClear || d.ignorePlacementRules || d.CanUseStairs || IsGround(d);
+
+    public void RelocateWallInstance(GameObject oldInstance, GameObject newInstance)
+    {
+        if (ReferenceEquals(_instance, oldInstance)) _instance = newInstance;
+        for (int i = 0; i < _replacedWalls.Count; i++)
+            if (ReferenceEquals(_replacedWalls[i], oldInstance)) _replacedWalls[i] = newInstance;
+    }
 }

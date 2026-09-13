@@ -106,6 +106,11 @@ public class LocationRegistry : MonoBehaviour
 
     // ── Recompute ────────────────────────────────────────────────────────────────────────
 
+    /// <summary>Forces an immediate rebuild rather than waiting for the 1s heartbeat — used by
+    /// AisleRenameService so lookups (PutawayLogic, OrderPickPath, SlotAssignmentPanel) are
+    /// consistent with a just-submitted rename before the next frame, not up to a second later.</summary>
+    public static void ForceRecompute() => _instance?.Recompute();
+
     /// <summary>
     /// Rebuilds the location map from the live rack scene graph.
     ///

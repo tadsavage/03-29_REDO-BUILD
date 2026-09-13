@@ -243,7 +243,7 @@ public class MoveCommand : PlacementCommandBase
             var oldLanding = r.instance.GetComponent<SmoothLanding>();
             if (oldLanding != null) Object.DestroyImmediate(oldLanding);
             var landing = r.instance.AddComponent<SmoothLanding>();
-            landing.Initialize(finalPos + Vector3.up * offset, finalPos, smooth);
+            landing.Initialize(finalPos + Vector3.up * offset, finalPos, smooth, r.data.footprint);
         }
     }
 
@@ -460,7 +460,8 @@ public class MoveCommand : PlacementCommandBase
         if (oldLanding != null) Object.DestroyImmediate(oldLanding);
 
         var landing = _instance.AddComponent<SmoothLanding>();
-        landing.Initialize(finalPos + Vector3.up * offset, finalPos, smooth);
+        landing.Initialize(finalPos + Vector3.up * offset, finalPos, smooth,
+            _data != null ? _data.footprint : default);
 
         var po = _instance.GetComponent<PlacedObject>();
         if (po != null)

@@ -76,6 +76,17 @@ namespace GameCore.Labor
             FromLocation = address;
         }
 
+        /// <summary>Rewrites FromLocation/ToLocation in place when a rack address they reference is
+        /// renamed (see AisleRenameService). Unlike <see cref="AssignFromLocation"/>, this is NOT
+        /// restricted to PalletPick — ANY task type's From/ToLocation can point into a renamed
+        /// aisle (a Putaway's ToLocation, a Replenish's From/ToLocation, etc.), and a rename must
+        /// not silently orphan a job already in flight.</summary>
+        public void RenameLocationReferences(string oldAddress, string newAddress)
+        {
+            if (FromLocation == oldAddress) FromLocation = newAddress;
+            if (ToLocation == oldAddress) ToLocation = newAddress;
+        }
+
         /// <summary>The storage area (Grocery, Perishable, or Frozen) of the item being worked on,
         /// pulled from the SKU's StorageArea. Used for routing/display and downstream employee specialization.</summary>
         public PalletData.AreaCategory Area { get; }

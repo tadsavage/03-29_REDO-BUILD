@@ -5,7 +5,11 @@ using System;
 /// <summary>
 /// Modal UI for configuring a new aisle. Only exposes the two reachable levels
 /// (anchor ≤ 80"); levels above that are always Reserve and never shown here.
-/// Opened from a chevron's double-click (see ChevronController.OpenSetup).
+/// Opened from a chevron's double-click (see ChevronController.OpenSetup) for a BRAND NEW aisle,
+/// or from double-clicking an already-live rack (see RackEditInteractionService) to EDIT an
+/// existing one — even mid-game, with pallets already stored in it. Edit mode reuses the exact
+/// same aisle-number + level dropdowns, but submits through <see cref="OnEditSubmit"/> instead of
+/// <see cref="OnSubmit"/> so AisleInitializer can route it to a rename instead of a first commit.
 /// </summary>
 public class RackSetupUI : MonoBehaviour
 {
@@ -27,9 +31,21 @@ public class RackSetupUI : MonoBehaviour
     public event Action<RackSetupData> OnSubmit;
     public event Action OnCancel;
 
+    /// <summary>Fired instead of <see cref="OnSubmit"/> when the modal was opened via
+    /// <see cref="OpenForEdit"/> (double-click on an already-live rack) rather than a chevron.</summary>
+    public event Action<RackEditData> OnEditSubmit;
+
     private ChevronController _selectedChevron;
     private AisleInitializer _aisleInitializer;
     private bool _initialized;
+
+    // >= 0 while editing an already-live aisle (see OpenForEdit); -1 means this is a normal
+    // brand-new-aisle setup driven by a chevron double-click.
+    private int _editingAisle = -1;
+
+    /// <summary>True while the modal is currently shown — lets other double-click listeners
+    /// (ChevronController, RackEditInteractionService) avoid opening a second one on top.</summary>
+    public bool IsOpen => _overlay != null && _overlay.style.display == DisplayStyle.Flex;
 
     private void OnEnable()
     {
@@ -147,8 +163,12 @@ public class RackSetupUI : MonoBehaviour
             return;
         }
 
-        // Duplicate aisle number → toast per spec.
-        if (AisleRegistry.IsUsed(aisleNum))
+        bool isEdit = _editingAisle >= 0;
+
+        // Duplicate aisle number → toast per spec. In edit mode, keeping the SAME number is fine
+        // (that's just a level-scheme change) — only a number that belongs to a DIFFERENT aisle
+        // is rejected.
+        if (aisleNum != _editingAisle && AisleRegistry.IsUsed(aisleNum))
         {
             UIToast.Show("Aisle number already in use!");
             return;
@@ -164,6 +184,20 @@ public class RackSetupUI : MonoBehaviour
                 levelDesignations[i] = _levelDropdowns[i]?.value ?? "Pick";
             else
                 levelDesignations[i] = "Reserve";
+        }
+
+        if (isEdit)
+        {
+            var editData = new RackEditData
+            {
+                previousAisleNumber = _editingAisle,
+                newAisleNumber = aisleNum,
+                levelDesignations = levelDesignations
+            };
+            _editingAisle = -1;
+            OnEditSubmit?.Invoke(editData);
+            CloseUI();
+            return;
         }
 
         var data = new RackSetupData
@@ -186,6 +220,7 @@ public class RackSetupUI : MonoBehaviour
 
     private void HandleCancel()
     {
+        _editingAisle = -1;
         OnCancel?.Invoke();
         CloseUI();
     }
@@ -206,6 +241,8 @@ public class RackSetupUI : MonoBehaviour
         // Safety: in case OnEnable ran before the tree existed, ensure we're initialized.
         TryInitialize();
 
+        _editingAisle = -1; // a chevron-driven open is always a brand-new aisle, never an edit
+
         // Reset dropdowns to "Pick" every time the modal opens — otherwise a previous
         // aisle's Reserve choice would linger for the next one.
         for (int i = 0; i < REACHABLE_LEVELS; i++)
@@ -215,6 +252,37 @@ public class RackSetupUI : MonoBehaviour
         }
         if (_aisleInput != null)
             _aisleInput.SetValueWithoutNotify(string.Empty);
+
+        Show();
+
+        if (_aisleInput != null)
+            _aisleInput.Focus();
+    }
+
+    /// <summary>
+    /// Reopens the modal to EDIT an already-live aisle (see RackEditInteractionService), prefilled
+    /// with its current aisle number and per-level Pick/Reserve scheme. Submitting fires
+    /// <see cref="OnEditSubmit"/> instead of <see cref="OnSubmit"/> — AisleInitializer routes that
+    /// to AisleRenameService rather than the first-commit path, since the rack, its geometry, and
+    /// its bay/travel-direction metadata are already settled and must not be touched.
+    /// </summary>
+    public void OpenForEdit(int aisleNumber)
+    {
+        TryInitialize();
+
+        _editingAisle = aisleNumber;
+        _selectedChevron = null; // edit mode never has a chevron behind it
+
+        string[] designations = AisleRegistry.GetDesignations(aisleNumber);
+        for (int i = 0; i < REACHABLE_LEVELS; i++)
+        {
+            if (_levelDropdowns[i] == null) continue;
+            _levelDropdowns[i].value = (designations != null && i < designations.Length)
+                ? designations[i]
+                : "Pick";
+        }
+        if (_aisleInput != null)
+            _aisleInput.SetValueWithoutNotify(aisleNumber.ToString("D2"));
 
         Show();
 
@@ -241,5 +309,16 @@ public class RackSetupUI : MonoBehaviour
 public class RackSetupData
 {
     public int aisleNumber;
+    public string[] levelDesignations; // length 6: reachable from UI, upper 4 always "Reserve"
+}
+
+/// <summary>
+/// Data returned when an EDIT (see RackSetupUI.OpenForEdit) is confirmed — carries the aisle's OLD
+/// number too, since AisleRenameService needs it to find every rack currently tagged with it.
+/// </summary>
+public class RackEditData
+{
+    public int previousAisleNumber;
+    public int newAisleNumber;
     public string[] levelDesignations; // length 6: reachable from UI, upper 4 always "Reserve"
 }

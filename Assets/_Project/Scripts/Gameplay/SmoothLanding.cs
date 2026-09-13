@@ -8,14 +8,19 @@ public class SmoothLanding : MonoBehaviour
     private Vector3 _velocity;
     private bool _isLanding;
     private NavMeshAgent _agent;
+    private Vector2Int _footprint;
 
     public bool IsLanding => _isLanding;
 
-    public void Initialize(Vector3 startPos, Vector3 targetPos, float smoothTime)
+    /// <summary><paramref name="footprint"/> is the moved object's grid footprint (e.g. its own
+    /// ObjDataSO.footprint) so the landing dust poof sizes/centers itself to match — left
+    /// unspecified, FXPool.Play treats it as a plain 1×1 cell.</summary>
+    public void Initialize(Vector3 startPos, Vector3 targetPos, float smoothTime, Vector2Int footprint = default)
     {
         transform.position = startPos;
         _targetPos = targetPos;
         _smoothTime = smoothTime;
+        _footprint = footprint;
         _isLanding = true;
         _agent = GetComponent<NavMeshAgent>();
 
@@ -51,7 +56,7 @@ public class SmoothLanding : MonoBehaviour
 
             if (FXPool.Instance != null)
             {
-                FXPool.Instance.Play("dust", _targetPos);
+                FXPool.Instance.Play("dust", _targetPos, _footprint);
             }
 
             Destroy(this);

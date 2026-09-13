@@ -6,8 +6,24 @@ public class FXPool : MonoBehaviour
     public static FXPool Instance { get; private set; }
 
     // Playback speed multiplier for Animator-driven FX (e.g. the sprite-sequence smoke poof).
-    // 1f = normal speed.
-    private const float AnimatorPlaybackSpeed = 1.25f;
+    // 1f = normal speed. Was 1.25f, slowed ~35% to 0.8125f, another 10% to 0.73125f, sped back up
+    // 20% to 0.8775f, then slowed 25% twice more per Tad's asks (0.8775 × 0.75 × 0.75 = 0.49359375).
+    private const float AnimatorPlaybackSpeed = 0.49359375f;
+
+    // Normalized start point (0–1) for Animator-driven FX playback. The smoke poof's clip is sampled
+    // at 24fps (SmokeEffect2.anim's m_SampleRate) — started at frame 6 (0.25), then frame 15 (0.625),
+    // now frame 12 (0.5) per Tad's asks, giving a couple extra frames to smooth the poof in. Skipping
+    // ahead makes the effect read as already mid-poof the instant it triggers, without touching the
+    // actual trigger timing (which is synchronous with placement).
+    private const float AnimatorStartTimeOffset = 12f / 24f;
+
+    // World size of one grid cell, in meters — matches PlacementGrid's own cell size (Tad's figure,
+    // taken directly off the Building Data inspector). Drives the footprint-based sizing below.
+    private const float CellSize = 1.325f;
+
+    // How much bigger than its footprint a sprite/Animator-driven FX (e.g. the dust poof) reads —
+    // e.g. a 1×1 footprint (1.325m) sizes it to 1.325 × 1.2 = 1.59m; a 2×2 (2.65m) to 3.18m.
+    private const float FootprintSizeMultiplier = 1.2f;
 
     // When "Enter Play Mode Options" disables Domain Reload, static fields are NOT
     // cleared between Play sessions. Reset them explicitly so we never carry a stale
@@ -143,7 +159,15 @@ public class FXPool : MonoBehaviour
     public static readonly System.Collections.Generic.HashSet<string> DisabledKeys =
         new System.Collections.Generic.HashSet<string>();
 
-    public void Play(string key, Vector3 position)
+    /// <summary>Plays a pooled FX at <paramref name="position"/>. <paramref name="footprint"/> is
+    /// the (optional) grid footprint, in cells, of whatever object triggered this effect — e.g. a
+    /// placed building passing its own <see cref="ObjDataSO.footprint"/>. Left unspecified (the
+    /// default (0,0)) is treated as a plain 1×1 cell, which every existing single-point caller
+    /// (forklift landings, building destruction) gets automatically — and at 1×1 the centering below
+    /// resolves to exactly zero, so none of those callers are shifted. Only applied to sprite/
+    /// Animator-driven FX like the dust poof — ParticleSystem-driven FX size themselves and are
+    /// left untouched.</summary>
+    public void Play(string key, Vector3 position, Vector2Int footprint = default)
     {
         if (DisabledKeys.Contains(key)) return;
 
@@ -179,6 +203,42 @@ public class FXPool : MonoBehaviour
         }
 
         fx.go.transform.position = position;
+
+        // Sized and centered fresh on every Play() call (not just once, the way a MonoBehaviour's
+        // own Start() would for a pooled/reused instance) — footprint.x/y ≤ 0 means "not specified",
+        // falling back to a plain 1×1 cell.
+        if (fx.systems.Length == 0)
+        {
+            int footprintX = footprint.x > 0 ? footprint.x : 1;
+            int footprintY = footprint.y > 0 ? footprint.y : 1;
+
+            float footprintWorldX = footprintX * CellSize;
+            fx.go.transform.localScale = Vector3.one * (footprintWorldX * FootprintSizeMultiplier);
+
+            // Placement anchors an object at the CENTER of its root cell (see DockLedgeSetup.cs),
+            // with the footprint extending in +X/+Z from there — so half of the EXTRA cells beyond
+            // the first one is the offset to the footprint's true center. At the default 1×1 this
+            // is exactly zero, which is what keeps every non-footprint caller unshifted.
+            Vector3 pos = fx.go.transform.position;
+            pos.x += (footprintX - 1) * CellSize / 2f;
+            pos.z += (footprintY - 1) * CellSize / 2f;
+
+            // The centered poof often reads as buried inside the placed object's own geometry
+            // (tall props especially). Nudge it from the footprint's center toward the camera, on
+            // the horizontal plane, by half the footprint's world size — landing it near the
+            // footprint's camera-facing edge/corner instead of dead center, so it renders in front
+            // of the geometry rather than inside it.
+            if (Camera.main != null)
+            {
+                Vector3 towardCamera = Camera.main.transform.position - pos;
+                towardCamera.y = 0f;
+                if (towardCamera.sqrMagnitude > 0.0001f)
+                    pos += towardCamera.normalized * (footprintWorldX / 2f);
+            }
+
+            fx.go.transform.position = pos;
+        }
+
         fx.go.SetActive(true);
 
         // Play ALL particle systems
@@ -194,7 +254,7 @@ public class FXPool : MonoBehaviour
         {
             int stateHash = fx.animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
             fx.animator.speed = AnimatorPlaybackSpeed;
-            fx.animator.Play(stateHash, 0, 0f);
+            fx.animator.Play(stateHash, 0, AnimatorStartTimeOffset);
             fx.animator.Update(0f);
         }
 
@@ -218,8 +278,14 @@ public class FXPool : MonoBehaviour
             // of ParticleSystem.IsAlive(), which would immediately report "not alive" and return
             // this instance to the pool (deactivating it) before the animation ever plays.
             // Divide by AnimatorPlaybackSpeed so the wait matches the slowed-down playback rate.
+            // Only the clip AFTER AnimatorStartTimeOffset actually plays (we skip ahead to frame
+            // 15/24) — waiting on the FULL duration left the instance active, frozen on its last
+            // frame, for the leftover time after playback had already finished: a visible "ghost"
+            // hang that got worse the slower AnimatorPlaybackSpeed got. Scale by the remaining
+            // normalized portion of the clip instead.
             float duration = fx.animatorDuration > 0f ? fx.animatorDuration : 1f;
-            yield return new WaitForSecondsRealtime(duration / AnimatorPlaybackSpeed);
+            float remainingNormalized = 1f - AnimatorStartTimeOffset;
+            yield return new WaitForSecondsRealtime(duration * remainingNormalized / AnimatorPlaybackSpeed);
         }
         else
         {

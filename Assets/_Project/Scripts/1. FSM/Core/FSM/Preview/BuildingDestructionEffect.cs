@@ -18,7 +18,8 @@ public class BuildingDestructionEffect : MonoBehaviour
     // gone, instead of both being visible/overlapping for the duration of the animation.
     public System.Action OnComplete;
 
-    public void Initialize(float duration, float sinkAmount, float vibrationAmount, float vibrationSpeed)
+    public void Initialize(float duration, float sinkAmount, float vibrationAmount, float vibrationSpeed,
+        Vector2Int footprint = default)
     {
         _duration = duration;
         _sinkAmount = sinkAmount;
@@ -29,10 +30,12 @@ public class BuildingDestructionEffect : MonoBehaviour
         _timer = 0f;
         _isComplete = false;
 
-        // Play dust FX at start
+        // Play dust FX at start — footprint is the destroyed object's own grid footprint (e.g. its
+        // ObjDataSO.footprint) so the poof sizes/centers itself to match; left unspecified,
+        // FXPool.Play treats it as a plain 1×1 cell.
         if (FXPool.Instance != null)
         {
-            FXPool.Instance.Play("dust", transform.position);
+            FXPool.Instance.Play("dust", transform.position, footprint);
         }
     }
 

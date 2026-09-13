@@ -2271,8 +2271,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RackingSystemManager
   _realRackMaterial: {fileID: 2100000, guid: e711b9fd6c1eb314ea8c0be6abf7d855, type: 2}
-  _chevronSprite: {fileID: 21300000, guid: 0ff9ff869450eb444ac15e0ac70d8abd, type: 3}
-  _chevronMaterial: {fileID: 2100000, guid: 4a97808460465fa4c9c7915590f8e91e, type: 2}
+  _chevronSprite: {fileID: 21300000, guid: 45a1e37e43aa90544bdf7c8c4932625c, type: 3}
+  _chevronMaterial: {fileID: 2100000, guid: c9d9b5fe7dd8bef4f9d4443edc0c277c, type: 2}
   _rackSetupUxml: {fileID: 9197481963319205126, guid: 81a982f3aecbebf489da09399e994bbe, type: 3}
   _rackSetupUss: {fileID: 7433441132597879392, guid: f4a1ad8ea740222459bc68f5d8292dff, type: 3}
   _rackSetupPanelSettings: {fileID: 11400000, guid: e2fc98d7cf486f240a17690f369c5cfd, type: 2}
@@ -11914,6 +11914,53 @@ PrefabInstance:
       addedObject: {fileID: 383231993}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b7c847f050044b143a38a454282fb8c8, type: 3}
+--- !u!1 &1274724525
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1274724526}
+  - component: {fileID: 1274724527}
+  m_Layer: 0
+  m_Name: WallConnectivityManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1274724526
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1274724525}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1274724527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1274724525}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0cea7d0f016b61c4da9931a142eca9e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameCore.Simulation::WallConnectivityManager
+  _wallData: {fileID: 11400000, guid: cdeb30d27ec490f45a09046120415001, type: 2}
+  _cornerData: {fileID: 11400000, guid: ca133c9ee2af359489230c2f20bd6010, type: 2}
+  _tWallData: {fileID: 11400000, guid: 3986c6317f4da474f8d7e9f36d558671, type: 2}
 --- !u!1 &1319115285
 GameObject:
   m_ObjectHideFlags: 0
@@ -18202,3 +18249,4 @@ SceneRoots:
   - {fileID: 1636985265}
   - {fileID: 1635529926}
   - {fileID: 843570135}
+  - {fileID: 1274724526}

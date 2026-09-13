@@ -149,7 +149,7 @@ public class PlacementFinalizer : MonoBehaviour
             if (data.category == "Foundation")
                 fxPos.y = FoundationDustFxHeight;
 
-            FXPool.Instance.Play("dust", fxPos);
+            FXPool.Instance.Play("dust", fxPos, data.footprint);
         }
 
         // Initialize PlacedObject

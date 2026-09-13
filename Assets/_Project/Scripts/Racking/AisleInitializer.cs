@@ -42,6 +42,7 @@ public class AisleInitializer : MonoBehaviour
         if (_setupUI != null)
         {
             _setupUI.OnSubmit += HandleSetupSubmit;
+            _setupUI.OnEditSubmit += HandleEditSubmit;
         }
     }
 
@@ -386,6 +387,28 @@ public class AisleInitializer : MonoBehaviour
 
         Debug.Log($"Aisle {setupData.aisleNumber} initialized with {collectionsToInitialize.Count} collection(s)");
         UIToast.Show($"Aisle {setupData.aisleNumber:D2} has been initialized successfully!");
+    }
+
+    /// <summary>
+    /// Applies a rename/reconfigure submitted from RackSetupUI's EDIT mode (opened via double-click
+    /// on an already-live rack — see RackEditInteractionService). Unlike HandleSetupSubmit, this
+    /// never touches chevrons, materials, or geometry: the aisle is already committed and physically
+    /// settled, so only its number and/or per-level Pick/Reserve scheme can change. Every cascading
+    /// rename (LocationRegistry, LocationStatusRegistry, SlotAssignmentService, the pallets' own
+    /// PalletData.LocationName, and any in-flight Work Queue task) happens inside AisleRenameService.
+    /// </summary>
+    private void HandleEditSubmit(RackEditData editData)
+    {
+        if (editData.previousAisleNumber != editData.newAisleNumber)
+            AisleRegistry.Unregister(editData.previousAisleNumber);
+        AisleRegistry.Register(editData.newAisleNumber, editData.levelDesignations);
+
+        int updated = AisleRenameService.Rename(
+            editData.previousAisleNumber, editData.newAisleNumber, editData.levelDesignations);
+
+        Debug.Log($"Aisle {editData.previousAisleNumber:D2} renamed/reconfigured to " +
+                  $"{editData.newAisleNumber:D2} — {updated} slot(s) updated.");
+        UIToast.Show($"Aisle {editData.newAisleNumber:D2} updated successfully!");
     }
 
     private List<RackCollection> DetermineCollectionsToInitialize(ChevronController chevron)

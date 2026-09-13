@@ -4,7 +4,7 @@ using GameCore.Events;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class DragPlaceCommand : PlacementCommandBase
+public class DragPlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
 {
     private readonly PlacementGrid _grid;
     private readonly PlacementFinalizer _finalizer;
@@ -149,6 +149,10 @@ public class DragPlaceCommand : PlacementCommandBase
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || _data.CanUseStairs || isGround)
             NavMeshManager.Instance?.MarkDirty();
 
+        if (_data != null && _data.category == "Walls")
+            foreach (var cell in _cells)
+                WallConnectivityManager.Instance?.RecomputeArea(_grid, _finalizer, _money, cell);
+
         PublishBuildEvent(GameEvents.Build.OnObjectPlaced);
     }
 
@@ -229,6 +233,10 @@ public class DragPlaceCommand : PlacementCommandBase
         bool isGround = IsGround(_data);
         if (revealedFloor || _data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround)
             NavMeshManager.Instance.MarkDirty();
+
+        if (_data != null && _data.category == "Walls")
+            foreach (var cell in _cells)
+                WallConnectivityManager.Instance?.RecomputeArea(_grid, _finalizer, _money, cell);
     }
 
     public override void Redo()
@@ -292,6 +300,17 @@ public class DragPlaceCommand : PlacementCommandBase
         if (_data.isFloor || _data.pathfindingClear || _data.ignorePlacementRules || isGround2)
             NavMeshManager.Instance?.MarkDirty();
 
+        if (_data != null && _data.category == "Walls")
+            foreach (var cell in _cells)
+                WallConnectivityManager.Instance?.RecomputeArea(_grid, _finalizer, _money, cell);
+
         PublishBuildEvent(GameEvents.Build.OnObjectPlaced);
+    }
+
+
+    public void RelocateWallInstance(GameObject oldInstance, GameObject newInstance)
+    {
+        for (int i = 0; i < _instances.Count; i++)
+            if (ReferenceEquals(_instances[i], oldInstance)) _instances[i] = newInstance;
     }
 }
