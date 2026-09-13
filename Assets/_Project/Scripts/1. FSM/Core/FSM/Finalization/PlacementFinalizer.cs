@@ -4,6 +4,13 @@ using UnityEngine.AI;
 
 public class PlacementFinalizer : MonoBehaviour
 {
+    // Extra height added to the dust poof FX spawn position for all placed objects.
+    private const float DustFxYOffset = 0.15f;
+
+    // Fixed dust poof spawn height for Foundations (matches WallVisibilityManager's
+    // foundationHeight top-surface constant, plus DustFxYOffset).
+    private const float FoundationDustFxHeight = 1.21f;
+
     [SerializeField] private PlacementGrid _grid;
 
     // Original no-arg entry point
@@ -138,8 +145,9 @@ public class PlacementFinalizer : MonoBehaviour
             // WallVisibilityManager's foundationHeight constant) — the dust poof should appear
             // at that surface, not at pos.y (the foundation's base/pivot height at ground level).
             Vector3 fxPos = pos;
+            fxPos.y += DustFxYOffset;
             if (data.category == "Foundation")
-                fxPos.y = 1.06f;
+                fxPos.y = FoundationDustFxHeight;
 
             FXPool.Instance.Play("dust", fxPos);
         }

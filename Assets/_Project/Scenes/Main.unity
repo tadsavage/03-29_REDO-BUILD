@@ -1610,16 +1610,16 @@ MonoBehaviour:
   utilityButtons:
   - id: DELETE
     icon: {fileID: 2800000, guid: f8f54168230389943ac6a70f02585b60, type: 3}
-  - id: MOVE
-    icon: {fileID: 2800000, guid: 2adebd36a0545c2489895817a2776dc4, type: 3}
-  - id: UNDO
-    icon: {fileID: 2800000, guid: 70909013476b2534fbf84321dfadd5a6, type: 3}
-  - id: REDO
-    icon: {fileID: 2800000, guid: 3f29fa26fd84a8542b994d881155268c, type: 3}
   - id: lower
     icon: {fileID: 2800000, guid: 98e76b516e3f81141820faff1e4e18a9, type: 3}
   - id: raise
     icon: {fileID: 2800000, guid: 93ad5ac4eed12884a992227ea9bff87d, type: 3}
+  - id: MOVE
+    icon: {fileID: 2800000, guid: 2adebd36a0545c2489895817a2776dc4, type: 3}
+  - id: REDO
+    icon: {fileID: 2800000, guid: 3f29fa26fd84a8542b994d881155268c, type: 3}
+  - id: UNDO
+    icon: {fileID: 2800000, guid: 70909013476b2534fbf84321dfadd5a6, type: 3}
 --- !u!114 &93724069
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4859,7 +4859,7 @@ MonoBehaviour:
   entries:
   - key: dust
     prefab: {fileID: 8224869300702003435, guid: 6c8499308af8e3544907e8bba6718a72, type: 3}
-    preload: 200
+    preload: 20
 --- !u!4 &499553980
 Transform:
   m_ObjectHideFlags: 0

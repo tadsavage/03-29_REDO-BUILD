@@ -5,6 +5,10 @@ public class FXPool : MonoBehaviour
 {
     public static FXPool Instance { get; private set; }
 
+    // Playback speed multiplier for Animator-driven FX (e.g. the sprite-sequence smoke poof).
+    // 1f = normal speed.
+    private const float AnimatorPlaybackSpeed = 1.25f;
+
     // When "Enter Play Mode Options" disables Domain Reload, static fields are NOT
     // cleared between Play sessions. Reset them explicitly so we never carry a stale
     // Instance or disabled-key set into a fresh session.
@@ -113,6 +117,13 @@ public class FXPool : MonoBehaviour
         if (systems.Length == 0)
         {
             animator = go.GetComponentInChildren<Animator>(true);
+            if (animator != null)
+            {
+                // Force unscaled time in code rather than relying on the prefab's serialized
+                // Animator.updateMode: build mode commonly pauses (Time.timeScale = 0), and the
+                // default 'Normal' update mode would freeze this FX on its first sampled frame.
+                animator.updateMode = AnimatorUpdateMode.UnscaledTime;
+            }
             if (animator != null && animator.runtimeAnimatorController != null)
             {
                 var clips = animator.runtimeAnimatorController.animationClips;
@@ -182,6 +193,7 @@ public class FXPool : MonoBehaviour
         if (fx.animator != null)
         {
             int stateHash = fx.animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
+            fx.animator.speed = AnimatorPlaybackSpeed;
             fx.animator.Play(stateHash, 0, 0f);
             fx.animator.Update(0f);
         }
@@ -205,7 +217,9 @@ public class FXPool : MonoBehaviour
             // Animator-driven FX (no ParticleSystem) — wait for its clip's real duration instead
             // of ParticleSystem.IsAlive(), which would immediately report "not alive" and return
             // this instance to the pool (deactivating it) before the animation ever plays.
-            yield return new WaitForSecondsRealtime(fx.animatorDuration > 0f ? fx.animatorDuration : 1f);
+            // Divide by AnimatorPlaybackSpeed so the wait matches the slowed-down playback rate.
+            float duration = fx.animatorDuration > 0f ? fx.animatorDuration : 1f;
+            yield return new WaitForSecondsRealtime(duration / AnimatorPlaybackSpeed);
         }
         else
         {
