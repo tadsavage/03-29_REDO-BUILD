@@ -107,6 +107,13 @@ namespace GameCore.Inventory
         private readonly List<SignedContract> _signed = new();
         private readonly List<ContractData> _catalog = new();
 
+        /// <summary>ContractIds already announced in the Systems Log's "new offer" fanfare (see
+        /// AnnounceNewOffer) — Bulk offers are added here the moment they're rolled, and Recurring
+        /// contracts are added here the moment reputation unlocks them into AvailableOffers. Seeded
+        /// with every already-available offer at Initialize so a fresh/loaded game doesn't fire the
+        /// fanfare for every contract that was already sitting on the board.</summary>
+        private readonly HashSet<string> _announcedContractIds = new();
+
         /// <summary>
         /// Day each RUNTIME-generated offer was rolled, keyed by ContractId.
         ///
@@ -320,8 +327,20 @@ namespace GameCore.Inventory
                 if (registry != null) SetCatalog(registry.contracts);
             }
 
+            // Seed with whatever's already available (fresh game or a loaded save) so the "new offer"
+            // fanfare only fires for contracts that show up AFTER this point, not every recurring
+            // contract that was sitting on the board from the start.
+            foreach (var c in AvailableOffers)
+                if (c != null) _announcedContractIds.Add(c.ContractId);
+
             _eventManager.Subscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
             _eventManager.Subscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
+
+            // Recurring contracts never "roll in" the way Bulk offers do — they're all present from
+            // load, just reputation-gated. This is their only "new offer" moment: a contract crossing
+            // from ReputationLockedOffers into AvailableOffers when the player's standing improves.
+            ReputationService.OnReputationChanged -= OnReputationChangedForNewOffers;
+            ReputationService.OnReputationChanged += OnReputationChangedForNewOffers;
 
             // Detach-then-attach: these are STATIC events, so a service instance leaked by a domain
             // reload would otherwise keep a live handler on a dead _signed list. This doesn't unhook
@@ -375,6 +394,29 @@ namespace GameCore.Inventory
             _eventManager?.Unsubscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
             OrderService.OnOrderShipped -= HandleOrderShipped;
             OrderService.OnOrderFined -= HandleOrderFined;
+            ReputationService.OnReputationChanged -= OnReputationChangedForNewOffers;
+        }
+
+        /// <summary>Fires the Systems Log fanfare for a freshly-arrived customer offer — Bulk offers
+        /// call this right after rolling; <see cref="OnReputationChangedForNewOffers"/> calls it for a
+        /// Recurring contract newly unlocked by reputation. No-ops for a contract already announced,
+        /// so a reputation change that doesn't actually reveal anything new stays silent.</summary>
+        private void AnnounceNewOffer(ContractData offer)
+        {
+            if (offer == null || !_announcedContractIds.Add(offer.ContractId)) return;
+
+            string customerName = offer.Customer != null ? offer.Customer.CompanyName : "A new customer";
+            SystemsLogWindow.Celebrate($"{customerName} just posted a {offer.Title}!");
+        }
+
+        /// <summary>Reputation crossing a contract's threshold is the only "arrival" moment a Recurring
+        /// contract ever gets — diffs AvailableOffers against what's already been announced rather than
+        /// tracking locked/unlocked state directly, so this stays correct regardless of how many
+        /// contracts share a threshold or how big a single reputation jump is.</summary>
+        private void OnReputationChangedForNewOffers(int newScore, int delta, string reason)
+        {
+            foreach (var offer in AvailableOffers)
+                AnnounceNewOffer(offer);
         }
 
         // ── Performance bookkeeping ──────────────────────────────────────────
@@ -925,6 +967,7 @@ namespace GameCore.Inventory
 
                 if (!AddOffer(offer)) continue;
                 _generatedOfferDay[contractId] = today;
+                AnnounceNewOffer(offer);
             }
 
             Debug.Log($"[OrderArrivalService] Rolled {count} bulk offer(s) for day {today}.");

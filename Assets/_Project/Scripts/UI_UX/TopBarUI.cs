@@ -260,6 +260,13 @@ public class TopBarUI : MonoBehaviour
                 // card is open does Escape fall through to the pause menu.
                 _employeeInfoUI.Hide();
             }
+            else if (BuildMenuUI.Instance != null && BuildMenuUI.Instance.IsReportsOpen)
+            {
+                // Reports is a bottom-bar HUD mode, not a UIKeyBindingManager panel, so it needs its
+                // own check here — same priority tier as AnyPanelOpen below (an open full-screen HUD
+                // element backing out before the pause menu), just a different owner.
+                BuildMenuUI.Instance.CloseReports();
+            }
             else if (keys.AnyPanelOpen)
             {
                 // Any other non-modal UI (Shift Manager, Work Queue, Orders, Purchasing, Scheduler,

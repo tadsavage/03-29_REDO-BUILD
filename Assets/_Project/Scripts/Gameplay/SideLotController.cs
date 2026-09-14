@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 /// <summary>
 /// Sits on the SideLot prefab root. A truck with no free door at the gate parks here instead of
@@ -16,10 +15,6 @@ using UnityEngine.InputSystem;
 /// its own independent occupancy — claimed the instant a truck decides to come here (before it
 /// physically arrives, so two trucks clearing the gate close together can't both target the same
 /// slot) and released the instant it starts pulling out, whether it got a door or ran out of time.
-///
-/// Clicking anywhere on the lot (its own BoxCollider, same raycast-on-click pattern as
-/// EmployeeClickHandler) opens SideLotModalUI listing every truck currently parked across ALL
-/// SideLotControllers in the scene.
 /// </summary>
 [RequireComponent(typeof(Collider))]
 public class SideLotController : MonoBehaviour
@@ -48,8 +43,6 @@ public class SideLotController : MonoBehaviour
 
     /// <summary>First unoccupied slot, or null if the lot is full (or has no slots at all).</summary>
     public Slot FindFreeSlot() => _slots.FirstOrDefault(s => !s.IsOccupied);
-
-    private Camera _mainCamera;
 
     private void Awake()
     {
@@ -84,30 +77,10 @@ public class SideLotController : MonoBehaviour
     private void OnEnable()
     {
         All.Add(this);
-        _mainCamera = Camera.main;
     }
 
     private void OnDisable()
     {
         All.Remove(this);
-    }
-
-    private void Update()
-    {
-        if (!Mouse.current.leftButton.wasPressedThisFrame) return;
-
-        if ((UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
-            || UIInputGuard.IsPointerOverUIToolkit())
-            return;
-
-        if (_mainCamera == null) _mainCamera = Camera.main;
-        if (_mainCamera == null) return;
-
-        Ray ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (Physics.Raycast(ray, out RaycastHit hit) && hit.collider.transform.IsChildOf(transform))
-        {
-            SideLotModalUI.Show();
-            AudioManager.Play("UIClick");
-        }
     }
 }

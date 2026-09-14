@@ -4,8 +4,9 @@ using GameCore.Economy;
 using GameCore.Services;
 
 /// <summary>
-/// Automatically swaps a straight Wall segment for the correct Corner or T-Wall piece (and back
-/// again) based on which of its four cardinal neighbor cells contain another wall-family object.
+/// Automatically swaps a straight Wall segment for the correct Corner, T-Wall, or Cross-Wall piece
+/// (and back again) based on which of its four cardinal neighbor cells contain another wall-family
+/// object.
 ///
 /// Called explicitly by PlaceCommand/DragPlaceCommand/DeleteCommand right after each mutates the
 /// grid, rather than subscribing to GameEvents.Build.OnObjectPlaced/OnObjectDeleted — those events
@@ -34,13 +35,19 @@ public class WallConnectivityManager : MonoBehaviour
     [Tooltip("Corner piece. Used when a wall cell has exactly 2 adjacent (non-opposite) connections.")]
     [SerializeField] private ObjDataSO _cornerData;
 
-    [Tooltip("T-junction piece. Used for 3 connections, and as the closest available fallback for a full 4-way junction (no dedicated cross piece exists yet).")]
+    [Tooltip("T-junction piece. Used for 3 connections, and as the fallback for a full 4-way junction if _crossData is unassigned.")]
     [SerializeField] private ObjDataSO _tWallData;
 
-    // objNames this system is allowed to auto-replace. Doors, windows, and multi-cell brick walls
-    // still COUNT as a wall-family connection for neighbor detection (see IsWallFamily) but are
-    // never themselves swapped — they're deliberate player choices.
-    private static readonly HashSet<string> AutoShapeNames = new() { "Wall", "Corner", "T-Wall" };
+    [Tooltip("4-way cross piece. Used when a wall cell has all 4 cardinal connections. Falls back to the T-Wall piece if left unassigned.")]
+    [SerializeField] private ObjDataSO _crossData;
+
+    // objNames this system is allowed to auto-replace. Only a plain straight Wall is ever swapped —
+    // once a cell becomes a Corner, T-Wall, or Cross-Wall (whether the player placed it directly or
+    // it was auto-upgraded from a Wall earlier), it is frozen and never touched again. Doors,
+    // windows, and multi-cell brick walls still COUNT as a wall-family connection for neighbor
+    // detection (see IsWallFamily) but were never swapped either — all of these are deliberate
+    // player choices.
+    private static readonly HashSet<string> AutoShapeNames = new() { "Wall" };
     private const string WallCategory = "Walls";
 
     private static readonly Vector2Int North = new Vector2Int(0, 1);
@@ -86,9 +93,9 @@ public class WallConnectivityManager : MonoBehaviour
 
         if (count == 4)
         {
-            // No dedicated 4-way cross piece exists yet — fall back to the T-Wall as the closest
-            // available shape until a proper cross piece is added.
-            targetData = _tWallData;
+            // Cross piece is symmetric under any 90-degree rotation, so rotation is always 0.
+            // Fall back to the T-Wall if no cross piece has been assigned in the Inspector.
+            targetData = _crossData != null ? _crossData : _tWallData;
             targetRotation = 0f;
         }
         else if (count == 3)

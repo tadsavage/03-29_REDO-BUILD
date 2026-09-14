@@ -536,3 +536,109 @@
     align-self: center;
     -unity-background-image-tint-color: #96BEDC;
 }
+
+/* ==========================================
+   REPORTS TAB
+   ========================================== */
+
+/* Reports content pane — same dark navy / blue-border chrome as .buildmenu-submenu-root, just
+   taller and wider to hold a scrollable report instead of a short item list. */
+.reports-panel-root {
+    width: 640px;
+    max-height: 640px;
+}
+
+/* Lifts the Reports panel ~50px higher than the shared .buildmenu-submenu default (128px) — this
+   class alone, not .buildmenu-submenu itself, so the build category item submenu is untouched. */
+.reports-panel-container {
+    bottom: 178px;
+}
+
+/* Windows-style red close button, pinned to the panel's top-right corner. .reports-panel-root is
+   the positioning context (it isn't position:relative by default, but an absolute child still
+   anchors to its nearest positioned ancestor's padding box in UI Toolkit the same as in CSS — the
+   panel itself is already position:absolute via .buildmenu-submenu). */
+.reports-close-button {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    padding: 0;
+    background-color: rgba(196, 43, 43, 0.85);
+    border-width: 0;
+    border-radius: 3px;
+    color: rgb(255, 255, 255);
+    font-size: 13px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.reports-close-button:hover {
+    background-color: rgb(232, 17, 35);
+}
+
+.reports-close-button:focus,
+.reports-close-button:active {
+    background-color: rgba(196, 43, 43, 0.85) !important;
+}
+
+.reports-close-button:hover:focus,
+.reports-close-button:hover:active {
+    background-color: rgb(232, 17, 35) !important;
+}
+
+.reports-bar-label {
+    -unity-font-definition: url("project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular");
+    font-size: 20px;
+    color: #96BEDC;
+    -unity-text-align: middle-left;
+}
+
+.reports-subtab-row {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 6px;
+}
+
+.reports-subtab-button {
+    height: 32px;
+    min-width: 120px;
+    margin: 0;
+    margin-right: 6px;
+    padding-left: 14px;
+    padding-right: 14px;
+    background-color: rgba(34, 44, 56, 0.55);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 14px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.reports-subtab-button:hover {
+    background-color: rgba(46, 60, 76, 0.65);
+    border-color: rgba(92, 155, 196, 0.35);
+    color: rgb(255, 255, 255);
+}
+
+.reports-subtab-active {
+    background-color: rgba(24, 30, 38, 0.92);
+    border-color: rgba(150, 190, 220, 0.3);
+    color: rgb(255, 255, 255);
+}
+
+.reports-subtab-button:focus,
+.reports-subtab-button:active {
+    background-color: rgba(34, 44, 56, 0.55) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.reports-subtab-active:focus,
+.reports-subtab-active:active {
+    background-color: rgba(24, 30, 38, 0.92) !important;
+    border-color: rgba(150, 190, 220, 0.3) !important;
+}

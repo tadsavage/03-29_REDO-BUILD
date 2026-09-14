@@ -9,7 +9,12 @@ public class DeleteCommand : PlacementCommandBase, IWallInstanceRelocatable
 {
     private readonly PlacementGrid _grid;
     private readonly PlacementFinalizer _finalizer;
-    private readonly ObjDataSO _data;
+
+    // Not readonly: RelocateWallInstance() below updates this alongside _target if the target
+    // gets swapped for a different wall shape (Wall<->Corner<->T-Wall<->Cross-Wall) while this
+    // command still sits in history — otherwise a later Execute()/Redo() would refund/charge the
+    // ORIGINAL shape's stale cost and hourlyCost instead of whatever is actually there now.
+    private ObjDataSO _data;
     private readonly Vector2Int[] _offsets;
     private readonly Vector2Int _root;
     private readonly MoneyService _money;
@@ -496,6 +501,12 @@ public class DeleteCommand : PlacementCommandBase, IWallInstanceRelocatable
 
     public void RelocateWallInstance(GameObject oldInstance, GameObject newInstance)
     {
-        if (ReferenceEquals(_target, oldInstance)) _target = newInstance;
+        if (!ReferenceEquals(_target, oldInstance)) return;
+
+        _target = newInstance;
+
+        var po = newInstance != null ? newInstance.GetComponent<PlacedObject>() : null;
+        if (po != null && po.data != null)
+            _data = po.data;
     }
 }

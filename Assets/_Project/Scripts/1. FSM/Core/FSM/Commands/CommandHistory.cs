@@ -14,11 +14,17 @@ public class CommandHistory
     // ---------------------------------------------------------
     public void Push(ICommand cmd)
     {
-        // Execute immediately
-        cmd.Execute();
-
-        // Add to undo stack
+        // Register BEFORE executing: a wall placement's own Execute() can trigger
+        // WallConnectivityManager to immediately auto-swap the very instance it just created (e.g.
+        // a Wall upgrading to a Corner/T-Wall/Cross-Wall, or just being re-rotated to line up).
+        // That swap calls CommandHistory.RelocateWallInstance() to patch any command's cached
+        // instance reference — but it only reaches commands already reachable from _undo/_redo/the
+        // in-progress batch. If cmd isn't pushed until after its own Execute() returns, its own
+        // self-swap can never be relocated, leaving _instance pointing at a destroyed object and
+        // making its own later Undo() silently no-op. See IWallInstanceRelocatable.
         _undo.Push(cmd);
+
+        cmd.Execute();
 
         // New action invalidates redo history
         _redo.Clear();
@@ -42,8 +48,10 @@ public class CommandHistory
             return;
         }
 
-        cmd.Execute();
+        // Same ordering fix as Push() — register before executing so a self-swap during this
+        // command's own Execute() can still be relocated. See Push() for the full explanation.
         _currentBatch.Add(cmd);
+        cmd.Execute();
     }
 
     public void EndBatch()

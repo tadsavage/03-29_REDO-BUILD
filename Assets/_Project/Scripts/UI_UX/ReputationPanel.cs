@@ -82,10 +82,29 @@ public class ReputationPanel : ITopBarPanel
         _scoreLabel = ValueLabel(bold: true, color: ColOrange);
         panel.Add(BigRow("Score:", _scoreLabel, ColRowB));
 
-        _nextBandLabel = ValueLabel(bold: true, color: ColOrange);
-        panel.Add(BigRow("To Next Band:", _nextBandLabel, ColRowA));
+        // Full-width banner line rather than the Standing/Score rows' narrow key|value shape — "At
+        // 100 points you will become Known!" is a sentence, not a short value, and needs room to wrap
+        // instead of being squeezed into a 140px-wide value column.
+        _nextBandLabel = Lbl("", bold: true, size: KeySize);
+        _nextBandLabel.style.whiteSpace = WhiteSpace.Normal;
+        _nextBandLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        panel.Add(BannerRow(_nextBandLabel, ColRowA));
 
         return panel;
+    }
+
+    /// <summary>A full-width, auto-height row for a centered wrapping sentence — the milestone
+    /// banner, unlike Standing/Score, isn't a short key|value pair.</summary>
+    static VisualElement BannerRow(Label label, Color bg)
+    {
+        var row = new VisualElement();
+        row.style.backgroundColor = new StyleColor(bg);
+        row.style.paddingTop = 10f;
+        row.style.paddingBottom = 10f;
+        row.style.paddingLeft = 10f;
+        row.style.paddingRight = 10f;
+        row.Add(label);
+        return row;
     }
 
     /// <summary>Same look as FinanceUIKit.DataRow, just built locally so its key/value font sizes and
@@ -151,9 +170,11 @@ public class ReputationPanel : ITopBarPanel
         _scoreLabel.text = $"{score} / {ReputationService.MaxScore}";
         _scoreLabel.style.color = new StyleColor(Color.white);
 
-        // "100 to Known" — the "100 to" descriptor is plain white; the band name itself is colored
-        // by that band's own level color (rich-text span), since unlike Score this line names an
-        // actual reputation level.
+        // "At 100 points you will become Known!" — framed as the milestone itself (the absolute
+        // threshold, not the remaining delta) per Tad's explicit ask, so it reads as a goal to reach
+        // rather than a countdown. "At X points..." is plain white; the band name is colored by that
+        // band's own level color (rich-text span), since unlike Score this line names an actual
+        // reputation level.
         int next = ReputationService.NextBandThreshold(score);
         _nextBandLabel.style.color = new StyleColor(Color.white);
         if (next < 0)
@@ -164,7 +185,7 @@ public class ReputationPanel : ITopBarPanel
         {
             var targetBand = ReputationService.BandFor(next);
             string hex = ColorUtility.ToHtmlStringRGB(BandNameColor(targetBand));
-            _nextBandLabel.text = $"{next - score} to <color=#{hex}>{ReputationService.BandLabel(targetBand)}</color>";
+            _nextBandLabel.text = $"At {next} points you will become <color=#{hex}>{ReputationService.BandLabel(targetBand)}</color>!";
         }
     }
 }

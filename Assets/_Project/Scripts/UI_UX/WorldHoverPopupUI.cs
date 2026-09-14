@@ -17,6 +17,7 @@ public class WorldHoverPopupUI : MonoBehaviour
     private VisualElement _palletInfoPanel;
     private Vector2 _smoothPos;
     private PlacementStateMachine _fsm;
+    private BuildMenuUI _buildMenuUI;
 
     // ── Truck hover tooltip ─────────────────────────────────────────────────
     // Built lazily (needs _root, which only exists once _popup is live in a panel) as a sibling of
@@ -155,6 +156,14 @@ public class WorldHoverPopupUI : MonoBehaviour
     }
 
     public void SetFSM(PlacementStateMachine fsm) => _fsm = fsm;
+    public void SetBuildMenuUI(BuildMenuUI buildMenuUI) => _buildMenuUI = buildMenuUI;
+
+    /// <summary>Tad's spec: the item stats tooltip (name/cost/hourly cost) is only wanted while
+    /// idle-browsing under the Build tab — not in Play mode, and not while actively
+    /// placing/deleting/moving something even if the Build tab is up (IdleState already covers that
+    /// half). Reports has no world view to hover in, so it's excluded along with Play by simply
+    /// requiring HudMode.Build specifically rather than "not Play".</summary>
+    private bool BuildTabActive => _buildMenuUI == null || _buildMenuUI.CurrentMode == BuildMenuUI.HudMode.Build;
 
     // ---------------------------------------------------------
     // MAIN UPDATE - Building/Object hover
@@ -164,9 +173,11 @@ public class WorldHoverPopupUI : MonoBehaviour
     {
         if (!IsEnabled) { HideImmediate(); return; }
 
-        // Only show in IdleState
+        // Only show while idle-browsing under the Build tab — not in Play mode, and not mid
+        // placement/delete/move even under Build (IdleState check covers that half).
         if (_fsm != null && !(_fsm.CurrentState is IdleState))
         { HideImmediate(); return; }
+        if (!BuildTabActive) { HideImmediate(); return; }
 
         if (!hovering || string.IsNullOrEmpty(name))
         {
@@ -214,9 +225,11 @@ public class WorldHoverPopupUI : MonoBehaviour
     {
         if (!IsEnabled) { HideImmediate(); return; }
 
-        // Only show in IdleState
+        // Only show while idle-browsing under the Build tab — not in Play mode, and not mid
+        // placement/delete/move even under Build (IdleState check covers that half).
         if (_fsm != null && !(_fsm.CurrentState is IdleState))
         { HideImmediate(); return; }
+        if (!BuildTabActive) { HideImmediate(); return; }
 
         if (!hovering || palletData == null)
         {
@@ -261,9 +274,11 @@ public class WorldHoverPopupUI : MonoBehaviour
     {
         if (!IsEnabled) { HideImmediate(); return; }
 
-        // Only show in IdleState
+        // Only show while idle-browsing under the Build tab — not in Play mode, and not mid
+        // placement/delete/move even under Build (IdleState check covers that half).
         if (_fsm != null && !(_fsm.CurrentState is IdleState))
         { HideImmediate(); return; }
+        if (!BuildTabActive) { HideImmediate(); return; }
 
         if (!hovering || locationData == null)
         {
@@ -599,9 +614,11 @@ private void ShowLocation(LocationData location)
     {
         if (!IsEnabled) { HideImmediate(); return; }
 
-        // Only show in IdleState
+        // Only show while idle-browsing under the Build tab — not in Play mode, and not mid
+        // placement/delete/move even under Build (IdleState check covers that half).
         if (_fsm != null && !(_fsm.CurrentState is IdleState))
         { HideImmediate(); return; }
+        if (!BuildTabActive) { HideImmediate(); return; }
 
         if (!hovering || builder == null)
         {

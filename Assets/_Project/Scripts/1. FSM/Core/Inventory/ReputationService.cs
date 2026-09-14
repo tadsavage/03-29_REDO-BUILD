@@ -151,11 +151,20 @@ namespace GameCore.Inventory
             if (bandAfter != bandBefore)
             {
                 bool up = bandAfter > bandBefore;
-                UIToast.Show(up
-                    ? $"Reputation: you're now {BandLabel(bandAfter)} in this business. New suppliers " +
-                      $"will take your call."
-                    : $"Reputation has slipped to {BandLabel(bandAfter)}. Some suppliers have stopped " +
-                      $"returning your calls.");
+                if (up)
+                {
+                    // A genuine milestone — same fanfare/confetti treatment as a new customer offer,
+                    // not just a toast. Celebrate() already posts to the Systems Log itself, so this
+                    // replaces UIToast.Show rather than running alongside it — otherwise the same line
+                    // would show up twice (once plain via UIToast's own log-mirror, once gold via this).
+                    SystemsLogWindow.Celebrate(
+                        $"You're now {BandLabel(bandAfter)} in this business! New suppliers will take your call.");
+                }
+                else
+                {
+                    UIToast.Show($"Reputation has slipped to {BandLabel(bandAfter)}. Some suppliers have " +
+                                 $"stopped returning your calls.");
+                }
             }
         }
 

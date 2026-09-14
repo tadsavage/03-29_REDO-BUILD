@@ -190,19 +190,25 @@ public class DragPlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
             }
 
             Vector2Int root = bd.RootCell;
+            // Use the instance's OWN current data, not the shared _data field: WallConnectivityManager
+            // may have auto-swapped this specific cell to a different wall shape (Wall -> Corner/
+            // T-Wall/Cross-Wall) since it was placed, and every cell in a drag shares one _data
+            // (the originally-requested shape), so refunding via _data.cost would use the wrong
+            // price for any cell that got auto-upgraded.
+            var currentData = bd.Data != null ? bd.Data : _data;
             foreach (var o in _offsets)
-                _grid.RemoveStackObject(root + o, instance, bd.Data);
+                _grid.RemoveStackObject(root + o, instance, currentData);
 
             instance.SetActive(false);
 
-            _money.Refund(_data.cost);
-            _money.RemoveHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
+            _money.Refund(currentData.cost);
+            _money.RemoveHourlyCost(currentData.hourlyCost, FinanceCategory.ForHourlyCost(currentData.category), currentData.category);
 
             // See PlaceCommand.Undo() for why: RackCollectionDetector only learns a rack is gone
             // via GameEvents.Build.OnObjectDeleted (fired by DeleteCommand), so undoing a
             // drag-placed rack row must fire it per-instance too, or every dragged rack's
             // collection (and its chevrons) is orphaned instead of just the rack itself.
-            if (_data != null && _data.category == "Racking")
+            if (currentData != null && currentData.category == "Racking")
                 PublishBuildEvent(GameEvents.Build.OnObjectDeleted, instance.GetComponent<PlacedObject>());
         }
 
@@ -265,10 +271,13 @@ public class DragPlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
             var bd = instance.GetComponent<BuildingData>();
             if (bd == null) continue;
             Vector2Int root = bd.RootCell;
+            // Same reasoning as Undo() above: charge for whatever shape is actually there now,
+            // not the shared _data field's originally-requested shape.
+            var currentData = bd.Data != null ? bd.Data : _data;
             foreach (var o in _offsets)
-                _grid.AddStackObject(root + o, instance, bd.Data);
-            _money.Deduct(_data.cost);
-            _money.AddHourlyCost(_data.hourlyCost, FinanceCategory.ForHourlyCost(_data.category), _data.category);
+                _grid.AddStackObject(root + o, instance, currentData);
+            _money.Deduct(currentData.cost);
+            _money.AddHourlyCost(currentData.hourlyCost, FinanceCategory.ForHourlyCost(currentData.category), currentData.category);
         }
 
         // 3. Re-enable and re-add auto-floor tiles

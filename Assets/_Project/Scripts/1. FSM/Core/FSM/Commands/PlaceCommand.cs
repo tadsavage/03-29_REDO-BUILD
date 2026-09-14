@@ -12,8 +12,15 @@ public class PlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
 
     private readonly Vector2Int _root;
     private readonly Vector2Int[] _offsets;
-    private readonly ObjDataSO _data;
-    private readonly float _rotation;
+
+    // Not readonly: RelocateWallInstance() below updates these if WallConnectivityManager
+    // auto-swaps this command's own instance for a different wall shape (e.g. Wall -> Corner)
+    // during this very command's Execute(). Without this, Undo()/Redo() would keep refunding,
+    // charging, and re-tagging the grid using the ORIGINALLY REQUESTED shape's cost/data even
+    // though a completely different shape is actually sitting there — silently over- or
+    // under-charging the player (and desyncing the grid's PlacedObject record) every time.
+    private ObjDataSO _data;
+    private float _rotation;
 
     // The primary placed object
     private GameObject _instance;
@@ -455,7 +462,20 @@ public class PlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
 
     public void RelocateWallInstance(GameObject oldInstance, GameObject newInstance)
     {
-        if (ReferenceEquals(_instance, oldInstance)) _instance = newInstance;
+        if (ReferenceEquals(_instance, oldInstance))
+        {
+            _instance = newInstance;
+
+            // Keep this command's own bookkeeping in sync with whatever shape is ACTUALLY there
+            // now, so a later Undo()/Redo() refunds/charges/re-tags the grid correctly instead of
+            // using the originally-requested shape's stale cost and ObjDataSO.
+            var po = newInstance != null ? newInstance.GetComponent<PlacedObject>() : null;
+            if (po != null && po.data != null)
+            {
+                _data = po.data;
+                _rotation = po.rotation * 90f;
+            }
+        }
         for (int i = 0; i < _replacedWalls.Count; i++)
             if (ReferenceEquals(_replacedWalls[i], oldInstance)) _replacedWalls[i] = newInstance;
     }

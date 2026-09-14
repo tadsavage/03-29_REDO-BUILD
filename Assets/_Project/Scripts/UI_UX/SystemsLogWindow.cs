@@ -53,6 +53,7 @@ public class SystemsLogWindow : MonoBehaviour
     private static readonly Color SystemColor    = new Color(0.55f, 0.90f, 0.55f, 1f); // light green
     private static readonly Color GuardColor     = new Color(0.35f, 0.60f, 0.95f, 1f); // dark blue
     private static readonly Color WarningColor   = new Color(0.75f, 0.05f, 0.05f, 1f); // blood red
+    private static readonly Color CelebrationColor = new Color(0.95f, 0.76f, 0.20f, 1f); // gold
 
     private static SystemsLogWindow _instance;
     private static readonly List<(string time, string message, Color color)> _pending = new List<(string, string, Color)>();
@@ -119,6 +120,21 @@ public class SystemsLogWindow : MonoBehaviour
 
     /// <summary>Scheduler shortage warnings — order-readiness checks that found a real problem. Blood red.</summary>
     public static void LogWarning(string message) => Log(message, WarningColor);
+
+    /// <summary>A genuine event worth making a fuss over — new Bulk/Recurring customer offers land
+    /// here (see OrderArrivalService). Logs the message in gold, plays the fanfare stinger, and (only
+    /// once the window itself is actually built and on screen — confetti needs a real panel rect to
+    /// fall from) bursts a shower of confetti from just above the log panel down past the bottom of
+    /// the screen. Silently skips the fanfare/confetti if the window isn't built yet; the message
+    /// itself still buffers into _pending like any other Log call, so nothing is lost, just undecorated.</summary>
+    public static void Celebrate(string message)
+    {
+        Log(message, CelebrationColor);
+        AudioManager.Play("Fanfare");
+
+        if (_instance != null && _instance._built && _instance._docRoot != null && _instance._panel != null)
+            ConfettiFx.Play(_instance._docRoot, _instance._panel);
+    }
 
     /// <summary>Core entry point — every other Log* overload funnels through this one with its own
     /// message color. Timestamp color never changes; only the message text does.</summary>

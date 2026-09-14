@@ -142,6 +142,7 @@ public class UIBootstrapper : MonoBehaviour
             {
                 _hoverUI.Init(stationedElement);
                 _hoverUI.SetFSM(_fsm);
+                _hoverUI.SetBuildMenuUI(_buildMenuUI);
                 _fsm.SetHoverUI(_hoverUI);
             }
             // CLEANED UP: Wiped out the restrictive old UXML error trap block that was throwing the false alarm

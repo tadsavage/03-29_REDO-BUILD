@@ -68,6 +68,13 @@ public class BuildMenuUI : MonoBehaviour
     private VisualElement _modeTabs;
     private Button _tabBuild;
     private Button _tabPlay;
+    private Button _tabReports;
+    private VisualElement _reportsBar;
+    private VisualElement _reportsPanelContainer;
+    private VisualElement _reportsSubTabRow;
+    private VisualElement _reportsContent;
+    private Button _reportsCloseButton;
+    private ReportsPanelController _reportsController;
 
     // Hotkey number -> its play-bar button, for reflecting the open panel back onto the bar.
     private readonly Dictionary<int, Button> _playBarButtons = new();
@@ -77,20 +84,31 @@ public class BuildMenuUI : MonoBehaviour
     private CategoryConfig _activeCategory;
     private bool _submenuOpen;
 
-    /// <summary>Which bottom bar is up. Build is the placement HUD; Play is the run-the-warehouse HUD.</summary>
-    public enum HudMode { Build, Play }
+    /// <summary>Which bottom bar is up. Build is the placement HUD; Play is the run-the-warehouse HUD;
+    /// Reports is the read-only Financial/Operational/Inventory dashboard.</summary>
+    public enum HudMode { Build, Play, Reports }
 
     // Mode tab hover copy — pulled out as named constants (rather than left in-place on the
     // RegisterCallback calls) so the tooltip text and the button's own label can be found together.
     private const string BuildTabTooltipText = "Everything you need to build your Empire";
     private const string OrdersTabTooltipText = "Manage all orders, Inbound and Outbound";
+    private const string ReportsTabTooltipText = "Financial, Operational and Inventory reports";
 
     // ORDERS (Play mode) is the default view on startup — players land in "run the warehouse" mode,
     // with BUILD a deliberate switch away from it.
     private HudMode _mode = HudMode.Play;
 
+    // Whichever mode was active right before Reports was opened, so closing it (X button, Escape,
+    // or re-clicking the Reports tab) returns you there instead of always landing back on Play.
+    private HudMode _modeBeforeReports = HudMode.Play;
+
     /// <summary>Fires after the visible bar has actually swapped, so listeners can read the new mode.</summary>
     public Action<HudMode> OnHudModeChanged;
+
+    /// <summary>The bottom bar tab currently showing — for anything that needs to gate on Build vs.
+    /// Play/Reports without subscribing to OnHudModeChanged (e.g. WorldHoverPopupUI, which only wants
+    /// its item stats tooltip while idle-browsing under the Build tab).</summary>
+    public HudMode CurrentMode => _mode;
 
     /// <summary>CacheElements runs again from Initialize() when the bootstrapper wires us up after
     /// OnEnable. Without this the pointer guards and tab handlers get registered twice, and a double
@@ -147,9 +165,19 @@ public class BuildMenuUI : MonoBehaviour
     /// tools exist — dock play-side widgets here.</summary>
     public VisualElement PlayBar => _playBar;
 
+    /// <summary>The Reports bar. Same chrome and layout as <see cref="BuildBar"/>; the actual report
+    /// content lives in the separate floating ReportsPanelContainer, not this row.</summary>
+    public VisualElement ReportsBar => _reportsBar;
+
     /// <summary>Whichever bar is currently visible. Use this when a widget should follow the mode
-    /// switch; use <see cref="BuildBar"/>/<see cref="PlayBar"/> to pin it to one mode.</summary>
-    public VisualElement ActiveBar => _mode == HudMode.Build ? _buildBar : _playBar;
+    /// switch; use <see cref="BuildBar"/>/<see cref="PlayBar"/>/<see cref="ReportsBar"/> to pin it to
+    /// one mode.</summary>
+    public VisualElement ActiveBar => _mode switch
+    {
+        HudMode.Build => _buildBar,
+        HudMode.Reports => _reportsBar,
+        _ => _playBar,
+    };
 
     /// <summary>Height of the bottom bar in the USS (.buildmenu-bottom-bar) plus its 2px top border.
     /// Anything anchored just above the bar measures from here.</summary>
@@ -246,34 +274,54 @@ public class BuildMenuUI : MonoBehaviour
         _modeTabs = _root.Q<VisualElement>("ModeTabs");
         _tabBuild = _root.Q<Button>("TabBuild");
         _tabPlay = _root.Q<Button>("TabPlay");
+        _tabReports = _root.Q<Button>("TabReports");
+        _reportsBar = _root.Q<VisualElement>("BottomBarReportsUI");
+        _reportsPanelContainer = _root.Q<VisualElement>("ReportsPanelContainer");
+        _reportsSubTabRow = _root.Q<VisualElement>("ReportsSubTabRow");
+        _reportsContent = _root.Q<VisualElement>("ReportsContent");
+        _reportsCloseButton = _root.Q<Button>("ReportsCloseButton");
 
         // The bars are Ignore in UXML (legacy reason) — override to Position so
         // any click inside a bar area is caught and doesn't pass through to the
         // game world. The full-screen root stays Ignore so it doesn't block clicks
         // in open space above the bar.
-        if (_buildBar != null)         _buildBar.pickingMode         = PickingMode.Position;
-        if (_playBar != null)          _playBar.pickingMode          = PickingMode.Position;
-        if (_submenuContainer != null) _submenuContainer.pickingMode = PickingMode.Position;
+        if (_buildBar != null)              _buildBar.pickingMode              = PickingMode.Position;
+        if (_playBar != null)               _playBar.pickingMode               = PickingMode.Position;
+        if (_reportsBar != null)            _reportsBar.pickingMode            = PickingMode.Position;
+        if (_submenuContainer != null)      _submenuContainer.pickingMode      = PickingMode.Position;
+        if (_reportsPanelContainer != null) _reportsPanelContainer.pickingMode = PickingMode.Position;
 
         if (!_barCallbacksRegistered)
         {
             RegisterBarPointerGuards(_buildBar);
             RegisterBarPointerGuards(_playBar);
+            RegisterBarPointerGuards(_reportsBar);
+            RegisterBarPointerGuards(_reportsPanelContainer);
             RegisterBarPointerGuards(_modeTabs);
 
             if (_tabBuild != null) _tabBuild.clicked += () => SetHudMode(HudMode.Build);
             if (_tabPlay != null) _tabPlay.clicked += () => SetHudMode(HudMode.Play);
+            if (_tabReports != null) _tabReports.clicked += OnTabReportsClicked;
+            if (_reportsCloseButton != null) _reportsCloseButton.clicked += CloseReports;
 
             // UI Toolkit's built-in `tooltip` property only renders inside the Editor's own UI — a
             // runtime UIDocument HUD like this one never shows it — so the mode tabs hook into the
             // same cursor-following tooltip the rack chevrons use instead of a second implementation.
             AttachModeTabTooltip(_tabBuild, BuildTabTooltipText);
             AttachModeTabTooltip(_tabPlay, OrdersTabTooltipText);
+            AttachModeTabTooltip(_tabReports, ReportsTabTooltipText);
 
             WirePlayBarButtons();
 
             _barCallbacksRegistered = true;
         }
+
+        // Rebuilt every CacheElements call, same as BuildCategoryButtons/BuildUtilityButtons above —
+        // idempotent because ReportsPanelController clears its tab row before repopulating it. Needs
+        // to run again from Initialize() (see class doc on _barCallbacksRegistered) because the first
+        // OnEnable pass has no MoneyService yet.
+        if (_reportsSubTabRow != null && _reportsContent != null)
+            _reportsController = new ReportsPanelController(_reportsSubTabRow, _reportsContent, moneyService);
 
         ApplyHudMode();
     }
@@ -414,6 +462,33 @@ public class BuildMenuUI : MonoBehaviour
             : (Vector2)Input.mousePosition;
     }
 
+    /// <summary>True while the Reports mode/panel is the one on screen — read by TopBarUI's Escape
+    /// chain so Esc can back out of it like every other open HUD panel.</summary>
+    public bool IsReportsOpen => _mode == HudMode.Reports;
+
+    /// <summary>The Reports tab toggles rather than just switches: clicking it while already open
+    /// closes it (back to whichever mode was active before), clicking it while closed opens it.</summary>
+    private void OnTabReportsClicked()
+    {
+        if (_mode == HudMode.Reports)
+        {
+            CloseReports();
+            return;
+        }
+
+        _modeBeforeReports = _mode;
+        SetHudMode(HudMode.Reports);
+    }
+
+    /// <summary>Closes the Reports panel via the X button, Escape, or the tab-toggle above — all three
+    /// routes land here. Returns to whichever mode was active before Reports was opened. No-ops if
+    /// Reports isn't the current mode.</summary>
+    public void CloseReports()
+    {
+        if (_mode != HudMode.Reports) return;
+        SetHudMode(_modeBeforeReports);
+    }
+
     /// <summary>Switches which bottom bar is up. No-ops if already in that mode.</summary>
     public void SetHudMode(HudMode mode)
     {
@@ -449,12 +524,27 @@ public class BuildMenuUI : MonoBehaviour
     private void ApplyHudMode()
     {
         bool build = _mode == HudMode.Build;
+        bool play = _mode == HudMode.Play;
+        bool reports = _mode == HudMode.Reports;
 
         SetHidden(_buildBar, !build);
-        SetHidden(_playBar, build);
+        SetHidden(_playBar, !play);
+        SetHidden(_reportsBar, !reports);
+
+        // ReportsPanelContainer shares the build submenu's .buildmenu-submenu base class, which sets
+        // display:none itself — buildmenu-bar-hidden can't override that (same specificity, declared
+        // earlier in the stylesheet), so it needs the submenu's own open/closed toggle instead.
+        _reportsPanelContainer?.EnableInClassList("buildmenu-submenu-open", reports);
+        _reportsPanelContainer?.EnableInClassList("buildmenu-submenu-closed", !reports);
 
         SetTabActive(_tabBuild, build);
-        SetTabActive(_tabPlay, !build);
+        SetTabActive(_tabPlay, play);
+        SetTabActive(_tabReports, reports);
+
+        // Data can go stale while another mode was up (money/inventory/ops keep changing in the
+        // background), so pull a fresh snapshot every time the tab comes back on screen rather than
+        // relying on a live-bound refresh loop.
+        if (reports) _reportsController?.Refresh();
 
         OnActiveBarChanged?.Invoke(ActiveBar);
     }

@@ -80,8 +80,25 @@ public class RaycastController : MonoBehaviour
         // Unity wraps UXML in a TemplateContainer child of rootVisualElement.
         // Both root and TemplateContainer must be Ignore — otherwise PanelRaycaster
         // hits the full-screen TemplateContainer and blocks all game-world raycasts.
+        //
+        // EXCEPTION: BuildMenuUI.CacheElements() deliberately flips the bottom bars
+        // (BuildBar/PlayBar/ReportsBar/ModeTabs) to PickingMode.Position during its own
+        // OnEnable/Initialize so clicks on the bar are caught instead of falling through
+        // to the world. Since Unity runs every object's Awake/OnEnable before any Start,
+        // that override has already happened by the time this Start() runs — so blindly
+        // forcing every child back to Ignore here used to silently undo it, letting clicks
+        // on the bottom bar pass straight through into placement/delete raycasts. Skip
+        // BuildMenuUI's own UIDocument entirely — it's solely responsible for its own
+        // children's picking modes, so this generic reset has no business touching them.
+        // (A "skip whatever's already Position" heuristic was tried first, but that also
+        // preserves any OTHER element's accidental un-authored default — UI Toolkit's
+        // VisualElement default IS Position — which left an unrelated always-on dev-tool
+        // backdrop (ToolsWindowController's "tools-overlay") stuck blocking world clicks
+        // whenever this Start() happened to run before its own Start() set it Ignore.)
+        var buildMenuDoc = _buildMenuUI != null ? _buildMenuUI.GetComponent<UIDocument>() : null;
         foreach (var doc in FindObjectsByType<UIDocument>())
         {
+            if (doc == buildMenuDoc) continue;
             if (doc.rootVisualElement == null) continue;
             doc.rootVisualElement.pickingMode = PickingMode.Ignore;
             foreach (var child in doc.rootVisualElement.Children())

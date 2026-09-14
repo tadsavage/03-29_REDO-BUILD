@@ -32,7 +32,13 @@ public class Light_Adjustments : MonoBehaviour
         }
         else
         {
-            SetState(false); // Force default off
+            // Side Lot's light posts have no PlacedObject of their own (they're nested fixtures under
+            // the lot prefab, not their own grid-tracked placement), so LoadState/SaveState never
+            // apply to them — this else branch is the only state they ever get. The lot itself has no
+            // day/night-driven light switch UX, so defaulting off left it dark until someone happened
+            // to Shift+click a light; default it lit instead, per Tad's ask.
+            bool defaultOn = GetComponentInParent<SideLotController>() != null;
+            SetState(defaultOn);
         }
     }
 
