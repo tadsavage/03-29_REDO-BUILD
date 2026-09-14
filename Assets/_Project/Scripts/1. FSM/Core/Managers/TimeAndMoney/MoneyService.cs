@@ -471,6 +471,42 @@ namespace GameCore.Economy
             RecordSpentTodayByObjectCategory(category, amount);
         }
 
+        /// <summary>Reverses a one-time purchase deduction previously made via <see cref="Deduct"/> —
+        /// e.g. a cancelled PO that was never actually delivered. Returns the capital directly and
+        /// unwinds the original expense bookkeeping under the SAME category it was deducted under,
+        /// rather than recording it as new income under an unrelated category (AddCapital would file
+        /// it under whatever "reason" is passed, which — for a refund — has no real income category
+        /// of its own and would misattribute the dollars in the Revenue/Hourly breakdown panels: a
+        /// cancelled purchase never earned anything, it just un-spent).</summary>
+        public void ReverseDeduct(int amount, string category = "General")
+        {
+            if (amount <= 0) return;
+
+            _currentCapital += amount;
+
+            bool wasBankrupt = _isBankrupt;
+            _isBankrupt = _currentCapital <= 0;
+            if (wasBankrupt && !_isBankrupt)
+                Debug.Log($"[MoneyService] Player recovered from bankruptcy. Capital: ${_currentCapital:N0}");
+
+            // Unwind the original expense bookkeeping (never below zero — a save/load boundary could
+            // in principle leave a reversal without a matching recorded deduction).
+            if (_lifetimeExpenses.TryGetValue(category, out int lifetime))
+                _lifetimeExpenses[category] = Mathf.Max(0, lifetime - amount);
+
+            if (_spentTodayByObjectCategory.TryGetValue(category, out int spentToday))
+                _spentTodayByObjectCategory[category] = Mathf.Max(0, spentToday - amount);
+
+            _spentToday = Mathf.Max(0, _spentToday - amount);
+            _expensesThisHour = Mathf.Max(0, _expensesThisHour - amount);
+            _expensesToday = Mathf.Max(0, _expensesToday - amount);
+            _expensesThisWeek = Mathf.Max(0, _expensesThisWeek - amount);
+
+            _eventManager?.Publish(GameEvents.Economy.OnMoneyChanged, _currentCapital);
+            OnMoneyChanged?.Invoke();
+            _eventManager?.Publish(GameEvents.Economy.OnSpentTodayChanged, _spentToday);
+        }
+
         /// <summary>LEGACY: Set spent today (for save/load).</summary>
         public void SetSpentToday(int amount)
         {

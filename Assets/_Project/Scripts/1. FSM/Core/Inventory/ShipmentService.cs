@@ -274,10 +274,14 @@ namespace GameCore.Inventory
                 return false;
             }
 
+            // ReverseDeduct, not AddCapital: this un-spends the original purchase rather than earning
+            // new revenue, so it must unwind the exact categories CreatePlayerPurchaseOrder deducted
+            // under ("Inventory" for goods, Transportation for freight) instead of being booked as
+            // Case Pick income — a cancelled PO was never picked or sold.
             if (shipment.PlayerOrdered && shipment.TotalCost > 0)
-                _moneyService?.AddCapital(shipment.TotalCost, FinanceCategory.CasePick);
+                _moneyService?.ReverseDeduct(shipment.TotalCost, "Inventory");
             if (shipment.PlayerOrdered && shipment.DeliveryFee > 0)
-                _moneyService?.AddCapital(shipment.DeliveryFee, FinanceCategory.Transportation);
+                _moneyService?.ReverseDeduct(shipment.DeliveryFee, FinanceCategory.Transportation);
 
             // Take its door reservation down with it, whether it was still in the pool or already
             // placed on the grid — a cancelled PO holding a slot would keep a door out of use for
