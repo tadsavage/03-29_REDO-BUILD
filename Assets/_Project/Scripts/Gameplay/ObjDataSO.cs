@@ -83,6 +83,19 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("Optional custom footprint shape. If empty, rectangular footprint is used.")]
     public Vector2Int[] customShapeOffsets;
 
+    [Tooltip("Extra cells reserved purely to block other placements (e.g. a truck apron/lane in " +
+             "front of a dock door) -- included in grid occupancy and overlap checks like the core " +
+             "footprint, but exempt from PlacementValidator's level-surface height check, since they " +
+             "aren't part of the object's physical mesh and commonly span a height seam (e.g. a raised " +
+             "dock slab bleeding onto plain yard ground). Rotates together with customShapeOffsets.")]
+    public Vector2Int[] bufferOffsets;
+
+    /// <summary>How many of the leading entries in GetFootprintOffsets() are the "real" footprint
+    /// (the object's own mesh/collider area, which PlacementValidator requires a level surface under)
+    /// as opposed to bufferOffsets appended after them. See bufferOffsets above.</summary>
+    public int CoreFootprintCellCount =>
+        (customShapeOffsets != null && customShapeOffsets.Length > 0) ? customShapeOffsets.Length : footprint.x * footprint.y;
+
     public Vector2Int[] GetFootprintOffsets(float rotation)
     {
         Vector2Int[] baseOffsets;
@@ -107,7 +120,19 @@ public class ObjDataSO : ScriptableObject
         }
 
         // Rotate using the SAME logic as custom shapes
-        return RotateOffsets(baseOffsets, rotation);
+        var rotatedCore = RotateOffsets(baseOffsets, rotation);
+
+        if (bufferOffsets == null || bufferOffsets.Length == 0)
+            return rotatedCore;
+
+        // Buffer cells rotate the same way and are appended AFTER the core cells -- callers that need
+        // just the core set (PlacementValidator's height check) rely on that ordering via
+        // CoreFootprintCellCount rather than needing a second array threaded through every call site.
+        var rotatedBuffer = RotateOffsets(bufferOffsets, rotation);
+        var combined = new Vector2Int[rotatedCore.Length + rotatedBuffer.Length];
+        rotatedCore.CopyTo(combined, 0);
+        rotatedBuffer.CopyTo(combined, rotatedCore.Length);
+        return combined;
     }
 
 

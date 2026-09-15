@@ -30,12 +30,19 @@ public class PlacementValidator : MonoBehaviour
         // the comparison so that partial-wall coverage doesn't fail the check.
         bool doorReplacingWalls = data.replacesWalls;
 
+        // Only the object's OWN footprint (customShapeOffsets/footprint) needs a level surface --
+        // bufferOffsets cells (e.g. a dock's truck apron reaching out onto plain yard ground) are
+        // placement-blocking reservations, not real mesh area, and routinely span a height seam
+        // (raised dock slab vs. yard at y=0). Checking them here rejected every dock-door placement
+        // with a real apron the moment ObjDataSO.bufferOffsets started reserving ground past the door.
+        int coreCount = Mathf.Min(data.CoreFootprintCellCount, offsets.Length);
+
         Vector2Int firstCell = root + offsets[0];
         float baseHeight = doorReplacingWalls
             ? _grid.GetStackHeightIgnoringWalls(firstCell, ignore)
             : _grid.GetStackHeight(firstCell, ignore);
 
-        for (int i = 1; i < offsets.Length; i++)
+        for (int i = 1; i < coreCount; i++)
         {
             Vector2Int cell = root + offsets[i];
             float h = doorReplacingWalls
