@@ -164,11 +164,15 @@ public class PlacementFinalizer : MonoBehaviour
         if (bd != null)
             bd.Initialize(root, rotation, offsets, data);
 
-        // Add to grid
-        foreach (var o in offsets)
+        // Add to grid. Cells beyond data.CoreFootprintCellCount come from ObjDataSO.bufferOffsets
+        // (pure occupancy reservations, e.g. a dock door's truck lane) rather than the object's
+        // real footprint -- flag them so PlacementGrid's height math doesn't double-count the
+        // shared instance's objHeight in cells where nothing is actually rendered.
+        for (int i = 0; i < offsets.Length; i++)
         {
-            Vector2Int cell = root + o;
-            _grid.AddStackObject(cell, instance, data);
+            Vector2Int cell = root + offsets[i];
+            bool isBufferCell = i >= data.CoreFootprintCellCount;
+            _grid.AddStackObject(cell, instance, data, isBufferCell);
         }
 
         // A combined Foundation+FloorTile prefab ships its 4 default tiles as real prefab children

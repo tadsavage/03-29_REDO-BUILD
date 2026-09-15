@@ -23,8 +23,14 @@ public class VehicleThrottleAudio : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float honkProbability = 0.5f;
 
+    [Header("Backup Alarm Settings")]
+    [Tooltip("Plays once when the truck starts its final backing/pivot maneuver into the dock door (see TruckController.BeginReversingArcAroundPivot1 callers). Assign the truck-backing-up.wav clip.")]
+    [SerializeField] private AudioClip backupAlarmClip;
+    [SerializeField] private float backupAlarmVolume = 0.6f;
+
     private AudioSource _engineSource;
     private AudioSource _honkSource;
+    private AudioSource _backupAlarmSource;
     private NavMeshAgent _agent;
     private float _targetVolume;
 
@@ -52,6 +58,15 @@ public class VehicleThrottleAudio : MonoBehaviour
         _honkSource.minDistance = 5f;
         _honkSource.maxDistance = hearingDistance * 1.2f;
         _honkSource.pitch = honkPitch;
+
+        // Create Backup Alarm Source (one-shot, plays once per docking approach)
+        _backupAlarmSource = gameObject.AddComponent<AudioSource>();
+        _backupAlarmSource.loop = false;
+        _backupAlarmSource.playOnAwake = false;
+        _backupAlarmSource.spatialBlend = 1.0f;
+        _backupAlarmSource.rolloffMode = AudioRolloffMode.Logarithmic;
+        _backupAlarmSource.minDistance = 5f;
+        _backupAlarmSource.maxDistance = hearingDistance * 1.2f;
     }
 
     private void Start()
@@ -75,6 +90,15 @@ public class VehicleThrottleAudio : MonoBehaviour
         // continuously-looping engine hum actually responds to it in real time, not just at play().
         _targetVolume = (currentSpeed > 0.1f ? engineVolume : 0f) * AudioManager.GameVolumeLevel;
         _engineSource.volume = Mathf.MoveTowards(_engineSource.volume, _targetVolume, Time.deltaTime * fadeSpeed);
+    }
+
+    /// <summary>Plays the truck's reverse-backup alarm once. Call this exactly when the truck begins
+    /// its final pivot-and-reverse maneuver into the dock door, not on every frame of that state --
+    /// this fires a single PlayOneShot, it does not loop or manage its own stop/start.</summary>
+    public void TriggerBackupAlarm()
+    {
+        if (backupAlarmClip == null || _backupAlarmSource == null) return;
+        _backupAlarmSource.PlayOneShot(backupAlarmClip, backupAlarmVolume * AudioManager.GameVolumeLevel);
     }
 
     public void TriggerArrivalHonk()

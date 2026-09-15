@@ -373,8 +373,8 @@ public class PlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
 
         // 2. Re-enable primary + add to grid
         _instance.SetActive(true);
-        foreach (var o in _offsets)
-            _grid.AddStackObject(_root + o, _instance, _data);
+        for (int i = 0; i < _offsets.Length; i++)
+            _grid.AddStackObject(_root + _offsets[i], _instance, _data, i >= _data.CoreFootprintCellCount);
 
         // 3. Re-enable and re-add auto-floor tiles
         if (_autoFloors.Count > 0 && _autoFloorData != null)

@@ -30,6 +30,15 @@ public class PlacementGrid : MonoBehaviour
     {
         public GameObject instance;
         public ObjDataSO data;
+
+        // True when this registration came from an ObjDataSO.bufferOffsets cell (a pure
+        // occupancy/overlap reservation, e.g. a dock door's truck lane reaching across the yard)
+        // rather than the object's real footprint. Buffer registrations still block other
+        // placements via IsOccupied/overlap checks, but must NOT contribute to this cell's stack
+        // height -- otherwise every reserved lane cell reports the full parent object's objHeight
+        // (e.g. 9) even though nothing is physically there, which both fails future level-surface
+        // checks nearby and makes build-preview indicator tiles float high above the real ground.
+        public bool isBuffer;
     }
     [System.Serializable]
     public class DebugCell
@@ -216,6 +225,11 @@ public class PlacementGrid : MonoBehaviour
             // uniform 1.110/1.275 (exactly objHeight=0.165 apart) by this method. Skip entirely.
             if (entry.data.category == "Inventory") continue;
 
+            // Buffer/reservation cells (see PlacedObject.isBuffer) hold the SAME instance as the
+            // object's real footprint elsewhere -- they must not contribute additional height or
+            // reposition the shared instance a second time.
+            if (entry.isBuffer) continue;
+
             // Foundations always stay at y=0.
             // Objects that ignore rules or clear grid stay at y=0, unless they are floors or grounds.
             if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
@@ -325,6 +339,12 @@ public class PlacementGrid : MonoBehaviour
             if (entry.instance == ignore || (entry.instance != null && !entry.instance.activeSelf))
                 continue;
 
+            // Buffer/reservation cells hold a reference to the SAME instance as the object's real
+            // footprint elsewhere -- counting its objHeight here would be double-counting a mesh
+            // that isn't actually present in this cell.
+            if (entry.isBuffer)
+                continue;
+
             bool isGround = IsGround(entry.data);
 
             // Stackable objects (like Racks) always contribute to height, even if 
@@ -396,6 +416,8 @@ public class PlacementGrid : MonoBehaviour
                 continue;
             if (entry.data != null && (entry.data.canBeReplacedByDoor || entry.data.replacesWalls))
                 continue;
+            if (entry.isBuffer)
+                continue;
 
             bool isGround = IsGround(entry.data);
 
@@ -432,7 +454,7 @@ public class PlacementGrid : MonoBehaviour
     // ---------------------------------------------------------
     // ADD / REMOVE OBJECTS
     // ---------------------------------------------------------
-    public void AddStackObject(Vector2Int cell, GameObject obj, ObjDataSO data)
+public void AddStackObject(Vector2Int cell, GameObject obj, ObjDataSO data, bool isBuffer = false)
     {
         if (!IsInsideGrid(cell))
             return;
@@ -442,7 +464,7 @@ public class PlacementGrid : MonoBehaviour
         if (IsGround(data))
         {
             // Grounds go at the very bottom
-            list.Insert(0, new PlacedObject { instance = obj, data = data });
+            list.Insert(0, new PlacedObject { instance = obj, data = data, isBuffer = isBuffer });
         }
         else if (data.isFloor)
         {
@@ -455,12 +477,12 @@ public class PlacementGrid : MonoBehaviour
                 else
                     break;
             }
-            list.Insert(insertIdx, new PlacedObject { instance = obj, data = data });
+            list.Insert(insertIdx, new PlacedObject { instance = obj, data = data, isBuffer = isBuffer });
         }
         else
         {
             // Normal objects go on top
-            list.Add(new PlacedObject { instance = obj, data = data });
+            list.Add(new PlacedObject { instance = obj, data = data, isBuffer = isBuffer });
         }
 
         UpdateStackPositions(cell);
@@ -732,8 +754,10 @@ public class PlacementGrid : MonoBehaviour
             }
 
             // Register this object in EVERY footprint cell
-            foreach (var o in offsets)
+            for (int fi = 0; fi < offsets.Length; fi++)
             {
+                Vector2Int o = offsets[fi];
+                bool isBufferCell = fi >= placed.data.CoreFootprintCellCount;
                 Vector2Int cell = root + o;
 
                 if (!IsInsideGrid(cell))
@@ -759,7 +783,7 @@ public class PlacementGrid : MonoBehaviour
                 // Foundations at bottom, Floors after, others on top
                 if (IsGround(placed.data))
                 {
-                    list.Insert(0, new PlacedObject { instance = placed.gameObject, data = placed.data });
+                    list.Insert(0, new PlacedObject { instance = placed.gameObject, data = placed.data, isBuffer = isBufferCell });
                 }
                 else if (placed.data.isFloor)
                 {
@@ -771,11 +795,11 @@ public class PlacementGrid : MonoBehaviour
                         else
                             break;
                     }
-                    list.Insert(insertIdx, new PlacedObject { instance = placed.gameObject, data = placed.data });
+                    list.Insert(insertIdx, new PlacedObject { instance = placed.gameObject, data = placed.data, isBuffer = isBufferCell });
                 }
                 else
                 {
-                    list.Add(new PlacedObject { instance = placed.gameObject, data = placed.data });
+                    list.Add(new PlacedObject { instance = placed.gameObject, data = placed.data, isBuffer = isBufferCell });
                 }
                 }
                 }

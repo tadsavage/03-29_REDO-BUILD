@@ -274,8 +274,8 @@ public class DragPlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
             // Same reasoning as Undo() above: charge for whatever shape is actually there now,
             // not the shared _data field's originally-requested shape.
             var currentData = bd.Data != null ? bd.Data : _data;
-            foreach (var o in _offsets)
-                _grid.AddStackObject(root + o, instance, currentData);
+            for (int oi = 0; oi < _offsets.Length; oi++)
+                _grid.AddStackObject(root + _offsets[oi], instance, currentData, oi >= currentData.CoreFootprintCellCount);
             _money.Deduct(currentData.cost);
             _money.AddHourlyCost(currentData.hourlyCost, FinanceCategory.ForHourlyCost(currentData.category), currentData.category);
         }

@@ -531,6 +531,7 @@ private DockSlot        _dock;
     // Docked ghosting — the see-through material and each ghosted renderer's original materials,
     // so they can be restored on departure.
     private Material _ghostMaterial;
+    private VehicleThrottleAudio _throttleAudio;
 
     // Ghost material for cargo CASES (GhostCases()) — uses the same GhostLoweredWall as docked trailer walls
     // so unreceived cases have a consistent see-through look.
@@ -542,6 +543,8 @@ private DockSlot        _dock;
         _groundY = transform.position.y;
         var agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
         if (agent != null) agent.enabled = false;
+
+        _throttleAudio = GetComponent<VehicleThrottleAudio>();
 
         _ghostMaterial = Resources.Load<Material>("Materials/GhostLoweredWall");
         if (_ghostMaterial == null)
@@ -1958,6 +1961,7 @@ private DockSlot        _dock;
             {
                 if (_cab == null)
                 {
+                    _throttleAudio?.TriggerBackupAlarm(); // starting the pivot/reverse into the door
                     BeginReversingArcAroundPivot1();
                     break;
                 }
@@ -1975,6 +1979,7 @@ private DockSlot        _dock;
                 if (Quaternion.Angle(_cab.localRotation, desiredCabLocal) <= 0.5f)
                 {
                     _cab.localRotation = desiredCabLocal;
+                    _throttleAudio?.TriggerBackupAlarm(); // starting the pivot/reverse into the door
                     // Step 14 (2026-09-05, Tad's spec): this used to call BeginReverseToTruckNavPoint3
                     // (step 13's straight-line reverse, dead-ending at DevCheckpoint_AtNavPoint3Reverse).
                     // Replaced with the new arc-around-TruckPivot1-to-TruckNavPoint5 maneuver, which
