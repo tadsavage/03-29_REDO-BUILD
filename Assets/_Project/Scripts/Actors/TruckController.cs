@@ -164,7 +164,15 @@ public class TruckController : MonoBehaviour
         // RotateTowards-catches up to it — the cab's local rotation is recomputed every frame so its WORLD heading stays
         // pinned even as the root rotates underneath it. Hands off to ToTruckNavPoint1 once the
         // trailer's rotation is close enough to match.
-        TrailerAligningToNavPoint1
+        TrailerAligningToNavPoint1,
+
+        // Step 17 (2026-09-15, Tad's report): FacingTruckNavPoint4 used to finish by instantly
+        // snapping the root's rotation to match the cab's now-fixed heading (BeginDriveToTruckNavPoint4)
+        // — the same class of jarring 1-frame teleport TrailerAligningToNavPoint1 was built to fix for
+        // Nav1, just never applied here. This state is the identical fix: tractor's world heading is
+        // locked, the rig is towed forward at driveSpeed along that fixed heading, and the root/trailer
+        // gradually RotateTowards-catches up to it. Hands off to ToTruckNavPoint4 once caught up.
+        TrailerAligningToNavPoint4
     }
 
     [Header("Backing maneuver (2026-09 rebuild)")]
@@ -201,6 +209,9 @@ public class TruckController : MonoBehaviour
     [Tooltip("Meters/second the effective arc radius is allowed to close toward arcRadius at the start of ReversingArcAroundPivot1 (the truck's actual entry distance from TruckPivot1 doesn't match arcRadius — TruckNavPoint4 isn't on that circle). Fast enough to close a 2-3m gap in under a second without an instant snap.")]
     [SerializeField] private float radiusCorrectionSpeed = 4f;
 
+    [Tooltip("Degrees/second the root's rotation is allowed to catch up from whatever heading it entered ReversingArcAroundPivot1 with toward the geometrically-exact tangent heading. The arc's position/heading are otherwise both derived directly from the swept angle every frame (no independent catch-up state for the REST of the arc, by design — see UpdateReversingArcAroundPivot1), but the very first frame's exact tangent heading can differ from whatever heading the truck actually had a moment before (TruckNavPoint4 isn't on the arc's circle, so nothing guarantees the approach heading already matches the tangent there) — confirmed live as a 1-frame snap right as the truck started backing toward TruckNavPoint5. RotateTowards-capped catch-up only runs until the gap closes (_arcHeadingCaughtUp), then hands back to the exact direct assignment for the remainder of the arc — immune to timescale/frame-rate spikes the way a fixed-duration blend wouldn't be. Matches trailerCatchUpTurnSpeed's value (60): an initial value of 240 technically eliminated the true instant-teleport (measured live: closed in ~2 frames) but a multi-tens-of-degrees correction finishing in well under a tenth of a second still read as a snap — 60 spreads the same correction over a visibly gradual turn instead.")]
+    [SerializeField] private float arcHeadingCatchUpSpeed = 60f;
+
     // Distance already covered this ReversingStraightSlow leg — reset by BeginReverseStraightSlow.
     private float _slowReverseTraveled;
 
@@ -217,6 +228,11 @@ public class TruckController : MonoBehaviour
     // rather than tangent-step-then-reproject.
     private float _arcSweptSoFar;
     private float _arcCurrentAngle;
+
+    // False from BeginReversingArcAroundPivot1 until the root's rotation has caught up (via
+    // arcHeadingCatchUpSpeed) to the arc's exact per-frame tangent heading — see that tunable's
+    // tooltip and UpdateReversingArcAroundPivot1.
+    private bool _arcHeadingCaughtUp;
 
     [Header("Driving")]
     // Doubled per Tad's explicit request 2026-09 — backing/approach legs were reading as taking
@@ -496,6 +512,9 @@ private DockSlot        _dock;
     // FacingTruckNavPoint1 — held fixed for the whole of TrailerAligningToNavPoint1 while the
     // trailer (root) rotates to catch up to it. See that state's enum comment.
     private Quaternion  _lockedTractorHeadingNav1;
+
+    // Same pattern, for FacingTruckNavPoint4 → TrailerAligningToNavPoint4. See that state's enum comment.
+    private Quaternion  _lockedTractorHeadingNav4;
 
     private float       _groundY;
     private Vector3     _currentTarget;
@@ -1933,7 +1952,13 @@ private DockSlot        _dock;
                     if (Quaternion.Angle(_cab.localRotation, desiredLocal) <= 0.5f)
                     {
                         _cab.localRotation = desiredLocal;
-                        BeginDriveToTruckNavPoint4();
+                        // BUG FIX (2026-09-15): used to call BeginDriveToTruckNavPoint4() here, which
+                        // instantly snapped transform.rotation to match the cab's world heading —
+                        // confirmed live as the same jarring 1-frame teleport TrailerAligningToNavPoint1
+                        // already fixed for Nav1. TrailerAligningToNavPoint4 owns that transition instead.
+                        _lockedTractorHeadingNav4 = desiredWorld;
+                        _currentTarget = nav4.position;
+                        _state = TruckState.TrailerAligningToNavPoint4;
                     }
                 }
                 else
@@ -1949,6 +1974,43 @@ private DockSlot        _dock;
             case TruckState.DevCheckpoint_TractorFacingNav4:
                 // Retired dead-end — see enum comment. Nothing advances out of this automatically.
                 break;
+
+            case TruckState.TrailerAligningToNavPoint4:
+            {
+                // Mirror of TrailerAligningToNavPoint1 — see that state's implementation/comments for
+                // the full reasoning. The tractor's world heading (_lockedTractorHeadingNav4) is fixed;
+                // the trailer (this transform, the root) is towed forward at driveSpeed along that fixed
+                // heading while its own rotation gradually swings into line with it.
+                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
+                Vector3 toTarget = flat - transform.position;
+                toTarget.y = 0f;
+                if (toTarget.magnitude < arrivedThreshold)
+                {
+                    transform.position = flat;
+                    transform.rotation = _lockedTractorHeadingNav4;
+                    if (_cab != null) _cab.localRotation = _cabRest;
+                    SetTarget(TruckState.ToTruckNavPoint4, _currentTarget);
+                    break;
+                }
+
+                transform.position += (_lockedTractorHeadingNav4 * Vector3.forward) * driveSpeed * Time.deltaTime;
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, _lockedTractorHeadingNav4, trailerCatchUpTurnSpeed * Time.deltaTime);
+
+                // Cab's LOCAL rotation is recomputed every frame from the root's current (still
+                // catching-up) rotation so the cab's WORLD rotation stays pinned to
+                // _lockedTractorHeadingNav4 the whole time — the tractor visually doesn't move at all
+                // while the trailer swings underneath it.
+                if (_cab != null)
+                    _cab.localRotation = Quaternion.Inverse(transform.rotation) * _lockedTractorHeadingNav4;
+
+                if (Quaternion.Angle(transform.rotation, _lockedTractorHeadingNav4) <= 1f)
+                {
+                    transform.rotation = _lockedTractorHeadingNav4;
+                    if (_cab != null) _cab.localRotation = _cabRest;
+                    SetTarget(TruckState.ToTruckNavPoint4, _currentTarget);
+                }
+                break;
+            }
 
             case TruckState.ToTruckNavPoint4:
                 if (DriveToward(_currentTarget))
@@ -2440,6 +2502,7 @@ private DockSlot        _dock;
             _state == TruckState.StraighteningAtNavPoint2 ||
             _state == TruckState.ToTruckNavPoint3 ||
             _state == TruckState.FacingTruckNavPoint4 || _state == TruckState.DevCheckpoint_TractorFacingNav4 ||
+            _state == TruckState.TrailerAligningToNavPoint4 ||
             _state == TruckState.StraighteningAtNavPoint4 || _state == TruckState.DevCheckpoint_StraightAtNav4 ||
             _state == TruckState.ReversingStraightSlow || _state == TruckState.DevCheckpoint_ReversedSlow ||
             _state == TruckState.ReversingToTruckNavPoint5 || _state == TruckState.StraighteningAtNavPoint5 ||
@@ -2693,6 +2756,12 @@ private DockSlot        _dock;
         _arcSweptSoFar = 0f;
         _arcCurrentAngle = _arcEntryAngle;
 
+        // See arcHeadingCatchUpSpeed's tooltip: the exact tangent heading at entry can differ from
+        // whatever heading the truck actually had a moment before (StraighteningAtNavPoint4 never
+        // touches root rotation), so catch up to it at a capped speed rather than snapping straight
+        // to the computed tangent.
+        _arcHeadingCaughtUp = false;
+
         _currentTarget = nav5.position;
         _useBezier = false;
         _state = TruckState.ReversingArcAroundPivot1;
@@ -2745,13 +2814,33 @@ private DockSlot        _dock;
         transform.position = newPos;
 
         // Heading: the velocity direction for a DECREASING θ (counterclockwise) is (-cosθ, 0, sinθ)
-        // — set directly, no RotateTowards lag, so it's always exactly locked to the current point on
-        // the circle (physically correct for rigid circular motion, and structurally impossible to
-        // swing the wrong way since there's no separate "current heading" to reconcile against a
-        // moving target). The root faces AWAY from the direction of travel (it's reversing) — the
-        // same orientation it needs at final dock, held from the very first frame.
+        // — computed directly from the angle every frame (physically correct for rigid circular
+        // motion, and structurally impossible to swing the wrong way since there's no separate
+        // "current heading" reconciling against a moving target). The root faces AWAY from the
+        // direction of travel (it's reversing) — the same orientation it needs at final dock.
+        //
+        // That exact tangent heading is caught up to from the truck's real entry heading via a
+        // RotateTowards cap (arcHeadingCatchUpSpeed) rather than assigned outright — the entry
+        // heading (whatever StraighteningAtNavPoint4 left it at) isn't guaranteed to already match
+        // the tangent at this exact point on the circle, and assigning it directly showed up live as
+        // a 1-frame snap right as the arc began. Once caught up, this reverts to the exact original
+        // direct assignment for the remainder of the arc — same "no independent catch-up state"
+        // guarantee as before, just deferred until the initial gap (if any) has actually closed.
         Vector3 travelDir = new Vector3(-Mathf.Cos(rad), 0f, Mathf.Sin(rad));
-        transform.rotation = Quaternion.LookRotation(-travelDir);
+        Quaternion exactHeading = Quaternion.LookRotation(-travelDir);
+        if (!_arcHeadingCaughtUp)
+        {
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, exactHeading, arcHeadingCatchUpSpeed * Time.deltaTime);
+            if (Quaternion.Angle(transform.rotation, exactHeading) <= 1f)
+            {
+                _arcHeadingCaughtUp = true;
+                transform.rotation = exactHeading;
+            }
+        }
+        else
+        {
+            transform.rotation = exactHeading;
+        }
 
         if (_cab != null)
         {
