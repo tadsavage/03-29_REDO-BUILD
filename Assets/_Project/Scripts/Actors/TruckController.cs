@@ -216,6 +216,9 @@ public class TruckController : MonoBehaviour
     [Tooltip("Degrees/second the root's rotation is allowed to catch up from whatever heading it entered ReversingArcAroundPivot1 with toward the geometrically-exact tangent heading. The arc's position/heading are otherwise both derived directly from the swept angle every frame (no independent catch-up state for the REST of the arc, by design — see UpdateReversingArcAroundPivot1), but the very first frame's exact tangent heading can differ from whatever heading the truck actually had a moment before (TruckNavPoint4 isn't on the arc's circle, so nothing guarantees the approach heading already matches the tangent there) — confirmed live as a 1-frame snap right as the truck started backing toward TruckNavPoint5. RotateTowards-capped catch-up only runs until the gap closes (_arcHeadingCaughtUp), then hands back to the exact direct assignment for the remainder of the arc — immune to timescale/frame-rate spikes the way a fixed-duration blend wouldn't be. Matches trailerCatchUpTurnSpeed's value (60): an initial value of 240 technically eliminated the true instant-teleport (measured live: closed in ~2 frames) but a multi-tens-of-degrees correction finishing in well under a tenth of a second still read as a snap — 60 spreads the same correction over a visibly gradual turn instead.")]
     [SerializeField] private float arcHeadingCatchUpSpeed = 60f;
 
+    [Tooltip("The trailer's rear tandem axle, in the rig's own unrotated local space (measured from the WheelRearLeft/WheelRearRight mesh bounds — roughly (0, 0.5, -7.2) on this rig). ReversingArcAroundPivot1 holds THIS point on the TruckPivot1 circle (radius arcRadius) instead of the root, so the trailer pivots off its own back axle like a real reversing trailer — the tractor/front end, being further from the axle, sweeps a visibly wider arc off the same pivot rather than the whole rigid body swinging from one distant point. Only X/Z matter (Y is cosmetic, for the gizmo).")]
+    [SerializeField] private Vector3 trailerRearAxleLocalOffset = new Vector3(0f, 0.54f, -7.19f);
+
     // Distance already covered this ReversingStraightSlow leg — reset by BeginReverseStraightSlow.
     private float _slowReverseTraveled;
 
@@ -300,6 +303,12 @@ public class TruckController : MonoBehaviour
     private float _dockedTime;
     private bool  _offloadClaimed;
     private bool  _offloadComplete;
+
+    // Tiny cosmetic lateral correction left over from StraighteningIntoDoor (see its finalize block)
+    // — eased out slowly AFTER the truck is already Docked/OnDocked, at half slowReverseSpeed so it
+    // reads as a barely-noticeable settle rather than the door waiting on it, or a snap.
+    private Vector3 _dockedSlideTarget;
+    private bool    _dockedSlideActive;
 
     /// <summary>Sim-clock minute this INBOUND trailer docked, for the VENDORS tab's "Avg Hours in
     /// Door" stat — real dwell time (docked-to-departed) belongs on the sim clock, same scale as
@@ -1480,6 +1489,19 @@ private DockSlot        _dock;
         return Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg;
     }
 
+    /// <summary>The exact tangent heading's yaw (degrees) at a given angle around TruckPivot1 during
+    /// ReversingArcAroundPivot1 — same formula as UpdateReversingArcAroundPivot1's exactHeading, kept
+    /// in sync with it by construction. Used by BeginReversingArcAroundPivot1 to find the angle where
+    /// the rig is squared up with the door, so the arc can stop turning there instead of continuing
+    /// to some other, position-derived angle.</summary>
+    private float ExactHeadingYawAt(float thetaDeg)
+    {
+        float rad = thetaDeg * Mathf.Deg2Rad;
+        Vector3 travelDir = new Vector3(-Mathf.Cos(rad), 0f, Mathf.Sin(rad));
+        Quaternion heading = Quaternion.LookRotation(-travelDir) * Quaternion.Euler(0f, trailerArcHeadingBias, 0f);
+        return heading.eulerAngles.y;
+    }
+
     /// <summary>TruckNavPoint1 → TruckNavPoint2, curved: keeps the truck at a constant radius from
     /// TruckPivot0 (an arc, not a straight line) instead of just driving straight there. Position is
     /// re-snapped onto the exact circle every frame (not just nudged toward it), so the radius really
@@ -2406,6 +2428,23 @@ private DockSlot        _dock;
             // the wrong state.
 
             case TruckState.Docked:
+                if (_dockedSlideActive)
+                {
+                    Vector3 toSlideTarget = _dockedSlideTarget - transform.position;
+                    toSlideTarget.y = 0f;
+                    float dist = toSlideTarget.magnitude;
+                    float step = slowReverseSpeed * 0.5f * Time.deltaTime;
+                    if (step >= dist)
+                    {
+                        transform.position = new Vector3(_dockedSlideTarget.x, transform.position.y, _dockedSlideTarget.z);
+                        _dockedSlideActive = false;
+                    }
+                    else
+                    {
+                        transform.position += toSlideTarget.normalized * step;
+                    }
+                }
+
                 _dockedTime += Time.deltaTime;
                 if (_isOutbound) { UpdateDockedOutbound(); break; }
 
@@ -2738,18 +2777,55 @@ private DockSlot        _dock;
             return;
         }
 
-        // Radius starts at the truck's actual measured distance from TruckPivot1 (TruckNavPoint4
-        // sits ~11.5m out; TruckPivot1→TruckNavPoint5 is exactly arcRadius, 9.25m — these two legs
-        // were never on the same circle) and eases toward the authored arcRadius over the arc (see
-        // Update) rather than snapping to it, so there's no instant position pop; it converges to
-        // and then HOLDS exactly arcRadius for the rest of the maneuver, per Tad's spec.
-        Vector3 flatTruck  = new Vector3(transform.position.x, 0f, transform.position.z);
+        // Radius starts at the trailer's rear axle's actual measured distance from TruckPivot1
+        // (TruckNavPoint4 sits ~11.5m out; TruckPivot1→TruckNavPoint5 is exactly arcRadius, 9.25m —
+        // these two legs were never on the same circle) and eases toward the authored arcRadius over
+        // the arc (see Update) rather than snapping to it, so there's no instant position pop; it
+        // converges to and then HOLDS exactly arcRadius for the rest of the maneuver, per Tad's spec.
+        // The axle (not the root) is what's held on the circle — see trailerRearAxleLocalOffset.
+        Vector3 axleWorldNow = transform.position + transform.rotation * new Vector3(trailerRearAxleLocalOffset.x, 0f, trailerRearAxleLocalOffset.z);
+        Vector3 flatTruck  = new Vector3(axleWorldNow.x, 0f, axleWorldNow.z);
         Vector3 flatPivot1 = new Vector3(pivot1.position.x, 0f, pivot1.position.z);
         _arcRadiusActive = Vector3.Distance(flatTruck, flatPivot1);
         if (_arcRadiusActive < 0.01f) _arcRadiusActive = arcRadius; // degenerate — truck is on the pivot
 
-        _arcEntryAngle = AngleAroundPivot(transform.position, pivot1.position);
-        float targetAngle = AngleAroundPivot(nav5.position, pivot1.position);
+        _arcEntryAngle = AngleAroundPivot(axleWorldNow, pivot1.position);
+
+        // Target angle: the FIRST point, sweeping forward (counterclockwise, decreasing) from entry,
+        // where the tractor's heading actually matches the door's final rotation — i.e. stop turning
+        // the moment the rig is squared up with the door, exactly like backing a real trailer, rather
+        // than continuing to whatever angle a position-based solve happens to land on. A full-circle
+        // "closest lateral position" search was tried here and confirmed-live wrong: it could pick a
+        // farther-around angle with a marginally better position match, so the truck visibly kept
+        // turning PAST the point where it already looked lined up (Tad, live capture) before the
+        // straightening leg slid it back — exactly backwards from the desired "stop turning, then
+        // roll straight in." Searching forward for the nearest heading match instead guarantees the
+        // shortest possible turn, and — because arcRadius/trailerRearAxleLocalOffset are tuned so a
+        // heading match essentially IS a lateral match on this rig — StraighteningIntoDoor still ends
+        // up with little to no sideways component left to correct.
+        float targetYaw = DockRotationFor(_dock).eulerAngles.y;
+        float prevAngle = _arcEntryAngle;
+        float prevDiff = Mathf.DeltaAngle(ExactHeadingYawAt(prevAngle), targetYaw);
+        float targetAngle = _arcEntryAngle - 360f; // fallback: full lap, shouldn't be reachable
+        for (int i = 1; i <= 360; i++)
+        {
+            float angle = _arcEntryAngle - i;
+            float diff = Mathf.DeltaAngle(ExactHeadingYawAt(angle), targetYaw);
+            if (prevDiff * diff <= 0f)
+            {
+                float lo = angle, hi = prevAngle, fLo = diff;
+                for (int b = 0; b < 30; b++)
+                {
+                    float mid = (lo + hi) * 0.5f;
+                    float fMid = Mathf.DeltaAngle(ExactHeadingYawAt(mid), targetYaw);
+                    if (fLo * fMid <= 0f) hi = mid; else { lo = mid; fLo = fMid; }
+                }
+                targetAngle = (lo + hi) * 0.5f;
+                break;
+            }
+            prevAngle = angle;
+            prevDiff = diff;
+        }
 
         // ALWAYS counterclockwise (Tad's spec — this is not a "pick the shorter side" arc). Sweep
         // target = the counterclockwise (decreasing-angle) distance from entry to TruckNavPoint5,
@@ -2808,15 +2884,6 @@ private DockSlot        _dock;
         _arcCurrentAngle -= stepDeg;
         _arcSweptSoFar += stepDeg;
 
-        // Position: computed directly from angle+radius every frame — exact by construction (matches
-        // AngleAroundPivot's atan2(x,z) convention: offset = radius*(sinθ, 0, cosθ)), never drifts,
-        // never needs reprojecting.
-        float rad = _arcCurrentAngle * Mathf.Deg2Rad;
-        Vector3 offset = new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad)) * _arcRadiusActive;
-        Vector3 newPos = pivot1.position + offset;
-        newPos.y = _groundY;
-        transform.position = newPos;
-
         // Heading: the velocity direction for a DECREASING θ (counterclockwise) is (-cosθ, 0, sinθ)
         // — computed directly from the angle every frame (physically correct for rigid circular
         // motion, and structurally impossible to swing the wrong way since there's no separate
@@ -2830,6 +2897,9 @@ private DockSlot        _dock;
         // a 1-frame snap right as the arc began. Once caught up, this reverts to the exact original
         // direct assignment for the remainder of the arc — same "no independent catch-up state"
         // guarantee as before, just deferred until the initial gap (if any) has actually closed.
+        // Computed BEFORE position below, since position is now derived FROM this heading (see
+        // trailerRearAxleLocalOffset — the axle, not the root, is what's held on the circle).
+        float rad = _arcCurrentAngle * Mathf.Deg2Rad;
         Vector3 travelDir = new Vector3(-Mathf.Cos(rad), 0f, Mathf.Sin(rad));
         Quaternion exactHeading = Quaternion.LookRotation(-travelDir) * Quaternion.Euler(0f, trailerArcHeadingBias, 0f);
         if (!_arcHeadingCaughtUp)
@@ -2845,6 +2915,19 @@ private DockSlot        _dock;
         {
             transform.rotation = exactHeading;
         }
+
+        // Position: the trailer's rear axle (not the root) is held on the pivot1 circle — computed
+        // directly from angle+radius every frame, exact by construction (matches AngleAroundPivot's
+        // atan2(x,z) convention: offset = radius*(sinθ, 0, cosθ)), never drifts, never needs
+        // reprojecting. The root is then backed out from the axle using this frame's just-applied
+        // heading, so the tractor end (further from the axle in local space) sweeps a visibly wider
+        // arc off the same pivot instead of the whole rigid body swinging from one distant point.
+        Vector3 offset = new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad)) * _arcRadiusActive;
+        Vector3 axleWorld = pivot1.position + offset;
+        Vector3 rotatedAxleOffset = transform.rotation * new Vector3(trailerRearAxleLocalOffset.x, 0f, trailerRearAxleLocalOffset.z);
+        Vector3 newPos = axleWorld - rotatedAxleOffset;
+        newPos.y = _groundY;
+        transform.position = newPos;
 
         if (_cab != null)
         {
@@ -2892,17 +2975,25 @@ private DockSlot        _dock;
         target.y = _groundY;
         Quaternion desiredRoot = DockRotationFor(_dock);
 
-        Vector3 toTarget = target - transform.position;
-        toTarget.y = 0f;
+        // Move along the truck's OWN backward axis, not a beeline straight at `target` — a real
+        // trailer can't slide sideways once it's stopped turning, so this only ever eats the distance
+        // remaining ALONG the way it's already facing (project the vector to target onto -forward).
+        // Any leftover component to the SIDE is left alone rather than steered into, which is exactly
+        // what was reading as an unwanted diagonal slide before BeginReversingArcAroundPivot1's arc
+        // was changed to stop turning as soon as it's squared up with the door in the first place (so
+        // that sideways leftover should now be tiny to begin with).
+        Vector3 backward = -transform.forward;
+        Vector3 toTargetFlat = target - transform.position;
+        toTargetFlat.y = 0f;
+        float remainingDepth = Vector3.Dot(toTargetFlat, backward);
 
-        bool positionArrived = toTarget.magnitude <= arrivedThreshold;
+        bool positionArrived = remainingDepth <= arrivedThreshold;
         bool rotationArrived = Quaternion.Angle(transform.rotation, desiredRoot) <= 0.5f;
 
         if (!positionArrived)
         {
-            Vector3 step = toTarget.normalized * slowReverseSpeed * Time.deltaTime;
-            if (step.magnitude > toTarget.magnitude) step = toTarget;
-            transform.position += step;
+            float step = Mathf.Min(slowReverseSpeed * Time.deltaTime, remainingDepth);
+            transform.position += backward * step;
         }
 
         transform.rotation = Quaternion.RotateTowards(transform.rotation, desiredRoot, driveTurnSpeed * Time.deltaTime);
@@ -2912,9 +3003,21 @@ private DockSlot        _dock;
 
         if (positionArrived && rotationArrived)
         {
-            transform.position = target;
+            // Snap depth (forward/back) and height exactly, but leave whatever lateral (side-to-side)
+            // offset remains — same "no diagonal slide" reasoning as the movement above. If arcRadius/
+            // dock geometry left a small gap anyway, hand off to Docked/OnDocked right now regardless
+            // (Tad's spec: the loader shouldn't sit there waiting on a barely-visible cosmetic
+            // correction — the door counts as engaged the instant the truck is squared up and at
+            // depth) and ease the tiny remainder out slowly in the background; see the Docked case.
+            Vector3 finalRightAxis = desiredRoot * Vector3.right;
+            float lateralNow = Vector3.Dot(transform.position - target, finalRightAxis);
+            transform.position = target + finalRightAxis * lateralNow;
             transform.rotation = desiredRoot;
             if (_cab != null) _cab.localRotation = _cabRest;
+
+            _dockedSlideTarget = target;
+            _dockedSlideActive = Mathf.Abs(lateralNow) > 0.01f;
+
             _state = TruckState.Docked;
             OnDocked();
         }
@@ -3627,5 +3730,19 @@ private DockSlot        _dock;
         }
         _onExited?.Invoke();
         Destroy(gameObject);
+    }
+
+    // Visualizes trailerRearAxleLocalOffset in the Scene view as a small X (a cross of two diagonal
+    // lines) so it's easy to eyeball against the actual rear tandem axle on the mesh and re-tune the
+    // field if this rig's dimensions ever change.
+    private void OnDrawGizmosSelected()
+    {
+        Vector3 axleWorld = transform.position + transform.rotation * trailerRearAxleLocalOffset;
+        float s = 0.5f;
+        Vector3 right = transform.right * s;
+        Vector3 fwd = transform.forward * s;
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawLine(axleWorld - right - fwd, axleWorld + right + fwd);
+        Gizmos.DrawLine(axleWorld - right + fwd, axleWorld + right - fwd);
     }
 }
