@@ -206,6 +206,10 @@ public class TruckController : MonoBehaviour
     [Tooltip("Degrees the tractor mesh (cosmetic only) cranks out to, locally, while backing around TruckPivot1 toward TruckNavPoint5 (Tad's spec: +20°).")]
     [SerializeField] private float reverseArcCabAngle = 20f;
 
+    [Tooltip("Extra yaw (degrees, same sign/direction as reverseArcCabAngle) added ON TOP OF the geometrically-exact tangent heading during ReversingArcAroundPivot1 -- purely cosmetic, does NOT change the truck's actual position (it still tracks the arcRadius circle exactly). The pure-tangent heading is mathematically correct for zero-slip circular motion, but on a wide-radius arc it reads as the trailer 'sliding' sideways rather than visibly turning into the curve. This over-rotates the body's facing so it more dramatically mirrors the cab's own swivel. 0 = off (exact tangent, original behavior).")]
+    [SerializeField] private float trailerArcHeadingBias = 20f;
+
+
     [Tooltip("Meters/second the effective arc radius is allowed to close toward arcRadius at the start of ReversingArcAroundPivot1 (the truck's actual entry distance from TruckPivot1 doesn't match arcRadius — TruckNavPoint4 isn't on that circle). Fast enough to close a 2-3m gap in under a second without an instant snap.")]
     [SerializeField] private float radiusCorrectionSpeed = 4f;
 
@@ -2827,7 +2831,7 @@ private DockSlot        _dock;
         // direct assignment for the remainder of the arc — same "no independent catch-up state"
         // guarantee as before, just deferred until the initial gap (if any) has actually closed.
         Vector3 travelDir = new Vector3(-Mathf.Cos(rad), 0f, Mathf.Sin(rad));
-        Quaternion exactHeading = Quaternion.LookRotation(-travelDir);
+        Quaternion exactHeading = Quaternion.LookRotation(-travelDir) * Quaternion.Euler(0f, trailerArcHeadingBias, 0f);
         if (!_arcHeadingCaughtUp)
         {
             transform.rotation = Quaternion.RotateTowards(transform.rotation, exactHeading, arcHeadingCatchUpSpeed * Time.deltaTime);
