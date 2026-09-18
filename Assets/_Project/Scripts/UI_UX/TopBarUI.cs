@@ -60,6 +60,8 @@ public class TopBarUI : MonoBehaviour
     public NewItemPanel NewItemPanel => _newItemPanel;
     private PurchasingPanel _purchasingPanel;           // "9" key — raise POs to bring stock in
     public PurchasingPanel PurchasingPanel => _purchasingPanel;
+    private ItemCreatorPanel _itemCreatorPanel;         // no number key (0/5-9 all taken) — opened via the "Items" button
+    public ItemCreatorPanel ItemCreatorPanel => _itemCreatorPanel;
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
 
@@ -108,6 +110,7 @@ public class TopBarUI : MonoBehaviour
         _schedulerPanel = new SchedulerPanel(root);
         _newItemPanel = new NewItemPanel(root);
         _purchasingPanel = new PurchasingPanel(root);
+        _itemCreatorPanel = new ItemCreatorPanel(root);
 
         // Register shift manager with UIKeyBindingManager for keybinding support (key 6)
         if (UIKeyBindingManager.Instance != null)
@@ -157,6 +160,19 @@ public class TopBarUI : MonoBehaviour
         if (_saveButton           != null) _saveButton.clicked           += () => _saveLoadController?.Open(SaveLoadMode.Save);
         if (_loadButton           != null) _loadButton.clicked           += () => _saveLoadController?.Open(SaveLoadMode.Load);
         if (_mainMenuButton       != null) _mainMenuButton.clicked       += ToggleMenuPopup;
+
+        // "Items" button — opens the Item Creator. No number key of its own (0/5-9 all taken by other
+        // panels), so it lives here as a plain button. The TopBar UXML has no SaveButton/LoadButton
+        // element any more (that slot was repurposed for the speed control — see WireSpeedControl
+        // above), so this copies MainMenuButton's classes instead, which is guaranteed to exist.
+        if (topBar != null)
+        {
+            var itemsButton = new Button(() => _itemCreatorPanel?.Toggle()) { text = "ITEMS" };
+            if (_mainMenuButton != null)
+                foreach (var cls in _mainMenuButton.GetClasses()) itemsButton.AddToClassList(cls);
+            int insertIndex = _mainMenuButton != null ? topBar.IndexOf(_mainMenuButton) : topBar.childCount;
+            topBar.Insert(insertIndex, itemsButton);
+        }
         if (_menuMainMenuButton   != null) _menuMainMenuButton.clicked   += OnMenuDirectToMainMenu;
         if (_menuSettingsButton   != null) _menuSettingsButton.clicked   += OnMenuSettings;
         if (_menuSaveButton       != null) _menuSaveButton.clicked       += OnMenuSave;
