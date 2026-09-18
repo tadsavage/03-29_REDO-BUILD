@@ -4,13 +4,13 @@
     "spentToday": 183388,
     "cameraData": {
         "focusPoint": {
-            "x": 1.2001867294311523,
+            "x": 5.906215190887451,
             "y": 0.0,
-            "z": -2.8025777339935303
+            "z": 5.502353668212891
         },
         "distance": 41.0,
-        "pitch": 71.89997100830078,
-        "yaw": 3150.220703125
+        "pitch": 20.89996337890625,
+        "yaw": 3094.720703125
     },
     "placedObjects": [
         {
@@ -12055,11 +12055,11 @@
         },
         {
             "id": 61,
-            "x": 50,
+            "x": 52,
             "y": 89,
             "rot": 0,
             "customData": "",
-            "worldY": 1.1843022108078003,
+            "worldY": 1.1923840045928955,
             "hasTransform": true,
             "pos": {
                 "x": 2.7702322006225586,
@@ -12075,11 +12075,11 @@
         },
         {
             "id": 28,
-            "x": 54,
-            "y": 88,
+            "x": 50,
+            "y": 89,
             "rot": 0,
             "customData": "",
-            "worldY": 1.1845325231552124,
+            "worldY": 1.189793586730957,
             "hasTransform": true,
             "pos": {
                 "x": 0.7950658798217773,
@@ -13096,6 +13096,10 @@
     ],
     "devSettings": [
         {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
+        },
+        {
             "key": "PalletBuilder.maxTotalHeight",
             "val": "1"
         },
@@ -13148,6 +13152,54 @@
             "val": "0"
         },
         {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.5"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
+        },
+        {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
+        },
+        {
             "key": "AiNavigation.footstepVolume",
             "val": "1"
         },
@@ -13174,30 +13226,6 @@
         {
             "key": "AiNavigation.volumeAt30m",
             "val": "0.1"
-        },
-        {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.15"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
         },
         {
             "key": "VehicleThrottleAudio.hearingDistance",
@@ -13244,30 +13272,6 @@
             "val": "0.6"
         },
         {
-            "key": "Gate_Open_Close.rot_down",
-            "val": "0"
-        },
-        {
-            "key": "Gate_Open_Close.rot_up",
-            "val": "-85"
-        },
-        {
-            "key": "Gate_Open_Close.arm_speed",
-            "val": "80"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
-        },
-        {
             "key": "FreeLookCamera.defaultPitch",
             "val": "45"
         },
@@ -13282,15 +13286,11 @@
         {
             "key": "FreeLookCamera.defaultDistance",
             "val": "15"
-        },
-        {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
         }
     ],
     "toolsWindowX": 100.0,
     "toolsWindowY": 120.0,
-    "guidanceLinesVisible": false,
+    "guidanceLinesVisible": true,
     "waypointsVisible": false,
     "hoverPopupEnabled": true,
     "employeeRecords": [
@@ -13339,8 +13339,8 @@
             "rotY": 320.272705078125,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 54,
-            "boardedVehicleGridY": 88,
+            "boardedVehicleGridX": 50,
+            "boardedVehicleGridY": 89,
             "boardedVehicleWorldX": 0.7950658798217773,
             "boardedVehicleWorldY": 1.189793586730957,
             "boardedVehicleWorldZ": 52.59834289550781
@@ -13441,7 +13441,7 @@
             "rotY": 103.64512634277344,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 50,
+            "boardedVehicleGridX": 52,
             "boardedVehicleGridY": 89,
             "boardedVehicleWorldX": 2.7702322006225586,
             "boardedVehicleWorldY": 1.1923840045928955,
@@ -13730,7 +13730,7 @@
             "supplierName": "Highland Reserve Traders",
             "arrivalDayNumber": 3,
             "arrivalTimeMinute": 16,
-            "status": 0,
+            "status": 1,
             "playerOrdered": true,
             "isSalvage": false,
             "deliveryFee": 0,
@@ -13972,6 +13972,888 @@
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 11,
                     "palletTier": 1,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG2053",
+            "supplierId": "Vendor_CoastalCargoExchange",
+            "supplierName": "Coastal Cargo Exchange",
+            "arrivalDayNumber": 2,
+            "arrivalTimeMinute": 47,
+            "status": 3,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 0,
+            "isBackfillPending": true,
+            "lineItems": [
+                {
+                    "skuId": "189432",
+                    "quantity": 44,
+                    "receivedQuantity": 44,
+                    "unitCost": 14,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "189432",
+                    "quantity": 44,
+                    "receivedQuantity": 0,
+                    "unitCost": 14,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "105672",
+                    "quantity": 80,
+                    "receivedQuantity": 80,
+                    "unitCost": 20,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "105672",
+                    "quantity": 80,
+                    "receivedQuantity": 80,
+                    "unitCost": 20,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG2052",
+            "supplierId": "Vendor_BulkBasin",
+            "supplierName": "Bulk Basin Foods",
+            "arrivalDayNumber": 2,
+            "arrivalTimeMinute": 47,
+            "status": 3,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 22,
+            "isBackfillPending": false,
+            "lineItems": [
+                {
+                    "skuId": "148972",
+                    "quantity": 60,
+                    "receivedQuantity": 60,
+                    "unitCost": 4,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "148972",
+                    "quantity": 60,
+                    "receivedQuantity": 60,
+                    "unitCost": 4,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "148972",
+                    "quantity": 60,
+                    "receivedQuantity": 60,
+                    "unitCost": 4,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "148972",
+                    "quantity": 60,
+                    "receivedQuantity": 0,
+                    "unitCost": 4,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "148972",
+                    "quantity": 60,
+                    "receivedQuantity": 0,
+                    "unitCost": 4,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 4,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "148972",
+                    "quantity": 60,
+                    "receivedQuantity": 0,
+                    "unitCost": 4,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 5,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG2051",
+            "supplierId": "Vendor_SteadySupply",
+            "supplierName": "Steady Supply Grocers",
+            "arrivalDayNumber": 2,
+            "arrivalTimeMinute": 47,
+            "status": 3,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 58,
+            "isBackfillPending": false,
+            "lineItems": [
+                {
+                    "skuId": "148972",
+                    "quantity": 60,
+                    "receivedQuantity": 60,
+                    "unitCost": 4,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "148972",
+                    "quantity": 60,
+                    "receivedQuantity": 0,
+                    "unitCost": 4,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "897034",
+                    "quantity": 50,
+                    "receivedQuantity": 50,
+                    "unitCost": 9,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "897034",
+                    "quantity": 50,
+                    "receivedQuantity": 0,
+                    "unitCost": 9,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "189432",
+                    "quantity": 44,
+                    "receivedQuantity": 44,
+                    "unitCost": 14,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 4,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "189432",
+                    "quantity": 44,
+                    "receivedQuantity": 44,
+                    "unitCost": 14,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 5,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "189432",
+                    "quantity": 44,
+                    "receivedQuantity": 0,
+                    "unitCost": 14,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 6,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "189432",
+                    "quantity": 44,
+                    "receivedQuantity": 0,
+                    "unitCost": 14,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 7,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG2050",
+            "supplierId": "Vendor_CoastalCargoExchange",
+            "supplierName": "Coastal Cargo Exchange",
+            "arrivalDayNumber": 2,
+            "arrivalTimeMinute": 47,
+            "status": 3,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 0,
+            "isBackfillPending": false,
+            "lineItems": [
+                {
+                    "skuId": "347610",
+                    "quantity": 52,
+                    "receivedQuantity": 52,
+                    "unitCost": 21,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "347610",
+                    "quantity": 52,
+                    "receivedQuantity": 52,
+                    "unitCost": 21,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "564219",
+                    "quantity": 44,
+                    "receivedQuantity": 44,
+                    "unitCost": 16,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "564219",
+                    "quantity": 44,
+                    "receivedQuantity": 44,
+                    "unitCost": 16,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "564219",
+                    "quantity": 44,
+                    "receivedQuantity": 44,
+                    "unitCost": 16,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 4,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "564219",
+                    "quantity": 44,
+                    "receivedQuantity": 44,
+                    "unitCost": 16,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 5,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "105672",
+                    "quantity": 80,
+                    "receivedQuantity": 80,
+                    "unitCost": 20,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 6,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "105672",
+                    "quantity": 80,
+                    "receivedQuantity": 80,
+                    "unitCost": 20,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 7,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "189432",
+                    "quantity": 44,
+                    "receivedQuantity": 44,
+                    "unitCost": 14,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 8,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "189432",
+                    "quantity": 44,
+                    "receivedQuantity": 0,
+                    "unitCost": 14,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 9,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG2049",
+            "supplierId": "Vendor_BackdoorBills",
+            "supplierName": "Backdoor Bill's Overstock",
+            "arrivalDayNumber": 2,
+            "arrivalTimeMinute": 47,
+            "status": 2,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 403,
+            "isBackfillPending": false,
+            "lineItems": [
+                {
+                    "skuId": "172495",
+                    "quantity": 16,
+                    "receivedQuantity": 16,
+                    "unitCost": 15,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "172495",
+                    "quantity": 16,
+                    "receivedQuantity": 16,
+                    "unitCost": 15,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "172495",
+                    "quantity": 16,
+                    "receivedQuantity": 16,
+                    "unitCost": 15,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "118432",
+                    "quantity": 40,
+                    "receivedQuantity": 40,
+                    "unitCost": 17,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "118432",
+                    "quantity": 40,
+                    "receivedQuantity": 40,
+                    "unitCost": 17,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 4,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "118432",
+                    "quantity": 40,
+                    "receivedQuantity": 40,
+                    "unitCost": 17,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 5,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "122495",
+                    "quantity": 24,
+                    "receivedQuantity": 24,
+                    "unitCost": 15,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 6,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "122495",
+                    "quantity": 24,
+                    "receivedQuantity": 24,
+                    "unitCost": 15,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 7,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "122495",
+                    "quantity": 24,
+                    "receivedQuantity": 24,
+                    "unitCost": 15,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 8,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG1048",
+            "supplierId": "Vendor_GoldenGroveGourmet",
+            "supplierName": "Golden Grove Gourmet",
+            "arrivalDayNumber": 1,
+            "arrivalTimeMinute": 41,
+            "status": 3,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 356,
+            "isBackfillPending": false,
+            "lineItems": [
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 44,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": true,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 44,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 44,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 44,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 44,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 4,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 0,
+                    "unitCost": 44,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 5,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG1046",
+            "supplierId": "Vendor_GoldenGroveGourmet",
+            "supplierName": "Golden Grove Gourmet",
+            "arrivalDayNumber": 1,
+            "arrivalTimeMinute": 0,
+            "status": 2,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 666,
+            "isBackfillPending": true,
+            "lineItems": [
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": true,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 4,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 5,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 6,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG1047",
+            "supplierId": "Vendor_BulkBasin",
+            "supplierName": "Bulk Basin Foods",
+            "arrivalDayNumber": 1,
+            "arrivalTimeMinute": 15,
+            "status": 2,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 137,
+            "isBackfillPending": false,
+            "lineItems": [
+                {
+                    "skuId": "999999",
+                    "quantity": 36,
+                    "receivedQuantity": 36,
+                    "unitCost": 17,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "999999",
+                    "quantity": 36,
+                    "receivedQuantity": 36,
+                    "unitCost": 17,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "999999",
+                    "quantity": 36,
+                    "receivedQuantity": 36,
+                    "unitCost": 17,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "999999",
+                    "quantity": 36,
+                    "receivedQuantity": 36,
+                    "unitCost": 17,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "999999",
+                    "quantity": 36,
+                    "receivedQuantity": 36,
+                    "unitCost": 17,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 4,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "999999",
+                    "quantity": 36,
+                    "receivedQuantity": 36,
+                    "unitCost": 17,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 5,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "792146",
+                    "quantity": 35,
+                    "receivedQuantity": 35,
+                    "unitCost": 13,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 6,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "792146",
+                    "quantity": 35,
+                    "receivedQuantity": 35,
+                    "unitCost": 13,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 7,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG1045",
+            "supplierId": "Vendor_GoldenGroveGourmet",
+            "supplierName": "Golden Grove Gourmet",
+            "arrivalDayNumber": 1,
+            "arrivalTimeMinute": 0,
+            "status": 3,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 443,
+            "isBackfillPending": false,
+            "lineItems": [
+                {
+                    "skuId": "129481",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 48,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "134958",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "141256",
+                    "quantity": 65,
+                    "receivedQuantity": 65,
+                    "unitCost": 28,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "113489",
+                    "quantity": 48,
+                    "receivedQuantity": 48,
+                    "unitCost": 39,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "113489",
+                    "quantity": 48,
+                    "receivedQuantity": 0,
+                    "unitCost": 39,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 4,
+                    "palletTier": 0,
                     "dropped": false,
                     "creditTaken": false,
                     "salvage": 0
@@ -14129,888 +15011,6 @@
                     "unitCost": 30,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 11,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG1045",
-            "supplierId": "Vendor_GoldenGroveGourmet",
-            "supplierName": "Golden Grove Gourmet",
-            "arrivalDayNumber": 1,
-            "arrivalTimeMinute": 0,
-            "status": 3,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 443,
-            "isBackfillPending": false,
-            "lineItems": [
-                {
-                    "skuId": "129481",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 48,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "141256",
-                    "quantity": 65,
-                    "receivedQuantity": 65,
-                    "unitCost": 28,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "113489",
-                    "quantity": 48,
-                    "receivedQuantity": 48,
-                    "unitCost": 39,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "113489",
-                    "quantity": 48,
-                    "receivedQuantity": 0,
-                    "unitCost": 39,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG1047",
-            "supplierId": "Vendor_BulkBasin",
-            "supplierName": "Bulk Basin Foods",
-            "arrivalDayNumber": 1,
-            "arrivalTimeMinute": 15,
-            "status": 2,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 137,
-            "isBackfillPending": false,
-            "lineItems": [
-                {
-                    "skuId": "999999",
-                    "quantity": 36,
-                    "receivedQuantity": 36,
-                    "unitCost": 17,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "999999",
-                    "quantity": 36,
-                    "receivedQuantity": 36,
-                    "unitCost": 17,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "999999",
-                    "quantity": 36,
-                    "receivedQuantity": 36,
-                    "unitCost": 17,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "999999",
-                    "quantity": 36,
-                    "receivedQuantity": 36,
-                    "unitCost": 17,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "999999",
-                    "quantity": 36,
-                    "receivedQuantity": 36,
-                    "unitCost": 17,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "999999",
-                    "quantity": 36,
-                    "receivedQuantity": 36,
-                    "unitCost": 17,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 5,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "792146",
-                    "quantity": 35,
-                    "receivedQuantity": 35,
-                    "unitCost": 13,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 6,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "792146",
-                    "quantity": 35,
-                    "receivedQuantity": 35,
-                    "unitCost": 13,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 7,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG1046",
-            "supplierId": "Vendor_GoldenGroveGourmet",
-            "supplierName": "Golden Grove Gourmet",
-            "arrivalDayNumber": 1,
-            "arrivalTimeMinute": 0,
-            "status": 2,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 666,
-            "isBackfillPending": true,
-            "lineItems": [
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": true,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 5,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 6,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG1048",
-            "supplierId": "Vendor_GoldenGroveGourmet",
-            "supplierName": "Golden Grove Gourmet",
-            "arrivalDayNumber": 1,
-            "arrivalTimeMinute": 41,
-            "status": 3,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 356,
-            "isBackfillPending": false,
-            "lineItems": [
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 44,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": true,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 44,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 44,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 44,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 44,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "134958",
-                    "quantity": 45,
-                    "receivedQuantity": 0,
-                    "unitCost": 44,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 5,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG2049",
-            "supplierId": "Vendor_BackdoorBills",
-            "supplierName": "Backdoor Bill's Overstock",
-            "arrivalDayNumber": 2,
-            "arrivalTimeMinute": 47,
-            "status": 2,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 403,
-            "isBackfillPending": false,
-            "lineItems": [
-                {
-                    "skuId": "172495",
-                    "quantity": 16,
-                    "receivedQuantity": 16,
-                    "unitCost": 15,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "172495",
-                    "quantity": 16,
-                    "receivedQuantity": 16,
-                    "unitCost": 15,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "172495",
-                    "quantity": 16,
-                    "receivedQuantity": 16,
-                    "unitCost": 15,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "118432",
-                    "quantity": 40,
-                    "receivedQuantity": 40,
-                    "unitCost": 17,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "118432",
-                    "quantity": 40,
-                    "receivedQuantity": 40,
-                    "unitCost": 17,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "118432",
-                    "quantity": 40,
-                    "receivedQuantity": 40,
-                    "unitCost": 17,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 5,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "122495",
-                    "quantity": 24,
-                    "receivedQuantity": 24,
-                    "unitCost": 15,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 6,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "122495",
-                    "quantity": 24,
-                    "receivedQuantity": 24,
-                    "unitCost": 15,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 7,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "122495",
-                    "quantity": 24,
-                    "receivedQuantity": 24,
-                    "unitCost": 15,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 8,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG2050",
-            "supplierId": "Vendor_CoastalCargoExchange",
-            "supplierName": "Coastal Cargo Exchange",
-            "arrivalDayNumber": 2,
-            "arrivalTimeMinute": 47,
-            "status": 3,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 0,
-            "isBackfillPending": false,
-            "lineItems": [
-                {
-                    "skuId": "347610",
-                    "quantity": 52,
-                    "receivedQuantity": 52,
-                    "unitCost": 21,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "347610",
-                    "quantity": 52,
-                    "receivedQuantity": 52,
-                    "unitCost": 21,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "564219",
-                    "quantity": 44,
-                    "receivedQuantity": 44,
-                    "unitCost": 16,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "564219",
-                    "quantity": 44,
-                    "receivedQuantity": 44,
-                    "unitCost": 16,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "564219",
-                    "quantity": 44,
-                    "receivedQuantity": 44,
-                    "unitCost": 16,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "564219",
-                    "quantity": 44,
-                    "receivedQuantity": 44,
-                    "unitCost": 16,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 5,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "105672",
-                    "quantity": 80,
-                    "receivedQuantity": 80,
-                    "unitCost": 20,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 6,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "105672",
-                    "quantity": 80,
-                    "receivedQuantity": 80,
-                    "unitCost": 20,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 7,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "189432",
-                    "quantity": 44,
-                    "receivedQuantity": 44,
-                    "unitCost": 14,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 8,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "189432",
-                    "quantity": 44,
-                    "receivedQuantity": 0,
-                    "unitCost": 14,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 9,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG2051",
-            "supplierId": "Vendor_SteadySupply",
-            "supplierName": "Steady Supply Grocers",
-            "arrivalDayNumber": 2,
-            "arrivalTimeMinute": 47,
-            "status": 3,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 58,
-            "isBackfillPending": false,
-            "lineItems": [
-                {
-                    "skuId": "148972",
-                    "quantity": 60,
-                    "receivedQuantity": 60,
-                    "unitCost": 4,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "148972",
-                    "quantity": 60,
-                    "receivedQuantity": 0,
-                    "unitCost": 4,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "897034",
-                    "quantity": 50,
-                    "receivedQuantity": 50,
-                    "unitCost": 9,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "897034",
-                    "quantity": 50,
-                    "receivedQuantity": 0,
-                    "unitCost": 9,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "189432",
-                    "quantity": 44,
-                    "receivedQuantity": 44,
-                    "unitCost": 14,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "189432",
-                    "quantity": 44,
-                    "receivedQuantity": 44,
-                    "unitCost": 14,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 5,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "189432",
-                    "quantity": 44,
-                    "receivedQuantity": 0,
-                    "unitCost": 14,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 6,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "189432",
-                    "quantity": 44,
-                    "receivedQuantity": 0,
-                    "unitCost": 14,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 7,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG2052",
-            "supplierId": "Vendor_BulkBasin",
-            "supplierName": "Bulk Basin Foods",
-            "arrivalDayNumber": 2,
-            "arrivalTimeMinute": 47,
-            "status": 3,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 22,
-            "isBackfillPending": false,
-            "lineItems": [
-                {
-                    "skuId": "148972",
-                    "quantity": 60,
-                    "receivedQuantity": 60,
-                    "unitCost": 4,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "148972",
-                    "quantity": 60,
-                    "receivedQuantity": 60,
-                    "unitCost": 4,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "148972",
-                    "quantity": 60,
-                    "receivedQuantity": 60,
-                    "unitCost": 4,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "148972",
-                    "quantity": 60,
-                    "receivedQuantity": 0,
-                    "unitCost": 4,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "148972",
-                    "quantity": 60,
-                    "receivedQuantity": 0,
-                    "unitCost": 4,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "148972",
-                    "quantity": 60,
-                    "receivedQuantity": 0,
-                    "unitCost": 4,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 5,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG2053",
-            "supplierId": "Vendor_CoastalCargoExchange",
-            "supplierName": "Coastal Cargo Exchange",
-            "arrivalDayNumber": 2,
-            "arrivalTimeMinute": 47,
-            "status": 3,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 0,
-            "isBackfillPending": true,
-            "lineItems": [
-                {
-                    "skuId": "189432",
-                    "quantity": 44,
-                    "receivedQuantity": 44,
-                    "unitCost": 14,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "189432",
-                    "quantity": 44,
-                    "receivedQuantity": 0,
-                    "unitCost": 14,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "105672",
-                    "quantity": 80,
-                    "receivedQuantity": 80,
-                    "unitCost": 20,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "105672",
-                    "quantity": 80,
-                    "receivedQuantity": 80,
-                    "unitCost": 20,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
                     "palletTier": 0,
                     "dropped": false,
                     "creditTaken": false,
@@ -16105,6 +16105,10 @@
                 "hourlyAmount": 24
             },
             {
+                "glLine": "Walls",
+                "hourlyAmount": 33
+            },
+            {
                 "glLine": "Pallet Lease and Repair",
                 "hourlyAmount": 0
             },
@@ -16160,7 +16164,7 @@
     },
     "workQueue": [
         {
-            "taskId": "f50b5ab5-7ceb-405d-8ff5-92ec7271446c",
+            "taskId": "27777f3d-dfaa-4c48-9ba7-b7c32cd28307",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16175,7 +16179,7 @@
             "skuId": ""
         },
         {
-            "taskId": "17769a57-2c8f-4d4a-aa7e-d549e80dfe89",
+            "taskId": "29e0b25b-9426-4b7d-960a-b762c1dd539d",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16190,7 +16194,7 @@
             "skuId": ""
         },
         {
-            "taskId": "5099324f-300f-4b0f-9c23-f76b715affe6",
+            "taskId": "6e7b0636-b11e-4fd4-aaa0-080adcd2a0b4",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16205,7 +16209,7 @@
             "skuId": ""
         },
         {
-            "taskId": "c765ff91-bb01-4fea-878d-27861de558a6",
+            "taskId": "7c10750c-8f96-45b6-b9ad-12c49ee4ffeb",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16220,7 +16224,7 @@
             "skuId": ""
         },
         {
-            "taskId": "598726d2-6a82-49ef-b7ac-817031cd7697",
+            "taskId": "03005cd1-cb19-4d6c-8cb8-f48c35aabe3b",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16235,7 +16239,7 @@
             "skuId": ""
         },
         {
-            "taskId": "8b8a6ec5-23be-42a9-80d1-5f8b2333cd02",
+            "taskId": "72b40dae-9786-4159-b1c8-0163bf459ac6",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16250,7 +16254,7 @@
             "skuId": ""
         },
         {
-            "taskId": "0384ec18-d290-4225-84b2-e5e4a7ce7eb8",
+            "taskId": "4b4162ea-05fc-494a-9388-9b273d7c9d14",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16265,7 +16269,7 @@
             "skuId": ""
         },
         {
-            "taskId": "6819634c-2b7c-4512-83e7-2e05edf77f73",
+            "taskId": "f17967fd-7571-486d-a70e-671b213e5210",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16280,7 +16284,7 @@
             "skuId": ""
         },
         {
-            "taskId": "efbbb715-8b48-4f93-ac84-bc692e7ba02d",
+            "taskId": "27e3ec67-d6a3-4ea1-b1c9-58dd286a85de",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16295,7 +16299,7 @@
             "skuId": ""
         },
         {
-            "taskId": "6be78cd6-ac03-4c63-b02e-3cca7e5ce580",
+            "taskId": "f19afa19-37a4-42ce-a1a6-0b8bd5528ad7",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16310,7 +16314,7 @@
             "skuId": ""
         },
         {
-            "taskId": "dacfc478-d3fb-4e11-9541-eafbfc419f75",
+            "taskId": "c806e129-2cf3-45a6-a85b-196c2d0009e2",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16325,7 +16329,7 @@
             "skuId": ""
         },
         {
-            "taskId": "f70871c1-0364-466b-8741-0c76b8129fd9",
+            "taskId": "8756e368-4519-4c2d-b3aa-692a337c1f93",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16340,7 +16344,7 @@
             "skuId": ""
         },
         {
-            "taskId": "a428834d-9132-4c5f-b40a-ea96c819108d",
+            "taskId": "b7d6240f-518a-4cf4-aafb-98d34566d86f",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16355,7 +16359,7 @@
             "skuId": ""
         },
         {
-            "taskId": "113d60be-e99c-48ba-a827-d13ab3a15e43",
+            "taskId": "31d84577-3917-458f-8f05-1f75783e2532",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16370,7 +16374,7 @@
             "skuId": ""
         },
         {
-            "taskId": "9aab4275-d0b0-4917-870b-014202302012",
+            "taskId": "0249a660-b77b-41d4-8c6c-2afed62b4e9a",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16385,7 +16389,7 @@
             "skuId": ""
         },
         {
-            "taskId": "25d86eb8-d7b9-44ba-8cce-d4352f5ae994",
+            "taskId": "7f6e1585-c42d-4af8-a5bb-ce8bbf69b8fc",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -16400,7 +16404,7 @@
             "skuId": ""
         },
         {
-            "taskId": "018bc6e1-95bc-434f-96e7-83b0c1059a74",
+            "taskId": "b94bca7c-3631-42ac-b640-fc208003c13e",
             "type": 1,
             "requiredRole": 1,
             "palletId": "5d483ab9-5030-4e82-a41b-3c5ff5c46bd3",
@@ -16415,7 +16419,7 @@
             "skuId": ""
         },
         {
-            "taskId": "e248289f-f32b-4c72-96ef-287f3d54d303",
+            "taskId": "53ec97c8-7a5f-48e6-87b4-ea6c39feb650",
             "type": 1,
             "requiredRole": 1,
             "palletId": "6f016d61-a69c-4939-98f9-040212b7b3a0",
@@ -16430,7 +16434,7 @@
             "skuId": ""
         },
         {
-            "taskId": "713a7e40-3d52-48b9-8243-227d73786a94",
+            "taskId": "23e6d7f9-aeba-454d-9850-52a691b4397c",
             "type": 1,
             "requiredRole": 1,
             "palletId": "6679ba2e-4f19-4093-a1a8-74df898bef69",
@@ -16445,7 +16449,7 @@
             "skuId": ""
         },
         {
-            "taskId": "82608a3b-a2f4-4b53-a242-c948d161bbc5",
+            "taskId": "979e2574-6129-4df9-ab55-81f9a5fc374f",
             "type": 1,
             "requiredRole": 1,
             "palletId": "060f8ecf-3a8a-48cb-958e-40bbd50798a4",
@@ -16460,7 +16464,7 @@
             "skuId": ""
         },
         {
-            "taskId": "af816c14-acc4-4a13-bc3f-631ef2bc9a53",
+            "taskId": "201abd15-03b0-404b-9b88-17607b2ebdb9",
             "type": 1,
             "requiredRole": 1,
             "palletId": "a5b0a727-e7ca-474d-9897-31427e4ac6ff",
@@ -16475,7 +16479,7 @@
             "skuId": ""
         },
         {
-            "taskId": "724f30e0-c647-4572-8f83-500c2249476c",
+            "taskId": "51a14857-e8e3-4253-b5ab-b09530f4355d",
             "type": 1,
             "requiredRole": 1,
             "palletId": "804c7435-1159-4c7d-8727-0ee7927dd019",
@@ -16490,7 +16494,7 @@
             "skuId": ""
         },
         {
-            "taskId": "ca78564b-9991-4e2c-9756-8f9360f4a327",
+            "taskId": "1ca15d23-a34e-414a-9690-cb81f42f7cd8",
             "type": 1,
             "requiredRole": 1,
             "palletId": "2a529f30-c749-4c52-935f-aa65dcce3c5b",
@@ -16505,7 +16509,7 @@
             "skuId": ""
         },
         {
-            "taskId": "be31ff69-3b05-4710-ba98-f6a2833f8b95",
+            "taskId": "078e3f0b-cbad-46e7-beb9-c47c8130a2b6",
             "type": 1,
             "requiredRole": 1,
             "palletId": "f2138e11-5c20-4e59-ac45-e4ba1c1f5e5f",
@@ -16520,7 +16524,7 @@
             "skuId": ""
         },
         {
-            "taskId": "5b686b8e-7e22-4cff-84ce-51ec160dbb10",
+            "taskId": "257e5999-aa95-4e88-8da2-a1f85ebde4f1",
             "type": 1,
             "requiredRole": 1,
             "palletId": "b4709176-2c30-4f5c-8141-a7a8563fee99",
@@ -16535,7 +16539,7 @@
             "skuId": ""
         },
         {
-            "taskId": "e0478b35-a31d-4809-aa24-921e7daf72f0",
+            "taskId": "25724219-95d0-402a-94c8-8f67a09b8db5",
             "type": 1,
             "requiredRole": 1,
             "palletId": "4f24ffd2-ab7e-4145-b2a2-699f3d410b77",
@@ -16550,7 +16554,7 @@
             "skuId": ""
         },
         {
-            "taskId": "bc1b210a-4e40-4785-afa7-b98edd86d39f",
+            "taskId": "4e1c2bc7-1c3e-4785-be74-79e09e7a9691",
             "type": 1,
             "requiredRole": 1,
             "palletId": "e30f9fe3-6e5f-431c-93c3-e0a654371ca6",
@@ -16565,7 +16569,7 @@
             "skuId": ""
         },
         {
-            "taskId": "6c00537a-fa5c-40b2-99e6-0d35917b7669",
+            "taskId": "fd66b9d7-69d3-440d-9564-df29c7df5eff",
             "type": 1,
             "requiredRole": 1,
             "palletId": "dd84e581-df6e-4447-ac74-a1c94e6174ad",
@@ -16580,7 +16584,7 @@
             "skuId": ""
         },
         {
-            "taskId": "8177d06d-d7e9-4636-a52c-d077e98dd34b",
+            "taskId": "b96f3539-e28b-4e0d-945e-68bb586ca7b2",
             "type": 1,
             "requiredRole": 1,
             "palletId": "417ed04e-300d-40c8-8f2f-f33a5c04a895",
@@ -33882,8 +33886,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 58,
-            "locationY": 76,
-            "worldHeightY": 9.149999618530273,
+            "locationY": 77,
+            "worldHeightY": 6.150000095367432,
             "stagingLaneId": ""
         },
         {
@@ -33908,8 +33912,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 58,
-            "locationY": 76,
-            "worldHeightY": 11.616000175476074,
+            "locationY": 77,
+            "worldHeightY": 7.534999847412109,
             "stagingLaneId": ""
         },
         {
@@ -33934,8 +33938,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 58,
-            "locationY": 76,
-            "worldHeightY": 13.778000831604004,
+            "locationY": 77,
+            "worldHeightY": 8.616000175476074,
             "stagingLaneId": ""
         },
         {
@@ -33960,8 +33964,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 58,
-            "locationY": 78,
-            "worldHeightY": 2.2309999465942383,
+            "locationY": 79,
+            "worldHeightY": 3.7159998416900635,
             "stagingLaneId": ""
         },
         {
@@ -33986,8 +33990,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 58,
-            "locationY": 78,
-            "worldHeightY": 5.000999927520752,
+            "locationY": 79,
+            "worldHeightY": 2.5349998474121094,
             "stagingLaneId": ""
         },
         {
@@ -34012,8 +34016,814 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 58,
+            "locationY": 79,
+            "worldHeightY": 1.149999976158142,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "fc11433d-43a9-42f3-bcd1-bb243bd4f798",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 76,
+            "worldHeightY": 25.149999618530273,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "fb2d94a1-105b-47bb-bca4-4c4b97d95a16",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 81,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "caf49273-b619-4db9-8323-298058369e9c",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 79,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "288da0af-f978-4a72-b26e-19112b408830",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 79,
+            "worldHeightY": 25.149999618530273,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "368b0d04-fdb6-4a3b-a644-6106e531d4a9",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
             "locationY": 78,
-            "worldHeightY": 7.567000389099121,
+            "worldHeightY": 25.149999618530273,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "79e9a8fb-111a-4698-8912-a81f1cfab79b",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 80,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "103a1f63-7a60-4227-999c-cc7c88598114",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 82,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "90ed3161-e0f0-45d1-821d-b0289d4a2d19",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 79,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "498e2026-d355-4570-b439-29492e189df6",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 83,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "44c945ed-f480-4cef-86d6-203b5445814a",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 83,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "4c8568c9-a72a-43c0-9fde-a5ee51f8b086",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 81,
+            "worldHeightY": 25.149999618530273,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "cdce8d81-3c7f-46ee-90bc-514ded8e0854",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 82,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "36ebb7f0-336a-42fe-8b2c-9d870fe03dd6",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 81,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "13d571c0-6698-4a95-b899-25a279a26164",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 90,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "fba84c4b-705f-4edc-8b1d-f646837508e5",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 82,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "2e13e0fe-cdba-4e8e-a09b-ca7e04d19a4e",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 84,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "e2824a48-b27e-4c05-aba4-d34f7b1c34fa",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 85,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "8f668c02-e6bb-4b5b-98f6-531a05987e9f",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 85,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "b4bba733-45e0-4759-a74f-c761dd6fafd1",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 84,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a1218aa8-a10a-4bfa-9838-7647e9b4a400",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 86,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "d850fc31-c5b4-4ce4-b54e-ce72c54d304a",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 77,
+            "worldHeightY": 25.149999618530273,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "af1166c1-8935-4ae1-9427-8c85a4b00c07",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 86,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "03616542-2b18-4091-806e-6ae566abae82",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 85,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "c7ef4403-0cd7-4783-b9e4-818236c16bc2",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 86,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "88a5fe4e-8304-4296-8d46-450f6d36238a",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 82,
+            "worldHeightY": 29.149999618530273,
+            "stagingLaneId": "1C"
+        },
+        {
+            "palletId": "54af8cad-3ef9-4815-aadc-2c08e69d45da",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 84,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "9788accf-b012-4dff-9826-37174f4b75d6",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 80,
+            "worldHeightY": 25.149999618530273,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "714f36cc-6bae-4436-89e4-e488a2aabc81",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 91,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "c0e0851d-13a7-45e3-adfc-5e263f5c4a4e",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 81,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "44d9853b-85e8-4ca1-8281-a3a581e96d63",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 87,
+            "worldHeightY": 49.150001525878906,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "9e8e51f1-970f-425d-859f-5b423a8e344a",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 79,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "7fd0b9a4-9b15-4e39-abe0-b4abe3f7f9d1",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 80,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "4fbeec70-f92a-4272-9c54-c5a03a9a65b9",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 83,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "13c1ded4-504e-4c2b-9c59-ef84b2c236e0",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 80,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "b38896d4-e5ba-4b10-8497-bbd4f7e25cf0",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 83,
+            "worldHeightY": 49.150001525878906,
+            "stagingLaneId": "1C"
+        },
+        {
+            "palletId": "ff81244c-a020-4296-8a76-d13188865b34",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 49,
+            "locationY": 80,
+            "worldHeightY": 49.150001525878906,
+            "stagingLaneId": "1A"
+        },
+        {
+            "palletId": "806e9b2f-3268-41ef-92c7-0bbef182f1b6",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 91,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a78746a6-5a59-4b45-925e-a2b5d4348579",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 80,
+            "worldHeightY": 49.150001525878906,
+            "stagingLaneId": "1B"
+        },
+        {
+            "palletId": "6a0df61a-dc60-46e4-822f-1654fe890f0e",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 90,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "64a501d7-1b3c-4d57-8f84-f3d4afd046dd",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 83,
+            "worldHeightY": 50.150001525878906,
+            "stagingLaneId": "1C"
+        },
+        {
+            "palletId": "b44855fc-c204-422b-98d3-399826ee8417",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 91,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "d09cc7b4-64d0-441c-a361-a5c7bf54f4b6",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 89,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "9ae6466b-9c67-453c-8d65-614f21fc9fe7",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 88,
+            "worldHeightY": 25.149999618530273,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "07020018-52d2-4f0d-88ff-626ac42ba20f",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 46,
+            "locationY": 87,
+            "worldHeightY": 50.150001525878906,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "ddd70392-8072-4c3b-bf0f-42b0015835c6",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 90,
+            "worldHeightY": 73.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "bf36cdb8-d304-4b9e-9f44-4823e7a1ffe0",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 90,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "b02031ee-36fe-4bdb-971f-4385b69f2bfa",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 50,
+            "locationY": 80,
+            "worldHeightY": 50.150001525878906,
+            "stagingLaneId": "1B"
+        },
+        {
+            "palletId": "13532205-b2e2-4f7c-b8ad-a14ff7766ab9",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 90,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "7119b7fe-2c26-41f0-9542-6d4c9011accd",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 84,
+            "worldHeightY": 25.149999618530273,
+            "stagingLaneId": "1C"
+        },
+        {
+            "palletId": "1d31050a-9850-4793-8b5f-ff763feaa369",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 89,
+            "worldHeightY": 74.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "eefeecf9-e0b9-48e0-b009-f56d13383381",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 90,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "98f0d7d9-a5fa-4b4f-bc30-da42de0f953c",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 49,
+            "locationY": 80,
+            "worldHeightY": 50.150001525878906,
+            "stagingLaneId": "1A"
+        },
+        {
+            "palletId": "7ee0729b-f657-4d71-8613-6c5272a7f94c",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 45,
+            "locationY": 89,
+            "worldHeightY": 75.1500015258789,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "acf2c818-37f3-40e3-87da-ff116225668a",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 41,
+            "locationY": 88,
+            "worldHeightY": 25.149999618530273,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "e8502df6-92aa-47e3-ac56-34fb689088ed",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 82,
+            "worldHeightY": 30.149999618530273,
+            "stagingLaneId": "1C"
+        },
+        {
+            "palletId": "8640fc0d-1ff1-47f1-93ac-0e7a4d9589bd",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 81,
+            "worldHeightY": 9.149999618530273,
+            "stagingLaneId": "1C"
+        },
+        {
+            "palletId": "35ccdfb3-3dfd-4006-9778-90346947e226",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 81,
+            "worldHeightY": 10.149999618530273,
+            "stagingLaneId": "1C"
+        },
+        {
+            "palletId": "03c306b3-9f7f-4d9e-974f-71e913ce30de",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 80,
+            "worldHeightY": 9.149999618530273,
+            "stagingLaneId": "1C"
+        },
+        {
+            "palletId": "4a1c36d2-4033-4bb6-a576-c334099e243b",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 51,
+            "locationY": 80,
+            "worldHeightY": 10.149999618530273,
+            "stagingLaneId": "1C"
+        },
+        {
+            "palletId": "c6698fd2-5acb-43fe-b2b5-bfc9512c41d5",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 58,
+            "locationY": 76,
+            "worldHeightY": 15.16300106048584,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "26e2a560-a9ab-4e3d-a103-27758a5326e4",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 58,
+            "locationY": 77,
+            "worldHeightY": 5.150000095367432,
+            "stagingLaneId": ""
+        },
+        {
+            "palletId": "a20d55bc-9b23-4c98-9f66-af0bcfe5d044",
+            "loadId": "",
+            "skuId": "A Chep",
+            "quantity": 1,
+            "receivedDayNumber": 3,
+            "expirationDayNumber": -1,
+            "isContaminated": false,
+            "locationX": 58,
+            "locationY": 76,
+            "worldHeightY": 16.163002014160156,
             "stagingLaneId": ""
         }
     ],
@@ -68554,27 +69364,27 @@
         {
             "poNumber": "IG3039",
             "assignedDoorNumber": 1,
-            "truckState": 2,
+            "truckState": 3,
             "worldPosition": {
                 "x": -1.7624993324279785,
                 "y": 0.0,
-                "z": -43.24250411987305
+                "z": -43.12250518798828
             },
             "worldRotation": {
                 "x": 0.0,
-                "y": 2.2621813400292012e-7,
+                "y": 5.786858281453533e-8,
                 "z": 0.0,
                 "w": 1.0
             },
             "dockedTime": 0.0,
             "offloadClaimed": false,
             "offloadComplete": false,
-            "doorsOpen": true,
+            "doorsOpen": false,
             "gateQueueIndex": 0,
             "currentTarget": {
-                "x": -1.7624993324279785,
+                "x": -1.762497901916504,
                 "y": 0.0,
-                "z": -43.24250411987305
+                "z": -30.76250457763672
             },
             "useBezier": false,
             "bzP0": {
@@ -68613,8 +69423,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 0,
                     "palletTier": 0,
-                    "capturedTi": 15,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.3474999964237213,
@@ -69293,8 +70103,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 1,
                     "palletTier": 0,
-                    "capturedTi": 15,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.3474999964237213,
@@ -69973,8 +70783,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 2,
                     "palletTier": 0,
-                    "capturedTi": 15,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.3474999964237213,
@@ -70653,8 +71463,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 3,
                     "palletTier": 0,
-                    "capturedTi": 15,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.3474999964237213,
@@ -71333,8 +72143,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 4,
                     "palletTier": 0,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -72277,8 +73087,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 4,
                     "palletTier": 1,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -73221,8 +74031,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 5,
                     "palletTier": 0,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -74165,8 +74975,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 5,
                     "palletTier": 1,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -75109,8 +75919,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 6,
                     "palletTier": 0,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -76053,8 +76863,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 6,
                     "palletTier": 1,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -76997,8 +77807,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 7,
                     "palletTier": 0,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -77941,8 +78751,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 7,
                     "palletTier": 1,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -78885,8 +79695,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 8,
                     "palletTier": 0,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -79829,8 +80639,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 8,
                     "palletTier": 1,
-                    "capturedTi": 21,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.37299999594688416,
@@ -80773,8 +81583,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 9,
                     "palletTier": 0,
-                    "capturedTi": 10,
-                    "capturedHi": 3,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.30949997901916504,
@@ -81123,8 +81933,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 9,
                     "palletTier": 1,
-                    "capturedTi": 10,
-                    "capturedHi": 3,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.30949997901916504,
@@ -81473,8 +82283,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 10,
                     "palletTier": 0,
-                    "capturedTi": 10,
-                    "capturedHi": 3,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.30949997901916504,
@@ -81823,8 +82633,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 10,
                     "palletTier": 1,
-                    "capturedTi": 10,
-                    "capturedHi": 3,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.30949997901916504,
@@ -82173,8 +82983,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 11,
                     "palletTier": 0,
-                    "capturedTi": 15,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.3474999964237213,
@@ -82853,8 +83663,8 @@
                     "shelfLifeDays": -1,
                     "floorSlot": 11,
                     "palletTier": 1,
-                    "capturedTi": 15,
-                    "capturedHi": 4,
+                    "capturedTi": 7,
+                    "capturedHi": 5,
                     "caseLocalPositions": [
                         {
                             "x": -0.3474999964237213,
@@ -83529,6 +84339,6 @@
     "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
-    "screenWidth": 1918,
-    "screenHeight": 830
+    "screenWidth": 1920,
+    "screenHeight": 1080
 }

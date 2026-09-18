@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using GameCore.Inventory;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.UIElements;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -46,7 +48,9 @@ public class ItemCreatorPanel : IUIPanel
     private static readonly Color ColDisabledBg  = new Color(0.08f, 0.10f, 0.13f, 0.7f);
 
     private const float MetersToInches = 39.3701f;
+    private const float InchesToMeters = 1f / MetersToInches;
     private const float PalletDeckHeight = 0.165f;
+    private const float PreviewLayerGap = 0.01f; // vertical gap between case layers, preview-only — see ApplyDimensionScaleToPreview
 
     private static Font _lilita;
 
@@ -57,6 +61,22 @@ public class ItemCreatorPanel : IUIPanel
     private DraggableWindow _dragger;
     private Button _scaleButton;
     private bool _visible;
+
+    // ── Preview quality override ────────────────────────────────────────────
+    // Checked every URP quality asset in Assets/Settings/ (including the "Good" and "PC" tiers, not just
+    // the active "Toaster" one visible in the FPS overlay) — m_AdditionalLightShadowsSupported is 0 in
+    // ALL of them project-wide, so a Spot/Point light can never cast a real-time shadow here no matter
+    // what per-light settings it's given. Only the single MAIN (Directional) light gets real shadows
+    // (m_MainLightShadowsSupported is 1 everywhere), and the game's own Sun already holds that slot —
+    // so the preview temporarily takes it over via RenderSettings.sun while the panel is open. MSAA is
+    // also disabled in the active Toaster preset (m_MSAA: 1) and only enabled in the "PC" tier (m_MSAA:
+    // 4, plus real soft-shadow support), so the panel also temporarily swaps the whole active render
+    // pipeline asset to PC_RPAsset while it's open. Both are restored on Hide().
+    private Light _previewKeyLight;
+    private Light _prevSunLight;
+    private bool _restoreSunLight;
+    private UnityEngine.Rendering.RenderPipelineAsset _prevRenderPipelineAsset;
+    private bool _restoreRenderPipelineAsset;
 
     // ── Header ───────────────────────────────────────────────────────────────
     private Button _newItemTab;
@@ -69,8 +89,8 @@ public class ItemCreatorPanel : IUIPanel
     private Label _itemNumberLabel;
     private int _currentItemNumber;
     private TextField _descriptionField;
-    private FloatField _lengthField, _widthField, _heightField;
-    private Label _lengthInches, _widthInches, _heightInches;
+    private FloatField _lengthField, _widthField, _heightField; // values are INCHES — the fields users edit; converted to meters wherever stored/consumed
+    private Label _lengthMetric, _widthMetric, _heightMetric; // read-only "0.306m" readouts beside each field
     private FloatField _weightField;
     private EnumField _storageAreaField;
     private FloatField _buyValueField, _sellValueField;
@@ -124,6 +144,7 @@ public class ItemCreatorPanel : IUIPanel
     private GameObject _chepInstance;
     private GameObject _caseTemplate; // inactive clone source — either an existing prefab or our procedurally-built one
     private GameObject _liveCaseSingle; // the single-case-on-pallet view shown before "Generate Preview"
+    private Vector3 _existingPrefabNativeSizeMeters = Vector3.one; // the selected existing prefab's own mesh size — the "1x scale" reference for ApplyDimensionScaleToPreview
     private PalletBuilder _previewPalletBuilder;
     private bool _dragging;
     private float _lastDragX, _lastDragY;
@@ -137,13 +158,16 @@ public class ItemCreatorPanel : IUIPanel
     private const float PitchDragDegPerPixel = 0.35f;
     private const float MaxPitchDeg = 80f;
     private const float PitchReturnLerpPerSec = 3.5f; // slow, subtle spring-back — not instant snap
-    // Flip to -1f if a drag ends up rotating the opposite way from what feels natural once tested live.
+    // Positive X rotation tips the pivot's local +Z (far side) DOWN, which tips the near side facing
+    // the camera (local -Z) UP (verified via Unity's left-handed rotation matrix: point (0,0,-1) maps
+    // to (0, sinθ, -cosθ), y-component positive for positive θ). UI Toolkit pointer Y increases
+    // DOWNWARD, so dragging up gives a negative dy. To make "drag up" tip the near/front side up
+    // (positive pitch), pitch must move opposite dy: pitchDeg -= dy * coef. That's direction = +1f.
     private const float PitchDragDirection = 1f;
-    // Measured once per pallet visual (see MeasurePalletYawCorrection) — corrects for the CHEP mesh's
-    // real footprint not necessarily matching PalletBuilder's assumed X=width/Z=length orientation, so
-    // the generated case layer can't end up rotated 90° from the actual pallet shape (askew, hanging
-    // off the corners).
-    private float _palletYawCorrectionDeg;
+    // The ChepEmpty mesh's real footprint sits 90° from PalletBuilder's assumed X=width/Z=length axes —
+    // confirmed by hand in the Inspector. Applied to PalletLoad/the single case preview, never to the
+    // pallet visual or PalletBuilder's own transform, both of which stay at their authored identity.
+    private static readonly Quaternion CasePalletYawCorrection = Quaternion.Euler(0f, 90f, 0f);
     private IVisualElementScheduledItem _tick;
 
     public bool IsOpen => _visible;
@@ -166,9 +190,20 @@ public class ItemCreatorPanel : IUIPanel
         _visible = true;
         _overlay.style.display = DisplayStyle.Flex;
         _overlay.BringToFront();
-        _resizer?.ResetToNormal();
-        if (_scaleButton != null) PanelTitleChrome.SyncScaleGlyph(_scaleButton, _resizer);
         UIModalGuard.Push(this);
+
+#if UNITY_EDITOR
+        // Swap to the PC-tier pipeline asset (real MSAA + soft shadow support) for as long as the panel
+        // is open — see the field comment above for why the active preset alone can't give this.
+        var pcAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>("Assets/Settings/PC_RPAsset.asset");
+        if (pcAsset != null && QualitySettings.renderPipeline != pcAsset)
+        {
+            _prevRenderPipelineAsset = QualitySettings.renderPipeline;
+            QualitySettings.renderPipeline = pcAsset;
+            _restoreRenderPipelineAsset = true;
+        }
+#endif
+
         bool rigJustCreated = _rigRoot == null;
         EnsurePreviewRig();
         // The rig is built lazily here, but a case may already have been selected earlier (e.g. the
@@ -177,6 +212,26 @@ public class ItemCreatorPanel : IUIPanel
         // that there's actually a pivot to parent onto.
         if (rigJustCreated && _caseTemplate != null) ShowSingleCasePreview();
         StartTicking();
+
+        // Steal the "main light" slot for the preview's own key light — only the main directional light
+        // gets real shadows in this project (see field comment), and the game's actual Sun already holds
+        // it, so the preview's shadow never rendered no matter how the preview light itself was set up.
+        if (_previewKeyLight != null)
+        {
+            _prevSunLight = RenderSettings.sun;
+            RenderSettings.sun = _previewKeyLight;
+            _restoreSunLight = true;
+        }
+
+        // Always opens maximized rather than at normal size — same "FillScreenExact, deferred a frame"
+        // pattern as WorkQueuePanel/ContractsPanel. Deferred so there's a real layout to measure on the
+        // very first Show() of a session (see ResizableWindow.FillScreen's own doc comment — the same
+        // first-call caveat applies to FillScreenExact).
+        _overlay.schedule.Execute(() =>
+        {
+            _resizer?.FillScreenExact();
+            if (_scaleButton != null) PanelTitleChrome.SyncScaleGlyph(_scaleButton, _resizer);
+        }).ExecuteLater(16);
     }
 
     public void Hide()
@@ -184,6 +239,20 @@ public class ItemCreatorPanel : IUIPanel
         _visible = false;
         _overlay.style.display = DisplayStyle.None;
         UIModalGuard.Pop(this);
+
+        if (_restoreSunLight)
+        {
+            RenderSettings.sun = _prevSunLight;
+            _restoreSunLight = false;
+        }
+
+#if UNITY_EDITOR
+        if (_restoreRenderPipelineAsset)
+        {
+            QualitySettings.renderPipeline = _prevRenderPipelineAsset;
+            _restoreRenderPipelineAsset = false;
+        }
+#endif
     }
 
     // ── Shell ────────────────────────────────────────────────────────────────
@@ -287,21 +356,23 @@ public class ItemCreatorPanel : IUIPanel
         row.style.alignItems = Align.Center;
         row.style.marginTop = 10;
 
-        _newItemTab = MakeActionButton("Start New Item", ColBlueBtn, ColBlueEdge, ColBlueHover, EnterNewItemMode);
-        _newItemTab.style.width = 180;
-        row.Add(_newItemTab);
-
         _editItemTab = MakeActionButton("Edit Existing Item", ColBlueBtn, ColBlueEdge, ColBlueHover, EnterEditItemMode);
         _editItemTab.style.width = 180;
-        _editItemTab.style.marginLeft = 8;
+        _editItemTab.style.fontSize = 17f; // 13 + 30%
         row.Add(_editItemTab);
+
+        _newItemTab = MakeActionButton("Start New Item", ColOrange, ColOrangeEdge, ColOrangeHover, EnterNewItemMode);
+        _newItemTab.style.width = 180;
+        _newItemTab.style.marginLeft = 8;
+        _newItemTab.style.fontSize = 17f; // 13 + 30%
+        row.Add(_newItemTab);
 
         _editDropdown = new DropdownField(new List<string> { "(no items yet)" }, 0);
         _editDropdown.style.flexGrow = 1;
         _editDropdown.style.marginLeft = 12;
         _editDropdown.style.display = DisplayStyle.None;
         _editDropdown.RegisterValueChangedCallback(evt => OnEditDropdownChanged(evt.newValue));
-        ApplyFont(_editDropdown);
+        ApplyFont(_editDropdown, size: 17);
         row.Add(_editDropdown);
 
         return row;
@@ -315,33 +386,37 @@ public class ItemCreatorPanel : IUIPanel
 
         _itemNumberLabel = MakeText("Item Number: —", 13, ColSubtleText, bold: true);
         _itemNumberLabel.style.marginBottom = 8;
+        _itemNumberLabel.style.display = DisplayStyle.None; // hidden per request — _currentItemNumber itself still drives Submit/edit logic, only the visible readout is gone
         content.Add(_itemNumberLabel);
 
         _descriptionField = MakeLabeledText("Item Description", "", v => { });
         content.Add(_descriptionField);
 
-        content.Add(BuildDimensionRow("Case Length (m)", out _lengthField, out _lengthInches));
-        content.Add(BuildDimensionRow("Case Width (m)", out _widthField, out _widthInches));
-        content.Add(BuildDimensionRow("Case Height (m)", out _heightField, out _heightInches));
+        content.Add(BuildDimensionRow("Case Length (in)", out _lengthField, out _lengthMetric));
+        content.Add(BuildDimensionRow("Case Width (in)", out _widthField, out _widthMetric));
+        content.Add(BuildDimensionRow("Case Height (in)", out _heightField, out _heightMetric));
 
-        _lengthField.RegisterValueChangedCallback(evt => { _lengthInches.text = ToInchesLabel(evt.newValue); OnDimensionsChanged(); });
-        _widthField.RegisterValueChangedCallback(evt => { _widthInches.text = ToInchesLabel(evt.newValue); OnDimensionsChanged(); });
-        _heightField.RegisterValueChangedCallback(evt => { _heightInches.text = ToInchesLabel(evt.newValue); OnDimensionsChanged(); });
+        _lengthField.RegisterValueChangedCallback(evt => { _lengthMetric.text = ToMetersLabel(evt.newValue * InchesToMeters); OnDimensionsChanged(); });
+        _widthField.RegisterValueChangedCallback(evt => { _widthMetric.text = ToMetersLabel(evt.newValue * InchesToMeters); OnDimensionsChanged(); });
+        _heightField.RegisterValueChangedCallback(evt => { _heightMetric.text = ToMetersLabel(evt.newValue * InchesToMeters); OnDimensionsChanged(); });
 
         _weightField = MakeLabeledFloat("Case Weight (lbs)", 0f, _ => { });
         content.Add(_weightField);
 
         _storageAreaField = new EnumField("Storage Area", PalletData.AreaCategory.Grocery);
         StyleLabeled(_storageAreaField);
+        _storageAreaField.RegisterValueChangedCallback(_ => UpdateShelfLifeVisibility());
         content.Add(_storageAreaField);
 
         var priceRow = new VisualElement();
         priceRow.style.flexDirection = FlexDirection.Row;
         _buyValueField = MakeLabeledFloat("Buy Value", 0f, _ => { });
         _buyValueField.style.flexGrow = 1;
+        SetCompactLabelWidth(_buyValueField);
         _sellValueField = MakeLabeledFloat("Sell Value", 0f, _ => { });
         _sellValueField.style.flexGrow = 1;
         _sellValueField.style.marginLeft = 8;
+        SetCompactLabelWidth(_sellValueField);
         priceRow.Add(_buyValueField);
         priceRow.Add(_sellValueField);
         content.Add(priceRow);
@@ -349,9 +424,12 @@ public class ItemCreatorPanel : IUIPanel
         _shelfLifeField = new IntegerField("Shelf Life Days (-1 = non-perishable)") { value = -1 };
         StyleLabeled(_shelfLifeField);
         content.Add(_shelfLifeField);
+        UpdateShelfLifeVisibility();
 
         content.Add(BuildDivider());
-        content.Add(MakeText("Case Prefab", 13, ColTitleText, bold: true));
+        var casePrefabHeader = MakeText("(Optional) Re-do Case Prefab from Scratch?", 13, ColTitleText, bold: true);
+        casePrefabHeader.style.fontSize = 19.5f; // match the Shelf Life field label's size (StyleLabeled)
+        content.Add(casePrefabHeader);
 
         _customCaseToggle = new Toggle("Create a custom case instead") { value = false };
         StyleLabeled(_customCaseToggle);
@@ -360,7 +438,7 @@ public class ItemCreatorPanel : IUIPanel
 
         _existingPrefabRow = new VisualElement();
         _existingPrefabDropdown = new DropdownField(new List<string> { "(none found)" }, 0);
-        ApplyFont(_existingPrefabDropdown);
+        ApplyFont(_existingPrefabDropdown, size: 17);
         _existingPrefabDropdown.RegisterValueChangedCallback(evt => OnExistingPrefabChosen(evt.newValue));
         _existingPrefabRow.Add(_existingPrefabDropdown);
         content.Add(_existingPrefabRow);
@@ -432,27 +510,28 @@ public class ItemCreatorPanel : IUIPanel
     private static bool ColorsApproxEqual(Color a, Color b) =>
         Mathf.Abs(a.r - b.r) < 0.001f && Mathf.Abs(a.g - b.g) < 0.001f && Mathf.Abs(a.b - b.b) < 0.001f;
 
-    private VisualElement BuildDimensionRow(string label, out FloatField field, out Label inches)
+    private VisualElement BuildDimensionRow(string label, out FloatField field, out Label metric)
     {
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
 
-        field = new FloatField(label) { value = 0f };
+        field = new FloatField(label) { value = 0f }; // value is INCHES — see field declaration comment
         field.style.flexGrow = 1;
         StyleLabeled(field);
         row.Add(field);
 
-        inches = MakeText("0.0\"", 12, ColSubtleText);
-        inches.style.width = 60;
-        inches.style.marginLeft = 6;
-        inches.style.unityTextAlign = TextAnchor.MiddleLeft;
-        row.Add(inches);
+        metric = MakeText("0.0m", 12, ColSubtleText);
+        metric.style.width = 64;
+        metric.style.marginLeft = 6;
+        metric.style.unityTextAlign = TextAnchor.MiddleLeft;
+        row.Add(metric);
 
         return row;
     }
 
-    private static string ToInchesLabel(float meters) => $"{(meters * MetersToInches):0.0}\"";
+    private static string ToMetersLabel(float meters) => $"{meters:0.0}m";
+    private static float RoundToTenth(float v) => Mathf.Round(v * 10f) / 10f;
 
     private void SetCustomCaseMode(bool custom)
     {
@@ -460,6 +539,17 @@ public class ItemCreatorPanel : IUIPanel
         _customCaseRow.style.display = custom ? DisplayStyle.Flex : DisplayStyle.None;
         if (custom) RebuildCustomCasePreview();
         else OnExistingPrefabChosen(_existingPrefabDropdown?.value);
+    }
+
+    /// <summary>Shelf Life only means anything for Perishable/Frozen storage areas — Grocery items are
+    /// effectively non-perishable by definition, so the field is hidden rather than just left sitting
+    /// there showing "-1" for every Grocery item.</summary>
+    private void UpdateShelfLifeVisibility()
+    {
+        if (_shelfLifeField == null || _storageAreaField == null) return;
+        var area = (PalletData.AreaCategory)_storageAreaField.value;
+        bool relevant = area == PalletData.AreaCategory.Perishable || area == PalletData.AreaCategory.Frozen;
+        _shelfLifeField.style.display = relevant ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
     // ── Section 2 ────────────────────────────────────────────────────────────
@@ -475,12 +565,14 @@ public class ItemCreatorPanel : IUIPanel
         _tiField = new IntegerField("Ti (cases per layer)") { value = 1 };
         _tiField.style.flexGrow = 1;
         StyleLabeled(_tiField);
+        SetCompactLabelWidth(_tiField);
         row.Add(_tiField);
 
         _hiField = new IntegerField("Hi (layers)") { value = 1 };
         _hiField.style.flexGrow = 1;
         _hiField.style.marginLeft = 8;
         StyleLabeled(_hiField);
+        SetCompactLabelWidth(_hiField);
         row.Add(_hiField);
 
         content.Add(row);
@@ -507,7 +599,7 @@ public class ItemCreatorPanel : IUIPanel
         frame.style.paddingTop = 8;
         frame.style.alignItems = Align.Center;
 
-        var caption = MakeText("PALLET PREVIEW", 14, ColOrangeText, bold: true);
+        var caption = MakeText("PALLET PREVIEW", 42, ColOrange, bold: true);
         caption.style.marginBottom = 6;
         frame.Add(caption);
 
@@ -609,14 +701,15 @@ public class ItemCreatorPanel : IUIPanel
         _currentItemNumber = sku.ItemNumber;
         _itemNumberLabel.text = $"Item Number: {sku.ItemNumber} (existing item)";
         _descriptionField.value = sku.ItemDescription;
-        _lengthField.value = sku.CaseLength;
-        _widthField.value = sku.CaseWidth;
-        _heightField.value = sku.CaseHeight;
-        _lengthInches.text = ToInchesLabel(sku.CaseLength);
-        _widthInches.text = ToInchesLabel(sku.CaseWidth);
-        _heightInches.text = ToInchesLabel(sku.CaseHeight);
+        _lengthField.value = RoundToTenth(sku.CaseLength * MetersToInches);
+        _widthField.value = RoundToTenth(sku.CaseWidth * MetersToInches);
+        _heightField.value = RoundToTenth(sku.CaseHeight * MetersToInches);
+        _lengthMetric.text = ToMetersLabel(sku.CaseLength);
+        _widthMetric.text = ToMetersLabel(sku.CaseWidth);
+        _heightMetric.text = ToMetersLabel(sku.CaseHeight);
         _weightField.value = sku.CaseWeight;
         _storageAreaField.value = sku.StorageArea;
+        UpdateShelfLifeVisibility();
         _buyValueField.value = sku.BuyValue;
         _sellValueField.value = sku.SellValue;
         _shelfLifeField.value = sku.ShelfLifeDays;
@@ -628,8 +721,10 @@ public class ItemCreatorPanel : IUIPanel
 
         PopulateExistingPrefabDropdown(sku.Prefab);
         _caseTemplate = sku.Prefab;
+        _existingPrefabNativeSizeMeters = GetMeshNativeSizeMeters(sku.Prefab);
         RefreshCaseReadyState();
         ShowSingleCasePreview();
+        ApplyDimensionScaleToPreview(); // guarantees the preview matches the SO's saved dimensions the moment the item loads, not just whatever the prefab's own native mesh size is
     }
 
     private void OnClearClicked()
@@ -645,9 +740,10 @@ public class ItemCreatorPanel : IUIPanel
     {
         _descriptionField.value = string.Empty;
         _lengthField.value = 0f; _widthField.value = 0f; _heightField.value = 0f;
-        _lengthInches.text = "0.0\""; _widthInches.text = "0.0\""; _heightInches.text = "0.0\"";
+        _lengthMetric.text = "0.0m"; _widthMetric.text = "0.0m"; _heightMetric.text = "0.0m";
         _weightField.value = 0f;
         _storageAreaField.value = PalletData.AreaCategory.Grocery;
+        UpdateShelfLifeVisibility();
         _buyValueField.value = 0f; _sellValueField.value = 0f;
         _shelfLifeField.value = -1;
         _tiField.value = 1; _hiField.value = 1;
@@ -699,9 +795,11 @@ public class ItemCreatorPanel : IUIPanel
         if (label != null && _existingPrefabsByLabel.TryGetValue(label, out var go))
         {
             _caseTemplate = go;
+            _existingPrefabNativeSizeMeters = GetMeshNativeSizeMeters(go);
             AutoFillDimensionsFromPrefab(go);
             RefreshCaseReadyState();
             ShowSingleCasePreview();
+            ApplyDimensionScaleToPreview();
         }
     }
 
@@ -713,21 +811,152 @@ public class ItemCreatorPanel : IUIPanel
     private void AutoFillDimensionsFromPrefab(GameObject prefab)
     {
         if (_lengthField.value > 0f || _widthField.value > 0f || _heightField.value > 0f) return;
-        var mf = prefab != null ? prefab.GetComponentInChildren<MeshFilter>() : null;
-        if (mf?.sharedMesh == null) return;
+        if (prefab == null) return;
 
-        var size = mf.sharedMesh.bounds.size;
-        _widthField.value = size.x;
-        _heightField.value = size.y;
-        _lengthField.value = size.z;
-        _widthInches.text = ToInchesLabel(size.x);
-        _heightInches.text = ToInchesLabel(size.y);
-        _lengthInches.text = ToInchesLabel(size.z);
+        var size = GetCombinedLocalBounds(prefab).size; // meters
+        _widthField.value = RoundToTenth(size.x * MetersToInches);
+        _heightField.value = RoundToTenth(size.y * MetersToInches);
+        _lengthField.value = RoundToTenth(size.z * MetersToInches);
+        _widthMetric.text = ToMetersLabel(size.x);
+        _heightMetric.text = ToMetersLabel(size.y);
+        _lengthMetric.text = ToMetersLabel(size.z);
+    }
+
+    /// <summary>Same mesh-bounds convention as <see cref="AutoFillDimensionsFromPrefab"/>, but returns
+    /// the raw size instead of writing it into the fields — used as the "1x scale" reference point for
+    /// <see cref="ApplyDimensionScaleToPreview"/> so an existing prefab's rendered size can be kept in
+    /// sync with the L/W/H fields even after they've been edited away from the prefab's native size.</summary>
+    private Vector3 GetMeshNativeSizeMeters(GameObject prefab)
+    {
+        var size = prefab != null ? GetCombinedLocalBounds(prefab).size : Vector3.one;
+        return new Vector3(Mathf.Max(size.x, 0.001f), Mathf.Max(size.y, 0.001f), Mathf.Max(size.z, 0.001f));
+    }
+
+    /// <summary>The prefab's full visual extent, in the ROOT's own local space, combining EVERY mesh
+    /// under it (box + Tape + FlapSeam + Label.* on a case prefab) rather than whichever one happens to
+    /// be first under <c>GetComponentInChildren&lt;MeshFilter&gt;</c> — a case prefab has several small
+    /// decorative sub-meshes alongside the actual box, and picking the wrong one silently measured the
+    /// case's "native size" (and its pivot-to-bottom offset) from a label or tape strip instead of the
+    /// box itself, which is what was producing wrong scale factors and wrong vertical seating. Each
+    /// mesh's own local bounds are transformed into the root's local frame before combining, so a part
+    /// offset or rotated within the prefab doesn't get measured as if it sat at the root's origin.</summary>
+    private static Bounds GetCombinedLocalBounds(GameObject root)
+    {
+        var meshFilters = root.GetComponentsInChildren<MeshFilter>(true);
+        Bounds? combined = null;
+        Matrix4x4 rootWorldToLocal = root.transform.worldToLocalMatrix;
+        foreach (var mf in meshFilters)
+        {
+            if (mf.sharedMesh == null) continue;
+            Matrix4x4 relative = rootWorldToLocal * mf.transform.localToWorldMatrix;
+            Bounds mb = mf.sharedMesh.bounds;
+            Vector3 c = mb.center, e = mb.extents;
+            for (int dx = -1; dx <= 1; dx += 2)
+                for (int dy = -1; dy <= 1; dy += 2)
+                    for (int dz = -1; dz <= 1; dz += 2)
+                    {
+                        Vector3 corner = relative.MultiplyPoint3x4(c + Vector3.Scale(e, new Vector3(dx, dy, dz)));
+                        if (combined == null) combined = new Bounds(corner, Vector3.zero);
+                        else { var b = combined.Value; b.Encapsulate(corner); combined = b; }
+                    }
+        }
+        return combined ?? new Bounds(Vector3.zero, Vector3.one);
+    }
+
+    /// <summary>Runs every time a dimension field changes (or a case is (re)selected/loaded) so the
+    /// preview — single case and, if already generated, the full case stack — always physically matches
+    /// the current L/W/H fields rather than just whatever the source prefab's own mesh happens to be.
+    /// No-op for custom cases, since <see cref="RebuildCustomCasePreview"/> already regenerates that
+    /// mesh at the exact entered size. Never touches the source prefab ASSET itself — only the live
+    /// instances — so this can't corrupt a case prefab shared by other SKUs.</summary>
+    private void ApplyDimensionScaleToPreview()
+    {
+        if (_customCaseToggle.value) return;
+
+        float wIn = _widthField.value, hIn = _heightField.value, lIn = _lengthField.value;
+        if (wIn <= 0f || hIn <= 0f || lIn <= 0f) return;
+
+        var desired = new Vector3(wIn * InchesToMeters, hIn * InchesToMeters, lIn * InchesToMeters);
+        var scale = new Vector3(
+            desired.x / _existingPrefabNativeSizeMeters.x,
+            desired.y / _existingPrefabNativeSizeMeters.y,
+            desired.z / _existingPrefabNativeSizeMeters.z);
+
+        // How far below a case's transform origin its visual base actually sits, in the case's own
+        // UNSCALED local space — 0 if the pivot is really at the bottom (the normal case). Measured
+        // once from the PREFAB (via the same combined-mesh bounds as the scale factor above), not from
+        // a live scaled instance — every case on the pallet is a clone of the same prefab, so one
+        // measurement covers all of them, and reading it from the prefab avoids re-deriving it from
+        // whatever an instance's current (already-scaled) transform happens to report.
+        float bottomOffsetUnscaled = _caseTemplate != null ? GetCombinedLocalBounds(_caseTemplate).min.y : 0f;
+
+        if (_liveCaseSingle != null)
+        {
+            _liveCaseSingle.transform.localScale = scale;
+            var singlePos = _liveCaseSingle.transform.localPosition;
+            singlePos.y = PalletDeckHeight + PreviewLayerGap - bottomOffsetUnscaled * scale.y;
+            _liveCaseSingle.transform.localPosition = singlePos;
+        }
+
+        if (_previewPalletBuilder != null)
+        {
+            var loadObj = _previewPalletBuilder.transform.Find("PalletLoad");
+            if (loadObj != null)
+            {
+                // Build() only ever computes each case's Y position ONCE, using whatever case height
+                // was current at that moment. A later dimension-field edit only got as far as rescaling
+                // the mesh here — the Y positions were never re-derived from the NEW height, so raising
+                // the height crammed layers into each other (still spaced for the old, shorter case) and
+                // lowering it left a gap (still spaced for the old, taller case). Recompute every case's
+                // Y from its layer index instead of leaving Build()'s stale value in place.
+                //
+                // Every layer sits PreviewLayerGap above whatever is beneath it — deck for layer 0, the
+                // previous layer's top for every layer after — so layer i's base = deckY + gap*(i+1) +
+                // caseHeight*i, minus the case prefab's own pivot-to-bottom offset (see above) so the
+                // RENDERED base lands there, not just the transform origin.
+                int ti = Mathf.Max(1, _previewPalletBuilder.manualTi);
+                float deckY = _previewPalletBuilder.palletDimensions.y;
+                float bottomOffset = bottomOffsetUnscaled * scale.y;
+                int i = 0;
+                foreach (Transform caseTransform in loadObj)
+                {
+                    caseTransform.localScale = scale;
+                    int layerIndex = i / ti;
+                    var pos = caseTransform.localPosition;
+                    pos.y = deckY + PreviewLayerGap * (layerIndex + 1) + desired.y * layerIndex - bottomOffset;
+                    caseTransform.localPosition = pos;
+                    i++;
+                }
+            }
+        }
     }
 
     private void OnDimensionsChanged()
     {
         if (_customCaseToggle.value) RebuildCustomCasePreview();
+        else ApplyDimensionScaleToPreview();
+
+        SaveDimensionsToEditingSku();
+    }
+
+    /// <summary>The SKU's ScriptableObject is the source of truth for dimensions, not just whatever's
+    /// sitting in the form — so while editing an existing item, every dimension edit is written straight
+    /// through to the SO immediately rather than waiting for Submit. No-op for a brand-new (not yet
+    /// created) item, since there's no SkuData asset to write into until Submit makes one.</summary>
+    private void SaveDimensionsToEditingSku()
+    {
+#if UNITY_EDITOR
+        if (_editingSku == null) return;
+        float w = _widthField.value, h = _heightField.value, l = _lengthField.value;
+        if (w <= 0f || h <= 0f || l <= 0f) return; // don't persist a mid-edit invalid value
+
+        var so = new SerializedObject(_editingSku);
+        so.FindProperty("_caseLength").floatValue = l * InchesToMeters;
+        so.FindProperty("_caseWidth").floatValue = w * InchesToMeters;
+        so.FindProperty("_caseHeight").floatValue = h * InchesToMeters;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(_editingSku);
+#endif
     }
 
     // ── Custom case (procedural, in-memory) ──────────────────────────────────
@@ -736,10 +965,10 @@ public class ItemCreatorPanel : IUIPanel
     {
         if (_iconButtons.Count == 0) BuildIconPicker();
 
-        float w = _widthField.value, h = _heightField.value, l = _lengthField.value;
+        float w = _widthField.value * InchesToMeters, h = _heightField.value * InchesToMeters, l = _lengthField.value * InchesToMeters;
         if (w <= 0f || h <= 0f || l <= 0f)
         {
-            _previewStatusLabel.text = "Enter case Length/Width/Height (meters) to build a custom case.";
+            _previewStatusLabel.text = "Enter case Length/Width/Height (inches) to build a custom case.";
             return;
         }
 
@@ -833,37 +1062,51 @@ public class ItemCreatorPanel : IUIPanel
 
         var camGO = new GameObject("PreviewCamera");
         camGO.transform.SetParent(_rigRoot.transform, false);
-        camGO.transform.localPosition = new Vector3(0f, 1.1f, -2.6f);
-        camGO.transform.localRotation = Quaternion.Euler(12f, 0f, 0f); // slight downward tilt onto the pallet at the pivot's origin
+        camGO.transform.localPosition = new Vector3(0f, 1.3f, -3.4f); // pulled back/up from the original -2.6f so the whole pallet fits in frame
+        camGO.transform.localRotation = Quaternion.Euler(14f, 0f, 0f); // slight downward tilt onto the pallet at the pivot's origin
         _previewCamera = camGO.AddComponent<Camera>();
         _previewCamera.clearFlags = CameraClearFlags.SolidColor;
-        _previewCamera.backgroundColor = new Color(0.15f, 0.19f, 0.24f, 1f); // lightened from the original near-black for more depth/readability
-        _previewCamera.fieldOfView = 32f;
+        _previewCamera.backgroundColor = new Color(0.04f, 0.05f, 0.07f, 1f); // near-black void outside the backdrop wall, so the wall reads as a distinct lit panel
+        _previewCamera.fieldOfView = 36f;
         _previewCamera.nearClipPlane = 0.1f;
         _previewCamera.farClipPlane = 20f;
+        _previewCamera.allowMSAA = true;
 
-        _previewRT = new RenderTexture(480, 360, 24, RenderTextureFormat.ARGB32);
+        // Blocky/aliased edges are the RT's own MSAA sample count defaulting to 1 — bump it, and also
+        // add FXAA on top via the URP camera data so edges stay smooth even where MSAA alone misses
+        // (shader-based edges, the RenderTexture's blit into the Image control, etc.).
+        _previewRT = new RenderTexture(480, 360, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
         _previewRT.Create();
         _previewCamera.targetTexture = _previewRT;
         _previewImage.image = _previewRT;
 
+        var camData = _previewCamera.GetUniversalAdditionalCameraData();
+        camData.renderPostProcessing = true;
+        camData.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
+        // Blurry image = the scene's global Depth of Field (and any other Volume override — bloom, color
+        // grading, etc.) riding along now that renderPostProcessing is on. FXAA itself is a fixed camera
+        // setting, not a Volume component, so it isn't affected by this — an empty volume mask means no
+        // Volume in the scene can ever match this camera, which keeps FXAA crisp while dropping DOF/bloom/
+        // grading entirely for the preview.
+        camData.volumeLayerMask = 0;
+
+        // Key light: back to Directional (see the "Preview quality override" field comment for why —
+        // additional-light shadows are unsupported project-wide, so only a Directional light standing in
+        // as the MAIN light, via RenderSettings.sun in Show()/Hide(), can ever cast a real shadow here).
         var lightGO = new GameObject("PreviewLight");
         lightGO.transform.SetParent(_rigRoot.transform, false);
         lightGO.transform.localPosition = new Vector3(1.2f, 2.4f, -1.5f);
         lightGO.transform.LookAt(_rigRoot.transform.position + Vector3.up * 0.6f);
         var light = lightGO.AddComponent<Light>();
         light.type = LightType.Directional;
-        light.intensity = 1.1f;
+        light.intensity = 0.66f; // halved per earlier request, then +20%
         light.color = new Color(0.95f, 0.94f, 0.90f, 1f);
         light.shadows = LightShadows.Soft; // needed for the backdrop below to actually catch a shadow
-
-        var fillGO = new GameObject("PreviewFill");
-        fillGO.transform.SetParent(_rigRoot.transform, false);
-        fillGO.transform.localPosition = new Vector3(-1f, 1.2f, -1f);
-        var fill = fillGO.AddComponent<Light>();
-        fill.type = LightType.Point;
-        fill.intensity = 0.6f;
-        fill.range = 6f;
+        light.shadowResolution = LightShadowResolution.High;
+        var lightData = lightGO.GetComponent<UniversalAdditionalLightData>();
+        if (lightData == null) lightData = lightGO.AddComponent<UniversalAdditionalLightData>();
+        lightData.softShadowQuality = SoftShadowQuality.High; // soft-edged shadow on the backdrop instead of a hard-edged one
+        _previewKeyLight = light;
 
         BuildBackdrop();
 
@@ -874,70 +1117,59 @@ public class ItemCreatorPanel : IUIPanel
             _chepInstance.transform.localPosition = Vector3.zero;
             _chepInstance.transform.localRotation = Quaternion.identity;
             StripPlacementComponents(_chepInstance);
-            MeasurePalletYawCorrection(_chepInstance);
         }
     }
 
-    /// <summary>Floor + back wall behind the pallet, parented to the RIG (not the pivot) so they never
-    /// spin or tilt with the pallet — just a static backdrop that gives the rotating pallet a shadow to
-    /// cast, for some depth instead of it floating in flat black.</summary>
+    /// <summary>Back wall behind the pallet, parented to the RIG (not the pivot) so it never spins or
+    /// tilts with the pallet — just a static backdrop that gives the rotating pallet a shadow to cast,
+    /// for some depth instead of it floating in flat black. No floor plane, so nothing sits between the
+    /// camera and the backdrop.</summary>
     private void BuildBackdrop()
     {
-        var backdropColor = new Color(0.11f, 0.14f, 0.18f, 1f); // a touch darker than the camera's clear color so the pallet still reads as the subject
+        var backdropColor = new Color(0.87f, 0.80f, 0.68f, 1f); // light tan
 
-        var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        ground.name = "PreviewGround";
-        UnityEngine.Object.Destroy(ground.GetComponent<Collider>());
-        ground.transform.SetParent(_rigRoot.transform, false);
-        ground.transform.localPosition = Vector3.zero;
-        ground.transform.localScale = new Vector3(0.35f, 1f, 0.35f); // Unity's default Plane is 10x10 units
-        var groundMat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = backdropColor };
-        var groundRenderer = ground.GetComponent<MeshRenderer>();
-        groundRenderer.sharedMaterial = groundMat;
-        groundRenderer.receiveShadows = true;
-        groundRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-
-        var wall = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        // A thin Cube instead of a Quad — a Quad has exactly one visible face by default (its opposite
+        // side is a backface, culled or lit wrong depending on the material's _Cull setting), which was
+        // a second possible reason this wall could render as empty/black regardless of color or light.
+        // A Cube has no "wrong side" to get backwards, so this removes that guesswork entirely.
+        var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
         wall.name = "PreviewWall";
         UnityEngine.Object.Destroy(wall.GetComponent<Collider>());
         wall.transform.SetParent(_rigRoot.transform, false);
-        wall.transform.localPosition = new Vector3(0f, 1.5f, 1.6f); // behind the pallet, relative to the camera at z=-2.6
-        wall.transform.localScale = new Vector3(3.5f, 3.5f, 1f);
-        var wallMat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = backdropColor };
-        // Two-sided so the wall reads correctly regardless of the Quad primitive's default facing —
-        // safer than guessing the exact rotation needed without a live Editor to check against.
-        if (wallMat.HasProperty("_Cull")) wallMat.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Off);
+        wall.transform.localPosition = new Vector3(0f, 0f, 1.6f); // behind the pallet, relative to the camera at z=-3.4
+        // Sized to fully fill the camera's frame at that distance (camera-to-wall = 5.0, FOV 36°, 4:3
+        // RT aspect), with margin, and centered/tall enough to cover the frustum's downward shift from
+        // the camera's 14° tilt — a shorter wall left a visible void seam near the bottom of the frame.
+        // Z-depth is thin but non-zero (a Cube, unlike a Quad, needs real depth to have any thickness).
+        wall.transform.localScale = new Vector3(5.5f, 6.0f, 0.1f);
+        // Built from the pipeline's own default material (the same one CreatePrimitive assigns
+        // automatically) rather than `new Material(Shader.Find(...))` — a raw shader lookup skips the
+        // keyword/render-state setup the Inspector's ShaderGUI normally does for a URP Lit material,
+        // which is what was leaving this wall rendering as invisible/black regardless of color or light.
+        var wallMat = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { color = backdropColor };
+        // A touch of smoothness so the key/uplights put a soft specular highlight on the wall instead of
+        // it reading as flat diffuse — kept low (and non-metallic) so it doesn't look like polished metal.
+        if (wallMat.HasProperty("_Smoothness")) wallMat.SetFloat("_Smoothness", 0.4f);
+        if (wallMat.HasProperty("_Metallic")) wallMat.SetFloat("_Metallic", 0.05f);
+        // Belt-and-suspenders: after three rounds of "still black" despite a correctly-colored, correctly
+        // shaped, correctly shadered wall, something about this rig's lighting/post-processing was crushing
+        // it to black before it ever reached the screen. Giving the wall its own emissive glow makes it
+        // visible independent of that — but kept low (a floor, not the main brightness) so the key light's
+        // actual cast shadow still reads as real contrast instead of getting washed out by a flat glow.
+        if (wallMat.HasProperty("_EmissionColor"))
+        {
+            wallMat.EnableKeyword("_EMISSION");
+            wallMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            wallMat.SetColor("_EmissionColor", backdropColor * 0.2f);
+        }
         var wallRenderer = wall.GetComponent<MeshRenderer>();
         wallRenderer.sharedMaterial = wallMat;
         wallRenderer.receiveShadows = true;
         wallRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-    }
 
-    /// <summary>Measures the CHEP visual's actual footprint (world-space renderer bounds, taken right
-    /// after instantiation before any spin/drag has rotated the pivot) and compares it against
-    /// PalletBuilder's assumed layout axes (X=width/48", Z=length/40" — see PalletBuilder.palletDimensions).
-    /// If the mesh's real footprint is swapped (long side on Z instead of X), the case layer built by a
-    /// same-parented PalletBuilder would come out rotated 90° from the actual pallet shape — cases
-    /// hanging off the corners at an angle. Storing a corrective yaw here means Generate Preview always
-    /// aligns the case grid to the real mesh instead of assuming it already matches.</summary>
-    private void MeasurePalletYawCorrection(GameObject chepInstance)
-    {
-        _palletYawCorrectionDeg = 0f;
-        var renderers = chepInstance.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return;
-
-        Bounds bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
-
-        float assumedWidth = 1.2192f;  // PalletBuilder.palletDimensions.x (48")
-        float assumedLength = 1.016f;  // PalletBuilder.palletDimensions.z (40")
-
-        // If the mesh's actual X/Z extents line up better with the SWAPPED assumption than the
-        // straight one, the pallet is authored 90° from what PalletBuilder expects.
-        float straightError = Mathf.Abs(bounds.size.x - assumedWidth) + Mathf.Abs(bounds.size.z - assumedLength);
-        float swappedError = Mathf.Abs(bounds.size.x - assumedLength) + Mathf.Abs(bounds.size.z - assumedWidth);
-
-        if (swappedError < straightError) _palletYawCorrectionDeg = 90f;
+        Debug.Log($"[ItemCreatorPanel] PreviewWall built: shader={wallMat.shader?.name ?? "NULL"}, " +
+            $"worldPos={wall.transform.position}, scale={wall.transform.lossyScale}, " +
+            $"rendererEnabled={wallRenderer.enabled}, layer={wall.layer}");
     }
 
     private void ClearPreview()
@@ -959,7 +1191,7 @@ public class ItemCreatorPanel : IUIPanel
         _liveCaseSingle.SetActive(true);
         StripPlacementComponents(_liveCaseSingle);
         _liveCaseSingle.transform.localPosition = new Vector3(0f, PalletDeckHeight, 0f);
-        _liveCaseSingle.transform.localRotation = Quaternion.Euler(0f, _palletYawCorrectionDeg, 0f);
+        _liveCaseSingle.transform.localRotation = CasePalletYawCorrection;
 
         _previewStatusLabel.text = "Case ready. Set Ti/Hi and click Generate Preview to build the full pallet.";
     }
@@ -974,7 +1206,7 @@ public class ItemCreatorPanel : IUIPanel
 
         int ti = Mathf.Max(1, _tiField.value);
         int hi = Mathf.Max(1, _hiField.value);
-        float w = _widthField.value, h = _heightField.value, l = _lengthField.value;
+        float w = _widthField.value * InchesToMeters, h = _heightField.value * InchesToMeters, l = _lengthField.value * InchesToMeters;
         if (w <= 0f || h <= 0f || l <= 0f)
         {
             _previewStatusLabel.text = "Case dimensions must be greater than zero.";
@@ -990,9 +1222,7 @@ public class ItemCreatorPanel : IUIPanel
             pbGO.transform.localPosition = Vector3.zero;
             _previewPalletBuilder = pbGO.AddComponent<PalletBuilder>();
         }
-        // Re-applied every click (not just on first creation) so the case layer always matches the
-        // measured pallet footprint — see MeasurePalletYawCorrection.
-        _previewPalletBuilder.transform.localRotation = Quaternion.Euler(0f, _palletYawCorrectionDeg, 0f);
+        _previewPalletBuilder.transform.localRotation = Quaternion.identity; // the builder itself stays unrotated — see CasePalletYawCorrection below
 
         _previewPalletBuilder.casePrefab = _caseTemplate;
         _previewPalletBuilder.linkedSku = null;
@@ -1000,7 +1230,20 @@ public class ItemCreatorPanel : IUIPanel
         _previewPalletBuilder.useTiHiOverride = true;
         _previewPalletBuilder.manualTi = ti;
         _previewPalletBuilder.manualHi = hi;
+        _previewPalletBuilder.crookedCase = 0f; // no random jitter in the preview — see AlignGeneratedCasesToPallet's old approach for why zeroing rotation after the fact doesn't work
+        _previewPalletBuilder.verticalGap = PreviewLayerGap; // real gameplay pallets stack flush (0) on purpose — this gap is preview-only, so layers read clearly
         _previewPalletBuilder.Build(deductMoney: false);
+
+        // The ChepEmpty mesh's real footprint sits 90° from PalletBuilder's assumed X=width/Z=length
+        // axes (confirmed by hand in the Inspector — PalletLoad at Y=90 is what lines cases up with the
+        // pallet visual). PalletLoad is a fresh GameObject Build() creates every call, so this has to be
+        // reapplied after every Build() — nothing else in this file touches PalletLoad's rotation
+        // afterward (ApplyDimensionScaleToPreview only touches scale), so this is the only place it can
+        // get silently reset back to identity.
+        var loadObj = _previewPalletBuilder.transform.Find("PalletLoad");
+        if (loadObj != null) loadObj.localRotation = CasePalletYawCorrection;
+
+        ApplyDimensionScaleToPreview(); // freshly-instantiated cases start at the prefab's native scale — bring them in line with the current fields immediately
 
         if (_previewPalletBuilder.TotalCases == 0)
         {
@@ -1097,7 +1340,7 @@ public class ItemCreatorPanel : IUIPanel
         if (_customCaseToggle.value)
         {
             finalPrefab = BuildAndSaveCasePrefab(_currentItemNumber, description,
-                _widthField.value, _heightField.value, _lengthField.value,
+                _widthField.value * InchesToMeters, _heightField.value * InchesToMeters, _lengthField.value * InchesToMeters,
                 _boxColor, _tapeColor, _selectedIcon);
             if (finalPrefab == null) { UIToast.Show("Failed to generate the case prefab — check the Console."); return; }
         }
@@ -1112,9 +1355,9 @@ public class ItemCreatorPanel : IUIPanel
         var so = new SerializedObject(sku);
         if (isNew) so.FindProperty("_itemNumber").intValue = _currentItemNumber;
         so.FindProperty("_itemDescription").stringValue = description;
-        so.FindProperty("_caseLength").floatValue = _lengthField.value;
-        so.FindProperty("_caseWidth").floatValue = _widthField.value;
-        so.FindProperty("_caseHeight").floatValue = _heightField.value;
+        so.FindProperty("_caseLength").floatValue = _lengthField.value * InchesToMeters;
+        so.FindProperty("_caseWidth").floatValue = _widthField.value * InchesToMeters;
+        so.FindProperty("_caseHeight").floatValue = _heightField.value * InchesToMeters;
         so.FindProperty("_csWeight").floatValue = _weightField.value;
         so.FindProperty("_storageArea").enumValueIndex = (int)(PalletData.AreaCategory)_storageAreaField.value;
         so.FindProperty("_buyValue").floatValue = _buyValueField.value;
@@ -1238,7 +1481,11 @@ public class ItemCreatorPanel : IUIPanel
         mesh.name = safeName + "_Mesh";
         AssetDatabase.CreateAsset(mesh, meshPath);
 
-        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = safeName + "_Mat" };
+        // Built from the pipeline's own default material rather than `new Material(Shader.Find(...))` —
+        // a raw shader lookup skips the keyword/render-state setup the Inspector's ShaderGUI normally
+        // does for a URP Lit material, which left the item-creator preview's backdrop wall invisible
+        // (same construction pattern, same bug) until it was switched to this.
+        Material mat = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { name = safeName + "_Mat" };
         mat.color = boxColor;
         mat.SetFloat("_Smoothness", 0.12f);
         AssetDatabase.CreateAsset(mat, matPath);
@@ -1267,7 +1514,7 @@ public class ItemCreatorPanel : IUIPanel
     private static GameObject BuildCaseVisualInMemory(float w, float h, float l, Color boxColor, Color tapeColor, Sprite icon)
     {
         Mesh mesh = BuildBoxMesh(w, h, l);
-        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        Material mat = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial);
         mat.color = boxColor;
         mat.SetFloat("_Smoothness", 0.12f);
 
@@ -1291,7 +1538,7 @@ public class ItemCreatorPanel : IUIPanel
         const float tapeThickness = 0.0015f;
         const float tapeOffset = tapeThickness / 2f + 0.0002f;
 
-        tapeMat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = name + "_Tape" };
+        tapeMat = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { name = name + "_Tape" };
         tapeMat.color = tapeColor;
 
         GameObject mainTape = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -1305,7 +1552,7 @@ public class ItemCreatorPanel : IUIPanel
         labelMat = null;
         if (icon != null)
         {
-            labelMat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = name + "_Label" };
+            labelMat = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { name = name + "_Label" };
             labelMat.mainTexture = icon.texture;
             labelMat.color = Color.white;
 
@@ -1359,7 +1606,7 @@ public class ItemCreatorPanel : IUIPanel
         section.style.paddingLeft = 12; section.style.paddingRight = 12;
         section.style.paddingTop = 10; section.style.paddingBottom = 10;
 
-        var header = MakeText(title, 13, ColTitleText, bold: true);
+        var header = MakeText(title, 17, ColTitleText, bold: true); // 13 + 30%
         header.style.marginBottom = 8;
         header.style.whiteSpace = WhiteSpace.Normal;
         section.Add(header);
@@ -1387,14 +1634,27 @@ public class ItemCreatorPanel : IUIPanel
 
     private void StyleLabeled(VisualElement field)
     {
-        ApplyFont(field);
+        ApplyFont(field, size: 17); // 20% larger than the previous unset (~14px) default
         field.style.marginBottom = 6;
         var label = field.Q<Label>();
         if (label != null)
         {
             label.style.color = new StyleColor(ColSubtleText);
             label.style.minWidth = 150;
+            label.style.fontSize = 19.5f; // field's own 17px + 15%, independent of the input text's size
         }
+    }
+
+    /// <summary>StyleLabeled's 150px label minWidth is sized for full-width single-column rows. Fields
+    /// sharing a half-width row (Buy/Sell Value, Ti/Hi) need a narrower label or that floor forces the
+    /// field wider than its flex-grow share, overflowing the row's right edge out from under the other
+    /// boxes above and under the ScrollView's scrollbar.</summary>
+    private void SetCompactLabelWidth(VisualElement field)
+    {
+        var label = field.Q<Label>();
+        if (label == null) return;
+        label.style.minWidth = 85;
+        label.style.whiteSpace = WhiteSpace.Normal;
     }
 
     private Button MakeActionButton(string text, Color face, Color edge, Color hover, Action onClick)

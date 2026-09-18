@@ -340,8 +340,13 @@ public class PalletBuilder : MonoBehaviour
         }
         
         GameObject loadObj = new GameObject("PalletLoad");
-        loadObj.transform.SetParent(transform);
+        // worldPositionStays MUST be false: the default (true) auto-counter-rotates PalletLoad's local
+        // rotation to cancel out whatever rotation this transform already has, so cases silently stayed
+        // world-axis-aligned no matter how the pallet itself (or a parent, e.g. the preview rig's pivot)
+        // was rotated — the real cause of cases refusing to follow the pallet's orientation.
+        loadObj.transform.SetParent(transform, false);
         loadObj.transform.localPosition = Vector3.zero;
+        loadObj.transform.localRotation = Quaternion.identity;
 
         for (int h = 0; h < layers; h++)
         {
