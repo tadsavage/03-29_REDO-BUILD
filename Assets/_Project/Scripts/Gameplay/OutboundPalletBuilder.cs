@@ -19,7 +19,12 @@ public class OutboundPalletBuilder : MonoBehaviour
 {
     private static readonly Vector3 PalletDim = new Vector3(1.2192f, 0.165f, 1.016f);
     private const float SpaceBetweenCases = 0.05f;
-    private const float CrookedCaseDegrees = 2f;
+    // Matches PalletBuilder's own crookedCase/positionJitter defaults — see that field's tooltip for why
+    // the rotation is "1 to 5" rather than a range spanning 0 (a range including 0 kept producing cases
+    // dead straight, which read as too perfectly stacked).
+    private const float MinCrookedCaseDegrees = 1f;
+    private const float CrookedCaseDegrees = 5f;
+    private const float PositionJitterMeters = 0.015f;
 
     private Transform _loadRoot;
     private string _currentSkuId;
@@ -109,7 +114,10 @@ public class OutboundPalletBuilder : MonoBehaviour
 
         var instance = Instantiate(casePrefab);
         instance.transform.SetParent(_loadRoot, false);
-        instance.transform.localPosition = new Vector3(slot.pos.x, _currentLayerY, slot.pos.z);
+        instance.transform.localPosition = new Vector3(
+            slot.pos.x + Random.Range(-PositionJitterMeters, PositionJitterMeters),
+            _currentLayerY,
+            slot.pos.z + Random.Range(-PositionJitterMeters, PositionJitterMeters));
 
         // Case prefabs carry PlacedObject/BuildingData for the build menu — must not self-register
         // into the grid at (0,0) when spawned as part of a WIP pallet. Same stripping
@@ -121,7 +129,8 @@ public class OutboundPalletBuilder : MonoBehaviour
         var bh = instance.GetComponent<BuildingHighlighter>();
         if (bh != null) Destroy(bh);
 
-        float randomRot = Random.Range(-CrookedCaseDegrees, CrookedCaseDegrees);
+        float magnitude = Random.Range(MinCrookedCaseDegrees, CrookedCaseDegrees);
+        float randomRot = (Random.value < 0.5f ? -1f : 1f) * magnitude;
         instance.transform.localRotation = Quaternion.Euler(0, slot.rot + randomRot, 0);
 
         _nextLayerY = _currentLayerY + caseDim.y;

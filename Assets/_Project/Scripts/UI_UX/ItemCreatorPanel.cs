@@ -49,8 +49,8 @@ public class ItemCreatorPanel : IUIPanel
 
     private const float MetersToInches = 39.3701f;
     private const float InchesToMeters = 1f / MetersToInches;
-    private const float PalletDeckHeight = 0.165f;
     private const float PreviewLayerGap = 0.01f; // vertical gap between case layers, preview-only — see ApplyDimensionScaleToPreview
+    private const string IconFolderPath = "Assets/_Project/Prefabs/Inventory/Cases/Icons";
 
     private static Font _lilita;
 
@@ -115,6 +115,13 @@ public class ItemCreatorPanel : IUIPanel
         new Color(0.78f, 0.68f, 0.52f), // light tan
         new Color(0.42f, 0.28f, 0.15f), // chocolate brown
         new Color(0.75f, 0.55f, 0.50f), // light red/salmon
+        // Neutral/subtle additions — pale blue, grays, light greens
+        new Color(0.83f, 0.88f, 0.91f), // pale blue
+        new Color(0.80f, 0.82f, 0.84f), // light gray
+        new Color(0.58f, 0.60f, 0.62f), // medium gray
+        new Color(0.36f, 0.38f, 0.40f), // charcoal gray
+        new Color(0.82f, 0.87f, 0.80f), // pale sage green
+        new Color(0.68f, 0.78f, 0.70f), // light green
     };
     private static readonly Color[] TapeColorPalette =
     {
@@ -122,6 +129,16 @@ public class ItemCreatorPanel : IUIPanel
         new Color(0.88f, 0.82f, 0.66f), // light tan
         new Color(0.62f, 0.50f, 0.32f), // dark tan
         new Color(0.90f, 0.89f, 0.85f), // white / packing tape
+        // Shiny neutrals + browns
+        new Color(0.95f, 0.95f, 0.95f), // bright white, glossy
+        new Color(0.75f, 0.76f, 0.78f), // light silver gray
+        new Color(0.55f, 0.56f, 0.58f), // gunmetal gray
+        new Color(0.07f, 0.07f, 0.08f), // black
+        new Color(0.45f, 0.30f, 0.16f), // parcel brown
+        new Color(0.30f, 0.18f, 0.09f), // dark parcel brown
+        // Clear packing tape — real alpha, rendered transparent (see ApplyTapeTransparency)
+        new Color(0.90f, 0.92f, 0.95f, 0.35f), // clear, cool tint
+        new Color(0.85f, 0.80f, 0.65f, 0.45f), // clear, warm/kraft tint
     };
     private VisualElement _iconPickerRow;
     private Sprite _selectedIcon;
@@ -129,9 +146,15 @@ public class ItemCreatorPanel : IUIPanel
 
     // ── Section 2 ────────────────────────────────────────────────────────────
     private VisualElement _section2;
-    private IntegerField _tiField, _hiField;
+    private int _tiValue = 1, _hiValue = 1;
+    private Label _tiValueLabel, _hiValueLabel;
+    // Mirrors PalletBuilder's own crookedCase/positionJitter defaults — see that field's tooltip.
+    private float _crookedCaseValue = 5f, _positionJitterValue = 0.015f;
+    private Label _crookedCaseValueLabel, _positionJitterValueLabel;
     private Image _previewImage;
     private Label _previewStatusLabel;
+    private Button _playPauseButton;
+    private bool _paused;
 
     // ── Section 3 ────────────────────────────────────────────────────────────
     private Button _clearButton, _deleteButton, _submitButton;
@@ -143,7 +166,6 @@ public class ItemCreatorPanel : IUIPanel
     private Transform _pivot;         // rotates — what the user drags
     private GameObject _chepInstance;
     private GameObject _caseTemplate; // inactive clone source — either an existing prefab or our procedurally-built one
-    private GameObject _liveCaseSingle; // the single-case-on-pallet view shown before "Generate Preview"
     private Vector3 _existingPrefabNativeSizeMeters = Vector3.one; // the selected existing prefab's own mesh size — the "1x scale" reference for ApplyDimensionScaleToPreview
     private PalletBuilder _previewPalletBuilder;
     private bool _dragging;
@@ -208,9 +230,9 @@ public class ItemCreatorPanel : IUIPanel
         EnsurePreviewRig();
         // The rig is built lazily here, but a case may already have been selected earlier (e.g. the
         // default existing-prefab choice made during construction, before any rig existed) — that
-        // selection's ShowSingleCasePreview() call was a silent no-op back then, so re-show it now
+        // selection's RegeneratePalletPreview() call was a silent no-op back then, so re-run it now
         // that there's actually a pivot to parent onto.
-        if (rigJustCreated && _caseTemplate != null) ShowSingleCasePreview();
+        if (rigJustCreated && _caseTemplate != null) RegeneratePalletPreview();
         StartTicking();
 
         // Steal the "main light" slot for the preview's own key light — only the main directional light
@@ -299,6 +321,7 @@ public class ItemCreatorPanel : IUIPanel
         leftCol.style.marginRight = 14;
         leftCol.Add(BuildSection1());
         leftCol.Add(BuildSection2());
+        leftCol.Add(BuildCasePrefabSection());
 
         var rightCol = new VisualElement { name = "item-creator-right" };
         rightCol.style.flexGrow = 1;
@@ -426,19 +449,32 @@ public class ItemCreatorPanel : IUIPanel
         content.Add(_shelfLifeField);
         UpdateShelfLifeVisibility();
 
-        content.Add(BuildDivider());
-        var casePrefabHeader = MakeText("(Optional) Re-do Case Prefab from Scratch?", 13, ColTitleText, bold: true);
-        casePrefabHeader.style.fontSize = 19.5f; // match the Shelf Life field label's size (StyleLabeled)
-        content.Add(casePrefabHeader);
+        return section;
+    }
+
+    // ── Section 3 (optional case rebuild) ───────────────────────────────────
+
+    /// <summary>Text in this section renders 25% larger than the shared helper defaults — every size
+    /// below is one of StyleLabeled/MakeText/MakeActionButton's own base sizes times <see cref="FontScale"/>.</summary>
+    private const float FontScale = 1.25f;
+
+    private VisualElement BuildCasePrefabSection()
+    {
+        var section = MakeSectionContainer(
+            "3. Optional - Re-do Case Prefab from an existing prefab, or build one from scratch!",
+            out var content, titleFontSize: 17f * FontScale);
 
         _customCaseToggle = new Toggle("Create a custom case instead") { value = false };
         StyleLabeled(_customCaseToggle);
+        _customCaseToggle.style.fontSize = 17f * FontScale;
+        var customCaseToggleLabel = _customCaseToggle.Q<Label>();
+        if (customCaseToggleLabel != null) customCaseToggleLabel.style.fontSize = 19.5f * FontScale;
         _customCaseToggle.RegisterValueChangedCallback(evt => SetCustomCaseMode(evt.newValue));
         content.Add(_customCaseToggle);
 
         _existingPrefabRow = new VisualElement();
         _existingPrefabDropdown = new DropdownField(new List<string> { "(none found)" }, 0);
-        ApplyFont(_existingPrefabDropdown, size: 17);
+        ApplyFont(_existingPrefabDropdown, size: (int)(17f * FontScale));
         _existingPrefabDropdown.RegisterValueChangedCallback(evt => OnExistingPrefabChosen(evt.newValue));
         _existingPrefabRow.Add(_existingPrefabDropdown);
         content.Add(_existingPrefabRow);
@@ -451,15 +487,13 @@ public class ItemCreatorPanel : IUIPanel
         _customCaseRow.Add(BuildColorSwatchRow("Tape Color", TapeColorPalette, _tapeColor,
             c => { _tapeColor = c; RebuildCustomCasePreview(); }));
 
-        _customCaseRow.Add(MakeText("Case Icon", 12, ColSubtleText));
+        var caseIconLabel = MakeText("Case Icon", (int)(12 * FontScale), ColSubtleText);
+        _customCaseRow.Add(caseIconLabel);
         _iconPickerRow = new VisualElement();
         _iconPickerRow.style.flexDirection = FlexDirection.Row;
         _iconPickerRow.style.flexWrap = Wrap.Wrap;
         _iconPickerRow.style.marginTop = 4; _iconPickerRow.style.marginBottom = 6;
         _customCaseRow.Add(_iconPickerRow);
-
-        var generateCaseButton = MakeActionButton("Generate Case", ColOrange, ColOrangeEdge, ColOrangeHover, RebuildCustomCasePreview);
-        _customCaseRow.Add(generateCaseButton);
 
         content.Add(_customCaseRow);
 
@@ -537,7 +571,20 @@ public class ItemCreatorPanel : IUIPanel
     {
         _existingPrefabRow.style.display = custom ? DisplayStyle.None : DisplayStyle.Flex;
         _customCaseRow.style.display = custom ? DisplayStyle.Flex : DisplayStyle.None;
-        if (custom) RebuildCustomCasePreview();
+        if (custom)
+        {
+            // Drop back to a single case (Ti=1/Hi=1) the moment custom mode is entered — whatever
+            // multi-case layout the real prefab was showing doesn't carry over automatically, and
+            // building straight into it here (rather than leaving it to whatever ti/hi was last set)
+            // is what was reading as "the whole pallet clears": the freshly-built custom case template
+            // is an inactive in-memory GameObject, and cloning it at ti/hi > 1 produced a stack of
+            // clones that inherited that inactive state and simply never rendered (fixed in
+            // PalletBuilder.Build — every cloned case is now force-activated).
+            _tiValue = 1; _hiValue = 1;
+            if (_tiValueLabel != null) _tiValueLabel.text = "1";
+            if (_hiValueLabel != null) _hiValueLabel.text = "1";
+            RebuildCustomCasePreview(); // reads the case's current L/W/H fields (already populated from the prefab) and draws a single custom case in their place
+        }
         else OnExistingPrefabChosen(_existingPrefabDropdown?.value);
     }
 
@@ -556,33 +603,137 @@ public class ItemCreatorPanel : IUIPanel
 
     private VisualElement BuildSection2()
     {
-        _section2 = MakeSectionContainer("2. Set the pallet's Ti/Hi and generate a preview", out var content);
+        _section2 = MakeSectionContainer("2. Set the pallet's Ti/Hi — updates the preview live",
+            out var content, titleFontSize: 17f * FontScale);
         _section2.style.marginTop = 10;
 
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
 
-        _tiField = new IntegerField("Ti (cases per layer)") { value = 1 };
-        _tiField.style.flexGrow = 1;
-        StyleLabeled(_tiField);
-        SetCompactLabelWidth(_tiField);
-        row.Add(_tiField);
-
-        _hiField = new IntegerField("Hi (layers)") { value = 1 };
-        _hiField.style.flexGrow = 1;
-        _hiField.style.marginLeft = 8;
-        StyleLabeled(_hiField);
-        SetCompactLabelWidth(_hiField);
-        row.Add(_hiField);
+        row.Add(BuildQtyStepperRow("Ti (cases per layer)", _tiValue,
+            v => { _tiValue = v; RegeneratePalletPreview(); }, out _tiValueLabel));
+        row.Add(BuildQtyStepperRow("Hi (layers)", _hiValue,
+            v => { _hiValue = v; RegeneratePalletPreview(); }, out _hiValueLabel));
 
         content.Add(row);
 
-        var generateButton = MakeActionButton("Generate Preview", ColOrange, ColOrangeEdge, ColOrangeHover, OnGeneratePreviewClicked);
-        generateButton.style.marginTop = 8;
-        content.Add(generateButton);
+        var randomnessRow = new VisualElement();
+        randomnessRow.style.flexDirection = FlexDirection.Row;
+        randomnessRow.style.marginTop = 10;
+
+        randomnessRow.Add(BuildFloatSliderRow("Crooked Case (°)", 0f, 10f, _crookedCaseValue, "0.0",
+            v => { _crookedCaseValue = v; RegeneratePalletPreview(); }, out _crookedCaseValueLabel));
+        randomnessRow.Add(BuildFloatSliderRow("Position Slide (m)", 0f, 0.03f, _positionJitterValue, "0.000",
+            v => { _positionJitterValue = v; RegeneratePalletPreview(); }, out _positionJitterValueLabel));
+
+        content.Add(randomnessRow);
 
         _section2.SetEnabled(false);
         return _section2;
+    }
+
+    /// <summary>Live-updating float slider with a numeric readout — used for PalletBuilder's
+    /// crookedCase/positionJitter, exposed here the same way Ti/Hi already are: every drag fires
+    /// straight into RegeneratePalletPreview so the 3D preview always matches.</summary>
+    private VisualElement BuildFloatSliderRow(string label, float min, float max, float initialValue,
+        string valueFormat, Action<float> onChanged, out Label valueLabel)
+    {
+        var container = new VisualElement();
+        container.style.flexGrow = 1;
+        container.style.marginRight = 8;
+
+        var headerRow = new VisualElement();
+        headerRow.style.flexDirection = FlexDirection.Row;
+        headerRow.style.justifyContent = Justify.SpaceBetween;
+
+        headerRow.Add(MakeText(label, (int)(12 * FontScale), ColSubtleText));
+
+        valueLabel = MakeText(initialValue.ToString(valueFormat), (int)(12 * FontScale), ColOrangeText, bold: true);
+        headerRow.Add(valueLabel);
+        container.Add(headerRow);
+
+        var slider = new Slider(min, max) { value = initialValue };
+        slider.style.marginTop = 2;
+        var capturedValueLabel = valueLabel;
+        slider.RegisterValueChangedCallback(evt =>
+        {
+            capturedValueLabel.text = evt.newValue.ToString(valueFormat);
+            onChanged(evt.newValue);
+        });
+        container.Add(slider);
+
+        return container;
+    }
+
+    /// <summary>Ti/Hi are no longer typed in — a click-only +/- stepper next to a plain numeric readout,
+    /// same idea as WorkQueuePanel's priority stepper. Every change fires immediately into
+    /// RegeneratePalletPreview so the 3D preview always matches, with no separate "Generate" step.</summary>
+    private VisualElement BuildQtyStepperRow(string label, int initialValue, Action<int> onChanged, out Label valueLabel)
+    {
+        const int Min = 1, Max = 999;
+
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.flexGrow = 1;
+        row.style.marginRight = 8;
+
+        var lbl = MakeText(label, (int)(12 * FontScale), ColSubtleText);
+        lbl.style.flexShrink = 1;
+        lbl.style.flexGrow = 1;
+        lbl.style.whiteSpace = WhiteSpace.Normal;
+        row.Add(lbl);
+
+        var valueBox = new VisualElement();
+        valueBox.style.flexDirection = FlexDirection.Row;
+        valueBox.style.alignItems = Align.Center;
+        valueBox.style.marginLeft = 6;
+        valueBox.style.backgroundColor = new StyleColor(ColDisabledBg);
+        valueBox.style.borderTopWidth = valueBox.style.borderBottomWidth =
+            valueBox.style.borderLeftWidth = valueBox.style.borderRightWidth = 2;
+        valueBox.style.borderTopColor = valueBox.style.borderBottomColor =
+            valueBox.style.borderLeftColor = valueBox.style.borderRightColor = new StyleColor(ColSectionEdge);
+        valueBox.style.borderTopLeftRadius = valueBox.style.borderBottomLeftRadius = 6;
+        valueBox.style.borderTopRightRadius = valueBox.style.borderBottomRightRadius = 6;
+        valueBox.style.paddingLeft = 8; valueBox.style.paddingRight = 4;
+
+        int value = Mathf.Clamp(initialValue, Min, Max);
+        valueLabel = MakeText(value.ToString(), (int)(17 * FontScale), ColOrangeText, bold: true);
+        valueLabel.style.minWidth = 34;
+        valueLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        var capturedValueLabel = valueLabel;
+        valueBox.Add(valueLabel);
+
+        var arrows = new VisualElement();
+        arrows.style.flexDirection = FlexDirection.Column;
+        void SetValue(int v)
+        {
+            value = Mathf.Clamp(v, Min, Max);
+            capturedValueLabel.text = value.ToString();
+            onChanged(value);
+        }
+        arrows.Add(BuildQtyStepperArrow("▲", () => SetValue(value + 1)));
+        arrows.Add(BuildQtyStepperArrow("▼", () => SetValue(value - 1)));
+        valueBox.Add(arrows);
+
+        row.Add(valueBox);
+        return row;
+    }
+
+    private Button BuildQtyStepperArrow(string glyph, Action onClick)
+    {
+        var b = new Button(onClick) { text = glyph };
+        ApplyFont(b, bold: true, size: (int)(11 * FontScale));
+        b.style.width = 26; b.style.height = 15;
+        b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginTop = 0; b.style.marginBottom = 0;
+        b.style.paddingLeft = 0; b.style.paddingRight = 0; b.style.paddingTop = 0; b.style.paddingBottom = 0;
+        b.style.color = new StyleColor(ColOrangeText);
+        b.style.backgroundColor = new StyleColor(ColSectionBg);
+        b.style.borderTopWidth = b.style.borderBottomWidth = b.style.borderLeftWidth = b.style.borderRightWidth = 1;
+        b.style.borderTopColor = b.style.borderBottomColor = b.style.borderLeftColor = b.style.borderRightColor = new StyleColor(ColSectionEdge);
+        b.RegisterCallback<PointerEnterEvent>(_ => b.style.backgroundColor = new StyleColor(ColOrange));
+        b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(ColSectionBg));
+        return b;
     }
 
     private VisualElement BuildPreviewFrame()
@@ -602,6 +753,10 @@ public class ItemCreatorPanel : IUIPanel
         var caption = MakeText("PALLET PREVIEW", 42, ColOrange, bold: true);
         caption.style.marginBottom = 6;
         frame.Add(caption);
+
+        _playPauseButton = MakePreviewIconButton(OnTogglePauseClicked);
+        frame.Add(_playPauseButton);
+        RefreshPlayPauseGlyph();
 
         _previewImage = new Image();
         _previewImage.style.flexGrow = 1;
@@ -629,18 +784,23 @@ public class ItemCreatorPanel : IUIPanel
         row.style.justifyContent = Justify.FlexEnd;
         row.style.marginTop = 4;
 
+        const float buttonFontScale = 1.5f;
+
         _clearButton = MakeActionButton("Clear", ColBlueBtn, ColBlueEdge, ColBlueHover, OnClearClicked);
-        _clearButton.style.width = 120;
+        _clearButton.style.width = 150; // widened alongside the font bump below so "Clear" doesn't clip
+        _clearButton.style.fontSize = 13f * buttonFontScale;
         row.Add(_clearButton);
 
         _deleteButton = MakeActionButton("Delete Item", ColRed, ColRed, ColRedHover, OnDeleteClicked);
-        _deleteButton.style.width = 140;
+        _deleteButton.style.width = 180;
         _deleteButton.style.marginLeft = 8;
+        _deleteButton.style.fontSize = 13f * buttonFontScale;
         row.Add(_deleteButton);
 
         _submitButton = MakeActionButton("Submit to Database", ColOrange, ColOrangeEdge, ColOrangeHover, OnSubmitClicked);
-        _submitButton.style.width = 190;
+        _submitButton.style.width = 240;
         _submitButton.style.marginLeft = 8;
+        _submitButton.style.fontSize = 13f * buttonFontScale;
         row.Add(_submitButton);
 
         return row;
@@ -713,8 +873,10 @@ public class ItemCreatorPanel : IUIPanel
         _buyValueField.value = sku.BuyValue;
         _sellValueField.value = sku.SellValue;
         _shelfLifeField.value = sku.ShelfLifeDays;
-        _tiField.value = Mathf.Max(1, sku.Ti);
-        _hiField.value = Mathf.Max(1, sku.Hi);
+        _tiValue = Mathf.Max(1, sku.Ti);
+        _hiValue = Mathf.Max(1, sku.Hi);
+        _tiValueLabel.text = _tiValue.ToString();
+        _hiValueLabel.text = _hiValue.ToString();
 
         _customCaseToggle.SetValueWithoutNotify(false);
         SetCustomCaseMode(false);
@@ -723,8 +885,7 @@ public class ItemCreatorPanel : IUIPanel
         _caseTemplate = sku.Prefab;
         _existingPrefabNativeSizeMeters = GetMeshNativeSizeMeters(sku.Prefab);
         RefreshCaseReadyState();
-        ShowSingleCasePreview();
-        ApplyDimensionScaleToPreview(); // guarantees the preview matches the SO's saved dimensions the moment the item loads, not just whatever the prefab's own native mesh size is
+        RegeneratePalletPreview(); // guarantees the preview matches the SO's saved dimensions/Ti/Hi the moment the item loads, not just whatever the prefab's own native mesh size is
     }
 
     private void OnClearClicked()
@@ -746,7 +907,8 @@ public class ItemCreatorPanel : IUIPanel
         UpdateShelfLifeVisibility();
         _buyValueField.value = 0f; _sellValueField.value = 0f;
         _shelfLifeField.value = -1;
-        _tiField.value = 1; _hiField.value = 1;
+        _tiValue = 1; _hiValue = 1;
+        _tiValueLabel.text = "1"; _hiValueLabel.text = "1";
         _customCaseToggle.SetValueWithoutNotify(false);
         SetCustomCaseMode(false);
         _selectedIcon = null;
@@ -798,8 +960,7 @@ public class ItemCreatorPanel : IUIPanel
             _existingPrefabNativeSizeMeters = GetMeshNativeSizeMeters(go);
             AutoFillDimensionsFromPrefab(go);
             RefreshCaseReadyState();
-            ShowSingleCasePreview();
-            ApplyDimensionScaleToPreview();
+            RegeneratePalletPreview();
         }
     }
 
@@ -890,14 +1051,6 @@ public class ItemCreatorPanel : IUIPanel
         // whatever an instance's current (already-scaled) transform happens to report.
         float bottomOffsetUnscaled = _caseTemplate != null ? GetCombinedLocalBounds(_caseTemplate).min.y : 0f;
 
-        if (_liveCaseSingle != null)
-        {
-            _liveCaseSingle.transform.localScale = scale;
-            var singlePos = _liveCaseSingle.transform.localPosition;
-            singlePos.y = PalletDeckHeight + PreviewLayerGap - bottomOffsetUnscaled * scale.y;
-            _liveCaseSingle.transform.localPosition = singlePos;
-        }
-
         if (_previewPalletBuilder != null)
         {
             var loadObj = _previewPalletBuilder.transform.Find("PalletLoad");
@@ -978,7 +1131,7 @@ public class ItemCreatorPanel : IUIPanel
         _caseTemplate = _liveCustomCaseTemplate;
 
         RefreshCaseReadyState();
-        ShowSingleCasePreview();
+        RegeneratePalletPreview();
     }
 
     private GameObject _liveCustomCaseTemplate;
@@ -995,14 +1148,24 @@ public class ItemCreatorPanel : IUIPanel
         _iconButtons.Add(noneBtn);
 
 #if UNITY_EDITOR
-        var seen = new HashSet<Sprite>();
-        var guids = AssetDatabase.FindAssets("t:SkuData");
+        // Every icon actually available for a case, not just the ones some existing SkuData already
+        // happens to reference (the old t:SkuData scan silently hid any icon no item had picked yet —
+        // with 60+ icons on disk and ~30 SKUs authored so far, that was hiding half the folder).
+        var seenPaths = new HashSet<string>();
+        var sprites = new List<(string path, Sprite sprite)>();
+        var guids = AssetDatabase.FindAssets("t:Sprite t:Texture2D", new[] { IconFolderPath });
         foreach (var guid in guids)
         {
-            var sku = AssetDatabase.LoadAssetAtPath<SkuData>(AssetDatabase.GUIDToAssetPath(guid));
-            if (sku?.Icon == null || !seen.Add(sku.Icon)) continue;
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (!seenPaths.Add(path)) continue;
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null) continue;
+            sprites.Add((path, sprite));
+        }
+        sprites.Sort((a, b) => string.Compare(a.path, b.path, StringComparison.OrdinalIgnoreCase));
 
-            var sprite = sku.Icon;
+        foreach (var (_, sprite) in sprites)
+        {
             var btn = new Button(() => { _selectedIcon = sprite; HighlightSelectedIcon(); if (_customCaseToggle.value) RebuildCustomCasePreview(); });
             StyleIconButton(btn);
             btn.style.backgroundImage = new StyleBackground(sprite);
@@ -1174,7 +1337,6 @@ public class ItemCreatorPanel : IUIPanel
 
     private void ClearPreview()
     {
-        if (_liveCaseSingle != null) { UnityEngine.Object.Destroy(_liveCaseSingle); _liveCaseSingle = null; }
         if (_previewPalletBuilder != null)
         {
             var loadObj = _previewPalletBuilder.transform.Find("PalletLoad");
@@ -1182,21 +1344,11 @@ public class ItemCreatorPanel : IUIPanel
         }
     }
 
-    private void ShowSingleCasePreview()
-    {
-        if (_pivot == null || _caseTemplate == null) return;
-        ClearPreview();
-
-        _liveCaseSingle = UnityEngine.Object.Instantiate(_caseTemplate, _pivot);
-        _liveCaseSingle.SetActive(true);
-        StripPlacementComponents(_liveCaseSingle);
-        _liveCaseSingle.transform.localPosition = new Vector3(0f, PalletDeckHeight, 0f);
-        _liveCaseSingle.transform.localRotation = CasePalletYawCorrection;
-
-        _previewStatusLabel.text = "Case ready. Set Ti/Hi and click Generate Preview to build the full pallet.";
-    }
-
-    private void OnGeneratePreviewClicked()
+    /// <summary>Tears down whatever preview is currently shown and rebuilds the full case-on-pallet stack
+    /// from the current case template + L/W/H + Ti/Hi. Called any time one of those changes — a case is
+    /// (re)selected, a dimension field edits, or a Ti/Hi stepper is clicked — so the previewer always
+    /// stays live with no separate "Generate" step.</summary>
+    private void RegeneratePalletPreview()
     {
         if (_pivot == null || _caseTemplate == null)
         {
@@ -1204,16 +1356,14 @@ public class ItemCreatorPanel : IUIPanel
             return;
         }
 
-        int ti = Mathf.Max(1, _tiField.value);
-        int hi = Mathf.Max(1, _hiField.value);
+        int ti = Mathf.Max(1, _tiValue);
+        int hi = Mathf.Max(1, _hiValue);
         float w = _widthField.value * InchesToMeters, h = _heightField.value * InchesToMeters, l = _lengthField.value * InchesToMeters;
         if (w <= 0f || h <= 0f || l <= 0f)
         {
             _previewStatusLabel.text = "Case dimensions must be greater than zero.";
             return;
         }
-
-        if (_liveCaseSingle != null) { UnityEngine.Object.Destroy(_liveCaseSingle); _liveCaseSingle = null; }
 
         if (_previewPalletBuilder == null)
         {
@@ -1230,7 +1380,12 @@ public class ItemCreatorPanel : IUIPanel
         _previewPalletBuilder.useTiHiOverride = true;
         _previewPalletBuilder.manualTi = ti;
         _previewPalletBuilder.manualHi = hi;
-        _previewPalletBuilder.crookedCase = 0f; // no random jitter in the preview — see AlignGeneratedCasesToPallet's old approach for why zeroing rotation after the fact doesn't work
+        // Player-tunable in this panel (see the "Crooked Case"/"Position Slide" sliders in Section 2)
+        // rather than left at PalletBuilder's own defaults — the preview looked suspiciously
+        // laser-aligned when this deliberately zeroed both out (see git history), and the whole point
+        // of this window is to show what the pallet will actually look like in-game.
+        _previewPalletBuilder.crookedCase = _crookedCaseValue;
+        _previewPalletBuilder.positionJitter = _positionJitterValue;
         _previewPalletBuilder.verticalGap = PreviewLayerGap; // real gameplay pallets stack flush (0) on purpose — this gap is preview-only, so layers read clearly
         _previewPalletBuilder.Build(deductMoney: false);
 
@@ -1275,7 +1430,11 @@ public class ItemCreatorPanel : IUIPanel
         if (!_visible || _pivot == null) return;
         const float dt = 0.016f;
 
-        if (!_dragging)
+        // Paused: freeze auto-spin and the pitch spring-back entirely, but leave dragging alone —
+        // OnPreviewPointerMove writes _yawDeg/_pitchDeg directly and calls ApplyPivotRotation itself,
+        // so manual rotation still works on both axes while paused. Whatever orientation the pallet is
+        // at when the mouse releases just stays there until Play resumes the auto behavior.
+        if (!_dragging && !_paused)
         {
             _yawDeg += SpinDegPerSec * dt;
             // Pitch always eases back to its original (0) orientation once released — slow and subtle,
@@ -1285,6 +1444,18 @@ public class ItemCreatorPanel : IUIPanel
         }
 
         ApplyPivotRotation();
+    }
+
+    private void OnTogglePauseClicked()
+    {
+        _paused = !_paused;
+        RefreshPlayPauseGlyph();
+    }
+
+    private void RefreshPlayPauseGlyph()
+    {
+        if (_playPauseButton == null) return;
+        _playPauseButton.text = _paused ? "▶" : "⏸";
     }
 
     private void ApplyPivotRotation()
@@ -1335,6 +1506,14 @@ public class ItemCreatorPanel : IUIPanel
         if (_weightField.value <= 0f) { UIToast.Show("Enter a case weight."); return; }
         if (_caseTemplate == null) { UIToast.Show("Choose or create a case prefab first."); return; }
 
+        ConfirmationModal.Show(
+            "These changes to the SKU Database are irreversible. Continue?",
+            onYes: () => PerformSubmit(description),
+            dontShowAgainKey: "ItemCreatorPanel.SubmitToDatabase");
+    }
+
+    private void PerformSubmit(string description)
+    {
 #if UNITY_EDITOR
         GameObject finalPrefab;
         if (_customCaseToggle.value)
@@ -1362,8 +1541,8 @@ public class ItemCreatorPanel : IUIPanel
         so.FindProperty("_storageArea").enumValueIndex = (int)(PalletData.AreaCategory)_storageAreaField.value;
         so.FindProperty("_buyValue").floatValue = _buyValueField.value;
         so.FindProperty("_sellValue").floatValue = _sellValueField.value;
-        so.FindProperty("_ti").intValue = Mathf.Max(1, _tiField.value);
-        so.FindProperty("_hi").intValue = Mathf.Max(1, _hiField.value);
+        so.FindProperty("_ti").intValue = Mathf.Max(1, _tiValue);
+        so.FindProperty("_hi").intValue = Mathf.Max(1, _hiValue);
         so.FindProperty("_prefab").objectReferenceValue = finalPrefab;
         so.FindProperty("_icon").objectReferenceValue = _selectedIcon;
         so.FindProperty("_shelfLifeDays").intValue = _shelfLifeField.value;
@@ -1412,7 +1591,8 @@ public class ItemCreatorPanel : IUIPanel
 #endif
                 EnterEditItemMode();
                 ClearForm();
-            });
+            },
+            dontShowAgainKey: "ItemCreatorPanel.DeleteItem");
     }
 
 #if UNITY_EDITOR
@@ -1540,6 +1720,10 @@ public class ItemCreatorPanel : IUIPanel
 
         tapeMat = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { name = name + "_Tape" };
         tapeMat.color = tapeColor;
+        // Tape reads as a glossy plastic strip, not the matte cardboard underneath it.
+        if (tapeMat.HasProperty("_Smoothness")) tapeMat.SetFloat("_Smoothness", 0.8f);
+        if (tapeMat.HasProperty("_Metallic")) tapeMat.SetFloat("_Metallic", 0.05f);
+        ApplyTapeTransparency(tapeMat, tapeColor);
 
         GameObject mainTape = GameObject.CreatePrimitive(PrimitiveType.Cube);
         UnityEngine.Object.DestroyImmediate(mainTape.GetComponent<Collider>());
@@ -1555,22 +1739,59 @@ public class ItemCreatorPanel : IUIPanel
             labelMat = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { name = name + "_Label" };
             labelMat.mainTexture = icon.texture;
             labelMat.color = Color.white;
+            var labelMatLocal = labelMat; // local functions can't capture an out parameter directly
 
-            const float labelPopOut = 0.06f;
-            float labelW = Mathf.Min(l, w) * 0.5f;
+            // Nearly flush against each face rather than popped out — half that face's own dimension,
+            // plus a tiny 5mm clearance so the quad doesn't z-fight with the box mesh.
+            const float labelGap = 0.005f;
             float labelH = h * 0.5f;
+            float xOffset = w / 2f + labelGap;
+            float zOffset = l / 2f + labelGap;
+            float midY = h / 2f;
 
-            GameObject label = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            UnityEngine.Object.DestroyImmediate(label.GetComponent<Collider>());
-            label.name = "Label_Front";
-            label.transform.SetParent(root.transform, false);
-            label.transform.localScale = new Vector3(labelW, labelH, 1f);
-            label.transform.localPosition = new Vector3(0f, h / 2f, l / 2f + labelPopOut);
-            label.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            label.GetComponent<MeshRenderer>().sharedMaterial = labelMat;
+            // One label per vertical side (front/back/left/right — not top/bottom). Unity's primitive
+            // Quad faces -Z by default, so each side's Y-rotation is whatever turns that normal to point
+            // straight out of the box at that face (verified: 180°→+Z, 0°→-Z, -90°→+X, 90°→-X).
+            AddLabel("Label_Front", new Vector3(0f, midY, zOffset), 180f, w);
+            AddLabel("Label_Back", new Vector3(0f, midY, -zOffset), 0f, w);
+            AddLabel("Label_Right", new Vector3(xOffset, midY, 0f), -90f, l);
+            AddLabel("Label_Left", new Vector3(-xOffset, midY, 0f), 90f, l);
+
+            void AddLabel(string labelName, Vector3 localPos, float yRotationDeg, float faceWidth)
+            {
+                GameObject label = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                UnityEngine.Object.DestroyImmediate(label.GetComponent<Collider>());
+                label.name = labelName;
+                label.transform.SetParent(root.transform, false);
+                label.transform.localScale = new Vector3(faceWidth * 0.5f, labelH, 1f);
+                label.transform.localPosition = localPos;
+                label.transform.localRotation = Quaternion.Euler(0f, yRotationDeg, 0f);
+                label.GetComponent<MeshRenderer>().sharedMaterial = labelMatLocal;
+            }
         }
 
         return root;
+    }
+
+    /// <summary>Standard URP Lit "make this material see-through" recipe (Surface=Transparent, alpha
+    /// blend, ZWrite off, moved into the transparent render queue) — the default material this project
+    /// builds every case/tape from starts fully Opaque, which silently ignores color alpha entirely, so
+    /// a "clear packing tape" swatch would otherwise render as a solid, undimmed color.</summary>
+    private static void ApplyTapeTransparency(Material mat, Color tapeColor)
+    {
+        if (tapeColor.a >= 0.999f) return;
+        if (!mat.HasProperty("_Surface")) return; // not a URP Lit-shaped shader — leave it opaque rather than guess
+
+        mat.SetFloat("_Surface", 1f); // Transparent
+        mat.SetFloat("_Blend", 0f);   // Alpha blend
+        mat.SetOverrideTag("RenderType", "Transparent");
+        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        mat.SetInt("_ZWrite", 0);
+        mat.DisableKeyword("_ALPHATEST_ON");
+        mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
     }
 
     private static Mesh BuildBoxMesh(float w, float h, float l)
@@ -1593,7 +1814,7 @@ public class ItemCreatorPanel : IUIPanel
 
     // ── Small UI helpers ─────────────────────────────────────────────────────
 
-    private VisualElement MakeSectionContainer(string title, out VisualElement content)
+    private VisualElement MakeSectionContainer(string title, out VisualElement content, float titleFontSize = 17f)
     {
         var section = new VisualElement();
         section.style.backgroundColor = new StyleColor(ColSectionBg);
@@ -1606,7 +1827,7 @@ public class ItemCreatorPanel : IUIPanel
         section.style.paddingLeft = 12; section.style.paddingRight = 12;
         section.style.paddingTop = 10; section.style.paddingBottom = 10;
 
-        var header = MakeText(title, 17, ColTitleText, bold: true); // 13 + 30%
+        var header = MakeText(title, (int)titleFontSize, ColTitleText, bold: true); // 13 + 30%
         header.style.marginBottom = 8;
         header.style.whiteSpace = WhiteSpace.Normal;
         section.Add(header);
@@ -1672,6 +1893,28 @@ public class ItemCreatorPanel : IUIPanel
             b.style.borderBottomLeftRadius = b.style.borderBottomRightRadius = 8;
         b.RegisterCallback<PointerEnterEvent>(_ => b.style.backgroundColor = new StyleColor(hover));
         b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(face));
+        return b;
+    }
+
+    /// <summary>Small round icon button anchored to the top-right corner of the preview frame — used for
+    /// the play/pause toggle. Absolutely positioned so it floats over the render without disturbing the
+    /// frame's centered caption/image/status-label layout.</summary>
+    private Button MakePreviewIconButton(Action onClick)
+    {
+        var b = new Button(onClick);
+        ApplyFont(b, bold: true, size: 32);
+        b.style.position = Position.Absolute;
+        b.style.top = 8; b.style.right = 8;
+        b.style.width = 68; b.style.height = 68;
+        b.style.paddingLeft = 0; b.style.paddingRight = 0; b.style.paddingTop = 0; b.style.paddingBottom = 0;
+        b.style.color = new StyleColor(ColOrangeText);
+        b.style.backgroundColor = new StyleColor(ColSectionBg);
+        b.style.borderTopWidth = b.style.borderBottomWidth = b.style.borderLeftWidth = b.style.borderRightWidth = 2;
+        b.style.borderTopColor = b.style.borderBottomColor = b.style.borderLeftColor = b.style.borderRightColor = new StyleColor(ColOrangeEdge);
+        b.style.borderTopLeftRadius = b.style.borderTopRightRadius =
+            b.style.borderBottomLeftRadius = b.style.borderBottomRightRadius = 34;
+        b.RegisterCallback<PointerEnterEvent>(_ => b.style.backgroundColor = new StyleColor(ColOrange));
+        b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(ColSectionBg));
         return b;
     }
 

@@ -22,9 +22,13 @@ public class ConfirmationModal : MonoBehaviour
 {
     private static ConfirmationModal _instance;
 
+    private const string DontShowAgainPrefPrefix = "ConfirmationModal.DontShowAgain.";
+
     private UIDocument _doc;
     private VisualElement _modal;
     private Label _message;
+    private Toggle _dontShowAgainToggle;
+    private string _dontShowAgainKey;
     private Action _onYes;
     private Action _onNo;
 
@@ -41,11 +45,23 @@ public class ConfirmationModal : MonoBehaviour
     public static bool IsOpen => _instance != null && _instance._modal != null
                                   && _instance._modal.style.display == DisplayStyle.Flex;
 
-    /// <summary>Shows a Yes/No prompt. onNo may be null (Cancel/backdrop-click just closes it).</summary>
-    public static void Show(string message, Action onYes, Action onNo = null)
+    /// <summary>Shows a Yes/No prompt. onNo may be null (Cancel/backdrop-click just closes it).
+    ///
+    /// Pass <paramref name="dontShowAgainKey"/> to add a "Do not show this again" checkbox — checking
+    /// it before hitting Yes persists the skip (PlayerPrefs, survives across sessions) under that key,
+    /// and every future Show() call using the same key fires onYes immediately without ever displaying
+    /// the prompt. Two callers must never share a key unless they genuinely want one "don't ask me
+    /// again" to suppress both.</summary>
+    public static void Show(string message, Action onYes, Action onNo = null, string dontShowAgainKey = null)
     {
+        if (dontShowAgainKey != null && PlayerPrefs.GetInt(DontShowAgainPrefPrefix + dontShowAgainKey, 0) == 1)
+        {
+            onYes?.Invoke();
+            return;
+        }
+
         if (_instance == null) Bootstrap();
-        if (_instance == null || _instance._modal == null) return;
+        if (_instance == null || _instance._modal == null) { onYes?.Invoke(); return; }
 
         if (IsOpen)
             Debug.LogWarning($"[ConfirmationModal] Show() called while already open — replacing the pending prompt ('{_instance._message.text}') with '{message}'.");
@@ -53,6 +69,9 @@ public class ConfirmationModal : MonoBehaviour
         _instance._onYes = onYes;
         _instance._onNo = onNo;
         _instance._message.text = message;
+        _instance._dontShowAgainKey = dontShowAgainKey;
+        _instance._dontShowAgainToggle.SetValueWithoutNotify(false);
+        _instance._dontShowAgainToggle.style.display = dontShowAgainKey != null ? DisplayStyle.Flex : DisplayStyle.None;
         _instance._modal.style.display = DisplayStyle.Flex;
     }
 
@@ -95,17 +114,46 @@ public class ConfirmationModal : MonoBehaviour
         _message.style.marginBottom = 16;
         panel.Add(_message);
 
+        _dontShowAgainToggle = new Toggle("Do not show this again") { value = false };
+        _dontShowAgainToggle.style.color = new StyleColor(ColBlueText);
+        _dontShowAgainToggle.style.marginBottom = 14;
+        _dontShowAgainToggle.style.display = DisplayStyle.None;
+        var dontShowAgainLabel = _dontShowAgainToggle.Q<Label>();
+        if (dontShowAgainLabel != null) dontShowAgainLabel.style.color = new StyleColor(ColBlueText);
+        panel.Add(_dontShowAgainToggle);
+
         var buttons = new VisualElement();
         buttons.style.flexDirection = FlexDirection.Row;
         buttons.style.justifyContent = Justify.SpaceBetween;
         panel.Add(buttons);
 
-        var no = new Button(() => { Hide(); _onNo?.Invoke(); }) { text = "No" };
+        // Callback captured into a local BEFORE Hide() — Hide() nulls out _onNo/_onYes so the modal
+        // can't fire a stale callback the next time it opens for something else, but reading the field
+        // again straight after that (the old code's `Hide(); _onNo?.Invoke();`) meant it always read
+        // back null and the callback silently never ran at all.
+        var no = new Button(() =>
+        {
+            var callback = _onNo;
+            Hide();
+            callback?.Invoke();
+        }) { text = "No" };
         no.style.flexGrow = 1; no.style.marginRight = 6;
         StyleButton(no, ColBlueFill, ColBlueEdge);
         buttons.Add(no);
 
-        var yes = new Button(() => { Hide(); _onYes?.Invoke(); }) { text = "Yes" };
+        var yes = new Button(() =>
+        {
+            var callback = _onYes;
+            bool suppress = _dontShowAgainToggle.style.display == DisplayStyle.Flex && _dontShowAgainToggle.value;
+            string key = _dontShowAgainKey;
+            Hide();
+            if (suppress && key != null)
+            {
+                PlayerPrefs.SetInt(DontShowAgainPrefPrefix + key, 1);
+                PlayerPrefs.Save();
+            }
+            callback?.Invoke();
+        }) { text = "Yes" };
         yes.style.flexGrow = 1; yes.style.marginLeft = 6;
         StyleButton(yes, ColOrange, ColOrangeEdge);
         buttons.Add(yes);

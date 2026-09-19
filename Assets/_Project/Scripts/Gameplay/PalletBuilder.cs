@@ -37,8 +37,13 @@ public class PalletBuilder : MonoBehaviour
     public Vector3 caseDimensions = new Vector3(0.5f, 0.25f, 0.24f); // W, H, L
 
     [Header("Aesthetic Settings")]
-    [Tooltip("Random Y rotation variation for a realistic look.")]
-    [Range(0f, 10f)] public float crookedCase = 2.0f;
+    [Tooltip("Random Y rotation variation for a realistic look. Each case gets at least 1° of tilt (up " +
+             "to this value) rather than a range centered on 0 — a range including 0 kept producing " +
+             "cases that landed dead straight, which read as too perfectly stacked. Set to 0 to disable entirely.")]
+    [Range(0f, 10f)] public float crookedCase = 5.0f;
+    [Tooltip("Small random left/right/front/back position slide per case, in meters — independent of " +
+             "the rotation jitter above, purely a placement offset. Set to 0 to disable entirely.")]
+    [Range(0f, 0.03f)] public float positionJitter = 0.015f;
 
     [Header("Overrides (Manual Ti-Hi)")]
     public bool useTiHiOverride = false;
@@ -63,6 +68,7 @@ public class PalletBuilder : MonoBehaviour
         public float spaceBetween;
         public float vertGap;
         public float crooked;
+        public float posJitter;
         public bool useOverride;
         public Vector3 caseDimensions; // Added for persistence
         public int manualTi;
@@ -116,6 +122,7 @@ public class PalletBuilder : MonoBehaviour
             spaceBetween = spaceBetweenCases,
             vertGap = verticalGap,
             crooked = crookedCase,
+            posJitter = positionJitter,
             useOverride = useTiHiOverride,
             caseDimensions = caseDimensions,
             manualTi = manualTi,
@@ -176,6 +183,7 @@ public class PalletBuilder : MonoBehaviour
             spaceBetweenCases = settings.spaceBetween;
             verticalGap = settings.vertGap;
             crookedCase = settings.crooked;
+            positionJitter = settings.posJitter;
             useTiHiOverride = settings.useOverride;
             caseDimensions = settings.caseDimensions;
             manualTi = settings.manualTi;
@@ -366,6 +374,11 @@ public class PalletBuilder : MonoBehaviour
 
                 Vector3 pos = placement.position;
                 pos.y = yPos;
+                if (positionJitter > 0f)
+                {
+                    pos.x += Random.Range(-positionJitter, positionJitter);
+                    pos.z += Random.Range(-positionJitter, positionJitter);
+                }
 
                 GameObject instance;
 #if UNITY_EDITOR
@@ -376,9 +389,14 @@ public class PalletBuilder : MonoBehaviour
 #else
                 instance = Instantiate(casePrefab);
 #endif
+                // casePrefab can be an in-memory, deliberately-inactive template (e.g. ItemCreatorPanel's
+                // custom case preview, kept inactive so the source template itself never renders) —
+                // Instantiate() copies that inactive state onto every clone, silently making the whole
+                // pallet load invisible. Every case placed on a pallet is meant to be visible, so force it.
+                instance.SetActive(true);
                 instance.transform.SetParent(loadObj.transform);
                 instance.transform.localPosition = pos;
-                
+
                 // CRITICAL FIX: The case prefabs have PlacedObject/BuildingData components.
                 // When instantiated as part of a pallet, they must NOT register themselves
                 // in the global registry or they will appear at (0,0) in the save file.
@@ -399,8 +417,15 @@ public class PalletBuilder : MonoBehaviour
                     if (Application.isPlaying) Destroy(bh); else DestroyImmediate(bh);
                 }
 
-                // Add "Crooked" rotation
-                float randomRot = Random.Range(-crookedCase, crookedCase);
+                // Add "Crooked" rotation — at least 1° whenever jitter is enabled at all, rather than a
+                // range spanning 0, which kept landing cases dead straight (see field tooltip).
+                float randomRot = 0f;
+                if (crookedCase > 0f)
+                {
+                    float minDeg = Mathf.Min(1f, crookedCase);
+                    float magnitude = Random.Range(minDeg, Mathf.Max(minDeg, crookedCase));
+                    randomRot = (Random.value < 0.5f ? -1f : 1f) * magnitude;
+                }
                 instance.transform.localRotation = Quaternion.Euler(0, placement.rotation + randomRot, 0);
 
                 count++;
