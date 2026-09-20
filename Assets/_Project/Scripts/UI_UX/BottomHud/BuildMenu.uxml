@@ -10,27 +10,6 @@
                 </ui:ScrollView>
             </ui:VisualElement>
         </ui:VisualElement>
-
-        <!-- Reports tab's floating content pane. Unlike SubmenuContainer above (click-to-open per
-             category, item buttons only), this stays open the whole time HudMode.Reports is active —
-             BuildMenuUI toggles it with the buildmenu-submenu-open/closed classes (NOT buildmenu-
-             bar-hidden — .buildmenu-submenu itself hardcodes display:none, which only open/closed
-             override). ReportsSubTabRow (Financial/Operational/Inventory) and ReportsContent are
-             populated entirely by ReportsPanelController. reports-panel-container overrides the
-             shared .buildmenu-submenu bottom offset so this panel sits higher than the build
-             submenu without moving that one too. -->
-        <ui:VisualElement name="ReportsPanelContainer" picking-mode="Position" class="buildmenu-submenu buildmenu-submenu-closed reports-panel-container">
-            <ui:VisualElement name="ReportsPanelRoot" picking-mode="Position" class="buildmenu-submenu-root reports-panel-root">
-                <ui:VisualElement name="ReportsSubTabRow" picking-mode="Position" class="reports-subtab-row"/>
-                <ui:ScrollView name="ReportsScroll" class="buildmenu-submenu-scroll reports-scroll">
-                    <ui:VisualElement name="ReportsContent"/>
-                </ui:ScrollView>
-                <!-- Last child so it renders (and hit-tests) on top of ReportsSubTabRow/ReportsScroll,
-                     which would otherwise occlude this corner — UI Toolkit paints and picks later
-                     siblings above earlier ones, same as CSS z-order for unpositioned stacking. -->
-                <ui:Button name="ReportsCloseButton" text="&#10005;" class="reports-close-button"/>
-            </ui:VisualElement>
-        </ui:VisualElement>
     </ui:VisualElement>
 
     <ui:VisualElement name="BottomBarBuildUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
@@ -126,13 +105,25 @@
         </ui:VisualElement>
     </ui:VisualElement>
 
-    <!-- Reports mode bar: just the three sub-tab buttons (built in code by ReportsPanelController
-         into ReportsSubTabRow, NOT here) plus this placeholder row so the bar isn't blank — kept as
-         its own bar rather than repurposing Build/Play's rows so BUILD and OUTBOUND stay exactly as
-         they were. -->
+    <!-- Reports mode bar: three plain buttons (Financial/Operational/Inventory), same card style as
+         the other bars' buttons, just without an icon/hotkey badge — clicking one opens that report
+         in its own floating/draggable/resizable window (ReportsPanelController), instead of the old
+         floating popup-with-subtabs. Wired up in BuildMenuUI.CacheElements. -->
     <ui:VisualElement name="BottomBarReportsUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
         <ui:VisualElement name="ReportsCategoryRow" picking-mode="Position" class="buildmenu-category-row">
-            <ui:Label text="REPORTS" class="reports-bar-label"/>
+
+            <ui:Button name="ReportsBtnFinancial" class="buildmenu-category-button playbar-button">
+                <ui:Label text="Financial" class="buildmenu-category-label reports-category-label"/>
+            </ui:Button>
+
+            <ui:Button name="ReportsBtnOperational" class="buildmenu-category-button playbar-button">
+                <ui:Label text="Operational" class="buildmenu-category-label reports-category-label"/>
+            </ui:Button>
+
+            <ui:Button name="ReportsBtnInventory" class="buildmenu-category-button playbar-button">
+                <ui:Label text="Inventory" class="buildmenu-category-label reports-category-label"/>
+            </ui:Button>
+
         </ui:VisualElement>
     </ui:VisualElement>
 

@@ -72,10 +72,9 @@ public class BuildMenuUI : MonoBehaviour
     private Button _tabReports;
     private VisualElement _staffBar;
     private VisualElement _reportsBar;
-    private VisualElement _reportsPanelContainer;
-    private VisualElement _reportsSubTabRow;
-    private VisualElement _reportsContent;
-    private Button _reportsCloseButton;
+    private Button _reportsBtnFinancial;
+    private Button _reportsBtnOperational;
+    private Button _reportsBtnInventory;
     private ReportsPanelController _reportsController;
 
     // Hotkey number -> its play-bar button, for reflecting the open panel back onto the bar.
@@ -160,7 +159,6 @@ public class BuildMenuUI : MonoBehaviour
             ElementContainsScreenPos(_playBar, screenPos) ||
             ElementContainsScreenPos(_staffBar, screenPos) ||
             ElementContainsScreenPos(_reportsBar, screenPos) ||
-            ElementContainsScreenPos(_reportsPanelContainer, screenPos) ||
             ElementContainsScreenPos(_modeTabs, screenPos);
     }
 
@@ -200,8 +198,9 @@ public class BuildMenuUI : MonoBehaviour
     /// scheduling buttons split out of <see cref="PlayBar"/>.</summary>
     public VisualElement StaffBar => _staffBar;
 
-    /// <summary>The Reports bar. Same chrome and layout as <see cref="BuildBar"/>; the actual report
-    /// content lives in the separate floating ReportsPanelContainer, not this row.</summary>
+    /// <summary>The Reports bar. Same chrome and layout as <see cref="BuildBar"/>; holds the Financial/
+    /// Operational/Inventory buttons, each of which opens its own separate floating report window
+    /// (see ReportsPanelController) rather than embedding content in this row.</summary>
     public VisualElement ReportsBar => _reportsBar;
 
     /// <summary>Whichever bar is currently visible. Use this when a widget should follow the mode
@@ -314,10 +313,9 @@ public class BuildMenuUI : MonoBehaviour
         _tabReports = _root.Q<Button>("TabReports");
         _staffBar = _root.Q<VisualElement>("BottomBarStaffUI");
         _reportsBar = _root.Q<VisualElement>("BottomBarReportsUI");
-        _reportsPanelContainer = _root.Q<VisualElement>("ReportsPanelContainer");
-        _reportsSubTabRow = _root.Q<VisualElement>("ReportsSubTabRow");
-        _reportsContent = _root.Q<VisualElement>("ReportsContent");
-        _reportsCloseButton = _root.Q<Button>("ReportsCloseButton");
+        _reportsBtnFinancial = _root.Q<Button>("ReportsBtnFinancial");
+        _reportsBtnOperational = _root.Q<Button>("ReportsBtnOperational");
+        _reportsBtnInventory = _root.Q<Button>("ReportsBtnInventory");
 
         // The bars are Ignore in UXML (legacy reason) — override to Position so
         // any click inside a bar area is caught and doesn't pass through to the
@@ -328,7 +326,6 @@ public class BuildMenuUI : MonoBehaviour
         if (_staffBar != null)              _staffBar.pickingMode              = PickingMode.Position;
         if (_reportsBar != null)            _reportsBar.pickingMode            = PickingMode.Position;
         if (_submenuContainer != null)      _submenuContainer.pickingMode      = PickingMode.Position;
-        if (_reportsPanelContainer != null) _reportsPanelContainer.pickingMode = PickingMode.Position;
 
         if (!_barCallbacksRegistered)
         {
@@ -336,14 +333,15 @@ public class BuildMenuUI : MonoBehaviour
             RegisterBarPointerGuards(_playBar);
             RegisterBarPointerGuards(_staffBar);
             RegisterBarPointerGuards(_reportsBar);
-            RegisterBarPointerGuards(_reportsPanelContainer);
             RegisterBarPointerGuards(_modeTabs);
 
             if (_tabBuild != null) _tabBuild.clicked += () => SetHudMode(HudMode.Build);
             if (_tabPlay != null) _tabPlay.clicked += () => SetHudMode(HudMode.Play);
             if (_tabStaff != null) _tabStaff.clicked += () => SetHudMode(HudMode.Staff);
             if (_tabReports != null) _tabReports.clicked += OnTabReportsClicked;
-            if (_reportsCloseButton != null) _reportsCloseButton.clicked += CloseReports;
+            if (_reportsBtnFinancial != null) _reportsBtnFinancial.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Financial);
+            if (_reportsBtnOperational != null) _reportsBtnOperational.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Operational);
+            if (_reportsBtnInventory != null) _reportsBtnInventory.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Inventory);
 
             // UI Toolkit's built-in `tooltip` property only renders inside the Editor's own UI — a
             // runtime UIDocument HUD like this one never shows it — so the mode tabs hook into the
@@ -362,8 +360,7 @@ public class BuildMenuUI : MonoBehaviour
         // idempotent because ReportsPanelController clears its tab row before repopulating it. Needs
         // to run again from Initialize() (see class doc on _barCallbacksRegistered) because the first
         // OnEnable pass has no MoneyService yet.
-        if (_reportsSubTabRow != null && _reportsContent != null)
-            _reportsController = new ReportsPanelController(_reportsSubTabRow, _reportsContent, moneyService);
+        _reportsController = new ReportsPanelController(_root, moneyService);
 
         ApplyHudMode();
     }
@@ -578,12 +575,6 @@ public class BuildMenuUI : MonoBehaviour
         SetHidden(_staffBar, !staff);
         SetHidden(_reportsBar, !reports);
 
-        // ReportsPanelContainer shares the build submenu's .buildmenu-submenu base class, which sets
-        // display:none itself — buildmenu-bar-hidden can't override that (same specificity, declared
-        // earlier in the stylesheet), so it needs the submenu's own open/closed toggle instead.
-        _reportsPanelContainer?.EnableInClassList("buildmenu-submenu-open", reports);
-        _reportsPanelContainer?.EnableInClassList("buildmenu-submenu-closed", !reports);
-
         SetTabActive(_tabBuild, build);
         SetTabActive(_tabPlay, play);
         SetTabActive(_tabStaff, staff);
@@ -593,6 +584,7 @@ public class BuildMenuUI : MonoBehaviour
         // background), so pull a fresh snapshot every time the tab comes back on screen rather than
         // relying on a live-bound refresh loop.
         if (reports) _reportsController?.Refresh();
+        else _reportsController?.CloseAll();
 
         OnActiveBarChanged?.Invoke(ActiveBar);
     }

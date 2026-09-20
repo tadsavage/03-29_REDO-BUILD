@@ -8,71 +8,180 @@ using UnityEngine.UIElements;
 using static FinanceUIKit;
 
 /// <summary>
-/// Drives the Reports tab's three sub-panels (Financial / Operational / Inventory), each a static
-/// snapshot rebuilt from live services on every show — not a live-bound dashboard. Built directly
-/// with FinanceUIKit's row/label helpers rather than reusing CapitalSummaryPanel/FinancialBreakdown
-/// Panel: those two build on FinanceUIKit.Panel(), which is a floating dropdown sized/positioned for
-/// the top bar, not a fit for an embedded report pane.
+/// Drives the Reports tab. Clicking REPORTS shows a small popup with just three buttons —
+/// Financial / Operational / Inventory — instead of an embedded content pane with sub-tabs. Each
+/// button opens its OWN separate floating window: draggable by its title bar, resizable, with the
+/// same maximize/close button pair in the upper-right corner as ContractsPanel/PurchasingPanel/
+/// SlotAssignmentPanel (DraggableWindow + ResizableWindow + PanelTitleChrome), and — like those —
+/// always opens maximized (FillScreenExact) rather than at some smaller default size.
 ///
-/// Services beyond MoneyService (InventoryService, FulfillmentStatsService, ReputationService) are
-/// resolved lazily via ServiceLocator on every Refresh() rather than cached at construction, since
-/// this controller is built early (alongside the rest of the HUD) and those services may not have
-/// registered yet at that point.
+/// Each window is a static snapshot rebuilt from live services every time it's opened — not a
+/// live-bound dashboard. Services beyond MoneyService (InventoryService, FulfillmentStatsService,
+/// ReputationService) are resolved lazily via ServiceLocator on every open rather than cached at
+/// construction, since this controller is built early (alongside the rest of the HUD) and those
+/// services may not have registered yet at that point.
 /// </summary>
 public class ReportsPanelController
 {
     public enum Tab { Financial, Operational, Inventory }
 
-    readonly VisualElement _tabRow;
-    readonly VisualElement _content;
-    readonly MoneyService _money;
+    // ColBg/ColBorder come from FinanceUIKit (see the `using static` above) — window title text has
+    // no equivalent there, so it's declared locally, same as ContractsPanel/SlotAssignmentPanel do.
+    private static readonly Color ColTitleText = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
 
-    readonly Dictionary<Tab, Button> _tabButtons = new();
-    Tab _activeTab = Tab.Financial;
+    private readonly VisualElement _root;
+    private readonly MoneyService _money;
 
-    public ReportsPanelController(VisualElement tabRow, VisualElement content, MoneyService money)
+    private class ReportWindow
     {
-        _tabRow = tabRow;
-        _content = content;
+        public VisualElement Overlay;
+        public VisualElement Modal;
+        public VisualElement Content;
+        public ResizableWindow Resizer;
+        public Button ScaleButton;
+        public bool Visible;
+    }
+
+    private readonly Dictionary<Tab, ReportWindow> _windows = new();
+
+    public ReportsPanelController(VisualElement root, MoneyService money)
+    {
+        _root = root;
         _money = money;
 
-        BuildTabRow();
-        ShowTab(Tab.Financial);
+        BuildWindow(Tab.Financial, "Financial Report");
+        BuildWindow(Tab.Operational, "Operational Report");
+        BuildWindow(Tab.Inventory, "Inventory Report");
     }
 
-    /// <summary>Rebuilds whichever sub-tab is currently active with fresh data. Call whenever the
-    /// Reports mode becomes visible.</summary>
-    public void Refresh() => ShowTab(_activeTab);
-
-    void BuildTabRow()
+    /// <summary>Rebuilds whichever report window(s) are currently open with fresh data. Call whenever
+    /// the Reports bar becomes visible again — a window left open while another HUD mode was up
+    /// should show current numbers, not whatever was true when it was opened.</summary>
+    public void Refresh()
     {
-        _tabRow.Clear();
-        _tabButtons.Clear();
-        AddTabButton(Tab.Financial, "Financial");
-        AddTabButton(Tab.Operational, "Operational");
-        AddTabButton(Tab.Inventory, "Inventory");
+        foreach (var kvp in _windows)
+            if (kvp.Value.Visible) RebuildContent(kvp.Key);
     }
 
-    void AddTabButton(Tab tab, string label)
+    // ── Window shell ─────────────────────────────────────────────────────────
+    // Same programmatic shape as SlotAssignmentPanel/ContractsPanel: absolute-positioned modal,
+    // draggable by its title bar (DraggableWindow), resizable edges (ResizableWindow), with
+    // PanelTitleChrome's shared scale+close button pair in the corner.
+    void BuildWindow(Tab tab, string title)
     {
-        var btn = new Button(() => ShowTab(tab)) { text = label };
-        btn.AddToClassList("reports-subtab-button");
-        _tabButtons[tab] = btn;
-        _tabRow.Add(btn);
+        var overlay = new VisualElement { name = $"reports-{tab}-overlay" };
+        overlay.style.position = Position.Absolute;
+        overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0; overlay.style.bottom = 0;
+        overlay.style.display = DisplayStyle.None;
+        overlay.pickingMode = PickingMode.Ignore;
+
+        var modal = new VisualElement { name = $"reports-{tab}-modal" };
+        modal.style.position = Position.Absolute;
+        modal.style.left = 120; modal.style.top = 100;
+        modal.style.width = 720; modal.style.height = 700;
+        modal.style.backgroundColor = new StyleColor(ColBg);
+        modal.style.borderTopWidth = modal.style.borderBottomWidth =
+            modal.style.borderLeftWidth = modal.style.borderRightWidth = 3;
+        modal.style.borderTopColor = modal.style.borderBottomColor =
+            modal.style.borderLeftColor = modal.style.borderRightColor = new StyleColor(ColBorder);
+        modal.style.borderTopLeftRadius = modal.style.borderTopRightRadius =
+            modal.style.borderBottomLeftRadius = modal.style.borderBottomRightRadius = 16;
+        modal.style.paddingTop = 14; modal.style.paddingBottom = 14;
+        modal.style.paddingLeft = 16; modal.style.paddingRight = 16;
+
+        var titleBar = new VisualElement();
+        titleBar.style.flexDirection = FlexDirection.Row;
+        titleBar.style.alignItems = Align.Center;
+        titleBar.style.height = 44;
+        titleBar.style.marginBottom = 8;
+        titleBar.style.flexShrink = 0;
+
+        var titleLabel = new Label(title);
+        titleLabel.style.color = new StyleColor(ColTitleText);
+        titleLabel.style.fontSize = 22;
+        titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+        titleLabel.style.flexGrow = 1;
+        titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        titleBar.Add(titleLabel);
+
+        modal.Add(titleBar);
+
+        var scroll = new ScrollView();
+        scroll.style.flexGrow = 1;
+        modal.Add(scroll);
+
+        overlay.Add(modal);
+        _root.Add(overlay);
+
+        var resizer = new ResizableWindow(modal, minW: 480f, minH: 360f, grip: 10f, titleInset: 48f);
+        var (scaleBtn, closeBtn) = PanelTitleChrome.Attach(titleBar, resizer, () => HideWindow(tab));
+        new DraggableWindow(modal, titleBar, closeBtn);
+
+        _windows[tab] = new ReportWindow
+        {
+            Overlay = overlay,
+            Modal = modal,
+            Content = scroll,
+            Resizer = resizer,
+            ScaleButton = scaleBtn,
+        };
     }
 
-    void ShowTab(Tab tab)
+public void Open(Tab tab)
     {
-        _activeTab = tab;
-        foreach (var kvp in _tabButtons)
-            kvp.Value.EnableInClassList("reports-subtab-active", kvp.Key == tab);
+        if (!_windows.TryGetValue(tab, out var win)) return;
 
-        _content.Clear();
+        // Clicking the button for the report that's already open closes it, same as clicking a
+        // mode tab that's already active does elsewhere in this HUD — a toggle, not just an open.
+        if (win.Visible) { HideWindow(tab); return; }
+
+        // Only one report window on screen at a time — opening a different report flips straight to
+        // it rather than piling windows up, so clicking Operational while Inventory is open closes
+        // Inventory and opens Operational in its place.
+        foreach (var kvp in _windows)
+            if (kvp.Key != tab && kvp.Value.Visible) HideWindow(kvp.Key);
+
+        RebuildContent(tab);
+        win.Visible = true;
+        win.Overlay.style.display = DisplayStyle.Flex;
+        win.Overlay.BringToFront();
+
+        // Always opens maximized — same reasoning/timing as ContractsPanel.Show()/PurchasingPanel.
+        // Show(): deferred one frame so FillScreenExact has a real layout to measure on the very
+        // first open of a session (see ResizableWindow.FillScreen's own doc comment).
+        win.Modal.schedule.Execute(() =>
+        {
+            win.Resizer.FillScreenExact();
+            win.Resizer.UpdateScaleButtonIcon(win.ScaleButton, PanelTitleChrome.ButtonSize, ColTitleText);
+        }).ExecuteLater(16);
+    }
+
+    /// <summary>Closes every report window that's currently open. Called when the HUD switches away
+    /// from Reports to another tab (Build/Orders/Staff) — a report window is a Reports-mode fixture,
+    /// not something that should keep floating over an unrelated tab.</summary>
+    public void CloseAll()
+    {
+        foreach (var kvp in _windows)
+            if (kvp.Value.Visible) HideWindow(kvp.Key);
+    }
+
+    void HideWindow(Tab tab)
+    {
+        if (!_windows.TryGetValue(tab, out var win)) return;
+        win.Visible = false;
+        win.Overlay.style.display = DisplayStyle.None;
+        win.Overlay.pickingMode = PickingMode.Ignore;
+    }
+
+    void RebuildContent(Tab tab)
+    {
+        var win = _windows[tab];
+        win.Content.Clear();
         switch (tab)
         {
-            case Tab.Financial:   BuildFinancial(_content);   break;
-            case Tab.Operational: BuildOperational(_content); break;
-            case Tab.Inventory:   BuildInventory(_content);   break;
+            case Tab.Financial:   BuildFinancial(win.Content);   break;
+            case Tab.Operational: BuildOperational(win.Content); break;
+            case Tab.Inventory:   BuildInventory(win.Content);   break;
         }
     }
 
