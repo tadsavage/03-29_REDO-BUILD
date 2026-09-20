@@ -1857,6 +1857,8 @@ public class PurchasingPanel : IUIPanel
                 else _multiVendorFilterVendorIds.Remove(vendorId);
                 dropdownBtn.text = FilterSummaryText();
                 Rebuild();
+                // See the matching comment on the sort-option handler above.
+                _multiVendorPane.scrollOffset = Vector2.zero;
             });
             scroll.Add(toggle);
         }
@@ -1937,6 +1939,14 @@ public class PurchasingPanel : IUIPanel
                 _multiVendorSortOpen = false;
                 _multiVendorSortAutoClose?.Pause(); _multiVendorSortAutoClose = null;
                 Rebuild();
+                // _multiVendorPane is itself a ScrollView — Rebuild() clears and repopulates its
+                // content but never touches its scrollOffset, so re-sorting while scrolled down left
+                // the view holding a scroll position computed for the OLD row order/heights against
+                // content that had just been torn down and rebuilt. Until the next layout pass
+                // reconciled it, that stale offset painted as a blank gap over rows that didn't
+                // exist yet at that geometry — a one-frame glitch that fixed itself right after,
+                // which is why Tad only ever saw it flash once per sort click.
+                _multiVendorPane.scrollOffset = Vector2.zero;
             };
             sortPopout.Add(opt);
         }
@@ -2021,6 +2031,9 @@ public class PurchasingPanel : IUIPanel
             _multiVendorFilterCriticalOnly = evt.newValue;
             itemBtn.text = ItemFilterSummaryText();
             Rebuild();
+            // See the matching comment on the sort-option handler above — any change that reorders
+            // or re-composes the vendor list needs this same reset, not just sorting.
+            _multiVendorPane.scrollOffset = Vector2.zero;
         });
         itemScroll.Add(criticalToggle);
 
@@ -2050,6 +2063,8 @@ public class PurchasingPanel : IUIPanel
                 _multiVendorItemFilterOpen = false;
                 _multiVendorItemAutoClose?.Pause(); _multiVendorItemAutoClose = null;
                 Rebuild();
+                // See the matching comment on the sort-option handler above.
+                _multiVendorPane.scrollOffset = Vector2.zero;
             };
             itemScroll.Add(opt);
         }
@@ -3076,19 +3091,23 @@ public class PurchasingPanel : IUIPanel
         int partnershipLevel = Economy()?.GetState(vendorId)?.PartnershipLevel ?? 0;
         int deliveryFee = DeliveryFeeFor(partnershipLevel, cost);
 
-        // Fires immediately on click, ahead of the confirm dialog below, per Tad's explicit ask —
-        // by this point every validation above has already passed, so it only ever plays for a
-        // genuinely valid dispatch. The number previews the same $1000-per-point rule ShipmentService.
-        // CreatePlayerPurchaseOrder actually applies once the PO is raised.
+        // The number previews the same $1000-per-point rule ShipmentService.CreatePlayerPurchaseOrder
+        // actually applies once the PO is raised.
         int partnershipGainPreview = Mathf.FloorToInt(cost / 1000f);
-        DispatchRewardFx.Play(_overlay, dispatchButton,
-            $"THANKS FOR YOUR BUSINESS! +{partnershipGainPreview} REPUTATION GAIN");
 
         ShowConfirm($"Dispatch an order to {vendor.DisplayName}?\n\n" +
                     $"{basket.Count} line(s) · {cases:N0} case(s) · {plan.Pallets.Count} pallet(s) · " +
                     $"{Money(cost)} + {Money(deliveryFee)} delivery fee\n\nIt will wait in the " +
                     $"Scheduler's unscheduled pool until you give it a door and time.",
-                    () => CommitDispatchVendorOrder(vendor, deliveryFee));
+                    () =>
+                    {
+                        // Plays only once the order is actually confirmed — was previously firing on
+                        // the initial button click, ahead of this same confirm dialog, which read as
+                        // "thanks for your business" before the player had actually agreed to anything.
+                        DispatchRewardFx.Play(_overlay, dispatchButton,
+                            $"THANKS FOR YOUR BUSINESS! +{partnershipGainPreview} REPUTATION GAIN");
+                        CommitDispatchVendorOrder(vendor, deliveryFee);
+                    });
     }
 
     private void CommitDispatchVendorOrder(VendorData vendor, int deliveryFee)

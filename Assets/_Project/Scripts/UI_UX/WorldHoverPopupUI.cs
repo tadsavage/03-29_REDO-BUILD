@@ -165,19 +165,28 @@ public class WorldHoverPopupUI : MonoBehaviour
     /// requiring HudMode.Build specifically rather than "not Play".</summary>
     private bool BuildTabActive => _buildMenuUI == null || _buildMenuUI.CurrentMode == BuildMenuUI.HudMode.Build;
 
+    /// <summary>Per Tad's follow-up ask: on the OUTBOUND tab (HudMode.Play — that's its on-screen
+    /// label, see TabPlay in BuildMenu.uxml) he only wants Items (pallets) and Trailers (trucks) to
+    /// hover — not locations/racks/generic buildings, which stay Build-tab-only. Pass
+    /// <paramref name="allowOutboundTab"/> true from exactly those two call sites.</summary>
+    private bool HoverAllowedForMode(bool allowOutboundTab) =>
+        BuildTabActive || (allowOutboundTab && _buildMenuUI != null && _buildMenuUI.CurrentMode == BuildMenuUI.HudMode.Play);
+
     // ---------------------------------------------------------
     // MAIN UPDATE - Building/Object hover
     // ---------------------------------------------------------
     public void TickHover(bool hovering, string name, int cost, int hourlyCost,
-                          Vector3 worldPos, Camera cam)
+                          Vector3 worldPos, Camera cam, bool allowOutboundTab = false)
     {
         if (!IsEnabled) { HideImmediate(); return; }
 
         // Only show while idle-browsing under the Build tab — not in Play mode, and not mid
-        // placement/delete/move even under Build (IdleState check covers that half).
+        // placement/delete/move even under Build (IdleState check covers that half). Trucks are the
+        // one exception (see TickHoverTruckSummary) — Tad wants Trailers hoverable on the Outbound
+        // tab too, so that one call site passes allowOutboundTab: true.
         if (_fsm != null && !(_fsm.CurrentState is IdleState))
         { HideImmediate(); return; }
-        if (!BuildTabActive) { HideImmediate(); return; }
+        if (!HoverAllowedForMode(allowOutboundTab)) { HideImmediate(); return; }
 
         if (!hovering || string.IsNullOrEmpty(name))
         {
@@ -226,10 +235,11 @@ public class WorldHoverPopupUI : MonoBehaviour
         if (!IsEnabled) { HideImmediate(); return; }
 
         // Only show while idle-browsing under the Build tab — not in Play mode, and not mid
-        // placement/delete/move even under Build (IdleState check covers that half).
+        // placement/delete/move even under Build (IdleState check covers that half). Pallets ("Items")
+        // are one of the two things Tad wants hoverable on the Outbound tab too (see HoverAllowedForMode).
         if (_fsm != null && !(_fsm.CurrentState is IdleState))
         { HideImmediate(); return; }
-        if (!BuildTabActive) { HideImmediate(); return; }
+        if (!HoverAllowedForMode(allowOutboundTab: true)) { HideImmediate(); return; }
 
         if (!hovering || palletData == null)
         {
@@ -615,10 +625,11 @@ private void ShowLocation(LocationData location)
         if (!IsEnabled) { HideImmediate(); return; }
 
         // Only show while idle-browsing under the Build tab — not in Play mode, and not mid
-        // placement/delete/move even under Build (IdleState check covers that half).
+        // placement/delete/move even under Build (IdleState check covers that half). Pallet builders
+        // ("Items") are one of the two things Tad wants hoverable on the Outbound tab too.
         if (_fsm != null && !(_fsm.CurrentState is IdleState))
         { HideImmediate(); return; }
-        if (!BuildTabActive) { HideImmediate(); return; }
+        if (!HoverAllowedForMode(allowOutboundTab: true)) { HideImmediate(); return; }
 
         if (!hovering || builder == null)
         {
@@ -665,6 +676,86 @@ private void ShowLocation(LocationData location)
 
         if (_isVisible)
             FollowCursor();
+    }
+
+    /// <summary>Same pallet-info hover card <see cref="TickHoverPalletBuilder"/> shows for live
+    /// warehouse pallets, but for a UI-only caller (ItemCreatorPanel's render-texture pallet preview)
+    /// that has no FSM/build-tab/world-raycast context of its own — none of TickHoverPalletBuilder's
+    /// gating (build-tab active, idle FSM state, resolving a SKU via DockPalletUtility) applies here,
+    /// since the caller already knows exactly which SkuData to show and exactly when the pointer
+    /// enters/leaves (a UI pointer event, not a per-frame world-hover Tick).</summary>
+    // Reparent bookkeeping for ShowForUiPreview — see the comment inside it for why this is needed
+    // at all instead of just BringToFront().
+    private VisualElement _uiPreviewOriginalParent;
+    private int _uiPreviewOriginalIndex = -1;
+    private VisualElement _uiPreviewOriginalRoot;
+    private bool _uiPreviewReparented;
+
+    public void ShowForUiPreview(SkuData sku, int caseQty, VisualElement hostRoot = null)
+    {
+        if (!IsEnabled || sku == null) { HideImmediate(); return; }
+        _isTruckMode = false;
+        HideTruckPopup();
+        _isPalletMode = true;
+        _pendingPalletBuilderSku = sku;
+        _isHovering = true;
+
+        // _popup actually lives inside BuildMenuUI's own UIDocument (sortingOrder 120, fixed — see
+        // BuildMenuUI.Awake) — permanently BELOW the Hud document (999999) that ItemCreatorPanel and
+        // every other TopBarUI panel is built into (see UIBootStrapper.InitializeHud's comment).
+        // BringToFront only ever settles sibling order WITHIN one document; across two documents the
+        // lower sortingOrder always loses no matter how many times you raise it, so the popup was
+        // invisibly stuck behind the Item Creator window regardless of z-order tricks. The actual fix
+        // is to temporarily move the popup INTO the caller's own document for as long as the preview
+        // is up, then move it back — everywhere else in this class it stays right where Init() put it.
+        if (hostRoot != null && _popup != null && _popup.parent != hostRoot)
+        {
+            if (!_uiPreviewReparented)
+            {
+                _uiPreviewOriginalParent = _popup.parent;
+                _uiPreviewOriginalIndex = _uiPreviewOriginalParent?.IndexOf(_popup) ?? -1;
+                _uiPreviewOriginalRoot = _root;
+            }
+            hostRoot.Add(_popup);
+            _root = hostRoot;
+            _uiPreviewReparented = true;
+        }
+
+        ShowPalletBuilder(sku, caseQty);
+        FollowCursor();
+        RaisePopupAboveEverything();
+    }
+
+    /// <summary>Same technique as RuntimeTooltip.RaiseAboveEverything / Toast.RaiseAboveEverything:
+    /// sibling order inside one UIDocument is decided by whoever last called BringToFront, and that
+    /// has to be walked up the whole ancestor chain, not just the popup's immediate parent.</summary>
+    private void RaisePopupAboveEverything()
+    {
+        VisualElement e = _popup;
+        while (e != null)
+        {
+            e.BringToFront();
+            e = e.parent;
+        }
+    }
+
+    /// <summary>Companion to <see cref="ShowForUiPreview"/> — also clears the hover-tracking state so
+    /// a later real-world pallet hover doesn't think it's still looking at this preview's SKU, and
+    /// moves the popup back to its normal home document if it was reparented to show the preview.</summary>
+    public void HideUiPreview()
+    {
+        _pendingPalletBuilderSku = null;
+        HideImmediate();
+
+        if (_uiPreviewReparented && _popup != null && _uiPreviewOriginalParent != null)
+        {
+            if (_uiPreviewOriginalIndex >= 0 && _uiPreviewOriginalIndex <= _uiPreviewOriginalParent.childCount)
+                _uiPreviewOriginalParent.Insert(_uiPreviewOriginalIndex, _popup);
+            else
+                _uiPreviewOriginalParent.Add(_popup);
+            _root = _uiPreviewOriginalRoot;
+            _uiPreviewReparented = false;
+        }
     }
 
     private SkuData _pendingPalletBuilderSku;
@@ -768,7 +859,7 @@ private void ShowLocation(LocationData location)
             return;
         }
 
-        TickHover(true, ResolveTruckSummaryName(truck), 0, 0, worldPos, cam);
+        TickHover(true, ResolveTruckSummaryName(truck), 0, 0, worldPos, cam, allowOutboundTab: true);
     }
 
     /// <summary>Best identifying label for a truck's regular hover card — the vendor it's carrying

@@ -148,6 +148,9 @@ public class ItemCreatorPanel : IUIPanel
     private VisualElement _section2;
     private int _tiValue = 1, _hiValue = 1;
     private Label _tiValueLabel, _hiValueLabel;
+    // Keeps the Ti/Hi steppers' own internal closure state in sync with _tiValue/_hiValue whenever
+    // those are set from code (LoadIntoForm/ClearForm) instead of a +/- click — see BuildQtyStepperRow.
+    private Action<int> _tiValueSync, _hiValueSync;
     // Mirrors PalletBuilder's own crookedCase/positionJitter defaults — see that field's tooltip.
     private float _crookedCaseValue = 5f, _positionJitterValue = 0.015f;
     private Label _crookedCaseValueLabel, _positionJitterValueLabel;
@@ -162,6 +165,29 @@ public class ItemCreatorPanel : IUIPanel
     // ── Preview rig (real 3D scene objects, rendered into a RenderTexture) ──
     private RenderTexture _previewRT;
     private Camera _previewCamera;
+    // Scroll-to-zoom: 0 = fully zoomed out (the camera's original authored position/distance),
+    // 1 = fully zoomed in. Both endpoints sit along the SAME ray from the pivot (the camera's
+    // original position, just scaled), so zooming never changes the viewing angle — only how close
+    // the camera sits along it. The zoomed-in distance is the MIDPOINT between the full distance and
+    // 0.75m (not 0.75m itself) — 0.75m alone was already clipping into the pallet.
+    private static readonly Vector3 PreviewCamZoomOutLocalPos = new Vector3(0f, 1.3f, -3.4f);
+    private static readonly Vector3 PreviewCamZoomInLocalPos =
+        PreviewCamZoomOutLocalPos.normalized * ((PreviewCamZoomOutLocalPos.magnitude + 0.75f) / 2f);
+    private const float PreviewZoomStep = 0.12f; // "just a small bump" per scroll notch
+    private float _previewZoomT; // 0..1, see above
+
+    // ── Hover tooltip (same pallet-info card real placed pallets show) ──────
+    // The Hud document root this panel was built into — WorldHoverPopupUI's popup normally lives in
+    // BuildMenuUI's own (lower-sortingOrder) document, so showing it here requires temporarily
+    // reparenting it into THIS document; see WorldHoverPopupUI.ShowForUiPreview.
+    private readonly VisualElement _hudRoot;
+    private WorldHoverPopupUI _hoverPopupUI;
+    private WorldHoverPopupUI HoverPopupUI => _hoverPopupUI != null ? _hoverPopupUI : _hoverPopupUI = UnityEngine.Object.FindAnyObjectByType<WorldHoverPopupUI>();
+    // In-memory only — never AssetDatabase.CreateAsset'd — just a data carrier so the shared hover
+    // card (which reads a SkuData) can show the CURRENT unsaved form values, since a brand-new item
+    // has no real SkuData asset until Submit.
+    private SkuData _previewHoverSku;
+
     private GameObject _rigRoot;      // parent for everything, positioned far from the playfield
     private Transform _pivot;         // rotates — what the user drags
     private GameObject _chepInstance;
@@ -196,6 +222,7 @@ public class ItemCreatorPanel : IUIPanel
 
     public ItemCreatorPanel(VisualElement root)
     {
+        _hudRoot = root;
         _overlay = Build(out _modal);
         root.Add(_overlay);
         Hide();
@@ -261,6 +288,7 @@ public class ItemCreatorPanel : IUIPanel
         _visible = false;
         _overlay.style.display = DisplayStyle.None;
         UIModalGuard.Pop(this);
+        HoverPopupUI?.HideUiPreview();
 
         if (_restoreSunLight)
         {
@@ -306,7 +334,7 @@ public class ItemCreatorPanel : IUIPanel
         var body = new VisualElement { name = "item-creator-body" };
         body.style.flexGrow = 1;
         body.style.paddingLeft = 16; body.style.paddingRight = 16;
-        body.style.paddingTop = 10; body.style.paddingBottom = 12;
+        body.style.paddingTop = 10; body.style.paddingBottom = 26;
 
         body.Add(BuildHeaderRow());
         body.Add(BuildDivider());
@@ -314,6 +342,16 @@ public class ItemCreatorPanel : IUIPanel
         var columns = new VisualElement { name = "item-creator-columns" };
         columns.style.flexDirection = FlexDirection.Row;
         columns.style.flexGrow = 1;
+        // Explicit flexShrink — UI Toolkit defaults it to 0 (unlike web CSS's 1), so without this,
+        // `columns` (and the preview render inside it) never yields height to its neighbors even when
+        // there genuinely isn't enough of it to go around. With Section 2 taller than when this was
+        // first authored (bigger Ti/Hi steppers, the two new sliders), body's total content started
+        // exceeding its available height, and since columns refused to shrink, the OVERFLOW landed
+        // entirely on Section 3 below it — pushing the Clear/Delete/Submit row a few pixels past the
+        // modal's own bottom edge no matter how tight the padding around it was squeezed. Letting the
+        // preview column absorb that instead (it can spare a few px far more gracefully than a row of
+        // buttons can) fixes it at the actual source rather than chasing it with padding tweaks.
+        columns.style.flexShrink = 1;
         columns.style.marginTop = 8;
 
         var leftCol = new ScrollView(ScrollViewMode.Vertical) { name = "item-creator-left" };
@@ -533,6 +571,7 @@ public class ItemCreatorPanel : IUIPanel
                 evt.StopPropagation();
             });
 
+            RuntimeTooltip.Attach(sw, $"{label}: #{ColorUtility.ToHtmlStringRGB(c)}");
             swatches.Add(sw);
             row.Add(sw);
         }
@@ -573,17 +612,12 @@ public class ItemCreatorPanel : IUIPanel
         _customCaseRow.style.display = custom ? DisplayStyle.Flex : DisplayStyle.None;
         if (custom)
         {
-            // Drop back to a single case (Ti=1/Hi=1) the moment custom mode is entered — whatever
-            // multi-case layout the real prefab was showing doesn't carry over automatically, and
-            // building straight into it here (rather than leaving it to whatever ti/hi was last set)
-            // is what was reading as "the whole pallet clears": the freshly-built custom case template
-            // is an inactive in-memory GameObject, and cloning it at ti/hi > 1 produced a stack of
-            // clones that inherited that inactive state and simply never rendered (fixed in
-            // PalletBuilder.Build — every cloned case is now force-activated).
-            _tiValue = 1; _hiValue = 1;
-            if (_tiValueLabel != null) _tiValueLabel.text = "1";
-            if (_hiValueLabel != null) _hiValueLabel.text = "1";
-            RebuildCustomCasePreview(); // reads the case's current L/W/H fields (already populated from the prefab) and draws a single custom case in their place
+            // Keeps whatever Ti/Hi and pallet layout was already showing — only the case template
+            // itself swaps to the custom mesh, built at the current L/W/H fields. (This used to force
+            // Ti/Hi back to 1x1 as a workaround for a since-fixed PalletBuilder bug where every cloned
+            // case inherited the custom template's deliberately-inactive state and never rendered;
+            // that's fixed at the source now, in PalletBuilder.Build, so it's no longer needed here.)
+            RebuildCustomCasePreview();
         }
         else OnExistingPrefabChosen(_existingPrefabDropdown?.value);
     }
@@ -607,13 +641,17 @@ public class ItemCreatorPanel : IUIPanel
             out var content, titleFontSize: 17f * FontScale);
         _section2.style.marginTop = 10;
 
+        // Stacked one per line rather than side by side — side by side left no room for the label to
+        // wrap within its own line, so it either got cut off or forced the whole row wider than the
+        // section, overflowing off the right edge. Full section width per row gives the label a
+        // sensible wrap and keeps everything flush against the left edge.
         var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
+        row.style.flexDirection = FlexDirection.Column;
 
         row.Add(BuildQtyStepperRow("Ti (cases per layer)", _tiValue,
-            v => { _tiValue = v; RegeneratePalletPreview(); }, out _tiValueLabel));
+            v => { _tiValue = v; RegeneratePalletPreview(); }, out _tiValueLabel, out _tiValueSync));
         row.Add(BuildQtyStepperRow("Hi (layers)", _hiValue,
-            v => { _hiValue = v; RegeneratePalletPreview(); }, out _hiValueLabel));
+            v => { _hiValue = v; RegeneratePalletPreview(); }, out _hiValueLabel, out _hiValueSync));
 
         content.Add(row);
 
@@ -622,8 +660,10 @@ public class ItemCreatorPanel : IUIPanel
         randomnessRow.style.marginTop = 10;
 
         randomnessRow.Add(BuildFloatSliderRow("Crooked Case (°)", 0f, 10f, _crookedCaseValue, "0.0",
+            "Max random tilt applied to each case, for a less perfectly-stacked look",
             v => { _crookedCaseValue = v; RegeneratePalletPreview(); }, out _crookedCaseValueLabel));
         randomnessRow.Add(BuildFloatSliderRow("Position Slide (m)", 0f, 0.03f, _positionJitterValue, "0.000",
+            "Max random left/right/front/back offset applied to each case's position",
             v => { _positionJitterValue = v; RegeneratePalletPreview(); }, out _positionJitterValueLabel));
 
         content.Add(randomnessRow);
@@ -636,7 +676,7 @@ public class ItemCreatorPanel : IUIPanel
     /// crookedCase/positionJitter, exposed here the same way Ti/Hi already are: every drag fires
     /// straight into RegeneratePalletPreview so the 3D preview always matches.</summary>
     private VisualElement BuildFloatSliderRow(string label, float min, float max, float initialValue,
-        string valueFormat, Action<float> onChanged, out Label valueLabel)
+        string valueFormat, string tooltip, Action<float> onChanged, out Label valueLabel)
     {
         var container = new VisualElement();
         container.style.flexGrow = 1;
@@ -654,6 +694,7 @@ public class ItemCreatorPanel : IUIPanel
 
         var slider = new Slider(min, max) { value = initialValue };
         slider.style.marginTop = 2;
+        RuntimeTooltip.Attach(slider, tooltip);
         var capturedValueLabel = valueLabel;
         slider.RegisterValueChangedCallback(evt =>
         {
@@ -668,19 +709,25 @@ public class ItemCreatorPanel : IUIPanel
     /// <summary>Ti/Hi are no longer typed in — a click-only +/- stepper next to a plain numeric readout,
     /// same idea as WorkQueuePanel's priority stepper. Every change fires immediately into
     /// RegeneratePalletPreview so the 3D preview always matches, with no separate "Generate" step.</summary>
-    private VisualElement BuildQtyStepperRow(string label, int initialValue, Action<int> onChanged, out Label valueLabel)
+    // Ti/Hi steppers render 50% larger than their base sizes below — a separate multiplier from
+    // FontScale (which is baked into the label font sizes) since it also has to scale the value box
+    // and arrow buttons themselves, not just text.
+    private const float StepperScale = 1.5f;
+
+    private VisualElement BuildQtyStepperRow(string label, int initialValue, Action<int> onChanged, out Label valueLabel, out Action<int> syncValue)
     {
         const int Min = 1, Max = 999;
 
+        // One stepper per line now (see BuildSection2) rather than two squeezed side by side — that
+        // either overlapped or forced the row wider than the section. A fixed, wrapping label width
+        // keeps this row's total width comfortably inside the section regardless of label length.
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
-        row.style.flexGrow = 1;
-        row.style.marginRight = 8;
+        row.style.marginBottom = 6;
 
         var lbl = MakeText(label, (int)(12 * FontScale), ColSubtleText);
-        lbl.style.flexShrink = 1;
-        lbl.style.flexGrow = 1;
+        lbl.style.width = 110;
         lbl.style.whiteSpace = WhiteSpace.Normal;
         row.Add(lbl);
 
@@ -693,13 +740,13 @@ public class ItemCreatorPanel : IUIPanel
             valueBox.style.borderLeftWidth = valueBox.style.borderRightWidth = 2;
         valueBox.style.borderTopColor = valueBox.style.borderBottomColor =
             valueBox.style.borderLeftColor = valueBox.style.borderRightColor = new StyleColor(ColSectionEdge);
-        valueBox.style.borderTopLeftRadius = valueBox.style.borderBottomLeftRadius = 6;
-        valueBox.style.borderTopRightRadius = valueBox.style.borderBottomRightRadius = 6;
-        valueBox.style.paddingLeft = 8; valueBox.style.paddingRight = 4;
+        valueBox.style.borderTopLeftRadius = valueBox.style.borderBottomLeftRadius = 9;
+        valueBox.style.borderTopRightRadius = valueBox.style.borderBottomRightRadius = 9;
+        valueBox.style.paddingLeft = 12; valueBox.style.paddingRight = 6;
 
         int value = Mathf.Clamp(initialValue, Min, Max);
-        valueLabel = MakeText(value.ToString(), (int)(17 * FontScale), ColOrangeText, bold: true);
-        valueLabel.style.minWidth = 34;
+        valueLabel = MakeText(value.ToString(), (int)(17 * FontScale * StepperScale), ColOrangeText, bold: true);
+        valueLabel.style.minWidth = 34 * StepperScale;
         valueLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         var capturedValueLabel = valueLabel;
         valueBox.Add(valueLabel);
@@ -712,19 +759,29 @@ public class ItemCreatorPanel : IUIPanel
             capturedValueLabel.text = value.ToString();
             onChanged(value);
         }
-        arrows.Add(BuildQtyStepperArrow("▲", () => SetValue(value + 1)));
-        arrows.Add(BuildQtyStepperArrow("▼", () => SetValue(value - 1)));
+        arrows.Add(BuildQtyStepperArrow("▲", $"Increase {label}", () => SetValue(value + 1)));
+        arrows.Add(BuildQtyStepperArrow("▼", $"Decrease {label}", () => SetValue(value - 1)));
         valueBox.Add(arrows);
 
         row.Add(valueBox);
+
+        // This row is built ONCE when the panel's UI is constructed — every later item load
+        // (LoadIntoForm) or Clear only ever wrote the new number into the FIELD (_tiValue/_hiValue)
+        // and the label text, never into this closure's own `value`. That left `value` frozen at
+        // whatever it was after the last +/- click, so the NEXT click after switching items computed
+        // staleValue ± 1 — silently overwriting the just-loaded item's correct Ti/Hi with a number
+        // one off from a completely different item. LoadIntoForm/ClearForm must call this to keep the
+        // closure in sync, exactly like it already keeps the label in sync.
+        syncValue = v => value = Mathf.Clamp(v, Min, Max);
+
         return row;
     }
 
-    private Button BuildQtyStepperArrow(string glyph, Action onClick)
+    private Button BuildQtyStepperArrow(string glyph, string tooltip, Action onClick)
     {
         var b = new Button(onClick) { text = glyph };
-        ApplyFont(b, bold: true, size: (int)(11 * FontScale));
-        b.style.width = 26; b.style.height = 15;
+        ApplyFont(b, bold: true, size: (int)(11 * FontScale * StepperScale));
+        b.style.width = 26 * StepperScale; b.style.height = 15 * StepperScale;
         b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginTop = 0; b.style.marginBottom = 0;
         b.style.paddingLeft = 0; b.style.paddingRight = 0; b.style.paddingTop = 0; b.style.paddingBottom = 0;
         b.style.color = new StyleColor(ColOrangeText);
@@ -733,6 +790,7 @@ public class ItemCreatorPanel : IUIPanel
         b.style.borderTopColor = b.style.borderBottomColor = b.style.borderLeftColor = b.style.borderRightColor = new StyleColor(ColSectionEdge);
         b.RegisterCallback<PointerEnterEvent>(_ => b.style.backgroundColor = new StyleColor(ColOrange));
         b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(ColSectionBg));
+        RuntimeTooltip.Attach(b, tooltip);
         return b;
     }
 
@@ -767,6 +825,9 @@ public class ItemCreatorPanel : IUIPanel
         _previewImage.RegisterCallback<PointerDownEvent>(OnPreviewPointerDown);
         _previewImage.RegisterCallback<PointerMoveEvent>(OnPreviewPointerMove);
         _previewImage.RegisterCallback<PointerUpEvent>(OnPreviewPointerUp);
+        _previewImage.RegisterCallback<WheelEvent>(OnPreviewWheel);
+        _previewImage.RegisterCallback<PointerEnterEvent>(OnPreviewPointerEnter);
+        _previewImage.RegisterCallback<PointerLeaveEvent>(OnPreviewPointerLeave);
 
         _previewStatusLabel = MakeText("Choose or create a case to begin.", 12, ColSubtleText);
         _previewStatusLabel.style.marginTop = 6; _previewStatusLabel.style.marginBottom = 8;
@@ -782,25 +843,28 @@ public class ItemCreatorPanel : IUIPanel
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.justifyContent = Justify.FlexEnd;
-        row.style.marginTop = 4;
+        row.style.marginTop = 12; // visible breathing room below the preview frame, above the buttons
 
         const float buttonFontScale = 1.5f;
 
         _clearButton = MakeActionButton("Clear", ColBlueBtn, ColBlueEdge, ColBlueHover, OnClearClicked);
         _clearButton.style.width = 150; // widened alongside the font bump below so "Clear" doesn't clip
         _clearButton.style.fontSize = 13f * buttonFontScale;
+        RuntimeTooltip.Attach(_clearButton, "Reset the form back to a blank new item");
         row.Add(_clearButton);
 
         _deleteButton = MakeActionButton("Delete Item", ColRed, ColRed, ColRedHover, OnDeleteClicked);
         _deleteButton.style.width = 180;
         _deleteButton.style.marginLeft = 8;
         _deleteButton.style.fontSize = 13f * buttonFontScale;
+        RuntimeTooltip.Attach(_deleteButton, "Permanently remove this item from the SKU database");
         row.Add(_deleteButton);
 
         _submitButton = MakeActionButton("Submit to Database", ColOrange, ColOrangeEdge, ColOrangeHover, OnSubmitClicked);
         _submitButton.style.width = 240;
         _submitButton.style.marginLeft = 8;
         _submitButton.style.fontSize = 13f * buttonFontScale;
+        RuntimeTooltip.Attach(_submitButton, "Save this item (and its case prefab, if custom) to the SKU database");
         row.Add(_submitButton);
 
         return row;
@@ -877,6 +941,8 @@ public class ItemCreatorPanel : IUIPanel
         _hiValue = Mathf.Max(1, sku.Hi);
         _tiValueLabel.text = _tiValue.ToString();
         _hiValueLabel.text = _hiValue.ToString();
+        _tiValueSync?.Invoke(_tiValue);
+        _hiValueSync?.Invoke(_hiValue);
 
         _customCaseToggle.SetValueWithoutNotify(false);
         SetCustomCaseMode(false);
@@ -909,6 +975,8 @@ public class ItemCreatorPanel : IUIPanel
         _shelfLifeField.value = -1;
         _tiValue = 1; _hiValue = 1;
         _tiValueLabel.text = "1"; _hiValueLabel.text = "1";
+        _tiValueSync?.Invoke(_tiValue);
+        _hiValueSync?.Invoke(_hiValue);
         _customCaseToggle.SetValueWithoutNotify(false);
         SetCustomCaseMode(false);
         _selectedIcon = null;
@@ -1169,6 +1237,7 @@ public class ItemCreatorPanel : IUIPanel
             var btn = new Button(() => { _selectedIcon = sprite; HighlightSelectedIcon(); if (_customCaseToggle.value) RebuildCustomCasePreview(); });
             StyleIconButton(btn);
             btn.style.backgroundImage = new StyleBackground(sprite);
+            RuntimeTooltip.Attach(btn, sprite.name);
             _iconPickerRow.Add(btn);
             _iconButtons.Add(btn);
             _iconButtonSprites.Add(sprite);
@@ -1225,7 +1294,7 @@ public class ItemCreatorPanel : IUIPanel
 
         var camGO = new GameObject("PreviewCamera");
         camGO.transform.SetParent(_rigRoot.transform, false);
-        camGO.transform.localPosition = new Vector3(0f, 1.3f, -3.4f); // pulled back/up from the original -2.6f so the whole pallet fits in frame
+        camGO.transform.localPosition = PreviewCamZoomOutLocalPos; // pulled back/up from the original -2.6f so the whole pallet fits in frame
         camGO.transform.localRotation = Quaternion.Euler(14f, 0f, 0f); // slight downward tilt onto the pallet at the pivot's origin
         _previewCamera = camGO.AddComponent<Camera>();
         _previewCamera.clearFlags = CameraClearFlags.SolidColor;
@@ -1389,6 +1458,19 @@ public class ItemCreatorPanel : IUIPanel
         _previewPalletBuilder.verticalGap = PreviewLayerGap; // real gameplay pallets stack flush (0) on purpose — this gap is preview-only, so layers read clearly
         _previewPalletBuilder.Build(deductMoney: false);
 
+        // Build() self-corrects manualTi/manualHi downward when the requested count doesn't actually
+        // fit the new dimensions (see its own "Self-correct" comment) — reflect that back into the
+        // steppers so they never show a Ti/Hi that isn't what's actually rendered.
+        if (_previewPalletBuilder.manualTi != _tiValue || _previewPalletBuilder.manualHi != _hiValue)
+        {
+            _tiValue = _previewPalletBuilder.manualTi;
+            _hiValue = _previewPalletBuilder.manualHi;
+            if (_tiValueLabel != null) _tiValueLabel.text = _tiValue.ToString();
+            if (_hiValueLabel != null) _hiValueLabel.text = _hiValue.ToString();
+            _tiValueSync?.Invoke(_tiValue);
+            _hiValueSync?.Invoke(_hiValue);
+        }
+
         // The ChepEmpty mesh's real footprint sits 90° from PalletBuilder's assumed X=width/Z=length
         // axes (confirmed by hand in the Inspector — PalletLoad at Y=90 is what lines cases up with the
         // pallet visual). PalletLoad is a fresh GameObject Build() creates every call, so this has to be
@@ -1493,6 +1575,51 @@ public class ItemCreatorPanel : IUIPanel
         if (_previewImage.HasPointerCapture(evt.pointerId)) _previewImage.ReleasePointer(evt.pointerId);
         evt.StopPropagation();
         // Pitch spring-back and yaw auto-spin both resume automatically via the next Tick().
+    }
+
+    /// <summary>Scroll-to-zoom — a small, capped nudge in/out rather than a free-range zoom. Moves the
+    /// camera along the same ray it already sits on (see PreviewCamZoomOutLocalPos/InLocalPos), so the
+    /// viewing angle never changes, only the distance.</summary>
+    private void OnPreviewWheel(WheelEvent evt)
+    {
+        if (_previewCamera == null) return;
+        float direction = evt.delta.y > 0f ? -1f : evt.delta.y < 0f ? 1f : 0f; // scroll up = zoom in
+        _previewZoomT = Mathf.Clamp01(_previewZoomT + direction * PreviewZoomStep);
+        _previewCamera.transform.localPosition =
+            Vector3.Lerp(PreviewCamZoomOutLocalPos, PreviewCamZoomInLocalPos, _previewZoomT);
+        evt.StopPropagation();
+    }
+
+    /// <summary>Same hover card a real placed pallet shows in the warehouse — reads from
+    /// <see cref="_previewHoverSku"/>, kept in sync with the current form via
+    /// <see cref="RefreshPreviewHoverSku"/> every time the preview rebuilds.</summary>
+    private void OnPreviewPointerEnter(PointerEnterEvent evt)
+    {
+        if (_caseTemplate == null || _previewPalletBuilder == null) return;
+        RefreshPreviewHoverSku(); // computed fresh at hover time — always matches what's on screen right now
+        HoverPopupUI?.ShowForUiPreview(_previewHoverSku, _previewPalletBuilder.TotalCases, _hudRoot);
+    }
+
+    private void OnPreviewPointerLeave(PointerLeaveEvent evt) => HoverPopupUI?.HideUiPreview();
+
+    /// <summary>Keeps the transient <see cref="_previewHoverSku"/> in step with the current form
+    /// fields (description/values/Ti-Hi/icon) so hovering the preview always reflects what's on
+    /// screen, not whatever was last Submitted. Created once, in memory only — never written to disk.</summary>
+    private void RefreshPreviewHoverSku()
+    {
+#if UNITY_EDITOR
+        if (_previewHoverSku == null) _previewHoverSku = ScriptableObject.CreateInstance<SkuData>();
+
+        var so = new SerializedObject(_previewHoverSku);
+        so.FindProperty("_itemNumber").intValue = _currentItemNumber;
+        so.FindProperty("_itemDescription").stringValue = _descriptionField.value;
+        so.FindProperty("_buyValue").floatValue = _buyValueField.value;
+        so.FindProperty("_sellValue").floatValue = _sellValueField.value;
+        so.FindProperty("_ti").intValue = Mathf.Max(1, _tiValue);
+        so.FindProperty("_hi").intValue = Mathf.Max(1, _hiValue);
+        so.FindProperty("_icon").objectReferenceValue = _selectedIcon;
+        so.ApplyModifiedPropertiesWithoutUndo();
+#endif
     }
 
     // ── Submit / Delete ───────────────────────────────────────────────────────
@@ -1915,6 +2042,7 @@ public class ItemCreatorPanel : IUIPanel
             b.style.borderBottomLeftRadius = b.style.borderBottomRightRadius = 34;
         b.RegisterCallback<PointerEnterEvent>(_ => b.style.backgroundColor = new StyleColor(ColOrange));
         b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(ColSectionBg));
+        RuntimeTooltip.Attach(b, "Pause / resume auto-rotation — you can still drag to rotate either way");
         return b;
     }
 

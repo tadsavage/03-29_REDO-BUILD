@@ -79,8 +79,11 @@ public static class PalletOptimizer
     /// <param name="maxSplitDepth">How many levels of guillotine splitting to search. 2 already
     /// covers straight, turned, and 2-way/4-way mixed-strip layouts; raised past ~3 the search
     /// grows quickly for very little additional yield on a single pallet footprint.</param>
+    /// <param name="isTopLevel">Leave at the default (true) for every real caller. Set false only by
+    /// TrySplitAxis's own recursive sub-region calls — corner support only means something for the
+    /// pallet's actual four corners, not the artificial cut boundaries of an internal search strip.</param>
     public static PackResult PackLayer(float regionWidth, float regionLength, float caseWidth, float caseLength,
-        float gap = 0f, int maxSplitDepth = 2)
+        float gap = 0f, int maxSplitDepth = 2, bool isTopLevel = true)
     {
         var best = GridFill(regionWidth, regionLength, caseWidth, caseLength, gap);
 
@@ -90,7 +93,97 @@ public static class PalletOptimizer
             TrySplitAxis(ref best, regionWidth, regionLength, caseWidth, caseLength, gap, maxSplitDepth, splitAlongWidth: false);
         }
 
+        if (isTopLevel) SnapCasesToCorners(ref best, regionWidth, regionLength, caseWidth, caseLength, gap);
+
         return best;
+    }
+
+    /// <summary>Post-process: makes sure every one of the region's 4 corners has an actual case under
+    /// it. The guillotine search above only maximizes case COUNT — it can (and does) land on a layout
+    /// that's a grid plus a leftover strip of turned cases reaching only partway along an edge,
+    /// leaving one corner completely uncovered. Since another pallet gets stacked on top of this one
+    /// in-game, every corner needs support underneath it (matters even more once physics is ever
+    /// turned on), so whichever placed case sits nearest an uncovered corner gets slid outward to
+    /// actually touch it. The slide is only applied when it provably can't overlap another case —
+    /// a failed fix just leaves the original (already-valid, just gappy) layout in place rather than
+    /// risking a corrupted one.</summary>
+    private static void SnapCasesToCorners(ref PackResult layer, float regionWidth, float regionLength,
+        float caseWidth, float caseLength, float gap)
+    {
+        if (layer.Slots.Count == 0) return;
+
+        var corners = new (float x, float z)[]
+        {
+            (0f, 0f), (regionWidth, 0f), (0f, regionLength), (regionWidth, regionLength)
+        };
+
+        foreach (var corner in corners)
+        {
+            if (IsCornerCovered(layer.Slots, corner.x, corner.z, caseWidth, caseLength, gap)) continue;
+
+            int nearest = FindNearestSlotIndex(layer.Slots, corner.x, corner.z);
+            if (nearest < 0) continue;
+
+            var candidate = layer.Slots[nearest];
+            GetHalfExtents(candidate.rotationDegrees, caseWidth, caseLength, out float hx, out float hz);
+            candidate.x = corner.x <= regionWidth / 2f ? hx : regionWidth - hx;
+            candidate.z = corner.z <= regionLength / 2f ? hz : regionLength - hz;
+
+            if (OverlapsAnyOther(layer.Slots, nearest, candidate, caseWidth, caseLength, gap)) continue;
+
+            layer.Slots[nearest] = candidate;
+        }
+    }
+
+    private static void GetHalfExtents(float rotationDegrees, float caseWidth, float caseLength, out float hx, out float hz)
+    {
+        bool turned = Mathf.Abs(rotationDegrees - 90f) < 0.01f;
+        hx = (turned ? caseLength : caseWidth) / 2f;
+        hz = (turned ? caseWidth : caseLength) / 2f;
+    }
+
+    private static bool IsCornerCovered(List<CaseSlot> slots, float cornerX, float cornerZ,
+        float caseWidth, float caseLength, float gap)
+    {
+        float epsilon = Mathf.Max(0.001f, gap * 0.5f);
+        foreach (var s in slots)
+        {
+            GetHalfExtents(s.rotationDegrees, caseWidth, caseLength, out float hx, out float hz);
+            if (cornerX >= s.x - hx - epsilon && cornerX <= s.x + hx + epsilon &&
+                cornerZ >= s.z - hz - epsilon && cornerZ <= s.z + hz + epsilon)
+                return true;
+        }
+        return false;
+    }
+
+    private static int FindNearestSlotIndex(List<CaseSlot> slots, float cornerX, float cornerZ)
+    {
+        int best = -1;
+        float bestDistSq = float.MaxValue;
+        for (int i = 0; i < slots.Count; i++)
+        {
+            float dx = slots[i].x - cornerX;
+            float dz = slots[i].z - cornerZ;
+            float distSq = dx * dx + dz * dz;
+            if (distSq < bestDistSq) { bestDistSq = distSq; best = i; }
+        }
+        return best;
+    }
+
+    private static bool OverlapsAnyOther(List<CaseSlot> slots, int skipIndex, CaseSlot candidate,
+        float caseWidth, float caseLength, float gap)
+    {
+        GetHalfExtents(candidate.rotationDegrees, caseWidth, caseLength, out float chx, out float chz);
+        for (int i = 0; i < slots.Count; i++)
+        {
+            if (i == skipIndex) continue;
+            GetHalfExtents(slots[i].rotationDegrees, caseWidth, caseLength, out float hx, out float hz);
+            float dx = Mathf.Abs(slots[i].x - candidate.x);
+            float dz = Mathf.Abs(slots[i].z - candidate.z);
+            if (dx < chx + hx + gap - 0.0005f && dz < chz + hz + gap - 0.0005f)
+                return true;
+        }
+        return false;
     }
 
     private static void TrySplitAxis(ref PackResult best, float regionWidth, float regionLength,
@@ -113,13 +206,13 @@ public static class PalletOptimizer
             PackResult a, b;
             if (splitAlongWidth)
             {
-                a = PackLayer(firstDim, regionLength, caseWidth, caseLength, gap, maxSplitDepth - 1);
-                b = PackLayer(secondDim, regionLength, caseWidth, caseLength, gap, maxSplitDepth - 1);
+                a = PackLayer(firstDim, regionLength, caseWidth, caseLength, gap, maxSplitDepth - 1, isTopLevel: false);
+                b = PackLayer(secondDim, regionLength, caseWidth, caseLength, gap, maxSplitDepth - 1, isTopLevel: false);
             }
             else
             {
-                a = PackLayer(regionWidth, firstDim, caseWidth, caseLength, gap, maxSplitDepth - 1);
-                b = PackLayer(regionWidth, secondDim, caseWidth, caseLength, gap, maxSplitDepth - 1);
+                a = PackLayer(regionWidth, firstDim, caseWidth, caseLength, gap, maxSplitDepth - 1, isTopLevel: false);
+                b = PackLayer(regionWidth, secondDim, caseWidth, caseLength, gap, maxSplitDepth - 1, isTopLevel: false);
             }
 
             int combinedCount = a.Count + b.Count;

@@ -36,6 +36,19 @@ public class ConfirmationModal : MonoBehaviour
     private static void Bootstrap()
     {
         if (_instance != null) return;
+
+        // A script recompile during Play mode wipes this class's static _instance field (a domain
+        // reload resets ALL managed state), but the GameObject/UIDocument it pointed to is a real
+        // native Unity object — DontDestroyOnLoad + a domain reload does NOT destroy it. Without this
+        // cleanup, every single recompile in a play session left yet another orphaned, still-enabled
+        // UIDocument behind (confirmed: 14 stacked up in one long session, several still carrying a
+        // stale sortingOrder from before an earlier fix), and which one actually won the draw order
+        // for a given Show() call became unpredictable — matching "works the first time, then it's
+        // behind everything." AfterSceneLoad re-runs this method on every such reload, so sweeping up
+        // any pre-existing instance here guarantees exactly one ever exists.
+        foreach (var orphan in Resources.FindObjectsOfTypeAll<ConfirmationModal>())
+            if (orphan != null) Destroy(orphan.gameObject);
+
         var go = new GameObject("[ConfirmationModal]") { hideFlags = HideFlags.HideAndDontSave };
         DontDestroyOnLoad(go);
         _instance = go.AddComponent<ConfirmationModal>();
@@ -79,7 +92,12 @@ public class ConfirmationModal : MonoBehaviour
     {
         _doc = gameObject.AddComponent<UIDocument>();
         _doc.panelSettings = FindPanelSettings();
-        _doc.sortingOrder = 900; // below LaneSetupUI's own ad-hoc modals but above ordinary panels/toasts
+        // Every panel keyed into the HUD document (ItemCreatorPanel among them) renders on THAT
+        // document at UILayers.Hud (999999) — a flat 900 here put this modal underneath literally
+        // every one of them, invisible behind whatever panel opened it. Sits above WindowAboveHud
+        // (1000000, the tier for windows with their own document) so it covers those too, but still
+        // below Toast.ToastSortingOrder (1000100) so a toast notification stays visible on top of it.
+        _doc.sortingOrder = UILayers.WindowAboveHud + 10f;
 
         var root = _doc.rootVisualElement;
         if (root == null) return;
@@ -98,8 +116,8 @@ public class ConfirmationModal : MonoBehaviour
         root.Add(_modal);
 
         var panel = new VisualElement();
-        panel.style.minWidth = 360;
-        panel.style.maxWidth = 480;
+        panel.style.minWidth = 420;
+        panel.style.maxWidth = 620; // widened alongside the 2x font bump below so the larger text has room
         panel.style.paddingLeft = 20; panel.style.paddingRight = 20;
         panel.style.paddingTop = 18; panel.style.paddingBottom = 16;
         panel.style.backgroundColor = new StyleColor(ColBg);
@@ -108,7 +126,7 @@ public class ConfirmationModal : MonoBehaviour
 
         _message = new Label("");
         _message.style.color = new StyleColor(ColBlueText);
-        _message.style.fontSize = 15;
+        _message.style.fontSize = 30; // 2x the previous 15
         _message.style.whiteSpace = WhiteSpace.Normal;
         _message.style.unityTextAlign = TextAnchor.MiddleLeft;
         _message.style.marginBottom = 16;
@@ -116,6 +134,7 @@ public class ConfirmationModal : MonoBehaviour
 
         _dontShowAgainToggle = new Toggle("Do not show this again") { value = false };
         _dontShowAgainToggle.style.color = new StyleColor(ColBlueText);
+        _dontShowAgainToggle.style.fontSize = 26; // 2x the previous unset (~13px) default
         _dontShowAgainToggle.style.marginBottom = 14;
         _dontShowAgainToggle.style.display = DisplayStyle.None;
         var dontShowAgainLabel = _dontShowAgainToggle.Q<Label>();
@@ -187,7 +206,7 @@ public class ConfirmationModal : MonoBehaviour
     private static void StyleButton(Button b, Color bg, Color edge)
     {
         b.style.unityFontStyleAndWeight = FontStyle.Bold;
-        b.style.fontSize = 14;
+        b.style.fontSize = 28; // 2x the previous 14
         b.style.backgroundColor = new StyleColor(bg);
         b.style.color = new StyleColor(ColVanilla);
         b.style.paddingTop = 7; b.style.paddingBottom = 7;

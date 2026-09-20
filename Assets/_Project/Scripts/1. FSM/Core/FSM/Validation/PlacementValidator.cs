@@ -17,10 +17,20 @@ public class PlacementValidator : MonoBehaviour
         if (data.ignorePlacementRules)
             return true;
 
-        // --- 1. Ensure all footprint cells are inside the grid ---
-        foreach (var offset in offsets)
+        int coreCount = Mathf.Min(data.CoreFootprintCellCount, offsets.Length);
+
+        // --- 1. Ensure the CORE footprint cells are inside the grid ---
+        // Buffer cells (offsets[coreCount..]) are exempt: they're a placement-blocking reservation,
+        // not real mesh area, and a dock door's truck apron routinely reaches past the grid's own
+        // edge onto plain yard ground the grid array was never sized to cover (a dock built at the
+        // building's perimeter, by definition, has its apron pointing OFF the buildable footprint).
+        // Rejecting the whole placement just because that reservation fell outside the grid's bounds
+        // is the same class of bug the level-surface exemption below already fixed for buffer cells —
+        // this is the "inside grid" analogue of it. A buffer cell that IS inside the grid still goes
+        // through the normal per-cell overlap check in step 3, so it still blocks real obstacles.
+        for (int i = 0; i < coreCount; i++)
         {
-            Vector2Int cell = root + offset;
+            Vector2Int cell = root + offsets[i];
             if (!_grid.IsInsideGrid(cell))
                 return false;
         }
@@ -35,7 +45,6 @@ public class PlacementValidator : MonoBehaviour
         // placement-blocking reservations, not real mesh area, and routinely span a height seam
         // (raised dock slab vs. yard at y=0). Checking them here rejected every dock-door placement
         // with a real apron the moment ObjDataSO.bufferOffsets started reserving ground past the door.
-        int coreCount = Mathf.Min(data.CoreFootprintCellCount, offsets.Length);
 
         Vector2Int firstCell = root + offsets[0];
         float baseHeight = doorReplacingWalls
@@ -54,9 +63,15 @@ public class PlacementValidator : MonoBehaviour
         }
 
         // --- 3. PER-CELL VALIDATION ---
-        foreach (var offset in offsets)
+        // IsSingleCellValid itself rejects any cell outside the grid, so a buffer cell that falls off
+        // the grid's edge (see step 1's comment) needs the same exemption here, or step 1 relaxing the
+        // bounds check would just have this loop reject it a moment later. A buffer cell that's still
+        // inside the grid isn't exempt from anything — it goes through the normal overlap check.
+        for (int i = 0; i < offsets.Length; i++)
         {
-            Vector2Int cell = root + offset;
+            Vector2Int cell = root + offsets[i];
+            if (i >= coreCount && !_grid.IsInsideGrid(cell))
+                continue;
             if (!IsSingleCellValid(cell, data, ignore))
                 return false;
         }

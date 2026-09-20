@@ -67,6 +67,15 @@ public class ResizableWindow
     /// </summary>
     private const float TopBarReservedHeight = 58f;
 
+    /// <summary>Mirror of the above for the BOTTOM of the screen — FillScreenExact only ever reserved
+    /// the top bar's strip, so a maximized panel's bottom edge landed almost flush with the literal
+    /// screen bottom, just barely (a few px, depending on the panel's own content height) clearing —
+    /// or, worse, sitting close enough to visually collide with — BuildMenuUI's bottom bar and its
+    /// Build/Play tabs. Reuses the same constant every overlay-shortening panel already reserves via
+    /// BuildMenuUI.BottomHudReservedHeight, so a fill-screen panel and a shortened-overlay panel agree
+    /// on where the bottom HUD strip starts.</summary>
+    private const float BottomBarReservedHeight = BuildMenuUI.BottomHudReservedHeight;
+
     /// <summary>True while the user is actively dragging an edge.</summary>
     public bool IsResizing => _resizing;
 
@@ -288,7 +297,8 @@ public class ResizableWindow
 
         const float margin = 0.99f; // slim breathing room so borders don't clip against the edges
         float w = availW * margin;
-        float h = Mathf.Max(0f, availH - TopBarReservedHeight) * margin;
+        float reservedH = TopBarReservedHeight + BottomBarReservedHeight;
+        float h = Mathf.Max(0f, availH - reservedH) * margin;
 
         _panel.style.position = Position.Absolute;
         _panel.style.right = StyleKeyword.Auto;
@@ -296,7 +306,7 @@ public class ResizableWindow
         _panel.style.width = w;
         _panel.style.height = h;
         _panel.style.left = (availW - w) / 2f;
-        _panel.style.top = TopBarReservedHeight + (availH - TopBarReservedHeight - h) / 2f;
+        _panel.style.top = TopBarReservedHeight + (availH - reservedH - h) / 2f;
 
         _panel.style.transformOrigin = new StyleTransformOrigin(new TransformOrigin(Length.Percent(0), Length.Percent(0)));
         _panel.style.scale = new StyleScale(new Scale(Vector3.one));
