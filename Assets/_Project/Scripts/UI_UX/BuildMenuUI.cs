@@ -68,7 +68,9 @@ public class BuildMenuUI : MonoBehaviour
     private VisualElement _modeTabs;
     private Button _tabBuild;
     private Button _tabPlay;
+    private Button _tabStaff;
     private Button _tabReports;
+    private VisualElement _staffBar;
     private VisualElement _reportsBar;
     private VisualElement _reportsPanelContainer;
     private VisualElement _reportsSubTabRow;
@@ -85,13 +87,15 @@ public class BuildMenuUI : MonoBehaviour
     private bool _submenuOpen;
 
     /// <summary>Which bottom bar is up. Build is the placement HUD; Play is the run-the-warehouse HUD;
-    /// Reports is the read-only Financial/Operational/Inventory dashboard.</summary>
-    public enum HudMode { Build, Play, Reports }
+    /// Staff is the HR/roster/scheduling HUD; Reports is the read-only Financial/Operational/Inventory
+    /// dashboard.</summary>
+    public enum HudMode { Build, Play, Staff, Reports }
 
     // Mode tab hover copy — pulled out as named constants (rather than left in-place on the
     // RegisterCallback calls) so the tooltip text and the button's own label can be found together.
     private const string BuildTabTooltipText = "Everything you need to build your Empire";
     private const string OrdersTabTooltipText = "Manage all orders, Inbound and Outbound";
+    private const string StaffTabTooltipText = "Hiring, roster, employees and shift scheduling";
     private const string ReportsTabTooltipText = "Financial, Operational and Inventory reports";
 
     // ORDERS (Play mode) is the default view on startup — players land in "run the warehouse" mode,
@@ -142,11 +146,38 @@ public class BuildMenuUI : MonoBehaviour
     /// under an active capture should call this right after, using the current real pointer position.</summary>
     public void SyncPointerOverBuildMenu(Vector2 screenPos)
     {
-        var bar = ActiveBar;
-        var panel = bar?.panel;
-        if (bar == null || panel == null) { IsPointerOverBuildMenu = false; return; }
-        var panelPos = RuntimePanelUtils.ScreenToPanel(panel, screenPos);
-        IsPointerOverBuildMenu = bar.worldBound.Contains(panelPos);
+        // Checking just ActiveBar.worldBound missed the mode tabs (Build/Play/Reports) perched above
+        // it and the (much larger, non-bottom-strip) Reports panel, and stayed wrong in EITHER
+        // direction whenever the PointerEnter/Leave events that normally drive IsPointerOverBuildMenu
+        // failed to fire — e.g. a category/utility row rebuild swapping in new elements while the
+        // cursor sat still over the same screen spot, with no boundary crossing to trigger a fresh
+        // Enter/Leave. Reported live as Delete mode deleting objects with the cursor sitting right on
+        // the bottom bar. Checking the ACTUAL worldBound of every element RegisterBarPointerGuards was
+        // ever called on (see OnEnable) makes this a ground-truth bounds check covering exactly the
+        // same surface, rather than another event-order-dependent flag.
+        IsPointerOverBuildMenu =
+            ElementContainsScreenPos(_buildBar, screenPos) ||
+            ElementContainsScreenPos(_playBar, screenPos) ||
+            ElementContainsScreenPos(_staffBar, screenPos) ||
+            ElementContainsScreenPos(_reportsBar, screenPos) ||
+            ElementContainsScreenPos(_reportsPanelContainer, screenPos) ||
+            ElementContainsScreenPos(_modeTabs, screenPos);
+    }
+
+    private static bool ElementContainsScreenPos(VisualElement el, Vector2 screenPos)
+    {
+        if (el == null || el.panel == null || el.resolvedStyle.display == DisplayStyle.None)
+            return false;
+
+        // screenPos comes from Mouse.current.position, which (like legacy Input.mousePosition) is
+        // bottom-left origin, Y-up. ScreenToPanel expects top-left origin, Y-down, and does NOT flip
+        // it internally (same gotcha already documented in ChevronTooltipUI.PositionAt) — skipping
+        // this flip silently inverts the bar's hit region vertically, so a cursor genuinely near the
+        // bottom bar (real screen Y near 0) got tested against panel Y near 0, which is the TOP of the
+        // screen, making this check wrong exactly where it mattered most.
+        float flippedY = Screen.height - screenPos.y;
+        var panelPos = RuntimePanelUtils.ScreenToPanel(el.panel, new Vector2(screenPos.x, flippedY));
+        return el.worldBound.Contains(panelPos);
     }
 
     /// <summary>The live bottom-HUD menu, so other HUD pieces can parent themselves into the same
@@ -165,16 +196,21 @@ public class BuildMenuUI : MonoBehaviour
     /// tools exist — dock play-side widgets here.</summary>
     public VisualElement PlayBar => _playBar;
 
+    /// <summary>The Staff bar. Same chrome and layout as <see cref="BuildBar"/>; hosts the HR/roster/
+    /// scheduling buttons split out of <see cref="PlayBar"/>.</summary>
+    public VisualElement StaffBar => _staffBar;
+
     /// <summary>The Reports bar. Same chrome and layout as <see cref="BuildBar"/>; the actual report
     /// content lives in the separate floating ReportsPanelContainer, not this row.</summary>
     public VisualElement ReportsBar => _reportsBar;
 
     /// <summary>Whichever bar is currently visible. Use this when a widget should follow the mode
-    /// switch; use <see cref="BuildBar"/>/<see cref="PlayBar"/>/<see cref="ReportsBar"/> to pin it to
-    /// one mode.</summary>
+    /// switch; use <see cref="BuildBar"/>/<see cref="PlayBar"/>/<see cref="StaffBar"/>/
+    /// <see cref="ReportsBar"/> to pin it to one mode.</summary>
     public VisualElement ActiveBar => _mode switch
     {
         HudMode.Build => _buildBar,
+        HudMode.Staff => _staffBar,
         HudMode.Reports => _reportsBar,
         _ => _playBar,
     };
@@ -274,7 +310,9 @@ public class BuildMenuUI : MonoBehaviour
         _modeTabs = _root.Q<VisualElement>("ModeTabs");
         _tabBuild = _root.Q<Button>("TabBuild");
         _tabPlay = _root.Q<Button>("TabPlay");
+        _tabStaff = _root.Q<Button>("TabStaff");
         _tabReports = _root.Q<Button>("TabReports");
+        _staffBar = _root.Q<VisualElement>("BottomBarStaffUI");
         _reportsBar = _root.Q<VisualElement>("BottomBarReportsUI");
         _reportsPanelContainer = _root.Q<VisualElement>("ReportsPanelContainer");
         _reportsSubTabRow = _root.Q<VisualElement>("ReportsSubTabRow");
@@ -287,6 +325,7 @@ public class BuildMenuUI : MonoBehaviour
         // in open space above the bar.
         if (_buildBar != null)              _buildBar.pickingMode              = PickingMode.Position;
         if (_playBar != null)               _playBar.pickingMode               = PickingMode.Position;
+        if (_staffBar != null)              _staffBar.pickingMode              = PickingMode.Position;
         if (_reportsBar != null)            _reportsBar.pickingMode            = PickingMode.Position;
         if (_submenuContainer != null)      _submenuContainer.pickingMode      = PickingMode.Position;
         if (_reportsPanelContainer != null) _reportsPanelContainer.pickingMode = PickingMode.Position;
@@ -295,12 +334,14 @@ public class BuildMenuUI : MonoBehaviour
         {
             RegisterBarPointerGuards(_buildBar);
             RegisterBarPointerGuards(_playBar);
+            RegisterBarPointerGuards(_staffBar);
             RegisterBarPointerGuards(_reportsBar);
             RegisterBarPointerGuards(_reportsPanelContainer);
             RegisterBarPointerGuards(_modeTabs);
 
             if (_tabBuild != null) _tabBuild.clicked += () => SetHudMode(HudMode.Build);
             if (_tabPlay != null) _tabPlay.clicked += () => SetHudMode(HudMode.Play);
+            if (_tabStaff != null) _tabStaff.clicked += () => SetHudMode(HudMode.Staff);
             if (_tabReports != null) _tabReports.clicked += OnTabReportsClicked;
             if (_reportsCloseButton != null) _reportsCloseButton.clicked += CloseReports;
 
@@ -309,6 +350,7 @@ public class BuildMenuUI : MonoBehaviour
             // same cursor-following tooltip the rack chevrons use instead of a second implementation.
             AttachModeTabTooltip(_tabBuild, BuildTabTooltipText);
             AttachModeTabTooltip(_tabPlay, OrdersTabTooltipText);
+            AttachModeTabTooltip(_tabStaff, StaffTabTooltipText);
             AttachModeTabTooltip(_tabReports, ReportsTabTooltipText);
 
             WirePlayBarButtons();
@@ -403,12 +445,15 @@ public class BuildMenuUI : MonoBehaviour
         // fragile: ANY new element that ends up covering the bar without the cursor genuinely crossing
         // its boundary (a panel opened some other way, a modal, pointer capture held by something
         // else) leaves it stuck true forever with no Leave event ever coming to clear it. Every reader
-        // of this flag (RaycastController's tooltip/hover gate, FreeLookCamera's orbit/pan/zoom gate)
-        // then reads "over UI" no matter where the cursor actually is — this is what silently killed
-        // both world tooltips and right-drag/scroll camera control at once. Only correcting the TRUE
-        // case (never forcing it true) leaves the event-driven "just entered the bar" side effects
-        // (submenu close-timer pause, etc.) alone; this purely catches the stuck-true direction.
-        if (IsPointerOverBuildMenu && Mouse.current != null)
+        // of this flag (RaycastController's tooltip/hover gate, FreeLookCamera's orbit/pan/zoom gate,
+        // DeleteState's click-belongs-to-world gate) then reads the WRONG state no matter where the
+        // cursor actually is. Originally this only corrected the stuck-TRUE direction, but the
+        // opposite (stuck-FALSE while genuinely still over the bar — e.g. a category/utility row
+        // rebuild swaps in new elements under a cursor that never crosses the bar's outer boundary, so
+        // no fresh Enter ever fires) is exactly what let Delete mode delete objects with the cursor
+        // sitting right on the bottom bar. Running the bounds check unconditionally, every frame,
+        // makes it self-correcting in both directions.
+        if (Mouse.current != null)
             SyncPointerOverBuildMenu(Mouse.current.position.ReadValue());
     }
 
@@ -525,10 +570,12 @@ public class BuildMenuUI : MonoBehaviour
     {
         bool build = _mode == HudMode.Build;
         bool play = _mode == HudMode.Play;
+        bool staff = _mode == HudMode.Staff;
         bool reports = _mode == HudMode.Reports;
 
         SetHidden(_buildBar, !build);
         SetHidden(_playBar, !play);
+        SetHidden(_staffBar, !staff);
         SetHidden(_reportsBar, !reports);
 
         // ReportsPanelContainer shares the build submenu's .buildmenu-submenu base class, which sets
@@ -539,6 +586,7 @@ public class BuildMenuUI : MonoBehaviour
 
         SetTabActive(_tabBuild, build);
         SetTabActive(_tabPlay, play);
+        SetTabActive(_tabStaff, staff);
         SetTabActive(_tabReports, reports);
 
         // Data can go stale while another mode was up (money/inventory/ops keep changing in the

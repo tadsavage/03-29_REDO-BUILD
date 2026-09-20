@@ -38,50 +38,23 @@
         <ui:VisualElement name="UtilityRow" picking-mode="Position" class="buildmenu-utility-row"/>
     </ui:VisualElement>
 
-    <!-- Play-mode counterpart to the build bar. Same chrome, same two-row layout; BuildMenuUI shows
-         exactly one of the two bars.
+    <!-- Play-mode ("ORDERS" tab) counterpart to the build bar. Same chrome, same two-row layout;
+         BuildMenuUI shows exactly one of the bars at a time.
 
-         PlayBtn1..8 mirror hotkeys 1-8 and are wired straight to UIKeyBindingManager.ToggleUI, so a
-         click and a keypress take the identical path — the key badge in each corner is the same
-         number. If a hotkey is ever reassigned, the button follows it automatically; only the label,
-         icon class and badge here need updating. -->
+         PlayBtn0/5/7/8/9 mirror hotkeys 0/5/7/8/9 and are wired straight to UIKeyBindingManager.
+         ToggleUI, so a click and a keypress take the identical path — the key badge in each corner is
+         the same number. If a hotkey is ever reassigned, the button follows it automatically; only the
+         label, icon class and badge here need updating. PlayBtn1/2/3/4/6 (Dev Console/Hiring Board/
+         Roster/Employees/Shifts) moved to BottomBarStaffUI's STAFF tab below — the button NAMES stayed
+         the same since BuildMenuUI looks them up by name across the whole document, so only their
+         parent moved. -->
     <ui:VisualElement name="BottomBarPlayUI" picking-mode="Ignore" class="buildmenu-bottom-bar">
         <ui:VisualElement name="PlayCategoryRow" picking-mode="Position" class="buildmenu-category-row">
-
-            <ui:Button name="PlayBtn1" class="buildmenu-category-button playbar-button">
-                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-devconsole"/>
-                <ui:Label text="Dev Console" class="buildmenu-category-label playbar-label"/>
-                <ui:Label text="1" class="playbar-key"/>
-            </ui:Button>
-
-            <ui:Button name="PlayBtn2" class="buildmenu-category-button playbar-button">
-                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-hiringboard"/>
-                <ui:Label text="Hiring Board" class="buildmenu-category-label playbar-label"/>
-                <ui:Label text="2" class="playbar-key"/>
-            </ui:Button>
-
-            <ui:Button name="PlayBtn3" class="buildmenu-category-button playbar-button">
-                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-employeeroster"/>
-                <ui:Label text="Roster" class="buildmenu-category-label playbar-label"/>
-                <ui:Label text="3" class="playbar-key"/>
-            </ui:Button>
-
-            <ui:Button name="PlayBtn4" class="buildmenu-category-button playbar-button">
-                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-employeelist"/>
-                <ui:Label text="Employees" class="buildmenu-category-label playbar-label"/>
-                <ui:Label text="4" class="playbar-key"/>
-            </ui:Button>
 
             <ui:Button name="PlayBtn5" class="buildmenu-category-button playbar-button">
                 <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-newitem"/>
                 <ui:Label text="New Item" class="buildmenu-category-label playbar-label"/>
                 <ui:Label text="5" class="playbar-key"/>
-            </ui:Button>
-
-            <ui:Button name="PlayBtn6" class="buildmenu-category-button playbar-button">
-                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-shiftmanager"/>
-                <ui:Label text="Shifts" class="buildmenu-category-label playbar-label"/>
-                <ui:Label text="6" class="playbar-key"/>
             </ui:Button>
 
             <ui:Button name="PlayBtn7" class="buildmenu-category-button playbar-button">
@@ -115,6 +88,44 @@
         <ui:VisualElement name="PlayUtilityRow" picking-mode="Position" class="buildmenu-utility-row"/>
     </ui:VisualElement>
 
+    <!-- Staff mode bar: the HR/roster/scheduling panels, split out of Orders so that tab isn't
+         crowded with buttons unrelated to running orders. Same chrome/layout as the other bars. -->
+    <ui:VisualElement name="BottomBarStaffUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
+        <ui:VisualElement name="StaffCategoryRow" picking-mode="Position" class="buildmenu-category-row">
+
+            <ui:Button name="PlayBtn1" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-devconsole"/>
+                <ui:Label text="Dev Console" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="1" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn2" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-hiringboard"/>
+                <ui:Label text="Hiring Board" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="2" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn3" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-employeeroster"/>
+                <ui:Label text="Roster" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="3" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn4" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-employeelist"/>
+                <ui:Label text="Employees" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="4" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="PlayBtn6" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-shiftmanager"/>
+                <ui:Label text="Shifts" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="6" class="playbar-key"/>
+            </ui:Button>
+
+        </ui:VisualElement>
+    </ui:VisualElement>
+
     <!-- Reports mode bar: just the three sub-tab buttons (built in code by ReportsPanelController
          into ReportsSubTabRow, NOT here) plus this placeholder row so the bar isn't blank — kept as
          its own bar rather than repurposing Build/Play's rows so BUILD and OUTBOUND stay exactly as
@@ -130,8 +141,9 @@
          built-in `tooltip` attribute — that property only renders inside the Editor's own UI and
          never shows on a runtime UIDocument HUD like this one. -->
     <ui:VisualElement name="ModeTabs" picking-mode="Position" class="buildmenu-mode-tabs">
-        <ui:Button name="TabPlay" text="OUTBOUND" class="buildmenu-mode-tab buildmenu-mode-tab-active"/>
+        <ui:Button name="TabPlay" text="ORDERS" class="buildmenu-mode-tab buildmenu-mode-tab-active"/>
         <ui:Button name="TabBuild" text="BUILD" class="buildmenu-mode-tab"/>
+        <ui:Button name="TabStaff" text="STAFF" class="buildmenu-mode-tab"/>
         <ui:Button name="TabReports" text="REPORTS" class="buildmenu-mode-tab"/>
     </ui:VisualElement>
 </ui:UXML>

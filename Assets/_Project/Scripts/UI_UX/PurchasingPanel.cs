@@ -1181,7 +1181,8 @@ public class PurchasingPanel : IUIPanel
             itemNo.style.whiteSpace = WhiteSpace.NoWrap;
             line.Add(itemNo);
 
-            var desc = MakeText(sku != null ? sku.ItemDescription : "(unknown item)", 13, ColTitleText);
+            var desc = MakeText(sku != null ? sku.ItemDescription : "(unknown item)", 13,
+                lineNetDemand > 0 ? ColDanger : ColTitleText);
             desc.style.flexGrow = 1;
             desc.style.whiteSpace = WhiteSpace.NoWrap;
             line.Add(desc);
@@ -1705,6 +1706,17 @@ public class PurchasingPanel : IUIPanel
     private void BuildMultiVendorTab()
     {
         _multiVendorPane.Clear();
+
+        // Hidden until Yoga finishes laying out the fresh content below, then revealed next frame.
+        // A sort/filter change can flip several vendor groups' expanded state at once (e.g. picking
+        // "Critical Items" auto-expands every vendor carrying a shortfall — see ApplyItemFilterSelection),
+        // and for the one frame between this rebuild and Yoga settling those new heights, later groups
+        // still paint at their OLD (pre-expand) top offset while earlier groups have already grown —
+        // the overlapping/garbled text Tad saw. Hiding for that one frame turns a visible glitch into
+        // nothing, rather than trying to force a synchronous relayout Yoga doesn't expose.
+        _multiVendorPane.style.visibility = Visibility.Hidden;
+        _multiVendorPane.schedule.Execute(() => _multiVendorPane.style.visibility = Visibility.Visible)
+            .ExecuteLater(0);
 
         // The Broker's salvage loads live here at the top of Inbound Order Creation — this is the tab
         // that actually builds and dispatches loads, so a one-click way to fill part of a load cheaply
@@ -2596,7 +2608,7 @@ public class PurchasingPanel : IUIPanel
         var num = MakeText(sku.SkuId, 11, inDemand > 0 ? ColDanger : ColSubtleText);
         num.style.marginTop = 0; num.style.marginBottom = 0;
         idCol.Add(num);
-        var desc = MakeText(sku.ItemDescription, 14, ColTitleText, bold: true);
+        var desc = MakeText(sku.ItemDescription, 14, inDemand > 0 ? ColDanger : ColTitleText, bold: true);
         desc.style.whiteSpace = WhiteSpace.Normal;
         desc.style.marginTop = 0;
         idCol.Add(desc);

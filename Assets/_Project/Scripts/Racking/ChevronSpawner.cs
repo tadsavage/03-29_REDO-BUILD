@@ -292,9 +292,23 @@ public class ChevronSpawner : MonoBehaviour
         var negTeam = ControllersFor(slots, NegStart, NegEnd);
         var posTeam = ControllersFor(slots, PosStart, PosEnd);
 
+        // Neg and Pos are the two FACES of the same physical row, not two independently-directional
+        // aisles — there is only one real travel direction for this row's bays. Flipping used to only
+        // rotate whichever side's team the player right-clicked, so an isolated row open on both sides
+        // could end up with its neg-face chevrons pointing one way and its pos-face chevrons pointing
+        // the other. AisleInitializer's numbering is driven entirely by whichever single chevron the
+        // player happens to double-click (see ChevronTravelDir's "golden rule" comment), so that
+        // divergence meant the resulting bay order/parity silently depended on which specific chevron —
+        // effectively which side of the row the player was standing/clicking on — rather than a single,
+        // predictable arrow. Sharing one team across both faces keeps all 4 chevrons in lock-step, so
+        // ANY of them always reports the same direction, regardless of which one is used to open setup.
+        var wholeRowTeam = new List<ChevronController>(negTeam.Count + posTeam.Count);
+        wholeRowTeam.AddRange(negTeam);
+        wholeRowTeam.AddRange(posTeam);
+
         var selectedMat = GetSelectedMaterial();
-        foreach (var c in negTeam) { c.SetSideTeam(negTeam); c.SetGroup(group); c.SetSideKey("neg"); c.SetSecondaryCollection(null); c.SetSelectionMaterials(_chevronMaterial, selectedMat); }
-        foreach (var c in posTeam) { c.SetSideTeam(posTeam); c.SetGroup(group); c.SetSideKey("pos"); c.SetSecondaryCollection(null); c.SetSelectionMaterials(_chevronMaterial, selectedMat); }
+        foreach (var c in negTeam) { c.SetSideTeam(wholeRowTeam); c.SetGroup(group); c.SetSideKey("neg"); c.SetSecondaryCollection(null); c.SetSelectionMaterials(_chevronMaterial, selectedMat); }
+        foreach (var c in posTeam) { c.SetSideTeam(wholeRowTeam); c.SetGroup(group); c.SetSideKey("pos"); c.SetSecondaryCollection(null); c.SetSelectionMaterials(_chevronMaterial, selectedMat); }
 
         group.SetSide("neg", negTeam);
         group.SetSide("pos", posTeam);

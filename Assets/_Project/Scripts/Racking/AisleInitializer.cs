@@ -470,16 +470,26 @@ public class AisleInitializer : MonoBehaviour
     /// <summary>
     /// The aisle's travel direction = the selected chevron's arrow. The RUN AXIS comes from the
     /// rack geometry (unambiguous — the line the racks form), and the SIGN comes from the chevron's
-    /// arrow (transform.up points down the run in the travel direction, flipped 180° by the player's
-    /// right-click). This is the golden rule: bay 1 sits at the chevron's start end regardless of
-    /// which rack was placed first. Falls back to raw geometry only when there's no chevron.
+    /// arrow (transform.right points down the run in the travel direction, flipped 180° by the
+    /// player's right-click). This is the golden rule: bay 1 sits at the chevron's start end
+    /// regardless of which rack was placed first. Falls back to raw geometry only when there's no
+    /// chevron.
     /// </summary>
     private Vector3 ChevronTravelDir(ChevronController chevron, List<GameObject> groundRacks)
     {
         Vector3 runAxis = ComputeTravelDir(groundRacks); // along the run; sign = placement order
         if (chevron != null)
         {
-            Vector3 arrow = chevron.transform.up; arrow.y = 0f; // chevron arrow = its local +Y
+            // The sprite's point direction ends up on the chevron's LOCAL +X AXIS, not +Y: the
+            // spawner's base rotation is Yaw * Euler(90,0,0) * ChevronArtCorrection (see
+            // ChevronSpawner.FacingDown), and composing those confirms the arrow tip sits on
+            // local +X (transform.right), not +Y (transform.up) — transform.up actually comes out
+            // perpendicular to the run axis. Reading transform.up here made the dot product below
+            // land at ~0 essentially every time, silently failing the |d| > 0.01 threshold and
+            // falling through to the raw placement-order runAxis on almost every real aisle — i.e.
+            // the aisle direction always followed whichever way the racks were dragged out, never
+            // the chevron the player actually set, no matter how it was rotated.
+            Vector3 arrow = chevron.transform.right; arrow.y = 0f;
             float d = Vector3.Dot(arrow, runAxis);
             if (Mathf.Abs(d) > 0.01f)
                 return d >= 0f ? runAxis : -runAxis; // keep the run axis, flip its sign to the arrow
