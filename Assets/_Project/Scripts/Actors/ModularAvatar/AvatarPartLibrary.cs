@@ -47,21 +47,25 @@ public class AvatarPartLibrary : ScriptableObject
         parts.Select(p => p.gender).Distinct();
 
     /// <summary>Distinct slot names available for a gender, in first-seen order.</summary>
+/// <summary>Distinct slot names available for a gender, in first-seen order. "neutral" parts
+    /// (not gender-specific — e.g. hardhat/headphones) count for every gender query.</summary>
     public List<string> SlotsFor(string gender)
     {
         gender = gender?.ToLower();
         var seen = new List<string>();
         foreach (var p in parts)
-            if (p.gender == gender && !seen.Contains(p.slot))
+            if ((p.gender == gender || p.gender == "neutral") && !seen.Contains(p.slot))
                 seen.Add(p.slot);
         return seen;
     }
 
+/// <summary>Every variant of a slot available to a gender — includes that gender's own parts
+    /// plus any "neutral" parts for the same slot (shared across both genders).</summary>
     public List<Part> VariantsFor(string gender, string slot)
     {
         gender = gender?.ToLower();
         slot   = slot?.ToLower();
-        return parts.Where(p => p.gender == gender && p.slot == slot).ToList();
+        return parts.Where(p => (p.gender == gender || p.gender == "neutral") && p.slot == slot).ToList();
     }
 
     public GameObject PrefabFor(Part p) =>

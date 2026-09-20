@@ -22,21 +22,28 @@ public static class ModularAvatarAssembler
     // swaps these later. (Detected by the variant name containing "neutral".)
     private static readonly HashSet<string> ExpressionSlots = new() { "eyebrows", "mouth" };
 
-    // Slots that all occupy the HEAD — only ONE item is ever worn (hair OR hat OR nothing).
-    // The head is one slot now; "hair" is kept here too so any not-yet-renamed legacy parts
-    // still land in the head pool instead of stacking and clipping.
-    private static readonly HashSet<string> HeadPositionSlots = new() { "head", "hair" };
+    // Hair is the only slot that occupies the HEAD position exclusively — bald OR one hair
+    // variant, never both, so a hairstyle never bakes into the body mesh. Hats/props (hardhat,
+    // headphones — see OptionalSlotChance's "hat" entry) are a separate, independent optional
+    // slot layered on top instead of competing with hair for one pick; per Tad, these are worn
+    // over/with hair rather than replacing it.
+    private static readonly HashSet<string> HeadPositionSlots = new() { "hair" };
 
     // Chance an avatar wears nothing on its head (bald / no hat).
-    private const float BaldChance = 0.15f;
+    private const float BaldChance = 0.1f;
 
     // Accessory slots: not everyone wears them. value = chance (0–1) the slot is included.
     // NOTE: keys MUST be lower-case — slot names are lower-cased when parsed (see importer).
-    // hair + head(hats) are NOT here — they share the head position and are chosen as a
-    // mutually-exclusive group (see ChooseHeadSlot). vest is mandatory (see Build).
+    // hair is NOT here — it's chosen separately as the exclusive head-position pick (bald vs one
+    // hairstyle; see ChooseHeadItem). vest is mandatory (see Build). "hat" pools hardhat AND
+    // headphones (both parsed from the _GENDER_NEUTRAL folder, so available to either gender —
+    // AvatarPartLibrary folds neutral parts into every gender's query) behind ONE 50% roll: half
+    // the time nobody gets a hat-slot item, the other half one is picked at random from whatever
+    // hat-slot variants exist for that gender (today just hardhat/headphones).
     private static readonly Dictionary<string, float> OptionalSlotChance = new()
     {
         { "facialhair", 0.30f },
+        { "hat", 0.50f },
     };
 
     /// <summary>Build a random avatar for a gender. Returns null if the library has no parts for it.</summary>
@@ -134,10 +141,26 @@ public static class ModularAvatarAssembler
             var prefab = lib.sources[grp.Key].prefab;
             if (prefab == null) continue;
             var temp = Object.Instantiate(prefab);
+            // Object.Instantiate appends "(Clone)" to the name, which breaks FindDeep's exact-name
+            // match on any single-mesh source (hair/hat/prop FBX exported with the mesh ON the
+            // root, no children) — the part's objectName is the ORIGINAL name (e.g.
+            // "neutral_hat_hardhat"), so temp.transform itself would never match. Stripping the
+            // suffix back off makes FindDeep's first check (parent.name == name) work whether the
+            // part lives on the root or a nested child.
+            temp.name = prefab.name;
+
+            // When a source is a single-mesh FBX (the mesh sits ON the root, no children — every
+            // prop/hair file exported this way), FindDeep matches temp.transform ITSELF, so
+            // reparenting "child" reparents `temp` whole. Destroying `temp` afterwards (below)
+            // would then destroy the very object just moved under `root`. Tracked so the destroy
+            // at the end of this group can be skipped in that case.
+            bool tempReparentedWhole = false;
+
             foreach (var part in grp)
             {
                 var child = FindDeep(temp.transform, part.objectName);
                 if (child == null) continue;
+                if (child == temp.transform) tempReparentedWhole = true;
                 child.SetParent(root.transform, worldPositionStays: false);
                 child.localPosition = Vector3.zero;
                 child.localRotation = Quaternion.identity;
@@ -162,7 +185,7 @@ public static class ModularAvatarAssembler
                 if (smr.rootBone != null && rootBonesByName.TryGetValue(smr.rootBone.name, out var rootMatch))
                     smr.rootBone = rootMatch;
             }
-            SafeDestroy(temp);
+            if (!tempReparentedWhole) SafeDestroy(temp);
         }
 
         ApplyMoodExpression(root, gender, EmployeeMood.Neutral);
@@ -254,10 +277,12 @@ public static class ModularAvatarAssembler
         return hasMesh && ParsesAsPart(t.name);
     }
 
-    private static bool ParsesAsPart(string name)
+private static bool ParsesAsPart(string name)
     {
         var seg = name.Split('_');
-        return seg.Length >= 3 && (seg[0].ToLower() == "male" || seg[0].ToLower() == "female");
+        if (seg.Length < 3) return false;
+        string g = seg[0].ToLower();
+        return g == "male" || g == "female" || g == "man" || g == "woman" || g == "neutral";
     }
 
     // Pick the ONE item worn on the head, pooled across all head-position slots (hair + hats),

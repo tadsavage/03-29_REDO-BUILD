@@ -53,9 +53,12 @@ public static class ModularAvatarImporter
             lib.sources.Add(new AvatarPartLibrary.SourceModel { fbxPath = path, prefab = root });
             fbxCount++;
 
+            // Includes the root transform itself: a simple prop (hair, hat, headphones) is often
+            // exported as a single mesh with no children at all, so the mesh sits ON the root —
+            // skipping it (as this loop used to) meant those props never made it into the library
+            // no matter how they were named.
             foreach (var t in root.GetComponentsInChildren<Transform>(true))
             {
-                if (t == root.transform) continue;
                 bool hasMesh = t.GetComponent<MeshFilter>() != null || t.GetComponent<SkinnedMeshRenderer>() != null;
                 if (!hasMesh) continue;   // skip the armature, bones, empties
 
@@ -86,13 +89,25 @@ public static class ModularAvatarImporter
     }
 
     /// <summary>Parse "gender_slot_variant" (variant may contain further underscores). Null if invalid.</summary>
+/// <summary>Parse "gender_slot_variant" (variant may contain further underscores). Accepts
+    /// "male"/"man" and "female"/"woman" as synonyms (canonicalised to male/female so every
+    /// downstream check against those two literals keeps working), plus "neutral" for a part
+    /// that isn't gender-specific at all (e.g. hardhat/headphones) — AvatarPartLibrary folds
+    /// neutral parts into BOTH genders' queries. Null if invalid.</summary>
     private static AvatarPartLibrary.Part ParseName(string name, int sourceIndex)
     {
         var seg = name.Split('_');
         if (seg.Length < 3) return null;
 
-        string gender = seg[0].ToLower();
-        if (gender != "male" && gender != "female") return null;
+        string rawGender = seg[0].ToLower();
+        string gender = rawGender switch
+        {
+            "male" or "man"     => "male",
+            "female" or "woman" => "female",
+            "neutral"           => "neutral",
+            _ => null,
+        };
+        if (gender == null) return null;
 
         string slot    = seg[1].ToLower();
         string variant = string.Join("_", seg.Skip(2));   // keep the rest as the variant name

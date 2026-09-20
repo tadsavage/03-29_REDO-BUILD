@@ -1715,8 +1715,14 @@ public class PurchasingPanel : IUIPanel
         // the overlapping/garbled text Tad saw. Hiding for that one frame turns a visible glitch into
         // nothing, rather than trying to force a synchronous relayout Yoga doesn't expose.
         _multiVendorPane.style.visibility = Visibility.Hidden;
+        // ExecuteLater(0) used to be enough here, but it only guarantees "next scheduler tick" —
+        // not that Yoga AND the ScrollView's own content-size recompute (a second, reactive pass on
+        // top of Yoga's) have both actually settled by then. 16ms (one real frame) is the same margin
+        // Show()'s FillScreen deferral and CentreOnce already rely on elsewhere in this file for the
+        // identical "just rebuilt, geometry not trustworthy yet" situation, so this trick gets the
+        // same margin instead of the shorter one that was letting the glitch still show through.
         _multiVendorPane.schedule.Execute(() => _multiVendorPane.style.visibility = Visibility.Visible)
-            .ExecuteLater(0);
+            .ExecuteLater(16);
 
         // The Broker's salvage loads live here at the top of Inbound Order Creation — this is the tab
         // that actually builds and dispatches loads, so a one-click way to fill part of a load cheaply
@@ -1770,9 +1776,20 @@ public class PurchasingPanel : IUIPanel
         // (later siblings of a shared ancestor paint on top regardless of absolute positioning). A
         // stale one from the previous Rebuild() (every filter change rebuilds this bar from scratch)
         // is removed first so re-opening the filter doesn't stack duplicates on the modal.
-        _modal.Q<VisualElement>("MultiVendorFilterPopout")?.RemoveFromHierarchy();
-        _modal.Q<VisualElement>("MultiVendorSortPopout")?.RemoveFromHierarchy();
-        _modal.Q<VisualElement>("MultiVendorItemPopout")?.RemoveFromHierarchy();
+        // Loops rather than a single Q() call: Q() only ever finds the FIRST match, so if a duplicate
+        // ever slipped in (e.g. a Rebuild() re-entering from inside one of these popouts' own event
+        // handlers, mid-dispatch) a single-shot removal would leave the second one behind, stacking
+        // silently on the modal — the exact "scrambled" look filter clicks were reported to cause.
+        RemoveAllNamed("MultiVendorFilterPopout");
+        RemoveAllNamed("MultiVendorSortPopout");
+        RemoveAllNamed("MultiVendorItemPopout");
+
+        void RemoveAllNamed(string popoutName)
+        {
+            VisualElement stale;
+            while ((stale = _modal.Q<VisualElement>(popoutName)) != null)
+                stale.RemoveFromHierarchy();
+        }
 
         // Cancel any auto-close timer left over from the popout instances Rebuild() is about to
         // replace — a fresh one gets started below (only if still open) so it always targets the

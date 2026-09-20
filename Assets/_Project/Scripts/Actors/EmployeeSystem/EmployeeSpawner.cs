@@ -38,6 +38,34 @@ public class EmployeeSpawner : MonoBehaviour
     [SerializeField] private GameObject _exterminatorAvatarModel;
     [SerializeField] private GameObject _icAvatarModel;
     [SerializeField] private GameObject _securityAvatarModel;
+    [SerializeField] private GameObject _truckDriverAvatarModel;
+
+    [Header("Generic Warehouse Worker (Polyperfect overlay)")]
+    [Tooltip("Fixed-look overlay applied to every role that has no other dedicated model above " +
+             "(Order Selector, Reach Truck/Dock Stocker Operator, Loader, Receiver, Supervisor, " +
+             "HR/Admin/Sanitation placeholders). Takes priority over _useModularAvatars, same as " +
+             "the roles above — the modular avatar system stays wired but is effectively unused " +
+             "once these are assigned.")]
+    [SerializeField] private GameObject _workerMaleAvatarModel;
+    [SerializeField] private GameObject _workerFemaleAvatarModel;
+
+    [Header("Randomized Avatar Pools (stable per employee, gender-matched)")]
+    [Tooltip("When the pool for an employee's actual gender has entries, it's used INSTEAD of the " +
+             "single fixed model above for that role — one prefab is picked per employee, seeded " +
+             "from their GUID (same trick the old modular avatar system used), so the pick is " +
+             "stable for a given employee across saves/reloads. Split Male/Female so the picked " +
+             "model always matches the employee's actual gender — 'random' means random among " +
+             "that gender's own variants (room to grow later), never a coin flip on which gender " +
+             "shows up. No clothing/accessory parts exist yet, so this is the stand-in for that " +
+             "system. Leave both pools for a role empty to fall back to that role's single field above.")]
+    [SerializeField] private GameObject[] _bossAvatarModelPoolMale;
+    [SerializeField] private GameObject[] _bossAvatarModelPoolFemale;
+    [SerializeField] private GameObject[] _securityAvatarModelPoolMale;
+    [SerializeField] private GameObject[] _securityAvatarModelPoolFemale;
+    [SerializeField] private GameObject[] _exterminatorAvatarModelPoolMale;
+    [SerializeField] private GameObject[] _exterminatorAvatarModelPoolFemale;
+    [SerializeField] private GameObject[] _workerAvatarModelPoolMale;
+    [SerializeField] private GameObject[] _workerAvatarModelPoolFemale;
 
     // ─── Auto-spawn (testing) ─────────────────────────────────────────────────
     [Header("Auto-Spawn (Testing)")]
@@ -241,7 +269,7 @@ public class EmployeeSpawner : MonoBehaviour
         if (EmployeeRegistry.Instance != null)
             EmployeeRegistry.Instance.Register(identity);
 
-        var fixedAvatar = FixedAvatarFor(record.role);
+        var fixedAvatar = FixedAvatarFor(record.role, record.gender, record.employeeGuid);
         if (fixedAvatar != null)
             ApplyFixedAvatar(identity, fixedAvatar);
         else if (_useModularAvatars)
@@ -498,14 +526,43 @@ public class EmployeeSpawner : MonoBehaviour
     /// <summary>Dedicated fixed-look FBX for roles that always use the same model — null for
     /// every other role, which then falls through to the random modular avatar (if enabled) or
     /// the default worker mesh.</summary>
-    private GameObject FixedAvatarFor(EmployeeRole role) => role switch
+private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, string employeeGuid)
     {
-        EmployeeRole.Boss             => _bossAvatarModel,
-        EmployeeRole.Exterminator     => _exterminatorAvatarModel,
-        EmployeeRole.InventoryControl => _icAvatarModel,
-        EmployeeRole.Security         => _securityAvatarModel,
-        _                             => null,
-    };
+        // Each pool is split by gender so the picked model always matches the employee's actual
+        // gender — a female-named hire never ends up with the male body (the bug Tad reported).
+        // "Random" means random among that gender's own variants (today just one per gender; room
+        // to grow later as more variants get added), never a coin flip on which gender shows up.
+        bool female = gender == EmployeeGender.Female;
+        GameObject[] pool = role switch
+        {
+            EmployeeRole.Boss             => PoolOrSingle(female ? _bossAvatarModelPoolFemale : _bossAvatarModelPoolMale, _bossAvatarModel),
+            EmployeeRole.Exterminator     => PoolOrSingle(female ? _exterminatorAvatarModelPoolFemale : _exterminatorAvatarModelPoolMale, _exterminatorAvatarModel),
+            EmployeeRole.InventoryControl => PoolOrSingle(null, _icAvatarModel),
+            EmployeeRole.Security         => PoolOrSingle(female ? _securityAvatarModelPoolFemale : _securityAvatarModelPoolMale, _securityAvatarModel),
+            EmployeeRole.TruckDriver      => PoolOrSingle(null, _truckDriverAvatarModel),
+            // Every other role (Order Selector, Reach Truck/Dock Stocker Operator, Loader, Receiver,
+            // Supervisor, and the HR/Admin/Sanitation placeholders) — the actual warehouse floor —
+            // still reads as a blend of men and women overall, since the employee population itself
+            // is a blend; each individual hire just always matches their own gender now.
+            _ => PoolOrSingle(female ? _workerAvatarModelPoolFemale : _workerAvatarModelPoolMale,
+                    female ? _workerFemaleAvatarModel : _workerMaleAvatarModel),
+        };
+
+        if (pool == null || pool.Length == 0) return null;
+        if (pool.Length == 1) return pool[0];
+
+        int seed  = ModularAvatarAssembler.StableSeed(employeeGuid);
+        int index = ((seed % pool.Length) + pool.Length) % pool.Length;
+        return pool[index];
+    }
+
+    /// <summary>Prefers the pool array (random-but-stable pick) when it has entries; otherwise
+    /// wraps the single legacy field so existing Inspector wiring keeps working untouched.</summary>
+    private static GameObject[] PoolOrSingle(GameObject[] pool, GameObject single)
+    {
+        if (pool != null && pool.Length > 0) return pool;
+        return single != null ? new[] { single } : null;
+    }
 
     // ─── Fixed avatar overlay ───────────────────────────────────────────────────
     // Same overlay technique as ApplyModularAvatar (worker keeps its NavMeshAgent/EmployeeIdentity/
@@ -518,6 +575,14 @@ public class EmployeeSpawner : MonoBehaviour
         var workerAnimator = identity.GetComponentInChildren<Animator>(true);
 
         var avatar = Instantiate(fixedModel);
+
+        // Third-party character packs (e.g. Polyperfect) ship their own locomotion stack on the
+        // root — a CharacterController, NavMeshAgent, and wander/AI script — meant for the model
+        // to drive itself standalone. Here the avatar is a pure visual overlay riding under the
+        // worker's own EmployeeIdentity/NavMeshAgent/AiNavigation, so those components must come
+        // off or they'd fight the worker's real movement (double NavMeshAgent, a second collider
+        // volume, and a wander script yanking the mesh off in its own direction).
+        StripForeignLocomotion(avatar);
 
         // Hide the worker's own animated mesh — the fixed avatar replaces it visually.
         foreach (var smr in identity.GetComponentsInChildren<SkinnedMeshRenderer>(true))
@@ -549,7 +614,25 @@ public class EmployeeSpawner : MonoBehaviour
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
     }
 
-    private static Transform FindDeepByName(Transform parent, string boneName)
+    // ─── Overlay cleanup ────────────────────────────────────────────────────────
+    /// <summary>Removes locomotion/AI components a third-party character prefab (e.g. Polyperfect)
+    /// ships on its own root, which are meant for the model to drive itself standalone and would
+    /// otherwise conflict with the worker's own NavMeshAgent/AiNavigation once this is parented on
+    /// as a visual-only overlay.</summary>
+    private static void StripForeignLocomotion(GameObject avatar)
+    {
+        // Wander script first — it RequireComponents CharacterController, so Unity refuses to
+        // remove the controller while the script is still attached to the same GameObject.
+        foreach (var wander in avatar.GetComponentsInChildren<Polyperfect.People.People_WanderScript>(true))
+            DestroyImmediate(wander);
+        foreach (var cc in avatar.GetComponentsInChildren<CharacterController>(true))
+            DestroyImmediate(cc);
+        foreach (var nav in avatar.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true))
+            DestroyImmediate(nav);
+    }
+
+    
+private static Transform FindDeepByName(Transform parent, string boneName)
     {
         if (parent.name == boneName) return parent;
         foreach (Transform c in parent)
