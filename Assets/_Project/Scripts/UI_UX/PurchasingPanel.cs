@@ -47,6 +47,8 @@ public class PurchasingPanel : IUIPanel
     private static readonly Color ColOrangeEdge  = new Color(0x7A / 255f, 0x4C / 255f, 0x22 / 255f, 1f);
     private static readonly Color ColOrangeText  = new Color(0xFD / 255f, 0xE8 / 255f, 0xCC / 255f, 1f);
     private static readonly Color ColOrangeHover = new Color(0xC6 / 255f, 0x7F / 255f, 0x42 / 255f, 1f);
+    private static readonly Color ColSkyBlueText = new Color(0x87 / 255f, 0xCE / 255f, 0xFA / 255f, 1f);
+    private static readonly Color ColBrightYellow = new Color(1f, 0xF2 / 255f, 0x00 / 255f, 1f);
     private static readonly Color ColCardEven    = new Color(36f / 255f, 48f / 255f, 62f / 255f, 0.65f);
     private static readonly Color ColCardOdd     = new Color(30f / 255f, 40f / 255f, 52f / 255f, 0.65f);
     private static readonly Color ColMoney       = new Color(0x7E / 255f, 0xD6 / 255f, 0x8A / 255f, 1f);
@@ -2313,7 +2315,9 @@ public class PurchasingPanel : IUIPanel
         // this height so they read as a matched row of cards rather than three different sizes — per
         // Tad's explicit request. Sized for the tallest content: the Requirements box's 2-line wrapped
         // header + divider + 2 more lines.
-        const float statBoxHeight = 150f;
+        // Bumped 150 -> 178 to make room for the "Order X more cs. to Dispatch." line added to the
+        // Requirements box — all three plates stay matched-height since they share this constant.
+        const float statBoxHeight = 178f;
 
         // Delivery fee — live, color-coded to the vendor's relationship status (cheaper freight from
         // vendors in good standing, pricier from ones you've burned). Per Tad's explicit request this
@@ -2369,7 +2373,7 @@ public class PurchasingPanel : IUIPanel
             requirementsBox.style.borderBottomLeftRadius = requirementsBox.style.borderBottomRightRadius = 6;
         statsRow.Add(requirementsBox);
 
-        var requirementsHeader = MakeText("Minimum Dispatch Requirements", 14, ColOrangeText, bold: true);
+        var requirementsHeader = MakeText("Minimum Customer Requirements for Trailer Dispatch", 14, ColSkyBlueText, bold: true);
         requirementsHeader.style.unityTextAlign = TextAnchor.MiddleCenter;
         requirementsHeader.style.whiteSpace = WhiteSpace.Normal;
         // Tightens the gap between this label's own two wrapped lines ("Minimum Dispatch" /
@@ -2398,9 +2402,20 @@ public class PurchasingPanel : IUIPanel
         requirementsMinLine.style.unityParagraphSpacing = -4;
         requirementsBox.Add(requirementsMinLine);
 
+        // How many more cases this vendor's basket still needs to reach the minimum — bright yellow so
+        // it reads as the one actionable number in the box. Hidden once the minimum is met (or there
+        // is no case minimum), same "only show what's relevant" pattern requirementsMinLine's own
+        // "No minimum purchase required" fallback uses.
+        var requirementsNeededLine = MakeText("", 14, ColBrightYellow, bold: true);
+        requirementsNeededLine.style.unityTextAlign = TextAnchor.MiddleCenter;
+        requirementsNeededLine.style.marginTop = 4;
+        requirementsNeededLine.style.unityParagraphSpacing = -4;
+        requirementsBox.Add(requirementsNeededLine);
+
+        // Pushed further down (marginTop 2 -> 10) to make room for requirementsNeededLine above it.
         var requirementsPenaltyLine = MakeText("Penalties incurred at 2 hrs. or more", 14, ColOrangeText);
         requirementsPenaltyLine.style.unityTextAlign = TextAnchor.MiddleCenter;
-        requirementsPenaltyLine.style.marginTop = 2;
+        requirementsPenaltyLine.style.marginTop = 10;
         requirementsPenaltyLine.style.unityParagraphSpacing = -4;
         requirementsBox.Add(requirementsPenaltyLine);
 
@@ -2535,6 +2550,21 @@ public class PurchasingPanel : IUIPanel
             // whether the minimum is met is now the DISPATCH ORDER button's job to signal (gray vs
             // green), not this box's.
             requirementsMinLine.style.color = new StyleColor(ColOrangeText);
+
+            // "Order X more cs. to Dispatch." — X = the case minimum minus what's already in the
+            // basket. Only shown while there's an actual shortfall against a real case minimum;
+            // clamped at 0 so a fully-met (or over-met) basket never reads a negative/zero ask.
+            int casesNeeded = Mathf.Max(0, vendor.MinimumOrderCases - cases);
+            if (vendor.MinimumOrderCases > 0 && casesNeeded > 0)
+            {
+                requirementsNeededLine.text = $"Order {casesNeeded:N0} more cs. to Dispatch.";
+                requirementsNeededLine.style.display = DisplayStyle.Flex;
+            }
+            else
+            {
+                requirementsNeededLine.text = "";
+                requirementsNeededLine.style.display = DisplayStyle.None;
+            }
 
             // Color reflects the minimum purchase alone (green once met or there is none, dark gray
             // otherwise) — see ApplyDispatchColor above. Opacity separately reflects only whether

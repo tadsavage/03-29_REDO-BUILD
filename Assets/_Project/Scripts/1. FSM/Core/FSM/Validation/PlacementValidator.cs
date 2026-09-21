@@ -13,9 +13,20 @@ public class PlacementValidator : MonoBehaviour
         ObjDataSO data,
         GameObject ignore = null)
     {
-        // Bulldozer / special objects that ignore all rules
+        // Bulldozer / special objects that ignore all rules — EXCEPT a height-aware fixture (see
+        // blockedByTallObstructions) still refuses a cell a Wall/Rack is tall enough to occupy.
         if (data.ignorePlacementRules)
+        {
+            if (data.blockedByTallObstructions)
+            {
+                foreach (var o in offsets)
+                {
+                    if (IsBlockedByTallObstruction(root + o, data, ignore))
+                        return false;
+                }
+            }
             return true;
+        }
 
         int coreCount = Mathf.Min(data.CoreFootprintCellCount, offsets.Length);
 
@@ -96,13 +107,51 @@ public class PlacementValidator : MonoBehaviour
         return data.category == "Foundation" || data.category == "Grounds";
     }
 
+    /// <summary>
+    /// For a height-placed fixture that otherwise ignores every placement rule (see
+    /// ObjDataSO.blockedByTallObstructions — e.g. a ceiling light): the one thing that still blocks
+    /// it is a Wall or Racking object physically tall enough to reach the fixture's own placement
+    /// height. Compares REAL rendered geometry (the existing object's actual top, from its renderer
+    /// bounds) against PlacementFinalizer.GetFloorTopY(cell) + data.worldYOffset — the exact same
+    /// formula the finalizer uses to place the fixture — rather than trusting ObjDataSO.objHeight,
+    /// which isn't reliably in the same units/scale as the real mesh (verified: Wall.asset's
+    /// objHeight is 9, nowhere near a real 9-metre wall). A rack's real top height also varies by
+    /// how many levels are stacked, which only the live renderer bounds can answer correctly.
+    /// </summary>
+    private bool IsBlockedByTallObstruction(Vector2Int cell, ObjDataSO data, GameObject ignore)
+    {
+        var list = _grid.GetObjectsInCell(cell);
+        if (list == null || list.Count == 0) return false;
+
+        float fixtureY = PlacementFinalizer.GetFloorTopY(_grid, cell) + data.worldYOffset;
+
+        foreach (var entry in list)
+        {
+            if (entry.instance == ignore) continue;
+            if (entry.instance == null || !entry.instance.activeSelf || entry.data == null) continue;
+            if (entry.data.category != "Walls" && entry.data.category != "Racking") continue;
+
+            float entryTopY = 0f;
+            foreach (var r in entry.instance.GetComponentsInChildren<Renderer>())
+                entryTopY = Mathf.Max(entryTopY, r.bounds.max.y);
+
+            if (entryTopY >= fixtureY)
+                return true;
+        }
+        return false;
+    }
+
     // =========================================================
     //  INTERNAL: VALIDATE ONE CELL ONLY
     // =========================================================
     private bool IsSingleCellValid(Vector2Int cell, ObjDataSO data, GameObject ignore)
     {
         if (data.ignorePlacementRules)
+        {
+            if (data.blockedByTallObstructions && IsBlockedByTallObstruction(cell, data, ignore))
+                return false;
             return true;
+        }
 
         if (!_grid.IsInsideGrid(cell))
             return false;

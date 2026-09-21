@@ -23,8 +23,9 @@ public static class PartnershipGainFx
 
     private const float StartFontSize = 14f;
 
-    /// <summary>"Grows by 500%" = ends at 6x its starting size (start + 500% of start).</summary>
-    private const float GrowthMultiplier = 6f;
+    /// <summary>Target size cut in half per Tad's ask (2026-09-21) — was 6x starting size ("grows by
+    /// 500%"), now 3x.</summary>
+    private const float GrowthMultiplier = 3f;
     private const float PeakFontSize = StartFontSize * GrowthMultiplier;
 
     /// <summary>How far past the viewport's bottom edge the text travels before being torn down —

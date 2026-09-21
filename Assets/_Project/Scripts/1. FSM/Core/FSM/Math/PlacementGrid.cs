@@ -230,12 +230,23 @@ public class PlacementGrid : MonoBehaviour
             // reposition the shared instance a second time.
             if (entry.isBuffer) continue;
 
-            // Foundations always stay at y=0.
-            // Objects that ignore rules or clear grid stay at y=0, unless they are floors or grounds.
+            // Objects that ignore rules or clear grid — unless they are floors or grounds — sit on
+            // top of whatever REAL surface is under them (GetFloorTopY: the floor/foundation's own
+            // rendered top, 0 for bare yard) plus their own worldYOffset, exactly the formula
+            // PlacementFinalizer used to place them in the first place. This used to hardcode
+            // p.y = 0 unconditionally, which was wrong two different ways, both found live
+            // 2026-09-21: (1) it silently overwrote whatever height PlacementFinalizer had just
+            // computed the instant the object was added to the grid — a light with a real
+            // worldYOffset (e.g. a flush ceiling fixture) landed back at Y=0 one call later; (2) a
+            // pole-style light standing on a raised dock/foundation sank to ABSOLUTE world Y=0
+            // instead of resting on the dock's own surface, partially burying its base in the slab.
+            // GetFloorTopY(cell) + worldYOffset collapses to the old flat 0 exactly when there's no
+            // floor under the cell AND worldYOffset is 0 (e.g. a waypoint on bare yard), so every
+            // other ignorePlacementRules object's behavior is unchanged.
             if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
             {
                 Vector3 p = GetCellCenter(cell);
-                p.y = 0f;
+                p.y = PlacementFinalizer.GetFloorTopY(this, cell) + entry.data.worldYOffset;
                 entry.instance.transform.position = p;
                 continue;
             }

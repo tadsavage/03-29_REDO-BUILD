@@ -1089,14 +1089,18 @@ namespace GameCore.Inventory
             // "earliest upcoming" is TOMORROW's trailer, and today's freight would silently ride a
             // slot booked for a different day's order. Falling through to auto-place instead puts it
             // on today where its deadline actually is, or strands it visibly if the dock is full.
-            // A recurring order can now be materialized DAYS before its delivery slot so the player can
-            // plan and pick it ahead of time. CreatedDayNumber is deliberately stamped with that slot
-            // by OrderArrivalService.GenerateFor(contract, scheduledDay), so attach this manifest to
-            // the appointment on THAT day — never blindly to CurrentDay. Otherwise the first future
-            // order could join today's pre-booked trailer, while the Recurring Orders tab correctly
-            // displays another future manifest for the same account.
-            int scheduledDay = !order.IsBulk && order.CreatedDayNumber >= CurrentDay
-                ? order.CreatedDayNumber
+            //
+            // MUST be order.DueDay here, NOT order.CreatedDayNumber — fixed 2026-09-21, found live via
+            // a struck-through "already complete" chip on a still-future slot. A recurring order can be
+            // materialized DAYS before its delivery slot (GenerateAheadHours / a contract's LeadTimeDays
+            // > 0) so the player can plan and pick it ahead of time — CreatedDayNumber is the day that
+            // EARLY MATERIALIZATION happened, DueDay is the day the trailer actually has to go (see
+            // OrderService's own note: "DueDay (when it's due to ship), not CreatedDayNumber (when it
+            // arrived) — those can differ"). Using CreatedDayNumber here attached an order due on Day 5
+            // to whatever appointment existed for Day 2 (the day it was pre-generated), auto-booking a
+            // spurious Day-2 slot for it and shipping it three days early through the wrong trailer.
+            int scheduledDay = !order.IsBulk && order.DueDay >= CurrentDay
+                ? order.DueDay
                 : CurrentDay;
             var candidates = UpcomingFor(order.CustomerId)
                 .Where(a => a.Kind != AppointmentKind.Inbound && a.ContractId == order.ContractId)
@@ -1174,10 +1178,16 @@ namespace GameCore.Inventory
         /// <summary>
         /// Repairs appointments written by the former early-generation behaviour, which attached a
         /// future recurring manifest to the trailer booked for the day it was generated rather than its
-        /// own delivery day. For every future recurring order, its CreatedDayNumber is the delivery slot
-        /// stamped by OrderArrivalService.GenerateFor; move only that order ID to the matching existing
-        /// appointment. This is idempotent, preserves the player's chosen door/block/parked state, and
-        /// makes Schedule and Recurring Orders read the exact same order data after a save is loaded.
+        /// own delivery day. For every future recurring order, its DueDay is the actual delivery slot;
+        /// move only that order ID to the matching existing appointment. This is idempotent, preserves
+        /// the player's chosen door/block/parked state, and makes Schedule and Recurring Orders read the
+        /// exact same order data after a save is loaded.
+        ///
+        /// Fixed 2026-09-21: this used to key off order.CreatedDayNumber (the day the order's data was
+        /// EARLY-MATERIALIZED, per GenerateAheadHours/a contract's LeadTimeDays) instead of DueDay (the
+        /// day it's actually due) — the exact same mix-up HandleOrderArrived had, and since this method
+        /// runs right after every HandleOrderArrived call, it was re-attaching orders back to the wrong
+        /// early day every time, undoing any correction. DueDay is the field that means "delivery slot."
         /// </summary>
         private void ReconcileFutureRecurringAppointments()
         {
@@ -1188,11 +1198,11 @@ namespace GameCore.Inventory
                 if (order == null || order.IsBulk || string.IsNullOrEmpty(order.ContractId)
                     || order.Status == OrderData.OrderStatus.Shipped
                     || order.Status == OrderData.OrderStatus.Cancelled
-                    || order.CreatedDayNumber < CurrentDay) continue;
+                    || order.DueDay < CurrentDay) continue;
 
                 var target = _appointments.FirstOrDefault(a => a.Kind != AppointmentKind.Inbound
                     && a.ContractId == order.ContractId && a.CustomerId == order.CustomerId
-                    && a.Day == order.CreatedDayNumber);
+                    && a.Day == order.DueDay);
                 if (target == null) continue;
 
                 foreach (var appointment in _appointments)

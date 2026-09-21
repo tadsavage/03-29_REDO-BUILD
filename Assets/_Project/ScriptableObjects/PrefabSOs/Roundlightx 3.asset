@@ -24,7 +24,7 @@ MonoBehaviour:
   isFloor: 0
   canBeReplacedByDoor: 0
   replacesWalls: 0
-  ClearsGridAfterPlacement: 1
+  ClearsGridAfterPlacement: 0
   pathfindingClear: 0
   navArea: 0
   allowedAgents: 5
@@ -32,6 +32,7 @@ MonoBehaviour:
   isStackable: 0
   objHeight: 1.55
   worldYOffset: 0
+  blockedByTallObstructions: 1
   defaultFloorTile: {fileID: 0}
   footprint: {x: 1, y: 1}
   customShapeOffsets: []

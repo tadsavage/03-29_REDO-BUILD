@@ -151,7 +151,8 @@ namespace GameCore.Inventory
         /// next frame, which is the opposite of a consequence.
         /// </summary>
         public IEnumerable<ContractData> AvailableOffers =>
-            _catalog.Where(c => !_signed.Any(s => s.ContractId == c.ContractId && s.Active)
+            _catalog.Where(c => c != null
+                             && !_signed.Any(s => s.ContractId == c.ContractId && s.Active)
                              && !IsInLossCooldown(c.ContractId)
                              && CurrentReputation >= c.ReputationRequired);
 
@@ -179,7 +180,8 @@ namespace GameCore.Inventory
         /// see is a goal, a door you can't is just a smaller game.
         /// </summary>
         public IEnumerable<ContractData> ReputationLockedOffers =>
-            _catalog.Where(c => !_signed.Any(s => s.ContractId == c.ContractId && s.Active)
+            _catalog.Where(c => c != null
+                             && !_signed.Any(s => s.ContractId == c.ContractId && s.Active)
                              && !IsInLossCooldown(c.ContractId)
                              && CurrentReputation < c.ReputationRequired);
 
@@ -207,7 +209,7 @@ namespace GameCore.Inventory
 
         /// <summary>Contracts barred right now, for the panel to list as "lost — back in N days".</summary>
         public IEnumerable<ContractData> LostOffers =>
-            _catalog.Where(c => IsInLossCooldown(c.ContractId));
+            _catalog.Where(c => c != null && IsInLossCooldown(c.ContractId));
 
         public bool IsSigned(string contractId) =>
             _signed.Any(s => s.ContractId == contractId && s.Active);
@@ -216,9 +218,12 @@ namespace GameCore.Inventory
         public SignedContract GetSigned(string contractId) =>
             _signed.FirstOrDefault(s => s.ContractId == contractId && s.Active);
 
-        /// <summary>The catalog asset behind a signed record.</summary>
+        /// <summary>The catalog asset behind a signed record. A destroyed runtime ContractData
+        /// (e.g. an orphaned bulk offer that didn't survive a domain reload — see the 2026-09-21
+        /// crash this guard fixes) is treated as absent rather than thrown on, same as a genuinely
+        /// missing one.</summary>
         public ContractData GetContract(string contractId) =>
-            _catalog.FirstOrDefault(c => c.ContractId == contractId);
+            _catalog.FirstOrDefault(c => c != null && c.ContractId == contractId);
 
         /// <summary>
         /// Standing accounts actually sending work — signed, active, and NOT a spent one-off.
@@ -530,7 +535,7 @@ namespace GameCore.Inventory
                           $"{LossCooldownDaysRemaining(contractId)} day(s) of cooldown left.");
                 return false;
             }
-            var contract = _catalog.FirstOrDefault(c => c.ContractId == contractId);
+            var contract = _catalog.FirstOrDefault(c => c != null && c.ContractId == contractId);
             if (contract == null) return false;
 
             int signDay = _timeService?.Day ?? 0;
@@ -732,7 +737,7 @@ namespace GameCore.Inventory
             {
                 if (!signed.Active) continue;
 
-                var contract = _catalog.FirstOrDefault(c => c.ContractId == signed.ContractId);
+                var contract = _catalog.FirstOrDefault(c => c != null && c.ContractId == signed.ContractId);
                 if (contract == null)
                 {
                     Debug.LogWarning($"[OrderArrivalService] Signed contract '{signed.ContractId}' has no " +

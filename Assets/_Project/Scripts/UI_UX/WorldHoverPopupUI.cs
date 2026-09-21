@@ -41,6 +41,7 @@ public class WorldHoverPopupUI : MonoBehaviour
         public Label VendorLabel;
         public Label OrderLabel;
         public Label ApptLabel;
+        public Label ApptDayLabel;
         public VisualElement DoorBadge;
         public Label DoorLabel;
         public VisualElement LoadFill;
@@ -1321,8 +1322,19 @@ private void ShowLocation(LocationData location)
         apptLabel.pickingMode = PickingMode.Ignore;
         apptLabel.style.fontSize = 21; // 17 -> 21, +25% per Tad's ask
         apptLabel.style.color = new Color(0.75f, 0.85f, 0.95f, 1f);
-        apptLabel.style.marginBottom = 6;
         popup.Add(apptLabel);
+
+        // Which DAY the appointment above is booked for — indented under the time so it reads as
+        // a detail of that line rather than its own fact. Per Tad's ask: the time alone doesn't say
+        // whether an appointment moved forward a day or two when rescheduled.
+        var apptDayLabel = new Label { text = "" };
+        ui.ApptDayLabel = apptDayLabel;
+        apptDayLabel.pickingMode = PickingMode.Ignore;
+        apptDayLabel.style.fontSize = 15;
+        apptDayLabel.style.color = new Color(0.6f, 0.7f, 0.8f, 1f);
+        apptDayLabel.style.marginLeft = 14;
+        apptDayLabel.style.marginBottom = 6;
+        popup.Add(apptDayLabel);
 
         var divider = new VisualElement();
         divider.pickingMode = PickingMode.Ignore;
@@ -1422,15 +1434,39 @@ private void ShowLocation(LocationData location)
         ServiceLocator.TryGet<InventoryService>(out var inventory);
         ServiceLocator.TryGet<OrderService>(out var orderServiceForCritical);
 
+        // Which customer order is actually waiting on a critical SKU, and when its own trailer goes —
+        // the single most urgent (earliest due) active order still short on it. Per Tad's ask
+        // (2026-09-21): the critical count alone didn't say WHICH order it was covering or how much
+        // time there was before that order's own dock block. Method-level (not nested in the inbound
+        // branch below) so the render loop at the bottom of this method — shared by both branches —
+        // can call it too.
+        (string orderNumber, string when) MostUrgentOrderFor(string skuId)
+        {
+            var candidate = orderServiceForCritical?.ActiveOrders
+                .Where(o => o != null && o.LineItems.Any(li => li.SkuId == skuId && li.QuantityNeeded > 0))
+                .OrderBy(o => o.DueDay)
+                .FirstOrDefault();
+            if (candidate == null) return (null, null);
+
+            string orderNumber = !string.IsNullOrEmpty(candidate.OrderNumber) ? candidate.OrderNumber : candidate.OrderId;
+            var orderAppt = dockSchedule?.Appointments.FirstOrDefault(a =>
+                a.Kind != AppointmentKind.Inbound && a.OrderIds.Contains(candidate.OrderId));
+            string when = orderAppt == null
+                ? "unscheduled"
+                : (orderAppt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {orderAppt.Day}") + $" @ {orderAppt.TimeLabel}";
+            return (orderNumber, when);
+        }
+
         Color borderColor = TruckRecurringColor;
         string vendor = null;
         string vendorId = null;
         string orderInfo = null;
         string apptInfo = null;
+        string apptDayInfo = null;
         int doorNumber = 0;
         float progress = 0f;
         int totalPalletCount = 0;
-        var items = new List<(string desc, int qty, int pallets, int criticalCases)>();
+        var items = new List<(string desc, int qty, int pallets, int criticalCases, int casesPerPallet, string skuId)>();
 
         if (!truck.IsOutbound)
         {
@@ -1445,6 +1481,9 @@ private void ShowLocation(LocationData location)
                 orderInfo = $"PO {shipment.PONumber}";
                 var appt = dockSchedule?.FindForPo(shipment.PONumber);
                 apptInfo = appt != null ? $"Appt: {appt.TimeLabel}" : null;
+                apptDayInfo = appt != null
+                    ? (appt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {appt.Day}")
+                    : null;
 
                 // Physical pallets-off-the-trailer progress, not case-received progress — advances the
                 // instant the dock stocker drops a pallet in the lane (TotalPalletsAtDock snapshotted
@@ -1475,6 +1514,13 @@ private void ShowLocation(LocationData location)
                     return needed;
                 }
 
+                // Consolidated by SKU, not one row per LineItem — a PO commonly carries several
+                // LineItems for the same SKU (e.g. one per physical pallet), which used to print the
+                // exact same "Almonds x45 (1 plt) — 7 critical" row three times in a row instead of
+                // one combined line. Order of first appearance is preserved via skuOrder.
+                var bySku = new Dictionary<string, (string desc, int qty, int pallets, int casesPerPallet)>();
+                var skuOrder = new List<string>();
+
                 foreach (var li in shipment.LineItems)
                 {
                     if (li == null || li.Dropped) continue;
@@ -1482,10 +1528,26 @@ private void ShowLocation(LocationData location)
                     string desc = sku != null ? sku.ItemDescription : li.SkuId;
                     int ti = sku != null && sku.Ti > 0 ? sku.Ti : 1;
                     int hi = sku != null && sku.Hi > 0 ? sku.Hi : 1;
-                    int pallets = Mathf.Max(1, Mathf.CeilToInt(li.Quantity / (float)(ti * hi)));
-                    int onHand = inventory?.GetTotalUnitsBySku(li.SkuId) ?? 0;
-                    int criticalCases = Mathf.Clamp(NeededFor(li.SkuId) - onHand, 0, li.Quantity);
-                    items.Add((desc, li.Quantity, pallets, criticalCases));
+                    int casesPerPallet = ti * hi;
+                    int pallets = Mathf.Max(1, Mathf.CeilToInt(li.Quantity / (float)casesPerPallet));
+
+                    if (bySku.TryGetValue(li.SkuId, out var existing))
+                        bySku[li.SkuId] = (existing.desc, existing.qty + li.Quantity, existing.pallets + pallets, existing.casesPerPallet);
+                    else
+                    {
+                        bySku[li.SkuId] = (desc, li.Quantity, pallets, casesPerPallet);
+                        skuOrder.Add(li.SkuId);
+                    }
+                }
+
+                foreach (var skuId in skuOrder)
+                {
+                    var e = bySku[skuId];
+                    int onHand = inventory?.GetTotalUnitsBySku(skuId) ?? 0;
+                    // Capped against the CONSOLIDATED quantity, same reasoning the per-line cap had —
+                    // a SKU can't be "critical" for more cases than are actually arriving on this PO.
+                    int criticalCases = Mathf.Clamp(NeededFor(skuId) - onHand, 0, e.qty);
+                    items.Add((e.desc, e.qty, e.pallets, criticalCases, e.casesPerPallet, skuId));
                 }
 
                 // Read off the manifest built just above, not TotalPalletsAtDock (which stays 0 until
@@ -1520,6 +1582,7 @@ private void ShowLocation(LocationData location)
             {
                 vendor = appt.CustomerName;
                 apptInfo = $"Appt: {appt.TimeLabel}";
+                apptDayInfo = appt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {appt.Day}";
                 borderColor = (appt.Kind == AppointmentKind.Bulk || appt.Kind == AppointmentKind.Wholesale)
                     ? TruckBulkColor : TruckRecurringColor;
 
@@ -1538,18 +1601,19 @@ private void ShowLocation(LocationData location)
                         string desc = sku != null ? sku.ItemDescription : li.SkuId;
                         int ti = sku != null && sku.Ti > 0 ? sku.Ti : 1;
                         int hi = sku != null && sku.Hi > 0 ? sku.Hi : 1;
-                        int pallets = Mathf.Max(1, Mathf.CeilToInt(li.QuantityNeeded / (float)(ti * hi)));
+                        int casesPerPallet = ti * hi;
+                        int pallets = Mathf.Max(1, Mathf.CeilToInt(li.QuantityNeeded / (float)casesPerPallet));
                         totalPallets += pallets;
 
                         int existingIdx = items.FindIndex(it => it.desc == desc);
                         if (existingIdx >= 0)
                         {
                             var e = items[existingIdx];
-                            items[existingIdx] = (e.desc, e.qty + li.QuantityNeeded, e.pallets + pallets, 0);
+                            items[existingIdx] = (e.desc, e.qty + li.QuantityNeeded, e.pallets + pallets, 0, e.casesPerPallet, e.skuId);
                         }
                         else
                         {
-                            items.Add((desc, li.QuantityNeeded, pallets, 0));
+                            items.Add((desc, li.QuantityNeeded, pallets, 0, casesPerPallet, li.SkuId));
                         }
                     }
                 }
@@ -1617,6 +1681,9 @@ private void ShowLocation(LocationData location)
         ui.ApptLabel.text = apptInfo ?? "";
         ui.ApptLabel.style.display = string.IsNullOrEmpty(apptInfo) ? DisplayStyle.None : DisplayStyle.Flex;
 
+        ui.ApptDayLabel.text = apptDayInfo ?? "";
+        ui.ApptDayLabel.style.display = string.IsNullOrEmpty(apptDayInfo) ? DisplayStyle.None : DisplayStyle.Flex;
+
         if (doorNumber > 0)
         {
             ui.DoorLabel.text = $"Dr.{doorNumber}";
@@ -1643,18 +1710,38 @@ private void ShowLocation(LocationData location)
         }
         else
         {
-            foreach (var (desc, qty, pallets, criticalCases) in items)
+            // "Almonds x45: 180cs.   4plts." — per Tad's ask (2026-09-21). x45 is the SKU's own
+            // case-pack size (cases per pallet), not the consolidated total, so it still reads as
+            // "this is a 45-case pallet item" regardless of how many pallets of it are on this
+            // manifest. A critical line's shortfall now prints on its OWN row below the item, naming
+            // which order it's covering and when that order's own trailer goes — "8 cases needed for
+            // Order X @ Today @ 08:00–10:00" — instead of being tacked onto the item line itself.
+            foreach (var (desc, qty, pallets, criticalCases, casesPerPallet, skuId) in items)
             {
-                string text = $"{desc}  x{qty}  ({pallets} plt)";
-                if (criticalCases > 0) text += $"  — {criticalCases} critical";
+                string text = $"{desc} x{casesPerPallet}: {qty}cs.   {pallets}plts.";
                 var row = new Label(text);
                 row.pickingMode = PickingMode.Ignore;
                 row.style.fontSize = 16; // 13 -> 16, +25% per Tad's ask
                 row.style.color = criticalCases > 0
                     ? new Color(1f, 0.55f, 0.4f, 1f)
                     : new Color(0.85f, 0.9f, 0.95f, 1f);
-                row.style.marginBottom = 2;
+                row.style.marginBottom = criticalCases > 0 ? 0 : 2;
                 ui.ItemsList.Add(row);
+
+                if (criticalCases > 0)
+                {
+                    var (orderNumber, when) = MostUrgentOrderFor(skuId);
+                    string criticalText = orderNumber != null
+                        ? $"{criticalCases} cases needed for Order {orderNumber} @ {when}"
+                        : $"{criticalCases} cases needed";
+                    var criticalRow = new Label(criticalText);
+                    criticalRow.pickingMode = PickingMode.Ignore;
+                    criticalRow.style.fontSize = 13;
+                    criticalRow.style.color = new Color(1f, 0.55f, 0.4f, 1f);
+                    criticalRow.style.marginLeft = 10;
+                    criticalRow.style.marginBottom = 4;
+                    ui.ItemsList.Add(criticalRow);
+                }
             }
         }
     }

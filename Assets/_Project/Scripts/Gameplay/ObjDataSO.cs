@@ -72,6 +72,13 @@ public class ObjDataSO : ScriptableObject
     [Tooltip("World-space Y offset applied to this object when placed. Use this for objects like fixtures that need to spawn above ground level.")]
     public float worldYOffset = 0f;
 
+    [Tooltip("For an ignorePlacementRules fixture (e.g. a ceiling light) that would otherwise place " +
+             "over anything: still refuses a cell if a Wall or Racking object already there is tall " +
+             "enough to physically reach this fixture's own placement height (the floor/foundation " +
+             "surface at that cell, plus worldYOffset — the exact height PlacementFinalizer actually " +
+             "places it at). Ignored entirely unless ignorePlacementRules is also true.")]
+    public bool blockedByTallObstructions = false;
+
     [Header("Auto-Floor")]
     [Tooltip("For Foundation objects: floor tile automatically placed on top when this foundation is placed. Leave null for non-foundation objects.")]
     public ObjDataSO defaultFloorTile;
