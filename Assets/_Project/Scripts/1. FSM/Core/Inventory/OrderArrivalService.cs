@@ -64,9 +64,9 @@ namespace GameCore.Inventory
 
         /// <summary>Longest gap between deliveries any OrderFrequency can express — Weekly's 7 days.
         /// Bounds the forward scan in TryGetNextArrival. Deliberately its own constant rather than
-        /// reusing ScheduleHorizonDays, which is also 7 but means something unrelated (how far ahead
-        /// trailers are pre-booked); tying the scan to that would make lowering the horizon quietly
-        /// break weekly accounts' "next drop" display.</summary>
+        /// reusing ScheduleHorizonDays — tying the scan to that would make a shorter booking horizon
+        /// (see below, now 1 day) quietly break weekly accounts' "next drop" display, which genuinely
+        /// needs to look a full cadence ahead regardless of how far out trailers get pre-booked.</summary>
         private const int LongestCadenceDays = 7;
 
         /// <summary>Earliest hour a new customer request can land. Inclusive.</summary>
@@ -81,14 +81,16 @@ namespace GameCore.Inventory
         ///
         /// A standing account's appointments are a KNOWN QUANTITY — the contract already says which
         /// days it delivers and at what hour — so making the player discover each one the morning it
-        /// lands is busywork, and worse, it hides the thing the schedule exists to show: whether next
-        /// Thursday is already full before you sign a second account into it. A week out is enough to
-        /// see a collision coming and still short enough that the grid is readable.
+        /// lands is busywork. Was 7 (a full week out); Tad's call 2026-09-21 — a week-out grid was
+        /// more than needed and made the Schedule tab harder to read than it needed to be. 1 day still
+        /// gives enough lead to see tomorrow coming without cluttering the board with a week of
+        /// far-future placeholders. A Weekly account's OWN cadence display (TryGetNextArrival, "next
+        /// drop in N days") is unaffected — that reads LongestCadenceDays, not this.
         ///
         /// Bulk deliberately gets NO pre-booking. A bulk order doesn't exist until the player accepts
         /// it, so there's nothing to book ahead — placing it is the decision.
         /// </summary>
-        public const int ScheduleHorizonDays = 7;
+        public const int ScheduleHorizonDays = 1;
 
         /// <summary>
         /// How far ahead of its scheduled slot a recurring order's real composition (SKUs and

@@ -7,13 +7,23 @@ using GameCore.Services;
 namespace GameCore.Labor
 {
     /// <summary>
-    /// Self-bootstrapping outbound counterpart to the inbound truck arrival flow: watches for any
-    /// door whose lane has at least one staged (unparented) OutboundPalletBuilder and no truck
-    /// already assigned to that dock, then calls TruckYardManager.SpawnOutboundTruck for it.
-    /// Prototype-simple per Tad's 2026-07-23 spec ("just have a trailer show up automatically into
-    /// a lane that has at least one order staged in it") -- replaces having to click the DevConsole's
-    /// manual "spawn outbound truck" debug button. TrailerLoadController then waits at the dock
-    /// until enough pallets have accumulated before actually loading (LoadStartThreshold).
+    /// Self-bootstrapping outbound counterpart to the inbound truck arrival flow. Spawns a truck for
+    /// a door on either of two triggers:
+    ///
+    ///   STAGED  — the door's lane has at least one staged (unparented) OutboundPalletBuilder and no
+    ///             truck already assigned. Prototype-simple per Tad's 2026-07-23 spec ("just have a
+    ///             trailer show up automatically into a lane that has at least one order staged in
+    ///             it") -- replaces having to click the DevConsole's manual "spawn outbound truck"
+    ///             debug button.
+    ///   BLOCK START — the door has a live (non-Parked, non-ClosedOut) outbound/bulk appointment
+    ///             whose booked 2-hour block has started, regardless of whether anything has been
+    ///             staged yet. Added per Tad's 2026-09-21 ask: without this, an order nobody had
+    ///             started picking for could sit booked forever with no trailer ever arriving, no
+    ///             matter how the appointment was rescheduled — the STAGED trigger above never fires
+    ///             until picking has already begun, so the appointment's time did nothing on its own.
+    ///
+    /// TrailerLoadController then waits at the dock until enough pallets have accumulated before
+    /// actually loading (LoadStartThreshold) — that part is unchanged either way the truck got there.
     /// </summary>
     public class OutboundTruckDispatchService : MonoBehaviour
     {
@@ -74,6 +84,34 @@ namespace GameCore.Labor
                 }
 
                 _truckYard.SpawnOutboundTruck(doorNumber);
+            }
+
+            // A booked trailer is a PROMISE, not a hope — per Tad's ask (2026-09-21). Everything
+            // above only ever fires once a pallet has actually been picked and staged, so an
+            // appointment nobody had started picking for sat "booked" forever with no trailer ever
+            // arriving, no matter how many times it got rescheduled — the appointment's time was only
+            // ever used to HOLD a truck back (see above), never to summon one. This is what actually
+            // makes the block mean something: once the clock reaches its start, the truck shows up
+            // and waits at the dock, exactly like a real carrier's driver would, whether or not
+            // anything is staged for it yet.
+            if (schedule != null)
+            {
+                foreach (var appt in schedule.Appointments)
+                {
+                    if (appt.Kind == AppointmentKind.Inbound) continue;
+                    if (appt.Parked || appt.ClosedOut) continue;
+                    if (appt.Day != schedule.CurrentDay) continue;
+                    if (schedule.CurrentBlock < appt.BlockIndex) continue; // block hasn't started yet
+
+                    var dock = DockSlot.All.FirstOrDefault(d => d.DoorNumber == appt.DoorNumber);
+                    // IsOccupied alone is enough to prevent a double-spawn here — the staged-pallet
+                    // loop above already claims the dock synchronously (TruckController.AssignAndGo)
+                    // the instant it spawns a truck, so by the time this loop runs in the same tick
+                    // the door already reads occupied for any appointment that loop already handled.
+                    if (dock == null || dock.IsOccupied) continue;
+
+                    _truckYard.SpawnOutboundTruck(appt.DoorNumber);
+                }
             }
         }
     }

@@ -1,16 +1,16 @@
 {
     "saveName": "slot_save",
-    "money": 196768,
-    "spentToday": 5031,
+    "money": 187039,
+    "spentToday": 14760,
     "cameraData": {
         "focusPoint": {
-            "x": 36.58595275878906,
+            "x": 34.476383209228516,
             "y": 0.0,
-            "z": 4.606794357299805
+            "z": -3.164293050765991
         },
-        "distance": 18.080001831054688,
-        "pitch": 25.751995086669922,
-        "yaw": 1698.4893798828125
+        "distance": 37.0,
+        "pitch": 33.599998474121094,
+        "yaw": 1670.4893798828125
     },
     "placedObjects": [
         {
@@ -15415,42 +15415,42 @@
         },
         {
             "id": 28,
-            "x": 85,
-            "y": 50,
-            "rot": 0,
-            "customData": "",
-            "worldY": 1.1739076375961304,
-            "hasTransform": true,
-            "pos": {
-                "x": 41.36391830444336,
-                "y": 1.2420024871826172,
-                "z": 1.1472463607788086
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": -0.927703320980072,
-                "z": 0.0,
-                "w": -0.3733183443546295
-            }
-        },
-        {
-            "id": 61,
             "x": 81,
-            "y": 51,
+            "y": 50,
             "rot": 0,
             "customData": "",
             "worldY": 1.2420024871826172,
             "hasTransform": true,
             "pos": {
-                "x": 45.25587463378906,
-                "y": 1.1662060022354126,
-                "z": 11.96146297454834
+                "x": 46.2735595703125,
+                "y": 1.1968127489089966,
+                "z": -3.5670156478881836
             },
             "rotation": {
                 "x": 0.0,
-                "y": 0.30377134680747986,
+                "y": -0.043650731444358826,
                 "z": 0.0,
-                "w": 0.9527449607849121
+                "w": -0.9990469217300415
+            }
+        },
+        {
+            "id": 61,
+            "x": 84,
+            "y": 59,
+            "rot": 0,
+            "customData": "",
+            "worldY": 1.1662060022354126,
+            "hasTransform": true,
+            "pos": {
+                "x": 43.84983444213867,
+                "y": 1.1720012426376343,
+                "z": 9.434589385986328
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": -0.9201797246932983,
+                "z": 0.0,
+                "w": 0.3914963901042938
             }
         },
         {
@@ -15596,6 +15596,30 @@
     ],
     "devSettings": [
         {
+            "key": "AmbientMumble.volume",
+            "val": "0.5"
+        },
+        {
+            "key": "AmbientMumble.minPitch",
+            "val": "0.85"
+        },
+        {
+            "key": "AmbientMumble.maxPitch",
+            "val": "1.15"
+        },
+        {
+            "key": "AmbientMumble.chanceToMumble",
+            "val": "50"
+        },
+        {
+            "key": "AmbientMumble.fullVolumeDistance",
+            "val": "2"
+        },
+        {
+            "key": "AmbientMumble.maxHearingDistance",
+            "val": "12"
+        },
+        {
             "key": "PalletBuilder.maxTotalHeight",
             "val": "1"
         },
@@ -15652,62 +15676,6 @@
             "val": "91"
         },
         {
-            "key": "NavMeshManager._debounceTime",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.volume",
-            "val": "0.5"
-        },
-        {
-            "key": "AmbientMumble.minPitch",
-            "val": "0.85"
-        },
-        {
-            "key": "AmbientMumble.maxPitch",
-            "val": "1.15"
-        },
-        {
-            "key": "AmbientMumble.chanceToMumble",
-            "val": "50"
-        },
-        {
-            "key": "AmbientMumble.fullVolumeDistance",
-            "val": "2"
-        },
-        {
-            "key": "AmbientMumble.maxHearingDistance",
-            "val": "12"
-        },
-        {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
-            "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
-        },
-        {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
-        },
-        {
             "key": "Gate_Open_Close.rot_down",
             "val": "0"
         },
@@ -15718,6 +15686,18 @@
         {
             "key": "Gate_Open_Close.arm_speed",
             "val": "80"
+        },
+        {
+            "key": "WallVisibilityManager.foundationHeight",
+            "val": "1.11"
+        },
+        {
+            "key": "WallVisibilityManager.cutHeight",
+            "val": "2"
+        },
+        {
+            "key": "WallVisibilityManager.slideDuration",
+            "val": "2"
         },
         {
             "key": "VehicleThrottleAudio.hearingDistance",
@@ -15764,6 +15744,38 @@
             "val": "0.6"
         },
         {
+            "key": "NavMeshManager._debounceTime",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
+        },
+        {
             "key": "FreeLookCamera.defaultPitch",
             "val": "45"
         },
@@ -15778,18 +15790,6 @@
         {
             "key": "FreeLookCamera.defaultDistance",
             "val": "15"
-        },
-        {
-            "key": "WallVisibilityManager.foundationHeight",
-            "val": "1.11"
-        },
-        {
-            "key": "WallVisibilityManager.cutHeight",
-            "val": "2"
-        },
-        {
-            "key": "WallVisibilityManager.slideDuration",
-            "val": "2"
         }
     ],
     "toolsWindowX": 100.0,
@@ -15815,7 +15815,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 21.950000762939453,
-            "totalWagesPaid": 704.0,
+            "totalWagesPaid": 1122.0,
             "hireDateIso": "2026-09-20",
             "separationDateIso": "",
             "shift": 0,
@@ -15837,10 +15837,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 41.311126708984375,
-            "posY": 1.143178105354309,
-            "posZ": 7.990378379821777,
-            "rotY": 153.43495178222656,
+            "posX": 43.26258850097656,
+            "posY": 1.150086522102356,
+            "posZ": 5.390296936035156,
+            "rotY": 197.30345153808594,
             "hasSavedPosition": true,
             "hasBoardedVehicle": false,
             "boardedVehicleGridX": -1,
@@ -15866,7 +15866,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 21.030000686645508,
-            "totalWagesPaid": 680.0,
+            "totalWagesPaid": 1083.0,
             "hireDateIso": "2026-09-21",
             "separationDateIso": "",
             "shift": 0,
@@ -15888,17 +15888,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 45.361228942871094,
-            "posY": 1.1662060022354126,
-            "posZ": 12.185900688171387,
-            "rotY": 218.7606658935547,
+            "posX": 43.70454788208008,
+            "posY": 1.1720012426376343,
+            "posZ": 9.233682632446289,
+            "rotY": 49.4874153137207,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 81,
-            "boardedVehicleGridY": 51,
-            "boardedVehicleWorldX": 45.25587463378906,
-            "boardedVehicleWorldY": 1.1662060022354126,
-            "boardedVehicleWorldZ": 11.96146297454834
+            "boardedVehicleGridX": 84,
+            "boardedVehicleGridY": 59,
+            "boardedVehicleWorldX": 43.84983444213867,
+            "boardedVehicleWorldY": 1.1720012426376343,
+            "boardedVehicleWorldZ": 9.434589385986328
         },
         {
             "employeeGuid": "dfb2979c-92be-4781-8df7-f89b8910a430",
@@ -15917,7 +15917,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 15.140000343322754,
-            "totalWagesPaid": 488.0,
+            "totalWagesPaid": 777.0,
             "hireDateIso": "2026-09-21",
             "separationDateIso": "",
             "shift": 0,
@@ -15939,17 +15939,17 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 41.72853469848633,
-            "posY": 1.2420024871826172,
-            "posZ": 0.9913458824157715,
-            "rotY": 210.84120178222656,
+            "posX": 46.15098571777344,
+            "posY": 1.1968127489089966,
+            "posZ": -3.189887762069702,
+            "rotY": 79.68563079833984,
             "hasSavedPosition": true,
             "hasBoardedVehicle": true,
-            "boardedVehicleGridX": 85,
+            "boardedVehicleGridX": 81,
             "boardedVehicleGridY": 50,
-            "boardedVehicleWorldX": 41.36391830444336,
-            "boardedVehicleWorldY": 1.2420024871826172,
-            "boardedVehicleWorldZ": 1.1472463607788086
+            "boardedVehicleWorldX": 46.2735595703125,
+            "boardedVehicleWorldY": 1.1968127489089966,
+            "boardedVehicleWorldZ": -3.5670156478881836
         },
         {
             "employeeGuid": "b86caec6-ef0e-4d10-9dfb-bb8c67ecd82b",
@@ -15968,7 +15968,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 15.380000114440918,
-            "totalWagesPaid": 337.0,
+            "totalWagesPaid": 626.0,
             "hireDateIso": "2026-09-21",
             "separationDateIso": "",
             "shift": 0,
@@ -15990,10 +15990,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 41.64350128173828,
-            "posY": 1.141642689704895,
-            "posZ": 8.436087608337402,
-            "rotY": 155.4304962158203,
+            "posX": 42.70903015136719,
+            "posY": 1.1775091886520386,
+            "posZ": 5.719487190246582,
+            "rotY": 169.09739685058594,
             "hasSavedPosition": true,
             "hasBoardedVehicle": false,
             "boardedVehicleGridX": -1,
@@ -16019,7 +16019,7 @@
             "jobIconResourceKey": "",
             "status": 0,
             "hourlyWage": 14.220000267028809,
-            "totalWagesPaid": 140.0,
+            "totalWagesPaid": 406.0,
             "hireDateIso": "2026-09-21",
             "separationDateIso": "",
             "shift": 0,
@@ -16041,10 +16041,10 @@
                 "notes": "",
                 "effectiveDateIso": ""
             },
-            "posX": 45.20445251464844,
-            "posY": 1.1317862272262573,
-            "posZ": 9.722393035888672,
-            "rotY": 23.299869537353516,
+            "posX": 43.6685676574707,
+            "posY": 1.1235060691833496,
+            "posZ": 11.031506538391113,
+            "rotY": 2.6876463890075684,
             "hasSavedPosition": true,
             "hasBoardedVehicle": false,
             "boardedVehicleGridX": -1,
@@ -16467,22 +16467,22 @@
     "shiftDefinitions": [],
     "shipments": [
         {
-            "poNumber": "IG1066",
-            "supplierId": "Vendor_Fairweather",
-            "supplierName": "Fairweather Trading Co.",
+            "poNumber": "IG1057",
+            "supplierId": "Vendor_PantryRow",
+            "supplierName": "Pantry Row Distributors",
             "arrivalDayNumber": 1,
-            "arrivalTimeMinute": 22,
-            "status": 2,
+            "arrivalTimeMinute": 0,
+            "status": 3,
             "playerOrdered": true,
             "isSalvage": false,
-            "deliveryFee": 161,
-            "isBackfillPending": true,
+            "deliveryFee": 78,
+            "isBackfillPending": false,
             "lineItems": [
                 {
-                    "skuId": "912457",
-                    "quantity": 32,
-                    "receivedQuantity": 32,
-                    "unitCost": 21,
+                    "skuId": "564219",
+                    "quantity": 44,
+                    "receivedQuantity": 0,
+                    "unitCost": 17,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 0,
                     "palletTier": 0,
@@ -16491,10 +16491,10 @@
                     "salvage": 0
                 },
                 {
-                    "skuId": "912457",
-                    "quantity": 32,
-                    "receivedQuantity": 32,
-                    "unitCost": 21,
+                    "skuId": "564219",
+                    "quantity": 44,
+                    "receivedQuantity": 0,
+                    "unitCost": 17,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 1,
                     "palletTier": 0,
@@ -16503,10 +16503,10 @@
                     "salvage": 0
                 },
                 {
-                    "skuId": "912457",
+                    "skuId": "215678",
                     "quantity": 32,
-                    "receivedQuantity": 32,
-                    "unitCost": 21,
+                    "receivedQuantity": 0,
+                    "unitCost": 17,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 2,
                     "palletTier": 0,
@@ -16515,60 +16515,12 @@
                     "salvage": 0
                 },
                 {
-                    "skuId": "912457",
+                    "skuId": "215678",
                     "quantity": 32,
-                    "receivedQuantity": 32,
-                    "unitCost": 21,
+                    "receivedQuantity": 0,
+                    "unitCost": 17,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "912457",
-                    "quantity": 32,
-                    "receivedQuantity": 32,
-                    "unitCost": 21,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 4,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "912457",
-                    "quantity": 32,
-                    "receivedQuantity": 32,
-                    "unitCost": 21,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 5,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "912457",
-                    "quantity": 32,
-                    "receivedQuantity": 32,
-                    "unitCost": 21,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 6,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "912457",
-                    "quantity": 32,
-                    "receivedQuantity": 32,
-                    "unitCost": 21,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 7,
                     "palletTier": 0,
                     "dropped": false,
                     "creditTaken": false,
@@ -16699,22 +16651,22 @@
             ]
         },
         {
-            "poNumber": "IG1057",
-            "supplierId": "Vendor_PantryRow",
-            "supplierName": "Pantry Row Distributors",
+            "poNumber": "IG1066",
+            "supplierId": "Vendor_Fairweather",
+            "supplierName": "Fairweather Trading Co.",
             "arrivalDayNumber": 1,
-            "arrivalTimeMinute": 0,
-            "status": 3,
+            "arrivalTimeMinute": 22,
+            "status": 2,
             "playerOrdered": true,
             "isSalvage": false,
-            "deliveryFee": 78,
-            "isBackfillPending": false,
+            "deliveryFee": 161,
+            "isBackfillPending": true,
             "lineItems": [
                 {
-                    "skuId": "564219",
-                    "quantity": 44,
-                    "receivedQuantity": 0,
-                    "unitCost": 17,
+                    "skuId": "912457",
+                    "quantity": 32,
+                    "receivedQuantity": 32,
+                    "unitCost": 21,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 0,
                     "palletTier": 0,
@@ -16723,10 +16675,10 @@
                     "salvage": 0
                 },
                 {
-                    "skuId": "564219",
-                    "quantity": 44,
-                    "receivedQuantity": 0,
-                    "unitCost": 17,
+                    "skuId": "912457",
+                    "quantity": 32,
+                    "receivedQuantity": 32,
+                    "unitCost": 21,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 1,
                     "palletTier": 0,
@@ -16735,10 +16687,10 @@
                     "salvage": 0
                 },
                 {
-                    "skuId": "215678",
+                    "skuId": "912457",
                     "quantity": 32,
-                    "receivedQuantity": 0,
-                    "unitCost": 17,
+                    "receivedQuantity": 32,
+                    "unitCost": 21,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 2,
                     "palletTier": 0,
@@ -16747,12 +16699,60 @@
                     "salvage": 0
                 },
                 {
-                    "skuId": "215678",
+                    "skuId": "912457",
                     "quantity": 32,
-                    "receivedQuantity": 0,
-                    "unitCost": 17,
+                    "receivedQuantity": 32,
+                    "unitCost": 21,
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "912457",
+                    "quantity": 32,
+                    "receivedQuantity": 32,
+                    "unitCost": 21,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 4,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "912457",
+                    "quantity": 32,
+                    "receivedQuantity": 32,
+                    "unitCost": 21,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 5,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "912457",
+                    "quantity": 32,
+                    "receivedQuantity": 32,
+                    "unitCost": 21,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 6,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "912457",
+                    "quantity": 32,
+                    "receivedQuantity": 32,
+                    "unitCost": 21,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 7,
                     "palletTier": 0,
                     "dropped": false,
                     "creditTaken": false,
@@ -16814,7 +16814,7 @@
             "paymentMethod": 0,
             "assignedDoorNumber": 0,
             "assignedLane": "",
-            "hasBeenFined": false,
+            "hasBeenFined": true,
             "hasBeenLateLoadFined": false,
             "contractId": "Contract_Starter",
             "lateFeePercent": 0.15000000596046448,
@@ -17244,10 +17244,10 @@
             "lastGeneratedDay": 9,
             "active": true,
             "ordersDelivered": 0,
-            "ordersLate": 1,
+            "ordersLate": 2,
             "revenueEarned": 0,
-            "lateFeesPaid": 70,
-            "satisfactionPercent": 95.0,
+            "lateFeesPaid": 323,
+            "satisfactionPercent": 90.0,
             "lost": false,
             "lostOnDay": 0
         },
@@ -17336,6 +17336,105 @@
                     "Quantity": 728
                 }
             ]
+        },
+        {
+            "contractId": "BULK_Crunch-Time Cereals_D2_0",
+            "customerId": "Crunch-Time Cereals",
+            "pitch": "Crunch-Time Cereals wants a full-pallet drop. Cost of goods plus 5%.",
+            "kind": 2,
+            "frequency": 2,
+            "palletCount": 1,
+            "ordersPerDayMin": 1,
+            "ordersPerDayMax": 1,
+            "lineItemsMin": 1,
+            "lineItemsMax": 3,
+            "casesPerLineMin": 1,
+            "casesPerLineMax": 1,
+            "bulkLinesMin": 1,
+            "bulkLinesMax": 3,
+            "bulkPalletsPerLineMin": 1,
+            "bulkPalletsPerLineMax": 10,
+            "cutoffHour": 17,
+            "leadTimeDays": 3,
+            "payRateMultiplier": 1.0,
+            "lateFeePercent": 0.25,
+            "createdOnDay": 2,
+            "bulkPreviewLines": [
+                {
+                    "SkuId": "145982",
+                    "Quantity": 140
+                },
+                {
+                    "SkuId": "421698",
+                    "Quantity": 151
+                },
+                {
+                    "SkuId": "193587",
+                    "Quantity": 177
+                }
+            ]
+        },
+        {
+            "contractId": "BULK_Sneaky Pete's Seafood_D2_1",
+            "customerId": "Sneaky Pete's Seafood",
+            "pitch": "Sneaky Pete's Seafood wants a full-pallet drop. Cost of goods plus 5%.",
+            "kind": 2,
+            "frequency": 2,
+            "palletCount": 1,
+            "ordersPerDayMin": 1,
+            "ordersPerDayMax": 1,
+            "lineItemsMin": 1,
+            "lineItemsMax": 3,
+            "casesPerLineMin": 1,
+            "casesPerLineMax": 1,
+            "bulkLinesMin": 1,
+            "bulkLinesMax": 3,
+            "bulkPalletsPerLineMin": 1,
+            "bulkPalletsPerLineMax": 10,
+            "cutoffHour": 17,
+            "leadTimeDays": 1,
+            "payRateMultiplier": 1.0,
+            "lateFeePercent": 0.25,
+            "createdOnDay": 2,
+            "bulkPreviewLines": [
+                {
+                    "SkuId": "248905",
+                    "Quantity": 64
+                }
+            ]
+        },
+        {
+            "contractId": "BULK_Fizz-Pop Soda Works_D2_2",
+            "customerId": "Fizz-Pop Soda Works",
+            "pitch": "Fizz-Pop Soda Works wants a full-pallet drop. Cost of goods plus 5%.",
+            "kind": 2,
+            "frequency": 2,
+            "palletCount": 1,
+            "ordersPerDayMin": 1,
+            "ordersPerDayMax": 1,
+            "lineItemsMin": 1,
+            "lineItemsMax": 3,
+            "casesPerLineMin": 1,
+            "casesPerLineMax": 1,
+            "bulkLinesMin": 1,
+            "bulkLinesMax": 3,
+            "bulkPalletsPerLineMin": 1,
+            "bulkPalletsPerLineMax": 10,
+            "cutoffHour": 17,
+            "leadTimeDays": 3,
+            "payRateMultiplier": 1.0,
+            "lateFeePercent": 0.25,
+            "createdOnDay": 2,
+            "bulkPreviewLines": [
+                {
+                    "SkuId": "903561",
+                    "Quantity": 45
+                },
+                {
+                    "SkuId": "248905",
+                    "Quantity": 112
+                }
+            ]
         }
     ],
     "dockAppointments": [
@@ -17363,7 +17462,7 @@
         {
             "id": "a76a04a9-0273-4418-bd5a-1c1c311e15f2",
             "day": 3,
-            "blockIndex": 8,
+            "blockIndex": 0,
             "doorNumber": 1,
             "kind": 0,
             "customerId": "Sneaky Pete's Seafood",
@@ -17374,11 +17473,11 @@
             ],
             "parked": false,
             "shipmentPoNumber": "",
-            "offSlotPenaltyApplied": false,
+            "offSlotPenaltyApplied": true,
             "requestedDay": 0,
             "closedOut": false,
-            "wasLate": false,
-            "lateFineAmount": 0,
+            "wasLate": true,
+            "lateFineAmount": 253,
             "lateRelationshipPenalty": 0
         },
         {
@@ -18218,7 +18317,7 @@
         ]
     },
     "reputation": {
-        "score": 4
+        "score": 0
     },
     "broker": {
         "offers": []
@@ -18278,15 +18377,15 @@
         "fractionalByGLLine": [
             {
                 "glLine": "Groundskeeping",
-                "fractionalRemainder": 0.983356237411499
+                "fractionalRemainder": 0.4833710193634033
             },
             {
                 "glLine": "Doors",
-                "fractionalRemainder": 0.08331906795501709
+                "fractionalRemainder": 0.5833098888397217
             },
             {
                 "glLine": "Loss Prevention",
-                "fractionalRemainder": 0.08331906795501709
+                "fractionalRemainder": 0.5833098888397217
             },
             {
                 "glLine": "Grounds",
@@ -18294,7 +18393,7 @@
             },
             {
                 "glLine": "Walls",
-                "fractionalRemainder": 0.4833533465862274
+                "fractionalRemainder": 0.9833662509918213
             },
             {
                 "glLine": "Racking",
@@ -18302,15 +18401,15 @@
             },
             {
                 "glLine": "Flavor",
-                "fractionalRemainder": 0.26668956875801086
+                "fractionalRemainder": 0.26670435070991516
             },
             {
                 "glLine": "Dock Stocker",
-                "fractionalRemainder": 0.10001716762781143
+                "fractionalRemainder": 0.10002825409173965
             },
             {
                 "glLine": "Reach Truck",
-                "fractionalRemainder": 0.23331618309020996
+                "fractionalRemainder": 0.23330509662628174
             },
             {
                 "glLine": "Transportation",
@@ -18319,14 +18418,14 @@
         ]
     },
     "time": {
-        "hour": 8,
-        "minute": 1,
+        "hour": 23,
+        "minute": 31,
         "day": 2,
         "fractionalMinutes": 0.0
     },
     "workQueue": [
         {
-            "taskId": "ba7a7a5a-e9ab-47c8-b07d-87e0b8b4517b",
+            "taskId": "03b88690-a024-4525-9f95-cfe7beb08d1d",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18341,7 +18440,7 @@
             "skuId": ""
         },
         {
-            "taskId": "02d66770-57ed-4713-bad1-4bf2cca22099",
+            "taskId": "26432634-3e6b-4559-a12d-faadc39aa563",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18356,7 +18455,7 @@
             "skuId": ""
         },
         {
-            "taskId": "c3607c8d-7b4a-4092-950a-14394808a88b",
+            "taskId": "3bf19640-0927-4efe-a1da-838af936cc64",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18371,7 +18470,7 @@
             "skuId": ""
         },
         {
-            "taskId": "251ed733-89ba-46b0-963f-49b556a67d8b",
+            "taskId": "e7be1bce-584c-4b8a-af53-48a04acd9a9b",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18386,7 +18485,7 @@
             "skuId": ""
         },
         {
-            "taskId": "d6c21f2e-0a58-4cff-b664-2a9127c7dca3",
+            "taskId": "6ba246e7-fee0-454d-943f-e6544873d189",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18401,7 +18500,7 @@
             "skuId": ""
         },
         {
-            "taskId": "8d503dc8-8417-4094-b07e-4df02841b9d8",
+            "taskId": "65ea4684-d621-4a8c-998d-e9c64f07c2f0",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18416,7 +18515,7 @@
             "skuId": ""
         },
         {
-            "taskId": "b50c3d78-41a3-4473-b79d-9cc6df1d9835",
+            "taskId": "9e6fd363-f888-4b8f-bba5-744639c904e3",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18431,7 +18530,7 @@
             "skuId": ""
         },
         {
-            "taskId": "76a35205-a226-48cc-b1f8-fb10e6adeee7",
+            "taskId": "c7c52044-44b6-47d4-902c-29b383a35e2d",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18446,7 +18545,7 @@
             "skuId": ""
         },
         {
-            "taskId": "b0a8ef28-7ab7-494f-813c-1dbf5cf85115",
+            "taskId": "79bdba5a-175e-41ee-b9d1-a58b374b3d9d",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18461,7 +18560,7 @@
             "skuId": ""
         },
         {
-            "taskId": "c8e0f708-5010-4060-9b92-d72659471b80",
+            "taskId": "3be710ea-a2cd-4150-bd21-dffb820f2abe",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -18486,8 +18585,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 84,
-            "locationY": 42,
-            "worldHeightY": 2.2293994426727295,
+            "locationY": 43,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -18499,8 +18598,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 74,
-            "locationY": 42,
-            "worldHeightY": 5.670797824859619,
+            "locationY": 43,
+            "worldHeightY": 3.4103989601135254,
             "stagingLaneId": ""
         },
         {
@@ -18512,8 +18611,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 74,
-            "locationY": 42,
-            "worldHeightY": 2.2293994426727295,
+            "locationY": 43,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -18538,8 +18637,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 74,
-            "locationY": 42,
-            "worldHeightY": 4.489798069000244,
+            "locationY": 43,
+            "worldHeightY": 2.2293994426727295,
             "stagingLaneId": ""
         },
         {
@@ -18564,7 +18663,7 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 79,
-            "locationY": 40,
+            "locationY": 41,
             "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
@@ -18603,8 +18702,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 78,
-            "locationY": 42,
-            "worldHeightY": 2.3309993743896484,
+            "locationY": 43,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -18629,8 +18728,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 78,
-            "locationY": 42,
-            "worldHeightY": 4.692997932434082,
+            "locationY": 43,
+            "worldHeightY": 2.3309993743896484,
             "stagingLaneId": ""
         },
         {
@@ -18681,8 +18780,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 84,
-            "locationY": 42,
-            "worldHeightY": 3.9462387561798096,
+            "locationY": 43,
+            "worldHeightY": 2.2293994426727295,
             "stagingLaneId": ""
         },
         {
@@ -18694,8 +18793,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 74,
-            "locationY": 59,
-            "worldHeightY": 2.0084195137023926,
+            "locationY": 60,
+            "worldHeightY": 1.149999976158142,
             "stagingLaneId": ""
         },
         {
@@ -18707,8 +18806,8 @@
             "expirationDayNumber": -1,
             "isContaminated": false,
             "locationX": 84,
-            "locationY": 42,
-            "worldHeightY": 5.663078308105469,
+            "locationY": 43,
+            "worldHeightY": 3.0878190994262695,
             "stagingLaneId": ""
         },
         {
@@ -31999,7 +32098,7 @@
     "carriedPallets": [],
     "gameVolume": 0.0,
     "musicVolume": 0.0,
-    "graphicsPreset": "Ultra",
+    "graphicsPreset": "Toaster",
     "difficulty": 0,
     "resolutionIndex": 1,
     "screenWidth": 1920,

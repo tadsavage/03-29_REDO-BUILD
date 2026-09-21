@@ -1225,7 +1225,8 @@ public class ContractsPanel : IUIPanel
 
         box.Add(DeadlineLine($"SHIP BY: {endHour:00}:00", 13, ColChipOutText, bold: true));
         box.Add(DeadlineLine($"end of the {DockScheduleService.BlockLabel(block)} slot", 11, ColSubtleText));
-        box.Add(DeadlineLine($"Auto-booked {OrderArrivalService.ScheduleHorizonDays} days out · fixed slot",
+        string dayWord = OrderArrivalService.ScheduleHorizonDays == 1 ? "day" : "days";
+        box.Add(DeadlineLine($"Auto-booked {OrderArrivalService.ScheduleHorizonDays} {dayWord} out · fixed slot",
                              10, ColSubtleText));
         box.Add(DeadlineLine("Miss the slot: fee + satisfaction", 10, ColDangerSoft));
 
