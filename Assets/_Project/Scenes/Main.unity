@@ -16896,8 +16896,8 @@ MonoBehaviour:
   _icAvatarModel: {fileID: 1859758781311065194, guid: dc1f64e223f359f4ea5a04a2e298df00, type: 3}
   _securityAvatarModel: {fileID: 1532020556118192233, guid: 4d343708bdd39564aa5d01ec80d3ecdb, type: 3}
   _truckDriverAvatarModel: {fileID: 4256531644828636768, guid: a4f2556c3cb3a7d40bf1671a29fc5d93, type: 3}
-  _workerMaleAvatarModel: {fileID: 6298834174758672602, guid: f597f1dcbb9164a4dbd208a4d876ae4d, type: 3}
-  _workerFemaleAvatarModel: {fileID: 1902560445004585836, guid: 1ff675a9d7662474d8d3ef3406a8bbc9, type: 3}
+  _workerMaleAvatarModel: {fileID: 0}
+  _workerFemaleAvatarModel: {fileID: 0}
   _bossAvatarModelPoolMale:
   - {fileID: 8214505089139217242, guid: a37846151c2b16c4194e97c5b14e2fcb, type: 3}
   _bossAvatarModelPoolFemale:
@@ -16910,10 +16910,8 @@ MonoBehaviour:
   - {fileID: 1586375323705241807, guid: 1e0952549da30e84a9f96482c05a93cd, type: 3}
   _exterminatorAvatarModelPoolFemale:
   - {fileID: 7876960790497873813, guid: 85a9621d07e72784797ff6a99008e98b, type: 3}
-  _workerAvatarModelPoolMale:
-  - {fileID: 6298834174758672602, guid: f597f1dcbb9164a4dbd208a4d876ae4d, type: 3}
-  _workerAvatarModelPoolFemale:
-  - {fileID: 1902560445004585836, guid: 1ff675a9d7662474d8d3ef3406a8bbc9, type: 3}
+  _workerAvatarModelPoolMale: []
+  _workerAvatarModelPoolFemale: []
   _autoSpawnOnStart: 0
   _autoSpawnCount: 0
   _spawnPoint: {fileID: 2074712636}

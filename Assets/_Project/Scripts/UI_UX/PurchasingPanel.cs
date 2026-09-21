@@ -1314,11 +1314,18 @@ public class PurchasingPanel : IUIPanel
     // ── Confirmation dialog ──────────────────────────────────────────────────
 
     private VisualElement _confirmBlocker;
+    private VisualElement _confirmCard;
     private Label _confirmMessage;
     private Label _confirmTitle;
     private Button _confirmYesButton;
     private Button _confirmNoButton;
     private System.Action _confirmYes;
+    // Fires synchronously on a YES click, BEFORE the modal is hidden — the only point at which the
+    // modal's own card/button still have valid layout for FX that needs to appear to originate from
+    // or play over the still-visible dialog (confetti over the card, text flying out of the Yes
+    // button). Set per-ShowConfirm-call via the optional third parameter; null for every confirm
+    // that doesn't need this (which is most of them).
+    private System.Action _confirmPreHide;
 
     /// <summary>Modal Yes/No over the whole panel. Added to the OVERLAY rather than the modal so it
     /// can't be dragged half off-screen with the window, same as ContractsPanel's.</summary>
@@ -1363,7 +1370,30 @@ public class PurchasingPanel : IUIPanel
 
         // Green YES / red NO, matching the CREATE PO and CANCEL buttons this dialog is confirming —
         // the answer should look like the button that raised the question.
-        _confirmYesButton = new Button(() => { var act = _confirmYes; HideConfirm(); act?.Invoke(); }) { text = "YES" };
+        _confirmYesButton = new Button(() =>
+        {
+            var act = _confirmYes;
+            // Must run BEFORE HideConfirm — that's the last instant the card/button have real
+            // layout for FX anchored on them (see _confirmPreHide's own comment).
+            var preHide = _confirmPreHide;
+            _confirmPreHide = null;
+            if (preHide != null)
+            {
+                preHide.Invoke();
+                // Some FX (ConfettiFx) capture their anchor's layout on a ONE-FRAME-DEFERRED
+                // schedule rather than synchronously — a pattern that's correct for FX anchored on
+                // an element that's freshly shown, but wrong here unless the dialog survives that
+                // one frame: HideConfirm sets display:None immediately, which collapses the card's
+                // layout before a deferred capture ever runs. This short grace window lets any such
+                // FX actually read the still-visible card before the dialog disappears; it's
+                // imperceptible on screen and only applies to confirms that opted into a pre-hide FX.
+                _confirmBlocker.schedule.Execute(() => { HideConfirm(); act?.Invoke(); }).ExecuteLater(20);
+                return;
+            }
+            HideConfirm();
+            act?.Invoke();
+        })
+        { text = "YES" };
         StyleActionButton(_confirmYesButton, ColCreateGreen, ColCreateGreenEdge, ColCreateGreenHover);
         _confirmYesButton.style.width = 150;
         _confirmYesButton.style.height = 44;
@@ -1377,14 +1407,16 @@ public class PurchasingPanel : IUIPanel
         buttons.Add(_confirmNoButton);
         card.Add(buttons);
 
+        _confirmCard = card;
         _confirmBlocker.Add(card);
         return _confirmBlocker;
     }
 
-    private void ShowConfirm(string message, System.Action onYes)
+    private void ShowConfirm(string message, System.Action onYes, System.Action onConfirmPreHide = null)
     {
         _confirmMessage.text = message;
         _confirmYes = onYes;
+        _confirmPreHide = onConfirmPreHide;
         _confirmTitle.text = "ARE YOU SURE?";
         SetConfirmIsNotice(false);
         _confirmBlocker.style.display = DisplayStyle.Flex;
@@ -1417,6 +1449,7 @@ public class PurchasingPanel : IUIPanel
     private void HideConfirm()
     {
         _confirmYes = null;
+        _confirmPreHide = null;   // NO/OK dismissal shouldn't carry a stale pre-hide FX into the next dialog
         _confirmBlocker.style.display = DisplayStyle.None;
     }
 
@@ -2687,6 +2720,10 @@ public class PurchasingPanel : IUIPanel
             inDemandLabel.text = newInDemand.ToString("N0");
             inDemandLabel.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColSubtleText);
             num.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColSubtleText);
+            // The item's NAME needs the same live critical/normal color flip as its SKU number above —
+            // previously only `num` was corrected here, so a SKU that stopped being critical kept its
+            // description stuck red until the next full Rebuild().
+            desc.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColTitleText);
 
             onQtyChanged?.Invoke();
         }
@@ -2798,16 +2835,16 @@ public class PurchasingPanel : IUIPanel
         return false;
     }
 
-    /// <summary>Total shortfall quantity (cases) across every SKU this vendor carries that's still in
-    /// NET demand right now — same netting BuildMultiVendorItemRow's own TOTAL SHORTFALL cell uses
-    /// (on-hand + on-order + in-progress subtracted off gross order demand), summed rather than
-    /// counted as distinct SKUs, so a vendor's "[N] critical items" figure reads as "how many cases
-    /// are we still short" instead of "how many different SKUs". Drives the vendor header's summary
-    /// line.</summary>
+    /// <summary>Count of DISTINCT SKUs this vendor carries that are still in NET demand right now —
+    /// same netting BuildMultiVendorItemRow's own TOTAL SHORTFALL cell uses (on-hand + on-order +
+    /// in-progress subtracted off gross order demand). A vendor's "[N] critical items" figure counts
+    /// how many different ITEMS are short, not how many cases across them are short — a vendor short
+    /// 1 case each on 5 SKUs reads as "5 critical items", not "5 critical items" worth of cases summed
+    /// into one misleading case-count. Drives the vendor header's summary line.</summary>
     private int TotalCriticalShortfall(string vendorId)
     {
         var catalogue = Economy()?.GetAvailableCatalogue(vendorId) ?? new List<VendorCatalogueEntry>();
-        int totalShortfall = 0;
+        int criticalItemCount = 0;
         foreach (var entry in catalogue)
         {
             var sku = entry?.Sku;
@@ -2817,9 +2854,9 @@ public class PurchasingPanel : IUIPanel
             int onHand = Inventory()?.TotalOnHand(sku.SkuId) ?? 0;
             int onOrder = Economy()?.GetTotalOnOrder(sku.SkuId) ?? 0;
             int inProgress = TotalInProgressCases(sku.SkuId);
-            totalShortfall += Mathf.Max(0, gross - onHand - onOrder - inProgress);
+            if (gross - onHand - onOrder - inProgress > 0) criticalItemCount++;
         }
-        return totalShortfall;
+        return criticalItemCount;
     }
 
     // ── Per-vendor basket (the multi-vendor tab's own state, separate from `_basket`) ────────────
@@ -3136,6 +3173,14 @@ public class PurchasingPanel : IUIPanel
                         DispatchRewardFx.Play(_overlay, dispatchButton,
                             $"THANKS FOR YOUR BUSINESS! +{partnershipGainPreview} REPUTATION GAIN");
                         CommitDispatchVendorOrder(vendor, deliveryFee);
+                    },
+                    onConfirmPreHide: () =>
+                    {
+                        // Runs while the "ARE YOU SURE?" dialog is still on screen — this is the only
+                        // moment the card/button have real layout to celebrate on top of/out of.
+                        ConfettiFx.Play(_overlay, _confirmCard);
+                        PartnershipGainFx.Play(_overlay, _confirmYesButton,
+                            $"+{partnershipGainPreview} TO PARTNERSHIP W/ {vendor.DisplayName.ToUpper()}!");
                     });
     }
 

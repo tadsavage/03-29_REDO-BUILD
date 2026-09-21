@@ -29,6 +29,16 @@ public static class ModularAvatarAssembler
     // over/with hair rather than replacing it.
     private static readonly HashSet<string> HeadPositionSlots = new() { "hair" };
 
+    // The old, all-in-one Male_Modular_Staff.fbx / Female_Modular_Staff.fbx (still scanned for
+    // chest/legs/feet/eyebrows/face/vest — see ModularAvatarImporter's Obsolete_Humanoids skip)
+    // carry a LEGACY "head" slot that mixes hairstyles and hats into one list (male_head_Afro,
+    // male_head_Helmet, female_head_hatGray, etc). It predates the new "hair"/"hat" slots above
+    // and was never gated the same way — it's an ordinary always-on slot, so every avatar was
+    // getting a legacy head item from THIS slot in addition to a pick from the new hair/hat
+    // system, stacking two head meshes at once. Per Tad, the new hair+hat slots now fully replace
+    // it for both genders — skipped here entirely rather than added to `chosen`.
+    private static readonly HashSet<string> DeprecatedSlots = new() { "head" };
+
     // Chance an avatar wears nothing on its head (bald / no hat).
     private const float BaldChance = 0.1f;
 
@@ -66,6 +76,7 @@ public static class ModularAvatarAssembler
         foreach (var slot in slots)
         {
             if (HeadPositionSlots.Contains(slot)) continue;   // handled by the head pick below
+            if (DeprecatedSlots.Contains(slot)) continue;     // legacy head slot — see comment above
 
             var variants = lib.VariantsFor(gender, slot);
             if (variants.Count == 0) continue;
@@ -161,17 +172,37 @@ public static class ModularAvatarAssembler
                 var child = FindDeep(temp.transform, part.objectName);
                 if (child == null) continue;
                 if (child == temp.transform) tempReparentedWhole = true;
-                child.SetParent(root.transform, worldPositionStays: false);
-                child.localPosition = Vector3.zero;
-                child.localRotation = Quaternion.identity;
-                child.localScale    = Vector3.one;
 
                 var smr = child.GetComponent<SkinnedMeshRenderer>();
-                if (smr == null || smr.bones == null || smr.bones.Length == 0) continue;
+                bool isSkinned = smr != null && smr.bones != null && smr.bones.Length > 0;
 
                 rootBonesByName ??= root.GetComponentsInChildren<Transform>(true)
                                         .GroupBy(b => b.name)
                                         .ToDictionary(g => g.Key, g => g.First());
+
+                // Unskinned head-worn props (hair/hardhat/headphones) have no bones[] of their own
+                // to deform with, so they only ever move by riding their PARENT transform. Parenting
+                // them to `root` (the avatar's top-level object) meant they only followed the whole-
+                // character root motion — which is disabled (modAnimator.applyRootMotion = false in
+                // EmployeeSpawner) — so they sat dead still while every bone-driven animation (head
+                // turns, walking bob, arm swing) played underneath them: "not moving with the body".
+                // Parenting to the actual Head_M bone makes them ride that bone's own animated
+                // transform instead, exactly like a real hat/hairstyle would.
+                Transform targetParent = root.transform;
+                if (!isSkinned && (part.slot == "hair" || part.slot == "hat") &&
+                    rootBonesByName.TryGetValue("Head_M", out var headBone))
+                    targetParent = headBone;
+
+                // worldPositionStays: TRUE is load-bearing — every merged-in source FBX is
+                // instantiated fresh at world origin/identity, exactly like `root` itself, so a
+                // static prop authored to sit on the head in the SOURCE file's own coordinate space
+                // (measured: hair's world bounds center landed within 2cm of the body's Head_M bone)
+                // is ALREADY in the right place the instant it's reparented — no offset needed.
+                // Reparenting onto Head_M with worldPositionStays:true re-derives the correct local
+                // offset from THAT bone instead of root, so the position fix above still holds.
+                child.SetParent(targetParent, worldPositionStays: true);
+
+                if (!isSkinned) continue;
 
                 var remappedBones = new Transform[smr.bones.Length];
                 for (int i = 0; i < smr.bones.Length; i++)

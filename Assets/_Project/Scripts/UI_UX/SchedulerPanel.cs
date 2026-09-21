@@ -459,14 +459,43 @@ public class SchedulerPanel : IUIPanel
         if (_overlay.parent != null) _overlay.RemoveFromHierarchy();
     }
 
-    /// <summary>Fires on every pallet formally received anywhere in the warehouse. Refreshes the
-    /// chips (if this panel is on screen) and any currently-open hover tooltip in place, so a live
-    /// figure like an "out of stock" count or a short-shipped highlight can't sit stale while the
-    /// player is looking right at it.</summary>
+    /// <summary>Fires on every pallet formally received anywhere in the warehouse — during an active
+    /// putaway/receiving run that can mean several times a SECOND. Used to call Rebuild() straight
+    /// from here, which tears down and recreates every pool/parked box and grid cell on every single
+    /// pallet. Two visible failures came out of that: (1) the pool boxes "shook" — a rebuilt box
+    /// under a stationary cursor doesn't get a fresh MouseEnter (same class of bug documented on
+    /// BuildMenuUI's bottom bar elsewhere in this codebase), so whatever box the player WAS hovering
+    /// either froze mid hover-grow transition or restarted it on every rebuild, over and over; (2) any
+    /// open hover tooltip was anchored to a box that had just been destroyed, so it could never settle
+    /// long enough to read. Now just marks a flag; FlushPendingLiveRefresh (polled every 500ms, see
+    /// the constructor) coalesces however many pallets landed in that window into at most ONE rebuild.
+    /// RefreshOpenTooltipContent() is untouched — it only re-renders the tooltip's TEXT in place, no
+    /// element destruction, so it's cheap and safe to run on every single event.</summary>
+    private bool _pendingLiveRefresh;
+
+    // Set true for as long as the pointer is over a pool or parked box (see BuildPoolBox/
+    // BuildParkedBox's own MouseEnter/Leave). A rebuild is exactly as destructive whether it fires
+    // once a second or once every 500ms — the box the player is CURRENTLY hovering still gets torn
+    // down and replaced, its hover-grow transition still gets reset, and the flicker is just as
+    // visible, only less frequent. Debouncing alone (the first fix) cut the flicker's frequency but
+    // couldn't remove it. Holding the rebuild off entirely while a box is under the cursor does: the
+    // pending refresh just waits for FlushPendingLiveRefresh's next 500ms tick after the pointer
+    // leaves, so the currently-hovered box is never disturbed mid-hover, and the data is still never
+    // more than a poll interval stale once you move on.
+    private bool _pointerOverPoolBox;
+
     private void OnPalletReceivedForLiveRefresh(string eventId, PalletMasterRecord pallet)
     {
-        if (_visible) Rebuild();
+        if (_visible) _pendingLiveRefresh = true;
         RefreshOpenTooltipContent();
+    }
+
+    private void FlushPendingLiveRefresh()
+    {
+        if (!_pendingLiveRefresh) return;
+        if (_pointerOverPoolBox) return;   // try again next tick — don't rebuild out from under a hover
+        _pendingLiveRefresh = false;
+        if (_visible) Rebuild();
     }
 
     // ── Shell ────────────────────────────────────────────────────────────────
@@ -696,11 +725,26 @@ public class SchedulerPanel : IUIPanel
         // comparison. Scheduled ONCE here — doing it per Rebuild would stack a poller per refresh.
         content.schedule.Execute(SyncNewSchedulerSweep).Every(150);
 
+        // Coalesces OnPalletReceivedForLiveRefresh's Rebuild() requests — see that method's own
+        // comment for why a raw per-event Rebuild() was the actual cause of the pool "shaking" and
+        // tooltips never staying open. Scheduled ONCE here, same reasoning as the sweep poll above.
+        content.schedule.Execute(FlushPendingLiveRefresh).Every(500);
+
         footerMessage = new Label();
         ApplyFont(footerMessage, size: 15);
         footerMessage.style.color = new StyleColor(ColSubtleText);
         footerMessage.style.marginTop = 8;
         footerMessage.style.whiteSpace = WhiteSpace.Normal;
+
+        // Top-layer host for pool/parked box hover ghosts — see the field's own doc comment and
+        // BuildPoolBox/BuildParkedBox. Added BEFORE the tooltip below so the tooltip (added after,
+        // later in tree order) always paints above a hover ghost if both are somehow visible.
+        _poolHoverGhostHost = new VisualElement();
+        _poolHoverGhostHost.style.position = Position.Absolute;
+        _poolHoverGhostHost.style.left = 0; _poolHoverGhostHost.style.top = 0;
+        _poolHoverGhostHost.style.right = 0; _poolHoverGhostHost.style.bottom = 0;
+        _poolHoverGhostHost.pickingMode = PickingMode.Ignore;
+        modal.Add(_poolHoverGhostHost);
 
         // Rich hover card for New Scheduler timeline cells — lives directly on the modal (not
         // inside the ScrollView) so it isn't clipped by the grid's scroll viewport, and survives
@@ -874,11 +918,22 @@ public class SchedulerPanel : IUIPanel
 
     private void Rebuild()
     {
+        // Whatever box the pointer was over is about to be destroyed either way — its own
+        // MouseLeaveEvent will never fire once that happens, so this flag would otherwise be stuck
+        // true forever after ANY rebuild that happens while hovering (not just the live-refresh one
+        // this flag exists for), silently freezing every future live refresh. A genuine MouseEnter
+        // will set it true again immediately if the pointer is still sitting over the new box's
+        // screen position and happens to get one — same caveat as the rest of this hover-after-
+        // rebuild class of bug — but a false negative here just costs one extra poll's staleness,
+        // while a stuck true costs it forever.
+        _pointerOverPoolBox = false;
+
         if (_titleLabel != null) _titleLabel.text = TitleFor(_tab);
         _tabHeader.Clear();
         _content.Clear();
         _orderListScroll.Clear();
         _orderDetailsBody.Clear();
+        _poolHoverGhostHost?.Clear();
         _footerMessage.text = string.Empty;
 
         _content.mode = ScrollViewMode.Vertical;
@@ -1695,6 +1750,22 @@ public class SchedulerPanel : IUIPanel
             fill: fill, edge: edge, ink: ink,
             selected: selected);
 
+        // A second, independent copy of the exact same visual — see the field comment on
+        // _poolHoverGhostHost for why. This is what actually stands in front while `box` (still in
+        // the flex-wrap pool row, still receiving events) goes invisible for the duration of the hover.
+        var ghost = BuildFlagBox(
+            icon: IconForCustomer(group.CustomerId, group.ContractId, arrivals),
+            title: group.CustomerName,
+            subtitle: dayText,
+            detail: detail,
+            fill: fill, edge: edge, ink: ink,
+            selected: selected);
+        ghost.style.position = Position.Absolute;
+        ghost.style.display = DisplayStyle.None;
+        SetPickingModeRecursive(ghost, PickingMode.Ignore);
+        ghost.style.marginRight = 0; ghost.style.marginBottom = 0; // BuildFlagBox's flow margins don't apply to an absolute ghost
+        _poolHoverGhostHost.Add(ghost);
+
         // Stopped here, not left to bubble: the pool container itself is a drop target for a held
         // appointment chip (see BuildScheduleStrip), and a click on one specific box means "select
         // this box" — never also "drop what I'm holding into the pool at large."
@@ -1716,14 +1787,31 @@ public class SchedulerPanel : IUIPanel
         {
             ShowNewSchedulerTooltip(syntheticAppt, box);
             CustomCursorService.SetHoveringInteractable(true);
-            box.style.scale = new Scale(new Vector3(CellHoverGrowScale, CellHoverGrowScale, 1f));
-            // Bring to front so the enlarged box draws over its neighbours instead of under them.
-            box.BringToFront();
+            _pointerOverPoolBox = true;   // see FlushPendingLiveRefresh — holds off a rebuild mid-hover
+
+            // `box` itself never scales/reorders (see _poolHoverGhostHost's doc comment) — it lives in
+            // a plain flex-wrap row, and both BringToFront() (moves it in that row = literally
+            // relocates it, the earlier flicker bug) AND leaving it in place while growing it (gets
+            // painted UNDER whichever pool box happens to sit later in the list, per Tad's report)
+            // are wrong. Instead: hide `box` (opacity only — it keeps its layout slot and keeps
+            // receiving this exact MouseEnter/Leave pair) and show `ghost`, an absolutely-positioned
+            // duplicate sitting in its own always-on-top layer, pinned over box's current on-screen
+            // center and grown from there.
+            Rect worldR = box.worldBound;
+            Vector2 modalLocal = _modal.WorldToLocal(new Vector2(worldR.center.x, worldR.center.y));
+            ghost.style.left = modalLocal.x - PoolBoxWidth / 2f;
+            ghost.style.top = modalLocal.y - PoolBoxHeight / 2f;
+            ghost.style.display = DisplayStyle.Flex;
+            ghost.style.scale = new Scale(new Vector3(CellHoverGrowScale, CellHoverGrowScale, 1f));
+            box.style.opacity = 0f;
         });
         box.RegisterCallback<MouseLeaveEvent>(evt =>
         {
             CustomCursorService.SetHoveringInteractable(false);
-            box.style.scale = new Scale(Vector3.one);
+            _pointerOverPoolBox = false;
+            box.style.opacity = 1f;
+            ghost.style.display = DisplayStyle.None;
+            ghost.style.scale = new Scale(Vector3.one);
             if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
                 _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
             HideNewSchedulerTooltip();
@@ -1833,6 +1921,28 @@ public class SchedulerPanel : IUIPanel
     }
 
     /// <summary>
+    /// Recursively sets pickingMode on an element AND every one of its descendants.
+    ///
+    /// PickingMode.Ignore on a PARENT does not stop its CHILDREN from being individually hit-tested
+    /// (documented elsewhere in this file, on the overlay in Build()) — this is the version that
+    /// actually needs that guarantee. The pool/parked box hover "ghost" (see _poolHoverGhostHost) is
+    /// built via BuildFlagBox, which creates several nested, individually-pickable children (pole,
+    /// flag, icon, labels). Setting Ignore only on the ghost's own root left those children pickable,
+    /// so the instant the ghost was shown — painted in front of, and overlapping, the real (now
+    /// invisible) box underneath — the cursor's hit-test target flipped from the real box onto one of
+    /// the ghost's own children. That fired MouseLeave on the real box (hiding the ghost again), which
+    /// put the cursor back over the real box (MouseEnter, showing the ghost again), forever: a
+    /// self-sustaining flicker loop, and the actual cause of the "it's trying to grow but something is
+    /// stopping it" symptom Tad reported — a different bug from either of the two flicker causes fixed
+    /// earlier in this file, introduced by the ghost fix itself.
+    /// </summary>
+    private static void SetPickingModeRecursive(VisualElement el, PickingMode mode)
+    {
+        el.pickingMode = mode;
+        foreach (var child in el.Children()) SetPickingModeRecursive(child, mode);
+    }
+
+    /// <summary>
     /// A pool box for a trailer the player has PARKED — pulled off the grid but not given up on.
     ///
     /// Drawn like a stranded box so the pool reads as one row of "trailers with no door", but it's a
@@ -1859,53 +1969,79 @@ public class SchedulerPanel : IUIPanel
         Color ink  = selected ? ColOrangeText : late ? ColDangerSoft : ChipText(appt.Kind);
 
         string title, subtitle;
-        VisualElement detailElement;
         int pallets;
+        // A VisualElement can only have one parent, and BuildParkedBox now needs the SAME detail
+        // content twice — once for `box`, once for its hover `ghost` (see _poolHoverGhostHost) — so
+        // this builds a fresh instance on each call rather than a shared reference.
+        VisualElement BuildDetailElement()
+        {
+            if (isPo)
+            {
+                // Pallet count was unreadable at the shared 11px detail size, and the vendor name was
+                // dead weight -- every PO parked here is the same wholesaler, so drop it and let the
+                // number that actually matters (for judging door/lane capacity) be twice as big instead.
+                var detailRow = new VisualElement();
+                detailRow.style.flexDirection = FlexDirection.Row;
+                detailRow.style.alignItems = Align.FlexEnd;
+                detailRow.style.opacity = 0.85f;
+                // Pulled up negative -- the 22px number's own line-height was pushing this row past the
+                // box's fixed height, clipping the title above and the number below. Zeroing pad/margin
+                // on both labels wasn't enough on its own since the taller line-height is baked into the
+                // font metrics, not spacing this code controls.
+                detailRow.style.marginTop = -5;
+                var countLabel = MakeText(pallets.ToString(), 22, ink, bold: true);
+                countLabel.style.marginRight = 4;
+                countLabel.style.marginTop = 0; countLabel.style.marginBottom = 0;
+                countLabel.style.paddingTop = 0; countLabel.style.paddingBottom = 0;
+                detailRow.Add(countLabel);
+                var unitLabel = MakeText(pallets == 1 ? "pallet" : "pallets", 19, ink); // 11 * 1.75 per Tad's explicit call
+                unitLabel.style.marginTop = 0; unitLabel.style.marginBottom = 0;
+                unitLabel.style.paddingTop = 0; unitLabel.style.paddingBottom = 0;
+                detailRow.Add(unitLabel);
+                return detailRow;
+            }
+            return MakeFlagDetailText($"{DockScheduleService.BlockLabel(appt.BlockIndex)} · held", ink);
+        }
+
         if (isPo)
         {
             pallets = PalletCountForPO(appt.ShipmentPoNumber);
             title = $"PO {appt.ShipmentPoNumber}";
             subtitle = late ? $"{today - appt.Day}d LATE" : DeadlineLabel(appt.Day);
-            // Pallet count was unreadable at the shared 11px detail size, and the vendor name was
-            // dead weight -- every PO parked here is the same wholesaler, so drop it and let the
-            // number that actually matters (for judging door/lane capacity) be twice as big instead.
-            var detailRow = new VisualElement();
-            detailRow.style.flexDirection = FlexDirection.Row;
-            detailRow.style.alignItems = Align.FlexEnd;
-            detailRow.style.opacity = 0.85f;
-            // Pulled up negative -- the 22px number's own line-height was pushing this row past the
-            // box's fixed height, clipping the title above and the number below. Zeroing pad/margin on
-            // both labels wasn't enough on its own since the taller line-height is baked into the font
-            // metrics, not spacing this code controls.
-            detailRow.style.marginTop = -5;
-            var countLabel = MakeText(pallets.ToString(), 22, ink, bold: true);
-            countLabel.style.marginRight = 4;
-            countLabel.style.marginTop = 0; countLabel.style.marginBottom = 0;
-            countLabel.style.paddingTop = 0; countLabel.style.paddingBottom = 0;
-            detailRow.Add(countLabel);
-            var unitLabel = MakeText(pallets == 1 ? "pallet" : "pallets", 19, ink); // 11 * 1.75 per Tad's explicit call
-            unitLabel.style.marginTop = 0; unitLabel.style.marginBottom = 0;
-            unitLabel.style.paddingTop = 0; unitLabel.style.paddingBottom = 0;
-            detailRow.Add(unitLabel);
-            detailElement = detailRow;
         }
         else
         {
             pallets = 0; // a held outbound trailer carries no line items of its own to count
             title = appt.CustomerName;
             subtitle = late ? $"{today - appt.Day}d LATE" : DeadlineLabel(appt.Day);
-            detailElement = MakeFlagDetailText($"{DockScheduleService.BlockLabel(appt.BlockIndex)} · held", ink);
         }
 
         var box = BuildFlagBox(
             icon: IconForCustomer(appt.CustomerId, appt.ContractId, Arrivals()),
-            title: title, subtitle: subtitle, detailElement: detailElement,
+            title: title, subtitle: subtitle, detailElement: BuildDetailElement(),
             fill: fill, edge: edge, ink: ink,
             selected: selected);
 
+        // See BuildPoolBox's identical ghost — a second, independent copy of the same visual, shown
+        // in place of `box` (opacity-hidden, not removed) for the duration of a hover.
+        var ghost = BuildFlagBox(
+            icon: IconForCustomer(appt.CustomerId, appt.ContractId, Arrivals()),
+            title: title, subtitle: subtitle, detailElement: BuildDetailElement(),
+            fill: fill, edge: edge, ink: ink,
+            selected: selected);
+        ghost.style.position = Position.Absolute;
+        ghost.style.display = DisplayStyle.None;
+        SetPickingModeRecursive(ghost, PickingMode.Ignore);
+        ghost.style.marginRight = 0; ghost.style.marginBottom = 0;
+        _poolHoverGhostHost.Add(ghost);
+
         // A vendor's automatically-queued make-good redelivery — see ShipmentData.IsBackfillPending —
         // gets stamped on top so the player can spot it in the pool without opening the tooltip.
-        if (isPo && IsBackfillPo(appt)) AddBackfillStamp(box);
+        if (isPo && IsBackfillPo(appt))
+        {
+            AddBackfillStamp(box);
+            AddBackfillStamp(ghost);
+        }
 
         // Same reason as BuildPoolBox: the pool container is itself a drop target, and a click on a
         // specific box must mean "select this one", never "also drop what I'm holding".
@@ -1918,14 +2054,26 @@ public class SchedulerPanel : IUIPanel
         {
             ShowNewSchedulerTooltip(appt, box);
             CustomCursorService.SetHoveringInteractable(true);
-            box.style.scale = new Scale(new Vector3(CellHoverGrowScale, CellHoverGrowScale, 1f));
-            // Bring to front so the enlarged box draws over its neighbours instead of under them.
-            box.BringToFront();
+            _pointerOverPoolBox = true;   // see FlushPendingLiveRefresh — holds off a rebuild mid-hover
+
+            // See the identical comment in BuildPoolBox's MouseEnter — `box` stays put (opacity
+            // hidden), `ghost` stands in, absolutely positioned over box's own on-screen center in the
+            // always-on-top _poolHoverGhostHost layer.
+            Rect worldR = box.worldBound;
+            Vector2 modalLocal = _modal.WorldToLocal(new Vector2(worldR.center.x, worldR.center.y));
+            ghost.style.left = modalLocal.x - PoolBoxWidth / 2f;
+            ghost.style.top = modalLocal.y - PoolBoxHeight / 2f;
+            ghost.style.display = DisplayStyle.Flex;
+            ghost.style.scale = new Scale(new Vector3(CellHoverGrowScale, CellHoverGrowScale, 1f));
+            box.style.opacity = 0f;
         });
         box.RegisterCallback<MouseLeaveEvent>(evt =>
         {
             CustomCursorService.SetHoveringInteractable(false);
-            box.style.scale = new Scale(Vector3.one);
+            _pointerOverPoolBox = false;
+            box.style.opacity = 1f;
+            ghost.style.display = DisplayStyle.None;
+            ghost.style.scale = new Scale(Vector3.one);
             if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
                 _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
             HideNewSchedulerTooltip();
@@ -3776,6 +3924,14 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     // ── New Scheduler hover tooltip ───────────────────────────────────────────────
     private VisualElement _newSchedulerTooltip;
     private ScrollView _newSchedulerTooltipScroll;
+
+    /// <summary>Top-layer host for pool/parked box hover "ghosts" — see BuildPoolBox/BuildParkedBox's
+    /// own comment on why the hovered box can't just BringToFront() itself. Added directly to `modal`
+    /// (like _newSchedulerTooltip) so it paints above the ScrollView's flow content regardless of
+    /// where in the pool the real box sits. Cleared at the top of every Rebuild() alongside the other
+    /// persistent-but-rebuild-scoped content, since it isn't a child of `_content` and wouldn't
+    /// otherwise be swept by `_content.Clear()`.</summary>
+    private VisualElement _poolHoverGhostHost;
 
     /// <summary>Appointment the open hover tooltip is currently showing, if any — lets a live
     /// inventory event (see OnPalletReceivedForLiveRefresh) re-render the SAME tooltip's content in
