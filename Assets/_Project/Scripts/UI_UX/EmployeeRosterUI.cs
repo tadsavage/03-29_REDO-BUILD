@@ -139,18 +139,11 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         if (!_enableHotkey || UIModalGuard.IsCapturing) return;
         if (Keyboard.current != null && Keyboard.current.digit3Key.wasPressedThisFrame)
         {
-            Debug.Log("[EmployeeRosterUI] Digit3Key triggered, calling ToggleUI(3)");
             // Route through UIKeyBindingManager for exclusivity
             if (UIKeyBindingManager.Instance != null)
-            {
-                Debug.Log("[EmployeeRosterUI] UIKeyBindingManager.Instance found, calling ToggleUI(3)");
                 UIKeyBindingManager.Instance.ToggleUI(3, this);
-            }
             else
-            {
-                Debug.LogWarning("[EmployeeRosterUI] UIKeyBindingManager.Instance is null, falling back to direct toggle");
                 Toggle();  // Fallback if manager not available
-            }
         }
     }
 
@@ -231,8 +224,11 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         }
         else
         {
+            // Hoisted out of BuildCard/GetCurrentActionText: a full-scene FindObjectsByType scan
+            // once per list rebuild instead of once per employee card (was O(cards × MHE slots)).
+            var mheSlots = FindObjectsByType<MHEOperatorSlot>();
             foreach (var e in people)
-                _list.Add(BuildCard(e));
+                _list.Add(BuildCard(e, mheSlots));
         }
 
         UpdateSummaryText(people.Count, sel);
@@ -289,7 +285,7 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         }
     }
 
-    private VisualElement BuildCard(EmployeeIdentity identity)
+    private VisualElement BuildCard(EmployeeIdentity identity, MHEOperatorSlot[] mheSlots)
     {
         var r = identity.Record;
 
@@ -335,7 +331,7 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         level.AddToClassList("er-level");
         levelRow.Add(level);
 
-        var currentAction = new Label(GetCurrentActionText(r));
+        var currentAction = new Label(GetCurrentActionText(r, mheSlots));
         currentAction.AddToClassList("er-level");
         currentAction.style.marginLeft = 60;
         levelRow.Add(currentAction);
@@ -498,12 +494,11 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
         return lbl;
     }
 
-    private static string GetCurrentActionText(EmployeeRecord record)
+    private static string GetCurrentActionText(EmployeeRecord record, MHEOperatorSlot[] mheSlots)
     {
         if (record == null) return "—";
 
         // Check if employee is currently operating a vehicle
-        var mheSlots = FindObjectsByType<MHEOperatorSlot>();
         foreach (var slot in mheSlots)
         {
             if (slot.CurrentOperator != null && slot.CurrentOperator.Record.employeeId == record.employeeId)

@@ -30,6 +30,10 @@ public class EmployeePhotoBooth : MonoBehaviour
     [SerializeField] private GameObject _truckDriverPrefabFemale;
     [SerializeField] private GameObject _floorWorkerPrefab;
     [SerializeField] private GameObject _floorWorkerPrefabFemale;
+    [SerializeField] private GameObject _reporterPrefab;
+    [SerializeField] private GameObject _reporterPrefabFemale;
+    [SerializeField] private GameObject _largePrefab;
+    [SerializeField] private GameObject _largePrefabFemale;
 
     [Header("Studio Setup")]
     [Tooltip("Clear color of the camera (backdrop color).")]
@@ -221,6 +225,9 @@ public class EmployeePhotoBooth : MonoBehaviour
         _liveAnimator = _liveModelInstance.GetComponent<Animator>();
         if (_liveAnimator != null)
         {
+            // See the matching note in CapturePortrait — without this, the very first rendered frame(s)
+            // of the live feed can flash bind-pose/T-pose before the renderer is marked visible.
+            _liveAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             // See the matching note in CapturePortrait — this raw prefab's own Animator is otherwise
             // free to physically translate the transform if its current state has baked-in root motion.
             _liveAnimator.applyRootMotion = false;
@@ -418,6 +425,26 @@ public class EmployeePhotoBooth : MonoBehaviour
                 }
                 return _floorWorkerPrefab;
 
+            // Admin uses the reporter look (man_reporter / woman_reporter) — per Tad's explicit ask
+            // 2026-09-22, previously fell through to the generic WorkerMale/WorkerFemale default.
+            case EmployeeRole.Admin:
+                if (gender == EmployeeGender.Female && _reporterPrefabFemale != null)
+                {
+                    finalGender = EmployeeGender.Female;
+                    return _reporterPrefabFemale;
+                }
+                return _reporterPrefab;
+
+            // Supervisor uses the "large" look (man_large / woman_large) — per Tad's explicit ask
+            // 2026-09-22, previously fell through to the generic WorkerMale/WorkerFemale default.
+            case EmployeeRole.Supervisor:
+                if (gender == EmployeeGender.Female && _largePrefabFemale != null)
+                {
+                    finalGender = EmployeeGender.Female;
+                    return _largePrefabFemale;
+                }
+                return _largePrefab;
+
             default:
                 // Floor workers, supervisor, etc.
                 if (gender == EmployeeGender.Female)
@@ -509,6 +536,38 @@ public class EmployeePhotoBooth : MonoBehaviour
         }
     }
 
+    /// <summary>Longest frame index (inclusive) a snapped portrait may land on within the "Waving"
+    /// clip — per Tad's explicit ask, frames 0-10 only (tightened from 0-15 on 2026-09-22): early
+    /// enough in the gesture to read as "just starting to wave," never far enough in to catch an
+    /// awkward mid-swing or the clip's own settle back to idle.</summary>
+    private const int WaveSnapshotMaxFrame = 10;
+
+    /// <summary>Jumps straight into the "Waving" state (bypassing IsWaving/transitions entirely — see
+    /// the call site's comment for why) and settles it on one random frame in [0, WaveSnapshotMaxFrame]
+    /// for a bit of pose variety across portraits, rather than every employee snapping the exact same
+    /// instant of the gesture. Frame -> normalizedTime is computed from the ACTUAL playing clip (not
+    /// assumed), since an override controller can swap which clip "Waving" plays per rig.</summary>
+    private static void PlayWaveAtRandomFrame(Animator animator)
+    {
+        animator.Play("Waving", 0, 0f);
+        animator.Update(0f); // commits the Play() so GetCurrentAnimatorClipInfo resolves the real clip
+
+        var clipInfos = animator.GetCurrentAnimatorClipInfo(0);
+        AnimationClip clip = clipInfos.Length > 0 ? clipInfos[0].clip : null;
+        float length = clip != null && clip.length > 0f ? clip.length : 1f;
+        float frameRate = clip != null && clip.frameRate > 0f ? clip.frameRate : 30f;
+
+        int frame = UnityEngine.Random.Range(0, WaveSnapshotMaxFrame + 1); // inclusive upper bound
+        float frameTime = Mathf.Min(frame / frameRate, length);
+        float normalizedTime = frameTime / length;
+
+        // Re-enter at the exact target time — a second Play() rather than advancing Update() forward,
+        // so the landed frame is deterministic from the roll rather than however far a real Update
+        // delta happens to carry it.
+        animator.Play("Waving", 0, normalizedTime);
+        animator.Update(0f);
+    }
+
     private void CapturePortrait(EmployeeRecord record, GameObject prefab)
     {
         if (prefab == null) return;
@@ -535,6 +594,18 @@ public class EmployeePhotoBooth : MonoBehaviour
         Animator animator = modelInstance.GetComponent<Animator>();
         if (animator != null)
         {
+            // Root cause of the recurring T-pose bug, finally isolated 2026-09-22: Animator.cullingMode
+            // defaults to CullUpdateTransforms, which skips full skeletal/muscle evaluation until the
+            // SkinnedMeshRenderer has been marked visible by at least one normal per-frame render pass.
+            // A live, gameplay-driven employee (rendered by the main camera every frame since spawn)
+            // never hits this — but this capture's temp instance is posed and read back entirely
+            // synchronously within one call, so Unity's renderer-visibility culling never gets a chance
+            // to run first, and the Animator only updates the root transform while every bone stays in
+            // its raw bind pose (= T-pose). Proved by comparing a live in-world employee (correctly
+            // posed) against this exact capture path (T-posed) side by side, then confirming the fix
+            // removes it. AlwaysAnimate is the reliable fix for any Animator driven manually/offscreen
+            // like this.
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             // applyRootMotion used to be forced off inside the now-removed ApplyModularAvatar — losing
             // that meant this raw prefab's OWN Animator was free to physically translate the transform
             // during the settle Update below if its default state has baked-in root motion (a "step
@@ -561,16 +632,17 @@ public class EmployeePhotoBooth : MonoBehaviour
 
         DisableWanderScripts(modelInstance);
 
-        if (animator != null)
-        {
-            // Animator.Play() only takes effect on the NEXT Update — calling Update(1.0f) as the very
-            // first Update after Play() spends its whole delta just processing the switch and lands
-            // exactly on normalizedTime 0 (verified live), which can read as a static/awkward first
-            // frame. A zero-delta Update processes the Play() itself; the following real Update then
-            // advances properly from inside the target state.
-            animator.Update(0f);
-            animator.Update(1.0f);
-        }
+        // Snap the portrait mid-wave instead of a settled idle pose — per Tad's explicit ask
+        // (2026-09-22): every rig used by this file (MaleStaff's own "Waving" state, and the shared
+        // "Base Controller" state graph every man_*/woman_* override controller derives from — Boss,
+        // Security, Clerk, Exterminator, TruckDriver, both construction-worker rigs, all confirmed by
+        // inspecting their AnimatorControllers live) has a state literally named "Waving". Jumping to
+        // it directly with Animator.Play, same as DisableWanderScripts already does for its own
+        // idle-state fix, is what actually works here — plain SetBool("IsWaving", true) sat unused on
+        // rigs with no bool-gated transition into it (see DisableWanderScripts' own 2026-09-22 note).
+        // This runs AFTER DisableWanderScripts on purpose: it's the last, authoritative pose-setter,
+        // superseding whatever idle state that method jumped to.
+        if (animator != null) PlayWaveAtRandomFrame(animator);
 
         // Clean up redundant scripts/components on the temporary clone
         StripNonVisualComponents(modelInstance);

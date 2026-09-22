@@ -173,17 +173,22 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
         (_scaleButton, _) = PanelTitleChrome.Adopt(_closeButton, _resizer, onClose: null);
 
         // Red X → close AND reset position to the original spot next time.
-        _closeButton?.RegisterCallback<ClickEvent>(_ => { _dragger?.ResetToOriginal(); Close(); });
-        _refreshButton?.RegisterCallback<ClickEvent>(_ => HiringService.Instance?.RefreshRoster());
+        // Named handlers (not inline lambdas) so OnDisable's Unregister calls actually remove
+        // them — an inline lambda passed to UnregisterCallback creates a NEW delegate instance
+        // that never matches the one RegisterCallback stored, so the "unregister" below was a
+        // silent no-op and every OnEnable (e.g. a DontDestroyOnLoad scene-reload cycle) stacked
+        // another duplicate handler on top of the last one.
+        _closeButton?.RegisterCallback<ClickEvent>(OnCloseClicked);
+        _refreshButton?.RegisterCallback<ClickEvent>(OnRefreshClicked);
 
         // Drag the modal by its title bar (session-only position memory).
         var titleBar = root.Q<VisualElement>(className: "hb-title-bar");
         _dragger = new DraggableWindow(_modal, titleBar, _closeButton);
 
-        _hApplicant?.RegisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Name));
-        _hPosition?.RegisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Position));
-        _hExperience?.RegisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Experience));
-        _hSalary?.RegisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Salary));
+        _hApplicant?.RegisterCallback<ClickEvent>(OnApplicantHeaderClicked);
+        _hPosition?.RegisterCallback<ClickEvent>(OnPositionHeaderClicked);
+        _hExperience?.RegisterCallback<ClickEvent>(OnExperienceHeaderClicked);
+        _hSalary?.RegisterCallback<ClickEvent>(OnSalaryHeaderClicked);
 
         TrySubscribe();
         Close();
@@ -199,48 +204,38 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
             HiringService.Instance.OnRosterChanged -= RebuildList;
         _subscribed = false;
 
-        // Named handlers, so these actually unregister (the lambda-based
-        // Unregister calls below remove nothing — a different delegate instance).
+        // Named handlers, so these actually unregister.
         _roleFilter?.UnregisterValueChangedCallback(OnRoleFilterChanged);
         _filterClear?.UnregisterCallback<ClickEvent>(OnClearFilterClicked);
 
         // Unregister all UI callbacks to prevent duplicates on re-enable
-        _closeButton?.UnregisterCallback<ClickEvent>(_ => { _dragger?.ResetToOriginal(); Close(); });
-        _refreshButton?.UnregisterCallback<ClickEvent>(_ => HiringService.Instance?.RefreshRoster());
-        _hApplicant?.UnregisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Name));
-        _hPosition?.UnregisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Position));
-        _hExperience?.UnregisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Experience));
-        _hSalary?.UnregisterCallback<ClickEvent>(_ => OnHeaderClicked(SortColumn.Salary));
+        _closeButton?.UnregisterCallback<ClickEvent>(OnCloseClicked);
+        _refreshButton?.UnregisterCallback<ClickEvent>(OnRefreshClicked);
+        _hApplicant?.UnregisterCallback<ClickEvent>(OnApplicantHeaderClicked);
+        _hPosition?.UnregisterCallback<ClickEvent>(OnPositionHeaderClicked);
+        _hExperience?.UnregisterCallback<ClickEvent>(OnExperienceHeaderClicked);
+        _hSalary?.UnregisterCallback<ClickEvent>(OnSalaryHeaderClicked);
     }
+
+    private void OnCloseClicked(ClickEvent _) { _dragger?.ResetToOriginal(); Close(); }
+    private void OnRefreshClicked(ClickEvent _) => HiringService.Instance?.RefreshRoster();
+    private void OnApplicantHeaderClicked(ClickEvent _) => OnHeaderClicked(SortColumn.Name);
+    private void OnPositionHeaderClicked(ClickEvent _) => OnHeaderClicked(SortColumn.Position);
+    private void OnExperienceHeaderClicked(ClickEvent _) => OnHeaderClicked(SortColumn.Experience);
+    private void OnSalaryHeaderClicked(ClickEvent _) => OnHeaderClicked(SortColumn.Salary);
 
     private void Update()
     {
         if (!_enableHotkey || UIModalGuard.IsCapturing) return;
 
-        // Debug all keys pressed this frame
-        if (Keyboard.current != null)
-        {
-            if (Keyboard.current.digit1Key.wasPressedThisFrame) Debug.Log("[HiringBoardUI.Update] digit1Key detected!");
-            if (Keyboard.current.digit2Key.wasPressedThisFrame) Debug.Log("[HiringBoardUI.Update] digit2Key detected!");
-            if (Keyboard.current.digit3Key.wasPressedThisFrame) Debug.Log("[HiringBoardUI.Update] digit3Key detected!");
-            if (Keyboard.current.digit4Key.wasPressedThisFrame) Debug.Log("[HiringBoardUI.Update] digit4Key detected!");
-        }
-
         if (Keyboard.current != null && Keyboard.current.digit2Key.wasPressedThisFrame)
         {
-            Debug.Log("[HiringBoardUI] Digit2Key triggered, calling ToggleUI(2)");
             // Route through UIKeyBindingManager for exclusivity. Passing `this` re-asserts the
             // registration, so a manager rebuilt by a scene load can't leave this key dead.
             if (UIKeyBindingManager.Instance != null)
-            {
-                Debug.Log("[HiringBoardUI] UIKeyBindingManager.Instance found, calling ToggleUI(2)");
                 UIKeyBindingManager.Instance.ToggleUI(2, this);
-            }
             else
-            {
-                Debug.LogWarning("[HiringBoardUI] UIKeyBindingManager.Instance is null, falling back to direct toggle");
                 Toggle();  // Fallback if manager not available
-            }
         }
     }
 
