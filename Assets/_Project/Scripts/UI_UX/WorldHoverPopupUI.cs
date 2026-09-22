@@ -1330,7 +1330,7 @@ private void ShowLocation(LocationData location)
         var apptDayLabel = new Label { text = "" };
         ui.ApptDayLabel = apptDayLabel;
         apptDayLabel.pickingMode = PickingMode.Ignore;
-        apptDayLabel.style.fontSize = 15;
+        apptDayLabel.style.fontSize = 30; // 15 -> 30, doubled per Tad's ask
         apptDayLabel.style.color = new Color(0.6f, 0.7f, 0.8f, 1f);
         apptDayLabel.style.marginLeft = 14;
         apptDayLabel.style.marginBottom = 6;
@@ -1440,6 +1440,8 @@ private void ShowLocation(LocationData location)
         // time there was before that order's own dock block. Method-level (not nested in the inbound
         // branch below) so the render loop at the bottom of this method — shared by both branches —
         // can call it too.
+        // "when" is just the day part ("Today"/"Day N") — the pickup line only needs the END hour
+        // of the appointment block, not the full start–end range, per Tad's ask (2026-09-21).
         (string orderNumber, string when) MostUrgentOrderFor(string skuId)
         {
             var candidate = orderServiceForCritical?.ActiveOrders
@@ -1453,7 +1455,7 @@ private void ShowLocation(LocationData location)
                 a.Kind != AppointmentKind.Inbound && a.OrderIds.Contains(candidate.OrderId));
             string when = orderAppt == null
                 ? "unscheduled"
-                : (orderAppt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {orderAppt.Day}") + $" @ {orderAppt.TimeLabel}";
+                : (orderAppt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {orderAppt.Day}") + $" @ {orderAppt.EndHour:00}:00";
             return (orderNumber, when);
         }
 
@@ -1731,12 +1733,15 @@ private void ShowLocation(LocationData location)
                 if (criticalCases > 0)
                 {
                     var (orderNumber, when) = MostUrgentOrderFor(skuId);
+                    // Two lines instead of one long "@"-chained sentence, per Tad's ask
+                    // (2026-09-21): which order, then when it's being picked up (end-of-block
+                    // time only — see MostUrgentOrderFor).
                     string criticalText = orderNumber != null
-                        ? $"{criticalCases} cases needed for Order {orderNumber} @ {when}"
+                        ? $"{criticalCases} cases needed for Order {orderNumber}\nIt is picking up on {when}"
                         : $"{criticalCases} cases needed";
                     var criticalRow = new Label(criticalText);
                     criticalRow.pickingMode = PickingMode.Ignore;
-                    criticalRow.style.fontSize = 13;
+                    criticalRow.style.fontSize = 15; // 13 -> 15, +15% per Tad's ask
                     criticalRow.style.color = new Color(1f, 0.55f, 0.4f, 1f);
                     criticalRow.style.marginLeft = 10;
                     criticalRow.style.marginBottom = 4;

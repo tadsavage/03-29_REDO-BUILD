@@ -365,6 +365,16 @@ public class TruckController : MonoBehaviour
     /// <summary>Called by the offload controller once every pallet is off — lets the truck depart.</summary>
     public void CompleteOffload() => _offloadComplete = true;
 
+    /// <summary>Called by the offload controller when it has to abandon an in-progress offload (e.g.
+    /// its dock stocker operator was fired/vacated mid-run) with pallets still on the trailer. Un-claims
+    /// the truck so AwaitingOffload goes true again and a future manned dock stocker can pick up and
+    /// finish it — without this, the truck would sit docked forever (claimed-but-never-complete is
+    /// invisible to both the offload scanner AND the unclaimed-timeout fallback).</summary>
+    public void ReleaseOffloadClaim()
+    {
+        if (!_offloadComplete) _offloadClaimed = false;
+    }
+
     /// <summary>Marks this outbound truck as being actively loaded so no other loader claims it.</summary>
     public void ClaimForLoad() => _loadClaimed = true;
 

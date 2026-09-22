@@ -26,19 +26,33 @@ public class EmployeeSpawner : MonoBehaviour
              "Turn OFF to use the animated worker model. Females fall back to the default model " +
              "until female parts are added.")]
     [SerializeField] private bool _useModularAvatars = true;
-    [Tooltip("Dedicated model for Inventory Control clerks. Used exclusively for the InventoryControl role, which is exclusively female.")]
+    [Tooltip("Legacy dedicated model for Inventory Control clerks — superseded by " +
+             "_icAvatarModel/_icAvatarModelFemale below (2026-09-21: IC is no longer forced female). " +
+             "No longer referenced by PickPrefab; kept only so an existing scene assignment isn't lost.")]
     [SerializeField] private GameObject _clerkPrefab;
 
     [Header("Fixed-Look Roles (override modular avatar)")]
-    [Tooltip("Pre-rigged Humanoid FBX (Boss/Exterminator/IC/Security) applied as a visual overlay " +
-             "on top of the standard worker base, exactly like the modular avatar swap, but with a " +
-             "fixed model instead of randomly-assembled parts. Takes priority over _useModularAvatars " +
-             "for these 4 roles — they always get their dedicated look, never the random assembly.")]
+    [Tooltip("Pre-rigged Humanoid FBX (Boss/Exterminator/IC/Security/TruckDriver) applied as a visual " +
+             "overlay on top of the standard worker base, exactly like the modular avatar swap, but " +
+             "with a fixed model instead of randomly-assembled parts. Takes priority over " +
+             "_useModularAvatars for these roles — they always get their dedicated look, never the " +
+             "random assembly. IC and TruckDriver now have a Female counterpart too (2026-09-21) — " +
+             "IC used to be hardcoded female-only and TruckDriver used a single unisex model.")]
     [SerializeField] private GameObject _bossAvatarModel;
     [SerializeField] private GameObject _exterminatorAvatarModel;
     [SerializeField] private GameObject _icAvatarModel;
+    [SerializeField] private GameObject _icAvatarModelFemale;
     [SerializeField] private GameObject _securityAvatarModel;
     [SerializeField] private GameObject _truckDriverAvatarModel;
+    [SerializeField] private GameObject _truckDriverAvatarModelFemale;
+    [Tooltip("Receiver / Reach Truck Operator / Dock Stocker Operator (2026-09-21) — these three " +
+             "previously had no FixedAvatar assigned at all, so they fell through to the random " +
+             "modular avatar system, which renders in T-pose (parts aren't weight-painted). Deliberately " +
+             "separate from _workerMaleAvatarModel/_workerFemaleAvatarModel below, which still cover " +
+             "the REMAINING roles (Order Selector, Loader, Supervisor, HR/Admin/Sanitation) — not " +
+             "touched by this change.")]
+    [SerializeField] private GameObject _floorWorkerAvatarModel;
+    [SerializeField] private GameObject _floorWorkerAvatarModelFemale;
 
     [Header("Generic Warehouse Worker (Polyperfect overlay)")]
     [Tooltip("Fixed-look overlay applied to every role that has no other dedicated model above " +
@@ -457,10 +471,10 @@ public class EmployeeSpawner : MonoBehaviour
     // ─── Helpers ──────────────────────────────────────────────────────────────
     private GameObject PickPrefab(EmployeeRecord record)
     {
-        // Inventory Control has a dedicated clerk model and is exclusively female.
-        if (record.role == EmployeeRole.InventoryControl && _clerkPrefab != null)
-            return _clerkPrefab;
-
+        // InventoryControl used to force the _clerkPrefab base body here regardless of gender
+        // (the role was hardcoded female-only). It's gender-flexible now (2026-09-21) — the base
+        // body is picked the same way as every other role, and FixedAvatarFor overlays the
+        // gender-matched casual look (_icAvatarModel/_icAvatarModelFemale) on top of it.
         return record.gender == EmployeeGender.Female
             ? _workerFemalePrefab ?? _workerMalePrefab
             : _workerMalePrefab ?? _workerFemalePrefab;
@@ -535,15 +549,23 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         bool female = gender == EmployeeGender.Female;
         GameObject[] pool = role switch
         {
-            EmployeeRole.Boss             => PoolOrSingle(female ? _bossAvatarModelPoolFemale : _bossAvatarModelPoolMale, _bossAvatarModel),
+            // HR shares the Boss look (2026-09-21, Tad's ask) — both are office/management staff.
+            EmployeeRole.Boss or EmployeeRole.HR
+                => PoolOrSingle(female ? _bossAvatarModelPoolFemale : _bossAvatarModelPoolMale, _bossAvatarModel),
             EmployeeRole.Exterminator     => PoolOrSingle(female ? _exterminatorAvatarModelPoolFemale : _exterminatorAvatarModelPoolMale, _exterminatorAvatarModel),
-            EmployeeRole.InventoryControl => PoolOrSingle(null, _icAvatarModel),
+            EmployeeRole.InventoryControl => PoolOrSingle(null, female ? _icAvatarModelFemale : _icAvatarModel),
             EmployeeRole.Security         => PoolOrSingle(female ? _securityAvatarModelPoolFemale : _securityAvatarModelPoolMale, _securityAvatarModel),
-            EmployeeRole.TruckDriver      => PoolOrSingle(null, _truckDriverAvatarModel),
-            // Every other role (Order Selector, Reach Truck/Dock Stocker Operator, Loader, Receiver,
-            // Supervisor, and the HR/Admin/Sanitation placeholders) — the actual warehouse floor —
-            // still reads as a blend of men and women overall, since the employee population itself
-            // is a blend; each individual hire just always matches their own gender now.
+            EmployeeRole.TruckDriver      => PoolOrSingle(null, female ? _truckDriverAvatarModelFemale : _truckDriverAvatarModel),
+            // Receiver / Reach Truck Operator / Dock Stocker Operator / Order Selector (2026-09-21,
+            // Order Selector added same day) — previously fell through to the default branch below
+            // with no fixed model assigned, so they rendered as a broken random modular avatar
+            // (T-pose). Now use the construction-worker look.
+            EmployeeRole.Receiver or EmployeeRole.ReachTruckOperator or EmployeeRole.DockStockerOperator
+                or EmployeeRole.OrderSelector
+                => PoolOrSingle(null, female ? _floorWorkerAvatarModelFemale : _floorWorkerAvatarModel),
+            // Every remaining role (Loader, Supervisor, Admin/Sanitation placeholders) — still reads
+            // as a blend of men and women overall, since the employee population itself is a blend;
+            // each individual hire just always matches their own gender now.
             _ => PoolOrSingle(female ? _workerAvatarModelPoolFemale : _workerAvatarModelPoolMale,
                     female ? _workerFemaleAvatarModel : _workerMaleAvatarModel),
         };

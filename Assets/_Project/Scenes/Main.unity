@@ -10942,11 +10942,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EmployeePhotoBooth
   _workerMalePrefab: {fileID: 7464851632858873513, guid: 410399a32fdd3bf47a2f889e5140f981, type: 3}
   _workerFemalePrefab: {fileID: 8847767254829868364, guid: b1e73d6b2c36b7f41ba65f122d81e7dc, type: 3}
-  _bossPrefab: {fileID: 4160228961936110459, guid: 4ef3f5d92449a3046beab3e44a2a1db4, type: 3}
-  _securityPrefab: {fileID: 8526373013839797475, guid: ecc0559b825f8be44b0813e72737d282, type: 3}
-  _clerkPrefab: {fileID: 6854493657648180400, guid: f522798c0be9ab6488bc6c2eefb1fcd6, type: 3}
-  _exterminatorPrefab: {fileID: 4121492427302467827, guid: b3dc5757c8f7f06449a9cd53078a422a, type: 3}
-  _truckDriverPrefab: {fileID: 5934113403313050217, guid: 8aaeadf67fa8ec549a1b5e2d40d9a95c, type: 3}
+  _bossPrefab: {fileID: 8214505089139217242, guid: a37846151c2b16c4194e97c5b14e2fcb, type: 3}
+  _bossPrefabFemale: {fileID: 1859758781311065194, guid: dc1f64e223f359f4ea5a04a2e298df00, type: 3}
+  _securityPrefab: {fileID: 1532020556118192233, guid: 4d343708bdd39564aa5d01ec80d3ecdb, type: 3}
+  _securityPrefabFemale: {fileID: 7742280318673001730, guid: 8ea9df9358de39c46bb90fdab400c3eb, type: 3}
+  _clerkPrefab: {fileID: 7620271021023955913, guid: e7731e319bf5d884289e05d643be0d5f, type: 3}
+  _clerkPrefabFemale: {fileID: 4607409748621003327, guid: e1f25da782070d442854da6dc2435386, type: 3}
+  _exterminatorPrefab: {fileID: 817718357453161023, guid: b5448b89dfe30d6418a0776272ea153b, type: 3}
+  _exterminatorPrefabFemale: {fileID: 6611552144811947126, guid: 30e84e341120cb041b7fe4933fbd4e53, type: 3}
+  _truckDriverPrefab: {fileID: 6374369181962106909, guid: 970393d6aa0d39a459753be9d83dd6a3, type: 3}
+  _truckDriverPrefabFemale: {fileID: 2022251859081974265, guid: 86450d995633d0d4e9c6c938c2c2ca1d, type: 3}
+  _floorWorkerPrefab: {fileID: 6298834174758672602, guid: f597f1dcbb9164a4dbd208a4d876ae4d, type: 3}
+  _floorWorkerPrefabFemale: {fileID: 1902560445004585836, guid: 1ff675a9d7662474d8d3ef3406a8bbc9, type: 3}
   _backdropColor: {r: 0.13443395, g: 0.27601737, b: 0.5377358, a: 1}
   _studioLightIntensity: 0.25
   _clerkVerticalOffset: 0.17
@@ -16892,10 +16899,14 @@ MonoBehaviour:
   _useModularAvatars: 1
   _clerkPrefab: {fileID: 6854493657648180400, guid: f522798c0be9ab6488bc6c2eefb1fcd6, type: 3}
   _bossAvatarModel: {fileID: 8214505089139217242, guid: a37846151c2b16c4194e97c5b14e2fcb, type: 3}
-  _exterminatorAvatarModel: {fileID: 5121398322792436129, guid: 56d33b5e94ab4fd4caf7108b0188bfb9, type: 3}
-  _icAvatarModel: {fileID: 1859758781311065194, guid: dc1f64e223f359f4ea5a04a2e298df00, type: 3}
+  _exterminatorAvatarModel: {fileID: 817718357453161023, guid: b5448b89dfe30d6418a0776272ea153b, type: 3}
+  _icAvatarModel: {fileID: 7620271021023955913, guid: e7731e319bf5d884289e05d643be0d5f, type: 3}
+  _icAvatarModelFemale: {fileID: 4607409748621003327, guid: e1f25da782070d442854da6dc2435386, type: 3}
   _securityAvatarModel: {fileID: 1532020556118192233, guid: 4d343708bdd39564aa5d01ec80d3ecdb, type: 3}
-  _truckDriverAvatarModel: {fileID: 4256531644828636768, guid: a4f2556c3cb3a7d40bf1671a29fc5d93, type: 3}
+  _truckDriverAvatarModel: {fileID: 6374369181962106909, guid: 970393d6aa0d39a459753be9d83dd6a3, type: 3}
+  _truckDriverAvatarModelFemale: {fileID: 2022251859081974265, guid: 86450d995633d0d4e9c6c938c2c2ca1d, type: 3}
+  _floorWorkerAvatarModel: {fileID: 6298834174758672602, guid: f597f1dcbb9164a4dbd208a4d876ae4d, type: 3}
+  _floorWorkerAvatarModelFemale: {fileID: 1902560445004585836, guid: 1ff675a9d7662474d8d3ef3406a8bbc9, type: 3}
   _workerMaleAvatarModel: {fileID: 0}
   _workerFemaleAvatarModel: {fileID: 0}
   _bossAvatarModelPoolMale:
@@ -16907,9 +16918,9 @@ MonoBehaviour:
   _securityAvatarModelPoolFemale:
   - {fileID: 7742280318673001730, guid: 8ea9df9358de39c46bb90fdab400c3eb, type: 3}
   _exterminatorAvatarModelPoolMale:
-  - {fileID: 1586375323705241807, guid: 1e0952549da30e84a9f96482c05a93cd, type: 3}
+  - {fileID: 817718357453161023, guid: b5448b89dfe30d6418a0776272ea153b, type: 3}
   _exterminatorAvatarModelPoolFemale:
-  - {fileID: 7876960790497873813, guid: 85a9621d07e72784797ff6a99008e98b, type: 3}
+  - {fileID: 6611552144811947126, guid: 30e84e341120cb041b7fe4933fbd4e53, type: 3}
   _workerAvatarModelPoolMale: []
   _workerAvatarModelPoolFemale: []
   _autoSpawnOnStart: 0

@@ -19,10 +19,17 @@ public class EmployeePhotoBooth : MonoBehaviour
     [SerializeField] private GameObject _workerMalePrefab;
     [SerializeField] private GameObject _workerFemalePrefab;
     [SerializeField] private GameObject _bossPrefab;
+    [SerializeField] private GameObject _bossPrefabFemale;
     [SerializeField] private GameObject _securityPrefab;
+    [SerializeField] private GameObject _securityPrefabFemale;
     [SerializeField] private GameObject _clerkPrefab;
+    [SerializeField] private GameObject _clerkPrefabFemale;
     [SerializeField] private GameObject _exterminatorPrefab;
+    [SerializeField] private GameObject _exterminatorPrefabFemale;
     [SerializeField] private GameObject _truckDriverPrefab;
+    [SerializeField] private GameObject _truckDriverPrefabFemale;
+    [SerializeField] private GameObject _floorWorkerPrefab;
+    [SerializeField] private GameObject _floorWorkerPrefabFemale;
 
     [Header("Studio Setup")]
     [Tooltip("Clear color of the camera (backdrop color).")]
@@ -185,10 +192,16 @@ public class EmployeePhotoBooth : MonoBehaviour
     {
         StopLiveFeed(); // Clean up any existing feed
 
+        // GetPrefabForRoleAndGender already picked the exact intended model for this role+gender —
+        // do NOT follow this with ApplyModularAvatar (removed 2026-09-21). It unconditionally hid
+        // this prefab's own mesh and replaced it with a randomly-assembled generic modular body,
+        // which is why every live feed/portrait used to show a generic outfit (e.g. a Boss showing
+        // up in coveralls) regardless of which fixed-look prefab was assigned above.
         GameObject prefab = GetPrefabForRoleAndGender(record.role, record.gender, out _);
         if (prefab == null) prefab = _workerMalePrefab;
 
         _liveModelInstance = Instantiate(prefab, transform);
+        DisableWanderScripts(_liveModelInstance);
         _liveModelInstance.transform.localPosition = new Vector3(0f, GetModelVerticalOffset(record.role) + _avatarFrameShift, 0f);
         _liveModelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
         _liveModelInstance.name = $"LiveFeed_{record.employeeName}";
@@ -200,9 +213,6 @@ public class EmployeePhotoBooth : MonoBehaviour
             identity.enabled = false;
         }
 
-        // Apply modular avatar if possible
-        ApplyModularAvatar(_liveModelInstance, record);
-
         // Posture (slouch) and gesture (wave/rude) are independent: a tired-but-happy
         // employee can slouch AND still wave — fatigue no longer blocks a morale gesture.
         EmployeeMood postureMood = EmployeeMoodEvaluator.EvaluatePosture(record);
@@ -211,6 +221,9 @@ public class EmployeePhotoBooth : MonoBehaviour
         _liveAnimator = _liveModelInstance.GetComponent<Animator>();
         if (_liveAnimator != null)
         {
+            // See the matching note in CapturePortrait — this raw prefab's own Animator is otherwise
+            // free to physically translate the transform if its current state has baked-in root motion.
+            _liveAnimator.applyRootMotion = false;
             _liveAnimator.SetBool("IsWalking", false);
             _liveAnimator.SetBool(EmployeeMoodAnimator.WavingParam, false);
             _liveAnimator.SetBool(EmployeeMoodAnimator.AngryParam, false);
@@ -331,26 +344,79 @@ public class EmployeePhotoBooth : MonoBehaviour
 
     private GameObject GetPrefabForRoleAndGender(EmployeeRole role, EmployeeGender gender, out EmployeeGender finalGender)
     {
-        // Default to Male for specific male-only model roles
-        finalGender = EmployeeGender.Male;
+        // Default to the employee's OWN gender, not a hardcoded Male — this used to be hardcoded
+        // Male so that a role with no female-specific PORTRAIT body available (Boss/Security/
+        // Exterminator, until the _xPrefabFemale fields above) would permanently overwrite
+        // record.gender to Male the instant a portrait was generated, clobbering a correctly-rolled
+        // Female record before EmployeeSpawner's own gender-matched avatar pools ever saw it (Tad's
+        // "50/50" ask couldn't work while this ran first). Falling back to a male placeholder BODY
+        // for the portrait photo is fine; silently rewriting the employee's real gender is not.
+        finalGender = gender == EmployeeGender.Female ? EmployeeGender.Female : EmployeeGender.Male;
 
         switch (role)
         {
+            // Boss/Security/Exterminator use a dedicated female portrait body when one is assigned,
+            // otherwise fall through to the shared male body above WITHOUT touching finalGender.
+            // HR shares the Boss portrait look too (2026-09-21, Tad's ask).
             case EmployeeRole.Boss:
+            case EmployeeRole.HR:
+                if (gender == EmployeeGender.Female && _bossPrefabFemale != null)
+                {
+                    finalGender = EmployeeGender.Female;
+                    return _bossPrefabFemale;
+                }
                 return _bossPrefab;
 
             case EmployeeRole.Security:
+                if (gender == EmployeeGender.Female && _securityPrefabFemale != null)
+                {
+                    finalGender = EmployeeGender.Female;
+                    return _securityPrefabFemale;
+                }
                 return _securityPrefab;
 
+            // InventoryControl is no longer forced Female (2026-09-21) — it used to hardcode
+            // finalGender = Female here, clobbering the real gender the same way Boss/Security/
+            // Exterminator used to. Now behaves like them: dedicated female body when assigned,
+            // otherwise the shared male body.
             case EmployeeRole.InventoryControl:
-                finalGender = EmployeeGender.Female; // clerk model is female
+                if (gender == EmployeeGender.Female && _clerkPrefabFemale != null)
+                {
+                    finalGender = EmployeeGender.Female;
+                    return _clerkPrefabFemale;
+                }
                 return _clerkPrefab;
 
             case EmployeeRole.Exterminator:
+                if (gender == EmployeeGender.Female && _exterminatorPrefabFemale != null)
+                {
+                    finalGender = EmployeeGender.Female;
+                    return _exterminatorPrefabFemale;
+                }
                 return _exterminatorPrefab;
 
             case EmployeeRole.TruckDriver:
+                if (gender == EmployeeGender.Female && _truckDriverPrefabFemale != null)
+                {
+                    finalGender = EmployeeGender.Female;
+                    return _truckDriverPrefabFemale;
+                }
                 return _truckDriverPrefab;
+
+            // Receiver / Reach Truck Operator / Dock Stocker Operator / Order Selector (2026-09-21) —
+            // previously fell through to the generic default branch below (plain WorkerMale/
+            // WorkerFemale placeholder portrait); now use the construction-worker look, matching the
+            // world model change.
+            case EmployeeRole.Receiver:
+            case EmployeeRole.ReachTruckOperator:
+            case EmployeeRole.DockStockerOperator:
+            case EmployeeRole.OrderSelector:
+                if (gender == EmployeeGender.Female && _floorWorkerPrefabFemale != null)
+                {
+                    finalGender = EmployeeGender.Female;
+                    return _floorWorkerPrefabFemale;
+                }
+                return _floorWorkerPrefab;
 
             default:
                 // Floor workers, supervisor, etc.
@@ -374,6 +440,75 @@ public class EmployeePhotoBooth : MonoBehaviour
         _ => 0f
     };
 
+    /// <summary>Neutralizes PolyPerfect's own wander/idle AI (People_WanderScript / Common_WanderScript)
+    /// on a photo-booth or live-feed temp instance, WITHOUT leaving the Animator undriven.
+    ///
+    /// Found 2026-09-21, in two parts:
+    /// 1. Left running, this script weight-randomizes among several idle animation states
+    ///    (Common_WanderScript.idleStates, picked via Random.Range) via an Animator bool per state —
+    ///    completely independent of EmployeeIdentity/the Animator state this class otherwise controls.
+    ///    Some idle variants aren't a plain standing pose (a "drop/crouch" state froze Boss/Security
+    ///    portraits low in frame; a state with forward root motion made another candidate look like
+    ///    she'd stepped into the camera) — so this used to just be flatly disabled.
+    /// 2. But flatly disabling it (mb.enabled = false immediately after Instantiate) also means its
+    ///    Start() — which is what actually calls SetBool to kick the Animator into ANY of those idle
+    ///    states in the first place — never runs. With NOTHING ever setting an idle bool true, the
+    ///    Animator just sits in its raw, never-played entry state, which is a T-pose. That's what
+    ///    "disable it entirely" produced once verified against a real rendered portrait (previously
+    ///    assumed fixed from log/behavior alone, without looking at the actual pixels).
+    ///
+    /// Fix: read idleStates via reflection (no compile-time reference to the Polyperfect assembly,
+    /// same reasoning as the type-name match below), deterministically pick the entry with the
+    /// HIGHEST stateWeight (matches the script's own bias toward its "primary" idle — e.g. for
+    /// man/woman_construction_worker that's "Waving", weight 1, vs "Texting" at weight 0), then
+    /// disable the script so nothing can later drift to a different (possibly bad) state.
+    ///
+    /// Found 2026-09-22: setting the matching Animator BOOL (e.g. "isWaving") and letting a normal
+    /// transition carry the state machine there does NOT work here — these rigs' Animator Controller
+    /// default state is literally a state named "Tpose" (a T-Pose motion clip, presumably a rigger's
+    /// placeholder), and there is no "Tpose -> Waving" (nor catch-all Any State) transition wired to
+    /// it, so the bool sits true forever while the state machine never leaves Tpose. Confirmed live:
+    /// GetCurrentAnimatorStateInfo(0).shortNameHash after SetBool+Update matched the "Tpose" state's
+    /// hash exactly, not "Waving"'s. Fix: call Animator.Play(stateName, ...) directly using the idle
+    /// entry's own `stateName` field ("Waving") to jump straight into that state, bypassing the
+    /// transition graph entirely — a plain SetBool alone is not reliable for this rig.</summary>
+    private static void DisableWanderScripts(GameObject modelInstance)
+    {
+        var animator = modelInstance.GetComponentInChildren<Animator>(true);
+        foreach (var mb in modelInstance.GetComponentsInChildren<MonoBehaviour>(true))
+        {
+            if (mb == null || !mb.GetType().Name.Contains("WanderScript")) continue;
+
+            if (animator != null)
+            {
+                var idleStatesField = mb.GetType().GetField("idleStates",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                if (idleStatesField?.GetValue(mb) is System.Array idleStates && idleStates.Length > 0)
+                {
+                    object best = null;
+                    int bestWeight = int.MinValue;
+                    foreach (var state in idleStates)
+                    {
+                        var weightField = state.GetType().GetField("stateWeight");
+                        int weight = weightField != null ? (int)weightField.GetValue(state) : 0;
+                        if (weight > bestWeight) { bestWeight = weight; best = state; }
+                    }
+                    var boolField = best?.GetType().GetField("animationBool");
+                    string animationBool = boolField?.GetValue(best) as string;
+                    if (!string.IsNullOrEmpty(animationBool))
+                        animator.SetBool(animationBool, true);
+
+                    var nameField = best?.GetType().GetField("stateName");
+                    string stateName = nameField?.GetValue(best) as string;
+                    if (!string.IsNullOrEmpty(stateName))
+                        animator.Play(stateName, 0, 0f);
+                }
+            }
+
+            mb.enabled = false;
+        }
+    }
+
     private void CapturePortrait(EmployeeRecord record, GameObject prefab)
     {
         if (prefab == null) return;
@@ -396,34 +531,45 @@ public class EmployeePhotoBooth : MonoBehaviour
             identity.enabled = false;
         }
 
-        // Apply modular avatar if possible
-        ApplyModularAvatar(modelInstance, record);
-
         // Ensure low-poly character has settled its pose/anim
         Animator animator = modelInstance.GetComponent<Animator>();
         if (animator != null)
         {
-            animator.Update(1.0f);
+            // applyRootMotion used to be forced off inside the now-removed ApplyModularAvatar — losing
+            // that meant this raw prefab's OWN Animator was free to physically translate the transform
+            // during the settle Update below if its default state has baked-in root motion (a "step
+            // into place" intro clip, common on PolyPerfect rigs). Caught 2026-09-21: a candidate
+            // rendered zoomed in / off-center, as if she'd walked toward the camera mid-capture.
+            animator.applyRootMotion = false;
+            // Forces the state machine to actually initialize/enter its default state. Without this,
+            // a freshly Instantiate()'d Animator that never goes through a normal Update() cycle (this
+            // whole capture happens synchronously in one frame, then the instance is destroyed) can sit
+            // in its raw bind pose instead — found 2026-09-21 on WorkerMale/WorkerFemale (used by
+            // Loader/Supervisor/Admin/Sanitation), which have no WanderScript to kick them via SetBool
+            // the way the raw PolyPerfect fixed-look prefabs do. The old (now-removed) ApplyModularAvatar
+            // always called this on ITS OWN nested animator for the same reason — it just never got
+            // applied to the animator actually used by this direct (non-modular) capture path.
+            //
+            // MUST run BEFORE DisableWanderScripts (which sets an idle bool true, e.g. "isWaving" for
+            // construction-worker rigs) — Rebind() resets Animator parameters back to the Controller's
+            // authored defaults, so calling it AFTER that SetBool silently wiped the override straight
+            // back to false, undoing the whole fix. Caught 2026-09-22 the same way as everything else
+            // in this file: rendering an actual portrait and looking at it (T-pose again) rather than
+            // trusting that "compiles + no errors" meant the earlier fix still worked.
+            animator.Rebind();
         }
 
-        // Sync parameters and pose modular animator synchronously for the snapshot
-        var modularAvatar = modelInstance.transform.Find("ModularAvatar");
-        if (modularAvatar != null)
+        DisableWanderScripts(modelInstance);
+
+        if (animator != null)
         {
-            var modAnimator = modularAvatar.GetComponent<Animator>();
-            if (modAnimator != null && animator != null)
-            {
-                foreach (var p in animator.parameters)
-                {
-                    switch (p.type)
-                    {
-                        case AnimatorControllerParameterType.Bool:  modAnimator.SetBool(p.nameHash,    animator.GetBool(p.nameHash));    break;
-                        case AnimatorControllerParameterType.Float: modAnimator.SetFloat(p.nameHash,   animator.GetFloat(p.nameHash));   break;
-                        case AnimatorControllerParameterType.Int:   modAnimator.SetInteger(p.nameHash, animator.GetInteger(p.nameHash)); break;
-                    }
-                }
-                modAnimator.Update(1.0f);
-            }
+            // Animator.Play() only takes effect on the NEXT Update — calling Update(1.0f) as the very
+            // first Update after Play() spends its whole delta just processing the switch and lands
+            // exactly on normalizedTime 0 (verified live), which can read as a static/awkward first
+            // frame. A zero-delta Update processes the Play() itself; the following real Update then
+            // advances properly from inside the target state.
+            animator.Update(0f);
+            animator.Update(1.0f);
         }
 
         // Clean up redundant scripts/components on the temporary clone
@@ -754,65 +900,4 @@ public class EmployeePhotoBooth : MonoBehaviour
         }
     }
 
-    private void ApplyModularAvatar(GameObject modelInstance, EmployeeRecord record)
-    {
-        var lib = ModularAvatarAssembler.LoadLibrary();
-        if (lib == null || lib.PartCount == 0) return;
-
-        string gender = record.gender == EmployeeGender.Female ? "female" : "male";
-        int seed = ModularAvatarAssembler.StableSeed(record.employeeGuid);
-
-        var workerAnimator = modelInstance.GetComponentInChildren<Animator>(true);
-
-        var avatar = ModularAvatarAssembler.Build(lib, gender, seed);
-        if (avatar == null) return;   // no parts for that gender yet → keep the default model
-
-        // Hide the worker's own animated mesh — the modular avatar replaces it visually.
-        foreach (var smr in modelInstance.GetComponentsInChildren<SkinnedMeshRenderer>(true))
-            smr.enabled = false;
-
-        var t = avatar.transform;
-        t.SetParent(modelInstance.transform, worldPositionStays: false);
-        t.localPosition = Vector3.zero;
-        t.localRotation = Quaternion.identity;
-        t.localScale    = Vector3.one;
-        avatar.name = "ModularAvatar";
-        SetLayerRecursively(avatar, modelInstance.layer);
-
-        // Force per-frame bounds so frustum culling can't hide the animated mesh.
-        foreach (var smr in avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true))
-            smr.updateWhenOffscreen = true;
-
-        var modAnimator = avatar.GetComponent<Animator>();
-        if (modAnimator == null) modAnimator = avatar.AddComponent<Animator>();
-        if (modAnimator.avatar == null && workerAnimator != null) modAnimator.avatar = workerAnimator.avatar;
-        if (workerAnimator != null) modAnimator.runtimeAnimatorController = workerAnimator.runtimeAnimatorController;
-        modAnimator.applyRootMotion = false;
-        modAnimator.enabled = true;
-        modAnimator.Rebind();
-
-        var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
-        avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
-
-        // Apply dynamic expression based on mood
-        EmployeeMood gestureMood = EmployeeMoodEvaluator.EvaluateGesture(record);
-        ModularAvatarAssembler.ApplyMoodExpression(avatar, gender, gestureMood);
-    }
-
-    private static Transform FindDeepByName(Transform parent, string boneName)
-    {
-        if (parent.name == boneName) return parent;
-        foreach (Transform c in parent)
-        {
-            var r = FindDeepByName(c, boneName);
-            if (r != null) return r;
-        }
-        return null;
-    }
-
-    private static void SetLayerRecursively(GameObject go, int layer)
-    {
-        go.layer = layer;
-        foreach (Transform c in go.transform) SetLayerRecursively(c.gameObject, layer);
-    }
 }

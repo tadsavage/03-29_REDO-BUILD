@@ -234,6 +234,17 @@ namespace GameCore.Actors
             return anchor != null ? anchor.GetComponentInChildren<PalletMasterLink>(true) : null;
         }
 
+        /// <summary>True once the operator has left this vehicle mid-task (fired/vacated). Checked
+        /// after every long open-floor SeekViaNavMesh leg (the same "between atomic units" spot
+        /// TrailerOffloadController now checks between pallets) — found 2026-09-21 alongside the
+        /// identical dock-stocker bug: this routine drives the vehicle directly and never re-checked
+        /// the slot once started, so terminating the operator mid-task left the truck finishing the
+        /// whole routine — including driving a carried pallet across the open floor — with nobody
+        /// aboard. Folded into the existing "!reached" abort branch at each site rather than a new
+        /// one, so it reuses whatever cleanup (ReleaseCarriedPalletToOrigin, reservation release,
+        /// AbortRoutine) that site already does on a failed leg.</summary>
+        private bool NoOperatorAboard() => _operatorSlot == null || !_operatorSlot.IsOccupied;
+
         private void TryClaimAndStart()
         {
             // NEVER start a new routine while a pallet is already sitting on the forks with nothing
@@ -576,7 +587,7 @@ namespace GameCore.Actors
             // is Manual (precision) work.
             bool reachedLane = false;
             yield return SeekViaNavMesh(exitPoint, $"putaway: → lane {door}{lane} exit", r => reachedLane = r);
-            if (!reachedLane)
+            if (!reachedLane || NoOperatorAboard())
             {
                 // No path — do NOT plow through. Release the reserved slot and re-queue the task.
                 _putawayLogic?.CancelPutaway(toAddress);
@@ -821,9 +832,10 @@ namespace GameCore.Actors
 
             bool reachedRack = false;
             yield return SeekViaNavMesh(locApproach.position, $"deliver: → location {toAddress} anchor", r => reachedRack = r);
-            if (!reachedRack)
+            if (!reachedRack || NoOperatorAboard())
             {
-                // No path — do NOT plow through. Put the pallet back where it came from and abort.
+                // No path (or operator gone mid-carry) — do NOT plow through. Put the pallet back
+                // where it came from and abort.
                 ReleaseCarriedPalletToOrigin(pallet);
                 if (obstacle != null) obstacle.enabled = true;
                 yield return AbortRoutine(task, palletId, toAddress);
@@ -1269,7 +1281,7 @@ namespace GameCore.Actors
 
             bool reachedLane = false;
             yield return SeekViaNavMesh(exitPoint, $"pallet pick: → source lane {srcDoor}{srcLane} exit", r => reachedLane = r);
-            if (!reachedLane)
+            if (!reachedLane || NoOperatorAboard())
             {
                 _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
                 yield return AbortRoutine(task, null, null);
@@ -1437,7 +1449,7 @@ namespace GameCore.Actors
                 : slotPos + depthAxis * LaneApproachStandoff;
             bool reachedLane = false;
             yield return SeekViaNavMesh(approach, $"pallet pick: → lane {door}{resolvedLane}", r => reachedLane = r);
-            if (!reachedLane)
+            if (!reachedLane || NoOperatorAboard())
             {
                 Debug.LogWarning($"[ReachTruckOperator] PalletPick: no path to lane {door}{resolvedLane}. " +
                                  $"Putting the pallet back and retrying in {NoDestinationBackoff:F0}s.");
@@ -1585,7 +1597,7 @@ namespace GameCore.Actors
 
             bool reachedReserve = false;
             yield return SeekViaNavMesh(locApproach.position, $"replenish: → reserve {reserveAddress} anchor", r => reachedReserve = r);
-            if (!reachedReserve)
+            if (!reachedReserve || NoOperatorAboard())
             {
                 onDone?.Invoke(false);
                 yield break;

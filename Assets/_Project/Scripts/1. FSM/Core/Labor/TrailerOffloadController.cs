@@ -155,6 +155,12 @@ namespace GameCore.Labor
             truck.ClaimForOffload();
             DockEquipmentCommandeerRegistry.Commandeer(slot);
 
+            // The operator aboard at commandeer time. Checked between pallets below so a fired/vacated
+            // operator stops the DS from picking up MORE pallets — found 2026-09-21: this routine drives
+            // the DS's transform directly and never re-checked the slot, so terminating the operator
+            // mid-offload left the vehicle running the whole rest of the maneuver with nobody aboard.
+            var boardedOperator = slot.CurrentOperator;
+
             Transform ds = slot.transform;
             // Where the DS was standing BEFORE we took it over — by definition a valid, patrol-reachable
             // spot on the working surface. Kept as the fallback for the restore below.
@@ -202,13 +208,28 @@ namespace GameCore.Labor
 
             Debug.Log($"[TrailerOffload] Offloading {pallets.Count} pallets from {truck.name} (door {doorNumber}) with dock stocker {ds.name}.");
 
+            bool completedAllPallets = true;
+            int stoppedAtIndex = pallets.Count;
             for (int i = 0; i < pallets.Count; i++)
             {
                 var pallet = pallets[i];
                 if (pallet == null) continue;
                 // Rig destroyed mid-run — stop dispatching pallets and FALL THROUGH to the restore
                 // block below, rather than piling up more exceptions and skipping cleanup entirely.
-                if (ds == null) break;
+                if (ds == null) { completedAllPallets = false; stoppedAtIndex = i; break; }
+                // Operator fired/vacated (or swapped to someone else) mid-run — stop dispatching
+                // FURTHER pallets. Doesn't abort whichever pallet is already mid-sequence inside
+                // OffloadOnePallet (that one still finishes — safer than interrupting it mid-carry),
+                // but nothing new starts with the vehicle unmanned.
+                if (slot.CurrentOperator != boardedOperator)
+                {
+                    Debug.LogWarning($"[TrailerOffload] Dock stocker operator no longer aboard mid-offload " +
+                        $"({truck.name}) — stopping before pallet {i + 1}/{pallets.Count}. Truck stays claimed " +
+                        $"by nobody so a future manned dock stocker can finish it.");
+                    completedAllPallets = false;
+                    stoppedAtIndex = i;
+                    break;
+                }
                 yield return OffloadOnePallet(ds, nav, agent, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, queue, i);
             }
 
@@ -226,19 +247,34 @@ namespace GameCore.Labor
             }
 
             DockEquipmentCommandeerRegistry.Release(slot);
-            truck.CompleteOffload();
-            Debug.Log($"[TrailerOffload] {truck.name} fully offloaded — released dock stocker to patrol.");
 
-            // VENDORS tab's "Avg Daily Pallets" — recorded here, the one place both the vendor
-            // (AssignedShipment.SupplierId) and the real pallet count (`pallets`, built at the top of
-            // this routine) are both in scope after a completed inbound offload.
-            var shipment = truck.AssignedShipment;
-            if (shipment != null && !string.IsNullOrEmpty(shipment.SupplierId) &&
-                ServiceLocator.TryGet<VendorPerformanceTracker>(out var perfTracker))
+            if (completedAllPallets)
             {
-                var gameCtx = UnityEngine.Object.FindAnyObjectByType<GameContext>();
-                int day = gameCtx != null ? gameCtx.TimeService.Day : 0;
-                perfTracker.RecordPallets(shipment.SupplierId, pallets.Count, day);
+                truck.CompleteOffload();
+                Debug.Log($"[TrailerOffload] {truck.name} fully offloaded — released dock stocker to patrol.");
+            }
+            else
+            {
+                // NOT CompleteOffload — that would let the truck depart with cargo still aboard.
+                // ReleaseOffloadClaim un-claims it so AwaitingOffload goes true again and the next
+                // manned dock stocker (Update()'s scan) can pick up and finish the remaining pallets.
+                truck.ReleaseOffloadClaim();
+                Debug.Log($"[TrailerOffload] {truck.name} offload paused ({pallets.Count - stoppedAtIndex} pallet(s) " +
+                    $"still aboard) — re-queued for a manned dock stocker.");
+            }
+
+            // VENDORS tab's "Avg Daily Pallets" — only counted on a genuinely complete offload, so a
+            // run cut short by a fired operator doesn't inflate a vendor's recorded delivery size.
+            if (completedAllPallets)
+            {
+                var shipment = truck.AssignedShipment;
+                if (shipment != null && !string.IsNullOrEmpty(shipment.SupplierId) &&
+                    ServiceLocator.TryGet<VendorPerformanceTracker>(out var perfTracker))
+                {
+                    var gameCtx = UnityEngine.Object.FindAnyObjectByType<GameContext>();
+                    int day = gameCtx != null ? gameCtx.TimeService.Day : 0;
+                    perfTracker.RecordPallets(shipment.SupplierId, pallets.Count, day);
+                }
             }
         }
 
