@@ -425,8 +425,13 @@ public class EmployeePhotoBooth : MonoBehaviour
                 }
                 return _floorWorkerPrefab;
 
-            // Admin uses the reporter look (man_reporter / woman_reporter) — per Tad's explicit ask
-            // 2026-09-22, previously fell through to the generic WorkerMale/WorkerFemale default.
+            // Admin uses the reporter look (man_reporter / woman_reporter) — restored 2026-09-22.
+            // A same-day pass had removed this (see git history) on the mistaken theory that the
+            // portrait should match whatever EmployeeSpawner's world body currently does, but Tad's
+            // actual direction is the reverse: the WORLD body was wrong (EmployeeSpawner had no Admin
+            // case at all and was silently falling through to its own generic-worker default, which
+            // resolves to man_large) and needed a dedicated Admin->reporter case added there — see
+            // EmployeeSpawner.FixedAvatarFor. This portrait mapping was correct all along.
             case EmployeeRole.Admin:
                 if (gender == EmployeeGender.Female && _reporterPrefabFemale != null)
                 {
@@ -435,8 +440,11 @@ public class EmployeePhotoBooth : MonoBehaviour
                 }
                 return _reporterPrefab;
 
-            // Supervisor uses the "large" look (man_large / woman_large) — per Tad's explicit ask
-            // 2026-09-22, previously fell through to the generic WorkerMale/WorkerFemale default.
+            // Supervisor uses the "large" look (man_large / woman_large) — restored 2026-09-22, same
+            // reasoning as Admin above. EmployeeSpawner's world body for Supervisor was ALREADY
+            // correct (it falls through to EmployeeSpawner's own generic-worker default, which is
+            // man_large/woman_large — confirmed via SerializedObject inspection), so no EmployeeSpawner
+            // change was needed here, only restoring this portrait mapping.
             case EmployeeRole.Supervisor:
                 if (gender == EmployeeGender.Female && _largePrefabFemale != null)
                 {

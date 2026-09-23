@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: AvatarPartLibrary
   m_EditorClassIdentifier: Assembly-CSharp::AvatarPartLibrary
   sources:
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_AllAvatars.fbx
+    prefab: {fileID: 919132149155446097, guid: 0b245c4b873e03542a418fc7b6df7f51, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_GENDER_NEUTRAL/_ClipBoard.fbx
     prefab: {fileID: 919132149155446097, guid: 88707f7d458ac614b89ba9377b9f21d4, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_GENDER_NEUTRAL/neutral_hat_hardhat.fbx
@@ -21,8 +23,6 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 0719af10d95f9144f99bc0849de2ac41, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_GENDER_NEUTRAL/neutral_hat_headphones.fbx
     prefab: {fileID: 919132149155446097, guid: a25a376f088bb054a9803b2390b54a26, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/All_Avatars.fbx
-    prefab: {fileID: 919132149155446097, guid: 4dad0c9b91e413d4eb4dc043a0200a99, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/MEN/man_body_main.fbx
     prefab: {fileID: 919132149155446097, guid: 4a155520f98933d4fb37daa0cceed6f5, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/MEN/man_hair_regular.fbx
@@ -44,21 +44,86 @@ MonoBehaviour:
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/XXX_Obsolete_Humanoids/Security.fbx
     prefab: {fileID: 919132149155446097, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
   parts:
+  - objectName: man_basketball_player
+    gender: male
+    slot: basketball
+    variant: player
+    sourceIndex: 0
+  - objectName: man_casual_shorts
+    gender: male
+    slot: casual
+    variant: shorts
+    sourceIndex: 0
+  - objectName: man_coat_winter
+    gender: male
+    slot: coat
+    variant: winter
+    sourceIndex: 0
+  - objectName: man_construction_worker
+    gender: male
+    slot: body
+    variant: ConstructionWorker
+    sourceIndex: 0
+  - objectName: man_naval_officer
+    gender: male
+    slot: naval
+    variant: officer
+    sourceIndex: 0
+  - objectName: man_officer_swat
+    gender: male
+    slot: officer
+    variant: swat
+    sourceIndex: 0
+  - objectName: man_race_driver
+    gender: male
+    slot: race
+    variant: driver
+    sourceIndex: 0
+  - objectName: woman_basketball_player
+    gender: female
+    slot: basketball
+    variant: player
+    sourceIndex: 0
+  - objectName: woman_casual_shorts
+    gender: female
+    slot: casual
+    variant: shorts
+    sourceIndex: 0
+  - objectName: woman_coat_winter
+    gender: female
+    slot: coat
+    variant: winter
+    sourceIndex: 0
+  - objectName: woman_construction_worker
+    gender: female
+    slot: body
+    variant: ConstructionWorker
+    sourceIndex: 0
+  - objectName: woman_naval_officer
+    gender: female
+    slot: naval
+    variant: officer
+    sourceIndex: 0
+  - objectName: woman_race_car_driver
+    gender: female
+    slot: race
+    variant: car_driver
+    sourceIndex: 0
   - objectName: neutral_hat_hardhat
     gender: neutral
     slot: hat
     variant: hardhat
-    sourceIndex: 1
+    sourceIndex: 2
   - objectName: neutral_hat_hardhatRED
     gender: neutral
     slot: hat
     variant: hardhatRED
-    sourceIndex: 2
+    sourceIndex: 3
   - objectName: neutral_hat_headphones
     gender: neutral
     slot: hat
     variant: headphones
-    sourceIndex: 3
+    sourceIndex: 4
   - objectName: man_body_main
     gender: male
     slot: body

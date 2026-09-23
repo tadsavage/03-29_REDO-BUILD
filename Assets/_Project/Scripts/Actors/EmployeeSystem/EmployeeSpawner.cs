@@ -54,6 +54,13 @@ public class EmployeeSpawner : MonoBehaviour
     [SerializeField] private GameObject _floorWorkerAvatarModel;
     [SerializeField] private GameObject _floorWorkerAvatarModelFemale;
 
+    [Header("Admin (Polyperfect reporter look)")]
+    [Tooltip("Admin previously had no dedicated case here and silently fell through to the generic " +
+             "worker default (man_large/woman_large) below, disagreeing with EmployeePhotoBooth's " +
+             "portrait, which DID special-case Admin to the reporter look. Fixed 2026-09-22.")]
+    [SerializeField] private GameObject _adminAvatarModel;
+    [SerializeField] private GameObject _adminAvatarModelFemale;
+
     [Header("Generic Warehouse Worker (Polyperfect overlay)")]
     [Tooltip("Fixed-look overlay applied to every role that has no other dedicated model above " +
              "(Order Selector, Reach Truck/Dock Stocker Operator, Loader, Receiver, Supervisor, " +
@@ -563,7 +570,12 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
             EmployeeRole.Receiver or EmployeeRole.ReachTruckOperator or EmployeeRole.DockStockerOperator
                 or EmployeeRole.OrderSelector
                 => PoolOrSingle(null, female ? _floorWorkerAvatarModelFemale : _floorWorkerAvatarModel),
-            // Every remaining role (Loader, Supervisor, Admin/Sanitation placeholders) — still reads
+            // Admin uses the reporter look, matching EmployeePhotoBooth's portrait mapping — added
+            // 2026-09-22. Previously fell through to the generic default (man_large/woman_large),
+            // which disagreed with the portrait and was the actual bug (not the portrait, which was
+            // already correctly mapped to reporter — see EmployeePhotoBooth.GetPrefabForRoleAndGender).
+            EmployeeRole.Admin => PoolOrSingle(null, female ? _adminAvatarModelFemale : _adminAvatarModel),
+            // Every remaining role (Loader, Supervisor, Sanitation placeholders) — still reads
             // as a blend of men and women overall, since the employee population itself is a blend;
             // each individual hire just always matches their own gender now.
             _ => PoolOrSingle(female ? _workerAvatarModelPoolFemale : _workerAvatarModelPoolMale,
