@@ -8484,12 +8484,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 843570133}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1635529926}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &847484759
 GameObject:
@@ -11951,12 +11951,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1274724525}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1635529926}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1274724527
 MonoBehaviour:
@@ -13812,6 +13812,8 @@ Transform:
   - {fileID: 1505288996}
   - {fileID: 1873060297}
   - {fileID: 1996268408}
+  - {fileID: 843570135}
+  - {fileID: 1274724526}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1636985263
@@ -16911,8 +16913,8 @@ MonoBehaviour:
   _truckDriverAvatarModelFemale: {fileID: 2022251859081974265, guid: 86450d995633d0d4e9c6c938c2c2ca1d, type: 3}
   _floorWorkerAvatarModel: {fileID: 6298834174758672602, guid: f597f1dcbb9164a4dbd208a4d876ae4d, type: 3}
   _floorWorkerAvatarModelFemale: {fileID: 1902560445004585836, guid: 1ff675a9d7662474d8d3ef3406a8bbc9, type: 3}
-  _workerMaleAvatarModel: {fileID: 0}
-  _workerFemaleAvatarModel: {fileID: 0}
+  _workerMaleAvatarModel: {fileID: 1024078893, guid: eec9152d9762751468df23d17b14bc97, type: 3}
+  _workerFemaleAvatarModel: {fileID: 6629832995879279726, guid: e8f8b4cc3dce5274da88cb93692a1cac, type: 3}
   _bossAvatarModelPoolMale:
   - {fileID: 8214505089139217242, guid: a37846151c2b16c4194e97c5b14e2fcb, type: 3}
   _bossAvatarModelPoolFemale:
@@ -18282,5 +18284,3 @@ SceneRoots:
   - {fileID: 137735297}
   - {fileID: 1636985265}
   - {fileID: 1635529926}
-  - {fileID: 843570135}
-  - {fileID: 1274724526}

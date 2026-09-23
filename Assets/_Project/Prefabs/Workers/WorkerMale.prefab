@@ -155,6 +155,17 @@ MonoBehaviour:
   gridY: 0
   rotation: 0
   customData: 
+  worldSpaceYHeight: 0
+  hasSavedTransform: 0
+  savedWorldPos: {x: 0, y: 0, z: 0}
+  savedWorldRot: {x: 0, y: 0, z: 0, w: 0}
+  isRackLive: 0
+  rackAisle: -1
+  rackBay: -1
+  rackLevelIndex: -1
+  rackAisleFacing: {x: 0, y: 0, z: 0}
+  rackTravelDir: {x: 0, y: 0, z: 0}
+  rackLevelChar: 
 --- !u!114 &4737448340635025031
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -501,6 +512,7 @@ MonoBehaviour:
     employeeIdPrefix: 
     gender: 1
     role: 1
+    currentAssignment: 0
     fatigue: 0
     safety: 0
     morale: 0
@@ -519,13 +531,25 @@ MonoBehaviour:
     injuryDescription: 
     injuryRecoveryDaysLeft: 0
     workSchedule:
-      shiftsPerDay: 03000000030000000300000003000000030000000300000003000000
+      shiftsPerDay: 03000000030000000300000003000000030000000300000003000000i
       overtimeDaysMask: 0
       notes: 
       effectiveDateIso: 
+    posX: 0
+    posY: 0
+    posZ: 0
+    rotY: 0
+    hasSavedPosition: 0
+    hasBoardedVehicle: 0
+    boardedVehicleGridX: -1
+    boardedVehicleGridY: -1
+    boardedVehicleWorldX: 0
+    boardedVehicleWorldY: 0
+    boardedVehicleWorldZ: 0
   _idPrefix: WKM
   _gender: 1
   _avatarRenderer: {fileID: 0}
+  _systemManaged: 0
 --- !u!114 &3168202312803059079
 MonoBehaviour:
   m_ObjectHideFlags: 0
