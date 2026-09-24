@@ -99,7 +99,8 @@ public class SchedulerWarningService : MonoBehaviour
     {
         string apptTime = $"{appt.StartHour:00}:00";
         string displayNumber = string.IsNullOrEmpty(order.OrderNumber) ? order.OrderId : order.OrderNumber;
-        string header = $"Order {displayNumber} {order.CustomerName} is at {apptTime}";
+        // "Order XXX" is a Systems Log hyperlink to this order's block on the Scheduler (LogLinks).
+        string header = $"{LogLinks.Order(order.OrderId, $"Order {displayNumber}")} {order.CustomerName} is at {apptTime}";
 
         var missing = new List<(string label, int shortfall, string arrivalLabel)>();
         foreach (var li in order.LineItems)

@@ -46,13 +46,23 @@ public class ConfirmationModal : MonoBehaviour
         // for a given Show() call became unpredictable — matching "works the first time, then it's
         // behind everything." AfterSceneLoad re-runs this method on every such reload, so sweeping up
         // any pre-existing instance here guarantees exactly one ever exists.
+        //
+        // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no
+        // domain reload) a HideAndDontSave object also survives EXITING Play, so the previous session's
+        // modal (possibly still open, holding callbacks into destroyed objects) was reused. This one is
+        // destroyed on Play exit (OnDestroy clears _instance).
         foreach (var orphan in Resources.FindObjectsOfTypeAll<ConfirmationModal>())
-            if (orphan != null) Destroy(orphan.gameObject);
+            if (orphan != null) DestroyImmediate(orphan.gameObject);
 
-        var go = new GameObject("[ConfirmationModal]") { hideFlags = HideFlags.HideAndDontSave };
+        var go = new GameObject("[ConfirmationModal]") { hideFlags = HideFlags.HideInHierarchy };
         DontDestroyOnLoad(go);
         _instance = go.AddComponent<ConfirmationModal>();
         _instance.Build();
+    }
+
+    private void OnDestroy()
+    {
+        if (_instance == this) _instance = null;
     }
 
     public static bool IsOpen => _instance != null && _instance._modal != null

@@ -337,13 +337,13 @@ namespace GameCore.Inventory
 
                 Debug.Log($"[ShipmentService] Backfill for PO {shipment.PONumber} cancelled — credit " +
                           $"accepted for {cases} outstanding case(s) instead.");
-                SystemsLogWindow.Log($"Cancelled the backfill for PO {shipment.PONumber} — took credit " +
+                SystemsLogWindow.Log($"Cancelled the backfill for {LogLinks.Po(shipment.PONumber)} — took credit " +
                                       $"for {cases} case(s) instead.");
             }
             else
             {
                 Debug.Log($"[ShipmentService] Credit accepted for {cases} short case(s) on PO {shipment.PONumber}.");
-                SystemsLogWindow.Log($"Accepted credit for {cases} short case(s) on PO {shipment.PONumber}.");
+                SystemsLogWindow.Log($"Accepted credit for {cases} short case(s) on {LogLinks.Po(shipment.PONumber)}.");
             }
 
             if (ServiceLocator.TryGet<ShipmentReceivingCoordinator>(out var coordinator) && coordinator != null)
@@ -402,8 +402,8 @@ namespace GameCore.Inventory
             int cases = shortLines.Sum(li => li.Quantity);
             Debug.Log($"[ShipmentService] Backfill requested for PO {shipment.PONumber} — {cases} case(s), " +
                       "free of charge, waiting in the Scheduler's unscheduled pool.");
-            SystemsLogWindow.LogGuard($"{shipment.SupplierName} is backfilling {cases} case(s) for PO " +
-                                       $"{shipment.PONumber} — check the Scheduler.");
+            SystemsLogWindow.LogGuard($"{shipment.SupplierName} is backfilling {cases} case(s) for " +
+                                       $"{LogLinks.Po(shipment.PONumber)} — check the Scheduler.");
         }
 
         // ── Supplier variance ────────────────────────────────────────────────

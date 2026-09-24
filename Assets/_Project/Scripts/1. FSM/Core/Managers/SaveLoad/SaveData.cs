@@ -293,6 +293,20 @@ public class TruckSnapshot
     /// assigned (possible if truck is still queuing before it picks a free dock).</summary>
     public int assignedDoorNumber = -1;
 
+    /// <summary>True if the truck held a SideLot parking slot at save time. Slot identity is stored
+    /// as the slot Anchor's world position (lots are placed objects, so list order isn't stable across
+    /// a reload). Absent in older saves — restore falls back to matching by position.</summary>
+    public bool hasSideLotSlot;
+    public Vector3 sideLotAnchorPosition;
+
+    /// <summary>Outbound pickup truck (arrives empty, gets loaded). Absent in older saves, where every
+    /// restored truck came back as inbound.</summary>
+    public bool isOutbound;
+    /// <summary>Door an outbound truck is here to load at; -1 when unknown.</summary>
+    public int outboundDoorNumber = -1;
+    /// <summary>DockAppointment.Id the outbound truck was dispatched for, or empty.</summary>
+    public string outboundAppointmentId;
+
     /// <summary><see cref="TruckController.TruckState"/> cast to int.</summary>
     public int truckState;
 

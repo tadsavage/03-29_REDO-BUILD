@@ -427,6 +427,50 @@ public class SchedulerPanel : IUIPanel
         Show();
     }
 
+    /// <summary>Appointment a Systems Log link sent the player to — drawn with a yellow "you are here"
+    /// border until the panel closes. Separate from _selectedAppointmentId on purpose: that one means
+    /// "picked up for a move", and a link click must not silently put the player into move mode.</summary>
+    private string _focusedAppointmentId;
+    private DockAppointment _focusedAppt;
+    /// <summary>The focused appointment's cell in the CURRENT build of the grid. Reset every Rebuild,
+    /// re-captured by BuildNewSchedulerCell.</summary>
+    private VisualElement _focusedCell;
+    private static readonly Color ColFocus = new Color(0.98f, 0.84f, 0.25f);
+
+    /// <summary>Opens the Scheduler on <paramref name="appt"/>'s day, highlights its block, scrolls it
+    /// into view and opens its hover tooltip. Entry point for Systems Log hyperlinks (LogLinks).</summary>
+    public void FocusAppointment(DockAppointment appt)
+    {
+        if (appt == null) { Show(); return; }
+
+        _selectedAppointmentId = null;
+        _selectedUnscheduledKey = null;
+        _focusedAppointmentId = appt.Id;
+        _focusedAppt = appt;
+        _scheduleDay = appt.Day;
+
+        if (_visible) Rebuild(); else Show();
+
+        // Show() fills the screen one frame later (FillScreenExact at 16ms), so wait for that layout
+        // before measuring where the cell landed.
+        _overlay.schedule.Execute(RevealFocusedCell).ExecuteLater(80);
+    }
+
+    private void RevealFocusedCell()
+    {
+        if (!_visible || _focusedCell == null || _focusedAppt == null || _focusedCell.panel == null) return;
+        try { _content.ScrollTo(_focusedCell); } catch (System.ArgumentException) { /* not under _content */ }
+        // One more frame so the tooltip is positioned against the post-scroll layout.
+        var cell = _focusedCell;
+        var appt = _focusedAppt;
+        _overlay.schedule.Execute(() =>
+        {
+            if (!_visible || cell.panel == null) return;
+            cell.BringToFront();
+            ShowNewSchedulerTooltip(appt, cell);
+        }).ExecuteLater(16);
+    }
+
 
     /// <summary>Centres the modal the FIRST time it's shown and never again — reopening should return
     /// it to wherever the player dragged it, not yank it back to the middle.</summary>
@@ -450,6 +494,9 @@ public class SchedulerPanel : IUIPanel
         OrdersPauseGate.Pop(this);
         _selectedAppointmentId = null;
         _selectedUnscheduledKey = null;
+        _focusedAppointmentId = null;
+        _focusedAppt = null;
+        _focusedCell = null;
         _overlay.style.display = DisplayStyle.None;
     }
 
@@ -927,6 +974,7 @@ public class SchedulerPanel : IUIPanel
         // rebuild class of bug — but a false negative here just costs one extra poll's staleness,
         // while a stuck true costs it forever.
         _pointerOverPoolBox = false;
+        _focusedCell = null;
 
         if (_titleLabel != null) _titleLabel.text = TitleFor(_tab);
         _tabHeader.Clear();
@@ -3354,12 +3402,29 @@ private static void ApplyLilitaFont(VisualElement el)
         nameLabel.style.overflow = Overflow.Hidden;
         textCol.Add(nameLabel);
 
-        var (cases, pallets, critical, cost) = SummarizeOrderLines(lines);
+        var (cases, pallets, critical) = SummarizeOrderLines(lines);
 
         var statsLabel = MakeText($"{cases:N0} case(s) · {pallets:N0} pallet(s) · [{critical}] critical items",
                                   14, ColSubtleText);
         statsLabel.style.whiteSpace = WhiteSpace.NoWrap;
         textCol.Add(statsLabel);
+
+        // Outbound/bulk only — an inbound PO earns nothing by itself.
+        List<string> orderIds = null;
+        if (appt != null) { if (!IsInboundPo(appt)) orderIds = appt.OrderIds; }
+        else if (_selectedUnscheduledKey != null)
+            orderIds = unscheduled.FirstOrDefault(g => g.Key == _selectedUnscheduledKey)?.OrderIds;
+        int cost = appt != null && IsInboundPo(appt) ? InboundPoCost(appt) : OrdersCostOfGoods(orderIds);
+        if (TryEstimateNetProfit(orderIds, out int netProfit))
+        {
+            var profitLabel = MakeText(
+                $"Approximate revenue - <b>${netProfit:N0}</b>  <size=80%>net profit if loaded in full and departs on time</size>",
+                15, netProfit >= 0 ? ColMoney : ColDanger);
+            profitLabel.enableRichText = true;
+            profitLabel.style.whiteSpace = WhiteSpace.NoWrap;
+            profitLabel.style.overflow = Overflow.Hidden;
+            textCol.Add(profitLabel);
+        }
 
         card.Add(textCol);
 
@@ -3385,20 +3450,64 @@ private static void ApplyLilitaFont(VisualElement el)
         return card;
     }
 
-    /// <summary>Cases/pallets/critical-count/cost across a resolved PO/Order Details line list —
+    /// <summary>Net profit the trailer's orders would book if every case ships and the trailer leaves on
+    /// time: full-quantity revenue (doubled for a same-day rush, exactly as OrderService.ShipOrder bills
+    /// one that makes its deadline) minus cost of goods. Same "freight margin only" definition as
+    /// OrderData.ShippedProfit — wages, running costs and fines are not deducted. False when there are
+    /// no orders to price yet.</summary>
+    private static bool TryEstimateNetProfit(List<string> orderIds, out int netProfit)
+    {
+        netProfit = 0;
+        if (orderIds == null || orderIds.Count == 0) return false;
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return false;
+
+        bool any = false;
+        foreach (var id in orderIds)
+        {
+            var order = orders.ActiveOrders.FirstOrDefault(o => o.OrderId == id);
+            if (order == null) continue;
+            any = true;
+            int revenue = order.IsSameDayRush
+                ? Mathf.RoundToInt(order.TotalRevenue * OrderData.SameDayRushRevenueMultiplier)
+                : order.TotalRevenue;
+            netProfit += revenue - (order.TotalRevenue - order.ExpectedProfit); // minus COGS
+        }
+        return any;
+    }
+
+    /// <summary>"Cost of Load" for an outbound/bulk trailer: what the goods on it cost you (ordered
+    /// quantity × each line's UnitCost) — the same COGS TryEstimateNetProfit subtracts, so cost and
+    /// profit on the card always reconcile. Used to be retail (SkuData.SellValue), which matched neither
+    /// what you paid nor what this customer pays.</summary>
+    private static int OrdersCostOfGoods(List<string> orderIds)
+    {
+        if (orderIds == null || orderIds.Count == 0) return 0;
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return 0;
+        return orders.ActiveOrders.Where(o => orderIds.Contains(o.OrderId))
+                     .Sum(o => o.TotalRevenue - o.ExpectedProfit);
+    }
+
+    /// <summary>"Cost of Load" for an inbound PO: what you're paying the vendor for it.</summary>
+    private static int InboundPoCost(DockAppointment appt)
+    {
+        if (!ServiceLocator.TryGet<ShipmentService>(out var shipments) || shipments == null) return 0;
+        var shipment = shipments.PendingShipments.FirstOrDefault(s => s.PONumber == appt.ShipmentPoNumber);
+        return shipment != null ? shipment.TotalCost : 0;
+    }
+
+    /// <summary>Cases/pallets/critical-count across a resolved PO/Order Details line list —
     /// shared by the details card and (for critical) nothing else yet, but kept general. Pallets use
     /// the same FullPalletCases packing PalletCountForGroup already uses; "critical" is a line where
     /// on-hand stock can't cover the quantity needed.</summary>
-    private (int cases, int pallets, int critical, int cost) SummarizeOrderLines(
+    private (int cases, int pallets, int critical) SummarizeOrderLines(
         List<(string sku, string desc, int qty)> lines)
     {
-        if (lines == null || lines.Count == 0) return (0, 0, 0, 0);
+        if (lines == null || lines.Count == 0) return (0, 0, 0);
 
         ServiceLocator.TryGet<InventoryService>(out var inv);
         ServiceLocator.TryGet<OrderService>(out var orders);
 
         int cases = 0, pallets = 0, critical = 0;
-        float cost = 0f;
         foreach (var line in lines)
         {
             cases += line.qty;
@@ -3408,11 +3517,8 @@ private static void ApplyLilitaFont(VisualElement el)
 
             int fullPallet = orders != null ? orders.FullPalletCases(line.sku) : 0;
             if (fullPallet > 0) pallets += Mathf.CeilToInt(line.qty / (float)fullPallet);
-
-            var sku = inv != null ? inv.GetSkuData(line.sku) : null;
-            if (sku != null) cost += line.qty * sku.SellValue;
         }
-        return (cases, pallets, critical, Mathf.RoundToInt(cost));
+        return (cases, pallets, critical);
     }
 
     /// <summary>The ticker + faint hour grid + door rows + sweep line. Absolutely-positioned over
@@ -3677,6 +3783,17 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         cell.style.borderTopLeftRadius = cell.style.borderTopRightRadius =
             cell.style.borderBottomLeftRadius = cell.style.borderBottomRightRadius = 4;
         cell.style.overflow = Overflow.Hidden;
+
+        // Log-link "you are here" marker — see _focusedAppointmentId. Loses to the orange
+        // picked-up-for-move border, which is the more urgent state to read.
+        if (!selected && appt.Id == _focusedAppointmentId)
+        {
+            _focusedCell = cell;
+            cell.style.borderTopWidth = cell.style.borderBottomWidth =
+                cell.style.borderLeftWidth = cell.style.borderRightWidth = 3;
+            cell.style.borderTopColor = cell.style.borderBottomColor =
+                cell.style.borderLeftColor = cell.style.borderRightColor = new StyleColor(ColFocus);
+        }
 
         // Grow 50% on hover so the fine print (order #/PO, item summary, pallet count) is readable
         // without opening the tooltip — per Tad's explicit ask. Scales from the cell's own center

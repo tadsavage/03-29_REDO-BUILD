@@ -102,14 +102,29 @@ namespace GameCore.Labor
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
+            // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+            // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+            // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+            foreach (var stale in Resources.FindObjectsOfTypeAll<TrailerOffloadController>())
+                if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
             if (_instance != null) return;
-            var go = new GameObject("[TrailerOffloadController]") { hideFlags = HideFlags.HideAndDontSave };
+            var go = new GameObject("[TrailerOffloadController]") { hideFlags = HideFlags.HideInHierarchy };
             DontDestroyOnLoad(go);
             _instance = go.AddComponent<TrailerOffloadController>();
         }
 
         private PlacementGrid _grid;
         private float _nextScan;
+
+        // _pendingDrops is static and outlives a Play session (domain reload is disabled). Exiting Play
+        // mid-offload left its reservations behind, so those lanes read as "pending inbound" forever in
+        // the next session. A new instance means a new session — start clean.
+        private void Awake() => _pendingDrops.Clear();
+
+        private void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+        }
 
         private void Update()
         {

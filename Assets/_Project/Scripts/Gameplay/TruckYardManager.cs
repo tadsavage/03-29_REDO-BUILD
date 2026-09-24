@@ -303,7 +303,8 @@ public class TruckYardManager : MonoBehaviour
                     ? $"There are {critical} critical item(s) on this load."
                     : "Looks like replenishment stock, nothing critical.";
                 SystemsLogWindow.LogGuard(
-                    $"PO {shipment.PONumber} inbound to Door {dock.DoorNumber} — {pallets} pallet(s). {criticalPhrase}");
+                    $"{LogLinks.Po(shipment.PONumber)} inbound to {LogLinks.Door(dock.DoorNumber, shipment.PONumber)} — " +
+                    $"{pallets} pallet(s). {criticalPhrase}");
             }
         }
         else
@@ -327,23 +328,31 @@ public class TruckYardManager : MonoBehaviour
     /// were staged at, per DoorAssignmentService's "guard shack" routing). Arrives empty (no
     /// LoadShipment call) and is marked IsOutbound so TruckController's Docked-state fallback logic
     /// waits to be loaded instead of reading "still empty" as "nothing to do, depart" the way an
-    /// inbound trailer does. Returns false (and spawns nothing) if that door doesn't exist or is
-    /// already occupied.
+    /// inbound trailer does. Returns false (and spawns nothing) only if that door doesn't exist.
+    ///
+    /// A BUSY door no longer stops the driver coming (Tad, 2026-09-23: "they should always show up").
+    /// It used to return false, and the dispatcher simply skipped the appointment every hour until its
+    /// block was swept as a no-show — so one inbound trailer parked long at a door silently erased
+    /// every outbound pickup booked behind it. Now the truck arrives anyway, parks in the side lot,
+    /// and backs in the moment its own door frees (TruckController.UpdateWaitingForDoor).
     /// </summary>
-    public bool SpawnOutboundTruck(int doorNumber)
+    public bool SpawnOutboundTruck(int doorNumber, string appointmentId = null)
     {
         if (truckPrefab == null) { Debug.LogError("[TruckYardManager] Truck Prefab not assigned."); return false; }
         if (_spawnPoint == null) { Debug.LogError("[TruckYardManager] SpawnPoint child missing from guard shack."); return false; }
 
-        var dock = FindDockByNumber(doorNumber);
-        if (dock == null)
+        var door = DockSlot.All.FirstOrDefault(d => d != null && d.DoorNumber == doorNumber);
+        if (door == null)
         {
-            Debug.LogWarning($"[TruckYardManager] Door {doorNumber} not found or already occupied — outbound truck not spawned.");
+            Debug.LogWarning($"[TruckYardManager] Door {doorNumber} not found — outbound truck not spawned.");
             return false;
         }
+        if (HasOutboundTruckFor(doorNumber, appointmentId)) return false; // already on its way / here
+
+        var dock = door.IsOccupied ? null : door;
 
         var go  = Instantiate(truckPrefab, _spawnPoint.position, _spawnPoint.rotation);
-        go.name = $"Truck→Outbound_Door{dock.DoorNumber}";
+        go.name = $"Truck→Outbound_Door{doorNumber}";
 
         var ctrl = go.GetComponent<TruckController>() ?? go.AddComponent<TruckController>();
 
@@ -355,8 +364,20 @@ public class TruckYardManager : MonoBehaviour
         ctrl.Init(gatePos, enterNoTurn, leaveNoTurn, exitPos, _guard, OnTruckExited, null, _gateArm);
         ctrl.OnClearedGate += () => OnTruckClearedGate(ctrl);
 
-        ctrl.SetOutbound();
-        ctrl.AssignAndGo(dock);
+        ctrl.SetOutbound(doorNumber, appointmentId);
+        if (dock != null)
+        {
+            ctrl.AssignAndGo(dock);
+            SystemsLogWindow.LogGuard($"{LogLinks.Appointment(appointmentId, OutboundWhoFor(appointmentId))} " +
+                                      $"driver here for pickup — heading to {LogLinks.Door(doorNumber, appointmentId)}.");
+        }
+        else
+        {
+            ctrl.AssignAndGoWaitForDoor();
+            SystemsLogWindow.LogGuard($"{LogLinks.Appointment(appointmentId, OutboundWhoFor(appointmentId))} " +
+                                      $"driver here for {LogLinks.Door(doorNumber, appointmentId)} — the door's still busy, " +
+                                      "so they're parking in the side lot until it frees up.");
+        }
 
         if (_gateStop != null)
         {
@@ -482,6 +503,48 @@ public class TruckYardManager : MonoBehaviour
         return free.Count == 0 ? null : free[Random.Range(0, free.Count)];
     }
 
-    private DockSlot FindDockByNumber(int doorNumber)
-        => DockSlot.All.FirstOrDefault(d => d.DoorNumber == doorNumber && !d.IsOccupied);
+    /// <summary>"Sneaky Pete's Seafood (Order OG5035)" for a log line, or "Outbound" when the pickup
+    /// isn't tied to an appointment.</summary>
+    public static string OutboundWhoFor(string appointmentId)
+    {
+        if (string.IsNullOrEmpty(appointmentId) ||
+            !GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService schedule) || schedule == null)
+            return "Outbound";
+        var appt = schedule.FindById(appointmentId);
+        if (appt == null) return "Outbound";
+
+        string numbers = null;
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.OrderService orders) && orders != null)
+        {
+            var all = orders.ActiveOrders.Concat(orders.OrderHistory);
+            numbers = string.Join(", ", appt.OrderIds
+                .Select(id => all.FirstOrDefault(o => o.OrderId == id)?.OrderNumber)
+                .Where(n => !string.IsNullOrEmpty(n)).Distinct());
+        }
+        return string.IsNullOrEmpty(numbers) ? appt.CustomerName : $"{appt.CustomerName} (Order {numbers})";
+    }
+
+    /// <summary>
+    /// Is a truck already coming for this pickup? With an appointment id: only a truck dispatched for
+    /// that SAME appointment counts — a different booking at the same door (the 06:00 truck still
+    /// loading when the 10:00 block opens) must still send its own driver, who then waits in the side
+    /// lot. Without one (staged-pallet / order-release / debug spawns): any outbound truck already
+    /// serving this door counts, which is the old one-truck-per-door behaviour those callers expect.
+    /// Trucks already pulling out don't count either way.
+    /// </summary>
+    public static bool HasOutboundTruckFor(int doorNumber, string appointmentId = null)
+    {
+        foreach (var t in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+        {
+            if (t == null || !t.IsOutbound || t.IsLeaving) continue;
+            if (!string.IsNullOrEmpty(appointmentId))
+            {
+                if (t.OutboundAppointmentId == appointmentId) return true;
+                continue;
+            }
+            int door = t.AssignedDock != null ? t.AssignedDock.DoorNumber : t.OutboundDoorNumber;
+            if (door == doorNumber) return true;
+        }
+        return false;
+    }
 }

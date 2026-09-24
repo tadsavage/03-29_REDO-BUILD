@@ -65,6 +65,23 @@ namespace GameCore.Labor
         /// unclaimable; a general setter would put that back within reach. PalletPick is the one type
         /// whose source genuinely isn't decided at creation.
         /// </summary>
+        /// <summary>The pallet this task picks up was physically moved to a different staging-lane
+        /// slot (a dock stocker digging out an outbound pallet — TrailerLoadController.DigOut.cs), so its
+        /// source address moves with it. Only accepts a lane address that actually exists ("STG" + a
+        /// live LaneSlot name) and only replaces an existing "STG" source — the malformed-address
+        /// failure AssignFromLocation's guard exists for can't come back through here.</summary>
+        public bool RelocateStagingSource(string newStagingAddress)
+        {
+            if (string.IsNullOrEmpty(FromLocation) ||
+                !FromLocation.StartsWith("STG", System.StringComparison.OrdinalIgnoreCase)) return false;
+            if (string.IsNullOrEmpty(newStagingAddress) ||
+                !newStagingAddress.StartsWith("STG", System.StringComparison.OrdinalIgnoreCase)) return false;
+            string slotName = newStagingAddress.Substring(3);
+            if (!LaneNamingService.AllSlotNames().Contains(slotName)) return false;
+            FromLocation = newStagingAddress;
+            return true;
+        }
+
         public void AssignFromLocation(string address)
         {
             if (Type != WorkTaskType.PalletPick)

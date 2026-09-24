@@ -25,22 +25,24 @@ public class PalletInventoryTracker : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
-        // _instance is a plain static field, which a mid-Play script recompile (domain reload)
-        // resets to null WITHOUT destroying the old DontDestroyOnLoad GameObject it pointed to —
-        // so this guard alone let a second tracker spin up after every recompile-while-playing.
+        // _instance is a plain static field, which a script recompile (domain reload) resets to null
+        // WITHOUT destroying the old GameObject it pointed to — so this guard alone let a second
+        // tracker spin up after every recompile.
         // Two trackers each keep their OWN _linked map, and each treats a pallet the OTHER one
         // already adopted as "not mine yet" — which raced into destroying a still-physically-present
         // pallet's inventory record and silently re-registering it under a second PalletMasterLink
         // with a new id and no WorkTask, orphaning it from the queue forever. Scan for a surviving
         // instance by object identity (not just the static field) before creating a new one.
+        //
+        // 2026-09-23: survivors are now DESTROYED, not adopted. Adopting one carried over a previous
+        // session's _linked map and a subscription to that session's (dead) EventManager. The object is
+        // HideInHierarchy + DontDestroyOnLoad now (HideAndDontSave outlived exiting Play mode), and
+        // FindObjectsOfTypeAll (not FindFirstObjectByType) is still needed to see hidden objects.
+        foreach (var stale in Resources.FindObjectsOfTypeAll<PalletInventoryTracker>())
+            if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
         if (_instance != null) return;
-        // FindFirstObjectByType silently returns null for HideAndDontSave objects (confirmed live) —
-        // this tracker's own bootstrapped GameObject is exactly that, so the search has to go through
-        // Resources.FindObjectsOfTypeAll instead or it never finds the surviving instance at all.
-        var existing = Resources.FindObjectsOfTypeAll<PalletInventoryTracker>().FirstOrDefault();
-        if (existing != null) { _instance = existing; return; }
 
-        var go = new GameObject("[PalletInventoryTracker]") { hideFlags = HideFlags.HideAndDontSave };
+        var go = new GameObject("[PalletInventoryTracker]") { hideFlags = HideFlags.HideInHierarchy };
         DontDestroyOnLoad(go);
         _instance = go.AddComponent<PalletInventoryTracker>();
     }
@@ -50,12 +52,14 @@ public class PalletInventoryTracker : MonoBehaviour
     private readonly List<PlacedObject> _stale = new();
 
     private bool _subscribed;
+    private EventManager _subscribedTo;
     private float _nextHeartbeat;
     private bool _dirty = true;
 
     private void Update()
     {
-        if (!_subscribed) TrySubscribe();
+        // Re-subscribe if EventManager.Instance has been replaced (new Play session / scene load).
+        if (!_subscribed || EventManager.Instance != _subscribedTo) TrySubscribe();
 
         if (Time.unscaledTime >= _nextHeartbeat)
         {
@@ -70,14 +74,25 @@ public class PalletInventoryTracker : MonoBehaviour
     private void TrySubscribe()
     {
         var em = EventManager.Instance;
-        if (em == null) return;
+        if (em == null) { _subscribed = false; return; }
+        _subscribedTo?.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
+        _subscribedTo?.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
         em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
         em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
+        _subscribedTo = em;
         _subscribed = true;
         _dirty = true;
     }
 
     private void OnChanged(string _, PlacedObject __) => _dirty = true;
+
+    private void OnDestroy()
+    {
+        if (_instance == this) _instance = null;
+        if (_subscribedTo == null || !_subscribed) return;
+        _subscribedTo.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
+        _subscribedTo.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
+    }
 
     private static bool IsPallet(PlacedObject po)
         => po != null && po.gameObject.activeInHierarchy && po.data != null && po.data.category == "Inventory";

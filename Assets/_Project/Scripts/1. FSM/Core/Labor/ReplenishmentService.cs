@@ -28,8 +28,13 @@ namespace GameCore.Labor
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
+            // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+            // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+            // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+            foreach (var stale in Resources.FindObjectsOfTypeAll<ReplenishmentService>())
+                if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
             if (_instance != null) return;
-            var go = new GameObject("[ReplenishmentService]") { hideFlags = HideFlags.HideAndDontSave };
+            var go = new GameObject("[ReplenishmentService]") { hideFlags = HideFlags.HideInHierarchy };
             DontDestroyOnLoad(go);
             _instance = go.AddComponent<ReplenishmentService>();
         }
@@ -37,6 +42,11 @@ namespace GameCore.Labor
         private WorkQueueSystem _workQueue;
         private InventoryService _inventoryService;
         private float _nextScan;
+
+        private void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+        }
 
         private void Update()
         {

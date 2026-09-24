@@ -28,8 +28,13 @@ public class LocationRegistry : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
+        // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+        // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+        // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+        foreach (var stale in Resources.FindObjectsOfTypeAll<LocationRegistry>())
+            if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
         if (_instance != null) return;
-        var go = new GameObject("[LocationRegistry]") { hideFlags = HideFlags.HideAndDontSave };
+        var go = new GameObject("[LocationRegistry]") { hideFlags = HideFlags.HideInHierarchy };
         DontDestroyOnLoad(go);
         _instance = go.AddComponent<LocationRegistry>();
     }
@@ -62,14 +67,25 @@ public class LocationRegistry : MonoBehaviour
     // ── Instance / Heartbeat ─────────────────────────────────────────────────────────────
 
     private bool  _subscribed;
+    private EventManager _subscribedTo;
     private bool  _dirty = true;
     private float _nextHeartbeat;
+
+    // The static maps above outlive a Play session (domain reload is disabled). A new instance means a
+    // new session: drop the previous session's (destroyed) LocationData refs and reconciled pallet ids —
+    // pallet ids survive save/load, so a stale entry would skip reconciling that pallet this session.
+    private void Awake()
+    {
+        _byAddress.Clear();
+        _reconciledPalletIds.Clear();
+    }
 
     private void OnEnable() => TrySubscribe();
 
     private void Update()
     {
-        if (!_subscribed) TrySubscribe();
+        // Re-subscribe if EventManager.Instance has been replaced (new Play session / scene load).
+        if (!_subscribed || EventManager.Instance != _subscribedTo) TrySubscribe();
 
         if (Time.unscaledTime >= _nextHeartbeat)
         {
@@ -87,9 +103,12 @@ public class LocationRegistry : MonoBehaviour
     private void TrySubscribe()
     {
         var em = EventManager.Instance;
-        if (em == null) return;
+        if (em == null) { _subscribed = false; return; }
+        _subscribedTo?.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
+        _subscribedTo?.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
         em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
         em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
+        _subscribedTo = em;
         _subscribed = true;
         _dirty = true;
     }
@@ -98,10 +117,10 @@ public class LocationRegistry : MonoBehaviour
 
     private void OnDestroy()
     {
-        var em = EventManager.Instance;
-        if (em == null || !_subscribed) return;
-        em.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
-        em.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
+        if (_instance == this) _instance = null;
+        if (_subscribedTo == null || !_subscribed) return;
+        _subscribedTo.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
+        _subscribedTo.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
     }
 
     // ── Recompute ────────────────────────────────────────────────────────────────────────

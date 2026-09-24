@@ -738,7 +738,24 @@ namespace GameCore.Inventory
             if (orders.Any(o => o.CustomerId != customerId || o.AssignedDoorNumber != doorNumber)) return false;
             if (orders.Any(o => string.IsNullOrEmpty(o.AssignedLane))) return false;
 
-            var lanes = orders.Select(o => o.AssignedLane).Distinct().OrderBy(l => l).ToList();
+            var lanes = orders.Select(o => o.AssignedLane).Distinct().ToList();
+            // Plus any lane at this door where these orders' staged pallets PHYSICALLY are. A pallet
+            // that landed outside the order's assigned lane (seen live 2026-09-23: an OG4104 pallet in
+            // 1D with the order assigned to 1E) was never loaded — and the empty 1E pass reverted the
+            // order to Staged, which re-released it, every half second.
+            var grid = Object.FindAnyObjectByType<PlacementGrid>();
+            if (grid != null)
+            {
+                var ids = new HashSet<string>(orders.Select(o => o.OrderId));
+                foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+                {
+                    if (p == null || p.transform.parent != null || !ids.Contains(p.OrderId)) continue;
+                    if (LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var s) &&
+                        s.DoorNumber == doorNumber && !lanes.Contains(s.Lane))
+                        lanes.Add(s.Lane);
+                }
+            }
+            lanes = lanes.OrderBy(l => l).ToList();
 
             bool truckAtDoor = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
                 .Any(t => t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber);

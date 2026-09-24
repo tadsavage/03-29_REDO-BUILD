@@ -905,6 +905,14 @@ private void ShowLocation(LocationData location)
         }
     }
 
+    /// <summary>Pins <paramref name="truck"/> like clicking it would, but never toggles an
+    /// already-pinned truck closed — for callers (Systems Log links) that always mean "show me this".</summary>
+    public void PinTruck(TruckController truck)
+    {
+        if (truck == null || _pinnedTruck == truck) return;
+        ToggleTruckPin(truck);
+    }
+
     /// <summary>Click handler for a truck: pins it open (outline + persistent tooltip) if nothing
     /// else is pinned to it yet, or unpins it if it's the currently-pinned truck. Only one truck can
     /// be pinned at a time — pinning a new one drops whatever was pinned before.</summary>
@@ -1564,21 +1572,14 @@ private void ShowLocation(LocationData location)
         }
         else
         {
-            var dock = truck.DockedAt;
-            doorNumber = dock != null ? dock.DoorNumber : 0;
+            // The door it's here for, whether docked, backing in, or still waiting in the side lot.
+            doorNumber = truck.AssignedDock != null ? truck.AssignedDock.DoorNumber
+                       : truck.OutboundDoorNumber > 0 ? truck.OutboundDoorNumber : 0;
 
-            DockAppointment appt = null;
-            if (dock != null && dockSchedule != null)
-            {
-                int today = dockSchedule.CurrentDay;
-                foreach (var a in dockSchedule.Appointments)
-                {
-                    if (a.Parked || a.Kind == AppointmentKind.Inbound) continue;
-                    if (a.DoorNumber != doorNumber || a.Day != today) continue;
-                    appt = a;
-                    break;
-                }
-            }
+            // The appointment the truck was dispatched for — shared with the outline color so the two
+            // never disagree. This used to require the truck to be DOCKED, so a trailer still driving
+            // in or parked in the side lot showed "Outbound Trailer / No items on record".
+            DockAppointment appt = TruckOrderColors.ResolveOutboundAppointment(truck);
 
             if (appt != null)
             {
@@ -1593,7 +1594,10 @@ private void ShowLocation(LocationData location)
                 var orderNumbers = new List<string>();
                 foreach (var orderId in appt.OrderIds)
                 {
-                    var order = orderService?.ActiveOrders.FirstOrDefault(o => o.OrderId == orderId);
+                    // History too — a shipped/cancelled order archives out of ActiveOrders the moment
+                    // it closes, but the trailer carrying it is still in the yard.
+                    var order = orderService?.ActiveOrders.FirstOrDefault(o => o.OrderId == orderId)
+                             ?? orderService?.OrderHistory.FirstOrDefault(o => o.OrderId == orderId);
                     if (order == null) continue;
                     if (!string.IsNullOrEmpty(order.OrderNumber)) orderNumbers.Add(order.OrderNumber);
 

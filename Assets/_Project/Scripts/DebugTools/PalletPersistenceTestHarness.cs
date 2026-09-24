@@ -34,8 +34,13 @@ namespace GameCore.DebugTools
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
+            // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+            // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+            // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+            foreach (var stale in Resources.FindObjectsOfTypeAll<PalletPersistenceTestHarness>())
+                if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
             if (_instance != null) return;
-            var go = new GameObject("[PalletPersistenceTestHarness]") { hideFlags = HideFlags.HideAndDontSave };
+            var go = new GameObject("[PalletPersistenceTestHarness]") { hideFlags = HideFlags.HideInHierarchy };
             DontDestroyOnLoad(go);
             _instance = go.AddComponent<PalletPersistenceTestHarness>();
             Debug.Log("[PalletTestHarness] Bootstrapped, polling for trigger file: " + TriggerPath);
@@ -43,6 +48,11 @@ namespace GameCore.DebugTools
 
         private float _nextPoll;
         private bool _busy;
+
+        private void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+        }
 
         private void Update()
         {

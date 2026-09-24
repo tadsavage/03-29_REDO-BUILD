@@ -342,6 +342,34 @@ public class TruckController : MonoBehaviour
     /// after AssignAndGo, by whichever spawn path is used for outbound pickups).</summary>
     public void SetOutbound() => _isOutbound = true;
 
+    /// <summary>Outbound with a specific destination door and (optionally) the dock appointment it's
+    /// here for. Unlike an inbound truck — which takes whatever door frees first — an outbound pickup
+    /// can only load at the door its order is staged at, so a waiting outbound truck holds out for
+    /// exactly this door (see UpdateWaitingForDoor), and gives up only when its appointment is closed
+    /// out.</summary>
+    public void SetOutbound(int doorNumber, string appointmentId)
+    {
+        _isOutbound = true;
+        _outboundDoorNumber = doorNumber;
+        _outboundAppointmentId = appointmentId;
+    }
+
+    private int _outboundDoorNumber = -1;
+    private string _outboundAppointmentId;
+
+    /// <summary>The door an outbound truck is here to load at (-1 if unknown / inbound).</summary>
+    public int OutboundDoorNumber => _outboundDoorNumber;
+    /// <summary>DockAppointment.Id this outbound truck was dispatched for, or null.</summary>
+    public string OutboundAppointmentId => _outboundAppointmentId;
+
+    /// <summary>True once the truck is on its way out of the yard — no longer counts as the truck
+    /// serving its door.</summary>
+    public bool IsLeaving => _state == TruckState.DepartToApproach || _state == TruckState.ToLeaveNoTurn ||
+                             _state == TruckState.ToExit || _state == TruckState.Exiting || _state == TruckState.Idle;
+
+    /// <summary>True while this is an outbound truck parked (or heading to park) waiting for its door.</summary>
+    public bool IsOutboundWaitingForDoor => _isOutbound && _dock == null && !IsLeaving;
+
     /// <summary>The dock this truck is currently backed into (null unless docked).</summary>
     public DockSlot DockedAt => _state == TruckState.Docked ? _dock : null;
 
@@ -530,6 +558,16 @@ private DockSlot        _dock;
     /// see SideLotController.Slot. Null whenever _sideLot is null.</summary>
     private SideLotController.Slot _sideLotSlot;
     public bool IsInSideLot => _sideLot != null;
+
+    /// <summary>World position of the claimed SideLot slot's Anchor — the slot's save identity (see
+    /// TruckSnapshot.sideLotAnchorPosition). False when this truck holds no slot.</summary>
+    public bool TryGetSideLotAnchorPosition(out Vector3 anchorPosition)
+    {
+        anchorPosition = default;
+        if (_sideLotSlot == null || _sideLotSlot.Anchor == null) return false;
+        anchorPosition = _sideLotSlot.Anchor.position;
+        return true;
+    }
 
     // World heading the tractor locked onto when it finished its cosmetic swivel in
     // FacingTruckNavPoint1 — held fixed for the whole of TrailerAligningToNavPoint1 while the
@@ -1065,6 +1103,16 @@ private DockSlot        _dock;
         var restoredState = (TruckState)snap.truckState;
         Debug.Log($"[TruckController.RestoreFromSnapshot] START - state={restoredState}, doorsOpen={snap.doorsOpen}, offloadClaimed={snap.offloadClaimed}, offloadComplete={snap.offloadComplete}");
 
+        // ── SideLot slot (BUG FIX 2026-09-23: "trucks dog-piling in the same lane") ──
+        // Slot occupancy lives only in memory on SideLotController, so before this every truck
+        // restored into the lot came back owning no slot — every slot read free, and the next truck
+        // to need one was handed slot #1 and drove straight into whoever was already parked there.
+        // Done before the dock logic below so its BeginDoorWait() fallback reuses the reclaimed slot
+        // instead of grabbing (possibly) someone else's.
+        bool lotSlotConflict = false;
+        if (IsSideLotState(restoredState))
+            lotSlotConflict = !TryReclaimSideLotSlot(snap);
+
         // ── Dock assignment ────────────────────────────────────────────────────────
         if (dock != null && !dock.IsOccupied)
         {
@@ -1096,6 +1144,16 @@ private DockSlot        _dock;
         // ── Transform ─────────────────────────────────────────────────────────────
         _groundY = snap.worldPosition.y;
         transform.SetPositionAndRotation(snap.worldPosition, snap.worldRotation);
+
+        // Its lot slot already belongs to a truck restored ahead of it (only possible with an older
+        // save that predates slot persistence) — don't resume parking on top of that truck; route to
+        // a genuinely free slot from here. A truck already holding a door is leaving the lot anyway.
+        if (lotSlotConflict && _dock == null)
+        {
+            Debug.LogWarning($"[TruckController.RestoreFromSnapshot] {name}: its SideLot slot is already taken — re-routing to a free slot.");
+            BeginDoorWait();
+            return;
+        }
 
         // ── Offload flags ──────────────────────────────────────────────────────────
         // Reset docked time to 0 if the truck was previously claimed or if it's currently 
@@ -1242,6 +1300,40 @@ private DockSlot        _dock;
         _state = restoredState;
         Debug.Log($"[TruckController.RestoreFromSnapshot] END - state={restoredState} door={snap.assignedDoorNumber} pallets={snap.trailerPallets?.Count ?? 0}");
         Debug.Log($"[TruckController.RestoreFromSnapshot] Final door state: _doorsOpen={_doorsOpen}, AwaitingOffload={AwaitingOffload}");
+    }
+
+    private static bool IsSideLotState(TruckState s) =>
+        s == TruckState.ToSideLot            || s == TruckState.ToSideLotEntry ||
+        s == TruckState.FacingSideLotAnchor  || s == TruckState.ToSideLotAnchor ||
+        s == TruckState.WaitingForDoor       || s == TruckState.ReversingToSideLotEntry ||
+        s == TruckState.ReversingOutOfSideLot;
+
+    /// <summary>Re-claims the SideLot slot a restored truck held at save time. Returns false only when
+    /// the slot exists but another truck already holds it; true when claimed, or when this truck
+    /// simply wasn't in the lot (e.g. WaitingForDoor at the generic DoorWaitPoint).</summary>
+    private bool TryReclaimSideLotSlot(TruckSnapshot snap)
+    {
+        SideLotController lot;
+        SideLotController.Slot slot;
+        if (snap.hasSideLotSlot)
+        {
+            slot = SideLotController.FindSlotNear(snap.sideLotAnchorPosition, 0.5f, out lot);
+        }
+        else
+        {
+            // Older save with no slot recorded: infer it — the leg's target (Entry/Anchor) first,
+            // then the truck's own parked position.
+            slot = SideLotController.FindSlotNear(snap.currentTarget, 1f, out lot)
+                ?? SideLotController.FindSlotNear(snap.worldPosition, 3f, out lot);
+        }
+
+        if (slot == null) return true;
+        if (slot.IsOccupied && slot.Occupant != this) return false;
+
+        slot.Claim(this);
+        _sideLot = lot;
+        _sideLotSlot = slot;
+        return true;
     }
 
     // Applies all visual/controller side-effects that OnDocked() normally sets up.
@@ -1601,6 +1693,7 @@ private DockSlot        _dock;
         UpdateDoors();
         UpdateCabSteering();
         UpdateInboundDwellClock();
+        UpdateOutboundDwellClock();
 
         switch (_state)
         {
@@ -3083,24 +3176,26 @@ private DockSlot        _dock;
 
     /// <summary>Routes a truck with no free door toward somewhere to wait. Tries an unoccupied
     /// SideLotController first (claimed immediately — before the truck physically arrives — so two
-    /// trucks clearing the gate close together can't both target the same spot), then falls back to
-    /// the generic _doorWaitPoint, then to the OLD behavior — give up immediately — if neither is
-    /// available, rather than the truck sitting frozen mid-yard with nowhere to go. A second truck
-    /// needing to wait while the lot is already occupied deliberately falls all the way through to
-    /// give-up rather than queueing for the lot — no gate-side queueing exists for it yet.</summary>
+    /// trucks clearing the gate close together can't both target the same spot). If every slot is
+    /// full (or no lot is built) the driver gives up and leaves, with a red all-caps complaint in the
+    /// Systems Log. The generic _doorWaitPoint is no longer used for new arrivals — see below.</summary>
     private void BeginDoorWait()
     {
         // BUG FIX (Tad's spec): used to treat a whole SideLotController as one shared spot
         // (!l.IsOccupied), so only the very first truck ever routed here — every SideLot actually has
         // several independent parking slots (one per Jersey_barrier segment), so this now searches
         // every lot for its own first free Slot instead of asking the lot itself if it's "occupied".
-        SideLotController.Slot slot = null;
-        SideLotController lot = null;
-        foreach (var candidate in SideLotController.All)
+        // Already holding a slot (restore re-claimed it) — keep it rather than taking a second one.
+        SideLotController.Slot slot = _sideLotSlot != null && _sideLotSlot.Occupant == this ? _sideLotSlot : null;
+        SideLotController lot = slot != null ? _sideLot : null;
+        if (slot == null)
         {
-            if (candidate == null) continue;
-            slot = candidate.FindFreeSlot();
-            if (slot != null) { lot = candidate; break; }
+            foreach (var candidate in SideLotController.All)
+            {
+                if (candidate == null) continue;
+                slot = candidate.FindFreeSlot();
+                if (slot != null) { lot = candidate; break; }
+            }
         }
 
         if (slot != null)
@@ -3121,16 +3216,26 @@ private DockSlot        _dock;
             return;
         }
 
-        if (_doorWaitPoint == null)
-        {
-            Debug.LogWarning("[TruckController] No door-wait park spot configured for this yard — " +
-                             "truck can't wait for a door, giving up immediately instead.");
-            _doorWaitBar?.Hide();
-            BeginDeparture(succeeded: false);
-            return;
-        }
+        // Every side lot slot is taken (or no lot is built): the driver leaves. Tad's call 2026-09-23 —
+        // this used to fall back to the single generic _doorWaitPoint, which every overflow truck
+        // shared, so trucks 6+ all parked on top of each other there.
+        string poNumber = AssignedShipment?.PONumber;
+        string supplier = AssignedShipment?.SupplierName;
+        // Uppercased BEFORE the link is wrapped around it: upper-casing the finished string would also
+        // upper-case the link id (an appointment GUID), which then no longer resolves.
+        string who;
+        if (_isOutbound)
+            who = LogLinks.Appointment(_outboundAppointmentId,
+                                       TruckYardManager.OutboundWhoFor(_outboundAppointmentId).ToUpperInvariant());
+        else if (!string.IsNullOrEmpty(poNumber))
+            who = LogLinks.Po(poNumber, (!string.IsNullOrEmpty(supplier) ? $"{poNumber} | {supplier}" : poNumber).ToUpperInvariant());
+        else
+            who = (!string.IsNullOrEmpty(supplier) ? supplier : name).ToUpperInvariant();
+        SystemsLogWindow.LogWarning("THE DRIVER FOR: " + who +
+            " HAS A MESSAGE FOR YOU. PULL YOUR HEAD OUT OF YOUR ASS! THERE'S NO WHERE TO PARK!");
 
-        SetTargetCurved(TruckState.ToDoorWait, _doorWaitPoint.position, _doorWaitPoint.forward);
+        _doorWaitBar?.Hide();
+        BeginDeparture(succeeded: false);
     }
 
     private void BeginWaitingForDoor()
@@ -3145,7 +3250,7 @@ private DockSlot        _dock;
             int critical = GameCore.Inventory.CriticalStockCheck.CountCriticalLines(
                 AssignedShipment.LineItems.Select(li => li.SkuId));
             SystemsLogWindow.LogGuard(
-                $"Another angry driver in the side lot — order number {AssignedShipment.PONumber}. " +
+                $"Another angry driver in the side lot — {LogLinks.Po(AssignedShipment.PONumber)}. " +
                 $"One hour to receive {critical} critical item(s).");
         }
     }
@@ -3160,7 +3265,24 @@ private DockSlot        _dock;
         if (_doorWaitPollTimer > 0f) return;
         _doorWaitPollTimer = doorWaitPollSeconds;
 
-        var freeDock = FindAnyFreeDock();
+        DockSlot freeDock;
+        if (_isOutbound)
+        {
+            // Outbound: only its own door will do, and it waits until its appointment is closed out.
+            if (OutboundAppointmentGone(out _))
+            {
+                SystemsLogWindow.LogWarning($"The driver for {OutboundLink()} waited for " +
+                                            $"{LogLinks.Door(_outboundDoorNumber, _outboundAppointmentId)} " +
+                                            $"through the appointment and another {OutboundGraceMinutes} minutes, then left empty.");
+                ForceLeaveNow();
+                return;
+            }
+            freeDock = DockSlot.All.FirstOrDefault(d => d != null && d.DoorNumber == _outboundDoorNumber && !d.IsOccupied);
+        }
+        else
+        {
+            freeDock = FindAnyFreeDock();
+        }
         if (freeDock == null) return;
 
         _dock = freeDock;
@@ -3191,15 +3313,118 @@ private DockSlot        _dock;
     /// full DockSlot registry directly.</summary>
     private DockSlot FindAnyFreeDock()
     {
+        // A door an outbound driver is already parked and waiting for is spoken for — otherwise an
+        // inbound truck grabs it the moment it frees and the outbound pickup misses its window again.
+        var reserved = new HashSet<int>();
+        foreach (var t in FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+            if (t != null && t != this && t.IsOutboundWaitingForDoor) reserved.Add(t.OutboundDoorNumber);
+
         List<DockSlot> free = null;
         foreach (var d in DockSlot.All)
         {
-            if (d == null || d.IsOccupied) continue;
+            if (d == null || d.IsOccupied || reserved.Contains(d.DoorNumber)) continue;
             free ??= new List<DockSlot>();
             free.Add(d);
         }
         return free == null ? null : free[Random.Range(0, free.Count)];
     }
+
+    /// <summary>How long an outbound driver keeps waiting after their booked window ends (the late fee
+    /// has already been charged by then) before giving up and leaving empty. The red stage of the
+    /// delay bar counts this down.</summary>
+    private const int OutboundGraceMinutes = 60;
+
+    /// <summary>True when this outbound driver is done waiting: the appointment was pulled off the
+    /// grid (Parked) or deleted, or its window ended more than OutboundGraceMinutes ago. A truck with
+    /// no appointment on file (the STAGED dispatch trigger) never gives up this way. (Used to give up
+    /// the instant the window was swept, which left no red "driver leaves" stage at all.)</summary>
+    private bool OutboundAppointmentGone(out string whoFor)
+    {
+        whoFor = $"Door {_outboundDoorNumber}";
+        if (string.IsNullOrEmpty(_outboundAppointmentId)) return false;
+        if (!GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService schedule) || schedule == null)
+            return false;
+
+        var appt = schedule.FindById(_outboundAppointmentId);
+        if (appt != null && !string.IsNullOrEmpty(appt.CustomerName)) whoFor = appt.CustomerName;
+        if (appt == null || appt.Parked) return true;
+        return TryMinutesToWindowEnd(appt, out int toEnd) && toEnd <= -OutboundGraceMinutes;
+    }
+
+    /// <summary>Game minutes from now until the appointment's window ends (negative once it has).</summary>
+    private static bool TryMinutesToWindowEnd(GameCore.Inventory.DockAppointment appt, out int minutes)
+    {
+        minutes = 0;
+        var clock = FindAnyObjectByType<GameContext>()?.TimeService;
+        if (appt == null || clock == null) return false;
+        int now = clock.Day * 1440 + clock.Hour * 60 + clock.Minute;
+        int end = appt.Day * 1440 + appt.EndHour * 60;
+        minutes = end - now;
+        return true;
+    }
+
+    /// <summary>
+    /// Outbound delay bar (Tad, 2026-09-23). Starts full and green when the pickup window opens and
+    /// drains to its end: "X minutes until $fine incurred" (the late fee each unshipped order on the
+    /// trailer is charged when the window ends). Past that it goes red and counts down the grace hour:
+    /// "X minutes Driver leaves! $X Lost from missed profit" (the net profit those orders would have
+    /// made). Before this the card only ever showed the "Delay Timer Bar" placeholder for outbound.
+    /// </summary>
+    private void UpdateOutboundDwellClock()
+    {
+        if (!_isOutbound || string.IsNullOrEmpty(_outboundAppointmentId)) return;
+        if (_state == TruckState.Queuing || _state == TruckState.GuardCheck || IsLeaving) return;
+        if (_loadComplete) return;
+
+        if (!GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService schedule) || schedule == null) return;
+        var appt = schedule.FindById(_outboundAppointmentId);
+        if (appt == null || !TryMinutesToWindowEnd(appt, out int toEnd)) return;
+
+        int fine = 0, profit = 0;
+        if (GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.OrderService orders) && orders != null)
+        {
+            foreach (var o in orders.ActiveOrders.Where(o => appt.OrderIds.Contains(o.OrderId)))
+            {
+                if (o.Status == GameCore.Inventory.OrderData.OrderStatus.Shipped ||
+                    o.Status == GameCore.Inventory.OrderData.OrderStatus.Cancelled) continue;
+                if (!o.HasBeenFined)
+                    fine += Mathf.RoundToInt((o.LateFeePercent > 0f ? o.LateFeePercent : 0.25f) * o.TotalRevenue);
+                profit += o.ExpectedProfit;
+            }
+        }
+
+        float windowMinutes = GameCore.Inventory.DockScheduleService.BlockHours * 60f;
+        float frac;
+        Color color;
+        string text;
+        if (toEnd > 0)
+        {
+            frac = Mathf.Clamp01(toEnd / windowMinutes);
+            color = frac > 0.5f ? TruckDoorWaitBar.DwellGreenColor
+                  : frac > 0.25f ? TruckDoorWaitBar.DwellYellowColor
+                  : TruckDoorWaitBar.DwellOrangeColor;
+            text = fine > 0 ? $"{toEnd} minutes until ${fine:N0} incurred" : $"{toEnd} minutes left in pickup window";
+        }
+        else
+        {
+            int left = Mathf.Max(0, OutboundGraceMinutes + toEnd);
+            frac = Mathf.Clamp01(left / (float)OutboundGraceMinutes);
+            color = TruckDoorWaitBar.DwellRedColor;
+            int aboard = LoadContainer != null ? LoadContainer.childCount : 0;
+            // A trailer with freight aboard doesn't leave (see UpdateDockedOutbound) — say what it's
+            // actually waiting for instead of counting down to a departure that won't happen.
+            text = aboard > 0 && left == 0
+                ? $"Late — {aboard} pallet(s) aboard, close out to ship"
+                : $"{left} minutes Driver leaves! ${Mathf.Max(0, profit):N0} Lost from missed profit";
+        }
+
+        if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
+        _doorWaitBar.ShowDwellStatus(frac, color, text);
+    }
+
+    /// <summary>Scheduler hyperlink naming this outbound truck's customer and order(s).</summary>
+    private string OutboundLink() =>
+        LogLinks.Appointment(_outboundAppointmentId, TruckYardManager.OutboundWhoFor(_outboundAppointmentId));
 
     private void OnDocked()
     {
@@ -3246,6 +3471,25 @@ private DockSlot        _dock;
         if (_loadComplete)
         {
             BeginDeparture();
+        }
+        else if (!string.IsNullOrEmpty(_outboundAppointmentId))
+        {
+            // Booked pickup: the driver doesn't know or care whether the freight is staged — they
+            // wait at the door for their whole appointment window (Tad, 2026-09-23). This used to fall
+            // through to the 22.5-real-second timeout below, so an on-time driver with nothing staged
+            // yet pulled out almost immediately and the block was later swept as a no-show. Once the
+            // window closes with loading never started, they leave angry; the missed-appointment
+            // penalties come from the normal schedule sweep that closed it.
+            // Never with freight aboard: a trailer that has any of the order on it waits for the player's
+            // close-out — leaving would drive the loaded pallets away unbilled (seen live 2026-09-23).
+            bool cargoAboard = LoadContainer != null && LoadContainer.childCount > 0;
+            if (!_loadClaimed && !cargoAboard && OutboundAppointmentGone(out _))
+            {
+                string door = _dock != null ? LogLinks.Door(_dock.DoorNumber, _outboundAppointmentId) : "the door";
+                SystemsLogWindow.LogWarning($"The driver for {OutboundLink()} sat at {door} through their " +
+                                            $"appointment and another {OutboundGraceMinutes} minutes with nothing loaded and left empty.");
+                BeginDeparture();
+            }
         }
         else if (!_loadClaimed && _dockedTime >= offloadFallbackTimeout)
         {
@@ -3395,7 +3639,7 @@ private DockSlot        _dock;
 
         UIToast.Show($"No door or wait spot available for PO {AssignedShipment.PONumber} — the driver " +
                      "turned around. Reschedule the appointment.");
-        SystemsLogWindow.LogWarning($"PO {AssignedShipment.PONumber} turned around immediately — no door " +
+        SystemsLogWindow.LogWarning($"{LogLinks.Po(AssignedShipment.PONumber)} turned around immediately — no door " +
                                      "or wait spot was available.");
     }
 
@@ -3415,7 +3659,8 @@ private DockSlot        _dock;
                 $"PO {AssignedShipment.PONumber} got a door before the dwell clock penalized it");
         }
 
-        SystemsLogWindow.LogGuard($"PO {AssignedShipment.PONumber} got a door on time — vendor standing improved.");
+        string gotDoor = _dock != null ? $" — {LogLinks.Door(_dock.DoorNumber, AssignedShipment.PONumber)}" : "";
+        SystemsLogWindow.LogGuard($"{LogLinks.Po(AssignedShipment.PONumber)} got a door on time{gotDoor} — vendor standing improved.");
     }
 
     /// <summary>The warehouse's first "Standard" (Tad's naming) — a task-level time allowance the
@@ -3449,8 +3694,9 @@ private DockSlot        _dock;
                 "min (beat the offload Standard)");
         }
 
-        SystemsLogWindow.LogSystem($"PO {AssignedShipment.PONumber} beat the offload Standard — " +
-            $"{elapsedMinutes:0} of {allowedMinutes:0} min at the door. Vendor standing +{OffloadStandardBonusPoints}!");
+        string atDoor = _dock != null ? LogLinks.Door(_dock.DoorNumber, AssignedShipment.PONumber) : "the door";
+        SystemsLogWindow.LogSystem($"{LogLinks.Po(AssignedShipment.PONumber)} beat the offload Standard — " +
+            $"{elapsedMinutes:0} of {allowedMinutes:0} min at {atDoor}. Vendor standing +{OffloadStandardBonusPoints}!");
 
         if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
         _doorWaitBar.ShowOnTimeDeparture(OffloadStandardBonusPoints);
@@ -3491,27 +3737,35 @@ private DockSlot        _dock;
         float elapsedHours = (gameCtx.TimeService.TotalMinutesElapsed - _inboundClockStartSimMinute) / 60f;
         float frac = Mathf.Clamp01(1f - elapsedHours / InboundDeadlineHours);
 
+        // Countdown text (Tad, 2026-09-23): how long until the next hit lands and what it costs; in the
+        // red, how long until the driver leaves and what's lost. The inbound hits at 2/4/6h are vendor
+        // standing, not dollars — there's no dollar fine on this side to quote.
         Color color;
         string quote;
+        int MinutesUntil(float hours) => Mathf.Max(0, Mathf.CeilToInt((hours - elapsedHours) * 60f));
         if (elapsedHours < InboundTier1Hours)
         {
             color = TruckDoorWaitBar.DwellGreenColor;
-            quote = "I hope this drop goes smooth, I gotta take a dump.";
+            quote = $"{MinutesUntil(InboundTier1Hours)} minutes until -{InboundTier1Penalty} vendor standing";
         }
         else if (elapsedHours < InboundTier2Hours)
         {
             color = TruckDoorWaitBar.DwellYellowColor;
-            quote = "Still here, at this clown factory.";
+            quote = $"{MinutesUntil(InboundTier2Hours)} minutes until -{InboundTier2Penalty} vendor standing";
         }
         else if (elapsedHours < InboundTier3Hours)
         {
             color = TruckDoorWaitBar.DwellOrangeColor;
-            quote = "This ain't worth it, as soon as I finish my beer I'm out!";
+            quote = $"{MinutesUntil(InboundTier3Hours)} minutes until -{InboundTier3Penalty} vendor standing";
         }
         else
         {
             color = TruckDoorWaitBar.DwellRedColor;
-            quote = "This ain't worth it, as soon as I finish my beer I'm out!";
+            // The load is only lost if nothing has come off yet (see ResolveInboundDeadline).
+            bool anyOffloaded = LoadContainer != null && TotalPalletsAtDock > 0 && LoadContainer.childCount < TotalPalletsAtDock;
+            quote = anyOffloaded
+                ? $"{MinutesUntil(InboundDeadlineHours)} minutes until -{InboundFinalPenalty} vendor standing"
+                : $"{MinutesUntil(InboundDeadlineHours)} minutes Driver leaves! ${AssignedShipment.TotalCost:N0} Lost in purchased goods";
         }
 
         if (_doorWaitBar == null) _doorWaitBar = gameObject.AddComponent<TruckDoorWaitBar>();
@@ -3556,7 +3810,9 @@ private DockSlot        _dock;
                 $"PO {AssignedShipment.PONumber} has waited {hourMark:F0} hours at {doorLabel} with nothing offloaded");
         }
 
-        SystemsLogWindow.LogWarning($"PO {AssignedShipment.PONumber} at {doorLabel} has been waiting " +
+        // Hyperlinked: the PO opens its Scheduler block, the door flies the camera to this truck.
+        string doorLink = _dock != null ? LogLinks.Door(_dock.DoorNumber, AssignedShipment.PONumber) : doorLabel;
+        SystemsLogWindow.LogWarning($"{LogLinks.Po(AssignedShipment.PONumber)} at {doorLink} has been waiting " +
                                      $"{hourMark:F0} hours — vendor standing took a -{amount} hit.");
     }
 
@@ -3599,7 +3855,8 @@ private DockSlot        _dock;
 
         UIToast.Show($"PO {po} left the yard — 8 hours passed with nothing offloaded. Lost the load " +
                      $"(${lostValue:N0}, no refund) and took a -{InboundFinalPenalty} vendor hit.");
-        SystemsLogWindow.LogWarning($"PO {po} at {doorLabel} waited 8 hours and left — sorry boss, " +
+        string doorLinkLeft = _dock != null ? LogLinks.Door(_dock.DoorNumber, po) : doorLabel;
+        SystemsLogWindow.LogWarning($"{LogLinks.Po(po)} at {doorLinkLeft} waited 8 hours and left — sorry boss, " +
                                      $"that's a lost load worth ${lostValue:N0} and a vendor hit of " +
                                      $"-{InboundFinalPenalty}.");
 

@@ -36,8 +36,13 @@ public class LaneNamingService : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
+        // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+        // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+        // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+        foreach (var stale in Resources.FindObjectsOfTypeAll<LaneNamingService>())
+            if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
         if (_instance != null) return;
-        var go = new GameObject("[LaneNamingService]") { hideFlags = HideFlags.HideAndDontSave };
+        var go = new GameObject("[LaneNamingService]") { hideFlags = HideFlags.HideInHierarchy };
         DontDestroyOnLoad(go);
         _instance = go.AddComponent<LaneNamingService>();
     }
@@ -49,6 +54,7 @@ public class LaneNamingService : MonoBehaviour
     private static readonly bool LetterFromHighWallCoord = false;
 
     private bool _subscribed;
+    private EventManager _subscribedTo;
     private bool _dirty = true;
     private float _nextHeartbeat;
     private PlacementGrid _grid;
@@ -57,7 +63,8 @@ public class LaneNamingService : MonoBehaviour
 
     private void Update()
     {
-        if (!_subscribed) TrySubscribe();
+        // Re-subscribe if EventManager.Instance has been replaced (new Play session / scene load).
+        if (!_subscribed || EventManager.Instance != _subscribedTo) TrySubscribe();
 
         // Heartbeat: catch tiles restored from a save (they bypass OnObjectPlaced).
         if (Time.unscaledTime >= _nextHeartbeat)
@@ -76,9 +83,12 @@ public class LaneNamingService : MonoBehaviour
     private void TrySubscribe()
     {
         var em = EventManager.Instance;
-        if (em == null) return;
+        if (em == null) { _subscribed = false; return; }
+        _subscribedTo?.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
+        _subscribedTo?.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
         em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
         em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
+        _subscribedTo = em;
         _subscribed = true;
         _dirty = true;
     }
@@ -87,10 +97,10 @@ public class LaneNamingService : MonoBehaviour
 
     private void OnDestroy()
     {
-        var em = EventManager.Instance;
-        if (em == null || !_subscribed) return;
-        em.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
-        em.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
+        if (_instance == this) _instance = null;
+        if (_subscribedTo == null || !_subscribed) return;
+        _subscribedTo.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
+        _subscribedTo.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
     }
 
     // A lane tile is any active placed object with a "LaneNo" TextMeshPro child.
@@ -193,6 +203,9 @@ public class LaneNamingService : MonoBehaviour
 
     /// <summary>Address string ("1A-03") for a cell, or null if it isn't a lane tile.</summary>
     public static string AddressAt(Vector2Int cell) => _slotByCell.TryGetValue(cell, out var s) ? s.Name : null;
+
+    /// <summary>Every live slot name ("1A-3"…) — for validating a staging address before it's stored.</summary>
+    public static HashSet<string> AllSlotNames() => new HashSet<string>(_slotByCell.Values.Select(s => s.Name));
 
     /// <summary>All slots in a given lane (door number + letter), ordered slot 1..N out from the door.</summary>
     public static List<LaneSlot> GetLane(int doorNumber, string lane)

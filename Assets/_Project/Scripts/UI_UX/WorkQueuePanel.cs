@@ -64,8 +64,12 @@ public class WorkQueuePanel : IUIPanel
         private const float TaskIndent = 15f;
         private const float StatusWidth = 88f;
         private const float LocationWidth = 72f;
-        private const float OperatorWidth = 112f;
-        private const float CustomerWidth = 116f;
+        // Breathing room either side of Status — per Tad, matched by eye to the visible gap between
+        // the Area and Priority text (Task/Status/From read as one run of text before).
+        private const float TaskStatusGap = 36f;
+        private const float StatusFromGap = 44f;
+        private const float OperatorWidth = 224f; // doubled from 112, per Tad
+        private const float CustomerWidth = 232f; // doubled from 116, per Tad
         // ~3 characters of breathing room between Customer and Order -- per Tad's explicit call, the
         // two used to sit flush against each other with long customer names running right up to the
         // order number.
@@ -575,8 +579,8 @@ public class WorkQueuePanel : IUIPanel
         header.Add(BuildFilterHeader("Priority", PriorityWidth, SortColumn.Priority));
         header.Add(BuildFilterHeader("Role", RoleWidth, SortColumn.Role, marginLeft: PriorityStepperWidth));
         header.Add(BuildFilterHeader("Task", TaskWidth - TaskIndent, SortColumn.Task, marginLeft: RoleTaskGap + TaskIndent));
-        header.Add(BuildFilterHeader("Status", StatusWidth, SortColumn.Status));
-        header.Add(BuildFilterHeader("From", LocationWidth, SortColumn.From));
+        header.Add(BuildFilterHeader("Status", StatusWidth, SortColumn.Status, marginLeft: TaskStatusGap));
+        header.Add(BuildFilterHeader("From", LocationWidth, SortColumn.From, marginLeft: StatusFromGap));
         header.Add(BuildFilterHeader("To", LocationWidth, SortColumn.To));
         header.Add(BuildFilterHeader("Operator", OperatorWidth, SortColumn.Operator));
         header.Add(BuildFilterHeader("Customer", CustomerWidth, SortColumn.Customer, fontSize: 12)); // stays original size -- every other column got 25% bigger, per Tad's explicit call
@@ -1314,8 +1318,8 @@ public class WorkQueuePanel : IUIPanel
                                       () => AdjustTaskPriority(task, -PriorityStep)));
         AddRowCell(row, task.RequiredRole.DisplayName(), RoleWidth, ColSubtleText);
         AddRowCell(row, WorkTaskTypeDisplayName(task.Type), TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
-        AddRowCell(row, task.Status.ToString(), StatusWidth, ColStatusColor(task.Status), bold: true);
-        AddRowCell(row, task.FromLocation ?? "—", LocationWidth, ColSubtleText);
+        AddRowCell(row, task.Status.ToString(), StatusWidth, ColStatusColor(task.Status), bold: true, marginLeft: TaskStatusGap);
+        AddRowCell(row, task.FromLocation ?? "—", LocationWidth, ColSubtleText, marginLeft: StatusFromGap);
         AddRowCell(row, task.ToLocation ?? "—", LocationWidth, ColSubtleText);
         AddRowCell(row, GetOperatorName(task.AssignedToEmployeeGuid), OperatorWidth, ColTitleText);
         AddRowCell(row, "—", CustomerWidth, ColSubtleText, fontSize: 15); // Customer column stays proportionally smaller — was 12, bumped 25% same as everything else
@@ -1395,13 +1399,18 @@ public class WorkQueuePanel : IUIPanel
         }
         AddRowCell(row, role, RoleWidth, ColSubtleText);
         AddRowCell(row, taskName, TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
-        AddRowCell(row, PhaseLabel(phase), StatusWidth, PhaseColor(phase), bold: true);
-        AddRowCell(row, from, LocationWidth, ColSubtleText);
+        AddRowCell(row, PhaseLabel(phase), StatusWidth, PhaseColor(phase), bold: true, marginLeft: TaskStatusGap);
+        AddRowCell(row, from, LocationWidth, ColSubtleText, marginLeft: StatusFromGap);
         AddRowCell(row, to, LocationWidth, ColSubtleText);
         AddRowCell(row, operatorName, OperatorWidth, ColTitleText);
         AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText, fontSize: 15); // Customer column stays proportionally smaller — was 12, bumped 25% same as everything else
         AddRowCell(row, order.OrderNumber ?? ShortId(order.OrderId), OrderWidth, ColSubtleText, marginLeft: CustomerOrderGap);
         AddRowCell(row, paletteId, PaletteIdWidth, ColSubtleText);
+
+        // Loaded = on the trailer and waiting for the player to close it out: the whole line goes
+        // yellow so it stands out as "your move" (Tad, 2026-09-23).
+        if (phase == RowPhase.Loaded)
+            row.Query<Label>().ForEach(l => l.style.color = new StyleColor(ColReadyToClose));
         return row;
     }
 
@@ -1502,8 +1511,12 @@ public class WorkQueuePanel : IUIPanel
         WorkTaskStatus.Available => ColStatusAvailable,
         WorkTaskStatus.Assigned => ColStatusAssigned,
         WorkTaskStatus.Complete => ColStatusLoaded,
+        WorkTaskStatus.Cancelled => ColStatusCancelled,
         _ => ColSubtleText
     };
+
+    private static readonly Color ColStatusCancelled = new Color(0xE0 / 255f, 0x55 / 255f, 0x4B / 255f, 1f); // red
+    private static readonly Color ColReadyToClose    = new Color(0xF2 / 255f, 0xD1 / 255f, 0x4A / 255f, 1f); // yellow
 
     // 15 = 12 * 1.25 -- every column got 25% bigger text except Customer Name, which stays at the
     // original 12 via an explicit override at its own call site, per Tad's explicit call.

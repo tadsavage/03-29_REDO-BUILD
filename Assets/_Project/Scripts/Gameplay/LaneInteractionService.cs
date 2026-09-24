@@ -18,8 +18,13 @@ public class LaneInteractionService : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
+        // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+        // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+        // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+        foreach (var stale in Resources.FindObjectsOfTypeAll<LaneInteractionService>())
+            if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
         if (_instance != null) return;
-        var go = new GameObject("[LaneInteractionService]") { hideFlags = HideFlags.HideAndDontSave };
+        var go = new GameObject("[LaneInteractionService]") { hideFlags = HideFlags.HideInHierarchy };
         DontDestroyOnLoad(go);
         _instance = go.AddComponent<LaneInteractionService>();
     }
@@ -28,6 +33,11 @@ public class LaneInteractionService : MonoBehaviour
     private float _lastClickTime = -1f;
     private PlacementGrid _grid;
     private PlacementStateMachine _fsm;
+
+    private void OnDestroy()
+    {
+        if (_instance == this) _instance = null;
+    }
 
     private void Update()
     {

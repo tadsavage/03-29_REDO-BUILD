@@ -41,11 +41,21 @@ namespace GameCore.Labor
     {
         private static OutboundTruckDispatchService _instance;
 
+        // BUG FIX 2026-09-23 ("drivers never showed up"): this used to be HideAndDontSave. The project
+        // runs with Enter Play Mode Options (no domain reload), and HideAndDontSave objects are NOT
+        // destroyed when Play stops — so every session left one behind (5 found live), each still
+        // "subscribed" to a previous session's EventManager. From the second Play session on, the
+        // BLOCK START trigger below never fired at all: no scheduled outbound truck ever came.
+        // Now: HideInHierarchy + DontDestroyOnLoad (destroyed on exiting Play), any leftovers are
+        // cleaned up here, and Update re-subscribes whenever EventManager.Instance is a new object.
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
+            foreach (var stale in Resources.FindObjectsOfTypeAll<OutboundTruckDispatchService>())
+                if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
             if (_instance != null) return;
-            var go = new GameObject("[OutboundTruckDispatchService]") { hideFlags = HideFlags.HideAndDontSave };
+
+            var go = new GameObject("[OutboundTruckDispatchService]") { hideFlags = HideFlags.HideInHierarchy };
             DontDestroyOnLoad(go);
             _instance = go.AddComponent<OutboundTruckDispatchService>();
         }
@@ -54,14 +64,16 @@ namespace GameCore.Labor
         private TruckYardManager _truckYard;
         private float _nextScan;
         private bool _subscribed;
+        private EventManager _subscribedTo;
 
         private void OnEnable() => TrySubscribe();
 
         // EventManager may not exist yet at AfterSceneLoad; keep trying until it does — same pattern
-        // DockNumberingService uses for the same reason.
+        // DockNumberingService uses for the same reason. Also re-subscribes if the EventManager has
+        // been replaced since (a new Play session / scene load builds a new one).
         private void Update()
         {
-            if (!_subscribed) TrySubscribe();
+            if (!_subscribed || EventManager.Instance != _subscribedTo) TrySubscribe();
 
             if (Time.unscaledTime < _nextScan) return;
             _nextScan = Time.unscaledTime + 1f;
@@ -72,9 +84,11 @@ namespace GameCore.Labor
         private void TrySubscribe()
         {
             var em = EventManager.Instance;
-            if (em == null) return;
+            if (em == null) { _subscribed = false; return; }
 
+            _subscribedTo?.Unsubscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
             em.Subscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
+            _subscribedTo = em;
             _subscribed = true;
 
             // Catch a block that was ALREADY open the moment this subscription goes live (e.g. a
@@ -85,9 +99,9 @@ namespace GameCore.Labor
 
         private void OnDestroy()
         {
-            var em = EventManager.Instance;
-            if (em == null || !_subscribed) return;
-            em.Unsubscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
+            if (_instance == this) _instance = null;
+            if (_subscribedTo == null || !_subscribed) return;
+            _subscribedTo.Unsubscribe<int>(GameEvents.Time.OnHourChanged, OnHourChanged);
         }
 
         private void OnHourChanged(string eventId, int newHour) => DispatchDueAppointments();
@@ -105,12 +119,23 @@ namespace GameCore.Labor
                 if (appt.Kind == AppointmentKind.Inbound) continue;
                 if (appt.Parked || appt.ClosedOut) continue;
                 if (appt.Day != schedule.CurrentDay) continue;
-                if (schedule.CurrentBlock < appt.BlockIndex) continue; // block hasn't started yet
+                // Only the block that is open RIGHT NOW. `< BlockIndex` alone let a block that had already
+                // ENDED but not yet been swept (a save loaded at 11:00 still holding an open 06:00
+                // appointment) dispatch its driver hours after the window — who then "sat there for
+                // their whole appointment" and left. A driver doesn't turn up for a window that's gone.
+                if (schedule.CurrentBlock != appt.BlockIndex) continue;
+                if (schedule.IsComplete(appt)) continue;                // already picked up
 
-                var dock = DockSlot.All.FirstOrDefault(d => d.DoorNumber == appt.DoorNumber);
-                if (dock == null || dock.IsOccupied) continue; // already has a truck
+                // Deliberately NOT skipped when the door is busy (2026-09-23). It used to be, which meant
+                // an inbound trailer parked at the door through this block made its outbound driver a
+                // silent no-show — skipped every hour until the block was swept. The driver always comes
+                // now and waits in the side lot if the door isn't free (see SpawnOutboundTruck).
+                // Only skip if a truck for THIS appointment is already here, or an unattributed one (the
+                // staged-pallet trigger fired before the block and is already serving the door).
+                if (TruckYardManager.HasOutboundTruckFor(appt.DoorNumber, appt.Id)) continue;
+                if (HasUnattributedOutboundTruck(appt.DoorNumber)) continue;
 
-                _truckYard.SpawnOutboundTruck(appt.DoorNumber);
+                _truckYard.SpawnOutboundTruck(appt.DoorNumber, appt.Id);
             }
         }
 
@@ -145,16 +170,40 @@ namespace GameCore.Labor
                 // door and hold the spawn until the clock has actually reached its BlockIndex. No
                 // matching appointment (e.g. a debug-spawned pallet with nothing booked) falls back to
                 // the old immediate-dispatch behavior — there's no scheduled time to wait for.
+                // Staged freight only pulls a trailer in during a booked window: the appointment whose
+                // block is open now. If the door has bookings today but none is open (the next one is
+                // later, or an earlier one ended un-swept), wait — FirstOrDefault used to grab whichever
+                // booking came first in the list, which could be a finished window, and dispatch a
+                // truck outside any pickup time. Only a door with nothing booked today at all falls
+                // back to immediate dispatch (debug-staged pallets).
+                DockAppointment appt = null;
                 if (schedule != null)
                 {
-                    var appt = schedule.Appointments.FirstOrDefault(a =>
+                    var todays = schedule.Appointments.Where(a =>
                         a.DoorNumber == doorNumber && a.Day == schedule.CurrentDay &&
-                        a.Kind != AppointmentKind.Inbound && !a.Parked && !a.ClosedOut);
-                    if (appt != null && schedule.CurrentBlock < appt.BlockIndex) continue;
+                        a.Kind != AppointmentKind.Inbound && !a.Parked && !a.ClosedOut).ToList();
+                    appt = todays.FirstOrDefault(a => a.BlockIndex == schedule.CurrentBlock);
+                    if (appt == null && todays.Count > 0) continue;
                 }
 
-                _truckYard.SpawnOutboundTruck(doorNumber);
+                // Tag it with the appointment it's serving so the BLOCK START trigger recognises it
+                // rather than sending a second driver for the same booking.
+                if (appt != null && TruckYardManager.HasOutboundTruckFor(doorNumber, appt.Id)) continue;
+                _truckYard.SpawnOutboundTruck(doorNumber, appt?.Id);
             }
+        }
+
+        /// <summary>An outbound truck at/for this door that wasn't dispatched for any particular
+        /// appointment (debug button, order-release path, or an older save).</summary>
+        private static bool HasUnattributedOutboundTruck(int doorNumber)
+        {
+            foreach (var t in FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+            {
+                if (t == null || !t.IsOutbound || t.IsLeaving || !string.IsNullOrEmpty(t.OutboundAppointmentId)) continue;
+                int door = t.AssignedDock != null ? t.AssignedDock.DoorNumber : t.OutboundDoorNumber;
+                if (door == doorNumber) return true;
+            }
+            return false;
         }
     }
 }

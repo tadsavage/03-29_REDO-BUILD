@@ -354,6 +354,14 @@ namespace GameCore.Actors
                     // query here would find nothing and wrongly reject a task that's already spoken for.
                     if (string.IsNullOrEmpty(t.PalletId) &&
                         !ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, t.SkuId, out _)) continue;
+
+                    // Sourced from a staging lane (same "STG" test the routine uses): only claimable
+                    // while its pallet — or one of the same product — is the one at the front. See
+                    // LanePalletPickReachable / the substitution guard in PalletPickFromLaneRoutine.
+                    if (!string.IsNullOrEmpty(t.FromLocation) &&
+                        t.FromLocation.StartsWith("STG", System.StringComparison.OrdinalIgnoreCase) &&
+                        TryParseLaneName(t.FromLocation, out int sd, out string sl) &&
+                        !LanePalletPickReachable(t, sd, sl)) continue;
                 }
 
                 if (t.Type == WorkTaskType.Putaway)
@@ -496,7 +504,16 @@ namespace GameCore.Actors
                     float y = candidate.transform.position.y;
                     if (y > highestY) { highestY = y; topmost = candidate; }
                 }
-                if (topmost == null) return null;
+                // Inventory says something is here but nothing physically is (a stale/phantom record).
+                // Nothing blocks the forks, so treat the slot as empty and keep looking inward. This
+                // used to `return null`, which declared the WHOLE LANE unreachable — found live
+                // 2026-09-23: two phantom records in lane 1A's exit slot froze every putaway and
+                // pallet pick in that lane, and the reach truck looped on the aborting task forever.
+                if (topmost == null)
+                {
+                    WarnPhantomSlot(door, lane, slots[i].Cell, pallets.Count);
+                    continue;
+                }
 
                 // RULE: the physically topmost pallet must be received before an RTO can take it — if
                 // it isn't, the WHOLE stack waits, even if something buried underneath is already
@@ -508,6 +525,39 @@ namespace GameCore.Actors
                 return topmost;
             }
             return null;
+        }
+
+        /// <summary>The product a pallet pick is for: the task's own SkuId, else its target pallet's.</summary>
+        private string PalletPickSku(WorkTask task)
+        {
+            if (!string.IsNullOrEmpty(task.SkuId)) return task.SkuId;
+            return string.IsNullOrEmpty(task.PalletId) ? null : _inventoryService?.GetPallet(task.PalletId)?.SkuId;
+        }
+
+        private bool IsSameSku(string palletId, string skuId)
+        {
+            if (string.IsNullOrEmpty(palletId) || string.IsNullOrEmpty(skuId)) return false;
+            return _inventoryService?.GetPallet(palletId)?.SkuId == skuId;
+        }
+
+        /// <summary>Can a lane-sourced pallet pick actually be done right now — is the front pallet of
+        /// its source lane the target itself or the same product? Checked at claim time so a task whose
+        /// pallet is buried behind other products isn't claimed and aborted every poll.</summary>
+        private bool LanePalletPickReachable(WorkTask task, int door, string lane)
+        {
+            FindExitAccessiblePallet(door, lane, out string exitId);
+            if (exitId == null) return false;
+            return exitId == task.PalletId || IsSameSku(exitId, PalletPickSku(task));
+        }
+
+        private static readonly HashSet<Vector2Int> _warnedPhantomCells = new HashSet<Vector2Int>();
+
+        /// <summary>One warning per cell per session — this runs on every claim poll.</summary>
+        private static void WarnPhantomSlot(int door, string lane, Vector2Int cell, int recordCount)
+        {
+            if (!_warnedPhantomCells.Add(cell)) return;
+            Debug.LogWarning($"[ReachTruckOperator] Lane {door}{lane} cell {cell} has {recordCount} inventory " +
+                             "record(s) but no physical pallet — skipping it as empty.");
         }
 
         /// <summary>True if <paramref name="targetPalletId"/> is the exit-most reachable, received pallet
@@ -544,6 +594,7 @@ namespace GameCore.Actors
             if (pallet == null)
             {
                 Debug.LogWarning($"[ReachTruckOperator] Lane {door}{lane} is empty or unreceived. Aborting.");
+                if (!string.IsNullOrEmpty(task.PalletId)) _blockedUntil[task.PalletId] = Time.time + NoDestinationBackoff;
                 yield return AbortRoutine(task, null, null);
                 yield break;
             }
@@ -1250,14 +1301,32 @@ namespace GameCore.Actors
             {
                 Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: source lane {srcDoor}{srcLane} " +
                                  $"is empty or unreceived. Aborting.");
+                // Back off, or this — the highest-priority task on the board — is re-claimed on the
+                // very next 0.4s poll and aborts again, forever, starving every other task.
+                if (!string.IsNullOrEmpty(palletId)) _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
                 yield return AbortRoutine(task, null, null);
                 yield break;
             }
 
             if (actualPalletId != palletId)
             {
+                // Substitute ONLY a pallet of the same product. This used to take whatever sat at the
+                // front of the lane — found live 2026-09-23: Maple Syrup and Tea pallets were pulled
+                // for a Sugar/Mayonnaise order, tagged as that order's pallets, and loaded onto its
+                // trailer. (A Putaway can swap pallets freely — any pallet needs putting away — but a
+                // pallet pick is filling a specific order line.) A different product in front means
+                // the target is buried: back off until the blocker is put away and it's reachable.
+                if (!IsSameSku(actualPalletId, PalletPickSku(task)))
+                {
+                    Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: target {palletId} is buried " +
+                                     $"behind {actualPalletId} (a different product) in lane {srcDoor}{srcLane}. Backing off.");
+                    if (!string.IsNullOrEmpty(palletId)) _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                    yield return AbortRoutine(task, null, null);
+                    yield break;
+                }
+
                 Debug.Log($"[ReachTruckOperator] PalletPick substitution: target {palletId} buried — picking " +
-                          $"accessible {actualPalletId} from same lane.");
+                          $"accessible same-product {actualPalletId} from same lane.");
                 palletId = actualPalletId;
                 task.PalletId = actualPalletId;
             }

@@ -25,8 +25,13 @@ public class SlotRegistry : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
+        // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+        // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+        // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+        foreach (var stale in Resources.FindObjectsOfTypeAll<SlotRegistry>())
+            if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
         if (_instance != null) return;
-        var go = new GameObject("[SlotRegistry]") { hideFlags = HideFlags.HideAndDontSave };
+        var go = new GameObject("[SlotRegistry]") { hideFlags = HideFlags.HideInHierarchy };
         DontDestroyOnLoad(go);
         _instance = go.AddComponent<SlotRegistry>();
     }
@@ -82,6 +87,7 @@ public class SlotRegistry : MonoBehaviour
     }
 
     private bool _subscribed;
+    private EventManager _subscribedTo;
     private bool _dirty = true;
     private float _nextHeartbeat;
 
@@ -89,7 +95,8 @@ public class SlotRegistry : MonoBehaviour
 
     private void Update()
     {
-        if (!_subscribed) TrySubscribe();
+        // Re-subscribe if EventManager.Instance has been replaced (new Play session / scene load).
+        if (!_subscribed || EventManager.Instance != _subscribedTo) TrySubscribe();
 
         if (Time.unscaledTime >= _nextHeartbeat)
         {
@@ -107,9 +114,12 @@ public class SlotRegistry : MonoBehaviour
     private void TrySubscribe()
     {
         var em = EventManager.Instance;
-        if (em == null) return;
+        if (em == null) { _subscribed = false; return; }
+        _subscribedTo?.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
+        _subscribedTo?.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
         em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
         em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
+        _subscribedTo = em;
         _subscribed = true;
         _dirty = true;
     }
@@ -118,10 +128,10 @@ public class SlotRegistry : MonoBehaviour
 
     private void OnDestroy()
     {
-        var em = EventManager.Instance;
-        if (em == null || !_subscribed) return;
-        em.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
-        em.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
+        if (_instance == this) _instance = null;
+        if (_subscribedTo == null || !_subscribed) return;
+        _subscribedTo.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnChanged);
+        _subscribedTo.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
     }
 
     /// <summary>Forces an immediate rebuild rather than waiting for the 1s heartbeat — used by

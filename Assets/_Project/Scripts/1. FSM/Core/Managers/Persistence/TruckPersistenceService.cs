@@ -55,10 +55,17 @@ namespace GameCore.Persistence
             {
                 if (truck == null) continue;
 
+                bool hasLotSlot = truck.TryGetSideLotAnchorPosition(out Vector3 lotAnchorPos);
                 var snap = new TruckSnapshot
                 {
                     poNumber           = truck.AssignedShipment?.PONumber ?? "",
                     assignedDoorNumber = truck.AssignedDock?.DoorNumber ?? -1,
+                    hasSideLotSlot     = hasLotSlot,
+                    sideLotAnchorPosition = lotAnchorPos,
+                    isOutbound            = truck.IsOutbound,
+                    outboundDoorNumber    = truck.IsOutbound && truck.OutboundDoorNumber < 0 && truck.AssignedDock != null
+                                                ? truck.AssignedDock.DoorNumber : truck.OutboundDoorNumber,
+                    outboundAppointmentId = truck.OutboundAppointmentId,
                     truckState         = (int)truck.CurrentState,
                     worldPosition      = truck.transform.position,
                     worldRotation      = truck.transform.rotation,
@@ -154,6 +161,10 @@ namespace GameCore.Persistence
                 DockSlot dock = null;
                 if (snap.assignedDoorNumber > 0)
                     dock = DockSlot.All.FirstOrDefault(d => d.DoorNumber == snap.assignedDoorNumber);
+
+                // Before RestoreFromSnapshot: its state logic branches on IsOutbound.
+                if (snap.isOutbound)
+                    ctrl.SetOutbound(snap.outboundDoorNumber, string.IsNullOrEmpty(snap.outboundAppointmentId) ? null : snap.outboundAppointmentId);
 
                 ctrl.RestoreFromSnapshot(snap, dock);
 

@@ -23,14 +23,19 @@ namespace GameCore.Labor
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
+            // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+            // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+            // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+            foreach (var stale in Resources.FindObjectsOfTypeAll<ReceivingService>())
+                if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
             if (_instance != null) return;
-            var go = new GameObject("[ReceivingService]") { hideFlags = HideFlags.HideAndDontSave };
+            var go = new GameObject("[ReceivingService]") { hideFlags = HideFlags.HideInHierarchy };
             DontDestroyOnLoad(go);
             _instance = go.AddComponent<ReceivingService>();
         }
 
         private bool _subscribed;
-        private EventManager _eventManager;
+        private EventManager _eventManager; // the EventManager we're subscribed to
         private WorkQueueSystem _workQueue;
         private InventoryService _inventoryService;
 
@@ -39,13 +44,14 @@ namespace GameCore.Labor
 
         private void Update()
         {
-            if (!_subscribed) TrySubscribe();
+            // Re-subscribe if EventManager.Instance has been replaced (new Play session / scene load).
+            if (!_subscribed || EventManager.Instance != _eventManager) TrySubscribe();
         }
 
         private void TrySubscribe()
         {
-            _eventManager = EventManager.Instance;
-            if (_eventManager == null) return;
+            var em = EventManager.Instance;
+            if (em == null) { _subscribed = false; return; }
 
             if (!ServiceLocator.TryGet<WorkQueueSystem>(out _workQueue) || _workQueue == null)
                 return;
@@ -53,8 +59,17 @@ namespace GameCore.Labor
             if (!ServiceLocator.TryGet<InventoryService>(out _inventoryService) || _inventoryService == null)
                 return;
 
-            _eventManager.Subscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnPalletPlaced);
+            if (_subscribed) _eventManager?.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnPalletPlaced);
+            em.Subscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnPalletPlaced);
+            _eventManager = em;
             _subscribed = true;
+        }
+
+        private void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+            if (_eventManager == null || !_subscribed) return;
+            _eventManager.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectPlaced, OnPalletPlaced);
         }
 
         /// <summary>When a pallet is placed, check if it's ghosted and create a receive task.</summary>

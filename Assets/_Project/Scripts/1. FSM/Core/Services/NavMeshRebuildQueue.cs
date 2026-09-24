@@ -18,11 +18,21 @@ namespace GameCore.Services
         private float _rebuildInterval = 1f; // seconds
         private float _nextRebuild = 0f;
 
+        private void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
+            // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+            // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+            // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+            foreach (var stale in Resources.FindObjectsOfTypeAll<NavMeshRebuildQueue>())
+                if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
             if (_instance != null) return;
-            var go = new GameObject("[NavMeshRebuildQueue]") { hideFlags = HideFlags.HideAndDontSave };
+            var go = new GameObject("[NavMeshRebuildQueue]") { hideFlags = HideFlags.HideInHierarchy };
             DontDestroyOnLoad(go);
             _instance = go.AddComponent<NavMeshRebuildQueue>();
         }

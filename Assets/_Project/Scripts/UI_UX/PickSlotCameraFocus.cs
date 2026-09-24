@@ -56,7 +56,9 @@ public class PickSlotCameraFocus : MonoBehaviour
     {
         if (_instance == null)
         {
-            var go = new GameObject("[PickSlotCameraFocus]") { hideFlags = HideFlags.HideAndDontSave };
+            // HideInHierarchy (Awake adds DontDestroyOnLoad), NOT HideAndDontSave — that survived exiting
+            // Play (no domain reload), so the next session reused it with a destroyed cached camera.
+            var go = new GameObject("[PickSlotCameraFocus]") { hideFlags = HideFlags.HideInHierarchy };
             _instance = go.AddComponent<PickSlotCameraFocus>();
         }
 
@@ -72,6 +74,8 @@ public class PickSlotCameraFocus : MonoBehaviour
     private void DoEnterFocusView(Vector3 pickSlotWorldPos, Vector3 aisleForward)
     {
         if (_isActive) return; // Already in focus
+        if (_camera == null) _camera = Camera.main;
+        if (_camera == null) return;
 
         // Save current camera state
         _originalCameraPos = _camera.transform.position;

@@ -46,7 +46,7 @@ namespace GameCore.Labor
     /// staged), tier-stacked cargo (loaded pallets always go in flat, one per slot, matching
     /// TruckController's legacy 12-slot fallback layout).
     /// </summary>
-    public class TrailerLoadController : MonoBehaviour
+    public partial class TrailerLoadController : MonoBehaviour
     {
         // ── Tunable choreography — values mirror TrailerOffloadController for a consistent feel ──
         private const float DriveSpeed = 3.0f;
@@ -81,14 +81,24 @@ namespace GameCore.Labor
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
+            // HideInHierarchy + DontDestroyOnLoad, NOT HideAndDontSave: with Enter Play Mode Options (no domain
+            // reload) a HideAndDontSave object survives exiting Play, so every session/recompile left another
+            // copy running (6 found live 2026-09-23). This one is destroyed on Play exit; sweep any leftovers.
+            foreach (var stale in Resources.FindObjectsOfTypeAll<TrailerLoadController>())
+                if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
             if (_instance != null) return;
-            var go = new GameObject("[TrailerLoadController]") { hideFlags = HideFlags.HideAndDontSave };
+            var go = new GameObject("[TrailerLoadController]") { hideFlags = HideFlags.HideInHierarchy };
             DontDestroyOnLoad(go);
             _instance = go.AddComponent<TrailerLoadController>();
         }
 
         private PlacementGrid _grid;
         private float _nextScan;
+
+        private void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+        }
 
         private void Update()
         {
@@ -137,6 +147,11 @@ namespace GameCore.Labor
                 StartCoroutine(LoadRoutine(truck, slot, task, door, lane));
                 return;
             }
+
+            // Nothing staged to load right now — see if a docked trailer is waiting on an order pallet
+            // still sitting in an inbound lane that a dock stocker can dig out and load directly
+            // (TrailerLoadController.DigOut.cs).
+            TryStartDigAndLoad(workQueue);
         }
 
         /// <summary>
@@ -150,21 +165,19 @@ namespace GameCore.Labor
         /// with everything stacked along one wall. LoadShipment never showed it because it builds all
         /// 12 in one pass.
         ///
-        /// Direction check (measured off the live rig, not assumed): the truck root carries a 180° Y
-        /// rotation so `TrailerIntoDir` = truck.forward = −Z, while the Load container has no Y
-        /// rotation and its local +Z is +Z world — i.e. local +Z runs OPPOSITE to `into`. Cross-checked
-        /// against TrailerOffloadController, which unloads smallest-Dot(pos, into) first as "nearest
-        /// the rear opening": with into = −Z that is the LARGEST local z. So col 5 is the doors and
-        /// col 0 is the nose, and ascending depth here loads nose-first — the correct order, and one
-        /// where the DS never has to drive past a pallet it already set down.
-        ///
-        /// (Note the stale comment on `openingRef` below calling slot 0 the "rearmost pallet" — by this
-        /// geometry slot 0 is the deepest point. It only matters as the no-docked-door fallback now.)
+        /// Direction — MEASURED on truck_Savage_DevblendNEW.prefab 2026-09-23 (the previous version of
+        /// this comment reasoned it out and got it backwards, so the loader filled door-end first):
+        /// in the truck's own space the Tractor mesh spans z −0.9..+4.7 and the trailer z −8.3..+0.9.
+        /// Slot column 5 sits at z −0.13 (0.6 m behind the cab — the NOSE) and column 0 at z −6.38
+        /// (the rear DOORS). Slot positions are local to the trailer, so a docked truck's 180° turn
+        /// doesn't change which column is the nose. The first pair therefore goes to column 5 and
+        /// loading works back toward the doors, so the loader never drives past a pallet it already
+        /// set down.
         /// </summary>
         private static int CargoSlotForSequence(int sequence)
         {
-            int depth = sequence / 2;   // 0 = nose … 5 = doors
-            int side  = sequence % 2;   // alternate left / right
+            int depth = (TruckController.PalletsPerRow - 1) - sequence / 2; // 5 = nose … 0 = doors
+            int side  = sequence % 2;                                        // alternate left / right
             return side * TruckController.PalletsPerRow + depth;
         }
 
@@ -192,6 +205,10 @@ namespace GameCore.Labor
             foreach (var order in orderService.ActiveOrders)
             {
                 if (!orderService.CanStartLoading(order, out _)) continue;
+                // Nothing of this order is physically standing in a lane — e.g. every pallet so far
+                // was dug out and loaded straight onto the trailer. Releasing it would file a Load task
+                // the loader can only fail (RevertUnloadedOrdersToStaged), then re-file every poll.
+                if (!HasStagedPalletForOrder(order.OrderId)) continue;
                 if (!orderIdsByDoor.TryGetValue(order.AssignedDoorNumber, out var ids))
                 {
                     ids = new List<string>();
@@ -365,6 +382,25 @@ namespace GameCore.Labor
             // reversed sequence.
             found.Sort((a, b) => a.slotIndex.CompareTo(b.slotIndex));
 
+            // Only the freight of orders actually being loaded at this door (Tad, 2026-09-23: it was
+            // loading every pallet in the lane, whoever's it was). And STOP at the first pallet that
+            // isn't theirs rather than skipping it — anything behind it can't be reached without
+            // driving through it.
+            if (ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
+            {
+                var loadingIds = new HashSet<string>(orders.ActiveOrders
+                    .Where(o => o.AssignedDoorNumber == doorNumber &&
+                                (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded))
+                    .Select(o => o.OrderId));
+                int firstForeign = found.FindIndex(f => !loadingIds.Contains(f.pallet.OrderId));
+                if (firstForeign >= 0)
+                {
+                    Debug.LogWarning($"[TrailerLoad] {doorNumber}{lane}: pallet at pos{found[firstForeign].slotIndex} belongs to " +
+                                     $"order {found[firstForeign].pallet.OrderId}, not one being loaded here — stopping before it.");
+                    found = found.Take(firstForeign).ToList();
+                }
+            }
+
             // The pick order was previously invisible in the log — only the destination cargo slot was
             // recorded — so "the DS grabbed lane position 6 first" could be neither confirmed nor ruled
             // out after the fact. This states the lane sequence outright.
@@ -464,6 +500,24 @@ namespace GameCore.Labor
                 if (inv != null) inv.ReleaseLaneEntry(laneSlot.DoorNumber, laneSlot.Lane);
             }
 
+            yield return PlaceCarriedInTrailer(ds, forks, truck, palletT, slotIndex, doorPos, driveY);
+
+            // "cargoSlot" spelled out because these numbers run 0-11 over the TRAILER's 12-slot bed
+            // (nose-first, alternating left/right — see CargoSlotForSequence) and read nothing like the
+            // 1-N staging-lane positions the pallet was picked FROM. Logging a bare "slot 6" next to a
+            // lane load made the interleave look like the DS was jumping to lane position 6.
+            Debug.Log($"[TrailerLoad][PLACE] {pallet.name} (order {pallet.OrderId}) -> {truck.name} cargoSlot {slotIndex} (tier {OutboundStackTier}).");
+        }
+
+        /// <summary>
+        /// Steps 6–11 of a load: carry the pallet already riding the forks from the dock to the trailer,
+        /// set it down in <paramref name="slotIndex"/>, and reverse back out to the shipping door pivot.
+        /// Shared by LoadOnePallet (staged outbound pallets) and the dig-out route (inbound pallets
+        /// loaded straight from their lane — TrailerLoadController.DigOut.cs).
+        /// </summary>
+        private IEnumerator PlaceCarriedInTrailer(Transform ds, Transform forks, TruckController truck,
+                                                  Transform palletT, int slotIndex, Vector3 doorPos, float driveY)
+        {
             // ── CARRY to the trailer and place in the next open cargo slot ───────────────────
             Vector3 into = TrailerIntoDir(truck);
             Vector3 rightAxis = Vector3.Cross(Vector3.up, into);
@@ -518,14 +572,9 @@ namespace GameCore.Labor
             palletT.localRotation = NearestFacing(Quaternion.identity,
                                                   truck.LoadContainer.InverseTransformDirection(facingOnForks));
             // Cargo inside a trailer must NOT carve — it would cut a hole in the dock NavMesh where
-            // the trailer is parked.
-            pallet.SetNavObstacleActive(false);
-
-            // "cargoSlot" spelled out because these numbers run 0-11 over the TRAILER's 12-slot bed
-            // (nose-first, alternating left/right — see CargoSlotForSequence) and read nothing like the
-            // 1-N staging-lane positions the pallet was picked FROM. Logging a bare "slot 6" next to a
-            // lane load made the interleave look like the DS was jumping to lane position 6.
-            Debug.Log($"[TrailerLoad][PLACE] {pallet.name} (order {pallet.OrderId}) -> {truck.name} cargoSlot {slotIndex} (tier {OutboundStackTier}).");
+            // the trailer is parked. (Same component OutboundPalletBuilder.SetNavObstacleActive toggles.)
+            var obstacle = palletT.GetComponent<NavMeshObstacle>();
+            if (obstacle != null) obstacle.enabled = false;
 
             // 11. Reverse straight back out of the trailer to the shipping door pivot — cab-first,
             //     forks trailing, no spin. The next pallet's run starts from here.

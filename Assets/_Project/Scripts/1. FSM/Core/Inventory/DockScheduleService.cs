@@ -1172,7 +1172,8 @@ namespace GameCore.Inventory
             string kindWord = order.IsBulk ? "Bulk order" : "Order";
             string displayNumber = string.IsNullOrEmpty(order.OrderNumber) ? order.OrderId : order.OrderNumber;
             SystemsLogWindow.LogGuard(
-                $"{kindWord} {displayNumber} going to Door {doorNumber} with {pallets} pallet(s) — {critical} critical item(s).");
+                $"{LogLinks.Order(order.OrderId, $"{kindWord} {displayNumber}")} going to {LogLinks.Door(doorNumber)} " +
+                $"with {pallets} pallet(s) — {critical} critical item(s).");
         }
 
         /// <summary>
@@ -1411,7 +1412,7 @@ namespace GameCore.Inventory
 
                 UIToast.Show($"PO {po.PONumber} expired — {ReceiveDeadlineHours} hours passed with no full " +
                              $"receipt. Lost the load (${po.TotalCost:N0}, no refund).");
-                SystemsLogWindow.LogWarning($"PO {po.PONumber} expired at the dock — {ReceiveDeadlineHours} " +
+                SystemsLogWindow.LogWarning($"{LogLinks.Po(po.PONumber)} expired at the dock — {ReceiveDeadlineHours} " +
                                              $"hours passed with no full receipt. Order lost, no refund — " +
                                              $"that's ${po.TotalCost:N0} down the drain.");
             }

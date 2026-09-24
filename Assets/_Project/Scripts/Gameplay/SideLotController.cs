@@ -44,6 +44,36 @@ public class SideLotController : MonoBehaviour
     /// <summary>First unoccupied slot, or null if the lot is full (or has no slots at all).</summary>
     public Slot FindFreeSlot() => _slots.FirstOrDefault(s => !s.IsOccupied);
 
+    /// <summary>Across every lot, the slot whose Anchor or Entry sits closest to <paramref name="point"/>
+    /// (flat XZ distance), if within <paramref name="maxDistance"/>. Used on save-load to hand a
+    /// restored truck back the slot it was parked in / driving to — slot occupancy isn't serialized,
+    /// so without this every restored truck came back owning nothing and the next arrival was handed
+    /// slot #1 on top of whoever was already physically parked there.</summary>
+    public static Slot FindSlotNear(Vector3 point, float maxDistance, out SideLotController lot)
+    {
+        lot = null;
+        Slot best = null;
+        float bestSqr = maxDistance * maxDistance;
+        foreach (var candidate in All)
+        {
+            if (candidate == null) continue;
+            foreach (var s in candidate._slots)
+            {
+                if (s.Anchor == null) continue;
+                float d = FlatSqr(s.Anchor.position, point);
+                if (s.Entry != null) d = Mathf.Min(d, FlatSqr(s.Entry.position, point));
+                if (d <= bestSqr) { bestSqr = d; best = s; lot = candidate; }
+            }
+        }
+        return best;
+    }
+
+    private static float FlatSqr(Vector3 a, Vector3 b)
+    {
+        float dx = a.x - b.x, dz = a.z - b.z;
+        return dx * dx + dz * dz;
+    }
+
     private void Awake()
     {
         var anchors = new List<Transform>();

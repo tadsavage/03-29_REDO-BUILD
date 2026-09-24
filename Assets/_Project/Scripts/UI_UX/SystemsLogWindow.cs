@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
+using UnityEngine.UIElements.Experimental;
 
 /// <summary>
 /// Scrolling "Systems Log" — a persistent, dockable readout of everything that would otherwise have
@@ -570,6 +571,7 @@ public class SystemsLogWindow : MonoBehaviour
         msgLabel.style.flexShrink = 1;
         msgLabel.style.flexGrow = 1;
         msgLabel.pickingMode = PickingMode.Ignore;
+        if (message.Contains("<link")) MakeLinksClickable(msgLabel);
 
         row.Add(timeLabel);
         row.Add(msgLabel);
@@ -583,6 +585,27 @@ public class SystemsLogWindow : MonoBehaviour
             _scroll.contentContainer.RemoveAt(_scroll.contentContainer.childCount - 1);
 
         if (wasNearTop) _scroll.scrollOffset = Vector2.zero;
+    }
+
+    /// <summary>A row carrying a LogLinks hyperlink is the one exception to the log's click-through
+    /// rule: its message label has to be pickable or the link-tag events never reach it. Only rows
+    /// that actually contain a link pay that cost, so camera orbit still passes through every other
+    /// line. Left-click only — right/middle drags over a link should still be read as camera input by
+    /// the player's hand, even if this one label now swallows them.</summary>
+    private static void MakeLinksClickable(Label label)
+    {
+        label.pickingMode = PickingMode.Position;
+        label.RegisterCallback<PointerUpLinkTagEvent>(evt =>
+        {
+            if (evt.button != 0) return;
+            evt.StopPropagation();
+            CustomCursorService.SetHoveringInteractable(false);
+            LogLinks.Handle(evt.linkID);
+        });
+        label.RegisterCallback<PointerOverLinkTagEvent>(_ => CustomCursorService.SetHoveringInteractable(true));
+        label.RegisterCallback<PointerOutLinkTagEvent>(_ => CustomCursorService.SetHoveringInteractable(false));
+        // Leaving the label while still over a link never raises PointerOut for the link itself.
+        label.RegisterCallback<PointerLeaveEvent>(_ => CustomCursorService.SetHoveringInteractable(false));
     }
 
     // ── Manual wheel scroll ──────────────────────────────────────────

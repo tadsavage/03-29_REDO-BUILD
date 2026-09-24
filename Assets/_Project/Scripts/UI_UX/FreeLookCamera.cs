@@ -171,6 +171,10 @@ public class FreeLookCamera : MonoBehaviour
 
     private void Update()
     {
+        // A scripted glide (log-link "go to door") owns the camera until it lands — ahead of the
+        // modal guard, since it's usually kicked off from UI and must finish regardless.
+        if (_gliding) { ProcessGlide(); ApplyTransform(); return; }
+
         // IsTextFieldFocused alone only covers "the user clicked into a field". A modal can be up and
         // owning input without any field focused — WASD would still fly the camera behind the dialog.
         if (UIInputGuard.IsTextFieldFocused || UIModalGuard.IsCapturing) return;
@@ -409,6 +413,47 @@ public class FreeLookCamera : MonoBehaviour
             _focusBeyondBounds = true;
         }
         ApplyTransform();
+    }
+
+    // Scripted glide state — see GlideTo.
+    private bool _gliding;
+    private float _glideT, _glideDuration;
+    private Vector3 _glideFromFocus, _glideToFocus;
+    private float _glideFromYaw, _glideToYaw, _glideFromPitch, _glideToPitch, _glideFromDist, _glideToDist;
+
+    /// <summary>Smoothly flies the camera to a new framing: focal point, yaw, pitch and orbit distance
+    /// all eased together over <paramref name="seconds"/>. Player input is ignored until it lands. Runs
+    /// on unscaled time so it still works while the game is paused. Like FocusOn, the target may lie
+    /// outside the normal pan bounds; ordinary panning re-engages them afterwards.</summary>
+    public void GlideTo(Vector3 focus, float yaw, float pitch, float distance, float seconds = 0.6f)
+    {
+        _followTarget = null;
+        _focusBeyondBounds = true;
+
+        _glideFromFocus = _focalPoint;
+        _glideFromYaw = _yaw;
+        _glideFromPitch = _pitch;
+        _glideFromDist = _distance;
+
+        _glideToFocus = focus;
+        _glideToYaw = _yaw + Mathf.DeltaAngle(_yaw, yaw); // shortest way round
+        _glideToPitch = Mathf.Clamp(pitch, pitchMin, pitchMax);
+        _glideToDist = Mathf.Clamp(distance, minDistance, maxDistance);
+
+        _glideT = 0f;
+        _glideDuration = Mathf.Max(0.01f, seconds);
+        _gliding = true;
+    }
+
+    private void ProcessGlide()
+    {
+        _glideT += Time.unscaledDeltaTime / _glideDuration;
+        float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(_glideT));
+        _focalPoint = Vector3.Lerp(_glideFromFocus, _glideToFocus, t);
+        _yaw = Mathf.Lerp(_glideFromYaw, _glideToYaw, t);
+        _pitch = Mathf.Lerp(_glideFromPitch, _glideToPitch, t);
+        _distance = Mathf.Lerp(_glideFromDist, _glideToDist, t);
+        if (_glideT >= 1f) _gliding = false;
     }
 
     /// <summary>Have the camera continuously follow a transform on the XZ plane (the player keeps
