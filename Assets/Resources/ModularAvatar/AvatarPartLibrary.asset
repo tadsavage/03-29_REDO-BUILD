@@ -13,491 +13,69 @@ MonoBehaviour:
   m_Name: AvatarPartLibrary
   m_EditorClassIdentifier: Assembly-CSharp::AvatarPartLibrary
   sources:
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_AllAvatars.fbx
-    prefab: {fileID: 919132149155446097, guid: 0b245c4b873e03542a418fc7b6df7f51, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_AllAvatars_BAK.fbx
-    prefab: {fileID: 919132149155446097, guid: 62daf11ca7cdf554d88782ff39bc5f44, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_GENDER_NEUTRAL/_ClipBoard.fbx
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_AVATARS/female_body_black.fbx
+    prefab: {fileID: 919132149155446097, guid: 6ddbe30c95e34e847953b30e8622c795, type: 3}
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_AVATARS/male_body_black.fbx
+    prefab: {fileID: 919132149155446097, guid: 55c2a5d4941cd6d4ea970e8abca33a46, type: 3}
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_ClipBoard.prefab
+    prefab: {fileID: 2383708543657329684, guid: 408c6d8c7ae49f447923c596471b798b, type: 3}
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_Scangun.prefab
+    prefab: {fileID: 7053504693307672505, guid: 514f6532d6b40b847b294c7904561e0a, type: 3}
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/man_hair_regular.prefab
+    prefab: {fileID: 7996521509470280609, guid: 411334ecc03b77c41b91568b5e656257, type: 3}
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/neutral_hat_hardhat-orange.prefab
+    prefab: {fileID: 6871220538311908013, guid: 5fb6c08087fa9244cadab85bafa2e130, type: 3}
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/neutral_hat_hardhat-red.prefab
+    prefab: {fileID: 7912113270815259754, guid: 1d7e55c6e7a68aa458e54b0d63b24cdc, type: 3}
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/neutral_hat_headphones.prefab
+    prefab: {fileID: 4915153613601049192, guid: e2c660238f21f2f4a98c067db13c9584, type: 3}
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/woman_hair_bob-blonde.prefab
+    prefab: {fileID: 8272737740051744939, guid: bb2f7a63889dde64c80ae58cdb75be45, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/_ClipBoard.fbx
     prefab: {fileID: 919132149155446097, guid: 88707f7d458ac614b89ba9377b9f21d4, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_GENDER_NEUTRAL/neutral_hat_hardhat.fbx
-    prefab: {fileID: 919132149155446097, guid: 897558dea3dc9954ab2632d4523ae85e, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_GENDER_NEUTRAL/neutral_hat_hardhatRED.fbx
-    prefab: {fileID: 919132149155446097, guid: 0719af10d95f9144f99bc0849de2ac41, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/_GENDER_NEUTRAL/neutral_hat_headphones.fbx
-    prefab: {fileID: 919132149155446097, guid: a25a376f088bb054a9803b2390b54a26, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/MEN/man_body_main.fbx
-    prefab: {fileID: 919132149155446097, guid: 4a155520f98933d4fb37daa0cceed6f5, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/MEN/man_hair_regular.fbx
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/man_hair_regular.fbx
     prefab: {fileID: 919132149155446097, guid: c1ae47b45098c7f4e8bbbef9e39418d9, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/WOMEN/woman_body_main.fbx
-    prefab: {fileID: 919132149155446097, guid: b54bb97c155b5144da2f3346ef3d03af, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/WOMEN/woman_hair_bob.fbx
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/neutral_hat_hardhat-orange.fbx
+    prefab: {fileID: 919132149155446097, guid: 897558dea3dc9954ab2632d4523ae85e, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/neutral_hat_hardhat-red.fbx
+    prefab: {fileID: 919132149155446097, guid: 0719af10d95f9144f99bc0849de2ac41, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/neutral_hat_headphones.fbx
+    prefab: {fileID: 919132149155446097, guid: a25a376f088bb054a9803b2390b54a26, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/woman_hair_bob-blonde.fbx
     prefab: {fileID: 919132149155446097, guid: f6cc2ef163f80164982bd831cf8f0249, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/XXX_Obsolete_Humanoids/BossNew.fbx
-    prefab: {fileID: 919132149155446097, guid: 36eb9b75d0f74d44296bef5b402ce2a6, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/XXX_Obsolete_Humanoids/Exterminator.fbx
-    prefab: {fileID: 919132149155446097, guid: 9b41d45f2f7c04b4f8d4daf2299d64cc, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/XXX_Obsolete_Humanoids/Female_Modular_Staff.fbx
-    prefab: {fileID: 919132149155446097, guid: 8f637fac8bfdbb14fb9a9ea3616c5b19, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/XXX_Obsolete_Humanoids/IC.fbx
-    prefab: {fileID: 919132149155446097, guid: 50c9878f9b64e9c4d8c2a8535e6ae7b1, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/XXX_Obsolete_Humanoids/Male_Modular_Staff.fbx
-    prefab: {fileID: 919132149155446097, guid: af0100804cd85a841985e99bad95faf8, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/XXX_Obsolete_Humanoids/Security.fbx
-    prefab: {fileID: 919132149155446097, guid: cebaac6873124e54caa1f538dd4e659d, type: 3}
   parts:
-  - objectName: man_basketball_player
-    gender: male
-    slot: basketball
-    variant: player
-    sourceIndex: 0
-  - objectName: man_casual_shorts
-    gender: male
-    slot: casual
-    variant: shorts
-    sourceIndex: 0
-  - objectName: man_coat_winter
-    gender: male
-    slot: coat
-    variant: winter
-    sourceIndex: 0
-  - objectName: man_construction_worker
-    gender: male
-    slot: body
-    variant: ConstructionWorker
-    sourceIndex: 0
-  - objectName: man_naval_officer
-    gender: male
-    slot: naval
-    variant: officer
-    sourceIndex: 0
-  - objectName: man_officer_swat
-    gender: male
-    slot: officer
-    variant: swat
-    sourceIndex: 0
-  - objectName: man_race_driver
-    gender: male
-    slot: race
-    variant: driver
-    sourceIndex: 0
-  - objectName: woman_basketball_player
-    gender: female
-    slot: basketball
-    variant: player
-    sourceIndex: 0
-  - objectName: woman_casual_shorts
-    gender: female
-    slot: casual
-    variant: shorts
-    sourceIndex: 0
-  - objectName: woman_coat_winter
-    gender: female
-    slot: coat
-    variant: winter
-    sourceIndex: 0
   - objectName: woman_construction_worker
     gender: female
     slot: body
     variant: ConstructionWorker
     sourceIndex: 0
-  - objectName: woman_naval_officer
-    gender: female
-    slot: naval
-    variant: officer
-    sourceIndex: 0
-  - objectName: woman_race_car_driver
-    gender: female
-    slot: race
-    variant: car_driver
-    sourceIndex: 0
-  - objectName: man_basketball_player
-    gender: male
-    slot: basketball
-    variant: player
-    sourceIndex: 1
-  - objectName: man_casual_shorts
-    gender: male
-    slot: casual
-    variant: shorts
-    sourceIndex: 1
-  - objectName: man_coat_winter
-    gender: male
-    slot: coat
-    variant: winter
-    sourceIndex: 1
   - objectName: man_construction_worker
     gender: male
     slot: body
     variant: ConstructionWorker
     sourceIndex: 1
-  - objectName: man_naval_officer
-    gender: male
-    slot: naval
-    variant: officer
-    sourceIndex: 1
-  - objectName: man_officer_swat
-    gender: male
-    slot: officer
-    variant: swat
-    sourceIndex: 1
-  - objectName: man_race_driver
-    gender: male
-    slot: race
-    variant: driver
-    sourceIndex: 1
-  - objectName: woman_basketball_player
-    gender: female
-    slot: basketball
-    variant: player
-    sourceIndex: 1
-  - objectName: woman_casual_shorts
-    gender: female
-    slot: casual
-    variant: shorts
-    sourceIndex: 1
-  - objectName: woman_coat_winter
-    gender: female
-    slot: coat
-    variant: winter
-    sourceIndex: 1
-  - objectName: woman_construction_worker
-    gender: female
-    slot: body
-    variant: ConstructionWorker
-    sourceIndex: 1
-  - objectName: woman_naval_officer
-    gender: female
-    slot: naval
-    variant: officer
-    sourceIndex: 1
-  - objectName: woman_race_car_driver
-    gender: female
-    slot: race
-    variant: car_driver
-    sourceIndex: 1
-  - objectName: neutral_hat_hardhat
-    gender: neutral
-    slot: hat
-    variant: hardhat
-    sourceIndex: 3
-  - objectName: neutral_hat_hardhatRED
-    gender: neutral
-    slot: hat
-    variant: hardhatRED
-    sourceIndex: 4
-  - objectName: neutral_hat_headphones
-    gender: neutral
-    slot: hat
-    variant: headphones
-    sourceIndex: 5
-  - objectName: man_body_main
-    gender: male
-    slot: body
-    variant: main
-    sourceIndex: 6
   - objectName: man_hair_regular
     gender: male
     slot: hair
     variant: regular
+    sourceIndex: 4
+  - objectName: neutral_hat_hardhat-orange
+    gender: neutral
+    slot: hat
+    variant: hardhat-orange
+    sourceIndex: 5
+  - objectName: neutral_hat_hardhat-red
+    gender: neutral
+    slot: hat
+    variant: hardhat-red
+    sourceIndex: 6
+  - objectName: neutral_hat_headphones
+    gender: neutral
+    slot: hat
+    variant: headphones
     sourceIndex: 7
-  - objectName: woman_construction_worker
-    gender: female
-    slot: body
-    variant: ConstructionWorker
-    sourceIndex: 8
-  - objectName: woman_hair_bob
+  - objectName: woman_hair_bob-blonde
     gender: female
     slot: hair
-    variant: bob
-    sourceIndex: 9
-  - objectName: female_chest_ShirtBlack
-    gender: female
-    slot: chest
-    variant: ShirtBlack
-    sourceIndex: 12
-  - objectName: female_chest_ShirtRed
-    gender: female
-    slot: chest
-    variant: ShirtRed
-    sourceIndex: 12
-  - objectName: female_chest_ShirtWhite
-    gender: female
-    slot: chest
-    variant: ShirtWhite
-    sourceIndex: 12
-  - objectName: female_eyebrows_BrowsMad
-    gender: female
-    slot: eyebrows
-    variant: BrowsMad
-    sourceIndex: 12
-  - objectName: female_eyebrows_BrowsNeutral
-    gender: female
-    slot: eyebrows
-    variant: BrowsNeutral
-    sourceIndex: 12
-  - objectName: female_eyebrows_BrowsSad
-    gender: female
-    slot: eyebrows
-    variant: BrowsSad
-    sourceIndex: 12
-  - objectName: female_face_Frown
-    gender: female
-    slot: face
-    variant: Frown
-    sourceIndex: 12
-  - objectName: female_face_Neutral
-    gender: female
-    slot: face
-    variant: Neutral
-    sourceIndex: 12
-  - objectName: female_face_Smile
-    gender: female
-    slot: face
-    variant: Smile
-    sourceIndex: 12
-  - objectName: female_face_TongueOut
-    gender: female
-    slot: face
-    variant: TongueOut
-    sourceIndex: 12
-  - objectName: female_feet_BootsBlack
-    gender: female
-    slot: feet
-    variant: BootsBlack
-    sourceIndex: 12
-  - objectName: female_feet_BootsBrowm
-    gender: female
-    slot: feet
-    variant: BootsBrowm
-    sourceIndex: 12
-  - objectName: female_head_BlackLong
-    gender: female
-    slot: head
-    variant: BlackLong
-    sourceIndex: 12
-  - objectName: female_head_BlackPixie
-    gender: female
-    slot: head
-    variant: BlackPixie
-    sourceIndex: 12
-  - objectName: female_head_BlackPonytail
-    gender: female
-    slot: head
-    variant: BlackPonytail
-    sourceIndex: 12
-  - objectName: female_head_BlondePixie
-    gender: female
-    slot: head
-    variant: BlondePixie
-    sourceIndex: 12
-  - objectName: female_head_BlondePonytail
-    gender: female
-    slot: head
-    variant: BlondePonytail
-    sourceIndex: 12
-  - objectName: female_head_BrownPixie
-    gender: female
-    slot: head
-    variant: BrownPixie
-    sourceIndex: 12
-  - objectName: female_head_hatGray
-    gender: female
-    slot: head
-    variant: hatGray
-    sourceIndex: 12
-  - objectName: female_head_hatGreen
-    gender: female
-    slot: head
-    variant: hatGreen
-    sourceIndex: 12
-  - objectName: female_head_hatPink
-    gender: female
-    slot: head
-    variant: hatPink
-    sourceIndex: 12
-  - objectName: female_head_hatRed
-    gender: female
-    slot: head
-    variant: hatRed
-    sourceIndex: 12
-  - objectName: female_head_RedLong
-    gender: female
-    slot: head
-    variant: RedLong
-    sourceIndex: 12
-  - objectName: female_head_RedPonytail
-    gender: female
-    slot: head
-    variant: RedPonytail
-    sourceIndex: 12
-  - objectName: female_head_WhiteLong
-    gender: female
-    slot: head
-    variant: WhiteLong
-    sourceIndex: 12
-  - objectName: female_legs_BlackLeggings
-    gender: female
-    slot: legs
-    variant: BlackLeggings
-    sourceIndex: 12
-  - objectName: female_legs_JeansBlue
-    gender: female
-    slot: legs
-    variant: JeansBlue
-    sourceIndex: 12
-  - objectName: female_vest_SafetyVestOrange
-    gender: female
-    slot: vest
-    variant: SafetyVestOrange
-    sourceIndex: 12
-  - objectName: female_vest_SafetyVestPink
-    gender: female
-    slot: vest
-    variant: SafetyVestPink
-    sourceIndex: 12
-  - objectName: male_chest_BlueShirt
-    gender: male
-    slot: chest
-    variant: BlueShirt
-    sourceIndex: 14
-  - objectName: male_chest_RedShirt
-    gender: male
-    slot: chest
-    variant: RedShirt
-    sourceIndex: 14
-  - objectName: male_chest_WhiteShirt
-    gender: male
-    slot: chest
-    variant: WhiteShirt
-    sourceIndex: 14
-  - objectName: male_eyebrows_BrowsMad
-    gender: male
-    slot: eyebrows
-    variant: BrowsMad
-    sourceIndex: 14
-  - objectName: male_eyebrows_BrowsNeutral
-    gender: male
-    slot: eyebrows
-    variant: BrowsNeutral
-    sourceIndex: 14
-  - objectName: male_eyebrows_BrowsSad
-    gender: male
-    slot: eyebrows
-    variant: BrowsSad
-    sourceIndex: 14
-  - objectName: male_face_Frown
-    gender: male
-    slot: face
-    variant: Frown
-    sourceIndex: 14
-  - objectName: male_face_Neutral
-    gender: male
-    slot: face
-    variant: Neutral
-    sourceIndex: 14
-  - objectName: male_face_Smile
-    gender: male
-    slot: face
-    variant: Smile
-    sourceIndex: 14
-  - objectName: male_face_TongueOut
-    gender: male
-    slot: face
-    variant: TongueOut
-    sourceIndex: 14
-  - objectName: male_facialHair_Goatee
-    gender: male
-    slot: facialhair
-    variant: Goatee
-    sourceIndex: 14
-  - objectName: male_facialHair_HitlerStache
-    gender: male
-    slot: facialhair
-    variant: HitlerStache
-    sourceIndex: 14
-  - objectName: male_facialHair_Lemmy
-    gender: male
-    slot: facialhair
-    variant: Lemmy
-    sourceIndex: 14
-  - objectName: male_facialHair_theGreg
-    gender: male
-    slot: facialhair
-    variant: theGreg
-    sourceIndex: 14
-  - objectName: male_feet_BootsBlack
-    gender: male
-    slot: feet
-    variant: BootsBlack
-    sourceIndex: 14
-  - objectName: male_feet_BootsBrown
-    gender: male
-    slot: feet
-    variant: BootsBrown
-    sourceIndex: 14
-  - objectName: male_head_Afro
-    gender: male
-    slot: head
-    variant: Afro
-    sourceIndex: 14
-  - objectName: male_head_HatBlack
-    gender: male
-    slot: head
-    variant: HatBlack
-    sourceIndex: 14
-  - objectName: male_head_HatGray
-    gender: male
-    slot: head
-    variant: HatGray
-    sourceIndex: 14
-  - objectName: male_head_HatGreen
-    gender: male
-    slot: head
-    variant: HatGreen
-    sourceIndex: 14
-  - objectName: male_head_HatRed
-    gender: male
-    slot: head
-    variant: HatRed
-    sourceIndex: 14
-  - objectName: male_head_Helmet
-    gender: male
-    slot: head
-    variant: Helmet
-    sourceIndex: 14
-  - objectName: male_head_Hitler
-    gender: male
-    slot: head
-    variant: Hitler
-    sourceIndex: 14
-  - objectName: male_head_Surfer
-    gender: male
-    slot: head
-    variant: Surfer
-    sourceIndex: 14
-  - objectName: male_legs_JeansBlack
-    gender: male
-    slot: legs
-    variant: JeansBlack
-    sourceIndex: 14
-  - objectName: male_legs_JeansBlue
-    gender: male
-    slot: legs
-    variant: JeansBlue
-    sourceIndex: 14
-  - objectName: male_legs_KhakiBlkBelt
-    gender: male
-    slot: legs
-    variant: KhakiBlkBelt
-    sourceIndex: 14
-  - objectName: male_vest_VestOrange
-    gender: male
-    slot: vest
-    variant: VestOrange
-    sourceIndex: 14
-  - objectName: male_vest_VestStripe
-    gender: male
-    slot: vest
-    variant: VestStripe
-    sourceIndex: 14
+    variant: bob-blonde
+    sourceIndex: 8

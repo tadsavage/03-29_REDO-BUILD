@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -15,6 +16,13 @@ using UnityEngine;
 public static class ModularAvatarImporter
 {
     public const string DropFolder  = "Assets/_Project/Models/BlenderFiles/Modular_Staff";
+
+    // Finished, hand-built worker avatar/accessory PREFABS (converted from the raw drop-folder
+    // exports once Tad is happy with them) — a second scan root alongside DropFolder. Distinct from
+    // DropFolder: that's raw Blender staging (source FBX Tad pulls pieces FROM), this is the
+    // published, ready-to-equip parts list.
+    public const string PrefabFolder = "Assets/_Project/Prefabs/WORKERS";
+
     public const string LibraryPath = "Assets/Resources/ModularAvatar/AvatarPartLibrary.asset";
 
     [MenuItem("Tools/Modular Avatar/Scan & Rebuild Library")]
@@ -34,9 +42,25 @@ public static class ModularAvatarImporter
         lib.sources.Clear();
         lib.parts.Clear();
 
-        // All model assets (FBX, .blend, etc.) in the drop folder.
-        var guids = AssetDatabase.FindAssets("t:Model", new[] { DropFolder });
+        // Scan both roots. DropFolder is raw FBX exports (t:Model matches those); PrefabFolder
+        // holds already-converted .prefab assets too (t:Model alone misses those — a .prefab is
+        // imported as t:Prefab/t:GameObject, not t:Model), so search both types there.
+        // PrefabFolder first: it holds the finished, published parts. When a raw DropFolder export
+        // (e.g. AVATAR_PROPS/man_hair_regular.fbx) has already been converted into a matching
+        // WORKER_ACCESSORIES prefab, both would otherwise scan in as separate sources with identical
+        // gender/slot/variant — harmless for a single-variant slot today, but double-weights that
+        // variant the moment a slot ever has more than one real option. Deduped below by keeping
+        // whichever copy is seen FIRST, so scanning the finished prefab first makes it authoritative.
+        // Query each root SEPARATELY (rather than one combined FindAssets call) so the guid list's
+        // order is guaranteed PrefabFolder-first, regardless of FindAssets' own internal ordering.
+        IEnumerable<string> GuidsIn(string folder) =>
+            AssetDatabase.FindAssets("t:Model", new[] { folder })
+                         .Concat(AssetDatabase.FindAssets("t:Prefab", new[] { folder }));
+        var guids = AssetDatabase.IsValidFolder(PrefabFolder)
+            ? GuidsIn(PrefabFolder).Concat(GuidsIn(DropFolder)).Distinct()
+            : GuidsIn(DropFolder).Distinct();
         int fbxCount = 0;
+        var seenPartKeys = new HashSet<string>();
 
         foreach (var guid in guids)
         {
@@ -55,13 +79,32 @@ public static class ModularAvatarImporter
             // PRIMARY source and leave the avatar with no working skeleton at all.
             if (Path.GetFileNameWithoutExtension(path).ToLower().Contains("workshop")) continue;
 
-            // The old, all-in-one Male_Modular_Staff.fbx / Female_Modular_Staff.fbx (kept under
-            // XXX_Obsolete_Humanoids for chest/legs/feet/eyebrows/face/vest, which have no MEN/WOMEN
-            // replacement yet) each carry a "body" part too — but per Tad, the new body_main.fbx
-            // files now OWN the "body" slot for both genders. Their old body variants are dropped
-            // below so a spawned avatar can't randomly pick the legacy body mesh instead.
-            bool isLegacyHumanoidFile = path.Replace('\\', '/').Contains("/Obsolete_Humanoids/", System.StringComparison.OrdinalIgnoreCase)
-                                     || path.Replace('\\', '/').Contains("/XXX_Obsolete_Humanoids/", System.StringComparison.OrdinalIgnoreCase);
+            // Skip bulk reference-pool files (renamed 3 times already — "_AllAvatars.fbx" →
+            // "Avatar_Pool.fbx" → "Avatars_All_Workspace.fbx" — so a name check keeps breaking).
+            // These are multi-costume bundles Tad pulls individual pieces FROM by hand in Blender
+            // (re-exporting each piece as its own gender_slot_variant file), not real modular parts
+            // themselves. Detected by shape instead of name: a real part file has a handful of
+            // meshes; a bulk pool has dozens of full-costume SkinnedMeshRenderers bundled together.
+            // Costume names like "man_actionhero" mostly fail the gender_slot_variant pattern and
+            // get skipped anyway, but several ("man_casual_shorts", "woman_naval_officer", ...)
+            // happen to have 3+ underscore segments and get misfiled as bogus slot/variant parts.
+            const int BulkPoolMeshThreshold = 20;
+            var probeForBulkCheck = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (probeForBulkCheck != null &&
+                probeForBulkCheck.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length > BulkPoolMeshThreshold)
+            {
+                if (verbose)
+                    Debug.Log($"[ModularAvatar] Skipping '{Path.GetFileName(path)}' — looks like a bulk " +
+                              "reference pool (20+ skinned meshes), not a single modular part.");
+                continue;
+            }
+
+            // XXX_Obsolete_Humanoids is a DIFFERENT ART STYLE entirely, not a fallback part source —
+            // per Tad, do not pull ANYTHING from it (previously this only stripped its "body" slot
+            // and let everything else through, which was wrong: the whole folder is off-limits).
+            if (path.Replace('\\', '/').Contains("/Obsolete_Humanoids/", System.StringComparison.OrdinalIgnoreCase)
+                || path.Replace('\\', '/').Contains("/XXX_Obsolete_Humanoids/", System.StringComparison.OrdinalIgnoreCase))
+                continue;
 
             // New drop-folder exports (MEN/WOMEN/_GENDER_NEUTRAL) come out of Blender missing two
             // things every OLDER modular part already had: a Humanoid rig (so the Animator can
@@ -72,7 +115,8 @@ public static class ModularAvatarImporter
             // at scan time, so a fresh export just works without a manual Inspector pass — same
             // self-healing spirit as the rest of this importer. Must run BEFORE loading `root` below:
             // it can trigger a reimport, which would otherwise leave `root` pointing at a stale prefab.
-            if (!isLegacyHumanoidFile) FixNewExport(path);
+            // (Obsolete_Humanoids files never reach this line — skipped above — so no legacy check needed.)
+            FixNewExport(path);
 
             var root = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (root == null) continue;
@@ -99,11 +143,15 @@ public static class ModularAvatarImporter
                     continue;
                 }
 
-                if (isLegacyHumanoidFile && part.slot == "body")
+                // Same gender+slot+variant already added from an earlier-scanned source (e.g. the
+                // finished WORKER_ACCESSORIES prefab already covered this exact part) — skip the
+                // duplicate rather than double-weighting that variant in random selection.
+                string key = $"{part.gender}/{part.slot}/{part.variant}".ToLower();
+                if (!seenPartKeys.Add(key))
                 {
                     if (verbose)
-                        Debug.Log($"[ModularAvatar] Skipping legacy body part '{t.name}' in " +
-                                  $"{Path.GetFileName(path)} — body_main.fbx now owns the body slot.");
+                        Debug.Log($"[ModularAvatar] '{t.name}' in {Path.GetFileName(path)} duplicates " +
+                                  $"an already-scanned part ({key}) — skipped.");
                     continue;
                 }
 
@@ -177,7 +225,14 @@ public static class ModularAvatarImporter
             // game. Clearing the cached human/skeleton bone arrays and reimporting forces Unity to
             // re-run the same auto-mapper that built the mapping correctly the first time, now
             // against the CURRENT hierarchy.
-            var currentAvatar = probe.GetComponent<Animator>()?.avatar;
+            // NOTE: intentionally NOT `probe.GetComponent<Animator>()?.avatar` — the `?.` null-
+            // conditional operator does a raw CLR reference check, bypassing UnityEngine.Object's
+            // overloaded `==`. A "fake-null" Animator (component reference exists, native side does
+            // not — seen here on freshly-loaded FBX assets mid Humanoid setup) slips past `?.` and
+            // throws MissingComponentException the moment `.avatar` is touched. A plain `if (x !=
+            // null)` uses the real overloaded check and catches this case correctly.
+            var probeAnimator = probe.GetComponent<Animator>();
+            var currentAvatar = (probeAnimator != null) ? probeAnimator.avatar : null;
             bool staleHumanoid = importer.avatarSetup == ModelImporterAvatarSetup.CreateFromThisModel &&
                                  (currentAvatar == null || !currentAvatar.isHuman);
             if (staleHumanoid)

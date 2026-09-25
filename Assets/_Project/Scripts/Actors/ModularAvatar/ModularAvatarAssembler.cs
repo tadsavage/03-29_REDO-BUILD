@@ -39,22 +39,24 @@ public static class ModularAvatarAssembler
     // it for both genders — skipped here entirely rather than added to `chosen`.
     private static readonly HashSet<string> DeprecatedSlots = new() { "head" };
 
-    // Chance an avatar wears nothing on its head (bald / no hat).
-    private const float BaldChance = 0.1f;
+    // Chance an avatar wears nothing on its head (bald / no hat). Females are never bald
+    // (see ChooseHeadItem) — this only ever applies to males. Per Tad: 50/50 hair-or-bald for men.
+    private const float BaldChance = 0.5f;
 
     // Accessory slots: not everyone wears them. value = chance (0–1) the slot is included.
     // NOTE: keys MUST be lower-case — slot names are lower-cased when parsed (see importer).
     // hair is NOT here — it's chosen separately as the exclusive head-position pick (bald vs one
-    // hairstyle; see ChooseHeadItem). vest is mandatory (see Build). "hat" pools hardhat AND
-    // headphones (both parsed from the _GENDER_NEUTRAL folder, so available to either gender —
-    // AvatarPartLibrary folds neutral parts into every gender's query) behind ONE 50% roll: half
-    // the time nobody gets a hat-slot item, the other half one is picked at random from whatever
-    // hat-slot variants exist for that gender (today just hardhat/headphones).
+    // hairstyle; see ChooseHeadItem). vest is mandatory (see Build). "hat" (hardhat only — see the
+    // Build loop) and headphones are two INDEPENDENT 50% rolls, each gender-neutral, that can both
+    // land — per Tad, headphones aren't exclusive with a hard hat.
     private static readonly Dictionary<string, float> OptionalSlotChance = new()
     {
         { "facialhair", 0.30f },
         { "hat", 0.50f },
     };
+
+    // Independent 50% chance of wearing headphones — gender-neutral, stacks with the hard hat roll.
+    private const float HeadphonesChance = 0.5f;
 
     /// <summary>Build a random avatar for a gender. Returns null if the library has no parts for it.</summary>
     public static GameObject Build(AvatarPartLibrary lib, string gender, System.Random rng = null)
@@ -85,6 +87,24 @@ public static class ModularAvatarAssembler
             if (slot == "vest")
             {
                 chosen.Add(variants[rng.Next(variants.Count)]);
+                continue;
+            }
+
+            // Hard hat and headphones are two INDEPENDENT rolls sharing the same "hat" slot/head
+            // position (both can land on one avatar). Hard hat: 50% chance of wearing one at all
+            // (OptionalSlotChance["hat"]), then a clean 50/50 between colors — restricted to
+            // "hardhat" variants specifically so headphones (handled separately below) can't dilute
+            // that color split to 33/33/33. Headphones: independent 50% chance, gender-neutral.
+            if (slot == "hat")
+            {
+                var hardhats = variants.Where(v => v.variant.ToLower().Contains("hardhat")).ToList();
+                if (hardhats.Count > 0 && rng.NextDouble() <= OptionalSlotChance["hat"])
+                    chosen.Add(hardhats[rng.Next(hardhats.Count)]);
+
+                var headphones = variants.Where(v => v.variant.ToLower().Contains("headphones")).ToList();
+                if (headphones.Count > 0 && rng.NextDouble() <= HeadphonesChance)
+                    chosen.Add(headphones[rng.Next(headphones.Count)]);
+
                 continue;
             }
 
