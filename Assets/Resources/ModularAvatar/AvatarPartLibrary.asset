@@ -13,12 +13,6 @@ MonoBehaviour:
   m_Name: AvatarPartLibrary
   m_EditorClassIdentifier: Assembly-CSharp::AvatarPartLibrary
   sources:
-  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_AVATARS/female_body_black.fbx
-    prefab: {fileID: 919132149155446097, guid: 6ddbe30c95e34e847953b30e8622c795, type: 3}
-  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_AVATARS/male_body_black.fbx
-    prefab: {fileID: 919132149155446097, guid: 55c2a5d4941cd6d4ea970e8abca33a46, type: 3}
-  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_ClipBoard.prefab
-    prefab: {fileID: 2383708543657329684, guid: 408c6d8c7ae49f447923c596471b798b, type: 3}
   - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_Scangun.prefab
     prefab: {fileID: 7053504693307672505, guid: 514f6532d6b40b847b294c7904561e0a, type: 3}
   - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/man_hair_regular.prefab
@@ -31,51 +25,57 @@ MonoBehaviour:
     prefab: {fileID: 4915153613601049192, guid: e2c660238f21f2f4a98c067db13c9584, type: 3}
   - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/woman_hair_bob-blonde.prefab
     prefab: {fileID: 8272737740051744939, guid: bb2f7a63889dde64c80ae58cdb75be45, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/_ClipBoard.fbx
-    prefab: {fileID: 919132149155446097, guid: 88707f7d458ac614b89ba9377b9f21d4, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/man_hair_regular.fbx
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_AVATARS/female_body_floor.prefab
+    prefab: {fileID: 1042377499519937739, guid: 43ea29a902bee1a4cab213da809ceb82, type: 3}
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_AVATARS/male_body_floor.prefab
+    prefab: {fileID: 1163034192327262246, guid: ed334e9345007254a97df665f5c1fcc8, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/man_hair_regular.fbx
     prefab: {fileID: 919132149155446097, guid: c1ae47b45098c7f4e8bbbef9e39418d9, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/neutral_hat_hardhat-orange.fbx
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_hardhat-orange.fbx
     prefab: {fileID: 919132149155446097, guid: 897558dea3dc9954ab2632d4523ae85e, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/neutral_hat_hardhat-red.fbx
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_hardhat-red.fbx
     prefab: {fileID: 919132149155446097, guid: 0719af10d95f9144f99bc0849de2ac41, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/neutral_hat_headphones.fbx
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_headphones.fbx
     prefab: {fileID: 919132149155446097, guid: a25a376f088bb054a9803b2390b54a26, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROPS/woman_hair_bob-blonde.fbx
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/woman_hair_bob-blonde.fbx
     prefab: {fileID: 919132149155446097, guid: f6cc2ef163f80164982bd831cf8f0249, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_WORKER_MODELS/female_body_floor.fbx
+    prefab: {fileID: 919132149155446097, guid: 8e33025a0ac803d4f95974bae8d606a6, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_WORKER_MODELS/male_body_floor.fbx
+    prefab: {fileID: 919132149155446097, guid: b54bd7b016955314ca6ebd185cf42e34, type: 3}
   parts:
-  - objectName: woman_construction_worker
-    gender: female
-    slot: body
-    variant: ConstructionWorker
-    sourceIndex: 0
-  - objectName: man_construction_worker
-    gender: male
-    slot: body
-    variant: ConstructionWorker
-    sourceIndex: 1
   - objectName: man_hair_regular
     gender: male
     slot: hair
     variant: regular
-    sourceIndex: 4
+    sourceIndex: 1
   - objectName: neutral_hat_hardhat-orange
     gender: neutral
     slot: hat
     variant: hardhat-orange
-    sourceIndex: 5
+    sourceIndex: 2
   - objectName: neutral_hat_hardhat-red
     gender: neutral
     slot: hat
     variant: hardhat-red
-    sourceIndex: 6
+    sourceIndex: 3
   - objectName: neutral_hat_headphones
     gender: neutral
     slot: hat
     variant: headphones
-    sourceIndex: 7
+    sourceIndex: 4
   - objectName: woman_hair_bob-blonde
     gender: female
     slot: hair
     variant: bob-blonde
-    sourceIndex: 8
+    sourceIndex: 5
+  - objectName: woman_construction_worker
+    gender: female
+    slot: body
+    variant: ConstructionWorker
+    sourceIndex: 6
+  - objectName: man_construction_worker
+    gender: male
+    slot: body
+    variant: ConstructionWorker
+    sourceIndex: 7

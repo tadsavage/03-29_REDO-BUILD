@@ -538,6 +538,19 @@ public class EmployeeSpawner : MonoBehaviour
         modAnimator.applyRootMotion = false;
         modAnimator.enabled = true;
         modAnimator.Rebind();
+        // Rebind() drops the rig at normalizedTime=0 of the default state — confirmed live that
+        // frame 0 of these clips IS a literal bind-pose/T-pose reference frame (an authoring
+        // artifact, not a state-machine issue: Update(0f) samples exactly that frame and does
+        // nothing). If the sim happens to be paused (Time.timeScale = 0 — a normal state: build
+        // mode, Purchasing/Contracts panels, the speed menu) at the exact moment an employee
+        // spawns/loads, no real Update() ever advances past frame 0 and the avatar sits in T-pose
+        // indefinitely, even though the hidden worker mesh underneath is fine (it was already
+        // mid-animation before the pause). A manual Update() with a small NONZERO delta steps the
+        // clip past that reference frame into a real animated pose immediately, independent of
+        // timeScale — verified live (normalizedTime 0.000 → T-pose; nudged forward → natural idle).
+        // 0.1s wasn't enough (the reference hold spans further than one tenth of a second into the
+        // clip); 0.4s reliably clears it without visibly "teleporting" into the middle of a stride.
+        modAnimator.Update(0.4f);
 
         var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
@@ -643,6 +656,11 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         modAnimator.applyRootMotion = false;
         modAnimator.enabled = true;
         modAnimator.Rebind();
+        // See the matching comment in ApplyModularAvatar — frame 0 of these clips is a literal
+        // bind-pose reference frame, so Update(0f) is a no-op; a small nonzero delta is what
+        // actually steps the rig into a real animated pose immediately, regardless of timeScale.
+        // 0.4s (see ApplyModularAvatar) reliably clears the hold.
+        modAnimator.Update(0.4f);
 
         var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);

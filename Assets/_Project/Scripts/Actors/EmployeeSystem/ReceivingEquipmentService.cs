@@ -62,19 +62,23 @@ public static class ReceivingEquipmentService
         GameObject rfGunPrefab = null;
 
         #if UNITY_EDITOR
-        clipboardPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/Workers/_Clipboard.prefab");
-        rfGunPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/Workers/_Scan_Gun.prefab");
+        clipboardPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_ClipBoard.prefab");
+        rfGunPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_Scangun.prefab");
         #endif
 
-        // Fallback to Resources folder at runtime
+        // Fallback to Resources folder at runtime (a BUILT player strips the AssetDatabase block
+        // above entirely) — no Resources/Workers folder currently exists, so this always misses in
+        // a real build. Known gap, same class of issue as the other Assets/_Saves-in-project-folder
+        // shipping blockers already tracked in CLAUDE.md; harmless in-Editor since the block above
+        // resolves first there.
         if (clipboardPrefab == null)
-            clipboardPrefab = Resources.Load<GameObject>("Workers/_Clipboard");
+            clipboardPrefab = Resources.Load<GameObject>("Workers/_ClipBoard");
         if (rfGunPrefab == null)
-            rfGunPrefab = Resources.Load<GameObject>("Workers/_Scan_Gun");
+            rfGunPrefab = Resources.Load<GameObject>("Workers/_Scangun");
 
         if (clipboardPrefab == null || rfGunPrefab == null)
         {
-            Debug.LogError("[ReceivingEquipmentService] Could not load prefabs. Checked: Assets/_Project/Prefabs/Workers/ and Resources/Workers/");
+            Debug.LogError("[ReceivingEquipmentService] Could not load prefabs. Checked: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/ and Resources/Workers/");
             return;
         }
 
