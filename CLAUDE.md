@@ -2282,3 +2282,64 @@ floating or clipping.
   prefabs already are) — checking bind-pose parity via the `Animator.Rebind()` + `GetBoneTransform`
   technique above, on both genders, BEFORE wiring any hand-anchored prop logic against it, would have
   caught this whole saga at its source days earlier.
+
+### Follow-up, same day — the modular body IS coming back, via the existing fixed-avatar prefabs
+
+Tad wants to actually rebuild the modular body now (strip the baked-in hardhat off
+`man_construction_worker`/`woman_construction_worker` in Blender so hats/hair become swappable
+again), and asked where to work and whether the AOD would recognize it. Two things confirmed live
+before any Blender work started, and a workflow decision:
+
+**Confirmed live: `man_construction_worker.prefab`/`woman_construction_worker.prefab`
+(`Assets/polyperfect/Low Poly Animated People/- Prefabs/`) are ALREADY perfect modular-body
+candidates, no re-skinning needed.** Both use the exact same `Animator.avatar` asset
+(`_MainRigAvatar`) and both read the IDENTICAL `Wrist_L` bind-pose local rotation
+`(355.34, 348.60, 2.55)` — no mirroring, confirming they're genuinely `_MainRig`-derived and already
+correctly bound. Each has exactly 1 `SkinnedMeshRenderer` (named `man_construction_worker` /
+`woman_construction_worker` respectively) — well under the importer's 20-mesh "bulk reference pool,
+skip" threshold, so it won't be rejected as a dump file.
+
+**`ModularAvatarImporter.ParseName()` already has a special-case remap for this exact mesh name**
+(`Assets/_Project/Scripts/Actors/Editor/ModularAvatarImporter.cs`, ~line 370): a mesh named
+`man_construction_worker` parses via the plain gender_slot_variant rule to `gender=male,
+slot=construction, variant=worker` — an existing `if (slot == "construction" && variant == "worker"
+&& gender != "neutral")` block remaps that specifically to `slot=body, variant=ConstructionWorker`.
+This was clearly built in anticipation of exactly this file being used as the body, it just never
+got followed through until now.
+
+**The one real catch, confirmed by Tad's own instinct:** the hardhat on `man_construction_worker` is
+NOT a separate object — it's sculpted into the single skinned mesh along with the rest of the body.
+Using it as-is means every modular avatar built from it comes with a permanently fused hardhat
+regardless of what the AOD's separate hardhat accessory does (double-hat/clipping risk). The actual
+Blender work needed is small: open the existing mesh, delete the baked-in hardhat geometry, leave
+skin weights/UVs/bind pose untouched, export as a new/updated body asset. Whether hair exists under
+the helmet (vs. bald scalp) or needs to be added is unconfirmed — check when in Blender, since it
+determines whether the AOD's hairstyle-swap category has anything to attach to.
+
+**Workflow decision — no importer code changes needed.** Tad wanted to work entirely inside
+`Assets/polyperfect/Low Poly Animated People/` without exporting "lots of little files everywhere."
+Walked through why editing `_MainRig.fbx` itself can't be a scan target (not a watched folder; would
+trip the bulk-pool skip regardless, since it bundles ~150 characters) — but that doesn't matter,
+because `ModularAvatarImporter.PrefabFolder` (`Assets/_Project/Prefabs/WORKERS`) already exists,
+already scans recursively, and already has exactly the right subfolder structure sitting unused:
+```
+Assets/_Project/Prefabs/WORKERS/
+├── WORKER_ACCESSORIES/   (already in use — hair/hat props)
+├── WORKER_AVATARS/       (target for the new stripped-hardhat body prefabs)
+└── WORKER_CLOTHES/       (future clothing/skin work)
+```
+**Final workflow:** edit `_MainRig` in Blender as much as wanted (single self-contained working file,
+Tad's preference) → export/copy the FINISHED individual character prefab or FBX into
+`WORKER_AVATARS/` → rescan (auto-triggers on save via the `AssetPostprocessor`, or Tools ▸ Modular
+Avatar ▸ Scan & Rebuild Library / the AOD panel's "Rescan Folder" button) → shows up in AOD ready to
+tag. Both `.prefab` and `.fbx` work in that folder (the scanner checks both types there
+specifically). One combined export can hold multiple named accessory children too — the "no little
+files" constraint is about not needing a separate exported file per item, not about folder count.
+
+**Also already in place from earlier the same day, no further action needed:** `EmployeeSpawner.
+ModularBodyExists(gender)` (added in the AOD/Pimp-My-Employee session above) is a LIVE gate, not a
+one-shot check — the moment a `body` part actually appears in `AvatarPartLibrary` for a gender, the 4
+floor-worker roles automatically start using the modular assembler for that gender on the very next
+spawn/hire, with zero code change required. Verified this specific mechanism live (injected a fake
+in-memory body part, confirmed `UsesModularAvatar` flipped true for that gender only) before this
+session even started the Blender-workflow discussion.
