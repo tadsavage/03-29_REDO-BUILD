@@ -40,6 +40,14 @@ public static class ModularAvatarImporter
 
         var lib = LoadOrCreateLibrary();
         lib.sources.Clear();
+
+        // AOD metadata (allowedRoles/colorVariants/defaultWeight/metadataReviewed) is entered by
+        // hand through the Avatar Object Database UI, not by this scan — a rescan must NOT wipe it.
+        // Snapshotted here by objectName (the one stable identity a part has across rescans) and
+        // re-applied to each freshly-parsed Part below, before the old list is discarded.
+        var oldMetadataByName = lib.parts
+            .GroupBy(p => p.objectName.ToLowerInvariant())
+            .ToDictionary(g => g.Key, g => g.First());
         lib.parts.Clear();
 
         // Scan both roots. DropFolder is raw FBX exports (t:Model matches those); PrefabFolder
@@ -155,12 +163,37 @@ public static class ModularAvatarImporter
                     continue;
                 }
 
+                if (oldMetadataByName.TryGetValue(part.objectName.ToLowerInvariant(), out var oldPart))
+                {
+                    part.allowedRoles     = oldPart.allowedRoles;
+                    part.colorVariants    = oldPart.colorVariants;
+                    part.defaultWeight    = oldPart.defaultWeight;
+                    part.metadataReviewed = oldPart.metadataReviewed;
+                    part.verifiedInGame   = oldPart.verifiedInGame;
+                }
+
                 lib.parts.Add(part);
             }
         }
 
         EditorUtility.SetDirty(lib);
         AssetDatabase.SaveAssets();
+
+        // Announce newly-discovered parts — this is how Tad finds out a Blender re-export actually
+        // picked up his new work, without having to manually diff the library himself. Compares
+        // against the SAME oldMetadataByName snapshot the merge above used, so "new" here means
+        // "wasn't in the library before this scan", not "changed since last scan".
+        var newNames = lib.parts.Select(p => p.objectName.ToLowerInvariant()).ToHashSet();
+        var addedNames = newNames.Except(oldMetadataByName.Keys).ToList();
+        if (addedNames.Count > 0)
+        {
+            var addedParts = lib.parts.Where(p => addedNames.Contains(p.objectName.ToLowerInvariant())).ToList();
+            string names = string.Join(", ", addedParts.Select(p => p.objectName));
+            Debug.Log($"<color=#3B82F6><b>✨ AOD: {addedParts.Count} new object(s) added</b></color> — {names}. " +
+                      "Open the AOD to assign roles/gender/slot metadata — until reviewed these are " +
+                      "flagged as missing data, and the next hire or two will be biased to use them " +
+                      "so you can confirm they look right in-game.");
+        }
 
         if (verbose)
         {
@@ -197,6 +230,17 @@ public static class ModularAvatarImporter
 
         var probe = AssetDatabase.LoadAssetAtPath<GameObject>(path);
         if (probe == null) return;
+
+        // Leading-underscore files (e.g. _ClipBoard.fbx, _Scangun) are Tad's own convention for
+        // one-off HELD PROPS with their own hand-authored materials, not gender_slot_variant modular
+        // body/hair/hat parts that share the PolyPerfect body atlas — ParseName already refuses to
+        // catalogue them as parts for exactly this reason. Forcing their materials onto
+        // SharedPaletteMaterialPath below fights the real per-prop material Tad made in Blender
+        // (confirmed: this is what was reverting a manual remap on _ClipBoard to atlas-source-LPAP
+        // on every reimport/rescan). Skip the whole repair pass for them — no skeleton either, so
+        // section 1 would no-op anyway.
+        if (Path.GetFileNameWithoutExtension(path).StartsWith("_"))
+            return;
 
         bool changed = false;
 

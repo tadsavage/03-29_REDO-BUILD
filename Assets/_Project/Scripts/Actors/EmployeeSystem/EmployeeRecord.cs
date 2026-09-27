@@ -1,5 +1,7 @@
 // METADATA file_path: Assets/1. Scripts/7. EmployeeSystem/EmployeeRecord.cs
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 // ─── Employment status ────────────────────────────────────────────────────────
@@ -105,6 +107,37 @@ public class EmployeeRecord
     public int  boardedVehicleGridY = -1;
     public float boardedVehicleWorldX, boardedVehicleWorldY, boardedVehicleWorldZ;
 
+    // ─── Per-employee appearance overrides ("Pimp My Employee", 2026-09-27) ───────────
+    // Forces a SPECIFIC part into one of ModularAvatarAssembler.EditableOverrideKeys' cosmetic
+    // categories (hair, hardhat, headphones, facial hair) instead of that category's normal random
+    // roll. Deliberately scoped to cosmetics only — clothing/skin color aren't editable yet (no
+    // per-part color-swap application exists at runtime). A List, not a Dictionary, because
+    // Dictionary doesn't round-trip through this project's JSON save system the way a plain
+    // serializable class does. Only employees someone has actually edited carry any entries here —
+    // everyone else keeps rolling their normal GUID-seeded random look untouched.
+    [Serializable]
+    public class AvatarOverride
+    {
+        public string key;        // one of ModularAvatarAssembler.EditableOverrideKeys
+        public string objectName; // the part's AvatarPartLibrary.Part.objectName, or "" for explicitly none/bald/removed
+    }
+    public List<AvatarOverride> avatarOverrides = new();
+
+    public string GetAvatarOverride(string key) => avatarOverrides.FirstOrDefault(o => o.key == key)?.objectName;
+
+    public void SetAvatarOverride(string key, string objectName)
+    {
+        var existing = avatarOverrides.FirstOrDefault(o => o.key == key);
+        if (existing != null) existing.objectName = objectName;
+        else avatarOverrides.Add(new AvatarOverride { key = key, objectName = objectName });
+    }
+
+    public void ClearAvatarOverride(string key) => avatarOverrides.RemoveAll(o => o.key == key);
+
+    /// <summary>Converts to the plain dictionary ModularAvatarAssembler.Build's override
+    /// parameter expects.</summary>
+    public Dictionary<string, string> AvatarOverridesDict() =>
+        avatarOverrides.ToDictionary(o => o.key, o => o.objectName);
 
     // ─── Constructor ──────────────────────────────────────────────────────────
     public EmployeeRecord()

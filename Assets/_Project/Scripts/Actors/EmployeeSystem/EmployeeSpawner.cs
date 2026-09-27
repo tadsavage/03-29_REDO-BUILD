@@ -499,13 +499,20 @@ public class EmployeeSpawner : MonoBehaviour
         var rec = identity.Record;
         if (rec == null) return;
 
+        // A prior modular avatar (e.g. from RefreshAvatarAppearance re-applying edited overrides)
+        // must be torn down first — otherwise the old and new avatars would both sit under the
+        // employee at once.
+        var existingAvatar = identity.transform.Find("ModularAvatar");
+        if (existingAvatar != null) Destroy(existingAvatar.gameObject);
+
         string gender = rec.gender == EmployeeGender.Female ? "female" : "male";
         int seed = ModularAvatarAssembler.StableSeed(rec.employeeGuid);
 
         // The worker's Animator (driven by AgentAnimation). Captured before we touch the hierarchy.
         var workerAnimator = identity.GetComponentInChildren<Animator>(true);
 
-        var avatar = ModularAvatarAssembler.Build(lib, gender, seed);
+        var avatar = ModularAvatarAssembler.Build(lib, gender, new System.Random(seed), rec.role,
+            rec.AvatarOverridesDict(), out _);
         if (avatar == null) return;   // no parts for that gender yet → keep the default model
 
         // Hide the worker's own animated mesh — the modular avatar replaces it visually.
@@ -557,6 +564,23 @@ public class EmployeeSpawner : MonoBehaviour
 
     }
 
+    /// <summary>True if this employee's live look is (or would be) the random modular-part
+    /// avatar rather than a fixed pre-rigged FBX — the "Pimp My Employee" editor (AODPanel) only
+    /// supports the modular path today, since a fixed FBX has no per-slot parts to swap.</summary>
+    public bool UsesModularAvatar(EmployeeRecord rec) =>
+        rec != null && _useModularAvatars && FixedAvatarFor(rec.role, rec.gender, rec.employeeGuid) == null;
+
+    /// <summary>Re-applies an employee's modular avatar from their CURRENT record data — used after
+    /// the AOD's "Pimp My Employee" editor writes new <see cref="EmployeeRecord.avatarOverrides"/>,
+    /// so the live employee in the scene actually shows the new hairstyle/hat/etc. without a full
+    /// respawn (position, AI state, everything else on the employee is untouched). No-op for a
+    /// fixed-avatar employee — see <see cref="UsesModularAvatar"/>.</summary>
+    public void RefreshAvatarAppearance(EmployeeIdentity identity)
+    {
+        if (identity?.Record == null || !UsesModularAvatar(identity.Record)) return;
+        ApplyModularAvatar(identity);
+    }
+
     /// <summary>Dedicated fixed-look FBX for roles that always use the same model — null for
     /// every other role, which then falls through to the random modular avatar (if enabled) or
     /// the default worker mesh.</summary>
@@ -576,13 +600,21 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
             EmployeeRole.InventoryControl => PoolOrSingle(null, female ? _icAvatarModelFemale : _icAvatarModel),
             EmployeeRole.Security         => PoolOrSingle(female ? _securityAvatarModelPoolFemale : _securityAvatarModelPoolMale, _securityAvatarModel),
             EmployeeRole.TruckDriver      => PoolOrSingle(null, female ? _truckDriverAvatarModelFemale : _truckDriverAvatarModel),
-            // Receiver / Reach Truck Operator / Dock Stocker Operator / Order Selector (2026-09-21,
-            // Order Selector added same day) — previously fell through to the default branch below
-            // with no fixed model assigned, so they rendered as a broken random modular avatar
-            // (T-pose). Now use the construction-worker look.
+            // Receiver / Reach Truck Operator / Dock Stocker Operator / Order Selector — briefly used
+            // the fixed construction-worker look (2026-09-21) because modular parts rendered in
+            // T-pose for these roles at the time. Switched back to random modular avatars for MALES
+            // (Tad, 2026-09-26) for real hair/vest/color variety — confirmed live that
+            // man_construction_worker (the only male modular "body" part) is a properly skinned
+            // SkinnedMeshRenderer, so it animates correctly.
+            //
+            // FEMALES stay on the fixed look, unlike males — confirmed live that
+            // woman_construction_worker (the ONLY female modular "body" part in the library) is a
+            // plain unskinned MeshRenderer, not a SkinnedMeshRenderer: exactly the T-pose-class bug
+            // this fixed-avatar override exists to avoid, just gender-specific rather than universal.
+            // Revisit once that source part is properly skin-weighted in Blender.
             EmployeeRole.Receiver or EmployeeRole.ReachTruckOperator or EmployeeRole.DockStockerOperator
                 or EmployeeRole.OrderSelector
-                => PoolOrSingle(null, female ? _floorWorkerAvatarModelFemale : _floorWorkerAvatarModel),
+                => female ? PoolOrSingle(null, _floorWorkerAvatarModelFemale) : null,
             // Admin uses the reporter look, matching EmployeePhotoBooth's portrait mapping — added
             // 2026-09-22. Previously fell through to the generic default (man_large/woman_large),
             // which disagreed with the portrait and was the actual bug (not the portrait, which was
@@ -662,8 +694,69 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         // 0.4s (see ApplyModularAvatar) reliably clears the hold.
         modAnimator.Update(0.4f);
 
+        // Every woman always has hair (Tad, 2026-09-26) — ModularAvatarAssembler already guarantees
+        // this for its own randomly-assembled avatars (ChooseHeadItem never rolls bald for females),
+        // but a FixedAvatar isn't built by that system, so the rule has to be applied here too.
+        // Scoped to the floor-worker female look specifically (not every FixedAvatar in the game —
+        // Boss/Security/etc. use entirely different dedicated models this hasn't been checked
+        // against) since that's the avatar currently missing it.
+        if (identity.Record != null && identity.Record.gender == EmployeeGender.Female
+            && fixedModel == _floorWorkerAvatarModelFemale)
+            AttachWomanBobHair(avatar, modAnimator);
+
         var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
+    }
+
+    private const string WomanBobHairPrefabPath = "Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/woman_hair_bob-blonde.prefab";
+
+    // Tuned by screenshot iteration against the live FixedAvatar Head_M bone (2026-09-26): the
+    // hair mesh's own pivot sits 1.71 units from its geometry (authored relative to a full body
+    // standing at the pivot, same convention ModularAvatarAssembler relies on), so the local
+    // position isn't just "small offset from the bone" — it has to counter-rotate that whole lever
+    // arm. The first attempt (matching the character's own facing rotation) came out ~90 degrees
+    // off and wrapped the mesh across the face; this rotation was found by testing 90-degree
+    // increments per axis and checking BOTH front and back views (front-only checks are misleading
+    // — an earlier candidate looked plausible from the front but was completely bald from behind).
+    // Confirmed correct: symmetric hair at both temples from the front, full coverage at the nape
+    // from the back.
+    private static readonly Vector3 WomanBobHairLocalPosition = new Vector3(1.71f, -0.006f, 0f);
+    private static readonly Vector3 WomanBobHairLocalEuler = new Vector3(90f, 270f, 0f);
+
+    /// <summary>Attaches the "woman_hair_bob-blonde" prop to a female fixed avatar's head bone. A
+    /// static mesh (not skinned) — same anchoring trick as the RF gun/clipboard in
+    /// ReceivingEquipmentService — so it rides the head bone correctly regardless of whether the
+    /// body mesh itself is skinned.</summary>
+    private static void AttachWomanBobHair(GameObject avatar, Animator modAnimator)
+    {
+        Transform headBone = modAnimator != null && modAnimator.isHuman
+            ? modAnimator.GetBoneTransform(HumanBodyBones.Head)
+            : null;
+        if (headBone == null)
+            headBone = FindDeepByName(avatar.transform, "Head_M");
+        if (headBone == null)
+        {
+            Debug.LogWarning("[EmployeeSpawner] Could not find a head bone to attach the hair prop to.");
+            return;
+        }
+
+        GameObject hairPrefab = null;
+        #if UNITY_EDITOR
+        hairPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(WomanBobHairPrefabPath);
+        #endif
+        if (hairPrefab == null)
+            hairPrefab = Resources.Load<GameObject>("Workers/woman_hair_bob-blonde");
+        if (hairPrefab == null)
+        {
+            Debug.LogWarning("[EmployeeSpawner] Could not load woman_hair_bob-blonde prefab.");
+            return;
+        }
+
+        var hair = Instantiate(hairPrefab, headBone);
+        hair.name = "woman_hair_bob-blonde";
+        hair.transform.localPosition = WomanBobHairLocalPosition;
+        hair.transform.localRotation = Quaternion.Euler(WomanBobHairLocalEuler);
+        hair.transform.localScale = Vector3.one;
     }
 
     // ─── Overlay cleanup ────────────────────────────────────────────────────────

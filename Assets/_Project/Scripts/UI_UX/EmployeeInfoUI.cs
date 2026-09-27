@@ -30,6 +30,7 @@ public class EmployeeInfoUI : MonoBehaviour
     private const string ActionPatrol      = "Patrol";
     private const string ActionAskOvertime = "Ask to Work OT";
     private const string ActionSendHome    = "Send Home";
+    private const string ActionPimpEmployee = "Pimp My Employee";
     private const string ActionTerminate   = "Terminate";
 
     // Stat bars
@@ -404,6 +405,7 @@ public class EmployeeInfoUI : MonoBehaviour
             choices.Add(roleAssignment.Value.DisplayName());
         choices.Add(ActionAskOvertime);
         choices.Add(ActionSendHome);
+        choices.Add(ActionPimpEmployee);
         choices.Add(ActionTerminate);
 
         _actionsDropdown.choices = choices;
@@ -453,6 +455,17 @@ public class EmployeeInfoUI : MonoBehaviour
         if (selected == ActionSendHome)
         {
             EmployeeOvertimeService.SendHome(id);
+            return;
+        }
+
+        if (selected == ActionPimpEmployee)
+        {
+            // AODPanel lives on the TopBar document (see TopBarUI.Init) — reused here rather than
+            // duplicating the panel, so "browse the library" and "edit this employee" share the
+            // exact same UI/rendering machinery.
+            var topBar = UnityEngine.Object.FindFirstObjectByType<TopBarUI>();
+            topBar?.AODPanel?.ShowForEmployee(id);
+            Hide(); // AOD now covers the whole screen anyway — no point leaving this card open behind it
             return;
         }
 

@@ -13,8 +13,10 @@ MonoBehaviour:
   m_Name: AvatarPartLibrary
   m_EditorClassIdentifier: Assembly-CSharp::AvatarPartLibrary
   sources:
+  - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_ClipBoard.prefab
+    prefab: {fileID: 8243784952658653792, guid: 408c6d8c7ae49f447923c596471b798b, type: 3}
   - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_Scangun.prefab
-    prefab: {fileID: 7053504693307672505, guid: 514f6532d6b40b847b294c7904561e0a, type: 3}
+    prefab: {fileID: 6855741787943060593, guid: 514f6532d6b40b847b294c7904561e0a, type: 3}
   - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/man_hair_regular.prefab
     prefab: {fileID: 7996521509470280609, guid: 411334ecc03b77c41b91568b5e656257, type: 3}
   - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/neutral_hat_hardhat-orange.prefab
@@ -29,6 +31,10 @@ MonoBehaviour:
     prefab: {fileID: 1042377499519937739, guid: 43ea29a902bee1a4cab213da809ceb82, type: 3}
   - fbxPath: Assets/_Project/Prefabs/WORKERS/WORKER_AVATARS/male_body_floor.prefab
     prefab: {fileID: 1163034192327262246, guid: ed334e9345007254a97df665f5c1fcc8, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/_ClipBoard.fbx
+    prefab: {fileID: 919132149155446097, guid: 88707f7d458ac614b89ba9377b9f21d4, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/_Scangun.fbx
+    prefab: {fileID: 919132149155446097, guid: 5b028b0e9f5756242a2b5274b519f2ed, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/man_hair_regular.fbx
     prefab: {fileID: 919132149155446097, guid: c1ae47b45098c7f4e8bbbef9e39418d9, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_hardhat-orange.fbx
@@ -48,34 +54,71 @@ MonoBehaviour:
     gender: male
     slot: hair
     variant: regular
-    sourceIndex: 1
+    sourceIndex: 2
+    allowedRoles: 000000000100000002000000030000000600000005000000040000000700000008000000090000000a0000000b0000000d0000000c000000i
+    colorVariants: []
+    defaultWeight: 0.5
+    metadataReviewed: 1
+    verifiedInGame: 1
   - objectName: neutral_hat_hardhat-orange
     gender: neutral
     slot: hat
     variant: hardhat-orange
-    sourceIndex: 2
+    sourceIndex: 3
+    allowedRoles: 000000000300000004000000050000000c000000i
+    colorVariants: []
+    defaultWeight: 0.35
+    metadataReviewed: 1
+    verifiedInGame: 1
   - objectName: neutral_hat_hardhat-red
     gender: neutral
     slot: hat
     variant: hardhat-red
-    sourceIndex: 3
+    sourceIndex: 4
+    allowedRoles: 0000000004000000050000000c000000i
+    colorVariants: []
+    defaultWeight: 0.35
+    metadataReviewed: 1
+    verifiedInGame: 1
   - objectName: neutral_hat_headphones
     gender: neutral
     slot: hat
     variant: headphones
-    sourceIndex: 4
+    sourceIndex: 5
+    allowedRoles: 00000000010000000200000003000000040000000800000009000000i
+    colorVariants: []
+    defaultWeight: 1
+    metadataReviewed: 1
+    verifiedInGame: 1
   - objectName: woman_hair_bob-blonde
     gender: female
     slot: hair
     variant: bob-blonde
-    sourceIndex: 5
+    sourceIndex: 6
+    allowedRoles: 000000000100000002000000030000000400000005000000060000000700000008000000090000000a0000000b0000000d0000000c000000i
+    colorVariants: []
+    defaultWeight: 0.5
+    metadataReviewed: 1
+    verifiedInGame: 0
   - objectName: woman_construction_worker
     gender: female
     slot: body
     variant: ConstructionWorker
-    sourceIndex: 6
+    sourceIndex: 7
+    allowedRoles: 00000000010000000200000003000000040000000c000000i
+    colorVariants: []
+    defaultWeight: 1
+    metadataReviewed: 1
+    verifiedInGame: 0
   - objectName: man_construction_worker
     gender: male
     slot: body
     variant: ConstructionWorker
-    sourceIndex: 7
+    sourceIndex: 8
+    allowedRoles: 0000000001000000020000000300000004000000i
+    colorVariants:
+    - name: Black
+      material: {fileID: 0}
+    defaultWeight: 1
+    metadataReviewed: 1
+    verifiedInGame: 1

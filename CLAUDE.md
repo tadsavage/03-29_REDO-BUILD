@@ -2000,3 +2000,189 @@ the one with an instance in the scene (`EmployeeClickHandler` on "Guard") and it
 broken in practice, so left alone rather than speculatively patched. `MHEOperatorSlot`/
 `PickSlotOverlayController` had no live instances to test. If either shows the same "unresponsive click"
 symptom, the fix is identical: exclude the Ground layer from that raycast's mask.
+
+---
+
+## Session 2026-09-27 — AOD / Modular Avatar / "Pimp My Employee" — CROSS-MACHINE HANDOFF SNAPSHOT
+
+**Tad is switching to a different computer and wants to resolve the skeleton/rig problem there
+tonight.** This section is the complete state dump for that — what was built, what's confirmed
+broken, and exactly what the fix is. Read this section top to bottom before touching any of it.
+
+### What was built this session (all compiled clean; all but one item live-verified in Play Mode)
+
+**1. Avatar Object Database (AOD) — full 3-column redesign.** `Assets/_Project/Scripts/UI_UX/AODPanel.cs`
+   (programmatic UI Toolkit, opens via Ctrl+Shift+A or the "AOD" TopBar button, Editor-only tool).
+   - Panel now opens fully opaque and stretches to `top:0`, covering the game's TopBar entirely (Tad:
+     "I don't want to see that when I'm in this UI") — see `Show()`, which calls
+     `_resize.FillScreenExact()` then manually re-extends `_modal.style.top`/`height` upward by
+     whatever strip `FillScreenExact` reserved for the TopBar.
+   - Left column: compact (108px) cards, each showing a REAL BAKED 3D THUMBNAIL of the part (not a
+     flat color swatch) over a slot-colored bar, with the part name overlaid at the bar's bottom edge.
+   - Center column: big (380x380) live rotatable 3D preview — left-click-drag horizontally yaws
+     (Y axis), vertically pitches (X axis). Big title label under it.
+   - Right column: single scrolling region (Tad: "the whole right side needs one big scroll bar") —
+     allowed-roles chips at the top (moved up per Tad's mockup), DEFAULT WEIGHT as a 0–100% slider
+     (was a raw float), then COLOR VARIANTS as a 64-swatch flat-color palette grid sampled from
+     `Assets/polyperfect/Common/Textures/atlas-albedo-LPAP.png` (confirmed this is the FLAT/simple one —
+     `atlas-source-LPAP.png`/`atlas-gradient-LPAP.png` both carry a per-cell shading gradient, which is
+     literally the material that caused the very first session's clipboard-material-revert bug).
+     Clicking a swatch toggles it as a color variant on the part (`AvatarPartLibrary.ColorVariant`
+     gained a `Color color` field alongside the old `Material material` field).
+   - **`AODPreviewStage.cs`** (`Assets/_Project/Scripts/Actors/ModularAvatar/`) — the render rig
+     backing the center preview. Root cause of the long-standing "always renders solid black" bug
+     was FINALLY found and fixed this session: `ShowPart()` matched the target mesh by
+     `t.name == part.objectName`, but `Instantiate()` (plus the code's own `"Preview_"` rename)
+     changes the CLONED root's name — for any single-mesh-root prefab (most parts) that exact-name
+     match could never succeed, so the method silently returned before ever framing the camera. Fixed
+     via `CleanInstanceName()` (strips `(Clone)`/`Preview_` before comparing). Also added:
+     `ShowAssembledInstance(GameObject)` (adopts a fully-assembled avatar for whole-body preview,
+     used by "Pimp My Employee" below) and a SEPARATE thumbnail-bake stage
+     (`GetOrCaptureThumbnail`/`ClearThumbnailCache`) so baking a grid thumbnail never disturbs
+     whatever's live-rotating in the big preview. Camera clear-flags/background-color were
+     independently confirmed to NEVER apply in this project's URP setup (tested: setting
+     `backgroundColor` to solid red had zero effect) — matches a documented precedent in
+     `ItemCreatorPanel.BuildBackdrop()`; worked around the same way, with a physical lit/emissive
+     Cube behind the stage instead of relying on `clearFlags`.
+
+**2. "Pimp My Employee"** — right-click... no, **left-click employee → Actions dropdown → new
+   "Pimp My Employee" entry** (`EmployeeInfoUI.cs`) opens the AOD in a special per-employee edit mode
+   (`AODPanel.ShowForEmployee(EmployeeIdentity)`), closing the info card behind it.
+   - Scoped DELIBERATELY to 4 cosmetic categories only (Tad: "haven't figured out clothing or skin
+     color yet"): Hairstyle, Hard Hat, Headphones, Facial Hair — see
+     `ModularAvatarAssembler.EditableOverrideKeys` = `{"hair","hat.hardhat","hat.headphones","facialhair"}`.
+   - `EmployeeRecord.cs` gained `avatarOverrides` (a `List<AvatarOverride>{key, objectName}` — NOT a
+     Dictionary, since this project's JSON save system doesn't round-trip Dictionaries) plus
+     `GetAvatarOverride`/`SetAvatarOverride`/`ClearAvatarOverride`/`AvatarOverridesDict()`.
+   - `ModularAvatarAssembler.Build()` gained a new overload taking `overrides` +
+     `out Dictionary<string,Part> chosenOut`. **Load-bearing design point:** overrides are applied as
+     a POST-PASS after the entire normal random-pick loop runs completely unmodified — this is
+     deliberate, so that editing e.g. just the hairstyle can never shift the rng sequence and
+     accidentally change which vest color/body/eyebrows a re-seeded rebuild produces. See
+     `ApplyCategoryOverride()`.
+   - `EmployeeSpawner.cs` gained `UsesModularAvatar(EmployeeRecord)` (false for anyone still on a
+     fixed-FBX role/gender combo — the AOD shows an honest "isn't modular yet" message for those
+     instead of a broken editor) and `RefreshAvatarAppearance(EmployeeIdentity)` (destroys+rebuilds
+     just the `"ModularAvatar"` child in place, no full respawn).
+   - **Live-verified end-to-end** (2026-09-26 in Play Mode): opened AOD on "Aaron Miller" (male
+     Receiver), picked an orange hardhat, hit Apply — confirmed via reflection that his LIVE
+     in-scene mesh hierarchy actually gained `neutral_hat_hardhat-orange`.
+   - **KNOWN GAP:** the currently-equipped scan gun/clipboard (see below) are NOT re-applied by
+     `RefreshAvatarAppearance` — if an employee is actively receiving when you Pimp them, verify the
+     props still show up after the appearance refresh; not tested this session.
+
+**3. Top bar fonts** — all 8 `font-size` values in `Assets/_Project/Scripts/UI_UX/TopHUD/TopBar.uss`
+   reduced 15% (text was overflowing its boxes slightly): 20→17, 21→18, 22→19, 29→25, 28→24 (x2), 30→26, 14→12.
+
+**4. Male clipboard/scan-gun rotation — STOPGAP FIX ONLY, see the real problem below.**
+   `Assets/_Project/Scripts/Actors/EmployeeSystem/ReceivingEquipmentService.cs` anchors a clipboard
+   (left hand) and RF scan gun (right hand) to `HumanBodyBones.LeftHand`/`RightHand` with a single
+   hand-tuned local position+rotation, previously shared by both genders. Male employees held both
+   props at wrong/floating angles; female was fine. Added `MaleClipboardLocalEuler`/
+   `MaleRfGunLocalEuler` — a per-gender branch in `Equip()` (`bool isMale = ...gender != Female`) —
+   re-tuned live via repeated screenshot comparison against Megan Barnes (female Receiver) until Aaron
+   Miller (male Receiver) held both props naturally. **This is a band-aid, not a real fix — see below.**
+
+### THE REAL PROBLEM (this is what Tad wants solved tonight)
+
+**Confirmed root cause, measured live in Play Mode:** rebound both a male and female Receiver's
+Animator to T-pose (`Animator.Rebind()`, a clean bind-pose so poses are directly comparable) and read
+`GetBoneTransform(HumanBodyBones.LeftHand).localRotation`:
+
+```
+Aaron (male)   Wrist_L local euler = (4.66, 348.60, 357.45)
+Megan (female) Wrist_L local euler = (355.34, 348.60, 2.55)
+```
+
+X and Z are negated between them (355.34 ≈ 360−4.66, 2.55 ≈ 360−357.45), Y is identical. **The male
+and female body meshes are bound to their skeletons with a mirrored bind pose**, despite having
+identical bone names (`Wrist_L`, `Wrist_R`, `Elbow_L`, etc.) — this is why one fixed local hand-prop
+offset can only ever be correct for one gender at a time, and is almost certainly the underlying cause
+behind other subtle animation/retarget oddities between the two body meshes generally, not just this
+one prop bug.
+
+**Tad's question, and the answer:** "I thought the plan was to use the same main rig for both female
+and male... that was the plan correct? `Assets/polyperfect/Low Poly Animated People/- Prefabs/_MainRig.prefab`"
+— **Yes, that was and is the correct plan.** Investigated fresh this session (an Explore subagent dug
+through the actual FBX/meta files, not just code):
+
+- **`_MainRig.prefab`** → `_MainRig.fbx` (guid `a4a3ba617ed9c5946bb76844ec1ef299`) is Polyperfect's
+  ORIGINAL canonical rig: one shared skeleton
+  (`Main/DeformationSystem/Root_M/.../Spine1_M/Chest_M/Neck_M/Head_M` and
+  `.../Scapula_L/R/Shoulder_L/R/Elbow_L/R/Wrist_L/R`) with ALL ~150 of Polyperfect's `man_*`/`woman_*`
+  meshes bound to that ONE skeleton. Its own Wrist_L/Wrist_R T-pose rotations are nearly identical
+  between left/right (NOT mirrored) — this is the correct reference every avatar should match.
+- **The existing FIXED-avatar roles already do this correctly** — `man_construction_worker.prefab` /
+  `woman_construction_worker.prefab` (used by `EmployeeSpawner.FixedAvatarFor` for Boss/Security/
+  Admin/generic-floor-worker-overlay roles) both reference that exact same `_MainRig.fbx` guid. This
+  part of the architecture is fine and matches the plan.
+- **The MODULAR avatar bodies are the problem.** `male_body_floor.fbx` and `female_body_floor.fbx`
+  (`Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_WORKER_MODELS/`) are separate custom
+  Blender exports, NOT derived from `_MainRig`, and not bound to each other's skeleton either, despite
+  matching bone names:
+  - `male_body_floor.fbx` retains a `Main → DeformationSystem → Root_M` wrapper (matching
+    `_MainRig`'s own hierarchy shape) AND its `.meta`'s `lastHumanDescriptionAvatarSource` points at
+    `_MainRig.fbx`'s avatar guid — so male was AT SOME POINT compared against/derived from `_MainRig`.
+  - `female_body_floor.fbx` has NO `DeformationSystem`/`Main` wrapper at all (goes straight to
+    `Root_M`) and its `.meta` has never touched `lastHumanDescriptionAvatarSource` (all zero/default)
+    — authored through a completely different, unrelated pipeline.
+  - Both currently import as `avatarSetup: 1` ("Create From This Model" — Unity auto-guesses the
+    Humanoid bone map from each one's own hierarchy independently). Neither uses "Copy From Other
+    Avatar." Nothing in code (`AvatarPartLibrary`/`ModularAvatarAssembler`/`EmployeeSpawner`)
+    references `_MainRig` anywhere — it's currently orphaned as far as the modular system is
+    concerned.
+- **This exact class of bug has recurred before under different asset names.** Old memory files
+  (`modular-avatar-rig-fix.md`, `modular-avatar-system.md`, `modular-avatar-female-head-retarget.md`,
+  ~95-101 days old) describe an EARLIER, now-superseded setup (`WorkerNewAvatar`/`ArmatureMaleWorker`/
+  `WorkerFemale` from `Assets/5. Models/...`) with the identical shape of problem: two
+  independently-authored skeletons, same bone names, different rest poses. None of those old notes
+  mention `_MainRig.prefab` by name — Tad's recollection of "one shared master rig" is correct in
+  spirit and IS how the fixed-avatar roles work, but the modular male/female bodies were apparently
+  never actually built that way, or drifted away from it since.
+
+### THE FIX — options, cheapest first
+
+1. **Unity-import-only (try this FIRST, but verify live before trusting it):** for both
+   `male_body_floor.fbx` and `female_body_floor.fbx`, set the Model Importer's Rig tab → Avatar
+   Definition = "Copy From Other Avatar", pointing BOTH at the same Avatar (e.g. `_MainRig`'s own, or
+   whichever generated Avatar Unity produces for `_MainRig.fbx`). **Caveat, worth understanding before
+   relying on this:** Humanoid retargeting normalizes ANIMATED poses across skeletons with different
+   bind poses BY DESIGN — but `ReceivingEquipmentService` reads
+   `Animator.GetBoneTransform(...).localRotation` directly, which is a raw skeleton value, not
+   something retargeting necessarily normalizes the same way across two differently-bound meshes.
+   This might fully fix it, might partially fix it, or might do nothing for this specific
+   prop-anchoring symptom even if it fixes general animation quality — TEST LIVE (equip a male
+   Receiver, screenshot, compare to female) before deleting the stopgap code below.
+2. **Real/permanent fix, Blender-side:** re-skin/re-export `male_body_floor` (and ideally
+   `female_body_floor` too, so both are symmetric and future-proof) using `_MainRig`'s actual
+   armature/`DeformationSystem` as the deform skeleton, so both meshes' `Wrist_L` (etc.) bones end up
+   with IDENTICAL rest-pose local rotations — to each other AND to `_MainRig`'s own. This is what
+   "one shared master rig" actually means architecturally, matches the industry-standard pattern
+   already recommended earlier in this project (Sims CAS / GTA Online peds: one skeleton, many
+   meshes), and is the only option that fixes the root cause rather than one specific symptom.
+3. **Once (1) or (2) actually fixes it, delete the stopgap:** remove
+   `MaleClipboardLocalEuler`/`MaleRfGunLocalEuler` and the `isMale` branch in
+   `ReceivingEquipmentService.Equip()` — both genders should go back to sharing the single tuned
+   constant, exactly like before separate-rig male/female modular bodies existed.
+
+### Quick orientation for picking this back up
+
+- Live-diagnose bone rest pose with: `Animator.Rebind()` then
+  `GetBoneTransform(HumanBodyBones.LeftHand).localRotation.eulerAngles` — compare male vs female,
+  expect them to MATCH (not mirror) once fixed.
+- To re-verify the prop-holding fix visually: `ReceivingEquipmentService.Equip(identity)` on a live
+  male AND female Receiver in Play Mode, then `mcp__unityMCP__manage_camera` screenshot
+  (`view_position`/`view_target`, NOT `view_rotation` — that one behaves unintuitively) from roughly
+  3 units in front of each, at ~1.6-2.6 world Y. `Unequip(identity)` after to clean up test state.
+- All 5 code files touched this session:
+  `Assets/_Project/Scripts/UI_UX/AODPanel.cs`,
+  `Assets/_Project/Scripts/Actors/ModularAvatar/AODPreviewStage.cs`,
+  `Assets/_Project/Scripts/Actors/ModularAvatar/AvatarPartLibrary.cs` (added `ColorVariant.color`),
+  `Assets/_Project/Scripts/Actors/ModularAvatar/ModularAvatarAssembler.cs` (added the overrides
+  overload + `EditableOverrideKeys`/`OverrideCategoryInfo`/`ApplyCategoryOverride`),
+  `Assets/_Project/Scripts/Actors/EmployeeSystem/EmployeeRecord.cs` (added `avatarOverrides`),
+  `Assets/_Project/Scripts/Actors/EmployeeSystem/EmployeeSpawner.cs` (added `UsesModularAvatar`/
+  `RefreshAvatarAppearance`, wired overrides into `ApplyModularAvatar`),
+  `Assets/_Project/Scripts/UI_UX/EmployeeInfoUI.cs` (Actions dropdown entry),
+  `Assets/_Project/Scripts/UI_UX/TopHUD/TopBar.uss` (font sizes),
+  `Assets/_Project/Scripts/Actors/EmployeeSystem/ReceivingEquipmentService.cs` (male rotation stopgap).

@@ -64,12 +64,20 @@ namespace GameCore.Labor
         // receiver visibly shuffling back and forth instead of ever starting to receive.
         private const float MaxReceivingDistance = 3f;
 
-        // The RF gun's "Infra-Red" beam (LineRenderer child) — off by default on the prop prefab,
-        // only switched on for the duration of the receiving animation. Looked up lazily rather than
-        // cached at Awake() since the RF gun is equipped by ReceivingEquipmentService separately and
-        // may not exist yet when this component is added.
+        // The RF gun's "Infra-Red" beam ("Scan_Ray" mesh child) — forced off at equip time by
+        // ReceivingEquipmentService, only switched on partway through the receiving fill bar (see
+        // InfraRedBeamDelaySeconds). Looked up lazily rather than cached at Awake() since the RF gun
+        // is equipped by ReceivingEquipmentService separately and may not exist yet when this
+        // component is added.
         private GameObject _infraRedBeam;
         private bool _infraRedLookupDone;
+
+        // Per Tad (2026-09-26): the scan beam shouldn't snap on the instant the fill bar appears —
+        // it reads better starting a beat after the receiver has raised the gun. Scheduled via
+        // Invoke, so CancelReceiving/CompleteWorkflow must CancelInvoke it — otherwise a receive that
+        // finishes (or gets cancelled) inside that half-second window would still flip the beam on
+        // afterward, on a task that's no longer running.
+        private const float InfraRedBeamDelaySeconds = 0.5f;
 
         // Event fired when this workflow completes (caller can return to patrol/poll for next task)
         public event System.Action OnWorkflowComplete;
@@ -157,6 +165,7 @@ namespace GameCore.Labor
 
             _fillBar?.CompleteReceiving(); // stops _isReceiving and hides the canvas — same effect a cancel needs, name notwithstanding
             if (_animator != null) _animator.SetBool("isReceiving", false);
+            CancelInvoke(nameof(EnableInfraRedBeamDelayed));
             SetInfraRedBeam(false);
             _agentAnimation?.ClearFaceOverride();
 
@@ -261,7 +270,11 @@ namespace GameCore.Labor
             if (_fillBar != null)
                 _fillBar.StartReceiving();
 
-            SetInfraRedBeam(true);
+            // Beam switches on InfraRedBeamDelaySeconds after the fill bar appears, not instantly —
+            // see the field comment. Cancel any stale pending call first (defensive: BeginReceivingAt
+            // can chain straight from Completing back into Receiving for back-to-back pallets).
+            CancelInvoke(nameof(EnableInfraRedBeamDelayed));
+            Invoke(nameof(EnableInfraRedBeamDelayed), InfraRedBeamDelaySeconds);
 
             // Turn to face the pallet for the duration of the animation — AgentAnimation normally
             // only faces movement direction, so without this the receiver is left facing whichever
@@ -272,14 +285,18 @@ namespace GameCore.Labor
             Debug.Log("[ReceiverReceivingWorkflow] Starting receiving animation and fill bar");
         }
 
+        /// <summary>Invoked InfraRedBeamDelaySeconds after StartReceiving — see the field comment.</summary>
+        private void EnableInfraRedBeamDelayed() => SetInfraRedBeam(true);
+
         /// <summary>Turns the RF gun's infra-red beam on/off — on only for the duration of the
         /// receiving animation, per Tad. Looked up on first use (see field comment) and cached after.
         /// Must search under the equipped RF gun instance specifically, NOT GetComponentInChildren on
         /// this employee's own root — the root also carries NavAgentGuidance's path-guidance
         /// LineRenderer (added directly onto it in NavAgentGuidance.Awake), which a root-wide search
         /// matches first since GetComponentInChildren checks the calling object before its
-        /// descendants. That was silently toggling the wrong (already-active) LineRenderer while the
-        /// real Infra-Red child under _Scan_Gun stayed disabled.</summary>
+        /// descendants. The beam itself is a modeled mesh named "Scan_Ray" on the gun prefab (NOT a
+        /// LineRenderer, despite the historical "Infra-Red beam" naming here) — matched by name first,
+        /// falling back to a LineRenderer search for any older/alternate gun prefab that used one.</summary>
         private void SetInfraRedBeam(bool on)
         {
             if (!_infraRedLookupDone)
@@ -287,10 +304,18 @@ namespace GameCore.Labor
                 _infraRedLookupDone = true;
                 var identity = GetComponent<EmployeeIdentity>();
                 var rfGun = ReceivingEquipmentService.GetRfGunInstance(identity);
-                var lineRenderer = rfGun != null ? rfGun.GetComponentInChildren<LineRenderer>(true) : null;
-                _infraRedBeam = lineRenderer != null ? lineRenderer.gameObject : null;
+                var scanRay = rfGun != null ? rfGun.transform.Find("Scan_Ray") : null;
+                if (scanRay != null)
+                {
+                    _infraRedBeam = scanRay.gameObject;
+                }
+                else
+                {
+                    var lineRenderer = rfGun != null ? rfGun.GetComponentInChildren<LineRenderer>(true) : null;
+                    _infraRedBeam = lineRenderer != null ? lineRenderer.gameObject : null;
+                }
                 if (_infraRedBeam == null)
-                    Debug.LogWarning("[ReceiverReceivingWorkflow] No LineRenderer found under the equipped RF gun — infra-red beam won't show.");
+                    Debug.LogWarning("[ReceiverReceivingWorkflow] No 'Scan_Ray' child or LineRenderer found under the equipped RF gun — infra-red beam won't show.");
             }
 
             _infraRedBeam?.SetActive(on);
@@ -456,6 +481,7 @@ namespace GameCore.Labor
             _targetPallet = null;
             _palletMasterRecord = null;
 
+            CancelInvoke(nameof(EnableInfraRedBeamDelayed));
             SetInfraRedBeam(false);
             _agentAnimation?.ClearFaceOverride();
 

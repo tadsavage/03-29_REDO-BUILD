@@ -1795,7 +1795,7 @@ AnimatorStateTransition:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: 
+  m_Name:
   m_Conditions:
   - m_ConditionMode: 1
     m_ConditionEvent: isReceiving
@@ -1813,7 +1813,7 @@ AnimatorStateTransition:
   m_HasFixedDuration: 1
   m_InterruptionSource: 0
   m_OrderedInterruption: 1
-  m_CanTransitionToSelf: 1
+  m_CanTransitionToSelf: 0
 --- !u!1101 &5912359955811446022
 AnimatorStateTransition:
   m_ObjectHideFlags: 1
@@ -1951,6 +1951,7 @@ AnimatorStateMachine:
   m_AnyStateTransitions:
   - {fileID: -1512371254698880824}
   - {fileID: -6377465571763260928}
+  - {fileID: 5275022317091036295}
   m_EntryTransitions: []
   m_StateMachineTransitions: {}
   m_StateMachineBehaviours: []

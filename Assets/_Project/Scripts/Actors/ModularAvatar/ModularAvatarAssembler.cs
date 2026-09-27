@@ -58,9 +58,54 @@ public static class ModularAvatarAssembler
     // Independent 50% chance of wearing headphones — gender-neutral, stacks with the hard hat roll.
     private const float HeadphonesChance = 0.5f;
 
-    /// <summary>Build a random avatar for a gender. Returns null if the library has no parts for it.</summary>
-    public static GameObject Build(AvatarPartLibrary lib, string gender, System.Random rng = null)
+    /// <summary>The four cosmetic "categories" the AOD's per-employee "Pimp My Employee" editor is
+    /// allowed to override (2026-09-27) — deliberately excludes identity/clothing slots (body, vest,
+    /// eyes, chest, legs, feet, expressions) since Tad hasn't figured out clothing/skin color yet.
+    /// Each key maps to a (slot, variant-filter) pair used both by the assembler's override
+    /// post-pass below and by AODPanel to build its category tabs. "hat" splits into two
+    /// independent keys because hardhat and headphones are two independent rolls that can both be
+    /// worn at once — see the Build loop's own "hat" handling.</summary>
+    public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.headphones", "facialhair" };
+
+    public static (string slot, System.Func<AvatarPartLibrary.Part, bool> matches) OverrideCategoryInfo(string key) => key switch
     {
+        "hair"           => ("hair", (System.Func<AvatarPartLibrary.Part, bool>)(p => true)),
+        "hat.hardhat"    => ("hat",  (System.Func<AvatarPartLibrary.Part, bool>)(p => p.variant.ToLower().Contains("hardhat"))),
+        "hat.headphones" => ("hat",  (System.Func<AvatarPartLibrary.Part, bool>)(p => p.variant.ToLower().Contains("headphones"))),
+        "facialhair"     => ("facialhair", (System.Func<AvatarPartLibrary.Part, bool>)(p => true)),
+        _ => (key, (System.Func<AvatarPartLibrary.Part, bool>)(p => true)),
+    };
+
+    /// <summary>Build a random avatar for a gender. Returns null if the library has no parts for it.
+    /// <paramref name="role"/> restricts every pick to parts that allow that role
+    /// (AvatarPartLibrary.Part.AllowsRole) and feeds AvatarWeightConfig's per-role weighting — pass
+    /// null for "no role context" (the editor preview tool uses this to show full variety).</summary>
+    public static GameObject Build(AvatarPartLibrary lib, string gender, System.Random rng = null, EmployeeRole? role = null)
+        => Build(lib, gender, rng ?? new System.Random(), role, null, out _);
+
+    /// <summary>Deterministic build — same seed always produces the same avatar (so an employee
+    /// keeps a stable look across sessions). Seed an employee from their GUID via StableSeed.</summary>
+    public static GameObject Build(AvatarPartLibrary lib, string gender, int seed, EmployeeRole? role = null)
+        => Build(lib, gender, new System.Random(seed), role, null, out _);
+
+    /// <summary>Full overload backing both the plain random build above AND the "Pimp My Employee"
+    /// per-employee override editor. <paramref name="overrides"/> maps an
+    /// <see cref="EditableOverrideKeys"/> entry to a specific part's objectName ("" = explicitly
+    /// none/bald/removed); a missing key means "let the normal random roll decide", exactly as
+    /// before overrides existed. <paramref name="chosenOut"/> reports the FINAL part actually used
+    /// for each editable category (null = none equipped) — the AOD editor uses this to show what's
+    /// currently on an employee before picking something else.
+    ///
+    /// Overrides are applied as a POST-PASS after the normal random pick loop runs to completion
+    /// completely unmodified — this is deliberate: skipping rng consumption for an overridden slot
+    /// would shift every later Random.Next() call's position in the sequence, silently changing
+    /// which body/vest/eyebrow variant a re-seeded rebuild produces even though only e.g. the
+    /// hairstyle was meant to change. Running the full unmodified pass first and only swapping the
+    /// FINAL result afterward keeps every non-overridden pick byte-for-byte identical.</summary>
+    public static GameObject Build(AvatarPartLibrary lib, string gender, System.Random rng, EmployeeRole? role,
+        IReadOnlyDictionary<string, string> overrides, out Dictionary<string, AvatarPartLibrary.Part> chosenOut)
+    {
+        chosenOut = new Dictionary<string, AvatarPartLibrary.Part>();
         if (lib == null) { Debug.LogWarning("[ModularAvatar] No library."); return null; }
         rng ??= new System.Random();
         gender = gender.ToLower();
@@ -73,20 +118,31 @@ public static class ModularAvatarAssembler
 
         // The head is ONE slot — at most one item across all head-position slots (hair/hat),
         // or nothing (bald). Decided up-front; those slots are skipped in the loop below.
-        var headItem = ChooseHeadItem(lib, gender, rng);
+        var headItem = ChooseHeadItem(lib, gender, rng, role);
 
         foreach (var slot in slots)
         {
             if (HeadPositionSlots.Contains(slot)) continue;   // handled by the head pick below
             if (DeprecatedSlots.Contains(slot)) continue;     // legacy head slot — see comment above
 
-            var variants = lib.VariantsFor(gender, slot);
+            var allVariants = lib.VariantsFor(gender, slot);
+            var variants = FilterRole(allVariants, role);
+            // Safety net: role filtering should never leave a CORE slot (body, eyes, ...) with
+            // nothing to pick — that would build a character missing a body part rather than just
+            // skipping an accessory. Falls back to the unfiltered list and logs it, since it means
+            // someone set allowedRoles on a core-slot part in a way that excludes this role entirely.
+            if (variants.Count == 0 && CoreSlots.Contains(slot) && allVariants.Count > 0)
+            {
+                Debug.LogWarning($"[ModularAvatar] Role '{role}' has no allowed '{slot}' parts for gender " +
+                                  $"'{gender}' — falling back to the unfiltered list so the avatar isn't missing a core part.");
+                variants = allVariants;
+            }
             if (variants.Count == 0) continue;
 
             // Safety vests are mandatory in a warehouse — every employee wears one (50/50 type).
             if (slot == "vest")
             {
-                chosen.Add(variants[rng.Next(variants.Count)]);
+                chosen.Add(PickVariant(variants, rng, role, gender));
                 continue;
             }
 
@@ -99,11 +155,11 @@ public static class ModularAvatarAssembler
             {
                 var hardhats = variants.Where(v => v.variant.ToLower().Contains("hardhat")).ToList();
                 if (hardhats.Count > 0 && rng.NextDouble() <= OptionalSlotChance["hat"])
-                    chosen.Add(hardhats[rng.Next(hardhats.Count)]);
+                    chosen.Add(PickVariant(hardhats, rng, role, gender));
 
                 var headphones = variants.Where(v => v.variant.ToLower().Contains("headphones")).ToList();
                 if (headphones.Count > 0 && rng.NextDouble() <= HeadphonesChance)
-                    chosen.Add(headphones[rng.Next(headphones.Count)]);
+                    chosen.Add(PickVariant(headphones, rng, role, gender));
 
                 continue;
             }
@@ -115,8 +171,8 @@ public static class ModularAvatarAssembler
             // Core/expression slots (body, eyes, eyebrows, mouth, face, chest, legs, feet) always
             // get a part; eyebrows/mouth default to the Neutral expression.
             AvatarPartLibrary.Part pick = ExpressionSlots.Contains(slot)
-                ? (PickNeutral(variants) ?? variants[rng.Next(variants.Count)])
-                : variants[rng.Next(variants.Count)];
+                ? (PickNeutral(variants) ?? PickVariant(variants, rng, role, gender))
+                : PickVariant(variants, rng, role, gender);
 
             chosen.Add(pick);
         }
@@ -124,6 +180,18 @@ public static class ModularAvatarAssembler
         // Apply the single chosen head item, if any (null = bald).
         if (headItem != null)
             chosen.Add(headItem);
+
+        // ── Per-employee overrides (Pimp My Employee, 2026-09-27) — see the full-overload doc
+        // comment above for why this runs as a post-pass rather than short-circuiting the loop.
+        if (overrides != null && overrides.Count > 0)
+            foreach (var key in EditableOverrideKeys)
+                ApplyCategoryOverride(chosen, overrides, key, lib, gender);
+
+        foreach (var key in EditableOverrideKeys)
+        {
+            var (slot, matches) = OverrideCategoryInfo(key);
+            chosenOut[key] = chosen.FirstOrDefault(p => p.slot == slot && matches(p));
+        }
 
         if (chosen.Count == 0) return null;
 
@@ -293,11 +361,6 @@ public static class ModularAvatarAssembler
         }
     }
 
-    /// <summary>Deterministic build — same seed always produces the same avatar (so an employee
-    /// keeps a stable look across sessions). Seed an employee from their GUID via StableSeed.</summary>
-    public static GameObject Build(AvatarPartLibrary lib, string gender, int seed)
-        => Build(lib, gender, new System.Random(seed));
-
     private static AvatarPartLibrary _cachedLib;
 
     /// <summary>Loads the part library from Resources (cached). Null if it hasn't been scanned yet.</summary>
@@ -338,18 +401,109 @@ private static bool ParsesAsPart(string name)
 
     // Pick the ONE item worn on the head, pooled across all head-position slots (hair + hats),
     // or null = bald. One slot, one item.
-    private static AvatarPartLibrary.Part ChooseHeadItem(AvatarPartLibrary lib, string gender, System.Random rng)
+    private static AvatarPartLibrary.Part ChooseHeadItem(AvatarPartLibrary lib, string gender, System.Random rng, EmployeeRole? role)
     {
         var pool = new List<AvatarPartLibrary.Part>();
         foreach (var s in HeadPositionSlots)
             pool.AddRange(lib.VariantsFor(gender, s));
+        var filtered = FilterRole(pool, role);
+        if (filtered.Count > 0) pool = filtered;  // same core-slot-style safety net as the main loop — hair is optional (bald is valid), so an empty filtered pool just means "skip role filtering here" rather than "force bald"
         if (pool.Count == 0) return null;
         if (gender != "female" && rng.NextDouble() < BaldChance) return null;   // bald only for males
-        return pool[rng.Next(pool.Count)];
+        return PickVariant(pool, rng, role, gender);
     }
 
     private static AvatarPartLibrary.Part PickNeutral(List<AvatarPartLibrary.Part> variants) =>
         variants.FirstOrDefault(v => v.variant.ToLower().Contains("neutral"));
+
+    /// <summary>Role is nullable everywhere in this file: null means "no role context" (used by the
+    /// editor preview tool), in which case no role filtering is applied at all.</summary>
+    private static List<AvatarPartLibrary.Part> FilterRole(List<AvatarPartLibrary.Part> candidates, EmployeeRole? role) =>
+        role.HasValue ? candidates.Where(p => p.AllowsRole(role.Value)).ToList() : candidates;
+
+    /// <summary>Picks one part from a candidate list, biasing toward any not-yet-verified-in-game
+    /// part so a freshly added AOD item surfaces in the hiring roster quickly instead of waiting on
+    /// pure random chance (Tad, 2026-09-26 — "always pick up at least one of the objects added").
+    /// Marks the pick verified immediately; falls back to a WEIGHTED random pick (AvatarWeightConfig,
+    /// falling back further to each part's own defaultWeight) once nothing in the list still needs
+    /// verifying.</summary>
+    private static AvatarPartLibrary.Part PickVariant(List<AvatarPartLibrary.Part> candidates, System.Random rng, EmployeeRole? role, string gender)
+    {
+        var unverified = candidates.Where(c => !c.verifiedInGame).ToList();
+        var pool = unverified.Count > 0 ? unverified : candidates;
+        var pick = WeightedPick(pool, rng, role, gender);
+
+        if (!pick.verifiedInGame)
+        {
+            pick.verifiedInGame = true;
+#if UNITY_EDITOR
+            // Persist right away — this is a rare, one-time-per-item flip (not something that fires
+            // on every hire long-term), so the occasional extra disk write here is cheap. Without
+            // it, verification achieved during a Play Mode test session would be lost the moment
+            // Play Mode stops, and the same item would keep getting force-picked forever.
+            var lib = LoadLibrary();
+            if (lib != null)
+            {
+                UnityEditor.EditorUtility.SetDirty(lib);
+                UnityEditor.AssetDatabase.SaveAssets();
+            }
+#endif
+        }
+        return pick;
+    }
+
+    /// <summary>Weighted random selection over a pool that's already been through the
+    /// verification/role filtering above. Weight per candidate comes from AvatarWeightConfig's
+    /// most-specific (role, gender, slot, variant) rule, falling back to the part's own
+    /// defaultWeight when no rule matches or the config asset doesn't exist yet — so this behaves
+    /// as plain uniform-by-default selection until the weights UI (Phase 4) actually configures
+    /// anything, exactly like the rest of this system.</summary>
+    private static AvatarPartLibrary.Part WeightedPick(List<AvatarPartLibrary.Part> pool, System.Random rng, EmployeeRole? role, string gender)
+    {
+        if (pool.Count == 1) return pool[0];
+
+        var cfg = AvatarWeightConfig.Load();
+        var weights = new float[pool.Count];
+        float total = 0f;
+        for (int i = 0; i < pool.Count; i++)
+        {
+            float w = cfg != null
+                ? cfg.GetWeight(role, gender, pool[i].slot, pool[i].variant, pool[i].defaultWeight)
+                : pool[i].defaultWeight;
+            weights[i] = Mathf.Max(0f, w);
+            total += weights[i];
+        }
+        if (total <= 0f) return pool[rng.Next(pool.Count)]; // everything zero-weighted — fall back to uniform rather than divide by zero
+
+        double r = rng.NextDouble() * total;
+        double cumulative = 0;
+        for (int i = 0; i < pool.Count; i++)
+        {
+            cumulative += weights[i];
+            if (r <= cumulative) return pool[i];
+        }
+        return pool[pool.Count - 1]; // floating-point rounding fallback
+    }
+
+    /// <summary>Swaps the FINAL pick for one editable category (see <see cref="EditableOverrideKeys"/>)
+    /// after the normal random pass has already run — removes whatever the random roll picked for
+    /// this category (if anything) and, unless the override is an explicit "" (none/bald/removed),
+    /// adds the requested replacement instead. Searches across ALL genders for the replacement
+    /// since several editable categories (hardhat, headphones) are "neutral" parts shared by both.</summary>
+    private static void ApplyCategoryOverride(List<AvatarPartLibrary.Part> chosen, IReadOnlyDictionary<string, string> overrides,
+        string key, AvatarPartLibrary lib, string gender)
+    {
+        if (!overrides.TryGetValue(key, out var objectName)) return; // no override for this category — leave the random pick as-is
+
+        var (slot, matches) = OverrideCategoryInfo(key);
+        chosen.RemoveAll(p => p.slot == slot && matches(p));
+
+        if (string.IsNullOrEmpty(objectName)) return; // explicit "none" — stays removed
+
+        var replacement = lib.parts.FirstOrDefault(p => p.objectName == objectName &&
+            (p.gender == gender || p.gender == "neutral") && p.slot == slot && matches(p));
+        if (replacement != null) chosen.Add(replacement);
+    }
 
     private static Transform FindDeep(Transform parent, string name)
     {

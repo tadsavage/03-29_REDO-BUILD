@@ -62,6 +62,8 @@ public class TopBarUI : MonoBehaviour
     public PurchasingPanel PurchasingPanel => _purchasingPanel;
     private ItemCreatorPanel _itemCreatorPanel;         // no number key (0/5-9 all taken) — opened via the "Items" button
     public ItemCreatorPanel ItemCreatorPanel => _itemCreatorPanel;
+    private AODPanel _aodPanel;                         // no number key either — opened via the "AOD" button. Avatar Object Database: browse/edit modular avatar parts
+    public AODPanel AODPanel => _aodPanel;
     private SaveLoadWindowController _saveLoadController;
     private EmployeeInfoUI _employeeInfoUI;   // cached for Escape priority (close card before pause)
 
@@ -111,6 +113,7 @@ public class TopBarUI : MonoBehaviour
         _newItemPanel = new NewItemPanel(root);
         _purchasingPanel = new PurchasingPanel(root);
         _itemCreatorPanel = new ItemCreatorPanel(root);
+        _aodPanel = new AODPanel(root);
 
         // Register shift manager with UIKeyBindingManager for keybinding support (key 6)
         if (UIKeyBindingManager.Instance != null)
@@ -172,6 +175,12 @@ public class TopBarUI : MonoBehaviour
                 foreach (var cls in _mainMenuButton.GetClasses()) itemsButton.AddToClassList(cls);
             int insertIndex = _mainMenuButton != null ? topBar.IndexOf(_mainMenuButton) : topBar.childCount;
             topBar.Insert(insertIndex, itemsButton);
+
+            // "AOD" button — Avatar Object Database, same no-hotkey reasoning as Items above.
+            var aodButton = new Button(() => _aodPanel?.Toggle()) { text = "AOD" };
+            if (_mainMenuButton != null)
+                foreach (var cls in _mainMenuButton.GetClasses()) aodButton.AddToClassList(cls);
+            topBar.Insert(insertIndex + 1, aodButton);
         }
         if (_menuMainMenuButton   != null) _menuMainMenuButton.clicked   += OnMenuDirectToMainMenu;
         if (_menuSettingsButton   != null) _menuSettingsButton.clicked   += OnMenuSettings;
