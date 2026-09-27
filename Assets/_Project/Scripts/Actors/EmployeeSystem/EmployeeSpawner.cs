@@ -600,21 +600,18 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
             EmployeeRole.InventoryControl => PoolOrSingle(null, female ? _icAvatarModelFemale : _icAvatarModel),
             EmployeeRole.Security         => PoolOrSingle(female ? _securityAvatarModelPoolFemale : _securityAvatarModelPoolMale, _securityAvatarModel),
             EmployeeRole.TruckDriver      => PoolOrSingle(null, female ? _truckDriverAvatarModelFemale : _truckDriverAvatarModel),
-            // Receiver / Reach Truck Operator / Dock Stocker Operator / Order Selector — briefly used
-            // the fixed construction-worker look (2026-09-21) because modular parts rendered in
-            // T-pose for these roles at the time. Switched back to random modular avatars for MALES
-            // (Tad, 2026-09-26) for real hair/vest/color variety — confirmed live that
-            // man_construction_worker (the only male modular "body" part) is a properly skinned
-            // SkinnedMeshRenderer, so it animates correctly.
-            //
-            // FEMALES stay on the fixed look, unlike males — confirmed live that
-            // woman_construction_worker (the ONLY female modular "body" part in the library) is a
-            // plain unskinned MeshRenderer, not a SkinnedMeshRenderer: exactly the T-pose-class bug
-            // this fixed-avatar override exists to avoid, just gender-specific rather than universal.
-            // Revisit once that source part is properly skin-weighted in Blender.
+            // Receiver / Reach Truck Operator / Dock Stocker Operator / Order Selector — both
+            // genders now use the fixed Polyperfect construction-worker look (reverted 2026-09-27;
+            // briefly split by gender in between, see git history). The male/female modular
+            // "body_floor" parts this used to be split against never had a working, properly
+            // skin-weighted pair on both sides, so both genders now go through the same fixed-avatar
+            // path as everything else in this switch, using man_construction_worker.prefab /
+            // woman_construction_worker.prefab (both confirmed to carry a real SkinnedMeshRenderer,
+            // not a plain MeshRenderer) — same asset _floorWorkerAvatarModel was always assigned to,
+            // just previously unused for males.
             EmployeeRole.Receiver or EmployeeRole.ReachTruckOperator or EmployeeRole.DockStockerOperator
                 or EmployeeRole.OrderSelector
-                => female ? PoolOrSingle(null, _floorWorkerAvatarModelFemale) : null,
+                => PoolOrSingle(null, female ? _floorWorkerAvatarModelFemale : _floorWorkerAvatarModel),
             // Admin uses the reporter look, matching EmployeePhotoBooth's portrait mapping — added
             // 2026-09-22. Previously fell through to the generic default (man_large/woman_large),
             // which disagreed with the portrait and was the actual bug (not the portrait, which was
