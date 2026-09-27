@@ -1,5 +1,6 @@
 using GameCore.Persistence;
 
+using System.Linq;
 using UnityEngine;
 
 /// <summary>
@@ -515,6 +516,23 @@ public class EmployeeSpawner : MonoBehaviour
             rec.AvatarOverridesDict(), out _);
         if (avatar == null) return;   // no parts for that gender yet → keep the default model
 
+        // Guard against the exact bug that caused the 2026-09-27 "floating hardhat" incident: Build()
+        // falls back to chosen[0] (whatever accessory got picked) as its "primary" source when no
+        // "body" part exists for this gender, so it CAN return a non-null avatar with no actual body
+        // mesh in it. FixedAvatarFor's ModularBodyExists gate should already prevent this call from
+        // happening at all in that case — this is the last-line safety net so a future gap in that
+        // gate (a typo'd gender string, a body part that got filtered out by role restrictions, etc.)
+        // degrades to "keeps the default worker mesh" instead of silently shipping a bodiless avatar.
+        bool hasBody = avatar.GetComponentsInChildren<Transform>(true)
+            .Any(t => t.name.ToLowerInvariant().Contains("_body_") &&
+                      (t.GetComponent<SkinnedMeshRenderer>() != null || t.GetComponent<MeshFilter>() != null));
+        if (!hasBody)
+        {
+            Debug.LogWarning($"[EmployeeSpawner] Modular avatar assembled for {rec.employeeName} had no body part — discarding and keeping the default model instead of shipping a bodiless avatar.");
+            Destroy(avatar);
+            return;
+        }
+
         // Hide the worker's own animated mesh — the modular avatar replaces it visually.
         foreach (var smr in identity.GetComponentsInChildren<SkinnedMeshRenderer>(true))
             smr.enabled = false;
@@ -600,18 +618,21 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
             EmployeeRole.InventoryControl => PoolOrSingle(null, female ? _icAvatarModelFemale : _icAvatarModel),
             EmployeeRole.Security         => PoolOrSingle(female ? _securityAvatarModelPoolFemale : _securityAvatarModelPoolMale, _securityAvatarModel),
             EmployeeRole.TruckDriver      => PoolOrSingle(null, female ? _truckDriverAvatarModelFemale : _truckDriverAvatarModel),
-            // Receiver / Reach Truck Operator / Dock Stocker Operator / Order Selector — both
-            // genders now use the fixed Polyperfect construction-worker look (reverted 2026-09-27;
-            // briefly split by gender in between, see git history). The male/female modular
-            // "body_floor" parts this used to be split against never had a working, properly
-            // skin-weighted pair on both sides, so both genders now go through the same fixed-avatar
-            // path as everything else in this switch, using man_construction_worker.prefab /
-            // woman_construction_worker.prefab (both confirmed to carry a real SkinnedMeshRenderer,
-            // not a plain MeshRenderer) — same asset _floorWorkerAvatarModel was always assigned to,
-            // just previously unused for males.
+            // Receiver / Reach Truck Operator / Dock Stocker Operator / Order Selector — fixed
+            // Polyperfect construction-worker look by default (reverted 2026-09-27; briefly split
+            // by gender in between, see git history), UNLESS AvatarPartLibrary now has a real "body"
+            // part for this employee's gender, in which case we fall through to the modular
+            // assembler instead. This check is live/dynamic (re-evaluated on every spawn), not a
+            // one-time switch — the day a real modular body gets dropped into the library for a
+            // gender, every subsequent hire/spawn of that gender for these 4 roles automatically
+            // starts using it, no further code change needed. Gated per-gender because a working
+            // body for one gender says nothing about the other (that's exactly how the original
+            // body_floor pair broke — one side had no body part cataloged at all).
             EmployeeRole.Receiver or EmployeeRole.ReachTruckOperator or EmployeeRole.DockStockerOperator
                 or EmployeeRole.OrderSelector
-                => PoolOrSingle(null, female ? _floorWorkerAvatarModelFemale : _floorWorkerAvatarModel),
+                => ModularBodyExists(gender)
+                    ? null
+                    : PoolOrSingle(null, female ? _floorWorkerAvatarModelFemale : _floorWorkerAvatarModel),
             // Admin uses the reporter look, matching EmployeePhotoBooth's portrait mapping — added
             // 2026-09-22. Previously fell through to the generic default (man_large/woman_large),
             // which disagreed with the portrait and was the actual bug (not the portrait, which was
@@ -630,6 +651,20 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         int seed  = ModularAvatarAssembler.StableSeed(employeeGuid);
         int index = ((seed % pool.Length) + pool.Length) % pool.Length;
         return pool[index];
+    }
+
+    /// <summary>True once AvatarPartLibrary has at least one real "body" part for this gender —
+    /// the live gate FixedAvatarFor uses to decide whether the 4 floor-worker roles should use the
+    /// modular assembler instead of the fixed Polyperfect look. Re-evaluated on every call (library
+    /// is small and this is only checked at spawn time, not per-frame), so dropping a new body FBX
+    /// into the drop folder and rescanning takes effect on the very next hire/spawn with no code
+    /// change or restart needed.</summary>
+    private static bool ModularBodyExists(EmployeeGender gender)
+    {
+        var lib = ModularAvatarAssembler.LoadLibrary();
+        if (lib == null) return false;
+        string g = gender == EmployeeGender.Female ? "female" : "male";
+        return lib.VariantsFor(g, "body").Count > 0;
     }
 
     /// <summary>Prefers the pool array (random-but-stable pick) when it has entries; otherwise

@@ -31,13 +31,25 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 88707f7d458ac614b89ba9377b9f21d4, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/_Scangun.fbx
     prefab: {fileID: 919132149155446097, guid: 5b028b0e9f5756242a2b5274b519f2ed, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/man_hair_regular.fbx
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/man_hair_regularBlack.fbx
+    prefab: {fileID: 919132149155446097, guid: 62f89a7a14677084a818c775e1650b44, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/man_hair_regularBlonde.fbx
+    prefab: {fileID: 919132149155446097, guid: 3ffed61bab3886747af4350fc61c28ea, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/man_hair_regularBrown.fbx
     prefab: {fileID: 919132149155446097, guid: c1ae47b45098c7f4e8bbbef9e39418d9, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hands_glovesBrown.fbx
+    prefab: {fileID: 919132149155446097, guid: 16127d67e48667147b1b9c7664ce9617, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hands_glovesWhite.fbx
+    prefab: {fileID: 919132149155446097, guid: dc39e89ae9d438a4ea49e0922e9acbb0, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_hardhat-orange.fbx
     prefab: {fileID: 919132149155446097, guid: 897558dea3dc9954ab2632d4523ae85e, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_hardhat-red.fbx
     prefab: {fileID: 919132149155446097, guid: 0719af10d95f9144f99bc0849de2ac41, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_headphones.fbx
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_hardhat-yellow.fbx
+    prefab: {fileID: 919132149155446097, guid: 894240290c7f99f478d7b0c0804987e9, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_headphonesRed.fbx
+    prefab: {fileID: 919132149155446097, guid: 0000f0ef3c561d8438a8a2124141b5f3, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_headphonesYellow.fbx
     prefab: {fileID: 919132149155446097, guid: a25a376f088bb054a9803b2390b54a26, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/woman_hair_bob-blonde.fbx
     prefab: {fileID: 919132149155446097, guid: f6cc2ef163f80164982bd831cf8f0249, type: 3}
@@ -49,7 +61,7 @@ MonoBehaviour:
     sourceIndex: 2
     allowedRoles: 000000000100000002000000030000000600000005000000040000000700000008000000090000000a0000000b0000000d0000000c000000i
     colorVariants: []
-    defaultWeight: 0.5
+    defaultWeight: 41.7
     metadataReviewed: 1
     verifiedInGame: 1
   - objectName: neutral_hat_hardhat-orange
@@ -59,7 +71,7 @@ MonoBehaviour:
     sourceIndex: 3
     allowedRoles: 000000000300000004000000050000000c000000i
     colorVariants: []
-    defaultWeight: 0.35
+    defaultWeight: 14.6
     metadataReviewed: 1
     verifiedInGame: 1
   - objectName: neutral_hat_hardhat-red
@@ -69,7 +81,7 @@ MonoBehaviour:
     sourceIndex: 4
     allowedRoles: 0000000004000000050000000c000000i
     colorVariants: []
-    defaultWeight: 0.35
+    defaultWeight: 22.1
     metadataReviewed: 1
     verifiedInGame: 1
   - objectName: neutral_hat_headphones
@@ -79,7 +91,7 @@ MonoBehaviour:
     sourceIndex: 5
     allowedRoles: 00000000010000000200000003000000040000000800000009000000i
     colorVariants: []
-    defaultWeight: 1
+    defaultWeight: 28.1
     metadataReviewed: 1
     verifiedInGame: 1
   - objectName: woman_hair_bob-blonde
@@ -87,7 +99,7 @@ MonoBehaviour:
     slot: hair
     variant: bob-blonde
     sourceIndex: 6
-    allowedRoles: 000000000100000002000000030000000400000005000000060000000700000008000000090000000a0000000b0000000d0000000c000000i
+    allowedRoles: 010000000200000003000000040000000500000000000000i
     colorVariants:
     - name: '#CA3038'
       material: {fileID: 0}
@@ -96,5 +108,88 @@ MonoBehaviour:
       material: {fileID: 0}
       color: {r: 0.99215686, g: 0.84313726, b: 0.14117648, a: 1}
     defaultWeight: 100
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: man_hair_regularBlack
+    gender: male
+    slot: hair
+    variant: regularBlack
+    sourceIndex: 9
+    allowedRoles: 0000000001000000020000000300000004000000i
+    colorVariants: []
+    defaultWeight: 41.2
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: man_hair_regularBlonde
+    gender: male
+    slot: hair
+    variant: regularBlonde
+    sourceIndex: 10
+    allowedRoles: 00000000010000000200000003000000040000000c000000i
+    colorVariants: []
+    defaultWeight: 1
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: man_hair_regularBrown
+    gender: male
+    slot: hair
+    variant: regularBrown
+    sourceIndex: 11
+    allowedRoles: 00000000010000000200000003000000040000000c000000i
+    colorVariants: []
+    defaultWeight: 42.2
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: neutral_hands_glovesBrown
+    gender: neutral
+    slot: hands
+    variant: glovesBrown
+    sourceIndex: 12
+    allowedRoles: 00000000010000000200000003000000040000000c000000i
+    colorVariants: []
+    defaultWeight: 40.7
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: neutral_hands_glovesWhite
+    gender: neutral
+    slot: hands
+    variant: glovesWhite
+    sourceIndex: 13
+    allowedRoles: 00000000010000000200000003000000040000000c000000i
+    colorVariants: []
+    defaultWeight: 37.7
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: neutral_hat_hardhat-yellow
+    gender: neutral
+    slot: hat
+    variant: hardhat-yellow
+    sourceIndex: 16
+    allowedRoles: 000000000400000005000000090000000c000000i
+    colorVariants:
+    - name: '#B7D349'
+      material: {fileID: 0}
+      color: {r: 0.7176471, g: 0.827451, b: 0.28627452, a: 1}
+    defaultWeight: 30.1
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: neutral_hat_headphonesRed
+    gender: neutral
+    slot: hat
+    variant: headphonesRed
+    sourceIndex: 17
+    allowedRoles: 01000000020000000300000004000000i
+    colorVariants: []
+    defaultWeight: 36.7
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: neutral_hat_headphonesYellow
+    gender: neutral
+    slot: hat
+    variant: headphonesYellow
+    sourceIndex: 18
+    allowedRoles: 00000000010000000200000003000000040000000c000000i
+    colorVariants: []
+    defaultWeight: 26.1
     metadataReviewed: 1
     verifiedInGame: 0
