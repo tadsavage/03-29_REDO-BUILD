@@ -192,6 +192,12 @@ public static class ModularAvatarAssembler
             var (slot, matches) = OverrideCategoryInfo(key);
             chosenOut[key] = chosen.FirstOrDefault(p => p.slot == slot && matches(p));
         }
+        // Not an editable category — reported so callers (EmployeeSpawner's bodiless-avatar safety
+        // net) can verify a real body part was actually used WITHOUT relying on the assembled
+        // GameObject's names, which the "primary source" rename below deliberately destroys for a
+        // single-mesh-on-root body source (see root.name assignment just below — it clobbers the
+        // very "_body_" substring a name-based check would otherwise look for).
+        chosenOut["body"] = chosen.FirstOrDefault(p => p.slot == "body");
 
         if (chosen.Count == 0) return null;
 

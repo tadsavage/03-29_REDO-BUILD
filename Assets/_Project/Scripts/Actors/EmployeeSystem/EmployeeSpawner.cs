@@ -513,7 +513,7 @@ public class EmployeeSpawner : MonoBehaviour
         var workerAnimator = identity.GetComponentInChildren<Animator>(true);
 
         var avatar = ModularAvatarAssembler.Build(lib, gender, new System.Random(seed), rec.role,
-            rec.AvatarOverridesDict(), out _);
+            rec.AvatarOverridesDict(), out var chosenParts);
         if (avatar == null) return;   // no parts for that gender yet → keep the default model
 
         // Guard against the exact bug that caused the 2026-09-27 "floating hardhat" incident: Build()
@@ -523,9 +523,14 @@ public class EmployeeSpawner : MonoBehaviour
         // happening at all in that case — this is the last-line safety net so a future gap in that
         // gate (a typo'd gender string, a body part that got filtered out by role restrictions, etc.)
         // degrades to "keeps the default worker mesh" instead of silently shipping a bodiless avatar.
-        bool hasBody = avatar.GetComponentsInChildren<Transform>(true)
-            .Any(t => t.name.ToLowerInvariant().Contains("_body_") &&
-                      (t.GetComponent<SkinnedMeshRenderer>() != null || t.GetComponent<MeshFilter>() != null));
+        //
+        // Checked via chosenParts["body"] (which Part rather than a name) — NOT a name-substring scan
+        // of the assembled hierarchy. A single-mesh-on-root body source (e.g. man_body_
+        // warehouseCaucasian) ends up with its SkinnedMeshRenderer on the avatar's ROOT, and Build()
+        // renames that root to "Avatar_{gender}_{variant}" — which no longer contains "_body_". A
+        // name-based check here false-negatived on a perfectly real body and discarded it, reverting
+        // to the legacy worker mesh (found live 2026-09-27, second pass).
+        bool hasBody = chosenParts.TryGetValue("body", out var bodyPartUsed) && bodyPartUsed != null;
         if (!hasBody)
         {
             Debug.LogWarning($"[EmployeeSpawner] Modular avatar assembled for {rec.employeeName} had no body part — discarding and keeping the default model instead of shipping a bodiless avatar.");
