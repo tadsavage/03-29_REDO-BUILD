@@ -71,9 +71,16 @@ public static class ReceivingEquipmentService
         GameObject clipboardPrefab = null;
         GameObject rfGunPrefab = null;
 
+        // 2026-09-27: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/ (the old hand-made prefab
+        // location) no longer exists — the Blender source folder tree was reorganized to
+        // Modular_Staff_Models. _ClipBoard/_Scangun are leading-underscore "held props" (Tad's own
+        // convention, see ModularAvatarImporter.FixNewExport), deliberately excluded from the AOD
+        // finalization pipeline (they're not gender_slot_variant parts), so they were never migrated
+        // into ModularAvatarFinalizer's output folder either — load the raw FBX directly instead,
+        // same as any other model asset. No hand-made prefab wrapper is needed for these.
         #if UNITY_EDITOR
-        clipboardPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_ClipBoard.prefab");
-        rfGunPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/_Scangun.prefab");
+        clipboardPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/_ClipBoard.fbx");
+        rfGunPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/_Scangun.fbx");
         #endif
 
         // Fallback to Resources folder at runtime (a BUILT player strips the AssetDatabase block
@@ -88,7 +95,7 @@ public static class ReceivingEquipmentService
 
         if (clipboardPrefab == null || rfGunPrefab == null)
         {
-            Debug.LogError("[ReceivingEquipmentService] Could not load prefabs. Checked: Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/ and Resources/Workers/");
+            Debug.LogError("[ReceivingEquipmentService] Could not load prefabs. Checked: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/ and Resources/Workers/");
             return;
         }
 

@@ -769,7 +769,12 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
     }
 
-    private const string WomanBobHairPrefabPath = "Assets/_Project/Prefabs/WORKERS/WORKER_ACCESSORIES/woman_hair_bob-blonde.prefab";
+    // 2026-09-27: repointed at the AOD-finalized prefab (Assets/_Project/Prefabs/WORKERS/... no
+    // longer exists — see the matching note in ReceivingEquipmentService.Equip). This part is now
+    // ALSO cataloged in AvatarPartLibrary (finalized "hair" slot), but this fixed-avatar attach path
+    // is independent of that — it doesn't go through ModularAvatarAssembler, so it just needs the
+    // real prefab location, same as before.
+    private const string WomanBobHairPrefabPath = "Assets/_Project/Prefabs/Modular_Staff_Prefabs/Props_Prefabs/woman_hair_bob-blonde.prefab";
 
     // Tuned by screenshot iteration against the live FixedAvatar Head_M bone (2026-09-26): the
     // hair mesh's own pivot sits 1.71 units from its geometry (authored relative to a full body
