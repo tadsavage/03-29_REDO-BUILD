@@ -12,6 +12,13 @@ using UnityEngine;
 /// Slots are STRINGS, not an enum — drop a new FBX with "male_gloves_Leather" and a "gloves"
 /// slot simply appears. Nothing here needs editing to support new slot types.
 ///
+/// Holds TWO separate lists (2026-09-27 pipeline redesign):
+///  - <see cref="parts"/> — raw, not-yet-reviewed scan results. Fully rebuilt on every rescan.
+///  - <see cref="finalizedParts"/> — parts that have actually been submitted through the AOD
+///    (ModularAvatarFinalizer.TryFinalize), each a standalone AvatarPartAsset file. Never touched by
+///    a rescan; this is the permanent, git-diff-friendly source of truth for anything actually live.
+/// Use <see cref="AllParts"/> for any query that doesn't care which stage a part is in.
+///
 /// Lives in Resources so the runtime (hiring board, future character creator) can load it with
 /// Resources.Load. The source FBX prefabs are referenced directly, so they're pulled into the
 /// build and ModularAvatarAssembler can Instantiate them at runtime without AssetDatabase.
@@ -45,7 +52,7 @@ public class AvatarPartLibrary : ScriptableObject
     }
 
     [Serializable]
-    public class Part
+    public class Part : IAvatarPart
     {
         public string objectName;   // child name, e.g. "male_body_Black"
         public string gender;       // "male" / "female" / "neutral" (lower-case)
@@ -67,9 +74,10 @@ public class AvatarPartLibrary : ScriptableObject
         // variant) rule for this part — see AvatarWeightConfig.GetWeight.
         public float defaultWeight = 1f;
 
-        // False for every part the folder scan discovers fresh. The AOD's "missing data" filter
-        // keys off this, NOT off allowedRoles being empty — an empty allow-list is a legitimate,
-        // deliberate "every role" setting once reviewed, not an indicator of missing setup.
+        // Vestigial as of the 2026-09-27 pipeline redesign — a raw Part is ALWAYS unreviewed now
+        // (submitting one removes it from AvatarPartLibrary.parts and produces an AvatarPartAsset
+        // instead, rather than flipping this bool in place). Kept only so old serialized data
+        // deserializes without error; never set true anymore. See IAvatarPart.MetadataReviewed.
         public bool metadataReviewed = false;
 
         // True once an assembled avatar has actually used this part in-game (set by
@@ -80,52 +88,76 @@ public class AvatarPartLibrary : ScriptableObject
         public bool verifiedInGame = false;
 
         public bool AllowsRole(EmployeeRole role) => allowedRoles.Count == 0 || allowedRoles.Contains(role);
+
+        // ── IAvatarPart ──
+        string IAvatarPart.ObjectName => objectName;
+        string IAvatarPart.Gender { get => gender; set => gender = value; }
+        string IAvatarPart.Slot => slot;
+        string IAvatarPart.Variant => variant;
+        List<EmployeeRole> IAvatarPart.AllowedRoles => allowedRoles;
+        List<ColorVariant> IAvatarPart.ColorVariants => colorVariants;
+        float IAvatarPart.DefaultWeight { get => defaultWeight; set => defaultWeight = value; }
+        bool IAvatarPart.MetadataReviewed => false; // see the field's own comment above
+        bool IAvatarPart.VerifiedInGame { get => verifiedInGame; set => verifiedInGame = value; }
     }
 
     [Tooltip("One entry per FBX found in the drop folder.")]
     public List<SourceModel> sources = new();
 
-    [Tooltip("Every part across every source FBX. Rebuilt on each scan.")]
+    [Tooltip("RAW, not-yet-reviewed scan results only. Rebuilt on each scan. Submitting a part " +
+             "through the AOD removes it from here and adds it to finalizedParts instead.")]
     public List<Part> parts = new();
 
-    // ── Queries ───────────────────────────────────────────────────────────────────
-    public IEnumerable<string> Genders() =>
-        parts.Select(p => p.gender).Distinct();
+    [Tooltip("Submitted/finalized parts — one AvatarPartAsset file per entry, loaded from " +
+             "ModularAvatarFinalizer.FinalizedAssetFolder. Never touched by a rescan.")]
+    public List<AvatarPartAsset> finalizedParts = new();
 
-    /// <summary>Distinct slot names available for a gender, in first-seen order.</summary>
-/// <summary>Distinct slot names available for a gender, in first-seen order. "neutral" parts
+    // ── Queries ───────────────────────────────────────────────────────────────────
+
+    /// <summary>Every part regardless of pipeline stage — the query surface most callers should use.</summary>
+    public IEnumerable<IAvatarPart> AllParts =>
+        parts.Cast<IAvatarPart>().Concat(finalizedParts.Cast<IAvatarPart>());
+
+    public IEnumerable<string> Genders() =>
+        AllParts.Select(p => p.Gender).Distinct();
+
+    /// <summary>Distinct slot names available for a gender, in first-seen order. "neutral" parts
     /// (not gender-specific — e.g. hardhat/headphones) count for every gender query.</summary>
     public List<string> SlotsFor(string gender)
     {
         gender = gender?.ToLower();
         var seen = new List<string>();
-        foreach (var p in parts)
-            if ((p.gender == gender || p.gender == "neutral") && !seen.Contains(p.slot))
-                seen.Add(p.slot);
+        foreach (var p in AllParts)
+            if ((p.Gender == gender || p.Gender == "neutral") && !seen.Contains(p.Slot))
+                seen.Add(p.Slot);
         return seen;
     }
 
-/// <summary>Every variant of a slot available to a gender — includes that gender's own parts
+    /// <summary>Every variant of a slot available to a gender — includes that gender's own parts
     /// plus any "neutral" parts for the same slot (shared across both genders).</summary>
-    public List<Part> VariantsFor(string gender, string slot)
+    public List<IAvatarPart> VariantsFor(string gender, string slot)
     {
         gender = gender?.ToLower();
         slot   = slot?.ToLower();
-        return parts.Where(p => (p.gender == gender || p.gender == "neutral") && p.slot == slot).ToList();
+        return AllParts.Where(p => (p.Gender == gender || p.Gender == "neutral") && p.Slot == slot).ToList();
     }
 
-    public GameObject PrefabFor(Part p) =>
-        (p != null && p.sourceIndex >= 0 && p.sourceIndex < sources.Count)
-            ? sources[p.sourceIndex].prefab : null;
+    public GameObject PrefabFor(IAvatarPart p) => p switch
+    {
+        AvatarPartAsset fa => fa.FinalizedPrefab,
+        Part rp when rp.sourceIndex >= 0 && rp.sourceIndex < sources.Count => sources[rp.sourceIndex].prefab,
+        _ => null,
+    };
 
-    public int PartCount => parts.Count;
+    public int PartCount => parts.Count + finalizedParts.Count;
 
     /// <summary>Parts a specific role may actually use for a gender+slot — VariantsFor filtered by
     /// AllowsRole. What ModularAvatarAssembler should pick from once it's wired to roles (Phase 2).</summary>
-    public List<Part> VariantsFor(string gender, string slot, EmployeeRole role) =>
+    public List<IAvatarPart> VariantsFor(string gender, string slot, EmployeeRole role) =>
         VariantsFor(gender, slot).Where(p => p.AllowsRole(role)).ToList();
 
-    /// <summary>Every part not yet reviewed in the AOD — freshly scanned-in items with no metadata
-    /// entered yet. Backs the AOD's "missing data" filter toggle.</summary>
-    public List<Part> UnreviewedParts() => parts.Where(p => !p.metadataReviewed).ToList();
+    /// <summary>Every raw, not-yet-reviewed part — backs the AOD's "missing data" filter toggle.
+    /// A finalized AvatarPartAsset is never "unreviewed" by construction, so this only ever needs to
+    /// look at the raw list.</summary>
+    public List<IAvatarPart> UnreviewedParts() => parts.Cast<IAvatarPart>().ToList();
 }

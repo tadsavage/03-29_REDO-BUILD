@@ -179,7 +179,8 @@ public class AODPanel : IUIPanel
 
     private bool _visible;
     private bool _minimized;
-    private AvatarPartLibrary.Part _selectedPart;
+    private IAvatarPart _selectedPart;
+    private Label _submitErrorLabel;
 
     // ── "Pimp My Employee" mode — editing one specific live employee's cosmetic slots instead of
     // browsing/tagging the global part library. Null = normal library-browse mode. ──
@@ -596,19 +597,19 @@ public class AODPanel : IUIPanel
             return;
         }
 
-        RefreshSlotChips(lib.parts.Select(p => p.slot).Distinct());
+        RefreshSlotChips(lib.AllParts.Select(p => p.Slot).Distinct());
 
         var selectedGenders = _genderChips.Where(c => c.Selected).Select(c => ((Label)c.Root[0]).text.ToLower()).ToHashSet();
         var selectedRoles = _roleChips.Where(t => t.chip.Selected).Select(t => t.role).ToHashSet();
         var selectedSlots = _slotChips.Where(kv => kv.Value.Selected).Select(kv => kv.Key).ToHashSet();
         bool missingOnly = _missingOnlyChip.Selected;
 
-        var filtered = lib.parts.Where(p =>
-            (selectedGenders.Count == 0 || selectedGenders.Contains(p.gender)) &&
-            (selectedRoles.Count == 0 || p.allowedRoles.Count == 0 || p.allowedRoles.Any(selectedRoles.Contains)) &&
-            (selectedSlots.Count == 0 || selectedSlots.Contains(p.slot)) &&
-            (!missingOnly || !p.metadataReviewed)
-        ).OrderBy(p => p.slot).ThenBy(p => p.gender).ThenBy(p => p.variant).ToList();
+        var filtered = lib.AllParts.Where(p =>
+            (selectedGenders.Count == 0 || selectedGenders.Contains(p.Gender)) &&
+            (selectedRoles.Count == 0 || p.AllowedRoles.Count == 0 || p.AllowedRoles.Any(selectedRoles.Contains)) &&
+            (selectedSlots.Count == 0 || selectedSlots.Contains(p.Slot)) &&
+            (!missingOnly || !p.MetadataReviewed)
+        ).OrderBy(p => p.Slot).ThenBy(p => p.Gender).ThenBy(p => p.Variant).ToList();
 
         _countLabel.text = $"{filtered.Count} of {lib.PartCount} items";
 
@@ -620,7 +621,7 @@ public class AODPanel : IUIPanel
     /// a baked 3D thumbnail of the actual part centered on it, and its name overlaid at the bar's
     /// bottom edge — matches Tad's annotated mockup. Deliberately compact (fixed small size, no
     /// flex-grow) so the grid can show as many of a large library as possible at once.</summary>
-    private VisualElement BuildCard(AvatarPartLibrary lib, AvatarPartLibrary.Part part)
+    private VisualElement BuildCard(AvatarPartLibrary lib, IAvatarPart part)
     {
         var card = new VisualElement { name = "aod-card" };
         card.style.width = 108f;
@@ -637,7 +638,7 @@ public class AODPanel : IUIPanel
 
         var bar = new VisualElement { name = "aod-card-bar" };
         bar.style.height = 82f;
-        bar.style.backgroundColor = ColorForSlot(part.slot);
+        bar.style.backgroundColor = ColorForSlot(part.Slot);
         bar.style.justifyContent = Justify.Center;
         bar.style.alignItems = Align.Center;
         bar.pickingMode = PickingMode.Ignore;
@@ -660,7 +661,7 @@ public class AODPanel : IUIPanel
         nameStrip.pickingMode = PickingMode.Ignore;
         bar.Add(nameStrip);
 
-        var name = new Label(part.variant);
+        var name = new Label(part.Variant);
         ApplyFont(name, true, 10);
         name.style.color = Color.white;
         name.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -668,7 +669,7 @@ public class AODPanel : IUIPanel
         name.pickingMode = PickingMode.Ignore;
         nameStrip.Add(name);
 
-        var sub = new Label($"{part.slot} · {part.gender}");
+        var sub = new Label($"{part.Slot} · {part.Gender}");
         ApplyFont(sub, false, 9);
         sub.style.color = ColSubtleText;
         sub.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -676,7 +677,7 @@ public class AODPanel : IUIPanel
         sub.pickingMode = PickingMode.Ignore;
         card.Add(sub);
 
-        if (!part.metadataReviewed)
+        if (!part.MetadataReviewed)
         {
             var badge = new Label("NEW");
             ApplyFont(badge, true, 9);
@@ -768,7 +769,7 @@ public class AODPanel : IUIPanel
 
         string gender = rec.gender == EmployeeGender.Female ? "female" : "male";
         var (slot, matches) = ModularAvatarAssembler.OverrideCategoryInfo(_employeeCategory);
-        var options = lib.VariantsFor(gender, slot).Where(matches).OrderBy(p => p.variant).ToList();
+        var options = lib.VariantsFor(gender, slot).Where(matches).OrderBy(p => p.Variant).ToList();
         string catLabel = EmployeeCategories.First(c => c.key == _employeeCategory).label;
 
         _countLabel.text = $"{rec.employeeName} — {catLabel}";
@@ -812,7 +813,7 @@ public class AODPanel : IUIPanel
         if (probe != null) UnityEngine.Object.Destroy(probe);
 
         foreach (var key in ModularAvatarAssembler.EditableOverrideKeys)
-            _pendingOverrides[key] = chosen.TryGetValue(key, out var p) && p != null ? p.objectName : "";
+            _pendingOverrides[key] = chosen.TryGetValue(key, out var p) && p != null ? p.ObjectName : "";
     }
 
     /// <summary>Rebuilds the full assembled avatar with the current (unsaved) pending overrides and
@@ -871,14 +872,14 @@ public class AODPanel : IUIPanel
         return card;
     }
 
-    private VisualElement BuildEmployeeOptionCard(AvatarPartLibrary lib, AvatarPartLibrary.Part part)
+    private VisualElement BuildEmployeeOptionCard(AvatarPartLibrary lib, IAvatarPart part)
     {
         var card = new VisualElement { name = "aod-card" };
         card.style.width = 108f;
         card.style.marginRight = 8f;
         card.style.marginBottom = 8f;
         card.style.backgroundColor = ColCellEven;
-        bool selected = _pendingOverrides.TryGetValue(_employeeCategory, out var v) && v == part.objectName;
+        bool selected = _pendingOverrides.TryGetValue(_employeeCategory, out var v) && v == part.ObjectName;
         card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f;
         var borderCol = selected ? ColOrange : ColBlueEdge;
         card.style.borderTopColor = card.style.borderBottomColor = card.style.borderLeftColor = card.style.borderRightColor = borderCol;
@@ -889,7 +890,7 @@ public class AODPanel : IUIPanel
 
         var bar = new VisualElement();
         bar.style.height = 82f;
-        bar.style.backgroundColor = ColorForSlot(part.slot);
+        bar.style.backgroundColor = ColorForSlot(part.Slot);
         bar.style.justifyContent = Justify.Center;
         bar.style.alignItems = Align.Center;
         bar.pickingMode = PickingMode.Ignore;
@@ -912,7 +913,7 @@ public class AODPanel : IUIPanel
         nameStrip.pickingMode = PickingMode.Ignore;
         bar.Add(nameStrip);
 
-        var name = new Label(part.variant);
+        var name = new Label(part.Variant);
         ApplyFont(name, true, 10);
         name.style.color = Color.white;
         name.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -923,7 +924,7 @@ public class AODPanel : IUIPanel
         card.RegisterCallback<PointerUpEvent>(e =>
         {
             if (e.button != 0) return;
-            _pendingOverrides[_employeeCategory] = part.objectName;
+            _pendingOverrides[_employeeCategory] = part.ObjectName;
             RefreshEmployeeMode();
         });
         return card;
@@ -1027,20 +1028,20 @@ public class AODPanel : IUIPanel
         _detailPanel.Add(hint);
     }
 
-    private void SelectPart(AvatarPartLibrary lib, AvatarPartLibrary.Part part)
+    private void SelectPart(AvatarPartLibrary lib, IAvatarPart part)
     {
         _selectedPart = part;
         Refresh(); // re-draw grid so the newly-selected card's border highlights
 
         _previewImage.style.display = DisplayStyle.Flex;
         _previewEmptyHint.style.display = DisplayStyle.None;
-        _previewTitleLabel.text = part.objectName;
+        _previewTitleLabel.text = part.ObjectName;
         AODPreviewStage.ShowPart(lib, part);
 
         BuildDetailPanel(lib, part);
     }
 
-    private void BuildDetailPanel(AvatarPartLibrary lib, AvatarPartLibrary.Part part)
+    private void BuildDetailPanel(AvatarPartLibrary lib, IAvatarPart part)
     {
         _detailPanel.Clear();
 
@@ -1065,7 +1066,7 @@ public class AODPanel : IUIPanel
         // Slot is derived from the folder scan and intentionally NOT editable here — changing it
         // would change which bone the assembler attaches this part to, which is a Blender-side
         // authoring decision, not a metadata tweak. Shown read-only for context.
-        var slotLabel = new Label("Slot: " + part.slot);
+        var slotLabel = new Label("Slot: " + part.Slot);
         ApplyFont(slotLabel, false, 12);
         slotLabel.style.color = ColSubtleText;
         scroll.Add(slotLabel);
@@ -1076,7 +1077,7 @@ public class AODPanel : IUIPanel
         foreach (var g in new[] { "male", "female", "neutral" })
         {
             var chip = new Chip(g.Substring(0, 1).ToUpper() + g.Substring(1));
-            chip.SetSelected(part.gender == g, silent: true);
+            chip.SetSelected(part.Gender == g, silent: true);
             genderRow.Add(chip.Root);
         }
         // Single-select behavior for the gender row: picking one deselects the others.
@@ -1095,7 +1096,7 @@ public class AODPanel : IUIPanel
                     genderRow[j].style.borderTopColor = genderRow[j].style.borderBottomColor =
                         genderRow[j].style.borderLeftColor = genderRow[j].style.borderRightColor = sel ? ColOrangeEdge : ColBlueEdge;
                     ((Label)genderRow[j][0]).style.color = sel ? ColOrangeText : ColSubtleText;
-                    if (sel) part.gender = lbl;
+                    if (sel) part.Gender = lbl;
                 }
             }, TrickleDown.TrickleDown);
         }
@@ -1106,11 +1107,11 @@ public class AODPanel : IUIPanel
         foreach (EmployeeRole role in Enum.GetValues(typeof(EmployeeRole)))
         {
             var chip = new Chip(role.DisplayName());
-            chip.SetSelected(part.allowedRoles.Contains(role), silent: true);
+            chip.SetSelected(part.AllowedRoles.Contains(role), silent: true);
             chip.OnChanged += selected =>
             {
-                if (selected) { if (!part.allowedRoles.Contains(role)) part.allowedRoles.Add(role); }
-                else part.allowedRoles.Remove(role);
+                if (selected) { if (!part.AllowedRoles.Contains(role)) part.AllowedRoles.Add(role); }
+                else part.AllowedRoles.Remove(role);
             };
             roleRow.Add(chip.Root);
         }
@@ -1118,7 +1119,7 @@ public class AODPanel : IUIPanel
         Section("DEFAULT WEIGHT  (relative odds when no specific rule applies)");
         var weightRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
         scroll.Add(weightRow);
-        var weightSlider = new Slider(0f, 100f) { value = Mathf.Clamp(part.defaultWeight, 0f, 100f) };
+        var weightSlider = new Slider(0f, 100f) { value = Mathf.Clamp(part.DefaultWeight, 0f, 100f) };
         weightSlider.style.flexGrow = 1f;
         weightRow.Add(weightSlider);
         var weightValueLabel = new Label($"{Mathf.RoundToInt(weightSlider.value)}%");
@@ -1130,7 +1131,7 @@ public class AODPanel : IUIPanel
         weightRow.Add(weightValueLabel);
         weightSlider.RegisterValueChangedCallback(e =>
         {
-            part.defaultWeight = e.newValue;
+            part.DefaultWeight = e.newValue;
             weightValueLabel.text = $"{Mathf.RoundToInt(e.newValue)}%";
         });
 
@@ -1144,9 +1145,9 @@ public class AODPanel : IUIPanel
         scroll.Add(variantCountLabel);
 
         void RefreshVariantCount() =>
-            variantCountLabel.text = part.colorVariants.Count == 0
+            variantCountLabel.text = part.ColorVariants.Count == 0
                 ? "Using the part's own authored color (no variants selected)."
-                : $"{part.colorVariants.Count} color variant(s) selected.";
+                : $"{part.ColorVariants.Count} color variant(s) selected.";
 
         var palette = LoadSimplePalette();
         if (palette.Count == 0)
@@ -1170,7 +1171,7 @@ public class AODPanel : IUIPanel
 
             void ApplySwatchBorder()
             {
-                bool selected = part.colorVariants.Any(cv => ColorsClose(cv.color, swatchColor));
+                bool selected = part.ColorVariants.Any(cv => ColorsClose(cv.color, swatchColor));
                 sw.style.borderTopWidth = sw.style.borderBottomWidth =
                     sw.style.borderLeftWidth = sw.style.borderRightWidth = selected ? 3f : 1f;
                 var borderColor = selected ? ColOrange : new Color(0f, 0f, 0f, 0.4f);
@@ -1182,9 +1183,9 @@ public class AODPanel : IUIPanel
             sw.RegisterCallback<PointerUpEvent>(e =>
             {
                 if (e.button != 0) return;
-                var existing = part.colorVariants.FirstOrDefault(cv => ColorsClose(cv.color, swatchColor));
-                if (existing != null) part.colorVariants.Remove(existing);
-                else part.colorVariants.Add(new AvatarPartLibrary.ColorVariant
+                var existing = part.ColorVariants.FirstOrDefault(cv => ColorsClose(cv.color, swatchColor));
+                if (existing != null) part.ColorVariants.Remove(existing);
+                else part.ColorVariants.Add(new AvatarPartLibrary.ColorVariant
                 {
                     name = "#" + ColorUtility.ToHtmlStringRGB(swatchColor),
                     color = swatchColor,
@@ -1197,9 +1198,28 @@ public class AODPanel : IUIPanel
         }
         RefreshVariantCount();
 
-        // ── Update ──
-        var submitBtn = MakeButton(part.metadataReviewed ? "Update" : "Submit to AOD", ColGreen, ColGreenEdge, ColGreen, ColVanilla, 14);
-        submitBtn.style.marginTop = 16f;
+        // ── Validation error banner — hidden unless a Submit/Update attempt was rejected. Kept as a
+        // field so Submit() can show it without a full BuildDetailPanel rebuild (which would also
+        // discard whatever the user was mid-editing above). ──
+        _submitErrorLabel = new Label { style = { display = DisplayStyle.None } };
+        ApplyFont(_submitErrorLabel, true, 12);
+        _submitErrorLabel.style.color = ColVanilla;
+        _submitErrorLabel.style.backgroundColor = ColFireRed;
+        _submitErrorLabel.style.borderTopWidth = _submitErrorLabel.style.borderBottomWidth =
+            _submitErrorLabel.style.borderLeftWidth = _submitErrorLabel.style.borderRightWidth = 2f;
+        _submitErrorLabel.style.borderTopColor = _submitErrorLabel.style.borderBottomColor =
+            _submitErrorLabel.style.borderLeftColor = _submitErrorLabel.style.borderRightColor = ColFireRedEdge;
+        _submitErrorLabel.style.borderTopLeftRadius = _submitErrorLabel.style.borderTopRightRadius =
+            _submitErrorLabel.style.borderBottomLeftRadius = _submitErrorLabel.style.borderBottomRightRadius = 6f;
+        _submitErrorLabel.style.paddingLeft = _submitErrorLabel.style.paddingRight =
+            _submitErrorLabel.style.paddingTop = _submitErrorLabel.style.paddingBottom = 8f;
+        _submitErrorLabel.style.marginTop = 12f;
+        _submitErrorLabel.style.whiteSpace = WhiteSpace.Normal;
+        scroll.Add(_submitErrorLabel);
+
+        // ── Submit/Update ──
+        var submitBtn = MakeButton(part.MetadataReviewed ? "Update" : "Submit to AOD", ColGreen, ColGreenEdge, ColGreen, ColVanilla, 14);
+        submitBtn.style.marginTop = 8f;
         submitBtn.style.marginBottom = 16f;
         submitBtn.style.height = 40f;
         submitBtn.clicked += () => Submit(lib, part);
@@ -1247,14 +1267,67 @@ public class AODPanel : IUIPanel
         return _paletteCache;
     }
 
-    private void Submit(AvatarPartLibrary lib, AvatarPartLibrary.Part part)
+    /// <summary>Validates and finalizes a part via ModularAvatarFinalizer (an Editor-only assembly
+    /// this runtime-UI assembly has no reference to — reached by reflection, same pattern as the
+    /// "Rescan Folder" button above). A raw Part gets finalized into a new AvatarPartAsset+prefab
+    /// pair; an already-finalized AvatarPartAsset re-validates against its current raw source (if any
+    /// still exists) and overwrites the same prefab/asset in place. On failure, shows the returned
+    /// error in the detail panel's banner instead of silently doing nothing — a broken part can no
+    /// longer go live without an explicit, visible rejection.</summary>
+    private void Submit(AvatarPartLibrary lib, IAvatarPart part)
     {
-        part.metadataReviewed = true;
 #if UNITY_EDITOR
-        UnityEditor.EditorUtility.SetDirty(lib);
-        UnityEditor.AssetDatabase.SaveAssets();
-#endif
+        var finalizerType = System.AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(a => { try { return a.GetTypes(); } catch { return System.Type.EmptyTypes; } })
+            .FirstOrDefault(t => t.Name == "ModularAvatarFinalizer");
+        if (finalizerType == null)
+        {
+            ShowSubmitError("Could not find ModularAvatarFinalizer via reflection.");
+            return;
+        }
+
+        if (part is AvatarPartLibrary.Part rawPart)
+        {
+            var method = finalizerType.GetMethod("TryFinalize", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            object[] args = { lib, rawPart, null, null };
+            bool ok = (bool)method.Invoke(null, args);
+            if (!ok)
+            {
+                ShowSubmitError((string)args[2]);
+                return;
+            }
+            var newAsset = (AvatarPartAsset)args[3];
+            lib.parts.Remove(rawPart);
+            lib.finalizedParts.Add(newAsset);
+            UnityEditor.EditorUtility.SetDirty(lib);
+            UnityEditor.AssetDatabase.SaveAssets();
+            AODPreviewStage.ClearThumbnailCache(); // the finalized prefab may render slightly differently from the raw source
+            _selectedPart = newAsset;
+        }
+        else if (part is AvatarPartAsset asset)
+        {
+            var method = finalizerType.GetMethod("TryUpdateFromRawSource", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            object[] args = { lib, asset, null };
+            bool ok = (bool)method.Invoke(null, args);
+            if (!ok)
+            {
+                ShowSubmitError((string)args[2]);
+                return;
+            }
+            AODPreviewStage.ClearThumbnailCache();
+        }
+
         Refresh();
-        BuildDetailPanel(lib, part); // re-render so the button label flips to "Update" and the NEW badge disappears from view
+        BuildDetailPanel(lib, _selectedPart); // re-render so the button label flips to "Update" and the NEW badge disappears from view
+#else
+        ShowSubmitError("The AOD is an editor-only tool.");
+#endif
+    }
+
+    private void ShowSubmitError(string message)
+    {
+        if (_submitErrorLabel == null) return;
+        _submitErrorLabel.text = string.IsNullOrEmpty(message) ? "Submit failed for an unknown reason." : message;
+        _submitErrorLabel.style.display = DisplayStyle.Flex;
     }
 }

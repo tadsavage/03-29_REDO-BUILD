@@ -15,13 +15,17 @@ using UnityEngine;
 /// </summary>
 public static class ModularAvatarImporter
 {
-    public const string DropFolder  = "Assets/_Project/Models/BlenderFiles/Modular_Staff";
+    // 2026-09-27: renamed/reorganized (uncommitted, live in the Project window) from the old
+    // "Modular_Staff" flat drop folder to this one with named subfolders (BODY_MODELS, PROPS_MODELS,
+    // Z-AOD_WORKSHOP). FindAssets is recursive, so pointing DropFolder here scans all of them —
+    // Z-AOD_WORKSHOP is explicitly excluded below (it holds the master Blender workspace file, not
+    // individual parts).
+    public const string DropFolder  = "Assets/_Project/Models/BlenderFiles/Modular_Staff_Models";
 
-    // Finished, hand-built worker avatar/accessory PREFABS (converted from the raw drop-folder
-    // exports once Tad is happy with them) — a second scan root alongside DropFolder. Distinct from
-    // DropFolder: that's raw Blender staging (source FBX Tad pulls pieces FROM), this is the
-    // published, ready-to-equip parts list.
-    public const string PrefabFolder = "Assets/_Project/Prefabs/WORKERS";
+    // Finished, submitted parts no longer live in a second SCAN root — see ModularAvatarFinalizer.
+    // A submitted part becomes a standalone AvatarPartAsset (loaded below, into lib.finalizedParts)
+    // plus a real prefab under ModularAvatarFinalizer.BodyPrefabFolder/PropsPrefabFolder. Those
+    // prefab folders are a write target for the finalizer, never a scan root for this importer.
 
     public const string LibraryPath = "Assets/Resources/ModularAvatar/AvatarPartLibrary.asset";
 
@@ -41,34 +45,29 @@ public static class ModularAvatarImporter
         var lib = LoadOrCreateLibrary();
         lib.sources.Clear();
 
-        // AOD metadata (allowedRoles/colorVariants/defaultWeight/metadataReviewed) is entered by
-        // hand through the Avatar Object Database UI, not by this scan — a rescan must NOT wipe it.
-        // Snapshotted here by objectName (the one stable identity a part has across rescans) and
-        // re-applied to each freshly-parsed Part below, before the old list is discarded.
+        // Load every already-finalized part FIRST — these are the permanent source of truth and are
+        // never touched by this scan (see ModularAvatarFinalizer). Raw candidates that already match
+        // a finalized objectName are skipped below rather than re-added as unreviewed duplicates.
+        lib.finalizedParts = AssetDatabase.FindAssets("t:AvatarPartAsset", new[] { ModularAvatarFinalizer.FinalizedAssetFolder })
+            .Select(g => AssetDatabase.LoadAssetAtPath<AvatarPartAsset>(AssetDatabase.GUIDToAssetPath(g)))
+            .Where(a => a != null)
+            .ToList();
+        var finalizedNames = lib.finalizedParts.Select(a => a.ObjectName.ToLowerInvariant()).ToHashSet();
+
+        // AOD metadata (allowedRoles/colorVariants/defaultWeight) is entered by hand through the
+        // Avatar Object Database UI, not by this scan — a rescan must NOT wipe it. Snapshotted here
+        // by objectName (the one stable identity a part has across rescans) and re-applied to each
+        // freshly-parsed Part below, before the old list is discarded. Only ever applies to RAW parts
+        // now — a finalized AvatarPartAsset's metadata lives on its own file, untouched by this scan.
         var oldMetadataByName = lib.parts
             .GroupBy(p => p.objectName.ToLowerInvariant())
             .ToDictionary(g => g.Key, g => g.First());
         lib.parts.Clear();
 
-        // Scan both roots. DropFolder is raw FBX exports (t:Model matches those); PrefabFolder
-        // holds already-converted .prefab assets too (t:Model alone misses those — a .prefab is
-        // imported as t:Prefab/t:GameObject, not t:Model), so search both types there.
-        // PrefabFolder first: it holds the finished, published parts. When a raw DropFolder export
-        // (e.g. AVATAR_PROPS/man_hair_regular.fbx) has already been converted into a matching
-        // WORKER_ACCESSORIES prefab, both would otherwise scan in as separate sources with identical
-        // gender/slot/variant — harmless for a single-variant slot today, but double-weights that
-        // variant the moment a slot ever has more than one real option. Deduped below by keeping
-        // whichever copy is seen FIRST, so scanning the finished prefab first makes it authoritative.
-        // Query each root SEPARATELY (rather than one combined FindAssets call) so the guid list's
-        // order is guaranteed PrefabFolder-first, regardless of FindAssets' own internal ordering.
-        IEnumerable<string> GuidsIn(string folder) =>
-            AssetDatabase.FindAssets("t:Model", new[] { folder })
-                         .Concat(AssetDatabase.FindAssets("t:Prefab", new[] { folder }));
-        var guids = AssetDatabase.IsValidFolder(PrefabFolder)
-            ? GuidsIn(PrefabFolder).Concat(GuidsIn(DropFolder)).Distinct()
-            : GuidsIn(DropFolder).Distinct();
+        // Only DropFolder is scanned now — a finished/submitted part is a real AvatarPartAsset
+        // (loaded above), not a second scan root. t:Model matches raw FBX/OBJ exports.
+        var guids = AssetDatabase.FindAssets("t:Model", new[] { DropFolder }).Distinct();
         int fbxCount = 0;
-        var seenPartKeys = new HashSet<string>();
 
         foreach (var guid in guids)
         {
@@ -78,6 +77,13 @@ public static class ModularAvatarImporter
             // which breaks SkinnedMeshRenderer bone references during cross-source merging.
             string pathLower = path.ToLower();
             if (pathLower.EndsWith(".blend") || pathLower.EndsWith(".blend1")) continue;
+
+            // Z-AOD_WORKSHOP holds the master Blender workspace file (workspace.blend) and a bulk
+            // multi-costume reference-pool FBX artists pull individual pieces FROM — never a source
+            // of individual parts itself. Explicit path check (not a filename substring) so it can't
+            // silently stop working if something in there someday lacks "workshop" in its own name.
+            if (path.Replace('\\', '/').Contains("/Z-AOD_WORKSHOP/", System.StringComparison.OrdinalIgnoreCase))
+                continue;
 
             // Skip loose "*Workshop*" staging files sitting at the drop folder's own root (e.g.
             // Gender_Neutral_Workshop.fbx) — these are Blender reference/pose-testing exports, not
@@ -151,25 +157,17 @@ public static class ModularAvatarImporter
                     continue;
                 }
 
-                // Same gender+slot+variant already added from an earlier-scanned source (e.g. the
-                // finished WORKER_ACCESSORIES prefab already covered this exact part) — skip the
-                // duplicate rather than double-weighting that variant in random selection.
-                string key = $"{part.gender}/{part.slot}/{part.variant}".ToLower();
-                if (!seenPartKeys.Add(key))
-                {
-                    if (verbose)
-                        Debug.Log($"[ModularAvatar] '{t.name}' in {Path.GetFileName(path)} duplicates " +
-                                  $"an already-scanned part ({key}) — skipped.");
+                // Already finalized under this exact objectName — don't re-add it as an unreviewed
+                // raw duplicate. The finalized AvatarPartAsset (loaded above) is authoritative.
+                if (finalizedNames.Contains(part.objectName.ToLowerInvariant()))
                     continue;
-                }
 
                 if (oldMetadataByName.TryGetValue(part.objectName.ToLowerInvariant(), out var oldPart))
                 {
-                    part.allowedRoles     = oldPart.allowedRoles;
-                    part.colorVariants    = oldPart.colorVariants;
-                    part.defaultWeight    = oldPart.defaultWeight;
-                    part.metadataReviewed = oldPart.metadataReviewed;
-                    part.verifiedInGame   = oldPart.verifiedInGame;
+                    part.allowedRoles  = oldPart.allowedRoles;
+                    part.colorVariants = oldPart.colorVariants;
+                    part.defaultWeight = oldPart.defaultWeight;
+                    part.verifiedInGame = oldPart.verifiedInGame;
                 }
 
                 lib.parts.Add(part);

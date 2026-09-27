@@ -688,6 +688,7 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         string g = gender == EmployeeGender.Female ? "female" : "male";
         foreach (var part in lib.VariantsFor(g, "body"))
         {
+            if (!part.MetadataReviewed) continue; // only AOD-submitted/finalized parts count — a raw, un-reviewed scan result never should
             var prefab = lib.PrefabFor(part);
             if (prefab != null && prefab.GetComponentInChildren<SkinnedMeshRenderer>(true)?.bones?.Length > 0)
                 return true;

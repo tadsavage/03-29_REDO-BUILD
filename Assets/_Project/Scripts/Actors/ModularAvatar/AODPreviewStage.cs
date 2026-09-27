@@ -176,7 +176,7 @@ public class AODPreviewStage : MonoBehaviour
     /// hardhat color lives in the same prefab), and this shows exactly one at a time. Frames the
     /// camera on the target renderer's own bounds so a tiny prop and a full body both fill the frame
     /// reasonably. Call <see cref="Clear"/> when the preview is no longer needed (e.g. panel closed).</summary>
-    public static void ShowPart(AvatarPartLibrary lib, AvatarPartLibrary.Part part)
+    public static void ShowPart(AvatarPartLibrary lib, IAvatarPart part)
     {
         var stage = Instance;
         stage.ClearInternal();
@@ -197,21 +197,21 @@ public class AODPreviewStage : MonoBehaviour
         stage._pitch = 0f;
 
         var instance = Object.Instantiate(prefab, stage._rotatePivot);
-        instance.name = "Preview_" + part.objectName;
+        instance.name = "Preview_" + part.ObjectName;
         stage._currentInstance = instance;
 
         // Unity's Instantiate() (and our own "Preview_" rename above) changes the CLONED root
         // object's name away from the source prefab's — for a single-mesh-root prefab (the mesh
         // sits directly on the prefab's own root, no children) that root IS the node we're looking
-        // for, so an exact `t.name == part.objectName` match against the live instance would never
+        // for, so an exact `t.name == part.ObjectName` match against the live instance would never
         // succeed (root reads "Preview_man_hair_regular(Clone)" or similar, never "man_hair_regular").
         // This was the actual root cause of the "always renders black" bug — the target was never
         // found, ShowPart returned before ever calling FrameOn, and the camera sat at its default
         // framing looking at nothing. Strip both wrappers before comparing.
-        Transform target = stage.FindTargetMesh(instance, part.objectName);
+        Transform target = stage.FindTargetMesh(instance, part.ObjectName);
         if (target == null)
         {
-            Debug.LogWarning($"[AODPreviewStage] Could not find '{part.objectName}' inside its own source prefab — nothing to preview.");
+            Debug.LogWarning($"[AODPreviewStage] Could not find '{part.ObjectName}' inside its own source prefab — nothing to preview.");
             return;
         }
 
@@ -364,10 +364,10 @@ public class AODPreviewStage : MonoBehaviour
     /// synchronous instantiate→render→readback→destroy cycle on the separate thumb stage — cheap
     /// enough per-call, and cached forever (per objectName) until <see cref="ClearThumbnailCache"/>
     /// is called (e.g. after a folder rescan changes what a part looks like).</summary>
-    public static Texture2D GetOrCaptureThumbnail(AvatarPartLibrary lib, AvatarPartLibrary.Part part)
+    public static Texture2D GetOrCaptureThumbnail(AvatarPartLibrary lib, IAvatarPart part)
     {
         if (lib == null || part == null) return null;
-        if (_thumbCache.TryGetValue(part.objectName, out var cached) && cached != null) return cached;
+        if (_thumbCache.TryGetValue(part.ObjectName, out var cached) && cached != null) return cached;
 
         var stage = Instance;
         if (stage._thumbCamera == null) stage.SetupThumbStage();
@@ -376,7 +376,7 @@ public class AODPreviewStage : MonoBehaviour
         if (prefab == null) return null;
 
         var instance = Object.Instantiate(prefab, stage._thumbStagePivot);
-        Transform target = stage.FindTargetMesh(instance, part.objectName);
+        Transform target = stage.FindTargetMesh(instance, part.ObjectName);
         if (target == null)
         {
             Object.Destroy(instance);
@@ -399,7 +399,7 @@ public class AODPreviewStage : MonoBehaviour
         RenderTexture.active = null;
 
         Object.Destroy(instance);
-        _thumbCache[part.objectName] = tex;
+        _thumbCache[part.ObjectName] = tex;
         return tex;
     }
 

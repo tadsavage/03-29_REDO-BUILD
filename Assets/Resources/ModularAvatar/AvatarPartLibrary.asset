@@ -13,145 +13,155 @@ MonoBehaviour:
   m_Name: AvatarPartLibrary
   m_EditorClassIdentifier: Assembly-CSharp::AvatarPartLibrary
   sources:
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/_ClipBoard.fbx
-    prefab: {fileID: 919132149155446097, guid: 88707f7d458ac614b89ba9377b9f21d4, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/_Scangun.fbx
-    prefab: {fileID: 919132149155446097, guid: 5b028b0e9f5756242a2b5274b519f2ed, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/man_hair_regularBlack.fbx
-    prefab: {fileID: 919132149155446097, guid: 62f89a7a14677084a818c775e1650b44, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/man_hair_regularBlonde.fbx
-    prefab: {fileID: 919132149155446097, guid: 3ffed61bab3886747af4350fc61c28ea, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/man_hair_regularBrown.fbx
-    prefab: {fileID: 919132149155446097, guid: c1ae47b45098c7f4e8bbbef9e39418d9, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hands_glovesBrown.fbx
-    prefab: {fileID: 919132149155446097, guid: 16127d67e48667147b1b9c7664ce9617, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hands_glovesWhite.fbx
-    prefab: {fileID: 919132149155446097, guid: dc39e89ae9d438a4ea49e0922e9acbb0, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_hardhat-orange.fbx
-    prefab: {fileID: 919132149155446097, guid: 897558dea3dc9954ab2632d4523ae85e, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_hardhat-red.fbx
-    prefab: {fileID: 919132149155446097, guid: 0719af10d95f9144f99bc0849de2ac41, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_hardhat-yellow.fbx
-    prefab: {fileID: 919132149155446097, guid: 894240290c7f99f478d7b0c0804987e9, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_headphonesRed.fbx
-    prefab: {fileID: 919132149155446097, guid: 0000f0ef3c561d8438a8a2124141b5f3, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/neutral_hat_headphonesYellow.fbx
-    prefab: {fileID: 919132149155446097, guid: a25a376f088bb054a9803b2390b54a26, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/woman_hair_bob-blonde.fbx
-    prefab: {fileID: 919132149155446097, guid: f6cc2ef163f80164982bd831cf8f0249, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_WORKER_MODELS/man_body_warehouseCaucasian.fbx
-    prefab: {fileID: 919132149155446097, guid: f6bc1f0aaa9540c4eaedde4e15e948a2, type: 3}
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_WORKER_MODELS/woman_body_warehouseCaucasian.fbx
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/BODY_MODELS/man_body_warehouseCaucasian.fbx
     prefab: {fileID: 919132149155446097, guid: 52b1897443782024e980eb7212f0558e, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/BODY_MODELS/woman_body_warehouseCaucasian.fbx
+    prefab: {fileID: 919132149155446097, guid: 4f90b68f3fa569f49be6d5b95203d3f4, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/_ClipBoard.fbx
+    prefab: {fileID: 919132149155446097, guid: 88707f7d458ac614b89ba9377b9f21d4, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/_Scangun.fbx
+    prefab: {fileID: 919132149155446097, guid: 5b028b0e9f5756242a2b5274b519f2ed, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/man_hair_regularBlack.fbx
+    prefab: {fileID: 919132149155446097, guid: 62f89a7a14677084a818c775e1650b44, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/man_hair_regularBlonde.fbx
+    prefab: {fileID: 919132149155446097, guid: 3ffed61bab3886747af4350fc61c28ea, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/man_hair_regularBrown.fbx
+    prefab: {fileID: 919132149155446097, guid: c1ae47b45098c7f4e8bbbef9e39418d9, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/neutral_hands_glovesBrown.fbx
+    prefab: {fileID: 919132149155446097, guid: 16127d67e48667147b1b9c7664ce9617, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/neutral_hands_glovesWhite.fbx
+    prefab: {fileID: 919132149155446097, guid: dc39e89ae9d438a4ea49e0922e9acbb0, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/neutral_hat_hardhat-orange.fbx
+    prefab: {fileID: 919132149155446097, guid: 897558dea3dc9954ab2632d4523ae85e, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/neutral_hat_hardhat-red.fbx
+    prefab: {fileID: 919132149155446097, guid: 0719af10d95f9144f99bc0849de2ac41, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/neutral_hat_hardhat-yellow.fbx
+    prefab: {fileID: 919132149155446097, guid: 894240290c7f99f478d7b0c0804987e9, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/neutral_hat_headphonesRed.fbx
+    prefab: {fileID: 919132149155446097, guid: 0000f0ef3c561d8438a8a2124141b5f3, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/neutral_hat_headphonesYellow.fbx
+    prefab: {fileID: 919132149155446097, guid: a25a376f088bb054a9803b2390b54a26, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/woman_hair_bob-blonde.fbx
+    prefab: {fileID: 919132149155446097, guid: f6cc2ef163f80164982bd831cf8f0249, type: 3}
   parts:
+  - objectName: man_body_warehouseCaucasian
+    gender: male
+    slot: body
+    variant: warehouseCaucasian
+    sourceIndex: 0
+    allowedRoles: 00000000010000000200000003000000040000000c000000i
+    colorVariants: []
+    defaultWeight: 1
+    metadataReviewed: 0
+    verifiedInGame: 1
   - objectName: man_hair_regularBlack
     gender: male
     slot: hair
     variant: regularBlack
-    sourceIndex: 2
+    sourceIndex: 4
     allowedRoles: 0000000001000000020000000300000004000000i
     colorVariants: []
     defaultWeight: 41.2
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: man_hair_regularBlonde
     gender: male
     slot: hair
     variant: regularBlonde
-    sourceIndex: 3
+    sourceIndex: 5
     allowedRoles: 00000000010000000200000003000000040000000c000000i
     colorVariants: []
     defaultWeight: 1
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: man_hair_regularBrown
     gender: male
     slot: hair
     variant: regularBrown
-    sourceIndex: 4
+    sourceIndex: 6
     allowedRoles: 00000000010000000200000003000000040000000c000000i
     colorVariants: []
     defaultWeight: 42.2
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: neutral_hands_glovesBrown
     gender: neutral
     slot: hands
     variant: glovesBrown
-    sourceIndex: 5
+    sourceIndex: 7
     allowedRoles: 00000000010000000200000003000000040000000c000000i
     colorVariants: []
     defaultWeight: 40.7
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: neutral_hands_glovesWhite
     gender: neutral
     slot: hands
     variant: glovesWhite
-    sourceIndex: 6
+    sourceIndex: 8
     allowedRoles: 00000000010000000200000003000000040000000c000000i
     colorVariants: []
     defaultWeight: 37.7
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: neutral_hat_hardhat-orange
     gender: neutral
     slot: hat
     variant: hardhat-orange
-    sourceIndex: 7
+    sourceIndex: 9
     allowedRoles: 000000000300000004000000050000000c000000i
     colorVariants: []
     defaultWeight: 14.6
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: neutral_hat_hardhat-red
     gender: neutral
     slot: hat
     variant: hardhat-red
-    sourceIndex: 8
+    sourceIndex: 10
     allowedRoles: 0000000004000000050000000c000000i
     colorVariants: []
     defaultWeight: 22.1
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: neutral_hat_hardhat-yellow
     gender: neutral
     slot: hat
     variant: hardhat-yellow
-    sourceIndex: 9
+    sourceIndex: 11
     allowedRoles: 000000000400000005000000090000000c000000i
     colorVariants:
     - name: '#B7D349'
       material: {fileID: 0}
       color: {r: 0.7176471, g: 0.827451, b: 0.28627452, a: 1}
     defaultWeight: 30.1
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: neutral_hat_headphonesRed
     gender: neutral
     slot: hat
     variant: headphonesRed
-    sourceIndex: 10
+    sourceIndex: 12
     allowedRoles: 01000000020000000300000004000000i
     colorVariants: []
     defaultWeight: 36.7
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: neutral_hat_headphonesYellow
     gender: neutral
     slot: hat
     variant: headphonesYellow
-    sourceIndex: 11
+    sourceIndex: 13
     allowedRoles: 00000000010000000200000003000000040000000c000000i
     colorVariants: []
     defaultWeight: 26.1
-    metadataReviewed: 1
+    metadataReviewed: 0
     verifiedInGame: 1
   - objectName: woman_hair_bob-blonde
     gender: female
     slot: hair
     variant: bob-blonde
-    sourceIndex: 12
+    sourceIndex: 14
     allowedRoles: 010000000200000003000000040000000500000000000000i
     colorVariants:
     - name: '#CA3038'
@@ -161,25 +171,7 @@ MonoBehaviour:
       material: {fileID: 0}
       color: {r: 0.99215686, g: 0.84313726, b: 0.14117648, a: 1}
     defaultWeight: 100
-    metadataReviewed: 1
-    verifiedInGame: 1
-  - objectName: man_body_warehouseCaucasian
-    gender: male
-    slot: body
-    variant: warehouseCaucasian
-    sourceIndex: 13
-    allowedRoles: 
-    colorVariants: []
-    defaultWeight: 1
     metadataReviewed: 0
-    verifiedInGame: 0
-  - objectName: woman_body_warehouseCaucasian
-    gender: female
-    slot: body
-    variant: warehouseCaucasian
-    sourceIndex: 14
-    allowedRoles: 00000000010000000200000003000000040000000c000000i
-    colorVariants: []
-    defaultWeight: 1
-    metadataReviewed: 1
     verifiedInGame: 1
+  finalizedParts:
+  - {fileID: 11400000, guid: 27b0188a21d3ba24faefb3acc89905e2, type: 2}
