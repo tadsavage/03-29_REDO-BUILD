@@ -88,7 +88,13 @@ MonoBehaviour:
     variant: bob-blonde
     sourceIndex: 6
     allowedRoles: 000000000100000002000000030000000400000005000000060000000700000008000000090000000a0000000b0000000d0000000c000000i
-    colorVariants: []
-    defaultWeight: 0.5
+    colorVariants:
+    - name: '#CA3038'
+      material: {fileID: 0}
+      color: {r: 0.7921569, g: 0.1882353, b: 0.21960784, a: 0.32156864}
+    - name: '#FDD724'
+      material: {fileID: 0}
+      color: {r: 0.99215686, g: 0.84313726, b: 0.14117648, a: 1}
+    defaultWeight: 100
     metadataReviewed: 1
     verifiedInGame: 0
