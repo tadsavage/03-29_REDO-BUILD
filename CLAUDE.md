@@ -2186,3 +2186,99 @@ through the actual FBX/meta files, not just code):
   `Assets/_Project/Scripts/UI_UX/EmployeeInfoUI.cs` (Actions dropdown entry),
   `Assets/_Project/Scripts/UI_UX/TopHUD/TopBar.uss` (font sizes),
   `Assets/_Project/Scripts/Actors/EmployeeSystem/ReceivingEquipmentService.cs` (male rotation stopgap).
+
+---
+
+## Session 2026-09-27 (continued, other machine) — Cross-machine handoff resolved: abandoned the male/female "body_floor" modular pipeline entirely
+
+Picked up the CROSS-MACHINE HANDOFF SNAPSHOT above on a second machine. The handoff's diagnosis
+(mirrored bind pose between `male_body_floor.fbx`/`female_body_floor.fbx`) turned out to describe
+files that were **not actually present on this machine** — investigated why, found the real fix was
+simpler than the handoff's Blender re-skin plan, and Tad chose to abandon that pipeline rather than
+repair it.
+
+### Git archaeology: the files existed, just not on disk here
+
+`male_body_floor.fbx`/`female_body_floor.fbx` (+ matching `WORKER_AVATARS/*.prefab`) were genuinely
+committed by the other-machine session (`141a18264`, 2026-09-25) and are present in this machine's
+`HEAD` (`5b32ba220`, 2026-09-26 — confirmed via `git ls-tree`). But `git status` showed all 8 of
+those files as **locally deleted, uncommitted** here, alongside 48 unrelated portrait PNGs (56
+deletions total, no LFS in this repo) — the most recent reflog entry was a clean `pull --ff`, so the
+pull itself succeeded and something removed them from disk afterward, cause unknown (not a repo/LFS
+problem). Lesson: when a teammate's handoff note describes a file that "should" exist per a session
+log, verify with `git ls-tree`/`ls` before trusting the note — a clean pull doesn't guarantee the
+working tree still matches it.
+
+### The actual root cause of the reported bug (male avatar missing) was simpler than the handoff's
+
+Independent of the mirrored-rig investigation: `EmployeeSpawner.FixedAvatarFor` had males for
+Receiver/ReachTruckOperator/DockStockerOperator/OrderSelector deliberately falling through
+(`=> null`) to the random modular assembler (changed 2026-09-26, same day as the handoff, "for real
+hair/vest/color variety"). But `AvatarPartLibrary.asset` has never had a `male`+`body` part — the
+`woman_construction_worker` "body" entry it does have pointed at a mesh living *inside*
+`female_body_floor.prefab` (traced via `sourceIndex`), not at the standalone Polyperfect
+`Assets/polyperfect/.../woman_construction_worker.prefab`. So the modular assembler had zero body
+candidates for gender=male and built a bodiless avatar — the floating-hardhat screenshot. Two
+different assets share the name "woman_construction_worker": the modular AOD part (inside the now-
+deleted `female_body_floor.prefab`) and the real Polyperfect character prefab
+(`Assets/polyperfect/Low Poly Animated People/- Prefabs/woman_construction_worker.prefab`) that
+`_floorWorkerAvatarModelFemale` was actually wired to. Only the second one has a genuine
+`SkinnedMeshRenderer` (verified by grepping the prefab's YAML) — confirmed the CLAUDE.md handoff's
+"plain unskinned MeshRenderer" claim was about the *first* one, not the fixed-avatar female's asset.
+
+### Decision: abandon body_floor, both genders share the Polyperfect fixed-avatar path
+
+Tad's call, since the modular body pipeline never had a working pair on either side: revert
+`FixedAvatarFor`'s male branch to return `man_construction_worker.prefab` (same treatment female
+already got), instead of pursuing the handoff's "Copy From Other Avatar"/re-skin repair plan.
+`_floorWorkerAvatarModel` (male) was already sitting unused, already wired in `Main.unity` to that
+exact Polyperfect prefab — the fix was a one-line switch-case change, no scene edit needed
+([EmployeeSpawner.cs:603-615](Assets/_Project/Scripts/Actors/EmployeeSystem/EmployeeSpawner.cs:603)):
+
+```csharp
+EmployeeRole.Receiver or EmployeeRole.ReachTruckOperator or EmployeeRole.DockStockerOperator
+    or EmployeeRole.OrderSelector
+    => PoolOrSingle(null, female ? _floorWorkerAvatarModelFemale : _floorWorkerAvatarModel),
+```
+
+**Cleanup committed alongside it (`fed926d`):** deleted `male_body_floor.fbx`/`female_body_floor.fbx`
++ their `WORKER_AVATARS/*.prefab` counterparts (the 8 files from the git-archaeology section above —
+staged their pre-existing local deletion rather than restoring them), and hand-removed the stale
+`woman_construction_worker`/`female_body_floor.prefab` source+part entries from
+`AvatarPartLibrary.asset`. Left the unrelated 48-portrait-PNG churn and a modified font SDF asset
+alone — pre-existing local state, not part of this fix. Re-ran
+`Tools ▸ Modular Avatar ▸ Scan & Rebuild Library` afterward: rebuilt clean to 14 FBX / 5 parts
+(`female/hair`, `male/hair`, `neutral/hat` ×3) — **zero body-slot parts for either gender now**,
+confirming the hand-edit matched what a real rescan produces and the modular assembler can never
+again produce a bodiless avatar for these four roles.
+
+### The male/female clipboard-rotation stopgap was a downstream symptom of the same abandoned rig — removed
+
+`ReceivingEquipmentService.Equip()` had a `MaleClipboardLocalEuler`/`MaleRfGunLocalEuler` branch
+(the "stopgap" mentioned in the handoff snapshot above) that existed specifically to compensate for
+`male_body_floor.fbx`'s mirrored bind pose. With that file gone and both genders now on the
+Polyperfect pair, the branch became actively wrong rather than merely unnecessary. Verified live
+before touching it (this is the check the handoff's own "Quick orientation" section prescribed):
+entered Play Mode, found all 11 live employees, called `Animator.Rebind()` +
+`GetBoneTransform(HumanBodyBones.LeftHand/RightHand).localRotation` on every one — **male and female
+alike all read the identical `(355.34, 348.60, 2.55)`**, no mirroring. Removed the male branch
+(`e903322`), restoring a single shared `ClipboardLocalEuler`/`RfGunLocalEuler` for both genders.
+Had to `manage_editor stop` before the code edit would actually compile — Unity's MCP bridge cannot
+compile mid-Play-mode (a gotcha already documented earlier in this file for the racking system;
+applies here too). Re-verified post-fix by live-equipping a fresh male (Aaron Miller) and female
+(Megan Barnes) Receiver and screenshotting both — clipboard/scan gun sit naturally in both cases, no
+floating or clipping.
+
+### Current state of the modular avatar system, for the next session
+
+- `AvatarPartLibrary` has real parts for `hair` (1 male, 1 female) and `hat` (3 neutral) only. No
+  `body` slot exists for either gender — every role that used to depend on a modular body
+  (Receiver/ReachTruckOperator/DockStockerOperator/OrderSelector) is now on the fixed Polyperfect
+  path for both genders, same as Boss/Security/IC/TruckDriver/Admin/generic-worker already were.
+- The AOD ("Pimp My Employee") editor built earlier this session still works for its 4 scoped
+  categories (hair, hard hat, headphones, facial hair) — those never depended on the body slot.
+- If a real modular body ever gets built again, it needs a skin-weighted pair for BOTH genders from
+  the same rig lineage (ideally derived from `_MainRig.fbx` the way the fixed-avatar Polyperfect
+  prefabs already are) — checking bind-pose parity via the `Animator.Rebind()` + `GetBoneTransform`
+  technique above, on both genders, BEFORE wiring any hand-anchored prop logic against it, would have
+  caught this whole saga at its source days earlier.
