@@ -16,14 +16,13 @@ public static class ReceivingEquipmentService
     // below, not added on top of the prefab's own pivot. Anchored to Wrist_L (the bone Unity's
     // Humanoid rig resolves HumanBodyBones.LeftHand to on this rig — see FindHandBone).
     //
-    // These values were tuned against the FEMALE rig specifically and hold correctly for female
-    // employees. The male modular rig's Wrist_L/Wrist_R bones sit in a MIRRORED bind pose relative
-    // to the female rig's (confirmed live 2026-09-27: at bind pose, Wrist_L's local rotation is
-    // (X, Y, Z) on female vs (-X, Y, -Z) on male — X and Z negated, Y unchanged, even though both
-    // rigs now share the same bone names/hierarchy), so applying these same numbers to a male
-    // employee held the props away from the body at odd angles instead of naturally in the hand.
-    // MaleClipboard/MaleRfGun below are the female values re-tuned live (screenshot-verified against
-    // the female reference pose) to compensate for that mirror.
+    // A short-lived male/female split existed here (2026-09-26/27) to compensate for a mirrored
+    // bind pose on an experimental male modular body rig (male_body_floor.fbx) that has since been
+    // removed — both genders now use the same Polyperfect man_construction_worker/
+    // woman_construction_worker fixed-avatar pair (EmployeeSpawner.FixedAvatarFor), which share an
+    // identical bind pose. Re-verified live 2026-09-27: Animator.Rebind() on both a male and female
+    // employee's FixedAvatar reads the exact same LeftHand/RightHand local rotation
+    // (355.34, 348.60, 2.55) — no mirroring, single shared constant is correct again.
     private static readonly Vector3 ClipboardLocalPosition = new Vector3(0.1224816f, 0.00781303f, 0.05416707f);
     private static readonly Vector3 ClipboardLocalEuler = new Vector3(85f, -64f, -53.309f);
     private static readonly Vector3 ClipboardLocalScale = new Vector3(1f, 1f, 1f);
@@ -31,10 +30,6 @@ public static class ReceivingEquipmentService
     private static readonly Vector3 RfGunLocalPosition = new Vector3(-0.152f, 0.071f, -0.062f);
     private static readonly Vector3 RfGunLocalEuler = new Vector3(-158.66f, -107.957f, -166.741f);
     private static readonly Vector3 RfGunLocalScale = new Vector3(1f, 1f, 1f);
-
-    // Male-specific correction (see comment above) — position unchanged, rotation re-tuned.
-    private static readonly Vector3 MaleClipboardLocalEuler = new Vector3(-85f, -154f, 53.309f);
-    private static readonly Vector3 MaleRfGunLocalEuler = new Vector3(158.66f, -107.957f, 166.741f);
 
     private static Dictionary<EmployeeIdentity, ReceivingEquipment> _equippedEmployees = new();
 
@@ -121,16 +116,13 @@ public static class ReceivingEquipmentService
 
         // Instantiate(prefab, parent) keeps the prefab's own authored local Transform, which doesn't
         // naturally align with a held pose relative to the hand bone's local axes — set directly to
-        // the tuned values instead. Male uses a mirrored rotation correction — see the field
-        // comments above for why.
-        bool isMale = identity.Record.gender != EmployeeGender.Female;
-
+        // the tuned values instead. Same values for both genders — see the field comments above.
         clipboardInstance.transform.localPosition = ClipboardLocalPosition;
-        clipboardInstance.transform.localRotation = Quaternion.Euler(isMale ? MaleClipboardLocalEuler : ClipboardLocalEuler);
+        clipboardInstance.transform.localRotation = Quaternion.Euler(ClipboardLocalEuler);
         clipboardInstance.transform.localScale = ClipboardLocalScale;
 
         rfGunInstance.transform.localPosition = RfGunLocalPosition;
-        rfGunInstance.transform.localRotation = Quaternion.Euler(isMale ? MaleRfGunLocalEuler : RfGunLocalEuler);
+        rfGunInstance.transform.localRotation = Quaternion.Euler(RfGunLocalEuler);
         rfGunInstance.transform.localScale = RfGunLocalScale;
 
         var equipment = new ReceivingEquipment
