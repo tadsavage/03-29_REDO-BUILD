@@ -54,6 +54,16 @@ public class EmployeeSpawner : MonoBehaviour
              "touched by this change.")]
     [SerializeField] private GameObject _floorWorkerAvatarModel;
     [SerializeField] private GameObject _floorWorkerAvatarModelFemale;
+    [Tooltip("2026-09-27: OFF by default, on purpose. ModularBodyExists() used to auto-switch these " +
+             "4 roles to the modular assembler the instant ANY body part existed for a gender, with " +
+             "no check that the part actually worked — the moment man_body_warehouseCaucasian/" +
+             "woman_body_warehouseCaucasian got scanned in (still WIP: the male export has no " +
+             "SkinnedMeshRenderer at all -> permanent T-pose; the female has one but with broken " +
+             "skin weights -> scrambled mesh), every Receiver/RTO/DSO/OrderSelector in the game broke " +
+             "at once. This flag makes that switch a deliberate, manual decision instead of an " +
+             "automatic side effect of scanning the drop folder. Turn ON only after verifying a " +
+             "gender's new body actually poses correctly in Play Mode.")]
+    [SerializeField] private bool _floorWorkersUseModularBodyIfAvailable = false;
 
     [Header("Admin (Polyperfect reporter look)")]
     [Tooltip("Admin previously had no dedicated case here and silently fell through to the generic " +
@@ -635,7 +645,7 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
             // body_floor pair broke — one side had no body part cataloged at all).
             EmployeeRole.Receiver or EmployeeRole.ReachTruckOperator or EmployeeRole.DockStockerOperator
                 or EmployeeRole.OrderSelector
-                => ModularBodyExists(gender)
+                => ModularBodyExists(gender, this)
                     ? null
                     : PoolOrSingle(null, female ? _floorWorkerAvatarModelFemale : _floorWorkerAvatarModel),
             // Admin uses the reporter look, matching EmployeePhotoBooth's portrait mapping — added
@@ -658,18 +668,31 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         return pool[index];
     }
 
-    /// <summary>True once AvatarPartLibrary has at least one real "body" part for this gender —
+    /// <summary>True once AvatarPartLibrary has at least one WORKING "body" part for this gender —
     /// the live gate FixedAvatarFor uses to decide whether the 4 floor-worker roles should use the
-    /// modular assembler instead of the fixed Polyperfect look. Re-evaluated on every call (library
-    /// is small and this is only checked at spawn time, not per-frame), so dropping a new body FBX
-    /// into the drop folder and rescanning takes effect on the very next hire/spawn with no code
-    /// change or restart needed.</summary>
-    private static bool ModularBodyExists(EmployeeGender gender)
+    /// modular assembler instead of the fixed Polyperfect look. Gated behind
+    /// _floorWorkersUseModularBodyIfAvailable (default OFF, see its tooltip) so cataloging a WIP body
+    /// part can never silently go live for every employee the instant a rescan picks it up — that's
+    /// exactly what broke every Receiver/RTO/DSO/OrderSelector on 2026-09-27 when this used to be an
+    /// unconditional existence check. Also requires an actual SkinnedMeshRenderer with bones on the
+    /// part's own prefab root — a plain unskinned MeshRenderer (man_body_warehouseCaucasian's bug:
+    /// can never be posed, permanent T-pose) can never pass this even with the flag on. This does NOT
+    /// (and structurally cannot) catch bad skin WEIGHTS on an otherwise-real SkinnedMeshRenderer
+    /// (woman_body_warehouseCaucasian's bug: renders scrambled) — that needs a human to actually look
+    /// at it in Play Mode, which is the entire reason this is a manual flag and not an automatic one.</summary>
+    private static bool ModularBodyExists(EmployeeGender gender, EmployeeSpawner instance)
     {
+        if (instance == null || !instance._floorWorkersUseModularBodyIfAvailable) return false;
         var lib = ModularAvatarAssembler.LoadLibrary();
         if (lib == null) return false;
         string g = gender == EmployeeGender.Female ? "female" : "male";
-        return lib.VariantsFor(g, "body").Count > 0;
+        foreach (var part in lib.VariantsFor(g, "body"))
+        {
+            var prefab = lib.PrefabFor(part);
+            if (prefab != null && prefab.GetComponentInChildren<SkinnedMeshRenderer>(true)?.bones?.Length > 0)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>Prefers the pool array (random-but-stable pick) when it has entries; otherwise
