@@ -41,6 +41,10 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: a25a376f088bb054a9803b2390b54a26, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_PROP_MODELS/woman_hair_bob-blonde.fbx
     prefab: {fileID: 919132149155446097, guid: f6cc2ef163f80164982bd831cf8f0249, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_WORKER_MODELS/man_body_warehouseCaucasian.fbx
+    prefab: {fileID: 919132149155446097, guid: f6bc1f0aaa9540c4eaedde4e15e948a2, type: 3}
+  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff/AVATAR_WORKER_MODELS/woman_body_warehouseCaucasian.fbx
+    prefab: {fileID: 919132149155446097, guid: 52b1897443782024e980eb7212f0558e, type: 3}
   parts:
   - objectName: man_hair_regular
     gender: male
@@ -96,5 +100,25 @@ MonoBehaviour:
       material: {fileID: 0}
       color: {r: 0.99215686, g: 0.84313726, b: 0.14117648, a: 1}
     defaultWeight: 100
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: man_body_warehouseCaucasian
+    gender: male
+    slot: body
+    variant: warehouseCaucasian
+    sourceIndex: 14
+    allowedRoles: 00000000010000000200000003000000040000000c000000i
+    colorVariants: []
+    defaultWeight: 1
+    metadataReviewed: 1
+    verifiedInGame: 0
+  - objectName: woman_body_warehouseCaucasian
+    gender: female
+    slot: body
+    variant: warehouseCaucasian
+    sourceIndex: 15
+    allowedRoles: 00000000010000000200000003000000040000000c000000i
+    colorVariants: []
+    defaultWeight: 1
     metadataReviewed: 1
     verifiedInGame: 0
