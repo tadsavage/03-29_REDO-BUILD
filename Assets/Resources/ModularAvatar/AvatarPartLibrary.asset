@@ -43,135 +43,18 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: a25a376f088bb054a9803b2390b54a26, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/woman_hair_bob-blonde.fbx
     prefab: {fileID: 919132149155446097, guid: f6cc2ef163f80164982bd831cf8f0249, type: 3}
-  parts:
-  - objectName: man_body_warehouseCaucasian
-    gender: male
-    slot: body
-    variant: warehouseCaucasian
-    sourceIndex: 0
-    allowedRoles: 00000000010000000200000003000000040000000c000000i
-    colorVariants: []
-    defaultWeight: 1
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: man_hair_regularBlack
-    gender: male
-    slot: hair
-    variant: regularBlack
-    sourceIndex: 4
-    allowedRoles: 0000000001000000020000000300000004000000i
-    colorVariants: []
-    defaultWeight: 41.2
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: man_hair_regularBlonde
-    gender: male
-    slot: hair
-    variant: regularBlonde
-    sourceIndex: 5
-    allowedRoles: 00000000010000000200000003000000040000000c000000i
-    colorVariants: []
-    defaultWeight: 1
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: man_hair_regularBrown
-    gender: male
-    slot: hair
-    variant: regularBrown
-    sourceIndex: 6
-    allowedRoles: 00000000010000000200000003000000040000000c000000i
-    colorVariants: []
-    defaultWeight: 42.2
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: neutral_hands_glovesBrown
-    gender: neutral
-    slot: hands
-    variant: glovesBrown
-    sourceIndex: 7
-    allowedRoles: 00000000010000000200000003000000040000000c000000i
-    colorVariants: []
-    defaultWeight: 40.7
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: neutral_hands_glovesWhite
-    gender: neutral
-    slot: hands
-    variant: glovesWhite
-    sourceIndex: 8
-    allowedRoles: 00000000010000000200000003000000040000000c000000i
-    colorVariants: []
-    defaultWeight: 37.7
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: neutral_hat_hardhat-orange
-    gender: neutral
-    slot: hat
-    variant: hardhat-orange
-    sourceIndex: 9
-    allowedRoles: 000000000300000004000000050000000c000000i
-    colorVariants: []
-    defaultWeight: 14.6
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: neutral_hat_hardhat-red
-    gender: neutral
-    slot: hat
-    variant: hardhat-red
-    sourceIndex: 10
-    allowedRoles: 0000000004000000050000000c000000i
-    colorVariants: []
-    defaultWeight: 22.1
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: neutral_hat_hardhat-yellow
-    gender: neutral
-    slot: hat
-    variant: hardhat-yellow
-    sourceIndex: 11
-    allowedRoles: 000000000400000005000000090000000c000000i
-    colorVariants:
-    - name: '#B7D349'
-      material: {fileID: 0}
-      color: {r: 0.7176471, g: 0.827451, b: 0.28627452, a: 1}
-    defaultWeight: 30.1
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: neutral_hat_headphonesRed
-    gender: neutral
-    slot: hat
-    variant: headphonesRed
-    sourceIndex: 12
-    allowedRoles: 01000000020000000300000004000000i
-    colorVariants: []
-    defaultWeight: 36.7
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: neutral_hat_headphonesYellow
-    gender: neutral
-    slot: hat
-    variant: headphonesYellow
-    sourceIndex: 13
-    allowedRoles: 00000000010000000200000003000000040000000c000000i
-    colorVariants: []
-    defaultWeight: 26.1
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: woman_hair_bob-blonde
-    gender: female
-    slot: hair
-    variant: bob-blonde
-    sourceIndex: 14
-    allowedRoles: 010000000200000003000000040000000500000000000000i
-    colorVariants:
-    - name: '#CA3038'
-      material: {fileID: 0}
-      color: {r: 0.7921569, g: 0.1882353, b: 0.21960784, a: 0.32156864}
-    - name: '#FDD724'
-      material: {fileID: 0}
-      color: {r: 0.99215686, g: 0.84313726, b: 0.14117648, a: 1}
-    defaultWeight: 100
-    metadataReviewed: 0
-    verifiedInGame: 1
+  parts: []
   finalizedParts:
+  - {fileID: 11400000, guid: 1548714efd88c194283d04fd7c1a8182, type: 2}
+  - {fileID: 11400000, guid: 3f9a33618c015704ab365325867e4377, type: 2}
+  - {fileID: 11400000, guid: 59967896bd8d18747bdd5490da47f8ad, type: 2}
+  - {fileID: 11400000, guid: 130042f30406746469c80cfc333e13e2, type: 2}
+  - {fileID: 11400000, guid: 7af8e55c56aa69742b4faf99c743a6ef, type: 2}
+  - {fileID: 11400000, guid: 486d084159ae0fa49a7d8253623f1338, type: 2}
+  - {fileID: 11400000, guid: 9aa87f044fff81c4c825ec90dcb9af8e, type: 2}
+  - {fileID: 11400000, guid: 69ff33b298620ac468043da1a2de2438, type: 2}
+  - {fileID: 11400000, guid: ca7ee02fd2e9b1844964a6636a622075, type: 2}
+  - {fileID: 11400000, guid: 41f456d451339c6429d30ba306ed9d07, type: 2}
+  - {fileID: 11400000, guid: e4f2ff2c389651849b08472500b2dcb3, type: 2}
   - {fileID: 11400000, guid: 27b0188a21d3ba24faefb3acc89905e2, type: 2}
+  - {fileID: 11400000, guid: 416f38e7df6a0944e81a4946cf54a0e4, type: 2}

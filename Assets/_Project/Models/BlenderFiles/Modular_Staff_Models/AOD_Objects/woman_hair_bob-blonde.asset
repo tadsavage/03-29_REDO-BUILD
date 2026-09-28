@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e9e232887a9b4645b1f651208bf32a4, type: 3}
+  m_Name: woman_hair_bob-blonde
+  m_EditorClassIdentifier: GameCore.Simulation::AvatarPartAsset
+  objectName: woman_hair_bob-blonde
+  gender: female
+  slot: hair
+  variant: bob-blonde
+  finalizedPrefab: {fileID: 2046086299058059446, guid: bcbb1342b05b0da4eb2ed69fda572b70, type: 3}
+  allowedRoles: 010000000200000003000000040000000500000000000000i
+  colorVariants:
+  - name: '#CA3038'
+    material: {fileID: 0}
+    color: {r: 0.7921569, g: 0.1882353, b: 0.21960784, a: 0.32156864}
+  - name: '#FDD724'
+    material: {fileID: 0}
+    color: {r: 0.99215686, g: 0.84313726, b: 0.14117648, a: 1}
+  defaultWeight: 100
+  verifiedInGame: 1
