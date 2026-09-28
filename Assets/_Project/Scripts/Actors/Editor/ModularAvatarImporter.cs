@@ -215,6 +215,10 @@ public static class ModularAvatarImporter
     // shader/settings with only the texture swapped).
     private const string SharedPaletteMaterialPath = "Assets/polyperfect/Common/Materials/atlas-source-LPAP.mat";
 
+    // See the duplicate-name guard at the top of FixNewExport — tracks paths already warned about
+    // this domain session so a genuinely broken export logs once, not on every scan/heartbeat.
+    private static readonly HashSet<string> _loggedAmbiguousArmature = new();
+
     /// <summary>
     /// Repairs the two things a fresh Blender export from the new MEN/WOMEN/_GENDER_NEUTRAL
     /// pipeline is missing relative to the older, working modular parts — see the call site comment
@@ -239,6 +243,34 @@ public static class ModularAvatarImporter
         // section 1 would no-op anyway.
         if (Path.GetFileNameWithoutExtension(path).StartsWith("_"))
             return;
+
+        // Duplicate object names anywhere in the hierarchy (most commonly a leftover second
+        // armature — "DeformationSystem" + "DeformationSystem.001" — from a Blender export that
+        // still had a stray copy of the rig in the scene) make Unity's Humanoid auto-mapper throw
+        // "Ambiguous Transform ... found in hierarchy for human bone 'Hips'" and fail Avatar
+        // creation. Detected BEFORE touching the importer settings and bailed out early: the
+        // "stale humanoid" repair below (section 1) treats "Avatar didn't come out valid" as "my
+        // cached bone map is stale, clear it and reimport" — which is the right response to a
+        // genuine rename, but here the Avatar can NEVER become valid no matter how many times we
+        // reimport (the ambiguity is a property of the content, not the importer's cached state),
+        // so without this guard the two would loop forever: reimport → still ambiguous → still no
+        // valid avatar → "must be stale" → reimport again. Logged once per path per domain session
+        // (not every scan) so a genuinely un-fixed file doesn't spam every heartbeat.
+        var dupeNames = probe.GetComponentsInChildren<Transform>(true)
+            .GroupBy(t => t.name)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        if (dupeNames.Count > 0)
+        {
+            if (_loggedAmbiguousArmature.Add(path))
+                Debug.LogError($"[ModularAvatar] '{Path.GetFileName(path)}' has duplicate object name(s) " +
+                    $"[{string.Join(", ", dupeNames)}] — almost certainly a leftover duplicate armature from " +
+                    "the Blender export. Unity can't build a Humanoid Avatar from this until the duplicate " +
+                    "is deleted and the file is re-exported. Skipping the Humanoid/material repair pass for " +
+                    "this file so it doesn't spam reimport attempts.");
+            return;
+        }
 
         bool changed = false;
 

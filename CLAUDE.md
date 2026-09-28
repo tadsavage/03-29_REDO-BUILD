@@ -2343,3 +2343,81 @@ floor-worker roles automatically start using the modular assembler for that gend
 spawn/hire, with zero code change required. Verified this specific mechanism live (injected a fake
 in-memory body part, confirmed `UsesModularAvatar` flipped true for that gender only) before this
 session even started the Blender-workflow discussion.
+
+### Next-day follow-up (2026-09-27, later) — the new bodies actually made it into the AOD, then two real bugs surfaced getting them into the game
+
+Tad's Blender work landed: `man_body_warehouseCaucasian.fbx` / `woman_body_warehouseCaucasian.fbx`
+now exist in the AOD (drop folder renamed to `Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/`
+with `BODY_MODELS`/`PROPS_MODELS`/`Z-AOD_WORKSHOP` subfolders — `ModularAvatarImporter.DropFolder`
+updated to match, scans recursively so all three are covered). Reported symptom: "we have male and
+female body in the AOD yet the modular staff system is reverting back to the legacy" — hiring a
+Receiver/OrderSelector/etc. still produced the old `WorkerMan`/`WorkerFemale` look instead of the new
+body.
+
+**Bug 1 — the bodiless-avatar safety net was false-positiving on a REAL body, discarding it every
+time.** Live-diagnosed via `Unity_execute_code`: `ModularAvatarAssembler.Build()` correctly picked
+`man_body_warehouseCaucasian` as the primary part and assembled a real avatar — but
+`EmployeeSpawner.ApplyModularAvatar`'s safety check (added earlier this session specifically to catch
+bodiless avatars) scans the assembled hierarchy for any child transform whose name contains `"_body_"`.
+`Build()` renames the assembled root to `Avatar_{gender}_{variant}` right before that check runs, and
+because `man_body_warehouseCaucasian`/`woman_body_warehouseCaucasian` are single-mesh-ON-THE-ROOT
+sources (same shape as the standalone hair/hat files), the body's renderer ends up sitting on that
+now-renamed root — which no longer contains `"_body_"` anywhere in its name. `hasBody` read false,
+the real avatar got destroyed, and the code fell back to the legacy worker mesh — every single time,
+for both genders, for all 4 floor roles.
+
+**Fix:** `ModularAvatarAssembler.Build()` now reports the chosen body `Part` directly through its
+`chosenOut` dictionary (`chosenOut["body"] = chosen.FirstOrDefault(p => p.slot == "body")`) instead of
+`EmployeeSpawner` re-deriving "is there a body" from post-rename object names
+([ModularAvatarAssembler.cs:190-200](Assets/_Project/Scripts/Actors/ModularAvatar/ModularAvatarAssembler.cs:190),
+[EmployeeSpawner.cs:515-534](Assets/_Project/Scripts/Actors/EmployeeSystem/EmployeeSpawner.cs:515)).
+Live-verified post-fix: spawned Receiver/OrderSelector × male/female all correctly get a `ModularAvatar`
+child now, legacy mesh hidden underneath as designed.
+
+**Follow-up finding, same diagnosis pass: `man_body_warehouseCaucasian` had a plain `MeshRenderer`+
+`MeshFilter`, not a `SkinnedMeshRenderer`** — no skin binding to the armature at all, so it rendered
+correctly (hardhat/vest/gloves all showed up right — screenshot-confirmed) but frozen in a permanent
+T-pose. Flagged to Tad as a Blender-side gap: the mesh needs an Armature modifier bound to
+`DeformationSystem` (Ctrl+P → Armature Deform in Blender) before export.
+
+**Bug 2 — Tad's re-export attempt to fix the skinning introduced a duplicate armature, which then
+infinite-looped the importer.** Reported as a wall of repeating console spam:
+`Rig Error: Avatar creation failed: Ambiguous Transform 'DeformationSystem/Root_M' and
+'DeformationSystem.001/Root_M' found in hierarchy for human bone 'Hips'`, hundreds of identical
+lines, stack always through `ModularAvatarImporter.FixNewExport → ScanAndRebuild → Watcher`.
+
+Live-diagnosed by scanning every FBX in the project (`AssetDatabase.FindAssets("t:Model")`, 516
+files) for duplicate `DeformationSystem`-named children: `man_body_warehouseCaucasian.fbx`'s
+re-export has its **entire skeleton duplicated** — every single bone from `Root_M` down to each
+finger joint exists twice (168 transforms where a clean rig has 84), i.e. two full armatures got
+merged into one export. `woman_body_warehouseCaucasian.fbx` has a milder version — one duplicate
+mesh object, skeleton itself is clean. Classic Blender mistake: an armature got copied
+(Shift+D) or appended from another file during a weight-transfer/testing step and the extra one was
+never deleted before export.
+
+**Why it looped forever, not just failed once:** `FixNewExport`'s existing "stale humanoid mapping"
+repair (written earlier for a *different*, legitimate case — a rename between exports leaving a
+cached-but-now-wrong bone map) treats "the current Avatar isn't valid" as "my cached mapping must be
+stale, clear it and reimport." For a genuine renamed-bones case that self-heals in one pass. For an
+*ambiguous* hierarchy the Avatar can NEVER become valid no matter how many times it's rebuilt — so the
+two conditions fed each other forever: reimport → still ambiguous → still invalid Avatar → "must be
+stale" → reimport again, on every scan/heartbeat, hammering the console and the editor.
+
+**Fix (`ModularAvatarImporter.cs`):** `FixNewExport` now checks for duplicate object names anywhere
+in the hierarchy *before* touching any importer settings — a real rig should never have two transforms
+with the identical name. If found, it logs ONE clear error naming the file and the duplicate names
+(gated by a static `_loggedAmbiguousArmature` HashSet so it's once per file per domain session, not
+every heartbeat) and returns immediately, skipping the Humanoid/material repair pass entirely rather
+than ever calling `SaveAndReimport()` on content that can't be fixed by reimporting. Verified live:
+cleared the console, re-ran `ScanAndRebuild` — exactly one log line per broken file, no repeat spam,
+no reimport loop.
+
+**Current status, what's actually needed to finish this:** both body FBXs need another Blender pass —
+`man_body_warehouseCaucasian.fbx` needs its duplicate armature deleted entirely (keep whichever one
+actually drives the mesh's skin weights) and `woman_body_warehouseCaucasian.fbx` needs its duplicate
+mesh object cleaned up — **and this time make sure the remaining mesh actually has an Armature
+modifier / skin weights** (the original T-pose problem from earlier the same day), not just a
+correctly-shaped but still-unskinned mesh. Re-export both, then re-run the scan and confirm via
+`Animator.GetComponentsInChildren<SkinnedMeshRenderer>` on the imported prefab that `bones.Length > 0`
+before assuming it's actually fixed — a clean-looking hierarchy with no ambiguity errors is not the
+same thing as a mesh that will actually animate.
