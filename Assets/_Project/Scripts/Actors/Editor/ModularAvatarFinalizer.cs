@@ -89,20 +89,41 @@ public static class ModularAvatarFinalizer
     /// FBX). If no raw source remains, there's nothing to re-validate against — the asset's own
     /// metadata edits (roles/weight/colors) are already live since AODPanel writes them directly to
     /// the asset, so this is a no-op in that case.</summary>
-    public static bool TryUpdateFromRawSource(AvatarPartLibrary lib, AvatarPartAsset asset,
+public static bool TryUpdateFromRawSource(AvatarPartLibrary lib, AvatarPartAsset asset,
         out string error)
     {
         error = null;
-        var rawMatch = lib.parts.FirstOrDefault(p =>
-            p.objectName.Equals(asset.ObjectName, System.StringComparison.OrdinalIgnoreCase));
-        if (rawMatch == null) return true; // nothing new to re-validate against — metadata edits already persisted directly on the asset
 
-        // Carry the asset's current metadata onto the raw candidate so TryFinalize's overwrite
-        // reflects whatever's been edited on the asset since it was first finalized.
-        rawMatch.allowedRoles = asset.allowedRoles;
-        rawMatch.colorVariants = asset.colorVariants;
-        rawMatch.defaultWeight = asset.defaultWeight;
-        rawMatch.verifiedInGame = asset.verifiedInGame;
+        // lib.parts deliberately EXCLUDES anything already finalized (ScanAndRebuild filters it out
+        // by objectName so a reviewed part never reappears as an unreviewed raw duplicate) — so
+        // looking this asset up in lib.parts, as this used to do, ALWAYS misses it and silently
+        // no-ops, even right after its source FBX was re-exported and rescanned. Live bug (found
+        // 2026-09-29): a female body rig fix landed in the FBX and the drop-folder rescan picked it
+        // up fine, but "Update" in the AOD reported success while never actually re-running
+        // IsolatePart/SaveAsPrefabAsset, so the finalized prefab kept shipping the stale, broken
+        // skeleton — T-pose in game despite Animator.avatar.isHuman still reading true.
+        //
+        // Look the source up directly in lib.sources instead, by finding which source FBX actually
+        // contains a mesh-bearing transform named ObjectName — the same match IsolatePart itself uses
+        // to locate the part inside its source.
+        int sourceIndex = lib.sources.FindIndex(s => s.prefab != null &&
+            s.prefab.GetComponentsInChildren<Transform>(true).Any(t =>
+                t.name == asset.ObjectName &&
+                (t.GetComponent<MeshFilter>() != null || t.GetComponent<SkinnedMeshRenderer>() != null)));
+        if (sourceIndex < 0) return true; // no raw source left in the drop folder — nothing new to re-validate against
+
+        var rawMatch = new AvatarPartLibrary.Part
+        {
+            objectName     = asset.ObjectName,
+            gender         = asset.Gender,
+            slot           = asset.Slot,
+            variant        = asset.Variant,
+            sourceIndex    = sourceIndex,
+            allowedRoles   = asset.allowedRoles,
+            colorVariants  = asset.colorVariants,
+            defaultWeight  = asset.defaultWeight,
+            verifiedInGame = asset.verifiedInGame,
+        };
 
         return TryFinalize(lib, rawMatch, out error, out _);
     }
