@@ -13,8 +13,6 @@ MonoBehaviour:
   m_Name: AvatarPartLibrary
   m_EditorClassIdentifier: Assembly-CSharp::AvatarPartLibrary
   sources:
-  - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/BODY_MODELS/woman_body_warehouseCaucasian.fbx
-    prefab: {fileID: 919132149155446097, guid: 4f90b68f3fa569f49be6d5b95203d3f4, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/_ClipBoard.fbx
     prefab: {fileID: 919132149155446097, guid: 88707f7d458ac614b89ba9377b9f21d4, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/_Scangun.fbx
@@ -43,6 +41,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 791e002e5cbdce3498536eaaa4b970ef, type: 3}
   - fbxPath: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/woman_hair_bob-blonde.fbx
     prefab: {fileID: 919132149155446097, guid: f6cc2ef163f80164982bd831cf8f0249, type: 3}
+  - fbxPath: Assets/_Project/_Avatar_System/Female/Bodies/Regular/03_FBX/female_regular_body.fbx
+    prefab: {fileID: 919132149155446097, guid: 4ba7b8bab7a28d146a20287f525cf596, type: 3}
   parts: []
   finalizedParts:
   - {fileID: 11400000, guid: 1548714efd88c194283d04fd7c1a8182, type: 2}
@@ -56,6 +56,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ca7ee02fd2e9b1844964a6636a622075, type: 2}
   - {fileID: 11400000, guid: 41f456d451339c6429d30ba306ed9d07, type: 2}
   - {fileID: 11400000, guid: e4f2ff2c389651849b08472500b2dcb3, type: 2}
-  - {fileID: 11400000, guid: 27b0188a21d3ba24faefb3acc89905e2, type: 2}
+  - {fileID: 11400000, guid: dea64b071aa2a844c9ecdbc637d76c74, type: 2}
+  - {fileID: 11400000, guid: cbc5daf612cdc9341b4b0dd734084f1a, type: 2}
   - {fileID: 11400000, guid: 857d7e6d663f250448de72f0eff64db1, type: 2}
   - {fileID: 11400000, guid: 416f38e7df6a0944e81a4946cf54a0e4, type: 2}
+  - {fileID: 11400000, guid: 8f892f50a94176848888d552de719c1d, type: 2}
+  - {fileID: 11400000, guid: 8768424d5c32b6a4da04fa9e6a2109f9, type: 2}

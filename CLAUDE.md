@@ -2421,3 +2421,125 @@ correctly-shaped but still-unskinned mesh. Re-export both, then re-run the scan 
 `Animator.GetComponentsInChildren<SkinnedMeshRenderer>` on the imported prefab that `bones.Length > 0`
 before assuming it's actually fixed — a clean-looking hierarchy with no ambiguity errors is not the
 same thing as a mesh that will actually animate.
+
+---
+
+## Session 2026-09-30 — New `_Avatar_System` pipeline, first working Female Regular body, real assembler bugs fixed, live AOD rebuild + portrait capture
+
+Ground-up rebuild picking up where the 2026-09-27 sessions above left off. Superseded the
+`man_body_warehouseCaucasian.fbx`/`woman_body_warehouseCaucasian.fbx` duplicate-armature mess above
+entirely rather than continuing to repair it — Tad re-modeled from scratch in a new pipeline.
+
+### New folder structure
+
+`Assets/_Project/_Avatar_System/<Gender>/Bodies/<Type>/{01_StoreBought,02_Blender,03_FBX}` (Tad
+renamed the root from `Avatar_System` → `_Avatar_System` to match the `_Project`/`_Recovery`/`_Saves`
+underscore convention). `ModularAvatarImporter` now scans **two** roots — the old `DropFolder`
+(`Assets/_Project/Models/BlenderFiles/Modular_Staff_Models`) AND a new `NewPipelineRoot`
+(`Assets/_Project/_Avatar_System`) — additive, not a replacement; `PROPS_MODELS` (hair/hats/gloves)
+still lives under the old root and isn't part of this migration. **`01_StoreBought` staging folders
+are explicitly excluded from scanning** — raw pre-edit reference material, never a real part source.
+Without this exclusion the untouched store-bought base (e.g. `woman_construction_worker_Rig.fbx`) gets
+scanned as its own competing "body" candidate alongside the actually-edited one, reintroducing a
+two-bodies bug.
+
+### First working body: Female Regular
+
+Source: `_Avatar_System/Female/Bodies/Regular/03_FBX/female_regular_body.fbx`. The torso mesh is
+literally named `woman.bodyA` — a dot, no slot token at all (unlike every other part, which follows
+`gender_slot_variant`). Required a new special-case in both `ModularAvatarImporter.ParseName` and
+`ModularAvatarAssembler.ParsesAsPart`: a name matching `<gender>.<variant>` (dot, no underscore) is
+now recognized as slot `"body"`.
+
+Finalized parts, all pointing at this one FBX: `woman.bodyA` (body), `woman_hands_bodyA` (hands),
+`woman_hair_BOB` / `woman_hair_bob-black` / `woman_hair_bob-blonde` (hair, female always gets one —
+never bald), `woman_feet_bootsBlack` (feet). **No separate head mesh** — a `woman_head_bodyA` part
+existed briefly but turned out to be a stale/broken artifact (see bug #3 below) with no matching
+current source to repair it against, and the torso's own neck/head area looks fine without one per
+Tad — deleted rather than replaced. Revisit if/when a real head mesh gets modeled.
+
+### Real bugs fixed (in the shared assembler/importer code — affect ALL employees, not just this body)
+
+1. **`ModularAvatarAssembler.WeightedPick` had a `pool.Count == 1 → return it unconditionally`
+   shortcut** that completely bypassed weight. A slot with exactly one candidate (e.g. female
+   `"feet"` with only `woman_feet_bootsBlack` defined) always showed up in-game even after being set
+   to 0% in the AOD's weight editor. Removed — weight is now always checked regardless of pool size.
+2. **Zero-total-weight fallback changed from "pick uniformly at random anyway" to "return null"**
+   (slot renders nothing). Per Tad: 0% in the AOD must mean "never shown," not "ignored because
+   nothing else scored higher." Required propagating null through `PickVariant` and null-guarding
+   every `chosen.Add(...)` call site in `Build()` (vest, hardhat, headphones, the main per-slot loop).
+3. **`IsolatePart` (the Submit/Update backend) only prunes sibling meshes that `ParsesAsPart`
+   recognizes.** Before fix #1's dotted-name case landed and compiled, isolating
+   `woman_hands_bodyA`/`woman_hair_BOB`/`woman_feet_bootsBlack` each *also* kept a full stray copy of
+   the torso (`woman.bodyA`) bundled inside — because at isolate-time it wasn't yet recognized as a
+   prunable part. Visible symptom: the Hierarchy showed a nested nested-under-nested nested
+   `DeformationSystem > woman.bodyA + woman_head_bodyA` structure under one child, and that one
+   didn't animate (two full rigs stacked, only one actually driven). Re-running Update after the
+   parser fix compiled cleaned all of them to proper single-mesh isolates. **If a future part looks
+   "doubled up" after Submit, suspect a parser-timing issue like this — re-run Update once the fix is
+   confirmed compiled, don't assume the source FBX is broken.**
+4. **`"head"` was hardcoded into `ModularAvatarAssembler.DeprecatedSlots`** (a 2026-09-27 fix for an
+   old legacy-asset double-stacking bug, see above). Removed, and `"head"`+`"hands"` added to
+   `CoreSlots` (always included when present) — the legacy source that motivated the exclusion is no
+   longer scanned at all, so it's safe to treat `head` as a normal slot again.
+5. **FBX main-object fileIDs in this Unity version (6000.6.0f1) are large 64-bit hashes**
+   (e.g. `919132149155446097`), confirmed empirically by cross-referencing a known-good
+   `AvatarPartLibrary.sources[].prefab` entry — NOT the classic legacy `100000` constant some older
+   Unity tooling assumes. Don't hand-guess these in a YAML edit; look up an existing reference to the
+   same asset type in the project first.
+
+### New tooling/features
+
+- **`ModularAvatarImporter.FinalizeAllPendingMenu`** (`Tools ▸ Modular Avatar ▸ Finalize All
+  Pending`) — headless equivalent of clicking Update on every already-finalized row and Submit on
+  every raw row in the AOD panel, in one pass. Reuses `ModularAvatarFinalizer.TryUpdateFromRawSource`/
+  `TryFinalize` directly (the same methods the UI buttons call), added because driving the AOD
+  panel's actual buttons isn't scriptable from outside the Editor UI.
+- **`EmployeeSpawner.RefreshAllModularAvatars()`** — iterates every registered `EmployeeIdentity`,
+  calls the existing `RefreshAvatarAppearance` on each (rebuilds their `"ModularAvatar"` child from
+  current AOD data, same stable per-employee seed) and forces a fresh portrait via
+  `EmployeePhotoBooth.GeneratePortraitForRecord`. Wired into `AODPanel.Submit()`, gated on
+  `Application.isPlaying` — hitting Submit/Update in the AOD while playing now updates already-hired
+  employees live (both their in-world look and their portrait) instead of only affecting future hires.
+- **`EmployeePhotoBooth.CapturePortrait` now actually uses the modular avatar system.** Previously
+  (see the "now-removed ApplyModularAvatar" comments already in that file from 2026-09-21/22) it
+  photographed a fixed placeholder body per role, completely independent of `AvatarPartLibrary` — so
+  a portrait never reflected the assembled look. Fixed: when
+  `EmployeeSpawner.UsesModularAvatar(record)` is true, `CapturePortrait` calls
+  `EmployeeSpawner.RefreshAvatarAppearance(identity)` on the temp capture instance before posing/
+  shooting it (reuses `ApplyModularAvatar`'s existing hide-base-mesh + attach + Rebind logic
+  wholesale). Two things that path doesn't already handle, because a continuously-rendered live
+  employee never needed them, had to be added specifically for this one-shot synchronous capture:
+  `AnimatorCullingMode.AlwaysAnimate` on the modular avatar's own Animator (same T-pose-avoidance
+  reasoning as every other fix already in this file), and an explicit `Play("Waving", ...)` call on
+  that same Animator (it shares the worker's own Animator Controller — `ApplyModularAvatar` assigns
+  it directly — so the state exists there too; the existing param-mirroring `ModularAvatarRig`
+  component never gets a `LateUpdate` to run before the synchronous capture happens, so state has to
+  be forced directly rather than relying on it). **Not yet visually confirmed**: the camera framing
+  (`LookAt`/light offsets, tuned to the old placeholder body's height) may need adjustment for the
+  new body's proportions — untested against the actual proportions of `female_regular_body`.
+
+### Unity MCP tooling gotchas hit this session (this project's official `Unity.AI.MCP` server specifically)
+
+- **The Editor needs OS focus to reliably persist changes.** A code edit compiles, a menu item
+  reports success, `AssetDatabase.SaveAssets()` runs inside the called method — and the file on disk
+  still doesn't reflect it, sometimes for several retries, until the Editor window is manually
+  clicked into. If a scan/rebuild result doesn't match what the code should produce, try that before
+  assuming the C# is wrong.
+- **`Unity_GetConsoleLogs` works reliably; `Unity_ReadConsole`'s type filter does not** (matches the
+  pre-existing note that an empty `ReadConsole` result is never proof of a clean console — this
+  server has a working alternative under a different tool name).
+- **`Unity_ManageGameObject`'s `Create` action silently no-ops for raw `.fbx`/Model assets** — returns
+  `success: true` with a plausible instanceID, but the created GameObject is an empty placeholder
+  (`Transform` only, default bounds). Only works for real `.prefab` files (the response message text
+  differs too — check it, not just `success`). No working substitute found for instantiating an FBX
+  directly via this bridge; drove `ModularAvatarFinalizer`'s real methods via a custom `[MenuItem]`
+  instead.
+- **Structured/array tool parameters are broken** (`ApplyTextEdits`/`ScriptApplyEdits`'s `edits`,
+  `ManageAsset`'s `properties`) — always fail with a JValue/JObject deserialization error regardless
+  of shape. Used the plain filesystem `Edit`/`Write` tools directly on `.cs`/`.asset` files instead,
+  relying on Unity's own file watcher (once focused, see above) to pick up the change.
+  `Unity_RunCommand` (arbitrary C# execution) is effectively non-functional here too — every code
+  shape tried either failed to compile (the tool's own namespace-wrapping conflicts with top-level
+  statements) or compiled with zero observable side effects. Use `Unity_ManageMenuItem` against a
+  real `[MenuItem]` method for anything that needs code execution.

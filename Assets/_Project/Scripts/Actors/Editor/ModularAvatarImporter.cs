@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+// touch: force reimport 2026-09-30 (5)
 
 /// <summary>
 /// Scans the modular-avatar drop folder for FBX/model files and rebuilds AvatarPartLibrary from
@@ -22,6 +23,13 @@ public static class ModularAvatarImporter
     // individual parts).
     public const string DropFolder  = "Assets/_Project/Models/BlenderFiles/Modular_Staff_Models";
 
+    // 2026-09-30: the new per-body-type pipeline (see the ModularAvatarSystem skill doc) exports
+    // FBX files under _Avatar_System/<Gender>/Bodies/<Type>/03_FBX/ instead of the old flat
+    // BODY_MODELS drop folder. Scanned as a SECOND root alongside DropFolder — additive, not a
+    // replacement, since PROPS_MODELS (hair/hats/gloves) still lives under the old DropFolder and
+    // isn't part of this migration yet.
+    public const string NewPipelineRoot = "Assets/_Project/_Avatar_System";
+
     // Finished, submitted parts no longer live in a second SCAN root — see ModularAvatarFinalizer.
     // A submitted part becomes a standalone AvatarPartAsset (loaded below, into lib.finalizedParts)
     // plus a real prefab under ModularAvatarFinalizer.BodyPrefabFolder/PropsPrefabFolder. Those
@@ -32,13 +40,59 @@ public static class ModularAvatarImporter
     [MenuItem("Tools/Modular Avatar/Scan & Rebuild Library")]
     public static void ScanAndRebuildMenu() => ScanAndRebuild(verbose: true);
 
+    /// <summary>Headless equivalent of clicking "Update" on every already-finalized row and
+    /// "Submit" on every raw/unreviewed row in the AOD panel, in one pass (2026-09-30). Added so
+    /// this can be driven from a menu command / automation instead of requiring interactive clicks
+    /// in the AODPanel EditorWindow. Reuses ModularAvatarFinalizer's exact TryUpdateFromRawSource /
+    /// TryFinalize methods — the same validate-then-write logic the UI button calls — so results are
+    /// identical to doing it by hand, just batched.</summary>
+    [MenuItem("Tools/Modular Avatar/Finalize All Pending")]
+    public static void FinalizeAllPendingMenu()
+    {
+        var lib = ScanAndRebuild(verbose: false);
+        if (lib == null) { Debug.LogWarning("[ModularAvatar] Finalize All Pending: no library/drop folder."); return; }
+
+        int updated = 0, updateFailed = 0, submitted = 0, submitFailed = 0;
+
+        foreach (var asset in lib.finalizedParts.ToList())
+        {
+            if (asset == null) continue;
+            if (ModularAvatarFinalizer.TryUpdateFromRawSource(lib, asset, out string err))
+                updated++;
+            else
+            {
+                updateFailed++;
+                Debug.LogWarning($"[ModularAvatar] Update failed for '{asset.ObjectName}': {err}");
+            }
+        }
+
+        foreach (var part in lib.parts.ToList())
+        {
+            if (ModularAvatarFinalizer.TryFinalize(lib, part, out string err, out _))
+                submitted++;
+            else
+            {
+                submitFailed++;
+                Debug.LogWarning($"[ModularAvatar] Submit failed for '{part.objectName}': {err}");
+            }
+        }
+
+        // Rescan so parts/finalizedParts reflect the new state immediately (a finalized part no
+        // longer shows up as raw, an updated asset's identity fields are current).
+        ScanAndRebuild(verbose: false);
+
+        Debug.Log($"[ModularAvatar] Finalize All Pending: {updated} updated ({updateFailed} failed), " +
+                  $"{submitted} submitted ({submitFailed} failed).");
+    }
+
     public static AvatarPartLibrary ScanAndRebuild(bool verbose)
     {
-        if (!AssetDatabase.IsValidFolder(DropFolder))
+        var scanRoots = new[] { DropFolder, NewPipelineRoot }.Where(AssetDatabase.IsValidFolder).ToArray();
+        if (scanRoots.Length == 0)
         {
             if (verbose)
-                Debug.LogWarning($"[ModularAvatar] Drop folder not found: {DropFolder}. " +
-                                 "Create it and drop your modular FBX(s) in there.");
+                Debug.LogWarning($"[ModularAvatar] Neither drop folder exists ({DropFolder}, {NewPipelineRoot}). " +
+                                 "Create one and drop your modular FBX(s) in there.");
             return null;
         }
 
@@ -64,9 +118,9 @@ public static class ModularAvatarImporter
             .ToDictionary(g => g.Key, g => g.First());
         lib.parts.Clear();
 
-        // Only DropFolder is scanned now — a finished/submitted part is a real AvatarPartAsset
-        // (loaded above), not a second scan root. t:Model matches raw FBX/OBJ exports.
-        var guids = AssetDatabase.FindAssets("t:Model", new[] { DropFolder }).Distinct();
+        // DropFolder and NewPipelineRoot are scanned — a finished/submitted part is a real
+        // AvatarPartAsset (loaded above), not a second scan root. t:Model matches raw FBX/OBJ exports.
+        var guids = AssetDatabase.FindAssets("t:Model", scanRoots).Distinct();
         int fbxCount = 0;
 
         foreach (var guid in guids)
@@ -83,6 +137,15 @@ public static class ModularAvatarImporter
             // of individual parts itself. Explicit path check (not a filename substring) so it can't
             // silently stop working if something in there someday lacks "workshop" in its own name.
             if (path.Replace('\\', '/').Contains("/Z-AOD_WORKSHOP/", System.StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // 01_StoreBought holds raw, pre-Blender-editing reference material under the new
+            // per-body-type pipeline (see the ModularAvatarSystem skill doc) — never a real part
+            // source. Without this, "woman_construction_worker_Rig.fbx" (the untouched store-bought
+            // base) got scanned as its own competing "body" candidate alongside the actually-edited
+            // "woman.bodyA" from 03_FBX, reintroducing the exact two-bodies bug this pipeline exists
+            // to prevent.
+            if (path.Replace('\\', '/').Contains("/01_StoreBought/", System.StringComparison.OrdinalIgnoreCase))
                 continue;
 
             // Skip loose "*Workshop*" staging files sitting at the drop folder's own root (e.g.
@@ -380,6 +443,38 @@ public static class ModularAvatarImporter
     /// neutral parts into BOTH genders' queries. Null if invalid.</summary>
     private static AvatarPartLibrary.Part ParseName(string name, int sourceIndex)
     {
+        // Multi-part body exports (2026-09-30, e.g. "woman.bodyA") name the main torso mesh
+        // "<gender>.<variant>" with NO slot token at all — every other sibling mesh in the same
+        // file (woman_hands_bodyA, woman_head_bodyA) DOES carry an explicit slot, but the torso
+        // itself is just "the body" and needs no disambiguation. Handled as its own case rather
+        // than folded into the underscore-based rule below, since a dot here is a real, deliberate
+        // naming choice (not a typo to reject) — always slot "body".
+        if (name.Contains('.') && !name.Contains('_'))
+        {
+            var dotSeg = name.Split('.');
+            if (dotSeg.Length == 2)
+            {
+                string dotGender = dotSeg[0].ToLower() switch
+                {
+                    "male" or "man"     => "male",
+                    "female" or "woman" => "female",
+                    "neutral"           => "neutral",
+                    _ => null,
+                };
+                if (dotGender != null && !string.IsNullOrEmpty(dotSeg[1]))
+                {
+                    return new AvatarPartLibrary.Part
+                    {
+                        objectName  = name,
+                        gender      = dotGender,
+                        slot        = "body",
+                        variant     = dotSeg[1],
+                        sourceIndex = sourceIndex,
+                    };
+                }
+            }
+        }
+
         var seg = name.Split('_');
         if (seg.Length < 3) return null;
 
@@ -442,8 +537,12 @@ public static class ModularAvatarImporter
                                                    string[] moved, string[] movedFrom)
         {
             bool TouchesDrop(string[] arr) =>
-                arr.Any(p => p.Replace('\\', '/').StartsWith(DropFolder + "/")
-                          && (p.EndsWith(".fbx") || p.EndsWith(".blend") || p.EndsWith(".obj")));
+                arr.Any(p =>
+                {
+                    string np = p.Replace('\\', '/');
+                    return (np.StartsWith(DropFolder + "/") || np.StartsWith(NewPipelineRoot + "/"))
+                        && (np.EndsWith(".fbx") || np.EndsWith(".blend") || np.EndsWith(".obj"));
+                });
 
             if (TouchesDrop(imported) || TouchesDrop(deleted) || TouchesDrop(moved) || TouchesDrop(movedFrom))
                 EditorApplication.delayCall += () => ScanAndRebuild(verbose: true);

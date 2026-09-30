@@ -69,6 +69,7 @@ public class EmployeePhotoBooth : MonoBehaviour
     private Animator _liveAnimator;
     private float _liveStartTime;
     private bool _warmedUp; // first portrait render of the session is a throwaway warm-up
+    private EmployeeSpawner _employeeSpawner; // lazily found — used to attach a modular avatar for capture (2026-09-30)
 
     public RenderTexture LiveRenderTexture => _liveRenderTexture;
     public bool IsLiveFeedActive => _isLiveFeedActive;
@@ -598,6 +599,37 @@ public class EmployeePhotoBooth : MonoBehaviour
             identity.enabled = false;
         }
 
+        // If this employee actually uses the modular avatar system (2026-09-30), attach one to
+        // THIS temp instance the same way EmployeeSpawner does for a live employee — reuses
+        // ApplyModularAvatar's own logic wholesale (hides the base worker meshes, parents the
+        // assembled avatar, shares the worker's Animator Controller, Rebinds, nudges the clip
+        // forward past the bind-pose reference frame) rather than re-deriving any of that here.
+        // Only two things that path doesn't already handle, because it never needed to for a
+        // continuously-rendered live employee, are added below: AlwaysAnimate culling (this
+        // capture is a single synchronous frame with no prior visible render to warm up skinning —
+        // the exact bug this whole file's other T-pose fixes already work around) and an explicit
+        // "Waving" pose (Rebind + the forced Update just clear the bind pose, they don't pick a
+        // meaningful pose for a photo).
+        Animator modularAnimator = null;
+        if (identity != null)
+        {
+            if (_employeeSpawner == null) _employeeSpawner = FindFirstObjectByType<EmployeeSpawner>();
+            if (_employeeSpawner != null && _employeeSpawner.UsesModularAvatar(record))
+            {
+                _employeeSpawner.RefreshAvatarAppearance(identity);
+                var modularAvatarT = modelInstance.transform.Find("ModularAvatar");
+                if (modularAvatarT != null)
+                {
+                    modularAnimator = modularAvatarT.GetComponent<Animator>();
+                    if (modularAnimator != null)
+                    {
+                        modularAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                        modularAnimator.applyRootMotion = false;
+                    }
+                }
+            }
+        }
+
         // Ensure low-poly character has settled its pose/anim
         Animator animator = modelInstance.GetComponent<Animator>();
         if (animator != null)
@@ -651,6 +683,11 @@ public class EmployeePhotoBooth : MonoBehaviour
         // This runs AFTER DisableWanderScripts on purpose: it's the last, authoritative pose-setter,
         // superseding whatever idle state that method jumped to.
         if (animator != null) PlayWaveAtRandomFrame(animator);
+        // Independent roll for the modular avatar's own animator — it shares the SAME Controller
+        // as the root (ApplyModularAvatar assigns it directly), so "Waving" exists there too; only
+        // the modular one is actually visible in the capture once the base meshes are hidden below,
+        // but PlayWaveAtRandomFrame is cheap and self-contained, so there's no reason to share a roll.
+        if (modularAnimator != null) PlayWaveAtRandomFrame(modularAnimator);
 
         // Clean up redundant scripts/components on the temporary clone
         StripNonVisualComponents(modelInstance);

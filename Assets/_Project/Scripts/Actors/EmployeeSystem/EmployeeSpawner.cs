@@ -614,6 +614,33 @@ public class EmployeeSpawner : MonoBehaviour
         ApplyModularAvatar(identity);
     }
 
+    /// <summary>Rebuilds every currently-spawned modular-avatar employee in the scene and forces a
+    /// fresh portrait capture for each, in one pass — for Tad's "hit Update in the AOD and see it
+    /// everywhere live" workflow (2026-09-30), instead of needing to re-hire or reload to see a
+    /// part-weight/finalize change reflected. Skips fixed-avatar employees (RefreshAvatarAppearance
+    /// already no-ops for those) and any employee missing a record entirely. Editor/Play-mode only
+    /// in practice — the AOD panel that calls this is itself editor-only.</summary>
+    public void RefreshAllModularAvatars()
+    {
+        if (EmployeeRegistry.Instance == null) return;
+
+        // Snapshot first — RefreshAvatarAppearance destroys/recreates each employee's "ModularAvatar"
+        // child, which could otherwise disturb registry enumeration mid-iteration.
+        var identities = EmployeeRegistry.Instance.All.ToList();
+        int refreshed = 0;
+
+        foreach (var identity in identities)
+        {
+            if (identity == null || identity.Record == null || !UsesModularAvatar(identity.Record)) continue;
+            RefreshAvatarAppearance(identity);
+            if (EmployeePhotoBooth.Instance != null)
+                EmployeePhotoBooth.Instance.GeneratePortraitForRecord(identity.Record);
+            refreshed++;
+        }
+
+        Debug.Log($"[EmployeeSpawner] Refreshed {refreshed} live modular avatar(s) + portraits from current AOD data.");
+    }
+
     /// <summary>Dedicated fixed-look FBX for roles that always use the same model — null for
     /// every other role, which then falls through to the random modular avatar (if enabled) or
     /// the default worker mesh.</summary>

@@ -16,8 +16,11 @@ using UnityEngine;
 public static class ModularAvatarAssembler
 {
     // Slots whose chosen variant is ALWAYS applied (the character would look broken without them).
+    // "head" and "hands" added 2026-09-30 for the new multi-part body exports (woman_head_bodyA /
+    // woman_hands_bodyA) — per Tad, a body must always show a head, same mandatory tier as the
+    // torso itself.
     private static readonly HashSet<string> CoreSlots = new()
-        { "body", "eyes", "eyebrows", "mouth", "face", "chest", "legs", "feet" };
+        { "body", "head", "hands", "eyes", "eyebrows", "mouth", "face", "chest", "legs", "feet" };
 
     // Expression slots — default to the "Neutral" variant; the runtime morale/fatigue system
     // swaps these later. (Detected by the variant name containing "neutral".)
@@ -30,15 +33,15 @@ public static class ModularAvatarAssembler
     // over/with hair rather than replacing it.
     private static readonly HashSet<string> HeadPositionSlots = new() { "hair" };
 
-    // The old, all-in-one Male_Modular_Staff.fbx / Female_Modular_Staff.fbx (still scanned for
-    // chest/legs/feet/eyebrows/face/vest — see ModularAvatarImporter's Obsolete_Humanoids skip)
-    // carry a LEGACY "head" slot that mixes hairstyles and hats into one list (male_head_Afro,
-    // male_head_Helmet, female_head_hatGray, etc). It predates the new "hair"/"hat" slots above
-    // and was never gated the same way — it's an ordinary always-on slot, so every avatar was
-    // getting a legacy head item from THIS slot in addition to a pick from the new hair/hat
-    // system, stacking two head meshes at once. Per Tad, the new hair+hat slots now fully replace
-    // it for both genders — skipped here entirely rather than added to `chosen`.
-    private static readonly HashSet<string> DeprecatedSlots = new() { "head" };
+    // The old, all-in-one Male_Modular_Staff.fbx / Female_Modular_Staff.fbx used to carry a LEGACY
+    // "head" slot that mixed hairstyles and hats into one list (male_head_Afro, male_head_Helmet,
+    // female_head_hatGray, etc), which stacked with the new hair/hat system if both were scanned at
+    // once. That source lives under XXX_Obsolete_Humanoids, which ModularAvatarImporter already
+    // skips outright, so nothing scans into "head" today except the new 2026-09-30 body-part
+    // exports (woman_head_bodyA) — "head" is a real, wanted CoreSlot again (see above). Kept as an
+    // empty set (rather than deleted) so a future legacy-source slot can be added back here without
+    // re-deriving this history.
+    private static readonly HashSet<string> DeprecatedSlots = new();
 
     // Chance an avatar wears nothing on its head (bald / no hat). Females are never bald
     // (see ChooseHeadItem) — this only ever applies to males. Per Tad: 50/50 hair-or-bald for men.
@@ -143,7 +146,8 @@ public static class ModularAvatarAssembler
             // Safety vests are mandatory in a warehouse — every employee wears one (50/50 type).
             if (slot == "vest")
             {
-                chosen.Add(PickVariant(variants, rng, role, gender));
+                var vestPick = PickVariant(variants, rng, role, gender);
+                if (vestPick != null) chosen.Add(vestPick);
                 continue;
             }
 
@@ -156,11 +160,17 @@ public static class ModularAvatarAssembler
             {
                 var hardhats = variants.Where(v => v.Variant.ToLower().Contains("hardhat")).ToList();
                 if (hardhats.Count > 0 && rng.NextDouble() <= OptionalSlotChance["hat"])
-                    chosen.Add(PickVariant(hardhats, rng, role, gender));
+                {
+                    var hardhatPick = PickVariant(hardhats, rng, role, gender);
+                    if (hardhatPick != null) chosen.Add(hardhatPick);
+                }
 
                 var headphones = variants.Where(v => v.Variant.ToLower().Contains("headphones")).ToList();
                 if (headphones.Count > 0 && rng.NextDouble() <= HeadphonesChance)
-                    chosen.Add(PickVariant(headphones, rng, role, gender));
+                {
+                    var headphonesPick = PickVariant(headphones, rng, role, gender);
+                    if (headphonesPick != null) chosen.Add(headphonesPick);
+                }
 
                 continue;
             }
@@ -175,7 +185,9 @@ public static class ModularAvatarAssembler
                 ? (PickNeutral(variants) ?? PickVariant(variants, rng, role, gender))
                 : PickVariant(variants, rng, role, gender);
 
-            chosen.Add(pick);
+            // pick can now be null (2026-09-30) — every candidate in this slot explicitly
+            // zero-weighted, meaning "show nothing here" rather than "fall back to something."
+            if (pick != null) chosen.Add(pick);
         }
 
         // Apply the single chosen head item, if any (null = bald).
@@ -402,6 +414,20 @@ public static class ModularAvatarAssembler
 
     private static bool ParsesAsPart(string name)
     {
+        // Mirrors ModularAvatarImporter.ParseName's dotted-name case (e.g. "woman.bodyA") — a body
+        // export's main torso mesh, which must also count as a part object here or the prune loop
+        // would leave it untouched only by accident rather than by a consistent rule.
+        if (name.Contains('.') && !name.Contains('_'))
+        {
+            var dotSeg = name.Split('.');
+            if (dotSeg.Length == 2)
+            {
+                string dg = dotSeg[0].ToLower();
+                if (dg == "male" || dg == "female" || dg == "man" || dg == "woman" || dg == "neutral")
+                    return true;
+            }
+        }
+
         var seg = name.Split('_');
         if (seg.Length < 3) return false;
         string g = seg[0].ToLower();
@@ -441,6 +467,7 @@ public static class ModularAvatarAssembler
         var unverified = candidates.Where(c => !c.VerifiedInGame).ToList();
         var pool = unverified.Count > 0 ? unverified : candidates;
         var pick = WeightedPick(pool, rng, role, gender);
+        if (pick == null) return null; // every candidate in this slot is explicitly zero-weighted
 
         if (!pick.VerifiedInGame)
         {
@@ -477,8 +504,11 @@ public static class ModularAvatarAssembler
     /// anything, exactly like the rest of this system.</summary>
     private static IAvatarPart WeightedPick(List<IAvatarPart> pool, System.Random rng, EmployeeRole? role, string gender)
     {
-        if (pool.Count == 1) return pool[0];
-
+        // NOTE: deliberately no "pool.Count == 1 -> return it unconditionally" shortcut (removed
+        // 2026-09-30) — that bypassed weight entirely, so a slot with exactly one candidate (e.g.
+        // female "feet" with only woman_feet_bootsBlack defined) always showed up even after being
+        // set to 0% in the AOD, ignoring the setting completely. Weight is now always checked
+        // regardless of pool size.
         var cfg = AvatarWeightConfig.Load();
         var weights = new float[pool.Count];
         float total = 0f;
@@ -490,7 +520,11 @@ public static class ModularAvatarAssembler
             weights[i] = Mathf.Max(0f, w);
             total += weights[i];
         }
-        if (total <= 0f) return pool[rng.Next(pool.Count)]; // everything zero-weighted — fall back to uniform rather than divide by zero
+        // Per Tad (2026-09-30): a slot where every candidate is explicitly zero-weighted means
+        // "nothing here right now" — e.g. boots/gloves set to 0% while the body is finished but
+        // clothing isn't. Returning null (rather than falling back to a uniform random pick) lets
+        // that slot go empty instead of forcing an item the AOD says shouldn't show.
+        if (total <= 0f) return null;
 
         double r = rng.NextDouble() * total;
         double cumulative = 0;

@@ -1317,6 +1317,17 @@ public class AODPanel : IUIPanel
             AODPreviewStage.ClearThumbnailCache();
         }
 
+        // Per Tad (2026-09-30): a Submit/Update should be felt everywhere live, not just on the
+        // next hire — rebuild every already-spawned modular-avatar employee and recapture their
+        // portrait so the hiring board / employee info UI stop showing a stale look. Play-mode only:
+        // there's nothing spawned to refresh in the editor outside Play, and FindFirstObjectByType
+        // would otherwise just silently no-op anyway.
+        if (Application.isPlaying)
+        {
+            if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
+            _employeeSpawner?.RefreshAllModularAvatars();
+        }
+
         Refresh();
         BuildDetailPanel(lib, _selectedPart); // re-render so the button label flips to "Update" and the NEW badge disappears from view
 #else

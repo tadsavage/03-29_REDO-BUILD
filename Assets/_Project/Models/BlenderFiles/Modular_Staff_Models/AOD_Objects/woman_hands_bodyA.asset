@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e9e232887a9b4645b1f651208bf32a4, type: 3}
+  m_Name: woman_hands_bodyA
+  m_EditorClassIdentifier: GameCore.Simulation::AvatarPartAsset
+  objectName: woman_hands_bodyA
+  gender: female
+  slot: hands
+  variant: bodyA
+  finalizedPrefab: {fileID: 6673549554780288332, guid: 3f74d739522acf048992f7738c777051, type: 3}
+  allowedRoles: 0000000001000000020000000300000004000000i
+  colorVariants: []
+  defaultWeight: 100
+  verifiedInGame: 1
