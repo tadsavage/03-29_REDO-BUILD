@@ -74,6 +74,11 @@ public class AvatarPartLibrary : ScriptableObject
         // variant) rule for this part — see AvatarWeightConfig.GetWeight.
         public float defaultWeight = 1f;
 
+        // Skyrim-style clipping fix (2026-09-30): body-part slots this CLOTHING part hides when
+        // worn, e.g. coveralls -> {"body","arms","legs"}. Only meaningful when this part's own slot
+        // is not itself a body slot. See ModularAvatarAssembler.BodySlots / Build's masking pass.
+        public List<string> hiddenBodySlots = new();
+
         // Vestigial as of the 2026-09-27 pipeline redesign — a raw Part is ALWAYS unreviewed now
         // (submitting one removes it from AvatarPartLibrary.parts and produces an AvatarPartAsset
         // instead, rather than flipping this bool in place). Kept only so old serialized data
@@ -97,6 +102,7 @@ public class AvatarPartLibrary : ScriptableObject
         List<EmployeeRole> IAvatarPart.AllowedRoles => allowedRoles;
         List<ColorVariant> IAvatarPart.ColorVariants => colorVariants;
         float IAvatarPart.DefaultWeight { get => defaultWeight; set => defaultWeight = value; }
+        List<string> IAvatarPart.HiddenBodySlots => hiddenBodySlots;
         bool IAvatarPart.MetadataReviewed => false; // see the field's own comment above
         bool IAvatarPart.VerifiedInGame { get => verifiedInGame; set => verifiedInGame = value; }
     }

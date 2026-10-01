@@ -337,12 +337,40 @@ public static class ModularAvatarImporter
 
         bool changed = false;
 
-        // 1. Humanoid rig — only for files that actually carry a skinned skeleton (a real body).
-        // Hair/hat/prop exports have no bones at all; forcing Humanoid on those does nothing useful
-        // and would just log a spurious "invalid avatar" warning for no benefit.
+        // 1. Humanoid rig — only for the file that actually carries the "body" slot mesh (the
+        // primary torso source that becomes Build()'s `root`/Animator target). Per-part body
+        // exports (2026-09-30 workflow: female_bodyA_arms.fbx, _hands.fbx, _head.fbx, each with
+        // only the bone chain Blender needed to weight THAT mesh) also carry a real skeleton, but
+        // only a PARTIAL one — missing bones like Head/LeftUpperLeg/LeftLowerLeg that Humanoid
+        // validation requires unconditionally. A partial skeleton can NEVER pass Humanoid
+        // validation no matter how many times it's reimported, so forcing Human on every skinned
+        // file (the old rule) hit the exact infinite loop the staleHumanoid repair below warns
+        // about for duplicate-armature files: reimport -> still invalid -> "must be stale cache" ->
+        // clear + reimport -> forever, flooding the console with "Required human bone 'X' not
+        // found" (found live, 2026-09-30, right after Tad started exporting per-part body files).
+        // Every OTHER chosen part (arms/hands/head/clothing/etc) is merged into the body's root by
+        // NAME-matching bones at runtime (see ModularAvatarAssembler.Build's remappedBones loop) —
+        // that mechanism never looks at the source file's own Animator/Avatar at all, so those
+        // files have no need for a valid Humanoid rig of their own; Generic is correct for them.
+        bool isBodySource = probe.GetComponentsInChildren<Transform>(true)
+            .Any(t => (t.GetComponent<MeshFilter>() != null || t.GetComponent<SkinnedMeshRenderer>() != null)
+                      && ParseName(t.name, 0)?.slot == "body");
+
         bool hasSkeleton = probe.GetComponentsInChildren<SkinnedMeshRenderer>(true)
             .Any(s => s.bones != null && s.bones.Length > 0);
-        if (hasSkeleton)
+
+        // One-time cleanup: a per-part file that got incorrectly flipped to Human by the OLD rule
+        // (before this fix) before its .meta's cached setting is corrected, Unity will keep
+        // attempting — and failing — Humanoid validation on every future reimport forever, even
+        // though FixNewExport itself no longer loops. Reset it back to Generic so the import is
+        // actually clean, not just non-looping.
+        if (hasSkeleton && !isBodySource && importer.animationType == ModelImporterAnimationType.Human)
+        {
+            importer.animationType = ModelImporterAnimationType.Generic;
+            changed = true;
+        }
+
+        if (hasSkeleton && isBodySource)
         {
             if (importer.animationType != ModelImporterAnimationType.Human)
             {

@@ -20,6 +20,13 @@ public interface IAvatarPart
     List<AvatarPartLibrary.ColorVariant> ColorVariants { get; }
     float DefaultWeight { get; set; }
 
+    /// <summary>Body-part slots (from <see cref="ModularAvatarAssembler.BodySlots"/>) this part hides
+    /// when worn — e.g. coveralls hide "body"/"arms"/"legs" so they don't clip through the cloth.
+    /// Only meaningful for a clothing part (a part whose OWN slot is not itself a body slot); empty
+    /// for a body part. "head" is never respected here even if present — see
+    /// ModularAvatarAssembler.Build's masking pass.</summary>
+    List<string> HiddenBodySlots { get; }
+
     /// <summary>True once this part has actually been reviewed/submitted through the AOD. For a raw
     /// <see cref="AvatarPartLibrary.Part"/> this is always false (submitting one REMOVES it from the
     /// raw list and produces an <see cref="AvatarPartAsset"/> instead — see AODPanel.Submit); for an

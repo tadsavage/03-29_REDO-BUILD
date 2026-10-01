@@ -75,6 +75,7 @@ public static class ModularAvatarFinalizer
         asset.colorVariants = rawPart.colorVariants;
         asset.defaultWeight = rawPart.defaultWeight;
         asset.verifiedInGame = rawPart.verifiedInGame;
+        asset.hiddenBodySlots = new System.Collections.Generic.List<string>(rawPart.hiddenBodySlots);
 
         if (isNew) AssetDatabase.CreateAsset(asset, assetPath);
         EditorUtility.SetDirty(asset);
@@ -123,6 +124,7 @@ public static bool TryUpdateFromRawSource(AvatarPartLibrary lib, AvatarPartAsset
             colorVariants  = asset.colorVariants,
             defaultWeight  = asset.defaultWeight,
             verifiedInGame = asset.verifiedInGame,
+            hiddenBodySlots = asset.hiddenBodySlots,
         };
 
         return TryFinalize(lib, rawMatch, out error, out _);

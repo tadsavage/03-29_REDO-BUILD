@@ -22,6 +22,16 @@ public static class ModularAvatarAssembler
     private static readonly HashSet<string> CoreSlots = new()
         { "body", "head", "hands", "eyes", "eyebrows", "mouth", "face", "chest", "legs", "feet" };
 
+    // The real, skinned BODY slots (2026-09-30 real-workflow pass) — "body" is kept as the torso
+    // token for backward compatibility with already-finalized parts (woman.bodyA etc) rather than
+    // renaming it to "torso". "head" is deliberately a member (so a clothing item COULD in principle
+    // list it) but Build()'s masking pass unconditionally refuses to hide it — per Tad, Head and Hair
+    // must always stay enabled regardless of what any clothing item's HiddenBodySlots says.
+    public static readonly HashSet<string> BodySlots = new()
+        { "body", "head", "neck", "arms", "hands", "waist", "legs", "feet" };
+
+    public static bool IsBodySlot(string slot) => !string.IsNullOrEmpty(slot) && BodySlots.Contains(slot.ToLower());
+
     // Expression slots — default to the "Neutral" variant; the runtime morale/fatigue system
     // swaps these later. (Detected by the variant name containing "neutral".)
     private static readonly HashSet<string> ExpressionSlots = new() { "eyebrows", "mouth" };
@@ -328,9 +338,41 @@ public static class ModularAvatarAssembler
             if (!tempReparentedWhole) SafeDestroy(temp);
         }
 
+        ApplyBodyPartMasking(root, chosen);
         ApplyMoodExpression(root, gender, EmployeeMood.Neutral);
 
         return root;
+    }
+
+    /// <summary>Skyrim-style clipping fix (2026-09-30): any chosen CLOTHING part (a part whose own
+    /// slot isn't itself a body slot — see <see cref="IsBodySlot"/>) can carry a
+    /// <see cref="IAvatarPart.HiddenBodySlots"/> list, e.g. coveralls -> hide body/arms/legs so the
+    /// skin mesh doesn't poke through the cloth. Unions every chosen clothing item's hide-list, then
+    /// disables the renderer for each chosen BODY part whose own slot lands in that union.
+    /// "head" is force-excluded no matter what any clothing item lists — per Tad, the head (and hair,
+    /// which isn't a body slot at all so it's never touched by this pass) must always stay visible.
+    /// Runs AFTER the prune/merge above so every surviving chosen part is already parented under
+    /// root under its original object name (FindDeep looks it up by that name).</summary>
+    private static void ApplyBodyPartMasking(GameObject root, List<IAvatarPart> chosen)
+    {
+        var hidden = new HashSet<string>();
+        foreach (var p in chosen)
+        {
+            if (IsBodySlot(p.Slot)) continue; // only clothing items get to hide anything
+            if (p.HiddenBodySlots == null) continue;
+            foreach (var s in p.HiddenBodySlots)
+                if (!string.IsNullOrEmpty(s)) hidden.Add(s.ToLower());
+        }
+        hidden.Remove("head"); // invariant: head is never auto-hidden, regardless of clothing config
+        if (hidden.Count == 0) return;
+
+        foreach (var p in chosen)
+        {
+            if (!IsBodySlot(p.Slot) || !hidden.Contains(p.Slot.ToLower())) continue;
+            var t = FindDeep(root.transform, p.ObjectName);
+            var smr = t?.GetComponent<SkinnedMeshRenderer>();
+            if (smr != null) smr.enabled = false;
+        }
     }
 
     /// <summary>

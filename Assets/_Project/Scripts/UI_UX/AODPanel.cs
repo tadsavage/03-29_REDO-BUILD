@@ -1135,6 +1135,27 @@ public class AODPanel : IUIPanel
             weightValueLabel.text = $"{Mathf.RoundToInt(e.newValue)}%";
         });
 
+        // Skyrim-style clipping fix (2026-09-30) — only clothing items get to hide a body part; a
+        // body part itself (torso/head/arms/etc) has no "worn over" semantics, so this section is
+        // hidden for those to avoid implying a body part could hide itself.
+        if (!ModularAvatarAssembler.IsBodySlot(part.Slot))
+        {
+            Section("HIDES BODY PARTS WHEN WORN  (prevents clipping — Head always stays visible)");
+            var hideRow = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
+            scroll.Add(hideRow);
+            foreach (var bodySlot in BodySlotChipOrder)
+            {
+                var chip = new Chip(BodySlotLabel(bodySlot));
+                chip.SetSelected(part.HiddenBodySlots.Contains(bodySlot), silent: true);
+                chip.OnChanged += selected =>
+                {
+                    if (selected) { if (!part.HiddenBodySlots.Contains(bodySlot)) part.HiddenBodySlots.Add(bodySlot); }
+                    else part.HiddenBodySlots.Remove(bodySlot);
+                };
+                hideRow.Add(chip.Root);
+            }
+        }
+
         Section("COLOR VARIANTS  (click a swatch to add/remove it)");
         var paletteGrid = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
         scroll.Add(paletteGrid);
@@ -1225,6 +1246,23 @@ public class AODPanel : IUIPanel
         submitBtn.clicked += () => Submit(lib, part);
         scroll.Add(submitBtn);
     }
+
+    // Body slots offered as hide-targets in the clipping-fix chip row above — deliberately excludes
+    // "head" (never a valid hide target, see ApplyBodyPartMasking) and keeps the rest in the same
+    // top-to-bottom order Tad described the body: Neck, Torso, Arms, Hands, Waist, Legs, Feet.
+    private static readonly string[] BodySlotChipOrder = { "neck", "body", "arms", "hands", "waist", "legs", "feet" };
+
+    private static string BodySlotLabel(string slot) => slot switch
+    {
+        "body" => "Torso",
+        "neck" => "Neck",
+        "arms" => "Arms",
+        "hands" => "Hands",
+        "waist" => "Waist",
+        "legs" => "Legs",
+        "feet" => "Feet",
+        _ => slot,
+    };
 
     /// <summary>Approximate equality for palette-derived colors — exact float comparison is fine
     /// in practice since both sides ultimately come from the same cached palette list, but a small

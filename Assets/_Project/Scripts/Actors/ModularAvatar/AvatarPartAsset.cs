@@ -27,6 +27,9 @@ public class AvatarPartAsset : ScriptableObject, IAvatarPart
     public float defaultWeight = 1f;
     public bool verifiedInGame = false;
 
+    // Skyrim-style clipping fix (2026-09-30) — see IAvatarPart.HiddenBodySlots.
+    public List<string> hiddenBodySlots = new();
+
     public string ObjectName => objectName;
     public string Gender { get => gender; set => gender = value; }
     public string Slot => slot;
@@ -35,6 +38,7 @@ public class AvatarPartAsset : ScriptableObject, IAvatarPart
     public List<EmployeeRole> AllowedRoles => allowedRoles;
     public List<AvatarPartLibrary.ColorVariant> ColorVariants => colorVariants;
     public float DefaultWeight { get => defaultWeight; set => defaultWeight = value; }
+    public List<string> HiddenBodySlots => hiddenBodySlots;
 
     // Existence in AvatarPartLibrary.finalizedParts IS "reviewed" — there is no in-between state for
     // an AvatarPartAsset, unlike the raw Part class's mutable boolean.
