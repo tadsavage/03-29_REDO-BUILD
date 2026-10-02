@@ -63,7 +63,7 @@ public class AvatarWeightConfig : ScriptableObject
     public static AvatarWeightConfig Load()
     {
         if (_cached == null)
-            _cached = Resources.Load<AvatarWeightConfig>("ModularAvatar/AvatarWeightConfig");
+            _cached = Resources.Load<AvatarWeightConfig>("Resource_AvatarSystemAssets/AvatarWeightConfig");
         return _cached;
     }
 }

@@ -13,10 +13,10 @@ public class SkuMeshOffsetTool : EditorWindow
     [MenuItem("Tools/Inventory Tools/Auto-Detect All SKU Mesh Offsets")]
     public static void AutoDetectAllMeshOffsets()
     {
-        var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+        var skus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs");
         if (skus.Length == 0)
         {
-            EditorUtility.DisplayDialog("Mesh Offset Tool", "No SKU assets found in Resources/Inventory/SKUs/", "OK");
+            EditorUtility.DisplayDialog("Mesh Offset Tool", "No SKU assets found in Resources/Resource_SOs/SKUs/", "OK");
             return;
         }
 

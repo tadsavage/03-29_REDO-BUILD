@@ -80,11 +80,11 @@ public class PalletBuilderUI : MonoBehaviour
         _availableSkus.Clear();
         _skuNames.Clear();
 
-        // Load all SKU assets from Resources/Inventory/SKUs
-        var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+        // Load all SKU assets from Resources/Resource_SOs/SKUs
+        var skus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs");
         if (skus == null || skus.Length == 0)
         {
-            Debug.LogWarning("[PalletBuilderUI] No SKU data found in Resources/Inventory/SKUs");
+            Debug.LogWarning("[PalletBuilderUI] No SKU data found in Resources/Resource_SOs/SKUs");
             return;
         }
 

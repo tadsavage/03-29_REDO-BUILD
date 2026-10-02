@@ -2948,7 +2948,7 @@ private static Font NunitoFont()
         break;
     }
 #else
-    _nunito = Resources.Load<Font>("NunitoSans-VariableFont_YTLC,opsz,wdth,wght");
+    _nunito = Resources.Load<Font>("Resource_Fonts/NunitoSans-VariableFont_YTLC,opsz,wdth,wght");
 #endif
     return _nunito;
 }
@@ -2969,7 +2969,7 @@ private static Font LilitaFont()
     if (guids.Length > 0)
         _lilita = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
 #else
-    _lilita = Resources.Load<Font>("LilitaOne-Regular");
+    _lilita = Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
 #endif
     return _lilita;
 }

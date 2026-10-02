@@ -200,7 +200,7 @@ public class PalletBuilder : MonoBehaviour
             // Restore linkedSku from ID
             if (settings.linkedSkuID != -1)
             {
-                var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+                var skus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs");
                 foreach (var sku in skus)
                 {
                     if (sku.ItemNumber == settings.linkedSkuID)

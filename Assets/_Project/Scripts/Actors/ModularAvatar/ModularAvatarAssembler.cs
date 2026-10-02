@@ -264,7 +264,11 @@ public static class ModularAvatarAssembler
         // bones[]/rootBone keep pointing at those (soon-null) transforms, so it renders
         // collapsed at its bind-pose origin — looking like a stray piece left at world zero,
         // even though the GameObject itself is correctly parented under `root` the whole time.
-        Dictionary<string, Transform> rootBonesByName = null;
+        // Built BEFORE any merge so it only ever contains the body's own skeleton.
+        Dictionary<string, Transform> rootBonesByName = root.GetComponentsInChildren<Transform>(true)
+                                .GroupBy(b => b.name)
+                                .ToDictionary(g => g.Key, g => g.First());
+        var rebound = new HashSet<string>();
 
         foreach (var grp in chosen.Where(p => lib.PrefabFor(p) != primaryPrefab).GroupBy(p => lib.PrefabFor(p)))
         {
@@ -290,14 +294,22 @@ public static class ModularAvatarAssembler
             {
                 var child = FindDeep(temp.transform, part.ObjectName);
                 if (child == null) continue;
+
+                // Skinned part: move ONLY the mesh object onto the body's skeleton and let the part's own
+                // armature copy be destroyed with `temp`. (Previously the whole prefab root came along, so
+                // every part dragged a private skeleton + Animator with it and nothing followed the body.)
+                var partMesh = FindSkinnedMesh(temp.transform, part.ObjectName);
+                if (partMesh != null &&
+                    TryRebindToBody(root, temp.transform, partMesh, part, primaryPrefab, rootBonesByName))
+                {
+                    rebound.Add(part.ObjectName);
+                    continue;
+                }
+
                 if (child == temp.transform) tempReparentedWhole = true;
 
                 var smr = child.GetComponent<SkinnedMeshRenderer>();
                 bool isSkinned = smr != null && smr.bones != null && smr.bones.Length > 0;
-
-                rootBonesByName ??= root.GetComponentsInChildren<Transform>(true)
-                                        .GroupBy(b => b.name)
-                                        .ToDictionary(g => g.Key, g => g.First());
 
                 // Unskinned head-worn props (hair/hardhat/headphones) have no bones[] of their own
                 // to deform with, so they only ever move by riding their PARENT transform. Parenting
@@ -338,11 +350,132 @@ public static class ModularAvatarAssembler
             if (!tempReparentedWhole) SafeDestroy(temp);
         }
 
-        ApplyOrientationFixes(root, chosen);
+        ApplyOrientationFixes(root, chosen, rebound);
         ApplyBodyPartMasking(root, chosen);
         ApplyMoodExpression(root, gender, EmployeeMood.Neutral);
 
         return root;
+    }
+
+    // ── Skeleton merge ──────────────────────────────────────────────────────────────────────────
+    // Each part FBX ships its own copy of the armature, and those copies do NOT share the body's rest pose
+    // (measured 2026-10-02: sleeves/boots/gloves/coveralls are rotated 180 deg about Y, the head is turned
+    // 90 deg, hair/bare arms/bare hands match). A skinned vertex is  bone.localToWorld * bindpose * v,  so
+    // pointing a part at the body's bones is only correct if the bindposes are re-based to the body's rest
+    // pose. newBindpose = bodyBone^-1 * correction * partBone * oldBindpose  keeps the part looking exactly
+    // as it did on its own armature at rest, and from then on it follows the body's animation.
+    private static readonly Dictionary<(Mesh, GameObject, int), Mesh> ReboundMeshCache = new();
+
+    private static SkinnedMeshRenderer FindSkinnedMesh(Transform partRoot, string objectName)
+    {
+        var all = partRoot.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        foreach (var s in all)
+            if (s.name == objectName && s.sharedMesh != null && s.bones != null && s.bones.Length > 0) return s;
+        if (all.Length == 1 && all[0].sharedMesh != null && all[0].bones != null && all[0].bones.Length > 0)
+            return all[0];
+        return null;
+    }
+
+    /// <summary>World-space (avatar space) transform baked into a part's bindposes to cancel an authoring
+    /// orientation error. Mirrors the old root-transform stop-gaps in ApplyOrientationFixes.</summary>
+    private static int CorrectionKind(IAvatarPart part)
+    {
+        // Hair is authored with the same 180 deg flip as the head (thick mass ends up over the face, fringe at the
+        // back), so it gets the head's correction.
+        if (part.Slot == "head" || part.Slot == "hair") return 1;
+        if (part.Slot == "hands" && !part.ObjectName.StartsWith("neutral_hands_", System.StringComparison.OrdinalIgnoreCase)) return 2;
+        return 0;
+    }
+
+    private static Matrix4x4 CorrectionMatrix(int kind) => kind switch
+    {
+        1 => Matrix4x4.TRS(HeadRootPos, HeadRootRot, Vector3.one),
+        2 => Matrix4x4.TRS(HandsRootPos, HandsRootRot, Vector3.one),
+        _ => Matrix4x4.identity,
+    };
+
+    private static bool TryRebindToBody(GameObject root, Transform partRoot, SkinnedMeshRenderer smr,
+                                        IAvatarPart part, GameObject bodyPrefab,
+                                        Dictionary<string, Transform> bodyBones)
+    {
+        var mesh = smr.sharedMesh;
+        var oldBones = smr.bones;
+        var newBones = new Transform[oldBones.Length];
+        var rootInvForMatch = root.transform.worldToLocalMatrix;
+        var partInvForMatch = partRoot.worldToLocalMatrix;
+        for (int i = 0; i < oldBones.Length; i++)
+        {
+            if (oldBones[i] == null || !bodyBones.TryGetValue(oldBones[i].name, out newBones[i]))
+            {
+                Debug.LogWarning($"[ModularAvatar] '{part.ObjectName}': bone '{(oldBones[i] != null ? oldBones[i].name : "null")}' " +
+                                 "not found on the body skeleton — leaving this part on its own armature.");
+                return false;
+            }
+
+            // Some part exports have their whole armature turned 180 deg about Y, so the bone NAMED "_L" physically
+            // sits where the body's "_R" bone is. Binding by name alone would make the geometry on the right side
+            // follow the LEFT arm/leg's animation. Pick whichever of {same name, opposite side} is closer at rest.
+            string swapped = SwapSide(oldBones[i].name);
+            if (swapped != null && bodyBones.TryGetValue(swapped, out var alt))
+            {
+                Vector3 partPos = partInvForMatch.MultiplyPoint3x4(oldBones[i].position);
+                float dSame = (rootInvForMatch.MultiplyPoint3x4(newBones[i].position) - partPos).sqrMagnitude;
+                float dAlt  = (rootInvForMatch.MultiplyPoint3x4(alt.position) - partPos).sqrMagnitude;
+                if (dAlt < dSame) newBones[i] = alt;
+            }
+        }
+
+        int kind = CorrectionKind(part);
+        var cacheKey = (mesh, bodyPrefab, kind);
+        if (!ReboundMeshCache.TryGetValue(cacheKey, out var useMesh) || useMesh == null)
+        {
+            var bp = mesh.bindposes;
+            var corr = CorrectionMatrix(kind);
+            var rootInv = root.transform.worldToLocalMatrix;
+            var partInv = partRoot.worldToLocalMatrix;
+            var newBp = new Matrix4x4[bp.Length];
+            bool changed = false;
+            for (int i = 0; i < bp.Length && i < oldBones.Length; i++)
+            {
+                var cPart = partInv * oldBones[i].localToWorldMatrix;
+                var cBody = rootInv * newBones[i].localToWorldMatrix;
+                newBp[i] = cBody.inverse * corr * cPart * bp[i];
+                if (!changed && !Approx(newBp[i], bp[i])) changed = true;
+            }
+            if (changed)
+            {
+                useMesh = Object.Instantiate(mesh);
+                useMesh.name = mesh.name + "_rebound";
+                useMesh.bindposes = newBp;
+                useMesh.hideFlags = HideFlags.HideAndDontSave;
+            }
+            else useMesh = mesh;
+            ReboundMeshCache[cacheKey] = useMesh;
+        }
+
+        smr.sharedMesh = useMesh;
+        smr.bones = newBones;
+        if (smr.rootBone != null && bodyBones.TryGetValue(smr.rootBone.name, out var rb)) smr.rootBone = rb;
+        else if (bodyBones.TryGetValue("Root_M", out var r)) smr.rootBone = r;
+
+        smr.transform.SetParent(root.transform, false);
+        smr.transform.localPosition = Vector3.zero;
+        smr.transform.localRotation = Quaternion.identity;
+        smr.transform.localScale = Vector3.one;
+        return true;
+    }
+
+    private static string SwapSide(string boneName)
+    {
+        if (boneName.EndsWith("_L")) return boneName.Substring(0, boneName.Length - 2) + "_R";
+        if (boneName.EndsWith("_R")) return boneName.Substring(0, boneName.Length - 2) + "_L";
+        return null;
+    }
+
+    private static bool Approx(Matrix4x4 a, Matrix4x4 b)
+    {
+        for (int i = 0; i < 16; i++) if (Mathf.Abs(a[i] - b[i]) > 1e-4f) return false;
+        return true;
     }
 
     // Hand-tuned in the scene by Tad (2026-10-01) and baked here so every build gets it. These are the
@@ -372,12 +505,18 @@ public static class ModularAvatarAssembler
     /// move together. Runs while the avatar is still at world origin / identity, so world == avatar-local here.
     /// Stop-gap: the real fix is correcting the meshes in Blender and re-exporting, then delete this.
     /// Hair, boots, coveralls and headphones are correct as-is.</summary>
-    private static void ApplyOrientationFixes(GameObject root, List<IAvatarPart> chosen)
+    private static void ApplyOrientationFixes(GameObject root, List<IAvatarPart> chosen, HashSet<string> rebound)
     {
         foreach (var p in chosen)
         {
+            // Parts rebound onto the body skeleton already had their correction baked into the bindposes.
+            if (rebound != null && rebound.Contains(p.ObjectName)) continue;
             bool isHead    = p.Slot == "head";
-            bool isHardhat = p.Slot == "hat" && p.Variant != null && p.Variant.ToLower().Contains("hardhat");
+            // Unskinned head-worn props (hard hats, headphones, old unskinned hair) ride the Head_M bone and are
+            // authored facing -Z like the head, so they turn 180 about the same axis the head uses.
+            bool isHardhat = (p.Slot == "hat" && p.Variant != null &&
+                              (p.Variant.ToLower().Contains("hardhat") || p.Variant.ToLower().Contains("headphones")))
+                             || p.Slot == "hair";
             bool isHands   = p.Slot == "hands";
             if (!isHead && !isHardhat && !isHands) continue;
 
@@ -493,7 +632,7 @@ public static class ModularAvatarAssembler
     public static AvatarPartLibrary LoadLibrary()
     {
         if (_cachedLib == null)
-            _cachedLib = Resources.Load<AvatarPartLibrary>("ModularAvatar/AvatarPartLibrary");
+            _cachedLib = Resources.Load<AvatarPartLibrary>("Resource_AvatarSystemAssets/AvatarPartLibrary");
         return _cachedLib;
     }
 

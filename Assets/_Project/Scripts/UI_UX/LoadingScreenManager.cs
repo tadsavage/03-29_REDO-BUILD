@@ -407,7 +407,7 @@ public class LoadingScreenManager : MonoBehaviour
         if (guids.Length == 0) return null;
         return UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
 #else
-        return Resources.Load<Font>("LilitaOne-Regular");
+        return Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
 #endif
     }
 

@@ -116,7 +116,7 @@ public class RackSetupUI : MonoBehaviour
         var blueprint = root.Q<VisualElement>("Blueprint");
         if (blueprint == null) return;
 
-        Texture2D tex = Resources.Load<Texture2D>("RackBlueprint");
+        Texture2D tex = Resources.Load<Texture2D>("Resouce_UI/RackBlueprint");
 #if UNITY_EDITOR
         if (tex == null)
             tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(

@@ -37,7 +37,7 @@ public class VendorRelationshipFx : MonoBehaviour
             _lilita = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
                 UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
 #endif
-        if (_lilita == null) _lilita = Resources.Load<Font>("LilitaOne-Regular");
+        if (_lilita == null) _lilita = Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
         return _lilita;
     }
 

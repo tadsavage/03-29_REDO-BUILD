@@ -328,7 +328,7 @@ namespace GameCore.Persistence
         private static SkuData MatchPrefabToSku(GameObject prefab)
         {
             if (prefab == null) return null;
-            var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+            var skus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs");
             return skus.FirstOrDefault(s => s != null && s.Prefab == prefab);
         }
 

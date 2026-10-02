@@ -4,11 +4,11 @@
     "spentToday": 16963,
     "cameraData": {
         "focusPoint": {
-            "x": -22.014087677001953,
+            "x": -19.375234603881836,
             "y": 0.0,
-            "z": -12.95119857788086
+            "z": 10.058897018432617
         },
-        "distance": 16.31999969482422,
+        "distance": 6.599998474121094,
         "pitch": 32.301998138427734,
         "yaw": 2171.95263671875
     },
@@ -18319,7 +18319,7 @@
             "y": -4,
             "rot": 0,
             "customData": "",
-            "worldY": 0.045051854103803635,
+            "worldY": 0.03366889804601669,
             "hasTransform": true,
             "pos": {
                 "x": 66.62010192871094,
@@ -18339,7 +18339,7 @@
             "y": 58,
             "rot": 0,
             "customData": "",
-            "worldY": 0.10071799159049988,
+            "worldY": 0.08933687955141068,
             "hasTransform": true,
             "pos": {
                 "x": -14.235030174255371,
@@ -18347,9 +18347,9 @@
                 "z": 11.704254150390625
             },
             "rotation": {
-                "x": 1.0242788100883867e-17,
+                "x": -1.2210354925255617e-24,
                 "y": 0.859110414981842,
-                "z": 6.101846681007668e-18,
+                "z": -7.273968077907167e-25,
                 "w": 0.51179039478302
             }
         },
@@ -18359,7 +18359,7 @@
             "y": 64,
             "rot": 0,
             "customData": "",
-            "worldY": 0.045051854103803635,
+            "worldY": 0.03366889804601669,
             "hasTransform": true,
             "pos": {
                 "x": 71.03632354736328,
@@ -18379,7 +18379,7 @@
             "y": 38,
             "rot": 0,
             "customData": "",
-            "worldY": 1.1617316007614136,
+            "worldY": 1.150335669517517,
             "hasTransform": true,
             "pos": {
                 "x": -11.66894245147705,
@@ -18387,9 +18387,9 @@
                 "z": -15.737481117248535
             },
             "rotation": {
-                "x": -5.0737958226359934e-21,
+                "x": -3.263915124988096e-28,
                 "y": 0.8653092384338379,
-                "z": -2.9390429944412317e-21,
+                "z": -1.890652926337138e-28,
                 "w": 0.5012383460998535
             }
         },
@@ -18399,7 +18399,7 @@
             "y": 48,
             "rot": 0,
             "customData": "",
-            "worldY": 0.045051854103803635,
+            "worldY": 0.03366889804601669,
             "hasTransform": true,
             "pos": {
                 "x": 45.852840423583984,
@@ -18419,7 +18419,7 @@
             "y": -4,
             "rot": 0,
             "customData": "",
-            "worldY": 0.045051854103803635,
+            "worldY": 0.03366889804601669,
             "hasTransform": true,
             "pos": {
                 "x": 55.591983795166016,
@@ -18439,7 +18439,7 @@
             "y": -4,
             "rot": 0,
             "customData": "",
-            "worldY": 0.045051854103803635,
+            "worldY": 0.03366889804601669,
             "hasTransform": true,
             "pos": {
                 "x": -21.37552261352539,
@@ -18459,7 +18459,7 @@
             "y": 91,
             "rot": 0,
             "customData": "",
-            "worldY": 0.045051854103803635,
+            "worldY": 0.03366889804601669,
             "hasTransform": true,
             "pos": {
                 "x": 58.864105224609375,
@@ -18479,7 +18479,7 @@
             "y": -4,
             "rot": 0,
             "customData": "",
-            "worldY": 0.045051854103803635,
+            "worldY": 0.03366889804601669,
             "hasTransform": true,
             "pos": {
                 "x": -15.940848350524902,
@@ -18550,18 +18550,6 @@
         {
             "key": "PalletBuilder.totalCases",
             "val": "0"
-        },
-        {
-            "key": "Gate_Open_Close.rot_down",
-            "val": "0"
-        },
-        {
-            "key": "Gate_Open_Close.rot_up",
-            "val": "-85"
-        },
-        {
-            "key": "Gate_Open_Close.arm_speed",
-            "val": "80"
         },
         {
             "key": "NavMeshManager._debounceTime",
@@ -18660,6 +18648,34 @@
             "val": "1.2"
         },
         {
+            "key": "AiNavigation.footstepVolume",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.footstepPitch",
+            "val": "0.3"
+        },
+        {
+            "key": "AiNavigation.volumeAt5m",
+            "val": "1"
+        },
+        {
+            "key": "AiNavigation.volumeAt10m",
+            "val": "0.75"
+        },
+        {
+            "key": "AiNavigation.volumeAt15m",
+            "val": "0.5"
+        },
+        {
+            "key": "AiNavigation.volumeAt20m",
+            "val": "0.25"
+        },
+        {
+            "key": "AiNavigation.volumeAt30m",
+            "val": "0.1"
+        },
+        {
             "key": "VehicleThrottleAudio.hearingDistance",
             "val": "25"
         },
@@ -18716,34 +18732,6 @@
             "val": "2"
         },
         {
-            "key": "AiNavigation.footstepVolume",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.footstepPitch",
-            "val": "0.3"
-        },
-        {
-            "key": "AiNavigation.volumeAt5m",
-            "val": "1"
-        },
-        {
-            "key": "AiNavigation.volumeAt10m",
-            "val": "0.75"
-        },
-        {
-            "key": "AiNavigation.volumeAt15m",
-            "val": "0.5"
-        },
-        {
-            "key": "AiNavigation.volumeAt20m",
-            "val": "0.25"
-        },
-        {
-            "key": "AiNavigation.volumeAt30m",
-            "val": "0.1"
-        },
-        {
             "key": "FreeLookCamera.defaultPitch",
             "val": "45"
         },
@@ -18758,13 +18746,25 @@
         {
             "key": "FreeLookCamera.defaultDistance",
             "val": "15"
+        },
+        {
+            "key": "Gate_Open_Close.rot_down",
+            "val": "0"
+        },
+        {
+            "key": "Gate_Open_Close.rot_up",
+            "val": "-85"
+        },
+        {
+            "key": "Gate_Open_Close.arm_speed",
+            "val": "80"
         }
     ],
     "toolsWindowX": 100.0,
     "toolsWindowY": 120.0,
     "guidanceLinesVisible": false,
     "waypointsVisible": false,
-    "hoverPopupEnabled": false,
+    "hoverPopupEnabled": true,
     "employeeRecords": [],
     "laneConfigs": [],
     "laneZones": [],
@@ -19102,168 +19102,6 @@
     "shiftDefinitions": [],
     "shipments": [
         {
-            "poNumber": "IG1028",
-            "supplierId": "Vendor_HomesteadMarket",
-            "supplierName": "Homestead Market Co.",
-            "arrivalDayNumber": 1,
-            "arrivalTimeMinute": 0,
-            "status": 3,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 49,
-            "isBackfillPending": false,
-            "lineItems": [
-                {
-                    "skuId": "194831",
-                    "quantity": 30,
-                    "receivedQuantity": 30,
-                    "unitCost": 18,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "194831",
-                    "quantity": 30,
-                    "receivedQuantity": 0,
-                    "unitCost": 18,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 1,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG1027",
-            "supplierId": "Vendor_Meridian",
-            "supplierName": "Meridian Provisions",
-            "arrivalDayNumber": 1,
-            "arrivalTimeMinute": 0,
-            "status": 2,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 210,
-            "isBackfillPending": false,
-            "lineItems": [
-                {
-                    "skuId": "347610",
-                    "quantity": 52,
-                    "receivedQuantity": 52,
-                    "unitCost": 25,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "347610",
-                    "quantity": 52,
-                    "receivedQuantity": 52,
-                    "unitCost": 25,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "435689",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 23,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "435689",
-                    "quantity": 45,
-                    "receivedQuantity": 45,
-                    "unitCost": 23,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
-            "poNumber": "IG1026",
-            "supplierId": "Vendor_Ambrose",
-            "supplierName": "Ambrose Fine Foods",
-            "arrivalDayNumber": 1,
-            "arrivalTimeMinute": 0,
-            "status": 2,
-            "playerOrdered": true,
-            "isSalvage": false,
-            "deliveryFee": 169,
-            "isBackfillPending": true,
-            "lineItems": [
-                {
-                    "skuId": "649320",
-                    "quantity": 60,
-                    "receivedQuantity": 60,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 0,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "649320",
-                    "quantity": 60,
-                    "receivedQuantity": 60,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 1,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "649320",
-                    "quantity": 60,
-                    "receivedQuantity": 60,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 2,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                },
-                {
-                    "skuId": "649320",
-                    "quantity": 60,
-                    "receivedQuantity": 60,
-                    "unitCost": 47,
-                    "shelfLifeDays": -1,
-                    "floorSlotIndex": 3,
-                    "palletTier": 0,
-                    "dropped": false,
-                    "creditTaken": false,
-                    "salvage": 0
-                }
-            ]
-        },
-        {
             "poNumber": "IG1101",
             "supplierId": "Vendor_Ambrose",
             "supplierName": "Ambrose Fine Foods",
@@ -19391,6 +19229,168 @@
                     "shelfLifeDays": -1,
                     "floorSlotIndex": 6,
                     "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG1026",
+            "supplierId": "Vendor_Ambrose",
+            "supplierName": "Ambrose Fine Foods",
+            "arrivalDayNumber": 1,
+            "arrivalTimeMinute": 0,
+            "status": 2,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 169,
+            "isBackfillPending": true,
+            "lineItems": [
+                {
+                    "skuId": "649320",
+                    "quantity": 60,
+                    "receivedQuantity": 60,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "649320",
+                    "quantity": 60,
+                    "receivedQuantity": 60,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "649320",
+                    "quantity": 60,
+                    "receivedQuantity": 60,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "649320",
+                    "quantity": 60,
+                    "receivedQuantity": 60,
+                    "unitCost": 47,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG1027",
+            "supplierId": "Vendor_Meridian",
+            "supplierName": "Meridian Provisions",
+            "arrivalDayNumber": 1,
+            "arrivalTimeMinute": 0,
+            "status": 2,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 210,
+            "isBackfillPending": false,
+            "lineItems": [
+                {
+                    "skuId": "347610",
+                    "quantity": 52,
+                    "receivedQuantity": 52,
+                    "unitCost": 25,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "347610",
+                    "quantity": 52,
+                    "receivedQuantity": 52,
+                    "unitCost": 25,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 1,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "435689",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 23,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 2,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "435689",
+                    "quantity": 45,
+                    "receivedQuantity": 45,
+                    "unitCost": 23,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 3,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                }
+            ]
+        },
+        {
+            "poNumber": "IG1028",
+            "supplierId": "Vendor_HomesteadMarket",
+            "supplierName": "Homestead Market Co.",
+            "arrivalDayNumber": 1,
+            "arrivalTimeMinute": 0,
+            "status": 3,
+            "playerOrdered": true,
+            "isSalvage": false,
+            "deliveryFee": 49,
+            "isBackfillPending": false,
+            "lineItems": [
+                {
+                    "skuId": "194831",
+                    "quantity": 30,
+                    "receivedQuantity": 30,
+                    "unitCost": 18,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 0,
+                    "dropped": false,
+                    "creditTaken": false,
+                    "salvage": 0
+                },
+                {
+                    "skuId": "194831",
+                    "quantity": 30,
+                    "receivedQuantity": 0,
+                    "unitCost": 18,
+                    "shelfLifeDays": -1,
+                    "floorSlotIndex": 0,
+                    "palletTier": 1,
                     "dropped": false,
                     "creditTaken": false,
                     "salvage": 0
@@ -21708,7 +21708,7 @@
     },
     "workQueue": [
         {
-            "taskId": "e20ea980-0b1d-41d7-966d-cf0ffc404509",
+            "taskId": "958a611f-a829-420e-81a3-f28a5b62c02e",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -21723,7 +21723,7 @@
             "skuId": ""
         },
         {
-            "taskId": "141446fc-27df-46af-9821-d5926ce9eae3",
+            "taskId": "d5c480d5-16b8-4662-a91f-dbc1e2c05a28",
             "type": 3,
             "requiredRole": 0,
             "palletId": "",
@@ -21738,7 +21738,7 @@
             "skuId": ""
         },
         {
-            "taskId": "69880f70-e254-4efa-8bef-c6a83fe9789f",
+            "taskId": "745aa305-af9a-4608-89f5-a52b31fbd23f",
             "type": 1,
             "requiredRole": 1,
             "palletId": "70b924f1-33d7-4fc7-8ccb-cdd0f7dce935",
@@ -21753,7 +21753,7 @@
             "skuId": ""
         },
         {
-            "taskId": "d6ac03ae-23c1-4768-8c87-c7135eb59220",
+            "taskId": "bc81fe2d-eaab-4c95-8598-45a9e6d6ce95",
             "type": 1,
             "requiredRole": 1,
             "palletId": "1345b08c-17af-48a7-bfe7-acbb23387973",
@@ -21768,7 +21768,7 @@
             "skuId": ""
         },
         {
-            "taskId": "508a577d-b451-4f57-8581-8c02cd38a4a7",
+            "taskId": "33804986-a7cd-481b-b674-85f8fe5e8857",
             "type": 1,
             "requiredRole": 1,
             "palletId": "97939f06-faf9-4b72-b73f-aa1a831bc8cc",
@@ -21783,7 +21783,7 @@
             "skuId": ""
         },
         {
-            "taskId": "51614739-3037-4325-96d5-893b5d56db7f",
+            "taskId": "03b42bb3-c871-4cfb-8196-3eebef7d8028",
             "type": 1,
             "requiredRole": 1,
             "palletId": "24200760-2df8-4ecb-99bc-46a6b6dd370c",
@@ -21798,7 +21798,7 @@
             "skuId": ""
         },
         {
-            "taskId": "fb9216b9-c8a4-4327-b26f-69d74fd3f5a1",
+            "taskId": "cf0e4eab-5016-465d-855e-1019e2fee200",
             "type": 1,
             "requiredRole": 1,
             "palletId": "53a5d02c-adca-4973-9a07-a24b1e12a7d3",
@@ -21813,7 +21813,7 @@
             "skuId": ""
         },
         {
-            "taskId": "beac781c-6084-4315-8a35-561d280ce7fc",
+            "taskId": "58f8babd-bedf-4ddd-b774-4eb322d721c6",
             "type": 1,
             "requiredRole": 1,
             "palletId": "249b04bc-bd52-4f72-b6bf-e8148fde516a",
@@ -42009,7 +42009,7 @@
     "carriedPallets": [],
     "gameVolume": 0.0,
     "musicVolume": 0.0,
-    "graphicsPreset": "Toaster",
+    "graphicsPreset": "Ultra",
     "difficulty": 0,
     "resolutionIndex": 1,
     "screenWidth": 2560,

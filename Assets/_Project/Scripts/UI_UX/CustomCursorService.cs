@@ -16,8 +16,8 @@ using UnityEngine;
 /// </summary>
 public static class CustomCursorService
 {
-    private const string DefaultCursorResourcePath = "UI/BlueArrowDiamondCursor";
-    private const string SelectCursorResourcePath = "UI/SelectBlueCursor";
+    private const string DefaultCursorResourcePath = "Resouce_UI/BlueArrowDiamondCursor";
+    private const string SelectCursorResourcePath = "Resouce_UI/SelectBlueCursor";
 
     private static Texture2D _defaultCursor;
     private static Texture2D _selectCursor;

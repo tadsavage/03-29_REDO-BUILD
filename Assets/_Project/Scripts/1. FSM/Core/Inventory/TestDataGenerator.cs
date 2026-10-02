@@ -23,11 +23,11 @@ public class TestDataGenerator : MonoBehaviour
 
         // Find all imported SkuData assets
         if (_allSkus == null || _allSkus.Length == 0)
-            _allSkus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+            _allSkus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs");
 
         if (_allSkus.Length == 0)
         {
-            Debug.LogError("[TestDataGenerator] No SKU data found. Create SkuData assets under Assets/_Project/Resources/Inventory/SKUs.");
+            Debug.LogError("[TestDataGenerator] No SKU data found. Create SkuData assets under Assets/_Project/Resources/Resource_SOs/SKUs.");
             return;
         }
 

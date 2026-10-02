@@ -248,7 +248,7 @@ public class PurchasingPanel : IUIPanel
 
         ServiceLocator.TryGet<VendorEconomyService>(out var vendorEconomy);
         ServiceLocator.TryGet<VendorPerformanceTracker>(out var vendorTracker);
-        var vendorSfx = Resources.Load<VendorUiSfxConfig>("VendorUiSfx");
+        var vendorSfx = Resources.Load<VendorUiSfxConfig>("Resource_SOs/VendorUiSfx");
         _vendorsTabView = new VendorsTabView(vendorEconomy, vendorTracker, vendorSfx);
 
         EventManager.Instance?.Subscribe<string>(GameEvents.Vendor.OnOrderFromVendorRequested, OnOrderFromVendorRequested);
@@ -1717,7 +1717,7 @@ public class PurchasingPanel : IUIPanel
             _lilita = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
                 UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
 #endif
-        if (_lilita == null) _lilita = Resources.Load<Font>("Fonts/LilitaOne-Regular");
+        if (_lilita == null) _lilita = Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
         return _lilita;
     }
 
@@ -3020,7 +3020,7 @@ public class PurchasingPanel : IUIPanel
     internal static Texture2D _truckFillSprite;
     internal static Texture2D TruckFillSprite()
     {
-        if (_truckFillSprite == null) _truckFillSprite = Resources.Load<Texture2D>("UI/TruckFillSprite");
+        if (_truckFillSprite == null) _truckFillSprite = Resources.Load<Texture2D>("Resouce_UI/TruckFillSprite");
         return _truckFillSprite;
     }
 

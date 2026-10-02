@@ -26,10 +26,10 @@ namespace GameCore.Utilities
             }
 
             // Find some random SKUs to fill the shipment
-            var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+            var skus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs");
             if (skus.Length == 0)
             {
-                Debug.LogWarning("[WarehouseDebugTool] No SKUs found in Resources/Inventory/SKUs. Using IDs directly.");
+                Debug.LogWarning("[WarehouseDebugTool] No SKUs found in Resources/Resource_SOs/SKUs. Using IDs directly.");
             }
 
             var lineItems = new List<ShipmentLineItem>();

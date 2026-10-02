@@ -89,13 +89,13 @@ public static class ReceivingEquipmentService
         // shipping blockers already tracked in CLAUDE.md; harmless in-Editor since the block above
         // resolves first there.
         if (clipboardPrefab == null)
-            clipboardPrefab = Resources.Load<GameObject>("Workers/_ClipBoard");
+            clipboardPrefab = Resources.Load<GameObject>("Resource_AvatarSystemAssets/_ClipBoard");
         if (rfGunPrefab == null)
-            rfGunPrefab = Resources.Load<GameObject>("Workers/_Scangun");
+            rfGunPrefab = Resources.Load<GameObject>("Resource_AvatarSystemAssets/_Scangun");
 
         if (clipboardPrefab == null || rfGunPrefab == null)
         {
-            Debug.LogError("[ReceivingEquipmentService] Could not load prefabs. Checked: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/ and Resources/Workers/");
+            Debug.LogError("[ReceivingEquipmentService] Could not load prefabs. Checked: Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/PROPS_MODELS/ and Resources/Resource_AvatarSystemAssets/");
             return;
         }
 

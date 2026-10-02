@@ -69,7 +69,7 @@ public class ShiftManagerPanel : IUIPanel
         if (guids.Length > 0)
             _lilita = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
 #else
-        _lilita = Resources.Load<Font>("LilitaOne-Regular");
+        _lilita = Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
 #endif
         return _lilita;
     }

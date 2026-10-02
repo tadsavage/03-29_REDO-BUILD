@@ -46,7 +46,7 @@ namespace GameCore.Persistence
                 Debug.Log($"[InventoryPersistenceService] Cleaned up {destroyedCount} old pallet visuals");
 
             // Load resources
-            var palletPrefab = Resources.Load<GameObject>("ChepEmpty");
+            var palletPrefab = Resources.Load<GameObject>("Resource_Prefab/ChepEmpty");
             if (palletPrefab == null)
             {
                 Debug.LogError("[InventoryPersistenceService] ChepEmpty prefab not found in Resources/");

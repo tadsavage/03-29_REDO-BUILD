@@ -873,7 +873,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     private SkuData MatchObjectToSku(GameObject go)
     {
         // Try matching the object itself
-        var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+        var skus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs");
         string cleanName = go.name.Replace("(Clone)", "").Trim();
         foreach (var sku in skus)
         {

@@ -14,7 +14,7 @@ using UnityEditor;
 /// Authoring tool for creating/editing <see cref="SkuData"/> assets and their case prefabs, with a
 /// live rotating 3D pallet preview (case on a CHEP pallet, built the same way <see cref="PalletBuilder"/>
 /// builds a real one). Two workflows: "New Item" auto-numbers a fresh SKU; "Edit Existing Item" loads
-/// one of the SKUs already under Resources/Inventory/SKUs for editing.
+/// one of the SKUs already under Resources/Resource_SOs/SKUs for editing.
 ///
 /// Writing SkuData/prefab assets to disk requires AssetDatabase, which only exists in the Editor — same
 /// constraint every other asset-authoring tool in this codebase already has (CaseGeneratorTool is
@@ -893,7 +893,7 @@ public class ItemCreatorPanel : IUIPanel
 
     private void PopulateEditDropdown()
     {
-        var skus = Resources.LoadAll<SkuData>("Inventory/SKUs")
+        var skus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs")
             .Where(s => s != null)
             .OrderBy(s => s.ItemNumber)
             .ToList();
@@ -1342,7 +1342,7 @@ public class ItemCreatorPanel : IUIPanel
 
         BuildBackdrop();
 
-        var chepPrefab = Resources.Load<GameObject>("ChepEmpty");
+        var chepPrefab = Resources.Load<GameObject>("Resource_Prefab/ChepEmpty");
         if (chepPrefab != null)
         {
             _chepInstance = UnityEngine.Object.Instantiate(chepPrefab, _pivot);
@@ -1678,7 +1678,7 @@ public class ItemCreatorPanel : IUIPanel
 
         if (isNew)
         {
-            string path = $"Assets/_Project/Resources/Inventory/SKUs/SKU_{_currentItemNumber}.asset";
+            string path = $"Assets/_Project/Resources/Resource_SOs/SKUs/SKU_{_currentItemNumber}.asset";
             AssetDatabase.CreateAsset(sku, path);
         }
 
@@ -1738,7 +1738,7 @@ public class ItemCreatorPanel : IUIPanel
     {
         // Authoring (item numbering, prefab/asset creation) is Editor-only — see class doc comment.
         int max = 100000;
-        foreach (var sku in Resources.LoadAll<SkuData>("Inventory/SKUs"))
+        foreach (var sku in Resources.LoadAll<SkuData>("Resource_SOs/SKUs"))
             if (sku != null && sku.ItemNumber > max) max = sku.ItemNumber;
         return max + 1;
     }
@@ -2062,7 +2062,7 @@ public class ItemCreatorPanel : IUIPanel
         if (guids.Length > 0)
             _lilita = AssetDatabase.LoadAssetAtPath<Font>(AssetDatabase.GUIDToAssetPath(guids[0]));
 #else
-        _lilita = Resources.Load<Font>("LilitaOne-Regular");
+        _lilita = Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
 #endif
         return _lilita;
     }

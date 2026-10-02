@@ -122,21 +122,50 @@ Code: `Scripts/Actors/ModularAvatar/` (runtime: library, asset, assembler, rig, 
 
 ## Gotchas (each cost real time)
 
-- **Part orientation (found + stop-gap 2026-10-01).** Rendering the assembled avatar from 4 sides showed the body,
+- **Skeleton merge (FIXED 2026-10-02, verified in Edit mode only).** Every part FBX ships its own armature copy, and
+  those copies do NOT share the body's rest pose: sleeves/boots/gloves/coveralls are rotated 180 deg about Y (their "_L"
+  bones physically sit on the body's right side), the head is turned 90 deg, hair/bare arms/bare hands match. The old
+  `Build()` matched `FindDeep(temp, objectName)` on the prefab ROOT (same name as the mesh), saw no SkinnedMeshRenderer
+  there, and reparented the whole prefab, so every part kept a private skeleton + Animator (4-6 `Root_M` copies).
+  Now `TryRebindToBody`: finds the real SMR, moves ONLY the mesh object under the avatar root, re-points `bones[]` and
+  `rootBone` at the body's skeleton, and destroys the part's armature. Details that matter:
+  - Bones are matched by name, but for `_L`/`_R` bones it picks whichever of {same name, opposite side} is CLOSER at rest
+    (`SwapSide`). Name-only matching made the right arm follow the left arm's animation (arm up, hands detached).
+  - Bindposes are re-based: `newBp = bodyBone^-1 * correction * partBone * oldBp`. A skinned vertex is
+    `bone.localToWorld * bindpose * v`, so this keeps each part looking exactly as authored at rest and then follows the
+    body. The rebased mesh is cloned ONCE and cached (`ReboundMeshCache`, keyed by mesh + body prefab + correction kind);
+    parts whose rest already matches the body (hair, bare arms/hands) use the original mesh, no clone.
+  - Result: 1 `Root_M`, 1 Animator, ~90 transforms per avatar; rendered idle + walking frames look right.
+  - Verify with a RunCommand that builds avatars and counts `Root_M` + prints `smr.bones` parents.
+  - **The part-orientation stop-gap (head 180 about Y, hands offset, see below) is now baked into the BINDPOSES
+    (`CorrectionMatrix`) for rebound parts, not applied as a root transform** — a root transform does nothing to a
+    skinned mesh bound to the body's bones. `ApplyOrientationFixes` skips rebound parts and still handles the unskinned
+    hard hat and the old `neutral_hands_gloves*` prefabs.
+- **Body avatar must be Humanoid (FIXED 2026-10-02).** The MaleStaff controller's clips are humanoid, but
+  `female_bodyA_base_Caucasian.fbx` imported as Generic, so the Animator did nothing. Cause: the importer decided "body
+  source" by `slot == "body"`, but the torso mesh `woman_bodyA_Cauc` parses as slot `bodya`. `IsBodySlotName` now accepts
+  both, so `FixNewExport` flips that FBX to Humanoid / CreateFromThisModel (avatar `isHuman=True`). Do NOT use
+  CopyFromOther(_MainRigAvatar) — it fails ("Parent for 'DeformationSystem' differs ... 'Main'"). Note the auto avatar
+  maps only 26 bones (no Chest/fingers beyond proximal) — fine so far, revisit if finger/chest animation looks off.
+- **Animated avatar faced backwards (FIXED 2026-10-02 with a root yaw).** The body rig has its "Left" bones on +X while
+  the mesh faces +Z, so Unity's Humanoid retarget thinks the avatar faces -Z and turns every ANIMATED pose 180 deg
+  (rest/T-pose still faces +Z, which hid it). `EmployeeSpawner.ApplyModularAvatar` now sets the avatar root's local
+  rotation to (0,180,0). Verified by render: faces + bib pockets toward the camera, natural walk. **Do NOT swap Left/Right
+  in the Humanoid mapping** — tried it, the arms go straight up. Proper long-term fix is Blender: re-export the rig with
+  Left on -X (then remove the yaw). Don't misjudge facing from wrist X coordinates or boot-vs-ankle offsets; render it
+  and look for the face / bib pocket vs parallel strap backs.
+- **Part orientation (stop-gap 2026-10-01).** Rendering the assembled avatar from 4 sides showed the body,
   coveralls, hair and boots face +Z (the avatar's forward) but the HEAD face and the HARD HAT brims point -Z, and the
-  HANDS/GLOVES are rolled ~180 degrees. `ModularAvatarAssembler.ApplyOrientationFixes` bakes the transforms Tad
-  hand-tuned in the scene onto each part's ROOT GameObject: **head root = pos (0,0,0), rot (0,180,0)**; **every hands
-  part (gloves + bare hands) root = pos (0, 0.02762616, 0.268777), rot (349.341, 0, 0)**; hard hats turn 180 about the
-  avatar's origin axis so they stay aligned with the head. Applied as an OFFSET on the part's existing root transform
-  (the old `neutral_hands_gloves*` prefabs have a -90X / 0.01-scale root, so overwriting would break them). The prefab
-  roots themselves are all identity; the fix lives in code. Works because each part carries its OWN armature copy.
-  **Delete the rule once the meshes are corrected in Blender and re-exported.** Headphones/hair/boots are correct.
+  HANDS/GLOVES are rolled ~180 degrees. Tad's hand-tuned corrections: **head = pos (0,0,0), rot (0,180,0)**; **every hands
+  part (gloves + bare hands) = pos (0, 0.02762616, 0.268777), rot (349.341, 0, 0)**; hard hats turn 180 about the
+  avatar's origin axis so they stay aligned with the head. For skinned parts these are folded into the bindposes (see
+  above); for the old `neutral_hands_gloves*` prefabs (-90X / 0.01-scale root) they are still root-transform offsets.
+  **2026-10-02 correction: hair and headphones ALSO need the head's 180 flip** (earlier note said they were correct — that
+  was judged from position offsets, which can't show orientation; the shape can: bangs over the forehead / bulk behind =
+  right). Skinned hair gets it via `CorrectionKind` (same as head); unskinned hair/headphones/hard hats via the
+  RotateAround branch in `ApplyOrientationFixes`. Boots and coveralls are correct.
+  **Delete the rule once the meshes are corrected in Blender and re-exported.**
   The AOD's per-part preview/thumbnails show the part AS AUTHORED (uncorrected); only Build() output is corrected.
-- **Every merged part brings its own skeleton (open problem, found 2026-10-01).** `Build()` reparents the part's whole
-  prefab root (it matches `FindDeep(temp, objectName)` on the ROOT GO first, because the finalized prefab root has the
-  same name as its mesh), so the mesh is never rebound onto the body's skeleton: an avatar has 6 `Root_M` copies. Combined
-  with the body's Animator avatar reading `isHuman=False`, nothing animates in game (permanent T-pose). Parts therefore
-  cannot follow the animated body until this is fixed. Verify with a RunCommand that counts `Root_M` transforms.
 - **Unverified + 0% weight trap (fixed 2026-10-01).** `PickVariant` prefers parts not yet "verified in game"
   so new items show up fast. A part that is unverified AND weight 0 is never picked, so it never becomes
   verified, and it used to be the ONLY candidate in the "unverified" pool -> pool total weight 0 -> slot

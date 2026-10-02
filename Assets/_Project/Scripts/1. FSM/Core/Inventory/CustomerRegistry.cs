@@ -21,7 +21,7 @@ namespace GameCore.Inventory
         /// offer roll in OrderArrivalService, which is a plain service.
         ///
         /// Mirrors ContractRegistry.Load, but with a fallback ContractRegistry doesn't need: its asset
-        /// lives at _Project/Resources/ContractRegistry.asset, whereas the CustomerRegistry asset sits
+        /// lives at _Project/Resources/Resource_SOs/ContractRegistry.asset, whereas the CustomerRegistry asset sits
         /// in _Project/ScriptableObjects/ where Resources.Load cannot see it. FindObjectsOfTypeAll
         /// finds it anyway in the EDITOR, so this works today without relocating a hand-authored asset
         /// out from under whatever references it.

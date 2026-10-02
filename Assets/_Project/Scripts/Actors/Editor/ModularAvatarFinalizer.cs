@@ -18,9 +18,9 @@ using UnityEngine;
 /// </summary>
 public static class ModularAvatarFinalizer
 {
-    public const string FinalizedAssetFolder = "Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/AOD_Objects";
-    public const string BodyPrefabFolder     = "Assets/_Project/Prefabs/Modular_Staff_Prefabs/Body_Prefabs";
-    public const string PropsPrefabFolder    = "Assets/_Project/Prefabs/Modular_Staff_Prefabs/Props_Prefabs";
+    public const string FinalizedAssetFolder = "Assets/_Project/__Avatar_System2.0/Female/Regular_Body_Type/3. Prefab (post AOD Submit)";
+    public const string BodyPrefabFolder     = "Assets/_Project/__Avatar_System2.0/Female/Regular_Body_Type/3. Prefab (post AOD Submit)";
+    public const string PropsPrefabFolder    = "Assets/_Project/__Avatar_System2.0/Female/Regular_Body_Type/3. Prefab (post AOD Submit)";
 
     /// <summary>Validates and finalizes a raw scanned Part into a real prefab + AvatarPartAsset.
     /// Both first-time Submit and a later Update call this same method — the output paths are derived

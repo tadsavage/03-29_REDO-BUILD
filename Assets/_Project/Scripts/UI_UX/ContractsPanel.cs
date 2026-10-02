@@ -2654,7 +2654,7 @@ private static Font NunitoFont()
         break;
     }
 #else
-    _nunito = Resources.Load<Font>("NunitoSans-VariableFont_YTLC,opsz,wdth,wght");
+    _nunito = Resources.Load<Font>("Resource_Fonts/NunitoSans-VariableFont_YTLC,opsz,wdth,wght");
 #endif
     return _nunito;
 }

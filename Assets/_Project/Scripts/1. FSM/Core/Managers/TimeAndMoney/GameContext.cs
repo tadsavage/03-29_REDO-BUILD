@@ -119,7 +119,7 @@ public class GameContext : MonoBehaviour
         // test SKU) so InventoryService.GetSkuData / TruckController.LoadShipment can resolve a
         // CasePrefab. The 99 Excel-imported SKUs live outside Resources and aren't picked up here —
         // that's a separate follow-up if/when those need real case visuals too.
-        inventoryService.LoadSkuDatabase(Resources.LoadAll<SkuData>("Inventory/SKUs"));
+        inventoryService.LoadSkuDatabase(Resources.LoadAll<SkuData>("Resource_SOs/SKUs"));
 
         // AFTER LoadSkuDatabase, not with the other services above: MarketService seeds a price and
         // seven days of history for every SKU in the database on Initialize, and an empty database

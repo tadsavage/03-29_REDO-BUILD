@@ -560,7 +560,10 @@ public class EmployeeSpawner : MonoBehaviour
         var t = avatar.transform;
         t.SetParent(identity.transform, worldPositionStays: false);
         t.localPosition = Vector3.zero;
-        t.localRotation = Quaternion.identity;
+        // 180 deg yaw: the modular body's "Left" bones sit on +X while the mesh faces +Z, so Unity's Humanoid
+        // retarget decides the avatar faces -Z and turns every animated pose 180 deg. Turning the root back
+        // makes the animated avatar face the worker's forward. (Remove if the body is re-exported with L on -X.)
+        t.localRotation = Quaternion.Euler(0f, 180f, 0f);
         t.localScale    = Vector3.one;
         avatar.name = "ModularAvatar";
         SetLayerRecursively(avatar, identity.gameObject.layer);
@@ -845,7 +848,7 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         hairPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(WomanBobHairPrefabPath);
         #endif
         if (hairPrefab == null)
-            hairPrefab = Resources.Load<GameObject>("Workers/woman_hair_bob-blonde");
+            hairPrefab = Resources.Load<GameObject>("Resource_AvatarSystemAssets/woman_hair_bob-blonde");
         if (hairPrefab == null)
         {
             Debug.LogWarning("[EmployeeSpawner] Could not load woman_hair_bob-blonde prefab.");

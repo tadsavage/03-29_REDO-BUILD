@@ -297,7 +297,7 @@ public static class PanelTitleChrome
                 _lilita = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
                     UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
 #else
-            _lilita = Resources.Load<Font>("LilitaOne-Regular");
+            _lilita = Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
 #endif
         }
         if (_lilita != null) el.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(_lilita));

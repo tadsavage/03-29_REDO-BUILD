@@ -10,7 +10,7 @@ namespace GameCore.Inventory
     ///
     /// Loaded from Resources BY NAME so it resolves in a built player, not just the editor —
     /// AssetDatabase lookups are editor-only. The asset lives at
-    /// Assets/_Project/Resources/VendorRegistry.asset.
+    /// Assets/_Project/Resources/Resource_SOs/VendorRegistry.asset.
     ///
     /// REWORKED for the Partnership Level economy: every vendor is active from game start. There is
     /// no more Reputation-gated Unlocked()/Locked() split — see VendorEconomyService for the
@@ -20,7 +20,7 @@ namespace GameCore.Inventory
     [CreateAssetMenu(fileName = "VendorRegistry", menuName = "Warehouse/Vendor Registry")]
     public class VendorRegistry : ScriptableObject
     {
-        public const string ResourcePath = "VendorRegistry";
+        public const string ResourcePath = "Resource_SOs/VendorRegistry";
 
         public List<VendorData> vendors = new();
 

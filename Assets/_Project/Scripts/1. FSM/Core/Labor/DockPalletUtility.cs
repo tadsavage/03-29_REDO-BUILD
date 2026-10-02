@@ -101,7 +101,7 @@ namespace GameCore.Labor
         private static SkuData MatchPrefabToSku(GameObject casePrefab)
         {
             if (casePrefab == null) return null;
-            var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+            var skus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs");
             foreach (var sku in skus)
             {
                 if (sku != null && sku.Prefab == casePrefab)
@@ -115,7 +115,7 @@ namespace GameCore.Labor
         {
             if (caseChild == null) return null;
             string childName = caseChild.name.Replace("(Clone)", "").Trim();
-            var skus = Resources.LoadAll<SkuData>("Inventory/SKUs");
+            var skus = Resources.LoadAll<SkuData>("Resource_SOs/SKUs");
             foreach (var sku in skus)
             {
                 if (sku == null || sku.Prefab == null) continue;

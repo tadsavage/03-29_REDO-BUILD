@@ -10,12 +10,12 @@ namespace GameCore.Inventory
     ///
     /// Loaded from Resources by name so it resolves in a BUILT PLAYER, not just the editor —
     /// AssetDatabase lookups are editor-only. Put the asset at
-    /// Assets/_Project/Resources/ContractRegistry.asset.
+    /// Assets/_Project/Resources/Resource_SOs/ContractRegistry.asset.
     /// </summary>
     [CreateAssetMenu(fileName = "ContractRegistry", menuName = "Warehouse/Contract Registry")]
     public class ContractRegistry : ScriptableObject
     {
-        public const string ResourcePath = "ContractRegistry";
+        public const string ResourcePath = "Resource_SOs/ContractRegistry";
 
         public List<ContractData> contracts = new();
 

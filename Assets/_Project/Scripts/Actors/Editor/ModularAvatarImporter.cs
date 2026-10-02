@@ -21,21 +21,23 @@ public static class ModularAvatarImporter
     // Z-AOD_WORKSHOP). FindAssets is recursive, so pointing DropFolder here scans all of them —
     // Z-AOD_WORKSHOP is explicitly excluded below (it holds the master Blender workspace file, not
     // individual parts).
-    public const string DropFolder  = "Assets/_Project/Models/BlenderFiles/Modular_Staff_Models";
+    // 2026-10-02 (Avatar 2.0): the ONLY scan root. Old Modular_Staff_Models and _Avatar_System are
+    // deliberately no longer read, so stale parts can never leak into the AOD.
+    public const string DropFolder  = "Assets/_Project/__Avatar_System2.0";
 
     // 2026-09-30: the new per-body-type pipeline (see the ModularAvatarSystem skill doc) exports
     // FBX files under _Avatar_System/<Gender>/Bodies/<Type>/03_FBX/ instead of the old flat
     // BODY_MODELS drop folder. Scanned as a SECOND root alongside DropFolder — additive, not a
     // replacement, since PROPS_MODELS (hair/hats/gloves) still lives under the old DropFolder and
     // isn't part of this migration yet.
-    public const string NewPipelineRoot = "Assets/_Project/_Avatar_System";
+    public const string NewPipelineRoot = DropFolder;   // same root; kept so existing references compile
 
     // Finished, submitted parts no longer live in a second SCAN root — see ModularAvatarFinalizer.
     // A submitted part becomes a standalone AvatarPartAsset (loaded below, into lib.finalizedParts)
     // plus a real prefab under ModularAvatarFinalizer.BodyPrefabFolder/PropsPrefabFolder. Those
     // prefab folders are a write target for the finalizer, never a scan root for this importer.
 
-    public const string LibraryPath = "Assets/Resources/ModularAvatar/AvatarPartLibrary.asset";
+    public const string LibraryPath = "Assets/_Project/Resources/Resource_AvatarSystemAssets/AvatarPartLibrary.asset";
 
     [MenuItem("Tools/Modular Avatar/Scan & Rebuild Library")]
     public static void ScanAndRebuildMenu() => ScanAndRebuild(verbose: true);
@@ -87,7 +89,7 @@ public static class ModularAvatarImporter
 
     public static AvatarPartLibrary ScanAndRebuild(bool verbose)
     {
-        var scanRoots = new[] { DropFolder, NewPipelineRoot }.Where(AssetDatabase.IsValidFolder).ToArray();
+        var scanRoots = new[] { DropFolder }.Where(AssetDatabase.IsValidFolder).ToArray();
         if (scanRoots.Length == 0)
         {
             if (verbose)
@@ -354,7 +356,7 @@ public static class ModularAvatarImporter
         // files have no need for a valid Humanoid rig of their own; Generic is correct for them.
         bool isBodySource = probe.GetComponentsInChildren<Transform>(true)
             .Any(t => (t.GetComponent<MeshFilter>() != null || t.GetComponent<SkinnedMeshRenderer>() != null)
-                      && ParseName(t.name, 0)?.slot == "body");
+                      && IsBodySlotName(ParseName(t.name, 0)?.slot));
 
         bool hasSkeleton = probe.GetComponentsInChildren<SkinnedMeshRenderer>(true)
             .Any(s => s.bones != null && s.bones.Length > 0);
@@ -469,6 +471,11 @@ public static class ModularAvatarImporter
     /// downstream check against those two literals keeps working), plus "neutral" for a part
     /// that isn't gender-specific at all (e.g. hardhat/headphones) — AvatarPartLibrary folds
     /// neutral parts into BOTH genders' queries. Null if invalid.</summary>
+    // The female torso mesh is "woman_bodyA_Cauc", which the plain gender_slot_variant parser reads as slot
+    // "bodya" (not "body"). It is still the file that carries the full skeleton and must get the Humanoid rig,
+    // so "bodya" counts here. (Only used for the Humanoid decision; part slots are untouched.)
+    private static bool IsBodySlotName(string slot) => slot == "body" || slot == "bodya";
+
     private static AvatarPartLibrary.Part ParseName(string name, int sourceIndex)
     {
         // Multi-part body exports (2026-09-30, e.g. "woman.bodyA") name the main torso mesh
@@ -550,7 +557,7 @@ public static class ModularAvatarImporter
 
         string dir = Path.GetDirectoryName(LibraryPath);
         if (!AssetDatabase.IsValidFolder(dir))
-            Directory.CreateDirectory(dir);   // creates Assets/Resources/ModularAvatar if needed
+            Directory.CreateDirectory(dir);   // creates the Resources avatar folder if needed
 
         lib = ScriptableObject.CreateInstance<AvatarPartLibrary>();
         AssetDatabase.CreateAsset(lib, LibraryPath);
