@@ -908,6 +908,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6179519088977907486}
+  - component: {fileID: 3017863988406014536}
   m_Layer: 0
   m_Name: woman_hands_glovesBlue
   m_TagString: Untagged
@@ -932,6 +933,28 @@ Transform:
   - {fileID: 4842859172221437058}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!95 &3017863988406014536
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2934114572264537455}
+  m_Enabled: 1
+  m_Avatar: {fileID: 9000000, guid: 7db0b79f9b3eb8d4f8be0195a5d381fa, type: 3}
+  m_Controller: {fileID: 0}
+  m_CullingMode: 1
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &2945365077840775733
 GameObject:
   m_ObjectHideFlags: 0
@@ -1368,7 +1391,7 @@ SkinnedMeshRenderer:
   m_Quality: 0
   m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
-  m_Mesh: {fileID: 2302049066909697753, guid: e5822d42dd6baad4e9f86ea0f54fd201, type: 3}
+  m_Mesh: {fileID: 2302049066909697753, guid: 7db0b79f9b3eb8d4f8be0195a5d381fa, type: 3}
   m_Bones:
   - {fileID: 4506591089385647169}
   - {fileID: 7989050230759669714}

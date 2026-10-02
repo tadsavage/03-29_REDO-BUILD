@@ -14,11 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: GameCore.Simulation::AvatarPartAsset
   objectName: woman_bodyA_Cauc
   gender: female
-  slot: bodya
+  slot: body
   variant: Cauc
-  finalizedPrefab: {fileID: 5090159958068085721, guid: 5cb556f6c9a4c194f96e28059a61122c, type: 3}
-  allowedRoles: 00000000010000000200000003000000040000000c000000i
-  colorVariants: []
-  defaultWeight: 56.9
+  finalizedPrefab: {fileID: 5960966940966709518, guid: 371b5d975daca6b4db19e56b4eaeec9a, type: 3}
+  allowedRoles: 
+  colorVariants:
+  - name: '#9F5C55'
+    material: {fileID: 0}
+    color: {r: 0.62352943, g: 0.36078432, b: 0.33333334, a: 1}
+  defaultWeight: 1
   verifiedInGame: 1
   hiddenBodySlots: []

@@ -27,6 +27,20 @@ using UnityEngine.UIElements;
 /// </summary>
 public class AODPanel : IUIPanel
 {
+    // Size multiplier for every AOD grid card and everything on it (thumbnail, fonts, badges, margins).
+    // 2.0 = double the original (2026-10-01, Tad: cards were very hard to see). One knob so the three
+    // card builders can't drift apart.
+    private const float CardScale = 2f;
+
+    // Card description / slot / gender text is a further +35% on top of CardScale (Tad, 2026-10-01).
+    private const float CardTextBoost = 1.35f;
+
+    // 2026-10-01: Tad is focusing on the one Female Regular body and isn't ready to work on males.
+    // While true, male parts are hidden from the AOD grid and the Male gender chip is removed. NON-
+    // destructive — nothing on disk is touched, no asset deleted — so flipping this to false brings
+    // the male cards straight back.
+    private const bool HideMaleParts = true;
+
     // ── Palette — matches every other full-screen panel in the game ──
     private static readonly Color ColBg          = new Color(18f / 255f, 26f / 255f, 36f / 255f, 1f);
     private static readonly Color ColPanelLight  = new Color(28f / 255f, 38f / 255f, 50f / 255f, 1f);
@@ -63,7 +77,66 @@ public class AODPanel : IUIPanel
         return _lilita;
     }
 
+    // Nunito Sans (variable font in Assets/Plugins/Fonts) — used for the grid card's description / slot /
+    // gender text (Tad, 2026-10-01) so it reads cleanly at small sizes; titles/chips keep Lilita One.
+    private static Font _nunito;
+    private static Font NunitoFont()
+    {
+        if (_nunito != null) return _nunito;
+#if UNITY_EDITOR
+        string[] guids = UnityEditor.AssetDatabase.FindAssets("NunitoSans-VariableFont t:Font");
+        if (guids.Length > 0)
+            _nunito = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
+#else
+        _nunito = Resources.Load<Font>("NunitoSans-VariableFont_YTLC,opsz,wdth,wght");
+#endif
+        return _nunito;
+    }
+
+    /// <summary>Card description font size: the boosted base size, shrunk for long names so they stay on ONE
+    /// line (a two-line name covers the thumbnail it sits on).</summary>
+    private static int CardNameFontSize(string variant)
+    {
+        int len = string.IsNullOrEmpty(variant) ? 1 : variant.Length;
+        return Mathf.Max(12, (int)(10 * CardScale * CardTextBoost * Mathf.Min(1f, 11f / len)));
+    }
+
+    /// <summary>Fakes a BOLD weight for a label by drawing a second copy of the same text underneath, shifted
+    /// ~1.5px sideways, which thickens every vertical stroke. Needed because the only Nunito Sans file in the
+    /// project is a variable font - Unity's FontStyle.Bold has no bold instance to switch to (verified: the
+    /// text stayed regular weight, and a text outline did nothing either). Drop this the day a static
+    /// NunitoSans-Bold.ttf is imported and just use ApplyFont(bold: true).</summary>
+    private static void AddFauxBold(VisualElement strip, string text, int size)
+    {
+        var copy = new Label(text);
+        ApplyNunito(copy, true, size);
+        copy.style.color = ColBg;
+        copy.style.unityTextAlign = TextAnchor.MiddleCenter;
+        copy.style.whiteSpace = WhiteSpace.NoWrap;
+        copy.style.overflow = Overflow.Hidden;
+        copy.style.textOverflow = TextOverflow.Ellipsis;
+        copy.style.position = Position.Absolute;
+        copy.style.left = 0; copy.style.right = 0;
+        copy.style.top = 2f * CardScale;   // same inset as the strip's own padding, so it lands exactly on the real label
+        copy.style.translate = new Translate(1.5f, 0f);
+        copy.pickingMode = PickingMode.Ignore;
+        strip.Add(copy);
+    }
+
+    private static void ApplyNunito(VisualElement el, bool bold = false, int size = -1) => ApplyFont(el, bold, size);
+
+    /// <summary>The AOD's standard font: Nunito Sans everywhere (Tad, 2026-10-01), falling back to Lilita One
+    /// only if the font asset can't be found. The ONE exception is the "AVATAR OBJECT DATABASE" title, which
+    /// stays Lilita One via <see cref="ApplyLilita"/>.</summary>
     private static void ApplyFont(VisualElement el, bool bold = false, int size = -1)
+    {
+        var f = NunitoFont() ?? LilitaFont();
+        if (f != null) el.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(f));
+        if (bold) el.style.unityFontStyleAndWeight = FontStyle.Bold;
+        if (size > 0) el.style.fontSize = size;
+    }
+
+    private static void ApplyLilita(VisualElement el, bool bold = false, int size = -1)
     {
         var f = LilitaFont();
         if (f != null) el.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(f));
@@ -231,7 +304,7 @@ public class AODPanel : IUIPanel
         _modal.Add(_titleBar);
 
         var title = new Label("AVATAR OBJECT DATABASE");
-        ApplyFont(title, true, 20);
+        ApplyLilita(title, true, 20);   // the one label that keeps Lilita One (Tad)
         title.style.color = ColTitleText;
         title.style.flexGrow = 1f;
         _titleBar.Add(title);
@@ -278,7 +351,12 @@ public class AODPanel : IUIPanel
 
         var gridColumn = new VisualElement { name = "aod-grid-column" };
         gridColumn.style.flexDirection = FlexDirection.Column;
-        gridColumn.style.flexGrow = 1f;
+        // FIXED width = exactly 4 cards + padding + the scrollbar, instead of flex-growing to fill the
+        // window - so the scrollbar sits right beside the cards and the freed space goes to the preview
+        // (Tad, 2026-10-01). 4 cards x (108+8) x CardScale, 12px padding each side, ~20px scrollbar.
+        gridColumn.style.flexGrow = 0f;
+        gridColumn.style.flexShrink = 0f;
+        gridColumn.style.width = 4f * (108f + 8f) * CardScale + 24f + 72f;   // +72: scroll-view padding + scrollbar + borders (24+20 left the 4th card just short and it wrapped to 3 per row)
         gridColumn.style.overflow = Overflow.Hidden;
         content.Add(gridColumn);
 
@@ -305,10 +383,11 @@ public class AODPanel : IUIPanel
 
         // ── Center preview column ──
         _previewColumn = new VisualElement { name = "aod-preview-column" };
-        _previewColumn.style.width = 420f;
-        _previewColumn.style.flexShrink = 0f;
+        _previewColumn.style.flexGrow = 1f;     // takes ALL the width the grid column no longer uses
+        _previewColumn.style.flexShrink = 1f;
+        _previewColumn.style.minWidth = 0f;
         _previewColumn.style.flexDirection = FlexDirection.Column;
-        _previewColumn.style.alignItems = Align.Center;
+        _previewColumn.style.alignItems = Align.Stretch;
         _previewColumn.style.paddingLeft = _previewColumn.style.paddingRight = 20f;
         _previewColumn.style.paddingTop = 16f;
         _previewColumn.style.borderLeftWidth = 2f; _previewColumn.style.borderLeftColor = ColBorder;
@@ -316,9 +395,9 @@ public class AODPanel : IUIPanel
         content.Add(_previewColumn);
 
         _previewFrame = new VisualElement { name = "aod-preview-frame" };
-        _previewFrame.style.width = 380f;
-        _previewFrame.style.height = 380f;
-        _previewFrame.style.flexShrink = 0f;
+        _previewFrame.style.flexGrow = 1f;      // fills the column both ways (was a fixed 380x380)
+        _previewFrame.style.minHeight = 380f;
+        _previewFrame.style.alignSelf = Align.Stretch;
         _previewFrame.style.backgroundColor = new Color(0.08f, 0.10f, 0.14f, 1f);
         _previewFrame.style.borderTopLeftRadius = _previewFrame.style.borderTopRightRadius =
             _previewFrame.style.borderBottomLeftRadius = _previewFrame.style.borderBottomRightRadius = 8f;
@@ -350,9 +429,11 @@ public class AODPanel : IUIPanel
         WireDragRotate(_previewImage);
 
         _previewTitleLabel = new Label();
-        ApplyFont(_previewTitleLabel, true, 20);
+        ApplyFont(_previewTitleLabel, true, 40);   // doubled (was 20) per Tad, 2026-10-01
         _previewTitleLabel.style.color = ColTitleText;
         _previewTitleLabel.style.marginTop = 14f;
+        _previewTitleLabel.style.flexShrink = 0f;
+        _previewTitleLabel.style.marginBottom = 10f;
         _previewTitleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         _previewTitleLabel.style.whiteSpace = WhiteSpace.Normal;
         _previewColumn.Add(_previewTitleLabel);
@@ -391,7 +472,7 @@ public class AODPanel : IUIPanel
             if (!dragging || e.pointerId != pid) return;
             Vector2 delta = (Vector2)e.position - lastPos;
             lastPos = e.position;
-            AODPreviewStage.Rotate(delta.x * 0.5f, -delta.y * 0.5f);
+            AODPreviewStage.Rotate(-delta.x * 0.5f);   // negated: drag right now turns the front of the part to the right (was inverted) // Y-axis only (X tilt was tried and removed 2026-10-01); spins around the part's own center
         });
         target.RegisterCallback<PointerUpEvent>(e =>
         {
@@ -431,6 +512,7 @@ public class AODPanel : IUIPanel
         var genderRow = Row("GENDER");
         foreach (var g in new[] { "male", "female", "neutral" })
         {
+            if (HideMaleParts && g == "male") continue; // see HideMaleParts
             var chip = new Chip(g.Substring(0, 1).ToUpper() + g.Substring(1));
             chip.OnChanged += _ => Refresh();
             _genderChips.Add(chip);
@@ -529,6 +611,14 @@ public class AODPanel : IUIPanel
             float height = _modal.style.height.value.value;
             _modal.style.top = 0f;
             _modal.style.height = top + height;
+            // ...and ALSO reclaim the strip FillScreenExact reserves at the BOTTOM for the build bar, so the
+            // window is the full height of the screen (Tad, 2026-10-01: "the height of the UI does not match
+            // the height of the screen size"). Uses the real panel height when it is available.
+            if (_overlay.panel != null)
+            {
+                float screenH = _overlay.panel.visualTree.layout.height;
+                if (screenH > 0f) _modal.style.height = screenH;
+            }
         }).ExecuteLater(16);
 
         _employeeCategoryBar.style.display = _employeeIdentity != null ? DisplayStyle.Flex : DisplayStyle.None;
@@ -605,13 +695,15 @@ public class AODPanel : IUIPanel
         bool missingOnly = _missingOnlyChip.Selected;
 
         var filtered = lib.AllParts.Where(p =>
+            (!HideMaleParts || p.Gender != "male") &&
             (selectedGenders.Count == 0 || selectedGenders.Contains(p.Gender)) &&
             (selectedRoles.Count == 0 || p.AllowedRoles.Count == 0 || p.AllowedRoles.Any(selectedRoles.Contains)) &&
             (selectedSlots.Count == 0 || selectedSlots.Contains(p.Slot)) &&
             (!missingOnly || !p.MetadataReviewed)
         ).OrderBy(p => p.Slot).ThenBy(p => p.Gender).ThenBy(p => p.Variant).ToList();
 
-        _countLabel.text = $"{filtered.Count} of {lib.PartCount} items";
+        int visibleTotal = HideMaleParts ? lib.AllParts.Count(p => p.Gender != "male") : lib.PartCount;
+        _countLabel.text = $"{filtered.Count} of {visibleTotal} items";
 
         foreach (var part in filtered)
             _grid.Add(BuildCard(lib, part));
@@ -623,21 +715,24 @@ public class AODPanel : IUIPanel
     /// flex-grow) so the grid can show as many of a large library as possible at once.</summary>
     private VisualElement BuildCard(AvatarPartLibrary lib, IAvatarPart part)
     {
+        // Every pixel dimension below is DOUBLE its original value (2026-10-01, Tad: "double the size of
+        // the cards — including all elements attached to it. Its very hard to see"). Keep them in step
+        // with BuildEmployeeOptionCard / BuildEmployeeNoneCard, which use the same CardScale math.
         var card = new VisualElement { name = "aod-card" };
-        card.style.width = 108f;
-        card.style.marginRight = 8f;
-        card.style.marginBottom = 8f;
+        card.style.width = 108f * CardScale;
+        card.style.marginRight = 8f * CardScale;
+        card.style.marginBottom = 8f * CardScale;
         card.style.backgroundColor = ColCellEven;
-        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f;
+        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f * CardScale;
         var borderCol = _selectedPart == part ? ColOrange : ColBlueEdge;
         card.style.borderTopColor = card.style.borderBottomColor = card.style.borderLeftColor = card.style.borderRightColor = borderCol;
         card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
-            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 6f;
+            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 6f * CardScale;
         card.style.overflow = Overflow.Hidden;
         AddPressFeedback(card, 1.06f, 0.97f);
 
         var bar = new VisualElement { name = "aod-card-bar" };
-        bar.style.height = 82f;
+        bar.style.height = 82f * CardScale;
         bar.style.backgroundColor = ColorForSlot(part.Slot);
         bar.style.justifyContent = Justify.Center;
         bar.style.alignItems = Align.Center;
@@ -648,7 +743,7 @@ public class AODPanel : IUIPanel
         if (thumb != null)
         {
             var thumbImg = new Image { image = thumb, scaleMode = ScaleMode.ScaleToFit };
-            thumbImg.style.width = 60f; thumbImg.style.height = 60f;
+            thumbImg.style.width = 60f * CardScale; thumbImg.style.height = 60f * CardScale;
             thumbImg.pickingMode = PickingMode.Ignore;
             bar.Add(thumbImg);
         }
@@ -656,44 +751,113 @@ public class AODPanel : IUIPanel
         var nameStrip = new VisualElement();
         nameStrip.style.position = Position.Absolute;
         nameStrip.style.left = 0; nameStrip.style.right = 0; nameStrip.style.bottom = 0;
-        nameStrip.style.backgroundColor = new Color(0f, 0f, 0f, 0.55f);
-        nameStrip.style.paddingTop = nameStrip.style.paddingBottom = 2f;
+        nameStrip.style.backgroundColor = Color.clear;   // 100% transparent (was 55% black)
+        nameStrip.style.paddingTop = nameStrip.style.paddingBottom = 2f * CardScale;
         nameStrip.pickingMode = PickingMode.Ignore;
         bar.Add(nameStrip);
 
         var name = new Label(part.Variant);
-        ApplyFont(name, true, 10);
-        name.style.color = Color.white;
+        ApplyNunito(name, true, CardNameFontSize(part.Variant));
+        name.style.color = ColBg;   // card name = the panel's dark navy background color, for contrast over the pale thumbnail (Tad, 2026-10-01)
         name.style.unityTextAlign = TextAnchor.MiddleCenter;
-        name.style.whiteSpace = WhiteSpace.Normal;
+        name.style.whiteSpace = WhiteSpace.NoWrap;   // one line: a wrapped name covered the thumbnail
+        name.style.overflow = Overflow.Hidden;
+        name.style.textOverflow = TextOverflow.Ellipsis;
         name.pickingMode = PickingMode.Ignore;
         nameStrip.Add(name);
+        AddFauxBold(nameStrip, name.text, CardNameFontSize(part.Variant));
 
         var sub = new Label($"{part.Slot} · {part.Gender}");
-        ApplyFont(sub, false, 9);
+        ApplyNunito(sub, true, (int)(9 * CardScale * CardTextBoost));
         sub.style.color = ColSubtleText;
         sub.style.unityTextAlign = TextAnchor.MiddleCenter;
-        sub.style.paddingTop = 3f; sub.style.paddingBottom = 3f;
+        sub.style.paddingTop = 3f * CardScale; sub.style.paddingBottom = 3f * CardScale;
         sub.pickingMode = PickingMode.Ignore;
         card.Add(sub);
 
         if (!part.MetadataReviewed)
         {
             var badge = new Label("NEW");
-            ApplyFont(badge, true, 9);
+            ApplyFont(badge, true, (int)(9 * CardScale));
             badge.style.position = Position.Absolute;
-            badge.style.top = 4; badge.style.right = 4;
+            badge.style.top = 4 * CardScale; badge.style.right = 4 * CardScale;
             badge.style.backgroundColor = ColOrange;
             badge.style.color = ColOrangeText;
-            badge.style.paddingLeft = badge.style.paddingRight = 4f;
+            badge.style.paddingLeft = badge.style.paddingRight = 4f * CardScale;
             badge.style.borderTopLeftRadius = badge.style.borderTopRightRadius =
-                badge.style.borderBottomLeftRadius = badge.style.borderBottomRightRadius = 4f;
+                badge.style.borderBottomLeftRadius = badge.style.borderBottomRightRadius = 4f * CardScale;
             badge.pickingMode = PickingMode.Ignore;
             card.Add(badge);
         }
 
+        // Remove ("X") badge — top-left, mirrors the NEW badge's top-right placement. Per Tad's own
+        // mockup (2026-10-01): a quick per-tile way to delete a dead/duplicate item without opening
+        // it first. Stops the pointer event so clicking it doesn't also SelectPart the card underneath.
+        var removeBadge = new Label("✕") { name = "aod-card-remove" };
+        ApplyFont(removeBadge, true, (int)(11 * CardScale));
+        removeBadge.style.position = Position.Absolute;
+        removeBadge.style.top = 1 * CardScale; removeBadge.style.left = 1 * CardScale;   // tucked into the corner (was 4*CardScale)
+        removeBadge.style.width = 16f * CardScale; removeBadge.style.height = 16f * CardScale;
+        removeBadge.style.unityTextAlign = TextAnchor.MiddleCenter;
+        removeBadge.style.backgroundColor = ColFireRed;
+        removeBadge.style.color = ColVanilla;
+        removeBadge.style.borderTopLeftRadius = removeBadge.style.borderTopRightRadius =
+            removeBadge.style.borderBottomLeftRadius = removeBadge.style.borderBottomRightRadius = 8f * CardScale;
+        removeBadge.pickingMode = PickingMode.Position;
+        AddPressFeedback(removeBadge, 1.2f, 0.9f);
+        removeBadge.RegisterCallback<PointerEnterEvent>(_ => removeBadge.style.backgroundColor = ColFireRedHover);
+        removeBadge.RegisterCallback<PointerLeaveEvent>(_ => removeBadge.style.backgroundColor = ColFireRed);
+        removeBadge.RegisterCallback<PointerUpEvent>(e =>
+        {
+            if (e.button != 0) return;
+            e.StopPropagation();
+            RemovePart(lib, part);
+        }, TrickleDown.TrickleDown);
+        card.Add(removeBadge);
+
         card.RegisterCallback<PointerUpEvent>(e => { if (e.button == 0) SelectPart(lib, part); });
         return card;
+    }
+
+    /// <summary>Permanently deletes a part — the real version of the hand-edits this used to require
+    /// (manually removing the .asset/.prefab pair and the finalizedParts library reference). A raw,
+    /// unreviewed Part just comes out of lib.parts (nothing else to clean up — it was never
+    /// finalized into its own asset/prefab). A finalized AvatarPartAsset also needs its prefab and
+    /// its own .asset file deleted via AssetDatabase, and its finalizedParts entry removed, or the
+    /// library would keep a dangling reference to a file that no longer exists.
+    /// Confirmed via a native dialog first — this can't be undone from inside the AOD.</summary>
+    private void RemovePart(AvatarPartLibrary lib, IAvatarPart part)
+    {
+#if UNITY_EDITOR
+        bool confirmed = UnityEditor.EditorUtility.DisplayDialog(
+            "Remove Avatar Part",
+            $"Permanently remove '{part.ObjectName}' ({part.Slot} · {part.Gender})?\n\n" +
+            (part.MetadataReviewed
+                ? "This deletes its finalized prefab and AOD asset from disk. This cannot be undone."
+                : "This removes it from the unreviewed list. Its source FBX is untouched, so it will " +
+                  "reappear on the next rescan unless you also remove/rename the source."),
+            "Remove", "Cancel");
+        if (!confirmed) return;
+
+        if (part is AvatarPartLibrary.Part rawPart)
+        {
+            lib.parts.Remove(rawPart);
+        }
+        else if (part is AvatarPartAsset asset)
+        {
+            lib.finalizedParts.Remove(asset);
+            string prefabPath = asset.FinalizedPrefab != null ? UnityEditor.AssetDatabase.GetAssetPath(asset.FinalizedPrefab) : null;
+            string assetPath = UnityEditor.AssetDatabase.GetAssetPath(asset);
+            if (!string.IsNullOrEmpty(prefabPath)) UnityEditor.AssetDatabase.DeleteAsset(prefabPath);
+            if (!string.IsNullOrEmpty(assetPath)) UnityEditor.AssetDatabase.DeleteAsset(assetPath);
+        }
+
+        UnityEditor.EditorUtility.SetDirty(lib);
+        UnityEditor.AssetDatabase.SaveAssets();
+
+        if (ReferenceEquals(_selectedPart, part)) _selectedPart = null;
+        Refresh();
+#endif
     }
 
     private static Color ColorForSlot(string slot) => slot switch
@@ -842,23 +1006,23 @@ public class AODPanel : IUIPanel
     private VisualElement BuildEmployeeNoneCard()
     {
         var card = new VisualElement { name = "aod-card" };
-        card.style.width = 108f;
-        card.style.height = 82f;
-        card.style.marginRight = 8f;
-        card.style.marginBottom = 8f;
+        card.style.width = 108f * CardScale;
+        card.style.height = 82f * CardScale;
+        card.style.marginRight = 8f * CardScale;
+        card.style.marginBottom = 8f * CardScale;
         card.style.backgroundColor = ColCellOdd;
         bool selected = _pendingOverrides.TryGetValue(_employeeCategory, out var v) && string.IsNullOrEmpty(v);
-        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f;
+        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f * CardScale;
         var borderCol = selected ? ColOrange : ColBlueEdge;
         card.style.borderTopColor = card.style.borderBottomColor = card.style.borderLeftColor = card.style.borderRightColor = borderCol;
         card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
-            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 6f;
+            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 6f * CardScale;
         card.style.justifyContent = Justify.Center;
         card.style.alignItems = Align.Center;
         AddPressFeedback(card, 1.06f, 0.97f);
 
         var label = new Label("None");
-        ApplyFont(label, true, 12);
+        ApplyFont(label, true, (int)(12 * CardScale));
         label.style.color = ColSubtleText;
         label.pickingMode = PickingMode.Ignore;
         card.Add(label);
@@ -875,21 +1039,21 @@ public class AODPanel : IUIPanel
     private VisualElement BuildEmployeeOptionCard(AvatarPartLibrary lib, IAvatarPart part)
     {
         var card = new VisualElement { name = "aod-card" };
-        card.style.width = 108f;
-        card.style.marginRight = 8f;
-        card.style.marginBottom = 8f;
+        card.style.width = 108f * CardScale;
+        card.style.marginRight = 8f * CardScale;
+        card.style.marginBottom = 8f * CardScale;
         card.style.backgroundColor = ColCellEven;
         bool selected = _pendingOverrides.TryGetValue(_employeeCategory, out var v) && v == part.ObjectName;
-        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f;
+        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f * CardScale;
         var borderCol = selected ? ColOrange : ColBlueEdge;
         card.style.borderTopColor = card.style.borderBottomColor = card.style.borderLeftColor = card.style.borderRightColor = borderCol;
         card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
-            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 6f;
+            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 6f * CardScale;
         card.style.overflow = Overflow.Hidden;
         AddPressFeedback(card, 1.06f, 0.97f);
 
         var bar = new VisualElement();
-        bar.style.height = 82f;
+        bar.style.height = 82f * CardScale;
         bar.style.backgroundColor = ColorForSlot(part.Slot);
         bar.style.justifyContent = Justify.Center;
         bar.style.alignItems = Align.Center;
@@ -900,7 +1064,7 @@ public class AODPanel : IUIPanel
         if (thumb != null)
         {
             var thumbImg = new Image { image = thumb, scaleMode = ScaleMode.ScaleToFit };
-            thumbImg.style.width = 60f; thumbImg.style.height = 60f;
+            thumbImg.style.width = 60f * CardScale; thumbImg.style.height = 60f * CardScale;
             thumbImg.pickingMode = PickingMode.Ignore;
             bar.Add(thumbImg);
         }
@@ -908,18 +1072,21 @@ public class AODPanel : IUIPanel
         var nameStrip = new VisualElement();
         nameStrip.style.position = Position.Absolute;
         nameStrip.style.left = 0; nameStrip.style.right = 0; nameStrip.style.bottom = 0;
-        nameStrip.style.backgroundColor = new Color(0f, 0f, 0f, 0.55f);
-        nameStrip.style.paddingTop = nameStrip.style.paddingBottom = 2f;
+        nameStrip.style.backgroundColor = Color.clear;   // 100% transparent (was 55% black)
+        nameStrip.style.paddingTop = nameStrip.style.paddingBottom = 2f * CardScale;
         nameStrip.pickingMode = PickingMode.Ignore;
         bar.Add(nameStrip);
 
         var name = new Label(part.Variant);
-        ApplyFont(name, true, 10);
-        name.style.color = Color.white;
+        ApplyNunito(name, true, CardNameFontSize(part.Variant));
+        name.style.color = ColBg;   // card name = the panel's dark navy background color, for contrast over the pale thumbnail (Tad, 2026-10-01)
         name.style.unityTextAlign = TextAnchor.MiddleCenter;
-        name.style.whiteSpace = WhiteSpace.Normal;
+        name.style.whiteSpace = WhiteSpace.NoWrap;   // one line: a wrapped name covered the thumbnail
+        name.style.overflow = Overflow.Hidden;
+        name.style.textOverflow = TextOverflow.Ellipsis;
         name.pickingMode = PickingMode.Ignore;
         nameStrip.Add(name);
+        AddFauxBold(nameStrip, name.text, CardNameFontSize(part.Variant));
 
         card.RegisterCallback<PointerUpEvent>(e =>
         {
@@ -1135,10 +1302,13 @@ public class AODPanel : IUIPanel
             weightValueLabel.text = $"{Mathf.RoundToInt(e.newValue)}%";
         });
 
-        // Skyrim-style clipping fix (2026-09-30) — only clothing items get to hide a body part; a
-        // body part itself (torso/head/arms/etc) has no "worn over" semantics, so this section is
-        // hidden for those to avoid implying a body part could hide itself.
-        if (!ModularAvatarAssembler.IsBodySlot(part.Slot))
+        // Skyrim-style clipping fix (2026-09-30), opened up to every part type (2026-10-01) — Tad's
+        // own body mesh (woman_bodyA_Cauc) ships with a full default arm baked in, and the separate
+        // "arms" slot (armsCauc/sleevesBlk) is meant to override/cover it — so a BODY-slot item can
+        // legitimately need to hide another body-slot's output too ("Body hides Arms" until the arms
+        // slot has real content, independent of coveralls doing the same). Originally gated to
+        // clothing-only on the assumption a body part could never need "worn over" semantics — wrong
+        // assumption, per Tad: "we should just leave the hider buttons on for everything."
         {
             Section("HIDES BODY PARTS WHEN WORN  (prevents clipping — Head always stays visible)");
             var hideRow = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };

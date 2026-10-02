@@ -71,7 +71,7 @@ public class AODPreviewStage : MonoBehaviour
         BuildLightRig(_stagePivot, StageOrigin);
         BuildBackdrop();
 
-        _renderTexture = new RenderTexture(512, 512, 24, RenderTextureFormat.ARGB32) { name = "AODPreviewRT" };
+        _renderTexture = new RenderTexture(1024, 1024, 24, RenderTextureFormat.ARGB32) { name = "AODPreviewRT" };
         _renderTexture.Create();
 
         var camGO = new GameObject("AODPreviewCamera");
@@ -154,11 +154,21 @@ public class AODPreviewStage : MonoBehaviour
         wall.transform.localRotation = Quaternion.LookRotation(CameraApproachDir);
         wall.transform.localScale = new Vector3(14f, 14f, 0.2f);
 
-        var wallMat = new Material(UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline.defaultMaterial)
-            { color = backdropColor };
+        // UNLIT in exactly the preview frame's own navy (AODPanel._previewFrame uses the same color), so
+        // the square render sits invisibly inside the now taller-than-wide frame instead of showing as a
+        // lighter band. (The lit wall picked up the stage lights and read brighter than the frame.)
+        var unlitShader = Shader.Find("Universal Render Pipeline/Unlit");
+        var wallMat = unlitShader != null
+            ? new Material(unlitShader)
+            : new Material(UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline.defaultMaterial);
+        // .gamma: the RT is read back by UI Toolkit WITHOUT sRGB encoding, so a linear-space project shows an
+        // unlit color too dark (measured: navy 0.08 came out near-black). Pre-encoding gives the intended value.
+        var wallShown = unlitShader != null ? backdropColor.gamma : backdropColor;
+        wallMat.color = wallShown;
+        if (unlitShader != null && wallMat.HasProperty("_BaseColor")) wallMat.SetColor("_BaseColor", wallShown);
         if (wallMat.HasProperty("_Smoothness")) wallMat.SetFloat("_Smoothness", 0.2f);
         if (wallMat.HasProperty("_Metallic")) wallMat.SetFloat("_Metallic", 0f);
-        if (wallMat.HasProperty("_EmissionColor"))
+        if (unlitShader == null && wallMat.HasProperty("_EmissionColor"))
         {
             wallMat.EnableKeyword("_EMISSION");
             wallMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
@@ -185,18 +195,19 @@ public class AODPreviewStage : MonoBehaviour
         var prefab = lib.PrefabFor(part);
         if (prefab == null) return;
 
-        // A pivot centered on the mesh's own bounds, NOT the raw instance — rotating the instance
-        // directly would spin it around whatever local origin its author picked (fine for a
-        // centered body, but a hat or hairpiece authored off-center would visibly orbit rather than
-        // spin in place). Reparented with worldPositionStays:true after FrameOn computes bounds, so
-        // the pivot sits exactly on the mesh's visual center regardless of authoring pivot.
+        // ROTATION PIVOT = the part's own visual center. The pivot is created empty; the part is instantiated
+        // under the stage (NOT under the pivot), its bounds are measured, the pivot is moved to that center,
+        // and ONLY THEN is the part parented under it with worldPositionStays:true. (The old order created the
+        // part under the pivot and then moved the pivot, which dragged the part along with it — leaving the
+        // pivot a full "center offset" away from the mesh, so rotating orbited a point in empty space. That
+        // was the "head/hair/neck anchor to the world origin, messy rotation" problem.)
         var pivotGO = new GameObject("RotatePivot");
         pivotGO.transform.SetParent(stage._stagePivot, false);
         stage._rotatePivot = pivotGO.transform;
         stage._yaw = 0f;
         stage._pitch = 0f;
 
-        var instance = Object.Instantiate(prefab, stage._rotatePivot);
+        var instance = Object.Instantiate(prefab, stage._stagePivot);
         instance.name = "Preview_" + part.ObjectName;
         stage._currentInstance = instance;
 
@@ -204,23 +215,37 @@ public class AODPreviewStage : MonoBehaviour
         // object's name away from the source prefab's — for a single-mesh-root prefab (the mesh
         // sits directly on the prefab's own root, no children) that root IS the node we're looking
         // for, so an exact `t.name == part.ObjectName` match against the live instance would never
-        // succeed (root reads "Preview_man_hair_regular(Clone)" or similar, never "man_hair_regular").
-        // This was the actual root cause of the "always renders black" bug — the target was never
-        // found, ShowPart returned before ever calling FrameOn, and the camera sat at its default
-        // framing looking at nothing. Strip both wrappers before comparing.
+        // succeed. Strip both wrappers before comparing (see CleanInstanceName).
         Transform target = stage.FindTargetMesh(instance, part.ObjectName);
         if (target == null)
         {
             Debug.LogWarning($"[AODPreviewStage] Could not find '{part.ObjectName}' inside its own source prefab — nothing to preview.");
+            instance.transform.SetParent(stage._rotatePivot, true);
             return;
         }
 
-        // Re-center the pivot on the mesh's actual bounds now that it exists (worldPositionStays
-        // keeps the mesh's world transform identical, so nothing visually jumps).
         var renderer = target.GetComponent<Renderer>();
-        Vector3 center = renderer != null ? renderer.bounds.center : target.position;
-        stage._rotatePivot.SetPositionAndRotation(center, Quaternion.identity);
 
+        // Hands/gloves ship as one mesh holding BOTH hands across a T-pose span — the big preview showed
+        // two tiny specks. Same single-item treatment as the grid thumbnail (Tad, 2026-10-01).
+        if (IsGlovePart(part))
+        {
+            var single = BuildSingleGlove(target, null);   // world-space mesh on an identity transform
+            if (single != null)
+            {
+                if (renderer != null) renderer.enabled = false;
+                Bounds gb = single.GetComponent<Renderer>().bounds;
+                stage._rotatePivot.position = gb.center;
+                single.transform.SetParent(stage._rotatePivot, true);
+                instance.transform.SetParent(stage._rotatePivot, true);
+                stage.FitCameraTight(stage._camera, gb, 0.8f);   // 0.8 leaves room for the glove to tumble without clipping
+                return;
+            }
+        }
+
+        Vector3 center = renderer != null ? renderer.bounds.center : target.position;
+        stage._rotatePivot.position = center;
+        instance.transform.SetParent(stage._rotatePivot, true);
         stage.FrameOn(target);
     }
 
@@ -305,17 +330,15 @@ public class AODPreviewStage : MonoBehaviour
         stage.FrameOnBounds(bounds);
     }
 
-    /// <summary>Spins the currently-shown part in place — horizontal drag yaws (rotate around the
-    /// vertical/Y axis), vertical drag pitches (rotate around the horizontal/X axis). Deltas are in
-    /// degrees; callers convert pointer-drag pixels to degrees themselves so this stays UI-agnostic.
+    /// <summary>Spins the currently-shown part in place around the vertical (Y) axis, through its OWN CENTER
+    /// (the rotation pivot sits on the part's visual center - see ShowPart). X tilt was tried and removed
+    /// 2026-10-01 per Tad, so <paramref name="pitchDeltaDeg"/> is accepted for compatibility but ignored.
     /// No-op if nothing is currently shown.</summary>
-    public static void Rotate(float yawDeltaDeg, float pitchDeltaDeg)
+    public static void Rotate(float yawDeltaDeg, float pitchDeltaDeg = 0f)
     {
         var stage = Instance;
         if (stage._rotatePivot == null) return;
-        stage._yaw += yawDeltaDeg;
-        stage._pitch = Mathf.Clamp(stage._pitch + pitchDeltaDeg, -80f, 80f);
-        stage._rotatePivot.localRotation = Quaternion.Euler(stage._pitch, stage._yaw, 0f);
+        stage._rotatePivot.rotation = Quaternion.AngleAxis(yawDeltaDeg, Vector3.up) * stage._rotatePivot.rotation;
     }
 
     /// <summary>Removes whatever's currently on the stage. Safe to call even if nothing is showing.</summary>
@@ -344,7 +367,7 @@ public class AODPreviewStage : MonoBehaviour
 
         BuildLightRig(_thumbStagePivot, _thumbStagePivot.position);
 
-        _thumbRenderTexture = new RenderTexture(160, 160, 16, RenderTextureFormat.ARGB32) { name = "AODThumbRT" };
+        _thumbRenderTexture = new RenderTexture(320, 320, 16, RenderTextureFormat.ARGB32) { name = "AODThumbRT" }; // 2x (was 160) — cards are drawn at double size
         _thumbRenderTexture.Create();
 
         var camGO = new GameObject("AODThumbCamera");
@@ -358,6 +381,50 @@ public class AODPreviewStage : MonoBehaviour
         _thumbCamera.farClipPlane = 20f;
         var camData = _thumbCamera.GetUniversalAdditionalCameraData();
         camData.renderPostProcessing = false;
+        BuildThumbBackdrop();
+    }
+
+    // Light, slightly grayish avocado green (white mixed in per Tad, 2026-10-01) behind every grid thumbnail (Tad, 2026-10-01 — they were on black). Like the big
+    // preview's navy wall this is a PHYSICAL cube, not a camera clear color (clear colors never apply to
+    // these cameras in this URP setup). Unlit so the stage lights can't shift the color; falls back to the
+    // default lit material + emission if the Unlit shader isn't found.
+    private static readonly Color ThumbBackdropColor = new Color(0.82f, 0.87f, 0.69f, 1f);
+
+    private void BuildThumbBackdrop()
+    {
+        var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wall.name = "ThumbBackdrop";
+        Object.Destroy(wall.GetComponent<Collider>());
+        wall.transform.SetParent(_thumbStagePivot, false);
+        wall.transform.localPosition = Vector3.up * 0.9f - CameraApproachDir * 6f;
+        wall.transform.localRotation = Quaternion.LookRotation(CameraApproachDir);
+        wall.transform.localScale = new Vector3(14f, 14f, 0.2f);
+
+        Material mat;
+        var unlit = Shader.Find("Universal Render Pipeline/Unlit");
+        if (unlit != null)
+        {
+            mat = new Material(unlit);
+            // .gamma: same RT read-back issue as the preview wall (see BuildBackdrop) - without it this green
+            // displayed noticeably darker/more saturated than the value written below.
+            var shown = ThumbBackdropColor.gamma;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", shown);
+            mat.color = shown;
+        }
+        else
+        {
+            mat = new Material(UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline.defaultMaterial) { color = ThumbBackdropColor };
+            if (mat.HasProperty("_EmissionColor"))
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                mat.SetColor("_EmissionColor", ThumbBackdropColor);
+            }
+        }
+        var r = wall.GetComponent<MeshRenderer>();
+        r.sharedMaterial = mat;
+        r.receiveShadows = false;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
     }
 
     /// <summary>Returns a cached thumbnail for this part, baking one on first request. The bake is a
@@ -370,7 +437,13 @@ public class AODPreviewStage : MonoBehaviour
         if (_thumbCache.TryGetValue(part.ObjectName, out var cached) && cached != null) return cached;
 
         var stage = Instance;
-        if (stage._thumbCamera == null) stage.SetupThumbStage();
+        if (stage._thumbCamera == null)
+        {
+            stage.SetupThumbStage();
+            // Warm-up render: the very first Render() of a freshly-created URP camera drew the backdrop black
+            // (the first card in the grid kept a black background while every later one was green).
+            stage._thumbCamera.Render();
+        }
 
         var prefab = lib.PrefabFor(part);
         if (prefab == null) return null;
@@ -379,16 +452,39 @@ public class AODPreviewStage : MonoBehaviour
         Transform target = stage.FindTargetMesh(instance, part.ObjectName);
         if (target == null)
         {
-            Object.Destroy(instance);
+            Object.DestroyImmediate(instance);
             return null;
         }
 
         var renderer = target.GetComponent<Renderer>();
         Bounds bounds = renderer != null ? renderer.bounds : new Bounds(target.position, Vector3.one * 0.3f);
-        float radius = Mathf.Max(bounds.extents.magnitude, 0.05f);
-        float distance = radius / Mathf.Sin(Mathf.Deg2Rad * (stage._thumbCamera.fieldOfView * 0.5f)) * 1.15f;
-        stage._thumbCamera.transform.position = bounds.center + CameraApproachDir * distance;
-        stage._thumbCamera.transform.LookAt(bounds.center);
+
+        Mesh singleGloveMesh = null;
+        GameObject single = null;
+        if (IsGlovePart(part))
+        {
+            // Gloves ship as ONE mesh holding the pair — a thumbnail of both is two tiny blobs in a
+            // mostly-empty frame. Replace the pair with just one glove and fit the camera TIGHT to it so
+            // it fills the card (Tad, 2026-10-01).
+            // Built in world space on an identity-transform object (NOT parented under `instance`, whose
+            // 0.01 root scale would shrink it again) — so it's destroyed explicitly below.
+            single = BuildSingleGlove(target, null);
+            if (single != null)
+            {
+                singleGloveMesh = single.GetComponent<MeshFilter>().sharedMesh;
+                if (renderer != null) renderer.enabled = false;
+                bounds = single.GetComponent<Renderer>().bounds;
+                stage.FitCameraTight(stage._thumbCamera, bounds, 0.96f);
+            }
+            else
+            {
+                stage.FrameCameraLoose(stage._thumbCamera, bounds);
+            }
+        }
+        else
+        {
+            stage.FrameCameraLoose(stage._thumbCamera, bounds);
+        }
 
         stage._thumbCamera.Render();
 
@@ -398,9 +494,180 @@ public class AODPreviewStage : MonoBehaviour
         tex.Apply();
         RenderTexture.active = null;
 
-        Object.Destroy(instance);
+        // DestroyImmediate, not Destroy: the grid bakes ALL its thumbnails inside one frame, and a deferred
+        // Destroy leaves each finished part alive on this shared stage until end of frame — so every later
+        // thumbnail also photographed the leftovers of the ones before it (orange arm strips inside the
+        // glove cards, ghost shapes in the headphone card). Found 2026-10-01 by looking at the grid.
+        Object.DestroyImmediate(instance);
+        if (single != null) Object.DestroyImmediate(single);
+        if (singleGloveMesh != null) Object.DestroyImmediate(singleGloveMesh);
         _thumbCache[part.ObjectName] = tex;
         return tex;
+    }
+
+    // Every "hands" part (gloves AND the bare-hands body part) ships as one mesh holding BOTH hands,
+    // spread across a T-pose-wide span — so the whole slot gets the single-item thumbnail treatment.
+    private static bool IsGlovePart(IAvatarPart part) => part.Slot == "hands";
+
+    /// <summary>The original, loose framing — a bounding sphere with 15% slack. Fine for a whole body or
+    /// a hat; too much empty space for a small flat item, which is why gloves use FitCameraTight.</summary>
+    private void FrameCameraLoose(Camera cam, Bounds bounds)
+    {
+        float radius = Mathf.Max(bounds.extents.magnitude, 0.05f);
+        float distance = radius / Mathf.Sin(Mathf.Deg2Rad * (cam.fieldOfView * 0.5f)) * 1.15f;
+        cam.transform.position = bounds.center + CameraApproachDir * distance;
+        cam.transform.LookAt(bounds.center);
+    }
+
+    /// <summary>Backs the camera off along the usual approach direction just far enough that all 8
+    /// corners of <paramref name="bounds"/> fit inside <paramref name="fill"/> (0-1) of the frame —
+    /// binary-searched on the real projection rather than a bounding sphere, so a flat/elongated item
+    /// fills the frame instead of floating in it.</summary>
+    private void FitCameraTight(Camera cam, Bounds bounds, float fill)
+    {
+        cam.transform.position = bounds.center + CameraApproachDir * 2f;
+        cam.transform.LookAt(bounds.center);
+
+        var corners = new Vector3[8];
+        for (int i = 0; i < 8; i++)
+            corners[i] = bounds.center + Vector3.Scale(bounds.extents, new Vector3(
+                (i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+
+        float lo = 0.02f, hi = 10f;
+        for (int iter = 0; iter < 24; iter++)
+        {
+            float mid = (lo + hi) * 0.5f;
+            cam.transform.position = bounds.center + CameraApproachDir * mid;
+            cam.transform.LookAt(bounds.center);
+
+            float worst = 0f;
+            foreach (var c in corners)
+            {
+                Vector3 vp = cam.WorldToViewportPoint(c);
+                worst = Mathf.Max(worst, Mathf.Abs(vp.x - 0.5f) * 2f, Mathf.Abs(vp.y - 0.5f) * 2f);
+            }
+            if (worst > fill) lo = mid; else hi = mid;
+        }
+        cam.transform.position = bounds.center + CameraApproachDir * hi;
+        cam.transform.LookAt(bounds.center);
+    }
+
+    /// <summary>Builds a standalone mesh object holding ONE glove of a pair-in-one-mesh glove part, and
+    /// parents it under <paramref name="parent"/> in the same world pose as the source. Bakes a skinned
+    /// source first (so it's the posed vertices, not the bind-pose-less raw mesh), keeps only the
+    /// triangles on one side of the pair's center along the wider of X/Z, and carries across the
+    /// source materials per submesh. Returns null if the source isn't a mesh that can be split.</summary>
+    private static GameObject BuildSingleGlove(Transform source, Transform parent)
+    {
+        Mesh baked;
+        Material[] mats;
+        Matrix4x4 toWorld;   // baked-vertex space -> world space
+        var smr = source.GetComponent<SkinnedMeshRenderer>();
+        var mf = source.GetComponent<MeshFilter>();
+        var mr = source.GetComponent<MeshRenderer>();
+        if (smr != null && smr.sharedMesh != null)
+        {
+            baked = new Mesh();
+            // MEASURED live (2026-10-01): BakeMesh(useScale:false) already returns METER-scale vertices for
+            // these FBX-derived prefabs (the renderer transform carries a 0.01 lossy scale + a 90 deg X
+            // rotation that the bake folds in as scale but NOT as rotation); useScale:true returns the raw
+            // centimeter-scale mesh instead. So: bake with false, and apply only position + rotation.
+            smr.BakeMesh(baked, false);
+            mats = smr.sharedMaterials;
+            toWorld = Matrix4x4.TRS(source.position, source.rotation, Vector3.one);
+        }
+        else if (mf != null && mf.sharedMesh != null && mr != null)
+        {
+            baked = Object.Instantiate(mf.sharedMesh);
+            mats = mr.sharedMaterials;
+            toWorld = source.localToWorldMatrix; // full TRS incl. the 0.01 root scale static glove FBXs carry
+        }
+        else return null;
+
+        var verts = baked.vertices;
+        if (verts.Length == 0) return null;
+
+        // The output mesh is built DIRECTLY IN WORLD SPACE and lives on an identity-transform object
+        // (no parent). An earlier version parented a re-scaled object under the source instance, whose
+        // own root scale of 0.01 then shrank it a second time to ~nothing (the gloves rendered invisible).
+        var wmin = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        var wmax = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+        var world = new Vector3[verts.Length];
+        for (int i = 0; i < verts.Length; i++)
+        {
+            world[i] = toWorld.MultiplyPoint3x4(verts[i]);
+            wmin = Vector3.Min(wmin, world[i]);
+            wmax = Vector3.Max(wmax, world[i]);
+        }
+        // Sanity check: a glove pair should span centimeters-to-a-couple-meters. Anything else means the
+        // bake space was misread, and a silent invisible thumbnail is worse than the loose fallback.
+        Vector3 size = wmax - wmin;
+        if (size.magnitude < 0.01f || size.magnitude > 20f) { Object.DestroyImmediate(baked); return null; }
+
+        // Which axis is the pair spread along (hands go left/right along X in a T/A-pose, but don't assume).
+        int axis = (size.x >= size.z) ? 0 : 2;
+        float mid = (wmin[axis] + wmax[axis]) * 0.5f;
+
+        // Keep only the triangles on the "low" side of the pair, and COMPACT the vertex arrays down to the
+        // vertices those triangles actually use. Compaction matters: Mesh bounds are computed from EVERY
+        // vertex, referenced or not, so leaving the other glove's vertices in the buffer made the "single"
+        // glove's bounds still span both hands and the tight camera fit framed the empty middle.
+        var bakedNormals = baked.normals;
+        var bakedUv = baked.uv;
+        bool hasN = bakedNormals != null && bakedNormals.Length == verts.Length;
+        bool hasUv = bakedUv != null && bakedUv.Length == verts.Length;
+
+        var remap = new int[verts.Length];
+        for (int i = 0; i < remap.Length; i++) remap[i] = -1;
+        var newVerts = new List<Vector3>();
+        var newNormals = new List<Vector3>();
+        var newUvs = new List<Vector2>();
+        var subTris = new List<List<int>>();
+        int kept = 0;
+        for (int sIdx = 0; sIdx < baked.subMeshCount; sIdx++)
+        {
+            var tris = baked.GetTriangles(sIdx);
+            var keep = new List<int>(tris.Length / 2);
+            for (int t = 0; t < tris.Length; t += 3)
+            {
+                float c = (world[tris[t]][axis] + world[tris[t + 1]][axis] + world[tris[t + 2]][axis]) / 3f;
+                if (c >= mid) continue;
+                for (int k = 0; k < 3; k++)
+                {
+                    int old = tris[t + k];
+                    if (remap[old] < 0)
+                    {
+                        remap[old] = newVerts.Count;
+                        newVerts.Add(world[old]);
+                        if (hasN) newNormals.Add(toWorld.MultiplyVector(bakedNormals[old]).normalized);
+                        if (hasUv) newUvs.Add(bakedUv[old]);
+                    }
+                    keep.Add(remap[old]);
+                }
+            }
+            subTris.Add(keep);
+            kept += keep.Count;
+        }
+        var indexFormat = baked.indexFormat;
+        Object.DestroyImmediate(baked);
+        if (kept == 0) return null;
+
+        var outMesh = new Mesh { name = "SingleGlove", indexFormat = indexFormat };
+        outMesh.SetVertices(newVerts);
+        if (hasN) outMesh.SetNormals(newNormals);
+        if (hasUv) outMesh.SetUVs(0, newUvs);
+        outMesh.subMeshCount = subTris.Count;
+        for (int sIdx = 0; sIdx < subTris.Count; sIdx++) outMesh.SetTriangles(subTris[sIdx], sIdx);
+        outMesh.RecalculateBounds();
+
+        var go = new GameObject("SingleGlove");
+        // Identity transform, vertices already in world space. `parent` (null = scene root) is only
+        // honored if a caller wants it, and must be unscaled.
+        if (parent != null) go.transform.SetParent(parent, worldPositionStays: true);
+        go.AddComponent<MeshFilter>().sharedMesh = outMesh;
+        var outRenderer = go.AddComponent<MeshRenderer>();
+        outRenderer.sharedMaterials = mats;
+        return go;
     }
 
     /// <summary>Drops every cached thumbnail so the next grid Refresh re-bakes from scratch — call

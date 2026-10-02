@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e9e232887a9b4645b1f651208bf32a4, type: 3}
+  m_Name: female_hair_black
+  m_EditorClassIdentifier: GameCore.Simulation::AvatarPartAsset
+  objectName: female_hair_black
+  gender: female
+  slot: hair
+  variant: black
+  finalizedPrefab: {fileID: 7523214709705216160, guid: 37ed0eafdd88ca2419583673e72673b0, type: 3}
+  allowedRoles: 00000000010000000200000003000000040000000c000000i
+  colorVariants: []
+  defaultWeight: 30.6
+  verifiedInGame: 0
+  hiddenBodySlots: []

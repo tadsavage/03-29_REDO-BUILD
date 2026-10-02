@@ -54,16 +54,17 @@ public class EmployeeSpawner : MonoBehaviour
              "touched by this change.")]
     [SerializeField] private GameObject _floorWorkerAvatarModel;
     [SerializeField] private GameObject _floorWorkerAvatarModelFemale;
-    [Tooltip("2026-09-27: OFF by default, on purpose. ModularBodyExists() used to auto-switch these " +
-             "4 roles to the modular assembler the instant ANY body part existed for a gender, with " +
-             "no check that the part actually worked — the moment man_body_warehouseCaucasian/" +
-             "woman_body_warehouseCaucasian got scanned in (still WIP: the male export has no " +
-             "SkinnedMeshRenderer at all -> permanent T-pose; the female has one but with broken " +
-             "skin weights -> scrambled mesh), every Receiver/RTO/DSO/OrderSelector in the game broke " +
-             "at once. This flag makes that switch a deliberate, manual decision instead of an " +
-             "automatic side effect of scanning the drop folder. Turn ON only after verifying a " +
-             "gender's new body actually poses correctly in Play Mode.")]
-    [SerializeField] private bool _floorWorkersUseModularBodyIfAvailable = false;
+    [Tooltip("2026-09-27: this used to be OFF by default, on purpose. ModularBodyExists() once auto-" +
+             "switched these 4 roles to the modular assembler the instant ANY body part existed for a " +
+             "gender, with no check that the part actually worked — the moment the old " +
+             "man_/woman_body_warehouseCaucasian files got scanned in (WIP: no skinning / broken " +
+             "weights), every Receiver/RTO/DSO/OrderSelector broke at once. So the switch is a manual " +
+             "flag, not an automatic side effect of scanning. 2026-10-01: DEFAULT NOW ON — the Female " +
+             "Regular body (woman_bodyA_Cauc) is verified live (200/200 builds correct, animates, " +
+             "masking works), and Main.unity already had it on; the code default now matches so a " +
+             "fresh component/scene can't silently fall back to the fixed model. Male is excluded " +
+             "separately (see ModularBodyExists) until a male body exists.")]
+    [SerializeField] private bool _floorWorkersUseModularBodyIfAvailable = true;
 
     [Header("Admin (Polyperfect reporter look)")]
     [Tooltip("Admin previously had no dedicated case here and silently fell through to the generic " +
@@ -710,6 +711,12 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
     private static bool ModularBodyExists(EmployeeGender gender, EmployeeSpawner instance)
     {
         if (instance == null || !instance._floorWorkersUseModularBodyIfAvailable) return false;
+        // 2026-10-01: the modular pipeline is FEMALE-ONLY for now (Tad: not ready to work on males —
+        // everything is being built around the one Female Regular body first). Explicit rather than
+        // relying on the male body part happening to fail the SkinnedMeshRenderer check below, so a
+        // male body that DOES get cataloged can never go live by accident. Remove this line when a
+        // real male body is ready.
+        if (gender != EmployeeGender.Female) return false;
         var lib = ModularAvatarAssembler.LoadLibrary();
         if (lib == null) return false;
         string g = gender == EmployeeGender.Female ? "female" : "male";

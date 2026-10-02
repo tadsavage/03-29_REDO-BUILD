@@ -338,32 +338,95 @@ public static class ModularAvatarAssembler
             if (!tempReparentedWhole) SafeDestroy(temp);
         }
 
+        ApplyOrientationFixes(root, chosen);
         ApplyBodyPartMasking(root, chosen);
         ApplyMoodExpression(root, gender, EmployeeMood.Neutral);
 
         return root;
     }
 
-    /// <summary>Skyrim-style clipping fix (2026-09-30): any chosen CLOTHING part (a part whose own
-    /// slot isn't itself a body slot — see <see cref="IsBodySlot"/>) can carry a
-    /// <see cref="IAvatarPart.HiddenBodySlots"/> list, e.g. coveralls -> hide body/arms/legs so the
-    /// skin mesh doesn't poke through the cloth. Unions every chosen clothing item's hide-list, then
-    /// disables the renderer for each chosen BODY part whose own slot lands in that union.
-    /// "head" is force-excluded no matter what any clothing item lists — per Tad, the head (and hair,
-    /// which isn't a body slot at all so it's never touched by this pass) must always stay visible.
-    /// Runs AFTER the prune/merge above so every surviving chosen part is already parented under
-    /// root under its original object name (FindDeep looks it up by that name).</summary>
+    // Hand-tuned in the scene by Tad (2026-10-01) and baked here so every build gets it. These are the
+    // transforms the part's ROOT GameObject must have on the assembled avatar:
+    //   HEAD  -> position (0,0,0), rotation (0,180,0)   (the head mesh is authored facing -Z; the body faces +Z)
+    //   HANDS -> position (0, 0.02762616, 0.268777), rotation (349.341, 0, 0)   (gloves + bare hands: fixes the
+    //            180-degree roll and seats them at the wrists)
+    private static readonly Vector3 HeadRootPos  = Vector3.zero;
+    private static readonly Quaternion HeadRootRot = Quaternion.Euler(0f, 180f, 0f);
+    private static readonly Vector3 HandsRootPos  = new Vector3(0f, 0.02762616f, 0.268777f);
+    private static readonly Quaternion HandsRootRot = Quaternion.Euler(349.341f, 0f, 0f);
+    //   NEUTRAL GLOVES (neutral_hands_glovesBrown / White; mesh on the root, scale 0.01) -> position (0, 0, -0.07),
+    //            rotation (-92.774, 180, 0), set absolutely.
+    private static readonly Vector3 NeutralGlovesRootPos  = new Vector3(0f, 0f, -0.07f);
+    private static readonly Quaternion NeutralGlovesRootRot = Quaternion.Euler(-92.774f, 180f, 0f);
+
+    /// <summary>Corrects parts whose source assets were authored/exported with the wrong orientation relative to
+    /// the body (found 2026-10-01 by rendering the assembled avatar from four sides; the body, coveralls, hair
+    /// and boots face +Z, the avatar's forward, but the head faces -Z, the hard hats' brims point -Z, and the
+    /// hands are rolled 180 degrees).
+    ///
+    /// Applied as an OFFSET on top of whatever root transform the part already has — world = offset * current —
+    /// rather than overwriting it, so a part whose own root carries an import rotation/scale (the old
+    /// neutral_hands_gloves* prefabs: -90 X, 0.01 scale) keeps that and still gets the same correction. For the
+    /// woman_* parts the current root is identity, so the offset IS the final transform Tad specified.
+    /// Works because every part currently carries its OWN armature copy (see the note in Build), so mesh and bones
+    /// move together. Runs while the avatar is still at world origin / identity, so world == avatar-local here.
+    /// Stop-gap: the real fix is correcting the meshes in Blender and re-exporting, then delete this.
+    /// Hair, boots, coveralls and headphones are correct as-is.</summary>
+    private static void ApplyOrientationFixes(GameObject root, List<IAvatarPart> chosen)
+    {
+        foreach (var p in chosen)
+        {
+            bool isHead    = p.Slot == "head";
+            bool isHardhat = p.Slot == "hat" && p.Variant != null && p.Variant.ToLower().Contains("hardhat");
+            bool isHands   = p.Slot == "hands";
+            if (!isHead && !isHardhat && !isHands) continue;
+
+            var t = FindDeep(root.transform, p.ObjectName);
+            if (t == null) continue;
+
+            if (isHands && p.ObjectName.StartsWith("neutral_hands_", System.StringComparison.OrdinalIgnoreCase))
+                // The older neutral gloves (mesh directly on the root, scale 0.01) get their own hand-tuned FINAL
+                // transform (Tad, 2026-10-01) — set absolutely, scale stays 0.01.
+                t.SetPositionAndRotation(NeutralGlovesRootPos, NeutralGlovesRootRot);
+            else if (isHands)
+                ApplyRootOffset(t, HandsRootPos, HandsRootRot);
+            else if (isHead)
+                ApplyRootOffset(t, HeadRootPos, HeadRootRot);
+            else
+                // Hard hats ride the head, so they turn the same 180 about the SAME vertical axis (the avatar's
+                // origin) the head now uses — otherwise the hat and head would end up offset from each other.
+                t.RotateAround(root.transform.position, Vector3.up, 180f);
+        }
+    }
+
+    private static void ApplyRootOffset(Transform t, Vector3 offsetPos, Quaternion offsetRot)
+    {
+        t.SetPositionAndRotation(offsetPos + offsetRot * t.position, offsetRot * t.rotation);
+    }
+
+    /// <summary>Skyrim-style clipping fix (2026-09-30), opened up to EVERY chosen part (2026-10-01) —
+    /// not just clothing. Originally restricted to non-body-slot items on the assumption a body part
+    /// could never need "worn over" semantics; wrong per Tad, whose own body mesh (woman_bodyA_Cauc)
+    /// ships with a full default arm baked in and needs to hide the separate "arms" slot
+    /// (armsCauc/sleevesBlk) until that slot has real content worth showing — a body-slot item
+    /// hiding ANOTHER body-slot, not clothing hiding skin. "we should just leave the hider buttons on
+    /// for everything" (Tad, 2026-10-01). Any chosen part can carry a
+    /// <see cref="IAvatarPart.HiddenBodySlots"/> list; this unions every chosen part's hide-list, then
+    /// disables the renderer for each chosen BODY-MESH part (see <see cref="IsBodySlot"/>) whose own
+    /// slot lands in that union. "head" is force-excluded no matter what anything lists — per Tad, the
+    /// head (and hair, which isn't a body slot at all so it's never touched by this pass) must always
+    /// stay visible. Runs AFTER the prune/merge above so every surviving chosen part is already
+    /// parented under root under its original object name (FindDeep looks it up by that name).</summary>
     private static void ApplyBodyPartMasking(GameObject root, List<IAvatarPart> chosen)
     {
         var hidden = new HashSet<string>();
         foreach (var p in chosen)
         {
-            if (IsBodySlot(p.Slot)) continue; // only clothing items get to hide anything
             if (p.HiddenBodySlots == null) continue;
             foreach (var s in p.HiddenBodySlots)
                 if (!string.IsNullOrEmpty(s)) hidden.Add(s.ToLower());
         }
-        hidden.Remove("head"); // invariant: head is never auto-hidden, regardless of clothing config
+        hidden.Remove("head"); // invariant: head is never auto-hidden, regardless of what's configured
         if (hidden.Count == 0) return;
 
         foreach (var p in chosen)
@@ -506,7 +569,13 @@ public static class ModularAvatarAssembler
     /// verifying.</summary>
     private static IAvatarPart PickVariant(List<IAvatarPart> candidates, System.Random rng, EmployeeRole? role, string gender)
     {
-        var unverified = candidates.Where(c => !c.VerifiedInGame).ToList();
+        // The "show new items quickly" bias only considers candidates that could actually be PICKED
+        // (effective weight > 0). Found 2026-10-01: woman_hair_bobBlonde was unverified AND set to 0% in
+        // the AOD, so it was the ONLY "unverified" candidate -> the pool collapsed to just it -> total
+        // weight 0 -> WeightedPick returned null -> NO female ever got hair (0 of 200 test builds), while
+        // the three hair colors that DID have weight were never even considered. A zero-weight item can
+        // never be verified (it's never picked), so it must not be allowed to hijack the pool.
+        var unverified = candidates.Where(c => !c.VerifiedInGame && EffectiveWeight(c, role, gender) > 0f).ToList();
         var pool = unverified.Count > 0 ? unverified : candidates;
         var pick = WeightedPick(pool, rng, role, gender);
         if (pick == null) return null; // every candidate in this slot is explicitly zero-weighted
@@ -536,6 +605,16 @@ public static class ModularAvatarAssembler
 #endif
         }
         return pick;
+    }
+
+    /// <summary>The weight WeightedPick would use for this candidate — AvatarWeightConfig's most
+    /// specific rule, else the part's own defaultWeight, clamped at 0. Single definition so the
+    /// "unverified bias" in PickVariant and the real pick can never disagree about what "weight 0" means.</summary>
+    private static float EffectiveWeight(IAvatarPart p, EmployeeRole? role, string gender)
+    {
+        var cfg = AvatarWeightConfig.Load();
+        float w = cfg != null ? cfg.GetWeight(role, gender, p.Slot, p.Variant, p.DefaultWeight) : p.DefaultWeight;
+        return Mathf.Max(0f, w);
     }
 
     /// <summary>Weighted random selection over a pool that's already been through the

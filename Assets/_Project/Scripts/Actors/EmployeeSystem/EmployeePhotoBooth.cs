@@ -39,6 +39,10 @@ public class EmployeePhotoBooth : MonoBehaviour
     [Tooltip("Clear color of the camera (backdrop color).")]
     [SerializeField] private Color _backdropColor = new Color(0.322f, 0.419f, 0.401f, 1.0f);
     [SerializeField] private float _studioLightIntensity = 1.0f;
+    // 2026-10-01: portraits read too dark against the new female body — every booth light is brightened
+    // by this factor on top of the serialized intensity (+50%). Applied in code, not by editing the
+    // scene value, so the Inspector number stays the "base" and this is one place to retune.
+    private const float StudioLightBoost = 1.5f;
     [Tooltip("Vertical offset for the IC Clerk model in the booth. The clerk model is ~0.17 units shorter than the Worker models, so without this it sits noticeably lower in frame than Worker portraits.")]
     [SerializeField] private float _clerkVerticalOffset = 0.17f;
 
@@ -263,7 +267,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         lightGO.transform.localPosition = new Vector3(0.10f, 1.38f, 0.81f);
         _liveLight = lightGO.AddComponent<Light>();
         _liveLight.type = LightType.Point;
-        _liveLight.intensity = _studioLightIntensity;
+        _liveLight.intensity = _studioLightIntensity * StudioLightBoost;
         _liveLight.range = 2.0f;
         _liveLight.color = new Color(0.872f, 0.857f, 0.834f, 1.0f);
         _liveLight.shadows = LightShadows.Hard;
@@ -714,7 +718,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         
         Light light = lightGO.AddComponent<Light>();
         light.type = LightType.Point;
-        light.intensity = _studioLightIntensity;
+        light.intensity = _studioLightIntensity * StudioLightBoost;
         light.range = 2.0f;
         light.color = new Color(0.872f, 0.857f, 0.834f, 1.0f);
         light.shadows = LightShadows.Hard; // Hard shadows for low poly look
