@@ -23,7 +23,7 @@ public class AgentAnimation : MonoBehaviour
 
     [Header("Movement")]
     [Tooltip("Base walk speed set on the NavMeshAgent.")]
-    [SerializeField] private float walkSpeed         = 2f;
+    [SerializeField] private float walkSpeed         = 1.4f;   // matches the Polyperfect Walk_Male/Female clips (~1.3-1.4 m/s) so feet don't slide
     [Tooltip("Degrees per second for visual heading rotation (higher = snappier turns).")]
     [SerializeField] private float turnSpeed         = 480f;
     [Tooltip("Seconds the agent pauses at a waypoint before resuming.")]

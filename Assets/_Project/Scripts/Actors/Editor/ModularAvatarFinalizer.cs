@@ -133,7 +133,7 @@ public static bool TryUpdateFromRawSource(AvatarPartLibrary lib, AvatarPartAsset
     private static bool ValidateStructure(GameObject sourcePrefab, string objectName, string slot, out string error)
     {
         error = null;
-        if (slot != "body") return true; // only body-slot parts require posability today
+        if (!ModularAvatarAssembler.IsBodySlot(slot)) return true; // body-slot parts (torso/legs/hands/head/feet) must be skinned to be posable
 
         // Find the transform that actually CARRIES the mesh and matches objectName — NOT just
         // "whichever transform's name matches", since an FBX can (and here, does) have a root node
@@ -157,7 +157,7 @@ public static bool TryUpdateFromRawSource(AvatarPartLibrary lib, AvatarPartAsset
 
     private static string RouteFolderForSlot(string slot) => slot switch
     {
-        "body" => BodyPrefabFolder,
+        _ when ModularAvatarAssembler.IsBodySlot(slot) => BodyPrefabFolder,
         _      => PropsPrefabFolder, // hair/hat/facialhair/props default here
     };
 

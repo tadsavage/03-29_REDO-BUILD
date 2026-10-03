@@ -278,7 +278,14 @@ public static class ModularAvatarImporter
     // — no material asset for the source texture existed yet, so one was created alongside it
     // (Assets/polyperfect/Common/Materials/atlas-source-LPAP.mat, cloned from atlas-LPAP.mat's
     // shader/settings with only the texture swapped).
-    private const string SharedPaletteMaterialPath = "Assets/polyperfect/Common/Materials/atlas-source-LPAP.mat";
+    // AVATAR 2.0 (2026-10-02): switched to the FLAT atlas material (AA_atlas-LPAP.mat -> atlas-albedo-LPAP.png). The
+    // "source" atlas carries a shading gradient inside every color cell, so a flat skin patch rendered as ~17 different
+    // shades across neighbouring polygons (measured: albedo = 1 color, source = 17). Blender's own material
+    // (AA_PP_ALBEDO) already uses the albedo atlas, so this also makes Unity match what Tad sees in Blender.
+    // The material + its 3 textures are COPIES kept inside the Avatar 2.0 root (Textures/) so the avatar system no longer
+    // depends on the polyperfect pack's folder. To go back to the gradient look, point this at
+    // Assets/polyperfect/Common/Materials/atlas-source-LPAP.mat.
+    private const string SharedPaletteMaterialPath = "Assets/_Project/__Avatar_System2.0/Textures/AA_atlas-LPAP.mat";
 
     // See the duplicate-name guard at the top of FixNewExport — tracks paths already warned about
     // this domain session so a genuinely broken export logs once, not on every scan/heartbeat.
@@ -474,7 +481,8 @@ public static class ModularAvatarImporter
     // The female torso mesh is "woman_bodyA_Cauc", which the plain gender_slot_variant parser reads as slot
     // "bodya" (not "body"). It is still the file that carries the full skeleton and must get the Humanoid rig,
     // so "bodya" counts here. (Only used for the Humanoid decision; part slots are untouched.)
-    private static bool IsBodySlotName(string slot) => slot == "body" || slot == "bodya";
+    // Avatar 2.0 names the torso mesh "Female_Torso_Body" (slot "torso", variant "Body"), so "torso" counts too.
+    private static bool IsBodySlotName(string slot) => slot == "body" || slot == "bodya" || slot == "torso";
 
     private static AvatarPartLibrary.Part ParseName(string name, int sourceIndex)
     {
@@ -510,7 +518,16 @@ public static class ModularAvatarImporter
             }
         }
 
-        var seg = name.Split('_');
+        // Tolerate "Female_Neck.Collar" (a '.' typed where the second '_' belongs): exactly one underscore followed by a dot is read
+        // as gender_slot.variant. The part keeps its ORIGINAL object name; only the parse is normalised.
+        string norm = name;
+        if (name.IndexOf('_') >= 0 && name.IndexOf('_') == name.LastIndexOf('_'))
+        {
+            int us = name.IndexOf('_'), dot = name.IndexOf('.', us);
+            if (dot > us + 1 && dot < name.Length - 1) norm = name.Substring(0, dot) + "_" + name.Substring(dot + 1);
+        }
+
+        var seg = norm.Split('_');
         if (seg.Length < 3) return null;
 
         string rawGender = seg[0].ToLower();

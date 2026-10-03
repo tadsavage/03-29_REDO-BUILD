@@ -20,7 +20,7 @@ public static class ModularAvatarAssembler
     // woman_hands_bodyA) — per Tad, a body must always show a head, same mandatory tier as the
     // torso itself.
     private static readonly HashSet<string> CoreSlots = new()
-        { "body", "head", "hands", "eyes", "eyebrows", "mouth", "face", "chest", "legs", "feet" };
+        { "body", "torso", "head", "hands", "eyes", "eyebrows", "mouth", "face", "chest", "legs", "feet" };
 
     // The real, skinned BODY slots (2026-09-30 real-workflow pass) — "body" is kept as the torso
     // token for backward compatibility with already-finalized parts (woman.bodyA etc) rather than
@@ -28,9 +28,24 @@ public static class ModularAvatarAssembler
     // list it) but Build()'s masking pass unconditionally refuses to hide it — per Tad, Head and Hair
     // must always stay enabled regardless of what any clothing item's HiddenBodySlots says.
     public static readonly HashSet<string> BodySlots = new()
-        { "body", "head", "neck", "arms", "hands", "waist", "legs", "feet" };
+        { "body", "torso", "head", "arms", "hands", "waist", "legs", "feet" };
+
+    /// <summary>"neck" (collars, headphones worn round the neck, scarves, necklaces...) is an optional ACCESSORY slot, not a body
+    /// slot: no nude "Body" default, and pieces may be rigid (unskinned) - they then ride the Neck_M bone. A garment can still
+    /// hide it through HiddenBodySlots (see ApplyBodyPartMasking).</summary>
+    public const string NeckSlot = "neck";
 
     public static bool IsBodySlot(string slot) => !string.IsNullOrEmpty(slot) && BodySlots.Contains(slot.ToLower());
+
+    /// <summary>"body" is the legacy token for the torso (woman.bodyA); Avatar 2.0 names it "torso".</summary>
+    public static bool IsTorsoSlot(string slot) => slot == "body" || slot == "torso";
+
+    /// <summary>Avatar 2.0 rule (2026-10-02): the variant "Body" is RESERVED. In every body slot it is the nude
+    /// default skin (Female_Torso_Body, Female_Legs_Body, ...). It is never a wardrobe pick; it is shown only when
+    /// nothing else is worn in that slot, so an avatar can never be missing a mesh. A slot that another part HIDES
+    /// (ApplyBodyPartMasking) is a different case: there the default is chosen and then switched off.</summary>
+    public static bool IsBodyDefault(IAvatarPart p) =>
+        p != null && IsBodySlot(p.Slot) && string.Equals(p.Variant, "Body", System.StringComparison.OrdinalIgnoreCase);
 
     // Expression slots — default to the "Neutral" variant; the runtime morale/fatigue system
     // swaps these later. (Detected by the variant name containing "neutral".)
@@ -66,6 +81,7 @@ public static class ModularAvatarAssembler
     private static readonly Dictionary<string, float> OptionalSlotChance = new()
     {
         { "facialhair", 0.30f },
+        { "neck", 0.35f },   // neck accessories (collar, headphones round the neck, ...): ~1 in 3 employees wears one
         { "hat", 0.50f },
     };
 
@@ -79,7 +95,7 @@ public static class ModularAvatarAssembler
     /// post-pass below and by AODPanel to build its category tabs. "hat" splits into two
     /// independent keys because hardhat and headphones are two independent rolls that can both be
     /// worn at once — see the Build loop's own "hat" handling.</summary>
-    public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.headphones", "facialhair" };
+    public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.headphones", "facialhair", "neck" };
 
     public static (string slot, System.Func<IAvatarPart, bool> matches) OverrideCategoryInfo(string key) => key switch
     {
@@ -87,6 +103,7 @@ public static class ModularAvatarAssembler
         "hat.hardhat"    => ("hat",  (System.Func<IAvatarPart, bool>)(p => p.Variant.ToLower().Contains("hardhat"))),
         "hat.headphones" => ("hat",  (System.Func<IAvatarPart, bool>)(p => p.Variant.ToLower().Contains("headphones"))),
         "facialhair"     => ("facialhair", (System.Func<IAvatarPart, bool>)(p => true)),
+        "neck"           => ("neck", (System.Func<IAvatarPart, bool>)(p => true)),
         _ => (key, (System.Func<IAvatarPart, bool>)(p => true)),
     };
 
@@ -141,6 +158,18 @@ public static class ModularAvatarAssembler
 
             var allVariants = lib.VariantsFor(gender, slot);
             var variants = FilterRole(allVariants, role);
+
+            // Body slots (torso, legs, hands, head, feet, ...): wardrobe items replace the slot's nude "Body"
+            // default; with nothing to wear (none exist, none allowed for this role, or all weighted 0) the
+            // default is shown instead of leaving a hole. The default ignores role filtering and weight on purpose.
+            if (IsBodySlot(slot) && allVariants.Any(IsBodyDefault))
+            {
+                var wardrobe = variants.Where(v => !IsBodyDefault(v)).ToList();
+                IAvatarPart bodyPick = wardrobe.Count > 0 ? PickVariant(wardrobe, rng, role, gender) : null;
+                bodyPick ??= allVariants.First(IsBodyDefault);
+                chosen.Add(bodyPick);
+                continue;
+            }
             // Safety net: role filtering should never leave a CORE slot (body, eyes, ...) with
             // nothing to pick — that would build a character missing a body part rather than just
             // skipping an accessory. Falls back to the unfiltered list and logs it, since it means
@@ -220,12 +249,15 @@ public static class ModularAvatarAssembler
         // GameObject's names, which the "primary source" rename below deliberately destroys for a
         // single-mesh-on-root body source (see root.name assignment just below — it clobbers the
         // very "_body_" substring a name-based check would otherwise look for).
-        chosenOut["body"] = chosen.FirstOrDefault(p => p.Slot == "body");
+        chosenOut["body"] = chosen.FirstOrDefault(p => IsTorsoSlot(p.Slot));
 
         if (chosen.Count == 0) return null;
 
         // ── Pick the "primary" source: the prefab that holds the body (it carries the armature) ──
-        var bodyPart = chosen.FirstOrDefault(p => p.Slot == "body") ?? chosen[0];
+        // The nude torso carries the rig the Animator is built from, so it anchors the avatar even when a garment
+        // replaces it in `chosen` (the garment then rebinds onto this skeleton like any other part).
+        var bodyPart = lib.VariantsFor(gender, "torso").Concat(lib.VariantsFor(gender, "body")).FirstOrDefault(IsBodyDefault)
+                       ?? chosen.FirstOrDefault(p => IsTorsoSlot(p.Slot)) ?? chosen[0];
         var primaryPrefab = lib.PrefabFor(bodyPart);
         if (primaryPrefab == null) { Debug.LogWarning("[ModularAvatar] Primary source prefab missing."); return null; }
 
@@ -294,6 +326,15 @@ public static class ModularAvatarAssembler
             {
                 var child = FindDeep(temp.transform, part.ObjectName);
                 if (child == null) continue;
+                // A finalized prefab's ROOT often shares the part's name (root > spare armature copy > mesh), so FindDeep can return the
+                // root. For a rigid (unskinned) part prefer the actual mesh-bearing object, so only the mesh moves onto the head/neck
+                // bone and the prefab's spare armature copy is destroyed with `temp` instead of riding along under the bone.
+                if (FindSkinnedMesh(temp.transform, part.ObjectName) == null)
+                {
+                    var meshObj = temp.GetComponentsInChildren<Renderer>(true)
+                        .Select(r => r.transform).FirstOrDefault(t => t.name == part.ObjectName);
+                    if (meshObj != null) child = meshObj;
+                }
 
                 // Skinned part: move ONLY the mesh object onto the body's skeleton and let the part's own
                 // armature copy be destroyed with `temp`. (Previously the whole prefab root came along, so
@@ -323,6 +364,10 @@ public static class ModularAvatarAssembler
                 if (!isSkinned && (part.Slot == "hair" || part.Slot == "hat") &&
                     rootBonesByName.TryGetValue("Head_M", out var headBone))
                     targetParent = headBone;
+                // Rigid neck accessories (collar, headphones round the neck) ride the neck bone the same way.
+                else if (!isSkinned && part.Slot == NeckSlot &&
+                         rootBonesByName.TryGetValue("Neck_M", out var neckBone))
+                    targetParent = neckBone;
 
                 // worldPositionStays: TRUE is load-bearing — every merged-in source prefab is
                 // instantiated fresh at world origin/identity, exactly like `root` itself, so a
@@ -378,10 +423,18 @@ public static class ModularAvatarAssembler
 
     /// <summary>World-space (avatar space) transform baked into a part's bindposes to cancel an authoring
     /// orientation error. Mirrors the old root-transform stop-gaps in ApplyOrientationFixes.</summary>
+    /// <summary>The head/hair/hands/hard-hat orientation stop-gaps below were written for the OLD pipeline's wrongly oriented
+    /// meshes (head and hair authored facing -Z, hands rolled 180). Avatar 2.0 exports every part from the one shared rig with
+    /// the saved Unity_Avatar preset, so parts arrive already oriented and applying the old flips turns them BACKWARDS (found
+    /// 2026-10-03: the black bob sat on the head reversed). Left in place but OFF; flip this only to load legacy assets.</summary>
+    private const bool ApplyLegacyOrientationFixes = false;
+
     private static int CorrectionKind(IAvatarPart part)
     {
+        if (!ApplyLegacyOrientationFixes) return 0;
         // Hair is authored with the same 180 deg flip as the head (thick mass ends up over the face, fringe at the
         // back), so it gets the head's correction.
+        if (IsBodyDefault(part)) return 0;   // Avatar 2.0 body parts are exported on the shared rig, already oriented
         if (part.Slot == "head" || part.Slot == "hair") return 1;
         if (part.Slot == "hands" && !part.ObjectName.StartsWith("neutral_hands_", System.StringComparison.OrdinalIgnoreCase)) return 2;
         return 0;
@@ -507,10 +560,12 @@ public static class ModularAvatarAssembler
     /// Hair, boots, coveralls and headphones are correct as-is.</summary>
     private static void ApplyOrientationFixes(GameObject root, List<IAvatarPart> chosen, HashSet<string> rebound)
     {
+        if (!ApplyLegacyOrientationFixes) return;
         foreach (var p in chosen)
         {
             // Parts rebound onto the body skeleton already had their correction baked into the bindposes.
             if (rebound != null && rebound.Contains(p.ObjectName)) continue;
+            if (IsBodyDefault(p)) continue;   // Avatar 2.0 body parts need no orientation stop-gap
             bool isHead    = p.Slot == "head";
             // Unskinned head-worn props (hard hats, headphones, old unskinned hair) ride the Head_M bone and are
             // authored facing -Z like the head, so they turn 180 about the same axis the head uses.
@@ -566,14 +621,16 @@ public static class ModularAvatarAssembler
                 if (!string.IsNullOrEmpty(s)) hidden.Add(s.ToLower());
         }
         hidden.Remove("head"); // invariant: head is never auto-hidden, regardless of what's configured
+        if (hidden.Contains("body")) hidden.Add("torso");   // legacy token and Avatar 2.0 token are the same slot
+        if (hidden.Contains("torso")) hidden.Add("body");
         if (hidden.Count == 0) return;
 
         foreach (var p in chosen)
         {
-            if (!IsBodySlot(p.Slot) || !hidden.Contains(p.Slot.ToLower())) continue;
+            if (!(IsBodySlot(p.Slot) || p.Slot == NeckSlot) || !hidden.Contains(p.Slot.ToLower())) continue;
             var t = FindDeep(root.transform, p.ObjectName);
-            var smr = t?.GetComponent<SkinnedMeshRenderer>();
-            if (smr != null) smr.enabled = false;
+            var rend = t != null ? t.GetComponent<Renderer>() : null;   // skinned OR rigid (neck accessories can be unskinned)
+            if (rend != null) rend.enabled = false;
         }
     }
 
@@ -672,7 +729,14 @@ public static class ModularAvatarAssembler
             }
         }
 
-        var seg = name.Split('_');
+        // Mirrors ModularAvatarImporter.ParseName: "Female_Neck.Collar" (one underscore then a dot) counts as gender_slot.variant.
+        string norm = name;
+        if (name.IndexOf('_') >= 0 && name.IndexOf('_') == name.LastIndexOf('_'))
+        {
+            int us = name.IndexOf('_'), dot = name.IndexOf('.', us);
+            if (dot > us + 1 && dot < name.Length - 1) norm = name.Substring(0, dot) + "_" + name.Substring(dot + 1);
+        }
+        var seg = norm.Split('_');
         if (seg.Length < 3) return false;
         string g = seg[0].ToLower();
         return g == "male" || g == "female" || g == "man" || g == "woman" || g == "neutral";

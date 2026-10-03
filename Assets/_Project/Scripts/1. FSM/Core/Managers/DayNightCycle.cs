@@ -122,9 +122,12 @@ public class DayNightCycle : MonoBehaviour
     private void Apply(float hour)
     {
         // ── Sun arc ──────────────────────────────────────────────────────────
-        // pitch: hour 6 → 0 (rising on horizon), 12 → 90 (overhead),
-        // 18 → 180 (setting), 0/24 → -90 (straight up = midnight, fully down).
-        float pitch = (hour / 24f) * 360f - 90f;
+        // pitch: sunriseHour → 0 (rising on horizon), solar noon → 90 (overhead),
+        // sunsetHour → 180 (setting), then 180..360 through the night (below the horizon).
+        // Fixed 2026-10-02: this used to be hardcoded to a 06:00/18:00 day, so with sunsetHour = 21 the sun sat BELOW the
+        // horizon from 18:00 to 21:00 while still being lit (dayStrength > 0), lighting the warehouse from underneath and
+        // throwing forklift/rack shadows UP the walls.
+        float pitch = SunPitch(hour);
         if (sun != null)
             sun.transform.rotation = Quaternion.Euler(pitch, sunYaw, 0f);
 
@@ -134,11 +137,15 @@ public class DayNightCycle : MonoBehaviour
         // Day strength: 1 in full daylight, 0 in full night, smooth twilight ramp.
         float dayStrength = DayStrength(hour);
 
+        // Direct sunlight fades out as the sun reaches the horizon and is OFF below it (no upward-pointing sun, no
+        // shadows cast from underneath). The twilight glow comes from the sky + ambient, which keep using dayStrength.
+        float aboveHorizon = Mathf.Clamp01(Mathf.Sin(pitch * Mathf.Deg2Rad) / 0.5f);    // gentle ramp: full strength only from ~30 degrees up, so low golden-hour sun is dim + soft
+
         if (sun != null)
         {
-            sun.intensity = _sunDayIntensity * dayStrength * globalBrightness;
+            sun.intensity = _sunDayIntensity * dayStrength * globalBrightness * aboveHorizon;
             sun.color = Color.Lerp(horizonSunColor, _sunDayColor, elevation);
-            sun.enabled = dayStrength > 0.001f;
+            sun.enabled = dayStrength > 0.001f && aboveHorizon > 0.001f;
         }
 
         if (moon != null)
@@ -161,6 +168,16 @@ public class DayNightCycle : MonoBehaviour
         // ── Ambient ──────────────────────────────────────────────────────────
         if (controlAmbient)
             RenderSettings.ambientLight = Color.Lerp(nightAmbient, _dayAmbientTarget * globalBrightness, dayStrength);
+    }
+
+    private float SunPitch(float hour)
+    {
+        float dayLen = Mathf.Max(0.1f, sunsetHour - sunriseHour);
+        if (hour >= sunriseHour && hour <= sunsetHour)
+            return 180f * (hour - sunriseHour) / dayLen;                        // 0..180 across the day
+        float nightLen = 24f - dayLen;
+        float t = hour > sunsetHour ? hour - sunsetHour : hour + 24f - sunsetHour;  // hours since sunset
+        return 180f + 180f * t / nightLen;                                       // 180..360 across the night
     }
 
     // 1 in full daylight, 0 in full night, smooth twilight ramp across the horizon.

@@ -13,8 +13,6 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _ENVIRONMENTREFLECTIONS_OFF
-  - _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
-  - _SPECULAR_SETUP
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
@@ -197,7 +195,7 @@ Material:
     - _LineWidth: 0.02
     - _METALNESS: 0
     - _Mapping: 1
-    - _Metallic: 0.2
+    - _Metallic: 0.75
     - _MirrorOnBack: 0
     - _Mode: 0
     - _OPACITY: 1
@@ -213,10 +211,12 @@ Material:
     - _SPECULAR_IOR: 1.5
     - _SPECULAR_ROUGHNESS: 0
     - _SampleGI: 0
+    - _ScreenSpaceReflections: 1
+    - _ScreenSpaceReflectionsContributeTransparent: 1
     - _Shininess: 0
-    - _Smoothness: 0
+    - _Smoothness: 0.25
     - _SmoothnessSource: 0
-    - _SmoothnessTextureChannel: 1
+    - _SmoothnessTextureChannel: 0
     - _SpecSource: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
@@ -228,7 +228,7 @@ Material:
     - _TriangleWidth: 1
     - _UVSec: 0
     - _WindQuality: 0
-    - _WorkflowMode: 0
+    - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZTest: 4
     - _ZWrite: 1

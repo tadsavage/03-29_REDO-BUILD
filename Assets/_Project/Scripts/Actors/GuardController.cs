@@ -28,7 +28,7 @@ public class GuardController : MonoBehaviour
     }
 
     [Header("Movement")]
-    [SerializeField] private float walkSpeed        = 3f;
+    [SerializeField] private float walkSpeed        = 1.4f;   // matches the new Walk_Male clip (~1.3 m/s)
     [SerializeField] private float turnSpeed        = 240f;
     [SerializeField] private float arrivedThreshold = 0.5f;
 

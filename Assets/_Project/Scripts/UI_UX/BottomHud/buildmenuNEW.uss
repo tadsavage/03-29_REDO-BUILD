@@ -97,11 +97,12 @@
     background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/NewItemThumb.png?fileID=2800000&guid=703546f892563b8428200ddbd177029a&type=3#NewItemThumb");
 }
 
-/* PLACEHOLDER ART: reuses the Contracts thumb because Play Bar Icons has no purchasing image yet.
-   It is deliberately the same picture as button 6, which is wrong and meant to be noticed — drop a
-   PurchasingThumb.png into Assets/_Project/Art/Icons/Play Bar Icons/ and repoint this one rule. */
+/* Inbound button: uses the Contracts scroll image (Tad's final pick 2026-10-03; the Order Selector role icon looked out of place).
+   The rule carries the file's GUID (like every other rule here) so it survives folder moves; an earlier path-only URL broke when
+   Play Bar Icons moved from Art/Icons to Sprites/Icons and the button fell back to a yellow warning triangle.
+   To give it dedicated art, drop an InboundThumb.png in Sprites/Icons/Play Bar Icons/ and repoint this one rule. */
 .playbar-icon-purchasing {
-    background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/ContractsThumb.png#ContractsThumb");
+    background-image: url("project://database/Assets/_Project/Sprites/Icons/Play%20Bar%20Icons/ContractsThumb.png?fileID=2800000&guid=3d7daea61b3f9a84e82e83d9bfdf014b&type=3#ContractsThumb");
 }
 
 .playbar-icon-scheduler {

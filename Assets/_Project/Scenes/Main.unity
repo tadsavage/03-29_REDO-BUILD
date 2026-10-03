@@ -20,7 +20,7 @@ RenderSettings:
   m_FogDensity: 0.015
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.49406186, g: 0.5843228, b: 0.6075471, a: 1}
+  m_AmbientSkyColor: {r: 0.49600002, g: 0.512, b: 0.52800006, a: 1}
   m_AmbientEquatorColor: {r: 0.3301887, g: 0.2857639, b: 0.26477394, a: 1}
   m_AmbientGroundColor: {r: 0.2264151, g: 0.20719115, b: 0.20719115, a: 1}
   m_AmbientIntensity: 0.75
@@ -13316,7 +13316,7 @@ Light:
   serializedVersion: 13
   m_Type: 1
   m_Color: {r: 0.8565721, g: 0.8866048, b: 0.8930817, a: 1}
-  m_Intensity: 2
+  m_Intensity: 1
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -14244,12 +14244,12 @@ MonoBehaviour:
   twilightHours: 1.25
   maxSunIntensity: 1.25
   noonSunColor: {r: 1, g: 0.96, b: 0.88, a: 1}
-  horizonSunColor: {r: 1, g: 0.55, b: 0.25, a: 1}
+  horizonSunColor: {r: 1, g: 0.74, b: 0.55, a: 1}
   moonIntensity: 0.15
   moonColor: {r: 0.55, g: 0.62, b: 0.85, a: 1}
   dayExposure: 1
   nightExposure: 0.5
-  dayAmbient: {r: 0.62, g: 0.64, b: 0.66, a: 1}
+  dayAmbient: {r: 0.49600002, g: 0.512, b: 0.52800006, a: 1}
   nightAmbient: {r: 0.1, g: 0.13, b: 0.22, a: 1}
   controlAmbient: 1
   globalBrightness: 1

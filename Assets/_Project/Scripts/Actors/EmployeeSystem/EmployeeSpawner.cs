@@ -560,10 +560,9 @@ public class EmployeeSpawner : MonoBehaviour
         var t = avatar.transform;
         t.SetParent(identity.transform, worldPositionStays: false);
         t.localPosition = Vector3.zero;
-        // 180 deg yaw: the modular body's "Left" bones sit on +X while the mesh faces +Z, so Unity's Humanoid
-        // retarget decides the avatar faces -Z and turns every animated pose 180 deg. Turning the root back
-        // makes the animated avatar face the worker's forward. (Remove if the body is re-exported with L on -X.)
-        t.localRotation = Quaternion.Euler(0f, 180f, 0f);
+        // No yaw (removed 2026-10-02): the Avatar 2.0 body is exported with Left on -X and faces +Z, so the
+        // Humanoid retarget already agrees with the worker's forward. (The old body needed a 180 deg turn here.)
+        t.localRotation = Quaternion.identity;
         t.localScale    = Vector3.one;
         avatar.name = "ModularAvatar";
         SetLayerRecursively(avatar, identity.gameObject.layer);
@@ -578,7 +577,7 @@ public class EmployeeSpawner : MonoBehaviour
         var modAnimator = avatar.GetComponent<Animator>();
         if (modAnimator == null) modAnimator = avatar.AddComponent<Animator>();
         if (modAnimator.avatar == null && workerAnimator != null) modAnimator.avatar = workerAnimator.avatar;
-        if (workerAnimator != null) modAnimator.runtimeAnimatorController = workerAnimator.runtimeAnimatorController;
+        if (workerAnimator != null) modAnimator.runtimeAnimatorController = ControllerFor(identity, workerAnimator.runtimeAnimatorController);
         modAnimator.applyRootMotion = false;
         modAnimator.enabled = true;
         modAnimator.Rebind();
@@ -598,7 +597,22 @@ public class EmployeeSpawner : MonoBehaviour
 
         var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
+        FootContactShadow.Attach(avatar, identity.transform);   // soft ground shadows under the feet/body so the avatar doesn't look like it floats
 
+    }
+
+    // Women use the same controller with a different walk clip (Polyperfect Walk_InPlace_Female); men keep MaleStaff
+    // (Walk_Male). Same states/parameters, so AgentAnimation + ModularAvatarRig drive either one unchanged.
+    private static RuntimeAnimatorController _femaleStaffController;
+    private static RuntimeAnimatorController ControllerFor(EmployeeIdentity identity, RuntimeAnimatorController fallback)
+    {
+        if (identity != null && identity.Record != null && identity.Record.gender == EmployeeGender.Female)
+        {
+            if (_femaleStaffController == null)
+                _femaleStaffController = Resources.Load<RuntimeAnimatorController>("Resource_AvatarSystemAssets/FemaleStaff");
+            if (_femaleStaffController != null) return _femaleStaffController;
+        }
+        return fallback;
     }
 
     /// <summary>True if this employee's live look is (or would be) the random modular-part
@@ -723,7 +737,7 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         var lib = ModularAvatarAssembler.LoadLibrary();
         if (lib == null) return false;
         string g = gender == EmployeeGender.Female ? "female" : "male";
-        foreach (var part in lib.VariantsFor(g, "body"))
+        foreach (var part in lib.VariantsFor(g, "torso").Concat(lib.VariantsFor(g, "body")))
         {
             if (!part.MetadataReviewed) continue; // only AOD-submitted/finalized parts count — a raw, un-reviewed scan result never should
             var prefab = lib.PrefabFor(part);
@@ -782,7 +796,7 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         var modAnimator = avatar.GetComponent<Animator>();
         if (modAnimator == null) modAnimator = avatar.AddComponent<Animator>();
         if (modAnimator.avatar == null && workerAnimator != null) modAnimator.avatar = workerAnimator.avatar;
-        if (workerAnimator != null) modAnimator.runtimeAnimatorController = workerAnimator.runtimeAnimatorController;
+        if (workerAnimator != null) modAnimator.runtimeAnimatorController = ControllerFor(identity, workerAnimator.runtimeAnimatorController);
         modAnimator.applyRootMotion = false;
         modAnimator.enabled = true;
         modAnimator.Rebind();
@@ -804,6 +818,7 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
 
         var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
+        FootContactShadow.Attach(avatar, identity.transform);   // soft ground shadows under the feet/body so the avatar doesn't look like it floats
     }
 
     // 2026-09-27: repointed at the AOD-finalized prefab (Assets/_Project/Prefabs/WORKERS/... no

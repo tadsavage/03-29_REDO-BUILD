@@ -1,9 +1,72 @@
 ---
 name: ModularAvatarSystem
-description: The warehouse-sim modular avatar pipeline as it is ACTUALLY built (updated 2026-10-01) — Female Regular body split into 5 skinned parts, swappable clothing, AOD tool (Blender FBX -> finalized prefab), per-clothing body-part hide masks, live in-game rebuild. Use whenever working on avatar bodies, clothing, rigs, the AOD panel, the assembler, portraits, or anything under Assets/_Project/_Avatar_System or Prefabs/Modular_Staff_Prefabs.
+description: The warehouse-sim modular avatar pipeline as it is ACTUALLY built (Avatar 2.0, updated 2026-10-03) — Female Regular body in 5 skinned parts on ONE rig + neck slot + hair slot, Body-default fallback, AOD tool (Blender FBX -> finalized prefab), hide masks, live in-game rebuild, foot contact shadows. Use whenever working on avatar bodies, clothing, rigs, the AOD panel, the assembler, portraits, or anything under Assets/_Project/__Avatar_System2.0.
 ---
 
-# Modular Avatar System (current state — 2026-10-01)
+# Modular Avatar System (Avatar 2.0 — current state 2026-10-03)
+
+**START HERE (handoff 2026-10-03):** the full session log, the working Blender->Unity recipe, gotchas and the exact pending steps are in the repo `CLAUDE.md` section
+"Session 2026-10-02 -> 10-03 - AVATAR 2.0 REBUILT, WORKING END TO END". The sections below are the detailed rules; anything about the OLD pipeline (coveralls, woman_bodyA_Cauc, AOD_Objects, `_Avatar_System`) is history.
+
+## PENDING AT HANDOFF (2026-10-03)
+- Blender + Unity were closed and nothing from the session was committed. `.blend` has the bob renamed `Female_Hair_BobBlack` + a new `Female_Hair_Dom`; the last FBX export (01:19) contains Dom but not the bob; Unity has finalized
+  `Female_Hair_Dom` + a STALE `woman_hair_BOB`. Next: export armature + all body meshes + collar + BOTH hairs with the `Unity_Avatar` preset, Scan, Finalize All Pending, delete the stale `woman_hair_BOB.asset/.prefab`. Review `Female_Hair_Dom` (weights/UVs/orientation).
+- Tad's plan: more hair types, then a clothing design discussion (torso/legs interchangeable, one-piece coveralls hiding torso+legs, own FBX per garment, hide masks). Male + other body types stay parked.
+
+## AVATAR 2.0 PATHS (read first — supersedes any older path in this file)
+Tad restarted the pipeline from scratch ("Avatar 2.0"). **The ONLY working root is
+`Assets/_Project/__Avatar_System2.0`** (two leading underscores, `2.0`). The old `_Avatar_System`,
+`Models/BlenderFiles/Modular_Staff_Models` (PROPS_MODELS, AOD_Objects, Z-AOD_WORKSHOP) and
+`Prefabs/Modular_Staff_Prefabs` are NOT read by the AOD any more (stale-data isolation); do not point
+anything back at them unless Tad says so.
+- `ModularAvatarImporter.DropFolder = "Assets/_Project/__Avatar_System2.0"` is the single scan root
+  (`NewPipelineRoot` is an alias kept so old references compile). Subfolders are scanned recursively.
+- Per body type: `__Avatar_System2.0/<Gender>/<Type>_Body_Type/{1. Blender, 2. FBX, 3. Prefab (post AOD Submit)}`.
+  Today only `Female/Regular_Body_Type` exists (`Male/` is an empty placeholder). Put the `.blend` in `1. Blender`
+  (never scanned), exported FBXs in `2. FBX`.
+- `ModularAvatarFinalizer` Submit/Update writes BOTH the finalized prefab and the `AvatarPartAsset` `.asset` into
+  `Female/Regular_Body_Type/3. Prefab (post AOD Submit)`. **Hardcoded to Female Regular** (`FinalizedAssetFolder`,
+  `BodyPrefabFolder`, `PropsPrefabFolder`); per-gender/body-type routing is still TODO. Those assets are reloaded into
+  the library on every `ScanAndRebuild` (full rebuild: clears `sources`/`parts`, reloads `finalizedParts`).
+- Runtime catalog + weights moved: `Assets/_Project/Resources/Resource_AvatarSystemAssets/{AvatarPartLibrary,AvatarWeightConfig}.asset`
+  (loaded via `Resources.Load("Resource_AvatarSystemAssets/...")`). Hair/clipboard/scan-gun fallbacks load from the same
+  folder; those files are not there yet. All `_Project/Resources` subfolders are `Resouce_UI` (sic), `Resource_AvatarSystemAssets`,
+  `Resource_Fonts`, `Resource_Prefab`, `Resource_SOs`.
+- The library was emptied at the restart (`sources`/`parts`/`finalizedParts` all `[]`). Everything below describing
+  specific parts (coveralls, boots, gloves, hair, `woman_bodyA_Cauc`, `AOD_Objects/...`) is HISTORY from the old pipeline
+  and must be re-created in 2.0, one piece at a time: body, then hands, then walk test.
+- Do not trust older folder names below ("Folder structure (real)", "03_FBX", "01_StoreBought") — they describe the old tree.
+  `01_StoreBought`/`Z-AOD_WORKSHOP`/"workshop" are still skipped by the scanner, and `.blend` files are skipped.
+- **FIRST 2.0 EXPORT (2026-10-02, verified in Unity):** `2. FBX/female_regular_body.fbx` = 5 meshes (`Female_{Torso,Legs,Hands,Head,Feet}_Body`) on ONE
+  armature (72 bones), exported with preset `Unity_Avatar` from Blender 5.2.2. Blender prep that was needed: the Group/Main empties
+  (rot 90 / scale 0.01) and a x100 parent-inverse on the head were baked away so armature + meshes are loc 0 / rot 0 / scale 1 with no
+  empty parents; every mesh got one Armature modifier -> `DeformationSystem` (the torso had none, the hands' pointed at nothing); weights
+  capped at 4 influences + normalized (Unity uses 4). Unity result: Humanoid avatar `isHuman=True`, 5 SkinnedMeshRenderers x 72 bones,
+  root rot 0 / scale 1, height 1.78 m, **faces +Z with Left hand at -X (correct)** - so the OLD "left bones on +X" problem is gone.
+  **The `(0,180,0)` root-yaw stop-gap in `EmployeeSpawner.ApplyModularAvatar` was REMOVED (2026-10-02, localRotation is identity).**
+  Importer change: `IsBodySlotName` now also accepts slot `torso` so the Humanoid rig lands on this FBX.
+  **`Body` fallback DONE + verified (2026-10-02):** `ModularAvatarAssembler.IsBodyDefault` (variant `Body` in any body slot, incl. `torso`; `body` is the
+  legacy alias, `IsTorsoSlot`). In `Build()` a body slot picks a wardrobe item (non-`Body`, role+weight filtered) and otherwise shows the slot's `Body`
+  default (ignores role/weight); the nude torso always anchors the rig/Animator even when a garment replaces it; masking aliases `body`<->`torso`
+  and still hides a defaulted slot another part covers (empty != hidden). `Body` parts skip the old head/hands orientation stop-gaps.
+  Finalizer validates + routes all body slots; AOD chips use `torso`. Verified: 25/25 builds = 5 parts, 1 Root_M, 1 Animator, root rot 0;
+  live in Play Mode the avatar walks facing forward (Left hand on worker -X). NOT yet exercised: a real clothing item replacing/hiding a Body
+  default (no clothing exists in 2.0 yet), and the AOD still shows weight controls on `Body` parts (ignored by the assembler). Parts must be
+  Submitted (`Tools > Modular Avatar > Finalize All Pending`) before `ModularBodyExists` lets floor workers use them. Blender
+  file was saved; pre-cleanup backup is `%TEMP%\Female_Body_Reg-White_PRE-CLEANUP.blend`.
+- **HAIR + LEGACY FLIPS (2026-10-03):** the old orientation stop-gaps (head/hair/hands/hard-hat 180 deg flips, `ApplyLegacyOrientationFixes`) are now OFF - they turned the Avatar 2.0
+  black bob BACKWARDS. Rigid (unskinned) parts attach as just the mesh object on Head_M/Neck_M (no spare armature copy). First hair: the store-bought bob, named `woman_hair_BOB` in the first export and renamed `Female_Hair_BobBlack` by Tad (mirrored,
+  weighted 100% to `Head_M` so it moves rigidly with the head; UVs on the near-black palette cell). **A skinned mesh with ZERO weights collapses to the origin in Unity - weight every vertex.**
+  **Exports MUST use the `Unity_Avatar` preset**: a manual export at 01:07 had every node at scale 100 and exploded all avatars; after ANY FBX re-export re-run Finalize All Pending for ALL parts
+  (finalized prefabs keep bone lists from the FBX they were made from) and restart Play (compiling mid-play corrupts live avatars).
+- **NECK SLOT (2026-10-02):** `neck` is an optional ACCESSORY slot (NOT a body slot: no `Body` default, not validated as skinned, removed from `BodySlots`; const `ModularAvatarAssembler.NeckSlot`).
+  `OptionalSlotChance["neck"]=0.35`; in `EditableOverrideKeys` + AOD `EmployeeCategories` ("Neck Items"); rigid (unskinned) pieces parent to `Neck_M`; `ApplyBodyPartMasking`
+  still lets a garment hide it (hide list entry `neck`, now disables ANY Renderer, not only SkinnedMeshRenderer). Importer/assembler also accept `Female_Neck.Collar` (one `_` then a `.`)
+  as gender_slot.variant. First item: `Female_Neck_Collar` (skinned, 72 bones). Verified: 20/60 builds wear it, 0 builds with a wrong body/skeleton.
+- **BODY = ONE FBX (Tad, 2026-10-02):** always export armature + all 5 `Female_*_Body` meshes into `female_regular_body.fbx`. A subset export overwrites it and
+  the other parts disappear from Unity (happened once; recovered by re-exporting all five + Finalize All Pending). Clothing/hair/hats = one FBX each.
+  Cap weights at 4 + Normalize All in Blender first. AOD Update only re-reads the FBX - verify the FBX mtime changed after exporting.
+- Blender is 5.2.x on both PCs (5.1 and 4.3 were uninstalled); the preset goes in `%APPDATA%\Blender Foundation\Blender\5.2\scripts\presets\operator\export_scene.fbx\`.
 
 Tad is a hobbyist; explain tradeoffs plainly, don't assume game-dev jargon lands.
 Tad's role: planning, Blender modeling/rigging, testing, feedback. Claude's role: design decisions,
@@ -102,7 +165,7 @@ whether Receiver / ReachTruckOperator / DockStockerOperator / OrderSelector use 
 It is a manual flag (not auto) because cataloging a WIP body once broke every worker at once. With it on:
 female -> modular, male -> fixed Polyperfect. Other roles (Loader, Boss, Security, ...) are fixed models.
 
-## Folder structure (real)
+## Folder structure — OLD pipeline (history; replaced by Avatar 2.0 paths at the top)
 
 ```
 Assets/_Project/_Avatar_System/                       <- NOTE the underscore
@@ -115,14 +178,22 @@ Assets/_Project/Models/BlenderFiles/Modular_Staff_Models/
   Z-AOD_WORKSHOP/      master Blender workspace + bulk pool (never scanned)
   AOD_Objects/         finalized AvatarPartAsset .asset files  <- source of truth
 Assets/_Project/Prefabs/Modular_Staff_Prefabs/{Body_Prefabs, Props_Prefabs}   <- finalized prefabs
-Assets/Resources/ModularAvatar/{AvatarPartLibrary, AvatarWeightConfig}.asset  <- runtime catalog + weights
+Assets/Resources/ModularAvatar/{AvatarPartLibrary, AvatarWeightConfig}.asset  <- (old location, now Resources/Resource_AvatarSystemAssets)
+```
+
+NEW (Avatar 2.0):
+```
+Assets/_Project/__Avatar_System2.0/
+  Female/Regular_Body_Type/{1. Blender, 2. FBX, 3. Prefab (post AOD Submit)}   <- prefabs + AvatarPartAssets land in 3.
+  Male/                                                                          <- parked, empty
+Assets/_Project/Resources/Resource_AvatarSystemAssets/{AvatarPartLibrary, AvatarWeightConfig}.asset
 ```
 Code: `Scripts/Actors/ModularAvatar/` (runtime: library, asset, assembler, rig, preview stage) and
 `Scripts/Actors/Editor/` (importer, finalizer); UI in `Scripts/UI_UX/AODPanel.cs`.
 
 ## Blender workflow (one armature per body type)
-Full checklist: `Assets/_Project/_Avatar_System/Docs/BLENDER_CHECKLIST.md`; full design + TODO list:
-`Assets/_Project/_Avatar_System/Docs/AVATAR_SLOTS_AND_BODY_FALLBACK.md` (read it before touching slots/importer/assembler).
+Full checklist: `Assets/_Project/__Avatar_System2.0/Docs/BLENDER_CHECKLIST.md`; full design + TODO list:
+`Assets/_Project/__Avatar_System2.0/Docs/AVATAR_SLOTS_AND_BODY_FALLBACK.md` (read it before touching slots/importer/assembler).
 Summary: ONE armature (`DeformationSystem`) per body type with every body part and clothing part a separate mesh skinned
 to it (identical rig, rest pose and armature transform in every file); apply rotation/scale, exactly one armature per
 export (no `.001` duplicates), mesh names `Gender_Slot_Variant`, body facing +Z in Unity.

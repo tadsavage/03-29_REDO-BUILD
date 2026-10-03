@@ -2543,3 +2543,73 @@ Tad — deleted rather than replaced. Revisit if/when a real head mesh gets mode
   shape tried either failed to compile (the tool's own namespace-wrapping conflicts with top-level
   statements) or compiled with zero observable side effects. Use `Unity_ManageMenuItem` against a
   real `[MenuItem]` method for anything that needs code execution.
+
+---
+
+## Session 2026-10-02 → 10-03 — AVATAR 2.0 REBUILT, WORKING END TO END (cross-machine handoff)
+
+**State in one paragraph:** the modular-avatar pipeline was restarted from scratch ("Avatar 2.0") and now works end to end for **Female / Regular**: 5 body parts + a neck piece + the first
+hair, all on ONE shared rig, all animating (walk/idle), flat-shaded, with ground contact shadows. Everything below was verified in Unity (Play Mode screenshots + scripted builds). Male and the other 4
+body types are PARKED. The detailed rules live in the skill `.claude/skills/ModularAvatarSystem/SKILL.md` (read it first); this section is the "what happened + what to do next" log.
+
+### Paths (the only ones that matter now)
+- Working root: `Assets/_Project/__Avatar_System2.0/` (two underscores). `Female/Regular_Body_Type/{1. Blender, 2. FBX, 3. Prefab (post AOD Submit)}`, `Docs/` (BLENDER_CHECKLIST.md,
+  AVATAR_SLOTS_AND_BODY_FALLBACK.md), `Textures/` (flat material + its 3 textures). `ModularAvatarImporter.DropFolder` scans ONLY this root. The old `_Avatar_System/`, `Models/BlenderFiles/Modular_Staff_Models/`,
+  `Prefabs/Modular_Staff_Prefabs/` are legacy and NOT read.
+- `.blend`: `1. Blender/Female_Body_Reg-White.blend` (never scanned). Body FBX: `2. FBX/female_regular_body.fbx`. Runtime catalog/weights: `Assets/_Project/Resources/Resource_AvatarSystemAssets/`.
+- `_Project/Resources` was reorganised: `Resouce_UI` (sic), `Resource_AvatarSystemAssets`, `Resource_Fonts`, `Resource_Prefab`, `Resource_SOs`; ~35 scripts rewired to those `Resources.Load` paths.
+
+### The workflow that works (Blender 5.2.x → Unity)
+1. **Blender scene:** ONE armature `DeformationSystem` (72 bones) at loc 0 / rot 0 / scale 1, no parent empties (the old `Main`/`Group` wrapper with 90deg/0.01 scale was baked away), every mesh parented to it with ONE Armature modifier,
+   names `Gender_Slot_Variant`. **Before export: Weights > Limit Total = 4, then Normalize All** (Unity caps at 4 bones and renormalizes; skipping this makes Blender and Unity disagree). **Weight EVERY vertex** (a skinned mesh with
+   zero weights collapses to the origin in Unity - found with the hair).
+2. **Export ONLY with the saved FBX preset `Unity_Avatar`** (source in git `BlenderPresets/Unity_Avatar.py`; install to `%APPDATA%\Blender Foundation\Blender\5.2\scripts\presets\operator\export_scene.fbx\`; UTF-8 no BOM;
+   Forward -Z, Up Y, FBX Units Scale, Selected Objects, Armature+Mesh, deform bones only, no leaf bones, no animation). A manual export without the preset arrived with every node at scale 100 and exploded all avatars.
+3. **THE BODY IS ONE FILE:** always select the armature + ALL body meshes (Torso, Legs, Hands, Head, Feet) + the neck/hair pieces you want, and overwrite `female_regular_body.fbx`. Exporting a subset OVERWRITES the file and the other parts vanish
+   from Unity (it happened once; recovered by re-exporting everything). So far the collar and hair ride in the body file and that works; clothing may get its own FBX later (open decision).
+4. **Unity:** `Tools > Modular Avatar > Scan & Rebuild Library`, then **`Tools > Modular Avatar > Finalize All Pending`** (same as AOD Submit/Update). The AOD "Update" button ONLY re-reads the FBX - if the FBX mtime did not change after your
+   export, the export did not land. After ANY FBX re-export re-run Finalize for ALL parts (finalized prefabs hold bone lists from the FBX they were made from).
+5. Unity compiles while NOT in Play Mode; compiling mid-play corrupts live avatars. Stop Play, edit code, refresh, restart Play.
+
+### What was built / changed this session (all compiled clean, verified)
+- **Humanoid rig:** `ModularAvatarImporter.IsBodySlotName` accepts slot `torso` so the torso file gets the Humanoid avatar (CreateFromThisModel; do NOT Copy-From-Other-Avatar). Faces +Z, Left hand on -X (correct) so the old
+  `(0,180,0)` avatar yaw in `EmployeeSpawner.ApplyModularAvatar` was REMOVED.
+- **`Body` fallback (design from the other PC, now implemented):** variant `Body` = reserved nude default for a body slot (`ModularAvatarAssembler.IsBodyDefault`); wardrobe replaces it, an empty slot shows it, a slot hidden by another
+  garment shows nothing. The nude torso always anchors the rig. Slots now: torso, legs, hands, head, feet (+ hair, neck). `body` is the legacy alias of `torso`.
+- **Neck slot:** optional accessory (`ModularAvatarAssembler.NeckSlot`), 35% spawn chance, rigid pieces ride `Neck_M`, garments can hide it, AOD "Neck Items" tab. First item `Female_Neck_Collar` (skinned).
+  Importer/assembler also accept the typo `Female_Neck.Collar` (one `_` then a dot).
+- **Hair:** first hair is the store-bought bob (named `woman_hair_BOB` until Tad renamed it to `Female_Hair_BobBlack` in Blender), mirrored half-mesh, 100% weighted to `Head_M`, UVs on the near-black palette cell.
+  The legacy 180deg head/hair/hands/hard-hat orientation fixes (`ApplyLegacyOrientationFixes = false`) were turned OFF - they put the bob on backwards. Rigid parts now attach as just the mesh (no spare armature copy).
+- **Flat material:** the importer forces `Assets/_Project/__Avatar_System2.0/Textures/AA_atlas-LPAP.mat` (copies of the polyperfect albedo/emission/specular). The old "source" atlas has a gradient inside each colour cell so a flat skin
+  patch rendered as 17 shades; albedo is flat (1 colour). To revert, point `SharedPaletteMaterialPath` back at `atlas-source-LPAP.mat`.
+- **Foot contact shadows:** `FootContactShadow.cs` + `Shaders/FootContactShadow.shader` + `Resources/Resource_AvatarSystemAssets/FootContactShadow.mat`. Soft blob under each foot (fades as the foot lifts) + faint body blob; auto-attached to every
+  employee by `EmployeeSpawner`; works in all graphics presets. Tuning constants at the top of the file.
+- **Walk animation:** controllers `MaleStaff` (Walk_Male) and new `FemaleStaff` (Walk_InPlace_Female) from the Polyperfect pack; `EmployeeSpawner.ControllerFor` picks by gender. Walk speed 3.0 -> **1.4 m/s** (worker prefabs in
+  `OBSOLETE ASSETS/Workers_Obsolete/`, `AgentAnimation`, `GuardController` defaults). Employees now take ~2x as long to walk anywhere - raise the number if it feels slow (above ~1.5 the calm clips look hurried).
+- **Graphics tone-down (Tad: too saturated, edge bleeding, too much DOF):** `PP_Toaster` sat 18->6, contrast 20->8, exposure .6->.45; `PP_Good` 5->3 / 5->4 / .5->.45; `PP_Ultra` 16->6 / 6->5 / .45->.4, bloom .3@.5 -> .12@.9; FSR sharpness
+  (URP_Toaster) .92->.4 (halos looked like bloom); DOF halved (Ultra aperture 3->6; Good start/end 48/90 -> 96/180; Gaussian radius can't go below 0.5); yard backdrop blur cut ~53% (VP_YardBackdrop radius 1->0.5, start/end x1.15;
+  `BackdropBlur.mat` _MaxBlurRadiusPixels 8->3.9).
+- **Lighting / sun bug (`DayNightCycle.cs`):** the sun angle assumed a 06:00-18:00 day but the scene sets sunset 21:00, so from 18:00-21:00 the sun was BELOW the horizon yet lit, shining UP and throwing forklift/rack shadows up the walls.
+  Fixed with `SunPitch(hour)` (follows sunrise/sunset hours) + `aboveHorizon` fade (full strength only ~30deg up). Scene: sun intensity 2->1, `horizonSunColor` (1,.55,.25)->(1,.74,.55), `dayAmbient`/ambient x0.8.
+- **UI:** the bottom-bar Inbound button icon broke when `Art/Icons/Play Bar Icons` moved to `Sprites/Icons/Play Bar Icons` (path-only USS url); now GUID-based `ContractsThumb` (Tad's final pick; the image has "Contracts" printed on it).
+
+### Gotchas learned (each cost real time)
+- Blender MCP (`execute_blender_code`): `bpy.data.libraries.load(...)` PULLS the parent armatures/empties into `bpy.data` as orphans - clean them (`bpy.data.objects.remove`, purge orphan armatures/meshes) or avoid it. The MCP can't run
+  select/transform operators while Blender is in Edit Mode ("context is incorrect") - the user may be editing; look before acting.
+- Unity MCP: `execute_code` works for C# snippets, but compile/refresh must finish first (check the newest `Library/ScriptAssemblies/*.dll` mtime is newer than the .cs mtime; the assembly name varies: GameCore.Simulation, GameCore.Actors.Editor, Assembly-CSharp).
+- Saving prefabs via `PrefabUtility.SaveAsPrefabAsset` reserializes extra fields on the old worker prefabs - for one-line changes edit the YAML text instead.
+- Editor-generated noise that should NOT be committed: `ProjectSettings/TimeManager.asset` (runtime timeScale), `Assets/_Saves/quicksave*`, `AA_LowPolyCommon*.mat`/`AA_LowPolyStylized.mat` re-saves, `Sprites/Portraits/*`.
+
+### STATE AT HANDOFF (read this before touching anything)
+- **Blender and Unity were both closed at the end of this session, and NOTHING from this session is committed to git** - commit + push before switching machines (code, `Textures/`, `FootContactShadow.*`, `FemaleStaff.controller`, the `.blend`, FBX,
+  finalized prefabs/assets, scene, PP profiles).
+- The `.blend` (saved 01:22) has the bob renamed `Female_Hair_BobBlack` and a second new hair `Female_Hair_Dom`. The last FBX export (01:19) contains `Female_Hair_Dom` but NOT the bob, so Unity has finalized `Female_Hair_Dom` and a STALE `woman_hair_BOB`
+  (asset + prefab in `3. Prefab (post AOD Submit)`). **Next export must select the armature + all body meshes + the collar + BOTH hairs**, then Scan + Finalize, then delete the stale `woman_hair_BOB.asset/.prefab` (+ .meta) so there aren't two bobs.
+  `Female_Hair_Dom` has not been reviewed by Claude yet (check weights/orientation/UVs like the bob: every vertex weighted, limit 4, normalized).
+- Old Blender 5.1/4.3 installs were uninstalled but their folders under `C:\Program Files\Blender Foundation\` still need an admin delete. On a new machine install Blender 5.2 + the preset + the BlenderMCP add-on.
+
+### NEXT (Tad's plan)
+1. More hair types (same recipe: weight 100% to `Head_M` or skin to head bones, UVs on a palette cell, name `Female_Hair_X`, export with the preset, Finalize). Open: colour variants vs separate meshes per colour; AOD weights per hair.
+2. Then a CLOTHING design discussion: torso/legs slots (shirts/pants/shorts interchangeable), coveralls as a one-piece that hides torso+legs(+arms), hide-mask rules (`HiddenBodySlots`; code already aliases `torso`/`body` and can hide rigid neck pieces),
+   whether clothing gets its own FBX (recommended) and how it rebinds to the body skeleton (`TryRebindToBody`), the still-open `Waist`/`Arms` slots, portrait framing for the new body. Male + the other 5 body types come after Female Regular is finished.
+3. Known small things: the AOD still shows weight controls on `Body` parts (ignored by the assembler); finalizer output paths are hardcoded to Female Regular; AOD preview thumbnails show parts as authored.

@@ -268,6 +268,7 @@ public class AODPanel : IUIPanel
         ("hat.hardhat", "Hard Hat"),
         ("hat.headphones", "Headphones"),
         ("facialhair", "Facial Hair"),
+        ("neck", "Neck Items"),
     };
 
     public bool IsOpen => _visible;
@@ -865,7 +866,7 @@ public class AODPanel : IUIPanel
         "hair" => new Color(0.75f, 0.6f, 0.3f),
         "hat" => ColFireRed,
         "vest" => ColOrange,
-        "body" => ColBlue,
+        "body" or "torso" => ColBlue,
         _ => new Color(0.4f, 0.45f, 0.5f),
     };
 
@@ -1420,11 +1421,11 @@ public class AODPanel : IUIPanel
     // Body slots offered as hide-targets in the clipping-fix chip row above — deliberately excludes
     // "head" (never a valid hide target, see ApplyBodyPartMasking) and keeps the rest in the same
     // top-to-bottom order Tad described the body: Neck, Torso, Arms, Hands, Waist, Legs, Feet.
-    private static readonly string[] BodySlotChipOrder = { "neck", "body", "arms", "hands", "waist", "legs", "feet" };
+    private static readonly string[] BodySlotChipOrder = { "neck", "torso", "arms", "hands", "waist", "legs", "feet" };
 
     private static string BodySlotLabel(string slot) => slot switch
     {
-        "body" => "Torso",
+        "body" or "torso" => "Torso",
         "neck" => "Neck",
         "arms" => "Arms",
         "hands" => "Hands",
