@@ -120,6 +120,34 @@ Assets/Resources/ModularAvatar/{AvatarPartLibrary, AvatarWeightConfig}.asset  <-
 Code: `Scripts/Actors/ModularAvatar/` (runtime: library, asset, assembler, rig, preview stage) and
 `Scripts/Actors/Editor/` (importer, finalizer); UI in `Scripts/UI_UX/AODPanel.cs`.
 
+## Blender workflow (one armature per body type)
+Full checklist: `Assets/_Project/_Avatar_System/Docs/BLENDER_CHECKLIST.md`; full design + TODO list:
+`Assets/_Project/_Avatar_System/Docs/AVATAR_SLOTS_AND_BODY_FALLBACK.md` (read it before touching slots/importer/assembler).
+Summary: ONE armature (`DeformationSystem`) per body type with every body part and clothing part a separate mesh skinned
+to it (identical rig, rest pose and armature transform in every file); apply rotation/scale, exactly one armature per
+export (no `.001` duplicates), mesh names `Gender_Slot_Variant`, body facing +Z in Unity.
+Export ONLY with the saved FBX preset **`Unity_Avatar`** (source in git: `BlenderPresets/Unity_Avatar.py`; install into
+`%APPDATA%\Blender Foundation\Blender\5.2\scripts\presets\operator\export_scene.fbx\`; must be UTF-8 WITHOUT BOM). Values:
+Forward -Z, Up Y, FBX Units Scale, bake-space-transform off, Selected Objects, Armature+Mesh, deform bones only, no leaf
+bones, no animation. The axis values are the standard Unity choice and are NOT yet verified against the body in Unity.
+Hidden Blender objects are silently skipped by "Selected Objects" exports: unhide first.
+
+## Slot design decided 2026-10-02 — the `Body` variant (DESIGN ONLY, code NOT yet changed)
+- No separate Body slot. Each body part has its own slot and the nude base skin of that slot is the part whose variant is
+  `Body`: `Female_Torso_Body`, `Female_Legs_Body`, `Female_Arms_Body`, `Female_Hands_Body`, `Female_Feet_Body`,
+  `Female_Head_Body` (Tad already renamed his Blender meshes this way; the old name was `Female_Body_Reg`).
+- `Body` = reserved variant = default skin: if a slot has no equipped part and is not hidden by another part, show that
+  slot's `Body` part, so an avatar is never missing a mesh (worst case, nude). "Empty" and "hidden by another part" are
+  different and must stay distinct. A `Body` variant must never be picked as normal wardrobe.
+- Torso and legs are split into separate meshes (slots `torso`, `legs`) so shirts, pants and shorts are interchangeable.
+- Tad exports the body only for now (torso + legs + armature); hands, feet, head come later.
+- Code still uses slot `body` for the torso (mesh `woman_bodyA_Cauc` -> parsed `bodya`, asset hand-set to `body`). Migrating to
+  slot `torso` + the Body fallback in `ModularAvatarAssembler.Build`, the importer's `IsBodySlotName`/`FixNewExport`
+  (Humanoid rig goes to the body source FBX) and the AOD is the NEXT job; see the TODO list in the design doc.
+  Open: does `waist`/`neck` stay a slot or merge into torso/legs?
+- Blender can be driven from Claude via the BlenderMCP add-on socket `127.0.0.1:9876` (`get_scene_info`, `execute_code`;
+  `print()` output only, `result` is not returned).
+
 ## Gotchas (each cost real time)
 
 - **Skeleton merge (FIXED 2026-10-02, verified in Edit mode only).** Every part FBX ships its own armature copy, and
@@ -200,5 +228,6 @@ Code: `Scripts/Actors/ModularAvatar/` (runtime: library, asset, assembler, rig, 
 2. First body (Female Regular) in Blender — done; naming/rig/export settings established.
 3. Body-part runtime + AOD body import — done (assembler + finalizer + AOD).
 4. First clothing + masking — done (coveralls/boots/gloves/hair; hide-masks baked and verified live).
-5. NEXT: finish polishing Female Regular (portrait framing for the new proportions, arms/neck/feet details),
+5. NEXT (2026-10-02): Blender split of the body into torso + legs `Body` meshes, export with `Unity_Avatar`, then the
+   slot/`Body`-fallback code migration (see design doc). After that: finish polishing Female Regular (portrait framing for the new proportions, arms/neck/feet details),
    THEN repeat for the other 5 body types and the wider clothing library. Males are parked until Tad says go.

@@ -1,0 +1,23 @@
+# Blender → Unity checklist (avatar parts)
+
+One body type = **one armature**. Every body part and every piece of clothing is a separate mesh skinned to it.
+
+## Setting up the .blend
+- [ ] Start from the body type's single armature (e.g. `Female/Regular`). Never copy, re-parent or rebuild the rig per part.
+- [ ] Every part is its own mesh object, built on top of that armature (head, torso, hands, arms, feet, then clothing, hair, hats).
+- [ ] Each mesh has an **Armature modifier** pointing at that one armature, with vertex weights on the deform bones only.
+- [ ] Name every mesh `gender_slot_variant` (examples: `woman_torso_coverallsBlue`, `woman_feet_bootsBrn`, `neutral_hat_hardhat-red`).
+- [ ] Keep the body facing the same direction in every file (it must arrive in Unity facing **+Z**, like the body does).
+
+## Before every export
+- [ ] **Apply** rotation and scale on the meshes and the armature (Ctrl+A).
+- [ ] The scene has **exactly one armature**. No `DeformationSystem.001` or other duplicates; Unity's importer refuses a file with duplicate object names.
+- [ ] Armature is in rest/bind pose, same pose as the other files for this body type.
+- [ ] Only the part(s) you are exporting are selected/exported, plus the armature.
+- [ ] Use the **saved export preset** with the same axis settings every time. Mixed axis settings are what made the head, hard hats and hands arrive backwards or rolled.
+
+## After export
+- [ ] File goes in `_Avatar_System/<Gender>/Bodies|Clothing/03_FBX/...` (clothing under its slot folder: Torso, Feet, Hands, Hair...).
+- [ ] Check the Unity console for errors on the import; fix in Blender and re-export rather than patching in Unity.
+- [ ] In the AOD: Rescan, then Submit/Update, set weight and the "hides body parts" boxes.
+- [ ] Look at the part on an avatar from the front **and** the side before calling it done (face, hat brim, thumbs, boot toes all point forward).
