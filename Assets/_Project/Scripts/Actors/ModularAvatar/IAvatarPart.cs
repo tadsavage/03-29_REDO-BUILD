@@ -33,5 +33,10 @@ public interface IAvatarPart
     /// AvatarPartAsset it's always true (existence in the finalized list IS "reviewed").</summary>
     bool MetadataReviewed { get; }
     bool VerifiedInGame { get; set; }
+
+    /// <summary>NSFW tag (Tad, 2026-10-03), read from the mesh name (<c>gender_slot_variant_nsfw</c>, see <see cref="DirtyDev.IsNsfwName"/>).
+    /// A tagged part is invisible to the whole game - never picked by the assembler, never offered in "Pimp My Employee" - unless
+    /// <see cref="DirtyDev"/> is ON. Nothing is removed, so it can be switched back on.</summary>
+    bool Nsfw { get; }
     bool AllowsRole(EmployeeRole role);
 }

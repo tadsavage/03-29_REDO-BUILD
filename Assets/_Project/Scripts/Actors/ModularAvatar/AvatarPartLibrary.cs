@@ -105,6 +105,7 @@ public class AvatarPartLibrary : ScriptableObject
         List<string> IAvatarPart.HiddenBodySlots => hiddenBodySlots;
         bool IAvatarPart.MetadataReviewed => false; // see the field's own comment above
         bool IAvatarPart.VerifiedInGame { get => verifiedInGame; set => verifiedInGame = value; }
+        bool IAvatarPart.Nsfw => DirtyDev.IsNsfwName(objectName);   // from the mesh name, see DirtyDev.IsNsfwName
     }
 
     [Tooltip("One entry per FBX found in the drop folder.")]
@@ -134,7 +135,7 @@ public class AvatarPartLibrary : ScriptableObject
         gender = gender?.ToLower();
         var seen = new List<string>();
         foreach (var p in AllParts)
-            if ((p.Gender == gender || p.Gender == "neutral") && !seen.Contains(p.Slot))
+            if ((p.Gender == gender || p.Gender == "neutral") && DirtyDev.IsVisible(p.Nsfw) && !seen.Contains(p.Slot))
                 seen.Add(p.Slot);
         return seen;
     }
@@ -145,7 +146,8 @@ public class AvatarPartLibrary : ScriptableObject
     {
         gender = gender?.ToLower();
         slot   = slot?.ToLower();
-        return AllParts.Where(p => (p.Gender == gender || p.Gender == "neutral") && p.Slot == slot).ToList();
+        // NSFW-tagged parts are invisible here (so to the assembler, the spawner and Pimp My Employee) unless Dirty Dev is ON.
+        return AllParts.Where(p => (p.Gender == gender || p.Gender == "neutral") && p.Slot == slot && DirtyDev.IsVisible(p.Nsfw)).ToList();
     }
 
     public GameObject PrefabFor(IAvatarPart p) => p switch

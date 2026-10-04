@@ -165,8 +165,24 @@ public static class ModularAvatarAssembler
             if (IsBodySlot(slot) && allVariants.Any(IsBodyDefault))
             {
                 var wardrobe = variants.Where(v => !IsBodyDefault(v)).ToList();
+                var bare = allVariants.First(IsBodyDefault);
                 IAvatarPart bodyPick = wardrobe.Count > 0 ? PickVariant(wardrobe, rng, role, gender) : null;
-                bodyPick ??= allVariants.First(IsBodyDefault);
+
+                // BARE CHANCE (Tad, 2026-10-03): the nude Body part's own AOD weight is its share of employees who wear NOTHING in this slot,
+                // relative to the clothing items: P(bare) = bareWeight / (bareWeight + sum of clothing weights). E.g. socks 100 + Body 100 = 50%
+                // bare; socks 100 + Body 0 = never bare (the old behaviour). Role-specific weight rules (AvatarWeightConfig) apply to it too.
+                if (bodyPick != null)
+                {
+                    float bareW = EffectiveWeight(bare, role, gender);
+                    if (bareW > 0f)
+                    {
+                        float clothingW = 0f;
+                        foreach (var w in wardrobe) clothingW += EffectiveWeight(w, role, gender);
+                        if (rng.NextDouble() < bareW / (bareW + clothingW)) bodyPick = null;
+                    }
+                }
+
+                bodyPick ??= bare;   // nothing worn (none allowed / all 0% / bare roll won): the slot's nude default
                 chosen.Add(bodyPick);
                 continue;
             }
@@ -233,6 +249,9 @@ public static class ModularAvatarAssembler
         if (headItem != null)
             chosen.Add(headItem);
 
+        // Matching sets (Tad, 2026-10-03): stockings on the feet bring the stockings on the legs and vice versa.
+        ApplyLinkedVariants(lib, gender, role, chosen);
+
         // ── Per-employee overrides (Pimp My Employee, 2026-09-27) — see the full-overload doc
         // comment above for why this runs as a post-pass rather than short-circuiting the loop.
         if (overrides != null && overrides.Count > 0)
@@ -250,6 +269,7 @@ public static class ModularAvatarAssembler
         // single-mesh-on-root body source (see root.name assignment just below — it clobbers the
         // very "_body_" substring a name-based check would otherwise look for).
         chosenOut["body"] = chosen.FirstOrDefault(p => IsTorsoSlot(p.Slot));
+        chosenOut["head"] = chosen.FirstOrDefault(p => p.Slot == "head");   // lets callers react to the head variant (e.g. a gag)
 
         if (chosen.Count == 0) return null;
 
@@ -400,6 +420,38 @@ public static class ModularAvatarAssembler
         ApplyMoodExpression(root, gender, EmployeeMood.Neutral);
 
         return root;
+    }
+
+    /// <summary>Slot pairs whose wardrobe items come as MATCHING SETS. If one slot of a pair wears a variant (e.g. "Stockings-Gray") and the
+    /// other slot offers the SAME variant name, the other slot wears it too, in either direction, so a pair of stockings is never half on.
+    /// Matching is by exact variant name (case-insensitive), so "Stockings-Black" on the feet pairs with "Stockings-Black" on the legs and
+    /// never with "Stockings-Gray". It only fires when exactly one slot of the pair is dressed: if both are bare, or both already wear
+    /// something (even different items), they are left alone. Role restrictions still apply; the partner's weight is ignored (it is a set).
+    /// A bare slot does not pull its partner bare: with feet bare + legs stockings the feet get stockings, so bare feet only happen when the
+    /// legs are bare too.</summary>
+    private static readonly (string a, string b)[] LinkedSlotPairs = { ("feet", "legs") };
+
+    private static void ApplyLinkedVariants(AvatarPartLibrary lib, string gender, EmployeeRole? role, List<IAvatarPart> chosen)
+    {
+        foreach (var (slotA, slotB) in LinkedSlotPairs)
+        {
+            var pa = chosen.FirstOrDefault(p => p.Slot == slotA);
+            var pb = chosen.FirstOrDefault(p => p.Slot == slotB);
+            if (pa == null || pb == null) continue;
+            bool wearA = !IsBodyDefault(pa), wearB = !IsBodyDefault(pb);
+            if (wearA == wearB) continue;                      // both bare, or both already dressed: nothing to link
+
+            var source = wearA ? pa : pb;                      // the slot that is wearing something
+            var targetSlot = wearA ? slotB : slotA;
+            var target = wearA ? pb : pa;                      // the bare slot that should join the set
+            var match = FilterRole(lib.VariantsFor(gender, targetSlot), role)
+                .FirstOrDefault(v => !IsBodyDefault(v) &&
+                                     string.Equals(v.Variant, source.Variant, System.StringComparison.OrdinalIgnoreCase));
+            if (match == null) continue;                       // the partner slot has no matching item: leave it bare
+
+            int i = chosen.IndexOf(target);
+            if (i >= 0) chosen[i] = match;
+        }
     }
 
     // ── Skeleton merge ──────────────────────────────────────────────────────────────────────────
@@ -617,8 +669,17 @@ public static class ModularAvatarAssembler
         foreach (var p in chosen)
         {
             if (p.HiddenBodySlots == null) continue;
+            string own = (p.Slot ?? "").ToLower();
             foreach (var s in p.HiddenBodySlots)
-                if (!string.IsNullOrEmpty(s)) hidden.Add(s.ToLower());
+            {
+                if (string.IsNullOrEmpty(s)) continue;
+                string slot = s.ToLower();
+                // A part NEVER hides its own slot. Parts in the same slot are alternatives (one pick per slot), so a garment already
+                // replaces the slot's nude "Body" default just by being chosen; ticking its own slot in the AOD hide list used to make
+                // it switch ITSELF off in game (found 2026-10-03: Female_Feet_Socks-Gray hid "feet" and the socks vanished).
+                if (slot == own || (IsTorsoSlot(slot) && IsTorsoSlot(own))) continue;
+                hidden.Add(slot);
+            }
         }
         hidden.Remove("head"); // invariant: head is never auto-hidden, regardless of what's configured
         if (hidden.Contains("body")) hidden.Add("torso");   // legacy token and Avatar 2.0 token are the same slot
@@ -875,7 +936,7 @@ public static class ModularAvatarAssembler
 
         if (string.IsNullOrEmpty(objectName)) return; // explicit "none" — stays removed
 
-        var replacement = lib.AllParts.FirstOrDefault(p => p.ObjectName == objectName &&
+        var replacement = lib.AllParts.FirstOrDefault(p => p.ObjectName == objectName && DirtyDev.IsVisible(p.Nsfw) &&
             (p.Gender == gender || p.Gender == "neutral") && p.Slot == slot && matches(p));
         if (replacement != null) chosen.Add(replacement);
     }

@@ -2613,3 +2613,14 @@ body types are PARKED. The detailed rules live in the skill `.claude/skills/Modu
 2. Then a CLOTHING design discussion: torso/legs slots (shirts/pants/shorts interchangeable), coveralls as a one-piece that hides torso+legs(+arms), hide-mask rules (`HiddenBodySlots`; code already aliases `torso`/`body` and can hide rigid neck pieces),
    whether clothing gets its own FBX (recommended) and how it rebinds to the body skeleton (`TryRebindToBody`), the still-open `Waist`/`Arms` slots, portrait framing for the new body. Male + the other 5 body types come after Female Regular is finished.
 3. Known small things: the AOD still shows weight controls on `Body` parts (ignored by the assembler); finalizer output paths are hardcoded to Female Regular; AOD preview thumbnails show parts as authored.
+
+### Addendum 2026-10-03 (later) — NSFW naming, Dirty Dev, gag mouth, stockings pairing, bare chance (supersedes the "STATE AT HANDOFF" hair notes above)
+- **NSFW is a MESH-NAME tag:** `gender_slot_variant_nsfw` (e.g. `Female_Head_Gagged_NSFW`; blank/absent 4th+ segment = not NSFW). Single rule: `DirtyDev.IsNsfwName`. **Dirty Dev** (AOD title-bar button, red OFF / green ON, caption "Dirty Dev currently ON/OFF") defaults OFF = NSFW HIDDEN
+  (PlayerPrefs `DirtyDev`, so every fresh build is safe). OFF hides tagged parts from the assembler, spawner, Pimp My Employee and the AOD grid; nothing is deleted. Any scene object can use the `NsfwObject` component.
+- **Current finalized parts (11):** Feet_Body, Hands_Body, Head_Body, Legs_Body, Torso_Body, Hair_Mem (safe) + 5 tagged: `Feet_Stockings_Gray_NSFW`, `Legs_Stockings_Gray_NSFW`, `Hands_Black-Gloves_NSFW`, `Head_Gagged_NSFW`, `Neck_Collar_NSFW`.
+  Their AOD weights were copied from the old untagged assets (75 / 50 / 49.6 / 25.3 / 49.5). The OLD untagged versions were deleted; a backup is in `%TEMP%\avatar_stale_backup_1107` (local machine only).
+  Verified over 150 builds: Dirty Dev OFF = 0 NSFW meshes visible and no missing body parts; ON = all appear, stockings always paired.
+- **Matching sets:** feet<->legs wear the SAME variant name together (`Stockings_Gray` on both); **bare chance:** a `Body` part's AOD weight = share who wear nothing in that slot; **gag:** `GagMouthMotion` (slow groans) attaches when the head variant contains "gag";
+  **a part never hides its own slot** (fixed self-hiding socks). See the skill for each.
+- **Mesh renames create NEW parts:** after renaming a mesh in Blender and re-exporting, Scan + Finalize creates the new asset with default weight 1; copy the AOD settings from the old one and delete the old (untagged) asset + prefab.
+- Still uncommitted in git (nothing from this whole session is committed): commit + push before switching machines.

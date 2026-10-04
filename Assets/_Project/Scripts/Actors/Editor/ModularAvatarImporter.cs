@@ -541,7 +541,13 @@ public static class ModularAvatarImporter
         if (gender == null) return null;
 
         string slot    = seg[1].ToLower();
-        string variant = string.Join("_", seg.Skip(2));   // keep the rest as the variant name
+        // Avatar 2.0 naming: gender_slot_variant[_nsfw]. A trailing blank segment ("Female_Torso_Body_") and a trailing "nsfw" tag
+        // are not part of the variant; the tag itself is read from the object name by DirtyDev.IsNsfwName.
+        var variantSegs = seg.Skip(2).ToList();
+        while (variantSegs.Count > 1 && string.IsNullOrEmpty(variantSegs[variantSegs.Count - 1])) variantSegs.RemoveAt(variantSegs.Count - 1);
+        if (variantSegs.Count > 1 && string.Equals(variantSegs[variantSegs.Count - 1], "nsfw", System.StringComparison.OrdinalIgnoreCase))
+            variantSegs.RemoveAt(variantSegs.Count - 1);
+        string variant = string.Join("_", variantSegs);   // keep the rest as the variant name
         if (string.IsNullOrEmpty(slot) || string.IsNullOrEmpty(variant)) return null;
 
         // The new body_main.fbx exports name their single combined mesh "<gender>_construction_

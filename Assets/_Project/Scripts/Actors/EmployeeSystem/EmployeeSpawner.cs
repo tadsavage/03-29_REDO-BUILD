@@ -599,6 +599,14 @@ public class EmployeeSpawner : MonoBehaviour
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
         FootContactShadow.Attach(avatar, identity.transform);   // soft ground shadows under the feet/body so the avatar doesn't look like it floats
 
+        // A gagged head (variant name contains "gag") gets the slow muffled-speech jaw motion.
+        if (chosenParts.TryGetValue("head", out var headPart) && headPart != null && headPart.Variant != null &&
+            headPart.Variant.IndexOf("gag", System.StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            GagMouthMotion.Attach(avatar);
+            GagFaceMotion.Attach(avatar);   // frightened/startled brows and wide eyes
+        }
+
     }
 
     // Women use the same controller with a different walk clip (Polyperfect Walk_InPlace_Female); men keep MaleStaff

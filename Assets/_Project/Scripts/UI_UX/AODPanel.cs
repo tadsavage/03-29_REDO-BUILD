@@ -240,6 +240,9 @@ public class AODPanel : IUIPanel
     private readonly VisualElement _detailPanel;
     private readonly VisualElement _employeeCategoryBar;
     private readonly Label _countLabel;
+    private Button _dirtyBtn;      // title-bar "Dirty Dev" switch (green ON / red OFF)
+    private Label _dirtyLabel;     // "Dirty Dev currently ON/OFF" caption under it
+    private bool _dirtyHover;
     private readonly Button _minimizeBtn;
     private readonly Button _maximizeBtn;
     private readonly DraggableWindow _drag;
@@ -309,6 +312,34 @@ public class AODPanel : IUIPanel
         title.style.color = ColTitleText;
         title.style.flexGrow = 1f;
         _titleBar.Add(title);
+
+        // ── Dirty Dev switch (NSFW content on/off) ──
+        var dirtyCol = new VisualElement { name = "aod-dirtydev" };
+        dirtyCol.style.flexDirection = FlexDirection.Column;
+        dirtyCol.style.alignItems = Align.Center;
+        dirtyCol.style.justifyContent = Justify.Center;
+        dirtyCol.style.marginRight = 22f;
+        dirtyCol.style.marginTop = 6f;       // keep clear of the top edge: the AOD stretches up over the TopBar
+        dirtyCol.style.flexShrink = 0f;
+        _dirtyBtn = new Button { text = "Dirty Dev" };
+        _dirtyBtn.style.width = 124f; _dirtyBtn.style.height = 26f;
+        _dirtyBtn.style.borderTopWidth = _dirtyBtn.style.borderBottomWidth = _dirtyBtn.style.borderLeftWidth = _dirtyBtn.style.borderRightWidth = 2f;
+        _dirtyBtn.style.borderTopLeftRadius = _dirtyBtn.style.borderTopRightRadius = _dirtyBtn.style.borderBottomLeftRadius = _dirtyBtn.style.borderBottomRightRadius = 6f;
+        _dirtyBtn.style.color = ColVanilla;
+        _dirtyBtn.style.marginTop = _dirtyBtn.style.marginBottom = 0f;
+        _dirtyBtn.style.unityTextAlign = TextAnchor.MiddleCenter;
+        ApplyFont(_dirtyBtn, true, 14);
+        _dirtyBtn.RegisterCallback<PointerEnterEvent>(_ => { _dirtyHover = true; StyleDirtyDev(); });
+        _dirtyBtn.RegisterCallback<PointerLeaveEvent>(_ => { _dirtyHover = false; StyleDirtyDev(); });
+        _dirtyBtn.clicked += ToggleDirtyDev;
+        dirtyCol.Add(_dirtyBtn);
+        _dirtyLabel = new Label();
+        ApplyFont(_dirtyLabel, false, 12);
+        _dirtyLabel.style.marginTop = 3f;
+        _dirtyLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        dirtyCol.Add(_dirtyLabel);
+        _titleBar.Add(dirtyCol);
+        StyleDirtyDev();
 
         _countLabel = new Label();
         ApplyFont(_countLabel, false, 13);
@@ -671,6 +702,42 @@ public class AODPanel : IUIPanel
         }
     }
 
+    // ── Dirty Dev (NSFW) switch ──
+    private void StyleDirtyDev()
+    {
+        if (_dirtyBtn == null) return;
+        bool on = DirtyDev.Enabled;
+        var fill = on ? ColGreen : ColFireRed;
+        var edge = on ? ColGreenEdge : ColFireRedEdge;
+        if (_dirtyHover) fill = Color.Lerp(fill, Color.white, 0.18f);
+        _dirtyBtn.style.backgroundColor = fill;
+        _dirtyBtn.style.borderTopColor = _dirtyBtn.style.borderBottomColor = _dirtyBtn.style.borderLeftColor = _dirtyBtn.style.borderRightColor = edge;
+        _dirtyLabel.text = on ? "Dirty Dev currently ON" : "Dirty Dev currently OFF";
+        _dirtyLabel.style.color = Color.Lerp(on ? ColGreen : ColFireRed, Color.white, 0.35f);   // lightened so it reads on the dark title bar
+    }
+
+    private void ToggleDirtyDev()
+    {
+        DirtyDev.Enabled = !DirtyDev.Enabled;
+        StyleDirtyDev();
+
+        // If the part being edited just became hidden, drop it from the detail pane so nothing NSFW lingers on screen.
+        if (_selectedPart != null && !DirtyDev.IsVisible(_selectedPart.Nsfw))
+        {
+            _selectedPart = null;
+            ShowEmptyDetail();
+        }
+
+        if (_employeeIdentity != null) RefreshEmployeeMode(); else Refresh();
+
+        // Live employees are rebuilt (and their portraits re-shot) so the change is felt immediately, exactly like Submit/Update.
+        if (Application.isPlaying)
+        {
+            if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
+            _employeeSpawner?.RefreshAllModularAvatars();
+        }
+    }
+
     // ── Data / filtering ──
     private void Refresh()
     {
@@ -688,14 +755,17 @@ public class AODPanel : IUIPanel
             return;
         }
 
-        RefreshSlotChips(lib.AllParts.Select(p => p.Slot).Distinct());
+        StyleDirtyDev();   // keep the switch in step if the setting was changed elsewhere
+        // While Dirty Dev is OFF, NSFW-tagged parts are hidden here too (cards, slot chips, counts) - this is a child-safety switch.
+        var shownParts = lib.AllParts.Where(p => DirtyDev.IsVisible(p.Nsfw)).ToList();
+        RefreshSlotChips(shownParts.Select(p => p.Slot).Distinct());
 
         var selectedGenders = _genderChips.Where(c => c.Selected).Select(c => ((Label)c.Root[0]).text.ToLower()).ToHashSet();
         var selectedRoles = _roleChips.Where(t => t.chip.Selected).Select(t => t.role).ToHashSet();
         var selectedSlots = _slotChips.Where(kv => kv.Value.Selected).Select(kv => kv.Key).ToHashSet();
         bool missingOnly = _missingOnlyChip.Selected;
 
-        var filtered = lib.AllParts.Where(p =>
+        var filtered = shownParts.Where(p =>
             (!HideMaleParts || p.Gender != "male") &&
             (selectedGenders.Count == 0 || selectedGenders.Contains(p.Gender)) &&
             (selectedRoles.Count == 0 || p.AllowedRoles.Count == 0 || p.AllowedRoles.Any(selectedRoles.Contains)) &&
@@ -703,7 +773,7 @@ public class AODPanel : IUIPanel
             (!missingOnly || !p.MetadataReviewed)
         ).OrderBy(p => p.Slot).ThenBy(p => p.Gender).ThenBy(p => p.Variant).ToList();
 
-        int visibleTotal = HideMaleParts ? lib.AllParts.Count(p => p.Gender != "male") : lib.PartCount;
+        int visibleTotal = HideMaleParts ? shownParts.Count(p => p.Gender != "male") : shownParts.Count;
         _countLabel.text = $"{filtered.Count} of {visibleTotal} items";
 
         foreach (var part in filtered)
@@ -1284,7 +1354,10 @@ public class AODPanel : IUIPanel
             roleRow.Add(chip.Root);
         }
 
-        Section("DEFAULT WEIGHT  (relative odds when no specific rule applies)");
+        bool isBareDefault = ModularAvatarAssembler.IsBodyDefault(part);
+        Section(isBareDefault
+            ? "BARE CHANCE  (this slot's nude default. Its weight vs the clothing items in the same slot: 0% = never bare, equal weights = 50% bare)"
+            : "DEFAULT WEIGHT  (relative odds when no specific rule applies)");
         var weightRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
         scroll.Add(weightRow);
         var weightSlider = new Slider(0f, 100f) { value = Mathf.Clamp(part.DefaultWeight, 0f, 100f) };
@@ -1302,6 +1375,18 @@ public class AODPanel : IUIPanel
             part.DefaultWeight = e.newValue;
             weightValueLabel.text = $"{Mathf.RoundToInt(e.newValue)}%";
         });
+
+        // NSFW is decided by the mesh name (gender_slot_variant_nsfw); show it read-only so it is obvious why a part hides when Dirty Dev is OFF.
+        if (part.Nsfw)
+        {
+            Section("NSFW  (from the mesh name; hidden everywhere in the game unless Dirty Dev is ON)");
+            var nsfwNote = new Label("Tagged NSFW: the object name ends in _nsfw. Rename it in Blender and re-export to change this.");
+            ApplyFont(nsfwNote, false, 11);
+            nsfwNote.style.color = ColFireRed;
+            nsfwNote.style.whiteSpace = WhiteSpace.Normal;
+            scroll.Add(nsfwNote);
+        }
+
 
         // Skyrim-style clipping fix (2026-09-30), opened up to every part type (2026-10-01) — Tad's
         // own body mesh (woman_bodyA_Cauc) ships with a full default arm baked in, and the separate

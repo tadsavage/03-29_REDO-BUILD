@@ -44,6 +44,7 @@ public class AvatarPartAsset : ScriptableObject, IAvatarPart
     // an AvatarPartAsset, unlike the raw Part class's mutable boolean.
     public bool MetadataReviewed => true;
     public bool VerifiedInGame { get => verifiedInGame; set => verifiedInGame = value; }
+    public bool Nsfw => DirtyDev.IsNsfwName(objectName);   // from the mesh name, see DirtyDev.IsNsfwName
     public bool AllowsRole(EmployeeRole role) => allowedRoles.Count == 0 || allowedRoles.Contains(role);
 
     /// <summary>Set once at creation time by ModularAvatarFinalizer (an Editor-only assembly this
