@@ -599,13 +599,12 @@ public class EmployeeSpawner : MonoBehaviour
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
         FootContactShadow.Attach(avatar, identity.transform);   // soft ground shadows under the feet/body so the avatar doesn't look like it floats
 
-        // A gagged head (variant name contains "gag") gets the slow muffled-speech jaw motion.
-        if (chosenParts.TryGetValue("head", out var headPart) && headPart != null && headPart.Variant != null &&
-            headPart.Variant.IndexOf("gag", System.StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            GagMouthMotion.Attach(avatar);
-            GagFaceMotion.Attach(avatar);   // frightened/startled brows and wide eyes
-        }
+        // A gagged head (variant name contains "gag") gets the slow muffled-speech jaw motion and a frightened face.
+        bool gagged = chosenParts.TryGetValue("head", out var headPart) && headPart != null && headPart.Variant != null &&
+                      headPart.Variant.IndexOf("gag", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        if (gagged) GagMouthMotion.Attach(avatar);
+        // Every modular avatar gets the expression state machine (blinks, brows, lids, gaze); mood is Neutral unless the head says otherwise.
+        FaceExpressionController.Attach(avatar, gagged ? FaceMood.Fear : FaceMood.Neutral);
 
     }
 

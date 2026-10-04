@@ -103,6 +103,7 @@ public class GagMouthMotion : MonoBehaviour
 
     private void BeginBurst()
     {
+        if (_rng == null) _rng = new System.Random(System.Guid.NewGuid().GetHashCode());
         _groansLeft = _rng.Next(GroansPerBurstMin, GroansPerBurstMax + 1);
         BeginGroan();
     }
@@ -115,5 +116,10 @@ public class GagMouthMotion : MonoBehaviour
         _wobbleTarget = Range(-1f, 1f);
     }
 
-    private float Range(float a, float b) => a + (float)_rng.NextDouble() * (b - a);
+    // _rng is not serialized, so a script recompile during Play Mode leaves it null on live avatars; recreate it instead of throwing every frame.
+    private float Range(float a, float b)
+    {
+        if (_rng == null) _rng = new System.Random(System.Guid.NewGuid().GetHashCode());
+        return a + (float)_rng.NextDouble() * (b - a);
+    }
 }
