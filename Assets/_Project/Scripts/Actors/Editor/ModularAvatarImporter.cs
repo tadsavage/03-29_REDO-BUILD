@@ -328,7 +328,10 @@ public static class ModularAvatarImporter
         // so without this guard the two would loop forever: reimport → still ambiguous → still no
         // valid avatar → "must be stale" → reimport again. Logged once per path per domain session
         // (not every scan) so a genuinely un-fixed file doesn't spam every heartbeat.
+        // The file's ROOT is excluded: a single-mesh FBX (e.g. Female_Hair_BobBlack.fbx) is imported as a root named after the
+        // file with ONE child mesh of the same name - that is normal and harmless, not a duplicate armature.
         var dupeNames = probe.GetComponentsInChildren<Transform>(true)
+            .Where(t => t != probe.transform)
             .GroupBy(t => t.name)
             .Where(g => g.Count() > 1)
             .Select(g => g.Key)
