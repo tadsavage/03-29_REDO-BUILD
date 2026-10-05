@@ -600,12 +600,30 @@ public class EmployeeSpawner : MonoBehaviour
         FootContactShadow.Attach(avatar, identity.transform);   // soft ground shadows under the feet/body so the avatar doesn't look like it floats
 
         // A gagged head (variant name contains "gag") gets the slow muffled-speech jaw motion and a frightened face.
-        bool gagged = chosenParts.TryGetValue("head", out var headPart) && headPart != null && headPart.Variant != null &&
-                      headPart.Variant.IndexOf("gag", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        bool gagged = (chosenParts.TryGetValue("face", out var facePart) && facePart != null && facePart.Variant != null &&
+                       facePart.Variant.IndexOf("gag", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                      || (chosenParts.TryGetValue("head", out var headPart) && headPart != null && headPart.Variant != null &&
+                          headPart.Variant.IndexOf("gag", System.StringComparison.OrdinalIgnoreCase) >= 0);   // legacy: gag baked into the head
         if (gagged) GagMouthMotion.Attach(avatar);
         // Every modular avatar gets the expression state machine (blinks, brows, lids, gaze); mood is Neutral unless the head says otherwise.
-        FaceExpressionController.Attach(avatar, gagged ? FaceMood.Fear : FaceMood.Neutral);
+        var faceCtl = FaceExpressionController.Attach(avatar, gagged ? GaggedMood(identity) : FaceMood.Neutral);
+        if (faceCtl != null) faceCtl.EnableDarting(gagged);   // gagged workers nervously dart their eyes left/right every ~10 s
 
+    }
+
+    // DEMO split for gagged workers (so the expressions can be reviewed in-game): 15% sleepy, then half of the rest angry and half
+    // frightened/surprised (Fear includes the periodic startle spikes). Decided from a hash of the employee's id, so the same worker always
+    // gets the same mood (a refresh or reload does not reshuffle them). Replace with stat-driven moods once those exist.
+    private static FaceMood GaggedMood(EmployeeIdentity identity)
+    {
+        string id = identity != null && identity.Record != null
+            ? (identity.Record.employeeGuid ?? identity.Record.employeeId ?? identity.name)
+            : (identity != null ? identity.name : "");
+        uint h = 2166136261u;
+        foreach (char c in id) { h ^= c; h *= 16777619u; }
+        float roll = (h % 10000u) / 10000f;
+        if (roll < 0.15f) return FaceMood.Tired;                 // sleepy (heavy lids, slow blinks)
+        return ((h / 10000u) & 1u) == 0u ? FaceMood.Anger : FaceMood.Fear;
     }
 
     // Women use the same controller with a different walk clip (Polyperfect Walk_InPlace_Female); men keep MaleStaff

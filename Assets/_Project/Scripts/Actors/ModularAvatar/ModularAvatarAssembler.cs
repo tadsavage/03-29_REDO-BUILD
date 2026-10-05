@@ -82,6 +82,7 @@ public static class ModularAvatarAssembler
     {
         { "facialhair", 0.30f },
         { "neck", 0.35f },   // neck accessories (collar, headphones round the neck, ...): ~1 in 3 employees wears one
+        { "face", 0.50f },   // face accessories that sit ON the base head (gag, blindfold, piercings...): the head mesh itself is never swapped
         { "hat", 0.50f },
     };
 
@@ -269,7 +270,8 @@ public static class ModularAvatarAssembler
         // single-mesh-on-root body source (see root.name assignment just below — it clobbers the
         // very "_body_" substring a name-based check would otherwise look for).
         chosenOut["body"] = chosen.FirstOrDefault(p => IsTorsoSlot(p.Slot));
-        chosenOut["head"] = chosen.FirstOrDefault(p => p.Slot == "head");   // lets callers react to the head variant (e.g. a gag)
+        chosenOut["head"] = chosen.FirstOrDefault(p => p.Slot == "head");   // lets callers react to the head variant
+        chosenOut["face"] = chosen.FirstOrDefault(p => p.Slot == "face");   // face accessory (gag, blindfold...) - callers react to its variant
 
         if (chosen.Count == 0) return null;
 
@@ -299,7 +301,7 @@ public static class ModularAvatarAssembler
             if (!IsPartObject(t)) continue;
 
             // Keep all expression parts (eyebrows and face/mouth) so they can be swapped dynamically based on mood.
-            if (t.name.Contains("_eyebrows_") || t.name.Contains("_face_"))
+            if (t.name.Contains("_eyebrows_") || IsExpressionFaceName(t.name.ToLower()))
             {
                 var smr = t.GetComponent<SkinnedMeshRenderer>();
                 if (smr != null) smr.enabled = false;
@@ -737,11 +739,24 @@ public static class ModularAvatarAssembler
             {
                 smr.enabled = smr.name.Equals(eyebrowName, System.StringComparison.OrdinalIgnoreCase);
             }
-            else if (nameLower.Contains("_face_"))
+            else if (IsExpressionFaceName(nameLower))
             {
                 smr.enabled = smr.name.Equals(faceName, System.StringComparison.OrdinalIgnoreCase);
             }
         }
+    }
+
+    // The legacy mood-swap system owns meshes named gender_face_<expression> (Neutral/Smile/Frown...). The "face" slot is ALSO the Avatar 2.0
+    // accessory slot (gag, blindfold, piercings - e.g. Female_Face_Gag_NSFW), so only true expression variants may be switched by it;
+    // otherwise it would disable every face accessory the moment the avatar is built.
+    private static readonly HashSet<string> ExpressionFaceVariants = new() { "neutral", "smile", "frown", "sad", "happy", "angry", "surprise", "surprised" };
+    private static bool IsExpressionFaceName(string lowerName)
+    {
+        int i = lowerName.IndexOf("_face_");
+        if (i < 0) return false;
+        string v = lowerName.Substring(i + 6);
+        int u = v.IndexOf('_'); if (u >= 0) v = v.Substring(0, u);
+        return ExpressionFaceVariants.Contains(v);
     }
 
     private static AvatarPartLibrary _cachedLib;

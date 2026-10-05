@@ -80,9 +80,9 @@ public class FaceExpressionController : MonoBehaviour
         var m = new Mood[System.Enum.GetValues(typeof(FaceMood)).Length];
         m[(int)FaceMood.Neutral]  = new Mood { pose = Sym(0, 0, 0, 0, 0, 0), blinkRate = 1f, blinkSlow = 1f };
         m[(int)FaceMood.Surprise] = new Mood { pose = Sym(0.0150f, 0.0010f, 0.0150f, 0.0120f, -7f, -1f, jaw: 6f), blinkRate = 0.35f, blinkSlow = 1f };
-        m[(int)FaceMood.Fear]     = new Mood { pose = Sym(0.0110f, 0.0065f, 0.0050f, -0.0025f, -4f, -1f), blinkRate = 0.6f, blinkSlow = 0.8f,
+        m[(int)FaceMood.Fear]     = new Mood { pose = Sym(0.0180f, 0.0120f, 0.0090f, -0.0055f, -7f, -1f, 0f, 0f, 3f), blinkRate = 0.6f, blinkSlow = 0.8f,
                                                startleGapMin = 2.5f, startleGapMax = 6.5f, tremble = 0.0007f };
-        m[(int)FaceMood.Anger]    = new Mood { pose = Sym(-0.0070f, 0.0070f, -0.0040f, 0.0030f, 9f, 5f, jaw: -2f), blinkRate = 0.55f, blinkSlow = 0.9f };
+        m[(int)FaceMood.Anger]    = new Mood { pose = Sym(-0.0120f, 0.0100f, -0.0070f, 0.0080f, 12f, 6f, jaw: -2f), blinkRate = 0.55f, blinkSlow = 0.9f };
         m[(int)FaceMood.Sad]      = new Mood { pose = Sym(0.0090f, 0.0035f, 0.0020f, -0.0040f, 6f, 0f, 0f, -6f), blinkRate = 0.9f, blinkSlow = 1.3f };
         m[(int)FaceMood.Tired]    = new Mood { pose = Sym(-0.0020f, 0f, -0.0030f, -0.0030f, 15f, 4f, 0f, -9f), blinkRate = 1.3f, blinkSlow = 3.2f };
         m[(int)FaceMood.Sleeping] = new Mood { pose = Sym(-0.0010f, 0f, -0.0020f, -0.0020f, ClosedUpperDeg, ClosedLowerDeg, 0f, -4f, 4f), noBlink = true };
@@ -123,6 +123,15 @@ public class FaceExpressionController : MonoBehaviour
     private float _noiseSeed;
 
     public FaceMood CurrentMood => _mood;
+
+    // ---- Eye darting (gagged workers): every ~10 s the eyes flick to one side, then the other, then back - nervous, looking for help.
+    private bool _darting;
+    private float _nextDart = 8f, _dartT = -1f, _dartFirstSign = 1f, _dartYaw, _dartYawSm, _dartYawVel;
+    private const float DartGapMin = 7f, DartGapMax = 13f;      // "about every 10 seconds"
+    private const float DartDegrees = 26f, DartHoldSeconds = 0.5f;
+
+    /// <summary>Turns the intermittent left/right eye dart on or off (used for gagged workers).</summary>
+    public void EnableDarting(bool on) { _darting = on; _nextDart = Range(3f, DartGapMax); _dartT = -1f; }
 
     /// <summary>Switch mood. holdSeconds &gt; 0 returns to the previous base mood afterwards (a flash of surprise, say).</summary>
     public void SetMood(FaceMood mood, float holdSeconds = 0f)
@@ -220,6 +229,22 @@ public class FaceExpressionController : MonoBehaviour
         _sacYawSm = Mathf.SmoothDamp(_sacYawSm, _sacYaw, ref _sacYawVel, 0.05f, Mathf.Infinity, dt);
         _sacPitchSm = Mathf.SmoothDamp(_sacPitchSm, _sacPitch, ref _sacPitchVel, 0.05f, Mathf.Infinity, dt);
 
+        // darting: left, right, back to centre (each held DartHoldSeconds), then wait for the next one
+        float dartTarget = 0f;
+        if (_darting)
+        {
+            if (_dartT < 0f) { _nextDart -= dt; if (_nextDart <= 0f) { _dartT = 0f; _dartFirstSign = Range(0f, 1f) < 0.5f ? -1f : 1f; } }
+            else
+            {
+                _dartT += dt;
+                int phase = (int)(_dartT / DartHoldSeconds);
+                if (phase == 0) dartTarget = _dartFirstSign * DartDegrees;
+                else if (phase == 1) dartTarget = -_dartFirstSign * DartDegrees;
+                else { dartTarget = 0f; _dartT = -1f; _nextDart = Range(DartGapMin, DartGapMax); }
+            }
+        }
+        _dartYawSm = Mathf.SmoothDamp(_dartYawSm, dartTarget, ref _dartYawVel, 0.05f, Mathf.Infinity, dt);
+
         Vector3 up = transform.up, right = transform.right;
         for (int i = 0; i < 2; i++)
         {
@@ -242,7 +267,7 @@ public class FaceExpressionController : MonoBehaviour
             // gaze
             if (s.eye != null)
             {
-                float yaw = _cur[b + GazeYaw] + _sacYawSm, pitch = _cur[b + GazePitch] + _sacPitchSm;
+                float yaw = _cur[b + GazeYaw] + _sacYawSm + _dartYawSm, pitch = _cur[b + GazePitch] + _sacPitchSm;
                 var rest = s.eye.t.parent != null ? s.eye.t.parent.rotation * s.eye.restRot : s.eye.restRot;
                 // yaw about avatar up; pitch about avatar right (positive pitch = look up, hence the minus)
                 s.eye.t.rotation = Quaternion.AngleAxis(yaw, up) * Quaternion.AngleAxis(-pitch, right) * rest;
@@ -269,7 +294,7 @@ public class FaceExpressionController : MonoBehaviour
             if (_nextBlink <= 0f)
             {
                 _blinkT = 0f; _blinkLen = Mathf.Max(0.5f, mood.blinkSlow);
-                _blinkQueued = _rng.NextDouble() < DoubleBlinkChance ? 1 : 0;
+                _blinkQueued = Range(0f, 1f) < DoubleBlinkChance ? 1 : 0;   // Range() recreates _rng if a recompile cleared it
                 _nextBlink = Range(BlinkGapMin, BlinkGapMax) / Mathf.Max(0.2f, mood.blinkRate);
             }
             _blink = Mathf.MoveTowards(_blink, 0f, dt * 8f);

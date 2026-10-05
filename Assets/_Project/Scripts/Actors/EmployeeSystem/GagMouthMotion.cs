@@ -18,17 +18,32 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class GagMouthMotion : MonoBehaviour
 {
-    // Tuning ---------------------------------------------------------------------------------------------------
-    private const float MaxOpenDegrees   = 24f;    // peak jaw opening of the strongest groan (about 3.4 cm of chin travel)
-    private const float MinStrength       = 0.55f;  // weakest groan = this fraction of the maximum
-    private const float GroanSecondsMin   = 0.85f;  // one open+close
-    private const float GroanSecondsMax   = 1.25f;
-    private const int   GroansPerBurstMin = 1;
-    private const int   GroansPerBurstMax = 3;
-    private const float PauseSecondsMin   = 0.45f;  // gap between bursts
-    private const float PauseSecondsMax   = 1.40f;
-    private const float WobbleDegrees     = 2.5f;   // slight sideways jaw drift while working
-    private const float Smoothing         = 0.07f;  // SmoothDamp time: higher = softer
+    // Tuning lives in the shared GagMouthSettings asset (Resources/Resource_AvatarSystemAssets/GagMouthSettings) so it can be edited in the
+    // Inspector, live. If the asset is missing a temporary default instance is used, so the component still works.
+    private static GagMouthSettings _settings;
+    private static GagMouthSettings S
+    {
+        get
+        {
+            if (_settings == null)
+            {
+                _settings = Resources.Load<GagMouthSettings>("Resource_AvatarSystemAssets/GagMouthSettings");
+                if (_settings == null) _settings = ScriptableObject.CreateInstance<GagMouthSettings>();
+            }
+            return _settings;
+        }
+    }
+    private static float RestOpenDegrees   => S.restOpenDegrees;
+    private static float MaxOpenDegrees    => S.maxOpenDegrees;
+    private static float MinStrength       => S.minStrength;
+    private static float GroanSecondsMin   => S.groanSecondsMin;
+    private static float GroanSecondsMax   => Mathf.Max(S.groanSecondsMin, S.groanSecondsMax);
+    private static int   GroansPerBurstMin => S.groansPerBurstMin;
+    private static int   GroansPerBurstMax => Mathf.Max(S.groansPerBurstMin, S.groansPerBurstMax);
+    private static float PauseSecondsMin   => S.pauseSecondsMin;
+    private static float PauseSecondsMax   => Mathf.Max(S.pauseSecondsMin, S.pauseSecondsMax);
+    private static float WobbleDegrees     => S.wobbleDegrees;
+    private static float Smoothing         => S.smoothing;
 
     private Transform _jaw;
     private Quaternion _rest;        // the jaw's neutral local rotation (captured while the Animator is in Idle, where Jaw Close = 0)
@@ -97,7 +112,7 @@ public class GagMouthMotion : MonoBehaviour
 
         // Replace (not add to) the clip's jaw pose: opens about -Z, with a little sideways drift about Y.
         _jaw.localRotation = _rest
-                             * Quaternion.AngleAxis(-_open * MaxOpenDegrees, Vector3.forward)
+                             * Quaternion.AngleAxis(-(RestOpenDegrees + _open * (MaxOpenDegrees - RestOpenDegrees)), Vector3.forward)
                              * Quaternion.AngleAxis(_wobble * WobbleDegrees, Vector3.up);
     }
 
