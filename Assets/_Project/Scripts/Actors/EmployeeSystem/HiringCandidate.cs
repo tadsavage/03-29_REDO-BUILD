@@ -12,8 +12,12 @@ using System;
 /// effect yet. They become meaningful once the core loop and traits land.
 /// </summary>
 [Serializable]
-public class HiringCandidate
+public class HiringCandidate : UnityEngine.ISerializationCallbackReceiver
 {
+    // Same migration as EmployeeRecord: a saved candidate for the retired Loader role becomes a Dock Stocker.
+    public void OnBeforeSerialize() { }
+    public void OnAfterDeserialize() { role = role.Normalize(); }
+
     /// <summary>The underlying employee record (built at generation time).</summary>
     public EmployeeRecord record;
 

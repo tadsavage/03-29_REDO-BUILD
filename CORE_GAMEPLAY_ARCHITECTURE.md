@@ -31,7 +31,7 @@
 
 **Components:**
 - `EmployeeRole` enum — 13 roles defined
-  - **Directly relevant:** OrderSelector, ReachTruckOperator, DockStockerOperator, Loader, Receiver
+  - **Directly relevant:** OrderSelector, ReachTruckOperator, DockStockerOperator, Receiver
   - All have wage tiers, performance metrics (CPH/PPH)
 - `EmployeeData` — Employee stats, role, skill level
 - `EmployeeRecord` — Runtime employee instance, active/former, wage tracking

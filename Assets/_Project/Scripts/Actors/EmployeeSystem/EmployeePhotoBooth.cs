@@ -728,7 +728,7 @@ public class EmployeePhotoBooth : MonoBehaviour
             // a freshly Instantiate()'d Animator that never goes through a normal Update() cycle (this
             // whole capture happens synchronously in one frame, then the instance is destroyed) can sit
             // in its raw bind pose instead — found 2026-09-21 on WorkerMale/WorkerFemale (used by
-            // Loader/Supervisor/Admin/Sanitation), which have no WanderScript to kick them via SetBool
+            // Supervisor/Admin/Sanitation), which have no WanderScript to kick them via SetBool
             // the way the raw PolyPerfect fixed-look prefabs do. The old (now-removed) ApplyModularAvatar
             // always called this on ITS OWN nested animator for the same reason — it just never got
             // applied to the animator actually used by this direct (non-modular) capture path.

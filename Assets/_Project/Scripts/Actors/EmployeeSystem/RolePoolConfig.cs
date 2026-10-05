@@ -4,11 +4,11 @@ using UnityEngine;
 public class RolePoolConfig : ScriptableObject
 {
     [Header("Tier 1 (Floor Associates)")]
-    [Tooltip("Roles that replenish quickly: Sanitation, Order Selector, ReachTruck, DockStocker, Loader")]
+    [Tooltip("Roles that replenish quickly: Sanitation, Order Selector, ReachTruck, DockStocker")]
     public EmployeeRole[] tier1Roles = new[]
     {
         EmployeeRole.Sanitation, EmployeeRole.OrderSelector,
-        EmployeeRole.ReachTruckOperator, EmployeeRole.DockStockerOperator, EmployeeRole.Loader,
+        EmployeeRole.ReachTruckOperator, EmployeeRole.DockStockerOperator,
     };
 
     [Header("Tier 2 (Skilled)")]

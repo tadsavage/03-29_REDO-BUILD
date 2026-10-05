@@ -117,7 +117,7 @@ public static class EmployeeGenerator
         EmployeeRole.HR               => "HR",
         EmployeeRole.Admin            => "ADMIN",
         EmployeeRole.Sanitation       => "SAN",
-        // OrderSelector, ReachTruckOperator, Loader, Receiver, Supervisor
+        // OrderSelector, ReachTruckOperator, DockStockerOperator, Receiver, Supervisor
         _                             => "WHSE"
     };
 

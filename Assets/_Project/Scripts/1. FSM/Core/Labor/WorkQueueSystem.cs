@@ -265,27 +265,13 @@ namespace GameCore.Labor
         /// Can an employee of <paramref name="employeeRole"/> actually do work filed as
         /// <paramref name="requiredRole"/>?
         ///
-        /// A TASK'S RequiredRole IS NOT ALWAYS THE ONLY ROLE THAT CAN DO IT. Load tasks are filed as
-        /// <see cref="EmployeeRole.Loader"/> by OrderService, but TrailerLoadController accepts a
-        /// DockStockerOperator too — they drive the same equipment, and RoleSpecificAssignment maps
-        /// both roles to DriveDockstalker. The authority for this is TrailerLoadController's operator
-        /// check (`role != DockStockerOperator && role != Loader` → skip); this mirrors it.
-        ///
-        /// Without this, the unstaffed-work warning nagged "you haven't hired a Loader" every day at a
-        /// player whose DockStockerOperator was perfectly capable of loading the trailer — a false
-        /// alarm on a warning whose entire value is that it only fires when something is genuinely
-        /// impossible. **If a controller ever learns to accept a substitute role, add it here too.**
+        /// Today every task is done only by its own RequiredRole (Load tasks are filed as
+        /// <see cref="EmployeeRole.DockStockerOperator"/> now that the old Loader role is gone). This is the one
+        /// place to add a substitute if a controller ever learns to accept another role for a task type —
+        /// the unstaffed-work warning relies on it so it only fires when something is genuinely impossible.
         /// </summary>
         private static bool CanServe(EmployeeRole employeeRole, EmployeeRole requiredRole)
-        {
-            if (employeeRole == requiredRole) return true;
-
-            // Loading: either dock-equipment role can run the trailer.
-            if (requiredRole == EmployeeRole.Loader && employeeRole == EmployeeRole.DockStockerOperator)
-                return true;
-
-            return false;
-        }
+            => employeeRole == requiredRole;
 
         /// <summary>Role name with spaces, so a toast reads "Order Selector" not "OrderSelector".</summary>
         private static string Pretty(EmployeeRole role)

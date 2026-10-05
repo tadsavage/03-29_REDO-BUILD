@@ -111,7 +111,6 @@ public static class FinanceCategory
         EmployeeRole.TruckDriver          => (Transportation, role.ToString()),
 
         EmployeeRole.OrderSelector        => (Wages, FloorWages),
-        EmployeeRole.Loader               => (Wages, FloorWages),
         EmployeeRole.DockStockerOperator  => (Wages, FloorWages),
         EmployeeRole.ReachTruckOperator   => (Wages, FloorWages),
         EmployeeRole.Receiver             => (Wages, FloorWages),

@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// "Work Queue" panel — lets the player release Open orders to a staging lane (so Order Selectors
-/// can start picking them), release fully-Staged orders to a door (so a Loader/dock stocker starts
+/// can start picking them), release fully-Staged orders to a door (so a dock stocker starts
 /// loading them onto a trailer — summoned automatically if one isn't already there), and close out
 /// Loaded orders once they're aboard (bills them and, once nothing else assigned to that door is
 /// still Loading/Loaded, releases the trailer to depart). Bound to the "7" key (see TopBarUI), same
@@ -876,7 +876,7 @@ public class WorkQueuePanel : IUIPanel
             if (t.OrderId != order.OrderId) continue;
             // Load is included alongside the picking types so a released (Loading) order still shows
             // a live task once it has one — without it, Role/Priority went blank the moment picking
-            // finished even though a real Load task (role Loader) exists and is being worked.
+            // finished even though a real Load task (role Dock Stocker) exists and is being worked.
             if (t.Type != WorkTaskType.OrderSelect && t.Type != WorkTaskType.PalletPick && t.Type != WorkTaskType.Load) continue;
             if (t.Status == WorkTaskStatus.Complete || t.Status == WorkTaskStatus.Cancelled) continue;
             if (best == null || PhaseRank(t.Status) < PhaseRank(best.Status)) best = t;
@@ -1184,7 +1184,7 @@ public class WorkQueuePanel : IUIPanel
             SortColumn.Area => rows.OrderBy(r => GetOrderAreaLabel(r.order)),
             SortColumn.Priority => rows.OrderBy(r => r.task?.Priority ?? 0),
             SortColumn.Role => rows.OrderBy(r => r.task?.RequiredRole.DisplayName()
-                ?? (r.phase == RowPhase.Staged ? EmployeeRole.Loader.DisplayName() : "")),
+                ?? (r.phase == RowPhase.Staged ? EmployeeRole.DockStockerOperator.DisplayName() : "")),
             SortColumn.Task => rows.OrderBy(r => r.task?.Type.ToString() ?? "OrderSelect"),
             SortColumn.Status => rows.OrderBy(r => PhaseLabel(r.phase)),
             SortColumn.From => rows.OrderBy(r => r.task?.FromLocation ?? ""),
@@ -1366,10 +1366,10 @@ public class WorkQueuePanel : IUIPanel
         string area = GetOrderAreaLabel(order);
         // Staged has no live task (the OrderSelect that built the pallet already completed, and no
         // Load task exists until the player releases it to a door) — but the ROLE that will pick it
-        // up next is not actually unknown, it's always Loader. Showing "—" there read as missing data
+        // up next is not actually unknown, it's always Dock Stocker. Showing "—" there read as missing data
         // rather than "waiting on you to release it," which Priority (still "—" here) already conveys.
         string role = task != null ? task.RequiredRole.DisplayName()
-            : phase == RowPhase.Staged ? EmployeeRole.Loader.DisplayName() : "—";
+            : phase == RowPhase.Staged ? EmployeeRole.DockStockerOperator.DisplayName() : "—";
         string taskName = TaskTypeLabel(order, phase, task);
         string from = OrderFromLocation(order, task, phase);
         string to = OrderToLocation(order, task, phase);
@@ -2009,7 +2009,7 @@ public class WorkQueuePanel : IUIPanel
             SortColumn.Area => GetOrderAreaLabel(order),
             SortColumn.Priority => task != null ? task.Priority.ToString() : "\u2014",
             SortColumn.Role => task != null ? task.RequiredRole.DisplayName()
-                : phase == RowPhase.Staged ? EmployeeRole.Loader.DisplayName() : "\u2014",
+                : phase == RowPhase.Staged ? EmployeeRole.DockStockerOperator.DisplayName() : "\u2014",
             SortColumn.Task => task != null ? task.Type.ToString() : "\u2014",
             SortColumn.Status => PhaseLabel(phase),
             SortColumn.From => OrderFromLocation(order, task, phase),

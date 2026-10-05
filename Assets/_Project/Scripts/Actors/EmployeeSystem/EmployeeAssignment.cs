@@ -28,16 +28,15 @@ public static class EmployeeAssignmentExtensions
 
     /// <summary>
     /// The single role-specific assignment available on top of the universal Patrol, or
-    /// null for roles with no driving/picking capability yet. DockStockerOperator and Loader
-    /// both map to DriveDockstalker — they're treated as one forklift-operator capability
-    /// everywhere in this system, matching how EmployeeSpawner already groups them.
+    /// null for roles with no driving/picking capability yet. DockStockerOperator maps to
+    /// DriveDockstalker (the dock stocker does both the inbound offload and the outbound loading;
+    /// the old separate Loader role was retired).
     /// </summary>
     public static EmployeeAssignment? RoleSpecificAssignment(this EmployeeRole role) => role switch
     {
         EmployeeRole.ReachTruckOperator   => EmployeeAssignment.DriveReach,
         EmployeeRole.DockStockerOperator  => EmployeeAssignment.DriveDockstalker,
-        EmployeeRole.Loader               => EmployeeAssignment.DriveDockstalker,
-        EmployeeRole.OrderSelector        => EmployeeAssignment.OrderSelection,
+        EmployeeRole.OrderSelector       => EmployeeAssignment.OrderSelection,
         EmployeeRole.Receiver             => EmployeeAssignment.ReceiveInbound,
         _                                 => null
     };

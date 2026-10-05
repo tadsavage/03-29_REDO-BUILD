@@ -22,7 +22,7 @@ This document is the single source of truth for the full framework. Items marked
 |------|------|--------------------|--------|
 | OrderSelector | Entry | CPH (Cases per Hour) | Active |
 | ReachTruckOperator | Skilled | PPH (Pallets per Hour) | Active |
-| Loader | Skilled | PPH | Active |
+| DockStockerOperator | Skilled | PPH | Active (offloads inbound trailers AND loads outbound ones; the old separate Loader role was removed 2026-10-04) |
 | Receiver | Skilled | Indirect | Active |
 | Supervisor | Lead | Indirect | Active |
 | Boss | Management | Indirect | Active |
@@ -44,7 +44,7 @@ This document is the single source of truth for the full framework. Items marked
                           └────▲─────┘
             ┌──────────────────┼──────────────────┐
    ┌────────┴────────┐ ┌───────┴────────┐ ┌────────┴────────┐
-   │ReachTruckOperator│ │     Loader     │ │    Receiver     │  (skilled)
+   │ReachTruckOperator│ │DockStockerOper.│ │    Receiver     │  (skilled)
    └────────▲────────┘ └───────▲────────┘ └────────▲────────┘
             └──────────────────┼──────────────────┘
                           ┌────┴─────┐
@@ -56,7 +56,7 @@ This document is the single source of truth for the full framework. Items marked
 ```
 
 - **Entry role:** OrderSelector. All `EmployeeGenerator.Generate()` hires start here. **[BUILT]**
-- **Promotion path:** OrderSelector → (ReachTruckOperator | Loader | Receiver) → Supervisor → Boss.
+- **Promotion path:** OrderSelector → (ReachTruckOperator | DockStockerOperator | Receiver) → Supervisor → Boss.
 - **Specialist roles** are hired directly into and do not participate in the promotion ladder.
 
 ### 2.3 Experience-Based Role Unlock — [DESIGN]
@@ -93,7 +93,7 @@ This document is the single source of truth for the full framework. Items marked
 |------|-----------|--------------|-------|
 | OrderSelector | $ low | — | Default entry hire |
 | ReachTruckOperator | $$ | $ | Requires equipment |
-| Loader | $$ | $ | |
+| DockStockerOperator | $$ | $ | |
 | Receiver | $$ | $ | |
 | Supervisor | $$$ | $$ | Limited slots |
 | Boss | hand-picked | $$$ | 1–2 slots total |
@@ -159,7 +159,7 @@ Columns now present in `EmployeeListItem.uxml` + `EmployeeListPanelController`:
 - **Name + role icon** — [BUILT]
 - **Location** — clickable button; centers `FreeLookCamera` on the employee and selects them. **[BUILT]**
 - **Task** — placeholder `"ToBeImplemented"`. **[DESIGN]** Will map to AI FSM states: "Putting Up Pallet", "Bringing Down Pallet", "Staging a Pallet", etc.
-- **Performance** — role-specific: OrderSelector → CPH; Loader/ReachTruckOperator → PPH; others → "Indirect". Currently shows `"--"` placeholder values until work-tracking exists. **[BUILT/PARTIAL]**
+- **Performance** — role-specific: OrderSelector → CPH; DockStockerOperator/ReachTruckOperator → PPH; others → "Indirect". Currently shows `"--"` placeholder values until work-tracking exists. **[BUILT/PARTIAL]**
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: ModularAvatarSystem
-description: The warehouse-sim modular avatar pipeline as it is ACTUALLY built (Avatar 2.0, updated 2026-10-03) — Female Regular body in 5 skinned parts on ONE rig + neck slot + hair slot, Body-default fallback, AOD tool (Blender FBX -> finalized prefab), hide masks, live in-game rebuild, foot contact shadows. Use whenever working on avatar bodies, clothing, rigs, the AOD panel, the assembler, portraits, or anything under Assets/_Project/__Avatar_System2.0.
+description: The warehouse-sim modular avatar pipeline as it is ACTUALLY built (Avatar 2.0, updated 2026-10-04) — Female Regular body in 5 skinned parts on ONE rig + neck/face/hair slots, Body-default fallback, AOD tool (Blender FBX -> finalized prefab), hide masks, live in-game rebuild, foot contact shadows. Use whenever working on avatar bodies, clothing, rigs, the AOD panel, the assembler, portraits, or anything under Assets/_Project/__Avatar_System2.0.
 ---
 
 # Modular Avatar System (Avatar 2.0 — current state 2026-10-03)
@@ -8,10 +8,19 @@ description: The warehouse-sim modular avatar pipeline as it is ACTUALLY built (
 **START HERE (handoff 2026-10-03):** the full session log, the working Blender->Unity recipe, gotchas and the exact pending steps are in the repo `CLAUDE.md` section
 "Session 2026-10-02 -> 10-03 - AVATAR 2.0 REBUILT, WORKING END TO END". The sections below are the detailed rules; anything about the OLD pipeline (coveralls, woman_bodyA_Cauc, AOD_Objects, `_Avatar_System`) is history.
 
-## PENDING AT HANDOFF (2026-10-03)
-- Blender + Unity were closed and nothing from the session was committed. `.blend` has the bob renamed `Female_Hair_BobBlack` + a new `Female_Hair_Dom`; the last FBX export (01:19) contains Dom but not the bob; Unity has finalized
-  `Female_Hair_Dom` + a STALE `woman_hair_BOB`. Next: export armature + all body meshes + collar + BOTH hairs with the `Unity_Avatar` preset, Scan, Finalize All Pending, delete the stale `woman_hair_BOB.asset/.prefab`. Review `Female_Hair_Dom` (weights/UVs/orientation).
-- Tad's plan: more hair types, then a clothing design discussion (torso/legs interchangeable, one-piece coveralls hiding torso+legs, own FBX per garment, hide masks). Male + other body types stay parked.
+## CURRENT STATE / NEXT STEPS (updated 2026-10-04; the 2026-10-03 "pending" list is obsolete)
+- Git is at `db3d598a4` (2026-10-04 22:27): face slot + gag, eye darting/jaw tuning, Pimp My Employee clothing tabs, portrait booth fixes (see the 2026-10-04 addendum at the bottom).
+- **Hair in the working `.blend`:** four separate meshes `Female_Hair_Mem_Black/Blonde/Red/White` (129 verts / 149 faces each, ONE Armature modifier -> `DeformationSystem`, vertex groups `Head_M` + `Neck_M`, material `lambert2.001`). On 2026-10-04 Tad found
+  the exported hair had missing faces on the side locks; the four hair objects in `Female_Body_Reg-White.blend` were replaced with the ones from commit `279cd807f` ("321321"), saved as `1. Blender/body_backup.blend` (reference copy; a pre-swap copy of the working file was kept outside git).
+  The side locks are several separate pieces joined only along non-manifold edges (3-4 faces on one edge), so "Recalculate Normals" does nothing; if faces look missing, the locks genuinely lack walls, they are not flipped. Backface culling in the Blender viewport (Shading overlay) shows what Unity will show.
+  **A hair swap/append from another .blend pulls in the SOURCE file's armature as a second object** (`DeformationSystem.001`) because the hair is parented to it: re-parent to the scene's armature and delete the extra one before saving.
+- **Old clothing brought onto the 2.0 rig (2026-10-04), each its own FBX in `2. FBX`, all skinned to `DeformationSystem`, weights capped at 4 + normalized, material `AA_PP_ALBEDO`:** hard hats `Neutral_Hat_HardhatOrange/Red/White/Yellow` (rigid, 100% `Head_M`),
+  boots `Female_Feet_BootsBlack/Brown/Gray`, gloves `Female_Hands_GlovesBlack/Blue/Tan`, sleeves `Female_Arms_SleevesBlack` (2.0 has no `Female_Arms_Body`, the arms live in the torso mesh, so sleeves overlay the torso arms: check clipping),
+  coveralls `Female_Torso_CoverallsBrown/Gray` (blue already lives in `female_regular_body.fbx`; brown/gray copy the blue's weights, same geometry), hair `Female_Hair_BobBlack/BobBlonde/BobPink/BobRed/Harley` (rigid, 100% `Head_M`).
+  The old FBXs share the 2.0 rig's bone names and positions, so no rebuild was needed: apply the import transform, delete the old armature copy, parent to the 2.0 armature. NOT yet checked in Unity (colors, facing, weight-cap look): Scan, Finalize, then set them up in the AOD.
+- Tad's plan: more hair types, then clothing (torso/legs interchangeable, one-piece coveralls hiding torso+legs, own FBX per garment, hide masks). Male + other body types stay parked.
+- **Employee role `Loader` was REMOVED 2026-10-04** (dock stockers do the loading). `EmployeeRole` values are PINNED (3 is retired, never reuse): roles are stored as ints in saves and assets, so `EmployeeRoleExtensions.Normalize` maps a leftover 3 to `DockStockerOperator`
+  (applied on load in `EmployeeRecord`, `HiringCandidate`, and saved WorkTasks). Load tasks are filed as `DockStockerOperator`; the old `allowedRoles`/RoleConfig/RoleIconLibrary/RolePoolConfig entries for 3 were stripped from the assets.
 
 ## AVATAR 2.0 PATHS (read first — supersedes any older path in this file)
 Tad restarted the pipeline from scratch ("Avatar 2.0"). **The ONLY working root is
@@ -98,7 +107,9 @@ Male is deliberately parked (Tad, 2026-10-01: "not ready to work on males yet"):
 - The other 5 body types (Female Tall/Portly, Male Regular/Tall/Portly) are the later "repeat the
   proven pattern" step. Do not start them before Tad says so.
 
-## How it actually works (end to end)
+## How it actually works (end to end) — OLD PIPELINE TEXT, history only
+Everything from here to "Slots and the hide-mask rules" describes the pre-Avatar-2.0 pipeline (`_Avatar_System`, `woman_bodyA_Cauc`, `AOD_Objects`, `03_FBX`). The flow (Blender -> FBX -> importer -> AOD Submit -> assembler) is the same;
+the paths, part names and the `body` slot name are not. Use the Avatar 2.0 sections above for anything concrete.
 
 **1. Blender (Tad).** Start from a store-bought character, modify it to fit the warehouse. The female
 body is ONE `.blend` (`_Avatar_System/Female/Bodies/Regular/02_Blender/female_regular_body.blend`) split
@@ -178,7 +189,7 @@ Torso hidden 200/200 (coveralls always chosen, visible), head 200/200, hands 200
 `EmployeeSpawner._floorWorkersUseModularBodyIfAvailable` (default now ON, and ON in `Main.unity`) decides
 whether Receiver / ReachTruckOperator / DockStockerOperator / OrderSelector use the modular assembler.
 It is a manual flag (not auto) because cataloging a WIP body once broke every worker at once. With it on:
-female -> modular, male -> fixed Polyperfect. Other roles (Loader, Boss, Security, ...) are fixed models.
+female -> modular, male -> fixed Polyperfect. Other roles (Boss, Security, ...) are fixed models. (The old `Loader` role was removed 2026-10-04; dock stockers do the loading.)
 
 ## Folder structure — OLD pipeline (history; replaced by Avatar 2.0 paths at the top)
 
@@ -215,10 +226,11 @@ export (no `.001` duplicates), mesh names `Gender_Slot_Variant`, body facing +Z 
 Export ONLY with the saved FBX preset **`Unity_Avatar`** (source in git: `BlenderPresets/Unity_Avatar.py`; install into
 `%APPDATA%\Blender Foundation\Blender\5.2\scripts\presets\operator\export_scene.fbx\`; must be UTF-8 WITHOUT BOM). Values:
 Forward -Z, Up Y, FBX Units Scale, bake-space-transform off, Selected Objects, Armature+Mesh, deform bones only, no leaf
-bones, no animation. The axis values are the standard Unity choice and are NOT yet verified against the body in Unity.
-Hidden Blender objects are silently skipped by "Selected Objects" exports: unhide first.
+bones, no animation. The axis values (Forward -Z, Up Y) are VERIFIED in Unity (2026-10-02: body faces +Z, Left hand at -X).
+Hidden Blender objects are silently skipped by "Selected Objects" exports: unhide first. The preset applies modifiers (a Mirror modifier is baked at export; the Armature modifier is not), so mirrored weights must be symmetric.
+The preset file must be UTF-8 without a BOM (PowerShell 5.1 `Set-Content -Encoding utf8` adds one and Blender then rejects the preset).
 
-## Slot design decided 2026-10-02 — the `Body` variant (DESIGN ONLY, code NOT yet changed)
+## Slot design decided 2026-10-02 — the `Body` variant (IMPLEMENTED and verified 2026-10-02/03, see the Avatar 2.0 section above)
 - No separate Body slot. Each body part has its own slot and the nude base skin of that slot is the part whose variant is
   `Body`: `Female_Torso_Body`, `Female_Legs_Body`, `Female_Arms_Body`, `Female_Hands_Body`, `Female_Feet_Body`,
   `Female_Head_Body` (Tad already renamed his Blender meshes this way; the old name was `Female_Body_Reg`).
@@ -227,10 +239,8 @@ Hidden Blender objects are silently skipped by "Selected Objects" exports: unhid
   different and must stay distinct. A `Body` variant must never be picked as normal wardrobe.
 - Torso and legs are split into separate meshes (slots `torso`, `legs`) so shirts, pants and shorts are interchangeable.
 - Tad exports the body only for now (torso + legs + armature); hands, feet, head come later.
-- Code still uses slot `body` for the torso (mesh `woman_bodyA_Cauc` -> parsed `bodya`, asset hand-set to `body`). Migrating to
-  slot `torso` + the Body fallback in `ModularAvatarAssembler.Build`, the importer's `IsBodySlotName`/`FixNewExport`
-  (Humanoid rig goes to the body source FBX) and the AOD is the NEXT job; see the TODO list in the design doc.
-  Open: does `waist`/`neck` stay a slot or merge into torso/legs?
+- DONE: the torso slot is `torso` (`body` kept as a legacy alias), the Body fallback lives in `ModularAvatarAssembler.Build`, the importer's `IsBodySlotName`/`FixNewExport` send the Humanoid rig to the body FBX, and the AOD uses `torso`.
+  `neck` was settled as an optional accessory slot (no `Body` mesh); `face` was added later. Still open: `waist` (legacy, unused).
 - Blender can be driven from Claude via the BlenderMCP add-on socket `127.0.0.1:9876` (`get_scene_info`, `execute_code`;
   `print()` output only, `result` is not returned).
 
@@ -261,7 +271,7 @@ Hidden Blender objects are silently skipped by "Selected Objects" exports: unhid
   both, so `FixNewExport` flips that FBX to Humanoid / CreateFromThisModel (avatar `isHuman=True`). Do NOT use
   CopyFromOther(_MainRigAvatar) — it fails ("Parent for 'DeformationSystem' differs ... 'Main'"). Note the auto avatar
   maps only 26 bones (no Chest/fingers beyond proximal) — fine so far, revisit if finger/chest animation looks off.
-- **Animated avatar faced backwards (FIXED 2026-10-02 with a root yaw).** The body rig has its "Left" bones on +X while
+- **Animated avatar faced backwards (old pipeline; the yaw was REMOVED 2026-10-02 once the Avatar 2.0 rig faced +Z with Left at -X — do not re-add it).** The body rig has its "Left" bones on +X while
   the mesh faces +Z, so Unity's Humanoid retarget thinks the avatar faces -Z and turns every ANIMATED pose 180 deg
   (rest/T-pose still faces +Z, which hid it). `EmployeeSpawner.ApplyModularAvatar` now sets the avatar root's local
   rotation to (0,180,0). Verified by render: faces + bib pockets toward the camera, natural walk. **Do NOT swap Left/Right
@@ -310,13 +320,11 @@ Hidden Blender objects are silently skipped by "Selected Objects" exports: unhid
 - Verify the BEHAVIOR (renderer enabled flags, a screenshot), not just that code compiled.
 
 ## Staged rollout
-1. Folders — done.
-2. First body (Female Regular) in Blender — done; naming/rig/export settings established.
-3. Body-part runtime + AOD body import — done (assembler + finalizer + AOD).
-4. First clothing + masking — done (coveralls/boots/gloves/hair; hide-masks baked and verified live).
-5. NEXT (2026-10-02): Blender split of the body into torso + legs `Body` meshes, export with `Unity_Avatar`, then the
-   slot/`Body`-fallback code migration (see design doc). After that: finish polishing Female Regular (portrait framing for the new proportions, arms/neck/feet details),
-   THEN repeat for the other 5 body types and the wider clothing library. Males are parked until Tad says go.
+1. Folders — done (Avatar 2.0 tree).
+2. Female Regular body in Blender: 5 `_Body` meshes on one armature, `Unity_Avatar` preset — done and verified in Unity.
+3. Body-part runtime + AOD, `torso` slot + `Body` fallback, neck/face slots, NSFW tag, Pimp My Employee tabs — done.
+4. Hair/clothing in 2.0 — the old hats, boots, gloves, sleeves, coveralls and hair were re-rigged and exported 2026-10-04 (see the state section at the top); Unity check + AOD setup are next.
+5. NEXT: Scan + Finalize the new FBXs and set them up in the AOD. Then polish Female Regular, THEN repeat for the other 5 body types. Males are parked until Tad says go.
 
 ## Addendum 2026-10-04 - face slot, Pimp My Employee clothes, portraits
 - **`face` slot** (optional, 50%): accessories on the face (gag now; blindfold/piercings later) are separate skinned meshes `Female_Face_<Name>[_NSFW]`; the head mesh is never swapped. Gag detection = chosen `face` variant contains "gag" (fallback: head variant) -> `GagMouthMotion` + `FaceExpressionController.EnableDarting`.

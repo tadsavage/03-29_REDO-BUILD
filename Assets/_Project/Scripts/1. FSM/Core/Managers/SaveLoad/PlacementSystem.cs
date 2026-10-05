@@ -737,7 +737,7 @@ public class PlacementSystem : MonoBehaviour
                 // Reconstruct WorkTask from snapshot
                 var task = new GameCore.Labor.WorkTask(
                     (GameCore.Labor.WorkTaskType)snapshot.type,
-                    (EmployeeRole)snapshot.requiredRole,
+                    ((EmployeeRole)snapshot.requiredRole).Normalize(), // old saves may hold the retired Loader (3)
                     snapshot.palletId,
                     snapshot.description,
                     snapshot.fromLocation,

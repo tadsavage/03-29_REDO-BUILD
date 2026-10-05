@@ -126,8 +126,8 @@ namespace GameCore.Labor
             // "finish lane A, then move on to lane B" rule. Sorting here (rather than at release time)
             // keeps it right no matter what order the releases arrive in.
             var byLane = new List<(WorkTask task, int door, string lane)>();
-            foreach (var t in workQueue.GetPendingTasksForRole(EmployeeRole.Loader))
-                if (TryParseLaneAddress(t.FromLocation, out int d, out string l))
+            foreach (var t in workQueue.GetPendingTasksForRole(EmployeeRole.DockStockerOperator))
+                if (t.Type == WorkTaskType.Load && TryParseLaneAddress(t.FromLocation, out int d, out string l))
                     byLane.Add((t, d, l));
             byLane.Sort((a, b) => a.door != b.door
                 ? a.door.CompareTo(b.door)
@@ -255,7 +255,7 @@ namespace GameCore.Labor
                 if (!slot.IsOccupied || DockEquipmentCommandeerRegistry.IsCommandeered(slot)) continue;
                 var op = slot.CurrentOperator;
                 if (op == null || op.Record == null) continue;
-                if (op.Record.role != EmployeeRole.DockStockerOperator && op.Record.role != EmployeeRole.Loader) continue;
+                if (op.Record.role != EmployeeRole.DockStockerOperator) continue;
                 return slot;
             }
             return null;

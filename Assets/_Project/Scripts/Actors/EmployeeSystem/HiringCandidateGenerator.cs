@@ -19,7 +19,6 @@ public static class HiringCandidateGenerator
         EmployeeRole.OrderSelector,
         EmployeeRole.ReachTruckOperator,
         EmployeeRole.DockStockerOperator,
-        EmployeeRole.Loader,
         EmployeeRole.Receiver,
         EmployeeRole.Security,
         EmployeeRole.InventoryControl,

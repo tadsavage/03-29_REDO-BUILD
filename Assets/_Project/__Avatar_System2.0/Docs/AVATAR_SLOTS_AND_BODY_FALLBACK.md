@@ -5,8 +5,8 @@ step-by-step list) and `.claude/skills/ModularAvatarSystem/SKILL.md` (how the co
 
 **PATHS UPDATED 2026-10-02 for Avatar 2.0:** the only working root is `Assets/_Project/__Avatar_System2.0` (`<Gender>/<Type>_Body_Type/{1. Blender, 2. FBX, 3. Prefab (post AOD Submit)}`). Wherever this doc says `_Avatar_System/.../03_FBX` read `__Avatar_System2.0/Female/Regular_Body_Type/2. FBX`; the old tree is no longer scanned.
 
-**Status: DESIGN DECIDED, CODE NOT CHANGED.** Nothing in Unity was touched for this. Blender names were changed by
-hand by Tad. The runtime/importer changes in section 7 are the next job.
+**Status (updated 2026-10-04): DESIGN IMPLEMENTED.** The `torso` slot, the `Body` fallback, the neck slot (accessory, no `Body` mesh) and a `face` slot are in the code and verified in Unity (2026-10-02/03, see SKILL.md).
+Section 7 below is kept as the record of what was needed; its items are done unless marked otherwise. Axis values are verified in Unity.
 
 ---
 
@@ -87,13 +87,12 @@ Then File > Export > FBX > preset dropdown > `Unity_Avatar`.
 | Smoothing | Face; modifiers applied | |
 | Path mode Auto, textures not embedded | | Materials remap to `atlas-source-LPAP` in the importer |
 
-**These axis values are the standard Unity choice, NOT yet verified against the body already in Unity.** The checklist
-never specified numbers. Test: export one part and confirm in Unity that it faces +Z like the existing body. If it is
-wrong, change Forward/Up in the preset, re-save it, and re-export EVERYTHING with the same values.
+**These axis values are verified in Unity** (2026-10-02, first real export `female_regular_body.fbx`: faces +Z, Left hand at -X, Humanoid avatar valid).
+If they ever change, re-export EVERYTHING with the same values.
 
 ### Test result (2026-10-02)
-A test export of the body mesh + `DeformationSystem` through the preset succeeded (one mesh + full bone set,
-~187 KB). It was written to a temp folder and NOT imported into Unity. Facing in Unity is still unverified.
+A test export of the body mesh + `DeformationSystem` through the preset succeeded, and the real five-mesh body export was then imported into Unity and checked (see above).
+Later (2026-10-04) the four hair meshes were swapped for the copies saved in `1. Blender/body_backup.blend` (commit `279cd807f`) after the exported hair showed missing faces on the side locks.
 
 ### Gotchas found while setting this up
 - **UTF-8 BOM breaks presets.** Writing the preset with Windows PowerShell's `Set-Content -Encoding utf8` adds a BOM;
@@ -132,7 +131,7 @@ Assets/_Project/__Avatar_System2.0/Docs/             <- this file, BLENDER_CHECK
 BlenderPresets/   <- repo root, outside Assets (so Unity ignores it)
 ```
 
-## 7. TODO — code work to make the design real (none of this is done)
+## 7. Code work for the design (DONE 2026-10-02/03; list kept for reference)
 
 1. **Parser/slot naming.** Today the torso mesh is `woman_bodyA_Cauc` and parses as slot `bodya`; a hand-edited
    `AOD_Objects/woman_bodyA_Cauc.asset` forces `slot: body`. New names `Female_Torso_Body` parse naturally as slot
@@ -151,10 +150,9 @@ BlenderPresets/   <- repo root, outside Assets (so Unity ignores it)
 6. Keep the existing known issues in mind (SKILL.md Gotchas): the avatar root yaw (0,180,0), the part-orientation
    correction matrices, and the duplicate-armature refusal. Each can be removed once the Blender exports are clean.
 
-## 8. Next steps for Tad (Blender)
+## 8. Next steps for Tad (Blender) — updated 2026-10-04
 
-1. Split the body mesh into `Female_Torso_Body` and `Female_Legs_Body` (keep the Armature modifiers and weights).
-2. Unhide, apply rotation/scale, check one armature, select the body parts + armature, export with `Unity_Avatar` into
-   `__Avatar_System2.0/Female/Regular_Body_Type/2. FBX`.
-3. Look at the import in Unity; check the console and that it faces +Z.
-4. Then the same for hands, feet and head, each with a `..._Body` mesh.
+Done: torso/legs split, all five `_Body` meshes exported in one FBX and working in Unity.
+1. Re-export the hair (`Female_Hair_Mem_Black/Blonde/Red/White`, now the copies from `body_backup.blend`) and check them in Unity.
+2. Clothing, one FBX per garment (torso and legs interchangeable; a one-piece hides the other slot): weights capped at 4 + normalized, `Unity_Avatar` preset, own filename, never `female_regular_body.fbx`.
+3. After every export: Scan, Finalize All Pending, look at the part from the front and the side.

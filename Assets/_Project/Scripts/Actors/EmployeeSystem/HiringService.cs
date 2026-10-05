@@ -19,7 +19,7 @@ using UnityEngine;
 ///
 /// Replenishment is split into two tiers, each on its own timer (in-game minutes,
 /// driven by SimulationTimeService.OnMinuteChanged):
-///  - Tier 1 "Floor Associates": Sanitation, Order Selector, Reach Truck, Loader.
+///  - Tier 1 "Floor Associates": Sanitation, Order Selector, Reach Truck, Dock Stocker.
 ///  - Tier 2 "Skilled": Inventory Control, Receiver, Admin, Security, Supervisor.
 /// Base intervals are tuned at Manager difficulty; easier difficulties divide the
 /// interval by a speed multiplier (Supervisor 2x, Clerk 4x faster).
@@ -46,7 +46,7 @@ public class HiringService : MonoBehaviour
     [SerializeField] private RolePoolConfig _rolePoolConfig;
 
     [Header("Replenishment — base interval in IN-GAME MINUTES (at Manager difficulty)")]
-    [Tooltip("Floor associates: Sanitation, Order Selector, Reach Truck, Loader. Manager = 1 per 30 min.")]
+    [Tooltip("Floor associates: Sanitation, Order Selector, Reach Truck, Dock Stocker. Manager = 1 per 30 min.")]
     [SerializeField] private float _tier1BaseMinutes = 30f;
     [Tooltip("Skilled: Inventory Control, Receiver, Admin, Security, Supervisor. Manager = 1 per 2 hours.")]
     [SerializeField] private float _tier2BaseMinutes = 120f;

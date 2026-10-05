@@ -1,6 +1,6 @@
 # Blender → Unity checklist (avatar parts)
 
-Updated 2026-10-02 (paths: Avatar 2.0, root `Assets/_Project/__Avatar_System2.0`). Design background and open questions: `AVATAR_SLOTS_AND_BODY_FALLBACK.md` (same folder).
+Updated 2026-10-04 (paths: Avatar 2.0, root `Assets/_Project/__Avatar_System2.0`; the `Body` fallback, `torso` slot, neck and face slots are implemented in Unity). Design background and open questions: `AVATAR_SLOTS_AND_BODY_FALLBACK.md` (same folder).
 
 One body type = **one armature**. Every body part and every piece of clothing is a separate mesh skinned to it.
 
@@ -33,7 +33,10 @@ Every mesh object is named `Gender_Slot_Variant` (the importer reads the **mesh 
 - [ ] The scene has **exactly one armature**. No `DeformationSystem.001` or other duplicates; Unity's importer refuses a file with duplicate object names.
 - [ ] Armature is in rest/bind pose, same pose as the other files for this body type.
 - [ ] **Unhide** the part you are exporting. Hidden objects cannot be selected, so they are silently left out of "Selected Objects" exports.
-- [ ] Select ONLY the part(s) you are exporting, plus the armature. (Currently body-only: `Female_Torso_Body` + `Female_Legs_Body` + armature. Feet, hands and head are exported later.)
+- [ ] Select ONLY the part(s) you are exporting, plus the armature. **Body export = ALL FIVE `_Body` meshes + armature (see "The body is ONE file" below).** Clothing, hair and hats = just that one mesh + armature, saved to its own FBX filename.
+- [ ] Do not export a mesh that is not meant to be in the AOD (the scene also holds NSFW test items and the coveralls; deselect what you don't want in this file).
+- [ ] If a mesh has a Mirror modifier, the preset applies it at export: make sure the weights are symmetric (hair is weighted to Head_M/Neck_M).
+- [ ] Hair is four meshes (`Female_Hair_Mem_Black/Blonde/Red/White`), one Armature modifier each. If you copy objects from another .blend, delete the extra `DeformationSystem.001` armature object that comes with them and re-parent to the scene's armature.
 - [ ] File → Export → FBX, pick the preset **`Unity_Avatar`** from the preset dropdown. Do not touch the axis settings.
       Mixed axis settings are what made the head, hard hats and hands arrive backwards or rolled.
 - [ ] Preset source of truth is in git: `BlenderPresets/Unity_Avatar.py` (repo root). Install notes are in that folder's README.

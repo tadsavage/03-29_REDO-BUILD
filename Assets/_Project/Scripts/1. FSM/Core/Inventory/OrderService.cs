@@ -769,7 +769,7 @@ namespace GameCore.Inventory
             {
                 _workQueue.CreateTask(
                     WorkTaskType.Load,
-                    EmployeeRole.Loader,
+                    EmployeeRole.DockStockerOperator,
                     palletId: null,
                     description: $"Load {customerId} from {doorNumber}{lane} -> Door {doorNumber}",
                     fromLocation: $"{doorNumber}{lane}",

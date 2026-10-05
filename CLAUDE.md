@@ -1547,7 +1547,7 @@ querying the running game.
 ### 1. A freshly-hired Receiver or Order Selector never started working
 
 `EmployeeSpawner` gave an automatic assignment to the MHE roles only (`TryBoardExistingMHE` for
-ReachTruck / DockStocker / Loader). **Every other role spawned on Patrol with no task driver
+ReachTruck / DockStocker). **Every other role spawned on Patrol with no task driver
 attached** — so a hired Order Selector walked around forever while OrderSelect tasks piled up, and the
 ONLY way to make them work was to find them in the Roster and pick their assignment out of a dropdown
 by hand. Nothing said so.
@@ -1572,7 +1572,7 @@ is a queue working correctly; a task waiting because the role doesn't exist in t
 end, and only the second is worth interrupting for.
 
 **A TASK'S RequiredRole IS NOT ALWAYS THE ONLY ROLE THAT CAN DO IT — this warning got that wrong on
-its first pass.** `OrderService` files Load tasks as `EmployeeRole.Loader`, but
+its first pass (HISTORY - the `Loader` role was removed 2026-10-04: Load tasks are now filed as `DockStockerOperator`, `CanServe` is exact-match, role ints are pinned so nothing shifted).** `OrderService` filed Load tasks as `EmployeeRole.Loader`, but
 `TrailerLoadController` (line ~194) accepts a **DockStockerOperator** too: they drive the same
 equipment, and `RoleSpecificAssignment` maps both to `DriveDockstalker`. Comparing roles exactly meant
 the warning nagged "you haven't hired a Loader" every day at a player whose dock stocker could load

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e9e232887a9b4645b1f651208bf32a4, type: 3}
+  m_Name: Female_Feet_BootsBrown
+  m_EditorClassIdentifier: GameCore.Simulation::AvatarPartAsset
+  objectName: Female_Feet_BootsBrown
+  gender: female
+  slot: feet
+  variant: BootsBrown
+  finalizedPrefab: {fileID: 773269823993524090, guid: dfa69ec61989d274ea51c5d6ef80b345, type: 3}
+  allowedRoles: 00000000010000000400000002000000050000000c000000i
+  colorVariants: []
+  defaultWeight: 45.9
+  verifiedInGame: 1
+  hiddenBodySlots: []

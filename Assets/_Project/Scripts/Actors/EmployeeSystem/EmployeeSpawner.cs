@@ -50,7 +50,7 @@ public class EmployeeSpawner : MonoBehaviour
              "previously had no FixedAvatar assigned at all, so they fell through to the random " +
              "modular avatar system, which renders in T-pose (parts aren't weight-painted). Deliberately " +
              "separate from _workerMaleAvatarModel/_workerFemaleAvatarModel below, which still cover " +
-             "the REMAINING roles (Order Selector, Loader, Supervisor, HR/Admin/Sanitation) — not " +
+             "the REMAINING roles (Order Selector, Supervisor, HR/Admin/Sanitation) — not " +
              "touched by this change.")]
     [SerializeField] private GameObject _floorWorkerAvatarModel;
     [SerializeField] private GameObject _floorWorkerAvatarModelFemale;
@@ -75,7 +75,7 @@ public class EmployeeSpawner : MonoBehaviour
 
     [Header("Generic Warehouse Worker (Polyperfect overlay)")]
     [Tooltip("Fixed-look overlay applied to every role that has no other dedicated model above " +
-             "(Order Selector, Reach Truck/Dock Stocker Operator, Loader, Receiver, Supervisor, " +
+             "(Order Selector, Reach Truck/Dock Stocker Operator, Receiver, Supervisor, " +
              "HR/Admin/Sanitation placeholders). Takes priority over _useModularAvatars, same as " +
              "the roles above — the modular avatar system stays wired but is effectively unused " +
              "once these are assigned.")]
@@ -178,8 +178,7 @@ public class EmployeeSpawner : MonoBehaviour
 
         // Subscribe to equipment placement so idle operators can seek equipment
         if (identity != null && (record.role == EmployeeRole.ReachTruckOperator
-                                 || record.role == EmployeeRole.DockStockerOperator
-                                 || record.role == EmployeeRole.Loader))
+                                 || record.role == EmployeeRole.DockStockerOperator))
         {
             // Create the callback and store it so we can unsubscribe later when the employee is removed
             System.Action<MHEOperatorSlot> callback = (slot) => OnEquipmentPlaced(identity, slot, record.role);
@@ -210,7 +209,7 @@ public class EmployeeSpawner : MonoBehaviour
 
         // Determine what equipment this operator role can use
         ObjDataSO targetData = role == EmployeeRole.ReachTruckOperator ? _reachTruckData
-                             : (role == EmployeeRole.DockStockerOperator || role == EmployeeRole.Loader) ? _dockStockerData
+                             : role == EmployeeRole.DockStockerOperator ? _dockStockerData
                              : null;
 
         if (vehicleData != targetData) return;  // Wrong equipment type
@@ -318,14 +317,13 @@ public class EmployeeSpawner : MonoBehaviour
             EmployeeAssignmentService.Assign(identity, record.currentAssignment);
         }
 
-        // Fresh ReachTruckOperator/DockStockerOperator/Loader attempt to board an existing MHE.
+        // Fresh ReachTruckOperator/DockStockerOperator attempt to board an existing MHE.
         // Equipment must be placed manually via the build menu first — this system no longer auto-creates
         // equipment. If no unoccupied MHE exists, the operator spawns on-foot. Skipped for save-restored
         // employees (hasSavedPosition) — operator<->vehicle pairing isn't persisted, so a reload
         // intentionally drops them back to free-roaming until a fresh hire re-pairs them.
         if (!record.hasSavedPosition &&
-            (record.role == EmployeeRole.ReachTruckOperator || record.role == EmployeeRole.DockStockerOperator
-             || record.role == EmployeeRole.Loader))
+            (record.role == EmployeeRole.ReachTruckOperator || record.role == EmployeeRole.DockStockerOperator))
         {
             TryBoardExistingMHE(identity, record.role);
         }
@@ -364,7 +362,7 @@ public class EmployeeSpawner : MonoBehaviour
     private bool TryBoardExistingMHE(EmployeeIdentity identity, EmployeeRole role)
     {
         ObjDataSO targetData = role == EmployeeRole.ReachTruckOperator ? _reachTruckData
-                             : (role == EmployeeRole.DockStockerOperator || role == EmployeeRole.Loader) ? _dockStockerData
+                             : role == EmployeeRole.DockStockerOperator ? _dockStockerData
                              : null;
         if (targetData == null)
         {
@@ -391,7 +389,7 @@ public class EmployeeSpawner : MonoBehaviour
     }
 
     /// <summary>
-    /// Boards a freshly-hired ReachTruckOperator/DockStockerOperator/Loader onto an MHE: reuses an
+    /// Boards a freshly-hired ReachTruckOperator/DockStockerOperator onto an MHE: reuses an
     /// existing unoccupied matching vehicle if one exists, otherwise spawns a brand-new one (preferring
     /// an MHE waypoint, falling back to an unoccupied Foundation cell, falling back to the generic spawn
     /// point) and boards that instead.
@@ -401,7 +399,7 @@ public class EmployeeSpawner : MonoBehaviour
     private void AssignToMHE(EmployeeIdentity identity, EmployeeRole role)
     {
         ObjDataSO so = role == EmployeeRole.ReachTruckOperator ? _reachTruckData
-                     : (role == EmployeeRole.DockStockerOperator || role == EmployeeRole.Loader) ? _dockStockerData
+                     : role == EmployeeRole.DockStockerOperator ? _dockStockerData
                      : null;
         if (so == null)
         {
@@ -742,7 +740,7 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
             // which disagreed with the portrait and was the actual bug (not the portrait, which was
             // already correctly mapped to reporter — see EmployeePhotoBooth.GetPrefabForRoleAndGender).
             EmployeeRole.Admin => PoolOrSingle(null, female ? _adminAvatarModelFemale : _adminAvatarModel),
-            // Every remaining role (Loader, Supervisor, Sanitation placeholders) — still reads
+            // Every remaining role (Supervisor, Sanitation placeholders) — still reads
             // as a blend of men and women overall, since the employee population itself is a blend;
             // each individual hire just always matches their own gender now.
             _ => PoolOrSingle(female ? _workerAvatarModelPoolFemale : _workerAvatarModelPoolMale,

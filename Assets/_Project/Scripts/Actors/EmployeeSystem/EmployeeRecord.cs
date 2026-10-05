@@ -26,8 +26,13 @@ public enum WorkShift
 }
 
 [Serializable]
-public class EmployeeRecord
+public class EmployeeRecord : ISerializationCallbackReceiver
 {
+    // Saves written before the old "Loader" role was retired hold its integer value (3) — turn it into
+    // DockStockerOperator the moment the record is read, so no code ever sees a role that no longer exists.
+    public void OnBeforeSerialize() { }
+    public void OnAfterDeserialize() { role = role.Normalize(); }
+
     // ─── Identity ─────────────────────────────────────────────────────────────
     public string employeeGuid;
     public string employeeName;
