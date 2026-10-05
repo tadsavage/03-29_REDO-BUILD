@@ -96,7 +96,8 @@ public static class ModularAvatarAssembler
     /// post-pass below and by AODPanel to build its category tabs. "hat" splits into two
     /// independent keys because hardhat and headphones are two independent rolls that can both be
     /// worn at once — see the Build loop's own "hat" handling.</summary>
-    public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.headphones", "facialhair", "neck" };
+    public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.headphones", "facialhair", "neck",
+                                                                       "face", "torso", "hands", "legs", "feet" };
 
     public static (string slot, System.Func<IAvatarPart, bool> matches) OverrideCategoryInfo(string key) => key switch
     {

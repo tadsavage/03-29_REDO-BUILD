@@ -317,3 +317,11 @@ Hidden Blender objects are silently skipped by "Selected Objects" exports: unhid
 5. NEXT (2026-10-02): Blender split of the body into torso + legs `Body` meshes, export with `Unity_Avatar`, then the
    slot/`Body`-fallback code migration (see design doc). After that: finish polishing Female Regular (portrait framing for the new proportions, arms/neck/feet details),
    THEN repeat for the other 5 body types and the wider clothing library. Males are parked until Tad says go.
+
+## Addendum 2026-10-04 - face slot, Pimp My Employee clothes, portraits
+- **`face` slot** (optional, 50%): accessories on the face (gag now; blindfold/piercings later) are separate skinned meshes `Female_Face_<Name>[_NSFW]`; the head mesh is never swapped. Gag detection = chosen `face` variant contains "gag" (fallback: head variant) -> `GagMouthMotion` + `FaceExpressionController.EnableDarting`.
+- **Never move humanoid-mapped bones** (`Eye_L/R`, `EyeEnd`) in Blender - the Animator snaps them back and eyeballs poke out. Custom `Eyelid*` bones are free. After bmesh edits on FBX meshes clear custom split normals (`customdata_custom_splitnormals_clear`) or you get dark smears.
+- **Pimp My Employee keys:** `hair, hat.hardhat, hat.headphones, facialhair, neck, face, torso, hands, legs, feet` (`ModularAvatarAssembler.EditableOverrideKeys` + `AODPanel.EmployeeCategories`). Add a key in BOTH places, plus `OverrideCategoryInfo` if the slot name differs.
+- **Portraits:** after ANY look change call `EmployeeSpawner.RefreshLookAndPortrait(identity)` (never just `RefreshAvatarAppearance`). The portrait booth stand-in prefab lacks `EmployeeIdentity`; `EnsureBoothIdentity` supplies it - without it portraits show the placeholder body. Framing aims at the head bone (`StillAimBelowHead`, `LiveAimBelowHead`, `ModularLiveFov`). `EmployeePhotoBooth.OnPortraitUpdated` refreshes open lists.
+- **Verification recipes:** render a gagged avatar with a temp camera at `Time.timeScale = 0.0001`; dump a portrait with `CustomAvatarCache[...].texture.EncodeToPNG()`; capture logs with `Application.logMessageReceived` inside `execute_code`.
+- A same-frame `transform.Find("ModularAvatar")` after a refresh can return the OLD (pending-destroy) avatar.

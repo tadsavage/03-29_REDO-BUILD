@@ -144,6 +144,9 @@ public class EmployeeIdentity : MonoBehaviour
         }
     }
 
+    /// <summary>Re-reads the cached portrait onto this object's SpriteRenderer (call after the portrait was re-shot).</summary>
+    public void RefreshAvatarSprite() => ApplyAvatarToDisplay();
+
     public void ApplyRecord(EmployeeRecord record)
     {
         if (record == null) return;

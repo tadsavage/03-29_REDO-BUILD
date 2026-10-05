@@ -81,6 +81,10 @@ public class EmployeePhotoBooth : MonoBehaviour
     // Runtime cache for custom portrait sprites in memory
     public static readonly Dictionary<string, Sprite> CustomAvatarCache = new Dictionary<string, Sprite>();
 
+    /// <summary>Raised every time a portrait is (re)captured and cached — open lists (Roster, Employee List,
+    /// Hiring Board) listen so a changed look shows up immediately instead of on the next open.</summary>
+    public static event System.Action<EmployeeRecord> OnPortraitUpdated;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -173,7 +177,9 @@ public class EmployeePhotoBooth : MonoBehaviour
         float z = Mathf.Sin(rad) * _cameraDistance;
         
         _liveCamera.transform.localPosition = new Vector3(x, _cameraHeight, z);
-        _liveCamera.transform.LookAt(transform.position + new Vector3(0f, _lookAtHeight, 0f));
+        Vector3 aim = transform.position + new Vector3(0f, _lookAtHeight, 0f);
+        if (_liveHead != null) aim = new Vector3(transform.position.x, _liveHead.position.y - LiveAimBelowHead, transform.position.z);
+        _liveCamera.transform.LookAt(aim);
 
         // 2. Handle mood-driven gesture animation (happy = wave, angry = rude gesture, ...)
         if (_liveAnimator != null)
@@ -200,6 +206,9 @@ public class EmployeePhotoBooth : MonoBehaviour
     public void StartLiveFeed(EmployeeRecord record)
     {
         StopLiveFeed(); // Clean up any existing feed
+        _liveRecord = record;
+        _liveModular = false;
+        _liveHead = null;
 
         // GetPrefabForRoleAndGender already picked the exact intended model for this role+gender —
         // do NOT follow this with ApplyModularAvatar (removed 2026-09-21). It unconditionally hid
@@ -215,11 +224,29 @@ public class EmployeePhotoBooth : MonoBehaviour
         _liveModelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
         _liveModelInstance.name = $"LiveFeed_{record.employeeName}";
 
-        var identity = _liveModelInstance.GetComponent<EmployeeIdentity>();
+        var identity = EnsureBoothIdentity(_liveModelInstance);
         if (identity != null)
         {
             identity.ApplyRecord(record);
             identity.enabled = false;
+
+            // Modular-avatar employees: dress the live-feed model with their real assembled look (incl. Pimp My
+            // Employee overrides), same as CapturePortrait does. Without this the animated Employee Info portrait
+            // showed the plain placeholder body no matter what the employee was wearing.
+            if (_employeeSpawner == null) _employeeSpawner = FindFirstObjectByType<EmployeeSpawner>();
+            if (_employeeSpawner != null && _employeeSpawner.UsesModularAvatar(record))
+            {
+                _employeeSpawner.RefreshAvatarAppearance(identity);
+                var modularT = _liveModelInstance.transform.Find("ModularAvatar");
+                var modularAnim = modularT != null ? modularT.GetComponent<Animator>() : null;
+                if (modularAnim != null)
+                {
+                    modularAnim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                    modularAnim.applyRootMotion = false;
+                    _liveHead = ModularHead(modularAnim);
+                    _liveModular = _liveHead != null;
+                }
+            }
         }
 
         // Posture (slouch) and gesture (wave/rude) are independent: a tired-but-happy
@@ -257,7 +284,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         _liveCamera = camGO.AddComponent<Camera>();
         _liveCamera.clearFlags = CameraClearFlags.SolidColor;
         _liveCamera.backgroundColor = _backdropColor;
-        _liveCamera.fieldOfView = 26f;
+        _liveCamera.fieldOfView = _liveModular ? ModularLiveFov : 26f;
         _liveCamera.targetTexture = _liveRenderTexture;
         ApplyPhotoBoothPostFX(_liveCamera);
 
@@ -276,6 +303,47 @@ public class EmployeePhotoBooth : MonoBehaviour
         _isGesturing = false;
         _nextGestureTime = Time.time + UnityEngine.Random.Range(_waveIntervalMin, _waveIntervalMax);
         _isLiveFeedActive = true;
+    }
+
+    private EmployeeRecord _liveRecord;
+    private bool _liveModular;
+
+    /// <summary>The Avatar 2.0 body is taller than the placeholder bodies the booth cameras were framed for, so the
+    /// head rode out of the shot. Modular avatars are therefore framed by aiming at the HEAD bone (a fixed distance
+    /// below it) instead of at a fixed world height. (Sliding the model doesn't work for the still portraits: their
+    /// aim point is model-relative, so it just cancels out.)</summary>
+    private Transform _liveHead;
+    private static Transform ModularHead(Animator modular)
+    {
+        if (modular == null) return null;
+        if (modular.isHuman) { var h = modular.GetBoneTransform(HumanBodyBones.Head); if (h != null) return h; }
+        foreach (var t in modular.GetComponentsInChildren<Transform>(true)) if (t.name == "Head_M") return t;
+        return null;
+    }
+    /// <summary>How far below the head bone the still-portrait camera aims (metres). Bigger = head higher in frame.</summary>
+    private const float StillAimBelowHead = 0.31f;
+    /// <summary>Same for the animated Employee Info feed, which is zoomed in tighter.</summary>
+    private const float LiveAimBelowHead = 0.20f;
+    /// <summary>Field of view of the animated Employee Info feed for modular avatars (placeholder bodies use 26) — tighter = bigger person.</summary>
+    private const float ModularLiveFov = 19f;
+
+    /// <summary>The portrait stand-in prefabs (e.g. woman_body_WarehouseWorker) carry no EmployeeIdentity, and the
+    /// modular-avatar path needs one to hang the assembled look on — without it the portrait/live feed silently
+    /// skipped the modular avatar and photographed the plain placeholder body. Adding one under the booth is safe:
+    /// EmployeeIdentity.Awake marks anything parented to the booth system-managed (never registers in the roster).</summary>
+    private static EmployeeIdentity EnsureBoothIdentity(GameObject model)
+    {
+        var id = model.GetComponent<EmployeeIdentity>();
+        return id != null ? id : model.AddComponent<EmployeeIdentity>();
+    }
+
+    /// <summary>If the animated Employee Info feed is currently showing this employee, rebuilds it so it
+    /// reflects their new look. The camera's render texture is reused, so the UI keeps its binding.</summary>
+    public void RestartLiveFeedIfShowing(EmployeeRecord record)
+    {
+        if (!_isLiveFeedActive || _liveRecord == null || record == null) return;
+        if (_liveRecord != record && _liveRecord.employeeGuid != record.employeeGuid) return;
+        StartLiveFeed(record);
     }
 
     public void StopLiveFeed()
@@ -596,7 +664,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         modelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
         modelInstance.name = $"PhotoBooth_Temp_{record.employeeName}";
 
-        var identity = modelInstance.GetComponent<EmployeeIdentity>();
+        var identity = EnsureBoothIdentity(modelInstance);
         if (identity != null)
         {
             identity.ApplyRecord(record);
@@ -696,11 +764,15 @@ public class EmployeePhotoBooth : MonoBehaviour
         // Clean up redundant scripts/components on the temporary clone
         StripNonVisualComponents(modelInstance);
 
+        Transform stillHead = ModularHead(modularAnimator);
+
         // 2. Spawn temporary camera for passport driver/license style portrait (waist up)
         GameObject camGO = new GameObject("PhotoBooth_Camera");
         camGO.transform.SetParent(transform);
         camGO.transform.localPosition = new Vector3(2.0f, 1.45f, 0f); // Match camera preview position
-        camGO.transform.LookAt(modelInstance.transform.position + new Vector3(0f, 1.35f, 0f));
+        camGO.transform.LookAt(stillHead != null
+            ? new Vector3(modelInstance.transform.position.x, stillHead.position.y - StillAimBelowHead, modelInstance.transform.position.z)
+            : modelInstance.transform.position + new Vector3(0f, 1.35f, 0f));
 
         Camera cam = camGO.AddComponent<Camera>();
         cam.clearFlags = CameraClearFlags.SolidColor;
@@ -749,6 +821,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         string customKey = "Custom_" + record.employeeGuid;
         CustomAvatarCache[customKey] = sprite;
         record.avatarResourceKey = customKey;
+        OnPortraitUpdated?.Invoke(record);
 
         // 7. Save to disk so saves can load it
         byte[] pngBytes = tex.EncodeToPNG();

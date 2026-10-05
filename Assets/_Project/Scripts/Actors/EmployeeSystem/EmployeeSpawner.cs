@@ -657,6 +657,21 @@ public class EmployeeSpawner : MonoBehaviour
         ApplyModularAvatar(identity);
     }
 
+    /// <summary>The one call to make whenever an employee's look changes: rebuilds their in-world avatar AND
+    /// re-shoots their portrait (which every portrait consumer — Roster, Employee List, Hiring Board, Employee
+    /// Info card and the hover popup — reads from), then restarts the animated Employee Info feed if it is
+    /// currently showing this person.</summary>
+    public void RefreshLookAndPortrait(EmployeeIdentity identity)
+    {
+        if (identity?.Record == null) return;
+        RefreshAvatarAppearance(identity);
+        var booth = EmployeePhotoBooth.Instance;
+        if (booth == null) return;
+        booth.GeneratePortraitForRecord(identity.Record);   // fires OnPortraitUpdated
+        identity.RefreshAvatarSprite();
+        booth.RestartLiveFeedIfShowing(identity.Record);
+    }
+
     /// <summary>Rebuilds every currently-spawned modular-avatar employee in the scene and forces a
     /// fresh portrait capture for each, in one pass — for Tad's "hit Update in the AOD and see it
     /// everywhere live" workflow (2026-09-30), instead of needing to re-hire or reload to see a
@@ -675,11 +690,15 @@ public class EmployeeSpawner : MonoBehaviour
         foreach (var identity in identities)
         {
             if (identity == null || identity.Record == null || !UsesModularAvatar(identity.Record)) continue;
-            RefreshAvatarAppearance(identity);
-            if (EmployeePhotoBooth.Instance != null)
-                EmployeePhotoBooth.Instance.GeneratePortraitForRecord(identity.Record);
+            RefreshLookAndPortrait(identity);
             refreshed++;
         }
+
+        // Hiring Board candidates have portraits too (no in-world body) — re-shoot them so the board matches the library.
+        if (HiringService.Instance != null && EmployeePhotoBooth.Instance != null)
+            foreach (var candidate in HiringService.Instance.Roster.ToList())
+                if (candidate?.record != null && UsesModularAvatar(candidate.record))
+                    EmployeePhotoBooth.Instance.GeneratePortraitForRecord(candidate.record);
 
         Debug.Log($"[EmployeeSpawner] Refreshed {refreshed} live modular avatar(s) + portraits from current AOD data.");
     }

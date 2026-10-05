@@ -76,8 +76,12 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
             UIKeyBindingManager.Instance.RegisterUI(3, this);
     }
 
+    private void OnPortraitChanged(EmployeeRecord _) { if (IsOpen) RebuildList(); }
+
     private void OnEnable()
     {
+        EmployeePhotoBooth.OnPortraitUpdated -= OnPortraitChanged;
+        EmployeePhotoBooth.OnPortraitUpdated += OnPortraitChanged;
         _doc = GetComponent<UIDocument>();
         var root = _doc != null ? _doc.rootVisualElement : null;
         if (root == null) { Debug.LogError("[EmployeeRosterUI] No rootVisualElement."); return; }
@@ -126,6 +130,7 @@ public class EmployeeRosterUI : MonoBehaviour, IUIPanel
 
     private void OnDisable()
     {
+        EmployeePhotoBooth.OnPortraitUpdated -= OnPortraitChanged;
         if (_subscribed && EmployeeRegistry.Instance != null)
         {
             EmployeeRegistry.Instance.OnEmployeeAdded   -= OnRegistryChanged;

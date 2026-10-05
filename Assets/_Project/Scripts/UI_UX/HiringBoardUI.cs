@@ -110,8 +110,12 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
         }
     }
 
+    private void OnPortraitChanged(EmployeeRecord _) { if (IsOpen) RebuildList(); }
+
     private void OnEnable()
     {
+        EmployeePhotoBooth.OnPortraitUpdated -= OnPortraitChanged;
+        EmployeePhotoBooth.OnPortraitUpdated += OnPortraitChanged;
         _doc = GetComponent<UIDocument>();
         // Own document — at its old 95 the HUD (999999) drew over it, so it could never cover the top
         // bar. Below the toast, which owns the layer above this one.
@@ -200,6 +204,7 @@ public class HiringBoardUI : MonoBehaviour, IUIPanel
 
     private void OnDisable()
     {
+        EmployeePhotoBooth.OnPortraitUpdated -= OnPortraitChanged;
         if (_subscribed && HiringService.Instance != null)
             HiringService.Instance.OnRosterChanged -= RebuildList;
         _subscribed = false;

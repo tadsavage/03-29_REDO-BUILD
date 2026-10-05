@@ -124,6 +124,7 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
 
     private void OnDisable()
     {
+        EmployeePhotoBooth.OnPortraitUpdated -= OnPortraitChanged;
         UnsubscribeFromRegistry();
     }
 
@@ -157,8 +158,12 @@ public class EmployeeListPanelController : MonoBehaviour, IUIPanel
         }
     }
 
+    private void OnPortraitChanged(EmployeeRecord _) { if (IsOpen) RebuildList(); }
+
     private void OnEnable()
     {
+        EmployeePhotoBooth.OnPortraitUpdated -= OnPortraitChanged;
+        EmployeePhotoBooth.OnPortraitUpdated += OnPortraitChanged;
         _doc = GetComponent<UIDocument>();
         if (_doc == null)
         {

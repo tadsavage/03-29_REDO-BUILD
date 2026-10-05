@@ -272,6 +272,11 @@ public class AODPanel : IUIPanel
         ("hat.headphones", "Headphones"),
         ("facialhair", "Facial Hair"),
         ("neck", "Neck Items"),
+        ("face", "Face / Gag"),
+        ("torso", "Torso / Top"),
+        ("hands", "Gloves"),
+        ("legs", "Legs / Pants"),
+        ("feet", "Feet / Socks"),
     };
 
     public bool IsOpen => _visible;
@@ -1245,7 +1250,7 @@ public class AODPanel : IUIPanel
             if (_pendingOverrides.TryGetValue(key, out var v)) rec.SetAvatarOverride(key, v);
 
         if (_employeeSpawner != null && _employeeIdentity != null)
-            _employeeSpawner.RefreshAvatarAppearance(_employeeIdentity);
+            _employeeSpawner.RefreshLookAndPortrait(_employeeIdentity);   // avatar + every portrait (roster, list, info card, hover)
 
         UIToast.Show($"{rec.employeeName}'s look updated.");
     }
