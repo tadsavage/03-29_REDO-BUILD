@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e9e232887a9b4645b1f651208bf32a4, type: 3}
+  m_Name: Female_Head_HOT
+  m_EditorClassIdentifier: GameCore.Simulation::AvatarPartAsset
+  objectName: Female_Head_HOT
+  gender: female
+  slot: head
+  variant: HOT
+  finalizedPrefab: {fileID: 4283357373441490913, guid: 8b31bbf6b5c59814eadabb15ec6cad76, type: 3}
+  allowedRoles: 000000000100000002000000040000000c000000i
+  colorVariants: []
+  defaultWeight: 1
+  verifiedInGame: 1
+  hiddenBodySlots: []
