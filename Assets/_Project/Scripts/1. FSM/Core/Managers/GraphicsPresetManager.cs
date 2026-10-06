@@ -95,6 +95,7 @@ public class GraphicsPresetManager : MonoBehaviour
         FXPool.DisabledKeys.Remove("dust");
         SetPipeline(urpUltra);
         SetVolume(profileUltra);
+        SetSceneBlurVolumes(true);
 
         QualitySettings.lodBias                  = 2.0f;
         QualitySettings.anisotropicFiltering     = AnisotropicFiltering.ForceEnable;
@@ -110,6 +111,7 @@ public class GraphicsPresetManager : MonoBehaviour
         FXPool.DisabledKeys.Remove("dust");
         SetPipeline(urpGood);
         SetVolume(profileGood);
+        SetSceneBlurVolumes(true);
 
         QualitySettings.lodBias                  = 1.5f;
         QualitySettings.anisotropicFiltering     = AnisotropicFiltering.Enable;
@@ -125,6 +127,7 @@ public class GraphicsPresetManager : MonoBehaviour
         FXPool.DisabledKeys.Add("dust");
         SetPipeline(urpToaster);
         SetVolume(profileToaster);
+        SetSceneBlurVolumes(false);   // no depth-of-field blur anywhere on Toaster
 
         QualitySettings.lodBias                  = 0.7f;
         // Anisotropic filtering is nearly free on any modern GPU; disabling it
@@ -144,6 +147,21 @@ public class GraphicsPresetManager : MonoBehaviour
         if (asset == null) return;
         // Overrides the pipeline for the active quality level; takes effect next frame.
         QualitySettings.renderPipeline = asset;
+    }
+
+    // Scene volumes OTHER than the preset's own global volume can carry a DepthOfField (e.g. the
+    // yard-backdrop volume). They stack on top of whichever preset profile is active, so the
+    // preset's own "DoF off" never reached them — Toaster still looked blurred. Toaster switches
+    // every such volume off; Ultra/Good turn them back on.
+    private void SetSceneBlurVolumes(bool blurAllowed)
+    {
+        foreach (var v in FindObjectsByType<Volume>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (v == globalVolume || v.sharedProfile == null) continue;
+            if (v.name.Contains("PhotoBooth")) continue;   // portrait rig keeps its own look in every preset
+            if (v.sharedProfile.TryGet(out DepthOfField dof) && dof.active)
+                v.enabled = blurAllowed;
+        }
     }
 
     private void SetVolume(VolumeProfile profile)

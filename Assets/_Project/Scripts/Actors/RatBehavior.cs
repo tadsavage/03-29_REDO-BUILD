@@ -116,6 +116,11 @@ public class RatBehavior : MonoBehaviour
     private float _timeNearMate  = 0f;
     private float _lastBreedTime = -999f;
     private static int _globalRatCount = 0;
+    // Live rats, so breeding never needs a FindObjectsByType scan (that ran per rat, per frame).
+    private static readonly System.Collections.Generic.List<RatBehavior> s_allRats = new();
+    private bool  _nearMate;
+    private float _nextMateScan;
+    private bool  _fullyGrown;
 
     // Services
     private SimulationTimeService _timeService;
@@ -134,11 +139,13 @@ public class RatBehavior : MonoBehaviour
     {
         _spawnTime = Time.time;
         _globalRatCount++;
+        s_allRats.Add(this);
     }
 
     private void OnDestroy()
     {
         _globalRatCount = Mathf.Max(0, _globalRatCount - 1);
+        s_allRats.Remove(this);
     }
 
     private IEnumerator Start()
@@ -289,8 +296,10 @@ public class RatBehavior : MonoBehaviour
 
     private void UpdateAge()
     {
+        if (_fullyGrown) return;   // scale + speed no longer change; skip the per-frame transform write
         _age += Time.deltaTime;
         float t = Mathf.Clamp01(_age / maxAge);
+        if (t >= 1f) _fullyGrown = true;
         transform.localScale = Vector3.one * Mathf.Lerp(RatFromScale, RatToScale, t);
         agent.speed = scurrySpeed * (1f + t * 0.4f);
     }
@@ -303,13 +312,21 @@ public class RatBehavior : MonoBehaviour
         if (_globalRatCount >= maxRatPopulation) return;
         if (isHiding || isScurryingAway) return;
 
-        bool nearMate = false;
-        foreach (var other in FindObjectsByType<RatBehavior>())
+        // Mate proximity only needs refreshing a few times a second.
+        if (Time.time >= _nextMateScan)
         {
-            if (other == this) continue;
-            if (Vector3.Distance(transform.position, other.transform.position) < breedingRadius)
-            { nearMate = true; break; }
+            _nextMateScan = Time.time + 0.25f;
+            _nearMate = false;
+            float sqr = breedingRadius * breedingRadius;
+            for (int i = 0; i < s_allRats.Count; i++)
+            {
+                var other = s_allRats[i];
+                if (other == null || other == this) continue;
+                if ((transform.position - other.transform.position).sqrMagnitude < sqr)
+                { _nearMate = true; break; }
+            }
         }
+        bool nearMate = _nearMate;
 
         if (nearMate)
         {
