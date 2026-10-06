@@ -269,9 +269,12 @@ public class AODPanel : IUIPanel
     {
         ("hair", "Hairstyle"),
         ("hat.hardhat", "Hard Hat"),
+        ("hat.cap", "Cap"),
         ("hat.headphones", "Headphones"),
         ("facialhair", "Facial Hair"),
         ("neck", "Neck Items"),
+        ("glasses", "Glasses / Shades"),
+        ("waist", "Belt"),
         ("face", "Face / Gag"),
         ("torso", "Torso / Top"),
         ("hands", "Gloves"),

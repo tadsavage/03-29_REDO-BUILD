@@ -167,7 +167,10 @@ public static class ModularAvatarImporter
             // Costume names like "man_actionhero" mostly fail the gender_slot_variant pattern and
             // get skipped anyway, but several ("man_casual_shorts", "woman_naval_officer", ...)
             // happen to have 3+ underscore segments and get misfiled as bogus slot/variant parts.
-            const int BulkPoolMeshThreshold = 20;
+            // 2026-10-05: raised 20 -> 100. The consolidated per-body-type master FBX (every hair/hat/
+            // clothing variant under ONE armature) legitimately holds 30+ meshes; real bulk pools
+            // (the Polyperfect _MainRig bundle) hold ~150.
+            const int BulkPoolMeshThreshold = 100;
             var probeForBulkCheck = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (probeForBulkCheck != null &&
                 probeForBulkCheck.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length > BulkPoolMeshThreshold)

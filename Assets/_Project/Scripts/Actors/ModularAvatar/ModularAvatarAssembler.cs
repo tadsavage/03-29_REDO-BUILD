@@ -84,10 +84,14 @@ public static class ModularAvatarAssembler
         { "neck", 0.35f },   // neck accessories (collar, headphones round the neck, ...): ~1 in 3 employees wears one
         { "face", 0.50f },   // face accessories that sit ON the base head (gag, blindfold, piercings...): the head mesh itself is never swapped
         { "hat", 0.50f },
+        { "waist", 0.40f },    // belts: a skinned layer over the hips, independent of legs/torso
+        { "glasses", 0.30f },  // shades etc.: its OWN slot so they stack with the gag (face) instead of competing with it
     };
 
     // Independent 50% chance of wearing headphones — gender-neutral, stacks with the hard hat roll.
     private const float HeadphonesChance = 0.5f;
+    // Baseball cap: chance of wearing one when no hard hat was rolled (0.6 x ~50% no-hardhat = ~30% of everyone).
+    private const float CapChance = 0.60f;
 
     /// <summary>The four cosmetic "categories" the AOD's per-employee "Pimp My Employee" editor is
     /// allowed to override (2026-09-27) — deliberately excludes identity/clothing slots (body, vest,
@@ -96,13 +100,14 @@ public static class ModularAvatarAssembler
     /// post-pass below and by AODPanel to build its category tabs. "hat" splits into two
     /// independent keys because hardhat and headphones are two independent rolls that can both be
     /// worn at once — see the Build loop's own "hat" handling.</summary>
-    public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.headphones", "facialhair", "neck",
-                                                                       "face", "torso", "hands", "legs", "feet" };
+    public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.cap", "hat.headphones", "facialhair", "neck",
+                                                                       "glasses", "waist", "face", "torso", "hands", "legs", "feet" };
 
     public static (string slot, System.Func<IAvatarPart, bool> matches) OverrideCategoryInfo(string key) => key switch
     {
         "hair"           => ("hair", (System.Func<IAvatarPart, bool>)(p => true)),
         "hat.hardhat"    => ("hat",  (System.Func<IAvatarPart, bool>)(p => p.Variant.ToLower().Contains("hardhat"))),
+        "hat.cap"        => ("hat",  (System.Func<IAvatarPart, bool>)(p => p.Variant.ToLower().StartsWith("cap"))),
         "hat.headphones" => ("hat",  (System.Func<IAvatarPart, bool>)(p => p.Variant.ToLower().Contains("headphones"))),
         "facialhair"     => ("facialhair", (System.Func<IAvatarPart, bool>)(p => true)),
         "neck"           => ("neck", (System.Func<IAvatarPart, bool>)(p => true)),
@@ -216,10 +221,19 @@ public static class ModularAvatarAssembler
             if (slot == "hat")
             {
                 var hardhats = variants.Where(v => v.Variant.ToLower().Contains("hardhat")).ToList();
+                bool hardhatWorn = false;
                 if (hardhats.Count > 0 && rng.NextDouble() <= OptionalSlotChance["hat"])
                 {
                     var hardhatPick = PickVariant(hardhats, rng, role, gender);
-                    if (hardhatPick != null) chosen.Add(hardhatPick);
+                    if (hardhatPick != null) { chosen.Add(hardhatPick); hardhatWorn = true; }
+                }
+
+                // Baseball caps (variant starts with "Cap"): only when no hard hat landed (two hats can't share a head).
+                var caps = variants.Where(v => v.Variant.ToLower().StartsWith("cap")).ToList();
+                if (!hardhatWorn && caps.Count > 0 && rng.NextDouble() <= CapChance)
+                {
+                    var capPick = PickVariant(caps, rng, role, gender);
+                    if (capPick != null) chosen.Add(capPick);
                 }
 
                 var headphones = variants.Where(v => v.Variant.ToLower().Contains("headphones")).ToList();
@@ -420,9 +434,80 @@ public static class ModularAvatarAssembler
 
         ApplyOrientationFixes(root, chosen, rebound);
         ApplyBodyPartMasking(root, chosen);
+        TrimHairUnderHats(root);
         ApplyMoodExpression(root, gender, EmployeeMood.Neutral);
 
         return root;
+    }
+
+    // ── Hair under hats (Tad, 2026-10-05) ───────────────────────────────────────────────────────────────────────────────
+    // A hard hat or cap sits ON the hair, so the crown of the hairstyle used to poke through the hat. Instead of authoring a second
+    // hair mesh for every hat, we cut the hair at the hat's rim: every triangle whose centre lies above the rim is dropped, and everything
+    // hanging below it (bangs, sides, back) stays visible. Trimmed meshes are cached per (hair mesh, rim height) so each combination is
+    // built once. Mesh space keeps the Blender axes (Z is up), so the up axis is detected from the hat's own bounds.
+    private const float HatTrimMargin = 0.004f;   // metres above the rim before hair is cut (keeps the hairline tucked in just under the brim)
+    private static readonly Dictionary<(Mesh mesh, int rimMm), Mesh> TrimmedHairCache = new();
+
+    private static void TrimHairUnderHats(GameObject root)
+    {
+        var all = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        var hats = new List<SkinnedMeshRenderer>();
+        foreach (var r in all)
+            if (r != null && r.sharedMesh != null && r.gameObject.activeSelf && (r.name.Contains("Hardhat") || r.name.Contains("_Cap")))
+                hats.Add(r);
+        if (hats.Count == 0) return;
+
+        var hb = hats[0].sharedMesh.bounds;
+        int up = Mathf.Abs(hb.center.y) >= Mathf.Abs(hb.center.z) ? 1 : 2;
+        float rim = float.MaxValue;
+        foreach (var h in hats) rim = Mathf.Min(rim, h.sharedMesh.bounds.min[up]);
+        if (rim == float.MaxValue) return;
+        float cut = rim + HatTrimMargin;
+
+        foreach (var r in all)
+        {
+            if (r == null || r.sharedMesh == null || !r.name.Contains("_Hair_")) continue;
+            var src = r.sharedMesh;
+            var key = (src, Mathf.RoundToInt(rim * 1000f));
+            if (!TrimmedHairCache.TryGetValue(key, out var trimmed) || trimmed == null)
+            {
+                var verts = src.vertices;
+                trimmed = UnityEngine.Object.Instantiate(src);
+                trimmed.name = src.name + "_hatTrim";
+                trimmed.hideFlags = HideFlags.HideAndDontSave;
+
+                // Vertices are welded by POSITION (hard-edged meshes duplicate vertices per face, so index adjacency would find nothing).
+                static long Weld(Vector3 p) => ((long)Mathf.RoundToInt(p.x * 10000f) * 73856093L) ^ ((long)Mathf.RoundToInt(p.y * 10000f) * 19349663L) ^ ((long)Mathf.RoundToInt(p.z * 10000f) * 83492791L);
+                var keptKeys = new HashSet<long>();
+                var subTris = new int[src.subMeshCount][];
+                for (int s = 0; s < src.subMeshCount; s++)
+                {
+                    subTris[s] = src.GetTriangles(s);
+                    var tris = subTris[s];
+                    for (int i = 0; i + 2 < tris.Length; i += 3)
+                    {
+                        float c = (verts[tris[i]][up] + verts[tris[i + 1]][up] + verts[tris[i + 2]][up]) / 3f;
+                        if (c <= cut) { keptKeys.Add(Weld(verts[tris[i]])); keptKeys.Add(Weld(verts[tris[i + 1]])); keptKeys.Add(Weld(verts[tris[i + 2]])); }
+                    }
+                }
+                for (int s = 0; s < src.subMeshCount; s++)
+                {
+                    var tris = subTris[s];
+                    var keep = new List<int>(tris.Length);
+                    for (int i = 0; i + 2 < tris.Length; i += 3)
+                    {
+                        float c = (verts[tris[i]][up] + verts[tris[i + 1]][up] + verts[tris[i + 2]][up]) / 3f;
+                        // below the cut: always kept. Above it: kept only if it TOUCHES a kept triangle = exactly one extra ring of polys,
+                        // so the low-poly hair reaches up under the hat instead of ending in a gap.
+                        bool touchesKept = keptKeys.Contains(Weld(verts[tris[i]])) || keptKeys.Contains(Weld(verts[tris[i + 1]])) || keptKeys.Contains(Weld(verts[tris[i + 2]]));
+                        if (c <= cut || touchesKept) { keep.Add(tris[i]); keep.Add(tris[i + 1]); keep.Add(tris[i + 2]); }
+                    }
+                    trimmed.SetTriangles(keep, s);
+                }
+                TrimmedHairCache[key] = trimmed;
+            }
+            r.sharedMesh = trimmed;
+        }
     }
 
     /// <summary>Slot pairs whose wardrobe items come as MATCHING SETS. If one slot of a pair wears a variant (e.g. "Stockings-Gray") and the

@@ -36,7 +36,16 @@ public class FaceExpressionController : MonoBehaviour
     private const float ClosedLowerDeg = 28f;
     private const float PoseSmoothSeconds = 0.14f;
 
-    private const float BlinkGapMin = 6f, BlinkGapMax = 14f;     // "about every 10 seconds"
+    private const float BlinkGapMin = 2.5f, BlinkGapMax = 5f;     // people blink every ~3-4 s
+    private const float LookGapMin = 2.5f, LookGapMax = 6f;        // glance somewhere every ~3-6 s
+    private const float LookHoldMin = 1f, LookHoldMax = 2.5f, LookDegrees = 32f;
+    private const float SmileGapMin = 9f, SmileGapMax = 22f;       // a smile every ~10-20 s (not while gagged / non-neutral)
+    private const float SmileHoldMin = 1.6f, SmileHoldMax = 3.6f;
+    private const float SmileCornerUp = 0.0315f, SmileCornerOut = 0.0255f, SmileCheekUp = 0.0225f, SmileSquintDeg = 6.75f;
+    private float _smile, _smileTarget, _smileVel, _nextSmile = 6f, _smileHoldLeft;
+    private const float HeadFollow = 0.9f;                         // head turns this fraction of the eye yaw (eyes lead)
+    private const float LookDownChance = 0.18f, LookUpChance = 0.15f;   // glance at the shoes / up at the sky
+    private const float HeadDownDegrees = 22f, HeadUpDegrees = 24f;
     private const float BlinkCloseSeconds = 0.07f, BlinkHoldSeconds = 0.04f, BlinkOpenSeconds = 0.11f;
     private const float DoubleBlinkChance = 0.15f;
 
@@ -103,7 +112,7 @@ public class FaceExpressionController : MonoBehaviour
 
     private class Side
     {
-        public Bone inner, mid, outer, eye, lidUp, lidLow;
+        public Bone inner, mid, outer, eye, lidUp, lidLow, corner, cheek;
         public float inwardSign;          // +1/-1: which way along avatar-right points toward the nose for this side
     }
 
@@ -118,6 +127,8 @@ public class FaceExpressionController : MonoBehaviour
     private FaceMood _baseMood;
     private readonly float[] _cur = new float[PoseLen];
     private float _blink, _blinkT = -1f, _nextBlink, _blinkLen = 1f; private int _blinkQueued;
+    private float _nextLook = 4f, _lookYaw, _lookPitch, _lookYawSm, _lookPitchSm, _lookYawVel, _lookPitchVel; private bool _lookActive;
+    private float _headYaw, _headPitch, _headYawSm, _headPitchSm, _headYawVel, _headPitchVel; private Transform _headBone, _neckBone;
     private float _nextSaccade, _sacYaw, _sacPitch, _sacYawSm, _sacPitchSm, _sacYawVel, _sacPitchVel;
     private float _nextStartle, _startleT = 99f;
     private float _noiseSeed;
@@ -163,8 +174,10 @@ public class FaceExpressionController : MonoBehaviour
             var s = _s[i]; string k = sides[i];
             s.inner = Find("EyebrowInner_" + k); s.mid = Find("EyebrowMid_" + k); s.outer = Find("EyebrowOuter_" + k);
             s.eye = Find("Eye_" + k); s.lidUp = Find("EyelidUpper_" + k); s.lidLow = Find("EyelidLower_" + k);
+            s.corner = Find("OuterMouth_" + k); s.cheek = Find("Cheek_" + k);
         }
         _center = Find("EyebrowCenter_M"); _jaw = Find("Jaw_M");
+        _headBone = Find("Head_M")?.t; _neckBone = Find("Neck_M")?.t;
         _ready = _s[0].inner != null || _s[0].eye != null || _s[0].lidUp != null;
         if (!_ready) { enabled = false; return; }
 
@@ -229,6 +242,43 @@ public class FaceExpressionController : MonoBehaviour
         _sacYawSm = Mathf.SmoothDamp(_sacYawSm, _sacYaw, ref _sacYawVel, 0.05f, Mathf.Infinity, dt);
         _sacPitchSm = Mathf.SmoothDamp(_sacPitchSm, _sacPitch, ref _sacPitchVel, 0.05f, Mathf.Infinity, dt);
 
+        // look-around: every ~5-10 s the eyes glance somewhere, hold ~1-2 s, then return (none while asleep)
+        if (mood.noBlink) { _lookYaw = 0f; _lookPitch = 0f; _headYaw = 0f; _headPitch = 0f; }
+        else
+        {
+            _nextLook -= dt;
+            if (_nextLook <= 0f)
+            {
+                if (_lookActive)
+                {
+                    _lookActive = false; _lookYaw = _lookPitch = _headYaw = _headPitch = 0f; _nextLook = Range(LookGapMin, LookGapMax);
+                }
+                else
+                {
+                    _lookActive = true; _nextLook = Range(LookHoldMin, LookHoldMax);
+                    float roll = Range(0f, 1f);
+                    if (roll < LookDownChance)          // glance down at the shoes
+                    { _lookYaw = Range(-8f, 8f); _lookPitch = -LookDegrees * 0.8f; _headYaw = _lookYaw * 0.5f; _headPitch = -HeadDownDegrees; }
+                    else if (roll < LookDownChance + LookUpChance)   // glance up at the sky
+                    { _lookYaw = Range(-8f, 8f); _lookPitch = LookDegrees * 0.8f; _headYaw = _lookYaw * 0.5f; _headPitch = HeadUpDegrees; }
+                    else                                // look around to one side
+                    { _lookYaw = Range(-LookDegrees, LookDegrees); _lookPitch = Range(-6f, 6f); _headYaw = _lookYaw * HeadFollow; _headPitch = _lookPitch * 0.5f; }
+                }
+            }
+        }
+        _lookYawSm = Mathf.SmoothDamp(_lookYawSm, _lookYaw, ref _lookYawVel, 0.08f, Mathf.Infinity, dt);
+        _lookPitchSm = Mathf.SmoothDamp(_lookPitchSm, _lookPitch, ref _lookPitchVel, 0.08f, Mathf.Infinity, dt);
+        // the head turns after the eyes (slower), so the glance leads and the head follows
+        _headYawSm = Mathf.SmoothDamp(_headYawSm, _headYaw, ref _headYawVel, 0.22f, Mathf.Infinity, dt);
+        _headPitchSm = Mathf.SmoothDamp(_headPitchSm, _headPitch, ref _headPitchVel, 0.22f, Mathf.Infinity, dt);
+        if (_headBone != null && (Mathf.Abs(_headYawSm) > 0.01f || Mathf.Abs(_headPitchSm) > 0.01f))
+        {
+            Vector3 hUp = transform.up, hRight = transform.right;
+            if (_neckBone != null)
+                _neckBone.rotation = Quaternion.AngleAxis(_headYawSm * 0.35f, hUp) * Quaternion.AngleAxis(-_headPitchSm * 0.35f, hRight) * _neckBone.rotation;
+            _headBone.rotation = Quaternion.AngleAxis(_headYawSm * 0.65f, hUp) * Quaternion.AngleAxis(-_headPitchSm * 0.65f, hRight) * _headBone.rotation;
+        }
+
         // darting: left, right, back to centre (each held DartHoldSeconds), then wait for the next one
         float dartTarget = 0f;
         if (_darting)
@@ -245,6 +295,21 @@ public class FaceExpressionController : MonoBehaviour
         }
         _dartYawSm = Mathf.SmoothDamp(_dartYawSm, dartTarget, ref _dartYawVel, 0.05f, Mathf.Infinity, dt);
 
+        // smile: now and then, only when neutral and not gagged (a gagged mouth can't smile)
+        bool canSmile = !_hasJawDriver && _mood == FaceMood.Neutral && !mood.noBlink;
+        if (!canSmile) { _smileTarget = 0f; _smileHoldLeft = 0f; }
+        else if (_smileTarget > 0f)
+        {
+            _smileHoldLeft -= dt;
+            if (_smileHoldLeft <= 0f) { _smileTarget = 0f; _nextSmile = Range(SmileGapMin, SmileGapMax); }
+        }
+        else
+        {
+            _nextSmile -= dt;
+            if (_nextSmile <= 0f) { _smileTarget = Range(0.7f, 1f); _smileHoldLeft = Range(SmileHoldMin, SmileHoldMax); }
+        }
+        _smile = Mathf.SmoothDamp(_smile, _smileTarget, ref _smileVel, 0.35f, Mathf.Infinity, dt);
+
         Vector3 up = transform.up, right = transform.right;
         for (int i = 0; i < 2; i++)
         {
@@ -260,14 +325,16 @@ public class FaceExpressionController : MonoBehaviour
 
             // lids: pose (+ startle widening) blended toward fully closed by the blink amount
             float upper = Mathf.Lerp(_cur[b + LidUpper] + spike * sur[b + LidUpper], ClosedUpperDeg, _blink);
-            float lower = Mathf.Lerp(_cur[b + LidLower] + spike * sur[b + LidLower], ClosedLowerDeg, _blink * 0.9f);
+            float lower = Mathf.Lerp(_cur[b + LidLower] + spike * sur[b + LidLower] + SmileSquintDeg * _smile, ClosedLowerDeg, _blink * 0.9f);
+            if (s.corner != null) DriveBrow(s.corner, up * (SmileCornerUp * _smile) - toNose * (SmileCornerOut * _smile), dt);
+            if (s.cheek != null) DriveBrow(s.cheek, up * (SmileCheekUp * _smile), dt);
             RotateLid(s.lidUp, upper, true);
             RotateLid(s.lidLow, lower, false);
 
             // gaze
             if (s.eye != null)
             {
-                float yaw = _cur[b + GazeYaw] + _sacYawSm + _dartYawSm, pitch = _cur[b + GazePitch] + _sacPitchSm;
+                float yaw = _cur[b + GazeYaw] + _sacYawSm + _dartYawSm + _lookYawSm, pitch = _cur[b + GazePitch] + _sacPitchSm + _lookPitchSm;
                 var rest = s.eye.t.parent != null ? s.eye.t.parent.rotation * s.eye.restRot : s.eye.restRot;
                 // yaw about avatar up; pitch about avatar right (positive pitch = look up, hence the minus)
                 s.eye.t.rotation = Quaternion.AngleAxis(yaw, up) * Quaternion.AngleAxis(-pitch, right) * rest;
