@@ -94,6 +94,7 @@ public class AODPreviewStage : MonoBehaviour
         // worked" there and not here originally.
         var camData = _camera.GetUniversalAdditionalCameraData();
         camData.renderPostProcessing = false;
+        _camera.enabled = false;   // enabled by Show*, disabled again by Clear
         FramePivotDefault();
     }
 
@@ -190,6 +191,7 @@ public class AODPreviewStage : MonoBehaviour
     {
         var stage = Instance;
         stage.ClearInternal();
+        stage._camera.enabled = true;   // only renders while something is on the stage (see Clear)
         if (lib == null || part == null) return;
 
         var prefab = lib.PrefabFor(part);
@@ -290,6 +292,7 @@ public class AODPreviewStage : MonoBehaviour
     {
         var stage = Instance;
         stage.ClearInternal();
+        stage._camera.enabled = true;
         if (instance == null) return;
 
         var pivotGO = new GameObject("RotatePivot");
@@ -346,6 +349,8 @@ public class AODPreviewStage : MonoBehaviour
     {
         if (_instance == null) return;
         _instance.ClearInternal();
+        // Nothing to draw: stop rendering the 1024x1024 preview target every frame while the AOD is closed.
+        if (_instance._camera != null) _instance._camera.enabled = false;
     }
 
     private void ClearInternal()
