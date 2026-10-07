@@ -435,9 +435,250 @@ public static class ModularAvatarAssembler
         ApplyOrientationFixes(root, chosen, rebound);
         ApplyBodyPartMasking(root, chosen);
         TrimHairUnderHats(root);
+        TrimBodyUnderVest(root);
         ApplyMoodExpression(root, gender, EmployeeMood.Neutral);
 
         return root;
+    }
+
+    // ── Body under the vest (Tad, 2026-10-06) ───────────────────────────────────────────────────────────────────────────
+    // A vest lies right on the torso, so the skin / coverall underneath used to z-fight and poke through it. Same idea as the hair under
+    // hats: instead of weight-painting every outfit to every vest, the torso triangles that sit UNDER the vest are simply not drawn.
+    // A torso triangle counts as covered when ALL THREE of its corners are within VestCoverDistance of the vest; then VestTrimRings extra rings
+    // of triangles touching the covered ones are dropped too (so no sliver of skin survives at the vest's border). Open areas (the
+    // sides between the front and back panels, the V neck, the arms) are further away and stay visible. Cached per (torso, vest) pair.
+    public static float VestCoverDistance = 0.025f;
+    public static float VestTouchDistance = 0.007f;    // a body triangle this close to the vest surface is hidden even if nothing is 'in front' of it
+    public static float VestKeepHemFraction = 0.22f;    // keep zone: the bottom band of the vest (0 = hem)
+    public static float VestKeepHemHalfWidth = 0.12f;   // the hem keep-zone only covers the middle section; the hips (further out) follow the normal rules
+    public static float VestKeepHemReach = 0.04f;       // a hem-band triangle may reach this far (vest-height fraction) above the band and still be kept
+    public static float VestKeepSideFrom = 0.10f;       // armpit keep zone: further than this from the centre line...
+    public static float VestKeepSideLow = 0.40f;        // ...and between these heights (fractions of the vest height)
+    public static float VestKeepSideHigh = 0.90f;
+    public static float VestKeepVFrom = 0.80f;          // keep zone: the block at the bottom of the V neck
+    public static float VestKeepVTo = 1.5f;             // ...up through the neck base (the vest's top edge is 1.0)
+    public static float VestKeepVHalfWidth = 0.115f;    // neck + collar + V (was 0.065 - the neck-side polygons were being hidden)
+    public static float VestAlwaysHideMinDepth = 0.05f;  // metres in front of / behind the vest's centre for the always-hidden box to apply (excludes the side openings)
+    public static float VestAlwaysHideFrom = 0.19f;     // always-hidden box, as fractions of the vest height (0 = hem, 1 = top)...
+    public static float VestAlwaysHideTo = 0.865f;
+    public static float VestAlwaysHideHalfWidth = 0.145f; // ...and metres either side of the vest's centre line
+    public static float VestBehindRay = 0.035f;        // vest this close BEHIND a body triangle also hides it (thick coveralls stand proud of the vest). Keep short: the V neck / nape openings must not reach the far panel.
+    public static float VestRayLength = 0.08f;         // how far in front of a body triangle the vest may be for it to count as covered
+    public static float VestShoulderBand = 0.08f;      // top slice of the vest treated as the shoulder zone (metres)
+    public static float VestShoulderOuter = 0.12f;     // ...beyond this distance from the vest's centre line   // metres from a vest surface at which body triangles are hidden
+    public static int VestTrimRings = 0;             // extra polygons hidden past the vest border. 0 = only what the vest covers. 1 was tried (2026-10-06): the torso polys are big, so a whole ring removed the hips and shoulders and left holes.
+    private static readonly Dictionary<(Mesh torso, Mesh vest, int rings, int coverMm), Mesh> TrimmedTorsoCache = new();
+
+    private static void TrimBodyUnderVest(GameObject root)
+    {
+        var all = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        SkinnedMeshRenderer vest = null;
+        foreach (var r in all)
+            if (r != null && r.sharedMesh != null && r.gameObject.activeSelf && r.name.Contains("_Vest_")) { vest = r; break; }
+        if (vest == null) return;
+
+        foreach (var r in all)
+        {
+            if (r == null || r.sharedMesh == null || r == vest || !r.name.Contains("_Torso_")) continue;
+            var src = r.sharedMesh;
+            var key = (src, vest.sharedMesh, VestTrimRings, Mathf.RoundToInt(VestCoverDistance * 1000f));
+            if (!TrimmedTorsoCache.TryGetValue(key, out var trimmed) || trimmed == null)
+            {
+                trimmed = BuildTrimmedUnderShell(src, vest.sharedMesh, VestCoverDistance, VestTrimRings, src.name.Contains("Gray") ? VestHideMask.DataGray : src.name.Contains("Brown") ? VestHideMask.DataBrown : VestHideMask.Data);
+                TrimmedTorsoCache[key] = trimmed;
+            }
+            r.sharedMesh = trimmed;
+        }
+    }
+
+    /// <summary>Copy of <paramref name="src"/> with every triangle lying within <paramref name="cover"/> metres of the
+    /// <paramref name="shell"/> mesh removed, plus <paramref name="rings"/> extra rings of triangles touching removed ones.
+    /// Both meshes must share one local space (parts exported from the same rig do).</summary>
+    private static Mesh BuildTrimmedUnderShell(Mesh src, Mesh shell, float cover, int rings, float[] maskData)
+    {
+        var sv = shell.vertices; var st = shell.triangles;
+        var verts = src.vertices;
+        static long Weld(Vector3 p) => ((long)Mathf.RoundToInt(p.x * 10000f) * 73856093L) ^ ((long)Mathf.RoundToInt(p.y * 10000f) * 19349663L) ^ ((long)Mathf.RoundToInt(p.z * 10000f) * 83492791L);
+
+        // Axes of the shell's own bounds: up = its longest extent, lateral (left-right) = the second longest. Used for the shoulder zone.
+        var sb = shell.bounds;
+        int up = 0, lat = 1;
+        for (int ax = 1; ax < 3; ax++) if (sb.size[ax] > sb.size[up]) up = ax;
+        for (int ax = 0; ax < 3; ax++) if (ax != up && (lat == up || sb.size[ax] > sb.size[lat])) lat = ax;
+        float shoulderY = sb.max[up] - VestShoulderBand, shoulderLat = VestShoulderOuter;
+        // Depth (front-back) axis = the remaining one. FRONT is the side the V neck dips on: the lowest top-edge vertex near the centre line.
+        int depth = 3 - up - lat;
+        const float MaskFrontSign = -1f;   // Avatar 2.0 rig: the character faces -Y in mesh space (same convention VestHideMask was recorded in)
+        float frontSign = 1f, apexUp = float.MaxValue;
+        for (int vi = 0; vi < sv.Length; vi++)
+        {
+            if (Mathf.Abs(sv[vi][lat] - sb.center[lat]) > 0.04f || sv[vi][up] < sb.min[up] + 0.6f * sb.size[up]) continue;
+            if (sv[vi][up] < apexUp) { apexUp = sv[vi][up]; frontSign = sv[vi][depth] >= sb.center[depth] ? 1f : -1f; }
+        }
+        float DistToShell(Vector3 c, float stopBelow)
+        {
+            float nearest = float.MaxValue;
+            for (int t = 0; t + 2 < st.Length && nearest > stopBelow; t += 3)
+                nearest = Mathf.Min(nearest, (c - ClosestPointOnTriangle(c, sv[st[t]], sv[st[t + 1]], sv[st[t + 2]])).magnitude);
+            return nearest;
+        }
+
+        var subTris = new int[src.subMeshCount][];
+        var hiddenKeys = new HashSet<long>();
+        var hiddenTri = new HashSet<(int sub, int tri)>();
+        for (int s = 0; s < src.subMeshCount; s++)
+        {
+            subTris[s] = src.GetTriangles(s);
+            var tris = subTris[s];
+            for (int i = 0; i + 2 < tris.Length; i += 3)
+            {
+                var c = (verts[tris[i]] + verts[tris[i + 1]] + verts[tris[i + 2]]) / 3f;
+                float hFrac = sb.size[up] > 1e-5f ? (c[up] - sb.min[up]) / sb.size[up] : 0.5f;   // 0 = hem, 1 = top of the vest
+                // Always-hidden box (Tad, 2026-10-06): the central block of the vest - from just below the V neck down to just above the
+                // hem, VestAlwaysHideHalfWidth either side of the centre line - is fully covered by the vest, so every body triangle whose
+                // centre lies inside it is hidden outright. Outside the box the finer rules below apply.
+                float depthOff = (c[depth] - sb.center[depth]) * frontSign;      // > 0 = front half, < 0 = back half
+                if (VestUseHideMask)
+                {
+                    depthOff = (c[depth] - sb.center[depth]) * MaskFrontSign;
+                    // Tad's hand-picked mask: hide ONLY where the nearest recorded triangle was selected; everything else shows.
+                    if (MaskSaysHide(maskData, c[up] - sb.min[up], Mathf.Abs(c[lat] - sb.center[lat]), depthOff))
+                    {
+                        hiddenTri.Add((s, i));
+                        hiddenKeys.Add(Weld(verts[tris[i]])); hiddenKeys.Add(Weld(verts[tris[i + 1]])); hiddenKeys.Add(Weld(verts[tris[i + 2]]));
+                    }
+                    continue;
+                }
+                bool inBox = hFrac >= VestAlwaysHideFrom && hFrac <= VestAlwaysHideTo &&
+                             Mathf.Abs(c[lat] - sb.center[lat]) <= VestAlwaysHideHalfWidth &&
+                             Mathf.Abs(depthOff) >= VestAlwaysHideMinDepth;           // front and back panels only - the side opening (armpit) is not in the box
+                // Keep zones (Tad, 2026-10-06, after adding topology to the vest): nothing is hidden in the hem band or in the small block at
+                // the bottom of the V neck. These win over every hide rule below.
+                float latOff = Mathf.Abs(c[lat] - sb.center[lat]);
+                // The hem band only keeps triangles that stay down in it. A long spike whose centre is in the band but whose tip stands up
+                // through the vest (the top of a coverall's pants section) is NOT kept - it falls through to the normal rules and is hidden.
+                float maxH = Mathf.Max(verts[tris[i]][up], Mathf.Max(verts[tris[i + 1]][up], verts[tris[i + 2]][up]));
+                float maxHFrac = sb.size[up] > 1e-5f ? (maxH - sb.min[up]) / sb.size[up] : hFrac;
+                if (hFrac < 0f) continue;                       // below the vest's hem: nothing to cover it, never hide
+                // Armpit / side opening (Tad, 2026-10-06): the sides of the torso behind and under the arm, between the vest's front and back
+                // panels, are open. Never hide polygons out there, front or back, so the shirt shows behind the armpit and on the back of the arm.
+                if (latOff >= VestKeepSideFrom && hFrac >= VestKeepSideLow && hFrac <= VestKeepSideHigh) continue;
+                bool keepHem = hFrac <= VestKeepHemFraction && maxHFrac <= VestKeepHemFraction + VestKeepHemReach && (depthOff > 0f || latOff > VestKeepHemHalfWidth);   // back of the hem band (the seat) is under the vest and is hidden; the front stays   // not out at the hips: those wedges poke up through the vest sides
+                if (keepHem || (hFrac >= VestKeepVFrom && hFrac <= VestKeepVTo && latOff <= VestKeepVHalfWidth)) continue;
+                float cd = inBox ? 0f : DistToShell(c, cover);
+                if (cd > cover) continue;                     // centre is nowhere near the vest
+
+                // Shoulder zone (top of the vest, outboard of the neck): be aggressive - any triangle whose centre is under the vest goes,
+                // otherwise the sleeve's edge pokes up through the shoulder seam.
+                bool shoulder = c[up] >= shoulderY && Mathf.Abs(c[lat] - sb.center[lat]) >= shoulderLat;
+                bool hide = shoulder || inBox;
+                if (!hide)
+                {
+                    // Everywhere else: hide only when there is vest IN FRONT of the triangle - a ray from its centre, pointing away from
+                    // the body's centre line (horizontally) or straight up, hits the vest. A triangle sitting in the V neck or the nape
+                    // opening has nothing in front of it, so it stays and fills the opening.
+                    var axisPt = sb.center; axisPt[up] = c[up];
+                    var radial = c - axisPt; radial[up] = 0f;
+                    var upDir = Vector3.zero; upDir[up] = 1f;
+                    bool hasRadial = radial.sqrMagnitude > 1e-8f;
+                    hide = (hasRadial && RayHitsShell(c, radial.normalized, VestRayLength, sv, st))
+                           || (hasRadial && RayHitsShell(c, -radial.normalized, VestBehindRay, sv, st))   // vest just BEHIND the triangle = a thick garment sticking out in front of it
+                           || RayHitsShell(c, upDir, VestRayLength, sv, st)
+                           || cd <= VestTouchDistance;   // lying right on the vest surface (poking through it): always hide
+                }
+                if (hide)
+                {
+                    hiddenTri.Add((s, i));
+                    hiddenKeys.Add(Weld(verts[tris[i]])); hiddenKeys.Add(Weld(verts[tris[i + 1]])); hiddenKeys.Add(Weld(verts[tris[i + 2]]));
+                }
+            }
+        }
+        // Grow the hidden set by whole rings (vertices welded by position: hard-edged meshes duplicate vertices per face).
+        for (int ring = 0; ring < rings; ring++)
+        {
+            var grown = new HashSet<long>(hiddenKeys);
+            for (int s = 0; s < src.subMeshCount; s++)
+            {
+                var tris = subTris[s];
+                for (int i = 0; i + 2 < tris.Length; i += 3)
+                {
+                    if (hiddenTri.Contains((s, i))) continue;
+                    if (hiddenKeys.Contains(Weld(verts[tris[i]])) || hiddenKeys.Contains(Weld(verts[tris[i + 1]])) || hiddenKeys.Contains(Weld(verts[tris[i + 2]])))
+                    {
+                        hiddenTri.Add((s, i));
+                        grown.Add(Weld(verts[tris[i]])); grown.Add(Weld(verts[tris[i + 1]])); grown.Add(Weld(verts[tris[i + 2]]));
+                    }
+                }
+            }
+            hiddenKeys = grown;
+        }
+
+        var result = UnityEngine.Object.Instantiate(src);
+        result.name = src.name + "_vestTrim";
+        result.hideFlags = HideFlags.HideAndDontSave;
+        for (int s = 0; s < src.subMeshCount; s++)
+        {
+            var tris = subTris[s];
+            var keep = new List<int>(tris.Length);
+            for (int i = 0; i + 2 < tris.Length; i += 3)
+                if (!hiddenTri.Contains((s, i))) { keep.Add(tris[i]); keep.Add(tris[i + 1]); keep.Add(tris[i + 2]); }
+            result.SetTriangles(keep, s);
+        }
+        return result;
+    }
+
+
+
+    public static bool VestUseHideMask = true;          // true = use VestHideMask (Tad's polygon selection); false = the older distance/ray rules
+    public static float VestMaskMaxDistance = 0.04f;    // a triangle further than this from every recorded one is shown
+
+    private static bool MaskSaysHide(float[] d, float upOff, float latAbs, float depthOff)
+    { float best = float.MaxValue; bool hide = false;
+        for (int k = 0; k + 3 < d.Length; k += VestHideMask.Stride)
+        {
+            float du = d[k + 1] - upOff, dl = d[k + 2] - latAbs, dd = d[k + 3] - depthOff;
+            float sq = du * du + dl * dl + dd * dd;
+            if (sq < best) { best = sq; hide = d[k] > 0.5f; }
+        }
+        return hide && best <= VestMaskMaxDistance * VestMaskMaxDistance;
+    }
+
+    private static bool RayHitsShell(Vector3 o, Vector3 d, float maxT, Vector3[] sv, int[] st)
+    {
+        for (int t = 0; t + 2 < st.Length; t += 3)
+        {
+            Vector3 a = sv[st[t]], e1 = sv[st[t + 1]] - a, e2 = sv[st[t + 2]] - a;
+            Vector3 pv = Vector3.Cross(d, e2);
+            float det = Vector3.Dot(e1, pv);
+            if (Mathf.Abs(det) < 1e-9f) continue;                  // parallel (both faces count: normals are not trusted)
+            float inv = 1f / det; Vector3 tv = o - a;
+            float u = Vector3.Dot(tv, pv) * inv; if (u < 0f || u > 1f) continue;
+            Vector3 qv = Vector3.Cross(tv, e1);
+            float v = Vector3.Dot(d, qv) * inv; if (v < 0f || u + v > 1f) continue;
+            float tt = Vector3.Dot(e2, qv) * inv;
+            if (tt > 0.0005f && tt <= maxT) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Closest point to <paramref name="p"/> on triangle (a,b,c) (Ericson, Real-Time Collision Detection).</summary>
+    private static Vector3 ClosestPointOnTriangle(Vector3 p, Vector3 a, Vector3 b, Vector3 c)
+    {
+        Vector3 ab = b - a, ac = c - a, ap = p - a;
+        float d1 = Vector3.Dot(ab, ap), d2 = Vector3.Dot(ac, ap);
+        if (d1 <= 0f && d2 <= 0f) return a;
+        Vector3 bp = p - b; float d3 = Vector3.Dot(ab, bp), d4 = Vector3.Dot(ac, bp);
+        if (d3 >= 0f && d4 <= d3) return b;
+        float vc = d1 * d4 - d3 * d2;
+        if (vc <= 0f && d1 >= 0f && d3 <= 0f) return a + ab * (d1 / (d1 - d3));
+        Vector3 cp = p - c; float d5 = Vector3.Dot(ab, cp), d6 = Vector3.Dot(ac, cp);
+        if (d6 >= 0f && d5 <= d6) return c;
+        float vb = d5 * d2 - d1 * d6;
+        if (vb <= 0f && d2 >= 0f && d6 <= 0f) return a + ac * (d2 / (d2 - d6));
+        float va = d3 * d6 - d5 * d4;
+        if (va <= 0f && (d4 - d3) >= 0f && (d5 - d6) >= 0f) return b + (c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6)));
+        float denom = 1f / (va + vb + vc);
+        return a + ab * (vb * denom) + ac * (vc * denom);
     }
 
     // ── Hair under hats (Tad, 2026-10-05) ───────────────────────────────────────────────────────────────────────────────
