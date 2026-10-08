@@ -101,7 +101,7 @@ public static class ModularAvatarAssembler
     /// independent keys because hardhat and headphones are two independent rolls that can both be
     /// worn at once — see the Build loop's own "hat" handling.</summary>
     public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.cap", "hat.headphones", "facialhair", "neck",
-                                                                       "glasses", "waist", "face", "torso", "hands", "legs", "feet" };
+                                                                       "glasses", "waist", "face", "torso", "vest", "hands", "legs", "feet" };
 
     public static (string slot, System.Func<IAvatarPart, bool> matches) OverrideCategoryInfo(string key) => key switch
     {
@@ -538,11 +538,66 @@ public static class ModularAvatarAssembler
                 // hem, VestAlwaysHideHalfWidth either side of the centre line - is fully covered by the vest, so every body triangle whose
                 // centre lies inside it is hidden outright. Outside the box the finer rules below apply.
                 float depthOff = (c[depth] - sb.center[depth]) * frontSign;      // > 0 = front half, < 0 = back half
+                if (VestUseExactMask)
+                {
+                    // Exact mode (Tad, 2026-10-07): the selected faces are hidden whenever a vest is worn, nothing else is touched.
+                    depthOff = (c[depth] - sb.center[depth]) * MaskFrontSign;
+                    if (MaskSaysHideExact(VestHideMask.DataExact, c[up] - sb.min[up], Mathf.Abs(c[lat] - sb.center[lat]), depthOff))
+                    {
+                        hiddenTri.Add((s, i));
+                        hiddenKeys.Add(Weld(verts[tris[i]])); hiddenKeys.Add(Weld(verts[tris[i + 1]])); hiddenKeys.Add(Weld(verts[tris[i + 2]]));
+                    }
+                    continue;
+                }
                 if (VestUseHideMask)
                 {
-                    depthOff = (c[depth] - sb.center[depth]) * MaskFrontSign;
+                    depthOff = (c[depth] - sb.center[depth]) * MaskFrontSign;   // mask convention: front = positive
+                    bool forceHide = false;
+                    // Polygons Tad selected as "must hide" (Female_Torso_CoverallsBlue, 4 faces at the ribs): hidden outright, ahead of every other rule.
+                    for (int hk = 0; hk < VestAlwaysHide.Length; hk += 3)
+                    {
+                        float hu = (c[up] - sb.min[up]) - VestAlwaysHide[hk], hl = Mathf.Abs(c[lat] - sb.center[lat]) - VestAlwaysHide[hk + 1], hd = depthOff - VestAlwaysHide[hk + 2];
+                        if (hu * hu + hl * hl + hd * hd <= VestAlwaysHideRadius * VestAlwaysHideRadius)
+                        {
+                            forceHide = true; break;
+                        }
+                    }
+                    if (forceHide)
+                    {
+                        hiddenTri.Add((s, i));
+                        hiddenKeys.Add(Weld(verts[tris[i]])); hiddenKeys.Add(Weld(verts[tris[i + 1]])); hiddenKeys.Add(Weld(verts[tris[i + 2]]));
+                        continue;
+                    }
+                    // Front ribs (Tad, 2026-10-07): any polygon on the front panel at rib height with the vest directly in front of it is hidden,
+                    // whether or not it was in the hand-picked mask - the coverall was poking through the vest there.
+                    {
+                        float rUp = c[up] - sb.min[up];
+                        if (depthOff >= VestRibMinDepth && rUp >= VestRibFrom && rUp <= VestRibTo && !(rUp >= 0.30f && Mathf.Abs(c[lat] - sb.center[lat]) <= 0.12f))   // never the sternum / V neck
+                        {
+                            var axisPt = sb.center; axisPt[up] = c[up];
+                            var radial = c - axisPt; radial[up] = 0f;
+                            if (radial.sqrMagnitude > 1e-8f && RayHitsShell(c, radial.normalized, VestRayLength, sv, st))
+                            {
+                                hiddenTri.Add((s, i));
+                                hiddenKeys.Add(Weld(verts[tris[i]])); hiddenKeys.Add(Weld(verts[tris[i + 1]])); hiddenKeys.Add(Weld(verts[tris[i + 2]]));
+                                continue;
+                            }
+                        }
+                    }
+                    // Hip sides (Tad, 2026-10-07): never hidden. The vest's sides are open there, so a hidden polygon leaves a hole in the body.
+                    if (Mathf.Abs(c[lat] - sb.center[lat]) >= VestShowHipLat && (c[up] - sb.min[up]) <= VestShowHipHeight) continue;
+                    // Polygons Tad selected in Blender (Female_Torso_CoverallsBlue faces 15 and 151): always shown. {up, lat, depth} relative to the vest.
+                    bool pinned = false;
+                    for (int pk = 0; pk < VestAlwaysShow.Length && !pinned; pk += 3)
+                    {
+                        float pu = (c[up] - sb.min[up]) - VestAlwaysShow[pk], pl = Mathf.Abs(c[lat] - sb.center[lat]) - VestAlwaysShow[pk + 1], pd = depthOff - VestAlwaysShow[pk + 2];
+                        pinned = pu * pu + pl * pl + pd * pd <= VestAlwaysShowRadius * VestAlwaysShowRadius;
+                    }
+                    if (pinned) continue;
                     // Tad's hand-picked mask: hide ONLY where the nearest recorded triangle was selected; everything else shows.
-                    if (MaskSaysHide(maskData, c[up] - sb.min[up], Mathf.Abs(c[lat] - sb.center[lat]), depthOff))
+                    // Only hide where the vest really is: a masked triangle with no vest within VestMaskCoverDistance (the open hip sides,
+                    // where the vest hem is shorter or the side is open) stays visible instead of leaving a hole in the body.
+                    if (MaskSaysHide(maskData, c[up] - sb.min[up], Mathf.Abs(c[lat] - sb.center[lat]), depthOff) && DistToShell(c, VestMaskCoverDistance) <= VestMaskCoverDistance)
                     {
                         hiddenTri.Add((s, i));
                         hiddenKeys.Add(Weld(verts[tris[i]])); hiddenKeys.Add(Weld(verts[tris[i + 1]])); hiddenKeys.Add(Weld(verts[tris[i + 2]]));
@@ -629,8 +684,32 @@ public static class ModularAvatarAssembler
 
 
 
+    public static readonly float[] VestAlwaysHide = { 0.438f, 0.031f, 0.078f,  0.310f, 0.029f, 0.060f,  0.438f, 0.222f, 0.078f,  0.310f, 0.219f, 0.060f };
+    public static float VestAlwaysHideRadius = 0.06f;
+    public static readonly float[] VestAlwaysShow = { 0.174f, 0.030f, 0.030f,  0.174f, 0.221f, 0.030f };
+    public static float VestAlwaysShowRadius = 0.04f;
+    public static float VestRibMinDepth = 0.03f;        // front-rib rule: at least this far in front of the vest centre (excludes the side openings)
+    public static float VestRibFrom = 0.22f;            // ...between these heights above the vest's bottom edge (metres)
+    public static float VestRibTo = 0.40f;
+    public static float VestShowHipLat = 0.10f;          // hip-side keep zone: further than this from the centre line...
+    public static float VestShowHipHeight = 0.30f;       // ...and lower than this above the vest's bottom edge (metres)
+    public static float VestMaskCoverDistance = 0.025f;  // a masked body triangle is only hidden if the vest is within this distance (metres)
     public static bool VestUseHideMask = true;          // true = use VestHideMask (Tad's polygon selection); false = the older distance/ray rules
     public static float VestMaskMaxDistance = 0.04f;    // a triangle further than this from every recorded one is shown
+
+
+    public static bool VestUseExactMask = true;          // true = hide exactly the faces in VestHideMask.DataExact (Tad's selection); false = older rules
+    private static bool MaskSaysHideExact(float[] d, float upOff, float latAbs, float depthOff)
+    {
+        float best = float.MaxValue; bool hide = false;
+        for (int k = 0; k + 3 < d.Length; k += 4)
+        {
+            float du = d[k + 1] - upOff, dl = d[k + 2] - latAbs, dd = d[k + 3] - depthOff;
+            float sq = du * du + dl * dl + dd * dd;
+            if (sq < best) { best = sq; hide = d[k] > 0.5f; }
+        }
+        return hide;
+    }
 
     private static bool MaskSaysHide(float[] d, float upOff, float latAbs, float depthOff)
     { float best = float.MaxValue; bool hide = false;
@@ -686,62 +765,69 @@ public static class ModularAvatarAssembler
     // hair mesh for every hat, we cut the hair at the hat's rim: every triangle whose centre lies above the rim is dropped, and everything
     // hanging below it (bangs, sides, back) stays visible. Trimmed meshes are cached per (hair mesh, rim height) so each combination is
     // built once. Mesh space keeps the Blender axes (Z is up), so the up axis is detected from the hat's own bounds.
+    public static float HatTrimRingReach = 0.02f;   // metres: an extra-ring hair triangle may rise at most this far above the cut
     private const float HatTrimMargin = 0.004f;   // metres above the rim before hair is cut (keeps the hairline tucked in just under the brim)
-    private static readonly Dictionary<(Mesh mesh, int rimMm), Mesh> TrimmedHairCache = new();
+    private static readonly Dictionary<(Mesh mesh, int kind), Mesh> TrimmedHairCache = new();
+
+
+    // Bounding boxes (minX,minY,minZ,maxX,maxY,maxZ in mesh space) of the faces Tad selected in Blender: 14 crown faces on the Bobs, 4 faces
+    // above the bangs on the Mem hairs. The colours of one style share a shape but not exact vertex positions, so a triangle is hidden under
+    // a hat when its centre lies inside one of these boxes (grown by HairFaceBoxPad). Nothing else about the hair is touched.
+    private static readonly float[] BobCrownBoxes = { -0.0495f, -0.1113f, 1.7521f, 0.0000f, -0.0599f, 1.8015f, -0.0877f, -0.0599f, 1.7481f, -0.0495f, 0.0230f, 1.7941f, -0.0509f, -0.0647f, 1.7804f, 0.0000f, 0.0269f, 1.8040f, -0.0877f, 0.0217f, 1.7340f, -0.0421f, 0.0817f, 1.7941f, -0.0509f, 0.0230f, 1.7531f, 0.0000f, 0.0846f, 1.8040f, -0.0643f, 0.0668f, 1.7137f, 0.0000f, 0.1029f, 1.7531f, -0.0421f, 0.0817f, 1.7137f, 0.0000f, 0.1029f, 1.7607f, 0.0000f, -0.1113f, 1.7521f, 0.0495f, -0.0599f, 1.8015f, 0.0495f, -0.0599f, 1.7481f, 0.0877f, 0.0230f, 1.7941f, 0.0000f, -0.0647f, 1.7804f, 0.0509f, 0.0269f, 1.8040f, 0.0421f, 0.0217f, 1.7340f, 0.0877f, 0.0817f, 1.7941f, 0.0000f, 0.0230f, 1.7531f, 0.0509f, 0.0846f, 1.8040f, 0.0000f, 0.0668f, 1.7137f, 0.0643f, 0.1029f, 1.7531f, 0.0000f, 0.0817f, 1.7137f, 0.0421f, 0.1029f, 1.7607f };
+    private static readonly float[] MemTopBoxes = { 0.0829f, -0.1010f, 1.6796f, 0.1046f, -0.0660f, 1.7133f, 0.0000f, -0.1418f, 1.7356f, 0.0449f, -0.1298f, 1.7525f, 0.0425f, -0.1306f, 1.7159f, 0.0807f, -0.0975f, 1.7521f, 0.0000f, -0.1459f, 1.7191f, 0.0420f, -0.1326f, 1.7361f, 0.1016f, -0.0677f, 1.6788f, 0.1082f, 0.0163f, 1.6992f, 0.0986f, -0.0660f, 1.6911f, 0.1051f, 0.0190f, 1.7187f, 0.0793f, -0.0993f, 1.6992f, 0.1016f, -0.0643f, 1.7311f, 0.0400f, -0.1313f, 1.7006f, 0.0820f, -0.1035f, 1.7362f, -0.1046f, -0.1010f, 1.6796f, -0.0829f, -0.0660f, 1.7133f, -0.0449f, -0.1418f, 1.7356f, 0.0000f, -0.1298f, 1.7525f, -0.0807f, -0.1306f, 1.7159f, -0.0425f, -0.0975f, 1.7521f, -0.0420f, -0.1459f, 1.7191f, 0.0000f, -0.1326f, 1.7361f, -0.1082f, -0.0677f, 1.6788f, -0.1016f, 0.0163f, 1.6992f, -0.1051f, -0.0660f, 1.6911f, -0.0986f, 0.0190f, 1.7187f, -0.1016f, -0.0993f, 1.6992f, -0.0793f, -0.0643f, 1.7311f, -0.0820f, -0.1313f, 1.7006f, -0.0400f, -0.1035f, 1.7362f };   // 16 crown faces (Tad, 2026-10-07; two faces per side left visible)
+    public static float HairFaceBoxPad = 0.0f;
+    private static readonly float[] BobCrownCentres = { -0.024f, -0.085f, 1.772f, -0.067f, -0.014f, 1.769f, -0.025f, -0.019f, 1.795f, -0.061f, 0.048f, 1.759f, -0.023f, 0.054f, 1.778f, -0.035f, 0.084f, 1.734f, -0.014f, 0.090f, 1.742f, 0.024f, -0.085f, 1.772f, 0.067f, -0.014f, 1.769f, 0.025f, -0.019f, 1.795f, 0.061f, 0.048f, 1.759f, 0.023f, 0.054f, 1.778f, 0.035f, 0.084f, 1.734f, 0.014f, 0.090f, 1.742f };
+    private static readonly float[] MemTopCentres = { 0.023f, -0.098f, 1.759f, 0.062f, -0.085f, 1.744f, -0.024f, -0.098f, 1.759f, -0.062f, -0.085f, 1.744f };
+    public static float HairFaceMaxDistance = 0.02f;   // a triangle must ALSO be this close to the selected face's centre (keeps neighbours visible)
+    private static bool InAnyBox(Vector3 c, float[] boxes)
+    {
+        float p = HairFaceBoxPad, m2 = HairFaceMaxDistance * HairFaceMaxDistance;
+        bool bob = ReferenceEquals(boxes, BobCrownBoxes);   // the Bob faces are small and need the centre-proximity test; the Mem crown faces are large boxes
+        var centres = BobCrownCentres;
+        for (int i = 0, k = 0; i + 5 < boxes.Length; i += 6, k += 3)
+        {
+            if (c.x < boxes[i] - p || c.y < boxes[i + 1] - p || c.z < boxes[i + 2] - p ||
+                c.x > boxes[i + 3] + p || c.y > boxes[i + 4] + p || c.z > boxes[i + 5] + p) continue;
+            if (!bob) return true;
+            float dx = c.x - centres[k], dy = c.y - centres[k + 1], dz = c.z - centres[k + 2];
+            if (dx * dx + dy * dy + dz * dz <= m2) return true;
+        }
+        return false;
+    }
 
     private static void TrimHairUnderHats(GameObject root)
     {
+        // Tad, 2026-10-07: NO general trimming any more. Under a hard hat or cap, ONLY the faces he hand-picked in Blender are hidden:
+        // 14 crown faces on the Bobs, 4 faces above the bangs on the Mem hairs. Every other hair stays exactly as modelled.
         var all = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-        var hats = new List<SkinnedMeshRenderer>();
+        bool hatWorn = false;
         foreach (var r in all)
-            if (r != null && r.sharedMesh != null && r.gameObject.activeSelf && (r.name.Contains("Hardhat") || r.name.Contains("_Cap")))
-                hats.Add(r);
-        if (hats.Count == 0) return;
-
-        var hb = hats[0].sharedMesh.bounds;
-        int up = Mathf.Abs(hb.center.y) >= Mathf.Abs(hb.center.z) ? 1 : 2;
-        float rim = float.MaxValue;
-        foreach (var h in hats) rim = Mathf.Min(rim, h.sharedMesh.bounds.min[up]);
-        if (rim == float.MaxValue) return;
-        float cut = rim + HatTrimMargin;
+            if (r != null && r.sharedMesh != null && r.gameObject.activeSelf && r.name.Contains("_Cap")) { hatWorn = true; break; }   // caps ONLY - hard hats never hide hair faces (Tad, 2026-10-07)
+        if (!hatWorn) return;
 
         foreach (var r in all)
         {
             if (r == null || r.sharedMesh == null || !r.name.Contains("_Hair_")) continue;
+            // Bobs AND Harley (a Bob variant) hide the 14 crown faces under a cap. Mem hair hides nothing any more (Tad, 2026-10-07).
+            bool isBob = r.name.Contains("_Hair_Bob") || r.name.Contains("_Hair_Harley");
+            if (!isBob) continue;
             var src = r.sharedMesh;
-            var key = (src, Mathf.RoundToInt(rim * 1000f));
+            var key = (src, 1);
             if (!TrimmedHairCache.TryGetValue(key, out var trimmed) || trimmed == null)
             {
                 var verts = src.vertices;
                 trimmed = UnityEngine.Object.Instantiate(src);
                 trimmed.name = src.name + "_hatTrim";
                 trimmed.hideFlags = HideFlags.HideAndDontSave;
-
-                // Vertices are welded by POSITION (hard-edged meshes duplicate vertices per face, so index adjacency would find nothing).
-                static long Weld(Vector3 p) => ((long)Mathf.RoundToInt(p.x * 10000f) * 73856093L) ^ ((long)Mathf.RoundToInt(p.y * 10000f) * 19349663L) ^ ((long)Mathf.RoundToInt(p.z * 10000f) * 83492791L);
-                var keptKeys = new HashSet<long>();
-                var subTris = new int[src.subMeshCount][];
                 for (int s = 0; s < src.subMeshCount; s++)
                 {
-                    subTris[s] = src.GetTriangles(s);
-                    var tris = subTris[s];
-                    for (int i = 0; i + 2 < tris.Length; i += 3)
-                    {
-                        float c = (verts[tris[i]][up] + verts[tris[i + 1]][up] + verts[tris[i + 2]][up]) / 3f;
-                        if (c <= cut) { keptKeys.Add(Weld(verts[tris[i]])); keptKeys.Add(Weld(verts[tris[i + 1]])); keptKeys.Add(Weld(verts[tris[i + 2]])); }
-                    }
-                }
-                for (int s = 0; s < src.subMeshCount; s++)
-                {
-                    var tris = subTris[s];
+                    var tris = src.GetTriangles(s);
                     var keep = new List<int>(tris.Length);
                     for (int i = 0; i + 2 < tris.Length; i += 3)
                     {
-                        float c = (verts[tris[i]][up] + verts[tris[i + 1]][up] + verts[tris[i + 2]][up]) / 3f;
-                        // below the cut: always kept. Above it: kept only if it TOUCHES a kept triangle = exactly one extra ring of polys,
-                        // so the low-poly hair reaches up under the hat instead of ending in a gap.
-                        bool touchesKept = keptKeys.Contains(Weld(verts[tris[i]])) || keptKeys.Contains(Weld(verts[tris[i + 1]])) || keptKeys.Contains(Weld(verts[tris[i + 2]]));
-                        if (c <= cut || touchesKept) { keep.Add(tris[i]); keep.Add(tris[i + 1]); keep.Add(tris[i + 2]); }
+                        var c3 = (verts[tris[i]] + verts[tris[i + 1]] + verts[tris[i + 2]]) / 3f;
+                        if (InAnyBox(c3, BobCrownBoxes)) continue;
+                        keep.Add(tris[i]); keep.Add(tris[i + 1]); keep.Add(tris[i + 2]);
                     }
                     trimmed.SetTriangles(keep, s);
                 }
@@ -791,6 +877,18 @@ public static class ModularAvatarAssembler
     // pose. newBindpose = bodyBone^-1 * correction * partBone * oldBindpose  keeps the part looking exactly
     // as it did on its own armature at rest, and from then on it follows the body's animation.
     private static readonly Dictionary<(Mesh, GameObject, int), Mesh> ReboundMeshCache = new();
+
+    /// <summary>Empties every mesh cache the assembler keeps (rebound body-bone copies, hair trimmed under hats, torso trimmed under a vest).
+    /// This project enters Play Mode with Domain Reload OFF, so these static dictionaries SURVIVE between Play sessions; after a Blender
+    /// re-export the FBX meshes are updated in place, the cache keys still match, and the game kept using the OLD geometry (Tad,
+    /// 2026-10-07: "finalize shows the new thumbnail but the mesh in the game doesn't update"). Cleared at the start of every Play session.</summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    public static void ClearMeshCaches()
+    {
+        ReboundMeshCache.Clear();
+        TrimmedHairCache.Clear();
+        TrimmedTorsoCache.Clear();
+    }
 
     private static SkinnedMeshRenderer FindSkinnedMesh(Transform partRoot, string objectName)
     {

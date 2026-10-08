@@ -679,6 +679,7 @@ public class EmployeeSpawner : MonoBehaviour
     public void RefreshAllModularAvatars()
     {
         if (EmployeeRegistry.Instance == null) return;
+        ModularAvatarAssembler.ClearMeshCaches();   // a Blender re-export updates meshes in place; stale cached copies would otherwise be reused
 
         // Snapshot first — RefreshAvatarAppearance destroys/recreates each employee's "ModularAvatar"
         // child, which could otherwise disturb registry enumeration mid-iteration.

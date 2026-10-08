@@ -277,6 +277,7 @@ public class AODPanel : IUIPanel
         ("waist", "Belt"),
         ("face", "Face / Gag"),
         ("torso", "Torso / Top"),
+        ("vest", "Safety Vest"),
         ("hands", "Gloves"),
         ("legs", "Legs / Pants"),
         ("feet", "Feet / Socks"),

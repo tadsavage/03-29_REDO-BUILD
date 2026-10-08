@@ -2710,3 +2710,25 @@ Moving `Eye_R/L` (+`EyeEnd`) onto the eyeball centre made in-game employees look
 **Headless Blender (works with Blender closed):** `blender.exe -b file.blend --python script.py -- --save`. Preview-render first (Workbench engine, ortho camera, `ob.color`) and only then save + export (exec the `Unity_Avatar` preset with `import bpy` stripped + fake `active_operator`; export armature + every mesh parented to it). Back up blend+FBX to %TEMP% before each save. Build scripts used this session lived in %TEMP% (`build_gun2.py`, `build_vanilla.py`) - the approach is described above if they need redoing.
 
 **Open / next:** set AOD weights for HOT/Vanilla/guns/new parts; Toaster FSR/FXAA/texture softness if Tad still wants it sharper; verify caps/headphones/hair-trim/guns on live staff; NavMesh "not close enough to the NavMesh" warning burst at load (staff + guard); rats still run their Update while paused; male body + other body types.
+
+
+### Addendum 2026-10-07 — Safety vest, trims, hair-under-hats, the stale-FBX trap, Pimp-My-Employee vest tab
+
+**Safety vest** (`Female_Vest_Safety-Blue / -Orange / -Yellow`, `vest` slot, mandatory, built from Polyperfect `woman-paramedic`, Tad later made 3 variants + more topology). Because meshes are skinned and clothing sits on the body, the **body under the vest is hidden at runtime** instead of weight-painting each outfit:
+- `ModularAvatarAssembler.TrimBodyUnderVest` → `BuildTrimmedUnderShell`. **Current mode = `VestUseExactMask`:** Tad selected the faces to hide on `Female_Torso_CoverallsBlue` in Blender; their positions (height above vest bottom, |lateral|, depth) are in `VestHideMask.cs` (`DataExact`, 550 records; Blue/Gray/Brown share ONE topology so one list serves all). Each torso triangle is hidden iff its NEAREST record is a "hide" record. `VestUseHideMask`/rib/hip/pin rules are older fallbacks (kept, off).
+- Regenerate after a topology change: read the selection from Blender, rebuild `DataExact`. `DataRef` = the very first hand selection (old Blue topology).
+- Trim only runs while a vest is worn. Positions are matched in vest-relative coordinates, so they survive re-exports.
+- **Pimp My Employee** now has a "Safety Vest" tab (`EditableOverrideKeys` + `AODPanel.EmployeeCategories`): swap vests or pick None.
+
+**Hair under hats (final rules, Tad 2026-10-07):** hard hats hide NOTHING. Under a ball CAP only: Bobs **and Harley** hide the 14 crown faces (`BobCrownBoxes` + `BobCrownCentres`, 2 cm centre-proximity test); Mem hair hides nothing. All other general hair trimming (rim cut, ring, hat-surface test) was removed. `MemTopBoxes` is unused leftover data.
+
+**⭐ THE STALE-FBX TRAP (cost most of a day):** a default Blender export `1. Blender/Female_Body_Reg-White.fbx` (same name as the .blend) sat next to the .blend. Finalize binds each part to the FIRST source it finds, and `1. Blender` sorts before `2. FBX`, so ALL finalized prefabs pointed at that stray file (Read/Write off → every runtime trim saw "isReadable false" and silently did nothing; Blender edits seemed to update only the AOD thumbnail). Fix: delete the stray; export ONLY to `2. FBX/female_regular_body.fbx` with the `Unity_Avatar` preset. Check with: every prefab's `AssetDatabase.GetAssetPath(sharedMesh)` ends with `female_regular_body.fbx`.
+- **Play Mode runs with Domain Reload OFF** (EnterPlayModeOptions 3): static caches survive Play sessions. `ModularAvatarAssembler.ClearMeshCaches()` (RuntimeInitializeOnLoadMethod SubsystemRegistration + `RefreshAllModularAvatars`) clears the rebound/hair/torso caches.
+- **Scripts do not recompile while in Play Mode** — several "no change" reports were just old code. Stop Play, wait, re-Play.
+- `Object.GetInstanceID()` is an error in this Unity (use name hash / EntityId).
+
+**Face/accessory fits done in Blender (all exported):** gag strap + shades re-fit to the Vanilla head, strap weights Data-Transferred from the head, belt pulled onto the body and custom normals cleared, Mem hair re-weighted for head turns. Armature object was rebuilt once (old object would not draw bones in Object Mode).
+
+**Blender-session hazards:** my scripted exports/saves can unhide/select everything in Tad's live session (restore state); that Blender needs the `Unity_Avatar` preset installed to export.
+
+**Open:** Gray/Brown hem spikes at the back; hip hole between coverall hem and jeans is real geometry (open edges), not the trim; Black Mem mesh still old; commit hygiene — Portraits/BOXOPHOBIC .meta churn is local noise.
