@@ -1,6 +1,5 @@
 ﻿// Cristian Pop - https://boxophobic.com/
 
-using NUnit.Framework;
 using System;
 using System.Globalization;
 using System.IO;
