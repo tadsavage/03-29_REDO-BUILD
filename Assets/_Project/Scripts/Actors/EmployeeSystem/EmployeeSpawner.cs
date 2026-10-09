@@ -771,12 +771,7 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
     private static bool ModularBodyExists(EmployeeGender gender, EmployeeSpawner instance)
     {
         if (instance == null || !instance._floorWorkersUseModularBodyIfAvailable) return false;
-        // 2026-10-01: the modular pipeline is FEMALE-ONLY for now (Tad: not ready to work on males —
-        // everything is being built around the one Female Regular body first). Explicit rather than
-        // relying on the male body part happening to fail the SkinnedMeshRenderer check below, so a
-        // male body that DOES get cataloged can never go live by accident. Remove this line when a
-        // real male body is ready.
-        if (gender != EmployeeGender.Female) return false;
+        // Male modular bodies enabled 2026-10-08 (Male Regular body finalized); the female-only gate was removed.
         var lib = ModularAvatarAssembler.LoadLibrary();
         if (lib == null) return false;
         string g = gender == EmployeeGender.Female ? "female" : "male";

@@ -937,6 +937,14 @@ public static class ModularAvatarAssembler
         var partInvForMatch = partRoot.worldToLocalMatrix;
         for (int i = 0; i < oldBones.Length; i++)
         {
+            // A bone the target skeleton lacks (e.g. the female-only eyelid bones on the male rig) falls back to the nearest
+            // ancestor it does have (EyelidUpper_R -> Head_M), so the part still follows the body instead of being left behind.
+            if (oldBones[i] != null && !bodyBones.ContainsKey(oldBones[i].name))
+            {
+                for (var anc = oldBones[i].parent; anc != null; anc = anc.parent)
+                    if (bodyBones.TryGetValue(anc.name, out var ancBody)) { newBones[i] = ancBody; break; }
+                if (newBones[i] != null) continue;
+            }
             if (oldBones[i] == null || !bodyBones.TryGetValue(oldBones[i].name, out newBones[i]))
             {
                 Debug.LogWarning($"[ModularAvatar] '{part.ObjectName}': bone '{(oldBones[i] != null ? oldBones[i].name : "null")}' " +
