@@ -2732,3 +2732,9 @@ Moving `Eye_R/L` (+`EyeEnd`) onto the eyeball centre made in-game employees look
 **Blender-session hazards:** my scripted exports/saves can unhide/select everything in Tad's live session (restore state); that Blender needs the `Unity_Avatar` preset installed to export.
 
 **Open:** Gray/Brown hem spikes at the back; hip hole between coverall hem and jeans is real geometry (open edges), not the trim; Black Mem mesh still old; commit hygiene — Portraits/BOXOPHOBIC .meta churn is local noise.
+
+
+### Addendum 2026-10-08 — Animation unification + Male Regular body category
+- **MHE riders no longer swap animator controllers.** `MHEOperatorSlot` sets the int param `DriveStyle` (0 foot, 1 sit-drive DS/RT, 2 pallet jack) on the rider's Animators; `MaleStaff` and `FemaleStaff` controllers hold the `Drive_Sit` / `Drive_PalletJack` states (added by `Tools/Add Drive States To Staff Controllers`; re-run it after `Tools/Setup MaleStaff Animator`, which clears Any State transitions). DockStocker/PalletJack controllers are now unused markers (name decides style).
+- **Finalizer outputs next to the source FBX** (`<Gender>/<Body>/2. FBX/x.fbx` -> `<Gender>/<Body>/3. Prefab (post AOD Submit)/`); the library loads finalized parts from every such folder (`ModularAvatarFinalizer.AllFinalizedFolders`). Male lives in `__Avatar_System2.0/Male/{1. Blender,2. FBX,3. Prefab}` (no Regular_Body_Type level yet). 14 male parts finalized (torso Coveralls x4, head, hands, feet x4, hair x4). Male stays gated off in `EmployeeSpawner.ModularBodyExists` until Tad approves.
+- Editor-script gotcha: a C# compile error leaves the OLD assembly running silently; check `Logs/Editor.log` (project-relative, not %LOCALAPPDATA%) for `error CS` when a "new" method is missing.

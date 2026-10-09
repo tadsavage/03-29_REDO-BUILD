@@ -104,7 +104,7 @@ public static class ModularAvatarImporter
         // Load every already-finalized part FIRST — these are the permanent source of truth and are
         // never touched by this scan (see ModularAvatarFinalizer). Raw candidates that already match
         // a finalized objectName are skipped below rather than re-added as unreviewed duplicates.
-        lib.finalizedParts = AssetDatabase.FindAssets("t:AvatarPartAsset", new[] { ModularAvatarFinalizer.FinalizedAssetFolder })
+        lib.finalizedParts = AssetDatabase.FindAssets("t:AvatarPartAsset", ModularAvatarFinalizer.AllFinalizedFolders().Where(AssetDatabase.IsValidFolder).DefaultIfEmpty(ModularAvatarFinalizer.FinalizedAssetFolder).ToArray())
             .Select(g => AssetDatabase.LoadAssetAtPath<AvatarPartAsset>(AssetDatabase.GUIDToAssetPath(g)))
             .Where(a => a != null)
             .ToList();

@@ -27,11 +27,6 @@ public class MHEOperatorSlot : MonoBehaviour
     private Camera _mainCamera;
     private EmployeeInfoUI _employeeUI;
 
-    // Snapshot of every Animator swapped onto the drive controller, so VacateOperator can put
-    // each one back exactly as it was (root "blackboard" Animator + the modular avatar's own).
-    private readonly List<Animator> _swappedAnimators = new();
-    private readonly List<RuntimeAnimatorController> _savedControllers = new();
-
     public EmployeeIdentity CurrentOperator { get; private set; }
     public bool IsOccupied => CurrentOperator != null;
 
@@ -87,6 +82,25 @@ public class MHEOperatorSlot : MonoBehaviour
         AudioManager.Play("UIClick");
     }
 
+    // Riders use the SAME controllers as everyone else (MaleStaff / FemaleStaff); the drive pose is just
+    // the "DriveStyle" int parameter (0 = on foot, 1 = sit-drive, 2 = pallet jack). The old
+    // _operatorDriveController field is kept only as a marker for which style this vehicle uses.
+    private int DriveStyle()
+    {
+        if (_operatorDriveController == null) return 1;
+        return _operatorDriveController.name.IndexOf("Pallet", System.StringComparison.OrdinalIgnoreCase) >= 0 ? 2 : 1;
+    }
+
+    private static void SetDriveStyle(EmployeeIdentity identity, int style)
+    {
+        foreach (var anim in identity.GetComponentsInChildren<Animator>(true))
+        {
+            if (anim == null || anim.runtimeAnimatorController == null) continue;
+            foreach (var p in anim.parameters)
+                if (p.name == "DriveStyle" && p.type == AnimatorControllerParameterType.Int) { anim.SetInteger("DriveStyle", style); break; }
+        }
+    }
+
     public void AssignOperator(EmployeeIdentity identity)
     {
         if (identity == null || IsOccupied) return;
@@ -105,20 +119,8 @@ public class MHEOperatorSlot : MonoBehaviour
         var operatorNav = identity.GetComponent<AiNavigation>();
         if (operatorNav != null) operatorNav.enabled = false;
 
-        if (_operatorDriveController != null)
-        {
-            _swappedAnimators.Clear();
-            _savedControllers.Clear();
-            foreach (var anim in identity.GetComponentsInChildren<Animator>(true))
-            {
-                _swappedAnimators.Add(anim);
-                _savedControllers.Add(anim.runtimeAnimatorController);
-                anim.runtimeAnimatorController = _operatorDriveController;
-                anim.Rebind();
-            }
-        }
-
         identity.GetComponent<AgentAnimation>()?.SetRidingMHE(true);
+        SetDriveStyle(identity, DriveStyle());
 
         // Hide operator's NoWaypointIndicator while riding (they're not waving, vehicle is driving).
         // NoWaypointIndicator RequireComponents AiNavigation/NavMeshAgent, both of which live on
@@ -147,16 +149,7 @@ public class MHEOperatorSlot : MonoBehaviour
         EmployeeIdentity identity = CurrentOperator;
         if (identity == null) return null;
 
-        for (int i = 0; i < _swappedAnimators.Count; i++)
-        {
-            var anim = _swappedAnimators[i];
-            if (anim == null) continue;
-            anim.runtimeAnimatorController = _savedControllers[i];
-            anim.Rebind();
-        }
-        _swappedAnimators.Clear();
-        _savedControllers.Clear();
-
+        SetDriveStyle(identity, 0);
         identity.GetComponent<AgentAnimation>()?.SetRidingMHE(false);
 
         // Restore operator's NoWaypointIndicator (they're no longer riding)

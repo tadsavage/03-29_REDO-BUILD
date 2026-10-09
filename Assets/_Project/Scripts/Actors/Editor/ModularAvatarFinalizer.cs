@@ -45,10 +45,11 @@ public static class ModularAvatarFinalizer
         if (!ValidateStructure(sourcePrefab, rawPart.objectName, rawPart.slot, out error))
             return false;
 
-        EnsureFolders();
-        string folder = RouteFolderForSlot(rawPart.slot);
+        // Output sits beside the source FBX: <Gender>/<BodyType>/2. FBX/x.fbx -> <Gender>/<BodyType>/3. Prefab (post AOD Submit)/.
+        string folder = OutputFolderFor(sourcePrefab);
+        EnsureFolder(folder);
         string prefabPath = $"{folder}/{rawPart.objectName}.prefab";
-        string assetPath  = $"{FinalizedAssetFolder}/{rawPart.objectName}.asset";
+        string assetPath  = $"{folder}/{rawPart.objectName}.asset";
 
         var temp = ModularAvatarAssembler.IsolatePart(lib, rawPart);
         if (temp == null)
@@ -155,17 +156,22 @@ public static bool TryUpdateFromRawSource(AvatarPartLibrary lib, AvatarPartAsset
         return true;
     }
 
-    private static string RouteFolderForSlot(string slot) => slot switch
-    {
-        _ when ModularAvatarAssembler.IsBodySlot(slot) => BodyPrefabFolder,
-        _      => PropsPrefabFolder, // hair/hat/facialhair/props default here
-    };
+    public const string FinalizedFolderName = "3. Prefab (post AOD Submit)";
 
-    private static void EnsureFolders()
+    /// <summary>Every finalized-output folder that exists under the drop folder (one per gender / body type).</summary>
+    public static string[] AllFinalizedFolders() =>
+        System.IO.Directory.Exists(ModularAvatarImporter.DropFolder)
+            ? System.IO.Directory.GetDirectories(ModularAvatarImporter.DropFolder, FinalizedFolderName, System.IO.SearchOption.AllDirectories)
+                .Select(d => d.Replace('\\', '/')).ToArray()
+            : new string[0];
+
+    /// <summary>The "3. Prefab (post AOD Submit)" folder next to the "2. FBX" folder the part's source lives in.
+    /// Falls back to the Female Regular folder when the source is not inside a "2. FBX" folder.</summary>
+    private static string OutputFolderFor(GameObject sourcePrefab)
     {
-        EnsureFolder(FinalizedAssetFolder);
-        EnsureFolder(BodyPrefabFolder);
-        EnsureFolder(PropsPrefabFolder);
+        string src = AssetDatabase.GetAssetPath(sourcePrefab).Replace('\\', '/');
+        int i = src.IndexOf("/2. FBX/", System.StringComparison.OrdinalIgnoreCase);
+        return i > 0 ? src.Substring(0, i) + "/" + FinalizedFolderName : FinalizedAssetFolder;
     }
 
     private static void EnsureFolder(string path)
