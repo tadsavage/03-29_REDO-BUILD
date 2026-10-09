@@ -39,7 +39,7 @@ public class AODPanel : IUIPanel
     // While true, male parts are hidden from the AOD grid and the Male gender chip is removed. NON-
     // destructive — nothing on disk is touched, no asset deleted — so flipping this to false brings
     // the male cards straight back.
-    private const bool HideMaleParts = true;
+    private const bool HideMaleParts = false;   // male parts + Male chip enabled 2026-10-08
 
     // ── Palette — matches every other full-screen panel in the game ──
     private static readonly Color ColBg          = new Color(18f / 255f, 26f / 255f, 36f / 255f, 1f);
