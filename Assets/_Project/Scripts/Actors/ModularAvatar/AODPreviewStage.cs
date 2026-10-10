@@ -93,9 +93,35 @@ public class AODPreviewStage : MonoBehaviour
         // calls this same accessor (for unrelated post-processing settings) which is why it "just
         // worked" there and not here originally.
         var camData = _camera.GetUniversalAdditionalCameraData();
-        camData.renderPostProcessing = false;
+        // Post-processing is on ONLY to pull the saturation down (Tad, 2026-10-09: colors looked "nuclear"). The grade comes from
+        // a LOCAL volume that sits around this stage (box collider, high up at y=400) and only this camera's layer mask can see,
+        // so no scene volume (bloom etc.) leaks in and the game's own cameras are never graded.
+        camData.renderPostProcessing = true;
+        camData.volumeLayerMask = 1 << PreviewVolumeLayer;
+        BuildPreviewGradeVolume();
         _camera.enabled = false;   // enabled by Show*, disabled again by Clear
         FramePivotDefault();
+    }
+
+    private const int PreviewVolumeLayer = 31;       // only used as a volume mask, nothing is rendered on it
+    private const float PreviewSaturation = -30f;    // URP Color Adjustments saturation, -100..100 (0 = unchanged); raise toward 0 for more color
+
+    private void BuildPreviewGradeVolume()
+    {
+        var go = new GameObject("PreviewGradeVolume") { layer = PreviewVolumeLayer };
+        go.transform.SetParent(transform, false);
+        go.transform.position = StageOrigin;
+        var box = go.AddComponent<BoxCollider>();
+        box.isTrigger = true;
+        box.size = new Vector3(20f, 20f, 20f);
+
+        var vol = go.AddComponent<UnityEngine.Rendering.Volume>();
+        vol.isGlobal = false;
+        vol.priority = 100f;
+        var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
+        var ca = profile.Add<ColorAdjustments>(true);
+        ca.saturation.Override(PreviewSaturation);
+        vol.sharedProfile = profile;
     }
 
     private void FramePivotDefault()
@@ -114,7 +140,7 @@ public class AODPreviewStage : MonoBehaviour
         keyLightGO.transform.LookAt(origin + Vector3.up);
         var keyLight = keyLightGO.AddComponent<Light>();
         keyLight.type = LightType.Directional;
-        keyLight.intensity = 1.1f;
+        keyLight.intensity = 1.4f;   // was 1.1; 1.8 over-saturated the colors, so backed off (Tad, 2026-10-09)
 
         var fillLightGO = new GameObject("FillLight");
         fillLightGO.transform.SetParent(parent, false);
@@ -122,7 +148,7 @@ public class AODPreviewStage : MonoBehaviour
         fillLightGO.transform.LookAt(origin + Vector3.up * 0.8f);
         var fillLight = fillLightGO.AddComponent<Light>();
         fillLight.type = LightType.Directional;
-        fillLight.intensity = 0.45f;
+        fillLight.intensity = 0.7f;   // was 0.45; 0.9 was too much
     }
 
     // Same camera-to-target axis FrameOn() dynamically frames along — reused here so the static
@@ -273,10 +299,10 @@ public class AODPreviewStage : MonoBehaviour
         FrameOnBounds(bounds);
     }
 
-    private void FrameOnBounds(Bounds bounds)
+    private void FrameOnBounds(Bounds bounds, float zoom = 1f)
     {
         float radius = Mathf.Max(bounds.extents.magnitude, 0.05f);
-        float distance = radius / Mathf.Sin(Mathf.Deg2Rad * (_camera.fieldOfView * 0.5f)) * 1.15f;
+        float distance = radius / Mathf.Sin(Mathf.Deg2Rad * (_camera.fieldOfView * 0.5f)) * 1.15f / zoom;
 
         _camera.transform.position = bounds.center + CameraApproachDir * distance;
         _camera.transform.LookAt(bounds.center);
@@ -330,7 +356,7 @@ public class AODPreviewStage : MonoBehaviour
         stage._rotatePivot.position += delta;
         instance.transform.position -= delta;
 
-        stage.FrameOnBounds(bounds);
+        stage.FrameOnBounds(bounds, 1.5f);   // full avatar shown 50% bigger (Tad, 2026-10-09)
     }
 
     /// <summary>Spins the currently-shown part in place around the vertical (Y) axis, through its OWN CENTER

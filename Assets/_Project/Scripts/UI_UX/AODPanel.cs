@@ -35,6 +35,12 @@ public class AODPanel : IUIPanel
     // Card description / slot / gender text is a further +35% on top of CardScale (Tad, 2026-10-01).
     private const float CardTextBoost = 1.35f;
 
+    // Title bar + filter bar ("header area") size multiplier: ~50% bigger (Tad, 2026-10-09).
+    private const float HeaderScale = 1.5f;
+
+    // GENDER / ROLE / SLOT / SHOW row labels: 1.5 (header) x 1.25 (ROLE/SLOT bump) x 1.2 (Tad, 2026-10-09) - labels only, not the chips.
+    private static readonly int HeaderLabelSize = Mathf.RoundToInt(12 * HeaderScale * 1.25f * 1.2f);
+
     // 2026-10-01: Tad is focusing on the one Female Regular body and isn't ready to work on males.
     // While true, male parts are hidden from the AOD grid and the Male gender chip is removed. NON-
     // destructive — nothing on disk is touched, no asset deleted — so flipping this to false brings
@@ -92,6 +98,14 @@ public class AODPanel : IUIPanel
 #endif
         return _nunito;
     }
+
+    /// <summary>The bare-body part of a body slot (Body, or Reg for the female legs) - "wearing nothing" there.</summary>
+    private static bool IsBareBodyPart(IAvatarPart p) =>
+        p != null && p.Slot is "feet" or "hands" or "head" or "legs" or "torso" &&
+        (string.Equals(p.Variant, "Body", StringComparison.OrdinalIgnoreCase) || string.Equals(p.Variant, "Reg", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Name printed on a card: bare-body parts read NONE (same tile, both genders, both modes).</summary>
+    private static string CardDisplayName(IAvatarPart p) => IsBareBodyPart(p) ? "NONE" : p.Variant;
 
     /// <summary>Card description font size: the boosted base size, shrunk for long names so they stay on ONE
     /// line (a two-line name covers the thumbnail it sits on).</summary>
@@ -182,28 +196,45 @@ public class AODPanel : IUIPanel
         public readonly VisualElement Root;
         public bool Selected;
         public event Action<bool> OnChanged;
+        private readonly bool _header;
+        private readonly Color? _tint;
 
-        public Chip(string label)
+        // header = true: the filter-bar chips - HeaderScale bigger (times sizeMul), and colors inverted (fill = old
+        // text color, text = old fill) per Tad, 2026-10-09. tint overrides the unselected fill; caps uppercases the
+        // label. Header labels use Lilita One because the Nunito variable font has no real bold.
+        // Detail-panel chips keep the original look.
+        public Chip(string label, bool header = false, float sizeMul = 1f, Color? tint = null, bool caps = false)
         {
+            _header = header;
+            _tint = tint;
+            float s = header ? HeaderScale * sizeMul : 1f;
             Root = new VisualElement { name = "chip-" + label };
             Root.style.flexDirection = FlexDirection.Row;
-            Root.style.paddingLeft = Root.style.paddingRight = 10f;
-            Root.style.paddingTop = Root.style.paddingBottom = 5f;
-            Root.style.marginRight = 6f;
-            Root.style.marginBottom = 6f;
+            Root.style.paddingLeft = Root.style.paddingRight = 10f * s;
+            Root.style.paddingTop = Root.style.paddingBottom = 5f * s;
+            Root.style.marginRight = 6f * s;
+            Root.style.marginBottom = 6f * s;
             Root.style.borderTopLeftRadius = Root.style.borderTopRightRadius =
-                Root.style.borderBottomLeftRadius = Root.style.borderBottomRightRadius = 14f;
+                Root.style.borderBottomLeftRadius = Root.style.borderBottomRightRadius = 14f * s;
             Root.style.borderTopWidth = Root.style.borderBottomWidth = Root.style.borderLeftWidth = Root.style.borderRightWidth = 2f;
             Root.pickingMode = PickingMode.Position;
 
-            var label_ = new Label(label);
-            ApplyFont(label_, true, 12);
+            var label_ = new Label(caps ? label.ToUpper() : label);
+            if (header) ApplyLilita(label_, true, Mathf.RoundToInt(12 * s));
+            else ApplyFont(label_, true, Mathf.RoundToInt(12 * s));
             label_.pickingMode = PickingMode.Ignore;
             Root.Add(label_);
 
             AddPressFeedback(Root, 1.08f, 0.94f);
             Root.RegisterCallback<PointerUpEvent>(e => { if (e.button == 0) Toggle(); });
             ApplyVisual();
+        }
+
+        /// <summary>Locked chips ignore clicks; dim = grayed out (used for the non-matching gender / roles in employee mode).</summary>
+        public void SetLocked(bool locked, bool dim)
+        {
+            Root.pickingMode = locked ? PickingMode.Ignore : PickingMode.Position;
+            Root.style.opacity = dim ? 0.35f : 1f;
         }
 
         public void Toggle() { Selected = !Selected; ApplyVisual(); OnChanged?.Invoke(Selected); }
@@ -218,9 +249,15 @@ public class AODPanel : IUIPanel
 
         private void ApplyVisual()
         {
-            Root.style.backgroundColor = Selected ? ColOrange : ColPanelLight;
             Root.style.borderTopColor = Root.style.borderBottomColor = Root.style.borderLeftColor = Root.style.borderRightColor
                 = Selected ? ColOrangeEdge : ColBlueEdge;
+            if (_header)
+            {
+                Root.style.backgroundColor = Selected ? ColOrangeText : (_tint ?? ColSubtleText);
+                ((Label)Root[0]).style.color = Selected ? ColOrange : ColBg;
+                return;
+            }
+            Root.style.backgroundColor = Selected ? ColOrange : ColPanelLight;
             ((Label)Root[0]).style.color = Selected ? ColOrangeText : ColSubtleText;
         }
     }
@@ -238,7 +275,6 @@ public class AODPanel : IUIPanel
     private readonly Label _previewEmptyHint;
     private readonly Label _previewTitleLabel;
     private readonly VisualElement _detailPanel;
-    private readonly VisualElement _employeeCategoryBar;
     private readonly Label _countLabel;
     private Button _dirtyBtn;      // title-bar "Dirty Dev" switch (green ON / red OFF)
     private Label _dirtyLabel;     // "Dirty Dev currently ON/OFF" caption under it
@@ -263,7 +299,8 @@ public class AODPanel : IUIPanel
     private EmployeeIdentity _employeeIdentity;
     private EmployeeSpawner _employeeSpawner;
     private readonly Dictionary<string, string> _pendingOverrides = new();
-    private string _employeeCategory;
+    private string _employeeSlot;               // the one slot chip picked in employee mode
+    private bool _filtersLockedForEmployee;     // gender / role / slot chips currently set up for employee mode
 
     private static readonly (string key, string label)[] EmployeeCategories =
     {
@@ -307,7 +344,7 @@ public class AODPanel : IUIPanel
         // ── Title bar ──
         _titleBar = new VisualElement { name = "aod-titlebar" };
         _titleBar.style.flexDirection = FlexDirection.Row;
-        _titleBar.style.height = 52f;
+        _titleBar.style.height = 52f * HeaderScale;
         _titleBar.style.flexShrink = 0f; // a fixed-height row is only a suggestion until flexShrink:0 backs it — bit us before (ContractsPanel/PurchasingPanel), guarding it here from the start
         _titleBar.style.paddingLeft = _titleBar.style.paddingRight = 14f;
         _titleBar.style.alignItems = Align.Center;
@@ -317,7 +354,7 @@ public class AODPanel : IUIPanel
         _modal.Add(_titleBar);
 
         var title = new Label("AVATAR OBJECT DATABASE");
-        ApplyLilita(title, true, 20);   // the one label that keeps Lilita One (Tad)
+        ApplyLilita(title, true, Mathf.RoundToInt(20 * HeaderScale));   // the one label that keeps Lilita One (Tad)
         title.style.color = ColTitleText;
         title.style.flexGrow = 1f;
         _titleBar.Add(title);
@@ -351,7 +388,7 @@ public class AODPanel : IUIPanel
         StyleDirtyDev();
 
         _countLabel = new Label();
-        ApplyFont(_countLabel, false, 13);
+        ApplyFont(_countLabel, false, Mathf.RoundToInt(13 * HeaderScale));
         _countLabel.style.color = ColSubtleText;
         _countLabel.style.marginRight = 16f;
         _titleBar.Add(_countLabel);
@@ -400,17 +437,6 @@ public class AODPanel : IUIPanel
         gridColumn.style.width = 4f * (108f + 8f) * CardScale + 24f + 72f;   // +72: scroll-view padding + scrollbar + borders (24+20 left the 4th card just short and it wrapped to 3 per row)
         gridColumn.style.overflow = Overflow.Hidden;
         content.Add(gridColumn);
-
-        // Category tabs for "Pimp My Employee" mode (Hairstyle/Hard Hat/Headphones/Facial Hair) —
-        // hidden in normal library-browse mode, shown above the grid when editing a specific
-        // employee (see ShowForEmployee/RefreshEmployeeMode).
-        _employeeCategoryBar = new VisualElement { name = "aod-employee-categories" };
-        _employeeCategoryBar.style.flexDirection = FlexDirection.Row;
-        _employeeCategoryBar.style.flexWrap = Wrap.Wrap;
-        _employeeCategoryBar.style.flexShrink = 0f;
-        _employeeCategoryBar.style.paddingLeft = _employeeCategoryBar.style.paddingTop = 12f;
-        _employeeCategoryBar.style.display = DisplayStyle.None;
-        gridColumn.Add(_employeeCategoryBar);
 
         _gridScroll = new ScrollView(ScrollViewMode.Vertical) { name = "aod-grid-scroll" };
         _gridScroll.style.flexGrow = 1f;
@@ -461,7 +487,7 @@ public class AODPanel : IUIPanel
         _previewFrame.Add(_previewImage);
 
         _previewEmptyHint = new Label("Select an item\nto preview & rotate");
-        ApplyFont(_previewEmptyHint, false, 13);
+        ApplyFont(_previewEmptyHint, false, 52);   // 4x (was 13), Tad 2026-10-09
         _previewEmptyHint.style.color = ColSubtleText;
         _previewEmptyHint.style.unityTextAlign = TextAnchor.MiddleCenter;
         _previewEmptyHint.style.whiteSpace = WhiteSpace.Normal;
@@ -501,7 +527,7 @@ public class AODPanel : IUIPanel
 
         target.RegisterCallback<PointerDownEvent>(e =>
         {
-            if (e.button != 0 || _selectedPart == null) return;
+            if (e.button != 0 || (_selectedPart == null && _employeeIdentity == null)) return;   // employee edit mode previews the whole avatar
             dragging = true;
             pid = e.pointerId;
             lastPos = e.position;
@@ -541,9 +567,9 @@ public class AODPanel : IUIPanel
             row.style.alignItems = Align.Center;
             row.style.marginBottom = 4f;
             var lbl = new Label(label);
-            ApplyFont(lbl, true, 12);
+            ApplyLilita(lbl, true, HeaderLabelSize);   // GENDER / ROLE / SLOT / SHOW share one bold label style
             lbl.style.color = ColSubtleText;
-            lbl.style.width = 60f;
+            lbl.style.width = 130f;   // wide enough for GENDER so it no longer runs under the first chip
             lbl.style.flexShrink = 0f;
             row.Add(lbl);
             bar.Add(row);
@@ -554,57 +580,177 @@ public class AODPanel : IUIPanel
         foreach (var g in new[] { "male", "female", "neutral" })
         {
             if (HideMaleParts && g == "male") continue; // see HideMaleParts
-            var chip = new Chip(g.Substring(0, 1).ToUpper() + g.Substring(1));
-            chip.OnChanged += _ => Refresh();
+            // Light (white-tinted, no black) blue / pink fills for Male / Female (Tad, 2026-10-09).
+            Color tint = g == "male" ? (Color)new Color32(0x7D, 0xB9, 0xF2, 255)         // bluer
+                       : g == "female" ? (Color)new Color32(0xF2, 0xAA, 0xBF, 255)       // pink with a touch more red
+                       : (Color)new Color32(0xB4, 0xDE, 0xAE, 255);                      // neutral: light green
+            var chip = new Chip(g.Substring(0, 1).ToUpper() + g.Substring(1), header: true, tint: tint);
+            chip.OnChanged += _ => RefreshForCurrentMode();
             _genderChips.Add(chip);
             genderRow.Add(chip.Root);
         }
 
+        // "Missing Data Only" + "Rescan Folder" live on the GENDER row (pushed to its right end), per Tad's mockup 2026-10-09.
+        var showGroup = new VisualElement { name = "aod-show-group" };
+        showGroup.style.flexDirection = FlexDirection.Row;
+        showGroup.style.alignItems = Align.Center;
+        showGroup.style.marginLeft = StyleKeyword.Auto;
+        showGroup.style.flexShrink = 0f;
+        genderRow.Add(showGroup);
+
+        // Role chips sit in their own wrapping column next to the label, so the second line starts under the
+        // first chip (not under the label), and a forced break splits them 8 / rest (Tad, 2026-10-09).
         var roleRow = Row("ROLE");
-        foreach (EmployeeRole role in Enum.GetValues(typeof(EmployeeRole)))
+        var roleChips = new VisualElement { name = "aod-role-chips" };
+        roleChips.style.flexDirection = FlexDirection.Row;
+        roleChips.style.flexWrap = Wrap.Wrap;
+        roleChips.style.flexGrow = 1f;
+        roleChips.style.flexShrink = 1f;
+        roleRow.Add(roleChips);
+        // Second line = Supervisor / Boss / Security / Inventory Control / Exterminator / HR / Admin; every other role
+        // (incl. Sanitation and Truck Driver) is on the first line, each line in enum order (Tad, 2026-10-09).
+        var allRoles = Enum.GetValues(typeof(EmployeeRole)).Cast<EmployeeRole>().ToList();
+        bool IsSecondLine(EmployeeRole r) => r.DisplayName() is "Supervisor" or "Boss" or "Security" or "Inventory Control"
+                                                              or "Exterminator" or "HR" or "Admin";
+        void AddRoleChip(EmployeeRole role)
         {
-            var chip = new Chip(role.DisplayName());
-            chip.OnChanged += _ => Refresh();
+            var chip = new Chip(role.DisplayName(), header: true, sizeMul: 0.85f, caps: true);
+            chip.OnChanged += _ => RefreshForCurrentMode();
             _roleChips.Add((role, chip));
-            roleRow.Add(chip.Root);
+            roleChips.Add(chip.Root);
         }
+        foreach (var role in allRoles.Where(r => !IsSecondLine(r))) AddRoleChip(role);
+        var lineBreak = new VisualElement();
+        lineBreak.style.width = Length.Percent(100);
+        lineBreak.style.height = 0f;
+        roleChips.Add(lineBreak);
+        foreach (var role in allRoles.Where(IsSecondLine)) AddRoleChip(role);
 
         var slotRow = Row("SLOT");
         slotRow.name = "aod-slot-row"; // repopulated by RefreshSlotChips once real slots are known
         bar.Add(slotRow);
 
-        var extraRow = Row("SHOW");
-        _missingOnlyChip = new Chip("Missing Data Only");
-        _missingOnlyChip.OnChanged += _ => Refresh();
-        extraRow.Add(_missingOnlyChip.Root);
+        var showLbl = new Label("SHOW");
+        ApplyLilita(showLbl, true, HeaderLabelSize);
+        showLbl.style.color = ColSubtleText;
+        showLbl.style.marginRight = 12f * HeaderScale;
+        showGroup.Add(showLbl);
 
-        var rescanBtn = MakeButton("Rescan Folder", ColGreen, ColGreenEdge, ColGreen, ColVanilla, 12);
-        rescanBtn.style.marginLeft = 12f;
+        _missingOnlyChip = new Chip("Missing Data Only", header: true);
+        _missingOnlyChip.OnChanged += _ => Refresh();
+        showGroup.Add(_missingOnlyChip.Root);
+
+        // Built from the very same Chip as Missing Data Only so the format is identical (light-green fill). It is a
+        // one-shot action, so after each click it is un-selected again.
+        var actionCol = new VisualElement { name = "aod-action-col" };   // Rescan Folder with Finalize All directly below it
+        actionCol.style.flexDirection = FlexDirection.Column;
+        actionCol.style.alignItems = Align.Stretch;   // Finalize All takes the same width as Rescan Folder (the widest child)
+        actionCol.style.flexShrink = 0f;
+        showGroup.Add(actionCol);
+
+        var rescanChip = new Chip("Rescan Folder", header: true, tint: (Color)new Color32(0xB4, 0xDE, 0xAE, 255));
+        rescanChip.OnChanged += _=>
+        {
+            rescanChip.SetSelected(false, silent: true);
+            RunImporter("ScanAndRebuild", new object[] { true });
+        };
+        rescanChip.Root.style.justifyContent = Justify.Center;   // both chips stretch to the column width; keep the text centered
+        actionCol.Add(rescanChip.Root);
+
+        // Exact copy of the Rescan button; runs Tools > Modular Avatar > Finalize All Pending.
+        var finalizeChip = new Chip("Finalize All", header: true, tint: (Color)new Color32(0xF2, 0xC9, 0x8A, 255));   // light amber, to tell it apart from Rescan
+        finalizeChip.OnChanged += _ =>
+        {
+            finalizeChip.SetSelected(false, silent: true);
+            RunImporter("FinalizeAllPendingMenu", null);
+        };
+        finalizeChip.Root.style.justifyContent = Justify.Center;
+        actionCol.Add(finalizeChip.Root);
+#if !UNITY_EDITOR
+        rescanChip.Root.SetEnabled(false);
+        finalizeChip.Root.SetEnabled(false);
+#endif
+
+        return bar;
+    }
+
+    private void RunImporter(string methodName, object[] args)
+    {
 #if UNITY_EDITOR
         // ModularAvatarImporter lives in an Editor-only assembly (Assets/.../Actors/Editor/) that
         // this runtime UI folder's assembly has no reference to — reflection sidesteps needing an
         // asmdef change just for this one button. Cheap enough to resolve on every click (a rescan
         // itself is already the expensive part) rather than caching the MethodInfo.
-        rescanBtn.clicked += () =>
-        {
-            var importerType = System.AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => { try { return a.GetTypes(); } catch { return System.Type.EmptyTypes; } })
-                .FirstOrDefault(t => t.Name == "ModularAvatarImporter");
-            var method = importerType?.GetMethod("ScanAndRebuild",
-                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            if (method != null) method.Invoke(null, new object[] { true });
-            else Debug.LogWarning("[AODPanel] Could not find ModularAvatarImporter.ScanAndRebuild via reflection.");
-            // A rescan can change what a part actually looks like (re-exported FBX under the same
-            // name) — drop cached thumbnails so the grid re-bakes instead of showing stale renders.
-            AODPreviewStage.ClearThumbnailCache();
-            Refresh();
-        };
-#else
-        rescanBtn.SetEnabled(false);
+        var importerType = System.AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(a => { try { return a.GetTypes(); } catch { return System.Type.EmptyTypes; } })
+            .FirstOrDefault(t => t.Name == "ModularAvatarImporter");
+        var method = importerType?.GetMethod(methodName,
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+        if (method != null) method.Invoke(null, args);
+        else Debug.LogWarning($"[AODPanel] Could not find ModularAvatarImporter.{methodName} via reflection.");
+        // A rescan / finalize can change what a part actually looks like (re-exported FBX under the same
+        // name) — drop cached thumbnails so the grid re-bakes instead of showing stale renders.
+        AODPreviewStage.ClearThumbnailCache();
+        Refresh();
 #endif
-        extraRow.Add(rescanBtn);
+    }
 
-        return bar;
+    private void RefreshForCurrentMode()
+    {
+        if (_employeeIdentity != null) RefreshEmployeeMode(); else Refresh();
+    }
+
+    /// <summary>Employee mode: the employee's gender + Neutral are selected (the other gender is grayed out), only
+    /// their role is selected (all others grayed out), and the slot row is single-select over the editable slots.
+    /// Gender / role chips are locked so they can't be changed (Tad, 2026-10-09).</summary>
+    private void ApplyEmployeeFilterState(EmployeeRecord rec, AvatarPartLibrary lib)
+    {
+        RefreshSlotChips(lib.AllParts.Where(p => DirtyDev.IsVisible(p.Nsfw)).Select(p => p.Slot).Distinct());
+
+        string gender = rec.gender == EmployeeGender.Female ? "female" : "male";
+        foreach (var c in _genderChips)
+        {
+            string txt = ((Label)c.Root[0]).text.ToLower();
+            bool match = txt == gender || txt == "neutral";
+            c.SetSelected(match, silent: true);
+            c.SetLocked(true, dim: !match);
+        }
+        foreach (var (role, chip) in _roleChips)
+        {
+            bool match = role == rec.role;
+            chip.SetSelected(match, silent: true);
+            chip.SetLocked(true, dim: !match);
+        }
+        _missingOnlyChip.SetSelected(false, silent: true);
+        _missingOnlyChip.SetLocked(true, dim: true);
+
+        var editable = ModularAvatarAssembler.EditableOverrideKeys
+            .Select(k => ModularAvatarAssembler.OverrideCategoryInfo(k).slot).ToHashSet();
+        foreach (var kv in _slotChips)
+        {
+            bool ok = editable.Contains(kv.Key);
+            kv.Value.Root.style.display = ok ? DisplayStyle.Flex : DisplayStyle.None;   // e.g. "head" has no override support
+            kv.Value.SetLocked(false, dim: false);
+        }
+        if (_employeeSlot != null && (!editable.Contains(_employeeSlot) || !_slotChips.ContainsKey(_employeeSlot)))
+            _employeeSlot = null;   // no slot picked = every slot is shown
+        foreach (var kv in _slotChips) kv.Value.SetSelected(kv.Key == _employeeSlot, silent: true);
+        _filtersLockedForEmployee = true;
+    }
+
+    /// <summary>Back to library-browse mode: unlock and clear everything employee mode set up.</summary>
+    private void ResetFiltersAfterEmployee()
+    {
+        if (!_filtersLockedForEmployee) return;
+        _filtersLockedForEmployee = false;
+        foreach (var c in _genderChips) { c.SetLocked(false, false); c.SetSelected(false, silent: true); }
+        foreach (var (_, chip) in _roleChips) { chip.SetLocked(false, false); chip.SetSelected(false, silent: true); }
+        _missingOnlyChip.SetLocked(false, false);
+        foreach (var kv in _slotChips)
+        {
+            kv.Value.Root.style.display = DisplayStyle.Flex;
+            kv.Value.SetSelected(false, silent: true);
+        }
     }
 
     private void RefreshSlotChips(IEnumerable<string> slots)
@@ -622,8 +768,16 @@ public class AODPanel : IUIPanel
         foreach (var slot in wanted.OrderBy(s => s))
         {
             if (_slotChips.ContainsKey(slot)) continue;
-            var chip = new Chip(slot);
-            chip.OnChanged += _ => Refresh();
+            // Lighter version of the slot's grid-tile color (25% white mixed in, no black).
+            var chip = new Chip(slot, header: true, caps: true, tint: Color.Lerp(ColorForSlot(slot), Color.white, 0.25f));
+            var slotKey = slot;
+            chip.OnChanged += sel =>
+            {
+                // Both modes: at most one slot at a time; un-picking it leaves none selected = show every slot.
+                if (sel) foreach (var kv in _slotChips) if (kv.Key != slotKey) kv.Value.SetSelected(false, silent: true);
+                if (_employeeIdentity != null) _employeeSlot = sel ? slotKey : null;
+                RefreshForCurrentMode();
+            };
             _slotChips[slot] = chip;
             slotRow.Add(chip.Root);
         }
@@ -662,9 +816,8 @@ public class AODPanel : IUIPanel
             }
         }).ExecuteLater(16);
 
-        _employeeCategoryBar.style.display = _employeeIdentity != null ? DisplayStyle.Flex : DisplayStyle.None;
         if (_employeeIdentity != null) RefreshEmployeeMode();
-        else Refresh();
+        else { ResetFiltersAfterEmployee(); Refresh(); }
     }
 
     public void Hide()
@@ -672,7 +825,14 @@ public class AODPanel : IUIPanel
         _visible = false;
         _overlay.style.display = DisplayStyle.None;
         AODPreviewStage.Clear();
+
+        // Full reset so the next open never shows the employee that was being edited (Tad, 2026-10-09).
         _employeeIdentity = null;
+        _employeeSlot = null;
+        _pendingOverrides.Clear();
+        _selectedPart = null;
+        ResetFiltersAfterEmployee();
+        ShowEmptyDetail();   // clears the right panel, the preview image and the employee-name title
     }
 
     /// <summary>Matches ItemCreatorPanel's own Toggle() — this panel also has no 0-9 hotkey (every
@@ -691,7 +851,7 @@ public class AODPanel : IUIPanel
         if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
         _selectedPart = null;
         _pendingOverrides.Clear();
-        _employeeCategory = EmployeeCategories[0].key;
+        _employeeSlot = null;   // picked from the slot row (defaults to the first editable slot)
         Show();
     }
 
@@ -806,6 +966,8 @@ public class AODPanel : IUIPanel
         card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f * CardScale;
         var borderCol = _selectedPart == part ? ColOrange : ColBlueEdge;
         card.style.borderTopColor = card.style.borderBottomColor = card.style.borderLeftColor = card.style.borderRightColor = borderCol;
+        if (_selectedPart == part)   // selected tile: orange border twice as thick (Tad, 2026-10-09)
+            card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 4f * CardScale;
         card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
             card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 6f * CardScale;
         card.style.overflow = Overflow.Hidden;
@@ -836,8 +998,8 @@ public class AODPanel : IUIPanel
         nameStrip.pickingMode = PickingMode.Ignore;
         bar.Add(nameStrip);
 
-        var name = new Label(part.Variant);
-        ApplyNunito(name, true, CardNameFontSize(part.Variant));
+        var name = new Label(CardDisplayName(part));
+        ApplyNunito(name, true, CardNameFontSize(CardDisplayName(part)));
         name.style.color = ColBg;   // card name = the panel's dark navy background color, for contrast over the pale thumbnail (Tad, 2026-10-01)
         name.style.unityTextAlign = TextAnchor.MiddleCenter;
         name.style.whiteSpace = WhiteSpace.NoWrap;   // one line: a wrapped name covered the thumbnail
@@ -845,7 +1007,7 @@ public class AODPanel : IUIPanel
         name.style.textOverflow = TextOverflow.Ellipsis;
         name.pickingMode = PickingMode.Ignore;
         nameStrip.Add(name);
-        AddFauxBold(nameStrip, name.text, CardNameFontSize(part.Variant));
+        AddFauxBold(nameStrip, name.text, CardNameFontSize(CardDisplayName(part)));
 
         var sub = new Label($"{part.Slot} · {part.Gender}");
         ApplyNunito(sub, true, (int)(9 * CardScale * CardTextBoost));
@@ -946,6 +1108,13 @@ public class AODPanel : IUIPanel
         "hat" => ColFireRed,
         "vest" => ColOrange,
         "body" or "torso" => ColBlue,
+        "face" => new Color(0.85f, 0.30f, 0.60f),      // magenta
+        "glasses" => new Color(0.60f, 0.40f, 0.90f),   // violet
+        "feet" => new Color(0.10f, 0.65f, 0.60f),      // teal
+        "hands" => new Color(0.55f, 0.78f, 0.25f),     // lime
+        "head" => new Color(0.15f, 0.75f, 0.92f),      // cyan
+        "legs" => new Color(0.62f, 0.38f, 0.22f),      // brown
+        "neck" => new Color(0.92f, 0.85f, 0.25f),      // yellow
         _ => new Color(0.4f, 0.45f, 0.5f),
     };
 
@@ -954,7 +1123,6 @@ public class AODPanel : IUIPanel
     {
         var rec = _employeeIdentity?.Record;
         _grid.Clear();
-        _employeeCategoryBar.Clear();
 
         if (rec == null)
         {
@@ -988,42 +1156,53 @@ public class AODPanel : IUIPanel
         if (_pendingOverrides.Count == 0)
             SeedPendingOverridesFromCurrentLook(rec, lib);
 
-        // Category tabs — single-select, built by hand (not the reusable Chip class, which
-        // self-toggles on click; that would fight the full rebuild this method already does).
-        foreach (var (key, label) in EmployeeCategories)
-        {
-            bool selected = key == _employeeCategory;
-            var tab = new Label(label) { name = "aod-employee-tab" };
-            ApplyFont(tab, true, 12);
-            tab.style.paddingLeft = tab.style.paddingRight = 12f;
-            tab.style.paddingTop = tab.style.paddingBottom = 6f;
-            tab.style.marginRight = 6f; tab.style.marginBottom = 6f;
-            tab.style.borderTopLeftRadius = tab.style.borderTopRightRadius =
-                tab.style.borderBottomLeftRadius = tab.style.borderBottomRightRadius = 14f;
-            tab.style.borderTopWidth = tab.style.borderBottomWidth = tab.style.borderLeftWidth = tab.style.borderRightWidth = 2f;
-            tab.style.backgroundColor = selected ? ColOrange : ColPanelLight;
-            tab.style.borderTopColor = tab.style.borderBottomColor = tab.style.borderLeftColor = tab.style.borderRightColor
-                = selected ? ColOrangeEdge : ColBlueEdge;
-            tab.style.color = selected ? ColOrangeText : ColSubtleText;
-            tab.pickingMode = PickingMode.Position;
-            AddPressFeedback(tab, 1.06f, 0.95f);
-            tab.RegisterCallback<PointerUpEvent>(e => { if (e.button == 0) { _employeeCategory = key; RefreshEmployeeMode(); } });
-            _employeeCategoryBar.Add(tab);
-        }
+        // Filter rows drive this screen now (category tab row deleted, Tad 2026-10-09): gender/role are locked to the
+        // employee, and the single picked slot decides which parts are offered.
+        ApplyEmployeeFilterState(rec, lib);
 
         string gender = rec.gender == EmployeeGender.Female ? "female" : "male";
-        var (slot, matches) = ModularAvatarAssembler.OverrideCategoryInfo(_employeeCategory);
-        var options = lib.VariantsFor(gender, slot).Where(matches).OrderBy(p => p.Variant).ToList();
-        string catLabel = EmployeeCategories.First(c => c.key == _employeeCategory).label;
+        var catKeys = EmployeeCategoryKeysForSlot(_employeeSlot);
+        // Feet / hands / head / legs / torso: the bare "Body" (legs: "Reg") part IS the none tile - its own thumbnail with NONE
+        // printed over it, first in the slot (see IsBareBodyPart / CardDisplayName). Slots with no bare part get a plain None card.
 
-        _countLabel.text = $"{rec.employeeName} — {catLabel}";
-        _grid.Add(BuildEmployeeNoneCard());
-        foreach (var part in options)
-            _grid.Add(BuildEmployeeOptionCard(lib, part));
+        // One slot picked = that slot only; none picked = every editable slot.
+        var editableSlots = ModularAvatarAssembler.EditableOverrideKeys
+            .Select(k => ModularAvatarAssembler.OverrideCategoryInfo(k).slot).Distinct().ToList();
+        var slotsShown = string.IsNullOrEmpty(_employeeSlot) ? editableSlots : new List<string> { _employeeSlot };
+        bool allSlots = string.IsNullOrEmpty(_employeeSlot);
+
+        _countLabel.text = allSlots ? $"{rec.employeeName} — all slots" : $"{rec.employeeName} — {_employeeSlot}";
+        foreach (var slot in slotsShown)
+        {
+            var slotOptions = lib.VariantsFor(gender, slot)
+                .Where(p => EmployeeCategoryKeyFor(p) != null)
+                .Where(p => IsBareBodyPart(p) || p.AllowsRole(rec.role) || (_pendingOverrides.TryGetValue(EmployeeCategoryKeyFor(p), out var cur) && cur == p.ObjectName))
+                .OrderBy(p => IsBareBodyPart(p) ? 0 : 1).ThenBy(p => p.Variant).ToList();
+            if (allSlots && slotOptions.Count == 0) continue;   // nothing to swap in this slot
+
+            // Single slot with no bare-body part (hat, glasses, vest...): a plain None card first. The vest also gets one in
+            // the all-slots view so an employee can be left without a safety vest (Tad, 2026-10-09).
+            if ((!allSlots || slot == "vest") && !slotOptions.Any(IsBareBodyPart))
+                _grid.Add(BuildEmployeeNoneCard(EmployeeCategoryKeysForSlot(slot)));
+            foreach (var part in slotOptions)
+                _grid.Add(BuildEmployeeOptionCard(lib, part));
+        }
 
         RebuildEmployeePreview(rec, lib);
         BuildEmployeeDetailPanel(rec);
     }
+
+    /// <summary>Every editable override category that lives in this slot (hat = hardhat + cap + headphones).</summary>
+    private static List<string> EmployeeCategoryKeysForSlot(string slot) =>
+        ModularAvatarAssembler.EditableOverrideKeys.Where(k => ModularAvatarAssembler.OverrideCategoryInfo(k).slot == slot).ToList();
+
+    /// <summary>The override category a part belongs to, or null if it isn't an editable one.</summary>
+    private static string EmployeeCategoryKeyFor(IAvatarPart part) =>
+        ModularAvatarAssembler.EditableOverrideKeys.FirstOrDefault(k =>
+        {
+            var (slot, matches) = ModularAvatarAssembler.OverrideCategoryInfo(k);
+            return slot == part.Slot && matches(part);
+        });
 
     private VisualElement MakeInfoLabel(string text)
     {
@@ -1083,7 +1262,7 @@ public class AODPanel : IUIPanel
         }
     }
 
-    private VisualElement BuildEmployeeNoneCard()
+    private VisualElement BuildEmployeeNoneCard(List<string> catKeys, string noneObjectName = null, string slotLabel = null)
     {
         var card = new VisualElement { name = "aod-card" };
         card.style.width = 108f * CardScale;
@@ -1091,8 +1270,8 @@ public class AODPanel : IUIPanel
         card.style.marginRight = 8f * CardScale;
         card.style.marginBottom = 8f * CardScale;
         card.style.backgroundColor = ColCellOdd;
-        bool selected = _pendingOverrides.TryGetValue(_employeeCategory, out var v) && string.IsNullOrEmpty(v);
-        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f * CardScale;
+        bool selected = catKeys.Count > 0 && catKeys.All(k => _pendingOverrides.TryGetValue(k, out var v) && (string.IsNullOrEmpty(v) || v == noneObjectName));
+        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = (selected ? 4f : 2f) * CardScale;
         var borderCol = selected ? ColOrange : ColBlueEdge;
         card.style.borderTopColor = card.style.borderBottomColor = card.style.borderLeftColor = card.style.borderRightColor = borderCol;
         card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
@@ -1107,10 +1286,19 @@ public class AODPanel : IUIPanel
         label.pickingMode = PickingMode.Ignore;
         card.Add(label);
 
+        if (slotLabel != null)   // all-slots view: say which slot this None belongs to
+        {
+            var slotName = new Label(slotLabel);
+            ApplyFont(slotName, false, (int)(10 * CardScale));
+            slotName.style.color = ColorForSlot(slotLabel);
+            slotName.pickingMode = PickingMode.Ignore;
+            card.Add(slotName);
+        }
+
         card.RegisterCallback<PointerUpEvent>(e =>
         {
             if (e.button != 0) return;
-            _pendingOverrides[_employeeCategory] = "";
+            foreach (var k in catKeys) _pendingOverrides[k] = noneObjectName ?? "";   // feet: None = the bare-feet part
             RefreshEmployeeMode();
         });
         return card;
@@ -1123,8 +1311,10 @@ public class AODPanel : IUIPanel
         card.style.marginRight = 8f * CardScale;
         card.style.marginBottom = 8f * CardScale;
         card.style.backgroundColor = ColCellEven;
-        bool selected = _pendingOverrides.TryGetValue(_employeeCategory, out var v) && v == part.ObjectName;
-        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 2f * CardScale;
+        string catKey = EmployeeCategoryKeyFor(part);
+        // A bare-body tile is also "selected" when the slot is explicitly empty (that means bare).
+        bool selected = catKey != null && _pendingOverrides.TryGetValue(catKey, out var v) && (v == part.ObjectName || (IsBareBodyPart(part) && string.IsNullOrEmpty(v)));
+        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = (selected ? 4f : 2f) * CardScale;
         var borderCol = selected ? ColOrange : ColBlueEdge;
         card.style.borderTopColor = card.style.borderBottomColor = card.style.borderLeftColor = card.style.borderRightColor = borderCol;
         card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
@@ -1157,8 +1347,8 @@ public class AODPanel : IUIPanel
         nameStrip.pickingMode = PickingMode.Ignore;
         bar.Add(nameStrip);
 
-        var name = new Label(part.Variant);
-        ApplyNunito(name, true, CardNameFontSize(part.Variant));
+        var name = new Label(CardDisplayName(part));
+        ApplyNunito(name, true, CardNameFontSize(CardDisplayName(part)));
         name.style.color = ColBg;   // card name = the panel's dark navy background color, for contrast over the pale thumbnail (Tad, 2026-10-01)
         name.style.unityTextAlign = TextAnchor.MiddleCenter;
         name.style.whiteSpace = WhiteSpace.NoWrap;   // one line: a wrapped name covered the thumbnail
@@ -1166,15 +1356,42 @@ public class AODPanel : IUIPanel
         name.style.textOverflow = TextOverflow.Ellipsis;
         name.pickingMode = PickingMode.Ignore;
         nameStrip.Add(name);
-        AddFauxBold(nameStrip, name.text, CardNameFontSize(part.Variant));
+        AddFauxBold(nameStrip, name.text, CardNameFontSize(CardDisplayName(part)));
 
         card.RegisterCallback<PointerUpEvent>(e =>
         {
             if (e.button != 0) return;
-            _pendingOverrides[_employeeCategory] = part.ObjectName;
+            if (catKey == null) return;
+            // One part per slot: hardhat / cap / headphones are separate override categories but all live in the "hat"
+            // slot, so equipping one clears the others.
+            foreach (var other in EmployeeCategoryKeysForSlot(part.Slot))
+                if (other != catKey) _pendingOverrides[other] = "";
+            _pendingOverrides[catKey] = part.ObjectName;
+            RemoveGarmentsCovering(lib, part);
             RefreshEmployeeMode();
         });
         return card;
+    }
+
+    /// <summary>A worn garment can hide whole body slots (coveralls hide torso + legs), which switches off anything else worn there, so
+    /// swapping legs under coveralls looked like the click did nothing. Equipping into a covered slot therefore takes the covering
+    /// garment off (back to that slot's bare body part) and says so.</summary>
+    private void RemoveGarmentsCovering(AvatarPartLibrary lib, IAvatarPart incoming)
+    {
+        var rec = _employeeIdentity?.Record;
+        if (rec == null) return;
+        string gender = rec.gender == EmployeeGender.Female ? "female" : "male";
+        foreach (var key in ModularAvatarAssembler.EditableOverrideKeys)
+        {
+            if (!_pendingOverrides.TryGetValue(key, out var wornName) || string.IsNullOrEmpty(wornName)) continue;
+            var worn = lib.AllParts.FirstOrDefault(p => p.ObjectName == wornName);
+            if (worn == null || worn.Slot == incoming.Slot || worn.HiddenBodySlots == null) continue;
+            if (!worn.HiddenBodySlots.Any(s => string.Equals(s, incoming.Slot, StringComparison.OrdinalIgnoreCase))) continue;
+
+            var bare = lib.VariantsFor(gender, worn.Slot).FirstOrDefault(IsBareBodyPart);
+            _pendingOverrides[key] = bare?.ObjectName ?? "";
+            UIToast.Show($"{worn.Variant} taken off - it covers the {incoming.Slot}.");
+        }
     }
 
     private void BuildEmployeeDetailPanel(EmployeeRecord rec)
@@ -1268,7 +1485,7 @@ public class AODPanel : IUIPanel
         _previewTitleLabel.text = string.Empty;
 
         var hint = new Label("Select an item to view and edit its details.");
-        ApplyFont(hint, false, 13);
+        ApplyFont(hint, false, 32);   // was 13; 52 was too big, 17 too small (Tad 2026-10-09)
         hint.style.color = ColSubtleText;
         hint.style.whiteSpace = WhiteSpace.Normal;
         hint.style.paddingLeft = hint.style.paddingRight = hint.style.paddingTop = 14f;

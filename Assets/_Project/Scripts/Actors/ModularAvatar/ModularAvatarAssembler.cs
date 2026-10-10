@@ -101,7 +101,7 @@ public static class ModularAvatarAssembler
     /// independent keys because hardhat and headphones are two independent rolls that can both be
     /// worn at once — see the Build loop's own "hat" handling.</summary>
     public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.cap", "hat.headphones", "facialhair", "neck",
-                                                                       "glasses", "waist", "face", "torso", "vest", "hands", "legs", "feet" };
+                                                                       "glasses", "waist", "face", "torso", "vest", "hands", "legs", "feet", "head" };
 
     public static (string slot, System.Func<IAvatarPart, bool> matches) OverrideCategoryInfo(string key) => key switch
     {
