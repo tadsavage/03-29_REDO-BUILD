@@ -143,6 +143,9 @@ public class EmployeeWorldBanners : MonoBehaviour
     {
         if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
         if (!EmployeeHighlighter.HasInstance || !EmployeeHighlighter.Instance.HasHighlight) return;
+        // This very click may be the shift-click that JUST made the highlight (the camera is recentred in that same frame, so a ray fired
+        // from it now would miss the player and wrongly clear the outline). Only clicks on LATER frames can mean "empty ground".
+        if (EmployeeHighlighter.Instance.LastHighlightFrame == Time.frameCount) return;
         if ((EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) || UIInputGuard.IsPointerOverUIToolkit()) return;
 
         if (_cam == null) _cam = Camera.main;

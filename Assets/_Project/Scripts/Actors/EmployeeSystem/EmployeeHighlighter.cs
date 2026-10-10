@@ -118,6 +118,7 @@ public class EmployeeHighlighter : MonoBehaviour
     {
         if (identity == null) return;
 
+        LastHighlightFrame = Time.frameCount;   // this click recentres the camera below, even when the outline already exists
         Highlight(identity);
 
         if (_camera == null)
@@ -140,10 +141,16 @@ public class EmployeeHighlighter : MonoBehaviour
         Clear();
         _current = identity;
         _root = root;
+        LastHighlightFrame = Time.frameCount;
         BuildOutline(root);
     }
 
     /// <summary>Remove the current outline, if any, and stop the camera following.</summary>
+    /// <summary>The frame the last highlight was set. FocusAndHighlight recentres the camera in that same frame, so any other
+    /// "did this click hit a player?" test that frame would raycast from the MOVED camera and wrongly think it missed
+    /// (EmployeeWorldBanners uses this to leave a just-made highlight alone).</summary>
+    public int LastHighlightFrame { get; private set; } = -1;
+
     public void Clear()
     {
         foreach (var go in _clones)
