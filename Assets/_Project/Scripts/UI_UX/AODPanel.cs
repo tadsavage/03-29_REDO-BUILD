@@ -309,6 +309,15 @@ public class AODPanel : IUIPanel
     private string _parkedSlot;
     private Button _characterPreviewBtn;
     private Button _objectEditorBtn;
+
+    // ── Remembering who you were working on (Tad, 2026-10-10). Closing the window keeps the employee, their UNAPPLIED edits and the slot
+    // filter, so reopening the AOD drops you straight back onto them. Persisted by GUID too, so it survives a restart (the unapplied
+    // edits do not - they are re-read from the employee's current look). With nothing remembered the AOD opens on somebody anyway
+    // (ResolveDefaultEmployee), so the character box is never empty while there is staff.
+    private const string LastEmployeePref = "AOD_LastEmployeeGuid";
+    private EmployeeIdentity _lastEmployee;
+    private readonly Dictionary<string, string> _lastOverrides = new();
+    private string _lastSlot;
     private bool _filtersLockedForEmployee;     // gender / role / slot chips currently set up for employee mode
 
     private static readonly (string key, string label)[] EmployeeCategories =
@@ -926,11 +935,12 @@ public class AODPanel : IUIPanel
 
     public void Hide()
     {
+        RememberLast();   // before the reset below wipes the working state
         _visible = false;
         _overlay.style.display = DisplayStyle.None;
         AODPreviewStage.Clear();
 
-        // Full reset so the next open never shows the employee that was being edited (Tad, 2026-10-09).
+        // Reset the live working state (the employee is remembered above and restored on the next open).
         _employeeIdentity = null;
         _employeeSlot = null;
         _pendingOverrides.Clear();
@@ -946,7 +956,71 @@ public class AODPanel : IUIPanel
     /// <summary>Matches ItemCreatorPanel's own Toggle() — this panel also has no 0-9 hotkey (every
     /// slot taken), so TopBarUI opens it from a plain button the same way. Always opens back into
     /// plain library-browse mode, even if the panel was last left mid "Pimp My Employee" edit.</summary>
-    public void Toggle() { if (_visible) Hide(); else { _employeeIdentity = null; Show(); } }
+    public void Toggle()
+    {
+        if (_visible) { Hide(); return; }
+        var who = ResolveDefaultEmployee();
+        if (who != null) { BeginEmployee(who); Show(); }
+        else { _employeeIdentity = null; Show(); }   // no staff at all: plain library screen
+    }
+
+    private static bool IsUsable(EmployeeIdentity id) =>
+        id != null && id.Record != null
+        && id.Record.status != EmploymentStatus.Terminated && id.Record.status != EmploymentStatus.Resigned && id.Record.status != EmploymentStatus.Deceased;
+
+    /// <summary>The employee to open on: the last one worked on, else the one saved from a previous session, else the first worker
+    /// whose look is a modular avatar (so the box has something to edit), else anybody.</summary>
+    private EmployeeIdentity ResolveDefaultEmployee()
+    {
+        if (IsUsable(_lastEmployee)) return _lastEmployee;
+
+        string guid = PlayerPrefs.GetString(LastEmployeePref, "");
+        if (!string.IsNullOrEmpty(guid) && EmployeeRegistry.Instance != null)
+        {
+            var saved = EmployeeRegistry.Instance.GetByGuid(guid);
+            if (IsUsable(saved)) return saved;
+        }
+
+        if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
+        EmployeeIdentity best = null, any = null;
+        foreach (var e in UnityEngine.Object.FindObjectsByType<EmployeeIdentity>(FindObjectsInactive.Exclude))
+        {
+            if (!IsUsable(e) || e.name.Contains("LiveFeed")) continue;   // LiveFeed_* is the off-map portrait rig clone, never a real worker
+            if (any == null || string.CompareOrdinal(e.Record.employeeName, any.Record.employeeName) < 0) any = e;
+            bool modular = _employeeSpawner == null || _employeeSpawner.UsesModularAvatar(e.Record);
+            if (modular && (best == null || string.CompareOrdinal(e.Record.employeeName, best.Record.employeeName) < 0)) best = e;
+        }
+        return best != null ? best : any;
+    }
+
+    private void RememberLast()
+    {
+        var who = _employeeIdentity != null ? _employeeIdentity : _parkedEmployee;
+        if (!IsUsable(who)) return;
+        _lastEmployee = who;
+        _lastOverrides.Clear();
+        foreach (var kv in (_employeeIdentity != null ? _pendingOverrides : _parkedOverrides)) _lastOverrides[kv.Key] = kv.Value;
+        _lastSlot = _employeeIdentity != null ? _employeeSlot : _parkedSlot;
+        PlayerPrefs.SetString(LastEmployeePref, who.Record.employeeGuid ?? "");
+    }
+
+    /// <summary>Sets up employee mode for <paramref name="identity"/>. If it is the employee we remember, their unapplied edits and slot filter come back.</summary>
+    private void BeginEmployee(EmployeeIdentity identity)
+    {
+        _employeeIdentity = identity;
+        if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
+        _selectedPart = null;
+        _pendingOverrides.Clear();
+        _employeeSlot = null;
+        if (identity == _lastEmployee)
+        {
+            foreach (var kv in _lastOverrides) _pendingOverrides[kv.Key] = kv.Value;
+            _employeeSlot = _lastSlot;
+        }
+        _parkedEmployee = null;   // a freshly opened character replaces any parked one
+        _parkedOverrides.Clear();
+        _parkedSlot = null;
+    }
 
     /// <summary>Opens the AOD in "Pimp My Employee" mode — editing THIS specific employee's
     /// cosmetic slots (hair/hardhat/headphones/facial hair) rather than browsing/tagging the global
@@ -955,14 +1029,7 @@ public class AODPanel : IUIPanel
     public void ShowForEmployee(EmployeeIdentity identity)
     {
         if (identity?.Record == null) return;
-        _employeeIdentity = identity;
-        if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
-        _selectedPart = null;
-        _pendingOverrides.Clear();
-        _employeeSlot = null;   // picked from the slot row (defaults to the first editable slot)
-        _parkedEmployee = null;   // a freshly opened character replaces any parked one
-        _parkedOverrides.Clear();
-        _parkedSlot = null;
+        BeginEmployee(identity);   // restores the unapplied edits too when this is the employee we were last working on
         Show();
     }
 
