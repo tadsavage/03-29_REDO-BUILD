@@ -569,6 +569,11 @@ public static class ModularAvatarImporter
             variant = "ConstructionWorker";
         }
 
+        // Headphones are worn round the NECK (Tad, 2026-10-10), so a mesh still named Neutral_Hat_Headphones* is catalogued as a
+        // neck item. Remapped here, like the construction-worker case above, so no Blender rename + re-export is needed.
+        if (slot == "hat" && variant.ToLower().StartsWith("headphones"))
+            slot = "neck";
+
         return new AvatarPartLibrary.Part
         {
             objectName  = name,

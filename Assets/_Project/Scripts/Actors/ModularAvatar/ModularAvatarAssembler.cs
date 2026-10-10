@@ -88,8 +88,6 @@ public static class ModularAvatarAssembler
         { "glasses", 0.30f },  // shades etc.: its OWN slot so they stack with the gag (face) instead of competing with it
     };
 
-    // Independent 50% chance of wearing headphones — gender-neutral, stacks with the hard hat roll.
-    private const float HeadphonesChance = 0.5f;
     // Baseball cap: chance of wearing one when no hard hat was rolled (0.6 x ~50% no-hardhat = ~30% of everyone).
     private const float CapChance = 0.60f;
 
@@ -100,7 +98,7 @@ public static class ModularAvatarAssembler
     /// post-pass below and by AODPanel to build its category tabs. "hat" splits into two
     /// independent keys because hardhat and headphones are two independent rolls that can both be
     /// worn at once — see the Build loop's own "hat" handling.</summary>
-    public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.cap", "hat.headphones", "facialhair", "neck",
+    public static readonly string[] EditableOverrideKeys = { "hair", "hat.hardhat", "hat.cap", "facialhair", "neck",
                                                                        "glasses", "waist", "face", "torso", "vest", "hands", "legs", "feet", "head" };
 
     public static (string slot, System.Func<IAvatarPart, bool> matches) OverrideCategoryInfo(string key) => key switch
@@ -108,7 +106,6 @@ public static class ModularAvatarAssembler
         "hair"           => ("hair", (System.Func<IAvatarPart, bool>)(p => true)),
         "hat.hardhat"    => ("hat",  (System.Func<IAvatarPart, bool>)(p => p.Variant.ToLower().Contains("hardhat"))),
         "hat.cap"        => ("hat",  (System.Func<IAvatarPart, bool>)(p => p.Variant.ToLower().StartsWith("cap"))),
-        "hat.headphones" => ("hat",  (System.Func<IAvatarPart, bool>)(p => p.Variant.ToLower().Contains("headphones"))),
         "facialhair"     => ("facialhair", (System.Func<IAvatarPart, bool>)(p => true)),
         "neck"           => ("neck", (System.Func<IAvatarPart, bool>)(p => true)),
         _ => (key, (System.Func<IAvatarPart, bool>)(p => true)),
@@ -213,11 +210,10 @@ public static class ModularAvatarAssembler
                 continue;
             }
 
-            // Hard hat and headphones are two INDEPENDENT rolls sharing the same "hat" slot/head
-            // position (both can land on one avatar). Hard hat: 50% chance of wearing one at all
+            // Hard hat: 50% chance of wearing one at all
             // (OptionalSlotChance["hat"]), then a clean 50/50 between colors — restricted to
-            // "hardhat" variants specifically so headphones (handled separately below) can't dilute
-            // that color split to 33/33/33. Headphones: independent 50% chance, gender-neutral.
+            // "hardhat" variants specifically so caps (handled separately below) can't dilute
+            // that color split. Headphones are no longer a hat: they are NECK items now (Tad, 2026-10-10).
             if (slot == "hat")
             {
                 var hardhats = variants.Where(v => v.Variant.ToLower().Contains("hardhat")).ToList();
@@ -234,13 +230,6 @@ public static class ModularAvatarAssembler
                 {
                     var capPick = PickVariant(caps, rng, role, gender);
                     if (capPick != null) chosen.Add(capPick);
-                }
-
-                var headphones = variants.Where(v => v.Variant.ToLower().Contains("headphones")).ToList();
-                if (headphones.Count > 0 && rng.NextDouble() <= HeadphonesChance)
-                {
-                    var headphonesPick = PickVariant(headphones, rng, role, gender);
-                    if (headphonesPick != null) chosen.Add(headphonesPick);
                 }
 
                 continue;
@@ -270,6 +259,14 @@ public static class ModularAvatarAssembler
 
         // ── Per-employee overrides (Pimp My Employee, 2026-09-27) — see the full-overload doc
         // comment above for why this runs as a post-pass rather than short-circuiting the loop.
+        // Employees whose headphones were saved under the old "hat.headphones" key keep them: they are a neck item now.
+        if (overrides != null && overrides.TryGetValue("hat.headphones", out var legacyHeadphones))
+        {
+            var migrated = new Dictionary<string, string>();
+            foreach (var kv in overrides) if (kv.Key != "hat.headphones") migrated[kv.Key] = kv.Value;
+            if (!migrated.ContainsKey("neck")) migrated["neck"] = legacyHeadphones;
+            overrides = migrated;
+        }
         if (overrides != null && overrides.Count > 0)
             foreach (var key in EditableOverrideKeys)
                 ApplyCategoryOverride(chosen, overrides, key, lib, gender);
@@ -469,6 +466,11 @@ public static class ModularAvatarAssembler
     public static int VestTrimRings = 0;             // extra polygons hidden past the vest border. 0 = only what the vest covers. 1 was tried (2026-10-06): the torso polys are big, so a whole ring removed the hips and shoulders and left holes.
     private static readonly Dictionary<(Mesh torso, Mesh vest, int rings, int coverMm), Mesh> TrimmedTorsoCache = new();
 
+    // MALE coverall torsos (Tad, 2026-10-10): VestHideMask.DataExact was recorded on the FEMALE coverall, so on a male it hid the wrong faces. Males use
+    // their own table, VestHideMaskMale.Data, recorded from the faces Tad selected on Male_Torso_Coveralls_Brn: a selected face may be hidden under a vest,
+    // every other face is never hidden. The four male coveralls are duplicates of one mesh, so the one table covers them all. Other male torsos
+    // (the bare Male_Torso_Body) are not trimmed at all.
+
     private static void TrimBodyUnderVest(GameObject root)
     {
         var all = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
@@ -480,11 +482,13 @@ public static class ModularAvatarAssembler
         foreach (var r in all)
         {
             if (r == null || r.sharedMesh == null || r == vest || !r.name.Contains("_Torso_")) continue;
+            if (r.name.StartsWith("Male_") && !r.name.Contains("Coveralls")) continue;   // no male mask exists for the bare torso: leave it whole
             var src = r.sharedMesh;
             var key = (src, vest.sharedMesh, VestTrimRings, Mathf.RoundToInt(VestCoverDistance * 1000f));
             if (!TrimmedTorsoCache.TryGetValue(key, out var trimmed) || trimmed == null)
             {
-                trimmed = BuildTrimmedUnderShell(src, vest.sharedMesh, VestCoverDistance, VestTrimRings, src.name.Contains("Gray") ? VestHideMask.DataGray : src.name.Contains("Brown") ? VestHideMask.DataBrown : VestHideMask.Data);
+                trimmed = BuildTrimmedUnderShell(src, vest.sharedMesh, VestCoverDistance, VestTrimRings, src.name.Contains("Gray") ? VestHideMask.DataGray : src.name.Contains("Brown") ? VestHideMask.DataBrown : VestHideMask.Data,
+                                                 maleMask: r.name.StartsWith("Male_"));
                 TrimmedTorsoCache[key] = trimmed;
             }
             r.sharedMesh = trimmed;
@@ -494,7 +498,7 @@ public static class ModularAvatarAssembler
     /// <summary>Copy of <paramref name="src"/> with every triangle lying within <paramref name="cover"/> metres of the
     /// <paramref name="shell"/> mesh removed, plus <paramref name="rings"/> extra rings of triangles touching removed ones.
     /// Both meshes must share one local space (parts exported from the same rig do).</summary>
-    private static Mesh BuildTrimmedUnderShell(Mesh src, Mesh shell, float cover, int rings, float[] maskData)
+    private static Mesh BuildTrimmedUnderShell(Mesh src, Mesh shell, float cover, int rings, float[] maskData, bool maleMask = false)
     {
         var sv = shell.vertices; var st = shell.triangles;
         var verts = src.vertices;
@@ -538,6 +542,16 @@ public static class ModularAvatarAssembler
                 // hem, VestAlwaysHideHalfWidth either side of the centre line - is fully covered by the vest, so every body triangle whose
                 // centre lies inside it is hidden outright. Outside the box the finer rules below apply.
                 float depthOff = (c[depth] - sb.center[depth]) * frontSign;      // > 0 = front half, < 0 = back half
+                if (maleMask)
+                {
+                    // Male coveralls: hide exactly the faces Tad selected in Blender (VestHideMaskMale), nothing else is touched.
+                    if (MaskSaysHideMale(VestHideMaskMale.Data, c))
+                    {
+                        hiddenTri.Add((s, i));
+                        hiddenKeys.Add(Weld(verts[tris[i]])); hiddenKeys.Add(Weld(verts[tris[i + 1]])); hiddenKeys.Add(Weld(verts[tris[i + 2]]));
+                    }
+                    continue;
+                }
                 if (VestUseExactMask)
                 {
                     // Exact mode (Tad, 2026-10-07): the selected faces are hidden whenever a vest is worn, nothing else is touched.
@@ -699,6 +713,19 @@ public static class ModularAvatarAssembler
 
 
     public static bool VestUseExactMask = true;          // true = hide exactly the faces in VestHideMask.DataExact (Tad's selection); false = older rules
+    /// <summary>Male mask lookup: the record whose triangle centroid is nearest to <paramref name="c"/> (mesh space) decides - flag 1 = Tad selected it.</summary>
+    private static bool MaskSaysHideMale(float[] d, Vector3 c)
+    {
+        float best = float.MaxValue; bool hide = false;
+        for (int k = 0; k + 3 < d.Length; k += VestHideMaskMale.Stride)
+        {
+            float dx = d[k + 1] - c.x, dy = d[k + 2] - c.y, dz = d[k + 3] - c.z;
+            float sq = dx * dx + dy * dy + dz * dz;
+            if (sq < best) { best = sq; hide = d[k] > 0.5f; }
+        }
+        return hide;
+    }
+
     private static bool MaskSaysHideExact(float[] d, float upOff, float latAbs, float depthOff)
     {
         float best = float.MaxValue; bool hide = false;
