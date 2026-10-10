@@ -14249,10 +14249,10 @@ MonoBehaviour:
   moonColor: {r: 0.55, g: 0.62, b: 0.85, a: 1}
   dayExposure: 1
   nightExposure: 0.5
-  dayAmbient: {r: 0.49600002, g: 0.512, b: 0.52800006, a: 1}
+  dayAmbient: {r: 0.5578, g: 0.5770516, b: 0.5924529, a: 1}
   nightAmbient: {r: 0.1, g: 0.13, b: 0.22, a: 1}
   controlAmbient: 1
-  globalBrightness: 1
+  globalBrightness: 1.4
 --- !u!4 &1706856163
 Transform:
   m_ObjectHideFlags: 0
@@ -15445,8 +15445,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56c2c17a07779d14facf23c1892d7255, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EmployeeHighlighter
-  _outlineColor: {r: 0.40722677, g: 0.67735314, b: 0.7735849, a: 1}
-  _outlineWidth: 0.0303
+  _outlinePixels: 2.5
 --- !u!4 &1841121479
 Transform:
   m_ObjectHideFlags: 0
