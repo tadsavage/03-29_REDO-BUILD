@@ -270,6 +270,7 @@ public class ItemCreatorPanel : IUIPanel
             _prevSunLight = RenderSettings.sun;
             RenderSettings.sun = _previewKeyLight;
             _restoreSunLight = true;
+            _previewKeyLight.enabled = true;   // directional = lights the whole game scene too, so it is only on while this panel is open
         }
 
         // Always opens maximized rather than at normal size — same "FillScreenExact, deferred a frame"
@@ -295,6 +296,7 @@ public class ItemCreatorPanel : IUIPanel
             RenderSettings.sun = _prevSunLight;
             _restoreSunLight = false;
         }
+        if (_previewKeyLight != null) _previewKeyLight.enabled = false;   // a directional light left on keeps brightening the game after the panel closes
 
 #if UNITY_EDITOR
         if (_restoreRenderPipelineAsset)

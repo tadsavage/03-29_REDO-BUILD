@@ -42,6 +42,17 @@ public class AODPreviewStage : MonoBehaviour
     private float _yaw;
     private float _pitch;
 
+    // The stage lights are DIRECTIONAL, and a directional light has no position: "isolated by altitude" does nothing for it, so it
+    // lights the whole game scene as well. They therefore stay OFF except while the stage is actually rendering (Tad, 2026-10-10:
+    // the scene went washed-out the moment the AOD was closed, every time, because these stayed on for the rest of the session).
+    private readonly List<Light> _stageLights = new();
+    private readonly List<Light> _thumbLights = new();
+
+    private static void SetLights(List<Light> lights, bool on)
+    {
+        foreach (var l in lights) if (l != null) l.enabled = on;
+    }
+
     private Transform _thumbStagePivot;
     private Camera _thumbCamera;
     private RenderTexture _thumbRenderTexture;
@@ -68,7 +79,7 @@ public class AODPreviewStage : MonoBehaviour
         _stagePivot.SetParent(transform, false);
         _stagePivot.position = StageOrigin;
 
-        BuildLightRig(_stagePivot, StageOrigin);
+        _stageLights.AddRange(BuildLightRig(_stagePivot, StageOrigin));
         BuildBackdrop();
 
         _renderTexture = new RenderTexture(1024, 1024, 24, RenderTextureFormat.ARGB32) { name = "AODPreviewRT" };
@@ -130,8 +141,9 @@ public class AODPreviewStage : MonoBehaviour
         _camera.transform.LookAt(StageOrigin + Vector3.up * 0.9f);
     }
 
-    private static void BuildLightRig(Transform parent, Vector3 origin)
+    private static List<Light> BuildLightRig(Transform parent, Vector3 origin)
     {
+        var rig = new List<Light>();
         // Simple two-point light rig, unmasked (default layer, default culling mask) — matches
         // ItemCreatorPanel/EmployeePhotoBooth, neither of which restricts light cullingMask either.
         var keyLightGO = new GameObject("KeyLight");
@@ -141,6 +153,8 @@ public class AODPreviewStage : MonoBehaviour
         var keyLight = keyLightGO.AddComponent<Light>();
         keyLight.type = LightType.Directional;
         keyLight.intensity = 1.4f;   // was 1.1; 1.8 over-saturated the colors, so backed off (Tad, 2026-10-09)
+        keyLight.enabled = false;    // see _stageLights: only on while rendering
+        rig.Add(keyLight);
 
         var fillLightGO = new GameObject("FillLight");
         fillLightGO.transform.SetParent(parent, false);
@@ -149,6 +163,9 @@ public class AODPreviewStage : MonoBehaviour
         var fillLight = fillLightGO.AddComponent<Light>();
         fillLight.type = LightType.Directional;
         fillLight.intensity = 0.7f;   // was 0.45; 0.9 was too much
+        fillLight.enabled = false;
+        rig.Add(fillLight);
+        return rig;
     }
 
     // Same camera-to-target axis FrameOn() dynamically frames along — reused here so the static
@@ -218,6 +235,7 @@ public class AODPreviewStage : MonoBehaviour
         var stage = Instance;
         stage.ClearInternal();
         stage._camera.enabled = true;   // only renders while something is on the stage (see Clear)
+        SetLights(stage._stageLights, true);
         if (lib == null || part == null) return;
 
         var prefab = lib.PrefabFor(part);
@@ -319,6 +337,7 @@ public class AODPreviewStage : MonoBehaviour
         var stage = Instance;
         stage.ClearInternal();
         stage._camera.enabled = true;
+        SetLights(stage._stageLights, true);
         if (instance == null) return;
 
         var pivotGO = new GameObject("RotatePivot");
@@ -377,6 +396,7 @@ public class AODPreviewStage : MonoBehaviour
         _instance.ClearInternal();
         // Nothing to draw: stop rendering the 1024x1024 preview target every frame while the AOD is closed.
         if (_instance._camera != null) _instance._camera.enabled = false;
+        SetLights(_instance._stageLights, false);   // directional: would otherwise keep lighting the whole game scene
     }
 
     private void ClearInternal()
@@ -396,7 +416,7 @@ public class AODPreviewStage : MonoBehaviour
         _thumbStagePivot.SetParent(transform, false);
         _thumbStagePivot.position = StageOrigin + ThumbStageOffset;
 
-        BuildLightRig(_thumbStagePivot, _thumbStagePivot.position);
+        _thumbLights.AddRange(BuildLightRig(_thumbStagePivot, _thumbStagePivot.position));
 
         _thumbRenderTexture = new RenderTexture(320, 320, 16, RenderTextureFormat.ARGB32) { name = "AODThumbRT" }; // 2x (was 160) — cards are drawn at double size
         _thumbRenderTexture.Create();
@@ -473,7 +493,9 @@ public class AODPreviewStage : MonoBehaviour
             stage.SetupThumbStage();
             // Warm-up render: the very first Render() of a freshly-created URP camera drew the backdrop black
             // (the first card in the grid kept a black background while every later one was green).
+            SetLights(stage._thumbLights, true);
             stage._thumbCamera.Render();
+            SetLights(stage._thumbLights, false);
         }
 
         var prefab = lib.PrefabFor(part);
@@ -517,7 +539,9 @@ public class AODPreviewStage : MonoBehaviour
             stage.FrameCameraLoose(stage._thumbCamera, bounds);
         }
 
+        SetLights(stage._thumbLights, true);
         stage._thumbCamera.Render();
+        SetLights(stage._thumbLights, false);
 
         RenderTexture.active = stage._thumbRenderTexture;
         var tex = new Texture2D(stage._thumbRenderTexture.width, stage._thumbRenderTexture.height, TextureFormat.RGBA32, false);
