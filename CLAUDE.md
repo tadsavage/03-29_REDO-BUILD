@@ -2753,3 +2753,26 @@ All in `AODPanel.cs` (UI is built in C# with inline styles, no UXML/USS), `AODPr
 - **Game look:** all four profiles (`PP_Ultra/Good/Toaster`, `GlobalPostProcessProfile`) now have ColorAdjustments saturation -32 and postExposure lowered 0.15 (0.25/0.30/0.30/0.35). Original saturation was +6/+3/+6/+5.
 - **Gotchas:** AODPanel.cs is CRLF - a Python text-mode rewrite silently converts to LF (restore CRLF afterwards, e.g. with sed appending a carriage return to each line). Static reading of "it does nothing" bugs can mislead: reproduce the assembler through `Unity_RunCommand` (no `System.Reflection` allowed there) before blaming the UI.
 - **Open:** male/female "Body" naming differs (male all `Body`, female legs `Reg`); normal library view still lists every part; Hands/Head bare parts rely on the `Body`/`Reg` naming convention.
+
+---
+
+## Session 2026-10-10 — graphics tuning, avatar fixes, selection/outline/banners
+
+### Graphics (Ultra) — what actually drives the look
+- **Tad hand-tuned the ambient occlusion in `Assets/Settings/PC_Renderer.asset`** (SSAO: `Intensity 0.6`, `DirectLightingStrength 0`, `Radius 0.3`, `Falloff 100`). That is the setting he is happy with — don't "improve" it. SSAO only darkens the AMBIENT term, so it reads as grime ("coal miner") on characters whenever ambient gets stronger (exposure up, `DayNightCycle.globalBrightness` up). Re-check it if lighting is raised again. `Good_Renderer`'s SSAO still has `DirectLightingStrength 1` (the old "coal" combo) — fix before shipping the Good preset.
+- **The main camera ignores every scene Volume** (`m_VolumeLayerMask: 0` on it in `Main.unity`): the whole grade comes from the project's DEFAULT volume profile, `Assets/Settings/SampleSceneProfile.asset` (contrast -10, saturation -20, ACES, **post-exposure +0.4 EV** = ~+25% brightness). `PP_Ultra`/`GlobalPostProcessProfile`/`PhotoBoothPostFX` do not touch the game view. Live edits to the default profile need `VolumeManager.instance.SetGlobalDefaultProfile(profile)` or nothing changes.
+- **`PC_RPAsset` Color Grading Mode must stay HDR** (`m_ColorGradingMode: 1`). A bulk settings rewrite flipped it to LDR once and everything blew out neon. The same rewrite also touched four files in one second — check `git diff` on `Assets/Settings` when colours suddenly change.
+- `DayNightCycle.globalBrightness` barely moves the final image (ACES compresses it); use post-exposure for brightness.
+- **AOD / New Item preview directional lights leaked into the game.** A directional light has no position, so "isolated at y=400" does nothing. `AODPreviewStage` (key+fill, big stage and thumbnail stage) and `ItemCreatorPanel` (`PreviewLight`) now keep them OFF except while actually rendering. Symptom was the scene washing out the moment the AOD was closed.
+
+### Avatar
+- Headphones are NECK items now (finalized assets `Neutral_Hat_Headphones*` carry `slot: neck`; the importer maps `Hat_Headphones*` to neck). Old saved `hat.headphones` overrides migrate to `neck` at build time.
+- **Vest body-hiding for MALES** uses `VestHideMaskMale.cs`, generated from the faces Tad selected on `Male_Torso_Coveralls_Brn` in Blender (34 faces; hide only those). Every face in these torsos exists TWICE at the same position, so a position counts as hide if either copy was selected. All four male coveralls share one mesh, one table covers them. Bare `Male_Torso_Body` is never trimmed. Females keep `VestHideMask.DataExact`.
+- Male vests (`Male_Vest_Safety-Blue/Orange/Yellow`) exist as finalized parts; vests are gender-specific now.
+- **Two-source FBX trap is live again:** `1. Blender/Female_Body_Reg-White.fbx` (a default Blender export beside the .blend) is what the 60 female prefabs bind to. It works (marked readable) and is committed for that reason, but export ONLY with the `Unity_Avatar` preset to `2. FBX/female_regular_body.fbx` / `Male/2. FBX/Male_Regular_Body.fbx` — exporting the female file over the male path wiped every male part once.
+- AOD: Character Preview / Object Editor buttons (Lilita One); switching keeps the unapplied edits.
+
+### Selection, outline, banners
+- `EmployeeHighlighter`: shift-click in the world (employees, and riders → whole Reach Truck/Dock Stocker/Pallet Jack) outlines in orange (`TruckOrderColors.Inbound`) and follows. Tight constant 2.5px outline, smoothed-normal hull, skins like the real mesh, skips disabled renderers and the foot-shadow quad, clips below the floor (the reach-truck mast pokes 2 m underground).
+- `EmployeeWorldBanners`: floating info banner over an employee (+0.25 m above the avatar, scaled by distance). Left-click toggles, shift-click shows, double-click the banner closes it, clicking empty ground clears outline/follow but never banners. Only the task line is live (`EmployeeTaskText`, from `WorkQueueSystem` Assigned tasks, falling back to the standing assignment).
+- **Recompiling while in Play mode resets non-serialized fields** (e.g. `EmployeeInfoUI._panel` becomes null) — restart Play after code changes before judging UI.

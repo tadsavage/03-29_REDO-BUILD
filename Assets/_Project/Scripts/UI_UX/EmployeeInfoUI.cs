@@ -378,6 +378,12 @@ public class EmployeeInfoUI : MonoBehaviour
 
     public bool IsVisible => _isVisible;
 
+    /// <summary>The HUD document's root (parent of the info card) - EmployeeWorldBanners adds its floating banners here.</summary>
+    public VisualElement HudRoot => _panel != null ? _panel.parent : null;
+
+    /// <summary>The role icon the card shows in its header (null when the library has none for that role).</summary>
+    public Sprite GetRoleIcon(EmployeeRole role) => _roleIconLibrary != null ? _roleIconLibrary.GetIcon(role) : null;
+
     // ────────── Highlight / focus ──────────
 
     /// <summary>Shift-click the portrait → outline this employee in the world and make the

@@ -49,18 +49,39 @@ public class EmployeeHighlighter : MonoBehaviour
     public static bool HasInstance => _instance != null;
 
     [Header("Outline look")]
-    [Tooltip("Outline colour. Bright bluish-gray for high visibility.")]
-    [SerializeField] private Color _outlineColor = new Color(0.706f, 0.784f, 0.851f, 1f);
+    // Orange, the same one the trucks' inbound outline uses (TruckOrderColors.Inbound) - Tad, 2026-10-10. Fixed in code on purpose: the old
+    // serialized colour/width on this component in Main.unity are no longer read.
+    private static Color OutlineColor => TruckOrderColors.Inbound;
 
-    [Tooltip("Outline thickness in world units. ~0.05 reads as 'medium-thick' on a ~1.8m character.")]
-    [SerializeField, Range(0f, 0.2f)] private float _outlineWidth = 0.05f;
+    [Tooltip("Outline thickness in SCREEN PIXELS (constant at any zoom). 2-3 = tight.")]
+    [SerializeField, Range(0.5f, 8f)] private float _outlinePixels = 2.5f;
 
     private Material _maskMat;
     private Material _fillMat;
 
     private EmployeeIdentity _current;
+    private Transform _root;   // what is actually outlined / followed: the employee, or the vehicle they are riding
+
+    /// <summary>True while either Shift key is held (the "select + follow" modifier for world clicks).</summary>
+    public static bool ShiftHeld => Keyboard.current != null && Keyboard.current.shiftKey.isPressed;
+
+    /// <summary>An employee riding a Reach Truck / Dock Stocker / Pallet Jack is outlined and followed as the WHOLE machine
+    /// (the rider is parented under it, so the machine's renderers include them); everyone else is outlined as themselves.</summary>
+    private static Transform OutlineRoot(EmployeeIdentity identity) =>
+        identity.AssignedSlot != null ? identity.AssignedSlot.transform : identity.transform;
     private readonly List<GameObject> _clones = new();
     private FreeLookCamera _camera;
+
+    // Geometry under the floor (the reach truck's mast pokes 2 m below it) must not show through: clip both outline passes below the outlined
+    // thing's own pivot height (its feet / its wheels), tracked every frame so it follows docks and ramps.
+    private const float ClipBelowPivot = 0.03f;
+    private void LateUpdate()
+    {
+        if (_root == null || _maskMat == null || _fillMat == null) return;
+        float y = _root.position.y - ClipBelowPivot;
+        _maskMat.SetFloat("_OutlineClipY", y);
+        _fillMat.SetFloat("_OutlineClipY", y);
+    }
 
     private void Awake()
     {
@@ -103,8 +124,9 @@ public class EmployeeHighlighter : MonoBehaviour
             _camera = FindAnyObjectByType<FreeLookCamera>();
         if (_camera != null)
         {
-            _camera.FocusOn(identity.transform.position);
-            _camera.SetFollowTarget(identity.transform);   // track them until the player pans away
+            var follow = OutlineRoot(identity);
+            _camera.FocusOn(follow.position);
+            _camera.SetFollowTarget(follow);   // track them (or their machine) until the player pans away
         }
     }
 
@@ -112,11 +134,13 @@ public class EmployeeHighlighter : MonoBehaviour
     public void Highlight(EmployeeIdentity identity)
     {
         if (identity == null) return;
-        if (_current == identity) return;   // already outlined — leave it
+        var root = OutlineRoot(identity);
+        if (_current == identity && _root == root) return;   // already outlined — leave it
 
         Clear();
         _current = identity;
-        BuildOutline(identity);
+        _root = root;
+        BuildOutline(root);
     }
 
     /// <summary>Remove the current outline, if any, and stop the camera following.</summary>
@@ -126,12 +150,16 @@ public class EmployeeHighlighter : MonoBehaviour
             if (go != null) Destroy(go);
         _clones.Clear();
         _current = null;
+        _root = null;
 
         if (_camera == null) _camera = FindAnyObjectByType<FreeLookCamera>();
         if (_camera != null) _camera.SetFollowTarget(null);
     }
 
     public bool IsHighlighted(EmployeeIdentity identity) => identity != null && _current == identity;
+
+    /// <summary>True while someone (or a machine) is currently outlined / followed.</summary>
+    public bool HasHighlight => _current != null;
 
     // ── Internals ────────────────────────────────────────────────────────────────
     private bool EnsureMaterials()
@@ -151,34 +179,37 @@ public class EmployeeHighlighter : MonoBehaviour
         // transparent phase so the depth/stencil buffer is shared between them.
         _maskMat = new Material(maskShader) { renderQueue = 3000, hideFlags = HideFlags.HideAndDontSave };
         _fillMat = new Material(fillShader) { renderQueue = 3001, hideFlags = HideFlags.HideAndDontSave };
-        _fillMat.SetColor("_OutlineColor", _outlineColor);
-        _fillMat.SetFloat("_OutlineWidth", _outlineWidth);
+        _fillMat.SetColor("_OutlineColor", OutlineColor);
+        _fillMat.SetFloat("_OutlinePixels", _outlinePixels);
         return true;
     }
 
-    private void BuildOutline(EmployeeIdentity identity)
+    private void BuildOutline(Transform root)
     {
         if (!EnsureMaterials()) return;
 
-        var renderers = identity.GetComponentsInChildren<Renderer>(includeInactive: false);
+        var renderers = root.GetComponentsInChildren<Renderer>(includeInactive: false);
         foreach (var r in renderers)
         {
             if (r == null) continue;
             if (r is SpriteRenderer) continue;          // skip the 2D portrait billboard
             if (r.name == CloneName) continue;          // never clone our own clones
+            // Only what is actually DRAWN: a switched-off renderer (the hidden legacy worker body under the modular avatar, parts a garment
+            // hides) used to get a clone too, so the outline followed the wrong body shape (Tad, 2026-10-10: "janky").
+            if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
 
             if (r is SkinnedMeshRenderer smr && smr.sharedMesh != null)
             {
-                CloneSkinned(smr, _maskMat);
-                CloneSkinned(smr, _fillMat);
+                CloneSkinned(smr, _maskMat, smr.sharedMesh);
+                CloneSkinned(smr, _fillMat, SmoothedOutlineMesh(smr.sharedMesh));
             }
             else if (r is MeshRenderer)
             {
                 var mf = r.GetComponent<MeshFilter>();
-                if (mf != null && mf.sharedMesh != null)
+                if (mf != null && mf.sharedMesh != null && mf.sharedMesh.name != "FootContactShadowQuad")   // not the soft ground-shadow blob
                 {
                     CloneStatic(r, mf.sharedMesh, _maskMat);
-                    CloneStatic(r, mf.sharedMesh, _fillMat);
+                    CloneStatic(r, SmoothedOutlineMesh(mf.sharedMesh), _fillMat);
                 }
             }
         }
@@ -191,20 +222,57 @@ public class EmployeeHighlighter : MonoBehaviour
         return arr;
     }
 
-    private void CloneSkinned(SkinnedMeshRenderer src, Material mat)
+    // These meshes are flat-shaded low-poly: every hard edge has duplicated vertices, each carrying its own face normal. Pushing the hull out along those
+    // splits the corners apart (cracks, uneven width). The fill hull therefore uses a copy of the mesh whose normals are AVERAGED over every vertex that
+    // shares a position, so the whole hull moves outward together. Bone weights/bind poses are copied with the mesh. Cached per source mesh.
+    private static readonly Dictionary<Mesh, Mesh> _smoothedCache = new();
+
+    private static Mesh SmoothedOutlineMesh(Mesh src)
+    {
+        if (src == null) return null;
+        if (_smoothedCache.TryGetValue(src, out var cached) && cached != null) return cached;
+        if (!src.isReadable) return src;   // cannot read vertices at runtime: fall back to the plain mesh
+
+        var smooth = Object.Instantiate(src);
+        smooth.name = src.name + "_outlineSmooth";
+        smooth.hideFlags = HideFlags.HideAndDontSave;
+        var verts = src.vertices;
+        var normals = src.normals;
+        if (normals == null || normals.Length != verts.Length) { _smoothedCache[src] = src; return src; }
+
+        static long Key(Vector3 p) =>
+            ((long)Mathf.RoundToInt(p.x * 10000f) * 73856093L) ^ ((long)Mathf.RoundToInt(p.y * 10000f) * 19349663L) ^ ((long)Mathf.RoundToInt(p.z * 10000f) * 83492791L);
+        var sums = new Dictionary<long, Vector3>(verts.Length);
+        for (int i = 0; i < verts.Length; i++)
+        {
+            long k = Key(verts[i]);
+            sums[k] = sums.TryGetValue(k, out var s) ? s + normals[i] : normals[i];
+        }
+        var outN = new Vector3[verts.Length];
+        for (int i = 0; i < verts.Length; i++)
+        {
+            var n = sums[Key(verts[i])];
+            outN[i] = n.sqrMagnitude > 1e-10f ? n.normalized : normals[i];
+        }
+        smooth.normals = outN;
+        _smoothedCache[src] = smooth;
+        return smooth;
+    }
+
+    private void CloneSkinned(SkinnedMeshRenderer src, Material mat, Mesh mesh)
     {
         var go = new GameObject(CloneName);
         go.layer = src.gameObject.layer;
         go.transform.SetParent(src.transform, worldPositionStays: false);
 
         var smr = go.AddComponent<SkinnedMeshRenderer>();
-        smr.sharedMesh          = src.sharedMesh;
+        smr.sharedMesh          = mesh;
         smr.bones               = src.bones;
         smr.rootBone            = src.rootBone;
         smr.localBounds         = src.localBounds;
-        smr.quality             = SkinQuality.Bone1;     // cheap — we only need the silhouette
+        smr.quality             = src.quality;           // MUST match the real renderer: Bone1 skinned the clone differently from the visible body, so the outline did not follow it
         smr.updateWhenOffscreen = src.updateWhenOffscreen;
-        smr.sharedMaterials     = FillArray(mat, src.sharedMesh.subMeshCount);
+        smr.sharedMaterials     = FillArray(mat, mesh.subMeshCount);
         smr.shadowCastingMode   = ShadowCastingMode.Off;
         smr.receiveShadows      = false;
 

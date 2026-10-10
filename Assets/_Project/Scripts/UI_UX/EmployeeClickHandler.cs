@@ -79,6 +79,11 @@ public class EmployeeClickHandler : MonoBehaviour
         {
             _employeeUI.Show(_identity.Record);
             AudioManager.Play("UIClick");
+            // Shift-click in the world: also outline them and make the camera follow (after Show, which drops any previous focus).
+            // If they are riding a machine the whole machine is outlined and followed (see EmployeeHighlighter.OutlineRoot).
+            if (EmployeeHighlighter.ShiftHeld) EmployeeHighlighter.Instance.FocusAndHighlight(_identity);
+            // Floating info banner over them: a plain click toggles it, a shift-click makes sure it is up (never closes it).
+            if (EmployeeHighlighter.ShiftHeld) EmployeeWorldBanners.Instance.Show(_identity); else EmployeeWorldBanners.Instance.Toggle(_identity);
         }
         else if (_employeeData != null)
         {

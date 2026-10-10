@@ -8,6 +8,12 @@ Shader "Hidden/EmployeeOutlineMask"
     // sets this material's renderQueue below the fill material's, so the mask always draws
     // first within the transparent phase. (Two passes in one material would render in an
     // order URP does not guarantee, which is why this is split into two shaders.)
+    Properties
+    {
+        // Fragments below this world height are discarded, so geometry under the floor (e.g. the reach truck's mast) never shows through it.
+        _OutlineClipY ("Clip below world Y", Float) = -10000
+    }
+
     SubShader
     {
         Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline"="UniversalPipeline" }
@@ -17,7 +23,7 @@ Shader "Hidden/EmployeeOutlineMask"
             Name "Mask"
             Tags { "LightMode"="UniversalForward" }
 
-            Cull Back
+            Cull Off          // both faces: gaps the body can be seen through (parts hidden by a garment) still count as silhouette, so no rim lines appear inside it
             ZWrite Off
             ZTest Always
             ColorMask 0
@@ -34,17 +40,26 @@ Shader "Hidden/EmployeeOutlineMask"
             #pragma fragment frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
+            CBUFFER_START(UnityPerMaterial)
+                float _OutlineClipY;
+            CBUFFER_END
+
             struct Attributes { float4 positionOS : POSITION; };
-            struct Varyings   { float4 positionCS : SV_POSITION; };
+            struct Varyings   { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; };
 
             Varyings vert (Attributes IN)
             {
                 Varyings OUT;
-                OUT.positionCS = TransformObjectToHClip(IN.positionOS.xyz);
+                OUT.positionWS = TransformObjectToWorld(IN.positionOS.xyz);
+                OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
                 return OUT;
             }
 
-            half4 frag (Varyings IN) : SV_Target { return half4(0, 0, 0, 0); }
+            half4 frag (Varyings IN) : SV_Target
+            {
+                clip(IN.positionWS.y - _OutlineClipY);
+                return half4(0, 0, 0, 0);
+            }
             ENDHLSL
         }
     }

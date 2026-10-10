@@ -80,6 +80,10 @@ public class MHEOperatorSlot : MonoBehaviour
 
         _employeeUI.Show(CurrentOperator.Record);
         AudioManager.Play("UIClick");
+        // Shift-click on the machine: outline the WHOLE machine (the rider is parented under it) and follow it, after Show drops any older focus.
+        if (EmployeeHighlighter.ShiftHeld) EmployeeHighlighter.Instance.FocusAndHighlight(CurrentOperator);
+        // Floating banner over the operator (same rule as clicking a person on foot).
+        if (EmployeeHighlighter.ShiftHeld) EmployeeWorldBanners.Instance.Show(CurrentOperator); else EmployeeWorldBanners.Instance.Toggle(CurrentOperator);
     }
 
     // Riders use the SAME controllers as everyone else (MaleStaff / FemaleStaff); the drive pose is just
