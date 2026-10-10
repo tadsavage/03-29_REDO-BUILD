@@ -300,6 +300,15 @@ public class AODPanel : IUIPanel
     private EmployeeSpawner _employeeSpawner;
     private readonly Dictionary<string, string> _pendingOverrides = new();
     private string _employeeSlot;               // the one slot chip picked in employee mode
+
+    // ── Character Preview / Object Editor switch. Object Editor is the plain library-browse screen; while it is showing, the
+    // employee being edited is PARKED here (identity + every pending, unapplied override + the slot filter) so Character Preview
+    // can bring back exactly the same character with the same unapplied changes. ──
+    private EmployeeIdentity _parkedEmployee;
+    private readonly Dictionary<string, string> _parkedOverrides = new();
+    private string _parkedSlot;
+    private Button _characterPreviewBtn;
+    private Button _objectEditorBtn;
     private bool _filtersLockedForEmployee;     // gender / role / slot chips currently set up for employee mode
 
     private static readonly (string key, string label)[] EmployeeCategories =
@@ -629,6 +638,7 @@ public class AODPanel : IUIPanel
         var slotRow = Row("SLOT");
         slotRow.name = "aod-slot-row"; // repopulated by RefreshSlotChips once real slots are known
         bar.Add(slotRow);
+        slotRow.style.marginRight = ModeButtonReserve;   // keep the slot chips from wrapping underneath the two mode buttons
 
         var showLbl = new Label("SHOW");
         ApplyLilita(showLbl, true, HeaderLabelSize);
@@ -671,7 +681,101 @@ public class AODPanel : IUIPanel
         finalizeChip.Root.SetEnabled(false);
 #endif
 
+        // ── CHARACTER PREVIEW / OBJECT EDITOR — the two screens of this window, bottom-right of the filter bar (Tad, 2026-10-10) ──
+        var modeGroup = new VisualElement { name = "aod-mode-group" };
+        modeGroup.style.position = Position.Absolute;
+        modeGroup.style.right = 10f;
+        modeGroup.style.bottom = 8f;
+        modeGroup.style.flexDirection = FlexDirection.Row;
+        _characterPreviewBtn = MakeModeButton("CHARACTER\nPREVIEW", (Color)new Color32(0xB4, 0xDE, 0xAE, 255));   // light green, same as Rescan Folder
+        _characterPreviewBtn.clicked += SwitchToCharacterPreview;
+        modeGroup.Add(_characterPreviewBtn);
+        _objectEditorBtn = MakeModeButton("OBJECT\nEDITOR", (Color)new Color32(0xF2, 0xC9, 0x8A, 255));            // light amber, same as Finalize All
+        _objectEditorBtn.clicked += SwitchToObjectEditor;
+        modeGroup.Add(_objectEditorBtn);
+        bar.Add(modeGroup);
+        UpdateModeButtons();
+
         return bar;
+    }
+
+    private const float ModeButtonWidth = 215f;
+    private const float ModeButtonHeight = 70f;
+    private const float ModeButtonReserve = ModeButtonWidth * 2f + 12f + 40f;   // two buttons + gap + breathing room
+
+    private static Button MakeModeButton(string text, Color fill)
+    {
+        var btn = MakeButton(text, fill, ColBlueEdge, Color.Lerp(fill, Color.white, 0.2f), ColBg, 20);
+        ApplyLilita(btn, true, 24);   // same Lilita One bold as the title and every other header chip / label in this window
+        btn.style.width = ModeButtonWidth;
+        btn.style.height = ModeButtonHeight;
+        btn.style.marginLeft = btn.style.marginTop = btn.style.marginBottom = 0f;
+        btn.style.marginRight = 12f;
+        btn.style.flexShrink = 0f;
+        btn.style.whiteSpace = WhiteSpace.Normal;
+        btn.style.borderTopLeftRadius = btn.style.borderTopRightRadius = btn.style.borderBottomLeftRadius = btn.style.borderBottomRightRadius = 14f;
+        return btn;
+    }
+
+    /// <summary>The screen you are on gets a thick orange outline; Character Preview is dimmed while there is no character to show.</summary>
+    private void UpdateModeButtons()
+    {
+        if (_characterPreviewBtn == null || _objectEditorBtn == null) return;
+        bool onCharacter = _employeeIdentity != null;
+        bool haveCharacter = onCharacter || _parkedEmployee != null;
+        void Outline(Button b, bool active)
+        {
+            float w = active ? 5f : 2f;
+            var c = active ? ColOrangeEdge : ColBlueEdge;
+            b.style.borderTopWidth = b.style.borderBottomWidth = b.style.borderLeftWidth = b.style.borderRightWidth = w;
+            b.style.borderTopColor = b.style.borderBottomColor = b.style.borderLeftColor = b.style.borderRightColor = c;
+        }
+        Outline(_characterPreviewBtn, onCharacter);
+        Outline(_objectEditorBtn, !onCharacter);
+        _characterPreviewBtn.style.opacity = haveCharacter ? 1f : 0.55f;
+    }
+
+    /// <summary>Back to the plain library screen. If a character was open it is parked, unapplied edits and all, not discarded.</summary>
+    private void SwitchToObjectEditor()
+    {
+        if (_employeeIdentity == null) return;   // already on it
+        _parkedEmployee = _employeeIdentity;
+        _parkedSlot = _employeeSlot;
+        _parkedOverrides.Clear();
+        foreach (var kv in _pendingOverrides) _parkedOverrides[kv.Key] = kv.Value;
+
+        _employeeIdentity = null;
+        _employeeSlot = null;
+        _pendingOverrides.Clear();
+        _selectedPart = null;
+        AODPreviewStage.Clear();
+        ResetFiltersAfterEmployee();
+        ShowEmptyDetail();
+        Refresh();
+        UpdateModeButtons();
+    }
+
+    /// <summary>Bring the parked character back exactly as it was left (same employee, same pending overrides, same slot filter).</summary>
+    private void SwitchToCharacterPreview()
+    {
+        if (_employeeIdentity != null) return;   // already on it
+        if (_parkedEmployee == null)   // Unity-null covers an employee destroyed (fired) while parked
+        {
+            _parkedEmployee = null;
+            UIToast.Show("No character loaded - open a worker's card and choose Actions > Pimp My Employee.");
+            UpdateModeButtons();
+            return;
+        }
+        _employeeIdentity = _parkedEmployee;
+        _employeeSlot = _parkedSlot;
+        _pendingOverrides.Clear();
+        foreach (var kv in _parkedOverrides) _pendingOverrides[kv.Key] = kv.Value;
+        _parkedEmployee = null;
+        _parkedOverrides.Clear();
+        _parkedSlot = null;
+        _selectedPart = null;
+        RefreshEmployeeMode();
+        UpdateModeButtons();
     }
 
     private void RunImporter(string methodName, object[] args)
@@ -818,6 +922,7 @@ public class AODPanel : IUIPanel
 
         if (_employeeIdentity != null) RefreshEmployeeMode();
         else { ResetFiltersAfterEmployee(); Refresh(); }
+        UpdateModeButtons();
     }
 
     public void Hide()
@@ -833,6 +938,10 @@ public class AODPanel : IUIPanel
         _selectedPart = null;
         ResetFiltersAfterEmployee();
         ShowEmptyDetail();   // clears the right panel, the preview image and the employee-name title
+        _parkedEmployee = null;   // closing the window forgets a parked character too
+        _parkedOverrides.Clear();
+        _parkedSlot = null;
+        UpdateModeButtons();
     }
 
     /// <summary>Matches ItemCreatorPanel's own Toggle() — this panel also has no 0-9 hotkey (every
@@ -852,6 +961,9 @@ public class AODPanel : IUIPanel
         _selectedPart = null;
         _pendingOverrides.Clear();
         _employeeSlot = null;   // picked from the slot row (defaults to the first editable slot)
+        _parkedEmployee = null;   // a freshly opened character replaces any parked one
+        _parkedOverrides.Clear();
+        _parkedSlot = null;
         Show();
     }
 
