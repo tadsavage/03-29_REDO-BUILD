@@ -24,6 +24,7 @@ public class ReputationPanel : ITopBarPanel
     Label _bandLabel;
     Label _scoreLabel;
     Label _nextBandLabel;
+    VisualElement _historyBox;
     bool _visible;
 
     public ReputationPanel(VisualElement root, VisualElement trigger)
@@ -90,6 +91,11 @@ public class ReputationPanel : ITopBarPanel
         _nextBandLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         panel.Add(BannerRow(_nextBandLabel, ColRowA));
 
+        _historyBox = new VisualElement();
+        _historyBox.style.paddingTop = 8f; _historyBox.style.paddingBottom = 10f;
+        _historyBox.style.paddingLeft = 12f; _historyBox.style.paddingRight = 12f;
+        panel.Add(_historyBox);
+
         return panel;
     }
 
@@ -146,6 +152,62 @@ public class ReputationPanel : ITopBarPanel
         _                          => Color.white,
     };
 
+    /// <summary>Strips the raw order GUID out of service reasons so the list reads as a sentence.</summary>
+    static string FriendlyReason(string r)
+    {
+        if (string.IsNullOrEmpty(r)) return "Reputation change";
+        if (r.StartsWith("order "))
+        {
+            int sp = r.IndexOf(' ', 6);
+            r = sp > 0 ? "Order " + r.Substring(sp + 1) : r;
+        }
+        else if (r.StartsWith("vendor "))
+        {
+            int c = r.IndexOf(" partnership:");
+            if (c > 0) r = "Vendor partnership" + r.Substring(c + 12);
+        }
+        return char.ToUpper(r[0]) + r.Substring(1);
+    }
+
+    void RefreshHistory(ReputationService rep)
+    {
+        _historyBox.Clear();
+        var head = Lbl("RECENT CHANGES", bold: true, size: 12f);
+        head.style.color = new StyleColor(ColLabelNormal);
+        head.style.marginBottom = 4f;
+        _historyBox.Add(head);
+
+        var h = rep.History;
+        if (h.Count == 0)
+        {
+            var none = Lbl("Nothing yet", size: 11f);
+            none.style.color = new StyleColor(new Color(1f, 1f, 1f, 0.5f));
+            _historyBox.Add(none);
+            return;
+        }
+        for (int i = h.Count - 1, shown = 0; i >= 0 && shown < 5; i--, shown++)
+        {
+            var c = h[i];
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.marginBottom = 2f;
+            var d = Lbl((c.delta > 0 ? "+" : "") + c.delta, bold: true, size: 11f);
+            d.style.width = 36f;
+            d.style.color = new StyleColor(c.delta > 0 ? new Color(0.45f, 0.85f, 0.45f) : new Color(0.95f, 0.4f, 0.35f));
+            var t = Lbl(FriendlyReason(c.reason), size: 11f);
+            t.style.flexGrow = 1f; t.style.flexShrink = 1f; t.style.whiteSpace = WhiteSpace.Normal;
+            t.style.color = new StyleColor(new Color(1f, 1f, 1f, 0.8f));
+            row.Add(d); row.Add(t);
+            if (c.day > 0)
+            {
+                var day = Lbl("Day " + c.day, size: 11f);
+                day.style.color = new StyleColor(new Color(1f, 1f, 1f, 0.45f));
+                row.Add(day);
+            }
+            _historyBox.Add(row);
+        }
+    }
+
     void Refresh()
     {
         // Resolved lazily on every refresh, not cached — GameContext constructs TopBarUI before
@@ -160,6 +222,7 @@ public class ReputationPanel : ITopBarPanel
             return;
         }
 
+        RefreshHistory(reputation);
         int score = reputation.Score;
         var band = reputation.Band;
 

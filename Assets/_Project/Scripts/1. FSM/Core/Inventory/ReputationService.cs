@@ -128,7 +128,15 @@ namespace GameCore.Inventory
             VendorEconomyService.OnPartnershipLevelChanged -= HandleVendorPartnershipChanged;
         }
 
-        public void ClearAll() => _score = 0;
+        public void ClearAll() { _score = 0; _history.Clear(); }
+
+        /// <summary>The most recent score changes, newest LAST. Bounded; persisted in the snapshot.</summary>
+        public const int MaxHistory = 20;
+        private readonly System.Collections.Generic.List<ReputationChange> _history = new System.Collections.Generic.List<ReputationChange>();
+        public System.Collections.Generic.IReadOnlyList<ReputationChange> History => _history;
+
+        private static int CurrentDay()
+            => ServiceLocator.TryGet(out GameCore.Economy.SimulationTimeService t) && t != null ? t.Day : 0;
 
         /// <summary>Applies a change and announces it. Clamped to 0..MaxScore — reputation has a
         /// floor because "worse than nobody will deal with you" isn't a distinction the game can
@@ -143,6 +151,9 @@ namespace GameCore.Inventory
 
             var bandBefore = BandFor(before);
             var bandAfter = BandFor(_score);
+
+            _history.Add(new ReputationChange { delta = _score - before, reason = reason, day = CurrentDay() });
+            if (_history.Count > MaxHistory) _history.RemoveRange(0, _history.Count - MaxHistory);
 
             OnReputationChanged?.Invoke(_score, _score - before, reason);
 
@@ -206,17 +217,30 @@ namespace GameCore.Inventory
 
         // ── Persistence ──────────────────────────────────────────────────────
 
-        public ReputationSnapshot Export() => new ReputationSnapshot { score = _score };
+        public ReputationSnapshot Export() => new ReputationSnapshot { score = _score, history = new System.Collections.Generic.List<ReputationChange>(_history) };
 
         /// <summary>Restores the score. A save written before reputation existed carries score 0,
         /// which is exactly right — that player has not yet earned anything.</summary>
         public void Import(ReputationSnapshot snap)
-            => _score = snap != null ? Mathf.Clamp(snap.score, 0, MaxScore) : 0;
+        {
+            _score = snap != null ? Mathf.Clamp(snap.score, 0, MaxScore) : 0;
+            _history.Clear();
+            if (snap?.history != null) _history.AddRange(snap.history);
+        }
     }
 
     [System.Serializable]
     public class ReputationSnapshot
     {
         public int score;
+        public System.Collections.Generic.List<ReputationChange> history;
+    }
+
+    [System.Serializable]
+    public class ReputationChange
+    {
+        public int delta;
+        public string reason;
+        public int day;
     }
 }
