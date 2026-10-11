@@ -47,6 +47,13 @@ public class NegotiationPanel : IUIPanel
     VisualElement _logoBox;
     Label _company, _styleLine, _pitch, _patience, _round, _msg, _heatLabel, _revLabel, _marginLabel, _stdLabel;
     Label _partnerLine, _repLine, _standingNote;
+    VisualElement _left, _right, _avatarFrame, _diceLayer;
+    Image _avatarImg;
+    Label _moodLabel, _rollNote, _diceCaption;
+    DieElement _die;
+    IVisualElementScheduledItem _diceTimer;
+    bool _rolling;
+    const float RightW = 330f;
     VisualElement _heatMarker;
     Button _sendBtn, _counterBtn, _standardBtn, _theirsBtn, _walkBtn;
     readonly List<RowUi> _rows = new();
@@ -80,7 +87,7 @@ public class NegotiationPanel : IUIPanel
 
         _modal = new VisualElement { name = "NegotiationModal" };
         _modal.style.backgroundColor = ColBg;
-        _modal.style.width = WTerm + WOpen + WStd + WAsk + WCounter + 64f;
+        _modal.style.width = WTerm + WOpen + WStd + WAsk + WCounter + 64f + RightW + 22f;
         _modal.style.maxHeight = Length.Percent(94);
         _modal.style.flexDirection = FlexDirection.Column;
         Border(_modal, 3, ColBorder, 10);
@@ -88,9 +95,17 @@ public class NegotiationPanel : IUIPanel
         _modal.style.paddingTop = 18; _modal.style.paddingBottom = 18;
 
         BuildHeader();
+        var body = new VisualElement();
+        body.style.flexDirection = FlexDirection.Row;
+        _left = new VisualElement(); _left.style.flexGrow = 1; _left.style.flexShrink = 1;
+        _right = new VisualElement(); _right.style.width = RightW; _right.style.flexShrink = 0; _right.style.marginLeft = 22;
+        body.Add(_left); body.Add(_right);
+        _modal.Add(body);
         BuildSheet();
         BuildFooter();
+        BuildAvatarWindow();
         _overlay.Add(_modal);
+        BuildDiceLayer();
         root.Add(_overlay);
         _overlay.style.display = DisplayStyle.None;
     }
@@ -101,6 +116,10 @@ public class NegotiationPanel : IUIPanel
     public void Hide()
     {
         _open = false;
+        _diceTimer?.Pause();
+        _rolling = false;
+        if (_diceLayer != null) _diceLayer.style.display = DisplayStyle.None;
+        NegotiatorStage.Hide();
         _overlay.style.display = DisplayStyle.None;
         if (UIKeyBindingManager.Instance != null) UIKeyBindingManager.Instance.UnregisterAuxiliary(this);
     }
@@ -133,6 +152,9 @@ public class NegotiationPanel : IUIPanel
             ? "\"Here's our opening offer. Tell us what you can do.\""
             : "\"Back again? Where were we...\"";
 
+        NegotiatorStage.Show(_company.text);
+        _avatarImg.image = NegotiatorStage.Texture;
+        _rollNote.text = "";
         _open = true;
         _overlay.style.display = DisplayStyle.Flex;
         _overlay.BringToFront();
@@ -241,7 +263,7 @@ public class NegotiationPanel : IUIPanel
             _rows.Add(ui);
             sheet.Add(row);
         }
-        _modal.Add(sheet);
+        _left.Add(sheet);
 
         // Their reply
         _msg = Text("", 20, ColTitle);
@@ -249,7 +271,7 @@ public class NegotiationPanel : IUIPanel
         _msg.style.paddingLeft = 14; _msg.style.paddingRight = 14; _msg.style.paddingTop = 10; _msg.style.paddingBottom = 10;
         _msg.style.backgroundColor = new Color(0.07f, 0.11f, 0.16f, 1f);
         Border(_msg, 2, ColBlueEdge, 6);
-        _modal.Add(_msg);
+        _left.Add(_msg);
     }
 
     void BuildFooter()
@@ -277,7 +299,7 @@ public class NegotiationPanel : IUIPanel
         _heatLabel = Text("", 18, ColTitle, lilita: true);
         _heatLabel.style.width = 230; _heatLabel.style.marginLeft = 14;
         heatRow.Add(_heatLabel);
-        _modal.Add(heatRow);
+        _left.Add(heatRow);
 
         // Spreadsheet totals
         var totals = new VisualElement();
@@ -289,7 +311,7 @@ public class NegotiationPanel : IUIPanel
         _marginLabel = Text("", 20, ColGreen, lilita: true); _marginLabel.style.flexGrow = 1;
         _stdLabel = Text("", 14, ColSubtle); _stdLabel.style.flexGrow = 1; _stdLabel.style.unityTextAlign = TextAnchor.MiddleRight;
         totals.Add(_revLabel); totals.Add(_marginLabel); totals.Add(_stdLabel);
-        _modal.Add(totals);
+        _left.Add(totals);
 
         // Buttons
         var buttons = new VisualElement();
@@ -313,14 +335,14 @@ public class NegotiationPanel : IUIPanel
         buttons.Add(_standardBtn); buttons.Add(_theirsBtn); buttons.Add(_walkBtn);
         buttons.Add(spacer);
         buttons.Add(_counterBtn); buttons.Add(_sendBtn);
-        _modal.Add(buttons);
+        _left.Add(buttons);
     }
 
     // ── Behaviour ────────────────────────────────────────────────────────
 
     void Nudge(RowUi ui, int dir)
     {
-        if (_over || _s == null) return;
+        if (_over || _rolling || _s == null) return;
         float v = ui.Spec.Get(_ask);
         // The late fee runs downhill, but the buttons always mean "number goes down / up" - exactly what is printed.
         ui.Spec.Set(_ask, ui.Spec.Snap(v + dir * ui.Spec.Step));
@@ -329,18 +351,35 @@ public class NegotiationPanel : IUIPanel
 
     void SendOffer()
     {
-        if (_over || _s == null) return;
-        var arrivals = Arrivals();
-        if (arrivals == null) return;
+        if (_over || _rolling || _s == null) return;
+        int roll = UnityEngine.Random.Range(1, 21);
+        int mod = _s.RollModifier(out string breakdown);
+        _rolling = true;
+        Refresh();
+        BeginRoll(roll, $"d20 {roll}  {breakdown}  = {roll + mod}", () => { _rolling = false; ApplyOffer(roll); });
+    }
 
-        var result = _s.Submit(_ask);
-        _msg.text = $"\"{result.Message}\"";
+    void ApplyOffer(int roll)
+    {
+        var arrivals = Arrivals();
+        if (arrivals == null || _s == null) return;
+
+        var result = _s.Submit(_ask, roll);
+        _msg.text = $"\"{result.Message}\"" + (string.IsNullOrEmpty(result.RollNote) ? "" : $"\n{result.RollNote}");
+        _rollNote.text = result.CriticalSuccess ? "CRITICAL SUCCESS" : result.CriticalFail ? "CRITICAL FAIL" : $"Last roll: {result.RollTotal}";
+        _rollNote.style.color = result.CriticalSuccess ? ColGreen : result.CriticalFail ? ColRed : ColSubtle;
         AudioManager.Play("UIClick");
 
         switch (result.Outcome)
         {
             case NegotiationOutcome.Accepted:
-                SignWith(_ask, "Deal!");
+                _over = true;
+                _msg.style.color = ColGreen;
+                NegotiatorStage.Delighted();
+                Refresh();
+                var terms = result.FinalTerms ?? _ask;
+                // Let the customer's wave land before the window closes.
+                _overlay.schedule.Execute(() => { _over = false; SignWith(terms, result.CriticalSuccess ? "Natural charm - extra concessions!" : "Deal!"); }).StartingIn(1600);
                 return;
             case NegotiationOutcome.Countered:
                 _counter = result.Counter;
@@ -349,12 +388,14 @@ public class NegotiationPanel : IUIPanel
             case NegotiationOutcome.Rejected:
                 _counter = null;
                 _msg.style.color = ColRed;
+                NegotiatorStage.Furious();
                 break;
             case NegotiationOutcome.WalkedAway:
                 _over = true;
                 arrivals.RecordWalkAway(_contract.ContractId);
                 arrivals.EndNegotiation(_contract.ContractId);
                 _msg.style.color = ColRed;
+                NegotiatorStage.Furious();
                 UIToast.Show($"{_company.text} walked out. They won't talk for {NegotiationService.WalkAwayCooldownDays} days.");
                 _onFinished?.Invoke(false);
                 break;
@@ -440,6 +481,9 @@ public class NegotiationPanel : IUIPanel
         _heatMarker.style.left = Length.Percent(Mathf.Clamp01(shown / 1.6f) * 100f - 1f);
         _heatLabel.text = shown < 0.9f ? "They'd likely sign" : shown < 1.35f ? "Could go either way" : "No way";
         _heatLabel.style.color = shown < 0.9f ? ColGreen : shown < 1.35f ? ColAmber : ColRed;
+        NegotiatorStage.SetHeat(shown);
+        _moodLabel.text = shown < 0.92f ? "PLEASED" : shown < 1.12f ? "THOUGHTFUL" : shown < 1.32f ? "AGITATED" : "FURIOUS";
+        _moodLabel.style.color = shown < 0.92f ? ColGreen : shown < 1.12f ? ColAmber : shown < 1.32f ? ColOrangeHover : ColRed;
 
         var arrivals = Arrivals();
         if (arrivals != null && _contract != null)
@@ -455,12 +499,182 @@ public class NegotiationPanel : IUIPanel
         }
 
         _counterBtn.style.display = _counter != null && !_over ? DisplayStyle.Flex : DisplayStyle.None;
-        _sendBtn.SetEnabled(!_over);
-        _standardBtn.SetEnabled(!_over);
-        _theirsBtn.SetEnabled(!_over);
-        _walkBtn.SetEnabled(!_over);
+        bool live = !_over && !_rolling;
+        _sendBtn.SetEnabled(live);
+        _standardBtn.SetEnabled(live);
+        _theirsBtn.SetEnabled(live);
+        _walkBtn.SetEnabled(live);
+        _counterBtn.SetEnabled(live);
         if (_over && _s.Patience <= 0) _sendBtn.text = "THEY LEFT";
         else _sendBtn.text = "SEND OFFER";
+    }
+
+    // ── Avatar window ────────────────────────────────────────────────────
+
+    void BuildAvatarWindow()
+    {
+        _avatarFrame = new VisualElement();
+        _avatarFrame.style.width = RightW; _avatarFrame.style.height = 412;
+        _avatarFrame.style.backgroundColor = new Color(0.82f, 0.89f, 0.95f, 1f);
+        _avatarFrame.style.overflow = Overflow.Hidden;
+        Border(_avatarFrame, 3, ColOrange, 8);
+        _avatarImg = new Image();
+        _avatarImg.style.position = Position.Absolute;
+        _avatarImg.style.left = _avatarImg.style.top = _avatarImg.style.right = _avatarImg.style.bottom = 0;
+        _avatarImg.scaleMode = ScaleMode.ScaleAndCrop;
+        _avatarFrame.Add(_avatarImg);
+        _right.Add(_avatarFrame);
+
+        _moodLabel = Text("", 24, ColGreen, lilita: true);
+        _moodLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        _moodLabel.style.marginTop = 8;
+        _right.Add(_moodLabel);
+        _rollNote = Text("", 15, ColSubtle, lilita: true);
+        _rollNote.style.unityTextAlign = TextAnchor.MiddleCenter;
+        _right.Add(_rollNote);
+    }
+
+    // ── The dice ─────────────────────────────────────────────────────────
+
+    /// <summary>A d20 drawn as a hexagon with the usual inner triangle; the number rides on it and tumbles with it.</summary>
+    class DieElement : VisualElement
+    {
+        public readonly Label Number;
+        public DieElement()
+        {
+            style.position = Position.Absolute;
+            style.width = 118; style.height = 118;
+            pickingMode = PickingMode.Ignore;
+            generateVisualContent += Draw;
+            Number = new Label("20");
+            var f = LilitaFont();
+            if (f != null) Number.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(f));
+            Number.style.fontSize = 40; Number.style.color = new Color(0.1f, 0.12f, 0.16f);
+            Number.style.unityTextAlign = TextAnchor.MiddleCenter;
+            Number.style.position = Position.Absolute;
+            Number.style.left = Number.style.top = Number.style.right = Number.style.bottom = 0;
+            Number.pickingMode = PickingMode.Ignore;
+            Add(Number);
+        }
+
+        void Draw(MeshGenerationContext mgc)
+        {
+            var p = mgc.painter2D;
+            float cx = 59f, cy = 59f, r = 56f;
+            p.lineJoin = LineJoin.Round;
+            p.BeginPath();
+            for (int i = 0; i < 6; i++)
+            {
+                float a = Mathf.Deg2Rad * (60f * i - 90f);
+                var pt = new Vector2(cx + Mathf.Cos(a) * r, cy + Mathf.Sin(a) * r);
+                if (i == 0) p.MoveTo(pt); else p.LineTo(pt);
+            }
+            p.ClosePath();
+            p.fillColor = new Color(0.96f, 0.95f, 0.88f);
+            p.Fill();
+            p.strokeColor = new Color(0.12f, 0.14f, 0.18f);
+            p.lineWidth = 4f;
+            p.Stroke();
+            p.lineWidth = 2f;
+            p.strokeColor = new Color(0.12f, 0.14f, 0.18f, 0.55f);
+            p.BeginPath();
+            for (int i = 0; i < 3; i++)
+            {
+                float a = Mathf.Deg2Rad * (120f * i - 90f);
+                var pt = new Vector2(cx + Mathf.Cos(a) * r * 0.62f, cy + Mathf.Sin(a) * r * 0.62f);
+                if (i == 0) p.MoveTo(pt); else p.LineTo(pt);
+            }
+            p.ClosePath();
+            p.Stroke();
+        }
+    }
+
+    void BuildDiceLayer()
+    {
+        _diceLayer = new VisualElement();
+        _diceLayer.style.position = Position.Absolute;
+        _diceLayer.style.left = _diceLayer.style.top = _diceLayer.style.right = _diceLayer.style.bottom = 0;
+        _diceLayer.pickingMode = PickingMode.Ignore;
+        _diceLayer.style.display = DisplayStyle.None;
+        _die = new DieElement();
+        _diceLayer.Add(_die);
+        _diceCaption = Text("", 26, Color.white, lilita: true);
+        _diceCaption.style.position = Position.Absolute;
+        _diceCaption.style.unityTextAlign = TextAnchor.MiddleCenter;
+        _diceCaption.style.width = 700;
+        _diceCaption.pickingMode = PickingMode.Ignore;
+        _diceLayer.Add(_diceCaption);
+        _overlay.Add(_diceLayer);
+    }
+
+    /// <summary>Drops the die from the top of the screen, bounces it around the middle, and lands it on the result.
+    /// A little hand-rolled physics on unscaled time (the game is paused behind this window). onDone fires once it has settled
+    /// and the roll has been on screen a moment.</summary>
+    void BeginRoll(int result, string caption, Action onDone)
+    {
+        _diceTimer?.Pause();
+        float W = _overlay.resolvedStyle.width, H = _overlay.resolvedStyle.height;
+        if (float.IsNaN(W) || W < 100f) W = 1920f;
+        if (float.IsNaN(H) || H < 100f) H = 1080f;
+
+        float floorY = H * 0.5f + 40f;
+        float minX = W * 0.5f - 330f, maxX = W * 0.5f + 330f;
+        float x = W * 0.5f + UnityEngine.Random.Range(-90f, 90f), y = -140f;
+        float vx = UnityEngine.Random.Range(-320f, 320f), vy = 0f;
+        float rot = 0f, vr = UnityEngine.Random.Range(620f, 980f) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
+        int bounces = 0; float shuffleT = 0f; bool settled = false; float settleT = 0f;
+        const float G = 2500f;
+
+        _diceLayer.style.display = DisplayStyle.Flex;
+        _diceCaption.text = "";
+        _die.Number.text = UnityEngine.Random.Range(1, 21).ToString();
+        _die.style.opacity = 1f;
+        _diceCaption.style.opacity = 1f;
+
+        float last = Time.unscaledTime;
+        _diceTimer = _overlay.schedule.Execute(() =>
+        {
+            float now = Time.unscaledTime;
+            float dt = Mathf.Min(now - last, 0.05f);
+            last = now;
+
+            if (!settled)
+            {
+                vy += G * dt; y += vy * dt; x += vx * dt; rot += vr * dt;
+                if (x < minX) { x = minX; vx = Mathf.Abs(vx) * 0.7f; }
+                if (x > maxX) { x = maxX; vx = -Mathf.Abs(vx) * 0.7f; }
+                if (y >= floorY)
+                {
+                    y = floorY; vy = -vy * 0.58f; vx *= 0.82f; vr *= 0.72f; bounces++;
+                    if (bounces >= 5 || Mathf.Abs(vy) < 240f) { settled = true; vy = 0f; }
+                }
+                shuffleT += dt;
+                if (shuffleT > 0.07f && !settled) { shuffleT = 0f; _die.Number.text = UnityEngine.Random.Range(1, 21).ToString(); }
+                if (settled)
+                {
+                    _die.Number.text = result.ToString();
+                    rot = Mathf.Repeat(rot, 360f); if (rot > 180f) rot -= 360f;   // ease back upright
+                }
+            }
+            else
+            {
+                settleT += dt;
+                rot = Mathf.Lerp(rot, 0f, 1f - Mathf.Exp(-12f * dt));
+                if (settleT > 0.15f && string.IsNullOrEmpty(_diceCaption.text)) _diceCaption.text = caption;
+                if (settleT > 1.9f)
+                {
+                    _diceTimer.Pause();
+                    _diceLayer.style.display = DisplayStyle.None;
+                    onDone?.Invoke();
+                    return;
+                }
+                if (settleT > 1.5f) { float a = 1f - (settleT - 1.5f) / 0.4f; _die.style.opacity = a; _diceCaption.style.opacity = a; }
+            }
+
+            _die.style.left = x - 59f; _die.style.top = y - 59f;
+            _die.style.rotate = new Rotate(new Angle(rot, AngleUnit.Degree));
+            _diceCaption.style.left = W * 0.5f - 350f; _diceCaption.style.top = Mathf.Max(y, floorY) + 70f;
+        }).Every(16);
     }
 
     static string Signed(float v) => (v >= 0f ? "+" : "-") + Mathf.Abs(v).ToString("0.00");

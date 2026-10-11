@@ -15,6 +15,10 @@ namespace GameCore.Inventory
         public ContractTerms Counter;   // set when Outcome == Countered
         public string Message;
         public float Appetite;          // score / budget for the offer just made (1 = right at their limit)
+        public ContractTerms FinalTerms; // set when Accepted: what actually gets signed (the ask, or a sweetened ask on a critical roll)
+        public int Roll, RollTotal;      // the d20 and the total with modifiers; 0 = no dice were used
+        public string RollNote;          // "14 +2 reputation +1 partnership = 17"
+        public bool CriticalSuccess, CriticalFail;
     }
 
     /// <summary>
@@ -44,6 +48,7 @@ namespace GameCore.Inventory
 
         // Where the budget came from, for the "your standing" readout in the negotiation window.
         public int Reputation;
+        public int Difficulty;
         public float Relationship;
         public bool HasHistory;
         public float BaseBudget, RepBonus, RelBonus, DiffBonus, MoodBonus;
@@ -79,33 +84,74 @@ namespace GameCore.Inventory
         /// <summary>score/budget for the UI gauge: under 1 = they'll sign, up to about 1.3 = counter, beyond = no.</summary>
         public float Appetite(ContractTerms t) => Budget <= 0.01f ? 9f : Score(t) / Budget;
 
-        public NegotiationResult Submit(ContractTerms ask)
+        // ── The dice ─────────────────────────────────────────────────────
+        //
+        // A d20 is rolled for every offer. Modifiers come from the player's standing: reputation band (+0..+4), the partnership with
+        // this customer (-2 strained .. +2 preferred) and the difficulty (+1 Clerk .. -1 Manager). Natural 1 (or a total of 3 or
+        // less) is an automatic loss for the round; natural 20 (or 24+) is a critical - they accept AND throw in a sweetener.
+        // Anything in between nudges this round's budget up or down by 1.2% a point around an average roll of 11, so the dice
+        // bend the odds without overriding the maths of the package.
+        public const int CritFailTotal = 3, CritSuccessTotal = 24;
+
+        public int RollModifier(out string breakdown)
+        {
+            int rep = Mathf.Clamp(Reputation / 250, 0, 4);
+            int partner = !HasHistory ? 0 : Relationship >= 0.9f ? 2 : Relationship >= 0.7f ? 1 : Relationship >= 0.4f ? 0 : -2;
+            int diff = Difficulty == 0 ? 1 : Difficulty >= 2 ? -1 : 0;
+            breakdown = $"{Sg(rep)} reputation  {Sg(partner)} partnership  {Sg(diff)} difficulty";
+            return rep + partner + diff;
+        }
+
+        static string Sg(int v) => v >= 0 ? $"+{v}" : v.ToString();
+
+        public NegotiationResult Submit(ContractTerms ask, int roll = 0)
         {
             Round++;
             float score = Score(ask);
-            var result = new NegotiationResult { Appetite = score / Mathf.Max(0.01f, Budget) };
+            var result = new NegotiationResult { Appetite = score / Mathf.Max(0.01f, Budget), FinalTerms = ask };
+
+            float budget = Budget;
+            if (roll > 0)
+            {
+                int mod = RollModifier(out string breakdown);
+                int total = roll + mod;
+                result.Roll = roll; result.RollTotal = total;
+                result.RollNote = $"d20 {roll}  {breakdown}  = {total}";
+                result.CriticalFail = roll == 1 || total <= CritFailTotal;
+                result.CriticalSuccess = roll == 20 || total >= CritSuccessTotal;
+                budget = Mathf.Max(0.05f, Budget + Mathf.Clamp((total - 11) * 0.012f, -0.14f, 0.14f));
+            }
 
             // Nothing harder than market rate on any row = always a yes.
             bool noHarderThanStandard = true;
             foreach (var spec in TermCatalog.All)
                 if (spec.Push(spec.Get(ask)) > spec.Push(spec.Get(Standard)) + 0.001f) { noHarderThanStandard = false; break; }
 
-            if (noHarderThanStandard || score <= Budget)
+            if (noHarderThanStandard || score <= budget && !result.CriticalFail)
             {
                 result.Outcome = NegotiationOutcome.Accepted;
                 result.Message = Pick(AcceptLines);
                 Finished = true;
             }
-            else if (score <= Budget + CounterWindow)
+            else if (result.CriticalSuccess)
+            {
+                // Natural charm: they sign the ask AND give ground on every row the player pushed.
+                result.Outcome = NegotiationOutcome.Accepted;
+                result.FinalTerms = Sweeten(ask);
+                result.Message = "Natural charm! They love your style - and they'll give you even more than you asked.";
+                Finished = true;
+            }
+            else if (!result.CriticalFail && score <= budget + CounterWindow)
             {
                 result.Outcome = NegotiationOutcome.Countered;
-                result.Counter = ScaleBackTo(ask, score);
+                result.Counter = ScaleBackTo(ask, score, budget);
                 LastCounter = result.Counter;
                 result.Message = Pick(CounterLines);
             }
             else
             {
                 Patience--;
+                if (result.CriticalFail) Log.Add("Critical fail - they bristled at your tone.");
                 if (Patience <= 0)
                 {
                     result.Outcome = NegotiationOutcome.WalkedAway;
@@ -125,9 +171,22 @@ namespace GameCore.Inventory
 
         /// <summary>The counter: the player's package pulled back toward Standard just far enough to land on the
         /// customer's budget. Rounded toward Standard so the counter never sneaks back over the line.</summary>
-        ContractTerms ScaleBackTo(ContractTerms ask, float askScore)
+        /// <summary>A critical success: every row the player pushed beyond Standard moves a quarter of the way to the player's maximum.</summary>
+        ContractTerms Sweeten(ContractTerms ask)
         {
-            float k = askScore - StandardScore <= 0.0001f ? 0f : Mathf.Clamp01((Budget - StandardScore) / (askScore - StandardScore));
+            var t = ask.Clone();
+            foreach (var spec in TermCatalog.All)
+            {
+                float v = spec.Get(ask);
+                if (spec.Push(v) <= spec.Push(spec.Get(Standard)) + 0.001f) continue;   // only rows they were already pushed on
+                spec.Set(t, spec.Snap(v + (spec.Limit - v) * 0.25f));
+            }
+            return t;
+        }
+
+        ContractTerms ScaleBackTo(ContractTerms ask, float askScore, float budget)
+        {
+            float k = askScore - StandardScore <= 0.0001f ? 0f : Mathf.Clamp01((budget - StandardScore) / (askScore - StandardScore));
             var counter = ask.Clone();
             foreach (var spec in TermCatalog.All)
             {
@@ -202,6 +261,7 @@ namespace GameCore.Inventory
             BudgetParts(reputation, relationship, difficulty, seed, out s.RepBonus, out s.RelBonus, out s.DiffBonus, out s.MoodBonus);
             s.BaseBudget = BaseBudget;
             s.Reputation = reputation;
+            s.Difficulty = difficulty;
             s.Relationship = relationship;
             s.HasHistory = hasHistory;
             s.Budget = BudgetFor(reputation, relationship, difficulty, seed);

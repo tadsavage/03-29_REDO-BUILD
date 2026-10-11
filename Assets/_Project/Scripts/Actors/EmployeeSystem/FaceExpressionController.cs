@@ -152,6 +152,12 @@ public class FaceExpressionController : MonoBehaviour
         ScheduleStartle();
     }
 
+    /// <summary>Run on real time, so the face keeps blinking and emoting while the game is paused (the negotiation window shows a face on a paused game).</summary>
+    public bool UseUnscaledTime;
+
+    /// <summary>Starts a smile now (neutral mood only - a gagged or angry face can't smile).</summary>
+    public void ForceSmile(float holdSeconds = 2.4f) { _smileTarget = 1f; _smileHoldLeft = holdSeconds; _nextSmile = Range(SmileGapMin, SmileGapMax); }
+
     public static FaceExpressionController Attach(GameObject avatarRoot, FaceMood mood = FaceMood.Neutral)
     {
         if (avatarRoot == null) return null;
@@ -208,7 +214,7 @@ public class FaceExpressionController : MonoBehaviour
     private void LateUpdate()
     {
         if (!_ready) return;
-        float dt = Time.deltaTime; float time = Time.time;
+        float dt = UseUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime; float time = UseUnscaledTime ? Time.unscaledTime : Time.time;
         if (dt <= 0f) return;
 
         if (_moodHold > 0f) { _moodHold -= dt; if (_moodHold <= 0f) { _mood = _baseMood; ScheduleStartle(); } }
