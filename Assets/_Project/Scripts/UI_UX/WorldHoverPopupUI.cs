@@ -133,6 +133,12 @@ public class WorldHoverPopupUI : MonoBehaviour
 
         _popup = populationTarget;
         _root  = _popup.panel?.visualTree;
+        // Play mode keeps the UI panel between sessions (no domain reload), so a pinned truck card from the PREVIOUS session is still
+        // sitting in it with nothing pointing at it - it showed up as a stuck card for a truck that no longer exists, surviving even
+        // a save/reload (Tad, 2026-10-11). Start every session clean.
+        _pinnedTruck = null; _pinnedTruckUI = null;
+        _sweptOrphanTruckPopups = false;
+        SweepOrphanTruckPopups();
         _title      = _popup.Q<Label>("HoverTitle");
         _cost       = _popup.Q<Label>("HoverCost");
         _hourlyCost = _popup.Q<Label>("HoverHourlyCost");
