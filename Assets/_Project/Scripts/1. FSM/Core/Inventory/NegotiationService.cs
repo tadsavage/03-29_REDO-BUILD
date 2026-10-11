@@ -41,6 +41,13 @@ namespace GameCore.Inventory
         public CustomerStyle Style;
         public float[] Weights;
         public float Budget;
+
+        // Where the budget came from, for the "your standing" readout in the negotiation window.
+        public int Reputation;
+        public float Relationship;
+        public bool HasHistory;
+        public float BaseBudget, RepBonus, RelBonus, DiffBonus, MoodBonus;
+
         public int Patience = MaxPatience;
         public int Round;
         public ContractTerms Opening;
@@ -179,7 +186,7 @@ namespace GameCore.Inventory
         /// Opens negotiations. relationship is 0-1 (0.5 = never worked together); difficulty is the
         /// PlayerPrefs value (0 Clerk, 1 Supervisor, 2 Manager).
         /// </summary>
-        public static NegotiationSession Begin(ContractData contract, int reputation, float relationship, int difficulty)
+        public static NegotiationSession Begin(ContractData contract, int reputation, float relationship, int difficulty, bool hasHistory = false)
         {
             string name = contract != null && contract.Customer != null ? contract.Customer.CompanyName : "Customer";
             int seed = Mathf.Abs((contract != null ? contract.ContractId : name).GetHashCode());
@@ -192,6 +199,11 @@ namespace GameCore.Inventory
                 Style = style,
                 Weights = WeightsFor(style),
             };
+            BudgetParts(reputation, relationship, difficulty, seed, out s.RepBonus, out s.RelBonus, out s.DiffBonus, out s.MoodBonus);
+            s.BaseBudget = BaseBudget;
+            s.Reputation = reputation;
+            s.Relationship = relationship;
+            s.HasHistory = hasHistory;
             s.Budget = BudgetFor(reputation, relationship, difficulty, seed);
             s.Init();
             return s;
@@ -199,12 +211,32 @@ namespace GameCore.Inventory
 
         /// <summary>How much of a concession budget this customer has: 0.34 for a stranger on Supervisor, up to
         /// about 0.8 for a customer who adores us.</summary>
-        public static float BudgetFor(int reputation, float relationship, int difficulty, int seed)
+        public const float BaseBudget = 0.34f;
+
+        public static void BudgetParts(int reputation, float relationship, int difficulty, int seed,
+                                       out float repBonus, out float relBonus, out float diffBonus, out float mood)
         {
             float rep01 = Mathf.Clamp01(reputation / (float)ReputationService.MaxScore);
-            float diff = difficulty == 0 ? 0.08f : difficulty >= 2 ? -0.03f : 0f;
-            float mood = ((seed % 7) - 3) * 0.01f;   // -0.03 .. +0.03, fixed per customer
-            return Mathf.Clamp(0.34f + 0.40f * rep01 + 0.14f * (Mathf.Clamp01(relationship) - 0.5f) * 2f + diff + mood, 0.30f, 0.85f);
+            repBonus = 0.40f * rep01;
+            relBonus = 0.14f * (Mathf.Clamp01(relationship) - 0.5f) * 2f;
+            diffBonus = difficulty == 0 ? 0.08f : difficulty >= 2 ? -0.03f : 0f;
+            mood = ((seed % 7) - 3) * 0.01f;   // -0.03 .. +0.03, fixed per customer
+        }
+
+        public static float BudgetFor(int reputation, float relationship, int difficulty, int seed)
+        {
+            BudgetParts(reputation, relationship, difficulty, seed, out float rep, out float rel, out float diff, out float mood);
+            return Mathf.Clamp(BaseBudget + rep + rel + diff + mood, 0.30f, 0.85f);
+        }
+
+        /// <summary>Partnership tier with one customer, from how satisfied their last account was.</summary>
+        public static string PartnershipLabel(bool hasHistory, float relationship)
+        {
+            if (!hasHistory) return "New - no history yet";
+            if (relationship >= 0.9f) return "Preferred partner";
+            if (relationship >= 0.7f) return "Trusted";
+            if (relationship >= 0.4f) return "Steady";
+            return "Strained";
         }
 
         /// <summary>Weights in TermCatalog order: markup, pick fee, pallet fee, notice, short-notice fee, late fee. Sum to 1.</summary>

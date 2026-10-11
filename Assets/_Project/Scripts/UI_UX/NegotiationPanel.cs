@@ -46,6 +46,7 @@ public class NegotiationPanel : IUIPanel
     readonly VisualElement _modal;
     VisualElement _logoBox;
     Label _company, _styleLine, _pitch, _patience, _round, _msg, _heatLabel, _revLabel, _marginLabel, _stdLabel;
+    Label _partnerLine, _repLine, _standingNote;
     VisualElement _heatMarker;
     Button _sendBtn, _counterBtn, _standardBtn, _theirsBtn, _walkBtn;
     readonly List<RowUi> _rows = new();
@@ -166,6 +167,16 @@ public class NegotiationPanel : IUIPanel
         _styleLine.style.marginTop = 2;
         mid.Add(_styleLine);
         head.Add(mid);
+
+        // Standing block: partnership with THIS customer, our reputation overall, and how both move the deal.
+        var standing = new VisualElement();
+        standing.style.width = 300; standing.style.flexShrink = 0; standing.style.marginLeft = 12; standing.style.marginRight = 12;
+        _partnerLine = Text("", 17, ColTitle, lilita: true);
+        _repLine = Text("", 17, ColTitle, lilita: true);
+        _standingNote = Text("", 12, ColSubtle);
+        _standingNote.style.marginTop = 3;
+        standing.Add(_partnerLine); standing.Add(_repLine); standing.Add(_standingNote);
+        head.Add(standing);
 
         var right = new VisualElement();
         right.style.alignItems = Align.FlexEnd;
@@ -402,6 +413,14 @@ public class NegotiationPanel : IUIPanel
         _patience.style.color = _s.Patience >= 3 ? ColGreen : _s.Patience == 2 ? ColAmber : ColRed;
         _styleLine.text = _s.Round >= 1 ? NegotiationService.StyleLabel(_s.Style) : "You don't know how they negotiate yet.";
 
+        string repBand = ReputationService.BandLabel(ReputationService.BandFor(_s.Reputation));
+        _partnerLine.text = $"PARTNERSHIP: {NegotiationService.PartnershipLabel(_s.HasHistory, _s.Relationship)}";
+        _partnerLine.style.color = !_s.HasHistory ? ColSubtle : _s.Relationship >= 0.7f ? ColGreen : _s.Relationship >= 0.4f ? ColAmber : ColRed;
+        _repLine.text = $"YOUR REPUTATION: {repBand} ({_s.Reputation})";
+        _repLine.style.color = ColBlue;
+        _standingNote.text = $"How much ground they'll give: base {_s.BaseBudget:0.00} {Signed(_s.RepBonus)} reputation {Signed(_s.RelBonus)} partnership " +
+                             $"{Signed(_s.DiffBonus)} difficulty {Signed(_s.MoodBonus)} their mood = {_s.Budget:0.00}. Higher means they say yes to more.";
+
         var std = _s.Standard;
         foreach (var r in _rows)
         {
@@ -443,6 +462,8 @@ public class NegotiationPanel : IUIPanel
         if (_over && _s.Patience <= 0) _sendBtn.text = "THEY LEFT";
         else _sendBtn.text = "SEND OFFER";
     }
+
+    static string Signed(float v) => (v >= 0f ? "+" : "-") + Mathf.Abs(v).ToString("0.00");
 
     static OrderArrivalService Arrivals() => ServiceLocator.TryGet<OrderArrivalService>(out var a) ? a : null;
 

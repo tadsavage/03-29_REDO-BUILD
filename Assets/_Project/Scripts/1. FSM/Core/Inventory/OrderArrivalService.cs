@@ -263,7 +263,8 @@ namespace GameCore.Inventory
         public NegotiationSession BeginNegotiation(ContractData contract)
         {
             int difficulty = PlayerPrefs.GetInt("Difficulty", 1);
-            return NegotiationService.Begin(contract, CurrentReputation, RelationshipFor(contract.ContractId), difficulty);
+            return NegotiationService.Begin(contract, CurrentReputation, RelationshipFor(contract.ContractId), difficulty,
+                                            _signed.Any(s => s.ContractId == contract.ContractId));
         }
 
         /// <summary>How many days ahead this account's orders are raised. Legacy accounts (no negotiated terms)
