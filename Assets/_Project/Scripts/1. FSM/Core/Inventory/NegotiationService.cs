@@ -91,7 +91,17 @@ namespace GameCore.Inventory
         // less) is an automatic loss for the round; natural 20 (or 24+) is a critical - they accept AND throw in a sweetener.
         // Anything in between nudges this round's budget up or down by 1.2% a point around an average roll of 11, so the dice
         // bend the odds without overriding the maths of the package.
-        public const int CritFailTotal = 3, CritSuccessTotal = 24;
+        public const int CritFailTotal = 3, CritSuccessTotal = 26;
+
+        /// <summary>A row this easy on the customer (push 0.20 or less of the way from THEIR opening to OUR maximum) is a lowball they
+        /// accept without a fight. Market-rate Standard is push 0.33, so Standard is NOT free: a stranger has to earn it.</summary>
+        public const float SafePush = 0.20f;
+
+        bool IsSafe(ContractTerms t)
+        {
+            foreach (var spec in TermCatalog.All) if (spec.Push(spec.Get(t)) > SafePush + 0.001f) return false;
+            return true;
+        }
 
         public int RollModifier(out string breakdown)
         {
@@ -113,9 +123,7 @@ namespace GameCore.Inventory
         public void RollNeeded(ContractTerms ask, out int dealRoll, out int counterRoll, out int modifier, out string text)
         {
             modifier = RollModifier(out _);
-            bool free = true;
-            foreach (var spec in TermCatalog.All)
-                if (spec.Push(spec.Get(ask)) > spec.Push(spec.Get(Standard)) + 0.001f) { free = false; break; }
+            bool free = IsSafe(ask);
 
             float s = Score(ask) - Budget;
             int dealTotal = free || s <= -0.14f ? CritFailTotal + 1 : Mathf.Min(CritSuccessTotal, 11 + Mathf.CeilToInt(s / 0.012f - 0.0001f));
@@ -128,7 +136,7 @@ namespace GameCore.Inventory
             if (free) { dealRoll = 1; counterRoll = 1; }   // Standard-or-easier is accepted outright - even a natural 1 cannot lose it
 
             string mod = modifier >= 0 ? $"+{modifier}" : modifier.ToString();
-            if (free) text = "Standard terms or easier: a deal on any roll.";
+            if (free) text = "A lowball like this is a deal on any roll.";
             else if (dealRoll <= 2) text = $"Deal on any roll but a 1 (you add {mod}).";
             else if (dealRoll >= 20) text = $"Deal only on a natural 20 (you add {mod}).";
             else text = $"Deal on a roll of {dealRoll} or more (you add {mod}).";
@@ -153,10 +161,8 @@ namespace GameCore.Inventory
                 budget = Mathf.Max(0.05f, Budget + Mathf.Clamp((total - 11) * 0.012f, -0.14f, 0.14f));
             }
 
-            // Nothing harder than market rate on any row = always a yes.
-            bool noHarderThanStandard = true;
-            foreach (var spec in TermCatalog.All)
-                if (spec.Push(spec.Get(ask)) > spec.Push(spec.Get(Standard)) + 0.001f) { noHarderThanStandard = false; break; }
+            // A lowball (every row within SafePush) is always a yes. Market-rate Standard is NOT free any more - strangers must earn it.
+            bool noHarderThanStandard = IsSafe(ask);
 
             if (noHarderThanStandard || score <= budget && !result.CriticalFail)
             {
@@ -302,22 +308,22 @@ namespace GameCore.Inventory
 
         /// <summary>How much of a concession budget this customer has: 0.34 for a stranger on Supervisor, up to
         /// about 0.8 for a customer who adores us.</summary>
-        public const float BaseBudget = 0.34f;
+        public const float BaseBudget = 0.29f;   // a stranger on Supervisor: market-rate Standard (0.33) reads YELLOW and needs a decent roll
 
         public static void BudgetParts(int reputation, float relationship, int difficulty, int seed,
                                        out float repBonus, out float relBonus, out float diffBonus, out float mood)
         {
             float rep01 = Mathf.Clamp01(reputation / (float)ReputationService.MaxScore);
-            repBonus = 0.40f * rep01;
+            repBonus = 0.45f * Mathf.Pow(rep01, 1.4f);   // slow at first: a few good weeks do not make you a preferred supplier
             relBonus = 0.14f * (Mathf.Clamp01(relationship) - 0.5f) * 2f;
-            diffBonus = difficulty == 0 ? 0.08f : difficulty >= 2 ? -0.03f : 0f;
+            diffBonus = difficulty == 0 ? 0.06f : difficulty >= 2 ? -0.05f : 0f;
             mood = ((seed % 7) - 3) * 0.01f;   // -0.03 .. +0.03, fixed per customer
         }
 
         public static float BudgetFor(int reputation, float relationship, int difficulty, int seed)
         {
             BudgetParts(reputation, relationship, difficulty, seed, out float rep, out float rel, out float diff, out float mood);
-            return Mathf.Clamp(BaseBudget + rep + rel + diff + mood, 0.30f, 0.85f);
+            return Mathf.Clamp(BaseBudget + rep + rel + diff + mood, 0.18f, 0.85f);
         }
 
         /// <summary>Partnership tier with one customer, from how satisfied their last account was.</summary>

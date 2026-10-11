@@ -613,6 +613,15 @@ public class NegotiationPanel : IUIPanel
         _overlay.Add(_diceLayer);
     }
 
+    /// <summary>The thud of the die hitting the table, then a quick rattle of taps - more of them on the big first bounce.</summary>
+    void DiceBounceSound(int bounce)
+    {
+        AudioManager.Play(bounce == 1 ? "DiceDrop" : "DiceDropSoft");
+        int taps = bounce == 1 ? 3 : bounce <= 3 ? 2 : 1;
+        for (int i = 1; i <= taps; i++)
+            _overlay.schedule.Execute(() => AudioManager.Play("DiceTap")).StartingIn(60 * i + i * i * 12);
+    }
+
     /// <summary>Drops the die from the top of the screen, bounces it around the middle, and lands it on the result.
     /// A little hand-rolled physics on unscaled time (the game is paused behind this window). onDone fires once it has settled
     /// and the roll has been on screen a moment.</summary>
@@ -647,12 +656,13 @@ public class NegotiationPanel : IUIPanel
             if (!settled)
             {
                 vy += G * dt; y += vy * dt; x += vx * dt; rot += vr * dt;
-                if (x < minX) { x = minX; vx = Mathf.Abs(vx) * 0.7f; }
-                if (x > maxX) { x = maxX; vx = -Mathf.Abs(vx) * 0.7f; }
+                if (x < minX) { x = minX; vx = Mathf.Abs(vx) * 0.7f; AudioManager.Play("DiceTap"); }
+                if (x > maxX) { x = maxX; vx = -Mathf.Abs(vx) * 0.7f; AudioManager.Play("DiceTap"); }
                 if (y >= floorY)
                 {
                     y = floorY; vy = -vy * 0.58f; vx *= 0.82f; vr *= 0.72f; bounces++;
-                    if (bounces >= 5 || Mathf.Abs(vy) < 240f) { settled = true; vy = 0f; }
+                    DiceBounceSound(bounces);
+                    if (bounces >= 5 || Mathf.Abs(vy) < 240f) { settled = true; vy = 0f; AudioManager.Play("DiceLand"); }
                 }
                 shuffleT += dt;
                 if (shuffleT > 0.07f && !settled) { shuffleT = 0f; _die.Number.text = UnityEngine.Random.Range(1, 21).ToString(); }
