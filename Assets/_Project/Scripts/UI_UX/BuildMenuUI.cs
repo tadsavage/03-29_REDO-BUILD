@@ -675,8 +675,8 @@ public class BuildMenuUI : MonoBehaviour
         // but reports degenerate (0,0) bounds, which would silently skew that index math by one slot.
         // Fully removing it avoids that class of bug rather than relying on every future bar-child
         // consumer to remember to skip hidden ones.
-        if (_playUtilityRow != null) _playUtilityRow.RemoveFromHierarchy();
-        else Debug.LogWarning("[BuildMenuUI] PlayUtilityRow not found.");
+        // Already gone on a second pass over the same tree (Play mode keeps the UI between sessions) - that is the intended end state, not an error.
+        _playUtilityRow?.RemoveFromHierarchy();
     }
 
     private void PopulateUtilityRow(VisualElement row)
