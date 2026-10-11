@@ -517,6 +517,7 @@ public class AODPanel : IUIPanel
         _previewTitleLabel = new Label();
         ApplyFont(_previewTitleLabel, true, 40);   // doubled (was 20) per Tad, 2026-10-01
         _previewTitleLabel.style.color = ColTitleText;
+        ApplyLilita(_previewTitleLabel, true, 40);
         _previewTitleLabel.style.flexGrow = 1f;
         _previewTitleLabel.style.flexShrink = 1f;
         _previewTitleLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -531,13 +532,15 @@ public class AODPanel : IUIPanel
         nameRow.Add(_previewTitleLabel);
 
         _applyBtn = MakeButton("Apply to Employee", ColGreen, ColGreenEdge, ColGreen, ColVanilla, 18);
-        _applyBtn.style.height = 52f; _applyBtn.style.flexShrink = 0f; _applyBtn.style.marginLeft = 10f;
+        ApplyLilita(_applyBtn, true, 22); _applyBtn.style.color = Color.black; _applyBtn.style.whiteSpace = WhiteSpace.Normal; _applyBtn.style.width = 170f; _applyBtn.style.height = 64f;
+        _applyBtn.style.height = 64f; _applyBtn.style.flexShrink = 0f; _applyBtn.style.marginLeft = 10f;
         _applyBtn.clicked += () => { if (_employeeIdentity != null && _employeeIdentity.Record != null) ApplyEmployeeOverrides(_employeeIdentity.Record); };
         _applyBtn.style.display = DisplayStyle.None;
         nameRow.Add(_applyBtn);
 
         _closeBtn = MakeButton("Close", ColBlue, ColBlueEdge, ColBlueHover, ColVanilla, 18);
-        _closeBtn.style.height = 52f; _closeBtn.style.flexShrink = 0f; _closeBtn.style.marginLeft = 8f;
+        ApplyLilita(_closeBtn, true, 22); _closeBtn.style.color = Color.black; _closeBtn.style.height = 64f;
+        _closeBtn.style.height = 64f; _closeBtn.style.flexShrink = 0f; _closeBtn.style.marginLeft = 8f;
         _closeBtn.clicked += Hide;
         _closeBtn.style.display = DisplayStyle.None;
         nameRow.Add(_closeBtn);
@@ -688,11 +691,13 @@ public class AODPanel : IUIPanel
 
         actionCol.style.flexDirection = FlexDirection.Row;
         var rescanBtn = MakeButton("Rescan Folder", ColBlue, ColBlueEdge, ColBlueHover, ColVanilla, 26);
+        ApplyLilita(rescanBtn, true, 28); rescanBtn.style.color = Color.black;
         rescanBtn.style.width = 250f; rescanBtn.style.height = 76f; rescanBtn.style.marginRight = 12f;
         rescanBtn.clicked += () => RunImporter("ScanAndRebuild", new object[] { true });
         actionCol.Add(rescanBtn);
 
         var finalizeBtn = MakeButton("Finalize All", ColOrange, ColOrangeEdge, ColOrange, ColOrangeText, 26);
+        ApplyLilita(finalizeBtn, true, 28); finalizeBtn.style.color = Color.black;
         finalizeBtn.style.width = 250f; finalizeBtn.style.height = 76f;
         finalizeBtn.clicked += () => RunImporter("FinalizeAllPendingMenu", null);
         actionCol.Add(finalizeBtn);
