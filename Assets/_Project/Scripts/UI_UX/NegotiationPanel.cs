@@ -1,0 +1,552 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using GameCore.Inventory;
+using GameCore.Services;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+/// <summary>
+/// The contract negotiation table (Tad, 2026-10-11: "I want this to be a spreadsheet game").
+///
+/// A modal over the Contracts panel. Left to right the sheet reads: the term, THEIR opening offer, the market
+/// STANDARD, YOUR ask (stepper), and THEIR counter once they've made one. Under it a live estimate of what the
+/// deal is worth per day, and a fuzzy "deal heat" gauge so the player can feel how far they're pushing before they
+/// commit. The rules live in NegotiationSession - this class only presents them.
+///
+/// Built in code in the house style (see ContractsPanel / AODPanel) rather than UXML: every panel in this project
+/// is, and mixing the two would put half the palette in a stylesheet nobody else reads.
+/// </summary>
+public class NegotiationPanel : IUIPanel
+{
+    // Palette - same values ContractsPanel uses so the modal reads as part of it.
+    static readonly Color ColBg = new Color(18f / 255f, 26f / 255f, 36f / 255f, 0.98f);
+    static readonly Color ColScrim = new Color(0f, 0f, 0f, 0.62f);
+    static readonly Color ColBorder = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 1f);
+    static readonly Color ColTitle = new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f);
+    static readonly Color ColSubtle = new Color(0x7A / 255f, 0x99 / 255f, 0xB0 / 255f, 1f);
+    static readonly Color ColOrange = new Color(0xB5 / 255f, 0x74 / 255f, 0x3A / 255f, 1f);
+    static readonly Color ColOrangeEdge = new Color(0x7A / 255f, 0x4C / 255f, 0x22 / 255f, 1f);
+    static readonly Color ColOrangeHover = new Color(0xC6 / 255f, 0x7F / 255f, 0x42 / 255f, 1f);
+    static readonly Color ColBlue = new Color(0x4C / 255f, 0x90 / 255f, 0xC0 / 255f, 1f);
+    static readonly Color ColBlueEdge = new Color(0x2C / 255f, 0x5E / 255f, 0x82 / 255f, 1f);
+    static readonly Color ColBlueHover = new Color(0x5C / 255f, 0xA2 / 255f, 0xD2 / 255f, 1f);
+    static readonly Color ColGreen = new Color(0x7E / 255f, 0xD6 / 255f, 0x8A / 255f, 1f);
+    static readonly Color ColAmber = new Color(0xF2 / 255f, 0xC2 / 255f, 0x5A / 255f, 1f);
+    static readonly Color ColRed = new Color(0xE2 / 255f, 0x4B / 255f, 0x4A / 255f, 1f);
+    static readonly Color ColRowEven = new Color(36f / 255f, 48f / 255f, 62f / 255f, 0.65f);
+    static readonly Color ColRowOdd = new Color(30f / 255f, 40f / 255f, 52f / 255f, 0.65f);
+    static readonly Color ColGrid = new Color(0x5C / 255f, 0x9B / 255f, 0xC4 / 255f, 0.22f);
+    static readonly Color ColHeaderRow = new Color(28f / 255f, 40f / 255f, 54f / 255f, 1f);
+
+    // Column widths - fixed, so every row lines up like cells in a sheet.
+    const float WTerm = 250f, WOpen = 120f, WStd = 120f, WAsk = 230f, WCounter = 170f;
+
+    readonly VisualElement _overlay;
+    readonly VisualElement _modal;
+    VisualElement _logoBox;
+    Label _company, _styleLine, _pitch, _patience, _round, _msg, _heatLabel, _revLabel, _marginLabel, _stdLabel;
+    VisualElement _heatMarker;
+    Button _sendBtn, _counterBtn, _standardBtn, _theirsBtn, _walkBtn;
+    readonly List<RowUi> _rows = new();
+
+    NegotiationSession _s;
+    ContractData _contract;
+    ContractTerms _ask;
+    ContractTerms _counter;
+    Action<bool> _onFinished;
+    bool _open;
+    bool _over;       // the table is closed out (walked away) - only Close is live
+
+    static Font _lilita, _nunito;
+
+    class RowUi
+    {
+        public TermSpec Spec;
+        public Label Ask, Counter;
+        public VisualElement AskCell, Row;
+    }
+
+    public NegotiationPanel(VisualElement root)
+    {
+        _overlay = new VisualElement { name = "NegotiationOverlay" };
+        _overlay.style.position = Position.Absolute;
+        _overlay.style.left = _overlay.style.top = _overlay.style.right = _overlay.style.bottom = 0;
+        _overlay.style.backgroundColor = ColScrim;
+        _overlay.style.alignItems = Align.Center;
+        _overlay.style.justifyContent = Justify.Center;
+        _overlay.pickingMode = PickingMode.Position;
+
+        _modal = new VisualElement { name = "NegotiationModal" };
+        _modal.style.backgroundColor = ColBg;
+        _modal.style.width = WTerm + WOpen + WStd + WAsk + WCounter + 64f;
+        _modal.style.maxHeight = Length.Percent(94);
+        _modal.style.flexDirection = FlexDirection.Column;
+        Border(_modal, 3, ColBorder, 10);
+        _modal.style.paddingLeft = _modal.style.paddingRight = 24;
+        _modal.style.paddingTop = 18; _modal.style.paddingBottom = 18;
+
+        BuildHeader();
+        BuildSheet();
+        BuildFooter();
+        _overlay.Add(_modal);
+        root.Add(_overlay);
+        _overlay.style.display = DisplayStyle.None;
+    }
+
+    public bool IsOpen => _open;
+    public void Show() { if (_s != null) { _open = true; _overlay.style.display = DisplayStyle.Flex; _overlay.BringToFront(); } }
+
+    public void Hide()
+    {
+        _open = false;
+        _overlay.style.display = DisplayStyle.None;
+        if (UIKeyBindingManager.Instance != null) UIKeyBindingManager.Instance.UnregisterAuxiliary(this);
+    }
+
+    // ── Opening a negotiation ────────────────────────────────────────────
+
+    /// <summary>Sits the player down with this customer. onFinished(true) when a contract was signed.</summary>
+    public void Open(ContractData contract, Action<bool> onFinished)
+    {
+        var arrivals = ServiceLocator.TryGet<OrderArrivalService>(out var a) ? a : null;
+        if (arrivals == null || contract == null) return;
+        if (arrivals.IsInWalkAwayCooldown(contract.ContractId))
+        {
+            UIToast.Show($"{contract.Customer?.CompanyName} won't talk to you for {arrivals.WalkAwayDaysRemaining(contract.ContractId)} more day(s).");
+            return;
+        }
+
+        _contract = contract;
+        _onFinished = onFinished;
+        _s = arrivals.GetOrBeginNegotiation(contract);
+        _over = false;
+        _counter = _s.LastCounter;
+        _ask = (_s.LastCounter != null ? _s.LastCounter : _s.Opening).Clone();
+
+        var cust = contract.Customer;
+        _company.text = cust != null ? cust.CompanyName : contract.ContractId;
+        _pitch.text = string.IsNullOrWhiteSpace(contract.Pitch) ? "" : contract.Pitch;
+        _logoBox.style.backgroundImage = cust != null && cust.Icon != null ? new StyleBackground(cust.Icon) : new StyleBackground();
+        _msg.text = _s.Round == 0
+            ? "\"Here's our opening offer. Tell us what you can do.\""
+            : "\"Back again? Where were we...\"";
+
+        _open = true;
+        _overlay.style.display = DisplayStyle.Flex;
+        _overlay.BringToFront();
+        UIToast.KeepOnTop();
+        if (UIKeyBindingManager.Instance != null) UIKeyBindingManager.Instance.RegisterAuxiliary(this);
+        Refresh();
+    }
+
+    // ── Layout ───────────────────────────────────────────────────────────
+
+    void BuildHeader()
+    {
+        var head = new VisualElement();
+        head.style.flexDirection = FlexDirection.Row;
+        head.style.alignItems = Align.Center;
+        head.style.marginBottom = 12;
+
+        _logoBox = new VisualElement();
+        _logoBox.style.width = 96; _logoBox.style.height = 96;
+        _logoBox.style.flexShrink = 0;
+        _logoBox.style.marginRight = 18;
+        _logoBox.style.backgroundColor = new Color(0.05f, 0.08f, 0.12f, 1f);
+        Border(_logoBox, 3, ColOrange, 8);
+        head.Add(_logoBox);
+
+        var mid = new VisualElement { style = { flexGrow = 1, flexShrink = 1 } };
+        _company = Text("", 36, ColTitle, lilita: true);
+        mid.Add(_company);
+        _pitch = Text("", 15, ColSubtle);
+        mid.Add(_pitch);
+        _styleLine = Text("", 15, ColAmber);
+        _styleLine.style.marginTop = 2;
+        mid.Add(_styleLine);
+        head.Add(mid);
+
+        var right = new VisualElement();
+        right.style.alignItems = Align.FlexEnd;
+        right.style.flexShrink = 0;
+        _round = Text("ROUND 0", 16, ColSubtle, lilita: true);
+        right.Add(_round);
+        _patience = Text("PATIENCE", 22, ColGreen, lilita: true);
+        right.Add(_patience);
+        var close = new Button(() => { Hide(); }) { text = "X" };
+        StyleButton(close, ColRed, new Color(0.45f, 0.14f, 0.14f), new Color(1f, 0.35f, 0.35f), Color.white, 20);
+        close.style.width = 44; close.style.height = 38; close.style.marginTop = 6;
+        right.Add(close);
+        head.Add(right);
+        _modal.Add(head);
+    }
+
+    void BuildSheet()
+    {
+        var sheet = new VisualElement();
+        Border(sheet, 2, ColGrid, 4);
+
+        var header = SheetRow(ColHeaderRow);
+        header.Add(Cell("TERM", WTerm, ColSubtle, lilita: true, size: 15, align: TextAnchor.MiddleLeft));
+        header.Add(Cell("THEIR OFFER", WOpen, ColSubtle, lilita: true, size: 15));
+        header.Add(Cell("STANDARD", WStd, ColSubtle, lilita: true, size: 15));
+        header.Add(Cell("YOUR ASK", WAsk, ColOrange, lilita: true, size: 15));
+        header.Add(Cell("THEIR COUNTER", WCounter, ColBlue, lilita: true, size: 15));
+        sheet.Add(header);
+
+        int i = 0;
+        foreach (var spec in TermCatalog.All)
+        {
+            var row = SheetRow(i++ % 2 == 0 ? ColRowEven : ColRowOdd);
+            var ui = new RowUi { Spec = spec, Row = row };
+
+            var termCell = new VisualElement();
+            termCell.style.width = WTerm; termCell.style.paddingLeft = 12; termCell.style.justifyContent = Justify.Center;
+            termCell.Add(Text(spec.Label, 20, ColTitle, lilita: true));
+            var hint = Text(spec.Hint, 12, ColSubtle);
+            hint.style.marginTop = -2;
+            termCell.Add(hint);
+            row.Add(termCell);
+
+            row.Add(Cell(spec.Format(spec.Snap(spec.Opening)), WOpen, ColSubtle, size: 19));
+            row.Add(Cell(spec.Format(spec.Snap(spec.Standard)), WStd, ColSubtle, size: 19));
+
+            // Stepper: [-] value [+]
+            var askCell = new VisualElement();
+            askCell.style.width = WAsk; askCell.style.flexDirection = FlexDirection.Row;
+            askCell.style.alignItems = Align.Center; askCell.style.justifyContent = Justify.Center;
+            var minus = Stepper("-", () => Nudge(ui, -1));
+            ui.Ask = Text("", 24, ColTitle, lilita: true);
+            ui.Ask.style.width = 96; ui.Ask.style.unityTextAlign = TextAnchor.MiddleCenter;
+            var plus = Stepper("+", () => Nudge(ui, +1));
+            askCell.Add(minus); askCell.Add(ui.Ask); askCell.Add(plus);
+            ui.AskCell = askCell;
+            row.Add(askCell);
+
+            ui.Counter = Cell("-", WCounter, ColBlue, lilita: true, size: 21);
+            row.Add(ui.Counter);
+
+            _rows.Add(ui);
+            sheet.Add(row);
+        }
+        _modal.Add(sheet);
+
+        // Their reply
+        _msg = Text("", 20, ColTitle);
+        _msg.style.marginTop = 12;
+        _msg.style.paddingLeft = 14; _msg.style.paddingRight = 14; _msg.style.paddingTop = 10; _msg.style.paddingBottom = 10;
+        _msg.style.backgroundColor = new Color(0.07f, 0.11f, 0.16f, 1f);
+        Border(_msg, 2, ColBlueEdge, 6);
+        _modal.Add(_msg);
+    }
+
+    void BuildFooter()
+    {
+        // Deal heat gauge: green / amber / red zones with a marker.
+        var heatRow = new VisualElement();
+        heatRow.style.flexDirection = FlexDirection.Row;
+        heatRow.style.alignItems = Align.Center;
+        heatRow.style.marginTop = 12;
+        heatRow.Add(Text("DEAL HEAT", 15, ColSubtle, lilita: true));
+        heatRow.ElementAt(0).style.width = 110;
+
+        var bar = new VisualElement();
+        bar.style.flexGrow = 1; bar.style.height = 20; bar.style.flexDirection = FlexDirection.Row;
+        Border(bar, 2, ColGrid, 4);
+        bar.Add(Zone(ColGreen, 59)); bar.Add(Zone(ColAmber, 25)); bar.Add(Zone(ColRed, 16));
+        _heatMarker = new VisualElement();
+        _heatMarker.style.position = Position.Absolute;
+        _heatMarker.style.top = -4; _heatMarker.style.width = 6; _heatMarker.style.height = 28;
+        _heatMarker.style.backgroundColor = Color.white;
+        Border(_heatMarker, 1, Color.black, 2);
+        bar.Add(_heatMarker);
+        heatRow.Add(bar);
+
+        _heatLabel = Text("", 18, ColTitle, lilita: true);
+        _heatLabel.style.width = 230; _heatLabel.style.marginLeft = 14;
+        heatRow.Add(_heatLabel);
+        _modal.Add(heatRow);
+
+        // Spreadsheet totals
+        var totals = new VisualElement();
+        totals.style.flexDirection = FlexDirection.Row;
+        totals.style.marginTop = 12;
+        totals.style.paddingTop = 8;
+        totals.style.borderTopWidth = 2; totals.style.borderTopColor = ColGrid;
+        _revLabel = Text("", 20, ColTitle, lilita: true); _revLabel.style.flexGrow = 1;
+        _marginLabel = Text("", 20, ColGreen, lilita: true); _marginLabel.style.flexGrow = 1;
+        _stdLabel = Text("", 14, ColSubtle); _stdLabel.style.flexGrow = 1; _stdLabel.style.unityTextAlign = TextAnchor.MiddleRight;
+        totals.Add(_revLabel); totals.Add(_marginLabel); totals.Add(_stdLabel);
+        _modal.Add(totals);
+
+        // Buttons
+        var buttons = new VisualElement();
+        buttons.style.flexDirection = FlexDirection.Row;
+        buttons.style.marginTop = 14;
+        buttons.style.alignItems = Align.Center;
+
+        _standardBtn = new Button(() => { _ask = _s.Standard.Clone(); Refresh(); }) { text = "STANDARD TERMS" };
+        StyleButton(_standardBtn, ColBlue, ColBlueEdge, ColBlueHover, Color.black, 18);
+        _theirsBtn = new Button(AcceptTheirOffer) { text = "TAKE THEIR OFFER" };
+        StyleButton(_theirsBtn, ColBlue, ColBlueEdge, ColBlueHover, Color.black, 18);
+        _walkBtn = new Button(WalkAway) { text = "WALK AWAY" };
+        StyleButton(_walkBtn, ColRed, new Color(0.45f, 0.14f, 0.14f), new Color(1f, 0.35f, 0.35f), Color.black, 18);
+        _counterBtn = new Button(AcceptCounter) { text = "ACCEPT THEIR COUNTER" };
+        StyleButton(_counterBtn, ColGreen, new Color(0.2f, 0.45f, 0.25f), new Color(0.6f, 0.95f, 0.65f), Color.black, 18);
+        _sendBtn = new Button(SendOffer) { text = "SEND OFFER" };
+        StyleButton(_sendBtn, ColOrange, ColOrangeEdge, ColOrangeHover, Color.black, 22);
+        _sendBtn.style.height = 52; _sendBtn.style.width = 190;
+
+        var spacer = new VisualElement { style = { flexGrow = 1 } };
+        buttons.Add(_standardBtn); buttons.Add(_theirsBtn); buttons.Add(_walkBtn);
+        buttons.Add(spacer);
+        buttons.Add(_counterBtn); buttons.Add(_sendBtn);
+        _modal.Add(buttons);
+    }
+
+    // ── Behaviour ────────────────────────────────────────────────────────
+
+    void Nudge(RowUi ui, int dir)
+    {
+        if (_over || _s == null) return;
+        float v = ui.Spec.Get(_ask);
+        // The late fee runs downhill, but the buttons always mean "number goes down / up" - exactly what is printed.
+        ui.Spec.Set(_ask, ui.Spec.Snap(v + dir * ui.Spec.Step));
+        Refresh();
+    }
+
+    void SendOffer()
+    {
+        if (_over || _s == null) return;
+        var arrivals = Arrivals();
+        if (arrivals == null) return;
+
+        var result = _s.Submit(_ask);
+        _msg.text = $"\"{result.Message}\"";
+        AudioManager.Play("UIClick");
+
+        switch (result.Outcome)
+        {
+            case NegotiationOutcome.Accepted:
+                SignWith(_ask, "Deal!");
+                return;
+            case NegotiationOutcome.Countered:
+                _counter = result.Counter;
+                _msg.style.color = ColAmber;
+                break;
+            case NegotiationOutcome.Rejected:
+                _counter = null;
+                _msg.style.color = ColRed;
+                break;
+            case NegotiationOutcome.WalkedAway:
+                _over = true;
+                arrivals.RecordWalkAway(_contract.ContractId);
+                arrivals.EndNegotiation(_contract.ContractId);
+                _msg.style.color = ColRed;
+                UIToast.Show($"{_company.text} walked out. They won't talk for {NegotiationService.WalkAwayCooldownDays} days.");
+                _onFinished?.Invoke(false);
+                break;
+        }
+        Refresh();
+    }
+
+    void AcceptCounter()
+    {
+        if (_over || _counter == null) return;
+        SignWith(_counter, "Deal on their counter!");
+    }
+
+    void AcceptTheirOffer()
+    {
+        if (_over || _s == null) return;
+        SignWith(_s.Opening, "Signed on their opening terms.");
+    }
+
+    void WalkAway()
+    {
+        var arrivals = Arrivals();
+        if (arrivals != null && _contract != null)
+        {
+            // Leaving on your own terms costs a day or three, not a lasting grudge - but it does cost.
+            arrivals.RecordWalkAway(_contract.ContractId, 1);
+            arrivals.EndNegotiation(_contract.ContractId);
+        }
+        UIToast.Show($"You walked away from {_company.text}. They'll take your call again tomorrow.");
+        _over = true;
+        Hide();
+        _onFinished?.Invoke(false);
+    }
+
+    void SignWith(ContractTerms terms, string toast)
+    {
+        var arrivals = Arrivals();
+        if (arrivals == null) return;
+        bool ok = arrivals.Sign(_contract.ContractId, terms);
+        arrivals.EndNegotiation(_contract.ContractId);
+        _over = true;
+        UIToast.Show(ok ? $"{_company.text}: {toast} First delivery tomorrow." : "Couldn't sign that contract - it may already be taken.");
+        Hide();
+        _onFinished?.Invoke(ok);
+    }
+
+    // ── Refresh ──────────────────────────────────────────────────────────
+
+    void Refresh()
+    {
+        if (_s == null) return;
+
+        _round.text = $"ROUND {_s.Round}";
+        _patience.text = "PATIENCE  " + string.Concat(Enumerable.Range(0, NegotiationSession.MaxPatience)
+                                                                .Select(i => i < _s.Patience ? "O " : "x "));
+        _patience.style.color = _s.Patience >= 3 ? ColGreen : _s.Patience == 2 ? ColAmber : ColRed;
+        _styleLine.text = _s.Round >= 1 ? NegotiationService.StyleLabel(_s.Style) : "You don't know how they negotiate yet.";
+
+        var std = _s.Standard;
+        foreach (var r in _rows)
+        {
+            float v = r.Spec.Get(_ask);
+            r.Ask.text = r.Spec.Format(v);
+            float over = r.Spec.Push(v) - r.Spec.Push(r.Spec.Get(std));
+            r.Ask.style.color = over <= 0.001f ? ColGreen : over <= 0.25f ? ColAmber : ColOrangeHover;
+
+            if (_counter != null) { r.Counter.text = r.Spec.Format(r.Spec.Get(_counter)); }
+            else r.Counter.text = "-";
+        }
+
+        // Fuzzy heat: the true ratio plus a fixed per-customer wobble, so the player can feel the edge without reading it off.
+        float ratio = _s.Appetite(_ask);
+        float wobble = (((_company.text ?? "x").Length % 9) - 4) * 0.02f;
+        float shown = Mathf.Clamp(ratio * (1f + wobble), 0f, 1.6f);
+        _heatMarker.style.left = Length.Percent(Mathf.Clamp01(shown / 1.6f) * 100f - 1f);
+        _heatLabel.text = shown < 0.9f ? "They'd likely sign" : shown < 1.35f ? "Could go either way" : "No way";
+        _heatLabel.style.color = shown < 0.9f ? ColGreen : shown < 1.35f ? ColAmber : ColRed;
+
+        var arrivals = Arrivals();
+        if (arrivals != null && _contract != null)
+        {
+            arrivals.AverageSkuEconomics(out float cost, out float cpp);
+            NegotiationService.EstimateDaily(_contract, _ask, cost, cpp, out float rev, out float margin);
+            NegotiationService.EstimateDaily(_contract, std, cost, cpp, out _, out float stdMargin);
+            _revLabel.text = $"Est. revenue / day   ${rev:N0}";
+            _marginLabel.text = $"Est. margin / day   ${margin:N0}";
+            float delta = margin - stdMargin;
+            _stdLabel.text = $"vs standard terms: {(delta >= 0 ? "+" : "-")}${Mathf.Abs(delta):N0}/day";
+            _stdLabel.style.color = delta >= 0 ? ColGreen : ColRed;
+        }
+
+        _counterBtn.style.display = _counter != null && !_over ? DisplayStyle.Flex : DisplayStyle.None;
+        _sendBtn.SetEnabled(!_over);
+        _standardBtn.SetEnabled(!_over);
+        _theirsBtn.SetEnabled(!_over);
+        _walkBtn.SetEnabled(!_over);
+        if (_over && _s.Patience <= 0) _sendBtn.text = "THEY LEFT";
+        else _sendBtn.text = "SEND OFFER";
+    }
+
+    static OrderArrivalService Arrivals() => ServiceLocator.TryGet<OrderArrivalService>(out var a) ? a : null;
+
+    // ── Element helpers ──────────────────────────────────────────────────
+
+    static Font LilitaFont()
+    {
+        if (_lilita != null) return _lilita;
+#if UNITY_EDITOR
+        var guids = UnityEditor.AssetDatabase.FindAssets("LilitaOne-Regular t:Font");
+        if (guids.Length > 0) _lilita = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]));
+#else
+        _lilita = Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
+#endif
+        return _lilita;
+    }
+
+    static Font NunitoFont()
+    {
+        if (_nunito != null) return _nunito;
+#if UNITY_EDITOR
+        foreach (var g in UnityEditor.AssetDatabase.FindAssets("NunitoSans t:Font"))
+        {
+            string path = UnityEditor.AssetDatabase.GUIDToAssetPath(g);
+            if (path.IndexOf("Italic", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+            _nunito = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(path);
+            break;
+        }
+#else
+        _nunito = Resources.Load<Font>("Resource_Fonts/NunitoSans-VariableFont_YTLC,opsz,wdth,wght");
+#endif
+        return _nunito;
+    }
+
+    static Label Text(string text, int size, Color color, bool lilita = false)
+    {
+        var l = new Label(text);
+        var f = lilita ? LilitaFont() : NunitoFont();
+        if (f != null) l.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(f));
+        l.style.fontSize = size;
+        l.style.color = color;
+        l.style.whiteSpace = WhiteSpace.Normal;
+        return l;
+    }
+
+    static Label Cell(string text, float width, Color color, bool lilita = false, int size = 18, TextAnchor align = TextAnchor.MiddleCenter)
+    {
+        var l = Text(text, size, color, lilita);
+        l.style.width = width;
+        l.style.flexShrink = 0;
+        l.style.unityTextAlign = align;
+        if (align == TextAnchor.MiddleLeft) l.style.paddingLeft = 12;
+        return l;
+    }
+
+    static VisualElement SheetRow(Color bg)
+    {
+        var r = new VisualElement();
+        r.style.flexDirection = FlexDirection.Row;
+        r.style.alignItems = Align.Center;
+        r.style.backgroundColor = bg;
+        r.style.minHeight = 58;
+        r.style.borderBottomWidth = 1; r.style.borderBottomColor = ColGrid;
+        return r;
+    }
+
+    static Button Stepper(string label, Action onClick)
+    {
+        var b = new Button(onClick) { text = label };
+        StyleButton(b, ColBlue, ColBlueEdge, ColBlueHover, Color.black, 26);
+        b.style.width = 40; b.style.height = 40; b.style.paddingLeft = b.style.paddingRight = 0;
+        b.style.marginLeft = b.style.marginRight = 4;
+        return b;
+    }
+
+    static VisualElement Zone(Color c, float widthPercent)
+    {
+        var z = new VisualElement();
+        z.style.width = Length.Percent(widthPercent);
+        z.style.backgroundColor = new Color(c.r, c.g, c.b, 0.55f);
+        return z;
+    }
+
+    static void Border(VisualElement e, float w, Color c, float radius)
+    {
+        e.style.borderTopWidth = e.style.borderBottomWidth = e.style.borderLeftWidth = e.style.borderRightWidth = w;
+        e.style.borderTopColor = e.style.borderBottomColor = e.style.borderLeftColor = e.style.borderRightColor = c;
+        e.style.borderTopLeftRadius = e.style.borderTopRightRadius = e.style.borderBottomLeftRadius = e.style.borderBottomRightRadius = radius;
+    }
+
+    static void StyleButton(Button b, Color fill, Color edge, Color hover, Color text, int size)
+    {
+        var f = LilitaFont();
+        if (f != null) b.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(f));
+        b.style.unityFontStyleAndWeight = FontStyle.Bold;
+        b.style.fontSize = size;
+        b.style.color = text;
+        b.style.backgroundColor = fill;
+        b.style.height = 44;
+        b.style.paddingLeft = b.style.paddingRight = 16;
+        b.style.marginLeft = b.style.marginRight = 5;
+        b.style.unityTextAlign = TextAnchor.MiddleCenter;
+        Border(b, 2, edge, 6);
+        b.RegisterCallback<PointerEnterEvent>(_ => b.style.backgroundColor = hover);
+        b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = fill);
+    }
+}

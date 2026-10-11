@@ -1171,6 +1171,18 @@ namespace GameCore.Inventory
 
             _moneyService?.AddCapital(revenue, FinanceCategory.CasePick);
 
+            // Negotiated handling income (ContractTerms): a fee per case picked, a fee per pallet that went out
+            // (staging + loading), and the short-notice fee when the customer broke the notice rule. Booked as
+            // Handling, separate from the goods themselves. All zero on a legacy order, so nothing changes there.
+            int handling = Mathf.RoundToInt(order.TotalUnitsPicked * order.PickFeePerCase)
+                         + Mathf.Max(0, order.PalletsShipped) * order.PalletFee
+                         + order.ShortNoticeFee;
+            if (handling > 0)
+            {
+                _moneyService?.AddCapital(handling, FinanceCategory.Handling);
+                revenue += handling;
+            }
+
             order.Status = OrderData.OrderStatus.Shipped;
             StampClosedNow(order);
             PenalizeShortShipment(order);
@@ -1351,7 +1363,10 @@ namespace GameCore.Inventory
                     isBulk = o.IsBulk,
                     closedDayNumber = o.ClosedDayNumber,
                     closedMinuteOfDay = o.ClosedMinuteOfDay,
-                    palletsShipped = o.PalletsShipped
+                    palletsShipped = o.PalletsShipped,
+                    pickFeePerCase = o.PickFeePerCase,
+                    palletFee = o.PalletFee,
+                    shortNoticeFee = o.ShortNoticeFee
                 };
                 foreach (var li in o.LineItems)
                 {
@@ -1406,7 +1421,10 @@ namespace GameCore.Inventory
                     // The DAY decides whether the pair was recorded, never the minute's own value —
                     // 0 is a legitimate minute (midnight), so it can't stand in for "unset" here.
                     ClosedMinuteOfDay = snap.closedDayNumber > 0 ? snap.closedMinuteOfDay : -1,
-                    PalletsShipped = snap.palletsShipped
+                    PalletsShipped = snap.palletsShipped,
+                    PickFeePerCase = snap.pickFeePerCase,
+                    PalletFee = snap.palletFee,
+                    ShortNoticeFee = snap.shortNoticeFee
                 };
                 foreach (var liSnap in snap.lineItems)
                 {

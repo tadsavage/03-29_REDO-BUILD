@@ -143,6 +143,15 @@ namespace GameCore.Inventory
         /// only the pallets it personally put on.</summary>
         public int PalletsShipped { get; set; }
 
+        /// <summary>Negotiated per-case pick fee, stamped from the account's terms at creation. 0 on legacy orders.</summary>
+        public float PickFeePerCase { get; set; }
+
+        /// <summary>Negotiated per-pallet handling fee (staging + loading), billed on PalletsShipped. 0 on legacy orders.</summary>
+        public int PalletFee { get; set; }
+
+        /// <summary>Flat fee the customer owes because this order broke the account's advance-notice rule. 0 = it didn't.</summary>
+        public int ShortNoticeFee { get; set; }
+
         public OrderData(string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute)
         {
             OrderId = System.Guid.NewGuid().ToString();
@@ -199,9 +208,10 @@ namespace GameCore.Inventory
             get
             {
                 int billed = LineItems.Sum(item => item.QuantityPicked * item.SellingPrice);
-                return ClosedDayNumber >= 0 && QualifiesForSameDayBonus(ClosedDayNumber)
-                     ? Mathf.RoundToInt(billed * SameDayRushRevenueMultiplier)
-                     : billed;
+                if (ClosedDayNumber >= 0 && QualifiesForSameDayBonus(ClosedDayNumber))
+                    billed = Mathf.RoundToInt(billed * SameDayRushRevenueMultiplier);
+                // Negotiated handling income (see ContractTerms) - the same figure ShipOrder books as Handling.
+                return billed + Mathf.RoundToInt(TotalUnitsPicked * PickFeePerCase) + Mathf.Max(0, PalletsShipped) * PalletFee + ShortNoticeFee;
             }
         }
 
@@ -341,6 +351,10 @@ namespace GameCore.Inventory
         /// <summary>0 in a save written before pallet counts were recorded. Shown as "—" rather
         /// than as a genuine zero-pallet shipment, which can't happen.</summary>
         public int palletsShipped;
+        /// <summary>0 in a save written before negotiated terms existed - correct, those orders carry no handling fees.</summary>
+        public float pickFeePerCase;
+        public int palletFee;
+        public int shortNoticeFee;
         public List<OrderLineItemSnapshot> lineItems = new();
     }
 

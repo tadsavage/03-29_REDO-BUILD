@@ -4519,7 +4519,14 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
 
         if (contract != null && contract.Kind == ContractKind.Recurring)
         {
-            col.Add(MakeText($"Order is raised at {contract.CutoffHour:00}:00.", 24, ColSubtleText));
+            int notice = arrivals.NoticeDaysForContract(appt.ContractId);
+            int raiseDay = appt.Day - notice;
+            int today = Schedule()?.CurrentDay ?? appt.Day;
+            int hour = Schedule()?.CurrentHour ?? 0;
+            bool overdue = today > raiseDay || (today == raiseDay && hour >= contract.CutoffHour);
+            col.Add(MakeText(overdue
+                ? "They haven't placed this order yet - it's running late. A short-notice fee applies when it arrives."
+                : $"Order is raised on Day {raiseDay} at {contract.CutoffHour:00}:00 ({notice} day{(notice == 1 ? "" : "s")} notice).", 24, ColSubtleText));
             if (contract.EstimatedCasesPerDay > 0)
                 col.Add(MakeText($"Usually about {contract.EstimatedCasesPerDay:N0} cases per day.", 24, ColSubtleText));
             col.Add(MakeText("The item list appears once it is.", 24, ColSubtleText));

@@ -321,6 +321,11 @@ namespace GameCore.Inventory
         public int LastGeneratedDay = -1; // -1 = has never generated
         public bool Active = true;
 
+        /// <summary>The negotiated commercial terms (see ContractTerms). Null on an account signed before
+        /// negotiation existed - those keep the old pricing (SellValue x PayRateMultiplier) and the contract
+        /// asset's own late fee, so nothing already running changes under the player.</summary>
+        public ContractTerms Terms;
+
         // ── Loss ─────────────────────────────────────────────────────────────
         //
         // A contract the player lost by never booking a door for its freight (see
@@ -395,6 +400,17 @@ namespace GameCore.Inventory
         /// in that save was ever lost.</summary>
         public bool lost;
         public int lostOnDay;
+
+        // Negotiated terms. hasTerms false = an account signed before negotiation existed (legacy pricing).
+        public bool hasTerms;
+        public float termMarkup, termPickFee, termLateFee;
+        public int termPalletFee, termNotice, termShortNoticeFee;
+
+        /// <summary>True for an entry that is ONLY a record that this customer won't negotiate again until day
+        /// walkedAwayOnDay (the field name is historic: it holds the day they're willing again) - not an account at
+        /// all. Import routes it to the cooldown table.</summary>
+        public bool walkAwayOnly;
+        public int walkedAwayOnDay;
     }
 
     /// <summary>

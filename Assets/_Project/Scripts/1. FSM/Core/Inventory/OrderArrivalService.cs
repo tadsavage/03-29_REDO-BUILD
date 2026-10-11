@@ -154,6 +154,7 @@ namespace GameCore.Inventory
             _catalog.Where(c => c != null
                              && !_signed.Any(s => s.ContractId == c.ContractId && s.Active)
                              && !IsInLossCooldown(c.ContractId)
+                             && !IsInWalkAwayCooldown(c.ContractId)
                              && CurrentReputation >= c.ReputationRequired);
 
         /// <summary>
@@ -210,6 +211,87 @@ namespace GameCore.Inventory
         /// <summary>Contracts barred right now, for the panel to list as "lost — back in N days".</summary>
         public IEnumerable<ContractData> LostOffers =>
             _catalog.Where(c => c != null && IsInLossCooldown(c.ContractId));
+
+        // ── Negotiation ──────────────────────────────────────────────────────
+
+        /// <summary>Day each customer will talk to us again, keyed by ContractId.</summary>
+        private readonly Dictionary<string, int> _walkedAwayUntilDay = new();
+
+        public bool IsInWalkAwayCooldown(string contractId) => WalkAwayDaysRemaining(contractId) > 0;
+
+        public int WalkAwayDaysRemaining(string contractId)
+        {
+            if (!_walkedAwayUntilDay.TryGetValue(contractId, out int until)) return 0;
+            int today = _timeService?.Day ?? 0;
+            return Mathf.Max(0, until - today);
+        }
+
+        /// <summary>Bars the customer from the table for <paramref name="days"/> days: a full cooldown when THEY lose
+        /// patience and walk out, a short one when the player simply says no thanks.</summary>
+        public void RecordWalkAway(string contractId, int days = NegotiationService.WalkAwayCooldownDays)
+        {
+            if (string.IsNullOrEmpty(contractId)) return;
+            _walkedAwayUntilDay[contractId] = (_timeService?.Day ?? 0) + Mathf.Max(1, days);
+        }
+
+        /// <summary>0-1 view of how this customer feels about us. 0.5 = never worked together; otherwise the
+        /// satisfaction of the most recent account record (a cancelled account still remembers).</summary>
+        public float RelationshipFor(string contractId)
+        {
+            var last = _signed.LastOrDefault(s => s.ContractId == contractId);
+            return last == null ? 0.5f : Mathf.Clamp01(last.SatisfactionPercent / 100f);
+        }
+
+        /// <summary>Live negotiations by ContractId. Held here (not in the panel) so closing and reopening the window
+        /// can't be used to reset a customer's patience.</summary>
+        private readonly Dictionary<string, NegotiationSession> _negotiations = new();
+
+        public NegotiationSession GetOrBeginNegotiation(ContractData contract)
+        {
+            if (contract == null) return null;
+            if (!_negotiations.TryGetValue(contract.ContractId, out var s) || s.Finished)
+            {
+                s = BeginNegotiation(contract);
+                _negotiations[contract.ContractId] = s;
+            }
+            return s;
+        }
+
+        public void EndNegotiation(string contractId) => _negotiations.Remove(contractId);
+
+        /// <summary>Opens a negotiation with this customer using the player's current standing.</summary>
+        public NegotiationSession BeginNegotiation(ContractData contract)
+        {
+            int difficulty = PlayerPrefs.GetInt("Difficulty", 1);
+            return NegotiationService.Begin(contract, CurrentReputation, RelationshipFor(contract.ContractId), difficulty);
+        }
+
+        /// <summary>How many days ahead this account's orders are raised. Legacy accounts (no negotiated terms)
+        /// use the contract's own lead time, minimum one day.</summary>
+        private static int NoticeDaysFor(SignedContract signed, ContractData contract)
+            => signed != null && signed.Terms != null ? Mathf.Max(1, signed.Terms.AdvanceNoticeDays)
+                                                      : Mathf.Max(1, contract != null ? contract.LeadTimeDays : 1);
+
+        /// <summary>Advance-notice days for a running account, for UI that needs to say when an order will be raised.</summary>
+        public int NoticeDaysForContract(string contractId) => NoticeDaysFor(GetSigned(contractId), GetContract(contractId));
+
+        /// <summary>The negotiated terms of a running account, or null (legacy account / unknown contract).</summary>
+        public ContractTerms TermsFor(string contractId) => GetSigned(contractId)?.Terms;
+
+        /// <summary>Average cost per case and cases per pallet across the catalog, for the negotiation
+        /// spreadsheet's revenue estimate.</summary>
+        public void AverageSkuEconomics(out float avgCostPerCase, out float avgCasesPerPallet)
+        {
+            avgCostPerCase = 20f; avgCasesPerPallet = 40f;
+            if (_inventoryService == null) return;
+            float cost = 0f, cases = 0f; int n = 0;
+            foreach (var s in _inventoryService.AllSkus)
+            {
+                if (s == null || s.SellValue <= 0f) continue;
+                cost += s.BuyValue; cases += Mathf.Max(1, s.Ti * s.Hi); n++;
+            }
+            if (n > 0) { avgCostPerCase = cost / n; avgCasesPerPallet = cases / n; }
+        }
 
         public bool IsSigned(string contractId) =>
             _signed.Any(s => s.ContractId == contractId && s.Active);
@@ -523,7 +605,7 @@ namespace GameCore.Inventory
 
         // ── Signing ──────────────────────────────────────────────────────────
 
-        public bool Sign(string contractId)
+        public bool Sign(string contractId, ContractTerms terms = null)
         {
             if (_signed.Any(s => s.ContractId == contractId && s.Active)) return false;
             // A contract inside its post-loss cooldown is off the board in AvailableOffers, but the
@@ -543,6 +625,8 @@ namespace GameCore.Inventory
             {
                 ContractId = contractId,
                 SignedOnDay = signDay,
+                // Recurring accounts always carry terms: negotiated ones as agreed, a plain sign gets Standard.
+                Terms = contract.IsBulk ? null : (terms != null ? terms.Clone() : TermCatalog.StandardTerms()),
                 // A RECURRING ACCOUNT NEVER DELIVERS ON THE DAY IT WAS SIGNED. Stamping the signing
                 // day as already-generated is what enforces it: OnHourChanged skips any contract whose
                 // LastGeneratedDay is >= today, so the first orders can't land before tomorrow, and
@@ -594,13 +678,10 @@ namespace GameCore.Inventory
             // horizon sweep already relies on (see its doc comment) — this just guarantees day one of
             // it happens at sign time instead of waiting for the next hour tick, rather than being a new
             // kind of early generation.
-            for (int day = signDay + 1; day <= signDay + ScheduleHorizonDays; day++)
-            {
-                if (!DeliversOn(contract, signed, day)) continue;
-                signed.LastGeneratedDay = day;
-                GenerateFor(contract, day);
-                break; // only day one jumps the queue; the rest keep following the normal cadence
-            }
+            // NEGOTIATED NOTICE WINDOW (Tad, 2026-10-11): a new account starts delivering TOMORROW, and the player
+            // sees every order inside the notice window straight away - with 2 days' notice that is tomorrow's and
+            // the day after's. After this, one more day is raised at the cutoff hour each day (OnHourChanged).
+            GenerateNoticeWindow(contract, signed, signDay, atSigning: true, newHour: 0);
 
             Debug.Log($"[OrderArrivalService] Signed {contractId} ({contract.Customer?.CompanyName}) — " +
                       $"{contract.FrequencyLabel}, ~{contract.EstimatedCasesPerDay} cases/day, " +
@@ -643,7 +724,10 @@ namespace GameCore.Inventory
                 // One-offs and bulk have nothing recurring to project forward.
                 if (contract.IsBulk || contract.IsOneTime) continue;
 
-                for (int day = today; day <= today + ScheduleHorizonDays; day++)
+                // Pre-book through the notice window: every trailer booked here has (or is about to get) an order,
+                // so the schedule never fills with empty slots that no order will ever land on.
+                int horizon = Mathf.Max(ScheduleHorizonDays, NoticeDaysFor(signed, contract));
+                for (int day = today; day <= today + horizon; day++)
                 {
                     if (!DeliversOn(contract, signed, day)) continue;
                     if (_dockSchedule.HasAppointmentFor(signed.ContractId, day)) continue;
@@ -762,15 +846,7 @@ namespace GameCore.Inventory
                 // day in the same horizon. Skip today's slot after its requested cutoff—if it was not
                 // generated while current, it is a missed delivery rather than work that should appear
                 // retroactively on the planning board.
-                for (int scheduledDay = today; scheduledDay <= today + ScheduleHorizonDays; scheduledDay++)
-                {
-                    if (!DeliversOn(contract, signed, scheduledDay)) continue;
-                    if (signed.LastGeneratedDay >= scheduledDay) continue;
-                    if (scheduledDay == today && newHour > contract.CutoffHour) continue;
-
-                    signed.LastGeneratedDay = scheduledDay;
-                    GenerateFor(contract, scheduledDay);
-                }
+                GenerateNoticeWindow(contract, signed, today, atSigning: false, newHour: newHour);
             }
         }
 
@@ -1123,8 +1199,55 @@ namespace GameCore.Inventory
         /// <summary>Cost of goods plus a 5% surcharge — the whole of bulk pricing.</summary>
         public const float BulkSurchargeMultiplier = 1.05f;
 
-        private void GenerateFor(ContractData contract, int today)
+        /// <summary>Chance, per delivery day, that a customer on an account with real notice rules leaves their order
+        /// until the last minute. Deterministic per contract+day so a save/load can't re-roll it.</summary>
+        private const int ShortNoticeChancePercent = 12;
+
+        private static bool IsLateOrderer(string contractId, int deliveryDay)
         {
+            int h = 17;
+            foreach (char c in contractId ?? "") h = h * 31 + c;
+            h = h * 31 + deliveryDay * 7919;
+            return Mathf.Abs(h) % 100 < ShortNoticeChancePercent;
+        }
+
+        /// <summary>
+        /// Raises every order inside this account's advance-notice window that hasn't been raised yet.
+        ///
+        /// An order for delivery day D is raised NoticeDays before D, at the contract's cutoff hour - so with 2 days'
+        /// notice the player always sees tomorrow's and the day after's orders. At signing the whole window is raised at
+        /// once (the account starts delivering tomorrow). Occasionally a customer leaves one until the last minute: it is
+        /// raised only the day before and carries the negotiated short-notice fee.
+        ///
+        /// LastGeneratedDay is the watermark, in DELIVERY-day terms; the loop walks forward and stops at a late orderer so
+        /// the watermark never skips a day.
+        /// </summary>
+        private void GenerateNoticeWindow(ContractData contract, SignedContract signed, int today, bool atSigning, int newHour)
+        {
+            int notice = NoticeDaysFor(signed, contract);
+            int windowEnd = atSigning ? today + notice : today + notice - (newHour >= contract.CutoffHour ? 0 : 1);
+
+            for (int d = today + 1; d <= windowEnd; d++)
+            {
+                if (!DeliversOn(contract, signed, d)) continue;
+                if (signed.LastGeneratedDay >= d) continue;
+
+                bool shortNotice = false;
+                if (!atSigning && signed.Terms != null && notice > 1 && IsLateOrderer(signed.ContractId, d))
+                {
+                    if (d - today > 1) break;   // they haven't got round to it yet
+                    shortNotice = true;          // it's now the day before - their order turns up late
+                }
+
+                signed.LastGeneratedDay = d;
+                GenerateFor(contract, d, signed, shortNotice);
+            }
+        }
+
+        private void GenerateFor(ContractData contract, int deliveryDay, SignedContract signed, bool shortNotice)
+        {
+            int today = _timeService.Day;
+            var terms = signed != null ? signed.Terms : null;
             var customer = contract.Customer;
             if (customer == null)
             {
@@ -1157,11 +1280,14 @@ namespace GameCore.Inventory
                 customer.CompanyName,
                 $"{customer.CompanyName} Distribution Center",
                 today,
-                today + contract.LeadTimeDays,
+                deliveryDay,
                 _timeService.Minute)
             {
                 ContractId = contract.ContractId,
-                LateFeePercent = contract.LateFeePercent
+                LateFeePercent = terms != null ? terms.LateFeePercent : contract.LateFeePercent,
+                PickFeePerCase = terms != null ? terms.PickFeePerCase : 0f,
+                PalletFee = terms != null ? terms.PalletFee : 0,
+                ShortNoticeFee = shortNotice && terms != null ? terms.ShortNoticeFee : 0
             };
 
             for (int i = 0; i < batchCount; i++)
@@ -1180,19 +1306,29 @@ namespace GameCore.Inventory
                             sku.SkuId,
                             qty,
                             Mathf.RoundToInt(sku.BuyValue),
-                            Mathf.RoundToInt(sku.SellValue * contract.PayRateMultiplier)));
+                            // Negotiated accounts bill cost-plus (cost x (1 + markup)); legacy accounts keep list price x pay rate.
+                            terms != null ? Mathf.RoundToInt(sku.BuyValue * (1f + terms.MarkupPercent))
+                                          : Mathf.RoundToInt(sku.SellValue * contract.PayRateMultiplier)));
                 }
             }
 
             _orderService.ReceiveOrder(order);
-            Debug.Log($"[OrderArrivalService] {customer.CompanyName}: 1 order arrived on day {today} " +
+            Debug.Log($"[OrderArrivalService] {customer.CompanyName}: 1 order raised on day {today} " +
                       $"({order.LineItems.Count} line item(s) across {batchCount} batch(es)), " +
-                      $"due day {today + contract.LeadTimeDays}.");
+                      $"due day {deliveryDay}" + (shortNotice ? " - SHORT NOTICE, fee applies." : "."));
         }
 
         // ── Persistence ──────────────────────────────────────────────────────
 
-        public List<ContractSnapshot> Export() => _signed.Select(s => new ContractSnapshot
+        public List<ContractSnapshot> Export()
+        {
+            var list = ExportSigned();
+            foreach (var kv in _walkedAwayUntilDay)
+                list.Add(new ContractSnapshot { contractId = kv.Key, walkAwayOnly = true, walkedAwayOnDay = kv.Value, satisfactionPercent = -1f });
+            return list;
+        }
+
+        private List<ContractSnapshot> ExportSigned() => _signed.Select(s => new ContractSnapshot
         {
             contractId = s.ContractId,
             signedOnDay = s.SignedOnDay,
@@ -1204,17 +1340,26 @@ namespace GameCore.Inventory
             lateFeesPaid = s.LateFeesPaid,
             satisfactionPercent = s.SatisfactionPercent,
             lost = s.Lost,
-            lostOnDay = s.LostOnDay
+            lostOnDay = s.LostOnDay,
+            hasTerms = s.Terms != null,
+            termMarkup = s.Terms?.MarkupPercent ?? 0f,
+            termPickFee = s.Terms?.PickFeePerCase ?? 0f,
+            termLateFee = s.Terms?.LateFeePercent ?? 0f,
+            termPalletFee = s.Terms?.PalletFee ?? 0,
+            termNotice = s.Terms?.AdvanceNoticeDays ?? 0,
+            termShortNoticeFee = s.Terms?.ShortNoticeFee ?? 0
         }).ToList();
 
         public void Import(List<ContractSnapshot> entries)
         {
             _signed.Clear();
+            _walkedAwayUntilDay.Clear();
             if (entries == null) return;
 
             foreach (var snap in entries)
             {
                 if (snap == null || string.IsNullOrEmpty(snap.contractId)) continue;
+                if (snap.walkAwayOnly) { _walkedAwayUntilDay[snap.contractId] = snap.walkedAwayOnDay; continue; }
                 _signed.Add(new SignedContract
                 {
                     ContractId = snap.contractId,
@@ -1227,7 +1372,16 @@ namespace GameCore.Inventory
                     LateFeesPaid = snap.lateFeesPaid,
                     SatisfactionPercent = snap.satisfactionPercent >= 0f ? snap.satisfactionPercent : 100f,
                     Lost = snap.lost,
-                    LostOnDay = snap.lostOnDay
+                    LostOnDay = snap.lostOnDay,
+                    Terms = snap.hasTerms ? new ContractTerms
+                    {
+                        MarkupPercent = snap.termMarkup,
+                        PickFeePerCase = snap.termPickFee,
+                        LateFeePercent = snap.termLateFee,
+                        PalletFee = snap.termPalletFee,
+                        AdvanceNoticeDays = Mathf.Max(1, snap.termNotice),
+                        ShortNoticeFee = snap.termShortNoticeFee
+                    } : null
                 });
             }
 

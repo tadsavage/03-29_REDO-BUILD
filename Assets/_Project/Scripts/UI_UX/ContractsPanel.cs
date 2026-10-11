@@ -216,10 +216,14 @@ public class ContractsPanel : IUIPanel
 
     private static Font _nunito;
 
+    /// <summary>The negotiation table for recurring accounts - replaces the old one-click Sign Contract.</summary>
+    private readonly NegotiationPanel _negotiation;
+
     public ContractsPanel(VisualElement root)
     {
         _overlay = Build(out _modal, out _tabBar, out _tabHeader, out _content, out _footerMessage);
         root.Add(_overlay);
+        _negotiation = new NegotiationPanel(root);
         Hide();
     }
 
@@ -270,6 +274,7 @@ public class ContractsPanel : IUIPanel
     {
         _visible = false;
         OrdersPauseGate.Pop(this);
+        _negotiation?.Hide();
         _overlay.style.display = DisplayStyle.None;
     }
 
@@ -1036,7 +1041,7 @@ public class ContractsPanel : IUIPanel
         // The commit button leads the column, in the corner the type badge used to occupy. The player
         // reads the offer left-to-right and lands on the action, with the money and the deadline
         // underneath it as the two things that qualify the decision.
-        var sign = new Button(() => OnSign(contract)) { text = contract.IsBulk ? "ACCEPT ORDER" : "SIGN CONTRACT" };
+        var sign = new Button(() => OnSign(contract)) { text = contract.IsBulk ? "ACCEPT ORDER" : "NEGOTIATE" };
         StyleOrangeButton(sign);
         // Bulk offers roll their SKUs once, at offer creation (OrderArrivalService.RollDailyBulkOffers)
         // — this is exactly that same list, so what's previewed here is what GenerateBulk builds on
@@ -1788,6 +1793,13 @@ public class ContractsPanel : IUIPanel
     {
         var arrivals = Arrivals();
         if (arrivals == null) return;
+
+        // Recurring accounts are negotiated, not just signed; bulk offers stay a one-click accept.
+        if (!contract.IsBulk)
+        {
+            _negotiation.Open(contract, _ => Rebuild());
+            return;
+        }
 
         if (!arrivals.Sign(contract.ContractId))
         {
