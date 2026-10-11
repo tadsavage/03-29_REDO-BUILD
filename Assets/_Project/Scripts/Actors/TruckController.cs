@@ -490,6 +490,8 @@ public class TruckController : MonoBehaviour
     [Header("Legacy Dock Positioning (fallback — DockSlot's own waypoint math was stripped 2026-09-05)")]
     [Tooltip("How far out from the wall the truck center sits when fully docked. Was DockSlot.dockOffset.")]
     [SerializeField] private float legacyDockOffset = 3.5f;
+    [Tooltip("Metres to stop SHORT of the TruckNavPoint5 marker when backing into a door (positive = further from the wall). Tune if the trailer sits too far in/out.")]
+    [SerializeField] private float dockBackInTrim = 0.5f;
     [Tooltip("Straight-out distance from the door into the yard for Xform 2 (_drApproach-DepartPoint). Was DockSlot.approachDepartDepth.")]
     [SerializeField] private float legacyApproachDepartDepth = 9.5f;
     [Tooltip("Xform 2 sideways offset from the door center along the wall. Was DockSlot.approachDepartSide.")]
@@ -3071,6 +3073,7 @@ private DockSlot        _dock;
         // far past where it should actually stop for this maneuver.
         var nav5 = FindDockWaypoint("TruckNavPoint5");
         Vector3 target = nav5 != null ? nav5.position : DockPositionFor(_dock);
+        if (nav5 != null) target += DockYardForward(_dock) * dockBackInTrim;   // stop short of the authored marker (Tad, 2026-10-11: backed in ~0.5 too far)
         // XZ only from the marker — Y always comes from _groundY (the height the truck has tracked
         // for its entire route), never the marker's own authored Y. Confirmed live: TruckNavPoint5's
         // Y isn't guaranteed to sit exactly on the ground plane, and snapping straight to its raw

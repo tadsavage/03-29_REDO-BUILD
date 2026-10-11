@@ -330,6 +330,7 @@ namespace GameCore.Inventory
         public static int BlockForHour(int hour) => Mathf.Clamp(hour / BlockHours, 0, BlocksPerDay - 1);
 
         public int CurrentBlock => BlockForHour(Clock?.Hour ?? 0);
+        public int CurrentHour => Clock?.Hour ?? 0;
 
         public static string BlockLabel(int blockIndex)
         {

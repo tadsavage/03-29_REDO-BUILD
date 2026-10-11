@@ -108,6 +108,9 @@ namespace GameCore.Labor
 
         /// <summary>The BLOCK START trigger — see the class doc for why this is event-driven rather
         /// than polled.</summary>
+        /// <summary>Game hours before the block opens that the driver is sent, so the trailer is at the door when the block starts.</summary>
+        private const int ArrivalLeadHours = 1;
+
         private void DispatchDueAppointments()
         {
             if (_truckYard == null) _truckYard = FindAnyObjectByType<TruckYardManager>();
@@ -118,12 +121,19 @@ namespace GameCore.Labor
             {
                 if (appt.Kind == AppointmentKind.Inbound) continue;
                 if (appt.Parked || appt.ClosedOut) continue;
+                // Dispatch ArrivalLeadHours before the block opens (Tad, 2026-10-11: an 08:00 appointment's truck turned up at 09:00 because the
+                // trip from the gate to the door takes about an hour of game time). Also still dispatches when the block is already open.
+                int hoursUntil = (appt.Day - schedule.CurrentDay) * 24 + appt.StartHour - schedule.CurrentHour;
+                bool leadDue = hoursUntil >= 1 && hoursUntil <= ArrivalLeadHours;
+                if (!leadDue)
+                {
                 if (appt.Day != schedule.CurrentDay) continue;
                 // Only the block that is open RIGHT NOW. `< BlockIndex` alone let a block that had already
                 // ENDED but not yet been swept (a save loaded at 11:00 still holding an open 06:00
                 // appointment) dispatch its driver hours after the window — who then "sat there for
                 // their whole appointment" and left. A driver doesn't turn up for a window that's gone.
                 if (schedule.CurrentBlock != appt.BlockIndex) continue;
+                }
                 if (schedule.IsComplete(appt)) continue;                // already picked up
 
                 // Deliberately NOT skipped when the door is busy (2026-09-23). It used to be, which meant
