@@ -563,7 +563,7 @@ public class EmployeeSpawner : MonoBehaviour
         t.localRotation = Quaternion.identity;
         t.localScale    = Vector3.one;
         avatar.name = "ModularAvatar";
-        SetLayerRecursively(avatar, identity.gameObject.layer);
+        SetLayerRecursively(avatar, AvatarLayerFor(identity));
 
         // Force per-frame bounds so frustum culling can't hide the animated mesh.
         foreach (var smr in avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true))
@@ -823,7 +823,7 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         t.localRotation = Quaternion.identity;
         t.localScale    = Vector3.one;
         avatar.name = "FixedAvatar";
-        SetLayerRecursively(avatar, identity.gameObject.layer);
+        SetLayerRecursively(avatar, AvatarLayerFor(identity));
 
         foreach (var smr in avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true))
             smr.updateWhenOffscreen = true;
@@ -942,6 +942,16 @@ private static Transform FindDeepByName(Transform parent, string boneName)
             if (r != null) return r;
         }
         return null;
+    }
+
+    /// <summary>Avatars live on their own "Avatars" layer so a Render Objects feature can redraw them over the SSAO pass (SSAO made them look like coal dust,
+    /// Tad 2026-10-11). The portrait booth keeps whatever layer its identity has - its camera culls by layer.</summary>
+    private static int AvatarLayerFor(EmployeeIdentity identity)
+    {
+        int own = identity.gameObject.layer;
+        if (own == LayerMask.NameToLayer("PhotoBoothFX")) return own;
+        int l = LayerMask.NameToLayer("Avatars");
+        return l >= 0 ? l : own;
     }
 
     private static void SetLayerRecursively(GameObject go, int layer)

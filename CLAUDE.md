@@ -2786,3 +2786,10 @@ All in `AODPanel.cs` (UI is built in C# with inline styles, no UXML/USS), `AODPr
 
 ### Addendum 2026-10-11 — grain/flicker on avatars = Receive Shadows on the avatar material
 Grainy, flickering speckle on avatars (worse in motion) was shadow acne from the avatar's own shadows. Fix (Tad, in the Inspector): **Receive Shadows OFF on `__Avatar_System2.0/Textures/AA_atlas-LPAP.mat`**. It was NOT SSAO (Downsample/NormalSamples changes did nothing) and NOT the cavity pass (cavity intensity only changes the polygon-edge lines, which are the game's low-poly look - never tone them down). Side effect: avatars no longer receive cast shadows from racks etc. (foot contact shadow still grounds them). Tad also retuned `Cavity_Material06-07` himself (Exponent 1.5, Intensity 2, Radius 1.5, Sharpness 0) - left uncommitted by me.
+
+### Addendum 2026-10-11 (later) — avatars excluded from SSAO ("coal dust"): Avatars layer + Render Objects redraw
+- New physics/render layer **`Avatars` (slot 9)**. `EmployeeSpawner.AvatarLayerFor(identity)` puts the ModularAvatar/FixedAvatar child on it (portrait-booth identities keep their own layer, their camera culls by layer).
+- Renderers `PC_Renderer` (Ultra) and `Good_Renderer` each have a **Render Objects feature "AvatarsOverSSAO"**: layer mask = Avatars, Opaque queue, depth LessEqual, no depth write, event **500**. It redraws the avatars on top of the SSAO composite, so they lose the SSAO darkening but still get the cavity polygon edges (cavity runs at 550). Measured on a still worker: vest region diff vs SSAO-off 1.3 (was 7.2 with SSAO), background unchanged.
+- **Event matters:** at 301/350/449 the redraw changed nothing (SSAO composites later); at >=451 it works. An earlier attempt at 301 looked "ghosted" only because workers were moving between frames in the A/B render.
+- Stencil route was rejected: URP's SSAO composite has no stencil test/depth-stencil attachment; it would need an embedded copy of the URP package.
+- Toaster has no SSAO so it has no feature. If a new avatar-like object should skip SSAO, put it on the Avatars layer.
