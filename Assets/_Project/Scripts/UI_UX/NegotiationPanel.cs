@@ -46,7 +46,7 @@ public class NegotiationPanel : IUIPanel
     readonly VisualElement _modal;
     VisualElement _logoBox;
     Label _company, _styleLine, _pitch, _patience, _round, _msg, _heatLabel, _revLabel, _marginLabel, _stdLabel;
-    Label _partnerLine, _repLine, _standingNote;
+    Label _partnerLine, _repLine, _standingNote, _needLabel;
     VisualElement _left, _right, _avatarFrame, _diceLayer;
     Image _avatarImg;
     Label _moodLabel, _rollNote, _diceCaption;
@@ -301,6 +301,10 @@ public class NegotiationPanel : IUIPanel
         heatRow.Add(_heatLabel);
         _left.Add(heatRow);
 
+        _needLabel = Text("", 16, ColAmber, lilita: true);
+        _needLabel.style.marginTop = 6;
+        _left.Add(_needLabel);
+
         // Spreadsheet totals
         var totals = new VisualElement();
         totals.style.flexDirection = FlexDirection.Row;
@@ -476,12 +480,14 @@ public class NegotiationPanel : IUIPanel
 
         // Fuzzy heat: the true ratio plus a fixed per-customer wobble, so the player can feel the edge without reading it off.
         float ratio = _s.Appetite(_ask);
-        float wobble = (((_company.text ?? "x").Length % 9) - 4) * 0.02f;
+        float wobble = 0f;   // exact now: the roll-needed line below states the same maths outright
         float shown = Mathf.Clamp(ratio * (1f + wobble), 0f, 1.6f);
         _heatMarker.style.left = Length.Percent(Mathf.Clamp01(shown / 1.6f) * 100f - 1f);
         _heatLabel.text = shown < 0.9f ? "They'd likely sign" : shown < 1.35f ? "Could go either way" : "No way";
         _heatLabel.style.color = shown < 0.9f ? ColGreen : shown < 1.35f ? ColAmber : ColRed;
         NegotiatorStage.SetHeat(shown);
+        _s.RollNeeded(_ask, out _, out _, out _, out string needText);
+        _needLabel.text = "TO CLOSE: " + needText;
         _moodLabel.text = shown < 0.92f ? "PLEASED" : shown < 1.12f ? "THOUGHTFUL" : shown < 1.32f ? "AGITATED" : "FURIOUS";
         _moodLabel.style.color = shown < 0.92f ? ColGreen : shown < 1.12f ? ColAmber : shown < 1.32f ? ColOrangeHover : ColRed;
 

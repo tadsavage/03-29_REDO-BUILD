@@ -104,6 +104,37 @@ namespace GameCore.Inventory
 
         static string Sg(int v) => v >= 0 ? $"+{v}" : v.ToString();
 
+        /// <summary>
+        /// The EXACT roll needed for this package - not an estimate. Everything is a fixed equation; the d20 is the only random number.
+        /// The roll moves their budget by 1.2% per point of (roll + modifiers) above or below 11, capped at +-14%, and the deal needs
+        /// budget >= score. So with s = score - budget:  s <= -0.14 any roll works; otherwise total >= 11 + ceil(s / 0.012), and a total
+        /// of 24 (or a natural 20) always wins no matter how far over. A natural 1 or a total of 3 or less always loses.
+        /// </summary>
+        public void RollNeeded(ContractTerms ask, out int dealRoll, out int counterRoll, out int modifier, out string text)
+        {
+            modifier = RollModifier(out _);
+            bool free = true;
+            foreach (var spec in TermCatalog.All)
+                if (spec.Push(spec.Get(ask)) > spec.Push(spec.Get(Standard)) + 0.001f) { free = false; break; }
+
+            float s = Score(ask) - Budget;
+            int dealTotal = free || s <= -0.14f ? CritFailTotal + 1 : Mathf.Min(CritSuccessTotal, 11 + Mathf.CeilToInt(s / 0.012f - 0.0001f));
+            int counterTotal = free || s - CounterWindow <= -0.14f ? CritFailTotal + 1 : Mathf.Min(CritSuccessTotal, 11 + Mathf.CeilToInt((s - CounterWindow) / 0.012f - 0.0001f));
+            dealTotal = Mathf.Max(CritFailTotal + 1, dealTotal);          // a total of 3 or less is an automatic loss whatever the maths says
+            counterTotal = Mathf.Max(CritFailTotal + 1, Mathf.Min(counterTotal, dealTotal));
+            dealRoll = Mathf.Clamp(dealTotal - modifier, 2, 20);        // a natural 1 never works, a natural 20 always does
+            counterRoll = Mathf.Clamp(counterTotal - modifier, 2, 20);
+
+            if (free) { dealRoll = 1; counterRoll = 1; }   // Standard-or-easier is accepted outright - even a natural 1 cannot lose it
+
+            string mod = modifier >= 0 ? $"+{modifier}" : modifier.ToString();
+            if (free) text = "Standard terms or easier: a deal on any roll.";
+            else if (dealRoll <= 2) text = $"Deal on any roll but a 1 (you add {mod}).";
+            else if (dealRoll >= 20) text = $"Deal only on a natural 20 (you add {mod}).";
+            else text = $"Deal on a roll of {dealRoll} or more (you add {mod}).";
+            if (!free && dealRoll > 2 && counterRoll < dealRoll) text += counterRoll <= 2 ? "  A counter on anything else but a 1." : $"  A counter on {counterRoll}+.";
+        }
+
         public NegotiationResult Submit(ContractTerms ask, int roll = 0)
         {
             Round++;
