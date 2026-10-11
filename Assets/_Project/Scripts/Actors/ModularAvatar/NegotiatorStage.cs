@@ -19,6 +19,8 @@ public class NegotiatorStage : MonoBehaviour
 {
     static readonly Vector3 StageOrigin = new Vector3(240f, 470f, 0f);
     static NegotiatorStage _instance;
+    // Dark navy, a touch lighter than the window chrome so the figure's edges still read against it.
+    static readonly Color BackdropColor = new Color(0.07f, 0.10f, 0.16f, 1f);
 
     Camera _camera;
     RenderTexture _rt;
@@ -105,7 +107,7 @@ public class NegotiatorStage : MonoBehaviour
         camGO.transform.SetParent(transform, false);
         _camera = camGO.AddComponent<Camera>();
         _camera.clearFlags = CameraClearFlags.SolidColor;
-        _camera.backgroundColor = new Color(0.80f, 0.86f, 0.92f, 1f);
+        _camera.backgroundColor = BackdropColor;
         _camera.targetTexture = _rt;
         _camera.fieldOfView = 36f;
         _camera.nearClipPlane = 0.05f;
@@ -113,8 +115,8 @@ public class NegotiatorStage : MonoBehaviour
         _camera.allowMSAA = true;
         var data = _camera.GetUniversalAdditionalCameraData();
         data.renderPostProcessing = false;   // no bloom/grain/vignette: this window must look clean
-        camGO.transform.position = StageOrigin + new Vector3(0f, 1.45f, 3.1f);
-        camGO.transform.LookAt(StageOrigin + new Vector3(0f, 1.22f, 0f));
+        camGO.transform.position = StageOrigin + new Vector3(0f, 1.35f, 3.5f);
+        camGO.transform.LookAt(StageOrigin + new Vector3(0f, 1.2f, 0f));
         _camera.enabled = false;
     }
 
@@ -129,8 +131,8 @@ public class NegotiatorStage : MonoBehaviour
 
         var unlit = Shader.Find("Universal Render Pipeline/Unlit");
         var mat = unlit != null ? new Material(unlit) : new Material(UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline.defaultMaterial);
-        // Soft light blue-grey. .gamma: the RT is shown by UI Toolkit without sRGB encoding (same fix AODPreviewStage documents).
-        var c = new Color(0.82f, 0.89f, 0.95f, 1f).gamma;
+        // .gamma: the RT is shown by UI Toolkit without sRGB encoding (same fix AODPreviewStage documents).
+        var c = BackdropColor.gamma;
         mat.color = c;
         if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
         var r = wall.GetComponent<MeshRenderer>();
@@ -141,13 +143,15 @@ public class NegotiatorStage : MonoBehaviour
 
     void BuildLights(Transform pivot)
     {
-        // Key from front-left, fill from front-right, a soft top light - all POINT lights with a short range.
-        AddLight(pivot, new Vector3(1.6f, 2.4f, 2.4f), 5.5f, 9f);
-        AddLight(pivot, new Vector3(-1.9f, 1.6f, 2.2f), 3.2f, 9f);
-        AddLight(pivot, new Vector3(0f, 3.2f, 0.6f), 2.2f, 7f);
+        // Moody studio: a warm key from front-left, a dim cool fill, and two coloured rim lights behind so the figure separates
+        // from the dark backdrop. All POINT lights with a short range (a directional light would light the whole game scene).
+        AddLight(pivot, new Vector3(1.8f, 2.4f, 2.4f), 9.0f, 9f, new Color(1f, 0.93f, 0.82f));
+        AddLight(pivot, new Vector3(-2.0f, 1.4f, 2.2f), 2.7f, 9f, new Color(0.7f, 0.82f, 1f));
+        AddLight(pivot, new Vector3(-1.6f, 2.2f, -1.4f), 7.5f, 8f, new Color(1f, 0.62f, 0.3f));   // orange rim, back left
+        AddLight(pivot, new Vector3(1.6f, 2.2f, -1.4f), 7.5f, 8f, new Color(0.35f, 0.6f, 1f));    // blue rim, back right
     }
 
-    void AddLight(Transform pivot, Vector3 offset, float intensity, float range)
+    void AddLight(Transform pivot, Vector3 offset, float intensity, float range, Color color)
     {
         var go = new GameObject("Light");
         go.transform.SetParent(pivot, false);
@@ -156,7 +160,7 @@ public class NegotiatorStage : MonoBehaviour
         l.type = LightType.Point;
         l.intensity = intensity;
         l.range = range;
-        l.color = new Color(1f, 0.97f, 0.93f);
+        l.color = color;
         l.shadows = LightShadows.None;
         l.enabled = false;
         _lights.Add(l);
@@ -175,6 +179,24 @@ public class NegotiatorStage : MonoBehaviour
         if (_avatar != null) Destroy(_avatar);
         _avatar = null; _gestures = null; _face = null;
         _key = key;
+
+        // The cast first: a suit-and-tie Polyperfect character. Falls back to a modular avatar if the cast asset is missing/empty.
+        var cast = Resources.Load<NegotiatorCast>(NegotiatorCast.ResourcePath);
+        var prefab = cast != null ? cast.PickFor(key) : null;
+        if (prefab != null)
+        {
+            var person = Instantiate(prefab, StageOrigin, Quaternion.identity, transform);
+            person.name = "Customer";
+            foreach (var smr in person.GetComponentsInChildren<SkinnedMeshRenderer>(true)) smr.updateWhenOffscreen = true;
+            var an = person.GetComponentInChildren<Animator>();
+            if (an != null) an.enabled = false;   // posed from code
+            _face = FaceExpressionController.Attach(person, FaceMood.Neutral);
+            if (_face != null) { _face.UseUnscaledTime = true; _face.ForceSmile(2.5f); }
+            _gestures = person.AddComponent<NegotiatorGestures>();
+            _faceMood = FaceMood.Neutral;
+            _avatar = person;
+            return;
+        }
 
         var lib = ModularAvatarAssembler.LoadLibrary();
         if (lib == null || lib.PartCount == 0) return;

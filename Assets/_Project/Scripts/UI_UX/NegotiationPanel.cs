@@ -515,7 +515,7 @@ public class NegotiationPanel : IUIPanel
     {
         _avatarFrame = new VisualElement();
         _avatarFrame.style.width = RightW; _avatarFrame.style.height = 412;
-        _avatarFrame.style.backgroundColor = new Color(0.82f, 0.89f, 0.95f, 1f);
+        _avatarFrame.style.backgroundColor = new Color(0.07f, 0.10f, 0.16f, 1f);
         _avatarFrame.style.overflow = Overflow.Hidden;
         Border(_avatarFrame, 3, ColOrange, 8);
         _avatarImg = new Image();

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 363012b33cd87ea4ab713de43cfc066e, type: 3}
+  m_Name: NegotiatorCast
+  m_EditorClassIdentifier: GameCore.Simulation::NegotiatorCast
+  entries:
+  - label: Businessman
+    prefab: {fileID: 8214505089139217242, guid: a37846151c2b16c4194e97c5b14e2fcb, type: 3}
+    enabled: 1
+  - label: Businesswoman
+    prefab: {fileID: 1859758781311065194, guid: dc1f64e223f359f4ea5a04a2e298df00, type: 3}
+    enabled: 1
+  - label: Clown (man)
+    prefab: {fileID: 2146361900069763361, guid: 0b8b9bb575f942546b327265f624927a, type: 3}
+    enabled: 0
+  - label: Clown (woman)
+    prefab: {fileID: 6358298707067247357, guid: daf36a416f8af694ea35df9267fb00a5, type: 3}
+    enabled: 0
