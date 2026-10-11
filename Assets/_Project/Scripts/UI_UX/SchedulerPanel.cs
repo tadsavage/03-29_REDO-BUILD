@@ -4510,6 +4510,26 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         return total;
     }
 
+    /// <summary>A pre-booked trailer (typically a recurring contract) has no order until the customer's cutoff hour, so there is genuinely nothing to
+    /// list yet. Say WHEN the order is raised and roughly how big it usually is, instead of a bare "no items" (Tad, 2026-10-11).</summary>
+    private void AddNoOrderYetTooltipLines(VisualElement col, DockAppointment appt)
+    {
+        ServiceLocator.TryGet<OrderArrivalService>(out var arrivals);
+        var contract = arrivals != null && !string.IsNullOrEmpty(appt.ContractId) ? arrivals.GetContract(appt.ContractId) : null;
+
+        if (contract != null && contract.Kind == ContractKind.Recurring)
+        {
+            col.Add(MakeText($"Order is raised at {contract.CutoffHour:00}:00.", 24, ColSubtleText));
+            if (contract.EstimatedCasesPerDay > 0)
+                col.Add(MakeText($"Usually about {contract.EstimatedCasesPerDay:N0} cases per day.", 24, ColSubtleText));
+            col.Add(MakeText("The item list appears once it is.", 24, ColSubtleText));
+        }
+        else
+        {
+            col.Add(MakeText("The order has not been raised yet — items appear once it is.", 24, ColSubtleText));
+        }
+    }
+
     /// <summary>Customer, total expected revenue across every order riding this trailer, then one row
     /// per SKU — cases actually picked so far and the resulting fill rate.</summary>
     private VisualElement BuildOutboundTooltipContent(DockAppointment appt)
@@ -4519,7 +4539,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null || appt.OrderIds.Count == 0)
         {
             col.Add(MakeText(appt.CustomerName, 27, ColTitleText, bold: true));
-            col.Add(MakeText("No items generated yet.", 24, ColSubtleText));
+            AddNoOrderYetTooltipLines(col, appt);
             return col;
         }
 
@@ -4550,7 +4570,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
 
         if (orderList.Count == 0)
         {
-            col.Add(MakeText("No items generated yet.", 24, ColSubtleText));
+            AddNoOrderYetTooltipLines(col, appt);
             return col;
         }
 
