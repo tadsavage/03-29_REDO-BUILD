@@ -302,7 +302,18 @@ public class UIKeyBindingManager : MonoBehaviour
     }
 
     /// <summary>Get the currently open keybind UI number, or -1 if none.</summary>
-    public int CurrentOpenKey => _currentOpenKey;
+    /// <summary>Self-healing (Tad, 2026-10-11): a panel that closes through its OWN button/handler (never via ToggleUI/CloseAll) leaves
+    /// _currentOpenKey pointing at a panel that is no longer showing, which silently gates every world hover tooltip and truck click
+    /// until something like a mode-tab switch calls CloseAll. So the key is checked against the panel itself on every read.</summary>
+    public int CurrentOpenKey
+    {
+        get
+        {
+            if (_currentOpenKey != -1 && _uiPanels.TryGetValue(_currentOpenKey, out var open) && (open == null || !open.IsOpen))
+                _currentOpenKey = -1;
+            return _currentOpenKey;
+        }
+    }
 
     /// <summary>Check if a specific keybind UI is currently open.</summary>
     public bool IsUIOpen(int keyNumber) => _currentOpenKey == keyNumber;
