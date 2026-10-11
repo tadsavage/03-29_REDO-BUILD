@@ -40,7 +40,7 @@ public class NegotiationPanel : IUIPanel
     static readonly Color ColHeaderRow = new Color(28f / 255f, 40f / 255f, 54f / 255f, 1f);
 
     // Column widths - fixed, so every row lines up like cells in a sheet.
-    const float WTerm = 250f, WOpen = 120f, WStd = 120f, WAsk = 230f, WCounter = 170f;
+    const float WTerm = 360f, WOpen = 120f, WStd = 120f, WAsk = 230f, WCounter = 170f;
 
     readonly VisualElement _overlay;
     readonly VisualElement _modal;
@@ -296,7 +296,7 @@ public class NegotiationPanel : IUIPanel
         StyleButton(_counterBtn, ColGreen, new Color(0.2f, 0.45f, 0.25f), new Color(0.6f, 0.95f, 0.65f), Color.black, 18);
         _sendBtn = new Button(SendOffer) { text = "SEND OFFER" };
         StyleButton(_sendBtn, ColOrange, ColOrangeEdge, ColOrangeHover, Color.black, 22);
-        _sendBtn.style.height = 52; _sendBtn.style.width = 190;
+        _sendBtn.style.height = 52; _sendBtn.style.width = 170;
 
         var spacer = new VisualElement { style = { flexGrow = 1 } };
         buttons.Add(_standardBtn); buttons.Add(_theirsBtn); buttons.Add(_walkBtn);
