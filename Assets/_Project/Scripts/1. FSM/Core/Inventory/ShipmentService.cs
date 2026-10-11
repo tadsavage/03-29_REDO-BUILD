@@ -497,7 +497,8 @@ namespace GameCore.Inventory
             }
 
             if (credited > 0)
-                _moneyService?.AddCapital(credited, FinanceCategory.CasePick);
+                // A refund for freight that never arrived - un-spend the purchase (like a cancelled PO) rather than booking it as Case Pick INCOME (Tad, 2026-10-11).
+                _moneyService?.ReverseDeduct(credited, "Inventory");
 
             Debug.LogWarning($"[ShipmentService] PO {shipment.PONumber} short-shipped by {dropCount} " +
                              $"pallet(s) — ${credited:N0} credited back.");
