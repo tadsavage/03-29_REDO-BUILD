@@ -531,6 +531,15 @@ public class NegotiationPanel : IUIPanel
         _avatarFrame.Add(_avatarImg);
         _right.Add(_avatarFrame);
 
+        // Mouse wheel over the window zooms between the whole figure and a close-up of the face; double-click resets.
+        _avatarFrame.RegisterCallback<WheelEvent>(e => { NegotiatorStage.AddZoom(-e.delta.y * 0.1f); e.StopPropagation(); });
+        _avatarFrame.RegisterCallback<ClickEvent>(e => { if (e.clickCount >= 2) NegotiatorStage.ResetZoom(); });
+        var zoomHint = Text("scroll to zoom", 12, new Color(0.7f, 0.8f, 0.9f, 0.55f));
+        zoomHint.style.position = Position.Absolute;
+        zoomHint.style.left = 8; zoomHint.style.bottom = 4;
+        zoomHint.pickingMode = PickingMode.Ignore;
+        _avatarFrame.Add(zoomHint);
+
         _moodLabel = Text("", 24, ColGreen, lilita: true);
         _moodLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         _moodLabel.style.marginTop = 8;

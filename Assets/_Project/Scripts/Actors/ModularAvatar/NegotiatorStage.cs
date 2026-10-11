@@ -31,6 +31,14 @@ public class NegotiatorStage : MonoBehaviour
     string _key;
     FaceMood _faceMood = FaceMood.Neutral;
 
+    // Zoom: 0 = the whole figure, 1 = a close-up of the face (so the expressions can be read). Smoothed on real time.
+    static float _zoomTarget;
+    float _zoom;
+    Transform _headBone;
+    static readonly Vector3 FullLookAt = new Vector3(0f, 1.2f, 0f);
+    const float FullCamY = 1.35f, FullCamDist = 3.5f, FullFov = 36f;
+    const float CloseCamDist = 0.95f, CloseFov = 30f;
+
     public static RenderTexture Texture => Instance._rt;
     public static bool HasCustomer => _instance != null && _instance._avatar != null;
 
@@ -61,6 +69,10 @@ public class NegotiatorStage : MonoBehaviour
     {
         if (_instance != null) _instance.SetActive(false);
     }
+
+    /// <summary>Mouse-wheel zoom: positive moves in toward the face, negative back out to the full figure.</summary>
+    public static void AddZoom(float delta) { _zoomTarget = Mathf.Clamp01(_zoomTarget + delta); }
+    public static void ResetZoom() { _zoomTarget = 0f; }
 
     /// <summary>The DEAL HEAT ratio (score / budget) - drives posture and face.</summary>
     public static void SetHeat(float ratio)
@@ -166,6 +178,32 @@ public class NegotiatorStage : MonoBehaviour
         _lights.Add(l);
     }
 
+    void LateUpdate()
+    {
+        if (_camera == null || !_camera.enabled) return;
+        _zoom = Mathf.Lerp(_zoom, _zoomTarget, 1f - Mathf.Exp(-9f * Time.unscaledDeltaTime));
+        float z = _zoom;
+
+        Vector3 look = StageOrigin + FullLookAt;
+        float camY = StageOrigin.y + FullCamY;
+        if (_headBone != null)
+        {
+            Vector3 head = _headBone.position - Vector3.up * 0.03f;   // the middle of the face (the head bone sits at the neck-top, so this lands the face in the centre)
+            look = Vector3.Lerp(look, head, z);
+            camY = Mathf.Lerp(camY, head.y, z);
+        }
+        float dist = Mathf.Lerp(FullCamDist, CloseCamDist, z);
+        _camera.transform.position = new Vector3(StageOrigin.x, camY, StageOrigin.z + dist);
+        _camera.transform.LookAt(look);
+        _camera.fieldOfView = Mathf.Lerp(FullFov, CloseFov, z);
+    }
+
+    static Transform FindDeep(Transform root, string name)
+    {
+        foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == name) return t;
+        return null;
+    }
+
     void SetActive(bool on)
     {
         if (_camera != null) _camera.enabled = on;
@@ -195,6 +233,7 @@ public class NegotiatorStage : MonoBehaviour
             _gestures = person.AddComponent<NegotiatorGestures>();
             _faceMood = FaceMood.Neutral;
             _avatar = person;
+            _headBone = FindDeep(person.transform, "Head_M");
             return;
         }
 
@@ -225,6 +264,7 @@ public class NegotiatorStage : MonoBehaviour
         _gestures = avatar.AddComponent<NegotiatorGestures>();
         _faceMood = FaceMood.Neutral;
         _avatar = avatar;
+        _headBone = FindDeep(avatar.transform, "Head_M");
     }
 
     /// <summary>No safety gear, no belt, no gloves: a shirt and jeans, whatever hair the seed gave.</summary>
