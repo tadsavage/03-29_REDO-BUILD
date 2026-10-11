@@ -307,6 +307,8 @@ public class AODPanel : IUIPanel
     private EmployeeIdentity _parkedEmployee;
     private readonly Dictionary<string, string> _parkedOverrides = new();
     private string _parkedSlot;
+    private Button _applyBtn;
+    private Button _closeBtn;
     private Button _characterPreviewBtn;
     private Button _objectEditorBtn;
 
@@ -515,12 +517,31 @@ public class AODPanel : IUIPanel
         _previewTitleLabel = new Label();
         ApplyFont(_previewTitleLabel, true, 40);   // doubled (was 20) per Tad, 2026-10-01
         _previewTitleLabel.style.color = ColTitleText;
-        _previewTitleLabel.style.marginTop = 14f;
-        _previewTitleLabel.style.flexShrink = 0f;
-        _previewTitleLabel.style.marginBottom = 10f;
-        _previewTitleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        _previewTitleLabel.style.flexGrow = 1f;
+        _previewTitleLabel.style.flexShrink = 1f;
+        _previewTitleLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
         _previewTitleLabel.style.whiteSpace = WhiteSpace.Normal;
-        _previewColumn.Add(_previewTitleLabel);
+
+        var nameRow = new VisualElement { name = "aod-name-row" };
+        nameRow.style.flexDirection = FlexDirection.Row;
+        nameRow.style.alignItems = Align.Center;
+        nameRow.style.marginTop = 14f;
+        nameRow.style.marginBottom = 10f;
+        nameRow.style.flexShrink = 0f;
+        nameRow.Add(_previewTitleLabel);
+
+        _applyBtn = MakeButton("Apply to Employee", ColGreen, ColGreenEdge, ColGreen, ColVanilla, 18);
+        _applyBtn.style.height = 52f; _applyBtn.style.flexShrink = 0f; _applyBtn.style.marginLeft = 10f;
+        _applyBtn.clicked += () => { if (_employeeIdentity != null && _employeeIdentity.Record != null) ApplyEmployeeOverrides(_employeeIdentity.Record); };
+        _applyBtn.style.display = DisplayStyle.None;
+        nameRow.Add(_applyBtn);
+
+        _closeBtn = MakeButton("Close", ColBlue, ColBlueEdge, ColBlueHover, ColVanilla, 18);
+        _closeBtn.style.height = 52f; _closeBtn.style.flexShrink = 0f; _closeBtn.style.marginLeft = 8f;
+        _closeBtn.clicked += Hide;
+        _closeBtn.style.display = DisplayStyle.None;
+        nameRow.Add(_closeBtn);
+        _previewColumn.Add(nameRow);
 
         // ── Right metadata editor — one big scroll region per Tad's spec ──
         _detailPanel = new VisualElement { name = "aod-detail" };
@@ -656,7 +677,6 @@ public class AODPanel : IUIPanel
 
         _missingOnlyChip = new Chip("Missing Data Only", header: true);
         _missingOnlyChip.OnChanged += _ => Refresh();
-        showGroup.Add(_missingOnlyChip.Root);
 
         // Built from the very same Chip as Missing Data Only so the format is identical (light-green fill). It is a
         // one-shot action, so after each click it is un-selected again.
@@ -666,27 +686,19 @@ public class AODPanel : IUIPanel
         actionCol.style.flexShrink = 0f;
         showGroup.Add(actionCol);
 
-        var rescanChip = new Chip("Rescan Folder", header: true, tint: (Color)new Color32(0xB4, 0xDE, 0xAE, 255));
-        rescanChip.OnChanged += _=>
-        {
-            rescanChip.SetSelected(false, silent: true);
-            RunImporter("ScanAndRebuild", new object[] { true });
-        };
-        rescanChip.Root.style.justifyContent = Justify.Center;   // both chips stretch to the column width; keep the text centered
-        actionCol.Add(rescanChip.Root);
+        actionCol.style.flexDirection = FlexDirection.Row;
+        var rescanBtn = MakeButton("Rescan Folder", ColBlue, ColBlueEdge, ColBlueHover, ColVanilla, 26);
+        rescanBtn.style.width = 250f; rescanBtn.style.height = 76f; rescanBtn.style.marginRight = 12f;
+        rescanBtn.clicked += () => RunImporter("ScanAndRebuild", new object[] { true });
+        actionCol.Add(rescanBtn);
 
-        // Exact copy of the Rescan button; runs Tools > Modular Avatar > Finalize All Pending.
-        var finalizeChip = new Chip("Finalize All", header: true, tint: (Color)new Color32(0xF2, 0xC9, 0x8A, 255));   // light amber, to tell it apart from Rescan
-        finalizeChip.OnChanged += _ =>
-        {
-            finalizeChip.SetSelected(false, silent: true);
-            RunImporter("FinalizeAllPendingMenu", null);
-        };
-        finalizeChip.Root.style.justifyContent = Justify.Center;
-        actionCol.Add(finalizeChip.Root);
+        var finalizeBtn = MakeButton("Finalize All", ColOrange, ColOrangeEdge, ColOrange, ColOrangeText, 26);
+        finalizeBtn.style.width = 250f; finalizeBtn.style.height = 76f;
+        finalizeBtn.clicked += () => RunImporter("FinalizeAllPendingMenu", null);
+        actionCol.Add(finalizeBtn);
 #if !UNITY_EDITOR
-        rescanChip.Root.SetEnabled(false);
-        finalizeChip.Root.SetEnabled(false);
+        rescanBtn.SetEnabled(false);
+        finalizeBtn.SetEnabled(false);
 #endif
 
         // ── CHARACTER PREVIEW / OBJECT EDITOR — the two screens of this window, bottom-right of the filter bar (Tad, 2026-10-10) ──
@@ -853,6 +865,8 @@ public class AODPanel : IUIPanel
     /// <summary>Back to library-browse mode: unlock and clear everything employee mode set up.</summary>
     private void ResetFiltersAfterEmployee()
     {
+        if (_applyBtn != null) _applyBtn.style.display = DisplayStyle.None;
+        if (_closeBtn != null) _closeBtn.style.display = DisplayStyle.None;
         if (!_filtersLockedForEmployee) return;
         _filtersLockedForEmployee = false;
         foreach (var c in _genderChips) { c.SetLocked(false, false); c.SetSelected(false, silent: true); }
@@ -926,6 +940,10 @@ public class AODPanel : IUIPanel
                 float screenH = _overlay.panel.visualTree.layout.height;
                 if (screenH > 0f) _modal.style.height = screenH;
             }
+            // Tiny margin so the blue frame is fully visible on every side (Tad, 2026-10-10).
+            const float Margin = 10f;
+            _modal.style.top = Margin;
+            _modal.style.height = _modal.style.height.value.value - Margin * 2f;
         }).ExecuteLater(16);
 
         if (_employeeIdentity != null) RefreshEmployeeMode();
@@ -1574,6 +1592,7 @@ public class AODPanel : IUIPanel
 
     private void BuildEmployeeDetailPanel(EmployeeRecord rec)
     {
+        // (Apply / Close live under the preview now; shown at the end of this method)
         _detailPanel.Clear();
 
         var scroll = new ScrollView(ScrollViewMode.Vertical);
@@ -1630,17 +1649,8 @@ public class AODPanel : IUIPanel
         hint.style.marginTop = 10f;
         scroll.Add(hint);
 
-        var applyBtn = MakeButton("Apply to Employee", ColGreen, ColGreenEdge, ColGreen, ColVanilla, 14);
-        applyBtn.style.marginTop = 16f;
-        applyBtn.style.height = 40f;
-        applyBtn.clicked += () => ApplyEmployeeOverrides(rec);
-        scroll.Add(applyBtn);
-
-        var closeBtn = MakeButton("Close", ColBlue, ColBlueEdge, ColBlueHover, ColVanilla, 14);
-        closeBtn.style.marginTop = 8f;
-        closeBtn.style.height = 36f;
-        closeBtn.clicked += Hide;
-        scroll.Add(closeBtn);
+        if (_applyBtn != null) _applyBtn.style.display = DisplayStyle.Flex;
+        if (_closeBtn != null) _closeBtn.style.display = DisplayStyle.Flex;
     }
 
     private void ApplyEmployeeOverrides(EmployeeRecord rec)
@@ -1685,6 +1695,8 @@ public class AODPanel : IUIPanel
 
     private void BuildDetailPanel(AvatarPartLibrary lib, IAvatarPart part)
     {
+        if (_applyBtn != null) _applyBtn.style.display = DisplayStyle.None;
+        if (_closeBtn != null) _closeBtn.style.display = DisplayStyle.None;
         _detailPanel.Clear();
 
         // Everything below lives in ONE scroll region per Tad's spec ("the whole right side is
