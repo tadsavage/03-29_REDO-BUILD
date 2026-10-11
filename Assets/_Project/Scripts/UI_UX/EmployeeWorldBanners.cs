@@ -352,14 +352,14 @@ public static class EmployeeTaskText
                     return Describe(t);
         }
 
+        // No queue task is assigned to them, so they are NOT actively working - the standing assignment only says what they do when
+        // work exists (an Order Selector with nothing to pick is just walking the patrol route).
         return rec.currentAssignment switch
         {
-            EmployeeAssignment.ReceiveInbound   => "Receiving inbound",
-            EmployeeAssignment.DriveDockstalker => "Operating DS",
-            EmployeeAssignment.DriveReach       => "Operating RT",
-            EmployeeAssignment.Patrol           => "Patrolling",
-            EmployeeAssignment.OrderSelection   => "Selecting orders",
-            _                                   => rec.currentAssignment.ToString()
+            EmployeeAssignment.Patrol => "Patrolling",
+            EmployeeAssignment.ReceiveInbound or EmployeeAssignment.DriveDockstalker or EmployeeAssignment.DriveReach
+                or EmployeeAssignment.OrderSelection => "Waiting for work",
+            _ => rec.currentAssignment.ToString()
         };
     }
 
