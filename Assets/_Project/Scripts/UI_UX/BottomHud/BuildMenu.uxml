@@ -32,13 +32,13 @@
 
             <ui:Button name="PlayBtn5" class="buildmenu-category-button playbar-button">
                 <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-newitem"/>
-                <ui:Label text="New Item" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="New&#10;Item" class="buildmenu-category-label playbar-label playbar-label-two-line"/>
                 <ui:Label text="5" class="playbar-key"/>
             </ui:Button>
 
             <ui:Button name="PlayBtn7" class="buildmenu-category-button playbar-button">
                 <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-workqueue"/>
-                <ui:Label text="Work Queue" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="Work Queue" class="buildmenu-category-label playbar-label playbar-label-two-line"/>
                 <ui:Label text="7" class="playbar-key"/>
             </ui:Button>
 
@@ -59,7 +59,7 @@
             <!-- Scheduler panel, extracted from the Outbound Order Manager's old Scheduler tab. -->
             <ui:Button name="PlayBtn0" class="buildmenu-category-button playbar-button">
                 <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-scheduler"/>
-                <ui:Label text="Scheduler" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="Order Scheduler" class="buildmenu-category-label playbar-label playbar-label-two-line"/>
                 <ui:Label text="0" class="playbar-key"/>
             </ui:Button>
 
