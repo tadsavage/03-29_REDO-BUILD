@@ -129,7 +129,7 @@ public static class ReceivingEquipmentService
         clipboardInstance.transform.localScale = ClipboardLocalScale;
 
         rfGunInstance.transform.localPosition = RfGunLocalPosition;
-        rfGunInstance.transform.localRotation = Quaternion.Euler(RfGunLocalEuler);
+        rfGunInstance.transform.localRotation = Quaternion.Euler(RfGunLocalEuler) * Quaternion.Euler(0f, 180f, 0f);   // spun 180 degrees about the gun's own Y axis (it was held backwards)
         rfGunInstance.transform.localScale = RfGunLocalScale;
 
         var equipment = new ReceivingEquipment

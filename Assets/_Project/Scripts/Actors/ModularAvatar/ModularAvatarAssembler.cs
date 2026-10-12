@@ -439,8 +439,26 @@ public static class ModularAvatarAssembler
         return root;
     }
 
-    private static Material _latexMat;
+    private static readonly System.Collections.Generic.Dictionary<string, Material> _latexMats = new();
     private static bool _latexMissingLogged;
+
+    /// <summary>Latex colour comes from the mesh name: a "red" or "white" in it picks Latex_Red / Latex_White, anything else is black.</summary>
+    private static string LatexColorFor(string objectName)
+    {
+        string l = objectName.ToLowerInvariant();
+        if (l.Contains("white")) return "Latex_White";
+        if (l.Contains("red")) return "Latex_Red";
+        return "Latex_Black";
+    }
+
+    private static Material LatexMaterial(string matName)
+    {
+        if (_latexMats.TryGetValue(matName, out var m) && m != null) return m;
+        m = Resources.Load<Material>("Resource_AvatarSystemAssets/" + matName);
+        if (m == null && matName != "Latex_Black") m = LatexMaterial("Latex_Black");
+        _latexMats[matName] = m;
+        return m;
+    }
 
     /// <summary>True when a mesh name carries the latex tag: any segment after the third ("Gender_Slot_Variant") equal to "latex",
     /// e.g. <c>Female_Hands_Gloves_Latex</c> or <c>Female_Legs_Catsuit_Latex_NSFW</c>. Same convention as the NSFW tag.</summary>
@@ -461,14 +479,14 @@ public static class ModularAvatarAssembler
         foreach (var r in root.GetComponentsInChildren<Renderer>(true))
         {
             if (!IsLatexName(r.gameObject.name)) continue;
-            if (_latexMat == null) _latexMat = Resources.Load<Material>("Resource_AvatarSystemAssets/Latex_Black");
-            if (_latexMat == null)
+            var latex = LatexMaterial(LatexColorFor(r.gameObject.name));
+            if (latex == null)
             {
                 if (!_latexMissingLogged) { _latexMissingLogged = true; Debug.LogWarning("[ModularAvatar] Latex_Black material not found in Resources/Resource_AvatarSystemAssets."); }
                 return;
             }
             var mats = r.sharedMaterials;
-            for (int i = 0; i < mats.Length; i++) mats[i] = _latexMat;
+            for (int i = 0; i < mats.Length; i++) mats[i] = latex;
             r.sharedMaterials = mats;
         }
     }
@@ -916,6 +934,20 @@ public static class ModularAvatarAssembler
             var pb = chosen.FirstOrDefault(p => p.Slot == slotB);
             if (pa == null || pb == null) continue;
             bool wearA = !IsBodyDefault(pa), wearB = !IsBodyDefault(pb);
+            if (wearA && wearB && !string.Equals(pa.Variant, pb.Variant, System.StringComparison.OrdinalIgnoreCase))
+            {
+                // Both dressed with DIFFERENT items. Ordinary mixes (boots + jeans) have no same-named partner and stay as they are, but when
+                // the legs belong to a matching set (Stockings_Red, Socks_White ...) the feet join that set, so a pair never comes out
+                // mismatched (red stockings over white socks).
+                var setMatch = FilterRole(lib.VariantsFor(gender, slotA), role)
+                    .FirstOrDefault(v => !IsBodyDefault(v) && string.Equals(v.Variant, pb.Variant, System.StringComparison.OrdinalIgnoreCase));
+                if (setMatch != null)
+                {
+                    int ia = chosen.IndexOf(pa);
+                    if (ia >= 0) chosen[ia] = setMatch;
+                }
+                continue;
+            }
             if (wearA == wearB) continue;                      // both bare, or both already dressed: nothing to link
 
             var source = wearA ? pa : pb;                      // the slot that is wearing something

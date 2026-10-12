@@ -1431,6 +1431,25 @@ private void ShowLocation(LocationData location)
         // it was constructed, near the top of this method.
         popup.Add(doorBadge);
 
+        // Big red X in the upper-right corner: the way to dismiss the pinned card without having to find the truck again.
+        var closeBtn = new Button(() => UnpinTruck()) { text = "X" };
+        closeBtn.style.position = Position.Absolute;
+        closeBtn.style.top = 4; closeBtn.style.right = 4;
+        closeBtn.style.width = 40; closeBtn.style.height = 34;
+        closeBtn.style.marginLeft = closeBtn.style.marginRight = closeBtn.style.marginTop = closeBtn.style.marginBottom = 0;
+        closeBtn.style.paddingLeft = closeBtn.style.paddingRight = closeBtn.style.paddingTop = closeBtn.style.paddingBottom = 0;
+        closeBtn.style.fontSize = 24;
+        closeBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
+        closeBtn.style.unityTextAlign = TextAnchor.MiddleCenter;
+        closeBtn.style.color = Color.white;
+        closeBtn.style.backgroundColor = new Color(0.86f, 0.15f, 0.15f, 1f);
+        closeBtn.style.borderTopWidth = closeBtn.style.borderBottomWidth = closeBtn.style.borderLeftWidth = closeBtn.style.borderRightWidth = 2;
+        closeBtn.style.borderTopColor = closeBtn.style.borderBottomColor = closeBtn.style.borderLeftColor = closeBtn.style.borderRightColor = new Color(0.45f, 0.06f, 0.06f, 1f);
+        closeBtn.style.borderTopLeftRadius = closeBtn.style.borderTopRightRadius = closeBtn.style.borderBottomLeftRadius = closeBtn.style.borderBottomRightRadius = 6;
+        closeBtn.pickingMode = PickingMode.Position;
+        closeBtn.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());   // clicking X must not start a drag of the card
+        popup.Add(closeBtn);
+
         _root.Add(popup);
         return ui;
     }
