@@ -434,8 +434,43 @@ public static class ModularAvatarAssembler
         TrimHairUnderHats(root);
         TrimBodyUnderVest(root);
         ApplyMoodExpression(root, gender, EmployeeMood.Neutral);
+        ApplyLatexMaterial(root);
 
         return root;
+    }
+
+    private static Material _latexMat;
+    private static bool _latexMissingLogged;
+
+    /// <summary>True when a mesh name carries the latex tag: any segment after the third ("Gender_Slot_Variant") equal to "latex",
+    /// e.g. <c>Female_Hands_Gloves_Latex</c> or <c>Female_Legs_Catsuit_Latex_NSFW</c>. Same convention as the NSFW tag.</summary>
+    public static bool IsLatexName(string objectName)
+    {
+        if (string.IsNullOrEmpty(objectName)) return false;
+        var seg = objectName.Split('_');
+        for (int i = 3; i < seg.Length; i++)
+            if (string.Equals(seg[i], "latex", System.StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    /// <summary>Latex-tagged parts replace their (shared flat-colour) material with the glossy black Latex_Black material.
+    /// Runs on the finished avatar so it works regardless of what material the importer forced onto the prefab.</summary>
+    public static void ApplyLatexMaterial(GameObject root)
+    {
+        if (root == null) return;
+        foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+        {
+            if (!IsLatexName(r.gameObject.name)) continue;
+            if (_latexMat == null) _latexMat = Resources.Load<Material>("Resource_AvatarSystemAssets/Latex_Black");
+            if (_latexMat == null)
+            {
+                if (!_latexMissingLogged) { _latexMissingLogged = true; Debug.LogWarning("[ModularAvatar] Latex_Black material not found in Resources/Resource_AvatarSystemAssets."); }
+                return;
+            }
+            var mats = r.sharedMaterials;
+            for (int i = 0; i < mats.Length; i++) mats[i] = _latexMat;
+            r.sharedMaterials = mats;
+        }
     }
 
     // ── Body under the vest (Tad, 2026-10-06) ───────────────────────────────────────────────────────────────────────────
